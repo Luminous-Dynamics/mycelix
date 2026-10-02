@@ -342,7 +342,7 @@ mod tests {
         // through the public renderer-facing data model.
         assert_eq!(
             receipt.enforcement.profile_digest(),
-            state.launch.sandbox.policy_digest()
+            state.launch().sandbox().policy_digest()
         );
         let _ = &receipt;
         assert_eq!(state.state(), RendererProcessState::Assigned);
@@ -366,6 +366,6 @@ mod tests {
             state.observe_exit(state.launch().process(), false),
             Err(RendererSupervisorError::InvalidTransition)
         ));
-        assert_eq!(state.state, RendererProcessState::Assigned);
+        assert_eq!(state.state(), RendererProcessState::Assigned);
     }
 }
