@@ -32,6 +32,7 @@ pub struct SandboxProfileV1 {
     pub filesystem: FilesystemPolicy,
     pub devices: DevicePolicy,
     pub child_processes: ChildProcessPolicy,
+    syscall_policy_digest: [u8; 32],
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -57,13 +58,15 @@ pub enum ChildProcessPolicy {
 impl SandboxProfileV1 {
     /// Stable commitment to the requested policy; this is not proof of OS enforcement.
     pub fn policy_digest(&self) -> [u8; 32] {
-        let bytes = [
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(&[
             match self.network { NetworkPolicy::BrokerOnly => 1 },
             match self.filesystem { FilesystemPolicy::NoAmbientAccess => 1 },
             match self.devices { DevicePolicy::None => 1 },
             match self.child_processes { ChildProcessPolicy::Deny => 1 },
-        ];
-        *blake3::hash(&bytes).as_bytes()
+        ]);
+        hasher.update(&self.syscall_policy_digest);
+        *hasher.finalize().as_bytes()
     }
 
     pub const fn renderer_default() -> Self {
@@ -72,7 +75,23 @@ impl SandboxProfileV1 {
             filesystem: FilesystemPolicy::NoAmbientAccess,
             devices: DevicePolicy::None,
             child_processes: ChildProcessPolicy::Deny,
+            syscall_policy_digest: [0u8; 32],
         }
+    }
+
+    /// Bind a qualified renderer syscall policy commitment to this profile.
+    /// The zero digest is intentionally rejected so an uncommitted profile
+    /// can never be mistaken for one with an approved syscall policy.
+    pub fn with_syscall_policy_digest(mut self, digest: [u8; 32]) -> Result<Self, ProcessContractError> {
+        if digest == [0u8; 32] {
+            return Err(ProcessContractError::InvalidSyscallPolicyCommitment);
+        }
+        self.syscall_policy_digest = digest;
+        Ok(self)
+    }
+
+    pub fn syscall_policy_digest(&self) -> [u8; 32] {
+        self.syscall_policy_digest
     }
 }
 
@@ -242,6 +261,7 @@ pub enum ProcessContractError {
     InvalidAssignmentId,
     InvalidSandboxInstallationId,
     InvalidSandboxEvidence,
+    InvalidSyscallPolicyCommitment,
     SandboxEvidenceMismatch,
     DuplicateSandboxEvidence,
     InvalidProcessIdentity,
@@ -258,6 +278,7 @@ impl fmt::Display for ProcessContractError {
             Self::InvalidAssignmentId => f.write_str("renderer process assignment id must be non-zero"),
             Self::InvalidSandboxInstallationId => f.write_str("sandbox installation id must be non-zero"),
             Self::InvalidSandboxEvidence => f.write_str("sandbox adapter cannot attest to the requested enforcement layer"),
+            Self::InvalidSyscallPolicyCommitment => f.write_str("renderer syscall policy commitment must be non-zero"),
             Self::SandboxEvidenceMismatch => f.write_str("sandbox evidence does not match the renderer assignment or policy"),
             Self::DuplicateSandboxEvidence => f.write_str("sandbox enforcement layer was already evidenced"),
             Self::InvalidProcessIdentity => f.write_str("renderer process identity is invalid"),
