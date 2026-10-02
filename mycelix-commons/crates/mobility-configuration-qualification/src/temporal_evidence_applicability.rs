@@ -1055,6 +1055,57 @@ mod tests {
         assert!(reconciliation.validate_against_graph(&[root, first, second]).is_err());
     }
 
+
+    #[test]
+    fn reconciliation_coverage_accepts_bounded_declared_head_set() {
+        let disputed = EvidenceDisposition::Disputed { by: id(IdentityKind::ReconciliationWitness, "w1") };
+        let root = graph_transition("t1", None, EvidenceDisposition::Active, disputed.clone());
+        let left = graph_transition("t2", Some("t1"), disputed.clone(), EvidenceDisposition::Active);
+        let right = graph_transition("t3", Some("t1"), disputed, EvidenceDisposition::Retracted { by: id(IdentityKind::ReconciliationWitness, "w2") });
+        let reconciliation = EvidenceDispositionReconciliation {
+            reconciliation_id: id(IdentityKind::ReconciliationWitness, "reconcile-coverage"),
+            evidence: id(IdentityKind::InspectionRecord, "inspection-graph"),
+            branch_point: id(IdentityKind::ReconciliationWitness, "t1"),
+            branch_heads: vec![id(IdentityKind::ReconciliationWitness, "t2"), id(IdentityKind::ReconciliationWitness, "t3")],
+            authority: id(IdentityKind::ReconciliationWitness, "authority-1"),
+            basis: vec![],
+        };
+        let coverage = EvidenceDispositionReconciliationCoverage {
+            coverage_id: id(IdentityKind::ReconciliationWitness, "coverage-1"),
+            reconciliation: id(IdentityKind::ReconciliationWitness, "reconcile-coverage"),
+            branch_point: id(IdentityKind::ReconciliationWitness, "t1"),
+            covered_branch_heads: vec![id(IdentityKind::ReconciliationWitness, "t2"), id(IdentityKind::ReconciliationWitness, "t3")],
+            boundary: id(IdentityKind::EvidenceRecord, "enumeration-boundary-1"),
+            basis: vec![],
+        };
+        assert!(coverage.validate_against_graph(&reconciliation, &[root, left, right]).is_ok());
+    }
+
+    #[test]
+    fn reconciliation_coverage_rejects_uncovered_reconciliation_head() {
+        let disputed = EvidenceDisposition::Disputed { by: id(IdentityKind::ReconciliationWitness, "w1") };
+        let root = graph_transition("t1", None, EvidenceDisposition::Active, disputed.clone());
+        let left = graph_transition("t2", Some("t1"), disputed.clone(), EvidenceDisposition::Active);
+        let right = graph_transition("t3", Some("t1"), disputed, EvidenceDisposition::Retracted { by: id(IdentityKind::ReconciliationWitness, "w2") });
+        let reconciliation = EvidenceDispositionReconciliation {
+            reconciliation_id: id(IdentityKind::ReconciliationWitness, "reconcile-coverage"),
+            evidence: id(IdentityKind::InspectionRecord, "inspection-graph"),
+            branch_point: id(IdentityKind::ReconciliationWitness, "t1"),
+            branch_heads: vec![id(IdentityKind::ReconciliationWitness, "t2"), id(IdentityKind::ReconciliationWitness, "t3")],
+            authority: id(IdentityKind::ReconciliationWitness, "authority-1"),
+            basis: vec![],
+        };
+        let coverage = EvidenceDispositionReconciliationCoverage {
+            coverage_id: id(IdentityKind::ReconciliationWitness, "coverage-2"),
+            reconciliation: id(IdentityKind::ReconciliationWitness, "reconcile-coverage"),
+            branch_point: id(IdentityKind::ReconciliationWitness, "t1"),
+            covered_branch_heads: vec![id(IdentityKind::ReconciliationWitness, "t2")],
+            boundary: id(IdentityKind::EvidenceRecord, "enumeration-boundary-1"),
+            basis: vec![],
+        };
+        assert!(coverage.validate_against_graph(&reconciliation, &[root, left, right]).is_err());
+    }
+
     #[test]
     fn reconciliation_rejects_branch_head_from_unrelated_evidence() {
         let disputed = EvidenceDisposition::Disputed {
