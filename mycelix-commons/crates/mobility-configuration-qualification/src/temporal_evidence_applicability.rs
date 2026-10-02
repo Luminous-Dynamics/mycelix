@@ -241,6 +241,7 @@ pub struct EvidenceDispositionAuthorityScope {
     pub scope_id: IdentityRef,
     pub authority: IdentityRef,
     pub subject: IdentityRef,
+    pub delegation: IdentityRef,
     pub basis: Vec<IdentityRef>,
 }
 
@@ -346,8 +347,16 @@ impl EvidenceDispositionAuthorityScope {
         if self.subject.kind != IdentityKind::ReconciliationWitness {
             return Err("authority scope subject must be a ReconciliationWitness".into());
         }
-        if self.scope_id == self.authority || self.scope_id == self.subject || self.authority == self.subject || self.delegation == self.scope_id || self.delegation == self.authority || self.delegation == self.subject {
-
+        if self.delegation.kind != IdentityKind::ReconciliationWitness {
+            return Err("authority scope delegation must be a ReconciliationWitness".into());
+        }
+        if self.scope_id == self.authority
+            || self.scope_id == self.subject
+            || self.authority == self.subject
+            || self.delegation == self.scope_id
+            || self.delegation == self.authority
+            || self.delegation == self.subject
+        {
             return Err("authority scope identities must be distinct".into());
         }
         let mut basis = std::collections::BTreeSet::new();
