@@ -538,6 +538,39 @@
         "post-adoption independence",
         "runtime authority"
       ]
+    },
+    {
+      "vector_id": "QUALS-M-021",
+      "kind": "metamorphic",
+      "proposition_id": "CANONICALIZATION_ORDER",
+      "source_identity": "canonical.json.profile.rfc8785-jcs",
+      "epoch_id": "epoch-001",
+      "requested_claims": [
+        "evidence_only"
+      ],
+      "admitted_claims": [
+        "evidence_only"
+      ],
+      "theorem": "Reordering JSON object members without changing their values must not change the RFC 8785 JCS canonical commitment bytes.",
+      "upstream_evidence": [
+        "CANONICAL_OBJECT_A",
+        "CANONICAL_OBJECT_B"
+      ],
+      "evidence_disposition": "VERIFIED",
+      "authority_outcome": "NONE",
+      "expected_state": "VERIFIED",
+      "expected_claims": [
+        "evidence_only"
+      ],
+      "mutation": {
+        "operation": "reorder_object_properties",
+        "target": "s0_dispatch_envelope",
+        "expected_effect": "canonical commitment bytes unchanged"
+      },
+      "nonclaims": [
+        "noncanonical wire bytes are interchangeable without canonicalization",
+        "reordering can change semantic authority"
+      ]
     }
   ]
 }
