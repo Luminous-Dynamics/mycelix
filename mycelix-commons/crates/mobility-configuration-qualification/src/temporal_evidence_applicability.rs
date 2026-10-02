@@ -308,6 +308,9 @@ impl EvidenceDispositionReconciliation {
         }
 
         for head_id in &self.branch_heads {
+            if head_id == &self.branch_point {
+                return Err("reconciliation branch head cannot equal the branch point".into());
+            }
             let mut cursor = by_id.get(head_id)
                 .ok_or_else(|| format!("reconciliation branch head is missing: {}", head_id.id))?;
             if cursor.evidence != self.evidence {
@@ -327,6 +330,48 @@ impl EvidenceDispositionReconciliation {
                     .ok_or_else(|| "reconciliation branch ancestry is unresolved".to_string())?;
                 if cursor.evidence != self.evidence {
                     return Err("reconciliation branch ancestry belongs to different evidence".into());
+                }
+            }
+        }
+
+        // Two heads only constitute competing branches when neither head is an
+        // ancestor of the other. Otherwise the later head is simply a
+        // continuation of the earlier branch, not an independent branch to
+        // reconcile.
+        for (index, left_id) in self.branch_heads.iter().enumerate() {
+            for right_id in self.branch_heads.iter().skip(index + 1) {
+                let mut cursor = by_id.get(left_id)
+                    .ok_or_else(|| "reconciliation branch head is missing".to_string())?;
+                let mut seen = std::collections::BTreeSet::new();
+                while let Some(predecessor) = cursor.predecessor.as_ref() {
+                    if !seen.insert(cursor.transition_id.clone()) {
+                        return Err("reconciliation graph contains a predecessor cycle".into());
+                    }
+                    if predecessor == right_id {
+                        return Err("reconciliation branch heads must be incomparable descendants".into());
+                    }
+                    if predecessor == &self.branch_point {
+                        break;
+                    }
+                    cursor = by_id.get(predecessor)
+                        .ok_or_else(|| "reconciliation branch ancestry is unresolved".to_string())?;
+                }
+
+                let mut cursor = by_id.get(right_id)
+                    .ok_or_else(|| "reconciliation branch head is missing".to_string())?;
+                let mut seen = std::collections::BTreeSet::new();
+                while let Some(predecessor) = cursor.predecessor.as_ref() {
+                    if !seen.insert(cursor.transition_id.clone()) {
+                        return Err("reconciliation graph contains a predecessor cycle".into());
+                    }
+                    if predecessor == left_id {
+                        return Err("reconciliation branch heads must be incomparable descendants".into());
+                    }
+                    if predecessor == &self.branch_point {
+                        break;
+                    }
+                    cursor = by_id.get(predecessor)
+                        .ok_or_else(|| "reconciliation branch ancestry is unresolved".to_string())?;
                 }
             }
         }
@@ -842,6 +887,63 @@ mod tests {
             basis: vec![id(IdentityKind::ReconciliationWitness, "basis-1")],
         };
         assert!(reconciliation.validate_against_graph(&[root, left, right]).is_ok());
+    }
+
+
+
+    #[test]
+    fn reconciliation_rejects_branch_point_as_head() {
+        let disputed = EvidenceDisposition::Disputed {
+            by: id(IdentityKind::ReconciliationWitness, "w1"),
+        };
+        let root = graph_transition("t1", None, EvidenceDisposition::Active, disputed.clone());
+        let right = graph_transition(
+            "t2",
+            Some("t1"),
+            disputed,
+            EvidenceDisposition::Active,
+        );
+        let reconciliation = EvidenceDispositionReconciliation {
+            reconciliation_id: id(IdentityKind::ReconciliationWitness, "reconcile-branch-point"),
+            evidence: id(IdentityKind::InspectionRecord, "inspection-graph"),
+            branch_point: id(IdentityKind::ReconciliationWitness, "t1"),
+            branch_heads: vec![
+                id(IdentityKind::ReconciliationWitness, "t1"),
+                id(IdentityKind::ReconciliationWitness, "t2"),
+            ],
+            authority: id(IdentityKind::ReconciliationWitness, "authority-1"),
+            basis: vec![],
+        };
+        assert!(reconciliation.validate_against_graph(&[root, right]).is_err());
+    }
+
+    #[test]
+    fn reconciliation_rejects_nested_heads_as_competing_branches() {
+        let disputed = EvidenceDisposition::Disputed {
+            by: id(IdentityKind::ReconciliationWitness, "w1"),
+        };
+        let root = graph_transition("t1", None, EvidenceDisposition::Active, disputed.clone());
+        let first = graph_transition("t2", Some("t1"), disputed.clone(), EvidenceDisposition::Active);
+        let second = graph_transition(
+            "t3",
+            Some("t2"),
+            disputed,
+            EvidenceDisposition::Retracted {
+                by: id(IdentityKind::ReconciliationWitness, "w2"),
+            },
+        );
+        let reconciliation = EvidenceDispositionReconciliation {
+            reconciliation_id: id(IdentityKind::ReconciliationWitness, "reconcile-nested"),
+            evidence: id(IdentityKind::InspectionRecord, "inspection-graph"),
+            branch_point: id(IdentityKind::ReconciliationWitness, "t1"),
+            branch_heads: vec![
+                id(IdentityKind::ReconciliationWitness, "t2"),
+                id(IdentityKind::ReconciliationWitness, "t3"),
+            ],
+            authority: id(IdentityKind::ReconciliationWitness, "authority-1"),
+            basis: vec![],
+        };
+        assert!(reconciliation.validate_against_graph(&[root, first, second]).is_err());
     }
 
     #[test]
