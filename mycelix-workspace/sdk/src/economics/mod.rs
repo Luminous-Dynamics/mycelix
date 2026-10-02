@@ -12,6 +12,7 @@
 //! from SAP balance, TEND never convertible to SAP at fixed rate.
 
 pub mod commons;
+pub mod actor_observables;
 pub mod decay_garden;
 pub mod evidence;
 pub mod metabolic_oracle;
@@ -47,6 +48,7 @@ pub use period_ledger::EconomicPeriodLedger;
 pub use observables::{
     classify_financing_regime, EconomicObservables, FinancingRegime, RatioObservation,
 };
+pub use actor_observables::ActorEconomicObservables;
 pub use evidence::{EconomicEvidenceCapsule, EconomicEvidenceManifest};
 
 pub use stock_flow::{
