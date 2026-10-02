@@ -935,6 +935,20 @@ mod tests {
     }
 
     #[test]
+    fn physical_inventory_quantity_is_not_monetary_value() {
+        let mut s = state();
+        s.actors.iter_mut().find(|a| a.actor == "firm").unwrap().real.inventories = 25;
+        let before = s.actors[2].net_worth();
+
+        s.apply_inventory_transfer(
+            &InventoryTransfer::new("firm", "household", 10).unwrap(),
+        ).unwrap();
+
+        assert_eq!(s.actors[2].net_worth(), before);
+        assert_eq!(s.actors[1].net_worth(), 0);
+    }
+
+    #[test]
     fn inventory_cost_accounting_is_explicit_and_dimensionally_separate() {
         let mut s = state();
         s.actors.iter_mut().find(|a| a.actor == "firm").unwrap().real.inventories = 10;
