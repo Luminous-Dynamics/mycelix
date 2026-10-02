@@ -5,6 +5,13 @@ on:
   push:
     branches:
       - chore/hearth-0.7-lock-refresh-from-foundation
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
   workflow_dispatch:
     inputs:
       ref:
@@ -21,19 +28,24 @@ env:
 jobs:
   refresh:
     name: Generate Hearth 0.7 dependency closure
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.ref == 'chore/hearth-0.7-lock-refresh-from-foundation'
     runs-on: ubuntu-24.04
+    env:
+      TARGET_REF: ${{ inputs.ref || github.event.pull_request.head.sha || github.sha }}
     timeout-minutes: 120
     steps:
       - name: Require immutable commit ref
         shell: bash
         env:
-          REQUESTED_REF: ${{ inputs.ref || github.sha }}
+          REQUESTED_REF: ${{ env.TARGET_REF }}
         run: |
           [[ "$REQUESTED_REF" =~ ^[0-9a-f]{40}$ ]] || { echo "FAIL: exact 40-character commit SHA required"; exit 1; }
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: ${{ inputs.ref || github.sha }}
+          ref: ${{ env.TARGET_REF }}
           fetch-depth: 0
           persist-credentials: false
           submodules: recursive
@@ -42,10 +54,10 @@ jobs:
         shell: bash
         run: |
           evidence="$RUNNER_TEMP/hearth-07-lock-refresh-evidence.txt"
-          test "$(git rev-parse HEAD)" = "${{ inputs.ref || github.sha }}"
+          test "$(git rev-parse HEAD)" = "${{ env.TARGET_REF }}"
           printf '%s\n' \
             "workflow=hearth-07-lock-refresh-from-foundation" \
-            "requested_ref=${{ inputs.ref || github.sha }}" \
+            "requested_ref=${{ env.TARGET_REF }}" \
             "resolved_commit=$(git rev-parse HEAD)" \
             "run_id=$GITHUB_RUN_ID" \
             "run_attempt=$GITHUB_RUN_ATTEMPT" \
@@ -160,7 +172,7 @@ jobs:
       - name: Commit generated closure
         shell: bash
         env:
-          TARGET_REF: ${{ inputs.ref || github.sha }}
+          TARGET_REF: ${{ env.TARGET_REF }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
@@ -180,7 +192,7 @@ jobs:
       - name: Publish lock evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: hearth-07-lock-refresh-${{ inputs.ref || github.sha }}
+          name: hearth-07-lock-refresh-${{ env.TARGET_REF }}
           path: |
             ${{ runner.temp }}/hearth-07-lock-refresh-evidence.txt
             mycelix-workspace/mycelix-hearth/flake.lock
