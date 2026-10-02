@@ -183,8 +183,19 @@ pub fn apply_step(
 
 /// Hash a complete economic state using canonical JSON serialization.
 pub fn state_hash(state: &EconomicState) -> Result<String, EconomicStepError> {
-    let bytes =
-        serde_json::to_vec(state).map_err(|error| EconomicStepError::Serialization(error.to_string()))?;
+    let mut canonical = state.clone();
+    canonical.actors.sort_by(|a, b| a.actor.cmp(&b.actor));
+
+    for window in canonical.actors.windows(2) {
+        if window[0].actor == window[1].actor {
+            return Err(EconomicStepError::Serialization(
+                format!("duplicate economic actor id: {}", window[0].actor),
+            ));
+        }
+    }
+
+    let bytes = serde_json::to_vec(&canonical)
+        .map_err(|error| EconomicStepError::Serialization(error.to_string()))?;
     Ok(blake3::hash(&bytes).to_hex().to_string())
 }
 
@@ -213,6 +224,28 @@ mod tests {
             bank,
             ActorBalanceSheet::new("household"),
         ])
+    }
+
+    #[test]
+    fn state_hash_is_canonical_over_actor_order() {
+        let state_a = EconomicState::new(vec![
+            ActorBalanceSheet::new("z"),
+            ActorBalanceSheet::new("a"),
+        ]);
+        let state_b = EconomicState::new(vec![
+            ActorBalanceSheet::new("a"),
+            ActorBalanceSheet::new("z"),
+        ]);
+        assert_eq!(state_hash(&state_a).unwrap(), state_hash(&state_b).unwrap());
+    }
+
+    #[test]
+    fn duplicate_actor_ids_are_rejected_by_state_hash() {
+        let state = EconomicState::new(vec![
+            ActorBalanceSheet::new("same"),
+            ActorBalanceSheet::new("same"),
+        ]);
+        assert!(state_hash(&state).is_err());
     }
 
     #[test]
