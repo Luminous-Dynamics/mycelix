@@ -86,7 +86,21 @@ impl SectorTransactionMatrix {
         })
     }
 
-    /// Every external sectoral transfer must sum to zero.
+    /// Checked sector net flow. Returns an error on arithmetic overflow.
+    pub fn try_net_flow(&self, sector: EconomicSector) -> Result<i128, String> {
+        self.flows.iter().try_fold(0i128, |sum, flow| {
+            if flow.to == sector && flow.from != sector {
+                sum.checked_add(flow.amount)
+            } else if flow.from == sector && flow.to != sector {
+                sum.checked_sub(flow.amount)
+            } else {
+                Some(sum)
+            }
+            .ok_or_else(|| "sector net-flow overflow".to_string())
+        })
+    }
+
+    /// Every external sectoral transfer must sum to zero. Overflow fails closed.
     pub fn clears(&self) -> bool {
         [
             EconomicSector::Household,
@@ -97,14 +111,24 @@ impl SectorTransactionMatrix {
             EconomicSector::External,
         ]
         .iter()
-        .map(|sector| self.net_flow(*sector))
-        .sum::<i128>()
-            == 0
+        .try_fold(0i128, |sum, sector| {
+            sum.checked_add(self.try_net_flow(*sector).ok()?)
+        })
+        == Some(0)
+    }
+
+    /// Checked sum of all positive flow volume.
+    pub fn try_gross_flow_volume(&self) -> Result<i128, String> {
+        self.flows.iter().try_fold(0i128, |sum, flow| {
+            sum.checked_add(flow.amount)
+                .ok_or_else(|| "sector gross-flow overflow".to_string())
+        })
     }
 
     /// Sum of all positive flow volume.
     pub fn gross_flow_volume(&self) -> i128 {
-        self.flows.iter().map(|flow| flow.amount).sum()
+        self.try_gross_flow_volume()
+            .expect("sector gross-flow overflow")
     }
 
     /// Derive the sector transaction matrix directly from the authoritative
@@ -297,6 +321,25 @@ mod tests {
         let mut tampered = matrix.clone();
         tampered.flows[0].amount = 99;
         assert!(tampered.validate_against(&state, &actors, &transitions).is_err());
+    }
+
+    #[test]
+    fn clearing_fails_closed_on_overflow() {
+        let mut m = SectorTransactionMatrix::default();
+        m.push(SectorFlow {
+            from: EconomicSector::Firm,
+            to: EconomicSector::Household,
+            category: FlowCategory::Other,
+            amount: i128::MAX,
+        });
+        m.push(SectorFlow {
+            from: EconomicSector::Firm,
+            to: EconomicSector::Public,
+            category: FlowCategory::Other,
+            amount: 1,
+        });
+        assert!(!m.clears());
+        assert!(m.try_gross_flow_volume().is_err());
     }
 
     #[test]
