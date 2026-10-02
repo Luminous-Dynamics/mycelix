@@ -134,6 +134,35 @@ The safest next code slice is now narrower than a repository-wide rewrite:
 
 This keeps ROS-006's qualification boundary untouched and prevents a broad mechanical rewrite from changing application authorization semantics.
 
+
+## Exact 0.6→0.7 transformation map for the first compiler fixture
+
+The official Holochain 0.7 guide makes the first fixture's required transformations concrete: `FlatOp::StoreEntry` becomes `FlatOp::CreateEntry`; `RegisterUpdate` becomes `Update`; `RegisterDelete` becomes `Delete`; the two link operations become `FlatOp::Link(OpLink::CreateLink|DeleteLink)`; and typed action payloads replace `EntryCreationAction`/legacy action structs. Common metadata is accessed through `author()`/other accessors. citeturn1search0
+
+### civic-bridge: lowest-risk first fixture
+
+The current dispatcher in `mycelix-civic/zomes/civic-bridge/integrity/src/lib.rs` only performs application-entry validation for create/update and author checks for update/delete/link-delete. That makes it a particularly clean compiler fixture: its application semantics can remain byte-for-byte conceptually identical while only the Holochain dispatch representation changes.
+
+Required transformations, once the 0.7 dependency graph is actually available:
+
+- `FlatOp::StoreEntry(OpEntry::CreateEntry { app_entry, action })` → `FlatOp::CreateEntry(OpEntry::CreateEntry { app_entry, action })` and pass `action.into()` where the validator expects `TypedAction<EntryCreationData>`.
+- `FlatOp::StoreEntry(OpEntry::UpdateEntry { ... })` → `FlatOp::Update(OpUpdate::Entry { ... })` / corresponding typed operation shape supplied by HDI 0.8.
+- `FlatOp::RegisterUpdate(update)` → `FlatOp::Update(update)`.
+- `FlatOp::RegisterDeleteLink { ... }` → `FlatOp::Link(OpLink::DeleteLink { ... })` and use the typed delete-link action's `link_add_address` / author accessor.
+- `FlatOp::RegisterDelete(OpDelete { action, .. })` → `FlatOp::Delete(OpDelete { action, .. })`.
+- `action.author` → `action.author()` for every Holochain `TypedAction`/action value. Do not touch application structs merely because they contain an `author` field.
+- Preserve the existing comparison against `original.action().author()`. This is part of the authorization invariant and is not an incidental API rewrite.
+
+### property-registry / property-transfer: additional typed-action work
+
+These two zomes require more than dispatcher renaming because their create/update helpers explicitly accept `EntryCreationAction`, their test helpers construct `EntryCreationAction::Create`, and they use fields such as `original_action_hash` that the 0.7 guide maps to action-level accessors. Holochain explicitly documents `TypedAction<EntryCreationData>` as the replacement and notes that update/delete/link operations expose their original-action addresses through the typed action. citeturn1search0
+
+Therefore these zomes should follow the proven civic-bridge fixture rather than being migrated independently by search/replace.
+
+### Evidence rule
+
+No source file is being claimed as 0.7-compatible until the real 0.7 HDK/HDI dependency graph compiles it. The official compatibility table currently identifies Holochain/HDK 0.7.0 and HDI 0.8.0 as the compatible release line. citeturn1search2
+
 ## Evidence gates
 
 For each migration unit, record evidence separately:
