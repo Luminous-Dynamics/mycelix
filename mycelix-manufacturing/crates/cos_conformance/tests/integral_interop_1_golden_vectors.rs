@@ -1,5 +1,9 @@
 use cos_conformance::canonical_derivation_receipt::{canonical_bytes, canonical_sha256, D6S_REFERENCE_CANONICALIZATION_VERSION};
-use cos_conformance::contestable_finality::ObservationAssessmentV1;
+use cos_conformance::contestable_finality::{
+    ObservationAssessmentV1, ObservationIndependenceV1, ObservationClassificationV1,
+    ExternalFinalityStateV1, ExternalObserverProfileV1, ExternalObservationSetV1,
+    ExternalObservedEvidenceV1, ExternalObserverRoleV1, verify_witness_join_binding,
+};
 use cos_conformance::effect_finality::{
     ExternalEffectObservationV1, ExternalObservedStateV1, ExternalObservationSourceV1,
 };
@@ -298,6 +302,56 @@ fn upstream_d6m_to_d6p_golden_vectors_are_exact_and_linked() {
     receipt.receipt_commitment = d6pr.sha256.clone();
     assert!(receipt.commitment_matches());
     assert!(receipt.semantically_valid());
+
+    let evidence = ExternalObservedEvidenceV1 {
+        observation: observation.clone(),
+        observer_id: "observer-golden-1".into(),
+        observer: ExternalObserverProfileV1 {
+            observer_id: "observer-golden-1".into(),
+            role: ExternalObserverRoleV1::IndependentObserver,
+            observation_method: "independent-state-read".into(),
+            provider_relationship: "external".into(),
+            evidence_root: "evidence-golden-1".into(),
+            custody_root: "custody-golden-1".into(),
+            upstream_observer_ids: std::collections::BTreeSet::new(),
+            upstream_evidence_roots: std::collections::BTreeSet::new(),
+            semantic_environment_root: "environment-golden-1".into(),
+            observation_profile_id: "observation-profile-golden-1".into(),
+            independence: ObservationIndependenceV1::DeclaredIndependent,
+            independence_commitment: "independence-golden-1".into(),
+            claim_ceiling:
+                cos_conformance::contestable_finality::CONTESTABLE_FINALITY_CLAIM_CEILING.into(),
+        },
+    };
+
+    let set = ExternalObservationSetV1 {
+        set_id: "set-golden-1".into(),
+        effect_id: "effect-golden-1".into(),
+        effect_lineage_id: "lineage-golden-1".into(),
+        lifecycle_generation_id: "generation-golden-1".into(),
+        route_id: "route-golden-1".into(),
+        provider_id: "provider-golden-1".into(),
+        provider_operation_id: "operation-golden-1".into(),
+        provider_profile_root: "provider-profile-golden-1".into(),
+        semantic_environment_root: "environment-golden-1".into(),
+        observation_frontier_root: "frontier-golden-1".into(),
+        qualification_profile_id: "finality-profile-golden-1".into(),
+        observation_ids: ["obs-golden-1".into()].into_iter().collect(),
+        target_state: ExternalFinalityStateV1::Applied,
+        set_commitment: "set-golden-commitment-1".into(),
+        claim_ceiling:
+            cos_conformance::contestable_finality::CONTESTABLE_FINALITY_CLAIM_CEILING.into(),
+    };
+
+    assert!(verify_witness_join_binding(
+        &witness,
+        &assessment,
+        &evidence,
+        Some(&eligibility),
+        &set,
+        "life-profile-golden-1",
+        "frontier-golden-1",
+    ));
 }
 
 #[test]
