@@ -1264,5 +1264,17 @@ mod tests {
             )
             .is_err()
         );
+        assert!(
+            Capability::new(
+                "subject",
+                "issuer",
+                "resource",
+                vec![CapabilityAction::Read],
+                7,
+                7,
+                1,
+            )
+            .is_err()
+        );
     }
 }
