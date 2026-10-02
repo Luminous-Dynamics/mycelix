@@ -911,6 +911,35 @@ fn test_authority_case_manifest_is_structurally_valid() {
         ]
     );
 
+    let expected_tests = vec![
+        "test_authenticated_app_call_reaches_zome",
+        "test_signed_payload_mutation_is_rejected_by_signature_binding",
+        "test_authorized_malformed_payload_is_rejected_before_function_body",
+        "test_invalid_capability_is_rejected_at_authorization_boundary",
+        "test_expired_signed_call_is_rejected_at_authorization_boundary",
+        "test_replayed_signed_call_is_rejected_by_nonce_boundary",
+        "test_stale_lower_nonce_is_rejected_by_nonce_boundary",
+        "test_authorized_call_reaches_zome_and_is_semantically_rejected",
+        "test_authorized_unknown_function_is_rejected_at_dispatch_boundary",
+        "test_assigned_capability_binds_signer_and_revocation",
+        "test_authorized_wrong_zome_is_rejected_at_dispatch_boundary",
+        "test_wrong_cell_provenance_is_rejected_at_authorization_boundary",
+    ];
+
+    let manifest_tests = cases
+        .iter()
+        .map(|case| {
+            case["test"]
+                .as_str()
+                .expect("every authority case needs an executable test name")
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        manifest_tests, expected_tests,
+        "authority manifest must remain in executable case order"
+    );
+
     for case in cases {
         assert!(case["test"].is_string(), "every case needs a test name");
         assert!(case["boundary"].is_string(), "every case needs a boundary");
