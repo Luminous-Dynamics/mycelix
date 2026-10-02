@@ -46,6 +46,12 @@ A missing predecessor is returned as an unresolved dependency, not a negative ev
 
 The canonical assessment also exposes structural failures through the typed `EvidenceDispositionCoverageValidationError::Structural` error boundary. Dependency absence is deliberately not encoded as this error: the assessment returns `Unresolved` with explicit missing identities. This keeps definitive structural contradiction separate from dependency availability and lets an eventual Holochain callback map the two outcomes directly to `Invalid` and `UnresolvedDependencies`.
 
+## Append operation boundary
+
+The transition graph can also be qualified as an explicit append operation: `validate_append` first validates the existing graph, then validates the candidate transition, rejects any candidate whose exact `transition_id` is already present, and revalidates the combined graph. This makes record identity the immutability boundary for an append: a new transition may extend an existing branch or create a new branch, but it cannot replace an already-addressed transition.
+
+A candidate that names an unavailable predecessor remains `Unresolved` rather than being accepted as complete. A candidate with a present predecessor must satisfy the same evidence and state-continuity rules as ordinary graph validation. This API does not claim that a storage layer can physically prevent mutation of bytes already persisted; it provides the semantic append/replacement boundary that a storage or Holochain layer can enforce against addressable records.
+
 ## Bounded transition dependency walk
 
 The canonical composed coverage assessment resolves each named branch head with one deterministic predecessor walk that stops at the declared reconciliation branch point. The walk returns the exact visible ancestry, any first unavailable predecessor, and the validated transition records reached within that boundary.
