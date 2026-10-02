@@ -71,3 +71,35 @@ First define the Pulse entitlement semantics as an explicit protocol object or a
 4. only then a path from `HostObservedComplete` toward Chat projection.
 
 Until those steps exist, `/chat` remains fail-closed.
+
+
+## Existing capability model: useful substrate, not yet an entitlement witness
+
+The Pulse capabilities zome already models a useful relationship vocabulary: a `MailboxCapability` binds a grantor to a grantee, carries explicit permissions, supports expiration/revocation fields, and includes `ThreadAccess { thread_id }` as an access scope. This makes it a plausible substrate for future entitlement semantics, but it is not currently wired into V2 message creation or V2 inbox qualification.
+
+In particular, `send_email_v2` currently constructs the durable envelope from the caller and supplied recipient/thread metadata, creates the sender's `AgentToSentV2` link, and creates the recipient's `AgentToInboxV2` link. It does not require, reference, or validate a `MailboxCapability` or `ThreadAccess` capability. Therefore treating existing capability records as the authoritative set of V2 delivery-entitled senders would silently change the current protocol semantics.
+
+### Safe reuse path
+
+If Pulse chooses to make capabilities authoritative for a scoped delivery domain, the contract should bind the capability to that domain explicitly rather than infer the binding:
+
+1. **Scope identity** — define whether entitlement is mailbox-, thread-, conversation-, or direct-recipient-scoped.
+2. **Grant semantics** — define exactly which capability permission establishes delivery entitlement, rather than reusing `can_read` or `can_send` by implication.
+3. **Authority** — define who may grant and revoke entitlement and how that authority is authenticated.
+4. **Effective interval** — bind entitlement to a deterministic source-chain boundary or other signed interval; do not rely on mutable wall-clock interpretation alone.
+5. **Membership completeness** — define how the finite set of currently entitled senders is itself proven complete.
+6. **Message binding** — define which V2 fields must match the entitlement scope, including recipient and, where applicable, thread/conversation identity.
+7. **Revocation semantics** — specify whether messages authored before revocation remain entitled, and where the entitlement frontier ends.
+8. **Stale/fork handling** — specify how qualification treats stale capabilities, source-chain forks, and unavailable capability records.
+
+The key distinction is that **authorization to perform an operation** and **membership in the set of agents whose messages must be included in a completeness proof** are different protocol properties. Existing Holochain capability mechanisms are designed around zome-call authorization, while Pulse's missing primitive is an authoritative finite delivery-entitlement relation. Holochain validation also requires dependencies to be addressable and deterministic; mutable link collections are not suitable as a validation-time completeness dependency. citeturn0search0turn0search2
+
+Accordingly, the current safest design remains:
+
+`capability grant -> (if explicitly adopted by Pulse) entitlement state -> authoritative finite sender set -> sender-relative frontiers -> multi-sender completeness witness -> Chat projection`
+
+and **not**:
+
+`capability grant -> assumed delivery completeness`.
+
+This keeps the existing capability subsystem reusable without accidentally granting it a semantic role it does not currently possess.
