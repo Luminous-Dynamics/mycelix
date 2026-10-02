@@ -38,6 +38,37 @@ pub struct EconomicStepReceipt {
     pub transition_count: u64,
 }
 
+/// Evidence-chain receipt linking one timestep receipt to its predecessor.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EconomicChainReceipt {
+    pub previous_receipt_hash: Option<String>,
+    pub step: EconomicStepReceipt,
+    pub chain_hash: String,
+}
+
+impl EconomicChainReceipt {
+    /// Link a successful step receipt to the previous receipt hash.
+    ///
+    /// The chain hash binds ordering as well as the complete step receipt. A
+    /// changed period, state hash, transition list, or predecessor therefore
+    /// changes the resulting evidence chain.
+    pub fn link(
+        previous_receipt_hash: Option<&str>,
+        step: EconomicStepReceipt,
+    ) -> Result<Self, EconomicStepError> {
+        let previous_receipt_hash = previous_receipt_hash.map(str::to_owned);
+        let bytes = serde_json::to_vec(&(previous_receipt_hash.clone(), &step))
+            .map_err(|error| EconomicStepError::Serialization(error.to_string()))?;
+        let chain_hash = blake3::hash(&bytes).to_hex().to_string();
+
+        Ok(Self {
+            previous_receipt_hash,
+            step,
+            chain_hash,
+        })
+    }
+}
+
 /// Error returned when a step cannot be applied without violating an invariant.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EconomicStepError {
@@ -182,6 +213,25 @@ mod tests {
 
         assert_eq!(first, second);
         assert_eq!(receipt_a, receipt_b);
+    }
+
+    #[test]
+    fn evidence_chain_is_deterministic_and_order_bound() {
+        let state = initial_state();
+        let transitions = vec![EconomicTransition::CreditCreation(
+            CreditCreation::new("bank", "household", 500).unwrap(),
+        )];
+        let (_, step) = apply_step(&state, 1, &transitions, None).unwrap();
+
+        let first = EconomicChainReceipt::link(None, step.clone()).unwrap();
+        let second = EconomicChainReceipt::link(Some(&first.chain_hash), step.clone()).unwrap();
+        let second_again = EconomicChainReceipt::link(Some(&first.chain_hash), step).unwrap();
+
+        assert_eq!(second, second_again);
+        assert_ne!(first.chain_hash, second.chain_hash);
+
+        let reordered = EconomicChainReceipt::link(Some("different-predecessor"), second.step).unwrap();
+        assert_ne!(second.chain_hash, reordered.chain_hash);
     }
 
     #[test]
