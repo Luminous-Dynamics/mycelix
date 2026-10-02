@@ -1801,11 +1801,16 @@ fn validate_current_listing_revision(
     // this listing's lineage.
     let mut root_derived_actions = BTreeSet::new();
     let mut latest_revision: Option<(u32, ActionHash)> = None;
+    let mut candidate_seq = None;
 
     for item in activity {
         let action = &item.action.hashed.content;
         let action_hash = &item.action.hashed.hash;
         let sequence = action.action_seq();
+
+        if action_hash == candidate_revision {
+            candidate_seq = Some(sequence);
+        }
 
         let is_root = matches!(action, Action::Create(_)) && action_hash == listing_hash;
         let is_root_derived_update = matches!(
@@ -1843,11 +1848,11 @@ fn validate_current_listing_revision(
         ));
     };
 
-    let candidate_seq = activity_sequence_for_action(
-        seller,
-        chain_top,
-        candidate_revision,
-    )?;
+    let Some(candidate_seq) = candidate_seq else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Listing revision is not present in the seller source-chain ancestry".into(),
+        ));
+    };
 
     if latest_revision != *candidate_revision || latest_seq != candidate_seq {
         return Ok(ValidateCallbackResult::Invalid(
@@ -1857,27 +1862,6 @@ fn validate_current_listing_revision(
 
     Ok(ValidateCallbackResult::Valid)
 }
-
-fn activity_sequence_for_action(
-    seller: &AgentPubKey,
-    chain_top: &ActionHash,
-    candidate_revision: &ActionHash,
-) -> ExternResult<u32> {
-    let activity = must_get_agent_activity(
-        seller.clone(),
-        ChainFilter::new(chain_top.clone()).until_hash(candidate_revision.clone()),
-    )?;
-    activity
-        .into_iter()
-        .find(|item| item.action.hashed.hash == *candidate_revision)
-        .map(|item| item.action.hashed.content.action_seq())
-        .ok_or_else(|| {
-            wasm_error!(WasmErrorInner::Guest(
-                "Listing revision is not present in the seller source-chain ancestry".into(),
-            ))
-        })
-}
-
 
 /// Validate a seller-issued reservation against exact addressable dependencies.
 /// This intentionally avoids mutable link collections in validation.
