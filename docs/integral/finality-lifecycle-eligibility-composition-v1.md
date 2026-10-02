@@ -108,6 +108,17 @@ This commitment provides integrity and exact-object identity; it does not establ
 that the witness was produced by authoritative D6N/D6O sources. That provenance is
 checked separately by the qualified D6P reconstruction path.
 
+## Independence counts are observer-distinct
+
+An independent-witness threshold counts independent observers, not merely
+distinct observation IDs. D6N therefore treats two observations from the same
+observer identity as sharing a dependency even when their evidence and custody
+roots differ.
+
+This prevents one observer from inflating a multi-observer threshold by emitting
+multiple independently classified observations. Distinct observers remain subject
+to the existing evidence/custody/upstream dependency checks as well.
+
 ## Recomputed witness count
 
 D6N exposes an independent_count. D6P does not trust that count as current-finality authority.
@@ -305,6 +316,7 @@ The module contains source-level tests for:
 26. arrival order cannot change the eligible witness count;
 27. cross-frontier witness replacement is rejected and explicit witness selection requires the expected frontier;
 28. duplicate D6N evidence identities are rejected rather than resolved by last-write-wins.
+29. multiple observations from the same observer cannot inflate the independent-witness threshold.
 
 ## Claim ceiling
 
