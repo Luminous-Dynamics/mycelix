@@ -69,6 +69,12 @@ pub struct ActorBalanceSheet {
     pub actor: ActorId,
     pub monetary: MonetaryStock,
     pub real: RealStock,
+    /// Monetary carrying amount assigned to the actor's physical inventory.
+    ///
+    /// This is deliberately separate from real.inventories, which is a
+    /// physical quantity. The value changes only through explicit inventory
+    /// accounting transitions.
+    pub inventory_carrying_value: i128,
 }
 
 impl ActorBalanceSheet {
@@ -77,11 +83,15 @@ impl ActorBalanceSheet {
             actor: actor.into(),
             monetary: MonetaryStock::default(),
             real: RealStock::default(),
+            inventory_carrying_value: 0,
         }
     }
 
     pub fn net_worth(&self) -> i128 {
-        self.monetary.net_position() + self.real.productive_capital + self.real.resources
+        self.monetary.net_position()
+            + self.real.productive_capital
+            + self.inventory_carrying_value
+            + self.real.resources
     }
 }
 
