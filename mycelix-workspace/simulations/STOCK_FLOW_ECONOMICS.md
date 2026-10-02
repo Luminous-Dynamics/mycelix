@@ -614,3 +614,57 @@ and
 Neither projection is authoritative over the transition log. Both are deterministic views over
 the same ordered transitions, so deferred settlement can be analyzed without contaminating cash
 flows while still remaining visible in sector-level SFC accounting.
+
+
+## Provenance and numerical hardening (implemented)
+
+Actor observations now preserve the true period-opening liquidity stock explicitly rather than
+reconstructing it from terminal liquidity minus the observed change. The actor-level identity is:
+
+`opening_liquidity + net_liquidity_change = closing liquidity`.
+
+Sector consolidation consumes that explicit opening stock and verifies the actor identity before
+aggregating, providing a clearer provenance chain from the initial balance sheet into sector
+observations.
+
+The sector cash transaction matrix and the separate financial-claim matrix now expose checked
+aggregation helpers. Their clearing predicates fail closed if extreme `i128` arithmetic would
+overflow. Sector balance-sheet and physical-stock total helpers likewise expose checked variants,
+and financial-row / balance-sheet identity validation no longer relies on wrapping arithmetic.
+
+The evidence capsule schema marks newly added sector hashes optional for deserialization, so older
+capsules without those fields remain readable. The new full-seal API additionally binds the
+sector financial-claim projection into the evidence hash while leaving the historical aggregate,
+actor-only, and actor+sector binding paths unchanged.
+
+This matters for reproducibility: evidence should distinguish a genuinely different projection
+from an arithmetic artifact, and schema evolution should not silently turn an older receipt into
+an unreadable artifact.
+
+The accounting boundary remains intentionally layered:
+
+`initial actor stocks`
+-> `authoritative transitions`
+-> `actor observations`
+-> `sector observations`
+-> `cash transaction projection + financial-claim projection`
+-> `sector stock/reconciliation`
+-> `evidence hashes`.
+
+No model behavior is inferred from the reporting layers. In particular, trade-credit extension and
+settlement do not imply collection delays, default probabilities, maturity behavior, credit
+demand, or policy responses until those are introduced as separate explicit transition rules.
+
+## Research boundary: cash-flow presentation vs SFC accounting
+
+IAS 7 defines a financial-reporting cash-flow statement around cash and cash equivalents and
+classifies cash flows as operating, investing, and financing. Its indirect operating method also
+reconciles profit/loss with non-cash items and changes in operating inventories, receivables, and
+payables. The Mycelix substrate intentionally does not claim to reproduce those presentation rules:
+its actor/sector liquidity bridge is a simulation accounting observable over the model's explicit
+cash and deposit instruments.
+
+The SFC purpose is different and complementary. The balance-sheet matrix, transactions-flow matrix,
+and explicit financial commitments provide the accounting skeleton on which later behavioral
+equations can operate. The separate financial-claim projection keeps deferred settlement visible
+as a stock/claim event instead of forcing every economic transaction into a cash-flow category.
