@@ -198,3 +198,33 @@ Before adding autonomous policy adaptation:
 The research cross-check reinforces the architecture. SFC models conventionally use two linked structures: a balance-sheet matrix for stocks and a transactions-flow matrix for flows. Financial rows/columns clear because a financial asset held by one sector is a liability or counterpart position elsewhere. Recent SFC energy-transition work continues to use this structure, including explicit deposits and bank loans.
 
 Ecological SFC research goes one step further by explicitly formalising monetary and physical stocks and flows together, including resource constraints and thermodynamic accounting. That supports treating the Mycelix financial substrate as one layer rather than the whole economic ontology.
+
+
+## Stock-flow delta reconciliation (implemented)
+
+The accounting substrate now includes an explicit reconciliation boundary between the deterministic transition log and the consolidated sector balance sheet.
+
+For the currently modeled financial transitions, the invariant is:
+
+`BalanceSheet(t+1) - BalanceSheet(t) == postings(transitions)`
+
+The reconciliation layer:
+
+- replays the exact ordered transition list against a private working state;
+- derives settlement-aware postings for deposit transfers, endogenous credit creation, and debt repayment;
+- consolidates those postings by sector and balance-sheet instrument;
+- compares them with the observed pre/post sector balance-sheet delta;
+- emits structured sector/instrument mismatches instead of silently accepting unexplained stock changes;
+- hashes the pre-state, post-state, transition sequence, and canonicalized posting set for evidence binding.
+
+This is intentionally narrower than a full SFC model. Wages, consumption, interest, investment, taxes, transfers, production, inventory changes, capital formation, revaluation, and physical-resource flows are not admitted until each has an explicit posting rule. This prevents the economic simulation from gaining apparent realism by introducing unaccounted stock changes.
+
+The design follows the SFC convention that the balance-sheet matrix and transaction-flow matrix form a linked accounting skeleton, with financial assets matched by counterpart liabilities and sector flows satisfying budget constraints. Recent SFC work continues to use explicit bank deposits/loans and linked balance-sheet/transaction-flow structures. Keen's monetary Minsky work likewise treats credit/debt dynamics as explicit monetary state variables rather than an exogenous residual. The next implementation step is therefore to extend the posting vocabulary rather than bypass it with aggregate formulas.
+
+### Next accounting frontier
+
+1. Add explicit period-income/equity postings so wage, consumption, interest, tax, and transfer flows can reconcile net worth changes.
+2. Add production/investment postings linking monetary flows to productive-capital and inventory stocks.
+3. Add typed physical-resource postings and conservation checks for the ecological SFC layer.
+4. Add institutional/financial-regime observables (leverage, debt service, liquidity, refinancing need) on top of reconciled stocks.
+5. Only then add Minsky/Keen behavioral equations, so financial-instability dynamics operate on auditable accounting state rather than hidden balances.
