@@ -34,21 +34,32 @@ pub struct MonetaryStock {
     pub deposits: i128,
     /// Other financial claims on actors (for example, loans).
     pub claims: i128,
+    /// Trade receivables owed to the actor from deferred commercial sales.
+    #[serde(default)]
+    pub trade_receivables: i128,
     /// Debt liabilities owed by the actor.
     pub liabilities: i128,
     /// Deposit liabilities issued by the actor (normally a bank).
     pub deposit_liabilities: i128,
+    /// Trade payables owed by the actor from deferred commercial purchases.
+    #[serde(default)]
+    pub trade_payables: i128,
 }
 
 impl MonetaryStock {
     /// Total financial assets.
     pub fn assets(&self) -> i128 {
-        self.cash + self.deposits + self.claims
+        self.cash + self.deposits + self.claims + self.trade_receivables
     }
 
     /// Net financial position: financial assets minus liabilities.
     pub fn net_position(&self) -> i128 {
-        self.assets() - self.liabilities - self.deposit_liabilities
+        self.assets() - self.liabilities - self.deposit_liabilities - self.trade_payables
+    }
+
+    /// Trade-credit position used by the working-capital layer.
+    pub fn net_trade_position(&self) -> i128 {
+        self.trade_receivables - self.trade_payables
     }
 }
 
@@ -434,6 +445,60 @@ impl Depreciation {
     }
 }
 
+/// Deferred commercial sale that transfers goods now and settles the monetary
+/// consideration later through trade credit.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TradeCreditSale {
+    pub seller: ActorId,
+    pub buyer: ActorId,
+    pub quantity: i128,
+    pub consideration: i128,
+}
+
+impl TradeCreditSale {
+    pub fn new(
+        seller: impl Into<ActorId>,
+        buyer: impl Into<ActorId>,
+        quantity: i128,
+        consideration: i128,
+    ) -> Result<Self, String> {
+        if quantity <= 0 || consideration <= 0 {
+            return Err("trade-credit sale quantity and consideration must be positive".into());
+        }
+        Ok(Self {
+            seller: seller.into(),
+            buyer: buyer.into(),
+            quantity,
+            consideration,
+        })
+    }
+}
+
+/// Settlement of an outstanding trade receivable/payable through deposits.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TradeCreditSettlement {
+    pub seller: ActorId,
+    pub buyer: ActorId,
+    pub amount: i128,
+}
+
+impl TradeCreditSettlement {
+    pub fn new(
+        seller: impl Into<ActorId>,
+        buyer: impl Into<ActorId>,
+        amount: i128,
+    ) -> Result<Self, String> {
+        if amount <= 0 {
+            return Err("trade-credit settlement amount must be positive".into());
+        }
+        Ok(Self {
+            seller: seller.into(),
+            buyer: buyer.into(),
+            amount,
+        })
+    }
+}
+
 /// Explicit endogenous credit creation.
 ///
 /// Credit creation increases the lender's financial asset and the borrower's
@@ -777,6 +842,69 @@ impl EconomicState {
         Ok(())
     }
 
+    /// Record a deferred commercial sale. Inventory moves physically while
+    /// the seller records a receivable and the buyer a matching payable.
+    /// No deposit transfer occurs and no inventory carrying value is inferred.
+    pub fn apply_trade_credit_sale(&mut self, sale: &TradeCreditSale) -> Result<(), String> {
+        let (seller, buyer) = self.actor_pair_mut(&sale.seller, &sale.buyer)?;
+        if seller.real.inventories < sale.quantity {
+            return Err(format!(
+                "insufficient inventory for {}: have {}, need {}",
+                seller.actor, seller.real.inventories, sale.quantity
+            ));
+        }
+        seller.real.inventories -= sale.quantity;
+        buyer.real.inventories = buyer
+            .real
+            .inventories
+            .checked_add(sale.quantity)
+            .ok_or_else(|| "buyer inventory overflow".to_string())?;
+        seller.monetary.trade_receivables = seller
+            .monetary
+            .trade_receivables
+            .checked_add(sale.consideration)
+            .ok_or_else(|| "trade receivable overflow".to_string())?;
+        buyer.monetary.trade_payables = buyer
+            .monetary
+            .trade_payables
+            .checked_add(sale.consideration)
+            .ok_or_else(|| "trade payable overflow".to_string())?;
+        Ok(())
+    }
+
+    /// Settle trade credit through deposits. This retires the matching
+    /// receivable/payable without changing aggregate deposit volume.
+    pub fn apply_trade_credit_settlement(
+        &mut self,
+        settlement: &TradeCreditSettlement,
+    ) -> Result<(), String> {
+        let (seller, buyer) = self.actor_pair_mut(&settlement.seller, &settlement.buyer)?;
+        if seller.monetary.trade_receivables < settlement.amount
+            || buyer.monetary.trade_payables < settlement.amount
+        {
+            return Err("trade-credit settlement exceeds outstanding receivable/payable".into());
+        }
+        if buyer.monetary.deposits < settlement.amount {
+            return Err(format!(
+                "buyer {} cannot settle {} with deposits={}",
+                buyer.actor, settlement.amount, buyer.monetary.deposits
+            ));
+        }
+        buyer.monetary.deposits -= settlement.amount;
+        seller.monetary.deposits = seller
+            .monetary
+            .deposits
+            .checked_add(settlement.amount)
+            .ok_or_else(|| "seller deposit overflow".to_string())?;
+        seller.monetary.trade_receivables -= settlement.amount;
+        buyer.monetary.trade_payables -= settlement.amount;
+        self.monetary_flow_volume = self
+            .monetary_flow_volume
+            .checked_add(settlement.amount)
+            .ok_or_else(|| "monetary flow counter overflow".to_string())?;
+        Ok(())
+    }
+
     /// Create endogenous bank credit with the SFC loan/deposit double entry.
     ///
     /// The lender records a loan claim and a matching deposit liability. The
@@ -861,7 +989,11 @@ impl EconomicState {
     pub fn aggregate_liabilities(&self) -> i128 {
         self.actors
             .iter()
-            .map(|a| a.monetary.liabilities + a.monetary.deposit_liabilities)
+            .map(|a| {
+                a.monetary.liabilities
+                    + a.monetary.deposit_liabilities
+                    + a.monetary.trade_payables
+            })
             .sum()
     }
 
@@ -869,7 +1001,7 @@ impl EconomicState {
     pub fn aggregate_claims(&self) -> i128 {
         self.actors
             .iter()
-            .map(|a| a.monetary.deposits + a.monetary.claims)
+            .map(|a| a.monetary.deposits + a.monetary.claims + a.monetary.trade_receivables)
             .sum()
     }
 
@@ -978,6 +1110,45 @@ mod tests {
         let mut s = state();
         s.actors.iter_mut().find(|a| a.actor == "firm").unwrap().real.resources = 10;
         assert_eq!(s.actors[2].net_worth(), 0);
+    }
+
+    #[test]
+    fn trade_credit_creates_matching_receivable_and_payable() {
+        let mut s = state();
+        s.actors.iter_mut().find(|a| a.actor == "firm").unwrap().real.inventories = 10;
+        s.apply_trade_credit_sale(
+            &TradeCreditSale::new("firm", "household", 4, 80).unwrap(),
+        )
+        .unwrap();
+        let firm = s.actors.iter().find(|a| a.actor == "firm").unwrap();
+        let household = s.actors.iter().find(|a| a.actor == "household").unwrap();
+        assert_eq!(firm.real.inventories, 6);
+        assert_eq!(household.real.inventories, 4);
+        assert_eq!(firm.monetary.trade_receivables, 80);
+        assert_eq!(household.monetary.trade_payables, 80);
+        assert!(s.claims_liabilities_identity_holds());
+    }
+
+    #[test]
+    fn trade_credit_settlement_moves_deposits_and_retires_working_capital() {
+        let mut s = state();
+        s.actors.iter_mut().find(|a| a.actor == "firm").unwrap().real.inventories = 10;
+        s.actors.iter_mut().find(|a| a.actor == "household").unwrap().monetary.deposits = 100;
+        s.apply_trade_credit_sale(
+            &TradeCreditSale::new("firm", "household", 4, 80).unwrap(),
+        )
+        .unwrap();
+        s.apply_trade_credit_settlement(
+            &TradeCreditSettlement::new("firm", "household", 80).unwrap(),
+        )
+        .unwrap();
+        let firm = s.actors.iter().find(|a| a.actor == "firm").unwrap();
+        let household = s.actors.iter().find(|a| a.actor == "household").unwrap();
+        assert_eq!(firm.monetary.trade_receivables, 0);
+        assert_eq!(household.monetary.trade_payables, 0);
+        assert_eq!(firm.monetary.deposits, 80);
+        assert_eq!(household.monetary.deposits, 20);
+        assert!(s.claims_liabilities_identity_holds());
     }
 
     #[test]
