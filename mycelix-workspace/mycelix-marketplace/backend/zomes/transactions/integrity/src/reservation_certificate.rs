@@ -1369,6 +1369,44 @@ mod tests {
     }
 
     #[test]
+    fn reservation_can_follow_capacity_bridge_on_new_listing_revision() {
+        let mut f = frontier(2);
+        assert_eq!(
+            f.apply(FrontierEvent::Reserve(certificate_with_capacity(
+                "c1", 0, None, 1, 2
+            ))),
+            Ok(ApplyOutcome::Applied)
+        );
+
+        let new_revision = hash(7);
+        assert_eq!(
+            f.apply(FrontierEvent::SetCapacity {
+                listing_hash: hash(3),
+                listing_revision: new_revision.clone(),
+                capacity: 3,
+                seller: agent(2),
+                sequence: 1,
+                previous_certificate_id: Some("c1".into()),
+            }),
+            Ok(ApplyOutcome::Applied)
+        );
+
+        let mut next = certificate_with_capacity("c2", 2, Some("capacity:1"), 1, 3);
+        next.listing_revision = new_revision.clone();
+        next.intent.listing_revision = new_revision.clone();
+        next.pre_state = f.post_state();
+        next.post_state = next.pre_state.after_reserve(next.quantity).unwrap();
+
+        assert_eq!(
+            f.apply(FrontierEvent::Reserve(next)),
+            Ok(ApplyOutcome::Applied)
+        );
+        assert_eq!(f.listing_revision(), &new_revision);
+        assert_eq!(f.active_reserved(), 2);
+        assert_eq!(f.available(), 1);
+    }
+
+    #[test]
     fn stale_listing_revision_cannot_admit_new_reservation() {
         let mut f = frontier(2);
         let mut stale = certificate("c1", 0, None, 1);
@@ -2087,6 +2125,35 @@ pub fn validate_create_reservation_certificate(
             if previous_certificate.post_state != certificate.pre_state {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Reservation frontier post-state does not equal the next reservation pre-state"
+                        .into(),
+                ));
+            }
+        } else if let Some(previous_capacity) = previous
+            .entry()
+            .to_app_option::<ReservationCapacityEvidence>()
+            .map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Invalid previous frontier capacity entry: {e:?}"
+                )))
+            })?
+        {
+            if previous_capacity.seller != certificate.seller
+                || previous_capacity.listing_hash != certificate.listing_hash
+            {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Previous frontier capacity evidence belongs to a different seller/listing"
+                        .into(),
+                ));
+            }
+            if previous_capacity.sequence.checked_add(1) != Some(certificate.sequence) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Reservation frontier sequence does not follow its previous capacity bridge"
+                        .into(),
+                ));
+            }
+            if previous_capacity.post_state != certificate.pre_state {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Reservation frontier capacity post-state does not equal the next reservation pre-state"
                         .into(),
                 ));
             }
