@@ -212,15 +212,35 @@ pub fn postings_for_step(
                 let buyer = sector_for(assignments, &sale.buyer)?;
                 vec![
                     StockPosting::new(seller, BalanceSheetInstrument::Deposits, sale.consideration),
+                    StockPosting::new(seller, BalanceSheetInstrument::Equity, -sale.consideration),
                     StockPosting::new(buyer, BalanceSheetInstrument::Deposits, -sale.consideration),
+                    StockPosting::new(buyer, BalanceSheetInstrument::Equity, sale.consideration),
                 ]
             }
             EconomicTransition::TradeCreditSale(sale) => {
                 let seller = sector_for(assignments, &sale.seller)?;
                 let buyer = sector_for(assignments, &sale.buyer)?;
                 vec![
-                    StockPosting::new(seller, BalanceSheetInstrument::TradeReceivables, sale.consideration),
-                    StockPosting::new(buyer, BalanceSheetInstrument::TradePayables, -sale.consideration),
+                    StockPosting::new(
+                        seller,
+                        BalanceSheetInstrument::TradeReceivables,
+                        sale.consideration,
+                    ),
+                    StockPosting::new(
+                        seller,
+                        BalanceSheetInstrument::Equity,
+                        -sale.consideration,
+                    ),
+                    StockPosting::new(
+                        buyer,
+                        BalanceSheetInstrument::TradePayables,
+                        -sale.consideration,
+                    ),
+                    StockPosting::new(
+                        buyer,
+                        BalanceSheetInstrument::Equity,
+                        sale.consideration,
+                    ),
                 ]
             }
             EconomicTransition::TradeCreditSettlement(settlement) => {
@@ -586,6 +606,10 @@ mod tests {
             .find(|a| a.actor == "firm")
             .unwrap()
             .monetary.deposits = 500;
+        pre.actors.iter_mut()
+            .find(|a| a.actor == "bank")
+            .unwrap()
+            .monetary.deposit_liabilities = 500;
         let transitions = vec![EconomicTransition::CapitalInvestment(
             CapitalInvestment::new("firm", "household", 200).unwrap(),
         )];
@@ -621,13 +645,14 @@ mod tests {
         let (mut pre, assignments) = setup();
         pre.actors.iter_mut().find(|a| a.actor == "firm").unwrap().real.inventories = 20;
         pre.actors.iter_mut().find(|a| a.actor == "household").unwrap().monetary.deposits = 100;
+        pre.actors.iter_mut().find(|a| a.actor == "bank").unwrap().monetary.deposit_liabilities = 100;
 
         let transitions = vec![EconomicTransition::GoodsSale(
             GoodsSale::new("firm", "household", 5, 30).unwrap(),
         )];
         let (post, _) = apply_step(&pre, 1, &transitions, None).unwrap();
         let receipt = reconcile_step(&pre, &post, &assignments, &transitions).unwrap();
-        assert_eq!(receipt.posting_count, 2);
+        assert_eq!(receipt.posting_count, 4);
         assert_eq!(receipt.physical_posting_count, 2);
     }
 
@@ -640,6 +665,7 @@ mod tests {
             firm.inventory_carrying_value = 80;
         }
         pre.actors.iter_mut().find(|a| a.actor == "household").unwrap().monetary.deposits = 100;
+        pre.actors.iter_mut().find(|a| a.actor == "bank").unwrap().monetary.deposit_liabilities = 100;
 
         let transitions = vec![
             EconomicTransition::InventoryCostRelief(
@@ -667,6 +693,7 @@ mod tests {
         let (mut pre, assignments) = setup();
         pre.actors.iter_mut().find(|a| a.actor == "firm").unwrap().real.inventories = 20;
         pre.actors.iter_mut().find(|a| a.actor == "household").unwrap().monetary.deposits = 100;
+        pre.actors.iter_mut().find(|a| a.actor == "bank").unwrap().monetary.deposit_liabilities = 100;
 
         let transitions = vec![EconomicTransition::GoodsSale(
             GoodsSale::new("firm", "household", 5, 30).unwrap(),
@@ -711,6 +738,7 @@ mod tests {
             let firm = pre.actors.iter_mut().find(|a| a.actor == "firm").unwrap();
             firm.monetary.deposits = 100;
             firm.real.inventories = 10;
+            pre.actors.iter_mut().find(|a| a.actor == "bank").unwrap().monetary.deposit_liabilities = 100;
         }
 
         let transitions = vec![
@@ -746,6 +774,7 @@ mod tests {
         ]);
         pre.actors.iter_mut().find(|a| a.actor == "firm").unwrap().real.inventories = 10;
         pre.actors.iter_mut().find(|a| a.actor == "household").unwrap().monetary.deposits = 100;
+        pre.actors.iter_mut().find(|a| a.actor == "bank").unwrap().monetary.deposit_liabilities = 100;
 
         let sale = super::super::stock_flow::TradeCreditSale::new("firm", "household", 4, 80).unwrap();
         let settlement = super::super::stock_flow::TradeCreditSettlement::new("firm", "household", 30).unwrap();
