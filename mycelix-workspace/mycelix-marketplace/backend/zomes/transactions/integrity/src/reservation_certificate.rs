@@ -1799,6 +1799,17 @@ pub fn validate_create_reservation_certificate(
         ));
     }
 
+    if _revision_listing.price_cents != certificate.intent.unit_price_cents {
+        return Ok(ValidateCallbackResult::Invalid(
+            "ReservationCertificate unit price does not match the bound listing revision".into(),
+        ));
+    }
+    if certificate.sequence == 0 && certificate.pre_state.capacity != _revision_listing.quantity_available {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Genesis reservation capacity does not match the bound listing revision inventory".into(),
+        ));
+    }
+
     match revision_action.action() {
         Action::Create(_) => {
             if certificate.listing_revision != certificate.listing_hash {
@@ -1991,10 +2002,29 @@ pub fn validate_create_reservation_capacity(
             "Reservation capacity listing is not seller-authored".into(),
         ));
     }
+    let revision_record = must_get_valid_record(evidence.listing_revision.clone())?;
+    let revision_listing = revision_record
+        .entry()
+        .to_app_option::<Listing>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Invalid reservation capacity listing revision entry: {e:?}"
+            )))
+        })?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Reservation capacity listing revision is not a Listing entry".into(),
+            ))
+        })?;
     let revision_action = must_get_action(evidence.listing_revision.clone())?;
     if revision_action.author() != &evidence.seller {
         return Ok(ValidateCallbackResult::Invalid(
             "Reservation capacity listing revision is not seller-authored".into(),
+        ));
+    }
+    if evidence.capacity != revision_listing.quantity_available {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Reservation capacity does not match the bound listing revision inventory".into(),
         ));
     }
     match revision_action.action() {
