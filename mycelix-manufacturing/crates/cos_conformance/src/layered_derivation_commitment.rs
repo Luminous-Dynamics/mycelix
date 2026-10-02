@@ -147,7 +147,11 @@ impl InputCommitmentV1 {
             && strictly_sorted_unique(&self.nodes)
             && self.edges.iter().all(|v| is_canonical_sha256_commitment(v))
             && strictly_sorted_unique(&self.edges)
-            && self.d6p_receipts.iter().all(|v| !v.is_empty())
+            // Qualified consumption does not accept opaque D6P receipt identifiers.
+            // A receipt set can be perfectly sorted and self-consistent while still
+            // naming substituted evidence; the receipt commitment must therefore be
+            // a canonical D6P cryptographic commitment before it crosses D6W.
+            && self.d6p_receipts.iter().all(|v| is_canonical_sha256_commitment(v))
             && strictly_sorted_unique(&self.d6p_receipts)
             && self.claim_ceiling == D6S_CLAIM_CEILING
             && is_canonical_sha256_commitment(&self.commitment)
@@ -547,6 +551,28 @@ mod tests {
         assert!(!is_canonical_sha256_commitment(&p.nodes["dep"].node_commitment));
         assert!(InputCommitmentV1::from_projection(&p, &e, &c, &closure_profile(), &d).is_none());
         let _ = d;
+    }
+
+    #[test]
+    fn d6w_rejects_opaque_d6p_receipt_identifier() {
+        let (mut p, e, d, mut c) = fixture(false);
+        let opaque = "legacy-d6p-receipt";
+        p.d6p_current_receipt_commitments.insert(opaque.into());
+        c.included_d6p_receipt_commitments.insert(opaque.into());
+        c.dependencies.insert(
+            qualified_dependency_closure_d6x::SemanticDependencyReferenceV1::d6p_receipt(opaque),
+        );
+        c.dependency_resolutions.insert(
+            qualified_dependency_closure_d6x::SemanticDependencyReferenceV1::d6p_receipt(opaque),
+            qualified_dependency_closure_d6x::SemanticDependencyResolutionV1::Present,
+        );
+        c.included_node_commitments = c.included_nodes.values().cloned().collect();
+        c.included_edge_commitments = c.included_edges.values().map(|(_, _, _, v)| v.clone()).collect();
+        c.closure_identity_commitment = c.closure_identity();
+        c.commitment = c.recompute();
+
+        assert!(c.valid());
+        assert!(InputCommitmentV1::from_projection(&p, &e, &c, &closure_profile(), &d).is_none());
     }
 
     #[test] fn closure_is_bound_into_input(){let(p,e,d,c)=fixture(false);let i=InputCommitmentV1::from_projection(&p,&e,&c,&closure_profile(),&d).unwrap();assert!(i.valid());assert!(!i.dependency_closure.is_empty());let x=LayeredReceiptV1::new(&i,&DerivationCommitmentV1::new(&i,&d,None).unwrap(),&ResultCommitmentV1::new(&DerivationCommitmentV1::new(&i,&d,None).unwrap(),DerivationResultStatusV1::Supported,"x".into(),false,false).unwrap());assert!(x.is_some());}
