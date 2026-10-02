@@ -1398,9 +1398,7 @@ mod tests {
             description: "Test listing".into(),
             price_cents,
             category: listings_integrity::ListingCategory::Other,
-            photos_ipfs_cids: vec![
-                "QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG".into(),
-            ],
+            photos_ipfs_cids: vec!["QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG".into()],
             quantity_available: quantity,
             status: listings_integrity::ListingStatus::Active,
             epistemic: listings_integrity::EpistemicClassification {
@@ -1424,12 +1422,18 @@ mod tests {
     fn reservation_listing_binding_rejects_price_and_genesis_capacity_mismatch() {
         let mut c = certificate_with_capacity("c1", 0, None, 2, 10);
         let l = listing(10, 501);
-        assert!(validate_reservation_listing_binding(&c, &l).unwrap_err().contains("price"));
+        assert!(
+            validate_reservation_listing_binding(&c, &l)
+                .unwrap_err()
+                .contains("price")
+        );
 
         c.intent.unit_price_cents = 500;
-        assert!(validate_reservation_listing_binding(&c, &listing(9, 500))
-            .unwrap_err()
-            .contains("capacity"));
+        assert!(
+            validate_reservation_listing_binding(&c, &listing(9, 500))
+                .unwrap_err()
+                .contains("capacity")
+        );
     }
 
     fn transaction_for(intent: &PurchaseIntent) -> crate::Transaction {
@@ -1619,11 +1623,11 @@ pub fn validate_reservation_listing_binding(
     listing: &Listing,
 ) -> Result<(), String> {
     if certificate.intent.unit_price_cents != listing.price_cents {
-        return Err("Reservation certificate unit price does not match the listing revision".into());
+        return Err(
+            "Reservation certificate unit price does not match the listing revision".into(),
+        );
     }
-    if certificate.sequence == 0
-        && certificate.pre_state.capacity != listing.quantity_available
-    {
+    if certificate.sequence == 0 && certificate.pre_state.capacity != listing.quantity_available {
         return Err(
             "Genesis reservation capacity does not match the listing revision inventory".into(),
         );
