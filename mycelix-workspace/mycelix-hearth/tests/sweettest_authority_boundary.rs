@@ -123,6 +123,55 @@ async fn test_authenticated_app_call_reaches_zome() {
 
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
+async fn test_signed_payload_mutation_is_rejected_by_signature_binding() {
+    let mut conductor = SweetConductor::standard().await;
+    let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
+
+    let (alice,) = conductor
+        .setup_app("test-app", &[dna_file])
+        .await
+        .unwrap()
+        .into_tuple();
+
+    // Start with a valid author-signed invocation, then mutate only the serialized
+    // ZomeCallParams bytes after signing. The signature is intentionally left intact.
+    // This isolates signature binding: the conductor must reject the tampered request
+    // rather than dispatching the modified payload to the zome.
+    let signed = signed_call(
+        &conductor,
+        alice.cell_id(),
+        "get_my_hearths",
+        (),
+        None,
+    )
+    .await;
+
+    let mut tampered = signed.clone();
+    let mut params: ZomeCallParams = tampered
+        .bytes
+        .decode()
+        .expect("valid signed call must decode before tampering");
+    params.payload = ExternIO::encode(serde_json::json!({
+        "tampered": true
+    }))
+    .expect("tampered payload must serialize");
+    tampered.bytes = ExternIO::encode(params).expect("tampered call must serialize");
+
+    let response = submit_call(&conductor, tampered).await;
+
+    match response {
+        AppResponse::ZomeCalled(result) => match *result {
+            ZomeCallResponse::Unauthorized(..) => {}
+            other => panic!(
+                "signature-bound payload mutation should be unauthorized, got {other:?}"
+            ),
+        },
+        other => panic!("expected ZomeCalled response for signature rejection, got {other:?}"),
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_authorized_malformed_payload_is_rejected_before_function_body() {
     let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
