@@ -32,11 +32,24 @@ check_present() {
 check_lock_present() {
   local label="$1"
   local pattern="$2"
-  if rg -n --pcre2 "$pattern" mycelix-workspace/mycelix-hearth/flake.lock >/dev/null; then
+  local file="$3"
+  if rg -n --pcre2 "$pattern" "$file" >/dev/null; then
     echo "OK:   $label"
   else
     echo "FAIL: $label"
     fail=1
+  fi
+}
+
+check_lock_absent() {
+  local label="$1"
+  local pattern="$2"
+  local file="$3"
+  if rg -n --pcre2 "$pattern" "$file" >/dev/null; then
+    echo "FAIL: $label"
+    fail=1
+  else
+    echo "OK:   $label"
   fi
 }
 
@@ -63,6 +76,7 @@ check_absent "removed EntryCreationAction" '\bEntryCreationAction\b'
 check_absent "removed agent blocking APIs" '\b(block_agent|unblock_agent)\s*\('
 check_absent "old generic SignedActionHashed" 'SignedActionHashed\s*<'
 check_absent "old transport/config symbols" '\b(signal_url|webrtc_config|transport-iroh|wasmer_sys|sqlite-encrypted)\b'
+check_absent "legacy serialized-bytes pin" 'holochain_serialized_bytes[^0-9]*0\.0\.56'
 
 # Old client/test package names and 0.6 version declarations.
 check_absent "legacy Tryorama package" '@holochain/tryorama'
