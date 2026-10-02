@@ -42,7 +42,7 @@ if corpus.get("qualification_target") != "mycelix.qual.static-subject-independen
 
 vectors = corpus.get("vectors")
 if not isinstance(vectors, list) or len(vectors) != 22:
-    fail("expected exactly 20 vectors")
+    fail("expected exactly 22 vectors")
 
 vector_ids = [v.get("vector_id") for v in vectors]
 if len(set(vector_ids)) != len(vector_ids):
@@ -94,21 +94,21 @@ for v in vectors:
         m = v["mutation"]
         if not isinstance(m, dict) or "operation" not in m:
             fail(f"{v['vector_id']}: malformed mutation object")
-        allowed = {"operation", "target", "expected_effect", "fixture"}
+        allowed = {"operation", "target", "expected_effect", "fixture", "before_wire", "after_wire", "expected_canonical"}
         if set(m) - allowed:
             fail(f"{v['vector_id']}: unknown mutation fields")
         for key, value in m.items():
             if not isinstance(value, str) or not value:
                 fail(f"{v['vector_id']}: mutation field {key} must be non-empty text")
 
-def canonical_ascii_json(value):
+def canonical_jcs_json(value):
     if isinstance(value, dict):
         return "{" + ",".join(
-            json.dumps(str(k), ensure_ascii=False) + ":" + canonical_ascii_json(value[k])
-            for k in sorted(value)
+            json.dumps(str(k), ensure_ascii=False, separators=(",", ":")) + ":" + canonical_jcs_json(value[k])
+            for k in sorted(value, key=lambda key: str(key).encode("utf-16-be"))
         ) + "}"
     if isinstance(value, list):
-        return "[" + ",".join(canonical_ascii_json(x) for x in value) + "]"
+        return "[" + ",".join(canonical_jcs_json(x) for x in value) + "]"
     return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
 
 n10 = next(v for v in vectors if v["vector_id"] == "QUALS-N-010")
@@ -143,9 +143,9 @@ if not re.fullmatch(r"^[0-9a-f]{64}$", s0["envelope_sha256"]):
 canon = next(v for v in vectors if v["vector_id"] == "QUALS-M-021")["mutation"]
 before_obj = json.loads(canon["before_wire"], object_pairs_hook=reject_duplicates)
 after_obj = json.loads(canon["after_wire"], object_pairs_hook=reject_duplicates)
-if canonical_ascii_json(before_obj) != canon["expected_canonical"]:
+if canonical_jcs_json(before_obj) != canon["expected_canonical"]:
     fail("QUALS-M-021 before object canonicalized incorrectly")
-if canonical_ascii_json(after_obj) != canon["expected_canonical"]:
+if canonical_jcs_json(after_obj) != canon["expected_canonical"]:
     fail("QUALS-M-021 after object canonicalized incorrectly")
 ao = json.loads((ROOT / "s0_authority_observation_v1.example.json").read_text(encoding="utf-8"), object_pairs_hook=reject_duplicates)
 for key in (
