@@ -366,21 +366,21 @@ and lets the evidence capsule seal the resulting trace against model and paramet
 
 ## Reproducible evidence capsule (implemented)
 
-The evidence layer now binds five independent identities:
+The evidence layer binds five independent configuration identities:
 
 - model version;
 - parameter-set hash;
 - random seed;
 - initial-state hash;
-- terminal receipt-chain and observation hashes.
+- terminal receipt-chain identity.
 
-EconomicEvidenceManifest is metadata, not economic state. EconomicEvidenceCapsule seals the manifest against the final multi-period chain node and terminal EconomicObservables.
+EconomicEvidenceManifest is metadata, not economic state. EconomicEvidenceCapsule seals that manifest against the final multi-period chain node and terminal observations. The capsule can bind both aggregate EconomicObservables and the deterministic actor-level ActorEconomicObservables map; the latter is stored as a separate observation hash.
 
 The complete audit path is therefore:
 
 `model version + parameter hash + seed + initial state -> chained transitions -> terminal observations`
 
-Changing any configuration identity, state trajectory, transition history, or terminal observations produces a different evidence hash. This gives scenario runners a compact reproducibility anchor that can later be stored alongside Mycelix provenance/attestation records.
+Changing any configuration identity, state trajectory, transition history, aggregate observations, or supplied actor observations produces a different evidence hash. This gives scenario runners a compact reproducibility anchor that can later be stored alongside Mycelix provenance/attestation records.
 
 ## Multi-period evidence chain (implemented)
 
