@@ -59,6 +59,7 @@ pub struct VerifiedCapability {
 pub struct AuthorizationPermit {
     request: AuthorizationRequest,
     issued_at_us: u64,
+    valid_until_us: u64,
 }
 
 /// The only request type accepted by an enforcement adapter.
@@ -66,6 +67,7 @@ pub struct AuthorizationPermit {
 pub struct EnforcementRequest {
     request: AuthorizationRequest,
     issued_at_us: u64,
+    valid_until_us: u64,
 }
 
 impl AuthorizationPermit {
@@ -76,6 +78,10 @@ impl AuthorizationPermit {
     pub fn issued_at_us(&self) -> u64 {
         self.issued_at_us
     }
+
+    pub fn valid_until_us(&self) -> u64 {
+        self.valid_until_us
+    }
 }
 
 impl EnforcementRequest {
@@ -84,6 +90,7 @@ impl EnforcementRequest {
         Self {
             request: permit.request,
             issued_at_us: permit.issued_at_us,
+            valid_until_us: permit.valid_until_us,
         }
     }
 
@@ -296,6 +303,7 @@ pub fn authorize_permit(
     Ok(AuthorizationPermit {
         request: request.clone(),
         issued_at_us: now_us,
+        valid_until_us: c.expires_at_us,
     })
 }
 
@@ -353,6 +361,9 @@ mod tests {
         let enforcement = EnforcementRequest::from_permit(permit);
         assert_eq!(enforcement.request(), &request(CapabilityAction::Read));
         assert_eq!(enforcement.issued_at_us(), 150);
+        assert_eq!(enforcement.valid_until_us(), 200);
+        assert!(enforcement.is_valid_at(200));
+        assert!(!enforcement.is_valid_at(201));
     }
 
     #[test]
