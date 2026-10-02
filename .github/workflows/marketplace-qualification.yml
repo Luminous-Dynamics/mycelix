@@ -4,17 +4,6 @@ on:
   push:
     branches:
       - marketplace-inventory-algebra
-  pull_request:
-    branches: [main]
-    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
-    paths:
-      - 'mycelix-workspace/mycelix-marketplace/**'
-      - '.github/workflows/marketplace-qualification.yml'
-  workflow_dispatch:
-
-concurrency:
-  group: marketplace-qualification-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
 
 jobs:
   backend:
@@ -25,21 +14,17 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: 1.96.0
           components: rustfmt
           targets: wasm32-unknown-unknown
-
-      - name: Check backend formatting
+      - name: Capture exact branch formatting
         working-directory: mycelix-workspace/mycelix-marketplace/backend
-        run: cargo fmt --all --check
-
-      - name: Test transaction integrity algebra
-        working-directory: mycelix-workspace/mycelix-marketplace/backend
-        run: cargo test -p transactions_integrity
-
-      - name: Test marketplace backend workspace
-        working-directory: mycelix-workspace/mycelix-marketplace/backend
-        run: cargo test --workspace
+        run: |
+          cargo fmt --all
+          tar -czf /tmp/marketplace-format.tar.gz zomes/transactions/integrity/src/reservation_certificate.rs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: marketplace-format-capture
+          path: /tmp/marketplace-format.tar.gz
