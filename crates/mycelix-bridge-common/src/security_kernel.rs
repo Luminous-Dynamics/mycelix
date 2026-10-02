@@ -101,11 +101,8 @@ pub struct VerificationEvidence {
 }
 
 impl VerificationEvidence {
-    /// Construct trusted verification evidence from an in-crate verifier.
-    ///
-    /// This is deliberately crate-private: the public API must not allow an
-    /// arbitrary caller to manufacture signature, revocation, or authority
-    /// claims by supplying booleans.
+    /// Test-only convenience constructor for evidence without a bounded lease.
+    /// Production verification paths must use the explicit freshness-lease constructor.
     #[cfg(test)]
     pub(crate) fn new_for_capability(
         capability: &Capability,
