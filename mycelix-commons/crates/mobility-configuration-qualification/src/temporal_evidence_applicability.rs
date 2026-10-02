@@ -863,7 +863,143 @@ pub struct EvidenceDispositionReconciliationCoverage {
     pub basis: Vec<IdentityRef>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EvidenceDispositionCoverageAssessment {
+    Complete { authority_roots: Vec<IdentityRef> },
+    Unresolved {
+        missing: Vec<IdentityRef>,
+        authority_roots: Vec<IdentityRef>,
+    },
+}
+
 impl EvidenceDispositionReconciliationCoverage {
+    fn collect_missing_transition_dependencies(
+        &self,
+        reconciliation: &EvidenceDispositionReconciliation,
+        transitions: &[EvidenceDispositionTransition],
+    ) -> Result<Vec<IdentityRef>, String> {
+        use std::collections::{BTreeMap, BTreeSet};
+
+        let mut by_id = BTreeMap::new();
+        for transition in transitions {
+            transition.validate()?;
+            if by_id
+                .insert(transition.transition_id.clone(), transition)
+                .is_some()
+            {
+                return Err("duplicate disposition transition identity".into());
+            }
+        }
+
+        let mut missing = BTreeSet::new();
+        let mut roots_to_check = reconciliation.branch_heads.clone();
+        roots_to_check.extend(self.covered_branch_heads.iter().cloned());
+
+        for start_id in roots_to_check {
+            let Some(mut cursor) = by_id.get(&start_id).copied() else {
+                missing.insert(start_id);
+                continue;
+            };
+            let mut seen = BTreeSet::new();
+
+            loop {
+                if !seen.insert(cursor.transition_id.clone()) {
+                    return Err("reconciliation coverage graph contains a predecessor cycle".into());
+                }
+
+                if cursor.evidence != reconciliation.evidence {
+                    return Err(
+                        "reconciliation coverage transition belongs to different evidence".into()
+                    );
+                }
+
+                match &cursor.predecessor {
+                    None => break,
+                    Some(predecessor_id) => match by_id.get(predecessor_id) {
+                        None => {
+                            missing.insert(predecessor_id.clone());
+                            break;
+                        }
+                        Some(predecessor) => {
+                            if predecessor.evidence != cursor.evidence {
+                                return Err(
+                                    "reconciliation coverage predecessor belongs to different evidence"
+                                        .into(),
+                                );
+                            }
+                            if predecessor.to != cursor.from {
+                                return Err(
+                                    "reconciliation coverage transition source state does not match predecessor target state"
+                                        .into(),
+                                );
+                            }
+                            cursor = predecessor;
+                        }
+                    },
+                }
+            }
+        }
+
+        Ok(missing.into_iter().collect())
+    }
+
+    /// Canonical bounded qualification assessment.
+    ///
+    /// Unlike the legacy unit-returning validators, this preserves the
+    /// distinction between structural invalidity and unavailable transition or
+    /// authority dependencies.
+    pub fn validate_against_graph_and_authority_chain_assessment(
+        &self,
+        reconciliation: &EvidenceDispositionReconciliation,
+        authority_scope: &EvidenceDispositionAuthorityScope,
+        authority_delegation: &EvidenceDispositionAuthorityDelegation,
+        delegations: &[EvidenceDispositionAuthorityDelegation],
+        boundary: &EvidenceDispositionCoverageBoundary,
+        transitions: &[EvidenceDispositionTransition],
+    ) -> Result<EvidenceDispositionCoverageAssessment, String> {
+        self.validate()?;
+        reconciliation.validate()?;
+        authority_scope.validate_against_reconciliation(
+            reconciliation,
+            authority_delegation,
+        )?;
+        boundary.validate()?;
+
+        let missing_transitions =
+            self.collect_missing_transition_dependencies(reconciliation, transitions)?;
+        if !missing_transitions.is_empty() {
+            return Ok(EvidenceDispositionCoverageAssessment::Unresolved {
+                missing: missing_transitions,
+                authority_roots: vec![],
+            });
+        }
+
+        self.validate_against_graph(
+            reconciliation,
+            authority_scope,
+            authority_delegation,
+            boundary,
+            transitions,
+        )?;
+
+        match EvidenceDispositionAuthorityDelegation::validate_chain(
+            &authority_delegation.delegation_id,
+            delegations,
+        )? {
+            AuthorityDelegationChainAssessment::Complete { roots } => {
+                Ok(EvidenceDispositionCoverageAssessment::Complete {
+                    authority_roots: roots,
+                })
+            }
+            AuthorityDelegationChainAssessment::Unresolved { missing, roots } => {
+                Ok(EvidenceDispositionCoverageAssessment::Unresolved {
+                    missing,
+                    authority_roots: roots,
+                })
+            }
+        }
+    }
+
     /// Validate bounded coverage and the exact authority delegation chain it relies on.
     ///
     /// The delegation graph is scoped to the named delegation identity;
