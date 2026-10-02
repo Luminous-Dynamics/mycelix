@@ -138,7 +138,7 @@ impl VerificationEvidence {
     ) -> Self {
         Self::new_for_capability_with_authority_binding_and_valid_until(
             capability,
-            [0; 32],
+            [0xA5; 32],
             signature_verified,
             not_revoked,
             authority_unambiguous,
