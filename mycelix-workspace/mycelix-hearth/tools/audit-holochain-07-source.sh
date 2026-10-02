@@ -185,6 +185,24 @@ check_validation_determinism() {
   echo "OK:   $file validation determinism surface"
 }
 
+# Action-family authorization must not be accidentally absorbed by a terminal
+# catch-all. If a zome validates entry updates at CreateEntry(UpdateEntry), it
+# must also expose an explicit Update(OpUpdate::Entry) path for action-level
+# authorization. Holochain validation can receive these operations separately.
+check_update_action_coverage() {
+  local file="$1"
+  if rg -n --pcre2 'FlatOp::CreateEntry\\s*\\(\\s*OpEntry::UpdateEntry' "$file" >/dev/null 2>&1; then
+    if rg -n --pcre2 'FlatOp::Update\\s*\\(\\s*OpUpdate::Entry' "$file" >/dev/null 2>&1; then
+      echo "OK:   $file has explicit FlatOp::Update(OpUpdate::Entry) coverage"
+    else
+      echo "FAIL: $file validates UpdateEntry data but has no explicit Update action coverage"
+      fail=1
+    fi
+  else
+    echo "OK:   $file has no CreateEntry(UpdateEntry) path requiring paired Update coverage"
+  fi
+}
+
 # Dependency retrieval semantics: must_get_action only proves retrieval; it does not prove
 # that the referenced record passed application validation. Update/delete authorization
 # therefore uses must_get_valid_record before trusting the referenced author. Valid-record
@@ -237,6 +255,10 @@ check_immutable_dependency_semantics() {
 
 for file in "${integrity_files[@]}"; do
   check_dependency_semantics "$file"
+done
+
+for file in "${integrity_files[@]}"; do
+  check_update_action_coverage "$file"
 done
 
 for file in "${integrity_files[@]}"; do
