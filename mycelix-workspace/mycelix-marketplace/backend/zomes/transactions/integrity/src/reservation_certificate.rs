@@ -1570,6 +1570,27 @@ impl ReservationTerminalEvidence {
 ///
 /// This is deliberately independent of DHT access so coordinator/integrity tests can
 /// exercise the economic binding without constructing a full Holochain validation context.
+/// Purely validate the certificate's economic terms against the exact Listing revision.
+///
+/// This keeps the host-backed validator thin while making the price and genesis-capacity
+/// invariants directly unit-testable.
+pub fn validate_reservation_listing_binding(
+    certificate: &ReservationCertificate,
+    listing: &Listing,
+) -> Result<(), String> {
+    if certificate.intent.unit_price_cents != listing.price_cents {
+        return Err("Reservation certificate unit price does not match the listing revision".into());
+    }
+    if certificate.sequence == 0
+        && certificate.pre_state.capacity != listing.quantity_available
+    {
+        return Err(
+            "Genesis reservation capacity does not match the listing revision inventory".into(),
+        );
+    }
+    Ok(())
+}
+
 pub fn validate_transaction_reservation_binding(
     transaction: &crate::Transaction,
     certificate: &ReservationCertificate,
@@ -1800,17 +1821,8 @@ pub fn validate_create_reservation_certificate(
         ));
     }
 
-    if _revision_listing.price_cents != certificate.intent.unit_price_cents {
-        return Ok(ValidateCallbackResult::Invalid(
-            "ReservationCertificate unit price does not match the bound listing revision".into(),
-        ));
-    }
-    if certificate.sequence == 0
-        && certificate.pre_state.capacity != _revision_listing.quantity_available
-    {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Genesis reservation capacity does not match the bound listing revision inventory".into(),
-        ));
+    if let Err(error) = validate_reservation_listing_binding(certificate, &_revision_listing) {
+        return Ok(ValidateCallbackResult::Invalid(error));
     }
 
     match revision_action.action() {
