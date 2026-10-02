@@ -21,6 +21,7 @@ pub enum SandboxEnforcementError {
     KernelInterfaceUnavailable,
     InvalidRuleset,
     EnforcementFailed(i32),
+    LandlockAbiTooOld(u32),
     IdentityGenerationFailed,
 }
 
@@ -31,6 +32,7 @@ impl core::fmt::Display for SandboxEnforcementError {
             Self::KernelInterfaceUnavailable => f.write_str("required Linux sandbox interface unavailable"),
             Self::InvalidRuleset => f.write_str("invalid Landlock ruleset"),
             Self::EnforcementFailed(errno) => write!(f, "renderer sandbox enforcement failed: errno {errno}"),
+            Self::LandlockAbiTooOld(abi) => write!(f, "Landlock ABI {abi} lacks renderer thread-synchronization support"),
             Self::IdentityGenerationFailed => f.write_str("sandbox installation identity generation failed"),
         }
     }
@@ -46,6 +48,8 @@ mod linux {
 
     const LANDLOCK_CREATE_RULESET_VERSION: u32 = 1 << 0;
     const LANDLOCK_CREATE_RULESET_ERRATA: u32 = 1 << 1;
+    const LANDLOCK_MIN_ABI_FOR_TSYNC: u32 = 8;
+    const LANDLOCK_RESTRICT_SELF_TSYNC: u32 = 1 << 3;
     const LANDLOCK_RULE_PATH_BENEATH: u16 = 1;
     const LANDLOCK_ACCESS_FS_EXECUTE: u64 = 1 << 0;
     const LANDLOCK_ACCESS_FS_WRITE_FILE: u64 = 1 << 1;
@@ -80,6 +84,23 @@ mod linux {
         Ok(rc as RawFd)
     }
 
+    fn landlock_abi_version() -> Result<u32, SandboxEnforcementError> {
+        let rc = unsafe {
+            libc::syscall(
+                libc::SYS_landlock_create_ruleset,
+                std::ptr::null::<RulesetAttr>(),
+                0usize,
+                LANDLOCK_CREATE_RULESET_VERSION,
+            )
+        };
+        if rc < 0 {
+            return Err(SandboxEnforcementError::EnforcementFailed(
+                std::io::Error::last_os_error().raw_os_error().unwrap_or(libc::ENOSYS),
+            ));
+        }
+        Ok(rc as u32)
+    }
+
     fn set_no_new_privs() -> Result<(), SandboxEnforcementError> {
         let rc = unsafe { libc::prctl(libc::PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) };
         if rc != 0 {
@@ -91,14 +112,28 @@ mod linux {
     }
 
     fn restrict_self(fd: RawFd) -> Result<(), SandboxEnforcementError> {
-        const LANDLOCK_RESTRICT_SELF_NO_NEW_PRIVS: u32 = 1 << 2;
-        let rc = unsafe { libc::syscall(libc::SYS_landlock_restrict_self, fd, LANDLOCK_RESTRICT_SELF_NO_NEW_PRIVS) };
+        let abi = landlock_abi_version()?;
+        if abi < LANDLOCK_MIN_ABI_FOR_TSYNC {
+            return Err(SandboxEnforcementError::LandlockAbiTooOld(abi));
+        }
+        let rc = unsafe { libc::syscall(libc::SYS_landlock_restrict_self, fd, LANDLOCK_RESTRICT_SELF_TSYNC) };
         if rc != 0 {
             return Err(SandboxEnforcementError::EnforcementFailed(
                 std::io::Error::last_os_error().raw_os_error().unwrap_or(libc::EPERM),
             ));
         }
         Ok(())
+    }
+
+    fn filesystem_evidence_digest(abi: u32, handled_access_fs: u64, allowed_root: &std::path::Path) -> [u8; 32] {
+        let root = allowed_root.to_string_lossy();
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(b"PRISM-LANDLOCK-FILESYSTEM-EVIDENCE-V2");
+        hasher.update(&abi.to_le_bytes());
+        hasher.update(&handled_access_fs.to_le_bytes());
+        hasher.update(&(root.len() as u64).to_le_bytes());
+        hasher.update(root.as_bytes());
+        *hasher.finalize().as_bytes()
     }
 
     /// Install the first real OS-enforced filesystem boundary.
@@ -154,14 +189,14 @@ mod linux {
         let root_fd = std::fs::File::open(allowed_root)
             .map_err(|e| SandboxEnforcementError::EnforcementFailed(e.raw_os_error().unwrap_or(libc::EACCES)))?;
 
-        #[repr(C)]
+        #[repr(C, packed)]
         struct PathBeneathAttr {
             allowed_access: u64,
-            parent_fd: u64,
+            parent_fd: i32,
         }
         let rule = PathBeneathAttr {
             allowed_access: handled,
-            parent_fd: root_fd.as_raw_fd() as u64,
+            parent_fd: root_fd.as_raw_fd(),
         };
 
         let rc = unsafe {
@@ -189,7 +224,7 @@ mod linux {
             installation_id,
             SandboxAdapterKind::LinuxLandlockFilesystemV1,
             profile.policy_digest(),
-            blake3::hash(allowed_root.to_string_lossy().as_bytes()).into(),
+            filesystem_evidence_digest(landlock_abi_version()?, handled, allowed_root),
             SandboxEnforcementLayer::Filesystem,
         ).map_err(|_| SandboxEnforcementError::InvalidRuleset)
     }
