@@ -27,8 +27,7 @@ pub enum BalanceSheetInstrument {
     DepositLiabilities,
     Equity,
     ProductiveCapital,
-    Inventories,
-    Resources,
+    InventoryCarryingValue,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -63,6 +62,85 @@ pub struct SectorAssignment {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct SectorBalanceSheet {
     pub entries: Vec<BalanceSheetEntry>,
+}
+
+/// A physical stock dimension kept separate from monetary balance-sheet
+/// values. Quantities have no currency unit and therefore do not participate in
+/// the financial balance-sheet identity.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum PhysicalStockInstrument {
+    Inventories,
+    Resources,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PhysicalStockEntry {
+    pub sector: EconomicSector,
+    pub instrument: PhysicalStockInstrument,
+    pub amount: i128,
+}
+
+impl PhysicalStockEntry {
+    pub const fn new(
+        sector: EconomicSector,
+        instrument: PhysicalStockInstrument,
+        amount: i128,
+    ) -> Self {
+        Self { sector, instrument, amount }
+    }
+}
+
+/// Consolidated physical stocks. These values are intentionally not required
+/// to clear to zero: the economy can possess inventories/resources in aggregate.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub struct SectorPhysicalStock {
+    pub entries: Vec<PhysicalStockEntry>,
+}
+
+impl SectorPhysicalStock {
+    pub fn from_state(
+        state: &EconomicState,
+        assignments: &[SectorAssignment],
+    ) -> Result<Self, String> {
+        let mut actors = state.actors.clone();
+        actors.sort_by(|a, b| a.actor.cmp(&b.actor));
+
+        let mut entries = Vec::new();
+        for actor in actors {
+            let assignment = assignments
+                .iter()
+                .find(|assignment| assignment.actor == actor.actor)
+                .ok_or_else(|| format!("missing sector assignment for {}", actor.actor))?;
+
+            entries.extend([
+                PhysicalStockEntry::new(
+                    assignment.sector,
+                    PhysicalStockInstrument::Inventories,
+                    actor.real.inventories,
+                ),
+                PhysicalStockEntry::new(
+                    assignment.sector,
+                    PhysicalStockInstrument::Resources,
+                    actor.real.resources,
+                ),
+            ]);
+        }
+
+        entries.sort_by_key(|entry| (entry.sector as u8, entry.instrument as u8));
+        Ok(Self { entries })
+    }
+
+    pub fn sector_stock_total(
+        &self,
+        sector: EconomicSector,
+        instrument: PhysicalStockInstrument,
+    ) -> i128 {
+        self.entries
+            .iter()
+            .filter(|entry| entry.sector == sector && entry.instrument == instrument)
+            .map(|entry| entry.amount)
+            .sum()
+    }
 }
 
 impl SectorBalanceSheet {
@@ -121,13 +199,8 @@ impl SectorBalanceSheet {
                 ),
                 BalanceSheetEntry::new(
                     assignment.sector,
-                    BalanceSheetInstrument::Inventories,
-                    r.inventories,
-                ),
-                BalanceSheetEntry::new(
-                    assignment.sector,
-                    BalanceSheetInstrument::Resources,
-                    r.resources,
+                    BalanceSheetInstrument::InventoryCarryingValue,
+                    actor.inventory_carrying_value,
                 ),
             ]);
         }
@@ -292,10 +365,11 @@ mod tests {
         let sheet = SectorBalanceSheet::from_state(&state, &assignments).unwrap();
         assert!(sheet.financial_rows_clear());
         assert!(sheet.balance_sheet_identity_holds());
+        let physical = SectorPhysicalStock::from_state(&state, &assignments).unwrap();
         assert_eq!(
-            sheet.sector_instrument_total(
+            physical.sector_stock_total(
                 EconomicSector::Household,
-                BalanceSheetInstrument::Resources
+                PhysicalStockInstrument::Resources
             ),
             100
         );
