@@ -111,7 +111,16 @@ pub fn postings_for_step(
                     StockPosting::new(to, instrument, flow.amount),
                 ]
             }
-            EconomicTransition::IncomeTransfer(transfer) => {\n                let payer = sector_for(assignments, &transfer.payer)?;\n                let recipient = sector_for(assignments, &transfer.recipient)?;\n                vec![\n                    StockPosting::new(payer, BalanceSheetInstrument::Deposits, -transfer.amount),\n                    StockPosting::new(payer, BalanceSheetInstrument::Equity, transfer.amount),\n                    StockPosting::new(recipient, BalanceSheetInstrument::Deposits, transfer.amount),\n                    StockPosting::new(recipient, BalanceSheetInstrument::Equity, -transfer.amount),\n                ]\n            }\n            EconomicTransition::CreditCreation(credit) => {
+            EconomicTransition::IncomeTransfer(transfer) => {
+                let payer = sector_for(assignments, &transfer.payer)?;
+                let recipient = sector_for(assignments, &transfer.recipient)?;
+                vec![
+                    StockPosting::new(payer, BalanceSheetInstrument::Deposits, -transfer.amount),
+                    StockPosting::new(payer, BalanceSheetInstrument::Equity, transfer.amount),
+                    StockPosting::new(recipient, BalanceSheetInstrument::Deposits, transfer.amount),
+                    StockPosting::new(recipient, BalanceSheetInstrument::Equity, -transfer.amount),
+                ]
+            }\n            EconomicTransition::CreditCreation(credit) => {
                 let lender = sector_for(assignments, &credit.lender)?;
                 let borrower = sector_for(assignments, &credit.borrower)?;
                 vec![
@@ -162,6 +171,7 @@ pub fn postings_for_step(
 fn apply_transition(state: &mut EconomicState, transition: &EconomicTransition) -> Result<(), String> {
     match transition {
         EconomicTransition::MonetaryTransfer(flow) => state.apply_flow(flow),
+        EconomicTransition::IncomeTransfer(transfer) => state.apply_income_transfer(transfer),
         EconomicTransition::CreditCreation(credit) => state.create_credit(credit),
         EconomicTransition::DebtRepayment(repayment) => state.repay_debt(repayment),
     }
