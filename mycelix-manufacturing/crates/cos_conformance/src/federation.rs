@@ -63,7 +63,10 @@ pub struct ObservationRecord {
     pub observation_id: String,
     pub semantic_subject_id: String,
     pub payload_commitment: String,
+    /// The origin claim carried by the observation.
     pub origin_node: String,
+    /// Whether the reference model established that origin as a known node.
+    pub origin_node_known: bool,
     pub recognized_by: Option<String>,
     pub source_observation: bool,
 }
@@ -568,6 +571,7 @@ pub fn deliver(
         semantic_subject_id: envelope.semantic_subject_id.clone(),
         payload_commitment: envelope.payload_commitment.clone(),
         origin_node: envelope.origin_node.clone(),
+        origin_node_known: true,
         recognized_by: if foreign && recognition.is_some() {
             Some(envelope.target_node.clone())
         } else {
@@ -611,6 +615,7 @@ pub enum ObservationWriteResult {
     Duplicate,
     Conflict,
     RejectedSourceClaim,
+    RejectedKnownOriginClaim,
     RejectedRecognitionClaim,
     RejectedMalformedObservation,
 }
@@ -657,6 +662,9 @@ pub fn record_observation(
 ) -> ObservationWriteResult {
     if observation.source_observation {
         return ObservationWriteResult::RejectedSourceClaim;
+    }
+    if observation.origin_node_known {
+        return ObservationWriteResult::RejectedKnownOriginClaim;
     }
     if observation.recognized_by.is_some() {
         return ObservationWriteResult::RejectedRecognitionClaim;
@@ -1392,6 +1400,26 @@ mod tests {
     }
 
     #[test]
+    fn generic_observation_api_cannot_mint_known_origin_claim() {
+        let mut state = nodes();
+        let known_claim = ObservationRecord {
+            observation_id: "obs-forged-known-origin".into(),
+            semantic_subject_id: "subject-1".into(),
+            payload_commitment: "sha256:forged".into(),
+            origin_node: "node-a".into(),
+            origin_node_known: true,
+            recognized_by: None,
+            source_observation: false,
+        };
+
+        assert_eq!(
+            record_observation(&mut state, known_claim),
+            ObservationWriteResult::RejectedKnownOriginClaim
+        );
+        assert_eq!(state.observation_count(), 0);
+    }
+
+    #[test]
     fn generic_observation_api_cannot_mint_recognition_claim() {
         let mut state = nodes();
         let recognition_claim = ObservationRecord {
@@ -1399,6 +1427,7 @@ mod tests {
             semantic_subject_id: "subject-1".into(),
             payload_commitment: "sha256:forged".into(),
             origin_node: "node-b".into(),
+            origin_node_known: false,
             recognized_by: Some("node-a".into()),
             source_observation: false,
         };
@@ -1427,6 +1456,7 @@ mod tests {
                 semantic_subject_id: "subject-1".into(),
                 payload_commitment: "sha256:valid".into(),
                 origin_node: "node-a".into(),
+                origin_node_known: false,
                 recognized_by: None,
                 source_observation: false,
             };
@@ -1448,6 +1478,7 @@ mod tests {
             semantic_subject_id: "subject-1".into(),
             payload_commitment: "sha256:forged".into(),
             origin_node: "node-a".into(),
+            origin_node_known: false,
             recognized_by: None,
             source_observation: true,
         };
@@ -1467,6 +1498,7 @@ mod tests {
             semantic_subject_id: "subject-1".into(),
             payload_commitment: "sha256:a".into(),
             origin_node: "node-a".into(),
+            origin_node_known: false,
             recognized_by: None,
             source_observation: false,
         };
@@ -1698,6 +1730,7 @@ mod tests {
             semantic_subject_id: "subject-existing".into(),
             payload_commitment: "sha256:existing".into(),
             origin_node: "node-b".into(),
+            origin_node_known: false,
             recognized_by: None,
             source_observation: false,
         };
@@ -1845,6 +1878,7 @@ mod tests {
             semantic_subject_id: "subject-1".into(),
             payload_commitment: "sha256:a".into(),
             origin_node: "node-a".into(),
+            origin_node_known: false,
             recognized_by: None,
             source_observation: false,
         };
@@ -1853,6 +1887,7 @@ mod tests {
             semantic_subject_id: "subject-1".into(),
             payload_commitment: "sha256:b".into(),
             origin_node: "node-b".into(),
+            origin_node_known: false,
             recognized_by: None,
             source_observation: false,
         };
