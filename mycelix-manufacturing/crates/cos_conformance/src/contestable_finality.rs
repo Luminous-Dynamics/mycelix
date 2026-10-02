@@ -546,7 +546,7 @@ pub fn verify_observation_set_assessment_provenance(
         current_frontier_root,
         live_generation_id,
     );
-    assessment.commitment_matches() && assessment == &expected
+    assessment.structurally_valid() && assessment == &expected
 }
 
 /// Reconstruct the authoritative D6N observation-set binding from the effect,
