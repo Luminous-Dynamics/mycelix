@@ -356,6 +356,88 @@ fn upstream_d6m_to_d6p_golden_vectors_are_exact_and_linked() {
 }
 
 #[test]
+fn recomputed_but_wrong_d6o_receipt_is_rejected_at_d6p_join() {
+    let fixture: UpstreamFixture = serde_json::from_str(include_str!(
+        "../testdata/integral_interop_1_upstream_golden_vectors.json"
+    ))
+    .expect("upstream golden vectors must be valid JSON");
+
+    let observation = golden_d6m_observation();
+    let mut assessment: ObservationAssessmentV1 =
+        serde_json::from_str(&vector(&fixture, "d6n-assessment-item").preimage_payload_utf8)
+            .expect("D6N vector must deserialize");
+    assessment.assessment_commitment = vector(&fixture, "d6n-assessment-item").sha256.clone();
+
+    let mut eligibility: EvidenceEligibilityReceiptV1 =
+        serde_json::from_str(&vector(&fixture, "d6o-eligibility-receipt").preimage_payload_utf8)
+            .expect("D6O vector must deserialize");
+    eligibility.eligibility_commitment = vector(&fixture, "d6o-eligibility-receipt").sha256.clone();
+
+    let mut witness: FinalityWitnessEligibilityV1 =
+        serde_json::from_str(&vector(&fixture, "d6p-witness").preimage_payload_utf8)
+            .expect("D6P witness vector must deserialize");
+    witness.witness_commitment = vector(&fixture, "d6p-witness").sha256.clone();
+
+    let evidence = ExternalObservedEvidenceV1 {
+        observation,
+        observer_id: "observer-golden-1".into(),
+        observer: ExternalObserverProfileV1 {
+            observer_id: "observer-golden-1".into(),
+            role: ExternalObserverRoleV1::IndependentObserver,
+            observation_method: "independent-state-read".into(),
+            provider_relationship: "external".into(),
+            evidence_root: "evidence-golden-1".into(),
+            custody_root: "custody-golden-1".into(),
+            upstream_observer_ids: std::collections::BTreeSet::new(),
+            upstream_evidence_roots: std::collections::BTreeSet::new(),
+            semantic_environment_root: "environment-golden-1".into(),
+            observation_profile_id: "observation-profile-golden-1".into(),
+            independence: ObservationIndependenceV1::DeclaredIndependent,
+            independence_commitment: "independence-golden-1".into(),
+            claim_ceiling:
+                cos_conformance::contestable_finality::CONTESTABLE_FINALITY_CLAIM_CEILING.into(),
+        },
+    };
+
+    let set = ExternalObservationSetV1 {
+        set_id: "set-golden-1".into(),
+        effect_id: "effect-golden-1".into(),
+        effect_lineage_id: "lineage-golden-1".into(),
+        lifecycle_generation_id: "generation-golden-1".into(),
+        route_id: "route-golden-1".into(),
+        provider_id: "provider-golden-1".into(),
+        provider_operation_id: "operation-golden-1".into(),
+        provider_profile_root: "provider-profile-golden-1".into(),
+        semantic_environment_root: "environment-golden-1".into(),
+        observation_frontier_root: "frontier-golden-1".into(),
+        qualification_profile_id: "finality-profile-golden-1".into(),
+        observation_ids: ["obs-golden-1".into()].into_iter().collect(),
+        target_state: ExternalFinalityStateV1::Applied,
+        set_commitment: "set-golden-commitment-1".into(),
+        claim_ceiling:
+            cos_conformance::contestable_finality::CONTESTABLE_FINALITY_CLAIM_CEILING.into(),
+    };
+
+    assert!(eligibility.commitment_matches());
+    eligibility.qualification_profile_id = "life-profile-substituted".into();
+    eligibility.eligibility_commitment = eligibility.recomputed_commitment();
+    assert!(eligibility.commitment_matches(), "mutation should be locally self-consistent");
+
+    assert!(
+        !verify_witness_join_binding(
+            &witness,
+            &assessment,
+            &evidence,
+            Some(&eligibility),
+            &set,
+            "life-profile-golden-1",
+            "frontier-golden-1",
+        ),
+        "D6P must reject a self-consistent D6O receipt whose profile is substituted"
+    );
+}
+
+#[test]
 fn upstream_rejection_matrix_is_self_describing() {
     let fixture: UpstreamFixture = serde_json::from_str(include_str!(
         "../testdata/integral_interop_1_upstream_golden_vectors.json"
