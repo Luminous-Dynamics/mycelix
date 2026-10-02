@@ -19,7 +19,7 @@
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "identity")]
-use ed25519_dalek::{Signature, Signer, Verifier, SigningKey, VerifyingKey};
+use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
 
 pub const MAX_SECURITY_IDENTIFIER_BYTES: usize = 512;
 
@@ -70,7 +70,8 @@ impl SignedCapability {
             return false;
         };
         let signature = Signature::from_bytes(&self.signature);
-        key.verify(&self.capability.signing_bytes(), &signature).is_ok()
+        key.verify(&self.capability.signing_bytes(), &signature)
+            .is_ok()
     }
 
     /// Verify the signature and bind it to an expected issuer key.
@@ -310,10 +311,18 @@ impl Capability {
         })
     }
 
-    pub fn subject(&self) -> &str { &self.subject }
-    pub fn issuer(&self) -> &str { &self.issuer }
-    pub fn resource(&self) -> &str { &self.resource }
-    pub fn policy_version(&self) -> u64 { self.policy_version }
+    pub fn subject(&self) -> &str {
+        &self.subject
+    }
+    pub fn issuer(&self) -> &str {
+        &self.issuer
+    }
+    pub fn resource(&self) -> &str {
+        &self.resource
+    }
+    pub fn policy_version(&self) -> u64 {
+        self.policy_version
+    }
 }
 
 impl AuthorizationRequest {
@@ -333,7 +342,12 @@ impl AuthorizationRequest {
         {
             return Err("authorization identifier exceeds size limit");
         }
-        Ok(Self { subject, resource, action, policy_version })
+        Ok(Self {
+            subject,
+            resource,
+            action,
+            policy_version,
+        })
     }
 }
 
@@ -422,19 +436,29 @@ pub fn authorize_permit(
     let c = &verified.capability;
 
     if now_us < c.not_before_us || now_us > c.expires_at_us {
-        return Err(AuthorizationDecision::Deny(AuthorizationDenial::OutsideValidityWindow));
+        return Err(AuthorizationDecision::Deny(
+            AuthorizationDenial::OutsideValidityWindow,
+        ));
     }
     if c.subject != request.subject {
-        return Err(AuthorizationDecision::Deny(AuthorizationDenial::SubjectMismatch));
+        return Err(AuthorizationDecision::Deny(
+            AuthorizationDenial::SubjectMismatch,
+        ));
     }
     if c.resource != request.resource {
-        return Err(AuthorizationDecision::Deny(AuthorizationDenial::ResourceMismatch));
+        return Err(AuthorizationDecision::Deny(
+            AuthorizationDenial::ResourceMismatch,
+        ));
     }
     if !c.actions.contains(&request.action) {
-        return Err(AuthorizationDecision::Deny(AuthorizationDenial::ActionNotGranted));
+        return Err(AuthorizationDecision::Deny(
+            AuthorizationDenial::ActionNotGranted,
+        ));
     }
     if c.policy_version != request.policy_version {
-        return Err(AuthorizationDecision::Deny(AuthorizationDenial::PolicyVersionMismatch));
+        return Err(AuthorizationDecision::Deny(
+            AuthorizationDenial::PolicyVersionMismatch,
+        ));
     }
 
     Ok(AuthorizationPermit {
@@ -471,33 +495,44 @@ mod tests {
     }
 
     fn request(action: CapabilityAction) -> AuthorizationRequest {
-        AuthorizationRequest::new(
-            "did:mycelix:alice",
-            "resource:ledger",
-            action,
-            7,
-        )
-        .unwrap()
+        AuthorizationRequest::new("did:mycelix:alice", "resource:ledger", action, 7).unwrap()
     }
 
     #[test]
     fn capability_action_order_is_canonical_and_duplicates_rejected() {
         let first = Capability::new(
-            "alice", "issuer", "ledger",
+            "alice",
+            "issuer",
+            "ledger",
             vec![CapabilityAction::Admin, CapabilityAction::Read],
-            1, 2, 3,
-        ).unwrap();
+            1,
+            2,
+            3,
+        )
+        .unwrap();
         let second = Capability::new(
-            "alice", "issuer", "ledger",
+            "alice",
+            "issuer",
+            "ledger",
             vec![CapabilityAction::Read, CapabilityAction::Admin],
-            1, 2, 3,
-        ).unwrap();
+            1,
+            2,
+            3,
+        )
+        .unwrap();
         assert_eq!(first.signing_bytes(), second.signing_bytes());
-        assert!(Capability::new(
-            "alice", "issuer", "ledger",
-            vec![CapabilityAction::Read, CapabilityAction::Read],
-            1, 2, 3,
-        ).is_err());
+        assert!(
+            Capability::new(
+                "alice",
+                "issuer",
+                "ledger",
+                vec![CapabilityAction::Read, CapabilityAction::Read],
+                1,
+                2,
+                3,
+            )
+            .is_err()
+        );
     }
 
     #[cfg(feature = "identity")]
@@ -524,7 +559,8 @@ mod tests {
             100,
             200,
             7,
-        ).unwrap();
+        )
+        .unwrap();
         let key = SigningKey::from_bytes(&[7u8; 32]);
         let signed = SignedCapability::sign(capability, &key);
         assert!(signed.verify_signature());
@@ -586,7 +622,9 @@ mod tests {
         let result = authorize_permit(&verified(), &request(CapabilityAction::Admin), 150);
         assert_eq!(
             result,
-            Err(AuthorizationDecision::Deny(AuthorizationDenial::ActionNotGranted))
+            Err(AuthorizationDecision::Deny(
+                AuthorizationDenial::ActionNotGranted
+            ))
         );
     }
 
@@ -695,14 +733,30 @@ mod tests {
 
     #[test]
     fn malformed_capability_rejected() {
-        assert!(Capability::new(
-            "", "issuer", "resource", vec![CapabilityAction::Read], 0, 1, 1
-        ).is_err());
-        assert!(Capability::new(
-            "subject", "issuer", "resource", vec![], 0, 1, 1
-        ).is_err());
-        assert!(Capability::new(
-            "subject", "issuer", "resource", vec![CapabilityAction::Read], 2, 1, 1
-        ).is_err());
+        assert!(
+            Capability::new(
+                "",
+                "issuer",
+                "resource",
+                vec![CapabilityAction::Read],
+                0,
+                1,
+                1,
+            )
+            .is_err()
+        );
+        assert!(Capability::new("subject", "issuer", "resource", vec![], 0, 1, 1).is_err());
+        assert!(
+            Capability::new(
+                "subject",
+                "issuer",
+                "resource",
+                vec![CapabilityAction::Read],
+                2,
+                1,
+                1,
+            )
+            .is_err()
+        );
     }
 }
