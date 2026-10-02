@@ -42,6 +42,17 @@ It does **not** prove that the sender will never send another message after the 
 
 Holochain source-chain actions already have monotonic sequence indices and previous-action links, and public agent activity can be queried by bounded sequence ranges. These properties make a sender-relative boundary materially stronger than an inbox-link enumeration.
 
+## Repository audit: no existing authoritative sender set
+
+The current Pulse model does not yet supply the missing entitlement primitive:
+
+- `EncryptedEmailV2` contains exactly one sender and one recipient, plus optional thread/reply metadata; it does not carry a conversation participant set.
+- The existing `EmailThread.participants` field is not an authoritative multi-party membership record. The current thread constructor initializes it with the local agent only, so it cannot certify the complete entitled-sender set.
+- The Contacts zome's agent-to-contact relation is a user/address-book observation, not a delivery entitlement. It therefore cannot define who is entitled to place V2 messages in a recipient's Chat frontier.
+- The Mailbox capability model grants access to a mailbox/resource; it is not currently defined as the authoritative set of agents whose V2 messages are entitled for a recipient.
+
+Accordingly, reusing any of these existing structures as `E(R)` would manufacture authority that the current protocol does not actually establish. The next semantic primitive should be explicit about who defines membership, how membership changes, and which authenticated boundary makes that membership set finite and auditable.
+
 ## The unresolved dimension: entitled senders
 
 For an inbox-wide claim the verifier needs an authoritative finite set:
