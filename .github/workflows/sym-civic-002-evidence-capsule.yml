@@ -1,0 +1,30 @@
+name: SYM-CIVIC-002 Evidence Capsule
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'mycelix-workspace/docs/civic-resilience/sym_civic_002_evidence_capsule.json'
+      - 'mycelix-workspace/docs/civic-resilience/SYM_CIVIC_002_EVIDENCE_CAPSULE_V1.md'
+      - 'scripts/qualification/sym_civic_002_evidence_capsule_v1.py'
+      - '.github/workflows/sym-civic-002-evidence-capsule.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify immutable qualification capsule
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify capsule
+        run: python3 scripts/qualification/sym_civic_002_evidence_capsule_v1.py
+      - name: Immutable checkout postflight
+        run: test -z "$(git status --short)"
