@@ -55,6 +55,7 @@ impl InputCommitmentV1 {
         // particular, a caller cannot substitute a different source snapshot,
         // environment, derivation profile, or stale selected graph binding.
         if !p.structurally_valid()
+            || !is_canonical_sha256_commitment(&p.source_dkg_snapshot_commitment)
             || p.semantic_environment_commitment != e.commitment()
             || closure.projection_commitment != p.commitment()
             || closure.source_dkg_snapshot_commitment != p.source_dkg_snapshot_commitment
@@ -129,7 +130,12 @@ impl InputCommitmentV1 {
         }
 
         self.schema_version == D6W_SCHEMA_VERSION
-            && !self.source_snapshot.is_empty()
+            // D6W is the first stricter downstream boundary: a source
+            // snapshot identifier must be a canonical D6S commitment, not an
+            // opaque symbolic label. This does not prove the underlying DKG
+            // snapshot is authoritative; it only prevents an unauthenticated
+            // textual identifier from crossing the qualified-consumption gate.
+            && is_canonical_sha256_commitment(&self.source_snapshot)
             && is_canonical_sha256_commitment(&self.projection)
             && is_canonical_sha256_commitment(&self.environment)
             && is_canonical_sha256_commitment(&self.dependency_closure)
@@ -252,7 +258,11 @@ mod tests {
     }
 
     fn fixture(extra:bool)->(QualifiedProjectionV1,SemanticEnvironmentV1,DerivationProfileV1,DependencyClosureCertificateV1){
-        let e=SemanticEnvironmentV1{semantic_profile_id:"sem".into(),semantic_profile_version:"1".into(),current_frontier_root:Some("frontier".into()),d6p_eligibility_context_root:None,d6n_observer_context_root:None,d6o_lifecycle_context_root:None,membership_authority_scope_root:None,dependency_snapshot_root:Some("snapshot".into()),historical_cutoff:None,policy_version:"policy".into(),claim_ceiling:D6S_CLAIM_CEILING.into()};
+        let snapshot = canonical_sha256("fixture-dkg-snapshot", &serde_json::json!({
+            "fixture": "d6w",
+            "snapshot": "snapshot",
+        }));
+        let e=SemanticEnvironmentV1{semantic_profile_id:"sem".into(),semantic_profile_version:"1".into(),current_frontier_root:Some("frontier".into()),d6p_eligibility_context_root:None,d6n_observer_context_root:None,d6o_lifecycle_context_root:None,membership_authority_scope_root:None,dependency_snapshot_root:Some(snapshot.clone()),historical_cutoff:None,policy_version:"policy".into(),claim_ceiling:D6S_CLAIM_CEILING.into()};
         let d=DerivationProfileV1{profile_id:"d".into(),version:"1".into(),rule_ids:["r".into()].into_iter().collect(),permits_recursive_fixpoint:false,claim_ceiling:D6S_CLAIM_CEILING.into()};
         let mut nodes=BTreeMap::new();
         for (id,k) in [("root",ClaimGraphNodeKindV1::Statement),("dep",ClaimGraphNodeKindV1::Evidence)]{nodes.insert(id.into(),QualifiedNodeV1{node_id:id.into(),kind:k,content_commitment:format!("c-{id}"),node_commitment:canonical_sha256("integral-interop-1-node",&serde_json::json!({"id":id,"content_commitment":format!("c-{id}"),"kind":format!("{k:?}")})),historical_only:false,current_frontier_root:Some("frontier".into()),claim_ceiling:D6S_CLAIM_CEILING.into()});}
@@ -260,7 +270,7 @@ mod tests {
         let mut edges=BTreeMap::new();
         edges.insert("e1".into(),QualifiedEdgeV1{edge_id:"e1".into(),from_node_id:"root".into(),to_node_id:"dep".into(),kind:ClaimGraphEdgeKindV1::Supports,edge_commitment:canonical_sha256("integral-interop-1-edge",&serde_json::json!({"id":"e1","from":"root","to":"dep","kind":format!("{:?}",ClaimGraphEdgeKindV1::Supports)})),claim_ceiling:D6S_CLAIM_CEILING.into()});
         if extra{edges.insert("noise-edge".into(),QualifiedEdgeV1{edge_id:"noise-edge".into(),from_node_id:"noise".into(),to_node_id:"dep".into(),kind:ClaimGraphEdgeKindV1::Provenance,edge_commitment:canonical_sha256("integral-interop-1-edge",&serde_json::json!({"id":"noise-edge","from":"noise","to":"dep","kind":format!("{:?}",ClaimGraphEdgeKindV1::Provenance)})),claim_ceiling:D6S_CLAIM_CEILING.into()});}
-        let p=QualifiedProjectionV1{projection_id:"p".into(),projection_version:"1".into(),canonicalization_version:"D6S-CANON-1".into(),source_dkg_snapshot_commitment:"snapshot".into(),nodes,edges,d6p_current_receipt_commitments:BTreeSet::new(),d6n_context_commitment:None,d6o_context_commitment:None,semantic_environment_commitment:e.commitment(),derivation_profile_commitment:d.commitment(),claim_ceiling:D6S_CLAIM_CEILING.into()};
+        let p=QualifiedProjectionV1{projection_id:"p".into(),projection_version:"1".into(),canonicalization_version:"D6S-CANON-1".into(),source_dkg_snapshot_commitment:e.dependency_snapshot_root.clone().unwrap(),nodes,edges,d6p_current_receipt_commitments:BTreeSet::new(),d6n_context_commitment:None,d6o_context_commitment:None,semantic_environment_commitment:e.commitment(),derivation_profile_commitment:d.commitment(),claim_ceiling:D6S_CLAIM_CEILING.into()};
         let cp = closure_profile();
         let c=compute_dependency_closure(&p,&e,&d,&cp).unwrap();
         (p,e,d,c)
@@ -404,6 +414,14 @@ mod tests {
         node.node_commitment = "0000000000000000000000000000000000000000000000000000000000000000".into();
         assert!(!p.commitments_match_sources(&e,&d));
         assert!(InputCommitmentV1::from_projection(&p,&e,&c,&closure_profile(),&d).is_none());
+    }
+
+    #[test]
+    fn d6w_rejects_opaque_source_snapshot_even_when_projection_is_self_consistent() {
+        let (mut p,e,d,c) = fixture(false);
+        p.source_dkg_snapshot_commitment = "different-snapshot".into();
+        assert!(!is_canonical_sha256_commitment(&p.source_dkg_snapshot_commitment));
+        assert!(InputCommitmentV1::from_projection(&p, &e, &c, &closure_profile(), &d).is_none());
     }
 
     #[test]
