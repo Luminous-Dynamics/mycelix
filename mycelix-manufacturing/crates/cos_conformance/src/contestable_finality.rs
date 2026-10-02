@@ -541,6 +541,16 @@ pub fn verify_observation_set_provenance(
         return false;
     }
 
+    let mut supplied_ids = BTreeSet::new();
+    for item in evidence {
+        if item.structurally_valid()
+            && set.observation_ids.contains(&item.observation.observation_id)
+            && !supplied_ids.insert(item.observation.observation_id.clone())
+        {
+            return false;
+        }
+    }
+
     let mut observed_ids = BTreeSet::new();
     let mut matching_evidence_count = 0usize;
     let mut has_target_support = false;
@@ -614,7 +624,19 @@ pub fn assess_observation_set(
         if item.structurally_valid()
             && set.observation_ids.contains(&item.observation.observation_id)
         {
-            by_id.insert(item.observation.observation_id.clone(), item);
+            let id = item.observation.observation_id.clone();
+            if by_id.insert(id, item).is_some() {
+                return ObservationSetAssessmentV1 {
+                    set_id: set.set_id.clone(),
+                    disposition: ObservationSetDispositionV1::InsufficientEvidence,
+                    independent_count: 0,
+                    contradictory_independent_count: 0,
+                    dependent_count: 0,
+                    assessments: Vec::new(),
+                    assessment_commitment: "duplicate-observation".to_owned(),
+                    claim_ceiling: CONTESTABLE_FINALITY_CLAIM_CEILING.to_owned(),
+                };
+            }
         }
     }
 
@@ -1086,6 +1108,29 @@ mod tests {
             &route(),
             &profile(),
             &evidence,
+            "frontier-1",
+            "generation-1",
+        ));
+    }
+
+    #[test]
+    fn authoritative_set_provenance_rejects_conflicting_duplicate_observation_ids() {
+        let matching = evidence(
+            "obs-1",
+            observer("obs-1", "evidence-1", "custody-1"),
+            ExternalObservedStateV1::Applied,
+        );
+        let mut conflicting = matching.clone();
+        conflicting.observation.observed_state = ExternalObservedStateV1::NotApplied;
+        conflicting.observation.observation_commitment =
+            conflicting.observation.recomputed_commitment();
+
+        assert!(!verify_observation_set_provenance(
+            &set(&["obs-1"]),
+            &effect(),
+            &route(),
+            &profile(),
+            &[matching, conflicting],
             "frontier-1",
             "generation-1",
         ));
