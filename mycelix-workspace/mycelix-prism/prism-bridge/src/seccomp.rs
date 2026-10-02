@@ -580,7 +580,7 @@ mod linux {
 
                 filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_ALLOW));
             } else {
-                for (clause_index, clause) in rule.clauses.iter().enumerate() {
+                for clause in &rule.clauses {
                     for (predicate_index, predicate) in clause.predicates.iter().enumerate() {
                         let later_in_predicates = clause
                             .predicates
