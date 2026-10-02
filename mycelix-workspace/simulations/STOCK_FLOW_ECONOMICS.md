@@ -287,4 +287,4 @@ This gives the substrate a clean path from accounting to behavior:
 
 `transition log -> period ledger -> sector flow matrix -> balance-sheet delta -> observables`
 
-Only after those identities are executable should production, investment, inventories, interest accrual, capital gains, and Minsky-style financing regimes be added. Ecological SFC work similarly integrates monetary and physical stocks/flows only after the accounting structure is explicit. citeturn0search1
+Only after those identities are executable should production, investment, inventories, interest accrual, capital gains, and Minsky-style financing regimes be added. Ecological SFC work similarly integrates monetary and physical stocks/flows only after the accounting structure is explicit.
