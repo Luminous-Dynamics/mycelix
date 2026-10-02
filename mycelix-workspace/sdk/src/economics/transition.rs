@@ -9,7 +9,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::stock_flow::{CapitalInvestment, ProductionEvent, InventoryTransfer, InventoryConsumption, GoodsSale, InventoryCostAddition, InventoryCostRelief, Depreciation, CreditCreation, DebtRepayment, EconomicState, IncomeTransfer, MonetaryFlow};
+use super::stock_flow::{CapitalInvestment, ProductionEvent, InventoryTransfer, InventoryConsumption, GoodsSale, TradeCreditSale, TradeCreditSettlement, InventoryCostAddition, InventoryCostRelief, Depreciation, CreditCreation, DebtRepayment, EconomicState, IncomeTransfer, MonetaryFlow};
 
 /// One explicit economic state transition.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -21,6 +21,8 @@ pub enum EconomicTransition {
     InventoryTransfer(InventoryTransfer),
     InventoryConsumption(InventoryConsumption),
     GoodsSale(GoodsSale),
+    TradeCreditSale(TradeCreditSale),
+    TradeCreditSettlement(TradeCreditSettlement),
     InventoryCostAddition(InventoryCostAddition),
     InventoryCostRelief(InventoryCostRelief),
     Depreciation(Depreciation),
@@ -156,6 +158,10 @@ pub fn apply_step(
             EconomicTransition::InventoryTransfer(transfer) => next.apply_inventory_transfer(transfer),
             EconomicTransition::InventoryConsumption(consumption) => next.apply_inventory_consumption(consumption),
             EconomicTransition::GoodsSale(sale) => next.apply_goods_sale(sale),
+            EconomicTransition::TradeCreditSale(sale) => next.apply_trade_credit_sale(sale),
+            EconomicTransition::TradeCreditSettlement(settlement) => {
+                next.apply_trade_credit_settlement(settlement)
+            }
             EconomicTransition::InventoryCostAddition(addition) => next.apply_inventory_cost_addition(addition),
             EconomicTransition::InventoryCostRelief(relief) => next.apply_inventory_cost_relief(relief),
             EconomicTransition::Depreciation(depreciation) => next.apply_depreciation(depreciation),
@@ -373,6 +379,34 @@ mod tests {
         assert_eq!(firm.monetary.deposits, 30);
         assert_eq!(household.monetary.deposits, 70);
         assert_eq!(post.monetary_flow_volume, 30);
+    }
+
+    #[test]
+    fn trade_credit_sale_and_settlement_are_evidence_bound() {
+        let mut state = initial_state();
+        state.actors.iter_mut().find(|a| a.actor == "firm").unwrap().real.inventories = 10;
+        state.actors.iter_mut().find(|a| a.actor == "household").unwrap().monetary.deposits = 100;
+
+        let transitions = vec![
+            EconomicTransition::TradeCreditSale(
+                TradeCreditSale::new("firm", "household", 4, 80).unwrap(),
+            ),
+            EconomicTransition::TradeCreditSettlement(
+                TradeCreditSettlement::new("firm", "household", 80).unwrap(),
+            ),
+        ];
+
+        let (post, receipt) = apply_step(&state, 1, &transitions, None).unwrap();
+        let firm = post.actors.iter().find(|a| a.actor == "firm").unwrap();
+        let household = post.actors.iter().find(|a| a.actor == "household").unwrap();
+
+        assert_eq!(firm.monetary.trade_receivables, 0);
+        assert_eq!(household.monetary.trade_payables, 0);
+        assert_eq!(firm.monetary.deposits, 80);
+        assert_eq!(household.monetary.deposits, 20);
+        assert_eq!(firm.real.inventories, 6);
+        assert_eq!(household.real.inventories, 4);
+        assert_eq!(receipt.transition_count, 2);
     }
 
     #[test]
