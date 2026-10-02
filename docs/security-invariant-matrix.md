@@ -25,7 +25,7 @@ The kernel provides:
 - `VerifiedCapability` as a non-forgeable-in-module boundary object.
 - `AuthorizationDecision::Allow | Deny | Indeterminate`.
 - `AdvisoryResult` as a separate type with no conversion path to authorization.
-- Explicit denial for invalid, revoked, expired, subject-mismatched, action-mismatched, and stale-policy capabilities.
+- Explicit denial for invalid, revoked, expired, subject-mismatched, action-mismatched, stale-policy, and evidence-mismatched capabilities.
 - Explicit indeterminate handling for ambiguous authority.
 
 This directly exercises I-2, I-4, I-7, and I-8 at the shared-type boundary. It does **not** yet constitute cryptographic verification, a complete revocation protocol, or multi-agent evidence; those remain integration work.
@@ -39,11 +39,12 @@ The kernel now has a second, narrower boundary after authorization:
 3. `EnforcementRequest::from_permit()` is the only public constructor for an enforcement request and revalidates the permit at the enforcement boundary.
 4. Deny and Indeterminate outcomes produce no permit.
 5. Post-issuance revocation or authority ambiguity blocks enforcement rather than relying on the earlier Allow.
-6. `SecurityEvent` records Allow, Deny, and Indeterminate decisions and can carry explicit provenance references and recovery correlation.
+6. Enforcement additionally rejects verification evidence whose capability commitment does not match the permit being exercised.
+7. `SecurityEvent` records Allow, Deny, and Indeterminate decisions and can carry explicit provenance references and recovery correlation.
 
 This prevents a downstream enforcement adapter from accepting an arbitrary request as though it had already passed the policy decision point. It also makes the authorization decision reconstructable without making the event record itself authoritative.
 
-The new implementation remains a policy/type boundary. `VerificationEvidence` is now intentionally opaque and can only be constructed inside the bridge crate; the actual identity/authority adapter still needs to supply trustworthy signature, revocation, and authority evidence. The intended adapter should reuse Mycelix's existing canonical institutional authority identity (PR #75) rather than duplicate grant identity semantics.
+The new implementation remains a policy/type boundary. `VerificationEvidence` is now intentionally opaque and can only be constructed inside the bridge crate; its capability binding is derived from the canonical capability semantics, so evidence cannot be substituted between capabilities. The actual identity/authority adapter still needs to supply trustworthy signature, revocation, and authority evidence. The intended adapter should reuse Mycelix's existing canonical institutional authority identity (PR #75) rather than duplicate grant identity semantics.
 
 ## Evidence durability invariant
 
