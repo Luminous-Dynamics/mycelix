@@ -32,6 +32,10 @@ pub struct EconomicPeriodLedger {
     pub production_output: i128,
     /// Physical resources consumed by production during the period.
     pub resource_input: i128,
+    /// Finished-goods units transferred between actors.
+    pub inventory_transferred: i128,
+    /// Finished-goods units explicitly drawn down by final use or loss.
+    pub inventory_consumed: i128,
     /// Number of transitions represented by the ledger.
     pub transition_count: u64,
     /// Hash of the exact ordered transition list from which this ledger came.
@@ -85,6 +89,18 @@ impl EconomicPeriodLedger {
                         .checked_add(production.resource_input)
                         .ok_or_else(|| EconomicStepError::Serialization("period resource input overflow".into()))?;
                 }
+                EconomicTransition::InventoryTransfer(transfer) => {
+                    ledger.inventory_transferred = ledger
+                        .inventory_transferred
+                        .checked_add(transfer.quantity)
+                        .ok_or_else(|| EconomicStepError::Serialization("period inventory transfer overflow".into()))?;
+                }
+                EconomicTransition::InventoryConsumption(consumption) => {
+                    ledger.inventory_consumed = ledger
+                        .inventory_consumed
+                        .checked_add(consumption.quantity)
+                        .ok_or_else(|| EconomicStepError::Serialization("period inventory consumption overflow".into()))?;
+                }
                 EconomicTransition::CreditCreation(credit) => {
                     ledger.credit_created = ledger
                         .credit_created
@@ -127,7 +143,7 @@ impl EconomicPeriodLedger {
 mod tests {
     use super::*;
     use crate::economics::stock_flow::{
-        CapitalInvestment, ProductionEvent, CreditCreation, DebtRepayment, EconomicFlowCategory, IncomeTransfer, MonetaryFlow,
+        CapitalInvestment, ProductionEvent, InventoryTransfer, InventoryConsumption, CreditCreation, DebtRepayment, EconomicFlowCategory, IncomeTransfer, MonetaryFlow,
     };
 
     #[test]
