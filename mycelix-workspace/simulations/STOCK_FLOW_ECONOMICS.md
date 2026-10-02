@@ -37,6 +37,8 @@ state representation.
 - deterministic `EconomicTransition` timestep execution
 - `EconomicStepReceipt` state/transition hashes
 - `EconomicChainReceipt` multi-period evidence chaining
+- `EconomicEvidenceManifest` configuration identity
+- `EconomicEvidenceCapsule` terminal evidence sealing
 - `EconomicState`
 - aggregate asset/liability accounting
 - gross leverage observable
@@ -341,6 +343,24 @@ This follows the SFC structure in which investment is represented in the transac
 
 The next refinement should therefore be a distinct production/inventory layer rather than silently expanding `CapitalInvestment` to cover everything. That layer can introduce output, inventories, intermediate inputs, resource depletion, wages, and operating surplus while retaining the same deterministic posting/reconciliation machinery.
 
+
+## Reproducible evidence capsule (implemented)
+
+The evidence layer now binds five independent identities:
+
+- model version;
+- parameter-set hash;
+- random seed;
+- initial-state hash;
+- terminal receipt-chain and observation hashes.
+
+EconomicEvidenceManifest is metadata, not economic state. EconomicEvidenceCapsule seals the manifest against the final multi-period chain node and terminal EconomicObservables.
+
+The complete audit path is therefore:
+
+`model version + parameter hash + seed + initial state -> chained transitions -> terminal observations`
+
+Changing any configuration identity, state trajectory, transition history, or terminal observations produces a different evidence hash. This gives scenario runners a compact reproducibility anchor that can later be stored alongside Mycelix provenance/attestation records.
 
 ## Multi-period evidence chain (implemented)
 
