@@ -55,6 +55,16 @@ The adapter must preserve:
 
 The stable authority identity and the dynamic verification/lease metadata must not be conflated.
 
+### Time-unit conversion and lease monotonicity
+
+The authority freshness work expresses its bounded lease in milliseconds (`lease_until_ms`), while the bridge kernel expresses authorization timestamps in microseconds (`valid_until_us`, `now_us`). The adapter must perform an explicit checked conversion before crossing this boundary:
+
+`lease_until_us = lease_until_ms.checked_mul(1_000)`
+
+A multiplication overflow is invalid authority evidence and must fail closed; it must never wrap, saturate, or be compared across units. In particular, `lease_until_ms` must never be compared directly with a microsecond timestamp.
+
+The adapter must pass the converted lease as an upper bound, never as a new source of authorization duration. The bridge's effective permit expiry remains the minimum of capability expiry, converted freshness expiry, and the kernel maximum permit lifetime. A refreshed lease may therefore support a **new** authorization flow, but must not extend an already-issued permit. The authority-freshness semantic digest remains independent of lease metadata, so a lease/proof refresh without a semantic authority-generation change does not by itself create a new authority identity; a generation/state change must produce a different freshness binding and invalidate the older permit domain at enforcement.
+
 ## Capability-to-authority binding
 
 For a signed capability:
