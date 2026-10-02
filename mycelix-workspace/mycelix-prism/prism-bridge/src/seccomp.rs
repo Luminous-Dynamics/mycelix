@@ -1031,7 +1031,7 @@ mod linux {
                 instruction.code == BPF_JMP | BPF_JEQ | BPF_K
                     && instruction.k == libc::SYS_getpid as u32
             }).unwrap();
-            assert_eq!(filter[prctl_index].jf as usize, predicate_body + 1);
+            assert_eq!(filter[prctl_index].jf as usize, predicate_body);
 
             let getpid_index = prctl_index + 1 + predicate_body;
             assert_eq!(
