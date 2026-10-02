@@ -40,7 +40,7 @@ pub use reconciliation::{reconcile_step, postings_for_step, StockFlowMismatch, S
 pub use period_ledger::EconomicPeriodLedger;
 
 pub use stock_flow::{
-    ActorBalanceSheet, ActorId, CapitalInvestment, ProductionEvent, CreditCreation, DebtRepayment, EconomicFlowCategory, IncomeTransfer, EconomicState, MonetaryFlow,
+    ActorBalanceSheet, ActorId, CapitalInvestment, ProductionEvent, InventoryTransfer, InventoryConsumption, CreditCreation, DebtRepayment, EconomicFlowCategory, IncomeTransfer, EconomicState, MonetaryFlow,
     MonetaryInstrument, MonetaryStock, RealStock,
 };
 
