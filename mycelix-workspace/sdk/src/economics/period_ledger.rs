@@ -36,10 +36,14 @@ pub struct EconomicPeriodLedger {
     pub inventory_transferred: i128,
     /// Finished-goods units explicitly drawn down by final use or loss.
     pub inventory_consumed: i128,
-    /// Monetary consideration from explicit goods sales.
+    /// Monetary consideration recognized from explicit goods sales.
     pub sales_consideration: i128,
     /// Physical units sold through explicit goods sales.
     pub sales_quantity: i128,
+    /// Inventory carrying amount capitalized during the period.
+    pub inventory_cost_added: i128,
+    /// Inventory carrying amount relieved during the period (COGS at sale).
+    pub cost_of_goods_sold: i128,
     /// Number of transitions represented by the ledger.
     pub transition_count: u64,
     /// Hash of the exact ordered transition list from which this ledger came.
@@ -115,6 +119,18 @@ impl EconomicPeriodLedger {
                         .checked_add(sale.consideration)
                         .ok_or_else(|| EconomicStepError::Serialization("period sales consideration overflow".into()))?;
                 }
+                EconomicTransition::InventoryCostAddition(addition) => {
+                    ledger.inventory_cost_added = ledger
+                        .inventory_cost_added
+                        .checked_add(addition.carrying_value)
+                        .ok_or_else(|| EconomicStepError::Serialization("period inventory cost addition overflow".into()))?;
+                }
+                EconomicTransition::InventoryCostRelief(relief) => {
+                    ledger.cost_of_goods_sold = ledger
+                        .cost_of_goods_sold
+                        .checked_add(relief.carrying_value)
+                        .ok_or_else(|| EconomicStepError::Serialization("period COGS overflow".into()))?;
+                }
                 EconomicTransition::CreditCreation(credit) => {
                     ledger.credit_created = ledger
                         .credit_created
@@ -143,6 +159,13 @@ impl EconomicPeriodLedger {
 
     pub fn net_credit(&self) -> i128 {
         self.credit_created - self.debt_repaid
+    }
+
+    /// Gross sales revenue less explicit COGS reliefs. This is a gross trading
+    /// surplus measure; wages, intermediate costs, depreciation, interest and
+    /// taxes remain separate categories until those posting rules are added.
+    pub fn gross_operating_surplus(&self) -> i128 {
+        self.sales_consideration - self.cost_of_goods_sold
     }
 
     /// Hash the complete derived ledger for evidence binding.
@@ -188,6 +211,30 @@ mod tests {
         assert_eq!(ledger.monetary_transfer_total, 0);
         assert_eq!(ledger.credit_created, 0);
         assert_eq!(ledger.debt_repaid, 0);
+    }
+
+    #[test]
+    fn sales_and_cogs_produce_an_explicit_gross_operating_surplus() {
+        let transitions = vec![
+            EconomicTransition::InventoryCostAddition(
+                InventoryCostAddition::new("firm", 10, 80).unwrap(),
+            ),
+            EconomicTransition::InventoryCostRelief(
+                InventoryCostRelief::new("firm", 5, 40).unwrap(),
+            ),
+            EconomicTransition::GoodsSale(
+                GoodsSale::new("firm", "household", 5, 60).unwrap(),
+            ),
+            EconomicTransition::InventoryCostAddition(
+                InventoryCostAddition::new("household", 5, 60).unwrap(),
+            ),
+        ];
+        let ledger = EconomicPeriodLedger::from_transitions(&transitions).unwrap();
+        assert_eq!(ledger.sales_consideration, 60);
+        assert_eq!(ledger.sales_quantity, 5);
+        assert_eq!(ledger.inventory_cost_added, 140);
+        assert_eq!(ledger.cost_of_goods_sold, 40);
+        assert_eq!(ledger.gross_operating_surplus(), 20);
     }
 
     #[test]
