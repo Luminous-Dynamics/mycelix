@@ -581,27 +581,27 @@ async fn test_authorized_wrong_zome_is_rejected_at_dispatch_boundary() {
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_wrong_cell_provenance_is_rejected_at_authorization_boundary() {
     let mut conductor = SweetConductor::standard().await;
-    let alice_dna = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
-    let bob_dna = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
+    let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
 
     let (alice,) = conductor
-        .setup_app("test-app-alice", &[alice_dna])
-        .await
-        .unwrap()
-        .into_tuple();
-    let (bob,) = conductor
-        .setup_app("test-app-bob", &[bob_dna])
+        .setup_app("test-app", &[dna_file])
         .await
         .unwrap()
         .into_tuple();
 
-    // The request is signed by Alice but targets Bob's cell. This isolates
-    // provenance-to-cell binding from capability, nonce, expiry, and function
-    // semantics.
+    // The target cell belongs to Alice, but the signed invocation provenance is
+    // an unrelated generated agent. The app interface therefore sees a valid
+    // target cell with a provenance that does not match that cell's authority.
+    let bob = conductor
+        .keystore()
+        .new_sign_keypair_random()
+        .await
+        .unwrap();
+
     let signed = signed_call_with_identity(
         &conductor,
-        bob.cell_id(),
-        alice.agent_pubkey().clone(),
+        alice.cell_id(),
+        bob,
         "hearth_kinship",
         "get_my_hearths",
         (),
@@ -612,9 +612,9 @@ async fn test_wrong_cell_provenance_is_rejected_at_authorization_boundary() {
     match submit_call(&conductor, signed).await {
         AppResponse::ZomeCalled(result) => match *result {
             ZomeCallResponse::Unauthorized(..) => {}
-            other => panic!("wrong-cell provenance should be unauthorized, got {other:?}"),
+            other => panic!("cell/provenance mismatch should be unauthorized, got {other:?}"),
         },
-        other => panic!("expected ZomeCalled response for wrong-cell rejection, got {other:?}"),
+        other => panic!("expected ZomeCalled response for cell/provenance rejection, got {other:?}"),
     }
 }
 
