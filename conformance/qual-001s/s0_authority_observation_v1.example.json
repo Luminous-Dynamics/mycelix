@@ -1,0 +1,36 @@
+{
+  "schema": "mycelix.qual-001s.s0-authority-observation-v1",
+  "profile": "mycelix.qual.static-subject-independence.v0.3",
+  "epoch_id": "epoch-001",
+  "repository_id": 1176351975,
+  "repository_full_name": "Luminous-Dynamics/mycelix",
+  "s0_workflow_source_commit_sha": "0000000000000000000000000000000000000000",
+  "s1_workflow_source_commit_sha": "0000000000000000000000000000000000000000",
+  "dispatch_nonce_hex": "1111111111111111111111111111111111111111111111111111111111111111",
+  "event_type": "workflow_dispatch",
+  "request_authentication": {
+    "state": "OBSERVED",
+    "source": "illustrative authenticated API boundary",
+    "rule_id": "AUTH-EXAMPLE-001"
+  },
+  "actor_authorization": {
+    "state": "OBSERVED",
+    "source": "illustrative actor policy observation",
+    "rule_id": "ACTOR-EXAMPLE-001"
+  },
+  "event_authorization": {
+    "state": "OBSERVED",
+    "source": "illustrative event allowlist observation",
+    "rule_id": "EVENT-EXAMPLE-001"
+  },
+  "workflow_source_authentication": {
+    "state": "OBSERVED",
+    "source": "illustrative protected-default-branch source observation",
+    "rule_id": "WORKFLOW-EXAMPLE-001"
+  },
+  "dispatch_result": "ACCEPTED",
+  "run_attribution": {
+    "state": "UNOBSERVED"
+  },
+  "observation_state": "OBSERVED"
+}
