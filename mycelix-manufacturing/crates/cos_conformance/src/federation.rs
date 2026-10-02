@@ -357,17 +357,6 @@ pub fn deliver(
         );
     }
 
-    if let Some(predecessor) = &envelope.predecessor_delivery_id {
-        if !state.deliveries.contains_key(predecessor) {
-            return FederationOutcome::new(
-                FederationDecision::PendingDependency,
-                AuthorityDisposition::NoAuthority,
-                envelope,
-                "Causal predecessor has not yet been admitted.",
-            );
-        }
-    }
-
     if let Some(existing) = state.deliveries.get_mut(&envelope.logical_delivery_id) {
         if existing.contract.origin_node != envelope.origin_node {
             return FederationOutcome::new(
@@ -402,6 +391,17 @@ pub fn deliver(
             envelope,
             "A replayed attempt is idempotent and preserves the original authority disposition.",
         );
+    }
+
+    if let Some(predecessor) = &envelope.predecessor_delivery_id {
+        if !state.deliveries.contains_key(predecessor) {
+            return FederationOutcome::new(
+                FederationDecision::PendingDependency,
+                AuthorityDisposition::NoAuthority,
+                envelope,
+                "Causal predecessor has not yet been admitted.",
+            );
+        }
     }
 
     let foreign = envelope.origin_node != envelope.target_node;
@@ -698,9 +698,17 @@ pub fn run_scenario(
                 candidate.attempt_id = format!("{}-new", candidate.attempt_id);
             }
             FederationMutation::DelayedDelivery => {
+                candidate.envelope_id = format!("{}-delayed", candidate.envelope_id);
+                candidate.logical_delivery_id =
+                    format!("{}-delayed", candidate.logical_delivery_id);
+                candidate.attempt_id = format!("{}-delayed", candidate.attempt_id);
                 candidate.predecessor_delivery_id = Some("missing-predecessor".to_owned());
             }
             FederationMutation::ReorderedDelivery => {
+                candidate.envelope_id = format!("{}-reordered", candidate.envelope_id);
+                candidate.logical_delivery_id =
+                    format!("{}-reordered", candidate.logical_delivery_id);
+                candidate.attempt_id = format!("{}-reordered", candidate.attempt_id);
                 candidate.predecessor_delivery_id = Some("missing-predecessor".to_owned());
             }
             FederationMutation::StaleSchema => {
@@ -1071,6 +1079,29 @@ mod tests {
             );
             assert_eq!(state.delivery_count(), 3, "unexpected delivery count for {name}");
         }
+    }
+
+    #[test]
+    fn existing_delivery_contract_conflict_precedes_missing_dependency() {
+        let mut state = nodes();
+        let original = envelope();
+
+        assert_eq!(
+            deliver(&mut state, &original, 50, true).decision,
+            FederationDecision::AcceptedLocal
+        );
+        let before = state.delivery("delivery-1").unwrap().clone();
+
+        let mut mutated = original;
+        mutated.attempt_id = "attempt-missing-predecessor".into();
+        mutated.predecessor_delivery_id = Some("missing-predecessor".into());
+
+        let outcome = deliver(&mut state, &mutated, 50, true);
+        assert_eq!(outcome.decision, FederationDecision::ContractConflict);
+        assert_eq!(outcome.authority, AuthorityDisposition::NoAuthority);
+        assert_eq!(state.delivery("delivery-1"), Some(&before));
+        assert_eq!(state.delivery_count(), 1);
+        assert_eq!(state.observation_count(), 1);
     }
 
     #[test]
