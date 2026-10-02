@@ -548,15 +548,28 @@ impl EvidenceDispositionAuthorityScope {
                 return Err("authority scope basis must include every reconciliation basis witness".into());
             }
         }
-        EvidenceDispositionAuthorityDelegation::validate_chain(
+        let assessment = EvidenceDispositionAuthorityDelegation::validate_chain(
             &self.delegation,
             delegations,
-        ).and_then(|assessment| {
-            let delegation = delegations.iter().find(|d| d.delegation_id == self.delegation)
-                .ok_or_else(|| "authority scope delegation is missing".to_string())?;
-            delegation.validate_against_scope(self)?;
-            Ok(assessment)
-        })
+        )?;
+
+        // A missing target (or missing predecessor) is already an unresolved
+        // dependency classification. Do not turn that protocol-layer result
+        // back into a structural error merely because the target witness is
+        // unavailable for the secondary scope-binding check.
+        if matches!(
+            assessment,
+            AuthorityDelegationChainAssessment::Unresolved { .. }
+        ) {
+            return Ok(assessment);
+        }
+
+        let delegation = delegations
+            .iter()
+            .find(|d| d.delegation_id == self.delegation)
+            .ok_or_else(|| "authority scope delegation is missing".to_string())?;
+        delegation.validate_against_scope(self)?;
+        Ok(assessment)
     }
 
     pub fn validate_against_reconciliation(
@@ -3191,6 +3204,53 @@ mod tests {
                     IdentityKind::ReconciliationWitness,
                     "authority-delegation-missing-predecessor"
                 )],
+                roots: vec![],
+            })
+        );
+    }
+
+    #[test]
+    fn authority_scope_reports_missing_named_delegation_target() {
+        let reconciliation = EvidenceDispositionReconciliation {
+            reconciliation_id: id(
+                IdentityKind::ReconciliationWitness,
+                "reconcile-scope-target-missing",
+            ),
+            evidence: id(IdentityKind::InspectionRecord, "inspection-graph"),
+            branch_point: id(IdentityKind::ReconciliationWitness, "t1"),
+            branch_heads: vec![
+                id(IdentityKind::ReconciliationWitness, "t2"),
+                id(IdentityKind::ReconciliationWitness, "t3"),
+            ],
+            authority: id(
+                IdentityKind::ReconciliationWitness,
+                "authority-scope-target-missing",
+            ),
+            authority_scope: id(
+                IdentityKind::ReconciliationWitness,
+                "authority-scope-target-missing-witness",
+            ),
+            authority_delegation: id(
+                IdentityKind::ReconciliationWitness,
+                "authority-delegation-scope-target-missing",
+            ),
+            basis: vec![],
+        };
+        let scope = EvidenceDispositionAuthorityScope {
+            scope_id: reconciliation.authority_scope.clone(),
+            authority: reconciliation.authority.clone(),
+            subject: reconciliation.reconciliation_id.clone(),
+            delegation: reconciliation.authority_delegation.clone(),
+            basis: vec![],
+        };
+
+        assert_eq!(
+            scope.validate_against_reconciliation_and_authority_chain(
+                &reconciliation,
+                &[],
+            ),
+            Ok(AuthorityDelegationChainAssessment::Unresolved {
+                missing: vec![reconciliation.authority_delegation],
                 roots: vec![],
             })
         );
