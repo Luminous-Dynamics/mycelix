@@ -1,0 +1,77 @@
+{
+  "schema": "mycelix.sym-civic.causal-falsification-evidence-capsule.v1",
+  "program": "SYM-CIVIC-002",
+  "qualifier_commit": "49943c6e2f70fd7603c0af4f8a079981fde32c0c",
+  "qualifier_parent": "424e9342fcea47f982d3c5b9f43ad9a4cce4f1a0",
+  "workflow": {
+    "run_id": 37048493418,
+    "job_id": 110975732621,
+    "workflow_name": "SYM-CIVIC-002 Causal Falsification Benchmark",
+    "conclusion": "success",
+    "runner": "ubuntu-24.04"
+  },
+  "git_objects": {
+    "manifest_path": "mycelix-workspace/docs/civic-resilience/sym_civic_002_benchmark.json",
+    "manifest_blob_sha": "a1c9641f32f7ebade9c06a1ae1cb2f3c1827443e",
+    "qualifier_script_path": "scripts/qualification/sym_civic_002_benchmark_v1.py",
+    "qualifier_script_blob_sha": "33c60ad4713ef6a30473b8f1ca1a5ed399aeafd9",
+    "workflow_path": ".github/workflows/sym-civic-002-falsification.yml",
+    "workflow_blob_sha": "2e527e40d2cebb241b7dc4a4b4250dca7ee1fbb9"
+  },
+  "qualification": {
+    "case_count": 10,
+    "counterexample_cases": [
+      "CF-01",
+      "CF-02",
+      "CF-03",
+      "CF-04",
+      "CF-05",
+      "CF-06",
+      "CF-07",
+      "CF-08",
+      "CF-09",
+      "CF-10"
+    ],
+    "candidate_input_policy": "oracle_excluded",
+    "required_causal_threat_checks": [
+      "positivity_overlap",
+      "time_varying_confounding_feedback",
+      "network_interference_spillover",
+      "measurement_error_misclassification"
+    ],
+    "semantic_claim": "synthetic causal-study binding and research-only/non-authorizing boundary",
+    "nonclaims": [
+      "real_world_causal_effect",
+      "clinical_validity",
+      "suicide_prediction",
+      "violence_prediction",
+      "public_safety_score",
+      "municipal_authority",
+      "deployment_readiness"
+    ]
+  },
+  "receipt": {
+    "algorithm": "SHA-256",
+    "canonicalization": "UTF-8 JSON, sorted keys, compact separators",
+    "payload": {
+      "candidate_input_policy": "oracle_excluded",
+      "case_count": 10,
+      "conclusion": "success",
+      "manifest_blob_sha": "a1c9641f32f7ebade9c06a1ae1cb2f3c1827443e",
+      "program": "SYM-CIVIC-002",
+      "qualifier_commit": "49943c6e2f70fd7603c0af4f8a079981fde32c0c",
+      "qualifier_parent": "424e9342fcea47f982d3c5b9f43ad9a4cce4f1a0",
+      "qualifier_script_blob_sha": "33c60ad4713ef6a30473b8f1ca1a5ed399aeafd9",
+      "schema": "mycelix.sym-civic.causal-falsification-evidence-capsule.v1",
+      "workflow_blob_sha": "2e527e40d2cebb241b7dc4a4b4250dca7ee1fbb9",
+      "workflow_job_id": 110975732621,
+      "workflow_run_id": 37048493418
+    },
+    "sha256": "475cc62b69f6b391c6b716096265fc7d423f35e0677063b2f8b4f8497200dea0"
+  },
+  "provenance": {
+    "immutable_commit_binding": true,
+    "protected_data_in_receipt": false,
+    "receipt_role": "archival_evidence_only"
+  }
+}
