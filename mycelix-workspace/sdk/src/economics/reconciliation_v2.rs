@@ -152,6 +152,24 @@ pub fn postings_for_step(
                 vec![
                     StockPosting::new(sector, BalanceSheetInstrument::Resources, -production.resource_input),
                     StockPosting::new(sector, BalanceSheetInstrument::Inventories, production.output),
+                    StockPosting::new(sector, BalanceSheetInstrument::Equity, production.resource_input - production.output),
+                ]
+            }
+            EconomicTransition::InventoryTransfer(transfer) => {
+                let from = sector_for(assignments, &transfer.from)?;
+                let to = sector_for(assignments, &transfer.to)?;
+                vec![
+                    StockPosting::new(from, BalanceSheetInstrument::Inventories, -transfer.quantity),
+                    StockPosting::new(from, BalanceSheetInstrument::Equity, transfer.quantity),
+                    StockPosting::new(to, BalanceSheetInstrument::Inventories, transfer.quantity),
+                    StockPosting::new(to, BalanceSheetInstrument::Equity, -transfer.quantity),
+                ]
+            }
+            EconomicTransition::InventoryConsumption(consumption) => {
+                let sector = sector_for(assignments, &consumption.consumer)?;
+                vec![
+                    StockPosting::new(sector, BalanceSheetInstrument::Inventories, -consumption.quantity),
+                    StockPosting::new(sector, BalanceSheetInstrument::Equity, consumption.quantity),
                 ]
             }
             EconomicTransition::CreditCreation(credit) => {
