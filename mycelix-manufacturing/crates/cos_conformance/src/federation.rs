@@ -531,6 +531,10 @@ pub fn deliver(
         );
     }
 
+    // Admitted predecessors are historical state. Because a predecessor must
+    // already exist and admitted contracts are immutable, each accepted edge
+    // points backward in admission history; together with the self-edge guard
+    // this makes the delivery graph acyclic by construction.
     if let Some(predecessor) = &envelope.predecessor_delivery_id {
         if predecessor == &envelope.logical_delivery_id {
             return FederationOutcome::known_origin(
@@ -1921,6 +1925,85 @@ mod tests {
             deliver(&mut state, &retry, 50, true).decision,
             FederationDecision::Duplicate
         );
+    }
+
+    #[test]
+    fn admitted_delivery_history_is_acyclic_by_construction() {
+        let mut state = nodes();
+
+        let parent = envelope();
+        assert_eq!(
+            deliver(&mut state, &parent, 50, true).decision,
+            FederationDecision::AcceptedLocal
+        );
+
+        let mut child = envelope();
+        child.envelope_id = "env-child".into();
+        child.logical_delivery_id = "delivery-child".into();
+        child.attempt_id = "attempt-child".into();
+        child.predecessor_delivery_id = Some("delivery-1".into());
+        assert_eq!(
+            deliver(&mut state, &child, 50, true).decision,
+            FederationDecision::AcceptedLocal
+        );
+
+        let mut grandchild = envelope();
+        grandchild.envelope_id = "env-grandchild".into();
+        grandchild.logical_delivery_id = "delivery-grandchild".into();
+        grandchild.attempt_id = "attempt-grandchild".into();
+        grandchild.predecessor_delivery_id = Some("delivery-child".into());
+        assert_eq!(
+            deliver(&mut state, &grandchild, 50, true).decision,
+            FederationDecision::AcceptedLocal
+        );
+
+        assert_eq!(
+            state
+                .delivery("delivery-child")
+                .unwrap()
+                .contract()
+                .predecessor_delivery_id
+                .as_deref(),
+            Some("delivery-1")
+        );
+        assert_eq!(
+            state
+                .delivery("delivery-grandchild")
+                .unwrap()
+                .contract()
+                .predecessor_delivery_id
+                .as_deref(),
+            Some("delivery-child")
+        );
+
+        let mut cycle_attempt = grandchild.clone();
+        cycle_attempt.attempt_id = "attempt-cycle".into();
+        cycle_attempt.logical_delivery_id = "delivery-cycle".into();
+        cycle_attempt.envelope_id = "env-cycle".into();
+        cycle_attempt.predecessor_delivery_id = Some("delivery-grandchild".into());
+
+        assert_eq!(
+            deliver(&mut state, &cycle_attempt, 50, true).decision,
+            FederationDecision::AcceptedLocal
+        );
+
+        let mut rebinding = grandchild;
+        rebinding.attempt_id = "attempt-rebinding".into();
+        rebinding.predecessor_delivery_id = Some("delivery-cycle".into());
+        assert_eq!(
+            deliver(&mut state, &rebinding, 50, true).decision,
+            FederationDecision::ContractConflict
+        );
+        assert_eq!(
+            state
+                .delivery("delivery-grandchild")
+                .unwrap()
+                .contract()
+                .predecessor_delivery_id
+                .as_deref(),
+            Some("delivery-child")
+        );
+        assert_eq!(state.delivery_count(), 4);
     }
 
     #[test]
