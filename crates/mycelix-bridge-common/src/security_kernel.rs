@@ -425,6 +425,11 @@ pub fn verify_capability(
             AuthorizationDenial::InvalidCapability,
         ));
     }
+    if evidence.capability_binding != capability.binding_digest() {
+        return Err(AuthorizationDecision::Deny(
+            AuthorizationDenial::VerificationEvidenceMismatch,
+        ));
+    }
     if !evidence.signature_verified {
         return Err(AuthorizationDecision::Deny(
             AuthorizationDenial::InvalidCapability,
@@ -657,6 +662,32 @@ mod tests {
         )
         .unwrap();
         assert!(!tampered.verify_signature());
+    }
+
+    #[test]
+    fn evidence_for_another_capability_cannot_verify_capability() {
+        let capability = capability();
+        let other = Capability::new(
+            "did:mycelix:alice",
+            "did:mycelix:issuer",
+            "resource:other",
+            vec![CapabilityAction::Read],
+            100,
+            200,
+            7,
+        )
+        .unwrap();
+        let result = verify_capability(
+            capability,
+            VerificationEvidence::new_for_capability(&other, true, true, true),
+            150,
+        );
+        assert_eq!(
+            result,
+            Err(AuthorizationDecision::Deny(
+                AuthorizationDenial::VerificationEvidenceMismatch
+            ))
+        );
     }
 
     #[test]
