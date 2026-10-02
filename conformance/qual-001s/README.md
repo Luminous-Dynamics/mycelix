@@ -40,7 +40,7 @@ Each vector specifies:
 - expected evaluator state;
 - explicit nonclaims.
 
-The corpus contains both availability positives and hostile/negative vectors.
+The corpus contains both availability positives and hostile/negative vectors. The current revision contains 24 vectors, including explicit S0-envelope join and workflow run-attempt controls.
 
 ## Metamorphic properties
 
@@ -69,7 +69,7 @@ S0 commitment bytes use the declared `RFC8785-JCS-IJSON-v1` profile. This remove
 The corpus includes an explicit availability case for `dispatch_result=ACCEPTED` with no observed run attribution. That state remains `UNAVAILABLE` for execution; API acceptance is not silently promoted to execution evidence.
 
 
-`s0_authority_observation_v1.schema.json` separates five historically distinct propositions: request authentication, actor authorization, event authorization, workflow-source authentication, and run attribution. The record also binds the requested dispatch ref, a SHA-256 commitment to the canonical dispatch inputs, the authenticated principal identity, the applicable policy-scope identity, and the observation timestamp. The canonical dispatch-input JSON bytes are retained alongside that commitment so the digest and canonicalization can be independently recomputed; the schema caps this retained field at 65,535 characters. `dispatch_result=ACCEPTED` is an API observation only; it does not imply that a workflow run occurred. `run_attribution=OBSERVED` does not imply candidate conformance. The example is illustrative and is not evidence of an actual authorized dispatch.
+`s0_authority_observation_v1.schema.json` separates five historically distinct propositions: request authentication, actor authorization, event authorization, workflow-source authentication, and run attribution. The record also binds the requested dispatch ref, a SHA-256 commitment to the canonical dispatch inputs, the authenticated principal identity, the applicable policy-scope identity, and the observation timestamp. The canonical dispatch-input JSON bytes are retained alongside that commitment so the digest and canonicalization can be independently recomputed; the schema caps this retained field at 65,535 characters. `dispatch_result=ACCEPTED` is an API observation only; it does not imply that a workflow run occurred. `run_attribution=OBSERVED` does not imply candidate conformance. The observation additionally carries the exact S0 envelope commitment and is invalid if its epoch, repository identity, dispatch nonce, or S0/S1 workflow-source commits disagree with the preserved envelope. The example is illustrative and is not evidence of an actual authorized dispatch.
 
 ## S0 dispatch envelope
 
