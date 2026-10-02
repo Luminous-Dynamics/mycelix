@@ -406,12 +406,14 @@ pub fn deliver(
 
     if let Some(existing) = state.deliveries.get(&envelope.logical_delivery_id) {
         if existing.contract.origin_node != envelope.origin_node {
-            return FederationOutcome::new(
+            let mut outcome = FederationOutcome::new(
                 FederationDecision::OriginConflict,
                 AuthorityDisposition::NoAuthority,
                 envelope,
                 "A logical delivery identity cannot be rebound by a different origin node.",
             );
+            outcome.origin_node_known = state.nodes.contains_key(&envelope.origin_node);
+            return outcome;
         }
         if existing.contract.payload_commitment != envelope.payload_commitment
             || existing.contract.semantic_subject_id != envelope.semantic_subject_id
@@ -1363,6 +1365,7 @@ mod tests {
         let origin_outcome = deliver(&mut state, &unknown_origin, 50, true);
         assert_eq!(origin_outcome.decision, FederationDecision::OriginConflict);
         assert_eq!(origin_outcome.authority, AuthorityDisposition::NoAuthority);
+        assert!(!origin_outcome.origin_node_known());
 
         assert_eq!(state.delivery("delivery-1"), Some(&before));
         assert_eq!(state.delivery_count(), 1);
