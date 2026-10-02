@@ -214,10 +214,11 @@ impl AuthorizationPermit {
 
     /// Returns whether this permit is valid at the supplied timestamp.
     ///
-    /// Permit validity is inclusive at the exact expiry boundary, matching the
-    /// kernel's other validity-window checks.
+    /// Permit validity uses an exclusive expiry boundary: equality with
+    /// valid_until_us is already stale. This matches the evidence lease
+    /// semantics enforced at the revalidation boundary.
     pub fn is_valid_at(&self, now_us: u64) -> bool {
-        self.issued_at_us <= now_us && now_us <= self.valid_until_us
+        self.issued_at_us <= now_us && now_us < self.valid_until_us
     }
 }
 
@@ -271,7 +272,7 @@ impl EnforcementRequest {
     }
 
     pub fn is_valid_at(&self, now_us: u64) -> bool {
-        self.issued_at_us <= now_us && now_us <= self.valid_until_us
+        self.issued_at_us <= now_us && now_us < self.valid_until_us
     }
 }
 
@@ -828,6 +829,30 @@ mod tests {
         let verified = verify_capability(cap, evidence, u64::MAX - 1).unwrap();
         assert_eq!(
             authorize_permit(&verified, &request(CapabilityAction::Read), u64::MAX - 1),
+            Err(AuthorizationDecision::Deny(
+                AuthorizationDenial::OutsideValidityWindow,
+            ))
+        );
+    }
+
+    #[test]
+    fn permit_expiry_boundary_is_exclusive() {
+        let verified = verified();
+        let permit = authorize_permit(&verified, &request(CapabilityAction::Read), 150).unwrap();
+        assert!(permit.valid_until_us() > 150);
+        assert!(permit.is_valid_at(permit.valid_until_us() - 1));
+        assert!(!permit.is_valid_at(permit.valid_until_us()));
+
+        let evidence = VerificationEvidence::new_for_capability_with_authority_binding_and_valid_until(
+            &capability(),
+            [0xA5; 32],
+            true,
+            true,
+            true,
+            permit.valid_until_us(),
+        );
+        assert_eq!(
+            EnforcementRequest::from_permit(permit, evidence, permit.valid_until_us()),
             Err(AuthorizationDecision::Deny(
                 AuthorizationDenial::OutsideValidityWindow,
             ))
