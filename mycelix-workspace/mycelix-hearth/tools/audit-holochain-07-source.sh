@@ -83,7 +83,7 @@ check_integrity_coverage() {
       echo "FAIL: integrity zome lacks Holochain 0.7 FlatOp handling: $file"
       missing=1
     fi
-    if ! git grep -qE -- 'ActionData::|\.author\(\)|\.timestamp\(\)|\.data\b' -- "$file"; then
+    if ! git grep -qE -- 'ActionData::|action\.author\(\)|action\.timestamp\(\)' -- "$file"; then
       echo "FAIL: integrity zome lacks explicit 0.7 action access: $file"
       missing=1
     fi
