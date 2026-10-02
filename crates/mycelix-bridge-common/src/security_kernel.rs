@@ -574,7 +574,8 @@ mod tests {
             100,
             200,
             7,
-        ).unwrap();
+        )
+        .unwrap();
         assert!(!tampered.verify_signature());
     }
 
