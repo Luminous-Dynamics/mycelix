@@ -522,6 +522,38 @@ impl EvidenceDispositionAuthorityScope {
         Ok(())
     }
 
+    /// Validate this scope against its reconciliation and the complete named
+    /// authority delegation chain. The delegation graph is scoped to the
+    /// exact delegation identity referenced by this scope.
+    pub fn validate_against_reconciliation_and_authority_chain(
+        &self,
+        reconciliation: &EvidenceDispositionReconciliation,
+        delegations: &[EvidenceDispositionAuthorityDelegation],
+    ) -> Result<AuthorityDelegationChainAssessment, String> {
+        self.validate()?;
+        reconciliation.validate()?;
+        if self.subject != reconciliation.reconciliation_id {
+            return Err("authority scope subject must match reconciliation identity".into());
+        }
+        if self.authority != reconciliation.authority {
+            return Err("authority scope authority must match reconciliation authority".into());
+        }
+        for basis in &reconciliation.basis {
+            if !self.basis.contains(basis) {
+                return Err("authority scope basis must include every reconciliation basis witness".into());
+            }
+        }
+        EvidenceDispositionAuthorityDelegation::validate_chain(
+            &self.delegation,
+            delegations,
+        ).and_then(|assessment| {
+            let delegation = delegations.iter().find(|d| d.delegation_id == self.delegation)
+                .ok_or_else(|| "authority scope delegation is missing".to_string())?;
+            delegation.validate_against_scope(self)?;
+            Ok(assessment)
+        })
+    }
+
     pub fn validate_against_reconciliation(
         &self,
         reconciliation: &EvidenceDispositionReconciliation,
@@ -1931,6 +1963,51 @@ mod tests {
         let mut delegation = authority_delegation(&reconciliation.reconciliation_id.id);
         delegation.delegation_id = id(IdentityKind::ReconciliationWitness, "different-delegation");
         assert!(scope.validate_against_reconciliation(&reconciliation, &delegation).is_err());
+    }
+
+    #[test]
+    fn authority_scope_validates_named_delegation_chain() {
+        let reconciliation = EvidenceDispositionReconciliation {
+            reconciliation_id: id(IdentityKind::ReconciliationWitness, "reconcile-scope-chain"),
+            evidence: id(IdentityKind::InspectionRecord, "inspection-graph"),
+            branch_point: id(IdentityKind::ReconciliationWitness, "t1"),
+            branch_heads: vec![
+                id(IdentityKind::ReconciliationWitness, "t2"),
+                id(IdentityKind::ReconciliationWitness, "t3"),
+            ],
+            authority: id(IdentityKind::ReconciliationWitness, "authority-scope-chain"),
+            authority_scope: id(IdentityKind::ReconciliationWitness, "authority-scope-chain"),
+            authority_delegation: id(IdentityKind::ReconciliationWitness, "authority-delegation-scope-chain"),
+            basis: vec![],
+        };
+        let mut root = authority_delegation(&reconciliation.reconciliation_id.id);
+        root.delegation_id = id(IdentityKind::ReconciliationWitness, "authority-delegation-scope-root");
+        root.grantee = id(IdentityKind::ReconciliationWitness, "authority-scope-chain-grantor");
+        root.subject = reconciliation.reconciliation_id.clone();
+        let child = EvidenceDispositionAuthorityDelegation {
+            delegation_id: reconciliation.authority_delegation.clone(),
+            grantor: root.grantee.clone(),
+            grantee: reconciliation.authority.clone(),
+            subject: reconciliation.reconciliation_id.clone(),
+            predecessor: Some(root.delegation_id.clone()),
+            basis: vec![],
+        };
+        let scope = EvidenceDispositionAuthorityScope {
+            scope_id: reconciliation.authority_scope.clone(),
+            authority: reconciliation.authority.clone(),
+            subject: reconciliation.reconciliation_id.clone(),
+            delegation: child.delegation_id.clone(),
+            basis: vec![],
+        };
+        assert_eq!(
+            scope.validate_against_reconciliation_and_authority_chain(
+                &reconciliation,
+                &[root.clone(), child],
+            ),
+            Ok(AuthorityDelegationChainAssessment::Complete {
+                roots: vec![root.delegation_id],
+            })
+        );
     }
 
     #[test]
