@@ -41,8 +41,8 @@ impl SeccompArchitecture {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SeccompSyscallPolicyV1 {
-    pub architecture: SeccompArchitecture,
-    pub allowed_syscalls: Vec<i64>,
+    architecture: SeccompArchitecture,
+    allowed_syscalls: Vec<i64>,
 }
 
 impl SeccompSyscallPolicyV1 {
@@ -62,6 +62,14 @@ impl SeccompSyscallPolicyV1 {
             return Err(SeccompError::DuplicateSyscall);
         }
         Ok(Self { architecture, allowed_syscalls })
+    }
+
+    pub const fn architecture(&self) -> SeccompArchitecture {
+        self.architecture
+    }
+
+    pub fn allowed_syscalls(&self) -> &[i64] {
+        &self.allowed_syscalls
     }
 
     pub fn digest(&self) -> [u8; 32] {
@@ -281,7 +289,7 @@ mod linux {
         fn policy_is_sorted_and_deduplicated() {
             let arch = SeccompArchitecture::current().unwrap();
             let policy = SeccompSyscallPolicyV1::new(arch, vec![9, 3, 7]).unwrap();
-            assert_eq!(policy.allowed_syscalls, vec![3, 7, 9]);
+            assert_eq!(policy.allowed_syscalls(), &[3, 7, 9]);
             assert!(SeccompSyscallPolicyV1::new(arch, vec![3, 3]).is_err());
         }
 
