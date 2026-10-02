@@ -1078,7 +1078,7 @@ pub fn compose_finality_eligibility_from_authoritative_d6o(
     d6o_ledger: &ObserverLifecycleLedgerV1,
     current_frontier_root: &str,
     required_independent_observations: u32,
-) -> FinalityEligibilityCompositionV1 {
+) -> Option<FinalityEligibilityCompositionV1> {
     let mut evidence_by_id = BTreeMap::new();
     for item in evidence {
         if item.structurally_valid() {
@@ -1104,43 +1104,19 @@ pub fn compose_finality_eligibility_from_authoritative_d6o(
         }
 
         let Some(observation) = evidence_by_id.get(&receipt.observation_id) else {
-            return compose_finality_eligibility(
-                set,
-                assessment,
-                evidence,
-                &[],
-                lifecycle_profile.profile_id.as_str(),
-                current_frontier_root,
-                required_independent_observations,
-            );
+            return None;
         };
         let Some(generation) = d6o_ledger
             .generations
             .get(&receipt.observer_generation_id)
         else {
-            return compose_finality_eligibility(
-                set,
-                assessment,
-                evidence,
-                &[],
-                lifecycle_profile.profile_id.as_str(),
-                current_frontier_root,
-                required_independent_observations,
-            );
+            return None;
         };
         let Some(snapshot) = d6o_ledger
             .dependency_snapshots
             .get(&receipt.dependency_snapshot_id)
         else {
-            return compose_finality_eligibility(
-                set,
-                assessment,
-                evidence,
-                &[],
-                lifecycle_profile.profile_id.as_str(),
-                current_frontier_root,
-                required_independent_observations,
-            );
+            return None;
         };
 
         if receipt.qualification_profile_id != lifecycle_profile.profile_id
@@ -1153,15 +1129,7 @@ pub fn compose_finality_eligibility_from_authoritative_d6o(
                 d6o_ledger,
             )
         {
-            return compose_finality_eligibility(
-                set,
-                assessment,
-                evidence,
-                &[],
-                lifecycle_profile.profile_id.as_str(),
-                current_frontier_root,
-                required_independent_observations,
-            );
+            return None;
         }
 
         authoritative_receipts.push(receipt.clone());
@@ -1176,6 +1144,7 @@ pub fn compose_finality_eligibility_from_authoritative_d6o(
         current_frontier_root,
         required_independent_observations,
     )
+    .into()
 }
 
 pub fn verify_current_receipt_provenance(
@@ -1672,11 +1641,10 @@ mod tests {
             "frontier-1",
             1,
         );
-        assert_ne!(
-            rejected.disposition,
-            FinalityEligibilityDispositionV1::EligibleCurrent
+        assert!(
+            rejected.is_none(),
+            "authoritative D6O reconstruction must fail closed"
         );
-        assert_eq!(rejected.eligible_independent_count, 0);
     }
 
     #[test]
