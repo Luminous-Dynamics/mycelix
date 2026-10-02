@@ -2,11 +2,12 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/conformance/qual-001s/s0_dispatch_envelope_v1.schema.json",
   "title": "QUAL-001S S0 Successor Conformance Dispatch Envelope V1",
-  "description": "Implementation-independent schema for the trusted S0 discovery/dispatch record. A valid envelope is evidence of an authorized dispatch request, not evidence of candidate conformance, adoption, or runtime authority.",
+  "description": "Implementation-independent schema for the trusted S0 discovery/dispatch record. A valid envelope is evidence of an authorized dispatch request, not evidence of candidate conformance, adoption, or runtime authority. Canonical commitments over the envelope use the declared RFC 8785 JCS/I-JSON profile; duplicate property names are rejected before parsing, and numeric identifiers are constrained to the exact-in-IEEE-754 integer range.",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "schema",
+    "canonicalization_profile",
     "profile",
     "repository_id",
     "repository_full_name",
@@ -40,7 +41,8 @@
     },
     "repository_id": {
       "type": "integer",
-      "minimum": 1
+      "minimum": 1,
+      "maximum": 9007199254740991
     },
     "repository_full_name": {
       "type": "string",
@@ -48,7 +50,8 @@
     },
     "pull_request_number": {
       "type": "integer",
-      "minimum": 1
+      "minimum": 1,
+      "maximum": 9007199254740991
     },
     "subject_base_sha": {
       "$ref": "#/$defs/git_sha"
@@ -120,6 +123,9 @@
     },
     "candidate_code_executed": {
       "const": false
+    },
+    "canonicalization_profile": {
+      "const": "RFC8785-JCS-IJSON-v1"
     }
   },
   "$defs": {
