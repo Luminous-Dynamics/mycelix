@@ -26,13 +26,14 @@ pub const MAX_SECURITY_IDENTIFIER_BYTES: usize = 512;
 /// underlying capability's absolute expiry.
 pub const MAX_AUTHORIZATION_PERMIT_LIFETIME_US: u64 = 5 * 60 * 1_000_000;
 
+#[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CapabilityAction {
-    Read,
-    Write,
-    Execute,
-    Delegate,
-    Admin,
+    Read = 1,
+    Write = 2,
+    Execute = 3,
+    Delegate = 4,
+    Admin = 5,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -632,6 +633,15 @@ mod tests {
 
     fn request(action: CapabilityAction) -> AuthorizationRequest {
         AuthorizationRequest::new("did:mycelix:alice", "resource:ledger", action, 7).unwrap()
+    }
+
+    #[test]
+    fn capability_action_discriminants_are_stable() {
+        assert_eq!(CapabilityAction::Read as u8, 1);
+        assert_eq!(CapabilityAction::Write as u8, 2);
+        assert_eq!(CapabilityAction::Execute as u8, 3);
+        assert_eq!(CapabilityAction::Delegate as u8, 4);
+        assert_eq!(CapabilityAction::Admin as u8, 5);
     }
 
     #[test]
