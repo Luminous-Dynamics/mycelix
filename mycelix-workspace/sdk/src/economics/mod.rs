@@ -13,6 +13,7 @@
 
 pub mod commons;
 pub mod decay_garden;
+pub mod evidence;
 pub mod metabolic_oracle;
 pub mod observables;
 pub mod period_ledger;
@@ -45,6 +46,7 @@ pub use period_ledger::EconomicPeriodLedger;
 pub use observables::{
     classify_financing_regime, EconomicObservables, FinancingRegime, RatioObservation,
 };
+pub use evidence::{EconomicEvidenceCapsule, EconomicEvidenceManifest};
 
 pub use stock_flow::{
     ActorBalanceSheet, ActorId, CapitalInvestment, ProductionEvent, InventoryTransfer,
