@@ -68,7 +68,7 @@ This is intentionally a **bounded coverage claim**, not a global DHT enumeration
 
 ### Coverage authority and reconciliation binding
 
-The coverage boundary is explicitly scoped to one reconciliation witness and carries the same authority witness as that reconciliation. Coverage therefore cannot be detached from the reconciliation it claims to cover, nor can a different authority be silently substituted at the boundary layer. This is a structural provenance binding, not an assertion that the authority is objectively correct, certified, or globally entitled.
+The coverage boundary is explicitly scoped to one reconciliation witness and carries the same authority witness as that reconciliation. Coverage therefore cannot be detached from the reconciliation it claims to cover, nor can a different authority or authority-scope witness be silently substituted at the boundary layer. This is a structural provenance binding, not an assertion that the authority is objectively correct, certified, or globally entitled.
 
 The boundary remains addressable and finite: it names the exact evidence event, branch point, branch heads, authority, and basis used for the bounded claim. The validator still makes no claim that unmentioned mutable links or globally undiscovered records do not exist.
 
@@ -80,3 +80,5 @@ The reconciliation basis is the minimum provenance basis for the bounded coverag
 An `EvidenceDispositionAuthorityScope` is now a separate addressable witness that binds the exact reconciliation subject to the exact authority witness. The reconciliation references that scope identity, and graph validation requires the supplied scope witness to match both the reconciliation identity and authority. The scope basis must also contain every reconciliation basis witness, while permitting additional scope-specific provenance.
 
 This prevents an authority witness from being structurally reused for an unrelated reconciliation merely because both identities are individually well-typed. It still does **not** establish real-world institutional authority, delegation legitimacy, certification, or entitlement; those remain external claims that must be represented by appropriate evidence.
+
+The authority-scope witness is also carried through coverage validation: the boundary must name the exact same scope identity as the reconciliation, and the supplied scope witness must bind that identity to the same authority and reconciliation subject. This closes the remaining structural gap between naming an authority and naming the scope in which that authority witness is being relied upon.
