@@ -79,7 +79,7 @@ impl ActorBalanceSheet {
     }
 
     pub fn net_worth(&self) -> i128 {
-        self.monetary.net_position() + self.monetary.equity + self.real.productive_capital + self.real.resources
+        self.monetary.net_position() + self.real.productive_capital + self.real.resources
     }
 }
 
@@ -132,15 +132,35 @@ impl MonetaryFlow {
     }
 }
 
-/// An income/expenditure transfer that changes both deposits and equity.
-///
-/// This is the minimal double-entry representation for flows such as wages,
-/// interest, taxes, or transfers when settlement occurs through deposits.
+/// Semantic category for a deposit-settled economic transfer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Hash, Ord, PartialOrd)]
+pub enum EconomicFlowCategory {
+    Wage,
+    Interest,
+    Tax,
+    Transfer,
+    Consumption,
+}
+
+impl EconomicFlowCategory {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Wage => "wage",
+            Self::Interest => "interest",
+            Self::Tax => "tax",
+            Self::Transfer => "transfer",
+            Self::Consumption => "consumption",
+        }
+    }
+}
+
+/// An income/expenditure transfer with an explicit economic category.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct IncomeTransfer {
     pub payer: ActorId,
     pub recipient: ActorId,
     pub amount: i128,
+    pub category: EconomicFlowCategory,
 }
 
 impl IncomeTransfer {
@@ -149,6 +169,15 @@ impl IncomeTransfer {
         recipient: impl Into<ActorId>,
         amount: i128,
     ) -> Result<Self, String> {
+        Self::with_category(payer, recipient, amount, EconomicFlowCategory::Transfer)
+    }
+
+    pub fn with_category(
+        payer: impl Into<ActorId>,
+        recipient: impl Into<ActorId>,
+        amount: i128,
+        category: EconomicFlowCategory,
+    ) -> Result<Self, String> {
         if amount <= 0 {
             return Err("income transfer amount must be positive".into());
         }
@@ -156,6 +185,7 @@ impl IncomeTransfer {
             payer: payer.into(),
             recipient: recipient.into(),
             amount,
+            category,
         })
     }
 }
