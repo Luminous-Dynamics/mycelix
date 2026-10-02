@@ -94,7 +94,7 @@ fn thread_sync_child() -> ! {
             std::hint::spin_loop();
         }
         let result = unsafe { libc::getppid() };
-        thread_observed.store(result, Ordering::Release);
+        thread_observed.store(i64::from(result), Ordering::Release);
         loop {
             std::hint::spin_loop();
         }
