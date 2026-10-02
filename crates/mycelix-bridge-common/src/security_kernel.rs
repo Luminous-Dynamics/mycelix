@@ -410,6 +410,10 @@ impl AuthorizationRequest {
             policy_version,
         })
     }
+
+    pub fn policy_version(&self) -> u64 {
+        self.policy_version
+    }
 }
 
 /// Cross the independent verification boundary.
