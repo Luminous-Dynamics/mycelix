@@ -42,8 +42,8 @@ if corpus.get("qualification_target") != "mycelix.qual.static-subject-independen
     fail("wrong qualification target")
 
 vectors = corpus.get("vectors")
-if not isinstance(vectors, list) or len(vectors) != 24:
-    fail("expected exactly 24 vectors")
+if not isinstance(vectors, list) or len(vectors) != 28:
+    fail("expected exactly 28 vectors")
 
 vector_ids = [v.get("vector_id") for v in vectors]
 if len(set(vector_ids)) != len(vector_ids):
