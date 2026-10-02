@@ -1730,11 +1730,12 @@ pub fn validate_create_reservation_terminal(
         ));
     }
 
-    let certificate_record = must_get_valid_record(evidence.certificate_hash.clone()).map_err(|_| {
-        wasm_error!(WasmErrorInner::Guest(
-            "Reservation terminal evidence references a missing or invalid certificate".into(),
-        ))
-    })?;
+    let certificate_record =
+        must_get_valid_record(evidence.certificate_hash.clone()).map_err(|_| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Reservation terminal evidence references a missing or invalid certificate".into(),
+            ))
+        })?;
     let certificate = certificate_record
         .entry()
         .to_app_option::<ReservationCertificate>()
@@ -1761,7 +1762,8 @@ pub fn validate_create_reservation_terminal(
 
     let Some(chain_top) = action.prev_action.clone() else {
         return Ok(ValidateCallbackResult::Invalid(
-            "Reservation terminal evidence action is missing its seller source-chain predecessor".into(),
+            "Reservation terminal evidence action is missing its seller source-chain predecessor"
+                .into(),
         ));
     };
 
@@ -1772,15 +1774,15 @@ pub fn validate_create_reservation_terminal(
     // predecessor determines the terminal sequence and pre-state.
     let prior_activity = must_get_agent_activity(
         evidence.seller.clone(),
-        ChainFilter::new(chain_top.clone())
-            .until_hash(evidence.certificate_hash.clone()),
+        ChainFilter::new(chain_top.clone()).until_hash(evidence.certificate_hash.clone()),
     )?;
     if !prior_activity
         .iter()
         .any(|activity| activity.action.hashed.hash == evidence.certificate_hash)
     {
         return Ok(ValidateCallbackResult::Invalid(
-            "Reservation terminal certificate is not an earlier action on the seller source chain".into(),
+            "Reservation terminal certificate is not an earlier action on the seller source chain"
+                .into(),
         ));
     }
     if !prior_activity
@@ -1792,11 +1794,13 @@ pub fn validate_create_reservation_terminal(
         ));
     }
 
-    let previous = must_get_valid_record(evidence.previous_frontier_action.clone()).map_err(|_| {
-        wasm_error!(WasmErrorInner::Guest(
-            "Reservation terminal evidence references a missing or invalid previous frontier".into(),
-        ))
-    })?;
+    let previous =
+        must_get_valid_record(evidence.previous_frontier_action.clone()).map_err(|_| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Reservation terminal evidence references a missing or invalid previous frontier"
+                    .into(),
+            ))
+        })?;
     if previous.action().author() != &evidence.seller {
         return Ok(ValidateCallbackResult::Invalid(
             "Reservation terminal previous frontier is not seller-authored".into(),
@@ -1827,26 +1831,25 @@ pub fn validate_create_reservation_terminal(
                 )))
             })?
         {
-            let previous_certificate = must_get_valid_record(
-                previous_terminal.certificate_hash.clone(),
-            )
-            .map_err(|_| {
-                wasm_error!(WasmErrorInner::Guest(
-                    "Previous terminal frontier references a missing certificate".into(),
-                ))
-            })?
-            .entry()
-            .to_app_option::<ReservationCertificate>()
-            .map_err(|e| {
-                wasm_error!(WasmErrorInner::Guest(format!(
-                    "Invalid previous terminal certificate entry: {e:?}"
-                )))
-            })?
-            .ok_or_else(|| {
-                wasm_error!(WasmErrorInner::Guest(
-                    "Previous terminal certificate has the wrong entry type".into(),
-                ))
-            })?;
+            let previous_certificate =
+                must_get_valid_record(previous_terminal.certificate_hash.clone())
+                    .map_err(|_| {
+                        wasm_error!(WasmErrorInner::Guest(
+                            "Previous terminal frontier references a missing certificate".into(),
+                        ))
+                    })?
+                    .entry()
+                    .to_app_option::<ReservationCertificate>()
+                    .map_err(|e| {
+                        wasm_error!(WasmErrorInner::Guest(format!(
+                            "Invalid previous terminal certificate entry: {e:?}"
+                        )))
+                    })?
+                    .ok_or_else(|| {
+                        wasm_error!(WasmErrorInner::Guest(
+                            "Previous terminal certificate has the wrong entry type".into(),
+                        ))
+                    })?;
 
             (
                 previous_terminal.sequence,
