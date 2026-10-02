@@ -151,12 +151,12 @@ impl ReservationLedger {
         intent_id: &str,
         release: bool,
     ) -> Result<ApplyOutcome, ReservationError> {
-        let current = self
-            .reservations
-            .get(intent_id)
-            .ok_or_else(|| ReservationError::UnknownIntent {
-                intent_id: intent_id.to_owned(),
-            })?;
+        let current =
+            self.reservations
+                .get(intent_id)
+                .ok_or_else(|| ReservationError::UnknownIntent {
+                    intent_id: intent_id.to_owned(),
+                })?;
 
         match current {
             ReservationState::Active(reservation) => {
@@ -195,10 +195,7 @@ impl ReservationLedger {
     fn set_capacity(&mut self, capacity: u32) -> Result<ApplyOutcome, ReservationError> {
         let reserved = self.active_reserved();
         if capacity < reserved {
-            return Err(ReservationError::CapacityBelowActiveReservations {
-                capacity,
-                reserved,
-            });
+            return Err(ReservationError::CapacityBelowActiveReservations { capacity, reserved });
         }
 
         if capacity == self.capacity {
@@ -233,7 +230,9 @@ mod tests {
         assert_eq!(ledger.available(), 7);
 
         assert_eq!(
-            ledger.apply(ReservationEvent::Release { intent_id: "i1".into() }),
+            ledger.apply(ReservationEvent::Release {
+                intent_id: "i1".into()
+            }),
             Ok(ApplyOutcome::Applied)
         );
         assert_eq!(ledger.active_reserved(), 0);
@@ -255,14 +254,18 @@ mod tests {
 
         assert_eq!(
             ledger.apply(ReservationEvent::Reserve(reservation("i1", "r2", 2))),
-            Err(ReservationError::IntentConflict { intent_id: "i1".into() })
+            Err(ReservationError::IntentConflict {
+                intent_id: "i1".into()
+            })
         );
     }
 
     #[test]
     fn capacity_cannot_drop_below_outstanding_reservations() {
         let mut ledger = ReservationLedger::new(10);
-        ledger.apply(ReservationEvent::Reserve(reservation("i1", "r1", 6))).unwrap();
+        ledger
+            .apply(ReservationEvent::Reserve(reservation("i1", "r1", 6)))
+            .unwrap();
 
         assert_eq!(
             ledger.apply(ReservationEvent::SetCapacity { capacity: 5 }),
@@ -277,7 +280,9 @@ mod tests {
     #[test]
     fn capacity_increase_is_allowed() {
         let mut ledger = ReservationLedger::new(3);
-        ledger.apply(ReservationEvent::Reserve(reservation("i1", "r1", 3))).unwrap();
+        ledger
+            .apply(ReservationEvent::Reserve(reservation("i1", "r1", 3)))
+            .unwrap();
 
         assert_eq!(
             ledger.apply(ReservationEvent::SetCapacity { capacity: 8 }),
@@ -289,10 +294,14 @@ mod tests {
     #[test]
     fn duplicate_terminal_event_is_idempotent_but_cross_terminal_is_conflict() {
         let mut ledger = ReservationLedger::new(4);
-        ledger.apply(ReservationEvent::Reserve(reservation("i1", "r1", 2))).unwrap();
+        ledger
+            .apply(ReservationEvent::Reserve(reservation("i1", "r1", 2)))
+            .unwrap();
 
         assert_eq!(
-            ledger.apply(ReservationEvent::Consume { intent_id: "i1".into() }),
+            ledger.apply(ReservationEvent::Consume {
+                intent_id: "i1".into()
+            }),
             Ok(ApplyOutcome::Applied)
         );
         assert_eq!(
@@ -300,15 +309,21 @@ mod tests {
             Ok(ApplyOutcome::Idempotent)
         );
         assert_eq!(
-            ledger.apply(ReservationEvent::Release { intent_id: "i1".into() }),
-            Err(ReservationError::AlreadyConsumed { intent_id: "i1".into() })
+            ledger.apply(ReservationEvent::Release {
+                intent_id: "i1".into()
+            }),
+            Err(ReservationError::AlreadyConsumed {
+                intent_id: "i1".into()
+            })
         );
     }
 
     #[test]
     fn cannot_reserve_more_than_available() {
         let mut ledger = ReservationLedger::new(5);
-        ledger.apply(ReservationEvent::Reserve(reservation("i1", "r1", 4))).unwrap();
+        ledger
+            .apply(ReservationEvent::Reserve(reservation("i1", "r1", 4)))
+            .unwrap();
 
         assert_eq!(
             ledger.apply(ReservationEvent::Reserve(reservation("i2", "r1", 2))),
@@ -355,12 +370,18 @@ mod tests {
         assert_eq!(first_results[0], Ok(ApplyOutcome::Applied));
         assert_eq!(
             first_results[1],
-            Err(ReservationError::InsufficientCapacity { requested: 2, available: 1 })
+            Err(ReservationError::InsufficientCapacity {
+                requested: 2,
+                available: 1
+            })
         );
         assert_eq!(second_results[0], Ok(ApplyOutcome::Applied));
         assert_eq!(
             second_results[1],
-            Err(ReservationError::InsufficientCapacity { requested: 3, available: 2 })
+            Err(ReservationError::InsufficientCapacity {
+                requested: 3,
+                available: 2
+            })
         );
         assert_eq!(a.active_reserved(), b.active_reserved());
         assert_eq!(a.active_reserved(), 3);
@@ -369,8 +390,14 @@ mod tests {
     #[test]
     fn consumed_inventory_is_removed_from_capacity() {
         let mut ledger = ReservationLedger::new(2);
-        ledger.apply(ReservationEvent::Reserve(reservation("i1", "r1", 2))).unwrap();
-        ledger.apply(ReservationEvent::Consume { intent_id: "i1".into() }).unwrap();
+        ledger
+            .apply(ReservationEvent::Reserve(reservation("i1", "r1", 2)))
+            .unwrap();
+        ledger
+            .apply(ReservationEvent::Consume {
+                intent_id: "i1".into(),
+            })
+            .unwrap();
 
         assert_eq!(ledger.capacity(), 0);
         assert_eq!(ledger.available(), 0);
