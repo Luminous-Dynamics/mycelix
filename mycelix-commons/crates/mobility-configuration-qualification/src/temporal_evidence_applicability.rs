@@ -256,11 +256,84 @@ pub struct EvidenceDispositionAuthorityDelegation {
     pub grantor: IdentityRef,
     pub grantee: IdentityRef,
     pub subject: IdentityRef,
+    /// Exact prior delegation whose grantee granted this delegation.
     pub predecessor: Option<IdentityRef>,
     pub basis: Vec<IdentityRef>,
 }
 
+/// Result of validating a supplied authority-delegation graph.
+///
+/// Multiple roots are allowed because independently issued root delegations
+/// may coexist. A delegated edge must, however, preserve the subject and make
+/// the predecessor's grantee the current grantor. This is structural
+/// provenance only; it does not prove real-world authority.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AuthorityDelegationChainAssessment {
+    Complete { roots: Vec<IdentityRef> },
+    Unresolved { missing: Vec<IdentityRef>, roots: Vec<IdentityRef> },
+}
+
 impl EvidenceDispositionAuthorityDelegation {
+    /// Validate the supplied delegation records as a finite, addressable
+    /// predecessor graph. Missing predecessors remain unresolved; a closed
+    /// cycle is invalid because it has no historical root.
+    pub fn validate_graph(
+        delegations: &[EvidenceDispositionAuthorityDelegation],
+    ) -> Result<AuthorityDelegationChainAssessment, String> {
+        use std::collections::{BTreeMap, BTreeSet};
+
+        let mut by_id = BTreeMap::new();
+        for delegation in delegations {
+            delegation.validate()?;
+            if by_id.insert(delegation.delegation_id.clone(), delegation).is_some() {
+                return Err("duplicate authority delegation identity".into());
+            }
+        }
+
+        let mut missing = Vec::new();
+        let mut roots = Vec::new();
+        for delegation in delegations {
+            match &delegation.predecessor {
+                None => roots.push(delegation.delegation_id.clone()),
+                Some(predecessor_id) => match by_id.get(predecessor_id) {
+                    None => missing.push(predecessor_id.clone()),
+                    Some(predecessor) => {
+                        if predecessor.subject != delegation.subject {
+                            return Err("authority delegation predecessor subject must match".into());
+                        }
+                        if predecessor.grantee != delegation.grantor {
+                            return Err("authority delegation grantor must match predecessor grantee".into());
+                        }
+                    }
+                },
+            }
+        }
+
+        missing.sort_by(|a, b| (&a.namespace, &a.id).cmp(&(&b.namespace, &b.id)));
+        missing.dedup();
+        roots.sort_by(|a, b| (&a.namespace, &a.id).cmp(&(&b.namespace, &b.id)));
+
+        for delegation in delegations {
+            let mut seen = BTreeSet::new();
+            let mut cursor = delegation;
+            while let Some(predecessor_id) = &cursor.predecessor {
+                if !seen.insert(cursor.delegation_id.clone()) {
+                    return Err("authority delegation graph contains a predecessor cycle".into());
+                }
+                match by_id.get(predecessor_id) {
+                    Some(predecessor) => cursor = predecessor,
+                    None => break,
+                }
+            }
+        }
+
+        if missing.is_empty() {
+            Ok(AuthorityDelegationChainAssessment::Complete { roots })
+        } else {
+            Ok(AuthorityDelegationChainAssessment::Unresolved { missing, roots })
+        }
+    }
+
     pub fn validate(&self) -> Result<(), String> {
         self.delegation_id.validate()?;
         self.grantor.validate()?;
@@ -317,6 +390,9 @@ impl EvidenceDispositionAuthorityDelegation {
     ) -> Result<(), String> {
         self.validate()?;
         scope.validate()?;
+        if self.delegation_id != scope.delegation {
+            return Err("authority scope references a different delegation witness".into());
+        }
         if self.grantee != scope.authority {
             return Err("authority delegation grantee must match scope authority".into());
         }
@@ -406,8 +482,16 @@ impl EvidenceDispositionReconciliation {
         if self.authority_scope.kind != IdentityKind::ReconciliationWitness {
             return Err("reconciliation authority scope must be a ReconciliationWitness".into());
         }
-        if self.authority_scope == self.reconciliation_id || self.authority_scope == self.authority || self.authority_delegation == self.reconciliation_id || self.authority_delegation == self.authority || self.authority_delegation == self.authority_scope {
+        if self.authority_scope == self.reconciliation_id
+            || self.authority_scope == self.authority
+            || self.authority_delegation == self.reconciliation_id
+            || self.authority_delegation == self.authority
+            || self.authority_delegation == self.authority_scope
+        {
             return Err("reconciliation authority scope cannot equal reconciliation or authority identity".into());
+        }
+        if self.authority_delegation != self.authority_scope.delegation {
+            return Err("reconciliation authority delegation must match authority scope delegation".into());
         }
         if !matches!(self.reconciliation_id.kind, IdentityKind::ReconciliationWitness) {
             return Err("reconciliation identity must be a ReconciliationWitness".into());
@@ -588,8 +672,16 @@ impl EvidenceDispositionCoverageBoundary {
         if self.authority_scope.kind != IdentityKind::ReconciliationWitness {
             return Err("coverage boundary authority scope must be a ReconciliationWitness".into());
         }
-        if self.authority_scope == self.boundary_id || self.authority_scope == self.authority || self.authority_delegation == self.boundary_id || self.authority_delegation == self.authority || self.authority_delegation == self.authority_scope {
+        if self.authority_scope == self.boundary_id
+            || self.authority_scope == self.authority
+            || self.authority_delegation == self.boundary_id
+            || self.authority_delegation == self.authority
+            || self.authority_delegation == self.authority_scope
+        {
             return Err("coverage boundary authority scope cannot equal boundary or authority identity".into());
+        }
+        if self.authority_delegation != self.authority_scope.delegation {
+            return Err("coverage boundary authority delegation must match authority scope delegation".into());
         }
         if self.boundary_id.kind != IdentityKind::ReconciliationWitness {
             return Err("coverage boundary identity must be a ReconciliationWitness".into());
@@ -1304,6 +1396,114 @@ mod tests {
         let one = graph_transition("t1", None, EvidenceDisposition::Active,
             EvidenceDisposition::Disputed { by: id(IdentityKind::ReconciliationWitness, "w1") });
         assert!(EvidenceDispositionTransition::validate_graph(&[one.clone(), one]).is_err());
+    }
+
+    #[test]
+    fn authority_delegation_graph_requires_chain_continuity() {
+        let root = authority_delegation("reconcile-delegation-chain");
+        let child = EvidenceDispositionAuthorityDelegation {
+            delegation_id: id(IdentityKind::ReconciliationWitness, "authority-delegation-child"),
+            grantor: root.grantee.clone(),
+            grantee: id(IdentityKind::ReconciliationWitness, "authority-child"),
+            subject: root.subject.clone(),
+            predecessor: Some(root.delegation_id.clone()),
+            basis: vec![],
+        };
+        assert_eq!(
+            EvidenceDispositionAuthorityDelegation::validate_graph(&[root.clone(), child]),
+            Ok(AuthorityDelegationChainAssessment::Complete {
+                roots: vec![root.delegation_id],
+            })
+        );
+    }
+
+    #[test]
+    fn authority_delegation_graph_rejects_grantor_discontinuity() {
+        let root = authority_delegation("reconcile-delegation-discontinuity");
+        let child = EvidenceDispositionAuthorityDelegation {
+            delegation_id: id(IdentityKind::ReconciliationWitness, "authority-delegation-child"),
+            grantor: id(IdentityKind::ReconciliationWitness, "unrelated-grantor"),
+            grantee: id(IdentityKind::ReconciliationWitness, "authority-child"),
+            subject: root.subject.clone(),
+            predecessor: Some(root.delegation_id.clone()),
+            basis: vec![],
+        };
+        assert!(EvidenceDispositionAuthorityDelegation::validate_graph(&[root, child]).is_err());
+    }
+
+    #[test]
+    fn authority_delegation_graph_rejects_subject_change() {
+        let root = authority_delegation("reconcile-delegation-subject");
+        let child = EvidenceDispositionAuthorityDelegation {
+            delegation_id: id(IdentityKind::ReconciliationWitness, "authority-delegation-child"),
+            grantor: root.grantee.clone(),
+            grantee: id(IdentityKind::ReconciliationWitness, "authority-child"),
+            subject: id(IdentityKind::ReconciliationWitness, "different-subject"),
+            predecessor: Some(root.delegation_id.clone()),
+            basis: vec![],
+        };
+        assert!(EvidenceDispositionAuthorityDelegation::validate_graph(&[root, child]).is_err());
+    }
+
+    #[test]
+    fn authority_delegation_graph_reports_missing_predecessor() {
+        let delegation = EvidenceDispositionAuthorityDelegation {
+            delegation_id: id(IdentityKind::ReconciliationWitness, "authority-delegation-missing"),
+            grantor: id(IdentityKind::ReconciliationWitness, "authority-grantor-1"),
+            grantee: id(IdentityKind::ReconciliationWitness, "authority-child"),
+            subject: id(IdentityKind::ReconciliationWitness, "reconcile-delegation-missing"),
+            predecessor: Some(id(IdentityKind::ReconciliationWitness, "authority-delegation-absent")),
+            basis: vec![],
+        };
+        assert_eq!(
+            EvidenceDispositionAuthorityDelegation::validate_graph(&[delegation]),
+            Ok(AuthorityDelegationChainAssessment::Unresolved {
+                missing: vec![id(IdentityKind::ReconciliationWitness, "authority-delegation-absent")],
+                roots: vec![],
+            })
+        );
+    }
+
+    #[test]
+    fn authority_delegation_graph_rejects_cycle() {
+        let a = EvidenceDispositionAuthorityDelegation {
+            delegation_id: id(IdentityKind::ReconciliationWitness, "authority-cycle-a"),
+            grantor: id(IdentityKind::ReconciliationWitness, "grantor-a"),
+            grantee: id(IdentityKind::ReconciliationWitness, "grantor-b"),
+            subject: id(IdentityKind::ReconciliationWitness, "reconcile-delegation-cycle"),
+            predecessor: Some(id(IdentityKind::ReconciliationWitness, "authority-cycle-b")),
+            basis: vec![],
+        };
+        let b = EvidenceDispositionAuthorityDelegation {
+            delegation_id: id(IdentityKind::ReconciliationWitness, "authority-cycle-b"),
+            grantor: id(IdentityKind::ReconciliationWitness, "grantor-b"),
+            grantee: id(IdentityKind::ReconciliationWitness, "grantor-a"),
+            subject: id(IdentityKind::ReconciliationWitness, "reconcile-delegation-cycle"),
+            predecessor: Some(id(IdentityKind::ReconciliationWitness, "authority-cycle-a")),
+            basis: vec![],
+        };
+        assert!(EvidenceDispositionAuthorityDelegation::validate_graph(&[a, b]).is_err());
+    }
+
+    #[test]
+    fn authority_delegation_scope_requires_exact_delegation_identity() {
+        let reconciliation = EvidenceDispositionReconciliation {
+            reconciliation_id: id(IdentityKind::ReconciliationWitness, "reconcile-delegation-binding"),
+            evidence: id(IdentityKind::InspectionRecord, "inspection-graph"),
+            branch_point: id(IdentityKind::ReconciliationWitness, "t1"),
+            branch_heads: vec![
+                id(IdentityKind::ReconciliationWitness, "t2"),
+                id(IdentityKind::ReconciliationWitness, "t3"),
+            ],
+            authority: id(IdentityKind::ReconciliationWitness, "authority-1"),
+            authority_scope: id(IdentityKind::ReconciliationWitness, "authority-scope-1"),
+            authority_delegation: id(IdentityKind::ReconciliationWitness, "authority-delegation-1"),
+            basis: vec![],
+        };
+        let scope = authority_scope(&reconciliation.reconciliation_id.id);
+        let mut delegation = authority_delegation(&reconciliation.reconciliation_id.id);
+        delegation.delegation_id = id(IdentityKind::ReconciliationWitness, "different-delegation");
+        assert!(scope.validate_against_reconciliation(&reconciliation, &delegation).is_err());
     }
 
     #[test]
