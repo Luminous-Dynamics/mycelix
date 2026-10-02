@@ -179,6 +179,9 @@
             },
             "expected_effect": {
               "type": "string"
+            },
+            "fixture": {
+              "type": "string"
             }
           }
         }
