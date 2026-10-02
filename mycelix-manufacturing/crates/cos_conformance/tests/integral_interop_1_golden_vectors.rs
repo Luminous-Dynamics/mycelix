@@ -451,7 +451,7 @@ fn upstream_rejection_matrix_is_self_describing() {
     let rejection_vectors = raw["rejection_vectors"]
         .as_array()
         .expect("rejection_vectors must be an array");
-    assert_eq!(rejection_vectors.len(), 6);
+    assert_eq!(rejection_vectors.len(), 7);
 
     for rejection in rejection_vectors {
         assert!(rejection["id"].is_string(), "rejection id must be a string");
@@ -472,6 +472,12 @@ fn upstream_rejection_matrix_is_self_describing() {
             "{} earliest rejection must remain at or below its declared layer",
             rejection["id"].as_str().unwrap()
         );
+        if rejection["id"] == "d6p-recomputed-d6o-profile-substitution" {
+            assert_eq!(
+                rejection["property"].as_str(),
+                Some("local-integrity-preserved-cross-layer-provenance-rejected")
+            );
+        }
     }
 }
 
