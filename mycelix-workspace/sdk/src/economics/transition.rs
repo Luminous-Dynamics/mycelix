@@ -220,6 +220,26 @@ mod tests {
     }
 
     #[test]
+    fn goods_sale_bridges_inventory_and_deposits_without_hidden_valuation() {
+        let mut state = initial_state();
+        state.actors.iter_mut().find(|a| a.actor == "firm").unwrap().real.inventories = 20;
+        state.actors.iter_mut().find(|a| a.actor == "household").unwrap().monetary.deposits = 100;
+
+        let transitions = vec![EconomicTransition::GoodsSale(
+            GoodsSale::new("firm", "household", 5, 30).unwrap(),
+        )];
+        let (post, _) = apply_step(&state, 1, &transitions, None).unwrap();
+
+        let firm = post.actors.iter().find(|a| a.actor == "firm").unwrap();
+        let household = post.actors.iter().find(|a| a.actor == "household").unwrap();
+        assert_eq!(firm.real.inventories, 15);
+        assert_eq!(household.real.inventories, 5);
+        assert_eq!(firm.monetary.deposits, 30);
+        assert_eq!(household.monetary.deposits, 70);
+        assert_eq!(post.monetary_flow_volume, 30);
+    }
+
+    #[test]
     fn physical_inventory_circuit_is_deterministic_and_atomic() {
         let mut state = initial_state();
         state.actors.iter_mut().find(|a| a.actor == "household").unwrap().real.inventories = 10;
