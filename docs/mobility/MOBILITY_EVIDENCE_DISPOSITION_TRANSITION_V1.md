@@ -64,3 +64,10 @@ A reconciliation may carry a separate coverage witness that names the exact bran
 The covered heads must themselves be pairwise incomparable descendants of the declared branch point. A nested ancestor/descendant pair is rejected because it describes one continuing branch rather than two covered heads.
 
 This is intentionally a **bounded coverage claim**, not a global DHT enumeration claim. The boundary and basis witnesses are addressable provenance objects. The validator does not inspect mutable link collections or infer that an unmentioned branch does not exist. Consequently, coverage can establish consistency with the declared dependency set and declared boundary, while global completeness remains outside this structural validator.
+
+
+### Coverage authority and reconciliation binding
+
+The coverage boundary is explicitly scoped to one reconciliation witness and carries the same authority witness as that reconciliation. Coverage therefore cannot be detached from the reconciliation it claims to cover, nor can a different authority be silently substituted at the boundary layer. This is a structural provenance binding, not an assertion that the authority is objectively correct, certified, or globally entitled.
+
+The boundary remains addressable and finite: it names the exact evidence event, branch point, branch heads, authority, and basis used for the bounded claim. The validator still makes no claim that unmentioned mutable links or globally undiscovered records do not exist.
