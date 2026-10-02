@@ -24,6 +24,19 @@ fn add_checked(slot: &mut i128, amount: i128, label: &str) -> Result<(), String>
     Ok(())
 }
 
+fn liquidity(state: &EconomicState, actor: &str) -> Result<i128, String> {
+    let balance_sheet = state
+        .actors
+        .iter()
+        .find(|a| a.actor == actor)
+        .ok_or_else(|| format!("unknown actor in economic transition: {actor}"))?;
+    balance_sheet
+        .monetary
+        .cash
+        .checked_add(balance_sheet.monetary.deposits)
+        .ok_or_else(|| format!("liquidity overflow for {actor}"))
+}
+
 /// Derived stock/flow observations for one actor over one period.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct ActorEconomicObservables {
@@ -31,6 +44,7 @@ pub struct ActorEconomicObservables {
     pub cash: i128,
     pub deposits: i128,
     pub liquidity: i128,
+    pub net_liquidity_change: i128,
     pub loan_claims: i128,
     pub debt: i128,
     pub inventory_quantity: i128,
@@ -92,7 +106,19 @@ impl ActorEconomicObservables {
             Ok(())
         };
 
+        let mut working = state.clone();
+
         for transition in transitions {
+            let affected = affected_actors(transition);
+            for actor in &affected {
+                ensure_actor(actor)?;
+            }
+            let before_liquidity = affected
+                .iter()
+                .map(|actor| (actor.clone(), liquidity(&working, actor)))
+                .collect::<Result<Vec<_>, _>>()?;
+
+
             match transition {
                 EconomicTransition::CreditCreation(credit) => {
                     ensure_actor(&credit.lender)?;
@@ -179,6 +205,19 @@ impl ActorEconomicObservables {
                 | EconomicTransition::InventoryConsumption(_)
                 | EconomicTransition::InventoryCostAddition(_) => {}
             }
+
+            apply_transition(&mut working, transition)?;
+            for (actor, before) in before_liquidity {
+                let after = liquidity(&working, &actor)?;
+                let delta = after
+                    .checked_sub(before)
+                    .ok_or_else(|| format!("liquidity delta overflow for {actor}"))?;
+                add_checked(
+                    &mut observations.get_mut(&actor).unwrap().net_liquidity_change,
+                    delta,
+                    "actor net liquidity change",
+                )?;
+            }
         }
 
         Ok(observations)
@@ -196,6 +235,23 @@ impl ActorEconomicObservables {
         self.gross_surplus() - self.depreciation
     }
 
+    pub fn financing_net_liquidity(&self) -> i128 {
+        self.credit_received - self.debt_repaid
+    }
+
+    pub fn investing_net_liquidity(&self) -> i128 {
+        self.investment_received - self.investment_paid
+    }
+
+    /// Liquidity change not explained by explicitly classified financing or
+    /// investment transitions. This is a residual, not a claim that every
+    /// remaining flow is operating cash flow.
+    pub fn non_financing_liquidity_change(&self) -> i128 {
+        self.net_liquidity_change
+            - self.financing_net_liquidity()
+            - self.investing_net_liquidity()
+    }
+
     pub fn leverage(&self) -> Option<RatioObservation> {
         let assets = self.cash
             + self.deposits
@@ -206,19 +262,71 @@ impl ActorEconomicObservables {
         })
     }
 
-    /// Classify this actor's financing position using caller-supplied cash flow.
+    /// Classify this actor's financing position from an externally supplied
+    /// cash-flow measure and explicit contractual debt-service obligations.
     ///
-    /// The actor's measured interest and principal obligations are used; cash
-    /// flow itself is never inferred from accounting surplus or liquidity.
+    /// Actual repayment is deliberately not substituted for principal due:
+    /// failing to repay principal must not make a position look more covered.
     pub fn financing_regime(
         &self,
         cash_flow_available: i128,
+        interest_due: i128,
+        principal_due: i128,
     ) -> Result<FinancingRegime, String> {
-        classify_financing_regime(
-            cash_flow_available,
-            self.interest_paid,
-            self.debt_repaid,
-        )
+        classify_financing_regime(cash_flow_available, interest_due, principal_due)
+    }
+}
+
+fn affected_actors(transition: &EconomicTransition) -> Vec<ActorId> {
+    match transition {
+        EconomicTransition::MonetaryTransfer(flow) => vec![flow.from.clone(), flow.to.clone()],
+        EconomicTransition::IncomeTransfer(flow) => vec![flow.payer.clone(), flow.recipient.clone()],
+        EconomicTransition::CapitalInvestment(investment) => {
+            vec![investment.buyer.clone(), investment.producer.clone()]
+        }
+        EconomicTransition::Production(event) => vec![event.producer.clone()],
+        EconomicTransition::InventoryTransfer(transfer) => {
+            vec![transfer.from.clone(), transfer.to.clone()]
+        }
+        EconomicTransition::InventoryConsumption(consumption) => vec![consumption.consumer.clone()],
+        EconomicTransition::GoodsSale(sale) => vec![sale.seller.clone(), sale.buyer.clone()],
+        EconomicTransition::InventoryCostAddition(addition) => vec![addition.actor.clone()],
+        EconomicTransition::InventoryCostRelief(relief) => vec![relief.actor.clone()],
+        EconomicTransition::Depreciation(depreciation) => vec![depreciation.actor.clone()],
+        EconomicTransition::CreditCreation(credit) => vec![credit.lender.clone(), credit.borrower.clone()],
+        EconomicTransition::DebtRepayment(repayment) => {
+            vec![repayment.lender.clone(), repayment.borrower.clone()]
+        }
+    }
+}
+
+fn apply_transition(
+    state: &mut EconomicState,
+    transition: &EconomicTransition,
+) -> Result<(), String> {
+    match transition {
+        EconomicTransition::MonetaryTransfer(flow) => state.apply_flow(flow),
+        EconomicTransition::IncomeTransfer(flow) => state.apply_income_transfer(flow),
+        EconomicTransition::CapitalInvestment(investment) => {
+            state.apply_capital_investment(investment)
+        }
+        EconomicTransition::Production(event) => state.apply_production(event),
+        EconomicTransition::InventoryTransfer(transfer) => {
+            state.apply_inventory_transfer(transfer)
+        }
+        EconomicTransition::InventoryConsumption(consumption) => {
+            state.apply_inventory_consumption(consumption)
+        }
+        EconomicTransition::GoodsSale(sale) => state.apply_goods_sale(sale),
+        EconomicTransition::InventoryCostAddition(addition) => {
+            state.apply_inventory_cost_addition(addition)
+        }
+        EconomicTransition::InventoryCostRelief(relief) => {
+            state.apply_inventory_cost_relief(relief)
+        }
+        EconomicTransition::Depreciation(depreciation) => state.apply_depreciation(depreciation),
+        EconomicTransition::CreditCreation(credit) => state.create_credit(credit),
+        EconomicTransition::DebtRepayment(repayment) => state.repay_debt(repayment),
     }
 }
 
@@ -280,8 +388,20 @@ mod tests {
         assert_eq!(firm.gross_surplus(), 20);
         assert_eq!(firm.gross_debt_service(), 20);
         assert_eq!(
-            firm.financing_regime(20).unwrap(),
+            firm.financing_regime(20, 20, 0).unwrap(),
             FinancingRegime::Hedge
+        );
+        assert_eq!(firm.net_liquidity_change, 230);
+        assert_eq!(firm.financing_net_liquidity(), 180);
+        assert_eq!(firm.investing_net_liquidity(), 0);
+    }
+
+    #[test]
+    fn financing_regime_uses_principal_due_not_actual_repayment() {
+        let observables = ActorEconomicObservables::default();
+        assert_eq!(
+            observables.financing_regime(100, 50, 100).unwrap(),
+            FinancingRegime::Speculative
         );
     }
 
