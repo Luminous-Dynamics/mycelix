@@ -374,6 +374,19 @@ mod tests {
     }
 
     #[test]
+    fn goods_sale_reconciles_inventory_deposits_and_equity() {
+        let (mut pre, assignments) = setup();
+        pre.actors.iter_mut().find(|a| a.actor == "firm").unwrap().real.inventories = 20;
+        pre.actors.iter_mut().find(|a| a.actor == "household").unwrap().monetary.deposits = 100;
+
+        let transitions = vec![EconomicTransition::GoodsSale(
+            GoodsSale::new("firm", "household", 5, 30).unwrap(),
+        )];
+        let (post, _) = apply_step(&pre, 1, &transitions, None).unwrap();
+        reconcile_step(&pre, &post, &assignments, &transitions).unwrap();
+    }
+
+    #[test]
     fn inventory_transfer_reconciles_physical_stock_and_equity_residuals() {
         let (mut pre, assignments) = setup();
         pre.actors.iter_mut()
