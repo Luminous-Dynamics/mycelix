@@ -597,7 +597,7 @@ mod linux {
                             .sum::<usize>();
                         let clause_mismatch_skip = u8::try_from(
                             later_in_predicates
-                                .checked_add(1)
+                                .checked_add(2)
                                 .and_then(|n| n.checked_add(clause_tail_after))
                                 .ok_or(SeccompError::FilterTooLarge)?,
                         )
@@ -614,7 +614,7 @@ mod linux {
                                 if low_mask != 0 {
                                     let high_tail = usize::from(high_mask != 0) * 4
                                         + later_in_predicates
-                                        + 1
+                                        + 2
                                         + clause_tail_after;
                                     let mismatch_skip = u8::try_from(high_tail)
                                         .map_err(|_| SeccompError::FilterTooLarge)?;
