@@ -296,6 +296,11 @@
       "id": "EDT-057",
       "case": "reconciliation_coverage_validates_named_authority_chain",
       "expected": "accepted"
+    },
+    {
+      "id": "EDT-058",
+      "case": "authority_delegation_target_chain_ignores_unrelated_invalid_record",
+      "expected": "accepted"
     }
   ]
 }
