@@ -499,7 +499,6 @@ mod linux {
         }
 
         #[test]
-        #[test]
         fn zero_assignment_rejects_install_before_enforcement() {
             let arch = SeccompArchitecture::current().unwrap();
             let policy = SeccompSyscallPolicyV1::new(
@@ -521,6 +520,7 @@ mod linux {
             ));
         }
 
+        #[test]
         fn forbidden_renderer_policy_rejects_install_before_enforcement() {
             let arch = SeccompArchitecture::current().unwrap();
             let policy = SeccompSyscallPolicyV1::new(
@@ -590,4 +590,25 @@ mod linux {
             assert_ne!(a.digest(), b.digest());
         }
     }
+
+    #[cfg(test)]
+    #[test]
+    fn linux_install_export_is_present() {
+        #[cfg(target_os = "linux")]
+        {
+            let _ = install;
+        }
+    }
+}
+
+#[cfg(target_os = "linux")]
+pub use linux::install;
+
+#[cfg(not(target_os = "linux"))]
+pub fn install(
+    _assignment_id: RendererProcessAssignmentId,
+    _profile: SandboxProfileV1,
+    _policy: &SeccompSyscallPolicyV1,
+) -> Result<SandboxEnforcementReceipt, SeccompError> {
+    Err(SeccompError::UnsupportedPlatform)
 }
