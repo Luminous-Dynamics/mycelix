@@ -345,21 +345,11 @@ impl EconomicState {
             ));
         }
         payer.monetary.deposits -= transfer.amount;
-        payer.monetary.equity = payer
-            .monetary
-            .equity
-            .checked_sub(transfer.amount)
-            .ok_or_else(|| "payer equity underflow".to_string())?;
         recipient.monetary.deposits = recipient
             .monetary
             .deposits
             .checked_add(transfer.amount)
             .ok_or_else(|| "recipient deposit overflow".to_string())?;
-        recipient.monetary.equity = recipient
-            .monetary
-            .equity
-            .checked_add(transfer.amount)
-            .ok_or_else(|| "recipient equity overflow".to_string())?;
         self.monetary_flow_volume = self
             .monetary_flow_volume
             .checked_add(transfer.amount)
