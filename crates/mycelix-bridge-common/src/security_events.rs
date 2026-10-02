@@ -193,7 +193,8 @@ mod tests {
             "resource:ledger",
             CapabilityAction::Read,
             7,
-        ).unwrap();
+        )
+        .unwrap();
         let permit = authorize_permit(&verified(), &request, 150).unwrap();
         let enforcement = EnforcementRequest::from_permit(
             permit,
