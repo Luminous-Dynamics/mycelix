@@ -27,7 +27,7 @@
     },
     "vectors": {
       "type": "array",
-      "minItems": 22,
+      "minItems": 24,
       "uniqueItems": true,
       "items": {
         "$ref": "#/$defs/vector"
