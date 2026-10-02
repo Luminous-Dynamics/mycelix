@@ -115,6 +115,8 @@ This closes the authorization-to-enforcement revocation race represented by the 
 
 A later generation must invalidate the old authority domain for new execution even if the historical event remains cryptographically reconstructable.
 
+A freshness-lease renewal is different: it may authorize a new permit under the unchanged authority domain, but it must never extend an already-issued permit. Existing permits are historical bounded artifacts; renewed evidence can only support a subsequent authorization flow.
+
 ## Holochain boundary
 
 Holochain integrity validation should validate deterministic relationships and signed evidence, not select mutable "latest" authority state.
