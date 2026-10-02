@@ -1952,6 +1952,44 @@ mod tests {
     }
 
     #[test]
+    fn replay_cannot_upgrade_explicitly_inactive_authorization_state() {
+        for authorization in [
+            AuthorizationState::Expired,
+            AuthorizationState::Revoked,
+            AuthorizationState::Absent,
+        ] {
+            let mut state = nodes();
+            let candidate = envelope();
+
+            assert_eq!(
+                deliver(&mut state, &candidate, 50, true).decision,
+                FederationDecision::AcceptedLocal
+            );
+            let before_identity = delivery_identity_snapshot(&state);
+            let before_attempts = delivery_attempts_snapshot(&state);
+            let before_observations = state.observations.clone();
+
+            let mut replay = candidate.clone();
+            replay.authorization = authorization;
+            replay.attempt_id = format!("attempt-{authorization:?}-replay");
+
+            let outcome = deliver(&mut state, &replay, 50, true);
+            let expected = match authorization {
+                AuthorizationState::Expired => FederationDecision::ExpiredAuthorization,
+                AuthorizationState::Revoked | AuthorizationState::Absent => {
+                    FederationDecision::Unauthorized
+                }
+                AuthorizationState::Active => unreachable!(),
+            };
+            assert_eq!(outcome.decision, expected);
+            assert_eq!(outcome.authority, AuthorityDisposition::NoAuthority);
+            assert_eq!(delivery_identity_snapshot(&state), before_identity);
+            assert_eq!(delivery_attempts_snapshot(&state), before_attempts);
+            assert_eq!(state.observations, before_observations);
+        }
+    }
+
+    #[test]
     fn stale_generation_fails_closed() {
         let mut state = nodes();
         let mut stale = envelope();
