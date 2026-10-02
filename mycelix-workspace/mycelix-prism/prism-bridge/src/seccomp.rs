@@ -120,13 +120,13 @@ impl SeccompSyscallPolicyV1 {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum SeccompArgPredicateOpV1 {
     MaskedEqual,
     MaskedNotEqual,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct SeccompArgPredicateV1 {
     arg_index: u8,
     mask: u64,
@@ -165,48 +165,100 @@ impl SeccompArgPredicateV1 {
     }
 }
 
-/// One V2 syscall rule. An empty predicate list means the syscall itself is
-/// allowed; once predicates are present, every predicate must match.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SeccompSyscallRuleV2 {
-    syscall: i64,
+/// One bounded V2 argument clause. All predicates in a clause must match.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct SeccompSyscallClauseV2 {
     predicates: Vec<SeccompArgPredicateV1>,
 }
 
-impl SeccompSyscallRuleV2 {
-    pub fn new(
-        syscall: i64,
-        mut predicates: Vec<SeccompArgPredicateV1>,
-    ) -> Result<Self, SeccompError> {
-        if syscall < 0 || syscall > i32::MAX as i64 {
-            return Err(SeccompError::InvalidPolicy);
-        }
+impl SeccompSyscallClauseV2 {
+    pub fn new(mut predicates: Vec<SeccompArgPredicateV1>) -> Result<Self, SeccompError> {
         const MAX_PREDICATES: usize = 4;
         if predicates.len() > MAX_PREDICATES {
             return Err(SeccompError::InvalidPolicy);
         }
         predicates.sort_unstable_by_key(|predicate| {
-            (predicate.arg_index, predicate.mask, predicate.value)
+            (predicate.arg_index, predicate.mask, predicate.value, predicate.op)
         });
         if predicates.windows(2).any(|pair| pair[0] == pair[1]) {
             return Err(SeccompError::DuplicateArgumentPredicate);
         }
-        Ok(Self { syscall, predicates })
+        Ok(Self { predicates })
     }
-
-    pub const fn syscall(&self) -> i64 { self.syscall }
 
     pub fn predicates(&self) -> &[SeccompArgPredicateV1] {
         &self.predicates
     }
 
-    pub fn matches(&self, syscall: i64, arguments: &[u64; 6]) -> bool {
-        self.syscall == syscall
-            && self.predicates.iter().all(|predicate| {
-                predicate.matches(arguments[predicate.arg_index as usize])
-            })
+    pub fn matches(&self, arguments: &[u64; 6]) -> bool {
+        self.predicates.iter().all(|predicate| {
+            predicate.matches(arguments[predicate.arg_index as usize])
+        })
     }
 }
+
+/// One V2 syscall rule. A legacy single clause is equivalent to the original
+/// conjunction. A bounded multi-clause rule is an explicit OR over clauses.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SeccompSyscallRuleV2 {
+    syscall: i64,
+    clauses: Vec<SeccompSyscallClauseV2>,
+}
+
+impl SeccompSyscallRuleV2 {
+    pub fn new(
+        syscall: i64,
+        predicates: Vec<SeccompArgPredicateV1>,
+    ) -> Result<Self, SeccompError> {
+        Self::new_with_clauses(syscall, vec![SeccompSyscallClauseV2::new(predicates)?])
+    }
+
+    pub fn new_with_clauses(
+        syscall: i64,
+        mut clauses: Vec<SeccompSyscallClauseV2>,
+    ) -> Result<Self, SeccompError> {
+        const MAX_CLAUSES: usize = 4;
+        if syscall < 0 || syscall > i32::MAX as i64 {
+            return Err(SeccompError::InvalidPolicy);
+        }
+        if clauses.is_empty() || clauses.len() > MAX_CLAUSES {
+            return Err(SeccompError::InvalidPolicy);
+        }
+        // An empty clause is an unconditional syscall allow. Permit it only
+        // as the sole clause; otherwise it would make every alternative after
+        // it unreachable and silently widen the syscall boundary.
+        if clauses.len() > 1 && clauses.iter().any(|clause| clause.predicates.is_empty()) {
+            return Err(SeccompError::InvalidPolicy);
+        }
+        clauses.sort_unstable();
+        if clauses.windows(2).any(|pair| pair[0] == pair[1]) {
+            return Err(SeccompError::DuplicateArgumentClause);
+        }
+        Ok(Self { syscall, clauses })
+    }
+
+    pub const fn syscall(&self) -> i64 { self.syscall }
+
+    /// Compatibility accessor for the legacy single-clause representation.
+    /// For disjunctive rules, use the clauses() accessor to inspect every clause.
+    pub fn predicates(&self) -> &[SeccompArgPredicateV1] {
+        self.clauses[0].predicates()
+    }
+
+    pub fn clauses(&self) -> &[SeccompSyscallClauseV2] {
+        &self.clauses
+    }
+
+    pub const fn is_disjunctive(&self) -> bool {
+        self.clauses.len() > 1
+    }
+
+    pub fn matches(&self, syscall: i64, arguments: &[u64; 6]) -> bool {
+        self.syscall == syscall
+            && self.clauses.iter().any(|clause| clause.matches(arguments))
+    }
+}
+
 
 /// Parameter-aware seccomp policy. V1 remains the syscall-number-only format;
 /// V2 adds explicit argument predicates without silently widening V1.
@@ -274,7 +326,12 @@ impl SeccompSyscallPolicyV2 {
 
     pub fn digest(&self) -> [u8; 32] {
         let mut hasher = blake3::Hasher::new();
-        hasher.update(b"PRISM-SECCOMP-SYSCALL-POLICY-V2");
+        let disjunctive = self.rules.iter().any(SeccompSyscallRuleV2::is_disjunctive);
+        if disjunctive {
+            hasher.update(b"PRISM-SECCOMP-SYSCALL-POLICY-V2-CLAUSES-V1");
+        } else {
+            hasher.update(b"PRISM-SECCOMP-SYSCALL-POLICY-V2");
+        }
         if cfg!(target_endian = "little") {
             hasher.update(b"PRISM-SECCOMP-ENDIAN-LITTLE-V1");
         } else {
@@ -284,15 +341,31 @@ impl SeccompSyscallPolicyV2 {
         hasher.update(&(self.rules.len() as u32).to_le_bytes());
         for rule in &self.rules {
             hasher.update(&(rule.syscall as u32).to_le_bytes());
-            hasher.update(&(rule.predicates.len() as u32).to_le_bytes());
-            for predicate in &rule.predicates {
-                hasher.update(&(predicate.arg_index as u32).to_le_bytes());
-                hasher.update(&predicate.mask.to_le_bytes());
-                hasher.update(&predicate.value.to_le_bytes());
-                hasher.update(&[match predicate.op {
-                    SeccompArgPredicateOpV1::MaskedEqual => 0,
-                    SeccompArgPredicateOpV1::MaskedNotEqual => 1,
-                }]);
+            if disjunctive {
+                hasher.update(&(rule.clauses.len() as u32).to_le_bytes());
+                for clause in &rule.clauses {
+                    hasher.update(&(clause.predicates.len() as u32).to_le_bytes());
+                    for predicate in &clause.predicates {
+                        hasher.update(&(predicate.arg_index as u32).to_le_bytes());
+                        hasher.update(&predicate.mask.to_le_bytes());
+                        hasher.update(&predicate.value.to_le_bytes());
+                        hasher.update(&[match predicate.op {
+                            SeccompArgPredicateOpV1::MaskedEqual => 0,
+                            SeccompArgPredicateOpV1::MaskedNotEqual => 1,
+                        }]);
+                    }
+                }
+            } else {
+                hasher.update(&(rule.predicates().len() as u32).to_le_bytes());
+                for predicate in rule.predicates() {
+                    hasher.update(&(predicate.arg_index as u32).to_le_bytes());
+                    hasher.update(&predicate.mask.to_le_bytes());
+                    hasher.update(&predicate.value.to_le_bytes());
+                    hasher.update(&[match predicate.op {
+                        SeccompArgPredicateOpV1::MaskedEqual => 0,
+                        SeccompArgPredicateOpV1::MaskedNotEqual => 1,
+                    }]);
+                }
             }
         }
         *hasher.finalize().as_bytes()
@@ -306,6 +379,7 @@ pub enum SeccompError {
     InvalidPolicy,
     DuplicateSyscall,
     DuplicateArgumentPredicate,
+    DuplicateArgumentClause,
     FilterTooLarge,
     InstallationFailed(i32),
     IdentityGenerationFailed,
@@ -323,6 +397,7 @@ impl core::fmt::Display for SeccompError {
             Self::InvalidPolicy => f.write_str("invalid seccomp syscall policy"),
             Self::DuplicateSyscall => f.write_str("seccomp syscall policy contains a duplicate"),
             Self::DuplicateArgumentPredicate => f.write_str("seccomp argument predicate contains a duplicate"),
+            Self::DuplicateArgumentClause => f.write_str("seccomp argument clause contains a duplicate"),
             Self::FilterTooLarge => f.write_str("seccomp BPF filter exceeds the bounded instruction budget"),
             Self::InstallationFailed(errno) => write!(f, "seccomp installation failed: errno {errno}"),
             Self::IdentityGenerationFailed => f.write_str("seccomp installation identity generation failed"),
@@ -401,11 +476,17 @@ mod linux {
             .saturating_add(if policy.architecture == SeccompArchitecture::X86_64 { 2 } else { 0 })
             .saturating_add(
                 policy.rules.iter().map(|rule| {
-                    2usize
-                        + rule.predicates.iter().map(|predicate| {
-                            usize::from(predicate.mask as u32 != 0)
-                                .saturating_mul(4)
-                                .saturating_add(usize::from((predicate.mask >> 32) as u32 != 0).saturating_mul(4))
+                    1usize
+                        + rule.clauses.iter().map(|clause| {
+                            1usize
+                                + clause.predicates.iter().map(|predicate| {
+                                    usize::from(predicate.mask as u32 != 0)
+                                        .saturating_mul(4)
+                                        .saturating_add(
+                                            usize::from((predicate.mask >> 32) as u32 != 0)
+                                                .saturating_mul(4),
+                                        )
+                                }).sum::<usize>()
                         }).sum::<usize>()
                 }).sum::<usize>(),
             );
@@ -425,72 +506,170 @@ mod linux {
             filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS));
         }
 
+        fn predicate_instruction_count(predicate: &SeccompArgPredicateV1) -> usize {
+            usize::from(predicate.mask as u32 != 0) * 4
+                + usize::from((predicate.mask >> 32) as u32 != 0) * 4
+        }
+
+        fn clause_instruction_count(clause: &SeccompSyscallClauseV2) -> usize {
+            1 + clause
+                .predicates
+                .iter()
+                .map(predicate_instruction_count)
+                .sum::<usize>()
+        }
+
+        fn rule_body_instruction_count(rule: &SeccompSyscallRuleV2) -> usize {
+            rule.clauses
+                .iter()
+                .map(clause_instruction_count)
+                .sum::<usize>()
+        }
+
         for rule in &policy.rules {
-            let predicate_instructions = rule.predicates.iter().map(|predicate| {
-                let low = predicate.mask as u32;
-                let high = (predicate.mask >> 32) as u32;
-                usize::from(low != 0) * 4 + usize::from(high != 0) * 4
-            }).sum::<usize>();
-            let body_len = predicate_instructions
-                .checked_add(1)
-                .ok_or(SeccompError::FilterTooLarge)?;
+            let body_len = rule_body_instruction_count(rule);
             let body_jump = u8::try_from(body_len).map_err(|_| SeccompError::FilterTooLarge)?;
             filter.push(jump_eq(rule.syscall as u32, 0, body_jump));
 
-            for predicate in &rule.predicates {
-                let base = ARG_BASE + u32::from(predicate.arg_index) * 8;
-                let low_mask = predicate.mask as u32;
-                let low_value = predicate.value as u32;
-                let high_mask = (predicate.mask >> 32) as u32;
-                let high_value = (predicate.value >> 32) as u32;
+            if !rule.is_disjunctive() {
+                for predicate in rule.predicates() {
+                    let base = ARG_BASE + u32::from(predicate.arg_index) * 8;
+                    let low_mask = predicate.mask as u32;
+                    let low_value = predicate.value as u32;
+                    let high_mask = (predicate.mask >> 32) as u32;
+                    let high_value = (predicate.value >> 32) as u32;
 
-                match predicate.op {
-                    SeccompArgPredicateOpV1::MaskedEqual => {
-                        if low_mask != 0 {
-                            filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base));
-                            filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, low_mask));
-                            filter.push(jump_eq(low_value, 1, 0));
-                            filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_ERRNO | libc::EPERM as u32));
+                    match predicate.op {
+                        SeccompArgPredicateOpV1::MaskedEqual => {
+                            if low_mask != 0 {
+                                filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base));
+                                filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, low_mask));
+                                filter.push(jump_eq(low_value, 1, 0));
+                                filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_ERRNO | libc::EPERM as u32));
+                            }
+                            if high_mask != 0 {
+                                filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base + 4));
+                                filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, high_mask));
+                                filter.push(jump_eq(high_value, 1, 0));
+                                filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_ERRNO | libc::EPERM as u32));
+                            }
                         }
-                        if high_mask != 0 {
-                            filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base + 4));
-                            filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, high_mask));
-                            filter.push(jump_eq(high_value, 1, 0));
-                            filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_ERRNO | libc::EPERM as u32));
-                        }
-                    }
-                    SeccompArgPredicateOpV1::MaskedNotEqual => {
-                        // For a 64-bit masked inequality, the whole word differs
-                        // when either 32-bit half differs. If both halves are
-                        // present, a matching low half must therefore fall
-                        // through to the high-half comparison; a mismatching
-                        // low half skips the high-half check entirely.
-                        if low_mask != 0 && high_mask != 0 {
-                            filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base));
-                            filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, low_mask));
-                            filter.push(jump_eq(low_value, 0, 4));
-                            filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base + 4));
-                            filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, high_mask));
-                            filter.push(jump_eq(high_value, 0, 1));
-                            filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_ERRNO | libc::EPERM as u32));
-                        } else {
-                            let (base, mask, value) = if low_mask != 0 {
-                                (base, low_mask, low_value)
+                        SeccompArgPredicateOpV1::MaskedNotEqual => {
+                            if low_mask != 0 && high_mask != 0 {
+                                filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base));
+                                filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, low_mask));
+                                filter.push(jump_eq(low_value, 0, 4));
+                                filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base + 4));
+                                filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, high_mask));
+                                filter.push(jump_eq(high_value, 0, 1));
+                                filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_ERRNO | libc::EPERM as u32));
                             } else {
-                                (base + 4, high_mask, high_value)
-                            };
-                            filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base));
-                            filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, mask));
-                            filter.push(jump_eq(value, 0, 1));
-                            filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_ERRNO | libc::EPERM as u32));
+                                let (base, mask, value) = if low_mask != 0 {
+                                    (base, low_mask, low_value)
+                                } else {
+                                    (base + 4, high_mask, high_value)
+                                };
+                                filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base));
+                                filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, mask));
+                                filter.push(jump_eq(value, 0, 1));
+                                filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_ERRNO | libc::EPERM as u32));
+                            }
                         }
                     }
                 }
+
+                filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_ALLOW));
+            } else {
+                for (clause_index, clause) in rule.clauses.iter().enumerate() {
+                    let clause_tail_after = rule
+                        .clauses
+                        .iter()
+                        .skip(clause_index + 1)
+                        .map(clause_instruction_count)
+                        .sum::<usize>();
+
+                    for (predicate_index, predicate) in clause.predicates.iter().enumerate() {
+                        let later_in_predicates = clause
+                            .predicates
+                            .iter()
+                            .skip(predicate_index + 1)
+                            .map(predicate_instruction_count)
+                            .sum::<usize>();
+                        let clause_mismatch_skip = u8::try_from(
+                            later_in_predicates
+                                .checked_add(1)
+                                .and_then(|n| n.checked_add(clause_tail_after))
+                                .ok_or(SeccompError::FilterTooLarge)?,
+                        )
+                        .map_err(|_| SeccompError::FilterTooLarge)?;
+
+                        let base = ARG_BASE + u32::from(predicate.arg_index) * 8;
+                        let low_mask = predicate.mask as u32;
+                        let low_value = predicate.value as u32;
+                        let high_mask = (predicate.mask >> 32) as u32;
+                        let high_value = (predicate.value >> 32) as u32;
+
+                        match predicate.op {
+                            SeccompArgPredicateOpV1::MaskedEqual => {
+                                if low_mask != 0 {
+                                    let high_tail = usize::from(high_mask != 0) * 4
+                                        + later_in_predicates
+                                        + 1
+                                        + clause_tail_after;
+                                    let mismatch_skip = u8::try_from(high_tail)
+                                        .map_err(|_| SeccompError::FilterTooLarge)?;
+                                    filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base));
+                                    filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, low_mask));
+                                    filter.push(jump_eq(low_value, 1, mismatch_skip));
+                                    filter.push(stmt(
+                                        BPF_RET | BPF_K,
+                                        SECCOMP_RET_ERRNO | libc::EPERM as u32,
+                                    ));
+                                }
+                                if high_mask != 0 {
+                                    filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base + 4));
+                                    filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, high_mask));
+                                    filter.push(jump_eq(high_value, 1, clause_mismatch_skip));
+                                    filter.push(stmt(
+                                        BPF_RET | BPF_K,
+                                        SECCOMP_RET_ERRNO | libc::EPERM as u32,
+                                    ));
+                                }
+                            }
+                            SeccompArgPredicateOpV1::MaskedNotEqual => {
+                                if low_mask != 0 && high_mask != 0 {
+                                    filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base));
+                                    filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, low_mask));
+                                    filter.push(jump_eq(low_value, 0, 4));
+                                    filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base + 4));
+                                    filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, high_mask));
+                                    filter.push(jump_eq(high_value, clause_mismatch_skip, 1));
+                                    filter.push(stmt(
+                                        BPF_RET | BPF_K,
+                                        SECCOMP_RET_ERRNO | libc::EPERM as u32,
+                                    ));
+                                } else {
+                                    let (base, mask, value) = if low_mask != 0 {
+                                        (base, low_mask, low_value)
+                                    } else {
+                                        (base + 4, high_mask, high_value)
+                                    };
+                                    filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base));
+                                    filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, mask));
+                                    filter.push(jump_eq(value, clause_mismatch_skip, 1));
+                                    filter.push(stmt(
+                                        BPF_RET | BPF_K,
+                                        SECCOMP_RET_ERRNO | libc::EPERM as u32,
+                                    ));
+                                }
+                            }
+                        }
+                    }
+
+                    filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_ALLOW));
+                }
             }
-
-            filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_ALLOW));
         }
-
         filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_ERRNO | libc::EPERM as u32));
         Ok(filter)
     }
@@ -574,7 +753,12 @@ mod linux {
         filter: &[SockFilter],
     ) -> [u8; 32] {
         let mut hasher = blake3::Hasher::new();
-        hasher.update(b"PRISM-SECCOMP-SYSCALL-EVIDENCE-V4");
+        if policy.rules.iter().any(SeccompSyscallRuleV2::is_disjunctive) {
+            hasher.update(b"PRISM-SECCOMP-SYSCALL-EVIDENCE-V5");
+            hasher.update(b"PRISM-SECCOMP-POLICY-SCHEMA-V2-CLAUSES-V1");
+        } else {
+            hasher.update(b"PRISM-SECCOMP-SYSCALL-EVIDENCE-V4");
+        }
         hasher.update(&policy.digest());
         hasher.update(&(filter.len() as u32).to_le_bytes());
         for instruction in filter {
@@ -895,6 +1079,155 @@ mod linux {
             }
 
             assert_ne!(policy.digest(), *legacy.finalize().as_bytes());
+        }
+
+        #[test]
+        fn v2_disjunctive_clauses_are_canonical_and_model_is_explicit_or() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let unix = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_UNIX as u64).unwrap(),
+            ])
+            .unwrap();
+            let netlink = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_NETLINK as u64).unwrap(),
+            ])
+            .unwrap();
+
+            let rule = SeccompSyscallRuleV2::new_with_clauses(
+                libc::SYS_socket,
+                vec![netlink.clone(), unix.clone()],
+            )
+            .unwrap();
+            assert_eq!(rule.clauses().len(), 2);
+            assert_eq!(rule.clauses()[0], unix);
+            assert_eq!(rule.clauses()[1], netlink);
+
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+            assert!(policy.allows(
+                libc::SYS_socket,
+                &[libc::AF_UNIX as u64, 1, 0, 0, 0, 0]
+            ));
+            assert!(policy.allows(
+                libc::SYS_socket,
+                &[libc::AF_NETLINK as u64, 1, 0, 0, 0, 0]
+            ));
+            assert!(!policy.allows(
+                libc::SYS_socket,
+                &[libc::AF_INET as u64, 1, 0, 0, 0, 0]
+            ));
+            assert!(!policy.allows(libc::SYS_getpid, &[0; 6]));
+        }
+
+        #[test]
+        fn v2_disjunctive_clauses_reject_duplicate_and_unconditional_widening() {
+            let unix = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_UNIX as u64).unwrap(),
+            ])
+            .unwrap();
+            assert!(matches!(
+                SeccompSyscallRuleV2::new_with_clauses(
+                    libc::SYS_socket,
+                    vec![unix.clone(), unix]
+                ),
+                Err(SeccompError::DuplicateArgumentClause)
+            ));
+
+            let unconditional = SeccompSyscallClauseV2::new(Vec::new()).unwrap();
+            let bounded = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_UNIX as u64).unwrap(),
+            ])
+            .unwrap();
+            assert!(matches!(
+                SeccompSyscallRuleV2::new_with_clauses(
+                    libc::SYS_socket,
+                    vec![unconditional, bounded]
+                ),
+                Err(SeccompError::InvalidPolicy)
+            ));
+        }
+
+        #[test]
+        fn v2_single_clause_digest_is_legacy_compatible_and_disjunctive_is_separated() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let predicate =
+                SeccompArgPredicateV1::new(0, u64::MAX, libc::PR_GET_NO_NEW_PRIVS as u64).unwrap();
+            let legacy =
+                SeccompSyscallRuleV2::new(libc::SYS_prctl, vec![predicate]).unwrap();
+            let clause = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(0, u64::MAX, libc::PR_GET_NO_NEW_PRIVS as u64)
+                    .unwrap(),
+            ])
+            .unwrap();
+            let same_semantics = SeccompSyscallRuleV2::new_with_clauses(
+                libc::SYS_prctl,
+                vec![clause],
+            )
+            .unwrap();
+
+            let first = SeccompSyscallPolicyV2::new(arch, vec![legacy]).unwrap();
+            let second = SeccompSyscallPolicyV2::new(arch, vec![same_semantics]).unwrap();
+            assert_eq!(first.digest(), second.digest());
+
+            let unix = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_UNIX as u64).unwrap(),
+            ])
+            .unwrap();
+            let netlink = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_NETLINK as u64).unwrap(),
+            ])
+            .unwrap();
+            let disjunctive = SeccompSyscallRuleV2::new_with_clauses(
+                libc::SYS_socket,
+                vec![unix, netlink],
+            )
+            .unwrap();
+            let third = SeccompSyscallPolicyV2::new(arch, vec![disjunctive]).unwrap();
+            assert_ne!(second.digest(), third.digest());
+        }
+
+        #[test]
+        fn v2_disjunctive_compiler_jumps_to_next_clause_then_default_deny() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let unix = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_UNIX as u64).unwrap(),
+            ])
+            .unwrap();
+            let netlink = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_NETLINK as u64).unwrap(),
+            ])
+            .unwrap();
+            let rule = SeccompSyscallRuleV2::new_with_clauses(
+                libc::SYS_socket,
+                vec![unix, netlink],
+            )
+            .unwrap();
+            let denied = SeccompSyscallRuleV2::new(libc::SYS_getpid, Vec::new()).unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule, denied]).unwrap();
+            let filter = compile_filter_v2(&policy).unwrap();
+
+            let socket_dispatch = filter
+                .iter()
+                .position(|instruction| {
+                    instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                        && instruction.k == libc::SYS_socket as u32
+                })
+                .unwrap();
+            assert_eq!(filter[socket_dispatch].jt, 0);
+            assert!(filter[socket_dispatch].jf > 1);
+
+            let allow_count = filter
+                .iter()
+                .filter(|instruction| {
+                    instruction.code == BPF_RET | BPF_K
+                        && instruction.k == SECCOMP_RET_ALLOW
+                })
+                .count();
+            assert_eq!(allow_count, 3);
+
+            assert_eq!(
+                filter.last().map(|instruction| instruction.k),
+                Some(SECCOMP_RET_ERRNO | libc::EPERM as u32)
+            );
         }
 
         #[test]
