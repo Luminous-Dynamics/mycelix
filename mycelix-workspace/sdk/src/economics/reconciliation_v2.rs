@@ -121,6 +121,32 @@ pub fn postings_for_step(
                     StockPosting::new(recipient, BalanceSheetInstrument::Equity, -transfer.amount),
                 ]
             }
+            EconomicTransition::CapitalInvestment(investment) => {
+                let buyer = sector_for(assignments, &investment.buyer)?;
+                let producer = sector_for(assignments, &investment.producer)?;
+                vec![
+                    StockPosting::new(
+                        buyer,
+                        BalanceSheetInstrument::Deposits,
+                        -investment.amount,
+                    ),
+                    StockPosting::new(
+                        buyer,
+                        BalanceSheetInstrument::ProductiveCapital,
+                        investment.amount,
+                    ),
+                    StockPosting::new(
+                        producer,
+                        BalanceSheetInstrument::Deposits,
+                        investment.amount,
+                    ),
+                    StockPosting::new(
+                        producer,
+                        BalanceSheetInstrument::Equity,
+                        -investment.amount,
+                    ),
+                ]
+            }
             EconomicTransition::CreditCreation(credit) => {
                 let lender = sector_for(assignments, &credit.lender)?;
                 let borrower = sector_for(assignments, &credit.borrower)?;
@@ -173,6 +199,7 @@ fn apply_transition(state: &mut EconomicState, transition: &EconomicTransition) 
     match transition {
         EconomicTransition::MonetaryTransfer(flow) => state.apply_flow(flow),
         EconomicTransition::IncomeTransfer(transfer) => state.apply_income_transfer(transfer),
+        EconomicTransition::CapitalInvestment(investment) => state.apply_capital_investment(investment),
         EconomicTransition::CreditCreation(credit) => state.create_credit(credit),
         EconomicTransition::DebtRepayment(repayment) => state.repay_debt(repayment),
     }
