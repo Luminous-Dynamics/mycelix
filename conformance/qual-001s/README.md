@@ -61,6 +61,19 @@ These are corpus properties, not implementation suggestions.
 
 QUAL-001S should consume these same vector bytes through at least two materially independent evaluators before S0/S1/S2 is considered qualified. The second evaluator must be reconstructed from this published corpus/contract rather than copied from the first evaluator's control flow.
 
+## Local evaluators
+
+The two reference evaluators are deliberately small and independent:
+
+```text
+python3 conformance/qual-001s/evaluator_a.py
+node conformance/qual-001s/evaluator_b.mjs
+```
+
+Evaluator A checks schema-shaped structure and invariant preservation. Evaluator B reconstructs semantic expectations from proposition/theorem vocabulary. Neither imports repository domain crates, executes candidate verifier code, or publishes authority.
+
+A future qualified S1 implementation should consume the same corpus bytes without replacing either evaluator with candidate-authored expectations.
+
 ## Status
 
 This corpus is a **design/evidence artifact only**. A committed corpus is not a QUAL-001S PASS, does not qualify a verifier, and does not authorize adoption.
