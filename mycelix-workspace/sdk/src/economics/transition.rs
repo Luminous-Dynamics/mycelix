@@ -155,7 +155,7 @@ mod tests {
                 CreditCreation::new("bank", "household", 500).unwrap(),
             ),
             EconomicTransition::MonetaryTransfer(
-                MonetaryFlow::new("household", "bank", 100).unwrap(),
+                MonetaryFlow::deposit_transfer("household", "bank", 100).unwrap(),
             ),
         ];
 
