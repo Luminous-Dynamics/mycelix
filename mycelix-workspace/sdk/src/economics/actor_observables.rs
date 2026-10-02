@@ -80,6 +80,8 @@ pub struct ActorEconomicObservables {
 }
 
 impl ActorEconomicObservables {
+    /// Derive period-end actor stocks and period flows by replaying an ordered
+    /// transition sequence from the supplied starting state.
     pub fn from_state_and_transitions(
         state: &EconomicState,
         transitions: &[EconomicTransition],
@@ -91,18 +93,6 @@ impl ActorEconomicObservables {
                 actor.actor.clone(),
                 Self {
                     actor: actor.actor.clone(),
-                    cash: actor.monetary.cash,
-                    deposits: actor.monetary.deposits,
-                    liquidity: actor.monetary.cash + actor.monetary.deposits,
-                    loan_claims: actor.monetary.claims,
-                    debt: actor.monetary.liabilities,
-                    trade_receivables: actor.monetary.trade_receivables,
-                    trade_payables: actor.monetary.trade_payables,
-                    inventory_quantity: actor.real.inventories,
-                    inventory_carrying_value: actor.inventory_carrying_value,
-                    productive_capital: actor.real.productive_capital,
-                    net_financial_position: actor.monetary.net_position(),
-                    net_worth: actor.net_worth(),
                     ..Self::default()
                 },
             );
@@ -274,7 +264,30 @@ impl ActorEconomicObservables {
         }
 
         for (actor, observation) in observations.iter_mut() {
-            let final_nwc = working
+            let final_actor = working
+                .actors
+                .iter()
+                .find(|candidate| &candidate.actor == actor)
+                .ok_or_else(|| format!("unknown actor after transition replay: {actor}"))?;
+            observation.cash = final_actor.monetary.cash;
+            observation.deposits = final_actor.monetary.deposits;
+            observation.liquidity = final_actor
+                .monetary
+                .cash
+                .checked_add(final_actor.monetary.deposits)
+                .ok_or_else(|| format!("liquidity overflow for {actor}"))?;
+            observation.loan_claims = final_actor.monetary.claims;
+            observation.debt = final_actor.monetary.liabilities;
+            observation.trade_receivables = final_actor.monetary.trade_receivables;
+            observation.trade_payables = final_actor.monetary.trade_payables;
+            observation.inventory_quantity = final_actor.real.inventories;
+            observation.inventory_carrying_value = final_actor.inventory_carrying_value;
+            observation.productive_capital = final_actor.real.productive_capital;
+            observation.net_financial_position = final_actor.monetary.net_position();
+            observation.net_worth = final_actor.net_worth();
+
+            let final_nwc = final_actor.net_working_capital();
+
                 .actors
                 .iter()
                 .find(|candidate| &candidate.actor == actor)
