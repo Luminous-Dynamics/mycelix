@@ -7,7 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
-const corpus = JSON.parse(fs.readFileSync(path.join(ROOT, "qualification_vectors_v1.json"), "utf8"));
+const raw = fs.readFileSync(path.join(ROOT, "qualification_vectors_v1.json"), "utf8");
 
 function duplicateObjectKeys(json) {
   let i = 0;
@@ -69,8 +69,22 @@ function duplicateObjectKeys(json) {
   if (i !== json.length) throw new Error("trailing data");
 }
 
-const raw = fs.readFileSync(path.join(ROOT, "qualification_vectors_v1.json"), "utf8");
-duplicateObjectKeys('{"authority_outcome":"NONE","authority_outcome":"AUTHORITY_AUTHORIZED"}');
+// Check the entire corpus before any parser can normalize duplicate keys.
+try {
+  duplicateObjectKeys(raw);
+} catch (err) {
+  throw new Error(`corpus duplicate-key rejection failed: ${err}`);
+}
+
+const corpus = JSON.parse(raw);
+
+let fixtureRejected = false;
+try {
+  duplicateObjectKeys('{"authority_outcome":"NONE","authority_outcome":"AUTHORITY_AUTHORIZED"}');
+} catch (err) {
+  fixtureRejected = String(err).includes("duplicate key");
+}
+if (!fixtureRejected) throw new Error("duplicate-key negative control was accepted");
 
 const expect = new Map([
   ["EXECUTION_AUTHENTICATED", ["VERIFIED", "EXECUTION_OBSERVED"]],
