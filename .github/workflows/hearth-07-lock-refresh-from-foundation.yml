@@ -1,4 +1,5 @@
 name: Hearth Holochain 0.7 lock refresh from foundation
+# Immutable closure generation; runtime qualification remains a separate gate.
 
 on:
   push:
