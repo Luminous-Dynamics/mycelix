@@ -1047,7 +1047,7 @@ pub fn compose_finality_eligibility_from_authoritative_d6n_d6o(
     current_frontier_root: &str,
     live_generation_id: &str,
     required_independent_observations: u32,
-) -> FinalityEligibilityCompositionV1 {
+) -> Option<FinalityEligibilityCompositionV1> {
     if !verify_observation_set_provenance(
         set,
         effect,
@@ -1060,18 +1060,13 @@ pub fn compose_finality_eligibility_from_authoritative_d6n_d6o(
         assessment, effect, route, profile, set, evidence,
         current_frontier_root, live_generation_id,
     ) {
-        return compose_finality_eligibility(
-            set, assessment, evidence, &[],
-            lifecycle_profile.profile_id.as_str(),
-            current_frontier_root,
-            required_independent_observations,
-        );
+        return None;
     }
     compose_finality_eligibility_from_authoritative_d6o(
         set, assessment, evidence, eligibility_receipts,
         lifecycle_profile, d6o_ledger, current_frontier_root,
         required_independent_observations,
-    )
+    ).into()
 }
 
 pub fn compose_finality_eligibility_from_authoritative_d6o(
@@ -1656,6 +1651,7 @@ mod tests {
             "frontier-1",
             1,
         );
+        let valid = valid.expect("authoritative D6N/D6O reconstruction");
         assert_eq!(
             valid.disposition,
             FinalityEligibilityDispositionV1::EligibleCurrent
