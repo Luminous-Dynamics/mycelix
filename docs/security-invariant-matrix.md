@@ -49,6 +49,8 @@ The new implementation remains a policy/type boundary. `VerificationEvidence` is
 
 A zero authority-freshness commitment is treated as missing authority evidence and therefore yields `Indeterminate(AmbiguousAuthority)` at both verification and enforcement; it is never a valid “unknown” placeholder for a permit.
 
+Enforcement security events additionally require `actor_id == request.subject`; a caller cannot use the authoritative enforcement-event constructor to attribute an authorized operation to another principal.
+
 ## Evidence durability invariant
 
 Build reproducibility is part of the security evidence boundary as well: the standalone bridge crate is committed with a `Cargo.lock`, and qualification invokes Cargo with `--locked`. A missing or divergent lockfile therefore fails qualification rather than silently changing the dependency graph.
