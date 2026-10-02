@@ -17,8 +17,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - run: cargo fmt --all -- --check
-      - run: cargo test -p mobility-configuration-qualification
+      - run: cargo fmt --check --manifest-path mycelix-commons/crates/mobility-configuration-qualification/Cargo.toml
+      - run: cargo test --manifest-path mycelix-commons/crates/mobility-configuration-qualification/Cargo.toml
 
   reference:
     runs-on: ubuntu-latest
