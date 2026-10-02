@@ -15,7 +15,7 @@
 //! stream is supplied.
 
 use hdi::prelude::*;
-use listings_integrity::Listing;
+use listings_types::Listing;
 use std::collections::BTreeMap;
 
 use crate::reservation::{ApplyOutcome, Reservation, ReservationError, ReservationLedger};
@@ -1432,14 +1432,14 @@ mod tests {
             title: "Test Product".into(),
             description: "Test listing".into(),
             price_cents,
-            category: listings_integrity::ListingCategory::Other,
+            category: listings_types::ListingCategory::Other,
             photos_ipfs_cids: vec!["QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG".into()],
             quantity_available: quantity,
-            status: listings_integrity::ListingStatus::Active,
-            epistemic: listings_integrity::EpistemicClassification {
-                empirical: listings_integrity::EmpiricalLevel::E1Testimonial,
-                normative: listings_integrity::NormativeLevel::N0Personal,
-                materiality: listings_integrity::MaterialityLevel::M1Temporal,
+            status: listings_types::ListingStatus::Active,
+            epistemic: listings_types::EpistemicClassification {
+                empirical: listings_types::EmpiricalLevel::E1Testimonial,
+                normative: listings_types::NormativeLevel::N0Personal,
+                materiality: listings_types::MaterialityLevel::M1Temporal,
             },
             created_at: Timestamp::from_micros(1_000_000),
             updated_at: Timestamp::from_micros(1_000_000),
