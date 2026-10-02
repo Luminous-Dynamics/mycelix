@@ -167,6 +167,7 @@ pub enum CertificateError {
     InvalidPreState,
     InvalidPostState,
     InvalidStateTransition,
+    SequenceOverflow,
     WrongSeller,
     WrongListing,
     WrongRevision,
@@ -452,6 +453,9 @@ impl InventoryFrontier {
                 actual: sequence,
             });
         }
+        if sequence == u64::MAX {
+            return Err(CertificateError::SequenceOverflow);
+        }
         if previous_certificate_id != &self.head_certificate_id {
             return Err(CertificateError::PreviousMismatch {
                 expected: self.head_certificate_id.clone(),
@@ -486,6 +490,9 @@ impl InventoryFrontier {
             certificate.sequence,
             &certificate.previous_certificate_id,
         )?;
+        if certificate.pre_state != self.post_state() {
+            return Err(CertificateError::InvalidPreState);
+        }
 
         // The certificate carries its own deterministic transition evidence.
         // Cross-event continuity is validated against the predecessor evidence
@@ -714,6 +721,34 @@ mod tests {
             Ok(ApplyOutcome::Idempotent)
         );
         assert_eq!(f.active_reserved(), 1);
+    }
+
+    #[test]
+    fn reserve_rejects_forged_pre_state() {
+        let mut f = frontier(5);
+        let mut forged = certificate("c1", 0, None, 1);
+        forged.pre_state = ReservationFrontierState::from_capacity(4);
+        forged.post_state = forged.pre_state.after_reserve(1).unwrap();
+
+        assert_eq!(
+            f.apply(FrontierEvent::Reserve(forged)),
+            Err(CertificateError::InvalidPreState)
+        );
+        assert_eq!(f.post_state(), ReservationFrontierState::from_capacity(5));
+    }
+
+    #[test]
+    fn frontier_rejects_sequence_exhaustion_before_mutation() {
+        let mut f = frontier(5);
+        f.next_sequence = u64::MAX;
+        let forged = certificate_with_capacity("c-max", u64::MAX, Some("head"), 1, 5);
+
+        assert_eq!(
+            f.apply(FrontierEvent::Reserve(forged)),
+            Err(CertificateError::SequenceOverflow)
+        );
+        assert_eq!(f.next_sequence(), u64::MAX);
+        assert_eq!(f.active_reserved(), 0);
     }
 
     #[test]
@@ -2278,14 +2313,15 @@ pub fn validate_create_reservation_terminal(
 
     // The certificate is the historical reservation being terminated. It may
     // be separated from this terminal event by later seller-authored frontier
-    // events (for example a listing-revision/capacity bridge). Therefore the
-    // certificate remains an economic dependency, while the actual frontier
-    // predecessor determines the terminal sequence and pre-state.
-    let prior_activity = must_get_agent_activity(
+    // events (for example a listing-revision/capacity bridge). Therefore prove
+    // the historical certificate and the current frontier predecessor with
+    // separate bounded source-chain queries. A single slice ending at the
+    // historical certificate cannot also prove a later predecessor.
+    let certificate_activity = must_get_agent_activity(
         evidence.seller.clone(),
         ChainFilter::new(chain_top.clone()).until_hash(evidence.certificate_hash.clone()),
     )?;
-    if !prior_activity
+    if !certificate_activity
         .iter()
         .any(|activity| activity.action.hashed.hash == evidence.certificate_hash)
     {
@@ -2294,7 +2330,12 @@ pub fn validate_create_reservation_terminal(
                 .into(),
         ));
     }
-    if !prior_activity
+
+    let predecessor_activity = must_get_agent_activity(
+        evidence.seller.clone(),
+        ChainFilter::new(chain_top.clone()).until_hash(evidence.previous_frontier_action.clone()),
+    )?;
+    if !predecessor_activity
         .iter()
         .any(|activity| activity.action.hashed.hash == evidence.previous_frontier_action)
     {
