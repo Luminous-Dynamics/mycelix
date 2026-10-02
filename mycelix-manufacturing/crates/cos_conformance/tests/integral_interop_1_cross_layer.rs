@@ -252,10 +252,12 @@ fn actual_d6p_fixture() -> (
         allowed_roles: BTreeSet::from([ExternalObserverRoleV1::IndependentObserver]),
         current_frontier_required: true,
         historical_evidence_allowed: true,
-        profile_commitment: "integral-lifecycle-profile-commitment".into(),
+        profile_commitment: String::new(),
         claim_ceiling: OBSERVER_LIFECYCLE_CLAIM_CEILING.into(),
     };
-    let generation = ObserverGenerationV1 {
+    lifecycle_profile.profile_commitment = lifecycle_profile.recomputed_commitment();
+
+    let mut generation = ObserverGenerationV1 {
         generation_id: "integral-observer-generation-1".into(),
         observer_id: observer_profile.observer_id.clone(),
         generation_sequence: 1,
@@ -272,10 +274,12 @@ fn actual_d6p_fixture() -> (
         created_frontier_root: "integral-frontier-1".into(),
         created_frontier_sequence: 1,
         initial_status: ObserverStatusV1::Active,
-        generation_commitment: "integral-observer-generation-commitment".into(),
+        generation_commitment: String::new(),
         claim_ceiling: OBSERVER_LIFECYCLE_CLAIM_CEILING.into(),
     };
-    let snapshot = EvidenceDependencySnapshotV1 {
+    generation.generation_commitment = generation.recomputed_commitment();
+
+    let mut snapshot = EvidenceDependencySnapshotV1 {
         snapshot_id: "integral-d6o-snapshot-1".into(),
         observer_generation_id: generation.generation_id.clone(),
         observation_profile_id: generation.observation_profile_id.clone(),
@@ -288,9 +292,11 @@ fn actual_d6p_fixture() -> (
         effective_frontier_root: "integral-frontier-1".into(),
         effective_frontier_sequence: 1,
         predecessor_snapshot_id: None,
-        snapshot_commitment: "integral-d6o-snapshot-commitment".into(),
+        snapshot_commitment: String::new(),
         claim_ceiling: OBSERVER_LIFECYCLE_CLAIM_CEILING.into(),
     };
+    snapshot.snapshot_commitment = snapshot.recomputed_commitment();
+
     let mut d6o_ledger = ObserverLifecycleLedgerV1::default();
     assert!(matches!(
         d6o_ledger.record_generation(generation.clone()),
@@ -398,6 +404,56 @@ fn actual_d6p_fixture() -> (
         "integral-frontier-1",
         &effect.generation_id,
     );
+
+    let mut mutated_observation = d6m_evidence.clone();
+    mutated_observation.observation.observed_state = ExternalObservedStateV1::NotApplied;
+    mutated_observation.observation.observation_commitment =
+        mutated_observation.observation.recomputed_commitment();
+    assert!(
+        !cos_conformance::contestable_finality::verify_observation_set_provenance(
+            &d6n_set,
+            &effect,
+            &route,
+            &d6n_profile,
+            std::slice::from_ref(&mutated_observation),
+            "integral-frontier-1",
+            &effect.generation_id,
+        ),
+        "D6M semantic mutation must not cross the D6N provenance boundary"
+    );
+
+    let mut mutated_d6n = d6n_assessment.clone();
+    mutated_d6n.disposition =
+        cos_conformance::contestable_finality::ObservationSetDispositionV1::Contested;
+    assert!(
+        !verify_observation_set_assessment_provenance(
+            &mutated_d6n,
+            &effect,
+            &route,
+            &d6n_profile,
+            &d6n_set,
+            std::slice::from_ref(&d6m_evidence),
+            "integral-frontier-1",
+            &effect.generation_id,
+        ),
+        "D6N assessment substitution must not cross the D6P admission boundary"
+    );
+
+    let mut mutated_d6o = d6o_receipt.clone();
+    mutated_d6o.observer_generation_id = "integral-attacker-generation".into();
+    mutated_d6o.eligibility_commitment = mutated_d6o.recomputed_commitment();
+    assert!(
+        !verify_eligibility_receipt_provenance(
+            &mutated_d6o,
+            &d6m_evidence,
+            &generation,
+            &snapshot,
+            &lifecycle_profile,
+            &d6o_ledger,
+        ),
+        "D6O lifecycle substitution must not cross the D6P admission boundary"
+    );
+
     assert!(verify_observation_set_assessment_provenance(
         &d6n_assessment,
         &effect,
