@@ -434,6 +434,17 @@ jobs:
       - name: Check prism-tauri (desktop shell, compile-only)
         run: cd mycelix-workspace/mycelix-prism && cargo check -p prism-tauri
 
+  # The lock-closure executor is invoked from the established PR workflow.
+  # The standalone workflow remains the immutable executor; this caller provides the
+  # event path while keeping closure generation separate from ordinary CI checks.
+  hearth-07-lock-refresh:
+    if: github.event_name == 'pull_request' && github.head_ref == 'chore/hearth-0.7-lock-refresh-from-foundation'
+    permissions:
+      contents: write
+    uses: ./.github/workflows/hearth-07-lock-refresh-from-foundation.yml
+    with:
+      ref: ${{ github.event.pull_request.head.sha }}
+
   # Summary gate
   ci-pass:
     if: always() && !cancelled() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false))
