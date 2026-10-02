@@ -646,9 +646,7 @@ mod tests {
             permit.valid_until_us(),
             150 + MAX_AUTHORIZATION_PERMIT_LIFETIME_US
         );
-        assert!(!permit.is_valid_at(
-            150 + MAX_AUTHORIZATION_PERMIT_LIFETIME_US + 1
-        ));
+        assert!(!permit.is_valid_at(150 + MAX_AUTHORIZATION_PERMIT_LIFETIME_US + 1));
     }
 
     #[test]
@@ -796,11 +794,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            verify_capability(
-                malformed,
-                VerificationEvidence::new(true, true, true),
-                1,
-            ),
+            verify_capability(malformed, VerificationEvidence::new(true, true, true), 1,),
             Err(AuthorizationDecision::Deny(
                 AuthorizationDenial::InvalidCapability,
             ))
