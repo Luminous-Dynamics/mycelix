@@ -120,7 +120,8 @@ pub fn postings_for_step(
                     StockPosting::new(recipient, BalanceSheetInstrument::Deposits, transfer.amount),
                     StockPosting::new(recipient, BalanceSheetInstrument::Equity, -transfer.amount),
                 ]
-            }\n            EconomicTransition::CreditCreation(credit) => {
+            }
+            EconomicTransition::CreditCreation(credit) => {
                 let lender = sector_for(assignments, &credit.lender)?;
                 let borrower = sector_for(assignments, &credit.borrower)?;
                 vec![
