@@ -438,11 +438,12 @@ pub fn deliver(
     }
 
     if !transport_available {
-        return FederationOutcome::unknown_origin(
+        return FederationOutcome::with_origin_knowledge(
             FederationDecision::PartitionUnknown,
             AuthorityDisposition::NoAuthority,
             envelope,
             "Transport unavailability does not establish delivery success.",
+            state.nodes.contains_key(&envelope.origin_node),
         );
     }
 
@@ -2035,6 +2036,24 @@ mod tests {
             deliver(&mut state, &stale, 50, true).decision,
             FederationDecision::StaleGeneration
         );
+    }
+
+    #[test]
+    fn partition_preserves_independent_origin_node_knowledge() {
+        let mut state = nodes();
+
+        let known = envelope();
+        let known_outcome = deliver(&mut state, &known, 50, false);
+        assert_eq!(known_outcome.decision, FederationDecision::PartitionUnknown);
+        assert!(!known_outcome.authority().eq(&AuthorityDisposition::LocalAuthority));
+        assert_eq!(known_outcome.origin_node(), Some("node-a"));
+        assert!(known_outcome.origin_node_known());
+
+        let mut unknown = envelope();
+        unknown.origin_node = "node-unknown".into();
+        let unknown_outcome = deliver(&mut state, &unknown, 50, false);
+        assert_eq!(unknown_outcome.decision, FederationDecision::PartitionUnknown);
+        assert!(!unknown_outcome.origin_node_known());
     }
 
     #[test]
