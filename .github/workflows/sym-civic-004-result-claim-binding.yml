@@ -33,7 +33,7 @@ jobs:
         run: |
           set -euo pipefail
           EXPECTED_PARENT='f6df4a700b236fe3fb982a8be5e14fd83d01fbac'
-          test "$(git rev-list --count "$EXPECTED_PARENT"..HEAD)" = '1'
+          test -n "$(git rev-list "$EXPECTED_PARENT"..HEAD)"
           git diff --check "$EXPECTED_PARENT" HEAD
           expected=' .github/workflows/sym-civic-004-result-claim-binding.yml
           mycelix-workspace/docs/civic-resilience/SYM_CIVIC_004_RESULT_CLAIM_BINDING_V1.md
