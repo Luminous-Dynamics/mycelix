@@ -18,6 +18,8 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use super::actor_observables::ActorEconomicObservables;
+use super::observables::EconomicObservables;
+use super::period_ledger::EconomicPeriodLedger;
 use super::reconciliation::{reconcile_step, StockFlowReconciliation};
 use super::sector_balance::{SectorAssignment, SectorBalanceSheet};
 use super::sector_financial_flow::SectorFinancialFlowMatrix;
@@ -100,6 +102,11 @@ impl EconomicAccountingClosure {
         let stock_flow: StockFlowReconciliation =
             reconcile_step(pre_state, post_state, assignments, transitions)?;
 
+        let period_ledger = EconomicPeriodLedger::from_transitions(transitions)?;
+        let aggregate_observations =
+            EconomicObservables::try_from_state_and_ledger(post_state, &period_ledger)?;
+        let aggregate_observations_hash = hash_json(&aggregate_observations)?;
+
         let actor_observations_hash = hash_json(&actor_observations)?;
         let sector_transaction_hash = hash_json(&sector_transaction)?;
         let sector_financial_flow_hash = hash_json(&sector_financial_flow)?;
@@ -111,6 +118,7 @@ impl EconomicAccountingClosure {
             &transition_hash,
             transitions.len() as u64,
             &actor_observations_hash,
+            &aggregate_observations_hash,
             &stock_flow.posting_hash,
             stock_flow.posting_count,
             &stock_flow.physical_posting_hash,
@@ -127,6 +135,7 @@ impl EconomicAccountingClosure {
             transition_hash,
             transition_count: transitions.len() as u64,
             actor_observations_hash,
+            aggregate_observations_hash,
             stock_flow_posting_hash: stock_flow.posting_hash,
             stock_flow_posting_count: stock_flow.posting_count,
             physical_posting_hash: stock_flow.physical_posting_hash,
@@ -146,6 +155,7 @@ impl EconomicAccountingClosure {
             &self.transition_hash,
             self.transition_count,
             &self.actor_observations_hash,
+            &self.aggregate_observations_hash,
             &self.stock_flow_posting_hash,
             self.stock_flow_posting_count,
             &self.physical_posting_hash,
@@ -291,6 +301,7 @@ mod tests {
 
         assert_eq!(a, b);
         assert!(!a.closure_hash.is_empty());
+        assert!(!a.aggregate_observations_hash.is_empty());
         assert!(!a.sector_transaction_hash.is_empty());
         assert!(!a.sector_financial_flow_hash.is_empty());
         assert!(!a.sector_observations_hash.is_empty());
