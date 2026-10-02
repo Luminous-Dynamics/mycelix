@@ -236,7 +236,10 @@ mod tests {
         assert_eq!(event.request, *enforcement.request());
         assert_eq!(event.provenance.len(), 1);
         assert_eq!(event.recovery_correlation.as_deref(), Some("recovery:1"));
-        assert_eq!(event.capability_binding, Some(enforcement.capability_binding()));
+        assert_eq!(
+            event.capability_binding,
+            Some(enforcement.capability_binding())
+        );
     }
 
     #[test]
