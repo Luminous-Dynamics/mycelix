@@ -2097,7 +2097,19 @@ mod tests {
 
     #[test]
     fn finality_receipt_commitment_rejects_semantic_mutation() {
-        let (effect, route, outcome, observation, profile) = fixture();
+        let effect = effect("effect-1", "lineage-1", "generation-1");
+        let substitution = substitution_profile(&effect);
+        let route = route(&effect, "provider-a", "profile-a", "route-1", "operation-1");
+        let outcome = outcome(&route, ProviderOutcomeKindV1::Succeeded);
+        let observation = observation(
+            &effect,
+            &route,
+            &outcome,
+            ExternalObservationSourceV1::IndependentObserver,
+            ExternalObservedStateV1::Applied,
+            "frontier-1",
+        );
+        let profile = finality_profile(&effect, ExternalFinalityStateV1::Applied, true);
         let receipt = finality_receipt(&effect, &route, &outcome, &observation, &profile);
         assert!(receipt.commitment_matches());
 
@@ -2109,7 +2121,7 @@ mod tests {
         assert_eq!(
             assess_external_finality(
                 &effect,
-                &substitution_profile(),
+                &substitution,
                 &profile,
                 &route,
                 &outcome,
