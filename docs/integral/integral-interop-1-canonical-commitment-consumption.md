@@ -40,6 +40,12 @@ This makes compatibility a localized migration mechanism rather than an implicit
 
 Cryptographic hashes are used here as integrity commitments; they do not confer truth, authority, causality, current-finality, or actuation semantics. NIST describes cryptographic hash functions as fixed-length message digests and discusses their use for integrity and digital signatures.
 
+## Qualified D6P consumption
+
+D6S now has an explicit qualified-consumption entrypoint, `build_canonical_receipt_with_authoritative_d6p()`. The ordinary D6S builder remains an integrity/currentness boundary: it verifies that a supplied D6P receipt is self-consistent and matches the requested frontier, but it does not independently establish the receipt's provenance from a D6P composition. The qualified entrypoint additionally requires an exact receipt-to-composition match before constructing the canonical D6S receipt.
+
+This preserves the provenance/authority distinction: a self-consistent object is not promoted to an authoritative source merely because its commitment verifies. The qualified entrypoint likewise does not reconstruct D6N/D6O authority; it consumes a separately supplied, committed D6P composition.
+
 ## Migration path
 
 The remaining migration work is to convert all ReferenceModelOnly projection fixtures that still use symbolic selected commitments to canonical commitments, then narrow or remove legacy acceptance from the D6X compatibility layer itself.
