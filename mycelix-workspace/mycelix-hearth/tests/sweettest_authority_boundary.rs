@@ -609,6 +609,30 @@ async fn test_assigned_capability_binds_signer_and_revocation() {
         other => panic!("expected ZomeCalled for assigned positive case, got {other:?}"),
     }
 
+    // The assigned grant is also function-scoped: the authorized signer must
+    // not gain access to a coordinator function outside the Listed grant.
+    let bob_out_of_scope = signed_call_as_agent(
+        &conductor,
+        alice.cell_id(),
+        bob.clone(),
+        "update_member_role",
+        serde_json::json!({
+            "membership_hash": ActionHash::from_raw_36(vec![0u8; 36]),
+            "new_role": "Elder"
+        }),
+        cap_secret,
+    )
+    .await;
+    match submit_call(&conductor, bob_out_of_scope).await {
+        AppResponse::ZomeCalled(result) => match *result {
+            ZomeCallResponse::Unauthorized(..) => {}
+            other => panic!(
+                "assigned signer must not gain access to unlisted function, got {other:?}"
+            ),
+        },
+        other => panic!("expected ZomeCalled for function-scope rejection, got {other:?}"),
+    }
+
     // Same secret, wrong signer: the secret alone must not confer access.
     let eve_call = signed_call_as_agent(
         &conductor,
