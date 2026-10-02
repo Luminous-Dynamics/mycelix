@@ -18,6 +18,9 @@
 
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "identity")]
+use ed25519_dalek::{Signature, Signer, Verifier, SigningKey, VerifyingKey};
+
 pub const MAX_SECURITY_IDENTIFIER_BYTES: usize = 512;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -38,6 +41,37 @@ pub struct Capability {
     not_before_us: u64,
     expires_at_us: u64,
     policy_version: u64,
+}
+
+/// A capability together with an Ed25519 signature over its canonical semantic
+/// representation. This proves integrity of the capability bytes, not issuer
+/// authorization, revocation, or policy compliance.
+#[cfg(feature = "identity")]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SignedCapability {
+    pub capability: Capability,
+    pub issuer_public_key: [u8; 32],
+    pub signature: [u8; 64],
+}
+
+#[cfg(feature = "identity")]
+impl SignedCapability {
+    pub fn sign(capability: Capability, signing_key: &SigningKey) -> Self {
+        let signature = signing_key.sign(&capability.signing_bytes());
+        Self {
+            capability,
+            issuer_public_key: signing_key.verifying_key().to_bytes(),
+            signature: signature.to_bytes(),
+        }
+    }
+
+    pub fn verify_signature(&self) -> bool {
+        let Ok(key) = VerifyingKey::from_bytes(&self.issuer_public_key) else {
+            return false;
+        };
+        let signature = Signature::from_bytes(&self.signature);
+        key.verify(&self.capability.signing_bytes(), &signature).is_ok()
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -179,6 +213,26 @@ impl AdvisoryResult {
 }
 
 impl Capability {
+    /// Stable semantic bytes for cryptographic signing.
+    ///
+    /// The framing avoids dependence on JSON/map ordering and binds every
+    /// authority-relevant capability field.
+    pub fn signing_bytes(&self) -> Vec<u8> {
+        let mut out = Vec::with_capacity(256);
+        out.extend_from_slice(b"mycelix/security/capability/v1");
+        frame_bytes(&mut out, self.subject.as_bytes());
+        frame_bytes(&mut out, self.issuer.as_bytes());
+        frame_bytes(&mut out, self.resource.as_bytes());
+        out.extend_from_slice(&(self.actions.len() as u64).to_le_bytes());
+        for action in &self.actions {
+            out.push(*action as u8);
+        }
+        out.extend_from_slice(&self.not_before_us.to_le_bytes());
+        out.extend_from_slice(&self.expires_at_us.to_le_bytes());
+        out.extend_from_slice(&self.policy_version.to_le_bytes());
+        out
+    }
+
     pub fn new(
         subject: impl Into<String>,
         issuer: impl Into<String>,
@@ -249,6 +303,11 @@ impl AuthorizationRequest {
 /// Cross the independent verification boundary.
 ///
 /// No AI/advisory input is accepted here by design.
+fn frame_bytes(out: &mut Vec<u8>, value: &[u8]) {
+    out.extend_from_slice(&(value.len() as u64).to_le_bytes());
+    out.extend_from_slice(value);
+}
+
 pub fn verify_capability(
     capability: Capability,
     evidence: VerificationEvidence,
@@ -386,6 +445,37 @@ mod tests {
             7,
         )
         .unwrap()
+    }
+
+    #[cfg(feature = "identity")]
+    #[test]
+    fn signed_capability_cryptographically_verifies() {
+        use ed25519_dalek::SigningKey;
+
+        let capability = Capability::new(
+            "did:mycelix:alice",
+            "did:mycelix:issuer",
+            "resource:ledger",
+            vec![CapabilityAction::Read],
+            100,
+            200,
+            7,
+        ).unwrap();
+        let key = SigningKey::from_bytes(&[7u8; 32]);
+        let signed = SignedCapability::sign(capability, &key);
+        assert!(signed.verify_signature());
+
+        let mut tampered = signed.clone();
+        tampered.capability = Capability::new(
+            "did:mycelix:alice",
+            "did:mycelix:issuer",
+            "resource:ledger",
+            vec![CapabilityAction::Admin],
+            100,
+            200,
+            7,
+        ).unwrap();
+        assert!(!tampered.verify_signature());
     }
 
     #[test]
