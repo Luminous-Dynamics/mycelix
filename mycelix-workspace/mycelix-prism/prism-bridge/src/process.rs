@@ -135,7 +135,8 @@ pub struct SandboxEnforcementReceipt {
     assignment_id: RendererProcessAssignmentId,
     installation_id: SandboxInstallationId,
     adapter: SandboxAdapterKind,
-    policy_digest: [u8; 32],
+    profile_digest: [u8; 32],
+    evidence_digest: [u8; 32],
     layer: SandboxEnforcementLayer,
 }
 
@@ -146,7 +147,8 @@ impl SandboxEnforcementReceipt {
         assignment_id: RendererProcessAssignmentId,
         installation_id: SandboxInstallationId,
         adapter: SandboxAdapterKind,
-        policy_digest: [u8; 32],
+        profile_digest: [u8; 32],
+        evidence_digest: [u8; 32],
         layer: SandboxEnforcementLayer,
     ) -> Result<Self, ProcessContractError> {
         let valid = matches!(
@@ -157,13 +159,14 @@ impl SandboxEnforcementReceipt {
         if !valid {
             return Err(ProcessContractError::InvalidSandboxEvidence);
         }
-        Ok(Self { assignment_id, installation_id, adapter, policy_digest, layer })
+        Ok(Self { assignment_id, installation_id, adapter, profile_digest, evidence_digest, layer })
     }
 
     pub fn assignment_id(&self) -> RendererProcessAssignmentId { self.assignment_id }
     pub fn installation_id(&self) -> SandboxInstallationId { self.installation_id }
     pub fn adapter(&self) -> SandboxAdapterKind { self.adapter }
-    pub fn policy_digest(&self) -> [u8; 32] { self.policy_digest }
+    pub fn profile_digest(&self) -> [u8; 32] { self.profile_digest }
+    pub fn evidence_digest(&self) -> [u8; 32] { self.evidence_digest }
     pub fn layer(&self) -> SandboxEnforcementLayer { self.layer }
 }
 
@@ -188,7 +191,7 @@ impl SandboxEvidenceBundle {
         receipt: SandboxEnforcementReceipt,
     ) -> Result<(), ProcessContractError> {
         if receipt.assignment_id != self.assignment_id
-            || receipt.policy_digest != self.policy_digest
+            || receipt.profile_digest != self.policy_digest
             || receipt.installation_id.0 == 0
         {
             return Err(ProcessContractError::SandboxEvidenceMismatch);
