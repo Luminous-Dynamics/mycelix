@@ -788,3 +788,19 @@ This separates three reproducibility identities explicitly:
 `source revision + parameter hash + seed`
 
 with the initial-state and transition/evidence hashes providing the run-specific execution identity.
+## Explicit financial-commitment diagnostic (implemented)
+
+`FinancialCommitmentObservation` provides a descriptive Minsky-style coverage object over three
+explicit inputs:
+
+`cash-flow available, interest due, principal due`
+
+It derives total contractual service, service shortfall, whether total service is covered, whether
+interest is covered, and the existing hedge/speculative/Ponzi classification.
+
+The diagnostic does **not** infer cash flow from revenue, profit, liquidity, or actual repayment. It
+also does not create debt or automatically trigger refinancing/default. This keeps the accounting
+substrate authoritative while making financial fragility a reproducible derived observation.
+
+This matches the core Minsky formulation in which financing posture is defined by the relationship
+between prospective cash flows and payment commitments on liabilities.
