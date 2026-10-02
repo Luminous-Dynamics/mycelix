@@ -39,5 +39,6 @@
   "dispatch_input_commitment_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
   "authenticated_principal_identity": "github.example.authorized-actor",
   "policy_scope_identity": "repository.actions.workflow-execution-protection.v1",
-  "observation_timestamp": "2026-01-01T00:00:02Z"
+  "observation_timestamp": "2026-01-01T00:00:02Z",
+  "dispatch_input_canonical_json": "{}"
 }
