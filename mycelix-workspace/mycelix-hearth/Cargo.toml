@@ -4,6 +4,9 @@ members = [
     # Shared crates
     "crates/hearth-types",
     "crates/hearth-coordinator-common",
+    "crates/hearth-bridge-common",
+    "crates/hearth-bridge-entry-types",
+    "crates/hearth-zome-helpers",
 
     # Kinship (core membership + relationships)
     "zomes/hearth-kinship/integrity",
@@ -57,10 +60,10 @@ edition = "2024"
 license = "AGPL-3.0-or-later"
 
 [workspace.dependencies]
-# Holochain 0.6 compatible
-hdk = "0.6.0"
-hdi = "0.7.0"
-holochain_integrity_types = "0.6.0"
+# Holochain 0.7 compatible
+hdk = "=0.7.0"
+hdi = "=0.8.0"
+holochain_integrity_types = "=0.7.0"
 holochain_serialized_bytes = "0.0.57"
 
 # Serialization
@@ -78,10 +81,10 @@ getrandom_03 = { package = "getrandom", version = "0.3" }
 # Internal shared crates
 hearth-types = { path = "crates/hearth-types" }
 hearth-coordinator-common = { path = "crates/hearth-coordinator-common" }
-mycelix-bridge-common = { path = "../crates/mycelix-bridge-common" }
-mycelix-bridge-entry-types = { path = "../crates/mycelix-bridge-entry-types" }
+mycelix-bridge-common = { package = "hearth-bridge-common", path = "crates/hearth-bridge-common" }
+mycelix-bridge-entry-types = { package = "hearth-bridge-entry-types", path = "crates/hearth-bridge-entry-types" }
 mycelix-zkp-core = { path = "../crates/mycelix-zkp-core" }
-mycelix-zome-helpers = { path = "../crates/mycelix-zome-helpers" }
+mycelix-zome-helpers = { package = "hearth-zome-helpers", path = "crates/hearth-zome-helpers" }
 
 [profile.dev]
 opt-level = "z"
