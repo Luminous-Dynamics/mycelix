@@ -108,6 +108,7 @@ impl EconomicEvidenceCapsule {
                             .checked_add(observation.deposits)
                             != Some(observation.liquidity)
                         || !observation.liquidity_stock_flow_reconciliation_holds()
+                        || !observation.net_working_capital_stock_flow_reconciliation_holds()
                         || !observation.liquidity_flow_reconciliation_holds()
                 }) {
                     return Err(EconomicStepError::Serialization(
@@ -182,6 +183,7 @@ impl EconomicEvidenceCapsule {
                     *sector != observation.sector
                         || !observation.liquidity_flow_reconciliation_holds()
                         || !observation.liquidity_stock_flow_reconciliation_holds()
+                        || !observation.net_working_capital_stock_flow_reconciliation_holds()
                 }) {
                     return Err(EconomicStepError::Serialization(
                         "sector observations fail structural liquidity reconciliation".into(),
