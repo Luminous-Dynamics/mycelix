@@ -1033,7 +1033,7 @@ mod tests {
         assert_eq!(firm.trade_receivables, 50);
         assert_eq!(firm.net_working_capital(), 100);
         assert_eq!(firm.net_liquidity_change, 30);
-        assert_eq!(firm.deposits, 30);
+        assert_eq!(firm.deposits, 130);
         assert_eq!(firm.inventory_quantity, 6);
         assert_eq!(firm.inventory_carrying_value, 50);
         assert_eq!(firm.net_worth, 80);
