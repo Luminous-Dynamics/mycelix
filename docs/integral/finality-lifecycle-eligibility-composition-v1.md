@@ -183,6 +183,22 @@ Archive evidence may preserve:
 
 It cannot silently become a live current witness.
 
+## Witness registry semantics
+
+The ledger's `witnesses` map is a single-view convenience registry keyed by observation ID.
+
+It intentionally rejects a second witness version for the same observation rather than
+silently replacing an earlier frontier-bound witness. Historical frontier versions are
+retained in immutable D6P compositions, whose canonical commitments include their
+frontier-bound witness material.
+
+Consumers that need to select from the ledger must use an explicit expected frontier:
+
+    witness_at_frontier(observation_id, expected_frontier_root)
+
+This selection check does not establish that the supplied frontier is authoritative.
+The caller must still obtain the authoritative frontier from its trust domain.
+
 ## Terminal receipt semantics
 
 FinalityEligibilityLedgerV1 treats only EligibleCurrent composition receipts as terminal for an effect.
@@ -263,7 +279,8 @@ The module contains source-level tests for:
 23. Symthaea composition remains non-authoritative;
 24. composition cannot authorize actuation;
 25. lifecycle evidence alone cannot establish finality;
-26. arrival order cannot change the eligible witness count.
+26. arrival order cannot change the eligible witness count;
+27. cross-frontier witness replacement is rejected and explicit witness selection requires the expected frontier.
 
 ## Claim ceiling
 
