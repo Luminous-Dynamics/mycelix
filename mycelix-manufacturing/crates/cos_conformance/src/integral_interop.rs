@@ -288,6 +288,61 @@ mod tests {
     }
 
     #[test]
+    fn cross_layer_vector_corpus_declares_a_fail_closed_blocked_boundary() {
+        let corpus: Value = serde_json::from_str(include_str!(
+            "../testdata/integral_interop_1_cross_layer_vectors.json"
+        ))
+        .expect("cross-layer mutation corpus must be valid JSON");
+
+        assert_eq!(corpus["profile"], INTEGRAL_INTEROP_PROFILE);
+        assert_eq!(
+            corpus["projection_version"],
+            OAD_SEMANTIC_PROJECTION_VERSION
+        );
+
+        let vectors = corpus["vectors"]
+            .as_array()
+            .expect("cross-layer corpus vectors must be an array");
+        assert!(!vectors.is_empty());
+
+        for vector in vectors {
+            assert!(vector["id"].is_string(), "vector id must be a string");
+            assert!(vector["operation"].is_string(), "vector operation must be a string");
+            let expected = vector["expected"]
+                .as_object()
+                .expect("vector expected contract must be an object");
+            assert!(expected["valid"].is_boolean(), "valid must be boolean");
+            assert!(expected["d6x_status"].is_string(), "d6x_status must be a string");
+
+            for field in [
+                "oad_semantic_commitment",
+                "d6x_identity",
+                "d6x_certificate",
+                "d6w_input",
+                "d6w_derivation",
+            ] {
+                assert!(expected[field].is_boolean(), "{field} must be boolean");
+            }
+        }
+
+        let blocked = vectors
+            .iter()
+            .find(|vector| vector["id"] == "required-receipt-missing")
+            .expect("corpus must include the required-receipt-missing boundary");
+        assert_eq!(blocked["expected"]["d6x_status"], "BlockedMissingDependency");
+        assert_eq!(blocked["expected"]["d6w_input"], false);
+        assert_eq!(blocked["expected"]["d6w_derivation"], false);
+
+        let satisfied = vectors
+            .iter()
+            .find(|vector| vector["id"] == "required-receipt-present")
+            .expect("corpus must include the required-receipt-present boundary");
+        assert_eq!(satisfied["expected"]["d6x_status"], "Complete");
+        assert_eq!(satisfied["expected"]["d6w_input"], true);
+        assert_eq!(satisfied["expected"]["d6w_derivation"], true);
+    }
+
+    #[test]
     fn explicit_null_fails_closed() {
         let mut changed = fixture();
         changed["design_version"]["materials"] = Value::Null;
