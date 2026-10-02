@@ -12,8 +12,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    SocialContractError, SocialObjectIdV1, SocialObjectKind, SocialObjectRefV1,
-    SocialProvenance, SocialRevisionV1, SOCIAL_SCHEMA_VERSION_V1,
+    SOCIAL_SCHEMA_VERSION_V1, SocialContractError, SocialObjectIdV1, SocialObjectKind,
+    SocialObjectRefV1, SocialProvenance, SocialRevisionV1,
 };
 
 pub const CHAT_PROJECTION_SCHEMA_VERSION_V1: u8 = 1;
@@ -139,7 +139,10 @@ pub fn normalize_thread_relation(
             if thread_id == [0; 32] {
                 return Err(ChatProjectionError::ZeroThreadId);
             }
-            Ok(ChatThreadRelationV1::Threaded { thread_id, in_reply_to: None })
+            Ok(ChatThreadRelationV1::Threaded {
+                thread_id,
+                in_reply_to: None,
+            })
         }
         (Some(thread_id), Some(reply)) => {
             if thread_id == [0; 32] {
