@@ -16,6 +16,7 @@ pub mod commons;
 pub mod actor_observables;
 pub mod decay_garden;
 pub mod evidence;
+pub mod financial_commitment;
 pub mod metabolic_oracle;
 pub mod observables;
 pub mod period_ledger;
@@ -58,6 +59,7 @@ pub use observables::{
 };
 pub use actor_observables::ActorEconomicObservables;
 pub use evidence::{EconomicEvidenceCapsule, EconomicEvidenceManifest};
+pub use financial_commitment::FinancialCommitmentObservation;
 
 pub use stock_flow::{
     ActorBalanceSheet, ActorId, CapitalInvestment, ProductionEvent, InventoryTransfer,
