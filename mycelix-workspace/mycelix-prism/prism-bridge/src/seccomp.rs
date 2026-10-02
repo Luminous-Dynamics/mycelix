@@ -1066,6 +1066,223 @@ mod linux {
             assert_eq!(filter.last().map(|instruction| instruction.k), Some(SECCOMP_RET_ERRNO | libc::EPERM as u32));
         }
 
+        fn interpret_v2_filter(
+            filter: &[SockFilter],
+            architecture: SeccompArchitecture,
+            syscall: i64,
+            arguments: [u64; 6],
+        ) -> u32 {
+            let mut accumulator = 0u32;
+            let mut pc = 0usize;
+
+            for _ in 0..=filter.len() {
+                let instruction = filter
+                    .get(pc)
+                    .unwrap_or_else(|| panic!("BPF program fell off the end at {pc}"));
+
+                match instruction.code {
+                    code if code == BPF_LD | BPF_W | BPF_ABS => {
+                        accumulator = match instruction.k {
+                            SECCOMP_DATA_ARCH_OFFSET => architecture as u32,
+                            SECCOMP_DATA_NR_OFFSET => syscall as u32,
+                            offset if (16..=56).contains(&offset) && (offset - 16) % 8 == 0 => {
+                                let index = ((offset - 16) / 8) as usize;
+                                arguments[index] as u32
+                            }
+                            offset
+                                if (20..=60).contains(&offset) && (offset - 20) % 8 == 0 =>
+                            {
+                                let index = ((offset - 20) / 8) as usize;
+                                (arguments[index] >> 32) as u32
+                            }
+                            offset => panic!("unexpected BPF argument offset {offset}"),
+                        };
+                        pc += 1;
+                    }
+                    code if code == BPF_ALU | BPF_AND | BPF_K => {
+                        accumulator &= instruction.k;
+                        pc += 1;
+                    }
+                    code if code == BPF_JMP | BPF_JEQ | BPF_K => {
+                        pc += 1 + if accumulator == instruction.k {
+                            instruction.jt as usize
+                        } else {
+                            instruction.jf as usize
+                        };
+                    }
+                    code if code == BPF_JMP | BPF_JGE | BPF_K => {
+                        pc += 1 + if accumulator >= instruction.k {
+                            instruction.jt as usize
+                        } else {
+                            instruction.jf as usize
+                        };
+                    }
+                    code if code == BPF_RET | BPF_K => return instruction.k,
+                    code => panic!("unexpected V2 BPF opcode 0x{code:04x}"),
+                }
+            }
+
+            panic!("BPF program exceeded the execution bound");
+        }
+
+        #[test]
+        fn v2_compiled_filter_matches_policy_model_for_adversarial_arguments() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let prctl = SeccompSyscallRuleV2::new(
+                libc::SYS_prctl,
+                vec![SeccompArgPredicateV1::new(
+                    0,
+                    u64::MAX,
+                    libc::PR_GET_NO_NEW_PRIVS as u64,
+                )
+                .unwrap()],
+            )
+            .unwrap();
+            let mmap_no_wx = SeccompSyscallRuleV2::new(
+                libc::SYS_mmap,
+                vec![SeccompArgPredicateV1::new_with_op(
+                    2,
+                    (libc::PROT_WRITE | libc::PROT_EXEC) as u64,
+                    (libc::PROT_WRITE | libc::PROT_EXEC) as u64,
+                    SeccompArgPredicateOpV1::MaskedNotEqual,
+                )
+                .unwrap()],
+            )
+            .unwrap();
+            let mprotect_no_x = SeccompSyscallRuleV2::new(
+                libc::SYS_mprotect,
+                vec![SeccompArgPredicateV1::new_with_op(
+                    2,
+                    libc::PROT_EXEC as u64,
+                    libc::PROT_EXEC as u64,
+                    SeccompArgPredicateOpV1::MaskedNotEqual,
+                )
+                .unwrap()],
+            )
+            .unwrap();
+            let exit_group =
+                SeccompSyscallRuleV2::new(libc::SYS_exit_group, Vec::new()).unwrap();
+            let policy =
+                SeccompSyscallPolicyV2::new(arch, vec![prctl, mmap_no_wx, mprotect_no_x, exit_group])
+                    .unwrap();
+            let filter = compile_filter_v2(&policy).unwrap();
+
+            let cases = [
+                (
+                    libc::SYS_prctl,
+                    [libc::PR_GET_NO_NEW_PRIVS as u64, 0, 0, 0, 0, 0],
+                    SECCOMP_RET_ALLOW,
+                ),
+                (
+                    libc::SYS_prctl,
+                    [libc::PR_SET_NO_NEW_PRIVS as u64, 1, 0, 0, 0, 0],
+                    SECCOMP_RET_ERRNO | libc::EPERM as u32,
+                ),
+                (
+                    libc::SYS_mmap,
+                    [
+                        0,
+                        4096,
+                        (libc::PROT_READ | libc::PROT_WRITE) as u64,
+                        (libc::MAP_PRIVATE | libc::MAP_ANONYMOUS) as u64,
+                        u64::MAX,
+                        0,
+                    ],
+                    SECCOMP_RET_ALLOW,
+                ),
+                (
+                    libc::SYS_mmap,
+                    [
+                        0,
+                        4096,
+                        (libc::PROT_READ | libc::PROT_WRITE | libc::PROT_EXEC) as u64,
+                        (libc::MAP_PRIVATE | libc::MAP_ANONYMOUS) as u64,
+                        u64::MAX,
+                        0,
+                    ],
+                    SECCOMP_RET_ERRNO | libc::EPERM as u32,
+                ),
+                (
+                    libc::SYS_mmap,
+                    [
+                        0,
+                        4096,
+                        (libc::PROT_WRITE | libc::PROT_EXEC) as u64,
+                        (libc::MAP_PRIVATE | libc::MAP_ANONYMOUS) as u64,
+                        u64::MAX,
+                        0,
+                    ],
+                    SECCOMP_RET_ERRNO | libc::EPERM as u32,
+                ),
+                (
+                    libc::SYS_mprotect,
+                    [
+                        0,
+                        4096,
+                        (libc::PROT_READ | libc::PROT_WRITE) as u64,
+                        0,
+                        0,
+                        0,
+                    ],
+                    SECCOMP_RET_ALLOW,
+                ),
+                (
+                    libc::SYS_mprotect,
+                    [
+                        0,
+                        4096,
+                        (libc::PROT_READ | libc::PROT_EXEC) as u64,
+                        0,
+                        0,
+                        0,
+                    ],
+                    SECCOMP_RET_ERRNO | libc::EPERM as u32,
+                ),
+                (
+                    libc::SYS_getpid,
+                    [0; 6],
+                    SECCOMP_RET_ERRNO | libc::EPERM as u32,
+                ),
+                (
+                    libc::SYS_exit_group,
+                    [0; 6],
+                    SECCOMP_RET_ALLOW,
+                ),
+            ];
+
+            for (syscall, arguments, expected) in cases {
+                assert_eq!(
+                    policy.allows(syscall, &arguments),
+                    expected == SECCOMP_RET_ALLOW,
+                    "policy model mismatch for syscall {syscall} args {arguments:?}"
+                );
+                assert_eq!(
+                    interpret_v2_filter(&filter, arch, syscall, arguments),
+                    expected,
+                    "compiled BPF mismatch for syscall {syscall} args {arguments:?}"
+                );
+            }
+
+            if arch == SeccompArchitecture::X86_64 {
+                assert_eq!(
+                    interpret_v2_filter(&filter, arch, 0x4000_0000, [0; 6]),
+                    SECCOMP_RET_KILL_PROCESS,
+                    "x32 ABI must never fall through to the allowlist"
+                );
+            }
+
+            let wrong_arch = match arch {
+                SeccompArchitecture::X86_64 => SeccompArchitecture::Aarch64,
+                SeccompArchitecture::Aarch64 => SeccompArchitecture::X86_64,
+                SeccompArchitecture::Riscv64 => SeccompArchitecture::X86_64,
+            };
+            assert_eq!(
+                interpret_v2_filter(&filter, wrong_arch, libc::SYS_exit_group, [0; 6]),
+                SECCOMP_RET_KILL_PROCESS,
+                "architecture mismatch must kill before syscall dispatch"
+            );
+        }
+
         #[test]
         fn architecture_guard_is_present_before_syscall_allowlist() {
             let arch = SeccompArchitecture::current().unwrap();
