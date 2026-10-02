@@ -275,7 +275,7 @@
         "operation": "reject_duplicate_object_keys",
         "target": "receipt.json",
         "expected_effect": "ambiguous receipt is rejected",
-        "fixture": "{\"authority_outcome\":\"NONE\",\"authority_outcome\":\"AUTHORITY_AUTHORIZED\"}"
+        "fixture": "{\"authority_outcome\":\"NONE\",\"\\u0061uthority_outcome\":\"AUTHORITY_AUTHORIZED\"}"
       }
     },
     {
