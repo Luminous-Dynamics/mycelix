@@ -922,6 +922,12 @@ mod tests {
                 authorization_generation: 1,
                 active: true,
             },
+            NodeProfile {
+                node_id: "node-c".into(),
+                schema_generation: 1,
+                authorization_generation: 1,
+                active: true,
+            },
         ])
     }
 
