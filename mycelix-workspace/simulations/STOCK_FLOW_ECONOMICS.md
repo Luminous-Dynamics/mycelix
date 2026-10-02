@@ -484,3 +484,49 @@ and, when inventory costing is present:
 `inventory cost relief -> goods sale -> inventory cost addition -> gross operating surplus`
 
 The resulting structure aligns with conventional inventory accounting's distinction between physical inventory, carrying cost, and cost recognized as an expense, while remaining compatible with the SFC requirement that stocks and flows reconcile.
+
+
+### Trade credit and working-capital boundary (implemented)
+
+The accounting substrate now models deferred commercial settlement explicitly instead of
+treating every goods sale as an immediate deposit transfer.
+
+TradeCreditSale:
+
+- moves physical inventory from seller to buyer;
+- records seller trade receivables;
+- records buyer trade payables;
+- does not create deposits and does not infer inventory carrying value.
+
+TradeCreditSettlement:
+
+- requires matching outstanding receivable/payable;
+- transfers deposits from buyer to seller;
+- retires both the receivable and payable;
+- increases the period's monetary settlement volume.
+
+This is important for SFC dynamics because the timing of revenue recognition, liquidity,
+and debt service need not coincide. A firm can therefore have positive sales with rising
+receivables and no corresponding immediate deposit inflow. The actor-level observables
+expose both trade-credit extension/settlement and net_working_capital_change.
+
+Net operating working capital is defined here as:
+
+inventory carrying value + trade receivables - trade payables
+
+Cash, deposits, physical inventory units, and productive capital are excluded from this
+specific working-capital measure. Physical inventory remains in the separate physical-stock
+dimension.
+
+The sector balance sheet now contains TradeReceivables and TradePayables, and the
+stock-flow reconciliation layer verifies their deltas exactly. Trade-credit settlement is
+a monetary transaction; the original deferred sale is a non-cash financial/physical
+transaction and is therefore kept out of the cash-sector transaction projection rather
+than falsely reported as deposit flow.
+
+This gives the simulation a clean next boundary for cash-flow analysis:
+
+accrual sales/COGS -> working-capital change -> realized liquidity -> debt-service coverage
+
+No operating-cash-flow formula is inferred yet. That remains an explicit derived layer so
+the model does not silently mix accrual accounting with cash accounting.
