@@ -9,13 +9,14 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::stock_flow::{CreditCreation, DebtRepayment, EconomicState, IncomeTransfer, MonetaryFlow};
+use super::stock_flow::{CapitalInvestment, CreditCreation, DebtRepayment, EconomicState, IncomeTransfer, MonetaryFlow};
 
 /// One explicit economic state transition.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum EconomicTransition {
     MonetaryTransfer(MonetaryFlow),
     IncomeTransfer(IncomeTransfer),
+    CapitalInvestment(CapitalInvestment),
     CreditCreation(CreditCreation),
     DebtRepayment(DebtRepayment),
 }
@@ -85,6 +86,7 @@ pub fn apply_step(
         let result = match transition {
             EconomicTransition::MonetaryTransfer(flow) => next.apply_flow(flow),
             EconomicTransition::IncomeTransfer(transfer) => next.apply_income_transfer(transfer),
+            EconomicTransition::CapitalInvestment(investment) => next.apply_capital_investment(investment),
             EconomicTransition::CreditCreation(credit) => next.create_credit(credit),
             EconomicTransition::DebtRepayment(repayment) => next.repay_debt(repayment),
         };
