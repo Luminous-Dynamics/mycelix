@@ -344,6 +344,63 @@ impl GoodsSale {
     }
 }
 
+/// Add an explicit monetary carrying amount to inventory that is already
+/// physically held.
+///
+/// This records the result of an external cost-allocation/accounting
+/// calculation. It does not move money or invent a financing source.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InventoryCostAddition {
+    pub actor: ActorId,
+    pub quantity: i128,
+    pub carrying_value: i128,
+}
+
+impl InventoryCostAddition {
+    pub fn new(
+        actor: impl Into<ActorId>,
+        quantity: i128,
+        carrying_value: i128,
+    ) -> Result<Self, String> {
+        if quantity <= 0 || carrying_value <= 0 {
+            return Err("inventory cost addition quantity and carrying value must be positive".into());
+        }
+        Ok(Self {
+            actor: actor.into(),
+            quantity,
+            carrying_value,
+        })
+    }
+}
+
+/// Relieve an explicit monetary carrying amount from inventory.
+///
+/// In the sale path this is the COGS posting. The physical sale and monetary
+/// consideration remain a separate GoodsSale transition.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InventoryCostRelief {
+    pub actor: ActorId,
+    pub quantity: i128,
+    pub carrying_value: i128,
+}
+
+impl InventoryCostRelief {
+    pub fn new(
+        actor: impl Into<ActorId>,
+        quantity: i128,
+        carrying_value: i128,
+    ) -> Result<Self, String> {
+        if quantity <= 0 || carrying_value <= 0 {
+            return Err("inventory cost relief quantity and carrying value must be positive".into());
+        }
+        Ok(Self {
+            actor: actor.into(),
+            quantity,
+            carrying_value,
+        })
+    }
+}
+
 /// Explicit endogenous credit creation.
 ///
 /// Credit creation increases the lender's financial asset and the borrower's
@@ -599,8 +656,9 @@ impl EconomicState {
         Ok(())
     }
 
-    /// Settle a goods sale: inventory moves physically while deposits move
-    /// monetarily. No inventory valuation or profit recognition is implied yet.
+    /// Settle a goods sale: inventory quantity moves physically while deposits
+    /// move monetarily. Inventory carrying value is unchanged; explicit
+    /// cost-relief and buyer-side cost-addition transitions carry the accounting.
     pub fn apply_goods_sale(&mut self, sale: &GoodsSale) -> Result<(), String> {
         let (seller, buyer) = self.actor_pair_mut(&sale.seller, &sale.buyer)?;
         if seller.real.inventories < sale.quantity {
@@ -626,6 +684,50 @@ impl EconomicState {
         self.monetary_flow_volume = self.monetary_flow_volume
             .checked_add(sale.consideration)
             .ok_or_else(|| "monetary flow counter overflow".to_string())?;
+        Ok(())
+    }
+
+    /// Add an explicit carrying amount to physically-held inventory.
+    pub fn apply_inventory_cost_addition(
+        &mut self,
+        addition: &InventoryCostAddition,
+    ) -> Result<(), String> {
+        let actor = self.actor_mut(&addition.actor)?;
+        if actor.real.inventories < addition.quantity {
+            return Err(format!(
+                "inventory cost addition covers {} units for {}, but only {} are held",
+                addition.quantity, actor.actor, actor.real.inventories
+            ));
+        }
+        actor.inventory_carrying_value = actor
+            .inventory_carrying_value
+            .checked_add(addition.carrying_value)
+            .ok_or_else(|| "inventory carrying value overflow".to_string())?;
+        Ok(())
+    }
+
+    /// Relieve an explicit carrying amount from physically-held inventory.
+    ///
+    /// In a normal sale sequence this is the COGS posting and should precede
+    /// the corresponding GoodsSale quantity reduction.
+    pub fn apply_inventory_cost_relief(
+        &mut self,
+        relief: &InventoryCostRelief,
+    ) -> Result<(), String> {
+        let actor = self.actor_mut(&relief.actor)?;
+        if actor.real.inventories < relief.quantity {
+            return Err(format!(
+                "inventory cost relief covers {} units for {}, but only {} are held",
+                relief.quantity, actor.actor, actor.real.inventories
+            ));
+        }
+        if actor.inventory_carrying_value < relief.carrying_value {
+            return Err(format!(
+                "inventory carrying value for {} is {}, need {}",
+                actor.actor, actor.inventory_carrying_value, relief.carrying_value
+            ));
+        }
+        actor.inventory_carrying_value -= relief.carrying_value;
         Ok(())
     }
 
