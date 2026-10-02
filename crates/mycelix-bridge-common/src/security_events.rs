@@ -168,11 +168,7 @@ mod tests {
         .unwrap();
         crate::security_kernel::verify_capability(
             capability,
-            VerificationEvidence {
-                signature_verified: true,
-                not_revoked: true,
-                authority_unambiguous: true,
-            },
+            VerificationEvidence::new(true, true, true),
             150,
         )
         .unwrap()
@@ -198,11 +194,7 @@ mod tests {
         let permit = authorize_permit(&verified(), &request, 150).unwrap();
         let enforcement = EnforcementRequest::from_permit(
             permit,
-            VerificationEvidence {
-                signature_verified: true,
-                not_revoked: true,
-                authority_unambiguous: true,
-            },
+            VerificationEvidence::new(true, true, true),
             150,
         ).unwrap();
         let source = ProvenanceRef::new("evidence:source-1", ProvenanceRelation::DerivedFrom).unwrap();
