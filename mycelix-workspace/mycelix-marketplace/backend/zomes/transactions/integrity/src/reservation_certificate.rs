@@ -607,7 +607,7 @@ impl InventoryFrontier {
         // this revision is the current root-derived revision before admitting it.
         self.listing_revision = listing_revision;
         self.advance(format!("capacity:{}", sequence));
-        Ok(outcome)
+        Ok(ApplyOutcome::Applied)
     }
 
     fn advance(&mut self, certificate_id: String) {
@@ -791,7 +791,7 @@ mod tests {
     fn listing_capacity_cannot_drop_below_outstanding_reservations() {
         let mut f = frontier(5);
         f.apply(FrontierEvent::Reserve(certificate_with_capacity(
-            "c1", 0, None, 4, 3,
+            "c1", 0, None, 4, 5,
         )))
         .unwrap();
         assert!(matches!(
