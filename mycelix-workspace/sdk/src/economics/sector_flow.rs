@@ -107,14 +107,90 @@ impl SectorTransactionMatrix {
         self.flows.iter().map(|flow| flow.amount).sum()
     }
 
-    /// Validate that the matrix contains no unknown actor references.
+    /// Derive the sector transaction matrix directly from the authoritative
+    /// ordered transition log.
     ///
-    /// Actor resolution is deliberately kept outside the matrix: this layer
-    /// describes sector accounting, while the actor registry belongs to the
-    /// simulation runtime.
-    pub fn validate_against(&self, _state: &EconomicState, _actors: &[(ActorId, EconomicSector)]) -> Result<(), String> {
+    /// This keeps the transaction-flow matrix as a projection of the same
+    /// transition evidence used by the stock-flow reconciliation layer rather
+    /// than introducing a second, independently-authored flow ledger.
+    pub fn from_transitions(
+        transitions: &[super::transition::EconomicTransition],
+        actors: &[(ActorId, EconomicSector)],
+    ) -> Result<Self, String> {
+        let sector_for = |actor: &str| {
+            actors
+                .iter()
+                .find(|(id, _)| id == actor)
+                .map(|(_, sector)| *sector)
+                .ok_or_else(|| format!("unknown actor in sector assignment: {actor}"))
+        };
+
+        let mut matrix = Self::default();
+        for transition in transitions {
+            let (from, to, category, amount) = match transition {
+                super::transition::EconomicTransition::MonetaryTransfer(flow) => (
+                    sector_for(&flow.from)?,
+                    sector_for(&flow.to)?,
+                    FlowCategory::Other,
+                    flow.amount,
+                ),
+                super::transition::EconomicTransition::IncomeTransfer(flow) => (
+                    sector_for(&flow.payer)?,
+                    sector_for(&flow.recipient)?,
+                    match flow.category {
+                        super::stock_flow::EconomicFlowCategory::Wage => FlowCategory::Wage,
+                        super::stock_flow::EconomicFlowCategory::Interest => FlowCategory::Interest,
+                        super::stock_flow::EconomicFlowCategory::Tax => FlowCategory::Tax,
+                        super::stock_flow::EconomicFlowCategory::Transfer => FlowCategory::Transfer,
+                        super::stock_flow::EconomicFlowCategory::Consumption => FlowCategory::Consumption,
+                        super::stock_flow::EconomicFlowCategory::Investment => FlowCategory::Investment,
+                    },
+                    flow.amount,
+                ),
+                super::transition::EconomicTransition::CapitalInvestment(investment) => (
+                    sector_for(&investment.buyer)?,
+                    sector_for(&investment.producer)?,
+                    FlowCategory::Investment,
+                    investment.amount,
+                ),
+                super::transition::EconomicTransition::CreditCreation(credit) => (
+                    sector_for(&credit.lender)?,
+                    sector_for(&credit.borrower)?,
+                    FlowCategory::LoanCreation,
+                    credit.amount,
+                ),
+                super::transition::EconomicTransition::DebtRepayment(repayment) => (
+                    sector_for(&repayment.borrower)?,
+                    sector_for(&repayment.lender)?,
+                    FlowCategory::DebtRepayment,
+                    repayment.amount,
+                ),
+            };
+            matrix.push(SectorFlow::new(from, to, category, amount)?);
+        }
+        Ok(matrix)
+    }
+
+    /// Validate that this matrix is an exact projection of the authoritative
+    /// transition log and that all sectoral external flows clear.
+    pub fn validate_against(
+        &self,
+        state: &EconomicState,
+        actors: &[(ActorId, EconomicSector)],
+        transitions: &[super::transition::EconomicTransition],
+    ) -> Result<(), String> {
+        if state.actors.iter().any(|actor| {
+            !actors.iter().any(|(id, _)| id == &actor.actor)
+        }) {
+            return Err("sector assignments are incomplete for economic state".into());
+        }
         if !self.clears() {
             return Err("sector transaction matrix does not clear".into());
+        }
+
+        let expected = Self::from_transitions(transitions, actors)?;
+        if self.flows != expected.flows {
+            return Err("sector transaction matrix does not match transition-derived flows".into());
         }
         Ok(())
     }
