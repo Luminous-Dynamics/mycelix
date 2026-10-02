@@ -47,6 +47,16 @@ pub struct SectorEconomicObservables {
     pub trade_credit_settled: i128,
     pub trade_credit_collected: i128,
 
+    pub interest_paid: i128,
+    pub interest_received: i128,
+    pub wages_paid: i128,
+    pub wages_received: i128,
+    pub taxes_paid: i128,
+    pub transfers_paid: i128,
+    pub transfers_received: i128,
+    pub consumption_paid: i128,
+    pub investment_paid: i128,
+    pub investment_received: i128,
     pub sales_revenue: i128,
     pub goods_purchases: i128,
     pub cost_of_goods_sold: i128,
@@ -72,6 +82,16 @@ impl Default for SectorEconomicObservables {
             trade_credit_extended: 0,
             trade_credit_settled: 0,
             trade_credit_collected: 0,
+            interest_paid: 0,
+            interest_received: 0,
+            wages_paid: 0,
+            wages_received: 0,
+            taxes_paid: 0,
+            transfers_paid: 0,
+            transfers_received: 0,
+            consumption_paid: 0,
+            investment_paid: 0,
+            investment_received: 0,
             sales_revenue: 0,
             goods_purchases: 0,
             cost_of_goods_sold: 0,
@@ -222,6 +242,56 @@ impl SectorEconomicObservables {
                     "sector trade credit collected",
                 ),
                 (
+                    &mut sector_observation.interest_paid,
+                    observation.interest_paid,
+                    "sector interest paid",
+                ),
+                (
+                    &mut sector_observation.interest_received,
+                    observation.interest_received,
+                    "sector interest received",
+                ),
+                (
+                    &mut sector_observation.wages_paid,
+                    observation.wages_paid,
+                    "sector wages paid",
+                ),
+                (
+                    &mut sector_observation.wages_received,
+                    observation.wages_received,
+                    "sector wages received",
+                ),
+                (
+                    &mut sector_observation.taxes_paid,
+                    observation.taxes_paid,
+                    "sector taxes paid",
+                ),
+                (
+                    &mut sector_observation.transfers_paid,
+                    observation.transfers_paid,
+                    "sector transfers paid",
+                ),
+                (
+                    &mut sector_observation.transfers_received,
+                    observation.transfers_received,
+                    "sector transfers received",
+                ),
+                (
+                    &mut sector_observation.consumption_paid,
+                    observation.consumption_paid,
+                    "sector consumption paid",
+                ),
+                (
+                    &mut sector_observation.investment_paid,
+                    observation.investment_paid,
+                    "sector investment paid",
+                ),
+                (
+                    &mut sector_observation.investment_received,
+                    observation.investment_received,
+                    "sector investment received",
+                ),
+                (
                     &mut sector_observation.sales_revenue,
                     observation.sales_revenue,
                     "sector sales revenue",
@@ -336,6 +406,9 @@ mod tests {
         firm.trade_credit_extended = 40;
         firm.sales_revenue = 80;
         firm.cost_of_goods_sold = 50;
+        firm.wages_paid = 12;
+        firm.interest_paid = 3;
+        firm.taxes_paid = 4;
         observations.insert("firm-a".into(), firm);
 
         let mut household = observation("household-a", 50, -20, -20, 0, 0, 0);
@@ -369,6 +442,9 @@ mod tests {
         assert_eq!(firm.financing_net_liquidity, 20);
         assert_eq!(firm.trade_credit_extended, 40);
         assert_eq!(firm.net_working_capital_change, 15);
+        assert_eq!(firm.wages_paid, 12);
+        assert_eq!(firm.interest_paid, 3);
+        assert_eq!(firm.taxes_paid, 4);
         assert_eq!(firm.gross_surplus(), 30);
         assert_eq!(firm.operating_surplus_after_depreciation(), 30);
         assert!(firm.liquidity_flow_reconciliation_holds());
