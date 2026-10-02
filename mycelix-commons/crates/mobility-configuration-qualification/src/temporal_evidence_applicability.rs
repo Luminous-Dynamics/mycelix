@@ -238,8 +238,6 @@ impl EvidenceDispositionTransition {
             })
         }
     }
-}
-
     /// Validate adding exactly one new transition to an existing append-only graph.
     ///
     /// The existing graph is validated first, then the candidate is checked for
@@ -266,6 +264,7 @@ impl EvidenceDispositionTransition {
         Self::validate_graph(&combined)
     }
 
+}
 /// Explicitly records reconciliation of competing disposition branches.
 ///
 /// This record never selects a branch implicitly. It identifies the exact
