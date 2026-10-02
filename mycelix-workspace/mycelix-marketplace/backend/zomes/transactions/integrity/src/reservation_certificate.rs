@@ -1867,14 +1867,15 @@ pub fn validate_create_reservation_certificate(
             ))
         })?;
     let listing_action = listing_record.action();
-    if listing_action.hashed.author() != &certificate.seller {
+    if listing_action.author() != &certificate.seller {
         return Ok(ValidateCallbackResult::Invalid(
             "ReservationCertificate seller does not own the referenced listing action".into(),
         ));
     }
-    if !matches!(listing_action.action(), Action::Create(_)) {
+    if !matches!(listing_action, Action::Create(_)) {
         return Ok(ValidateCallbackResult::Invalid(
-            "ReservationCertificate listing hash must identify the listing root create action".into(),
+            "ReservationCertificate listing hash must identify the listing root create action"
+                .into(),
         ));
     }
 
@@ -1899,7 +1900,7 @@ pub fn validate_create_reservation_certificate(
                 "ReservationCertificate listing revision is not a Listing entry".into(),
             ))
         })?;
-    if revision_action.hashed.author() != &certificate.seller {
+    if revision_action.author() != &certificate.seller {
         return Ok(ValidateCallbackResult::Invalid(
             "ReservationCertificate listing revision is not seller-authored".into(),
         ));
@@ -1909,7 +1910,7 @@ pub fn validate_create_reservation_certificate(
         return Ok(ValidateCallbackResult::Invalid(error));
     }
 
-    match revision_action.action() {
+    match revision_action {
         Action::Create(_) => {
             if certificate.listing_revision != certificate.listing_hash {
                 return Ok(ValidateCallbackResult::Invalid(
@@ -2093,12 +2094,12 @@ pub fn validate_create_reservation_capacity(
 
     let listing_record = must_get_valid_record(evidence.listing_hash.clone())?;
     let listing_action = listing_record.action();
-    if listing_action.hashed.author() != &evidence.seller {
+    if listing_action.author() != &evidence.seller {
         return Ok(ValidateCallbackResult::Invalid(
             "Reservation capacity listing is not seller-authored".into(),
         ));
     }
-    if !matches!(listing_action.action(), Action::Create(_)) {
+    if !matches!(listing_action, Action::Create(_)) {
         return Ok(ValidateCallbackResult::Invalid(
             "Reservation capacity listing hash must identify the listing root create action".into(),
         ));
@@ -2132,7 +2133,7 @@ pub fn validate_create_reservation_capacity(
             ))
         })?;
     let revision_action = revision_record.action();
-    if revision_action.hashed.author() != &evidence.seller {
+    if revision_action.author() != &evidence.seller {
         return Ok(ValidateCallbackResult::Invalid(
             "Reservation capacity listing revision is not seller-authored".into(),
         ));
@@ -2142,7 +2143,7 @@ pub fn validate_create_reservation_capacity(
             "Reservation capacity does not match the bound listing revision inventory".into(),
         ));
     }
-    match revision_action.action() {
+    match revision_action {
         Action::Create(_) if evidence.listing_revision == evidence.listing_hash => {}
         Action::Update(update) if update.original_action_address == evidence.listing_hash => {}
         _ => {
