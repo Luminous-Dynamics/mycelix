@@ -868,6 +868,7 @@ pub fn verify_witness_join_binding(
         || witness.d6n_observation_set_commitment != set.set_commitment
         || witness.d6n_assessment_item_commitment != assessment.assessment_commitment
         || witness.d6n_classification != assessment.classification
+        || assessment.observation_commitment != observation.observation_commitment
         || assessment.evidence_root != observation.observer.evidence_root
         || assessment.custody_root != observation.observer.custody_root
         || !observation_matches_set(evidence, set)
