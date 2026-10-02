@@ -668,6 +668,39 @@ mod tests {
     }
 
     #[test]
+    fn wage_payment_and_inventory_cost_capitalization_reconcile_separately() {
+        let (mut pre, assignments) = setup();
+        {
+            let firm = pre.actors.iter_mut().find(|a| a.actor == "firm").unwrap();
+            firm.monetary.deposits = 100;
+            firm.real.inventories = 10;
+        }
+
+        let transitions = vec![
+            EconomicTransition::IncomeTransfer(
+                IncomeTransfer::with_category(
+                    "firm",
+                    "household",
+                    30,
+                    crate::economics::stock_flow::EconomicFlowCategory::Wage,
+                )
+                .unwrap(),
+            ),
+            EconomicTransition::InventoryCostAddition(
+                InventoryCostAddition::new("firm", 10, 30).unwrap(),
+            ),
+        ];
+        let (post, _) = apply_step(&pre, 1, &transitions, None).unwrap();
+        reconcile_step(&pre, &post, &assignments, &transitions).unwrap();
+
+        let firm = post.actors.iter().find(|a| a.actor == "firm").unwrap();
+        let household = post.actors.iter().find(|a| a.actor == "household").unwrap();
+        assert_eq!(firm.monetary.deposits, 70);
+        assert_eq!(firm.inventory_carrying_value, 30);
+        assert_eq!(household.monetary.deposits, 30);
+    }
+
+    #[test]
     fn depreciation_reconciles_capital_and_equity() {
         let (mut pre, assignments) = setup();
         pre.actors.iter_mut().find(|a| a.actor == "firm").unwrap().real.productive_capital = 100;
