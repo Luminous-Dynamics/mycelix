@@ -346,6 +346,11 @@
       "id": "EDT-067",
       "case": "reconciliation_coverage_validates_named_authority_chain_and_ignores_unrelated_invalid_delegation",
       "expected": "accepted"
+    },
+    {
+      "id": "EDT-068",
+      "case": "authority_delegation_target_chain_reports_missing_target_as_unresolved",
+      "expected": "unresolved_at_protocol_layer"
     }
   ]
 }
