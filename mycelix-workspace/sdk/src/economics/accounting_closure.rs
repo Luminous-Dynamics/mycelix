@@ -137,6 +137,29 @@ impl EconomicAccountingClosure {
             closure_hash,
         })
     }
+
+    /// Verify that the receipt's closure hash matches all bound material.
+    pub fn verify(&self) -> Result<(), String> {
+        let binding = (
+            &self.pre_state_hash,
+            &self.post_state_hash,
+            &self.transition_hash,
+            self.transition_count,
+            &self.actor_observations_hash,
+            &self.stock_flow_posting_hash,
+            self.stock_flow_posting_count,
+            &self.physical_posting_hash,
+            self.physical_posting_count,
+            &self.sector_transaction_hash,
+            &self.sector_financial_flow_hash,
+            &self.sector_observations_hash,
+        );
+        let expected = hash_json(&binding)?;
+        if self.closure_hash != expected {
+            return Err("accounting closure hash mismatch".into());
+        }
+        Ok(())
+    }
 }
 
 fn validate_actor_terminal_state(
@@ -294,6 +317,20 @@ mod tests {
             &transitions,
         )
         .is_err());
+    }
+
+    #[test]
+    fn closure_self_verification_rejects_tampering() {
+        let (pre, assignments, transitions, post) = fixture();
+        let mut closure = EconomicAccountingClosure::validate_and_seal(
+            &pre,
+            &post,
+            &assignments,
+            &transitions,
+        )
+        .unwrap();
+        closure.sector_observations_hash = "tampered".into();
+        assert!(closure.verify().is_err());
     }
 
     #[test]
