@@ -425,10 +425,13 @@ impl InventoryFrontier {
     fn set_capacity(&mut self, listing_hash: ActionHash, listing_revision: ActionHash, capacity: u32, seller: AgentPubKey, sequence: u64, previous_certificate_id: Option<String>) -> Result<ApplyOutcome, CertificateError> {
         self.check_frontier(&seller, sequence, &previous_certificate_id)?;
         if listing_hash != self.listing_hash { return Err(CertificateError::WrongListing); }
-        if listing_revision != self.listing_revision { return Err(CertificateError::WrongRevision); }
 
         let outcome = self.ledger.apply(crate::reservation::ReservationEvent::SetCapacity { capacity })
             .map_err(CertificateError::Capacity)?;
+        // Capacity evidence is also the frontier bridge to a new seller-owned
+        // listing revision. The Holochain validator independently proves that
+        // this revision is the current root-derived revision before admitting it.
+        self.listing_revision = listing_revision;
         self.advance(format!("capacity:{}", sequence));
         Ok(outcome)
     }
@@ -1333,9 +1336,10 @@ pub fn validate_create_reservation_certificate(
             ));
         }
 
-        // The frontier is per seller + listing + exact revision. A seller-authored
-        // record from another economic domain is not a valid predecessor merely
-        // because its author matches.
+        // The frontier is per seller + listing root. Listing revisions may
+        // change over time, but each new reservation must bind to the current
+        // revision proved above. Existing terminal events remain bound to the
+        // exact historical certificate terms.
         if let Some(previous_certificate) = previous
             .entry()
             .to_app_option::<ReservationCertificate>()
@@ -1345,8 +1349,7 @@ pub fn validate_create_reservation_certificate(
         {
             if previous_certificate.seller != certificate.seller
                 || previous_certificate.listing_hash != certificate.listing_hash
-                || previous_certificate.listing_revision != certificate.listing_revision
-            {
+                {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Previous frontier certificate belongs to a different seller/listing/revision".into(),
                 ));
@@ -1390,8 +1393,7 @@ pub fn validate_create_reservation_certificate(
                 )))?;
             if terminal_certificate.seller != certificate.seller
                 || terminal_certificate.listing_hash != certificate.listing_hash
-                || terminal_certificate.listing_revision != certificate.listing_revision
-            {
+                {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Previous frontier terminal evidence belongs to a different seller/listing/revision".into(),
                 ));
@@ -1537,7 +1539,6 @@ pub fn validate_create_reservation_capacity(
         .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("Invalid capacity evidence: {e:?}"))))? {
         if capacity.seller != evidence.seller
             || capacity.listing_hash != evidence.listing_hash
-            || capacity.listing_revision != evidence.listing_revision
             || capacity.sequence.checked_add(1) != Some(evidence.sequence)
         {
             return Ok(ValidateCallbackResult::Invalid(
@@ -1551,6 +1552,8 @@ pub fn validate_create_reservation_capacity(
         ));
     };
 
+    // The predecessor may belong to the previous listing revision: this
+    // evidence is the explicit frontier bridge to the newly current revision.
     if predecessor_state != evidence.pre_state {
         return Ok(ValidateCallbackResult::Invalid(
             "Reservation capacity pre-state does not equal predecessor post-state".into(),
