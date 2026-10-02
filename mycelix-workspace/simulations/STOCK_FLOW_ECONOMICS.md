@@ -668,3 +668,39 @@ The SFC purpose is different and complementary. The balance-sheet matrix, transa
 and explicit financial commitments provide the accounting skeleton on which later behavioral
 equations can operate. The separate financial-claim projection keeps deferred settlement visible
 as a stock/claim event instead of forcing every economic transaction into a cash-flow category.
+
+
+## Sector stock snapshot closure (implemented)
+
+`SectorEconomicObservables` now carries the sector-level closing stock mirror needed
+to keep behavioral equations from consuming a flow-only projection:
+
+- loan claims;
+- debt;
+- trade receivables and trade payables;
+- inventory carrying value;
+- productive capital;
+- net financial position;
+- net worth;
+- closing monetary net working capital.
+
+`SectorEconomicObservables::from_state_and_transitions` now derives actor observations,
+consolidates them, constructs the sector balance sheet, and validates every sector stock snapshot
+against that balance-sheet projection before returning it.
+
+The resulting closure is:
+
+`state + transitions -> actor observations -> sector observations <-> sector balance sheet`
+
+For working capital the closing stock is explicitly:
+
+`inventory carrying value + trade receivables - trade payables`
+
+while `net_working_capital_change` remains the period delta. Keeping both the stock and
+the change available avoids forcing later behavioral equations to reconstruct one from unrelated
+fields.
+
+This follows the SFC principle that opening stocks interact with period transactions to generate
+closing stocks, while sector financial positions remain subject to exact accounting constraints.
+The transaction-flow and balance-sheet structures therefore stay coupled, but neither becomes a
+behavioral assumption by itself. 
