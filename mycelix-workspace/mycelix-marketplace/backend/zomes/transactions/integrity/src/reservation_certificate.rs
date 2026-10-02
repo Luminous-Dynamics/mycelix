@@ -1837,6 +1837,11 @@ pub fn validate_create_reservation_certificate(
             "ReservationCertificate seller does not own the referenced listing action".into(),
         ));
     }
+    if !matches!(listing_action.action(), Action::Create(_)) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "ReservationCertificate listing hash must identify the listing root create action".into(),
+        ));
+    }
 
     // Keep the decoded Listing live so a successful type check is an explicit
     // dependency of validation; the transaction protocol currently does not
@@ -2057,6 +2062,26 @@ pub fn validate_create_reservation_capacity(
             "Reservation capacity listing is not seller-authored".into(),
         ));
     }
+    if !matches!(listing_action.action(), Action::Create(_)) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Reservation capacity listing hash must identify the listing root create action".into(),
+        ));
+    }
+    let listing_record = must_get_valid_record(evidence.listing_hash.clone())?;
+    let _listing = listing_record
+        .entry()
+        .to_app_option::<Listing>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Invalid reservation capacity listing entry: {e:?}"
+            )))
+        })?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Reservation capacity listing is not a Listing entry".into(),
+            ))
+        })?;
+
     let revision_record = must_get_valid_record(evidence.listing_revision.clone())?;
     let revision_listing = revision_record
         .entry()
