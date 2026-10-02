@@ -57,6 +57,8 @@ impl MonetaryStock {
 pub struct RealStock {
     /// Productive capital stock.
     pub productive_capital: i128,
+    /// Finished-goods inventory held for later sale or use.
+    pub inventories: i128,
     /// Material/resource stock available to the actor or commons.
     pub resources: i128,
 }
@@ -220,6 +222,32 @@ impl CapitalInvestment {
             producer: producer.into(),
             amount,
         })
+    }
+}
+
+/// Explicit production event.
+///
+/// Production consumes an input quantity from the producer's resource stock and
+/// creates an explicit finished-goods inventory stock. Monetary consequences
+/// (wages, sales, financing) remain separate transitions so the accounting
+/// substrate never hides transfers inside a production primitive.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProductionEvent {
+    pub producer: ActorId,
+    pub resource_input: i128,
+    pub output: i128,
+}
+
+impl ProductionEvent {
+    pub fn new(
+        producer: impl Into<ActorId>,
+        resource_input: i128,
+        output: i128,
+    ) -> Result<Self, String> {
+        if resource_input <= 0 || output <= 0 {
+            return Err("production quantities must be positive".into());
+        }
+        Ok(Self { producer: producer.into(), resource_input, output })
     }
 }
 
@@ -418,6 +446,24 @@ impl EconomicState {
             .monetary_flow_volume
             .checked_add(investment.amount)
             .ok_or_else(|| "monetary flow counter overflow".to_string())?;
+        Ok(())
+    }
+
+    /// Apply production as an explicit real-stock transformation.
+    pub fn apply_production(&mut self, production: &ProductionEvent) -> Result<(), String> {
+        let producer = self.actor_mut(&production.producer)?;
+        if producer.real.resources < production.resource_input {
+            return Err(format!(
+                "insufficient resources for {}: have {}, need {}",
+                producer.actor, producer.real.resources, production.resource_input
+            ));
+        }
+        producer.real.resources -= production.resource_input;
+        producer.real.inventories = producer
+            .real
+            .inventories
+            .checked_add(production.output)
+            .ok_or_else(|| "inventory overflow".to_string())?;
         Ok(())
     }
 
