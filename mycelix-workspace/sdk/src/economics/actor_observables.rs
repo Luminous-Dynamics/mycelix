@@ -51,6 +51,15 @@ pub struct ActorEconomicObservables {
     #[serde(default)]
     pub opening_net_working_capital: i128,
     pub net_working_capital_change: i128,
+    /// Closing-minus-opening inventory carrying-value change.
+    #[serde(default)]
+    pub inventory_carrying_value_change: i128,
+    /// Closing-minus-opening trade-receivables change.
+    #[serde(default)]
+    pub trade_receivables_change: i128,
+    /// Closing-minus-opening trade-payables change.
+    #[serde(default)]
+    pub trade_payables_change: i128,
     pub loan_claims: i128,
     pub debt: i128,
     pub trade_receivables: i128,
@@ -124,7 +133,15 @@ impl ActorEconomicObservables {
             .actors
             .iter()
             .map(|actor| -> Result<_, String> {
-                Ok((actor.actor.clone(), actor.try_net_working_capital()?))
+                Ok((
+                    actor.actor.clone(),
+                    (
+                        actor.inventory_carrying_value,
+                        actor.monetary.trade_receivables,
+                        actor.monetary.trade_payables,
+                        actor.try_net_working_capital()?,
+                    ),
+                ))
             })
             .collect::<Result<BTreeMap<_, _>, _>>()?;
 
@@ -318,9 +335,28 @@ impl ActorEconomicObservables {
             observation.net_worth = final_actor.try_net_worth()?;
 
             let final_nwc = final_actor.try_net_working_capital()?;
-            let initial_nwc = *initial_working_capital
+            let (
+                initial_inventory_carrying_value,
+                initial_trade_receivables,
+                initial_trade_payables,
+                initial_nwc,
+            ) = *initial_working_capital
                 .get(actor)
                 .ok_or_else(|| format!("unknown initial actor working capital: {actor}"))?;
+            observation.inventory_carrying_value_change = final_actor
+                .inventory_carrying_value
+                .checked_sub(initial_inventory_carrying_value)
+                .ok_or_else(|| format!("inventory carrying-value change overflow for {actor}"))?;
+            observation.trade_receivables_change = final_actor
+                .monetary
+                .trade_receivables
+                .checked_sub(initial_trade_receivables)
+                .ok_or_else(|| format!("trade-receivables change overflow for {actor}"))?;
+            observation.trade_payables_change = final_actor
+                .monetary
+                .trade_payables
+                .checked_sub(initial_trade_payables)
+                .ok_or_else(|| format!("trade-payables change overflow for {actor}"))?;
             observation.net_working_capital_change = final_nwc
                 .checked_sub(initial_nwc)
                 .ok_or_else(|| format!("working-capital change overflow for {actor}"))?;
@@ -353,6 +389,15 @@ impl ActorEconomicObservables {
         self.opening_net_working_capital
             .checked_add(self.net_working_capital_change)
             == Some(self.net_working_capital())
+    }
+
+    /// Verify that net working-capital change decomposes exactly into its
+    /// monetary carrying-value, receivable, and payable components.
+    pub fn working_capital_component_reconciliation_holds(&self) -> bool {
+        self.inventory_carrying_value_change
+            .checked_add(self.trade_receivables_change)
+            .and_then(|value| value.checked_sub(self.trade_payables_change))
+            == Some(self.net_working_capital_change)
     }
 
     /// Verify the period opening/closing liquidity stock-flow identity.
@@ -552,6 +597,43 @@ fn apply_transition(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn working_capital_component_changes_are_explicit_and_reconcile() {
+        let mut firm = ActorBalanceSheet::new("firm");
+        firm.inventory_carrying_value = 100;
+        firm.monetary.trade_receivables = 20;
+
+        let mut household = ActorBalanceSheet::new("household");
+        household.monetary.trade_payables = 10;
+
+        let state = EconomicState::new(vec![firm, household]);
+        let transitions = vec![EconomicTransition::TradeCreditSale(
+            crate::economics::stock_flow::TradeCreditSale::new(
+                "firm",
+                "household",
+                2,
+                30,
+            )
+            .unwrap(),
+        )];
+
+        let observations =
+            ActorEconomicObservables::from_state_and_transitions(&state, &transitions).unwrap();
+        let firm = &observations["firm"];
+        assert_eq!(firm.inventory_carrying_value_change, 0);
+        assert_eq!(firm.trade_receivables_change, 30);
+        assert_eq!(firm.trade_payables_change, 0);
+        assert_eq!(firm.net_working_capital_change, 30);
+        assert!(firm.working_capital_component_reconciliation_holds());
+
+        let household = &observations["household"];
+        assert_eq!(household.trade_receivables_change, 0);
+        assert_eq!(household.trade_payables_change, 30);
+        assert_eq!(household.net_working_capital_change, -30);
+        assert!(household.working_capital_component_reconciliation_holds());
+    }
+
+
     use super::*;
     use crate::economics::stock_flow::{
         ActorBalanceSheet, CreditCreation, DebtRepayment, EconomicState, IncomeTransfer,
