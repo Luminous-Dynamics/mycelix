@@ -69,6 +69,8 @@ pub struct EconomicEvidenceCapsule {
     pub actor_observations_hash: Option<String>,
     #[serde(default)]
     pub sector_observations_hash: Option<String>,
+    #[serde(default)]
+    pub sector_financial_flow_hash: Option<String>,
     pub evidence_hash: String,
 }
 
@@ -117,6 +119,7 @@ impl EconomicEvidenceCapsule {
             observations_hash,
             actor_observations_hash,
             sector_observations_hash: None,
+            sector_financial_flow_hash: None,
             evidence_hash,
         })
     }
@@ -176,6 +179,79 @@ impl EconomicEvidenceCapsule {
             observations_hash,
             actor_observations_hash,
             sector_observations_hash,
+            sector_financial_flow_hash: None,
+            evidence_hash,
+        })
+    }
+
+    /// Full evidence seal including the sector financial-claim projection.
+    ///
+    /// This is additive to the existing sealing methods: actor-only and
+    /// actor+sector sealing retain their historical evidence-hash semantics.
+    pub fn seal_with_actor_sector_financial_observations(
+        manifest: EconomicEvidenceManifest,
+        final_receipt: &EconomicChainReceipt,
+        observations: &EconomicObservables,
+        actor_observations: Option<&BTreeMap<String, ActorEconomicObservables>>,
+        sector_observations: Option<&BTreeMap<EconomicSector, SectorEconomicObservables>>,
+        sector_financial_flows: Option<&crate::economics::sector_financial_flow::SectorFinancialFlowMatrix>,
+    ) -> Result<Self, EconomicStepError> {
+        let manifest_hash = manifest.hash()?;
+        if final_receipt.genesis_state_hash != manifest.initial_state_hash {
+            return Err(EconomicStepError::Serialization(
+                "final evidence chain does not descend from the manifest initial state".into(),
+            ));
+        }
+
+        let observations_hash = hash_observations(observations)?;
+        let actor_observations_hash = actor_observations
+            .map(hash_actor_observations)
+            .transpose()?;
+        let sector_observations_hash = sector_observations
+            .map(|values| {
+                if values.iter().any(|(sector, observation)| {
+                    *sector != observation.sector
+                        || !observation.liquidity_flow_reconciliation_holds()
+                        || !observation.liquidity_stock_flow_reconciliation_holds()
+                }) {
+                    return Err(EconomicStepError::Serialization(
+                        "sector observations fail structural liquidity reconciliation".into(),
+                    ));
+                }
+                hash_sector_observations(values)
+            })
+            .transpose()?;
+        let sector_financial_flow_hash = sector_financial_flows
+            .map(|matrix| {
+                if !matrix.clears() {
+                    return Err(EconomicStepError::Serialization(
+                        "sector financial-flow matrix does not clear".into(),
+                    ));
+                }
+                hash_sector_financial_flows(matrix)
+            })
+            .transpose()?;
+
+        let binding = (
+            &manifest_hash,
+            &final_receipt.chain_hash,
+            &observations_hash,
+            &actor_observations_hash,
+            &sector_observations_hash,
+            &sector_financial_flow_hash,
+        );
+        let bytes = serde_json::to_vec(&binding)
+            .map_err(|error| EconomicStepError::Serialization(error.to_string()))?;
+        let evidence_hash = blake3::hash(&bytes).to_hex().to_string();
+
+        Ok(Self {
+            manifest,
+            manifest_hash,
+            final_chain_hash: final_receipt.chain_hash.clone(),
+            observations_hash,
+            actor_observations_hash,
+            sector_observations_hash,
+            sector_financial_flow_hash,
             evidence_hash,
         })
     }
@@ -193,6 +269,14 @@ fn hash_sector_observations(
     observations: &BTreeMap<EconomicSector, SectorEconomicObservables>,
 ) -> Result<String, EconomicStepError> {
     let bytes = serde_json::to_vec(observations)
+        .map_err(|error| EconomicStepError::Serialization(error.to_string()))?;
+    Ok(blake3::hash(&bytes).to_hex().to_string())
+}
+
+fn hash_sector_financial_flows(
+    matrix: &crate::economics::sector_financial_flow::SectorFinancialFlowMatrix,
+) -> Result<String, EconomicStepError> {
+    let bytes = serde_json::to_vec(matrix)
         .map_err(|error| EconomicStepError::Serialization(error.to_string()))?;
     Ok(blake3::hash(&bytes).to_hex().to_string())
 }
@@ -335,6 +419,47 @@ mod tests {
         ).unwrap();
 
         assert_ne!(a.sector_observations_hash, b.sector_observations_hash);
+        assert_ne!(a.evidence_hash, b.evidence_hash);
+    }
+
+    #[test]
+    fn evidence_capsule_binds_sector_financial_flows() {
+        let (manifest, chain, observations) = fixture();
+        let mut flows = crate::economics::sector_financial_flow::SectorFinancialFlowMatrix::default();
+        flows.push(
+            crate::economics::sector_financial_flow::SectorFinancialFlow::new(
+                EconomicSector::Bank,
+                EconomicSector::Household,
+                crate::economics::sector_financial_flow::FinancialFlowCategory::LoanCreation,
+                100,
+            )
+            .unwrap(),
+        );
+
+        let a = EconomicEvidenceCapsule::seal_with_actor_sector_financial_observations(
+            manifest.clone(),
+            &chain,
+            &observations,
+            None,
+            None,
+            Some(&flows),
+        )
+        .unwrap();
+
+        let mut changed = flows.clone();
+        changed.flows[0].amount = 99;
+
+        let b = EconomicEvidenceCapsule::seal_with_actor_sector_financial_observations(
+            manifest,
+            &chain,
+            &observations,
+            None,
+            None,
+            Some(&changed),
+        )
+        .unwrap();
+
+        assert_ne!(a.sector_financial_flow_hash, b.sector_financial_flow_hash);
         assert_ne!(a.evidence_hash, b.evidence_hash);
     }
 
