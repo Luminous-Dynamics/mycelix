@@ -23,14 +23,12 @@
 
 use hdk::prelude::*;
 use mail_messages_integrity::EncryptedEmailV2;
-use pulse_social_types::chat_projection::{
-    AgentKeyV1, DurableEvidenceIdV1, QualifiedV2MessageV1,
-};
+use pulse_social_types::V2_QUALIFICATION_SCHEMA_VERSION_V1;
+use pulse_social_types::chat_projection::{AgentKeyV1, DurableEvidenceIdV1, QualifiedV2MessageV1};
 use pulse_social_types::v2_qualification::{
     V2CandidateAccountingV1, V2CandidateDispositionV1, V2CandidateEnumerationV1,
     V2InboxQualificationV1, V2QualifiedEvidenceV1, V2RecordValidationStateV1,
 };
-use pulse_social_types::V2_QUALIFICATION_SCHEMA_VERSION_V1;
 
 const INBOX_V2_TAG: &[u8] = b"inbox-v2";
 
@@ -83,7 +81,9 @@ pub fn get_inbox_v2_qualification(_: ()) -> ExternResult<V2InboxQualificationV1>
 
         let Action::CreateLink(create_link_action) = create_link.action() else {
             candidates.push(V2CandidateAccountingV1 {
-                evidence_id: Some(DurableEvidenceIdV1(create_link.action_address().to_string())),
+                evidence_id: Some(DurableEvidenceIdV1(
+                    create_link.action_address().to_string(),
+                )),
                 disposition: V2CandidateDispositionV1::WrongActionType,
             });
             continue;
@@ -230,11 +230,11 @@ pub fn get_inbox_v2_qualification(_: ()) -> ExternResult<V2InboxQualificationV1>
 #[hdk_extern]
 pub fn qualify_inbox_v2(_: ()) -> ExternResult<V2InboxQualificationV1> {
     let qualification = get_inbox_v2_qualification(())?;
-    qualification
-        .validate()
-        .map_err(|error| wasm_error!(WasmErrorInner::Guest(format!(
+    qualification.validate().map_err(|error| {
+        wasm_error!(WasmErrorInner::Guest(format!(
             "V2 qualification failed closed: {error:?}"
-        ))))?;
+        )))
+    })?;
 
     // Structural qualification is necessary but intentionally not sufficient
     // for Chat promotion. The transport-neutral contract still rejects
