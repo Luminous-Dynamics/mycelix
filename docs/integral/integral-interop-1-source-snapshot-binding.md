@@ -104,3 +104,28 @@ The D6W gate is intentionally stricter than the D6S reference-model boundary:
 qualified downstream consumption requires an explicitly bound, canonically represented
 snapshot identity. A canonical hash that is merely substituted into the projection
 cannot pass by itself; it must agree with the supplied semantic environment.
+
+## D6P qualified-admission boundary
+
+D6W now distinguishes two admission paths for D6P receipt commitments:
+
+- the ordinary D6W constructor verifies the receipt identifiers as canonical commitments and
+  binds them into the qualified input identity;
+- the authoritative D6P constructor additionally requires the D6X closure to be produced
+  through `compute_dependency_closure_from_authoritative_d6p`, then reconstructs every
+  D6P receipt named by the projection against a supplied D6P composition.
+
+The second path is the provenance-bearing path when the caller has authoritative D6P
+composition material. It is intentionally separate from commitment equality: a receipt
+and composition can both be internally self-consistent without establishing that the
+composition itself came from an authoritative D6N/D6O boundary.
+
+This follows the same provenance distinction used by established provenance models:
+derivation/identity records describe how artifacts relate, while trust in the provenance
+record and its source must be established separately. citeturn0search0turn0search2
+
+Consequently, D6W can now make a precise claim at each boundary:
+
+- canonical D6P receipt identity: representation/integrity;
+- authoritative-D6P admission: receipt-to-composition provenance reconstruction;
+- authoritative D6N/D6O source: still an upstream trust boundary unless separately reconstructed.
