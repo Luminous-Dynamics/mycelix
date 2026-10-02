@@ -271,6 +271,11 @@
       "id": "EDT-052",
       "case": "authority_delegation_graph_allows_basis_extension",
       "expected": "accepted"
+    },
+    {
+      "id": "EDT-053",
+      "case": "authority_delegation_target_chain_ignores_unrelated_missing_predecessor",
+      "expected": "accepted"
     }
   ]
 }
