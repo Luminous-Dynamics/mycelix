@@ -72,6 +72,14 @@ impl SignedCapability {
         let signature = Signature::from_bytes(&self.signature);
         key.verify(&self.capability.signing_bytes(), &signature).is_ok()
     }
+
+    /// Verify the signature and bind it to an expected issuer key.
+    ///
+    /// Key possession is not institutional authorization; the caller must
+    /// independently establish that this key is authorized for the issuer.
+    pub fn verify_signature_from(&self, expected_public_key: [u8; 32]) -> bool {
+        self.issuer_public_key == expected_public_key && self.verify_signature()
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -456,11 +464,7 @@ mod tests {
     fn verified() -> VerifiedCapability {
         verify_capability(
             capability(),
-            VerificationEvidence {
-                signature_verified: true,
-                not_revoked: true,
-                authority_unambiguous: true,
-            },
+            VerificationEvidence::new(true, true, true),
             150,
         )
         .unwrap()
@@ -494,6 +498,17 @@ mod tests {
             vec![CapabilityAction::Read, CapabilityAction::Read],
             1, 2, 3,
         ).is_err());
+    }
+
+    #[cfg(feature = "identity")]
+    #[test]
+    fn signed_capability_requires_expected_issuer_key() {
+        use ed25519_dalek::SigningKey;
+
+        let key = SigningKey::from_bytes(&[7u8; 32]);
+        let signed = SignedCapability::sign(capability(), &key);
+        assert!(signed.verify_signature_from(key.verifying_key().to_bytes()));
+        assert!(!signed.verify_signature_from([8u8; 32]));
     }
 
     #[cfg(feature = "identity")]
@@ -540,11 +555,7 @@ mod tests {
         let permit = authorize_permit(&verified(), &request(CapabilityAction::Read), 150).unwrap();
         let enforcement = EnforcementRequest::from_permit(
             permit,
-            VerificationEvidence {
-                signature_verified: true,
-                not_revoked: true,
-                authority_unambiguous: true,
-            },
+            VerificationEvidence::new(true, true, true),
             150,
         ).unwrap();
         assert_eq!(enforcement.request(), &request(CapabilityAction::Read));
@@ -559,11 +570,7 @@ mod tests {
         let permit = authorize_permit(&verified(), &request(CapabilityAction::Read), 150).unwrap();
         let result = EnforcementRequest::from_permit(
             permit,
-            VerificationEvidence {
-                signature_verified: true,
-                not_revoked: false,
-                authority_unambiguous: true,
-            },
+            VerificationEvidence::new(true, false, true),
             151,
         );
         assert_eq!(
@@ -599,11 +606,7 @@ mod tests {
     fn forged_signature_is_denied() {
         let result = verify_capability(
             capability(),
-            VerificationEvidence {
-                signature_verified: false,
-                not_revoked: true,
-                authority_unambiguous: true,
-            },
+            VerificationEvidence::new(false, true, true),
             150,
         );
         assert_eq!(
@@ -618,11 +621,7 @@ mod tests {
     fn revoked_capability_is_denied() {
         let result = verify_capability(
             capability(),
-            VerificationEvidence {
-                signature_verified: true,
-                not_revoked: false,
-                authority_unambiguous: true,
-            },
+            VerificationEvidence::new(true, false, true),
             150,
         );
         assert_eq!(
@@ -637,11 +636,7 @@ mod tests {
     fn ambiguous_authority_is_indeterminate_not_allow() {
         let result = verify_capability(
             capability(),
-            VerificationEvidence {
-                signature_verified: true,
-                not_revoked: true,
-                authority_unambiguous: false,
-            },
+            VerificationEvidence::new(true, true, false),
             150,
         );
         assert_eq!(
