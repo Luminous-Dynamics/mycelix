@@ -528,7 +528,14 @@ This gives the simulation a clean next boundary for cash-flow analysis:
 
 accrual sales/COGS -> working-capital change -> realized liquidity -> debt-service coverage
 
-No operating-cash-flow formula is inferred yet. That remains an explicit derived layer so
-the model does not silently mix accrual accounting with cash accounting.
+Actor-level cash-flow decomposition is now explicit: operating liquidity change is the
+period's actor liquidity change after separately classified investing, financing, and
+other monetary-transfer changes. The decomposition is checked against the observed
+liquidity change and therefore cannot silently lose or double-count a cash movement.
+
+This is a model-defined liquidity-flow bridge, not a claim of IFRS presentation compliance.
+The IAS 7 distinction between operating, investing, and financing cash flows is useful
+as a reference boundary, while entity-specific classification rules remain outside this
+simulation substrate.
 
 The working-capital layer is intentionally accounting-only: no behavioral credit-growth, collection-delay, default, or inventory-demand equation is implied by the new stocks and transitions.
