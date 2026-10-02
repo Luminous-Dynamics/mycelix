@@ -188,6 +188,12 @@ fn thread_sync_child() -> ! {
     let thread_errno = Arc::clone(&observed_errno);
 
     std::thread::spawn(move || {
+        // Pre-resolve the exact libc/errno path used for the post-install
+        // probe on this thread. This prevents lazy PLT/TLS initialization from
+        // turning a correct TSYNC denial into an unrelated SIGSEGV.
+        let _ = unsafe { libc::syscall(libc::SYS_getppid) };
+        let _ = std::io::Error::last_os_error().raw_os_error();
+
         while !thread_release.load(Ordering::Acquire) {
             std::hint::spin_loop();
         }
