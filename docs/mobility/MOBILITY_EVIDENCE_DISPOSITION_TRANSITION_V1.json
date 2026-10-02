@@ -151,6 +151,16 @@
       "id": "EDT-028",
       "case": "reconciliation_rejects_nested_heads_as_competing_branches",
       "expected": "rejected"
+    },
+    {
+      "id": "EDT-029",
+      "case": "reconciliation_coverage_accepts_bounded_declared_head_set",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-030",
+      "case": "reconciliation_coverage_rejects_uncovered_reconciliation_head",
+      "expected": "rejected"
     }
   ]
 }
