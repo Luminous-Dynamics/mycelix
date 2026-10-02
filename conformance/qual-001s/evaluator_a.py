@@ -4,6 +4,7 @@
 This evaluator reads only the published corpus/schema. It does not import
 Mycelix crates, execute candidate verifier code, or publish authority.
 """
+import hashlib
 import json
 import re
 import sys
@@ -139,6 +140,11 @@ if s0["candidate_code_executed"] is not False:
     fail("S0 candidate execution must be false")
 if not re.fullmatch(r"^[0-9a-f]{64}$", s0["envelope_sha256"]):
     fail("invalid S0 envelope commitment")
+s0_preimage = dict(s0)
+del s0_preimage["envelope_sha256"]
+computed_envelope_sha256 = hashlib.sha256(canonical_jcs_json(s0_preimage).encode("utf-8")).hexdigest()
+if computed_envelope_sha256 != s0["envelope_sha256"]:
+    fail("S0 envelope commitment does not match canonical preimage")
 
 canon = next(v for v in vectors if v["vector_id"] == "QUALS-M-021")["mutation"]
 before_obj = json.loads(canon["before_wire"], object_pairs_hook=reject_duplicates)
