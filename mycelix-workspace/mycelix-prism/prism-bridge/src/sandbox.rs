@@ -47,7 +47,6 @@ mod linux {
     use std::os::fd::{AsRawFd, RawFd};
 
     const LANDLOCK_CREATE_RULESET_VERSION: u32 = 1 << 0;
-    const LANDLOCK_CREATE_RULESET_ERRATA: u32 = 1 << 1;
     const LANDLOCK_MIN_ABI_FOR_TSYNC: u32 = 8;
     const LANDLOCK_RESTRICT_SELF_TSYNC: u32 = 1 << 3;
     const LANDLOCK_RULE_PATH_BENEATH: u16 = 1;
