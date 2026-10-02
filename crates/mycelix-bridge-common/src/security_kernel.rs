@@ -594,7 +594,8 @@ mod tests {
             permit,
             VerificationEvidence::new(true, true, true),
             150,
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(enforcement.request(), &request(CapabilityAction::Read));
         assert_eq!(enforcement.issued_at_us(), 150);
         assert_eq!(enforcement.valid_until_us(), 200);
