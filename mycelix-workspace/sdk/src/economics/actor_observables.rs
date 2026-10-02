@@ -624,6 +624,16 @@ mod tests {
     }
 
     #[test]
+    fn actor_observation_construction_fails_closed_on_opening_working_capital_overflow() {
+        let mut actor = ActorBalanceSheet::new("firm");
+        actor.inventory_carrying_value = i128::MAX;
+        actor.monetary.trade_receivables = 1;
+        let state = EconomicState::new(vec![actor]);
+
+        assert!(ActorEconomicObservables::from_state_and_transitions(&state, &[]).is_err());
+    }
+
+    #[test]
     fn checked_actor_derived_totals_fail_closed_on_overflow() {
         let debt_service = ActorEconomicObservables {
             interest_paid: i128::MAX,
