@@ -593,7 +593,7 @@ mod linux {
         SandboxEnforcementReceipt::from_adapter(
             assignment_id,
             installation_id,
-            SandboxAdapterKind::LinuxSeccompSyscallV1,
+            SandboxAdapterKind::LinuxSeccompSyscallV2,
             profile.policy_digest(),
             seccomp_evidence_digest_v2(policy, &filter),
             SandboxEnforcementLayer::Syscall,
