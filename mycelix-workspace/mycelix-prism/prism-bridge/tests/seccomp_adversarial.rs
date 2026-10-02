@@ -133,6 +133,33 @@ fn seccomp_enforcement_is_not_claimed_off_linux() {
     // pretending that Linux kernel enforcement was exercised.
 }
 
+#[cfg(target_os = "linux")]
+#[test]
+fn seccomp_install_rejects_wrong_architecture_before_enforcement() {
+    use prism_bridge::process::{RendererProcessAssignmentId, SandboxProfileV1};
+    use prism_bridge::seccomp::{install, SeccompArchitecture, SeccompError, SeccompSyscallPolicyV1};
+
+    let current = SeccompArchitecture::current().expect("qualification host architecture");
+    let wrong = match current {
+        SeccompArchitecture::X86_64 => SeccompArchitecture::Aarch64,
+        SeccompArchitecture::Aarch64 => SeccompArchitecture::X86_64,
+        SeccompArchitecture::Riscv64 => SeccompArchitecture::X86_64,
+    };
+    let policy = SeccompSyscallPolicyV1::new(wrong, vec![libc::SYS_getpid])
+        .expect("syntactically valid wrong-architecture policy");
+    let profile = SandboxProfileV1::renderer_default()
+        .with_syscall_policy_digest(policy.digest())
+        .expect("non-zero policy commitment");
+
+    let result = install(
+        RendererProcessAssignmentId::new(3).unwrap(),
+        profile,
+        &policy,
+    );
+
+    assert!(matches!(result, Err(SeccompError::ArchitectureMismatch)));
+}
+
 
 #[cfg(target_os = "linux")]
 fn thread_sync_child() -> ! {
