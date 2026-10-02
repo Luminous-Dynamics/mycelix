@@ -96,6 +96,8 @@ The same isolation rule applies at the scope consumer boundary: unrelated invali
 
 ### Authority delegation chains
 
+The composed coverage validator treats its explicitly supplied delegation witness as the direct target record. The additional delegation slice supplies predecessor dependencies rather than requiring the target to be duplicated there. If that slice also contains the target identity, the record must be structurally identical to the direct witness; a conflicting same-identity record is rejected. This avoids treating the current operation's own record as an unavailable DHT dependency while preserving exact-identity conflict detection.
+
 An `EvidenceDispositionAuthorityDelegation` may reference an exact predecessor delegation. When a predecessor is supplied, the delegated subject MUST remain identical and the predecessor grantee MUST equal the current grantor. This makes the delegation edge explicit rather than allowing an authority to appear from an unrelated witness.
 
 Delegation graph validation is finite and address-based:
