@@ -96,6 +96,8 @@ pub struct VerificationEvidence {
     authority_unambiguous: bool,
     /// Upper bound on how long this verification evidence may authorize.
     valid_until_us: u64,
+    /// Stable commitment for the exact capability the evidence verifies.
+    capability_binding: [u8; 32],
 }
 
 impl VerificationEvidence {
@@ -104,24 +106,27 @@ impl VerificationEvidence {
     /// This is deliberately crate-private: the public API must not allow an
     /// arbitrary caller to manufacture signature, revocation, or authority
     /// claims by supplying booleans.
-    pub(crate) const fn new(
+    pub(crate) fn new_for_capability(
+        capability: &Capability,
         signature_verified: bool,
         not_revoked: bool,
         authority_unambiguous: bool,
     ) -> Self {
-        Self {
+        Self::new_for_capability_with_valid_until(
+            capability,
             signature_verified,
             not_revoked,
             authority_unambiguous,
-            valid_until_us: u64::MAX,
-        }
+            u64::MAX,
+        )
     }
 
     /// Construct trusted evidence with an explicit freshness lease.
     ///
     /// The lease is an upper bound on authorization derived from this evidence;
     /// enforcement must revalidate it before an external effect.
-    pub(crate) const fn new_with_valid_until(
+    pub(crate) fn new_for_capability_with_valid_until(
+        capability: &Capability,
         signature_verified: bool,
         not_revoked: bool,
         authority_unambiguous: bool,
@@ -132,6 +137,7 @@ impl VerificationEvidence {
             not_revoked,
             authority_unambiguous,
             valid_until_us,
+            capability_binding: capability.binding_digest(),
         }
     }
 }
@@ -150,6 +156,7 @@ pub struct AuthorizationPermit {
     request: AuthorizationRequest,
     issued_at_us: u64,
     valid_until_us: u64,
+    capability_binding: [u8; 32],
 }
 
 /// The only request type accepted by an enforcement adapter.
@@ -241,6 +248,7 @@ pub enum AuthorizationDenial {
     ActionNotGranted,
     PolicyVersionMismatch,
     OutsideValidityWindow,
+    VerificationEvidenceMismatch,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -323,6 +331,12 @@ impl Capability {
         out.extend_from_slice(&self.expires_at_us.to_le_bytes());
         out.extend_from_slice(&self.policy_version.to_le_bytes());
         out
+    }
+
+    /// Stable commitment used to bind verification evidence and permits to this
+    /// exact capability semantics.
+    pub(crate) fn binding_digest(&self) -> [u8; 32] {
+        *blake3::hash(&self.signing_bytes()).as_bytes()
     }
 
     pub fn new(
@@ -468,6 +482,9 @@ pub fn revalidate_permit(
     if !evidence.signature_verified {
         return AuthorizationDecision::Deny(AuthorizationDenial::InvalidCapability);
     }
+    if evidence.capability_binding != permit.capability_binding {
+        return AuthorizationDecision::Deny(AuthorizationDenial::VerificationEvidenceMismatch);
+    }
     if !evidence.not_revoked {
         return AuthorizationDecision::Deny(AuthorizationDenial::RevokedCapability);
     }
@@ -527,6 +544,7 @@ pub fn authorize_permit(
         request: request.clone(),
         issued_at_us: now_us,
         valid_until_us,
+        capability_binding: c.binding_digest(),
     })
 }
 
@@ -550,7 +568,7 @@ mod tests {
     fn verified() -> VerifiedCapability {
         verify_capability(
             capability(),
-            VerificationEvidence::new(true, true, true),
+            VerificationEvidence::new_for_capability(&capability(), true, true, true),
             150,
         )
         .unwrap()
@@ -654,7 +672,7 @@ mod tests {
         let permit = authorize_permit(&verified(), &request(CapabilityAction::Read), 150).unwrap();
         let enforcement = EnforcementRequest::from_permit(
             permit,
-            VerificationEvidence::new(true, true, true),
+            VerificationEvidence::new_for_capability(&capability(), true, true, true),
             150,
         )
         .unwrap();
@@ -669,7 +687,7 @@ mod tests {
     fn permit_lifetime_is_bounded_by_verification_freshness() {
         let verified = verify_capability(
             capability(),
-            VerificationEvidence::new_with_valid_until(true, true, true, 175),
+            VerificationEvidence::new_for_capability_with_valid_until(&capability(), true, true, true, 175),
             150,
         )
         .unwrap();
@@ -691,7 +709,7 @@ mod tests {
         )
         .unwrap();
         let verified =
-            verify_capability(long_lived, VerificationEvidence::new(true, true, true), 150)
+            verify_capability(long_lived, VerificationEvidence::new_for_capability(&capability(), true, true, true), 150)
                 .unwrap();
         let permit = authorize_permit(&verified, &request(CapabilityAction::Read), 150).unwrap();
         assert_eq!(
@@ -706,7 +724,7 @@ mod tests {
         let permit = authorize_permit(&verified(), &request(CapabilityAction::Read), 150).unwrap();
         let result = EnforcementRequest::from_permit(
             permit,
-            VerificationEvidence::new(false, true, true),
+            VerificationEvidence::new_for_capability(&capability(), false, true, true),
             151,
         );
         assert_eq!(
@@ -718,11 +736,37 @@ mod tests {
     }
 
     #[test]
+    fn evidence_for_another_capability_cannot_revalidate_permit() {
+        let permit = authorize_permit(&verified(), &request(CapabilityAction::Read), 150).unwrap();
+        let other = Capability::new(
+            "did:mycelix:alice",
+            "did:mycelix:issuer",
+            "resource:other",
+            vec![CapabilityAction::Read],
+            100,
+            200,
+            7,
+        )
+        .unwrap();
+        let result = EnforcementRequest::from_permit(
+            permit,
+            VerificationEvidence::new_for_capability(&other, true, true, true),
+            151,
+        );
+        assert_eq!(
+            result,
+            Err(AuthorizationDecision::Deny(
+                AuthorizationDenial::VerificationEvidenceMismatch
+            ))
+        );
+    }
+
+    #[test]
     fn revocation_after_authorization_blocks_enforcement() {
         let permit = authorize_permit(&verified(), &request(CapabilityAction::Read), 150).unwrap();
         let result = EnforcementRequest::from_permit(
             permit,
-            VerificationEvidence::new(true, false, true),
+            VerificationEvidence::new_for_capability(&capability(), true, false, true),
             151,
         );
         assert_eq!(
@@ -760,7 +804,7 @@ mod tests {
     fn forged_signature_is_denied() {
         let result = verify_capability(
             capability(),
-            VerificationEvidence::new(false, true, true),
+            VerificationEvidence::new_for_capability(&capability(), false, true, true),
             150,
         );
         assert_eq!(
@@ -775,7 +819,7 @@ mod tests {
     fn revoked_capability_is_denied() {
         let result = verify_capability(
             capability(),
-            VerificationEvidence::new(true, false, true),
+            VerificationEvidence::new_for_capability(&capability(), true, false, true),
             150,
         );
         assert_eq!(
@@ -790,7 +834,7 @@ mod tests {
     fn ambiguous_authority_is_indeterminate_not_allow() {
         let result = verify_capability(
             capability(),
-            VerificationEvidence::new(true, true, false),
+            VerificationEvidence::new_for_capability(&capability(), true, true, false),
             150,
         );
         assert_eq!(
@@ -862,7 +906,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            verify_capability(malformed, VerificationEvidence::new(true, true, true), 1,),
+            verify_capability(malformed, VerificationEvidence::new_for_capability(&capability(), true, true, true), 1,),
             Err(AuthorizationDecision::Deny(
                 AuthorizationDenial::InvalidCapability,
             ))
