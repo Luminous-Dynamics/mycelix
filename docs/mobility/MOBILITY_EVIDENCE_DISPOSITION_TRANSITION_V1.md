@@ -61,4 +61,6 @@ A reconciliation branch head must be a proper descendant of the declared branch 
 
 A reconciliation may carry a separate coverage witness that names the exact branch heads examined under an explicit addressable boundary. The coverage witness must include every branch head named by the reconciliation and must validate those heads against the same supplied predecessor graph.
 
+The covered heads must themselves be pairwise incomparable descendants of the declared branch point. A nested ancestor/descendant pair is rejected because it describes one continuing branch rather than two covered heads.
+
 This is intentionally a **bounded coverage claim**, not a global DHT enumeration claim. The boundary and basis witnesses are addressable provenance objects. The validator does not inspect mutable link collections or infer that an unmentioned branch does not exist. Consequently, coverage can establish consistency with the declared dependency set and declared boundary, while global completeness remains outside this structural validator.
