@@ -78,10 +78,10 @@ getrandom_03 = { package = "getrandom", version = "0.3" }
 # Internal shared crates
 hearth-types = { path = "crates/hearth-types" }
 hearth-coordinator-common = { path = "crates/hearth-coordinator-common" }
-mycelix-bridge-common = { path = "../crates/mycelix-bridge-common" }
-mycelix-bridge-entry-types = { path = "../crates/mycelix-bridge-entry-types" }
+mycelix-bridge-common = { package = "hearth-bridge-common", path = "crates/hearth-bridge-common" }
+mycelix-bridge-entry-types = { package = "hearth-bridge-entry-types", path = "crates/hearth-bridge-entry-types" }
 mycelix-zkp-core = { path = "../crates/mycelix-zkp-core" }
-mycelix-zome-helpers = { path = "../crates/mycelix-zome-helpers" }
+mycelix-zome-helpers = { package = "hearth-zome-helpers", path = "crates/hearth-zome-helpers" }
 
 [profile.dev]
 opt-level = "z"
