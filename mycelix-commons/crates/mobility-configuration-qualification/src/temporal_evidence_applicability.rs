@@ -321,7 +321,7 @@ impl EvidenceDispositionAuthorityDelegation {
     ///
     /// The target is therefore not itself a DHT dependency of this operation.
     /// The supplied slice contains additional predecessor dependencies. If the
-    /// same target identity is also present, it must be byte-for-byte equivalent
+    /// same target identity is also present, it must be structurally identical
     /// to the direct target witness; unrelated records remain outside the
     /// dependency cone.
     pub fn validate_chain_with_target(
