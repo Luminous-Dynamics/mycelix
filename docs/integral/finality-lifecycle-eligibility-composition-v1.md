@@ -55,11 +55,48 @@ The assessment must bind:
 - every observation ID in the observation set;
 - each D6N ObservationClassificationV1.
 
-The current D6N assessment commitment rule is:
+The set-level D6N assessment commitment remains a reference-model artifact:
 
     assessment_commitment == "assessment:" + set_commitment
 
+Each per-observation D6N assessment item now has a separate canonical SHA-256
+commitment over its complete assessment payload, including the exact D6M
+observation commitment. D6P carries and verifies this per-item commitment rather
+than treating the set-level commitment as sufficient identity.
+
 D6P does not recompute a second conflict taxonomy.
+
+## D6M observation identity
+
+D6M observations now carry a canonical, versioned SHA-256 commitment:
+
+    MYCELIX-INTEGRAL-D6M-OBSERVATION-V1\0
+
+The commitment covers the complete observation payload: effect and lineage identity,
+lifecycle generation, route/provider identity, provider outcome identity, request and
+idempotency bindings, semantic environment, observation frontier, observed state,
+source, evidence root, and claim ceiling.
+
+This is an integrity identity, not a provenance oracle. A caller can recompute a
+forged observation commitment after changing a field; authoritative D6N reconstruction
+must still compare the observation to the effect, route, current frontier, and
+observation-set semantics.
+
+The D6N assessment item carries that exact D6M commitment and then commits the full
+assessment item under:
+
+    MYCELIX-INTEGRAL-D6N-ASSESSMENT-V1\0
+
+The resulting chain is:
+
+    D6M observation
+        -> canonical observation commitment
+        -> D6N assessment item
+        -> canonical assessment-item commitment
+        -> D6P witness commitment
+
+This makes semantic substitution visible at each boundary without conflating
+cryptographic integrity with source authority.
 
 ## Exact D6O artifact
 
@@ -131,6 +168,7 @@ The join therefore requires all of the following to agree:
 - observer identity;
 - D6N observation-set identity and commitment;
 - D6N per-observation assessment commitment;
+- exact D6M observation commitment carried by that assessment;
 - D6N classification and evidence/custody roots;
 - D6N observation-to-set semantic fields;
 - D6O generation, eligibility, disposition, and dependency-snapshot identities;
@@ -338,8 +376,9 @@ The module contains source-level tests for:
 25. lifecycle evidence alone cannot establish finality;
 26. arrival order cannot change the eligible witness count;
 27. cross-frontier witness replacement is rejected and explicit witness selection requires the expected frontier;
-28. duplicate D6N evidence identities are rejected rather than resolved by last-write-wins.
-29. multiple observations from the same observer cannot inflate the independent-witness threshold.
+28. duplicate D6N evidence identities are rejected rather than resolved by last-write-wins;
+29. canonical D6M observation mutations and D6N assessment-item substitutions are rejected at their authoritative boundaries.
+30. multiple observations from the same observer cannot inflate the independent-witness threshold.
 
 ## Claim ceiling
 
