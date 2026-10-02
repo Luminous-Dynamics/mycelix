@@ -151,13 +151,22 @@ fn parameter_predicate_child() -> ! {
             libc::PR_GET_NO_NEW_PRIVS as u64,
         ).unwrap_or_else(|_| unsafe { libc::_exit(111) })],
     ).unwrap_or_else(|_| unsafe { libc::_exit(112) });
+    let mmap_no_wx = SeccompSyscallRuleV2::new(
+        libc::SYS_mmap,
+        vec![SeccompArgPredicateV1::new_with_op(
+            2,
+            (libc::PROT_WRITE | libc::PROT_EXEC) as u64,
+            (libc::PROT_WRITE | libc::PROT_EXEC) as u64,
+            prism_bridge::seccomp::SeccompArgPredicateOpV1::MaskedNotEqual,
+        ).unwrap_or_else(|_| unsafe { libc::_exit(113) })],
+    ).unwrap_or_else(|_| unsafe { libc::_exit(114) });
     let exit_group = SeccompSyscallRuleV2::new(libc::SYS_exit_group, Vec::new())
-        .unwrap_or_else(|_| unsafe { libc::_exit(113) });
+        .unwrap_or_else(|_| unsafe { libc::_exit(115) });
 
     let policy = SeccompSyscallPolicyV2::new(
         architecture,
-        vec![prctl_get, exit_group],
-    ).unwrap_or_else(|_| unsafe { libc::_exit(114) });
+        vec![prctl_get, mmap_no_wx, exit_group],
+    ).unwrap_or_else(|_| unsafe { libc::_exit(116) });
     let profile = SandboxProfileV1::renderer_default()
         .with_syscall_policy_digest(policy.digest())
         .unwrap_or_else(|_| unsafe { libc::_exit(115) });
@@ -184,6 +193,37 @@ fn parameter_predicate_child() -> ! {
     };
     if allowed != 1 {
         unsafe { libc::_exit(117) };
+    }
+
+    let read_mapping = unsafe {
+        libc::syscall(
+            libc::SYS_mmap,
+            0usize,
+            4096usize,
+            libc::PROT_READ,
+            libc::MAP_PRIVATE | libc::MAP_ANONYMOUS,
+            usize::MAX,
+            0usize,
+        )
+    };
+    if read_mapping == libc::MAP_FAILED as isize {
+        unsafe { libc::_exit(120) };
+    }
+
+    let wx_mapping = unsafe {
+        libc::syscall(
+            libc::SYS_mmap,
+            0usize,
+            4096usize,
+            libc::PROT_READ | libc::PROT_WRITE | libc::PROT_EXEC,
+            libc::MAP_PRIVATE | libc::MAP_ANONYMOUS,
+            usize::MAX,
+            0usize,
+        )
+    };
+    let wx_errno = unsafe { *libc::__errno_location() };
+    if wx_mapping != -1 || wx_errno != libc::EPERM {
+        unsafe { libc::_exit(121) };
     }
 
     // Same syscall number, deliberately different first argument: V2 must
