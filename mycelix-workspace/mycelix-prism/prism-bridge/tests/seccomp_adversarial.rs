@@ -77,6 +77,34 @@ fn child() -> ! {
         unsafe { libc::_exit(95) };
     }
 
+    // Exercise the corresponding write-side primitive against a valid
+    // writable self-address. Without the filter this has a successful kernel
+    // path; with renderer policy it must be denied with EPERM.
+    let mut write_byte = byte;
+    let write_local = libc::iovec {
+        iov_base: (&write_byte as *const u8).cast_mut().cast(),
+        iov_len: 1,
+    };
+    let write_remote = libc::iovec {
+        iov_base: (&mut byte as *mut u8).cast(),
+        iov_len: 1,
+    };
+    let vm_write = unsafe {
+        libc::syscall(
+            libc::SYS_process_vm_writev,
+            libc::syscall(libc::SYS_getpid),
+            &write_local as *const libc::iovec,
+            1usize,
+            &write_remote as *const libc::iovec,
+            1usize,
+            0usize,
+        )
+    };
+    let vm_write_errno = std::io::Error::last_os_error().raw_os_error();
+    if vm_write != -1 || vm_write_errno != Some(libc::EPERM) {
+        unsafe { libc::_exit(96) };
+    }
+
     unsafe { libc::_exit(0) }
 }
 
