@@ -351,6 +351,16 @@
       "id": "EDT-068",
       "case": "authority_delegation_target_chain_reports_missing_target_as_unresolved",
       "expected": "unresolved_at_protocol_layer"
+    },
+    {
+      "id": "EDT-069",
+      "case": "reconciliation_coverage_assessment_reports_missing_transition_dependency",
+      "expected": "unresolved_at_protocol_layer"
+    },
+    {
+      "id": "EDT-070",
+      "case": "reconciliation_coverage_assessment_rejects_structural_mismatch_before_unresolved",
+      "expected": "rejected"
     }
   ]
 }
