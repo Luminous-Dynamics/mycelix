@@ -182,6 +182,54 @@ async fn test_invalid_capability_is_rejected_before_zome_dispatch() {
 
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
+async fn test_replayed_signed_call_is_rejected_by_nonce_boundary() {
+    let mut conductor = SweetConductor::standard().await;
+    let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
+
+    let (alice,) = conductor
+        .setup_app("test-app", &[dna_file])
+        .await
+        .unwrap()
+        .into_tuple();
+
+    // Construct one signed invocation and submit the exact same signed bytes twice.
+    // Holochain 0.7 requires zome-call nonces to be unique; the second submission
+    // therefore exercises replay protection without guessing or manufacturing a
+    // Nonce256Bits value.
+    let signed = signed_call(
+        &conductor,
+        alice.cell_id(),
+        "get_my_hearths",
+        (),
+        None,
+    )
+    .await;
+
+    let first_response = submit_call(&conductor, signed.clone()).await;
+    match first_response {
+        AppResponse::ZomeCalled(result) => match *result {
+            ZomeCallResponse::Ok(output) => {
+                let _: Vec<Record> = output
+                    .decode()
+                    .expect("first authorized replay-fixture call must decode");
+            }
+            other => panic!("first submission must be authorized, got {other:?}"),
+        },
+        other => panic!("expected ZomeCalled response for first submission, got {other:?}"),
+    }
+
+    let second_response = submit_call(&conductor, signed).await;
+    match second_response {
+        AppResponse::ZomeCalled(result) => match *result {
+            ZomeCallResponse::Unauthorized(..) => {}
+            other => panic!("replayed signed call should be rejected by nonce, got {other:?}"),
+        },
+        other => panic!("expected ZomeCalled response for replay rejection, got {other:?}"),
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_authorized_call_reaches_zome_and_is_semantically_rejected() {
     let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
