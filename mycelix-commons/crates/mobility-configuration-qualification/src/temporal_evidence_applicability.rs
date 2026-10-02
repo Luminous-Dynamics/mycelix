@@ -304,6 +304,11 @@ impl EvidenceDispositionAuthorityDelegation {
                         if predecessor.grantee != delegation.grantor {
                             return Err("authority delegation grantor must match predecessor grantee".into());
                         }
+                        for basis in &predecessor.basis {
+                            if !delegation.basis.contains(basis) {
+                                return Err("authority delegation basis must preserve predecessor provenance".into());
+                            }
+                        }
                     }
                 },
             }
