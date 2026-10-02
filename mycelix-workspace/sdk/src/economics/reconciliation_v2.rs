@@ -111,7 +111,7 @@ pub fn postings_for_step(
                     StockPosting::new(to, instrument, flow.amount),
                 ]
             }
-            EconomicTransition::CreditCreation(credit) => {
+            EconomicTransition::IncomeTransfer(transfer) => {\n                let payer = sector_for(assignments, &transfer.payer)?;\n                let recipient = sector_for(assignments, &transfer.recipient)?;\n                vec![\n                    StockPosting::new(payer, BalanceSheetInstrument::Deposits, -transfer.amount),\n                    StockPosting::new(payer, BalanceSheetInstrument::Equity, transfer.amount),\n                    StockPosting::new(recipient, BalanceSheetInstrument::Deposits, transfer.amount),\n                    StockPosting::new(recipient, BalanceSheetInstrument::Equity, -transfer.amount),\n                ]\n            }\n            EconomicTransition::CreditCreation(credit) => {
                 let lender = sector_for(assignments, &credit.lender)?;
                 let borrower = sector_for(assignments, &credit.borrower)?;
                 vec![
@@ -212,7 +212,7 @@ fn hash_postings(postings: &HashMap<StockKey, i128>) -> Result<String, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::economics::stock_flow::{ActorBalanceSheet, CreditCreation, DebtRepayment, MonetaryFlow};
+    use crate::economics::stock_flow::{ActorBalanceSheet, CreditCreation, DebtRepayment, IncomeTransfer, MonetaryFlow};
     use crate::economics::transition::apply_step;
 
     fn setup() -> (EconomicState, Vec<SectorAssignment>) {
@@ -241,6 +241,17 @@ mod tests {
         let (mut pre, assignments) = setup();
         pre.create_credit(&CreditCreation::new("bank", "household", 500).unwrap()).unwrap();
         let transitions = vec![EconomicTransition::MonetaryTransfer(MonetaryFlow::deposit_transfer("household", "bank", 100).unwrap())];
+        let (post, _) = apply_step(&pre, 1, &transitions, None).unwrap();
+        reconcile_step(&pre, &post, &assignments, &transitions).unwrap();
+    }
+
+    #[test]
+    fn income_transfer_reconciles_equity_and_deposits() {
+        let (mut pre, assignments) = setup();
+        pre.create_credit(&CreditCreation::new("bank", "household", 500).unwrap()).unwrap();
+        let transitions = vec![EconomicTransition::IncomeTransfer(
+            IncomeTransfer::new("household", "bank", 100).unwrap(),
+        )];
         let (post, _) = apply_step(&pre, 1, &transitions, None).unwrap();
         reconcile_step(&pre, &post, &assignments, &transitions).unwrap();
     }
