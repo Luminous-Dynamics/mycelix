@@ -3,6 +3,9 @@ use crate::canonical_derivation_receipt::{
     canonical_sha256, is_canonical_sha256_commitment, CanonicalDerivationReceiptV1, CurrentFinalityEligibilityReceiptV1, DerivationProfileV1,
     DerivationResultStatusV1, QualifiedProjectionV1, SemanticEnvironmentV1, D6S_CLAIM_CEILING,
 };
+use crate::finality_eligibility_composition::{
+    verify_current_receipt_provenance_from_composition, FinalityEligibilityCompositionV1,
+};
 use serde::{Deserialize, Serialize};
 
 #[path = "qualified_dependency_closure_d6x.rs"]
@@ -123,6 +126,42 @@ impl InputCommitmentV1 {
         };
         v.commitment = v.recompute(); Some(v)
     }
+    /// Strict D6W entrypoint for callers that can supply the authoritative D6P
+    /// composition set. Every D6P receipt named by the projection is reconstructed
+    /// against a composition before the ordinary D6W identity is admitted.
+    pub fn from_projection_with_authoritative_d6p(
+        p: &QualifiedProjectionV1,
+        e: &SemanticEnvironmentV1,
+        closure_profile: &DependencyClosureProfileV1,
+        derivation_profile: &DerivationProfileV1,
+        d6p_receipts: &[CurrentFinalityEligibilityReceiptV1],
+        d6p_compositions: &[FinalityEligibilityCompositionV1],
+    ) -> Option<Self> {
+        let closure =
+            qualified_dependency_closure_d6x::compute_dependency_closure_from_authoritative_d6p(
+                p,
+                e,
+                derivation_profile,
+                closure_profile,
+                d6p_receipts,
+                d6p_compositions,
+            )?;
+
+        for expected in &p.d6p_current_receipt_commitments {
+            let receipt = d6p_receipts
+                .iter()
+                .find(|receipt| receipt.receipt_commitment == *expected)?;
+            let composition = d6p_compositions
+                .iter()
+                .find(|composition| composition.composition_commitment == receipt.composition_commitment)?;
+            if !verify_current_receipt_provenance_from_composition(receipt, composition) {
+                return None;
+            }
+        }
+
+        Self::from_projection(p, e, &closure, closure_profile, derivation_profile)
+    }
+
     pub fn recompute(&self) -> String {
         let mut v = self.clone(); v.commitment.clear();
         canonical_sha256("d6w-input", &v)
@@ -551,6 +590,22 @@ mod tests {
         assert!(!is_canonical_sha256_commitment(&p.nodes["dep"].node_commitment));
         assert!(InputCommitmentV1::from_projection(&p, &e, &c, &closure_profile(), &d).is_none());
         let _ = d;
+    }
+
+    #[test]
+    fn d6w_authoritative_d6p_entrypoint_accepts_empty_receipt_set() {
+        let (p, e, d, c) = fixture(false);
+        let closure_profile = closure_profile();
+        let input = InputCommitmentV1::from_projection_with_authoritative_d6p(
+            &p,
+            &e,
+            &closure_profile,
+            &d,
+            &[],
+            &[],
+        );
+        assert!(input.is_some());
+        let _ = c;
     }
 
     #[test]
