@@ -221,6 +221,7 @@ pub struct InventoryFrontier {
     head_certificate_id: Option<String>,
     certificates: BTreeMap<String, ReservationCertificate>,
     terminal_events: BTreeMap<(String, bool), (u64, Option<String>)>,
+    capacity_events: BTreeMap<u64, (ActionHash, u32, Option<String>)>,
 }
 
 /// Deterministic snapshot of the economic state represented by a frontier.
@@ -355,6 +356,7 @@ impl InventoryFrontier {
             head_certificate_id: None,
             certificates: BTreeMap::new(),
             terminal_events: BTreeMap::new(),
+            capacity_events: BTreeMap::new(),
         }
     }
 
@@ -594,6 +596,18 @@ impl InventoryFrontier {
         sequence: u64,
         previous_certificate_id: Option<String>,
     ) -> Result<ApplyOutcome, CertificateError> {
+        if let Some((recorded_revision, recorded_capacity, recorded_previous)) =
+            self.capacity_events.get(&sequence)
+        {
+            if *recorded_revision == listing_revision
+                && *recorded_capacity == capacity
+                && *recorded_previous == previous_certificate_id
+            {
+                return Ok(ApplyOutcome::Idempotent);
+            }
+            return Err(CertificateError::IntentConflict);
+        }
+
         self.check_frontier(&seller, sequence, &previous_certificate_id)?;
         if listing_hash != self.listing_hash {
             return Err(CertificateError::WrongListing);
@@ -602,14 +616,14 @@ impl InventoryFrontier {
         self.ledger
             .apply(crate::reservation::ReservationEvent::SetCapacity { capacity })
             .map_err(CertificateError::Capacity)?;
-        // Capacity evidence is also the frontier bridge to a new seller-owned
-        // listing revision. The Holochain validator independently proves that
-        // this revision is the current root-derived revision before admitting it.
-        self.listing_revision = listing_revision;
+        self.listing_revision = listing_revision.clone();
+        self.capacity_events.insert(
+            sequence,
+            (listing_revision, capacity, previous_certificate_id),
+        );
         self.advance(format!("capacity:{}", sequence));
         Ok(ApplyOutcome::Applied)
     }
-
     fn advance(&mut self, certificate_id: String) {
         self.head_certificate_id = Some(certificate_id);
         self.next_sequence += 1;
@@ -1101,6 +1115,31 @@ mod tests {
             f.apply(FrontierEvent::Reserve(second)),
             Ok(ApplyOutcome::Applied)
         );
+    }
+
+    #[test]
+    fn replay_of_exact_capacity_bridge_is_idempotent() {
+        let mut f = frontier(2);
+        assert_eq!(
+            f.apply(FrontierEvent::Reserve(certificate_with_capacity(
+                "c1", 0, None, 1, 2
+            ))),
+            Ok(ApplyOutcome::Applied)
+        );
+
+        let bridge = FrontierEvent::SetCapacity {
+            listing_hash: hash(3),
+            listing_revision: hash(7),
+            capacity: 2,
+            seller: agent(2),
+            sequence: 1,
+            previous_certificate_id: Some("c1".into()),
+        };
+        assert_eq!(f.apply(bridge.clone()), Ok(ApplyOutcome::Applied));
+        assert_eq!(f.apply(bridge), Ok(ApplyOutcome::Idempotent));
+        assert_eq!(f.next_sequence(), 2);
+        assert_eq!(f.active_reserved(), 1);
+        assert_eq!(f.available(), 1);
     }
 
     #[test]
