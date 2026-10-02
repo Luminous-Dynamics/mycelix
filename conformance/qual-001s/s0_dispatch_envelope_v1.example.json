@@ -22,5 +22,6 @@
   "s1_workflow_ref": "refs/heads/main",
   "dispatch_nonce_hex": "1111111111111111111111111111111111111111111111111111111111111111",
   "dispatch_timestamp": "2026-01-01T00:00:00Z",
-  "candidate_code_executed": false
+  "candidate_code_executed": false,
+  "canonicalization_profile": "RFC8785-JCS-IJSON-v1"
 }
