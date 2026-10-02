@@ -157,7 +157,7 @@ ao = json.loads((ROOT / "s0_authority_observation_v1.example.json").read_text(en
 for key in (
     "schema", "profile", "epoch_id", "repository_id", "repository_full_name",
     "s0_workflow_source_commit_sha", "s1_workflow_source_commit_sha",
-    "dispatch_nonce_hex", "dispatch_ref", "dispatch_input_commitment_sha256", "dispatch_input_canonical_json",
+    "dispatch_envelope_sha256", "dispatch_nonce_hex", "dispatch_ref", "dispatch_input_commitment_sha256", "dispatch_input_canonical_json",
     "authenticated_principal_identity", "policy_scope_identity", "observation_timestamp", "event_type",
     "request_authentication", "actor_authorization", "event_authorization",
     "workflow_source_authentication", "dispatch_result", "run_attribution", "observation_state"
@@ -195,5 +195,11 @@ for field in ("request_authentication", "actor_authorization", "event_authorizat
         fail(f"S0 {field} lacks observed authority identity")
 if ao["request_authentication"]["state"] == "OBSERVED" and ao["request_authentication"]["principal_identity"] != ao["authenticated_principal_identity"]:
     fail("top-level authenticated principal disagrees with request authentication")
+if ao["dispatch_envelope_sha256"] != s0["envelope_sha256"]:
+    fail("authority observation is not bound to the exact S0 envelope commitment")
+for field in ("epoch_id", "repository_id", "repository_full_name", "dispatch_nonce_hex",
+              "s0_workflow_source_commit_sha", "s1_workflow_source_commit_sha"):
+    if ao[field] != s0[field]:
+        fail(f"authority observation {field} disagrees with S0 envelope")
 
 print("QUAL-001S evaluator A: PASS")
