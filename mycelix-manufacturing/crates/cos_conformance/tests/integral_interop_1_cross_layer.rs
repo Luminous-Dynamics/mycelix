@@ -611,6 +611,99 @@ fn declarative_cross_layer_corpus_is_self_describing_and_executable() {
 }
 
 #[test]
+fn cross_layer_golden_vectors_pin_exact_commitments_and_gate() {
+    let baseline = fixture();
+    let baseline_eval = evaluate(&baseline, false, false, false, false).expect("baseline");
+
+    // These are cryptographic golden values for the current ReferenceModelOnly
+    // fixture. The preimage at every boundary is the exact canonical D6S-CANON-1
+    // serialization produced by the corresponding production commitment function.
+    assert_eq!(
+        selected_oad_design_semantic_commitment_checked(&baseline).unwrap(),
+        "e06ba541daf85da423cea4d6cd80b6efd0dd106c122079450e9acfc8ee0cd460"
+    );
+    assert_eq!(snapshot_commitment(),
+        "2e07a630c8b1579aaee1c6accc623b917b99759bd115445c45d9af330a299ad3");
+    assert_eq!(
+        environment().commitment(),
+        "e9c7b6422e52c35dab2e8c9d1fc1ad093a34c7ee91efe8267b479ce610233895"
+    );
+    assert_eq!(
+        derivation_profile().commitment(),
+        "69859b57a8cd86d7f0f84aef2cf9eeb3c793d2f4c399f5fe7819ebf961dcb640"
+    );
+    assert_eq!(
+        closure_profile(false).commitment(),
+        "3781501a08dd2cb090d577171ed431062875660a7b336844ea363f1f60ad9352"
+    );
+    assert_eq!(
+        baseline_eval.d6x_identity,
+        "9c311aac60e317b088eeeb310a9888f0fcef617dd6a22d5cf278725e00a4dc08"
+    );
+    assert_eq!(
+        baseline_eval.d6x_certificate,
+        "e95ddbe042c48fe5f9f98a4186c2df0dcbfc8057eae0b76849a9194883e43301"
+    );
+    assert_eq!(
+        baseline_eval.d6w_input.as_deref(),
+        Some("d7bafeb259fe2df610f7f5c6801ef466a556484318a84bb4d9211e0ab90480d8")
+    );
+    assert_eq!(
+        baseline_eval.d6w_derivation.as_deref(),
+        Some("1e9e7cb826206360c6c9500fd807c716707695f6b0a16f6aec10ddf92683ab05")
+    );
+
+    let blocked = evaluate(&baseline, false, false, true, false).expect("blocked");
+    assert_eq!(
+        blocked.d6x_status,
+        DependencyClosureStatusV1::BlockedMissingDependency
+    );
+    assert_eq!(
+        blocked.d6x_identity,
+        "37073b6d18388659d72815159107f80206bf6c192eaf332d403ac1834098df7c"
+    );
+    assert_eq!(
+        blocked.d6x_certificate,
+        "f420b1c9fc3d77edc4a4a1c419fab2f810c2e52e7d48241597953bdfeb935c8f"
+    );
+    assert!(blocked.d6w_input.is_none());
+    assert!(blocked.d6w_derivation.is_none());
+
+    let present = evaluate(&baseline, false, true, true, false).expect("present");
+    assert_eq!(present.d6x_status, DependencyClosureStatusV1::Complete);
+    assert_eq!(
+        d6p_receipt_commitment(),
+        "12699e2590d7e3b303a0f36908228dd296428949621e2a24757f6a7fb05022a4"
+    );
+    assert_eq!(
+        closure_profile(true).commitment(),
+        "6276d703e5f6e05989e91f000b31472ac87c3a828f7f2cb868e40619d79fbb6f"
+    );
+    assert_eq!(
+        present.d6x_identity,
+        "ff4f9e50756e664f56da2b5a154ef69f438db7430de2e549243dbffe6c00b2bc"
+    );
+    assert_eq!(
+        present.d6x_certificate,
+        "5841b36ab8b4f044c6ff20982b27fef8847f726472765fa6e9b952c1d2662948"
+    );
+    assert_eq!(
+        present.d6w_input.as_deref(),
+        Some("d79a33934897a889456e1f18fbae361f806203a0f7d1cec573f6ee902425f9a6")
+    );
+    assert_eq!(
+        present.d6w_derivation.as_deref(),
+        Some("b0555ba3a566f940eccfc2a459a5655efe41f9d164d4711e6f4b4917371da8b5")
+    );
+
+    // The missing dependency is admitted into D6X's semantic state but is
+    // rejected at the first downstream consumption boundary; no D6W derivation
+    // may be constructed from the blocked closure.
+    assert_ne!(blocked.d6x_identity, baseline_eval.d6x_identity);
+    assert_ne!(present.d6x_identity, blocked.d6x_identity);
+}
+ 
+#[test]
 fn cross_layer_mutation_matrix_is_executable() {
     let baseline = fixture();
     let baseline_eval =
