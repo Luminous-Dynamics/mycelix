@@ -11,6 +11,9 @@ on:
         description: "Exact 40-character commit SHA whose dependency closure should be generated"
         required: true
         type: string
+  push:
+    branches:
+      - chore/hearth-0.7-lock-refresh-evidence
 
 permissions:
   contents: write
@@ -27,7 +30,7 @@ jobs:
       - name: Require immutable commit ref
         shell: bash
         run: |
-          ref="${{ inputs.ref }}"
+          ref="${{ inputs.ref || github.sha }}"
           if [[ ! "$ref" =~ ^[0-9a-f]{40}$ ]]; then
             echo "FAIL: lock refresh requires an exact 40-character commit SHA."
             exit 1
@@ -35,7 +38,7 @@ jobs:
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ inputs.ref || github.sha }}
           fetch-depth: 0
           persist-credentials: false
           submodules: recursive
@@ -44,10 +47,10 @@ jobs:
         shell: bash
         run: |
           evidence="$RUNNER_TEMP/hearth-07-lock-refresh-evidence.txt"
-          test "$(git rev-parse HEAD)" = "${{ inputs.ref }}"
+          test "$(git rev-parse HEAD)" = "${{ inputs.ref || github.sha }}"
           printf '%s\n' \
             "workflow=hearth-07-lock-refresh-evidence" \
-            "requested_ref=${{ inputs.ref }}" \
+            "requested_ref=${{ inputs.ref || github.sha }}" \
             "resolved_commit=$(git rev-parse HEAD)" \
             "qualified_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             "runner_os=$RUNNER_OS" \
@@ -151,7 +154,7 @@ jobs:
       - name: Commit generated dependency closure
         shell: bash
         env:
-          TARGET_REF: ${{ inputs.ref }}
+          TARGET_REF: ${{ inputs.ref || github.sha }}
         run: |
           branch="hearth-0.7-lock-refresh/$TARGET_REF"
           git switch -c "$branch"
@@ -176,7 +179,7 @@ jobs:
       - name: Publish lock refresh evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: hearth-07-lock-refresh-${{ inputs.ref }}
+          name: hearth-07-lock-refresh-${{ inputs.ref || github.sha }}
           path: |
             ${{ runner.temp }}/hearth-07-lock-refresh-evidence.txt
             mycelix-workspace/mycelix-hearth/Cargo.lock
