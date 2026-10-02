@@ -172,6 +172,14 @@ impl AuthorizationPermit {
     pub fn valid_until_us(&self) -> u64 {
         self.valid_until_us
     }
+
+    /// Returns whether this permit is valid at the supplied timestamp.
+    ///
+    /// Permit validity is inclusive at the exact expiry boundary, matching the
+    /// kernel's other validity-window checks.
+    pub fn is_valid_at(&self, now_us: u64) -> bool {
+        now_us <= self.valid_until_us
+    }
 }
 
 impl EnforcementRequest {
