@@ -42,7 +42,7 @@ The reference implementation currently contains:
 - D6P cross-object assessment substitution rejection.
 - D6P D6N→D6M self-consistent substitution rejection.
 - D6P receipt/composition substitution checks.
-- D6M finality receipts now have their own deterministic commitment, require the receipt evidence root to equal the authoritative observation evidence root, and the D6M ledger rejects receipts whose commitment does not match.
+- D6M finality receipts now have their own deterministic commitment, require the receipt evidence root to equal the authoritative observation evidence root, and the D6M ledger rejects receipts whose commitment does not match. The receipt commitment mutation test covers every semantic receipt field and explicitly excludes only the commitment field from its own preimage.
 - D6S complete material receipt-field mutation coverage.
 - D6X complete certificate-field mutation coverage.
 
