@@ -124,7 +124,7 @@ Target-scoped delegation validation treats the named delegation record itself as
 
 The canonical composed coverage entry point, `validate_against_graph_and_authority_chain_assessment`, exposes the same distinction across the entire bounded dependency path. It first validates structural identities and cross-layer bindings, then resolves the exact named transition ancestry. A missing branch point, branch head, or predecessor is returned as `Unresolved`; present-but-contradictory transitions remain invalid. This ordering is deliberate: dependency absence cannot mask a structural contradiction already present in the supplied records.
 
-When transition dependencies are complete, the same assessment validates the exact named delegation chain and propagates delegation dependency absence as `Unresolved`. Unrelated delegation records remain outside the named authority-chain dependency boundary.
+When transition dependencies are complete, the same assessment validates the exact named delegation chain and propagates delegation dependency absence as `Unresolved`. If both transition and authority dependencies are unavailable, their missing addresses are accumulated and deduplicated deterministically. A structurally invalid reachable authority chain remains `Err` even when transition dependencies are also missing. Unrelated delegation records remain outside the named authority-chain dependency boundary.
 
 ### Authority validity is a separate dimension
 
