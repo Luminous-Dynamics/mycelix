@@ -1,14 +1,18 @@
 use mobility_configuration_qualification::{
-    target_bound_projection::TargetBoundReconciliationProjection,
+    EvidenceState, target_bound_projection::TargetBoundReconciliationProjection,
     temporal_reconciliation_witness::TemporalReconciliationWitness,
-    EvidenceState,
 };
 use serde::{Deserialize, Serialize};
 use std::{env, fs};
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct Corpus { schema: String, schema_version: String, status: String, cases: Vec<Case> }
+struct Corpus {
+    schema: String,
+    schema_version: String,
+    status: String,
+    cases: Vec<Case>,
+}
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -26,10 +30,21 @@ struct Case {
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
-struct Normalized { id: String, operation: String, expected: String, actual: String }
+struct Normalized {
+    id: String,
+    operation: String,
+    expected: String,
+    actual: String,
+}
 
 fn evaluate(c: &Case) -> String {
-    match c.projection.apply(&c.target, &c.configuration_scope, &c.physical_artifact_scope, &c.witness, &c.base_state) {
+    match c.projection.apply(
+        &c.target,
+        &c.configuration_scope,
+        &c.physical_artifact_scope,
+        &c.witness,
+        &c.base_state,
+    ) {
         Ok(actual) if actual == c.expected_state => "accepted".into(),
         _ => "rejected".into(),
     }
@@ -39,8 +54,14 @@ fn main() {
     let path = env::args().nth(1).expect("corpus path");
     let corpus: Corpus = serde_json::from_str(&fs::read_to_string(path).unwrap()).unwrap();
 
-    assert_eq!(corpus.schema, "mobility-reconciliation-target-bound-projection-executable-v1");
-    assert_eq!(corpus.schema_version, "mobility-reconciliation-target-bound-projection-v1");
+    assert_eq!(
+        corpus.schema,
+        "mobility-reconciliation-target-bound-projection-executable-v1"
+    );
+    assert_eq!(
+        corpus.schema_version,
+        "mobility-reconciliation-target-bound-projection-v1"
+    );
     assert_eq!(corpus.status, "semantic-provenance-only");
     assert_eq!(corpus.cases.len(), 26);
 
@@ -61,10 +82,14 @@ fn main() {
     }
     out.sort_by(|a, b| a.id.cmp(&b.id));
 
-    println!("{}", serde_json::to_string_pretty(&serde_json::json!({
-        "schema": "mobility-reconciliation-target-bound-projection-normalized-v1",
-        "schema_version": "mobility-reconciliation-target-bound-projection-v1",
-        "status": "semantic-provenance-only",
-        "cases": out
-    })).unwrap());
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&serde_json::json!({
+            "schema": "mobility-reconciliation-target-bound-projection-normalized-v1",
+            "schema_version": "mobility-reconciliation-target-bound-projection-v1",
+            "status": "semantic-provenance-only",
+            "cases": out
+        }))
+        .unwrap()
+    );
 }
