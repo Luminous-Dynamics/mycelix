@@ -465,17 +465,17 @@ jobs:
         run: |
           evidence="$RUNNER_TEMP/hearth-07-lock-refresh-evidence.txt"
           test "$(git rev-parse HEAD)" = "$TARGET_REF"
-          printf '%s\\n' \\
-            "workflow=hearth-07-lock-refresh-from-pr-ci" \\
-            "requested_ref=$TARGET_REF" \\
-            "resolved_commit=$(git rev-parse HEAD)" \\
-            "run_id=$GITHUB_RUN_ID" \\
-            "run_attempt=$GITHUB_RUN_ATTEMPT" \\
-            "workflow_sha=$(git hash-object .github/workflows/ci.yml)" \\
-            "actions_checkout_sha=3d3c42e5aac5ba805825da76410c181273ba90b1" \\
-            "cachix_install_nix_action_sha=8aa03977d8d733052d78f4e008a241fd1dbf36b3" \\
-            "actions_upload_artifact_sha=043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" > "$evidence"
-
+          {
+            printf '%s\n' "workflow=hearth-07-lock-refresh-from-pr-ci"
+            printf '%s\n' "requested_ref=$TARGET_REF"
+            printf '%s\n' "resolved_commit=$(git rev-parse HEAD)"
+            printf '%s\n' "run_id=$GITHUB_RUN_ID"
+            printf '%s\n' "run_attempt=$GITHUB_RUN_ATTEMPT"
+            printf '%s\n' "workflow_sha=$(git hash-object .github/workflows/ci.yml)"
+            printf '%s\n' "actions_checkout_sha=3d3c42e5aac5ba805825da76410c181273ba90b1"
+            printf '%s\n' "cachix_install_nix_action_sha=8aa03977d8d733052d78f4e008a241fd1dbf36b3"
+            printf '%s\n' "actions_upload_artifact_sha=043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
+          } > "$evidence"
       - uses: cachix/install-nix-action@8aa03977d8d733052d78f4e008a241fd1dbf36b3
         with:
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
