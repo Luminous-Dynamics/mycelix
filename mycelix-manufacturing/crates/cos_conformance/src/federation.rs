@@ -309,10 +309,26 @@ pub enum AuthorityDisposition {
 
 /// One-way authority/reporting output.
 ///
+/// The authority-bearing fields are private, and the type intentionally
+/// implements serialization without deserialization.
+///
 /// ```compile_fail
 /// use serde_json::from_str;
 /// # use cos_conformance::federation::FederationOutcome;
 /// let _: FederationOutcome = from_str("{}").unwrap();
+/// ```
+///
+/// ```compile_fail
+/// # use cos_conformance::federation::{AuthorityDisposition, FederationDecision, FederationOutcome};
+/// let _ = FederationOutcome {
+///     decision: FederationDecision::AcceptedLocal,
+///     authority: AuthorityDisposition::LocalAuthority,
+///     origin_node: Some("node-a".into()),
+///     origin_node_known: true,
+///     logical_delivery_id: "delivery-1".into(),
+///     attempt_id: "attempt-1".into(),
+///     reason: "fabricated",
+/// };
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct FederationOutcome {
