@@ -38,7 +38,7 @@ pub use sector_flow::{EconomicSector, FlowCategory, SectorFlow, SectorTransactio
 pub use reconciliation::{reconcile_step, postings_for_step, StockFlowMismatch, StockFlowReconciliation, StockPosting};
 
 pub use stock_flow::{
-    ActorBalanceSheet, ActorId, CreditCreation, DebtRepayment, EconomicState, MonetaryFlow,
+    ActorBalanceSheet, ActorId, CreditCreation, DebtRepayment, IncomeTransfer, EconomicState, MonetaryFlow,
     MonetaryInstrument, MonetaryStock, RealStock,
 };
 
