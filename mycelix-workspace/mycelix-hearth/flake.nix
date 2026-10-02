@@ -79,6 +79,8 @@
               pkg-config
               openssl
               openssl.dev
+              nodejs_24
+              perl
             ];
 
             inherit (holochainBase.envVars)
