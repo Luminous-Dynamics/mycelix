@@ -18,7 +18,7 @@ on:
       - ".github/workflows/prism-bridge-component-qualification.yml"
 
 concurrency:
-  group: prism-bridge-qualification-${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  group: prism-bridge-qualification-${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 permissions:
