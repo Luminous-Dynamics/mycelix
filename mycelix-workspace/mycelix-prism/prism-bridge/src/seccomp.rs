@@ -227,10 +227,19 @@ mod linux {
         Ok(filter)
     }
 
-    fn seccomp_evidence_digest(policy: &SeccompSyscallPolicyV1) -> [u8; 32] {
+    fn seccomp_evidence_digest(
+        policy: &SeccompSyscallPolicyV1,
+        filter: &[SockFilter],
+    ) -> [u8; 32] {
         let mut hasher = blake3::Hasher::new();
-        hasher.update(b"PRISM-SECCOMP-SYSCALL-EVIDENCE-V2");
+        hasher.update(b"PRISM-SECCOMP-SYSCALL-EVIDENCE-V3");
         hasher.update(&policy.digest());
+        hasher.update(&(filter.len() as u32).to_le_bytes());
+        for instruction in filter {
+            hasher.update(&instruction.code.to_le_bytes());
+            hasher.update(&[instruction.jt, instruction.jf]);
+            hasher.update(&instruction.k.to_le_bytes());
+        }
         hasher.update(&SECCOMP_RET_ERRNO.to_le_bytes());
         hasher.update(&(libc::EPERM as u32).to_le_bytes());
         hasher.update(&SECCOMP_RET_KILL_PROCESS.to_le_bytes());
@@ -311,7 +320,7 @@ mod linux {
             installation_id,
             SandboxAdapterKind::LinuxSeccompSyscallV1,
             profile.policy_digest(),
-            seccomp_evidence_digest(policy),
+            seccomp_evidence_digest(policy, &filter),
             SandboxEnforcementLayer::Syscall,
         ).map_err(|_| SeccompError::InvalidPolicy)
     }
@@ -461,4 +470,3 @@ pub fn install(
 ) -> Result<SandboxEnforcementReceipt, SeccompError> {
     Err(SeccompError::UnsupportedPlatform)
 }
-
