@@ -2334,6 +2334,22 @@ mod tests {
     }
 
     #[test]
+    fn authority_delegation_direct_target_conflict_is_rejected() {
+        let target = authority_delegation("reconcile-direct-target-conflict");
+        let mut conflicting = target.clone();
+        conflicting.grantee = id(
+            IdentityKind::ReconciliationWitness,
+            "different-direct-target-grantee",
+        );
+
+        assert!(EvidenceDispositionAuthorityDelegation::validate_chain_with_target(
+            &target,
+            &[conflicting],
+        )
+        .is_err());
+    }
+
+    #[test]
     fn authority_delegation_graph_requires_basis_continuity() {
         let mut root = authority_delegation("reconcile-delegation-basis");
         let inherited = id(IdentityKind::EvidenceRecord, "delegation-root-basis");
