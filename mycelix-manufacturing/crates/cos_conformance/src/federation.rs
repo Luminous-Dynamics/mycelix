@@ -566,6 +566,7 @@ pub enum FederationMutation {
     LocalEvidence,
     ForeignEvidence,
     DuplicateDelivery,
+    NewLogicalDelivery,
     DelayedDelivery,
     ReorderedDelivery,
     Partition,
@@ -612,6 +613,7 @@ pub fn run_scenario(
             FederationMutation::LocalEvidence
             | FederationMutation::ForeignEvidence
             | FederationMutation::DuplicateDelivery
+            | FederationMutation::NewLogicalDelivery
             | FederationMutation::DelayedDelivery
             | FederationMutation::ReorderedDelivery
             | FederationMutation::Partition
@@ -634,6 +636,11 @@ pub fn run_scenario(
             }
             FederationMutation::DuplicateDelivery => {
                 candidate.attempt_id = format!("{}-retry", candidate.attempt_id);
+            }
+            FederationMutation::NewLogicalDelivery => {
+                candidate.envelope_id = format!("{}-new", candidate.envelope_id);
+                candidate.logical_delivery_id = format!("{}-new", candidate.logical_delivery_id);
+                candidate.attempt_id = format!("{}-new", candidate.attempt_id);
             }
             FederationMutation::DelayedDelivery => {
                 candidate.predecessor_delivery_id = Some("missing-predecessor".to_owned());
@@ -1002,6 +1009,30 @@ mod tests {
     }
 
     #[test]
+    fn new_logical_delivery_is_a_distinct_identity() {
+        let mut state = nodes();
+        let first = envelope();
+        assert_eq!(
+            deliver(&mut state, &first, 50, true).decision,
+            FederationDecision::AcceptedLocal
+        );
+
+        let mut second = first.clone();
+        second.envelope_id = "env-2".into();
+        second.logical_delivery_id = "delivery-2".into();
+        second.attempt_id = "attempt-2".into();
+
+        assert_eq!(
+            deliver(&mut state, &second, 50, true).decision,
+            FederationDecision::AcceptedLocal
+        );
+        assert_eq!(state.delivery_count(), 2);
+        assert_eq!(state.observation_count(), 2);
+        assert!(state.delivery("delivery-2").is_some());
+        assert!(state.observation("env-2").is_some());
+    }
+
+    #[test]
     fn retry_identity_changes_do_not_create_alias_observations() {
         let mut state = nodes();
         let original = envelope();
@@ -1194,6 +1225,10 @@ mod tests {
             FederationScenarioStep {
                 mutation: FederationMutation::DuplicateDelivery,
                 expected: FederationDecision::Duplicate,
+            },
+            FederationScenarioStep {
+                mutation: FederationMutation::NewLogicalDelivery,
+                expected: FederationDecision::AcceptedLocal,
             },
             FederationScenarioStep {
                 mutation: FederationMutation::StaleSchema,
