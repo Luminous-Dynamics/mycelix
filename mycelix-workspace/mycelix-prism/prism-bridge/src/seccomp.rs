@@ -189,6 +189,15 @@ mod linux {
         profile: SandboxProfileV1,
         policy: &SeccompSyscallPolicyV1,
     ) -> Result<SandboxEnforcementReceipt, SeccompError> {
+        // Generate the installation identity before irreversible enforcement.
+        // Once seccomp is installed, a policy may legitimately deny getrandom(2)
+        // and other runtime helpers. A post-install RNG failure must never leave
+        // the caller sandboxed while the adapter reports installation failure.
+        let mut bytes = [0u8; 16];
+        getrandom::fill(&mut bytes).map_err(|_| SeccompError::IdentityGenerationFailed)?;
+        let installation_id = SandboxInstallationId::new(u128::from_be_bytes(bytes))
+            .map_err(|_| SeccompError::IdentityGenerationFailed)?;
+
         let mut filter = compile_filter(policy)?;
 
         let rc = unsafe { libc::prctl(libc::PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) };
@@ -217,11 +226,6 @@ mod linux {
                 std::io::Error::last_os_error().raw_os_error().unwrap_or(libc::EPERM),
             ));
         }
-
-        let mut bytes = [0u8; 16];
-        getrandom::fill(&mut bytes).map_err(|_| SeccompError::IdentityGenerationFailed)?;
-        let installation_id = SandboxInstallationId::new(u128::from_be_bytes(bytes))
-            .map_err(|_| SeccompError::IdentityGenerationFailed)?;
 
         SandboxEnforcementReceipt::from_adapter(
             assignment_id,
