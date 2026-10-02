@@ -1012,32 +1012,43 @@ mod linux {
         #[test]
         fn v2_compiler_jump_offsets_skip_only_the_current_rule() {
             let arch = SeccompArchitecture::current().unwrap();
-            let single = SeccompSyscallRuleV2::new(
-                libc::SYS_prctl,
-                vec![SeccompArgPredicateV1::new(0, u32::MAX as u64, 7).unwrap()],
+            // Policy construction canonicalizes rules by syscall number, so
+            // use two ascending syscall numbers to make the expected control
+            // flow explicit: socket(2) precedes prctl(2).
+            let socket_rule = SeccompSyscallRuleV2::new(
+                libc::SYS_socket,
+                vec![SeccompArgPredicateV1::new(
+                    0,
+                    u32::MAX as u64,
+                    libc::AF_UNIX as u64,
+                ).unwrap()],
             ).unwrap();
-            let unfiltered = SeccompSyscallRuleV2::new(libc::SYS_getpid, Vec::new()).unwrap();
-            let policy = SeccompSyscallPolicyV2::new(arch, vec![single, unfiltered]).unwrap();
+            let prctl_rule = SeccompSyscallRuleV2::new(
+                libc::SYS_prctl,
+                Vec::new(),
+            ).unwrap();
+            let policy = SeccompSyscallPolicyV2::new(
+                arch,
+                vec![prctl_rule, socket_rule],
+            ).unwrap();
             let filter = compile_filter_v2(&policy).unwrap();
 
-            // Find the first syscall dispatch comparison and assert that a
-            // syscall mismatch skips exactly the predicate body plus its ALLOW,
-            // landing on the next syscall comparison.
-            let prctl_index = filter.iter().position(|instruction| {
+            // The socket dispatch must skip exactly its predicate body plus
+            // its ALLOW and land on the next syscall comparison. This proves
+            // the mismatch jump is measured from the instruction after the
+            // dispatch comparison, not from the comparison itself.
+            let socket_index = filter.iter().position(|instruction| {
+                instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                    && instruction.k == libc::SYS_socket as u32
+            }).unwrap();
+            let prctl_offset = filter[socket_index + 1..].iter().position(|instruction| {
                 instruction.code == BPF_JMP | BPF_JEQ | BPF_K
                     && instruction.k == libc::SYS_prctl as u32
             }).unwrap();
-            let predicate_body = filter[prctl_index + 1..].iter().position(|instruction| {
-                instruction.code == BPF_JMP | BPF_JEQ | BPF_K
-                    && instruction.k == libc::SYS_getpid as u32
-            }).unwrap();
-            assert_eq!(filter[prctl_index].jf as usize, predicate_body);
+            assert_eq!(filter[socket_index].jf as usize, prctl_offset);
 
-            let getpid_index = prctl_index + 1 + predicate_body;
-            assert_eq!(
-                filter[getpid_index].k,
-                libc::SYS_getpid as u32
-            );
+            let prctl_index = socket_index + 1 + prctl_offset;
+            assert_eq!(filter[prctl_index].k, libc::SYS_prctl as u32);
         }
 
         #[test]
