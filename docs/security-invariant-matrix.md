@@ -40,11 +40,12 @@ The kernel now has a second, narrower boundary after authorization:
 4. Deny and Indeterminate outcomes produce no permit.
 5. Post-issuance revocation or authority ambiguity blocks enforcement rather than relying on the earlier Allow.
 6. Enforcement additionally rejects verification evidence whose capability commitment does not match the permit being exercised.
-7. `SecurityEvent` records Allow, Deny, and Indeterminate decisions and can carry explicit provenance references and recovery correlation.
+7. Permits also carry an opaque authority-freshness commitment supplied by the authority adapter; revalidation rejects evidence from a different authority generation.
+8. `SecurityEvent` records Allow, Deny, and Indeterminate decisions and can carry explicit provenance references and recovery correlation, including the authority-freshness commitment for successful enforcement.
 
 This prevents a downstream enforcement adapter from accepting an arbitrary request as though it had already passed the policy decision point. It also makes the authorization decision reconstructable without making the event record itself authoritative.
 
-The new implementation remains a policy/type boundary. `VerificationEvidence` is now intentionally opaque and can only be constructed inside the bridge crate; its capability binding is derived from the canonical capability semantics, so evidence cannot be substituted between capabilities. The actual identity/authority adapter still needs to supply trustworthy signature, revocation, and authority evidence. The intended adapter should reuse Mycelix's existing canonical institutional authority identity (PR #75) rather than duplicate grant identity semantics.
+The new implementation remains a policy/type boundary. `VerificationEvidence` is now intentionally opaque and can only be constructed inside the bridge crate; its capability binding is derived from the canonical capability semantics, so evidence cannot be substituted between capabilities. The actual identity/authority adapter still needs to supply trustworthy signature, revocation, and authority evidence. Its authority-freshness commitment is intentionally opaque in the bridge layer and must track the existing generation-bound authority semantics rather than create a parallel generation model. The intended adapter should reuse Mycelix's existing canonical institutional authority identity (PR #75) rather than duplicate grant identity semantics.
 
 ## Evidence durability invariant
 
