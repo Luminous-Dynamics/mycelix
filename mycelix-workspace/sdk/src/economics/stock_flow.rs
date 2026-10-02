@@ -1154,8 +1154,15 @@ impl EconomicState {
     }
 
     /// Credit creation minus repayment during the current period.
+    pub fn try_net_credit_impulse(&self) -> Result<i128, String> {
+        self.credit_created
+            .checked_sub(self.debt_repaid)
+            .ok_or_else(|| "net credit impulse overflow".into())
+    }
+
     pub fn net_credit_impulse(&self) -> i128 {
-        self.credit_created - self.debt_repaid
+        self.try_net_credit_impulse()
+            .expect("net credit impulse overflow")
     }
 
     /// Check the internal financial-instrument identity: every modeled claim
@@ -1437,6 +1444,16 @@ mod tests {
         assert!(s
             .create_credit(&CreditCreation::new("bank", "bank", 1).unwrap())
             .is_err());
+    }
+
+    #[test]
+    fn checked_net_credit_impulse_fails_closed_on_overflow() {
+        let state = EconomicState {
+            actors: Vec::new(),
+            credit_created: i128::MIN,
+            debt_repaid: 1,
+        };
+        assert!(state.try_net_credit_impulse().is_err());
     }
 
     #[test]
