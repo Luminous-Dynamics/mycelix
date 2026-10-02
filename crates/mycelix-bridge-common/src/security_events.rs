@@ -141,6 +141,9 @@ impl SecurityEvent {
         policy_version: u64,
         timestamp_us: u64,
     ) -> Result<Self, &'static str> {
+        if policy_version != enforcement.request().policy_version() {
+            return Err("security event policy version does not match enforcement request");
+        }
         let mut event = Self::new(
             event_id,
             actor_id,
@@ -233,9 +236,9 @@ mod tests {
         assert_eq!(event.request, *enforcement.request());
         assert_eq!(event.provenance.len(), 1);
         assert_eq!(event.recovery_correlation.as_deref(), Some("recovery:1"));
+        assert_eq!(event.capability_binding, Some(enforcement.capability_binding()));
     }
 
-    #[test]
     #[test]
     fn legacy_security_event_without_binding_deserializes() {
         let json = r#"{
@@ -258,6 +261,37 @@ mod tests {
         assert_eq!(event.capability_binding, None);
     }
 
+    #[test]
+    fn enforcement_event_rejects_policy_version_mismatch() {
+        let request = crate::security_kernel::AuthorizationRequest::new(
+            "did:mycelix:alice",
+            "resource:ledger",
+            CapabilityAction::Read,
+            7,
+        )
+        .unwrap();
+        let permit = authorize_permit(&verified(), &request, 150).unwrap();
+        let enforcement = EnforcementRequest::from_permit(
+            permit,
+            VerificationEvidence::new_for_capability(&capability(), true, true, true),
+            150,
+        )
+        .unwrap();
+        assert_eq!(
+            SecurityEvent::from_enforcement_request(
+                "event:mismatch",
+                "did:mycelix:alice",
+                "capability:1",
+                &enforcement,
+                8,
+                151,
+            )
+            .unwrap_err(),
+            "security event policy version does not match enforcement request"
+        );
+    }
+
+    #[test]
     fn security_event_can_record_denial() {
         let request = crate::security_kernel::AuthorizationRequest::new(
             "did:mycelix:alice",
