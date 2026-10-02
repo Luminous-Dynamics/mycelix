@@ -96,7 +96,9 @@ The resulting chain is:
         -> D6P witness commitment
 
 This makes semantic substitution visible at each boundary without conflating
-cryptographic integrity with source authority.
+cryptographic integrity with source authority. The conformance tests also mutate
+each committed D6M observation field and each committed D6N assessment field,
+ensuring the reference commitment cannot silently omit a newly relevant field.
 
 ## Exact D6O artifact
 
