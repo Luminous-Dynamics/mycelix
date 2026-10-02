@@ -348,8 +348,8 @@ impl Capability {
         {
             return Err("capability identifier exceeds size limit");
         }
-        if self.expires_at_us < self.not_before_us {
-            return Err("capability validity window is inverted");
+        if self.expires_at_us <= self.not_before_us {
+            return Err("capability validity window must be non-empty");
         }
         if self.actions.is_empty() {
             return Err("capability must grant at least one action");
@@ -504,7 +504,7 @@ pub fn verify_capability(
         ));
     }
     if now_us < capability.not_before_us
-        || now_us > capability.expires_at_us
+        || now_us >= capability.expires_at_us
         || now_us >= evidence.valid_until_us
     {
         return Err(AuthorizationDecision::Deny(
@@ -568,7 +568,7 @@ pub fn authorize_permit(
     let c = &verified.capability;
 
     if now_us < c.not_before_us
-        || now_us > c.expires_at_us
+        || now_us >= c.expires_at_us
         || now_us >= verified.verification_valid_until_us
     {
         return Err(AuthorizationDecision::Deny(
@@ -796,6 +796,28 @@ mod tests {
             )
             .unwrap_err(),
             AuthorizationDecision::Deny(AuthorizationDenial::OutsideValidityWindow)
+        );
+    }
+
+    #[test]
+    fn capability_expiry_boundary_is_exclusive() {
+        let cap = capability();
+        let evidence = VerificationEvidence::new_for_capability(&cap, true, true, true);
+
+        assert!(verify_capability(cap.clone(), evidence, cap.expires_at_us - 1).is_ok());
+        assert_eq!(
+            verify_capability(cap.clone(), evidence, cap.expires_at_us),
+            Err(AuthorizationDecision::Deny(
+                AuthorizationDenial::OutsideValidityWindow,
+            ))
+        );
+
+        let verified = verify_capability(cap.clone(), evidence, cap.expires_at_us - 1).unwrap();
+        assert_eq!(
+            authorize_permit(&verified, &request(CapabilityAction::Read), cap.expires_at_us),
+            Err(AuthorizationDecision::Deny(
+                AuthorizationDenial::OutsideValidityWindow,
+            ))
         );
     }
 
