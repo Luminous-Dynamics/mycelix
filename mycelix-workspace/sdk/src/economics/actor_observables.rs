@@ -12,9 +12,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use super::observables::{classify_financing_regime, FinancingRegime, RatioObservation};
-use super::stock_flow::{
-    ActorId, EconomicFlowCategory, EconomicState, TradeCreditSale, TradeCreditSettlement,
-};
+use super::stock_flow::{ActorId, EconomicFlowCategory, EconomicState};
 use super::transition::EconomicTransition;
 
 fn add_checked(slot: &mut i128, amount: i128, label: &str) -> Result<(), String> {
@@ -43,6 +41,7 @@ pub struct ActorEconomicObservables {
     pub actor: ActorId,
     pub cash: i128,
     pub deposits: i128,
+    #[serde(default)]
     pub opening_liquidity: i128,
     pub liquidity: i128,
     pub net_liquidity_change: i128,
