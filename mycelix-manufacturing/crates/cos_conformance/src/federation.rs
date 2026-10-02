@@ -608,6 +608,7 @@ pub struct FederationScenarioResult {
     pub actual: FederationDecision,
     pub passed: bool,
     pub delivery_identity_unchanged: bool,
+    pub delivery_attempts_unchanged: bool,
     pub observation_ledger_unchanged: bool,
 }
 
@@ -650,6 +651,16 @@ fn scenario_steps() -> Vec<FederationScenarioStep> {
         .collect()
 }
 
+fn delivery_attempts_snapshot(
+    state: &FederationState,
+) -> BTreeMap<String, BTreeSet<String>> {
+    state
+        .deliveries
+        .iter()
+        .map(|(id, record)| (id.clone(), record.attempts.clone()))
+        .collect()
+}
+
 fn delivery_identity_snapshot(
     state: &FederationState,
 ) -> BTreeMap<String, (ImmutableDeliveryContract, AuthorityDisposition)> {
@@ -676,6 +687,7 @@ pub fn run_scenario(
 
     for step in steps {
         let before_delivery_identity = delivery_identity_snapshot(&state);
+        let before_delivery_attempts = delivery_attempts_snapshot(&state);
         let before_observations = state.observations.clone();
 
         let mut candidate = envelope.clone();
@@ -752,6 +764,8 @@ pub fn run_scenario(
         let actual = deliver(&mut state, &candidate, now, transport_available).decision;
         let delivery_identity_unchanged =
             delivery_identity_snapshot(&state) == before_delivery_identity;
+        let delivery_attempts_unchanged =
+            delivery_attempts_snapshot(&state) == before_delivery_attempts;
         let observation_ledger_unchanged =
             state.observations == before_observations;
 
@@ -760,6 +774,7 @@ pub fn run_scenario(
             actual,
             passed: actual == step.expected,
             delivery_identity_unchanged,
+            delivery_attempts_unchanged,
             observation_ledger_unchanged,
         });
     }
@@ -1151,6 +1166,11 @@ mod tests {
             state.delivery("delivery-1").unwrap().attempts().len(),
             2
         );
+        assert!(state.delivery("delivery-1").unwrap().attempts().contains("attempt-alias-check"));
+        assert_eq!(
+            state.delivery("delivery-1").unwrap().contract(),
+            &ImmutableDeliveryContract::from(&original)
+        );
     }
 
     #[test]
@@ -1397,16 +1417,23 @@ mod tests {
                 | FederationMutation::ForeignEvidence
                 | FederationMutation::NewLogicalDelivery => {
                     assert!(!result.delivery_identity_unchanged);
+                    assert!(!result.delivery_attempts_unchanged);
                     assert!(!result.observation_ledger_unchanged);
                 }
                 FederationMutation::DuplicateDelivery | FederationMutation::Reconnect => {
                     assert!(result.delivery_identity_unchanged);
+                    assert!(!result.delivery_attempts_unchanged);
                     assert!(result.observation_ledger_unchanged);
                 }
                 _ => {
                     assert!(
                         result.delivery_identity_unchanged,
                         "rejected/non-new mutation changed delivery identity state: {:?}",
+                        result.mutation
+                    );
+                    assert!(
+                        result.delivery_attempts_unchanged,
+                        "rejected/non-replay mutation changed delivery attempt state: {:?}",
                         result.mutation
                     );
                     assert!(
