@@ -1286,6 +1286,88 @@ mod tests {
     }
 
     #[test]
+    fn admitted_replay_cannot_bypass_generation_or_expiry_gates() {
+        let mut schema_state = nodes();
+        let candidate = envelope();
+        assert_eq!(
+            deliver(&mut schema_state, &candidate, 50, true).decision,
+            FederationDecision::AcceptedLocal
+        );
+        schema_state
+            .nodes
+            .get_mut("node-a")
+            .unwrap()
+            .schema_generation = 2;
+
+        let mut schema_retry = candidate.clone();
+        schema_retry.attempt_id = "attempt-schema-stale-retry".into();
+        let schema_outcome = deliver(&mut schema_state, &schema_retry, 50, true);
+        assert_eq!(
+            schema_outcome.decision,
+            FederationDecision::StaleGeneration
+        );
+        assert_eq!(schema_outcome.authority, AuthorityDisposition::NoAuthority);
+        assert_eq!(
+            schema_state.delivery("delivery-1").unwrap().attempts().len(),
+            1
+        );
+        assert_eq!(schema_state.observation_count(), 1);
+
+        let mut authorization_state = nodes();
+        assert_eq!(
+            deliver(&mut authorization_state, &candidate, 50, true).decision,
+            FederationDecision::AcceptedLocal
+        );
+        authorization_state
+            .nodes
+            .get_mut("node-a")
+            .unwrap()
+            .authorization_generation = 2;
+
+        let mut authorization_retry = candidate.clone();
+        authorization_retry.attempt_id = "attempt-auth-stale-retry".into();
+        let authorization_outcome =
+            deliver(&mut authorization_state, &authorization_retry, 50, true);
+        assert_eq!(
+            authorization_outcome.decision,
+            FederationDecision::StaleGeneration
+        );
+        assert_eq!(
+            authorization_outcome.authority,
+            AuthorityDisposition::NoAuthority
+        );
+        assert_eq!(
+            authorization_state
+                .delivery("delivery-1")
+                .unwrap()
+                .attempts()
+                .len(),
+            1
+        );
+        assert_eq!(authorization_state.observation_count(), 1);
+
+        let mut expiry_state = nodes();
+        assert_eq!(
+            deliver(&mut expiry_state, &candidate, 50, true).decision,
+            FederationDecision::AcceptedLocal
+        );
+
+        let mut expired_retry = candidate;
+        expired_retry.attempt_id = "attempt-expired-retry".into();
+        let expired_outcome = deliver(&mut expiry_state, &expired_retry, 101, true);
+        assert_eq!(
+            expired_outcome.decision,
+            FederationDecision::ExpiredAuthorization
+        );
+        assert_eq!(expired_outcome.authority, AuthorityDisposition::NoAuthority);
+        assert_eq!(
+            expiry_state.delivery("delivery-1").unwrap().attempts().len(),
+            1
+        );
+        assert_eq!(expiry_state.observation_count(), 1);
+    }
+
+    #[test]
     fn expired_authorization_cannot_be_revived() {
         let mut state = nodes();
         let mut expired = envelope();
