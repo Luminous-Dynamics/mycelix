@@ -113,7 +113,7 @@ def canonical_jcs_json(value):
 
 n10 = next(v for v in vectors if v["vector_id"] == "QUALS-N-010")
 fixture = n10.get("mutation", {}).get("fixture")
-if fixture != '{"authority_outcome":"NONE","authority_outcome":"AUTHORITY_AUTHORIZED"}':
+if fixture != '{"authority_outcome":"NONE","\\u0061uthority_outcome":"AUTHORITY_AUTHORIZED"}':
     fail("QUALS-N-010 fixture missing or changed")
 try:
     json.loads(fixture, object_pairs_hook=reject_duplicates)
