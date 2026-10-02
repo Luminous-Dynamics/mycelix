@@ -217,26 +217,35 @@
         }
       },
       "then": {
-        "required": [
-          "admitted_claims"
-        ]
+        "properties": {
+          "admitted_claims": {
+            "contains": {
+              "const": "successor_conformance"
+            },
+            "minContains": 1
+          }
+        }
       }
     },
     {
       "if": {
-        "properties": {
-          "execution_outcome": {
-            "const": "FAILED"
-          }
-        }
-      },
-      "then": {
         "properties": {
           "conformance_outcome": {
             "enum": [
               "FAIL",
               "UNAVAILABLE"
             ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "admitted_claims": {
+            "not": {
+              "contains": {
+                "const": "successor_conformance"
+              }
+            }
           }
         }
       }
