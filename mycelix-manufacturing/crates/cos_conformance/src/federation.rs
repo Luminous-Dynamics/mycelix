@@ -1543,12 +1543,12 @@ mod tests {
             FederationScenarioStep {
                 mutation: FederationMutation::NewLogicalDelivery,
                 expected: FederationDecision::AcceptedForeign,
-                expected_authority: AuthorityDisposition::ForeignEvidence,
+                expected_authority: AuthorityDisposition::RecognizedForeignEvidence,
             },
             FederationScenarioStep {
                 mutation: FederationMutation::DuplicateDelivery,
                 expected: FederationDecision::Duplicate,
-                expected_authority: AuthorityDisposition::ForeignEvidence,
+                expected_authority: AuthorityDisposition::RecognizedForeignEvidence,
             },
         ];
 
