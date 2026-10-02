@@ -105,7 +105,8 @@ pub mod security_kernel;
 pub use security_kernel::{
     AdvisoryResult, AuthorizationDecision, AuthorizationDenial, AuthorizationIndeterminacy,
     AuthorizationPermit, AuthorizationRequest, Capability, CapabilityAction, EnforcementRequest,
-    VerificationEvidence, VerifiedCapability, authorize, authorize_permit, revalidate_permit,
+    MAX_AUTHORIZATION_PERMIT_LIFETIME_US, VerificationEvidence, VerifiedCapability, authorize,
+    authorize_permit, revalidate_permit,
     verify_capability,
 };
 
