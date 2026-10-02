@@ -132,7 +132,6 @@ mod linux {
     const BPF_K: u16 = 0x00;
     const BPF_RET: u16 = 0x06;
 
-    const SECCOMP_MODE_FILTER: libc::c_int = 2;
     const SECCOMP_SET_MODE_FILTER: libc::c_uint = 1;
     const SECCOMP_FILTER_FLAG_TSYNC: libc::c_uint = 1 << 0;
     const SECCOMP_FILTER_FLAG_TSYNC_ESRCH: libc::c_uint = 1 << 4;
