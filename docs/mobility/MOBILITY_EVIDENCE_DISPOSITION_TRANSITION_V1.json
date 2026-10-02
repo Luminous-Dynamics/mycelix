@@ -441,6 +441,11 @@
       "id": "EDT-086",
       "case": "append_preserves_unresolved_missing_predecessor_status",
       "expected": "unresolved_at_protocol_layer"
+    },
+    {
+      "id": "EDT-087",
+      "case": "append_can_fill_a_previously_missing_predecessor",
+      "expected": "accepted"
     }
   ]
 }
