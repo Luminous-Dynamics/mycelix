@@ -200,6 +200,7 @@ pub struct SandboxEvidenceBundle {
     assignment_id: RendererProcessAssignmentId,
     policy_digest: [u8; 32],
     enforced_layers: SandboxEnforcementSet,
+    receipts: [Option<SandboxEnforcementReceipt>; 5],
 }
 
 impl SandboxEvidenceBundle {
@@ -207,7 +208,12 @@ impl SandboxEvidenceBundle {
         assignment_id: RendererProcessAssignmentId,
         policy_digest: [u8; 32],
     ) -> Self {
-        Self { assignment_id, policy_digest, enforced_layers: SandboxEnforcementSet::EMPTY }
+        Self {
+            assignment_id,
+            policy_digest,
+            enforced_layers: SandboxEnforcementSet::EMPTY,
+            receipts: [None; 5],
+        }
     }
 
     pub fn record(
@@ -220,18 +226,24 @@ impl SandboxEvidenceBundle {
         {
             return Err(ProcessContractError::SandboxEvidenceMismatch);
         }
-        if self.enforced_layers.contains(receipt.layer) {
+        let index = receipt.layer as usize;
+        if self.enforced_layers.contains(receipt.layer) || self.receipts[index].is_some() {
             return Err(ProcessContractError::DuplicateSandboxEvidence);
         }
         self.enforced_layers = self.enforced_layers.union(
             SandboxEnforcementSet::from_layer(receipt.layer)
         );
+        self.receipts[index] = Some(receipt);
         Ok(())
     }
 
     pub fn assignment_id(&self) -> RendererProcessAssignmentId { self.assignment_id }
     pub fn policy_digest(&self) -> [u8; 32] { self.policy_digest }
     pub fn enforced_layers(&self) -> SandboxEnforcementSet { self.enforced_layers }
+
+    pub fn receipt(&self, layer: SandboxEnforcementLayer) -> Option<SandboxEnforcementReceipt> {
+        self.receipts[layer as usize]
+    }
 }
 
 /// Kernel-observed process identity. PID alone is deliberately insufficient.
@@ -442,6 +454,27 @@ mod tests {
         assert_ne!(b.0, 0);
     }
 
+
+    #[test]
+    fn evidence_bundle_retains_independent_layer_receipts() {
+        let assignment_id = RendererProcessAssignmentId::new(1).unwrap();
+        let installation_id = SandboxInstallationId::new(2).unwrap();
+        let profile_digest = SandboxProfileV1::renderer_default().policy_digest();
+        let receipt = SandboxEnforcementReceipt::from_adapter(
+            assignment_id,
+            installation_id,
+            SandboxAdapterKind::LinuxLandlockFilesystemV1,
+            profile_digest,
+            [0x33; 32],
+            SandboxEnforcementLayer::Filesystem,
+        ).unwrap();
+
+        let mut bundle = SandboxEvidenceBundle::new(assignment_id, profile_digest);
+        bundle.record(receipt).unwrap();
+
+        assert_eq!(bundle.receipt(SandboxEnforcementLayer::Filesystem), Some(receipt));
+        assert!(bundle.receipt(SandboxEnforcementLayer::Syscall).is_none());
+    }
 
     #[test]
     fn sandbox_receipt_rejects_empty_evidence() {
