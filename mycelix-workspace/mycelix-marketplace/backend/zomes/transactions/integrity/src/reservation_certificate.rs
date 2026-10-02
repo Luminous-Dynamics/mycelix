@@ -1165,7 +1165,7 @@ mod tests {
     fn terminal_replay_after_listing_revision_bridge_is_idempotent() {
         let mut f = frontier(2);
         f.apply(FrontierEvent::Reserve(certificate_with_capacity(
-            "c1", 0, None, 1, 2
+            "c1", 0, None, 1, 2,
         )))
         .unwrap();
         f.apply(FrontierEvent::SetCapacity {
