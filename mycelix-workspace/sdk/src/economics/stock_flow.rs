@@ -528,7 +528,7 @@ impl EconomicState {
         if assets == 0 {
             None
         } else {
-            Some(self.aggregate_liabilities as f64 / assets as f64)
+            Some(self.aggregate_liabilities() as f64 / assets as f64)
         }
     }
 
@@ -592,6 +592,28 @@ mod tests {
             s.actors[0].net_worth() + s.actors[1].net_worth(),
             before_bank + before_household
         );
+        assert!(s.claims_liabilities_identity_holds());
+    }
+
+    #[test]
+    fn capital_investment_converts_deposits_into_real_capital() {
+        let mut s = state();
+        s.actors[2].monetary.deposits = 500;
+
+        let before_firm = s.actors[2].net_worth();
+        let before_household = s.actors[1].net_worth();
+
+        s.apply_capital_investment(
+            &CapitalInvestment::new("firm", "household", 200).unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(s.actors[2].monetary.deposits, 300);
+        assert_eq!(s.actors[1].monetary.deposits, 200);
+        assert_eq!(s.actors[2].real.productive_capital, 0);
+        assert_eq!(s.actors[1].real.productive_capital, 200);
+        assert_eq!(s.actors[2].net_worth(), before_firm);
+        assert_eq!(s.actors[1].net_worth(), before_household + 200);
         assert!(s.claims_liabilities_identity_holds());
     }
 
