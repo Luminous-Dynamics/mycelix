@@ -44,13 +44,13 @@ jobs:
         run: cargo fmt --manifest-path crates/mycelix-bridge-common/Cargo.toml -- --check
 
       - name: Test default feature set
-        run: cargo test --manifest-path crates/mycelix-bridge-common/Cargo.toml
+        run: cargo test --locked --manifest-path crates/mycelix-bridge-common/Cargo.toml
 
       - name: Test identity feature set
         run: cargo test --manifest-path crates/mycelix-bridge-common/Cargo.toml --features identity
 
       - name: Clippy default feature set
-        run: cargo clippy --manifest-path crates/mycelix-bridge-common/Cargo.toml --all-targets -- -D warnings
+        run: cargo clippy --locked --manifest-path crates/mycelix-bridge-common/Cargo.toml --all-targets -- -D warnings
 
       - name: Clippy identity feature set
         run: cargo clippy --manifest-path crates/mycelix-bridge-common/Cargo.toml --all-targets --features identity -- -D warnings
