@@ -12,6 +12,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::observables::EconomicObservables;
+use super::period_ledger::EconomicPeriodLedger;
 use super::transition::{EconomicChainReceipt, EconomicStepError};
 
 /// Immutable identity for one reproducible simulation configuration.
