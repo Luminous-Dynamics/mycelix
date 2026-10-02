@@ -1118,6 +1118,43 @@ mod tests {
     }
 
     #[test]
+    fn conflicting_capacity_bridge_replay_is_not_idempotent() {
+        let mut f = frontier(2);
+        assert_eq!(
+            f.apply(FrontierEvent::Reserve(certificate_with_capacity(
+                "c1", 0, None, 1, 2
+            ))),
+            Ok(ApplyOutcome::Applied)
+        );
+
+        let bridge = FrontierEvent::SetCapacity {
+            listing_hash: hash(3),
+            listing_revision: hash(7),
+            capacity: 2,
+            seller: agent(2),
+            sequence: 1,
+            previous_certificate_id: Some("c1".into()),
+        };
+        assert_eq!(f.apply(bridge), Ok(ApplyOutcome::Applied));
+
+        let conflicting = FrontierEvent::SetCapacity {
+            listing_hash: hash(3),
+            listing_revision: hash(8),
+            capacity: 3,
+            seller: agent(2),
+            sequence: 1,
+            previous_certificate_id: Some("c1".into()),
+        };
+        assert_eq!(
+            f.apply(conflicting),
+            Err(CertificateError::IntentConflict)
+        );
+        assert_eq!(f.next_sequence(), 2);
+        assert_eq!(f.capacity(), 2);
+        assert_eq!(f.listing_revision(), &hash(7));
+    }
+
+    #[test]
     fn replay_of_exact_capacity_bridge_is_idempotent() {
         let mut f = frontier(2);
         assert_eq!(
