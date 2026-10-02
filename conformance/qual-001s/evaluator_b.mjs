@@ -48,7 +48,7 @@ for (const v of corpus.vectors) {
   const requested = new Set(v.requested_claims);
   const admitted = new Set(v.admitted_claims);
   for (const claim of admitted) {
-    if (!requested.has(claim) && v.vector_id !== "QUALS-P-001") {
+    if (!requested.has(claim)) {
       throw new Error(`${v.vector_id}: admitted claim was never requested`);
     }
   }
@@ -57,11 +57,14 @@ for (const v of corpus.vectors) {
     throw new Error(`${v.vector_id}: availability vector must remain unavailable`);
   }
 
-  if (
-    v.proposition_id === "RECEIPT_CEILING" &&
-    v.expected_claims.includes("rotation_adoption")
-  ) {
+  if (v.proposition_id === "RECEIPT_CEILING" && v.expected_claims.includes("rotation_adoption")) {
     throw new Error("receipt ceiling violated");
+  }
+
+  if (v.proposition_id === "CLAIM_CEILING" && v.mutation?.operation === "add_required_constraint") {
+    if (v.mutation.expected_effect !== "rotation_authorization remains unadmitted") {
+      throw new Error("claim ceiling monotonicity contract missing");
+    }
   }
 
   if (
