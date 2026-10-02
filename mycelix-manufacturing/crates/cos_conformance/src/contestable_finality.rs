@@ -18,6 +18,7 @@ use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
 pub const D6N_ASSESSMENT_COMMITMENT_DOMAIN: &[u8] = b"MYCELIX-INTEGRAL-D6N-ASSESSMENT-V1\0";
+pub const D6N_ASSESSMENT_COMMITMENT_SERIALIZATION: &str = "serde-json-struct-v1";
 pub const CONTESTABLE_FINALITY_CLAIM_CEILING: &str =
     "Contestable external-finality reference evidence only; no physical truth, settlement, or actuation authorization claim.";
 
