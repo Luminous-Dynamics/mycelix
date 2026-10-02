@@ -48,7 +48,7 @@ function scanDuplicateObjectKeys(json) {
       const start = i + 1;
       scanString();
       const end = i - 1;
-      const key = json.slice(start, end);
+      const key = JSON.parse(json.slice(start - 1, i));
       if (keys.has(key)) error("duplicate key: " + key);
       keys.add(key);
       skipWhitespace();
@@ -106,7 +106,7 @@ if (typeof s0.envelope_sha256 !== "string" || s0.envelope_sha256.length !== 64) 
 
 let fixtureRejected = false;
 try {
-  scanDuplicateObjectKeys('{"authority_outcome":"NONE","authority_outcome":"AUTHORITY_AUTHORIZED"}');
+  scanDuplicateObjectKeys('{"authority_outcome":"NONE","\\u0061uthority_outcome":"AUTHORITY_AUTHORIZED"}');
 } catch (err) {
   fixtureRejected = String(err).includes("duplicate key");
 }
