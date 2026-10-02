@@ -1190,6 +1190,33 @@ mod tests {
     }
 
     #[test]
+    fn authority_scope_carries_reconciliation_basis() {
+        let required = id(IdentityKind::EvidenceRecord, "authority-basis-1");
+        let reconciliation = EvidenceDispositionReconciliation {
+            reconciliation_id: id(IdentityKind::ReconciliationWitness, "reconcile-authority-basis"),
+            evidence: id(IdentityKind::InspectionRecord, "inspection-graph"),
+            branch_point: id(IdentityKind::ReconciliationWitness, "t1"),
+            branch_heads: vec![
+                id(IdentityKind::ReconciliationWitness, "t2"),
+                id(IdentityKind::ReconciliationWitness, "t3"),
+            ],
+            authority: id(IdentityKind::ReconciliationWitness, "authority-1"),
+            authority_scope: id(IdentityKind::ReconciliationWitness, "authority-scope-1"),
+            basis: vec![required.clone()],
+        };
+        let missing = authority_scope("reconcile-authority-basis");
+        assert!(missing.validate_against_reconciliation(&reconciliation).is_err());
+
+        let complete = EvidenceDispositionAuthorityScope {
+            scope_id: id(IdentityKind::ReconciliationWitness, "authority-scope-1"),
+            authority: id(IdentityKind::ReconciliationWitness, "authority-1"),
+            subject: reconciliation.reconciliation_id.clone(),
+            basis: vec![required],
+        };
+        assert!(complete.validate_against_reconciliation(&reconciliation).is_ok());
+    }
+
+    #[test]
     fn reconciliation_requires_competing_branch_heads() {
         let reconciliation = EvidenceDispositionReconciliation {
             reconciliation_id: id(IdentityKind::ReconciliationWitness, "reconcile-1"),
