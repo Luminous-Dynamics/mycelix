@@ -965,6 +965,68 @@ impl EvidenceDispositionReconciliationCoverage {
             authority_delegation,
         )?;
         boundary.validate()?;
+        if self.boundary != boundary.boundary_id {
+            return Err("reconciliation coverage references a different coverage boundary".into());
+        }
+        if boundary.evidence != reconciliation.evidence {
+            return Err("coverage boundary references different evidence".into());
+        }
+        if self.branch_point != boundary.branch_point {
+            return Err("coverage boundary references a different branch point".into());
+        }
+        let covered_heads: std::collections::BTreeSet<_> =
+            self.covered_branch_heads.iter().cloned().collect();
+        let boundary_heads: std::collections::BTreeSet<_> =
+            boundary.branch_heads.iter().cloned().collect();
+        if covered_heads != boundary_heads {
+            return Err("reconciliation coverage heads must match the coverage boundary set".into());
+        }
+        let coverage_basis: std::collections::BTreeSet<_> =
+            self.basis.iter().cloned().collect();
+        let boundary_basis: std::collections::BTreeSet<_> =
+            boundary.basis.iter().cloned().collect();
+        if coverage_basis != boundary_basis {
+            return Err("reconciliation coverage basis must match the coverage boundary set".into());
+        }
+        if boundary.reconciliation != reconciliation.reconciliation_id {
+            return Err("coverage boundary references a different reconciliation".into());
+        }
+        if boundary.authority != reconciliation.authority {
+            return Err("coverage boundary authority must match reconciliation authority".into());
+        }
+        if boundary.authority_scope != reconciliation.authority_scope {
+            return Err("coverage boundary authority scope must match reconciliation authority scope".into());
+        }
+        if boundary.authority_delegation != reconciliation.authority_delegation {
+            return Err("coverage boundary authority delegation must match reconciliation authority delegation".into());
+        }
+        if boundary.authority_delegation != authority_delegation.delegation_id {
+            return Err("coverage boundary authority delegation does not match supplied delegation witness".into());
+        }
+        if boundary.authority_scope != authority_scope.scope_id {
+            return Err("coverage boundary authority scope does not match supplied scope witness".into());
+        }
+        for basis in &reconciliation.basis {
+            if !boundary.basis.contains(basis) {
+                return Err("coverage boundary basis must include every reconciliation basis witness".into());
+            }
+        }
+        for basis in &authority_scope.basis {
+            if !boundary.basis.contains(basis) {
+                return Err("coverage boundary basis must include every authority scope basis witness".into());
+            }
+        }
+        if self.reconciliation != reconciliation.reconciliation_id {
+            return Err("reconciliation coverage references a different reconciliation".into());
+        }
+        if self.branch_point != reconciliation.branch_point {
+            return Err("reconciliation coverage references a different branch point".into());
+        }
+        for head in &reconciliation.branch_heads {
+            if !self.covered_branch_heads.contains(head) {
+                return Err("reconciliation branch head is outside the declared coverage set".into());
+            }
+        }
 
         let missing_transitions =
             self.collect_missing_transition_dependencies(reconciliation, transitions)?;
