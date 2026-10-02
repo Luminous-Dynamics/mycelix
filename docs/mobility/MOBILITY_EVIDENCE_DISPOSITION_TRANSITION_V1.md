@@ -85,6 +85,8 @@ The authority-scope witness is also carried through coverage validation: the bou
 
 Consumers that stop at the scope layer can use the chain-aware scope validator to validate the exact named delegation chain in the same bounded operation. This prevents a correctly bound scope from being mistaken for evidence that its delegation ancestry is complete; missing predecessors remain unresolved and reachable structural contradictions remain invalid. The scope-layer validator therefore exposes the same Complete/Unresolved distinction as the delegation graph validator rather than collapsing dependency absence into success.
 
+The same isolation rule applies at the scope consumer boundary: unrelated invalid delegation records are outside the named chain and do not affect the result. At the composed coverage layer, however, an unresolved predecessor on the exact named delegation chain propagates as unresolved rather than being converted into a successful coverage qualification.
+
 
 ### Authority delegation chains
 
