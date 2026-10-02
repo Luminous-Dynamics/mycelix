@@ -196,6 +196,7 @@ impl RendererCapabilityConnection {
             .admit_envelope(
                 &self.stream,
                 authoritative.generation,
+                &authoritative,
                 self.session_id,
                 envelope.request_id,
                 &envelope.payload,
