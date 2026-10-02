@@ -29,6 +29,17 @@ check_present() {
   fi
 }
 
+check_present_any() {
+  local label="$1"
+  local pattern="$2"
+  if git grep -nE -- "$pattern" --       'mycelix-workspace/mycelix-hearth/**/*.rs'       'mycelix-workspace/mycelix-hearth/**/*.ts'       'mycelix-workspace/mycelix-hearth/**/*.tsx'       'mycelix-workspace/mycelix-hearth/**/*.js'       'mycelix-workspace/mycelix-hearth/**/*.json'       'mycelix-workspace/mycelix-hearth/**/*.toml'       'mycelix-workspace/mycelix-hearth/**/*.yaml'       'mycelix-workspace/mycelix-hearth/**/*.yml'       'mycelix-workspace/mycelix-hearth/**/*.nix' >/dev/null 2>&1; then
+    echo "OK:   $label"
+  else
+    echo "FAIL: $label"
+    fail=1
+  fi
+}
+
 check_lock_present() {
   local label="$1"
   local pattern="$2"
@@ -84,10 +95,10 @@ check_present "Hearth HDK 0.7.0 dependency floor" 'hdk\s*=\s*"=0\.7\.0"'
 check_present "Hearth HDI 0.8.0 dependency floor" 'hdi\s*=\s*"=0\.8\.0"'
 check_present "Hearth serialized-bytes 0.0.57 floor" 'holochain_serialized_bytes\s*=\s*"0\.0\.57"'
 check_present "Hearth Holochain 0.7.0 test dependency" 'holochain\s*=.*version\s*=\s*"0\.7\.0"'
-check_present "Hearth JS client 0.21 floor" '@holochain/client.*\^0\.21\.0'
+check_present_any "Hearth JS client 0.21 floor" '@holochain/client.*\^0\.21\.0'
 check_present "Hearth Sweettest uses encryption feature" 'holochain.*features.*encryption'
 check_present "Hearth Sweettest uses wasmer-sys-cranelift" 'holochain.*features.*wasmer-sys-cranelift'
-check_present "Hearth uses SweetConductor::standard" 'SweetConductor::standard\s*\('
+check_present_any "Hearth uses SweetConductor::standard" 'SweetConductor::standard\s*\('
 check_present "Hearth dev shell provides Node.js 24" 'nodejs_24'
 check_present "Hearth dev shell provides Perl" '\bperl\b'
 check_present "Hearth flake uses Holonix main-0.7" 'holonix.*ref=main-0\.7'
