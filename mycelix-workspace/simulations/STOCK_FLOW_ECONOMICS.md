@@ -288,3 +288,20 @@ This gives the substrate a clean path from accounting to behavior:
 `transition log -> period ledger -> sector flow matrix -> balance-sheet delta -> observables`
 
 Only after those identities are executable should production, investment, inventories, interest accrual, capital gains, and Minsky-style financing regimes be added. Ecological SFC work similarly integrates monetary and physical stocks/flows only after the accounting structure is explicit.
+
+## Capital formation bridge (implemented)
+
+The accounting substrate now includes `CapitalInvestment`.
+
+A capital-formation transition explicitly performs:
+
+- buyer deposits: `-I`
+- buyer productive capital: `+I`
+- producer deposits: `+I`
+- producer equity residual: `-I` in the signed sector matrix
+
+This is intentionally a **capital-formation primitive**, not yet a complete production model. It represents the creation of productive capital financed by an explicit deposit payment. The resulting sector identities remain executable and reconciled against the ordered transition log.
+
+This follows the SFC structure in which investment is represented in the transactions-flow matrix while the corresponding capital stock appears on the balance sheet. The literature also treats credit, money, equities, and real capital as linked stocks and flows across periods.
+
+The next refinement should therefore be a distinct production/inventory layer rather than silently expanding `CapitalInvestment` to cover everything. That layer can introduce output, inventories, intermediate inputs, resource depletion, wages, and operating surplus while retaining the same deterministic posting/reconciliation machinery.
