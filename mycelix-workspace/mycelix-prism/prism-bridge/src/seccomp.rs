@@ -285,6 +285,10 @@ mod linux {
             hasher.update(&[instruction.jt, instruction.jf]);
             hasher.update(&instruction.k.to_le_bytes());
         }
+        // This commits the renderer-policy validation contract separately
+        // from the syscall list and compiled BPF. Future changes to the
+        // forbidden renderer syscall set must therefore bump this version.
+        hasher.update(b"PRISM-SECCOMP-RENDERER-POLICY-VALIDATION-V1");
         hasher.update(b"PRISM-SECCOMP-NO-NEW-PRIVS-REQUIRED-V1");
         hasher.update(&SECCOMP_RET_ERRNO.to_le_bytes());
         hasher.update(&(libc::EPERM as u32).to_le_bytes());
@@ -586,6 +590,14 @@ mod linux {
             let other = SeccompSyscallPolicyV1::new(arch, vec![libc::SYS_getppid]).unwrap();
             assert_ne!(committed.syscall_policy_digest(), other.digest());
             assert_ne!(committed.policy_digest(), SandboxProfileV1::renderer_default().policy_digest());
+        }
+
+        #[test]
+        fn evidence_digest_is_distinct_from_policy_digest() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let policy = SeccompSyscallPolicyV1::new(arch, vec![libc::SYS_getpid]).unwrap();
+            let filter = compile_filter(&policy).unwrap();
+            assert_ne!(seccomp_evidence_digest(&policy, &filter), policy.digest());
         }
 
         #[test]
