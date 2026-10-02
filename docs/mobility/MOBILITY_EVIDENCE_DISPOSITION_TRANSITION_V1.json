@@ -421,6 +421,11 @@
       "id": "EDT-082",
       "case": "reconciliation_coverage_assessment_surfaces_structural_error_as_typed_error",
       "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-083",
+      "case": "reconciliation_coverage_assessment_resolves_additional_covered_branch_head",
+      "expected": "accepted"
     }
   ]
 }
