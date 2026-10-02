@@ -224,6 +224,7 @@ pub struct EvidenceDispositionReconciliation {
     pub branch_point: IdentityRef,
     pub branch_heads: Vec<IdentityRef>,
     pub authority: IdentityRef,
+    pub authority_scope: IdentityRef,
     pub basis: Vec<IdentityRef>,
 }
 
@@ -363,9 +364,13 @@ impl EvidenceDispositionReconciliation {
     /// declared branch point. This does not choose a winning branch.
     pub fn validate_against_graph(
         &self,
+        authority_scope: &EvidenceDispositionAuthorityScope,
         transitions: &[EvidenceDispositionTransition],
     ) -> Result<(), String> {
         self.validate()?;
+        if self.authority_scope != authority_scope.scope_id {
+            return Err("reconciliation references a different authority scope".into());
+        }
         authority_scope.validate_against_reconciliation(self)?;
         let mut by_id = std::collections::BTreeMap::new();
         for transition in transitions {
