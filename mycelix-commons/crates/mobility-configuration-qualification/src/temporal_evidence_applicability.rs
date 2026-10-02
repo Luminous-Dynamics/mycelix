@@ -227,12 +227,85 @@ pub struct EvidenceDispositionReconciliation {
     pub basis: Vec<IdentityRef>,
 }
 
+/// Explicitly binds a reconciliation authority to the exact reconciliation
+/// witness it is authorized to speak about in this provenance model.
+///
+/// This is an addressable scope assertion, not proof of real-world institutional
+/// authority. Its purpose is to prevent an authority witness from being silently
+/// reused for an unrelated reconciliation subject.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EvidenceDispositionAuthorityScope {
+    pub scope_id: IdentityRef,
+    pub authority: IdentityRef,
+    pub subject: IdentityRef,
+    pub basis: Vec<IdentityRef>,
+}
+
+impl EvidenceDispositionAuthorityScope {
+    pub fn validate(&self) -> Result<(), String> {
+        self.scope_id.validate()?;
+        self.authority.validate()?;
+        self.subject.validate()?;
+        if self.scope_id.kind != IdentityKind::ReconciliationWitness {
+            return Err("authority scope identity must be a ReconciliationWitness".into());
+        }
+        if !matches!(self.authority.kind, IdentityKind::EvidenceRecord | IdentityKind::ReconciliationWitness) {
+            return Err("authority scope authority must be an addressable witness".into());
+        }
+        if self.subject.kind != IdentityKind::ReconciliationWitness {
+            return Err("authority scope subject must be a ReconciliationWitness".into());
+        }
+        if self.scope_id == self.authority || self.scope_id == self.subject || self.authority == self.subject {
+            return Err("authority scope identities must be distinct".into());
+        }
+        let mut basis = std::collections::BTreeSet::new();
+        for witness in &self.basis {
+            witness.validate()?;
+            if !matches!(witness.kind, IdentityKind::EvidenceRecord | IdentityKind::ReconciliationWitness) {
+                return Err("authority scope basis must be an addressable witness".into());
+            }
+            if !basis.insert(witness.clone()) {
+                return Err("authority scope basis must be unique".into());
+            }
+        }
+        Ok(())
+    }
+
+    pub fn validate_against_reconciliation(
+        &self,
+        reconciliation: &EvidenceDispositionReconciliation,
+    ) -> Result<(), String> {
+        self.validate()?;
+        reconciliation.validate()?;
+        if self.subject != reconciliation.reconciliation_id {
+            return Err("authority scope subject must match reconciliation identity".into());
+        }
+        if self.authority != reconciliation.authority {
+            return Err("authority scope authority must match reconciliation authority".into());
+        }
+        for basis in &reconciliation.basis {
+            if !self.basis.contains(basis) {
+                return Err("authority scope basis must include every reconciliation basis witness".into());
+            }
+        }
+        Ok(())
+    }
+}
+
 impl EvidenceDispositionReconciliation {
     pub fn validate(&self) -> Result<(), String> {
         self.reconciliation_id.validate()?;
         self.evidence.validate()?;
         self.branch_point.validate()?;
         self.authority.validate()?;
+        self.authority_scope.validate()?;
+        if self.authority_scope.kind != IdentityKind::ReconciliationWitness {
+            return Err("reconciliation authority scope must be a ReconciliationWitness".into());
+        }
+        if self.authority_scope == self.reconciliation_id || self.authority_scope == self.authority {
+            return Err("reconciliation authority scope cannot equal reconciliation or authority identity".into());
+        }
         if !matches!(self.reconciliation_id.kind, IdentityKind::ReconciliationWitness) {
             return Err("reconciliation identity must be a ReconciliationWitness".into());
         }
@@ -293,6 +366,7 @@ impl EvidenceDispositionReconciliation {
         transitions: &[EvidenceDispositionTransition],
     ) -> Result<(), String> {
         self.validate()?;
+        authority_scope.validate_against_reconciliation(self)?;
         let mut by_id = std::collections::BTreeMap::new();
         for transition in transitions {
             transition.validate()?;
@@ -389,6 +463,7 @@ pub struct EvidenceDispositionCoverageBoundary {
     pub branch_point: IdentityRef,
     pub branch_heads: Vec<IdentityRef>,
     pub authority: IdentityRef,
+    pub authority_scope: IdentityRef,
     pub basis: Vec<IdentityRef>,
 }
 
@@ -399,6 +474,13 @@ impl EvidenceDispositionCoverageBoundary {
         self.evidence.validate()?;
         self.branch_point.validate()?;
         self.authority.validate()?;
+        self.authority_scope.validate()?;
+        if self.authority_scope.kind != IdentityKind::ReconciliationWitness {
+            return Err("coverage boundary authority scope must be a ReconciliationWitness".into());
+        }
+        if self.authority_scope == self.boundary_id || self.authority_scope == self.authority {
+            return Err("coverage boundary authority scope cannot equal boundary or authority identity".into());
+        }
         if self.boundary_id.kind != IdentityKind::ReconciliationWitness {
             return Err("coverage boundary identity must be a ReconciliationWitness".into());
         }
@@ -512,11 +594,13 @@ impl EvidenceDispositionReconciliationCoverage {
     pub fn validate_against_graph(
         &self,
         reconciliation: &EvidenceDispositionReconciliation,
+        authority_scope: &EvidenceDispositionAuthorityScope,
         boundary: &EvidenceDispositionCoverageBoundary,
         transitions: &[EvidenceDispositionTransition],
     ) -> Result<(), String> {
         self.validate()?;
-        reconciliation.validate_against_graph(transitions)?;
+        reconciliation.validate_against_graph(authority_scope, transitions)?;
+        authority_scope.validate_against_reconciliation(reconciliation)?;
         boundary.validate()?;
         if self.boundary != boundary.boundary_id {
             return Err("reconciliation coverage references a different coverage boundary".into());
@@ -538,6 +622,12 @@ impl EvidenceDispositionReconciliationCoverage {
         }
         if boundary.authority != reconciliation.authority {
             return Err("coverage boundary authority must match reconciliation authority".into());
+        }
+        if boundary.authority_scope != reconciliation.authority_scope {
+            return Err("coverage boundary authority scope must match reconciliation authority scope".into());
+        }
+        if boundary.authority_scope != authority_scope.scope_id {
+            return Err("coverage boundary authority scope does not match supplied scope witness".into());
         }
         for basis in &reconciliation.basis {
             if !boundary.basis.contains(basis) {
@@ -1107,6 +1197,7 @@ mod tests {
             branch_point: id(IdentityKind::ReconciliationWitness, "t1"),
             branch_heads: vec![id(IdentityKind::ReconciliationWitness, "t2")],
             authority: id(IdentityKind::ReconciliationWitness, "authority-1"),
+            authority_scope: id(IdentityKind::ReconciliationWitness, "authority-scope-1"),
             basis: vec![],
         };
         assert!(reconciliation.validate().is_err());
@@ -1136,9 +1227,10 @@ mod tests {
                 id(IdentityKind::ReconciliationWitness, "t3"),
             ],
             authority: id(IdentityKind::ReconciliationWitness, "authority-1"),
+            authority_scope: id(IdentityKind::ReconciliationWitness, "authority-scope-1"),
             basis: vec![id(IdentityKind::ReconciliationWitness, "basis-1")],
         };
-        assert!(reconciliation.validate_against_graph(&[root, left, right]).is_ok());
+        assert!(reconciliation.validate_against_graph((&authority_scope("reconcile-placeholder"), &[root, left, right]).is_ok());
     }
 
 
@@ -1164,9 +1256,10 @@ mod tests {
                 id(IdentityKind::ReconciliationWitness, "t2"),
             ],
             authority: id(IdentityKind::ReconciliationWitness, "authority-1"),
+            authority_scope: id(IdentityKind::ReconciliationWitness, "authority-scope-1"),
             basis: vec![],
         };
-        assert!(reconciliation.validate_against_graph(&[root, right]).is_err());
+        assert!(reconciliation.validate_against_graph((&authority_scope("reconcile-placeholder"), &[root, right]).is_err());
     }
 
     #[test]
@@ -1193,11 +1286,21 @@ mod tests {
                 id(IdentityKind::ReconciliationWitness, "t3"),
             ],
             authority: id(IdentityKind::ReconciliationWitness, "authority-1"),
+            authority_scope: id(IdentityKind::ReconciliationWitness, "authority-scope-1"),
             basis: vec![],
         };
-        assert!(reconciliation.validate_against_graph(&[root, first, second]).is_err());
+        assert!(reconciliation.validate_against_graph((&authority_scope("reconcile-placeholder"), &[root, first, second]).is_err());
     }
 
+
+    fn authority_scope(subject: &str) -> EvidenceDispositionAuthorityScope {
+        EvidenceDispositionAuthorityScope {
+            scope_id: id(IdentityKind::ReconciliationWitness, "authority-scope-1"),
+            authority: id(IdentityKind::ReconciliationWitness, "authority-1"),
+            subject: id(IdentityKind::ReconciliationWitness, subject),
+            basis: vec![],
+        }
+    }
 
     fn coverage_boundary() -> EvidenceDispositionCoverageBoundary {
         EvidenceDispositionCoverageBoundary {
@@ -1210,6 +1313,7 @@ mod tests {
                 id(IdentityKind::ReconciliationWitness, "t3"),
             ],
             authority: id(IdentityKind::ReconciliationWitness, "authority-1"),
+            authority_scope: id(IdentityKind::ReconciliationWitness, "authority-scope-1"),
             basis: vec![],
         }
     }
@@ -1226,6 +1330,7 @@ mod tests {
             branch_point: id(IdentityKind::ReconciliationWitness, "t1"),
             branch_heads: vec![id(IdentityKind::ReconciliationWitness, "t2"), id(IdentityKind::ReconciliationWitness, "t3")],
             authority: id(IdentityKind::ReconciliationWitness, "authority-1"),
+            authority_scope: id(IdentityKind::ReconciliationWitness, "authority-scope-1"),
             basis: vec![],
         };
         let coverage = EvidenceDispositionReconciliationCoverage {
@@ -1236,7 +1341,7 @@ mod tests {
             boundary: id(IdentityKind::EvidenceRecord, "enumeration-boundary-1"),
             basis: vec![],
         };
-        assert!(coverage.validate_against_graph(&reconciliation, &coverage_boundary(), &[root, left, right]).is_ok());
+        assert!(coverage.validate_against_graph(&reconciliation, &authority_scope(&reconciliation.reconciliation_id.id), &coverage_boundary(), &[root, left, right]).is_ok());
     }
 
     #[test]
@@ -1259,6 +1364,7 @@ mod tests {
                 id(IdentityKind::ReconciliationWitness, "t3"),
             ],
             authority: id(IdentityKind::ReconciliationWitness, "authority-1"),
+            authority_scope: id(IdentityKind::ReconciliationWitness, "authority-scope-1"),
             basis: vec![],
         };
         let coverage = EvidenceDispositionReconciliationCoverage {
@@ -1272,7 +1378,7 @@ mod tests {
             boundary: id(IdentityKind::EvidenceRecord, "enumeration-boundary-1"),
             basis: vec![],
         };
-        assert!(coverage.validate_against_graph(&reconciliation, &coverage_boundary(), &[root, first, second]).is_err());
+        assert!(coverage.validate_against_graph(&reconciliation, &authority_scope(&reconciliation.reconciliation_id.id), &coverage_boundary(), &[root, first, second]).is_err());
     }
 
     #[test]
@@ -1287,6 +1393,7 @@ mod tests {
             branch_point: id(IdentityKind::ReconciliationWitness, "t1"),
             branch_heads: vec![id(IdentityKind::ReconciliationWitness, "t2"), id(IdentityKind::ReconciliationWitness, "t3")],
             authority: id(IdentityKind::ReconciliationWitness, "authority-1"),
+            authority_scope: id(IdentityKind::ReconciliationWitness, "authority-scope-1"),
             basis: vec![],
         };
         let coverage = EvidenceDispositionReconciliationCoverage {
@@ -1316,6 +1423,7 @@ mod tests {
             branch_point: id(IdentityKind::ReconciliationWitness, "t1"),
             branch_heads: vec![id(IdentityKind::ReconciliationWitness, "t2"), id(IdentityKind::ReconciliationWitness, "t3")],
             authority: id(IdentityKind::ReconciliationWitness, "authority-1"),
+            authority_scope: id(IdentityKind::ReconciliationWitness, "authority-scope-1"),
             basis: vec![],
         };
         let coverage = EvidenceDispositionReconciliationCoverage {
@@ -1326,7 +1434,7 @@ mod tests {
             boundary: id(IdentityKind::EvidenceRecord, "enumeration-boundary-1"),
             basis: vec![],
         };
-        assert!(coverage.validate_against_graph(&reconciliation, &coverage_boundary(), &[root, left, right]).is_err());
+        assert!(coverage.validate_against_graph(&reconciliation, &authority_scope(&reconciliation.reconciliation_id.id), &coverage_boundary(), &[root, left, right]).is_err());
     }
 
 
@@ -1350,6 +1458,7 @@ mod tests {
                 id(IdentityKind::ReconciliationWitness, "t3"),
             ],
             authority: id(IdentityKind::ReconciliationWitness, "authority-1"),
+            authority_scope: id(IdentityKind::ReconciliationWitness, "authority-scope-1"),
             basis: vec![],
         };
         let boundary = EvidenceDispositionCoverageBoundary {
@@ -1367,7 +1476,7 @@ mod tests {
             boundary: boundary.boundary_id.clone(),
             basis: vec![],
         };
-        assert!(coverage.validate_against_graph(&reconciliation, &boundary, &[root, left, right]).is_err());
+        assert!(coverage.validate_against_graph(&reconciliation, &authority_scope(&reconciliation.reconciliation_id.id), &boundary, &[root, left, right]).is_err());
     }
 
     #[test]
@@ -1390,6 +1499,7 @@ mod tests {
                 id(IdentityKind::ReconciliationWitness, "t3"),
             ],
             authority: id(IdentityKind::ReconciliationWitness, "authority-1"),
+            authority_scope: id(IdentityKind::ReconciliationWitness, "authority-scope-1"),
             basis: vec![],
         };
         let boundary = EvidenceDispositionCoverageBoundary {
@@ -1408,7 +1518,7 @@ mod tests {
             boundary: boundary.boundary_id.clone(),
             basis: vec![],
         };
-        assert!(coverage.validate_against_graph(&reconciliation, &boundary, &[root, left, right]).is_err());
+        assert!(coverage.validate_against_graph(&reconciliation, &authority_scope(&reconciliation.reconciliation_id.id), &boundary, &[root, left, right]).is_err());
     }
 
 
@@ -1433,6 +1543,7 @@ mod tests {
                 id(IdentityKind::ReconciliationWitness, "t3"),
             ],
             authority: id(IdentityKind::ReconciliationWitness, "authority-1"),
+            authority_scope: id(IdentityKind::ReconciliationWitness, "authority-scope-1"),
             basis: vec![required_basis],
         };
         let mut boundary = coverage_boundary();
@@ -1446,7 +1557,7 @@ mod tests {
             boundary: boundary.boundary_id.clone(),
             basis: boundary.basis.clone(),
         };
-        assert!(coverage.validate_against_graph(&reconciliation, &boundary, &[root, left, right]).is_err());
+        assert!(coverage.validate_against_graph(&reconciliation, &authority_scope(&reconciliation.reconciliation_id.id), &boundary, &[root, left, right]).is_err());
         reconciliation.basis.clear();
     }
 
@@ -1472,6 +1583,7 @@ mod tests {
                 id(IdentityKind::ReconciliationWitness, "t3"),
             ],
             authority: id(IdentityKind::ReconciliationWitness, "authority-1"),
+            authority_scope: id(IdentityKind::ReconciliationWitness, "authority-scope-1"),
             basis: vec![required_basis.clone()],
         };
         let mut boundary = coverage_boundary();
@@ -1485,7 +1597,7 @@ mod tests {
             boundary: boundary.boundary_id.clone(),
             basis: boundary.basis.clone(),
         };
-        assert!(coverage.validate_against_graph(&reconciliation, &boundary, &[root, left, right]).is_ok());
+        assert!(coverage.validate_against_graph(&reconciliation, &authority_scope(&reconciliation.reconciliation_id.id), &boundary, &[root, left, right]).is_ok());
     }
 
     #[test]
@@ -1511,9 +1623,10 @@ mod tests {
                 id(IdentityKind::ReconciliationWitness, "other"),
             ],
             authority: id(IdentityKind::ReconciliationWitness, "authority-1"),
+            authority_scope: id(IdentityKind::ReconciliationWitness, "authority-scope-1"),
             basis: vec![],
         };
-        assert!(reconciliation.validate_against_graph(&[root, other]).is_err());
+        assert!(reconciliation.validate_against_graph((&authority_scope("reconcile-placeholder"), &[root, other]).is_err());
     }
 
     #[test]
