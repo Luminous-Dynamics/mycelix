@@ -87,12 +87,17 @@ impl SeccompSyscallPolicyV1 {
     }
 
     pub fn digest(&self) -> [u8; 32] {
-        let mut bytes = Vec::with_capacity(4 + self.allowed_syscalls.len() * 4);
-        bytes.extend_from_slice(&(self.architecture as u32).to_le_bytes());
+        // Version and length-prefix the canonical serialization so future
+        // policy-format changes cannot silently reuse an older commitment
+        // domain, and the framing remains mechanically unambiguous.
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(b"PRISM-SECCOMP-SYSCALL-POLICY-V1");
+        hasher.update(&(self.architecture as u32).to_le_bytes());
+        hasher.update(&(self.allowed_syscalls.len() as u32).to_le_bytes());
         for syscall in &self.allowed_syscalls {
-            bytes.extend_from_slice(&(*syscall as u32).to_le_bytes());
+            hasher.update(&(*syscall as u32).to_le_bytes());
         }
-        *blake3::hash(&bytes).as_bytes()
+        *hasher.finalize().as_bytes()
     }
 
     pub fn allows(&self, syscall: i64) -> bool {
@@ -280,6 +285,7 @@ mod linux {
             hasher.update(&[instruction.jt, instruction.jf]);
             hasher.update(&instruction.k.to_le_bytes());
         }
+        hasher.update(b"PRISM-SECCOMP-NO-NEW-PRIVS-REQUIRED-V1");
         hasher.update(&SECCOMP_RET_ERRNO.to_le_bytes());
         hasher.update(&(libc::EPERM as u32).to_le_bytes());
         hasher.update(&SECCOMP_RET_KILL_PROCESS.to_le_bytes());
@@ -580,6 +586,20 @@ mod linux {
             let other = SeccompSyscallPolicyV1::new(arch, vec![libc::SYS_getppid]).unwrap();
             assert_ne!(committed.syscall_policy_digest(), other.digest());
             assert_ne!(committed.policy_digest(), SandboxProfileV1::renderer_default().policy_digest());
+        }
+
+        #[test]
+        fn digest_is_domain_separated_from_the_legacy_unversioned_encoding() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let policy = SeccompSyscallPolicyV1::new(arch, vec![1, 2]).unwrap();
+
+            let mut legacy = Vec::with_capacity(4 + policy.allowed_syscalls.len() * 4);
+            legacy.extend_from_slice(&(policy.architecture as u32).to_le_bytes());
+            for syscall in &policy.allowed_syscalls {
+                legacy.extend_from_slice(&(*syscall as u32).to_le_bytes());
+            }
+
+            assert_ne!(policy.digest(), *blake3::hash(&legacy).as_bytes());
         }
 
         #[test]
