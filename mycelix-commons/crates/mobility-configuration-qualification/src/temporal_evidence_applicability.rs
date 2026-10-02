@@ -1597,6 +1597,90 @@ mod tests {
     }
 
     #[test]
+    fn authority_provenance_chain_allows_monotonic_basis_accumulation() {
+        let mut root = authority_delegation("reconcile-delegation-basis-monotonic");
+        let delegation_basis = id(IdentityKind::EvidenceRecord, "delegation-monotonic-basis");
+        let scope_basis = id(IdentityKind::ReconciliationWitness, "scope-monotonic-basis");
+        let boundary_basis = id(IdentityKind::EvidenceRecord, "boundary-monotonic-basis");
+        root.basis = vec![delegation_basis.clone()];
+
+        let child = EvidenceDispositionAuthorityDelegation {
+            delegation_id: id(IdentityKind::ReconciliationWitness, "authority-delegation-monotonic-child"),
+            grantor: root.grantee.clone(),
+            grantee: id(IdentityKind::ReconciliationWitness, "authority-monotonic-child"),
+            subject: id(IdentityKind::ReconciliationWitness, "reconcile-monotonic"),
+            predecessor: Some(root.delegation_id.clone()),
+            basis: vec![delegation_basis.clone(), scope_basis.clone()],
+        };
+        let reconciliation = EvidenceDispositionReconciliation {
+            reconciliation_id: id(IdentityKind::ReconciliationWitness, "reconcile-monotonic"),
+            evidence: id(IdentityKind::InspectionRecord, "inspection-graph"),
+            branch_point: id(IdentityKind::ReconciliationWitness, "t1"),
+            branch_heads: vec![
+                id(IdentityKind::ReconciliationWitness, "t2"),
+                id(IdentityKind::ReconciliationWitness, "t3"),
+            ],
+            authority: child.grantee.clone(),
+            authority_scope: id(IdentityKind::ReconciliationWitness, "authority-scope-monotonic"),
+            authority_delegation: child.delegation_id.clone(),
+            basis: vec![delegation_basis.clone()],
+        };
+        let scope = EvidenceDispositionAuthorityScope {
+            scope_id: reconciliation.authority_scope.clone(),
+            authority: child.grantee.clone(),
+            subject: reconciliation.reconciliation_id.clone(),
+            delegation: child.delegation_id.clone(),
+            basis: vec![delegation_basis.clone(), scope_basis.clone()],
+        };
+        let boundary = EvidenceDispositionCoverageBoundary {
+            boundary_id: id(IdentityKind::ReconciliationWitness, "boundary-monotonic"),
+            reconciliation: reconciliation.reconciliation_id.clone(),
+            evidence: reconciliation.evidence.clone(),
+            branch_point: reconciliation.branch_point.clone(),
+            branch_heads: reconciliation.branch_heads.clone(),
+            authority: reconciliation.authority.clone(),
+            authority_scope: reconciliation.authority_scope.clone(),
+            authority_delegation: child.delegation_id.clone(),
+            basis: vec![delegation_basis, scope_basis, boundary_basis],
+        };
+        let coverage = EvidenceDispositionReconciliationCoverage {
+            coverage_id: id(IdentityKind::ReconciliationWitness, "coverage-monotonic"),
+            reconciliation: reconciliation.reconciliation_id.clone(),
+            branch_point: reconciliation.branch_point.clone(),
+            covered_branch_heads: reconciliation.branch_heads.clone(),
+            boundary: boundary.boundary_id.clone(),
+            basis: boundary.basis.clone(),
+        };
+        let disputed = EvidenceDisposition::Disputed {
+            by: id(IdentityKind::ReconciliationWitness, "w1"),
+        };
+        let root_transition = graph_transition("t1", None, EvidenceDisposition::Active, disputed.clone());
+        let left = graph_transition("t2", Some("t1"), disputed.clone(), EvidenceDisposition::Active);
+        let right = graph_transition(
+            "t3",
+            Some("t1"),
+            disputed,
+            EvidenceDisposition::Retracted {
+                by: id(IdentityKind::ReconciliationWitness, "w2"),
+            },
+        );
+
+        assert_eq!(
+            coverage.validate_against_graph_and_authority_chain(
+                &reconciliation,
+                &scope,
+                &child,
+                &[root, child.clone()],
+                &boundary,
+                &[root_transition, left, right],
+            ),
+            Ok(AuthorityDelegationChainAssessment::Complete {
+                roots: vec![child.predecessor.unwrap()],
+            })
+        );
+    }
+
+    #[test]
     fn reconciliation_coverage_validates_named_authority_chain() {
         let mut root = authority_delegation("reconcile-delegation-e2e");
         root.basis = vec![id(IdentityKind::EvidenceRecord, "delegation-e2e-basis")];
