@@ -44,7 +44,8 @@ pub use period_ledger::EconomicPeriodLedger;
 
 pub use stock_flow::{
     ActorBalanceSheet, ActorId, CapitalInvestment, ProductionEvent, InventoryTransfer,
-    InventoryConsumption, GoodsSale, InventoryCostAddition, InventoryCostRelief, CreditCreation,
+    InventoryConsumption, GoodsSale, InventoryCostAddition, InventoryCostRelief, Depreciation,
+    CreditCreation,
     DebtRepayment, EconomicFlowCategory, IncomeTransfer, EconomicState, MonetaryFlow,
     MonetaryInstrument, MonetaryStock, RealStock,
 };
