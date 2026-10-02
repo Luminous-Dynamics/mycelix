@@ -416,6 +416,11 @@
       "id": "EDT-081",
       "case": "reconciliation_coverage_assessment_rejects_present_descendant_of_missing_named_head",
       "expected": "rejected"
+    },
+    {
+      "id": "EDT-082",
+      "case": "reconciliation_coverage_assessment_surfaces_structural_error_as_typed_error",
+      "expected": "typed_structural_error"
     }
   ]
 }
