@@ -1272,13 +1272,36 @@ pub fn compose_finality_eligibility_from_authoritative_d6o(
 ) -> Option<FinalityEligibilityCompositionV1> {
     let mut evidence_by_id = BTreeMap::new();
     for item in evidence {
-        if item.structurally_valid() {
-            evidence_by_id.insert(item.observation.observation_id.clone(), item);
+        if !item.structurally_valid() {
+            continue;
+        }
+        let id = item.observation.observation_id.clone();
+        if let Some(existing) = evidence_by_id.get(&id) {
+            if *existing != item {
+                return None;
+            }
+        } else {
+            evidence_by_id.insert(id, item);
+        }
+    }
+
+    let mut receipt_by_id = BTreeMap::new();
+    for receipt in eligibility_receipts {
+        if !receipt.structurally_valid() {
+            continue;
+        }
+        let id = receipt.observation_id.clone();
+        if let Some(existing) = receipt_by_id.get(&id) {
+            if *existing != receipt {
+                return None;
+            }
+        } else {
+            receipt_by_id.insert(id, receipt);
         }
     }
 
     let mut authoritative_receipts = Vec::new();
-    for receipt in eligibility_receipts {
+    for receipt in receipt_by_id.values().copied() {
         let Some(assessment_item) = assessment
             .assessments
             .iter()
@@ -1329,7 +1352,7 @@ pub fn compose_finality_eligibility_from_authoritative_d6o(
     let composition = compose_finality_eligibility(
         set,
         assessment,
-        evidence,
+        evidence_by_id.values().copied().collect::<Vec<_>>().as_slice(),
         &authoritative_receipts,
         lifecycle_profile.profile_id.as_str(),
         current_frontier_root,
