@@ -589,6 +589,31 @@ async fn test_assigned_capability_binds_signer_and_revocation() {
     .await
     .unwrap();
 
+    // Verify the grant is visible through the same public Admin API that created it.
+    // include_revoked=false must expose the active grant, making the evidence chain
+    // independently inspectable rather than relying only on the subsequent call result.
+    let active_grants = admin_tx
+        .request(AdminRequest::ListCapabilityGrants {
+            installed_app_id: "test-app".into(),
+            include_revoked: false,
+        })
+        .await
+        .unwrap();
+    match active_grants {
+        AdminResponse::CapabilityGrantsInfo(info) => {
+            let rendered = format!("{info:?}");
+            assert!(
+                rendered.contains("HEARTH-AUTH-ASSIGNED-1"),
+                "active capability listing must contain the created grant tag: {rendered}"
+            );
+            assert!(
+                rendered.contains(&format!("{grant_action_hash:?}")),
+                "active capability listing must contain the created grant action hash: {rendered}"
+            );
+        }
+        other => panic!("capability listing returned unexpected response: {other:?}"),
+    }
+
     // Correct signer + correct secret: the assigned capability authorizes the call.
     let bob_call = signed_call_as_agent(
         &conductor,
@@ -676,6 +701,48 @@ async fn test_assigned_capability_binds_signer_and_revocation() {
     )
     .await
     .unwrap();
+
+    // After revocation, the default listing must no longer expose the grant, while
+    // include_revoked=true must retain it as auditable historical evidence.
+    let post_revoke_grants = admin_tx
+        .request(AdminRequest::ListCapabilityGrants {
+            installed_app_id: "test-app".into(),
+            include_revoked: false,
+        })
+        .await
+        .unwrap();
+    match post_revoke_grants {
+        AdminResponse::CapabilityGrantsInfo(info) => {
+            let rendered = format!("{info:?}");
+            assert!(
+                !rendered.contains("HEARTH-AUTH-ASSIGNED-1"),
+                "revoked grant must be absent from the active capability listing: {rendered}"
+            );
+        }
+        other => panic!("post-revocation capability listing returned unexpected response: {other:?}"),
+    }
+
+    let revoked_grants = admin_tx
+        .request(AdminRequest::ListCapabilityGrants {
+            installed_app_id: "test-app".into(),
+            include_revoked: true,
+        })
+        .await
+        .unwrap();
+    match revoked_grants {
+        AdminResponse::CapabilityGrantsInfo(info) => {
+            let rendered = format!("{info:?}");
+            assert!(
+                rendered.contains("HEARTH-AUTH-ASSIGNED-1"),
+                "revoked capability listing must retain the grant for audit evidence: {rendered}"
+            );
+            assert!(
+                rendered.contains(&format!("{grant_action_hash:?}")),
+                "revoked capability listing must retain the grant action hash: {rendered}"
+            );
+        }
+        other => panic!("revoked capability listing returned unexpected response: {other:?}"),
+    }
 
     let bob_after_revoke = signed_call_as_agent(
         &conductor,
