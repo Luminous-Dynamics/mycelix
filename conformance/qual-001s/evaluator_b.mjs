@@ -141,11 +141,12 @@ const expect = new Map([
   ["POSTFLIGHT_IMMUTABILITY", ["CONTRADICTED", "PROVENANCE_MISMATCH"]],
   ["CURRENT_QUALIFICATION", ["VERIFIED", "AUTHORITY_AUTHORIZED"]],
   ["CANONICALIZATION_ORDER", ["VERIFIED", "NONE"]],
+  ["DISPATCH_ACCEPTANCE_VS_EXECUTION", ["UNAVAILABLE", "NOT_ACCEPTED"]],
 ]);
 
 if (corpus.schema !== "mycelix.qual-001s.semantic-corpus-v1") throw new Error("wrong corpus schema");
 if (corpus.corpus_id !== "QUAL-001S") throw new Error("wrong corpus id");
-if (corpus.vectors.length !== 21) throw new Error("expected 21 vectors");
+if (corpus.vectors.length !== 22) throw new Error("expected 22 vectors");
 
 for (const v of corpus.vectors) {
   const pair = expect.get(v.proposition_id);
