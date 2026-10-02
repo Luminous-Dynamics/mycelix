@@ -174,7 +174,7 @@ When a security-critical authorization cannot be established deterministically, 
 
 ## Security event envelope
 
-Successful enforcement events produced from `EnforcementRequest` now carry the kernel-derived capability commitment in addition to any external capability reference. They also carry the opaque authority-freshness commitment supplied by the authority adapter. This makes the audit record able to distinguish the exact capability semantics and authority-generation evidence that crossed the enforcement boundary from caller-supplied labels.
+Successful enforcement events produced from `EnforcementRequest` now carry the kernel-derived capability commitment in addition to any external capability reference. They also carry the opaque authority-freshness commitment supplied by the authority adapter. The event constructor additionally requires the recorded actor identity to equal the enforcement subject, preventing an authorized action from being attributed to a different principal. This makes the audit record able to distinguish the exact capability semantics, authority-generation evidence, and authorized actor that crossed the enforcement boundary from caller-supplied labels.
 
 Security-sensitive events should converge toward a common conceptual envelope:
 
