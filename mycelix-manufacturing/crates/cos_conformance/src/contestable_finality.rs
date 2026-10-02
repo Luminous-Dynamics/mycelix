@@ -1213,6 +1213,59 @@ mod tests {
     }
 
     #[test]
+    fn assessment_commitment_covers_every_semantic_field() {
+        let e1 = evidence(
+            "obs-1",
+            observer("obs-1", "evidence-1", "custody-1"),
+            ExternalObservedStateV1::Applied,
+        );
+        let s = set(&["obs-1"]);
+        let mut assessment = assess_observation_set(
+            &effect(),
+            &route(),
+            &profile(),
+            &s,
+            &[e1],
+            "frontier-1",
+            "generation-1",
+        )
+        .assessments
+        .remove(0);
+        assert!(assessment.commitment_matches());
+
+        macro_rules! assert_field_bound {
+            ($field:ident, $value:expr) => {{
+                let mut candidate = assessment.clone();
+                candidate.$field = $value;
+                assert_ne!(
+                    candidate.assessment_commitment,
+                    candidate.recomputed_commitment(),
+                    "field {} was not commitment-bound",
+                    stringify!($field)
+                );
+            }};
+        }
+
+        assert_field_bound!(observation_id, "obs-mutated".into());
+        assert_field_bound!(observer_id, "observer-mutated".into());
+        assert_field_bound!(independence, ObservationIndependenceV1::Unknown);
+        assert_field_bound!(
+            classification,
+            ObservationClassificationV1::ContradictoryIndependent
+        );
+        assert_field_bound!(evidence_root, "evidence-mutated".into());
+        assert_field_bound!(custody_root, "custody-mutated".into());
+        assert_field_bound!(
+            observation_commitment,
+            "observation-commitment-mutated".into()
+        );
+        assert_field_bound!(
+            claim_ceiling,
+            "claim-ceiling-mutated".into()
+        );
+    }
+
+    #[test]
     fn assessment_commitment_binds_classification_and_observation_identity() {
         let e1 = evidence("obs-1", observer("obs-1", "evidence-1", "custody-1"), ExternalObservedStateV1::Applied);
         let s = set(&["obs-1"]);
