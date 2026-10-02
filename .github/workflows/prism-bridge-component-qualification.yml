@@ -10,7 +10,6 @@ on:
   push:
     branches:
       - main
-      - "security/prism-*"
     paths:
       - "mycelix-workspace/mycelix-prism/prism-bridge/**"
       - "mycelix-workspace/mycelix-prism/prism-common/**"
