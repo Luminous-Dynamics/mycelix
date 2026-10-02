@@ -1699,14 +1699,6 @@ mod tests {
         let disputed = EvidenceDisposition::Disputed {
             by: id(IdentityKind::ReconciliationWitness, "w1"),
         };
-        let unrelated = EvidenceDispositionAuthorityDelegation {
-            delegation_id: id(IdentityKind::ReconciliationWitness, "authority-delegation-e2e-unrelated-invalid"),
-            grantor: id(IdentityKind::ConfigurationRevision, "invalid-grantor-e2e"),
-            grantee: id(IdentityKind::ReconciliationWitness, "unrelated-grantee-e2e"),
-            subject: id(IdentityKind::ReconciliationWitness, "unrelated-subject-e2e"),
-            predecessor: None,
-            basis: vec![],
-        };
         let root_transition = graph_transition("t1", None, EvidenceDisposition::Active, disputed.clone());
         let left = graph_transition("t2", Some("t1"), disputed.clone(), EvidenceDisposition::Active);
         let right = graph_transition(
@@ -1723,7 +1715,7 @@ mod tests {
                 &reconciliation,
                 &scope,
                 &child,
-                &[root.clone(), child.clone(), unrelated],
+                &[root, child.clone()],
                 &boundary,
                 &[root_transition, left, right],
             ),
@@ -1868,6 +1860,14 @@ mod tests {
             by: id(IdentityKind::ReconciliationWitness, "w1"),
         };
         let root_transition = graph_transition("t1", None, EvidenceDisposition::Active, disputed.clone());
+        let unrelated = EvidenceDispositionAuthorityDelegation {
+            delegation_id: id(IdentityKind::ReconciliationWitness, "authority-delegation-e2e-unrelated-invalid"),
+            grantor: id(IdentityKind::ConfigurationRevision, "invalid-grantor-e2e"),
+            grantee: id(IdentityKind::ReconciliationWitness, "unrelated-grantee-e2e"),
+            subject: id(IdentityKind::ReconciliationWitness, "unrelated-subject-e2e"),
+            predecessor: None,
+            basis: vec![],
+        };
         let left = graph_transition("t2", Some("t1"), disputed.clone(), EvidenceDisposition::Active);
         let right = graph_transition(
             "t3",
@@ -1883,7 +1883,7 @@ mod tests {
                 &reconciliation,
                 &scope,
                 &child,
-                &[root, child.clone()],
+                &[root, child.clone(), unrelated],
                 &boundary,
                 &[root_transition, left, right],
             ),
