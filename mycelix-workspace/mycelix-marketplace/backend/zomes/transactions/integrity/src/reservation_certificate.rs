@@ -83,6 +83,7 @@ pub enum IntentError {
     BuyerSellerMustDiffer,
 }
 
+#[hdk_entry_helper]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReservationCertificate {
     pub certificate_id: String,
@@ -228,7 +229,7 @@ pub struct InventoryFrontier {
 /// remains the action hash; this snapshot gives independent reducers an exact
 /// post-state to compare without introducing an unsupported arbitrary-byte hash
 /// dependency.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ReservationFrontierState {
     pub capacity: u32,
     pub active_reserved: u32,
