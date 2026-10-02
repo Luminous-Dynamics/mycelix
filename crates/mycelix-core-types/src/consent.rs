@@ -186,6 +186,58 @@ impl Consent {
         })
     }
 
+    /// Canonical immutable consent content. Lifecycle state is deliberately excluded.
+    pub fn canonical_bytes(&self) -> Vec<u8> {
+        let mut out = Vec::new();
+        out.extend_from_slice(b"mycelix.consent-content.v1\0");
+        out.extend_from_slice(self.relationship_id.as_bytes());
+        write_participant(&mut out, &self.grantor.participant);
+        write_participant(&mut out, &self.audience.principal.participant);
+        match &self.purpose {
+            ConsentPurpose::Named(value) => write_bytes(&mut out, value.as_bytes()),
+        }
+        out.push(match self.scope.mode { AccessMode::Read => 0, AccessMode::Disclose => 1 });
+        write_len(&mut out, self.scope.data_classes.len());
+        for class in &self.scope.data_classes {
+            match class {
+                DataClass::Public => out.push(0),
+                DataClass::Identity => out.push(1),
+                DataClass::Contact => out.push(2),
+                DataClass::Financial => out.push(3),
+                DataClass::Health => out.push(4),
+                DataClass::Operational => out.push(5),
+                DataClass::Confidential => out.push(6),
+                DataClass::Custom(value) => {
+                    out.push(7);
+                    write_bytes(&mut out, value.as_bytes());
+                }
+            }
+        }
+        write_len(&mut out, self.scope.fields.len());
+        for field in &self.scope.fields { write_bytes(&mut out, field.as_bytes()); }
+        out.extend_from_slice(&self.granted_at.to_le_bytes());
+        match self.expires_at {
+            Some(value) => { out.push(1); out.extend_from_slice(&value.to_le_bytes()); }
+            None => out.push(0),
+        }
+        out.extend_from_slice(&self.authority_epoch.to_le_bytes());
+        out
+    }
+
+    /// Canonical immutable content plus explicit lifecycle history.
+    pub fn state_canonical_bytes(&self) -> Vec<u8> {
+        let mut out = self.canonical_bytes();
+        out.push(self.status as u8);
+        write_len(&mut out, self.events.len());
+        for event in &self.events {
+            out.push(event.kind as u8);
+            write_participant(&mut out, &event.actor.participant);
+            out.extend_from_slice(&event.occurred_at.to_le_bytes());
+            out.extend_from_slice(&event.authority_epoch.to_le_bytes());
+        }
+        out
+    }
+
     pub fn revoke(
         &mut self,
         actor: &PrincipalRef,
@@ -195,6 +247,9 @@ impl Consent {
         if self.status != ConsentStatus::Granted { return Err(ConsentError::AlreadyInactive); }
         if actor != &self.grantor { return Err(ConsentError::UnauthorizedRevocation); }
         if occurred_at < self.granted_at { return Err(ConsentError::NonMonotonicEventTime); }
+        if authority_epoch != self.authority_epoch {
+            return Err(ConsentError::StaleAuthorityEpoch);
+        }
         self.status = ConsentStatus::Revoked;
         self.events.push(ConsentEvent {
             kind: ConsentEventKind::Revoke,
@@ -202,6 +257,58 @@ impl Consent {
             occurred_at,
             authority_epoch,
         });
+        Ok(())
+    }
+
+    /// Validate the complete lifecycle history without consulting ambient state.
+    ///
+    /// This is intentionally separate from authorization: historical revoked or
+    /// expired consent can remain a valid auditable record without granting
+    /// current access.
+    pub fn validate_lifecycle(&self) -> Result<(), ConsentError> {
+        let first = self.events.first().ok_or(ConsentError::MissingGrantEvent)?;
+        if first.kind != ConsentEventKind::Grant || first.actor != self.grantor {
+            return Err(ConsentError::InvalidLifecycle);
+        }
+        if first.occurred_at != self.granted_at {
+            return Err(ConsentError::InvalidLifecycle);
+        }
+        if first.authority_epoch != self.authority_epoch {
+            return Err(ConsentError::StaleAuthorityEpoch);
+        }
+
+        let mut status = ConsentStatus::Granted;
+        let mut previous_at = first.occurred_at;
+        for event in self.events.iter().skip(1) {
+            if event.authority_epoch != self.authority_epoch {
+                return Err(ConsentError::StaleAuthorityEpoch);
+            }
+            if event.occurred_at < previous_at {
+                return Err(ConsentError::NonMonotonicEventTime);
+            }
+            if event.actor != self.grantor {
+                return Err(ConsentError::UnauthorizedRevocation);
+            }
+            status = match (status, event.kind) {
+                (ConsentStatus::Granted, ConsentEventKind::Revoke) => ConsentStatus::Revoked,
+                (ConsentStatus::Granted, ConsentEventKind::Expire) => {
+                    let expiry = self.expires_at.ok_or(ConsentError::InvalidLifecycle)?;
+                    if event.occurred_at < expiry {
+                        return Err(ConsentError::InvalidLifecycle);
+                    }
+                    ConsentStatus::Expired
+                }
+                _ => return Err(ConsentError::InvalidLifecycle),
+            };
+            previous_at = event.occurred_at;
+        }
+
+        if status != self.status {
+            return Err(ConsentError::InvalidLifecycle);
+        }
+        if matches!(self.status, ConsentStatus::Expired) && self.expires_at.is_none() {
+            return Err(ConsentError::InvalidLifecycle);
+        }
         Ok(())
     }
 
@@ -236,14 +343,30 @@ pub enum ConsentError {
     AlreadyInactive,
     UnauthorizedRevocation,
     NonMonotonicEventTime,
+    StaleAuthorityEpoch,
+    MissingGrantEvent,
+    InvalidLifecycle,
     NotGranted,
     NotYetEffective,
     Expired,
-    StaleAuthorityEpoch,
     AudienceMismatch,
     PurposeMismatch,
     ScopeExceeded,
     RequesterNotInAudience,
+}
+
+fn write_len(out: &mut Vec<u8>, len: usize) {
+    out.extend_from_slice(&(len as u64).to_le_bytes());
+}
+
+fn write_bytes(out: &mut Vec<u8>, bytes: &[u8]) {
+    write_len(out, bytes.len());
+    out.extend_from_slice(bytes);
+}
+
+fn write_participant(out: &mut Vec<u8>, participant: &ParticipantRef) {
+    write_bytes(out, participant.namespace.as_bytes());
+    write_bytes(out, participant.identifier.as_bytes());
 }
 
 impl fmt::Display for ConsentError {
@@ -255,10 +378,12 @@ impl fmt::Display for ConsentError {
             Self::AlreadyInactive => "consent is already inactive",
             Self::UnauthorizedRevocation => "only the grantor may revoke consent",
             Self::NonMonotonicEventTime => "consent event time cannot move backwards",
+            Self::MissingGrantEvent => "consent lifecycle is missing its grant event",
+            Self::InvalidLifecycle => "consent lifecycle history is invalid",
             Self::NotGranted => "consent is not active",
             Self::NotYetEffective => "consent was not active at request time",
             Self::Expired => "consent had expired at request time",
-            Self::StaleAuthorityEpoch => "request authority epoch does not match consent",
+            Self::StaleAuthorityEpoch => "consent authority epoch is stale or mismatched",
             Self::AudienceMismatch => "request audience does not match consent audience",
             Self::PurposeMismatch => "request purpose does not match consent purpose",
             Self::ScopeExceeded => "requested scope exceeds granted scope",
@@ -393,6 +518,47 @@ mod tests {
         assert_eq!(c.authorize(&request("relationship-support", 170, 7)), Err(ConsentError::NotGranted));
     }
 
+
+    #[test]
+    fn stale_epoch_revocation_is_rejected_without_mutation() {
+        let mut c = consent();
+        let before = c.clone();
+        let grantor = participant("did", "alice");
+        assert_eq!(
+            c.revoke(&grantor, 160, 8),
+            Err(ConsentError::StaleAuthorityEpoch)
+        );
+        assert_eq!(c, before);
+    }
+
+    #[test]
+    fn lifecycle_history_is_replayed_deterministically() {
+        let c = consent();
+        assert!(c.validate_lifecycle().is_ok());
+    }
+
+    #[test]
+    fn stale_lifecycle_epoch_is_typed_as_stale_authority() {
+        let mut c = consent();
+        c.events.push(ConsentEvent {
+            kind: ConsentEventKind::Revoke,
+            actor: c.grantor.clone(),
+            occurred_at: 160,
+            authority_epoch: 8,
+        });
+        c.status = ConsentStatus::Revoked;
+        assert_eq!(
+            c.validate_lifecycle(),
+            Err(ConsentError::StaleAuthorityEpoch)
+        );
+    }
+
+    #[test]
+    fn tampered_lifecycle_status_is_rejected() {
+        let mut c = consent();
+        c.status = ConsentStatus::Revoked;
+        assert_eq!(c.validate_lifecycle(), Err(ConsentError::InvalidLifecycle));
+    }
     #[test]
     fn non_grantor_cannot_revoke() {
         let mut c = consent();

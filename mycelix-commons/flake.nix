@@ -10,11 +10,11 @@
   description = "Mycelix Commons - Universal resource coordination on Holochain";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nixpkgs.follows = "holonix/nixpkgs";
     flake-utils.url = "github:numtide/flake-utils";
 
     holonix = {
-      url = "github:holochain/holonix/d21b3543";
+      url = "github:holochain/holonix?ref=main-0.7";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 

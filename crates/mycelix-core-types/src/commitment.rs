@@ -19,6 +19,15 @@ impl CommitmentId {
         Self(*h.finalize().as_bytes())
     }
 
+    pub fn derive_content_bound(commitment: &Commitment) -> Self {
+        let mut h = blake3::Hasher::new();
+        h.update(b"mycelix.commitment-content.v1\0");
+        let canonical = commitment.canonical_bytes();
+        h.update(&(canonical.len() as u64).to_le_bytes());
+        h.update(&canonical);
+        Self(*h.finalize().as_bytes())
+    }
+
     pub const fn as_bytes(&self) -> &[u8; 32] { &self.0 }
 }
 
@@ -85,8 +94,37 @@ impl Commitment {
         actor: ParticipantRef,
         evidence_ref: Option<String>,
     ) -> Result<Self, CommitmentError> {
+        let commitment = Self::new_content_bound(
+            relationship_id,
+            obligor,
+            beneficiary,
+            due_at,
+            created_at,
+            actor,
+            evidence_ref,
+        )?;
+        if id != commitment.id {
+            return Err(CommitmentError::IdentityMismatch);
+        }
+        Ok(commitment)
+    }
+
+    /// Construct a commitment whose identifier is deterministically derived
+    /// from its immutable obligation content.
+    pub fn new_content_bound(
+        relationship_id: RelationshipId,
+        obligor: ParticipantRef,
+        beneficiary: ParticipantRef,
+        due_at: Option<i64>,
+        created_at: i64,
+        actor: ParticipantRef,
+        evidence_ref: Option<String>,
+    ) -> Result<Self, CommitmentError> {
         if obligor == beneficiary {
             return Err(CommitmentError::SelfCommitment);
+        }
+        if actor != obligor {
+            return Err(CommitmentError::UnauthorizedActor);
         }
         let first = CommitmentEvent {
             kind: CommitmentEventKind::Request,
@@ -95,18 +133,87 @@ impl Commitment {
             evidence_ref,
             source_revision: None,
         };
-        Ok(Self {
-            id,
+        let mut commitment = Self {
+            id: CommitmentId([0; 32]),
             relationship_id,
             obligor,
             beneficiary,
             status: CommitmentStatus::Requested,
             due_at,
             events: vec![first],
-        })
+        };
+        commitment.id = CommitmentId::derive_content_bound(&commitment);
+        Ok(commitment)
+    }
+
+    pub fn canonical_bytes(&self) -> Vec<u8> {
+        let mut out = Vec::new();
+        out.extend_from_slice(b"mycelix.commitment-content.v1\0");
+        out.extend_from_slice(self.relationship_id.as_bytes());
+        write_participant(&mut out, &self.obligor);
+        write_participant(&mut out, &self.beneficiary);
+        match self.due_at {
+            Some(value) => {
+                out.push(1);
+                out.extend_from_slice(&value.to_le_bytes());
+            }
+            None => out.push(0),
+        }
+        out
+    }
+
+    pub fn state_canonical_bytes(&self) -> Vec<u8> {
+        let mut out = self.canonical_bytes();
+        out.push(self.status as u8);
+        out.extend_from_slice(&(self.events.len() as u64).to_le_bytes());
+        for event in &self.events {
+            out.push(event.kind as u8);
+            write_participant(&mut out, &event.actor);
+            out.extend_from_slice(&event.occurred_at.to_le_bytes());
+            match &event.evidence_ref {
+                Some(value) => {
+                    out.push(1);
+                    write_bytes(&mut out, value.as_bytes());
+                }
+                None => out.push(0),
+            }
+            match &event.source_revision {
+                Some(value) => {
+                    out.push(1);
+                    write_bytes(&mut out, value.as_bytes());
+                }
+                None => out.push(0),
+            }
+        }
+        out
+    }
+
+    pub fn validate_identity(&self) -> Result<(), CommitmentError> {
+        if self.id != CommitmentId::derive_content_bound(self) {
+            return Err(CommitmentError::IdentityMismatch);
+        }
+        Ok(())
     }
 
     pub fn transition(&mut self, event: CommitmentEvent) -> Result<(), CommitmentError> {
+        let actor_allowed = match event.kind {
+            CommitmentEventKind::Request => event.actor == self.obligor,
+            CommitmentEventKind::Accept | CommitmentEventKind::Decline => {
+                event.actor == self.beneficiary
+            }
+            CommitmentEventKind::Activate
+            | CommitmentEventKind::PartialFulfillment
+            | CommitmentEventKind::Fulfillment => event.actor == self.obligor,
+            CommitmentEventKind::Dispute
+            | CommitmentEventKind::Cancel
+            | CommitmentEventKind::Expire => {
+                event.actor == self.obligor || event.actor == self.beneficiary
+            }
+        };
+        if !actor_allowed {
+            return Err(CommitmentError::UnauthorizedActor);
+        }
+
         let next = next_status(self.status, event.kind)
             .ok_or(CommitmentError::InvalidTransition {
                 from: self.status,
@@ -152,6 +259,8 @@ fn next_status(from: CommitmentStatus, event: CommitmentEventKind) -> Option<Com
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum CommitmentError {
     SelfCommitment,
+    UnauthorizedActor,
+    IdentityMismatch,
     InvalidTransition { from: CommitmentStatus, event: CommitmentEventKind },
     NonMonotonicEventTime,
     FulfillmentRequiresEvidence,
@@ -161,6 +270,8 @@ impl fmt::Display for CommitmentError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::SelfCommitment => write!(f, "obligor and beneficiary must differ"),
+            Self::UnauthorizedActor => write!(f, "initial request must be authored by the obligor"),
+            Self::IdentityMismatch => write!(f, "commitment identifier does not match canonical obligation content"),
             Self::InvalidTransition { from, event } => write!(f, "invalid transition from {from:?} via {event:?}"),
             Self::NonMonotonicEventTime => write!(f, "event time cannot move backwards"),
             Self::FulfillmentRequiresEvidence => write!(f, "fulfillment requires an evidence reference"),
@@ -190,8 +301,7 @@ mod tests {
 
     fn commitment() -> Commitment {
         let relationship = RelationshipId::derive("test", b"relationship");
-        Commitment::new(
-            CommitmentId::derive(relationship, b"commitment"),
+        Commitment::new_content_bound(
             relationship,
             p("did", "alice"),
             p("org", "acme"),
@@ -200,6 +310,58 @@ mod tests {
             p("did", "alice"),
             Some("e:request".into()),
         ).unwrap()
+    }
+
+    #[test]
+    fn mismatched_supplied_identity_is_rejected() {
+        let relationship = RelationshipId::derive("test", b"identity-mismatch");
+        assert_eq!(
+            Commitment::new(
+                CommitmentId::derive(relationship, b"caller-chosen"),
+                relationship,
+                p("did", "alice"),
+                p("org", "acme"),
+                None,
+                100,
+                p("did", "alice"),
+                None,
+            ),
+            Err(CommitmentError::IdentityMismatch)
+        );
+    }
+
+    #[test]
+    fn identity_is_bound_to_immutable_obligation_content() {
+        let c = commitment();
+        assert_eq!(c.id, CommitmentId::derive_content_bound(&c));
+        assert!(c.validate_identity().is_ok());
+    }
+
+    #[test]
+    fn immutable_content_tampering_breaks_identity() {
+        let mut c = commitment();
+        c.due_at = Some(201);
+        assert_eq!(c.validate_identity(), Err(CommitmentError::IdentityMismatch));
+    }
+
+    #[test]
+    fn lifecycle_events_do_not_change_identity() {
+        let mut c = commitment();
+        let id = c.id;
+        c.transition(event(CommitmentEventKind::Accept, p("org", "acme"), 110, Some("e:accept"))).unwrap();
+        assert_eq!(c.id, id);
+        assert!(c.validate_identity().is_ok());
+    }
+
+    #[test]
+    fn unauthorized_lifecycle_actor_is_rejected_without_mutation() {
+        let mut c = commitment();
+        let before = c.clone();
+        assert_eq!(
+            c.transition(event(CommitmentEventKind::Accept, p("did", "mallory"), 110, Some("e"))),
+            Err(CommitmentError::UnauthorizedActor)
+        );
+        assert_eq!(c, before);
     }
 
     #[test]
@@ -263,4 +425,14 @@ mod tests {
             Err(CommitmentError::SelfCommitment)
         );
     }
+}
+
+fn write_participant(out: &mut Vec<u8>, participant: &ParticipantRef) {
+    write_bytes(out, participant.namespace.as_bytes());
+    write_bytes(out, participant.identifier.as_bytes());
+}
+
+fn write_bytes(out: &mut Vec<u8>, bytes: &[u8]) {
+    out.extend_from_slice(&(bytes.len() as u64).to_le_bytes());
+    out.extend_from_slice(bytes);
 }
