@@ -381,6 +381,7 @@ pub fn assess_external_finality(
 
     if !route_matches_effect(route, effect, substitution_profile)
         || !outcome_matches_route(outcome, route)
+        || !observation.commitment_matches()
         || !observation_matches(observation, effect, route, outcome)
         || !finality_receipt_matches(
             receipt,
