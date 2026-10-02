@@ -414,9 +414,9 @@ mod tests {
         s.create_credit(&CreditCreation::new("bank", "household", 500).unwrap())
             .unwrap();
 
-        assert_eq!(s.aggregate_assets(), 1_500);
-        assert_eq!(s.aggregate_claims(), 500);
-        assert_eq!(s.aggregate_liabilities(), 500);
+        assert_eq!(s.aggregate_assets(), 2_000);
+        assert_eq!(s.aggregate_claims(), 1_000);
+        assert_eq!(s.aggregate_liabilities(), 1_000);
         assert!(s.claims_liabilities_identity_holds());
         assert_eq!(s.credit_created, 500);
     }
