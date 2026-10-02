@@ -1,27 +1,3 @@
-# Security Invariant Matrix
-
-This matrix turns the Security & Sovereignty Model into an implementation/test backlog.
-
-| ID | Property | Threat | Deterministic enforcement | Adversarial test | Evidence |
-|---|---|---|---|---|---|
-| I-1 | Confidentiality | AI-mediated disclosure | capability check before retrieval/output | denied-secret inference scenario | policy + test artifact |
-| I-2 | Integrity | AI assertion treated as fact | signatures + Holochain validation | forged/unsigned operation | validation result |
-| I-3 | Availability | emergency mode becomes privilege escalation | explicit degraded capability set | authority outage + emergency request | state transition log |
-| I-4 | Identity | reputation substituted for identity | credential/capability verification | high-reputation unauthorized actor | auth decision |
-| I-5 | Provenance | lineage lost during transformation | mandatory source references | summarize/derive/transform chain | provenance graph |
-| I-6 | Recovery | rollback destroys evidence | append-only security events | partition + conflicting recovery | reconciliation artifact |
-| I-7 | Agency | autonomous privilege escalation | bounded signed capabilities | model requests capability expansion | authorization trace |
-| I-8 | Authority | ambiguous authorization accepted | fail-closed policy | stale/revoked/missing credential | denial evidence |
-
-## Current implementation
-
-The first deterministic authority boundary is implemented in
-`crates/mycelix-bridge-common/src/security_kernel.rs`.
-
-The kernel provides:
-
-- `Capability` and `AuthorizationRequest` as explicit inputs.
-- `VerificationEvidence` as an opaque, non-serializable hand-off from an independent cryptographic/identity verifier; its trusted fields cannot be constructed or deserialized by downstream callers.
 - `VerifiedCapability` as a non-forgeable-in-module boundary object.
 - `AuthorizationDecision::Allow | Deny | Indeterminate`.
 - `AdvisoryResult` as a separate type with no conversion path to authorization.
@@ -34,7 +10,7 @@ This directly exercises I-2, I-4, I-7, and I-8 at the shared-type boundary. It d
 
 The kernel now has a second, narrower boundary after authorization:
 
-1. `authorize_permit()` evaluates the verified capability against the exact request.
+1. `authorize_permit()` is the public authorization entry point: it evaluates the verified capability against the exact request and mints the bounded permit on success.
 2. A successful decision yields an `AuthorizationPermit` that is not serializable and has no public constructor.
 3. `EnforcementRequest::from_permit()` is the only public constructor for an enforcement request and revalidates the permit at the enforcement boundary.
 4. Deny and Indeterminate outcomes produce no permit.
@@ -52,23 +28,3 @@ A zero authority-freshness commitment is treated as missing authority evidence a
 Enforcement security events additionally require `actor_id == request.subject`; a caller cannot use the authoritative enforcement-event constructor to attribute an authorized operation to another principal. The general event constructor also rejects policy-version mismatches, keeping newly constructed records internally coherent.
 
 ## Evidence durability invariant
-
-Build reproducibility is part of the security evidence boundary as well: the standalone bridge crate is committed with a `Cargo.lock`, and qualification invokes Cargo with `--locked`. A missing or divergent lockfile therefore fails qualification rather than silently changing the dependency graph.
-
-The kernel enforces a stronger rule than a fixed permit maximum:
-
-> **No authorization decision may become more durable than the evidence supporting it.**
-
-A permit's effective validity is bounded by all of:
-
-1. the capability's own validity window;
-2. the verification evidence freshness lease;
-3. the kernel's maximum authorization-permit lifetime.
-
-The five-minute constant is therefore an upper bound, not an implied freshness guarantee. The kernel also refuses to mint a permit at the exact evidence-lease boundary, so freshness is enforced both at authorization issuance and at enforcement.
-
-At enforcement time, the evidence lease is checked again alongside revocation and authority ambiguity. A permit cannot outlive the evidence that justified it merely because the permit's own timestamp has not expired. The evidence lease is an exclusive upper bound: `now == valid_until` is already stale, matching the existing generation-bound authority freshness semantics.
-
-This is the bridge's local form of continual evaluation: the policy decision is not treated as permanently authoritative after issuance. NIST's Zero Trust Architecture similarly separates policy decision from enforcement and describes ongoing evaluation as supporting information changes over the course of a session.
-
-## Verification levels
