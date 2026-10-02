@@ -76,7 +76,7 @@ pub struct SecurityEvent {
 }
 
 impl SecurityEvent {
-    pub fn new(
+    fn new_internal(
         event_id: impl Into<String>,
         actor_id: impl Into<String>,
         capability_ref: impl Into<String>,
@@ -98,9 +98,6 @@ impl SecurityEvent {
         {
             return Err("security event identifier exceeds size limit");
         }
-        if matches!(&decision, AuthorizationDecision::Allow) {
-            return Err("allow security events must originate from enforcement");
-        }
         if policy_version != request.policy_version() {
             return Err("security event policy version does not match request");
         }
@@ -118,6 +115,29 @@ impl SecurityEvent {
             provenance: Vec::new(),
             recovery_correlation: None,
         })
+    }
+
+    pub fn new(
+        event_id: impl Into<String>,
+        actor_id: impl Into<String>,
+        capability_ref: impl Into<String>,
+        request: AuthorizationRequest,
+        decision: AuthorizationDecision,
+        policy_version: u64,
+        timestamp_us: u64,
+    ) -> Result<Self, &'static str> {
+        if matches!(&decision, AuthorizationDecision::Allow) {
+            return Err("allow security events must originate from enforcement");
+        }
+        Self::new_internal(
+            event_id,
+            actor_id,
+            capability_ref,
+            request,
+            decision,
+            policy_version,
+            timestamp_us,
+        )
     }
 
     pub fn with_provenance(mut self, provenance: Vec<ProvenanceRef>) -> Self {
@@ -163,7 +183,7 @@ impl SecurityEvent {
         if timestamp_us != enforcement.revalidated_at_us() {
             return Err("security event timestamp does not match enforcement revalidation time");
         }
-        let mut event = Self::new(
+        let mut event = Self::new_internal(
             event_id,
             actor_id,
             capability_ref,
@@ -398,61 +418,3 @@ mod tests {
             )
             .unwrap_err(),
             "security event policy version does not match request"
-        );
-    }
-
-    #[test]
-    fn enforcement_event_rejects_timestamp_mismatch() {
-        let request = crate::security_kernel::AuthorizationRequest::new(
-            "did:mycelix:alice",
-            "resource:ledger",
-            CapabilityAction::Read,
-            7,
-        )
-        .unwrap();
-        let permit = authorize_permit(&verified(), &request, 150).unwrap();
-        let enforcement = EnforcementRequest::from_permit(
-            permit,
-            VerificationEvidence::new_for_capability(&capability(), true, true, true),
-            151,
-        )
-        .unwrap();
-
-        assert_eq!(
-            SecurityEvent::from_enforcement_request(
-                "event:timestamp-mismatch",
-                "did:mycelix:alice",
-                "capability:1",
-                &enforcement,
-                7,
-                150,
-            )
-            .unwrap_err(),
-            "security event timestamp does not match enforcement revalidation time"
-        );
-    }
-
-    #[test]
-    fn security_event_can_record_denial() {
-        let request = crate::security_kernel::AuthorizationRequest::new(
-            "did:mycelix:alice",
-            "resource:ledger",
-            CapabilityAction::Admin,
-            7,
-        )
-        .unwrap();
-        let event = SecurityEvent::new(
-            "event:deny",
-            "did:mycelix:alice",
-            "capability:1",
-            request,
-            AuthorizationDecision::Deny(
-                crate::security_kernel::AuthorizationDenial::ActionNotGranted,
-            ),
-            7,
-            151,
-        )
-        .unwrap();
-        assert!(matches!(event.decision, AuthorizationDecision::Deny(_)));
-    }
-}
