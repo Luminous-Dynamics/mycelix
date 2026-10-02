@@ -48,6 +48,35 @@ fn child() -> ! {
         unsafe { libc::_exit(94) };
     }
 
+    // This syscall is normally capable of reading memory from another
+    // process. Use a self-read with a valid address so that, without the
+    // seccomp filter, the operation has a successful kernel path. After
+    // installation the renderer policy must reject it with the default EPERM.
+    let mut byte = 0u8;
+    let local = libc::iovec {
+        iov_base: (&mut byte as *mut u8).cast(),
+        iov_len: 1,
+    };
+    let remote = libc::iovec {
+        iov_base: (&byte as *const u8).cast_mut().cast(),
+        iov_len: 1,
+    };
+    let vm_read = unsafe {
+        libc::syscall(
+            libc::SYS_process_vm_readv,
+            libc::syscall(libc::SYS_getpid),
+            &local as *const libc::iovec,
+            1usize,
+            &remote as *const libc::iovec,
+            1usize,
+            0usize,
+        )
+    };
+    let vm_errno = std::io::Error::last_os_error().raw_os_error();
+    if vm_read != -1 || vm_errno != Some(libc::EPERM) {
+        unsafe { libc::_exit(95) };
+    }
+
     unsafe { libc::_exit(0) }
 }
 
