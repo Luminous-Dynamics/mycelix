@@ -1104,6 +1104,37 @@ mod tests {
     }
 
     #[test]
+    fn same_capacity_listing_revision_bridge_is_not_idempotent() {
+        let mut f = frontier(2);
+        assert_eq!(
+            f.apply(FrontierEvent::Reserve(certificate_with_capacity(
+                "c1", 0, None, 1, 2
+            ))),
+            Ok(ApplyOutcome::Applied)
+        );
+
+        let new_revision = hash(7);
+        assert_eq!(
+            f.apply(FrontierEvent::SetCapacity {
+                listing_hash: hash(3),
+                listing_revision: new_revision.clone(),
+                capacity: 2,
+                seller: agent(2),
+                sequence: 1,
+                previous_certificate_id: Some("c1".into()),
+            }),
+            Ok(ApplyOutcome::Applied)
+        );
+
+        assert_eq!(f.capacity(), 2);
+        assert_eq!(f.active_reserved(), 1);
+        assert_eq!(f.available(), 1);
+        assert_eq!(f.listing_revision(), &new_revision);
+        assert_eq!(f.next_sequence(), 2);
+        assert_eq!(f.head_certificate_id(), Some("capacity:1"));
+    }
+
+    #[test]
     fn historical_reservation_can_terminate_after_listing_revision_bridge() {
         let mut f = frontier(2);
         let first = certificate_with_capacity("c1", 0, None, 1, 2);
