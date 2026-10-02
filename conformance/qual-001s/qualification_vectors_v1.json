@@ -565,6 +565,9 @@
       "mutation": {
         "operation": "reorder_object_properties",
         "target": "s0_dispatch_envelope",
+        "before_wire": "{\"z\":\"last\",\"a\":\"first\",\"m\":{\"b\":2,\"a\":1}}",
+        "after_wire": "{\"m\":{\"a\":1,\"b\":2},\"z\":\"last\",\"a\":\"first\"}",
+        "expected_canonical": "{\"a\":\"first\",\"m\":{\"a\":1,\"b\":2},\"z\":\"last\"}",
         "expected_effect": "canonical commitment bytes unchanged"
       },
       "nonclaims": [
