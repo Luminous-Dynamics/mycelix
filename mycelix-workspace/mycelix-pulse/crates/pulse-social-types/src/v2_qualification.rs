@@ -356,10 +356,7 @@ mod tests {
             vec![message(1)],
             vec![evidence(1)],
         );
-        assert_eq!(
-            q.validate(),
-            Err(ChatProjectionError::UnqualifiedCandidate)
-        );
+        assert_eq!(q.validate(), Err(ChatProjectionError::UnqualifiedCandidate));
     }
 
     #[test]
