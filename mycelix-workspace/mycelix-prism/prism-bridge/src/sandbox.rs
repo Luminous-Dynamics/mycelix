@@ -24,6 +24,7 @@ pub enum SandboxEnforcementError {
     LandlockAbiTooOld(u32),
     IdentityGenerationFailed,
     InvalidAssignmentId,
+    EvidenceIdentityFailed(i32),
 }
 
 impl core::fmt::Display for SandboxEnforcementError {
@@ -36,6 +37,7 @@ impl core::fmt::Display for SandboxEnforcementError {
             Self::LandlockAbiTooOld(abi) => write!(f, "Landlock ABI {abi} lacks renderer thread-synchronization support"),
             Self::IdentityGenerationFailed => f.write_str("sandbox installation identity generation failed"),
             Self::InvalidAssignmentId => f.write_str("renderer process assignment id must be non-zero"),
+            Self::EvidenceIdentityFailed(errno) => write!(f, "sandbox evidence identity lookup failed: errno {errno}"),
         }
     }
 }
@@ -151,15 +153,33 @@ mod linux {
         Ok(())
     }
 
-    fn filesystem_evidence_digest(abi: u32, handled_access_fs: u64, allowed_root: &std::path::Path) -> [u8; 32] {
-        let root = allowed_root.to_string_lossy();
+    fn filesystem_evidence_digest(
+        abi: u32,
+        handled_access_fs: u64,
+        root_fd: RawFd,
+    ) -> Result<[u8; 32], SandboxEnforcementError> {
+        // Bind evidence to the object actually opened for PATH_BENEATH rather
+        // than to the caller-supplied pathname. This prevents a pathname
+        // resolution change between open() and receipt construction from
+        // producing evidence for a different object than the enforced rule.
+        let mut metadata: libc::stat = unsafe { std::mem::zeroed() };
+        let rc = unsafe { libc::fstat(root_fd, &mut metadata) };
+        if rc != 0 {
+            return Err(SandboxEnforcementError::EvidenceIdentityFailed(
+                std::io::Error::last_os_error()
+                    .raw_os_error()
+                    .unwrap_or(libc::EIO),
+            ));
+        }
+
         let mut hasher = blake3::Hasher::new();
-        hasher.update(b"PRISM-LANDLOCK-FILESYSTEM-EVIDENCE-V2");
+        hasher.update(b"PRISM-LANDLOCK-FILESYSTEM-EVIDENCE-V3");
         hasher.update(&abi.to_le_bytes());
         hasher.update(&handled_access_fs.to_le_bytes());
-        hasher.update(&(root.len() as u64).to_le_bytes());
-        hasher.update(root.as_bytes());
-        *hasher.finalize().as_bytes()
+        hasher.update(&(metadata.st_dev as u64).to_le_bytes());
+        hasher.update(&(metadata.st_ino as u64).to_le_bytes());
+        hasher.update(&(metadata.st_mode as u64).to_le_bytes());
+        Ok(*hasher.finalize().as_bytes())
     }
 
     /// Install the first real OS-enforced filesystem boundary.
@@ -271,7 +291,7 @@ mod linux {
             installation_id,
             SandboxAdapterKind::LinuxLandlockFilesystemV1,
             profile.policy_digest(),
-            filesystem_evidence_digest(abi, handled, allowed_root),
+            filesystem_evidence_digest(abi, handled, root_fd.as_raw_fd())?,
             SandboxEnforcementLayer::Filesystem,
         ).map_err(|_| SandboxEnforcementError::InvalidRuleset)
     }
