@@ -2135,12 +2135,8 @@ mod tests {
         .assessments
         .remove(0);
 
-        let mut substituted = observation(
-            "observation-substituted",
-            &g,
-            ExternalObservedStateV1::Applied,
-        );
-        substituted.observation.observation_id = "observation-1".into();
+        let mut substituted = evidence.clone();
+        substituted.observation.request_commitment = "forged-request".into();
         substituted.observation.observation_commitment =
             substituted.observation.recomputed_commitment();
 
