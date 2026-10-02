@@ -32,6 +32,9 @@ pub struct EconomicObservables {
     pub aggregate_loans: i128,
     pub aggregate_debt: i128,
     pub aggregate_deposit_liabilities: i128,
+    pub aggregate_trade_receivables: i128,
+    pub aggregate_trade_payables: i128,
+    pub net_working_capital: i128,
     pub liquidity: i128,
     pub gross_leverage: Option<RatioObservation>,
     pub credit_created: i128,
@@ -61,6 +64,23 @@ impl EconomicObservables {
             .iter()
             .map(|a| a.monetary.deposit_liabilities)
             .sum();
+        let aggregate_trade_receivables = state
+            .actors
+            .iter()
+            .map(|a| a.monetary.trade_receivables)
+            .sum();
+        let aggregate_trade_payables = state
+            .actors
+            .iter()
+            .map(|a| a.monetary.trade_payables)
+            .sum();
+        let aggregate_inventory_value = state
+            .actors
+            .iter()
+            .map(|a| a.inventory_carrying_value)
+            .sum();
+        let net_working_capital =
+            aggregate_inventory_value + aggregate_trade_receivables - aggregate_trade_payables;
         let liquidity = aggregate_cash + aggregate_deposits;
         let assets = state.aggregate_assets();
 
@@ -70,6 +90,9 @@ impl EconomicObservables {
             aggregate_loans,
             aggregate_debt,
             aggregate_deposit_liabilities,
+            aggregate_trade_receivables,
+            aggregate_trade_payables,
+            net_working_capital,
             liquidity,
             gross_leverage: (assets != 0).then_some(RatioObservation {
                 numerator: state.aggregate_liabilities(),
@@ -180,6 +203,9 @@ mod tests {
         assert_eq!(observations.aggregate_cash, 1_000);
         assert_eq!(observations.aggregate_deposits, 501);
         assert_eq!(observations.aggregate_debt, 201);
+        assert_eq!(observations.aggregate_trade_receivables, 0);
+        assert_eq!(observations.aggregate_trade_payables, 0);
+        assert_eq!(observations.net_working_capital, 0);
         assert_eq!(observations.depreciation, 25);
         assert_eq!(observations.net_credit_impulse, 0);
         assert_eq!(observations.liquidity_to_debt_service(), None);
