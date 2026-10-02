@@ -15,6 +15,7 @@ pub mod commons;
 pub mod decay_garden;
 pub mod metabolic_oracle;
 pub mod poc;
+#[path = "reconciliation_v2.rs"]
 pub mod reconciliation;
 pub mod recognition;
 pub mod sector_flow;
