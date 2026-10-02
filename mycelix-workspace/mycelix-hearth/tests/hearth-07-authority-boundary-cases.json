@@ -57,6 +57,13 @@
       "boundary": "zome_semantic_validation",
       "expected": "ZomeCallResponse::Err with Hearth guest rejection",
       "semantic_execution": true
+    },
+    {
+      "case_id": "AUTH-09",
+      "test": "test_authorized_unknown_function_is_rejected_at_dispatch_boundary",
+      "boundary": "function_dispatch",
+      "expected": "ZomeCallResponse::Err",
+      "semantic_execution": false
     }
   ]
 }
