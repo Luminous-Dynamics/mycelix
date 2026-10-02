@@ -67,6 +67,10 @@ pub struct SecurityEvent {
     /// enforcement request. Directly constructed events may leave this absent.
     #[serde(default)]
     pub capability_binding: Option<[u8; 32]>,
+    /// Opaque commitment for the exact authority generation/freshness state
+    /// that qualified a successful enforcement request.
+    #[serde(default)]
+    pub authority_binding: Option<[u8; 32]>,
     pub provenance: Vec<ProvenanceRef>,
     pub recovery_correlation: Option<String>,
 }
@@ -104,6 +108,7 @@ impl SecurityEvent {
             policy_version,
             timestamp_us,
             capability_binding: None,
+            authority_binding: None,
             provenance: Vec::new(),
             recovery_correlation: None,
         })
@@ -154,6 +159,7 @@ impl SecurityEvent {
             timestamp_us,
         )?;
         event.capability_binding = Some(enforcement.capability_binding());
+        event.authority_binding = Some(enforcement.authority_binding());
         Ok(event)
     }
 }
@@ -239,6 +245,10 @@ mod tests {
         assert_eq!(
             event.capability_binding,
             Some(enforcement.capability_binding())
+        );
+        assert_eq!(
+            event.authority_binding,
+            Some(enforcement.authority_binding())
         );
     }
 
