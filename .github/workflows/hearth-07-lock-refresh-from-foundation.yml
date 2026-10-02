@@ -28,9 +28,6 @@ env:
 jobs:
   refresh:
     name: Generate Hearth 0.7 dependency closure
-    if: >-
-      github.event_name != 'pull_request' ||
-      github.event.pull_request.head.ref == 'chore/hearth-0.7-lock-refresh-from-foundation'
     runs-on: ubuntu-24.04
     env:
       TARGET_REF: ${{ inputs.ref || github.event.pull_request.head.sha || github.sha }}
