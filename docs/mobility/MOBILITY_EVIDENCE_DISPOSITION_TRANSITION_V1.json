@@ -301,6 +301,11 @@
       "id": "EDT-058",
       "case": "authority_delegation_target_chain_ignores_unrelated_invalid_record",
       "expected": "accepted"
+    },
+    {
+      "id": "EDT-059",
+      "case": "authority_provenance_chain_allows_monotonic_basis_accumulation",
+      "expected": "accepted"
     }
   ]
 }
