@@ -335,10 +335,10 @@ impl ActorEconomicObservables {
     /// Verify that every observed liquidity change is classified exactly once.
     pub fn liquidity_flow_reconciliation_holds(&self) -> bool {
         self.operating_liquidity_change()
-            + self.investing_net_liquidity()
-            + self.financing_net_liquidity()
-            + self.other_liquidity_change
-            == self.net_liquidity_change
+            .checked_add(self.investing_net_liquidity())
+            .and_then(|value| value.checked_add(self.financing_net_liquidity()))
+            .and_then(|value| value.checked_add(self.other_liquidity_change))
+            == Some(self.net_liquidity_change)
     }
 
     pub fn gross_debt_service(&self) -> i128 {
