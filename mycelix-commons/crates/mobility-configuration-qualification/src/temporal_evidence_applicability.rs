@@ -10,75 +10,6 @@ pub struct EvidenceEventInterval {
 }
 
 impl EvidenceEventInterval {
-    /// Validate only the predecessor chain rooted at a named delegation.
-    ///
-    /// This is intentionally narrower than validate_graph: unrelated
-    /// delegations in the supplied set do not become dependencies of the
-    /// named chain. Only the target and its explicit predecessors are
-    /// structurally validated.
-    pub fn validate_chain(
-        delegation_id: &IdentityRef,
-        delegations: &[EvidenceDispositionAuthorityDelegation],
-    ) -> Result<AuthorityDelegationChainAssessment, String> {
-        use std::collections::BTreeMap;
-
-        let mut by_id: BTreeMap<IdentityRef, Vec<&EvidenceDispositionAuthorityDelegation>> = BTreeMap::new();
-        for delegation in delegations {
-            by_id.entry(delegation.delegation_id.clone()).or_default().push(delegation);
-        }
-
-        let target = match by_id.get(delegation_id) {
-            None => return Err("target authority delegation is missing".to_string()),
-            Some(candidates) if candidates.len() != 1 => {
-                return Err("duplicate authority delegation identity".into());
-            }
-            Some(candidates) => candidates[0],
-        };
-        target.validate()?;
-
-        let mut current = target;
-        let mut seen = std::collections::BTreeSet::new();
-        loop {
-            if !seen.insert(current.delegation_id.clone()) {
-                return Err("authority delegation graph contains a predecessor cycle".into());
-            }
-            match &current.predecessor {
-                None => {
-                    return Ok(AuthorityDelegationChainAssessment::Complete {
-                        roots: vec![current.delegation_id.clone()],
-                    });
-                }
-                Some(predecessor_id) => match by_id.get(predecessor_id) {
-                    None => {
-                        return Ok(AuthorityDelegationChainAssessment::Unresolved {
-                            missing: vec![predecessor_id.clone()],
-                            roots: vec![],
-                        });
-                    }
-                    Some(candidates) if candidates.len() != 1 => {
-                        return Err("duplicate authority delegation identity".into());
-                    }
-                    Some(candidates) => {
-                        let predecessor = candidates[0];
-                        predecessor.validate()?;
-                        if predecessor.subject != current.subject {
-                            return Err("authority delegation predecessor subject must match".into());
-                        }
-                        if predecessor.grantee != current.grantor {
-                            return Err("authority delegation grantor must match predecessor grantee".into());
-                        }
-                        for basis in &predecessor.basis {
-                            if !current.basis.contains(basis) {
-                                return Err("authority delegation basis must preserve predecessor provenance".into());
-                            }
-                        }
-                        current = predecessor;
-                    }
-                },
-            }
-        }
-    }
-
     pub fn validate(&self) -> Result<(), String> {
         ApplicabilityInterval { start: self.start, end: self.end }
             .validate()
@@ -346,6 +277,75 @@ impl EvidenceDispositionAuthorityDelegation {
     /// Validate the supplied delegation records as a finite, addressable
     /// predecessor graph. Missing predecessors remain unresolved; a closed
     /// cycle is invalid because it has no historical root.
+    /// Validate only the predecessor chain rooted at a named delegation.
+    ///
+    /// This is intentionally narrower than validate_graph: unrelated
+    /// delegations in the supplied set do not become dependencies of the
+    /// named chain. Only the target and its explicit predecessors are
+    /// structurally validated.
+    pub fn validate_chain(
+        delegation_id: &IdentityRef,
+        delegations: &[EvidenceDispositionAuthorityDelegation],
+    ) -> Result<AuthorityDelegationChainAssessment, String> {
+        use std::collections::BTreeMap;
+
+        let mut by_id: BTreeMap<IdentityRef, Vec<&EvidenceDispositionAuthorityDelegation>> = BTreeMap::new();
+        for delegation in delegations {
+            by_id.entry(delegation.delegation_id.clone()).or_default().push(delegation);
+        }
+
+        let target = match by_id.get(delegation_id) {
+            None => return Err("target authority delegation is missing".to_string()),
+            Some(candidates) if candidates.len() != 1 => {
+                return Err("duplicate authority delegation identity".into());
+            }
+            Some(candidates) => candidates[0],
+        };
+        target.validate()?;
+
+        let mut current = target;
+        let mut seen = std::collections::BTreeSet::new();
+        loop {
+            if !seen.insert(current.delegation_id.clone()) {
+                return Err("authority delegation graph contains a predecessor cycle".into());
+            }
+            match &current.predecessor {
+                None => {
+                    return Ok(AuthorityDelegationChainAssessment::Complete {
+                        roots: vec![current.delegation_id.clone()],
+                    });
+                }
+                Some(predecessor_id) => match by_id.get(predecessor_id) {
+                    None => {
+                        return Ok(AuthorityDelegationChainAssessment::Unresolved {
+                            missing: vec![predecessor_id.clone()],
+                            roots: vec![],
+                        });
+                    }
+                    Some(candidates) if candidates.len() != 1 => {
+                        return Err("duplicate authority delegation identity".into());
+                    }
+                    Some(candidates) => {
+                        let predecessor = candidates[0];
+                        predecessor.validate()?;
+                        if predecessor.subject != current.subject {
+                            return Err("authority delegation predecessor subject must match".into());
+                        }
+                        if predecessor.grantee != current.grantor {
+                            return Err("authority delegation grantor must match predecessor grantee".into());
+                        }
+                        for basis in &predecessor.basis {
+                            if !current.basis.contains(basis) {
+                                return Err("authority delegation basis must preserve predecessor provenance".into());
+                            }
+                        }
+                        current = predecessor;
+                    }
+                },
+            }
+        }
+    }
+
     pub fn validate_graph(
         delegations: &[EvidenceDispositionAuthorityDelegation],
     ) -> Result<AuthorityDelegationChainAssessment, String> {
