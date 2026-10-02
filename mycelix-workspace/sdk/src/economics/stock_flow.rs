@@ -1001,34 +1001,72 @@ impl EconomicState {
         Ok(())
     }
 
+    /// Checked sum of all monetary assets held by actors.
+    pub fn try_aggregate_assets(&self) -> Result<i128, String> {
+        self.actors.iter().try_fold(0i128, |sum, actor| {
+            sum.checked_add(actor.monetary.assets())
+                .ok_or_else(|| "aggregate assets overflow".to_string())
+        })
+    }
+
     /// Sum of all monetary assets held by actors.
     pub fn aggregate_assets(&self) -> i128 {
-        self.actors.iter().map(|a| a.monetary.assets()).sum()
+        self.try_aggregate_assets()
+            .expect("aggregate assets overflow")
+    }
+
+    /// Checked sum of all outstanding financial liabilities, including issued deposits.
+    pub fn try_aggregate_liabilities(&self) -> Result<i128, String> {
+        self.actors.iter().try_fold(0i128, |sum, actor| {
+            let liabilities = actor
+                .monetary
+                .liabilities
+                .checked_add(actor.monetary.deposit_liabilities)
+                .and_then(|value| value.checked_add(actor.monetary.trade_payables))
+                .ok_or_else(|| "actor liabilities overflow".to_string())?;
+            sum.checked_add(liabilities)
+                .ok_or_else(|| "aggregate liabilities overflow".to_string())
+        })
     }
 
     /// Sum of all outstanding financial liabilities, including issued deposits.
     pub fn aggregate_liabilities(&self) -> i128 {
-        self.actors
-            .iter()
-            .map(|a| {
-                a.monetary.liabilities
-                    + a.monetary.deposit_liabilities
-                    + a.monetary.trade_payables
-            })
-            .sum()
+        self.try_aggregate_liabilities()
+            .expect("aggregate liabilities overflow")
+    }
+
+    /// Checked sum of modeled internal financial claims, including deposits.
+    pub fn try_aggregate_claims(&self) -> Result<i128, String> {
+        self.actors.iter().try_fold(0i128, |sum, actor| {
+            let claims = actor
+                .monetary
+                .deposits
+                .checked_add(actor.monetary.claims)
+                .and_then(|value| value.checked_add(actor.monetary.trade_receivables))
+                .ok_or_else(|| "actor claims overflow".to_string())?;
+            sum.checked_add(claims)
+                .ok_or_else(|| "aggregate claims overflow".to_string())
+        })
     }
 
     /// Sum of modeled internal financial claims, including deposits.
     pub fn aggregate_claims(&self) -> i128 {
-        self.actors
-            .iter()
-            .map(|a| a.monetary.deposits + a.monetary.claims + a.monetary.trade_receivables)
-            .sum()
+        self.try_aggregate_claims()
+            .expect("aggregate claims overflow")
+    }
+
+    /// Checked aggregate net financial position.
+    pub fn try_aggregate_net_financial_position(&self) -> Result<i128, String> {
+        self.actors.iter().try_fold(0i128, |sum, actor| {
+            sum.checked_add(actor.monetary.net_position())
+                .ok_or_else(|| "aggregate net financial position overflow".to_string())
+        })
     }
 
     /// Aggregate net financial position.
     pub fn aggregate_net_financial_position(&self) -> i128 {
-        self.actors.iter().map(|a| a.monetary.net_position()).sum()
+        self.try_aggregate_net_financial_position()
+            .expect("aggregate net financial position overflow")
     }
 
     /// Outstanding debt / monetary assets, when assets are non-zero.
