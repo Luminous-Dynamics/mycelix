@@ -773,6 +773,38 @@ mod tests {
     }
 
     #[test]
+    fn listing_revision_bridge_allows_new_revision_after_capacity_evidence() {
+        let mut f = frontier(2);
+        let first = certificate_with_capacity("c1", 0, None, 1, 2);
+        assert_eq!(
+            f.apply(FrontierEvent::Reserve(first)),
+            Ok(ApplyOutcome::Applied)
+        );
+
+        let new_revision = hash(7);
+        assert_eq!(
+            f.apply(FrontierEvent::SetCapacity {
+                listing_hash: hash(3),
+                listing_revision: new_revision.clone(),
+                capacity: 3,
+                seller: agent(2),
+                sequence: 1,
+                previous_certificate_id: Some("c1".into()),
+            }),
+            Ok(ApplyOutcome::Applied)
+        );
+        assert_eq!(f.listing_revision(), &new_revision);
+
+        let mut second = certificate_with_capacity("c2", 2, Some("capacity:1"), 1, 3);
+        second.listing_revision = new_revision;
+        second.intent.listing_revision = second.listing_revision.clone();
+        assert_eq!(
+            f.apply(FrontierEvent::Reserve(second)),
+            Ok(ApplyOutcome::Applied)
+        );
+    }
+
+    #[test]
     fn consume_permanently_removes_capacity() {
         let mut f = frontier(1);
         f.apply(FrontierEvent::Reserve(certificate_with_capacity("c1", 0, None, 1, 1))).unwrap();
