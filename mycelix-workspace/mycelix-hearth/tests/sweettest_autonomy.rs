@@ -147,8 +147,8 @@ fn hearth_dna_path() -> PathBuf {
 async fn test_autonomy_profile_and_capability() {
     let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
 
-    let mut alice_conductor = SweetConductor::from_standard_config().await;
-    let mut bob_conductor = SweetConductor::from_standard_config().await;
+    let mut alice_conductor = SweetConductor::standard().await;
+    let mut bob_conductor = SweetConductor::standard().await;
 
     let (alice,) = alice_conductor
         .setup_app("test-app", &[dna_file.clone()])
@@ -318,8 +318,8 @@ async fn test_autonomy_profile_and_capability() {
 async fn test_advance_tier_and_get_transitions() {
     let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
 
-    let mut alice_conductor = SweetConductor::from_standard_config().await;
-    let mut bob_conductor = SweetConductor::from_standard_config().await;
+    let mut alice_conductor = SweetConductor::standard().await;
+    let mut bob_conductor = SweetConductor::standard().await;
 
     let (alice,) = alice_conductor
         .setup_app("test-app", &[dna_file.clone()])
@@ -458,8 +458,8 @@ async fn test_advance_tier_and_get_transitions() {
 async fn test_deny_capability_and_get_pending() {
     let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
 
-    let mut alice_conductor = SweetConductor::from_standard_config().await;
-    let mut bob_conductor = SweetConductor::from_standard_config().await;
+    let mut alice_conductor = SweetConductor::standard().await;
+    let mut bob_conductor = SweetConductor::standard().await;
 
     let (alice,) = alice_conductor
         .setup_app("test-app", &[dna_file.clone()])

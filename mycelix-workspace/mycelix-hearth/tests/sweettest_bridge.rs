@@ -95,7 +95,7 @@ fn hearth_dna_path() -> PathBuf {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_health_check() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
     let (alice,) = conductor
         .setup_app("test-app", &[dna_file.clone()])
@@ -130,7 +130,7 @@ async fn test_health_check() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_dispatch_to_kinship() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
     let (alice,) = conductor
         .setup_app("test-app", &[dna_file.clone()])

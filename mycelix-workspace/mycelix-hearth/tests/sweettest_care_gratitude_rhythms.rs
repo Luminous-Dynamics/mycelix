@@ -240,7 +240,7 @@ fn hearth_dna_path() -> PathBuf {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_care_create_and_complete() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
     let (alice,) = conductor
         .setup_app("test-app", &[dna_file.clone()])
@@ -326,8 +326,8 @@ async fn test_care_create_and_complete() {
 async fn test_gratitude_express() {
     let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
 
-    let mut alice_conductor = SweetConductor::from_standard_config().await;
-    let mut bob_conductor = SweetConductor::from_standard_config().await;
+    let mut alice_conductor = SweetConductor::standard().await;
+    let mut bob_conductor = SweetConductor::standard().await;
 
     let (alice,) = alice_conductor
         .setup_app("test-app", &[dna_file.clone()])
@@ -445,7 +445,7 @@ async fn test_gratitude_express() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_rhythm_create_and_log() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
     let (alice,) = conductor
         .setup_app("test-app", &[dna_file.clone()])
@@ -534,8 +534,8 @@ async fn test_rhythm_create_and_log() {
 async fn test_care_swap_lifecycle() {
     let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
 
-    let mut alice_conductor = SweetConductor::from_standard_config().await;
-    let mut bob_conductor = SweetConductor::from_standard_config().await;
+    let mut alice_conductor = SweetConductor::standard().await;
+    let mut bob_conductor = SweetConductor::standard().await;
 
     let (alice,) = alice_conductor
         .setup_app("test-app", &[dna_file.clone()])
@@ -677,8 +677,8 @@ async fn test_care_swap_lifecycle() {
 async fn test_appreciation_circle_lifecycle() {
     let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
 
-    let mut alice_conductor = SweetConductor::from_standard_config().await;
-    let mut bob_conductor = SweetConductor::from_standard_config().await;
+    let mut alice_conductor = SweetConductor::standard().await;
+    let mut bob_conductor = SweetConductor::standard().await;
 
     let (alice,) = alice_conductor
         .setup_app("test-app", &[dna_file.clone()])
@@ -801,7 +801,7 @@ async fn test_appreciation_circle_lifecycle() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor"]
 async fn test_presence_and_rhythm_queries() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
     let (alice,) = conductor
         .setup_app("test-app", &[dna_file.clone()])

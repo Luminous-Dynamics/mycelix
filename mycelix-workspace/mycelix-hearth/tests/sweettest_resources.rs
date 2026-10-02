@@ -146,7 +146,7 @@ fn hearth_dna_path() -> PathBuf {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_register_and_query_resource() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
     let (alice,) = conductor
         .setup_app("test-app", &[dna_file.clone()])
@@ -211,8 +211,8 @@ async fn test_register_and_query_resource() {
 async fn test_lend_and_return_resource() {
     let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
 
-    let mut alice_conductor = SweetConductor::from_standard_config().await;
-    let mut bob_conductor = SweetConductor::from_standard_config().await;
+    let mut alice_conductor = SweetConductor::standard().await;
+    let mut bob_conductor = SweetConductor::standard().await;
 
     let (alice,) = alice_conductor
         .setup_app("test-app", &[dna_file.clone()])
@@ -357,7 +357,7 @@ async fn test_lend_and_return_resource() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_create_budget_and_log_expense() {
-    let mut conductor = SweetConductor::from_standard_config().await;
+    let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
     let (alice,) = conductor
         .setup_app("test-app", &[dna_file.clone()])
@@ -443,8 +443,8 @@ async fn test_create_budget_and_log_expense() {
 async fn test_membership_required_for_register() {
     let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
 
-    let mut alice_conductor = SweetConductor::from_standard_config().await;
-    let mut bob_conductor = SweetConductor::from_standard_config().await;
+    let mut alice_conductor = SweetConductor::standard().await;
+    let mut bob_conductor = SweetConductor::standard().await;
 
     let (alice,) = alice_conductor
         .setup_app("test-app", &[dna_file.clone()])
