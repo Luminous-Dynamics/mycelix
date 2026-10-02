@@ -53,6 +53,7 @@ mod linux {
     const LANDLOCK_CREATE_RULESET_VERSION: u32 = 1 << 0;
     const LANDLOCK_MIN_ABI_FOR_TSYNC: u32 = 8;
     const LANDLOCK_RESTRICT_SELF_TSYNC: u32 = 1 << 3;
+    const LANDLOCK_RESTRICT_SELF_NO_NEW_PRIVS: u32 = 1 << 4;
     const LANDLOCK_RULE_PATH_BENEATH: u16 = 1;
     const LANDLOCK_ACCESS_FS_EXECUTE: u64 = 1 << 0;
     const LANDLOCK_ACCESS_FS_WRITE_FILE: u64 = 1 << 1;
@@ -114,8 +115,24 @@ mod linux {
         Ok(())
     }
 
-    fn restrict_self(fd: RawFd) -> Result<(), SandboxEnforcementError> {
-        let rc = unsafe { libc::syscall(libc::SYS_landlock_restrict_self, fd, LANDLOCK_RESTRICT_SELF_TSYNC) };
+    fn restrict_self(fd: RawFd, abi: u32) -> Result<(), SandboxEnforcementError> {
+        let mut flags = LANDLOCK_RESTRICT_SELF_TSYNC;
+        if abi >= 11 {
+            // ABI 11+ can make no_new_privs conditional on successful
+            // enforcement, avoiding an irreversible privilege-state change
+            // when the ruleset application itself fails.
+            flags |= LANDLOCK_RESTRICT_SELF_NO_NEW_PRIVS;
+        } else {
+            set_no_new_privs()?;
+        }
+
+        let rc = unsafe {
+            libc::syscall(
+                libc::SYS_landlock_restrict_self,
+                fd,
+                flags,
+            )
+        };
         if rc != 0 {
             return Err(SandboxEnforcementError::EnforcementFailed(
                 std::io::Error::last_os_error().raw_os_error().unwrap_or(libc::EPERM),
@@ -237,8 +254,7 @@ mod linux {
             return Err(SandboxEnforcementError::EnforcementFailed(errno));
         }
 
-        set_no_new_privs()?;
-        restrict_self(fd)?;
+        restrict_self(fd, abi)?;
         unsafe { libc::close(fd); }
 
         // We only report actual enforcement after restrict_self() succeeds.
@@ -255,6 +271,19 @@ mod linux {
     #[cfg(test)]
     mod tests {
         use super::*;
+
+        #[test]
+        fn abi_11_uses_atomic_no_new_privs_enforcement() {
+            let abi = 11u32;
+            let mut flags = LANDLOCK_RESTRICT_SELF_TSYNC;
+            if abi >= 11 {
+                flags |= LANDLOCK_RESTRICT_SELF_NO_NEW_PRIVS;
+            }
+            assert_eq!(
+                flags,
+                LANDLOCK_RESTRICT_SELF_TSYNC | LANDLOCK_RESTRICT_SELF_NO_NEW_PRIVS
+            );
+        }
 
         #[test]
         fn zero_assignment_rejects_landlock_before_enforcement() {
