@@ -873,46 +873,56 @@ pub enum EvidenceDispositionCoverageAssessment {
 }
 
 impl EvidenceDispositionReconciliationCoverage {
-    fn collect_missing_transition_dependencies(
+    fn collect_named_transition_dependencies(
         &self,
         reconciliation: &EvidenceDispositionReconciliation,
         transitions: &[EvidenceDispositionTransition],
-    ) -> Result<Vec<IdentityRef>, String> {
+    ) -> Result<(Vec<EvidenceDispositionTransition>, Vec<IdentityRef>), String> {
         use std::collections::{BTreeMap, BTreeSet};
 
-        let mut by_id = BTreeMap::new();
+        let mut by_id: BTreeMap<
+            IdentityRef,
+            Vec<&EvidenceDispositionTransition>,
+        > = BTreeMap::new();
         for transition in transitions {
-            transition.validate()?;
-            if by_id
-                .insert(transition.transition_id.clone(), transition)
-                .is_some()
-            {
-                return Err("duplicate disposition transition identity".into());
-            }
+            by_id
+                .entry(transition.transition_id.clone())
+                .or_default()
+                .push(transition);
         }
 
         let mut missing = BTreeSet::new();
+        let mut reachable = BTreeMap::<IdentityRef, EvidenceDispositionTransition>::new();
         let mut roots_to_check = vec![reconciliation.branch_point.clone()];
         roots_to_check.extend(reconciliation.branch_heads.iter().cloned());
         roots_to_check.extend(self.covered_branch_heads.iter().cloned());
 
         for start_id in roots_to_check {
-            let Some(mut cursor) = by_id.get(&start_id).copied() else {
+            let Some(candidates) = by_id.get(&start_id) else {
                 missing.insert(start_id);
                 continue;
             };
+            if candidates.len() != 1 {
+                return Err("duplicate disposition transition identity".into());
+            }
+
+            let mut cursor = candidates[0];
             let mut seen = BTreeSet::new();
 
             loop {
                 if !seen.insert(cursor.transition_id.clone()) {
                     return Err("reconciliation coverage graph contains a predecessor cycle".into());
                 }
-
+                cursor.validate()?;
                 if cursor.evidence != reconciliation.evidence {
                     return Err(
-                        "reconciliation coverage transition belongs to different evidence".into()
+                        "reconciliation coverage transition belongs to different evidence"
+                            .into(),
                     );
                 }
+                reachable
+                    .entry(cursor.transition_id.clone())
+                    .or_insert_with(|| cursor.clone());
 
                 match &cursor.predecessor {
                     None => break,
@@ -921,7 +931,12 @@ impl EvidenceDispositionReconciliationCoverage {
                             missing.insert(predecessor_id.clone());
                             break;
                         }
-                        Some(predecessor) => {
+                        Some(candidates) if candidates.len() != 1 => {
+                            return Err("duplicate disposition transition identity".into());
+                        }
+                        Some(candidates) => {
+                            let predecessor = candidates[0];
+                            predecessor.validate()?;
                             if predecessor.evidence != cursor.evidence {
                                 return Err(
                                     "reconciliation coverage predecessor belongs to different evidence"
@@ -941,7 +956,10 @@ impl EvidenceDispositionReconciliationCoverage {
             }
         }
 
-        Ok(missing.into_iter().collect())
+        Ok((
+            reachable.into_values().collect(),
+            missing.into_iter().collect(),
+        ))
     }
 
     /// Canonical bounded qualification assessment.
@@ -1028,8 +1046,8 @@ impl EvidenceDispositionReconciliationCoverage {
             }
         }
 
-        let missing_transitions =
-            self.collect_missing_transition_dependencies(reconciliation, transitions)?;
+        let (named_transitions, missing_transitions) =
+            self.collect_named_transition_dependencies(reconciliation, transitions)?;
 
         let authority_assessment = EvidenceDispositionAuthorityDelegation::validate_chain(
             &authority_delegation.delegation_id,
@@ -1062,7 +1080,7 @@ impl EvidenceDispositionReconciliationCoverage {
             authority_scope,
             authority_delegation,
             boundary,
-            transitions,
+            &named_transitions,
         )?;
 
         match authority_assessment {
