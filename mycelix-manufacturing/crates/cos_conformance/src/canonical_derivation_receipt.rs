@@ -10,7 +10,9 @@
 
 use crate::evidence_claim_graph::{ClaimGraphEdgeKindV1, ClaimGraphNodeKindV1};
 use crate::finality_eligibility_composition::{
-    CurrentFinalityEligibilityReceiptV1, FinalityEligibilityDispositionV1,
+    verify_current_receipt_provenance_from_composition,
+    CurrentFinalityEligibilityReceiptV1, CurrentFinalityEligibilityCompositionV1,
+    FinalityEligibilityDispositionV1,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -565,6 +567,71 @@ pub fn build_canonical_receipt(
     };
     receipt.receipt_commitment = receipt.recomputed_commitment();
     Some(receipt)
+}
+
+/// Strict D6S builder: every current D6P receipt consumed by the
+/// canonical derivation receipt must be an exact projection of its supplied
+/// committed D6P composition. This is a provenance/integrity boundary only;
+/// it does not independently reconstruct D6N/D6O authority.
+pub fn build_canonical_receipt_with_authoritative_d6p(
+    projection: &QualifiedProjectionV1,
+    environment: &SemanticEnvironmentV1,
+    profile: &DerivationProfileV1,
+    current_receipts: &[CurrentFinalityEligibilityReceiptV1],
+    d6p_compositions: &[CurrentFinalityEligibilityCompositionV1],
+    result_status: DerivationResultStatusV1,
+    result_commitment: String,
+    contradiction_preserved: bool,
+    unresolved_preserved: bool,
+) -> Option<CanonicalDerivationReceiptV1> {
+    for expected in &projection.d6p_current_receipt_commitments {
+        let receipt = current_receipts
+            .iter()
+            .find(|receipt| receipt.receipt_commitment == *expected)?;
+        let composition = d6p_compositions
+            .iter()
+            .find(|composition| composition.composition_commitment == receipt.composition_commitment)?;
+        if !verify_current_receipt_provenance_from_composition(receipt, composition) {
+            return None;
+        }
+    }
+
+    build_canonical_receipt(
+        projection,
+        environment,
+        profile,
+        current_receipts,
+        result_status,
+        result_commitment,
+        contradiction_preserved,
+        unresolved_preserved,
+    )
+}
+
+pub fn verify_canonical_receipt_with_authoritative_d6p(
+    receipt: &CanonicalDerivationReceiptV1,
+    projection: &QualifiedProjectionV1,
+    environment: &SemanticEnvironmentV1,
+    profile: &DerivationProfileV1,
+    current_receipts: &[CurrentFinalityEligibilityReceiptV1],
+    d6p_compositions: &[CurrentFinalityEligibilityCompositionV1],
+) -> bool {
+    if !receipt.commitment_matches() {
+        return false;
+    }
+
+    build_canonical_receipt_with_authoritative_d6p(
+        projection,
+        environment,
+        profile,
+        current_receipts,
+        d6p_compositions,
+        receipt.result_status,
+        receipt.result_commitment.clone(),
+        receipt.contradiction_preserved,
+        receipt.unresolved_preserved,
+    )
+    .is_some_and(|expected| expected == *receipt)
 }
 
 pub fn verify_canonical_receipt(
