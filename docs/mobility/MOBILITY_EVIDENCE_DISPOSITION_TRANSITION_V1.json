@@ -191,6 +191,36 @@
       "id": "EDT-036",
       "case": "reconciliation_coverage_accepts_boundary_basis_extension",
       "expected": "accepted"
+    },
+    {
+      "id": "EDT-037",
+      "case": "authority_scope_binds_exact_reconciliation_subject_and_authority",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-038",
+      "case": "authority_scope_rejects_unrelated_reconciliation_subject",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-039",
+      "case": "authority_scope_rejects_unrelated_authority",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-040",
+      "case": "authority_scope_requires_reconciliation_basis_continuity",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-041",
+      "case": "authority_scope_accepts_reconciliation_basis_continuity",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-042",
+      "case": "coverage_boundary_authority_scope_must_match_reconciliation_scope",
+      "expected": "rejected"
     }
   ]
 }
