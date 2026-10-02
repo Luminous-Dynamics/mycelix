@@ -524,6 +524,18 @@ pub fn verify_observation_set_assessment_provenance(
     current_frontier_root: &str,
     live_generation_id: &str,
 ) -> bool {
+    if !verify_observation_set_provenance(
+        set,
+        effect,
+        route,
+        profile,
+        evidence,
+        current_frontier_root,
+        live_generation_id,
+    ) {
+        return false;
+    }
+
     let expected = assess_observation_set(
         effect,
         route,
@@ -533,7 +545,7 @@ pub fn verify_observation_set_assessment_provenance(
         current_frontier_root,
         live_generation_id,
     );
-    assessment == &expected
+    assessment.commitment_matches() && assessment == &expected
 }
 
 /// Reconstruct the authoritative D6N observation-set binding from the effect,
@@ -647,6 +659,7 @@ pub fn assess_observation_set(
     let mut by_id = BTreeMap::new();
     for item in evidence {
         if item.structurally_valid()
+            && item.observation.commitment_matches()
             && set.observation_ids.contains(&item.observation.observation_id)
         {
             let id = item.observation.observation_id.clone();
