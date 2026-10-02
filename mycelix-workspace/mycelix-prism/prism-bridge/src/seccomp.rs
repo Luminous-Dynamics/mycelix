@@ -1290,9 +1290,11 @@ mod linux {
         fn v2_disjunctive_compiler_enforces_instruction_budget_boundary() {
             let arch = SeccompArchitecture::current().unwrap();
 
-            fn full_clause(syscall: i64) -> SeccompSyscallClauseV2 {
+            fn full_clause(seed: i64) -> SeccompSyscallClauseV2 {
+                // Keep every clause distinct so the constructor's duplicate
+                // clause rejection remains part of the fixture's validation.
                 SeccompSyscallClauseV2::new(vec![
-                    SeccompArgPredicateV1::new(0, u64::MAX, 0).unwrap(),
+                    SeccompArgPredicateV1::new(0, u64::MAX, seed as u64).unwrap(),
                     SeccompArgPredicateV1::new(1, u64::MAX, 1).unwrap(),
                     SeccompArgPredicateV1::new(2, u64::MAX, 2).unwrap(),
                     SeccompArgPredicateV1::new(3, u64::MAX, 3).unwrap(),
