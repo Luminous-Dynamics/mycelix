@@ -323,6 +323,7 @@ mod tests {
             ] {
                 assert!(expected[field].is_boolean(), "{field} must be boolean");
             }
+            assert!(matches!(expected["earliest_rejection_boundary"].as_str(), Some("None") | Some("OADSemanticValidation") | Some("D6WInputConsumption")), "earliest_rejection_boundary must use the frozen boundary vocabulary");
         }
 
         let blocked = vectors
