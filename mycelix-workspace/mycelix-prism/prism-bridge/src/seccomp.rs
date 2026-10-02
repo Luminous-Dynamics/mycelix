@@ -832,6 +832,37 @@ mod linux {
         }
 
         #[test]
+        fn v2_compiler_jump_offsets_skip_only_the_current_rule() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let single = SeccompSyscallRuleV2::new(
+                libc::SYS_prctl,
+                vec![SeccompArgPredicateV1::new(0, u32::MAX as u64, 7).unwrap()],
+            ).unwrap();
+            let unfiltered = SeccompSyscallRuleV2::new(libc::SYS_getpid, Vec::new()).unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![single, unfiltered]).unwrap();
+            let filter = compile_filter_v2(&policy).unwrap();
+
+            // Find the first syscall dispatch comparison and assert that a
+            // syscall mismatch skips exactly the predicate body plus its ALLOW,
+            // landing on the next syscall comparison.
+            let prctl_index = filter.iter().position(|instruction| {
+                instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                    && instruction.k == libc::SYS_prctl as u32
+            }).unwrap();
+            let predicate_body = filter[prctl_index + 1..].iter().position(|instruction| {
+                instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                    && instruction.k == libc::SYS_getpid as u32
+            }).unwrap();
+            assert_eq!(filter[prctl_index].jf as usize, predicate_body + 1);
+
+            let getpid_index = prctl_index + 1 + predicate_body;
+            assert_eq!(
+                filter[getpid_index].k,
+                libc::SYS_getpid as u32
+            );
+        }
+
+        #[test]
         fn v2_compiler_binds_argument_words_before_allow() {
             let arch = SeccompArchitecture::current().unwrap();
             let rule = SeccompSyscallRuleV2::new(
