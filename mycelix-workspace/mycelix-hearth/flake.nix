@@ -45,7 +45,7 @@
         devShells = {
           default = holochainBase.mkHolochainShell {
             name = "hearth";
-            extraBuildInputs = with pkgs; [ nodejs_20 ];
+            extraBuildInputs = with pkgs; [ nodejs_24 ];
             extraShellHook = ''
               echo "Mycelix Hearth — Family/Household/Kinship Coordination"
               echo ""
