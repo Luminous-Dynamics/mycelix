@@ -103,3 +103,14 @@ and **not**:
 `capability grant -> assumed delivery completeness`.
 
 This keeps the existing capability subsystem reusable without accidentally granting it a semantic role it does not currently possess.
+
+
+## Adjacent security finding: application revocation is not yet Holochain-grant revocation
+
+The existing capability coordinator currently marks a `MailboxCapability` as `revoked = true` by updating the application entry, but the same function contains a TODO noting that the corresponding Holochain capability-grant action hash is not retained for `delete_cap_grant`. Therefore the application-level `verify_capability` path can report a capability revoked while the conductor-level zome-call grant may remain present.
+
+This is **not** being used as V2 entitlement evidence, and this PR does not change capability authorization semantics. It is nevertheless important to keep separate from the entitlement design: a future capability-backed entitlement protocol must define revocation at both the application semantic layer and the actual Holochain call-authorization layer, with explicit effective boundaries.
+
+Holochain's capability model makes the distinction concrete: access is controlled by capability-grant entries on the grantor's source chain, and revocation is performed by deleting the grant entry; an application flag alone is not equivalent to deleting that system capability. citeturn0search1turn0search4
+
+Recommended follow-up is a separate capability-security change: retain the system capability-grant action hash returned at grant time and exercise the actual deletion path, with regression tests for both application verification and conductor authorization. Do not couple that fix to V2 Chat qualification.
