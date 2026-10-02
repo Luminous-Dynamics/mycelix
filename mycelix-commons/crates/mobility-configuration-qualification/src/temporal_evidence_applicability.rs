@@ -1572,6 +1572,8 @@ mod tests {
         };
         assert!(coverage.validate_against_graph(
             &reconciliation,
+            &authority_scope(&reconciliation.reconciliation_id.id),
+            &authority_delegation(&reconciliation.reconciliation_id.id),
             &coverage_boundary(),
             &[root, left, right],
         ).is_err());
