@@ -862,7 +862,7 @@ impl ExternalEffectLedgerV1 {
         &mut self,
         receipt: ExternalFinalityReceiptV1,
     ) -> ExternalEffectLedgerDispositionV1 {
-        if !receipt.structurally_valid() {
+        if !receipt.commitment_matches() {
             return ExternalEffectLedgerDispositionV1::InsufficientEvidence;
         }
         if self.finality_receipts.contains_key(&receipt.receipt_id) {
@@ -2137,6 +2137,12 @@ mod tests {
         let mut tampered = receipt;
         tampered.finality_state = ExternalFinalityStateV1::NotApplied;
         assert!(!tampered.commitment_matches());
+
+        let mut ledger = ExternalEffectLedgerV1::default();
+        assert_eq!(
+            ledger.record_finality(tampered),
+            ExternalEffectLedgerDispositionV1::InsufficientEvidence
+        );
     }
 
     #[test]
