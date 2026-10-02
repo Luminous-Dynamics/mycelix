@@ -91,7 +91,7 @@ const ao = JSON.parse(fs.readFileSync(path.join(ROOT, "s0_authority_observation_
 if (ao.schema !== "mycelix.qual-001s.s0-authority-observation-v1") throw new Error("wrong S0 authority observation schema");
 for (const key of [
   "repository_id","repository_full_name","s0_workflow_source_commit_sha","s1_workflow_source_commit_sha",
-  "dispatch_ref","dispatch_input_commitment_sha256","authenticated_principal_identity",
+  "dispatch_ref","dispatch_input_commitment_sha256","dispatch_input_canonical_json","authenticated_principal_identity",
   "policy_scope_identity","observation_timestamp"
 ]) if (!(key in ao)) throw new Error("S0 authority observation missing " + key);
 if (ao.event_type !== "workflow_dispatch") throw new Error("wrong S0 authority observation event type");
@@ -103,12 +103,19 @@ if (!["OBSERVED", "UNAVAILABLE", "CONTRADICTED"].includes(ao.workflow_source_aut
 if (!["ACCEPTED", "REJECTED", "UNOBSERVED"].includes(ao.dispatch_result)) throw new Error("invalid dispatch result");
 if (!["OBSERVED", "UNOBSERVED", "CONTRADICTED"].includes(ao.run_attribution.state)) throw new Error("invalid run attribution state");
 if (!/^[0-9a-f]{64}$/.test(ao.dispatch_input_commitment_sha256)) throw new Error("invalid S0 dispatch input commitment");
+scanDuplicateObjectKeys(ao.dispatch_input_canonical_json);
+const dispatchInputs = JSON.parse(ao.dispatch_input_canonical_json);
+if (dispatchInputs === null || Array.isArray(dispatchInputs) || typeof dispatchInputs !== "object") throw new Error("canonical dispatch inputs must be a JSON object");
+if (canonicalAsciiJson(dispatchInputs) !== ao.dispatch_input_canonical_json) throw new Error("dispatch input bytes are not canonical JCS");
+const dispatchInputHash = createHash("sha256").update(ao.dispatch_input_canonical_json, "utf8").digest("hex");
+if (dispatchInputHash !== ao.dispatch_input_commitment_sha256) throw new Error("dispatch input commitment does not match canonical input bytes");
 if (ao.dispatch_ref !== "main") throw new Error("wrong S0 dispatch ref");
 if (ao.run_attribution.state === "UNOBSERVED" && Object.keys(ao.run_attribution).length !== 1) throw new Error("unobserved run attribution must not carry run identifiers");
 for (const field of ["request_authentication","actor_authorization","event_authorization","workflow_source_authentication"]) {
   const d = ao[field];
   if (d.state === "OBSERVED" && (!d.rule_id || !d.principal_identity)) throw new Error("observed authority identity missing for " + field);
 }
+if (ao.request_authentication.state === "OBSERVED" && ao.request_authentication.principal_identity !== ao.authenticated_principal_identity) throw new Error("top-level authenticated principal disagrees with request authentication");
 
 const s0 = JSON.parse(fs.readFileSync(path.join(ROOT, "s0_dispatch_envelope_v1.example.json"), "utf8"));
 if (s0.schema !== "mycelix.qual-001s.s0-dispatch-envelope-v1") throw new Error("wrong S0 schema");
