@@ -596,8 +596,7 @@ pub fn authorize_permit(
         ));
     }
 
-    let Some(permit_lifetime_us) = now_us.checked_add(MAX_AUTHORIZATION_PERMIT_LIFETIME_US)
-    else {
+    let Some(permit_lifetime_us) = now_us.checked_add(MAX_AUTHORIZATION_PERMIT_LIFETIME_US) else {
         return Err(AuthorizationDecision::Deny(
             AuthorizationDenial::OutsideValidityWindow,
         ));
@@ -814,7 +813,11 @@ mod tests {
 
         let verified = verify_capability(cap.clone(), evidence, cap.expires_at_us - 1).unwrap();
         assert_eq!(
-            authorize_permit(&verified, &request(CapabilityAction::Read), cap.expires_at_us),
+            authorize_permit(
+                &verified,
+                &request(CapabilityAction::Read),
+                cap.expires_at_us
+            ),
             Err(AuthorizationDecision::Deny(
                 AuthorizationDenial::OutsideValidityWindow,
             ))
@@ -865,14 +868,15 @@ mod tests {
         assert!(permit.is_valid_at(permit.valid_until_us() - 1));
         assert!(!permit.is_valid_at(permit.valid_until_us()));
 
-        let evidence = VerificationEvidence::new_for_capability_with_authority_binding_and_valid_until(
-            &capability(),
-            [0xA5; 32],
-            true,
-            true,
-            true,
-            permit.valid_until_us(),
-        );
+        let evidence =
+            VerificationEvidence::new_for_capability_with_authority_binding_and_valid_until(
+                &capability(),
+                [0xA5; 32],
+                true,
+                true,
+                true,
+                permit.valid_until_us(),
+            );
         assert_eq!(
             EnforcementRequest::from_permit(permit, evidence, permit.valid_until_us()),
             Err(AuthorizationDecision::Deny(
@@ -909,8 +913,7 @@ mod tests {
 
     #[test]
     fn enforcement_rejects_time_before_permit_issuance() {
-        let permit =
-            authorize_permit(&verified(), &request(CapabilityAction::Read), 150).unwrap();
+        let permit = authorize_permit(&verified(), &request(CapabilityAction::Read), 150).unwrap();
 
         let result = EnforcementRequest::from_permit(
             permit,
@@ -1016,9 +1019,7 @@ mod tests {
             );
         assert_eq!(
             verify_capability(cap, evidence, 150).unwrap_err(),
-            AuthorizationDecision::Indeterminate(
-                AuthorizationIndeterminacy::AmbiguousAuthority
-            )
+            AuthorizationDecision::Indeterminate(AuthorizationIndeterminacy::AmbiguousAuthority)
         );
     }
 
@@ -1037,9 +1038,7 @@ mod tests {
             );
         assert_eq!(
             revalidate_permit(&permit, missing_evidence, 151),
-            AuthorizationDecision::Indeterminate(
-                AuthorizationIndeterminacy::AmbiguousAuthority
-            )
+            AuthorizationDecision::Indeterminate(AuthorizationIndeterminacy::AmbiguousAuthority)
         );
     }
 
@@ -1179,7 +1178,9 @@ mod tests {
         .unwrap();
         assert_eq!(
             authorize_permit(&verified(), &req, 150),
-            Err(AuthorizationDecision::Deny(AuthorizationDenial::SubjectMismatch))
+            Err(AuthorizationDecision::Deny(
+                AuthorizationDenial::SubjectMismatch
+            ))
         );
     }
 
@@ -1187,7 +1188,9 @@ mod tests {
     fn ungranted_action_is_denied() {
         assert_eq!(
             authorize_permit(&verified(), &request(CapabilityAction::Admin), 150),
-            Err(AuthorizationDecision::Deny(AuthorizationDenial::ActionNotGranted))
+            Err(AuthorizationDecision::Deny(
+                AuthorizationDenial::ActionNotGranted
+            ))
         );
     }
 
@@ -1202,7 +1205,9 @@ mod tests {
         .unwrap();
         assert_eq!(
             authorize_permit(&verified(), &req, 150),
-            Err(AuthorizationDecision::Deny(AuthorizationDenial::PolicyVersionMismatch))
+            Err(AuthorizationDecision::Deny(
+                AuthorizationDenial::PolicyVersionMismatch
+            ))
         );
     }
 
@@ -1210,7 +1215,9 @@ mod tests {
     fn expired_capability_is_denied() {
         assert_eq!(
             authorize_permit(&verified(), &request(CapabilityAction::Read), 201),
-            Err(AuthorizationDecision::Deny(AuthorizationDenial::OutsideValidityWindow))
+            Err(AuthorizationDecision::Deny(
+                AuthorizationDenial::OutsideValidityWindow
+            ))
         );
     }
 
