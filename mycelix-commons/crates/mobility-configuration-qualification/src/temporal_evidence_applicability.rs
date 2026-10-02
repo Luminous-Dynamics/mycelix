@@ -1454,17 +1454,22 @@ impl EvidenceDispositionReconciliationCoverage {
         }
 
         let mut walks = Vec::new();
+        let mut missing_named_head = None;
         for head_id in &self.covered_branch_heads {
             if head_id == &self.branch_point {
                 return Err("reconciliation coverage branch head cannot equal the branch point".into());
             }
 
-            let candidates = by_id
-                .get(head_id)
-                .ok_or_else(|| format!(
-                    "reconciliation coverage branch head is missing: {}",
-                    head_id.id
-                ))?;
+            let candidates = match by_id.get(head_id) {
+                None => {
+                    missing_named_head.get_or_insert_with(|| head_id.clone());
+                    let mut ancestor_ids = std::collections::BTreeSet::new();
+                    ancestor_ids.insert(head_id.clone());
+                    walks.push((head_id.clone(), ancestor_ids));
+                    continue;
+                }
+                Some(candidates) => candidates,
+            };
             if candidates.len() != 1 {
                 return Err("duplicate disposition transition identity".into());
             }
@@ -1499,6 +1504,13 @@ impl EvidenceDispositionReconciliationCoverage {
                     );
                 }
             }
+        }
+
+        if let Some(head_id) = missing_named_head {
+            return Err(format!(
+                "reconciliation coverage branch head is missing: {}",
+                head_id.id
+            ));
         }
 
         Ok(())
