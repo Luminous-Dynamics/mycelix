@@ -147,6 +147,13 @@ pub fn postings_for_step(
                     ),
                 ]
             }
+            EconomicTransition::Production(production) => {
+                let sector = sector_for(assignments, &production.producer)?;
+                vec![
+                    StockPosting::new(sector, BalanceSheetInstrument::Resources, -production.resource_input),
+                    StockPosting::new(sector, BalanceSheetInstrument::Inventories, production.output),
+                ]
+            }
             EconomicTransition::CreditCreation(credit) => {
                 let lender = sector_for(assignments, &credit.lender)?;
                 let borrower = sector_for(assignments, &credit.borrower)?;
