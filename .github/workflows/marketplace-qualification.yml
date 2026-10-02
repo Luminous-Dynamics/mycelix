@@ -12,6 +12,9 @@ on:
       - '.github/workflows/marketplace-qualification.yml'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 concurrency:
   group: marketplace-qualification-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
