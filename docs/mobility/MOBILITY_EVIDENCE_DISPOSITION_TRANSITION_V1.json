@@ -426,6 +426,21 @@
       "id": "EDT-083",
       "case": "reconciliation_coverage_assessment_resolves_additional_covered_branch_head",
       "expected": "accepted"
+    },
+    {
+      "id": "EDT-084",
+      "case": "append_accepts_a_new_successor_of_an_existing_transition",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-085",
+      "case": "append_rejects_rewriting_an_existing_transition_identity",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-086",
+      "case": "append_preserves_unresolved_missing_predecessor_status",
+      "expected": "unresolved_at_protocol_layer"
     }
   ]
 }
