@@ -1129,6 +1129,82 @@ pub fn validate_create_purchase_intent(
     Ok(ValidateCallbackResult::Valid)
 }
 
+/// Prove that a listing revision is the seller's latest root-derived revision
+/// before the action currently being validated.
+///
+/// Listing updates may be interleaved with unrelated seller-chain actions, so
+/// source-chain adjacency is deliberately not required. Instead, the bounded
+/// source-chain slice is searched for the listing root and every Update whose
+/// original_action_address is that root; the greatest action sequence is the
+/// authoritative current revision. This is deterministic because action
+/// sequence is part of the source-chain action and hash-bounded activity is a
+/// contiguous source-chain slice.
+fn validate_current_listing_revision(
+    seller: &AgentPubKey,
+    listing_hash: &ActionHash,
+    candidate_revision: &ActionHash,
+    chain_top: &ActionHash,
+) -> ExternResult<ValidateCallbackResult> {
+    let activity = must_get_agent_activity(
+        seller.clone(),
+        ChainFilter::new(chain_top.clone()).until_hash(listing_hash.clone()),
+    )?;
+
+    let mut latest_revision: Option<(u32, ActionHash)> = None;
+    let mut candidate_seq = None;
+    let mut root_seen = false;
+
+    for item in activity {
+        let action = item.action.hashed.content;
+        let action_hash = item.action.hashed.hash;
+        let sequence = action.action_seq();
+
+        if action_hash == *candidate_revision {
+            candidate_seq = Some(sequence);
+        }
+
+        match action {
+            Action::Create(_) if action_hash == *listing_hash => {
+                root_seen = true;
+                if latest_revision.as_ref().map(|(seq, _)| sequence > *seq).unwrap_or(true) {
+                    latest_revision = Some((sequence, action_hash));
+                }
+            }
+            Action::Update(update) if update.original_action_address == *listing_hash => {
+                if latest_revision.as_ref().map(|(seq, _)| sequence > *seq).unwrap_or(true) {
+                    latest_revision = Some((sequence, action_hash));
+                }
+            }
+            _ => {}
+        }
+    }
+
+    if !root_seen {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Listing root is not present in the seller source-chain ancestry".into(),
+        ));
+    }
+
+    let Some(candidate_seq) = candidate_seq else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Listing revision is not present in the seller source-chain ancestry".into(),
+        ));
+    };
+    let Some((latest_seq, latest_revision)) = latest_revision else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Listing has no root-derived revision in the seller source chain".into(),
+        ));
+    };
+
+    if latest_revision != *candidate_revision || latest_seq != candidate_seq {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Reservation evidence references a stale listing revision".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
 /// Validate a seller-issued reservation against exact addressable dependencies.
 /// This intentionally avoids mutable link collections in validation.
 pub fn validate_create_reservation_certificate(
@@ -1204,6 +1280,21 @@ pub fn validate_create_reservation_certificate(
                 "Listing revision must reference a listing create or update action".into(),
             ));
         }
+    }
+    if let Some(chain_top) = action.prev_action.clone() {
+        let revision_result = validate_current_listing_revision(
+            &certificate.seller,
+            &certificate.listing_hash,
+            &certificate.listing_revision,
+            &chain_top,
+        )?;
+        if !matches!(revision_result, ValidateCallbackResult::Valid) {
+            return Ok(revision_result);
+        }
+    } else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "ReservationCertificate action is missing its seller source-chain predecessor".into(),
+        ));
     }
 
     if certificate.sequence > 0 {
@@ -1367,6 +1458,21 @@ pub fn validate_create_reservation_capacity(
         _ => return Ok(ValidateCallbackResult::Invalid(
             "Reservation capacity evidence is not bound to a valid listing revision".into(),
         )),
+    }
+    if let Some(chain_top) = action.prev_action.clone() {
+        let revision_result = validate_current_listing_revision(
+            &evidence.seller,
+            &evidence.listing_hash,
+            &evidence.listing_revision,
+            &chain_top,
+        )?;
+        if !matches!(revision_result, ValidateCallbackResult::Valid) {
+            return Ok(revision_result);
+        }
+    } else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Reservation capacity evidence action is missing its seller source-chain predecessor".into(),
+        ));
     }
 
     let prior_activity = must_get_agent_activity(
