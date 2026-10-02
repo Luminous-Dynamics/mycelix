@@ -539,6 +539,9 @@ fn declarative_cross_layer_corpus_is_self_describing_and_executable() {
         let expected_status = expected["d6x_status"]
             .as_str()
             .expect("expected D6X status");
+        let expected_rejection_boundary = expected["earliest_rejection_boundary"]
+            .as_str()
+            .expect("expected earliest rejection boundary");
 
         assert!(
             matches!(
@@ -577,6 +580,19 @@ fn declarative_cross_layer_corpus_is_self_describing_and_executable() {
             }
             other => panic!("{id}: unsupported operation {other}"),
         }
+
+        let computed_rejection_boundary = if expected["valid"].as_bool() == Some(false) {
+            "OADSemanticValidation"
+        } else if expected_status == "BlockedMissingDependency" {
+            "D6WInputConsumption"
+        } else {
+            "None"
+        };
+        assert_eq!(
+            expected_rejection_boundary,
+            computed_rejection_boundary,
+            "{id}: rejection boundary must match the executable gate"
+        );
 
         if expected["valid"].as_bool() == Some(false) {
             assert!(
