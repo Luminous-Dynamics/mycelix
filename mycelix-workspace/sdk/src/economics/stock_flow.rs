@@ -132,6 +132,34 @@ impl MonetaryFlow {
     }
 }
 
+/// An income/expenditure transfer that changes both deposits and equity.
+///
+/// This is the minimal double-entry representation for flows such as wages,
+/// interest, taxes, or transfers when settlement occurs through deposits.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct IncomeTransfer {
+    pub payer: ActorId,
+    pub recipient: ActorId,
+    pub amount: i128,
+}
+
+impl IncomeTransfer {
+    pub fn new(
+        payer: impl Into<ActorId>,
+        recipient: impl Into<ActorId>,
+        amount: i128,
+    ) -> Result<Self, String> {
+        if amount <= 0 {
+            return Err("income transfer amount must be positive".into());
+        }
+        Ok(Self {
+            payer: payer.into(),
+            recipient: recipient.into(),
+            amount,
+        })
+    }
+}
+
 /// Explicit endogenous credit creation.
 ///
 /// Credit creation increases the lender's financial asset and the borrower's
@@ -270,6 +298,42 @@ impl EconomicState {
             }
         }
         self.monetary_flow_volume += flow.amount;
+        Ok(())
+    }
+
+    /// Apply a deposit-settled income transfer.
+    ///
+    /// Deposits move between actors while the payer's equity falls and the
+    /// recipient's equity rises by the same amount. This prevents income from
+    /// appearing as unexplained net worth.
+    pub fn apply_income_transfer(&mut self, transfer: &IncomeTransfer) -> Result<(), String> {
+        let (payer, recipient) = self.actor_pair_mut(&transfer.payer, &transfer.recipient)?;
+        if payer.monetary.deposits < transfer.amount {
+            return Err(format!(
+                "insufficient deposits for {}: have {}, need {}",
+                payer.actor, payer.monetary.deposits, transfer.amount
+            ));
+        }
+        payer.monetary.deposits -= transfer.amount;
+        payer.monetary.equity = payer
+            .monetary
+            .equity
+            .checked_sub(transfer.amount)
+            .ok_or_else(|| "payer equity underflow".to_string())?;
+        recipient.monetary.deposits = recipient
+            .monetary
+            .deposits
+            .checked_add(transfer.amount)
+            .ok_or_else(|| "recipient deposit overflow".to_string())?;
+        recipient.monetary.equity = recipient
+            .monetary
+            .equity
+            .checked_add(transfer.amount)
+            .ok_or_else(|| "recipient equity overflow".to_string())?;
+        self.monetary_flow_volume = self
+            .monetary_flow_volume
+            .checked_add(transfer.amount)
+            .ok_or_else(|| "monetary flow counter overflow".to_string())?;
         Ok(())
     }
 
