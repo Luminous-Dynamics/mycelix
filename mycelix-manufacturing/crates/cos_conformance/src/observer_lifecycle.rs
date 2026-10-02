@@ -1254,9 +1254,14 @@ pub fn eligibility_receipt_matches(
         && profile.commitment_matches()
         && receipt.observation_id == evidence.observation.observation_id
         && receipt.observer_id == evidence.observer_id
+        && receipt.observer_id == generation.observer_id
+        && evidence.observer_id == generation.observer_id
         && receipt.observer_generation_id == generation.generation_id
+        && snapshot.observer_generation_id == generation.generation_id
         && receipt.observation_profile_id == generation.observation_profile_id
+        && snapshot.observation_profile_id == generation.observation_profile_id
         && receipt.semantic_environment_root == generation.semantic_environment_root
+        && snapshot.semantic_environment_root == generation.semantic_environment_root
         && receipt.dependency_snapshot_id == snapshot.snapshot_id
         && receipt.observation_frontier_root == evidence.observation.observed_frontier_root
         && receipt.qualification_profile_id == profile.profile_id
@@ -2263,6 +2268,26 @@ mod tests {
             &snapshot,
             &profile()
         ));
+        let mut forged_observer = receipt.clone();
+        forged_observer.observer_id = "observer-B".into();
+        assert!(!eligibility_receipt_matches(
+            &forged_observer,
+            &e,
+            &generation,
+            &snapshot,
+            &profile()
+        ));
+
+        let mut forged_snapshot_generation = snapshot.clone();
+        forged_snapshot_generation.observer_generation_id = "observer-A-g2".into();
+        assert!(!eligibility_receipt_matches(
+            &receipt,
+            &e,
+            &generation,
+            &forged_snapshot_generation,
+            &profile()
+        ));
+
         let mut forged = receipt.clone();
         forged.observer_generation_id = "observer-A-g2".into();
         assert!(!eligibility_receipt_matches(
