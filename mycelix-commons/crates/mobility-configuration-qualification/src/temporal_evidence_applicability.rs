@@ -892,7 +892,8 @@ impl EvidenceDispositionReconciliationCoverage {
         }
 
         let mut missing = BTreeSet::new();
-        let mut roots_to_check = reconciliation.branch_heads.clone();
+        let mut roots_to_check = vec![reconciliation.branch_point.clone()];
+        roots_to_check.extend(reconciliation.branch_heads.iter().cloned());
         roots_to_check.extend(self.covered_branch_heads.iter().cloned());
 
         for start_id in roots_to_check {
@@ -1778,6 +1779,82 @@ mod tests {
             Ok(AuthorityDelegationChainAssessment::Unresolved {
                 missing: vec![missing],
                 roots: vec![],
+            })
+        );
+    }
+
+    #[test]
+    fn reconciliation_coverage_assessment_reports_missing_transition_dependency() {
+        let disputed = EvidenceDisposition::Disputed {
+            by: id(IdentityKind::ReconciliationWitness, "w1"),
+        };
+        let left = graph_transition(
+            "t2",
+            Some("missing-transition-parent"),
+            disputed.clone(),
+            EvidenceDisposition::Active,
+        );
+        let right = graph_transition(
+            "t3",
+            Some("missing-transition-parent"),
+            disputed,
+            EvidenceDisposition::Retracted {
+                by: id(IdentityKind::ReconciliationWitness, "w2"),
+            },
+        );
+        let reconciliation = EvidenceDispositionReconciliation {
+            reconciliation_id: id(
+                IdentityKind::ReconciliationWitness,
+                "reconcile-transition-missing",
+            ),
+            evidence: id(IdentityKind::InspectionRecord, "inspection-graph"),
+            branch_point: id(
+                IdentityKind::ReconciliationWitness,
+                "missing-transition-parent",
+            ),
+            branch_heads: vec![
+                id(IdentityKind::ReconciliationWitness, "t2"),
+                id(IdentityKind::ReconciliationWitness, "t3"),
+            ],
+            authority: id(IdentityKind::ReconciliationWitness, "authority-1"),
+            authority_scope: id(IdentityKind::ReconciliationWitness, "authority-scope-1"),
+            authority_delegation: id(
+                IdentityKind::ReconciliationWitness,
+                "authority-delegation-1",
+            ),
+            basis: vec![],
+        };
+        let scope = authority_scope(&reconciliation.reconciliation_id.id);
+        let delegation = authority_delegation(&reconciliation.reconciliation_id.id);
+        let mut boundary = coverage_boundary();
+        boundary.reconciliation = reconciliation.reconciliation_id.clone();
+        let coverage = EvidenceDispositionReconciliationCoverage {
+            coverage_id: id(
+                IdentityKind::ReconciliationWitness,
+                "coverage-transition-missing",
+            ),
+            reconciliation: reconciliation.reconciliation_id.clone(),
+            branch_point: reconciliation.branch_point.clone(),
+            covered_branch_heads: reconciliation.branch_heads.clone(),
+            boundary: boundary.boundary_id.clone(),
+            basis: boundary.basis.clone(),
+        };
+
+        assert_eq!(
+            coverage.validate_against_graph_and_authority_chain_assessment(
+                &reconciliation,
+                &scope,
+                &delegation,
+                &[delegation.clone()],
+                &boundary,
+                &[left, right],
+            ),
+            Ok(EvidenceDispositionCoverageAssessment::Unresolved {
+                missing: vec![id(
+                    IdentityKind::ReconciliationWitness,
+                    "missing-transition-parent",
+                )],
+                authority_roots: vec![],
             })
         );
     }
