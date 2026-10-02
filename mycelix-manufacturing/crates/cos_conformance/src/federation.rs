@@ -404,6 +404,35 @@ pub fn deliver(
         );
     }
 
+    if let Some(existing) = state.deliveries.get(&envelope.logical_delivery_id) {
+        if existing.contract.origin_node != envelope.origin_node {
+            return FederationOutcome::new(
+                FederationDecision::OriginConflict,
+                AuthorityDisposition::NoAuthority,
+                envelope,
+                "A logical delivery identity cannot be rebound by a different origin node.",
+            );
+        }
+        if existing.contract.payload_commitment != envelope.payload_commitment
+            || existing.contract.semantic_subject_id != envelope.semantic_subject_id
+        {
+            return FederationOutcome::new(
+                FederationDecision::PayloadConflict,
+                AuthorityDisposition::NoAuthority,
+                envelope,
+                "A logical delivery identity cannot be rebound to a different semantic payload.",
+            );
+        }
+        if existing.contract != ImmutableDeliveryContract::from(envelope) {
+            return FederationOutcome::new(
+                FederationDecision::ContractConflict,
+                AuthorityDisposition::NoAuthority,
+                envelope,
+                "A logical delivery identity cannot be rebound with a changed immutable contract.",
+            );
+        }
+    }
+
     let Some(origin) = state.nodes.get(&envelope.origin_node) else {
         return FederationOutcome::new(
             FederationDecision::UnknownNode,
@@ -472,32 +501,6 @@ pub fn deliver(
     }
 
     if let Some(existing) = state.deliveries.get_mut(&envelope.logical_delivery_id) {
-        if existing.contract.origin_node != envelope.origin_node {
-            return FederationOutcome::new(
-                FederationDecision::OriginConflict,
-                AuthorityDisposition::NoAuthority,
-                envelope,
-                "A logical delivery identity cannot be reused by a different origin node.",
-            );
-        }
-        if existing.contract.payload_commitment != envelope.payload_commitment
-            || existing.contract.semantic_subject_id != envelope.semantic_subject_id
-        {
-            return FederationOutcome::new(
-                FederationDecision::PayloadConflict,
-                AuthorityDisposition::NoAuthority,
-                envelope,
-                "A logical delivery identity cannot be reused for a different semantic payload.",
-            );
-        }
-        if existing.contract != ImmutableDeliveryContract::from(envelope) {
-            return FederationOutcome::new(
-                FederationDecision::ContractConflict,
-                AuthorityDisposition::NoAuthority,
-                envelope,
-                "A logical delivery identity cannot be reused with a changed immutable delivery contract.",
-            );
-        }
         existing.attempts.insert(envelope.attempt_id.clone());
         return FederationOutcome::new(
             FederationDecision::Duplicate,
@@ -1337,6 +1340,36 @@ mod tests {
     }
 
     #[test]
+    fn immutable_contract_conflict_precedes_unknown_target_or_origin() {
+        let mut state = nodes();
+        let original = envelope();
+
+        assert_eq!(
+            deliver(&mut state, &original, 50, true).decision,
+            FederationDecision::AcceptedLocal
+        );
+        let before = state.delivery("delivery-1").unwrap().clone();
+
+        let mut unknown_target = original.clone();
+        unknown_target.target_node = "node-unknown".into();
+        unknown_target.attempt_id = "attempt-unknown-target".into();
+        let target_outcome = deliver(&mut state, &unknown_target, 50, true);
+        assert_eq!(target_outcome.decision, FederationDecision::ContractConflict);
+        assert_eq!(target_outcome.authority, AuthorityDisposition::NoAuthority);
+
+        let mut unknown_origin = original;
+        unknown_origin.origin_node = "node-unknown".into();
+        unknown_origin.attempt_id = "attempt-unknown-origin".into();
+        let origin_outcome = deliver(&mut state, &unknown_origin, 50, true);
+        assert_eq!(origin_outcome.decision, FederationDecision::OriginConflict);
+        assert_eq!(origin_outcome.authority, AuthorityDisposition::NoAuthority);
+
+        assert_eq!(state.delivery("delivery-1"), Some(&before));
+        assert_eq!(state.delivery_count(), 1);
+        assert_eq!(state.observation_count(), 1);
+    }
+
+    #[test]
     fn logical_delivery_identity_is_bound_to_target_and_all_immutable_fields() {
         let mut state = nodes();
         let original = envelope();
@@ -1572,6 +1605,30 @@ mod tests {
         assert_eq!(outcome.decision, FederationDecision::ContractConflict);
         assert_eq!(outcome.authority, AuthorityDisposition::NoAuthority);
         assert_eq!(state.delivery("delivery-1"), Some(&before));
+        assert_eq!(state.delivery_count(), 1);
+        assert_eq!(state.observation_count(), 1);
+    }
+
+    #[test]
+    fn observation_identity_cannot_be_reused_to_mint_a_new_delivery() {
+        let mut state = nodes();
+        let original = envelope();
+
+        assert_eq!(
+            deliver(&mut state, &original, 50, true).decision,
+            FederationDecision::AcceptedLocal
+        );
+        let before = state.delivery("delivery-1").unwrap().clone();
+
+        let mut aliased = original.clone();
+        aliased.logical_delivery_id = "delivery-alias".into();
+        aliased.attempt_id = "attempt-alias".into();
+
+        let outcome = deliver(&mut state, &aliased, 50, true);
+        assert_eq!(outcome.decision, FederationDecision::Rejected);
+        assert_eq!(outcome.authority, AuthorityDisposition::NoAuthority);
+        assert_eq!(state.delivery("delivery-1"), Some(&before));
+        assert!(state.delivery("delivery-alias").is_none());
         assert_eq!(state.delivery_count(), 1);
         assert_eq!(state.observation_count(), 1);
     }
