@@ -47,19 +47,46 @@ pub struct MonetaryStock {
 }
 
 impl MonetaryStock {
+    /// Checked total financial assets.
+    pub fn try_assets(&self) -> Result<i128, String> {
+        self.cash
+            .checked_add(self.deposits)
+            .and_then(|value| value.checked_add(self.claims))
+            .and_then(|value| value.checked_add(self.trade_receivables))
+            .ok_or_else(|| "monetary asset overflow".into())
+    }
+
     /// Total financial assets.
     pub fn assets(&self) -> i128 {
-        self.cash + self.deposits + self.claims + self.trade_receivables
+        self.try_assets().expect("monetary asset overflow")
+    }
+
+    /// Checked net financial position.
+    pub fn try_net_position(&self) -> Result<i128, String> {
+        self.try_assets()?
+            .checked_sub(self.liabilities)
+            .and_then(|value| value.checked_sub(self.deposit_liabilities))
+            .and_then(|value| value.checked_sub(self.trade_payables))
+            .ok_or_else(|| "net financial position overflow".into())
     }
 
     /// Net financial position: financial assets minus liabilities.
     pub fn net_position(&self) -> i128 {
-        self.assets() - self.liabilities - self.deposit_liabilities - self.trade_payables
+        self.try_net_position()
+            .expect("net financial position overflow")
+    }
+
+    /// Checked trade-credit position used by the working-capital layer.
+    pub fn try_net_trade_position(&self) -> Result<i128, String> {
+        self.trade_receivables
+            .checked_sub(self.trade_payables)
+            .ok_or_else(|| "net trade position overflow".into())
     }
 
     /// Trade-credit position used by the working-capital layer.
     pub fn net_trade_position(&self) -> i128 {
-        self.trade_receivables - self.trade_payables
+        self.try_net_trade_position()
+            .expect("net trade position overflow")
     }
 }
 
@@ -105,23 +132,35 @@ impl ActorBalanceSheet {
         }
     }
 
+    /// Checked monetary net worth using only monetary-valued assets and liabilities.
+    pub fn try_net_worth(&self) -> Result<i128, String> {
+        self.monetary
+            .try_net_position()?
+            .checked_add(self.real.productive_capital)
+            .and_then(|value| value.checked_add(self.inventory_carrying_value))
+            .ok_or_else(|| "net worth overflow".into())
+    }
+
     /// Monetary net worth using only monetary-valued assets and liabilities.
     ///
     /// Physical quantities such as resource units and inventory units remain
     /// in a separate dimensional accounting domain.
     pub fn net_worth(&self) -> i128 {
-        self.monetary.net_position()
-            + self.real.productive_capital
-            + self.inventory_carrying_value
+        self.try_net_worth().expect("net worth overflow")
     }
 
     /// Net operating working capital, excluding cash, deposits, and long-term
     /// financial claims. Physical inventory quantity remains outside this
     /// monetary measure.
-    pub fn net_working_capital(&self) -> i128 {
+    pub fn try_net_working_capital(&self) -> Result<i128, String> {
         self.inventory_carrying_value
             .checked_add(self.monetary.trade_receivables)
             .and_then(|value| value.checked_sub(self.monetary.trade_payables))
+            .ok_or_else(|| "working-capital overflow".into())
+    }
+
+    pub fn net_working_capital(&self) -> i128 {
+        self.try_net_working_capital()
             .expect("working-capital overflow")
     }
 }
@@ -1136,6 +1175,28 @@ impl EconomicState {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn monetary_and_balance_sheet_checked_arithmetic_fails_closed() {
+        let stock = MonetaryStock {
+            cash: i128::MAX,
+            deposits: 1,
+            ..MonetaryStock::default()
+        };
+        assert!(stock.try_assets().is_err());
+        assert!(stock.try_net_position().is_err());
+
+        let actor = ActorBalanceSheet {
+            actor: "overflow".into(),
+            monetary: MonetaryStock::default(),
+            real: RealStock {
+                productive_capital: i128::MAX,
+                ..RealStock::default()
+            },
+            inventory_carrying_value: 1,
+        };
+        assert!(actor.try_net_worth().is_err());
+    }
     use super::*;
 
     fn state() -> EconomicState {
