@@ -655,6 +655,119 @@
         "run number alone identifies a unique attempt",
         "a re-run may reuse the prior attempt identity"
       ]
+    },
+    {
+      "vector_id": "QUALS-N-025",
+      "kind": "provenance",
+      "proposition_id": "AUTHORITY_OBSERVATION_SELF_COMMITMENT",
+      "source_identity": "trusted.s0.authority-observation.v1",
+      "epoch_id": "epoch-001",
+      "requested_claims": [
+        "execution_observed"
+      ],
+      "admitted_claims": [],
+      "theorem": "Changing an authority observation field without changing its self-commitment invalidates the observation.",
+      "upstream_evidence": [
+        "AUTHORITY_OBSERVATION_BYTES",
+        "AUTHORITY_OBSERVATION_HASH"
+      ],
+      "evidence_disposition": "CONTRADICTED",
+      "authority_outcome": "PROVENANCE_MISMATCH",
+      "expected_state": "CONTRADICTED",
+      "expected_claims": [],
+      "mutation": {
+        "operation": "mutate_authority_observation_without_rehash",
+        "target": "policy_scope_identity",
+        "expected_effect": "authority observation rejected"
+      },
+      "nonclaims": [
+        "stale hash remains valid after field mutation",
+        "commitment mismatch can be ignored"
+      ]
+    },
+    {
+      "vector_id": "QUALS-P-026",
+      "kind": "positive",
+      "proposition_id": "S1_RECEIPT_CLAIM_CEILING",
+      "source_identity": "trusted.s1.harness.v1",
+      "epoch_id": "epoch-001",
+      "requested_claims": [
+        "successor_conformance",
+        "rotation_adoption"
+      ],
+      "admitted_claims": [
+        "successor_conformance"
+      ],
+      "theorem": "A complete trusted S1 receipt may establish the registered successor-conformance claim but cannot mint rotation-adoption authority.",
+      "upstream_evidence": [
+        "S1_RECEIPT",
+        "S1_PROVENANCE",
+        "REGISTERED_SUCCESSOR_PROFILE"
+      ],
+      "evidence_disposition": "VERIFIED",
+      "authority_outcome": "EXECUTION_OBSERVED",
+      "expected_state": "VERIFIED",
+      "expected_claims": [
+        "successor_conformance"
+      ],
+      "nonclaims": [
+        "S1 receipt authorizes rotation",
+        "S1 conformance receipt is adoption authority",
+        "conformance implies runtime authority"
+      ]
+    },
+    {
+      "vector_id": "QUALS-N-027",
+      "kind": "provenance",
+      "proposition_id": "S1_RECEIPT_ENVELOPE_JOIN",
+      "source_identity": "trusted.s1.harness.v1",
+      "epoch_id": "epoch-001",
+      "requested_claims": [
+        "successor_conformance"
+      ],
+      "admitted_claims": [],
+      "theorem": "An S1 receipt referencing a different S0 envelope commitment is not evidence for the current qualification epoch.",
+      "upstream_evidence": [
+        "S1_RECEIPT_ENVELOPE_HASH",
+        "CURRENT_S0_ENVELOPE_HASH"
+      ],
+      "evidence_disposition": "CONTRADICTED",
+      "authority_outcome": "PROVENANCE_MISMATCH",
+      "expected_state": "CONTRADICTED",
+      "expected_claims": [],
+      "mutation": {
+        "operation": "replace_s0_envelope_hash",
+        "target": "s0_dispatch_envelope_sha256",
+        "expected_effect": "S1 receipt detached from S0"
+      },
+      "nonclaims": [
+        "epoch text alone proves envelope lineage",
+        "matching run identity can substitute for envelope identity"
+      ]
+    },
+    {
+      "vector_id": "QUALS-N-028",
+      "kind": "negative",
+      "proposition_id": "S1_RECEIPT_ADOPTION_ESCALATION",
+      "source_identity": "trusted.s1.harness.v1",
+      "epoch_id": "epoch-001",
+      "requested_claims": [
+        "rotation_adoption"
+      ],
+      "admitted_claims": [],
+      "theorem": "The S1 receipt claim ceiling excludes rotation adoption even when conformance outcome is PASS.",
+      "upstream_evidence": [
+        "S1_CONFORMANCE_PASS",
+        "S1_CLAIM_CEILING"
+      ],
+      "evidence_disposition": "VERIFIED",
+      "authority_outcome": "NONE",
+      "expected_state": "VERIFIED",
+      "expected_claims": [],
+      "nonclaims": [
+        "PASS receipt is adoption authorization",
+        "trusted builder identity collapses lifecycle gates"
+      ]
     }
   ]
 }
