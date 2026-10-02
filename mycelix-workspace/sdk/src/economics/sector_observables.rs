@@ -13,9 +13,9 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use super::actor_observables::ActorEconomicObservables;
-use super::sector_balance::SectorAssignment;
+use super::sector_balance::{BalanceSheetInstrument, SectorAssignment, SectorBalanceSheet};
 use super::sector_flow::EconomicSector;
-use super::stock_flow::ActorId;
+use super::stock_flow::{ActorId, EconomicState};
 
 fn add_checked(slot: &mut i128, amount: i128, label: &str) -> Result<(), String> {
     *slot = slot
@@ -37,6 +37,15 @@ pub struct SectorEconomicObservables {
     pub other_liquidity_change: i128,
 
     pub net_working_capital_change: i128,
+
+    pub loan_claims: i128,
+    pub debt: i128,
+    pub trade_receivables: i128,
+    pub trade_payables: i128,
+    pub inventory_carrying_value: i128,
+    pub productive_capital: i128,
+    pub net_financial_position: i128,
+    pub net_worth: i128,
 
     pub credit_received: i128,
     pub credit_originated: i128,
@@ -75,6 +84,14 @@ impl Default for SectorEconomicObservables {
             financing_net_liquidity: 0,
             other_liquidity_change: 0,
             net_working_capital_change: 0,
+            loan_claims: 0,
+            debt: 0,
+            trade_receivables: 0,
+            trade_payables: 0,
+            inventory_carrying_value: 0,
+            productive_capital: 0,
+            net_financial_position: 0,
+            net_worth: 0,
             credit_received: 0,
             credit_originated: 0,
             debt_repaid: 0,
@@ -101,6 +118,19 @@ impl Default for SectorEconomicObservables {
 }
 
 impl SectorEconomicObservables {
+    /// Derive actor observations from a starting state and immediately
+    /// consolidate them into sectors. This keeps the transition replay
+    /// authoritative and avoids a second actor-level ledger.
+    pub fn from_state_and_transitions(
+        state: &EconomicState,
+        transitions: &[super::transition::EconomicTransition],
+        assignments: &[SectorAssignment],
+    ) -> Result<BTreeMap<EconomicSector, Self>, String> {
+        let observations =
+            ActorEconomicObservables::from_state_and_transitions(state, transitions)?;
+        Self::from_actor_observations(&observations, assignments)
+    }
+
     /// Aggregate actor observations into sectors using exactly one assignment
     /// per actor. The result is deterministic because both inputs are keyed
     /// and iterated canonically.
@@ -180,6 +210,51 @@ impl SectorEconomicObservables {
                 observation.net_liquidity_change,
                 "sector net liquidity change",
             )?;
+            for (slot, value, label) in [
+                (
+                    &mut sector_observation.loan_claims,
+                    observation.loan_claims,
+                    "sector loan claims",
+                ),
+                (
+                    &mut sector_observation.debt,
+                    observation.debt,
+                    "sector debt",
+                ),
+                (
+                    &mut sector_observation.trade_receivables,
+                    observation.trade_receivables,
+                    "sector trade receivables",
+                ),
+                (
+                    &mut sector_observation.trade_payables,
+                    observation.trade_payables,
+                    "sector trade payables",
+                ),
+                (
+                    &mut sector_observation.inventory_carrying_value,
+                    observation.inventory_carrying_value,
+                    "sector inventory carrying value",
+                ),
+                (
+                    &mut sector_observation.productive_capital,
+                    observation.productive_capital,
+                    "sector productive capital",
+                ),
+                (
+                    &mut sector_observation.net_financial_position,
+                    observation.net_financial_position,
+                    "sector net financial position",
+                ),
+                (
+                    &mut sector_observation.net_worth,
+                    observation.net_worth,
+                    "sector net worth",
+                ),
+            ] {
+                add_checked(slot, value, label)?;
+            }
+
             add_checked(
                 &mut sector_observation.operating_liquidity_change,
                 observation.try_operating_liquidity_change()?,
@@ -341,6 +416,115 @@ impl SectorEconomicObservables {
         Ok(sectors)
     }
 
+    /// Validate the sector stock snapshot against the consolidated
+    /// balance-sheet projection for the same sector.
+    pub fn validate_against_balance_sheet(
+        &self,
+        balance_sheet: &SectorBalanceSheet,
+    ) -> Result<(), String> {
+        let expected = [
+            (
+                BalanceSheetInstrument::Loans,
+                self.loan_claims,
+                1,
+                "loan claims",
+            ),
+            (
+                BalanceSheetInstrument::Debt,
+                self.debt,
+                -1,
+                "debt",
+            ),
+            (
+                BalanceSheetInstrument::TradeReceivables,
+                self.trade_receivables,
+                1,
+                "trade receivables",
+            ),
+            (
+                BalanceSheetInstrument::TradePayables,
+                self.trade_payables,
+                -1,
+                "trade payables",
+            ),
+            (
+                BalanceSheetInstrument::InventoryCarryingValue,
+                self.inventory_carrying_value,
+                1,
+                "inventory carrying value",
+            ),
+            (
+                BalanceSheetInstrument::ProductiveCapital,
+                self.productive_capital,
+                1,
+                "productive capital",
+            ),
+        ];
+
+        for (instrument, observed, sign, label) in expected {
+            let actual = balance_sheet.sector_instrument_total_checked(self.sector, instrument)?;
+            let expected = if sign == 1 {
+                observed
+            } else {
+                observed
+                    .checked_neg()
+                    .ok_or_else(|| format!("sector {label} sign overflow"))?
+            };
+            if actual != expected {
+                return Err(format!(
+                    "sector {label} does not match balance-sheet snapshot for {:?}",
+                    self.sector
+                ));
+            }
+        }
+
+        let nfp = balance_sheet
+            .sector_instrument_total_checked(self.sector, BalanceSheetInstrument::Cash)?
+            .checked_add(balance_sheet.sector_instrument_total_checked(
+                self.sector,
+                BalanceSheetInstrument::Deposits,
+            )?)?
+            .checked_add(balance_sheet.sector_instrument_total_checked(
+                self.sector,
+                BalanceSheetInstrument::Loans,
+            )?)?
+            .checked_add(balance_sheet.sector_instrument_total_checked(
+                self.sector,
+                BalanceSheetInstrument::TradeReceivables,
+            )?)?
+            .checked_add(balance_sheet.sector_instrument_total_checked(
+                self.sector,
+                BalanceSheetInstrument::Debt,
+            )?)?
+            .checked_add(balance_sheet.sector_instrument_total_checked(
+                self.sector,
+                BalanceSheetInstrument::DepositLiabilities,
+            )?)?
+            .checked_add(balance_sheet.sector_instrument_total_checked(
+                self.sector,
+                BalanceSheetInstrument::TradePayables,
+            )?)?;
+        if nfp != self.net_financial_position {
+            return Err(format!(
+                "sector net financial position does not match balance sheet for {:?}",
+                self.sector
+            ));
+        }
+
+        let net_worth = balance_sheet
+            .sector_instrument_total_checked(self.sector, BalanceSheetInstrument::Equity)?
+            .checked_neg()
+            .ok_or_else(|| format!("sector net-worth sign overflow for {:?}", self.sector))?;
+        if net_worth != self.net_worth {
+            return Err(format!(
+                "sector net worth does not match balance sheet for {:?}",
+                self.sector
+            ));
+        }
+
+        Ok(())
+    }
+
     /// Verify the exact operating/investing/financing/other decomposition.
     pub fn liquidity_flow_reconciliation_holds(&self) -> bool {
         self.operating_liquidity_change
@@ -451,6 +635,39 @@ mod tests {
         assert_eq!(firm.operating_surplus_after_depreciation(), 30);
         assert!(firm.liquidity_flow_reconciliation_holds());
         assert!(firm.liquidity_stock_flow_reconciliation_holds());
+    }
+
+    #[test]
+    fn state_to_sector_projection_matches_balance_sheet_stocks() {
+        let mut firm = crate::economics::stock_flow::ActorBalanceSheet::new("firm-a");
+        firm.monetary.cash = 10;
+        firm.monetary.deposits = 20;
+        firm.monetary.claims = 30;
+        firm.monetary.liabilities = 5;
+        firm.monetary.trade_receivables = 8;
+        firm.monetary.trade_payables = 3;
+        firm.inventory_carrying_value = 40;
+        firm.real.productive_capital = 100;
+
+        let state = EconomicState::new(vec![firm]);
+        let assignments = vec![SectorAssignment {
+            actor: "firm-a".into(),
+            sector: EconomicSector::Firm,
+        }];
+        let actors =
+            ActorEconomicObservables::from_state_and_transitions(&state, &[]).unwrap();
+        let sectors = SectorEconomicObservables::from_actor_observations(&actors, &assignments)
+            .unwrap();
+        let sheet = SectorBalanceSheet::from_state(&state, &assignments).unwrap();
+        sectors[&EconomicSector::Firm]
+            .validate_against_balance_sheet(&sheet)
+            .unwrap();
+        assert_eq!(sectors[&EconomicSector::Firm].loan_claims, 30);
+        assert_eq!(sectors[&EconomicSector::Firm].debt, 5);
+        assert_eq!(sectors[&EconomicSector::Firm].trade_receivables, 8);
+        assert_eq!(sectors[&EconomicSector::Firm].trade_payables, 3);
+        assert_eq!(sectors[&EconomicSector::Firm].inventory_carrying_value, 40);
+        assert_eq!(sectors[&EconomicSector::Firm].productive_capital, 100);
     }
 
     #[test]
