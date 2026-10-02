@@ -14,6 +14,8 @@ use std::collections::BTreeMap;
 
 use super::actor_observables::ActorEconomicObservables;
 use super::observables::EconomicObservables;
+use super::sector_observables::SectorEconomicObservables;
+use super::sector_flow::EconomicSector;
 use super::period_ledger::EconomicPeriodLedger;
 use super::transition::{EconomicChainReceipt, EconomicStepError};
 
@@ -65,6 +67,7 @@ pub struct EconomicEvidenceCapsule {
     pub final_chain_hash: String,
     pub observations_hash: String,
     pub actor_observations_hash: Option<String>,
+    pub sector_observations_hash: Option<String>,
     pub evidence_hash: String,
 }
 
@@ -112,6 +115,66 @@ impl EconomicEvidenceCapsule {
             final_chain_hash: final_receipt.chain_hash.clone(),
             observations_hash,
             actor_observations_hash,
+            sector_observations_hash: None,
+            evidence_hash,
+        })
+    }
+
+    /// Seal aggregate and actor observations together with an optional
+    /// deterministic sector-observation map. Existing actor-only sealing keeps
+    /// its original evidence-hash binding; sector-aware sealing binds the
+    /// additional projection into the evidence hash.
+    pub fn seal_with_actor_and_sector_observations(
+        manifest: EconomicEvidenceManifest,
+        final_receipt: &EconomicChainReceipt,
+        observations: &EconomicObservables,
+        actor_observations: Option<&BTreeMap<String, ActorEconomicObservables>>,
+        sector_observations: Option<&BTreeMap<EconomicSector, SectorEconomicObservables>>,
+    ) -> Result<Self, EconomicStepError> {
+        let manifest_hash = manifest.hash()?;
+        if final_receipt.genesis_state_hash != manifest.initial_state_hash {
+            return Err(EconomicStepError::Serialization(
+                "final evidence chain does not descend from the manifest initial state".into(),
+            ));
+        }
+
+        let observations_hash = hash_observations(observations)?;
+        let actor_observations_hash = actor_observations
+            .map(hash_actor_observations)
+            .transpose()?;
+        let sector_observations_hash = sector_observations
+            .map(|values| {
+                if values.iter().any(|(sector, observation)| {
+                    *sector != observation.sector
+                        || !observation.liquidity_flow_reconciliation_holds()
+                        || !observation.liquidity_stock_flow_reconciliation_holds()
+                }) {
+                    return Err(EconomicStepError::Serialization(
+                        "sector observations fail structural liquidity reconciliation".into(),
+                    ));
+                }
+                hash_sector_observations(values)
+            })
+            .transpose()?;
+
+        let binding = (
+            &manifest_hash,
+            &final_receipt.chain_hash,
+            &observations_hash,
+            &actor_observations_hash,
+            &sector_observations_hash,
+        );
+        let bytes = serde_json::to_vec(&binding)
+            .map_err(|error| EconomicStepError::Serialization(error.to_string()))?;
+        let evidence_hash = blake3::hash(&bytes).to_hex().to_string();
+
+        Ok(Self {
+            manifest,
+            manifest_hash,
+            final_chain_hash: final_receipt.chain_hash.clone(),
+            observations_hash,
+            actor_observations_hash,
+            sector_observations_hash,
             evidence_hash,
         })
     }
@@ -119,6 +182,14 @@ impl EconomicEvidenceCapsule {
 
 fn hash_actor_observations(
     observations: &BTreeMap<String, ActorEconomicObservables>,
+) -> Result<String, EconomicStepError> {
+    let bytes = serde_json::to_vec(observations)
+        .map_err(|error| EconomicStepError::Serialization(error.to_string()))?;
+    Ok(blake3::hash(&bytes).to_hex().to_string())
+}
+
+fn hash_sector_observations(
+    observations: &BTreeMap<EconomicSector, SectorEconomicObservables>,
 ) -> Result<String, EconomicStepError> {
     let bytes = serde_json::to_vec(observations)
         .map_err(|error| EconomicStepError::Serialization(error.to_string()))?;
@@ -209,6 +280,47 @@ mod tests {
         ).unwrap();
 
         assert_ne!(a.actor_observations_hash, b.actor_observations_hash);
+        assert_ne!(a.evidence_hash, b.evidence_hash);
+    }
+
+    #[test]
+    fn evidence_capsule_binds_sector_observations_when_supplied() {
+        let (manifest, chain, observations) = fixture();
+        let actors = ActorEconomicObservables::from_state_and_transitions(
+            &fixture_state(),
+            &[],
+        ).unwrap();
+        let assignments = vec![
+            crate::economics::sector_balance::SectorAssignment {
+                actor: "bank".into(),
+                sector: EconomicSector::Bank,
+            },
+            crate::economics::sector_balance::SectorAssignment {
+                actor: "household".into(),
+                sector: EconomicSector::Household,
+            },
+        ];
+        let sectors = SectorEconomicObservables::from_actor_observations(&actors, &assignments)
+            .unwrap();
+        let mut changed = sectors.clone();
+        changed.get_mut(&EconomicSector::Household).unwrap().closing_liquidity += 1;
+
+        let a = EconomicEvidenceCapsule::seal_with_actor_and_sector_observations(
+            manifest.clone(),
+            &chain,
+            &observations,
+            Some(&actors),
+            Some(&sectors),
+        ).unwrap();
+        let b = EconomicEvidenceCapsule::seal_with_actor_and_sector_observations(
+            manifest,
+            &chain,
+            &observations,
+            Some(&actors),
+            Some(&changed),
+        ).unwrap();
+
+        assert_ne!(a.sector_observations_hash, b.sector_observations_hash);
         assert_ne!(a.evidence_hash, b.evidence_hash);
     }
 
