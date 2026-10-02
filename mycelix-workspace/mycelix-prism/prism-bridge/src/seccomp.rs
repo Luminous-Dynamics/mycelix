@@ -652,6 +652,44 @@ mod linux {
         }
 
         #[test]
+        fn v2_compiler_rejects_wrong_architecture() {
+            let current = SeccompArchitecture::current().unwrap();
+            let other = match current {
+                SeccompArchitecture::X86_64 => SeccompArchitecture::Aarch64,
+                _ => SeccompArchitecture::X86_64,
+            };
+            let rule = SeccompSyscallRuleV2::new(
+                libc::SYS_prctl,
+                vec![SeccompArgPredicateV1::new(0, u64::MAX, 0).unwrap()],
+            ).unwrap();
+            let policy = SeccompSyscallPolicyV2::new(other, vec![rule]).unwrap();
+            assert!(matches!(
+                compile_filter_v2(&policy),
+                Err(SeccompError::ArchitectureMismatch)
+            ));
+        }
+
+        #[test]
+        fn v2_compiler_stays_within_bpf_budget_at_policy_limit() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let mut rules = Vec::new();
+            for syscall in 0..64 {
+                rules.push(SeccompSyscallRuleV2::new(
+                    10_000 + syscall,
+                    vec![
+                        SeccompArgPredicateV1::new(0, u64::MAX, 0).unwrap(),
+                        SeccompArgPredicateV1::new(1, u64::MAX, 1).unwrap(),
+                        SeccompArgPredicateV1::new(2, u64::MAX, 2).unwrap(),
+                        SeccompArgPredicateV1::new(3, u64::MAX, 3).unwrap(),
+                    ],
+                ).unwrap());
+            }
+            let policy = SeccompSyscallPolicyV2::new(arch, rules).unwrap();
+            let filter = compile_filter_v2(&policy).unwrap();
+            assert!(filter.len() <= 4096);
+        }
+
+        #[test]
         fn v2_compiler_binds_argument_words_before_allow() {
             let arch = SeccompArchitecture::current().unwrap();
             let rule = SeccompSyscallRuleV2::new(
