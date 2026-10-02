@@ -240,9 +240,12 @@ mod linux {
             )
         };
         if rc != 0 {
-            return Err(SeccompError::InstallationFailed(
-                std::io::Error::last_os_error().raw_os_error().unwrap_or(libc::EPERM),
-            ));
+            // With TSYNC, a positive return value can identify the thread that
+            // could not synchronize. TSYNC_ESRCH requests ESRCH instead, so
+            // any non-zero result is still a hard installation failure; never
+            // interpret a positive kernel TID as successful enforcement.
+            let errno = std::io::Error::last_os_error().raw_os_error().unwrap_or(libc::ESRCH);
+            return Err(SeccompError::InstallationFailed(errno));
         }
 
         SandboxEnforcementReceipt::from_adapter(
