@@ -71,14 +71,23 @@ jobs:
         working-directory: mycelix-workspace/mycelix-hearth
         run: bash tools/verify-holochain-07.sh
 
+      - uses: cachix/install-nix-action@8aa03977d8d733052d78f4e008a241fd1dbf36b3 # v31.10.6
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Validate locked dependency metadata
         working-directory: mycelix-workspace/mycelix-hearth
         run: |
           nix develop .#ci --locked --command cargo metadata --locked --format-version 1 >/dev/null
 
-      - uses: cachix/install-nix-action@8aa03977d8d733052d78f4e008a241fd1dbf36b3 # v31.10.6
-        with:
-          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify authority-boundary contract
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: |
+          python3 tools/verify-authority-boundary-contract.py
+          {
+            echo "=== authority-boundary qualification inputs ==="
+            sha256sum tests/hearth-07-authority-boundary-cases.json tests/sweettest_authority_boundary.rs tools/verify-authority-boundary-contract.py
+          } | tee -a "$RUNNER_TEMP/hearth-07-qualification-evidence.txt"
 
       - name: Resolve toolchain versions
         working-directory: mycelix-workspace/mycelix-hearth
