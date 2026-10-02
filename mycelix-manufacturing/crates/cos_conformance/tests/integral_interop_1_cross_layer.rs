@@ -1256,6 +1256,86 @@ fn cross_layer_golden_vectors_pin_exact_commitments_and_gate() {
 }
  
 #[test]
+fn end_to_end_authoritative_d6p_to_d6s_d6x_witness() {
+    let baseline = fixture();
+    let (_d6p, d6p_receipt) = actual_d6p_fixture();
+    let (mut projection, mut environment, derivation_profile) =
+        projection(&baseline, false, false);
+
+    let receipt_commitment = d6p_receipt.receipt_commitment.clone();
+    projection.d6p_current_receipt_commitments =
+        [receipt_commitment.clone()].into_iter().collect();
+    environment.d6p_eligibility_context_root =
+        Some(commitment_set_digest(&projection.d6p_current_receipt_commitments));
+    projection.semantic_environment_commitment = environment.commitment();
+
+    let mut closure_profile = closure_profile(false);
+    closure_profile
+        .required_d6p_receipt_commitments
+        .insert(receipt_commitment.clone());
+
+    let d6x = compute_dependency_closure_from_authoritative_d6p_at_frontier(
+        &projection,
+        &environment,
+        &derivation_profile,
+        &closure_profile,
+        std::slice::from_ref(&d6p_receipt),
+        std::slice::from_ref(&_d6p),
+        Some("integral-frontier-1"),
+    )
+    .expect("strict D6X must consume the authoritative D6P receipt/composition");
+    assert_eq!(d6x.status, DependencyClosureStatusV1::Complete);
+    assert!(d6x.valid());
+    assert!(d6x.included_d6p_receipt_commitments.contains(&receipt_commitment));
+
+    let d6w_input = InputCommitmentV1::from_projection_with_authoritative_d6p(
+        &projection,
+        &environment,
+        &closure_profile,
+        &derivation_profile,
+        std::slice::from_ref(&d6p_receipt),
+        std::slice::from_ref(&_d6p),
+        Some("integral-frontier-1"),
+    )
+    .expect("strict D6W input must consume the same qualified D6P boundary");
+    assert!(d6w_input.valid());
+
+    let d6w_derivation =
+        DerivationCommitmentV1::new(&d6w_input, &derivation_profile, None)
+            .expect("D6W derivation must bind the qualified input");
+
+    let result_commitment = d6w_derivation.commitment.clone();
+    let d6s = build_canonical_receipt_with_authoritative_d6p(
+        &projection,
+        &environment,
+        &derivation_profile,
+        std::slice::from_ref(&d6p_receipt),
+        std::slice::from_ref(&_d6p),
+        DerivationResultStatusV1::Supported,
+        result_commitment,
+        false,
+        false,
+    )
+    .expect("strict D6S must consume the same committed D6P composition");
+    assert!(d6s.commitment_matches());
+    assert!(verify_canonical_receipt_with_authoritative_d6p(
+        &d6s,
+        &projection,
+        &environment,
+        &derivation_profile,
+        std::slice::from_ref(&d6p_receipt),
+        std::slice::from_ref(&_d6p),
+    ));
+
+    // The D6S receipt binds the D6W derivation as its result commitment,
+    // while D6X independently binds the semantic dependency closure. The
+    // branches share the same committed D6P input without conflating their
+    // different semantic purposes.
+    assert_eq!(d6s.result_commitment, d6w_derivation.commitment);
+    assert_eq!(d6s.d6p_current_receipt_commitments, projection.d6p_current_receipt_commitments);
+}
+
+#[test]
 fn strict_d6s_d6p_boundary_rejects_self_consistent_receipt_substitution() {
     let baseline = fixture();
     let (composition, receipt) = actual_d6p_fixture();
