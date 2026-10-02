@@ -53,7 +53,8 @@ jobs:
             "actions_checkout_sha=3d3c42e5aac5ba805825da76410c181273ba90b1" \
             "cachix_install_nix_action_sha=8aa03977d8d733052d78f4e008a241fd1dbf36b3" \
             "actions_upload_artifact_sha=043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" \
-            "workflow_sha=$(git hash-object .github/workflows/hearth-07-stacked-qualification.yml)" \
+            "workflow_ref=${{ github.workflow_ref }}" \
+            "workflow_sha=${{ github.workflow_sha }}" \
             "run_id=$GITHUB_RUN_ID" \
             "run_attempt=$GITHUB_RUN_ATTEMPT" \
             > "$evidence"
