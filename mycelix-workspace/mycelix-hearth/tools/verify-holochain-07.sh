@@ -18,7 +18,9 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 
 require_version_family() {
   local file="$1" name="$2" version="$3"
-  grep -Eq -- "^$name[[:space:]]*=[[:space:]]*(\"?=?$version\"?|\\{[^}]*version[[:space:]]*=[[:space:]]*\"=?$version\"\\})" "$file" ||
+  local pattern
+  pattern="^[[:space:]]*${name}[[:space:]]*=[[:space:]]*(\"=?${version}\"|\\{[^}]*version[[:space:]]*=[[:space:]]*\"=?${version}\"|workspace[[:space:]]*=)"
+  grep -Eq -- "$pattern" "$file" ||
     fail "$file does not declare $name in required $version family"
 }
 
