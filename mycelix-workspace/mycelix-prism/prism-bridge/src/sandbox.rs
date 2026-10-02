@@ -283,6 +283,12 @@ mod linux {
             return Err(SandboxEnforcementError::EnforcementFailed(errno));
         }
 
+        // Complete every fallible evidence-construction step before the
+        // irreversible sandbox transition. A successful restriction must
+        // never be followed by a receipt-construction failure.
+        let evidence_digest =
+            filesystem_evidence_digest(abi, handled, root_fd.as_raw_fd())?;
+
         restrict_self(ruleset_fd.as_raw_fd(), abi)?;
 
         // We only report actual enforcement after restrict_self() succeeds.
@@ -291,7 +297,7 @@ mod linux {
             installation_id,
             SandboxAdapterKind::LinuxLandlockFilesystemV1,
             profile.policy_digest(),
-            filesystem_evidence_digest(abi, handled, root_fd.as_raw_fd())?,
+            evidence_digest,
             SandboxEnforcementLayer::Filesystem,
         ).map_err(|_| SandboxEnforcementError::InvalidRuleset)
     }
