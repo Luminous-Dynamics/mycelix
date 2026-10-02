@@ -936,6 +936,21 @@ mod linux {
         }
 
         #[test]
+        fn v2_masked_not_equal_is_whole_word_not_half_word() {
+            let predicate = SeccompArgPredicateV1::new_with_op(
+                0,
+                u64::MAX,
+                0x1122_3344_5566_7788,
+                SeccompArgPredicateOpV1::MaskedNotEqual,
+            ).unwrap();
+
+            assert!(!predicate.matches(0x1122_3344_5566_7788));
+            assert!(predicate.matches(0x1122_3344_5566_7789));
+            assert!(predicate.matches(0x1122_3344_5566_0000));
+            assert!(predicate.matches(0x0000_0000_5566_7788));
+        }
+
+        #[test]
         fn v2_masked_not_equal_compiler_requires_both_halves_to_match_for_denial() {
             let arch = SeccompArchitecture::current().unwrap();
             let rule = SeccompSyscallRuleV2::new(
