@@ -796,6 +796,42 @@ mod tests {
     }
 
     #[test]
+    fn trade_credit_sale_alone_reconciles_accrual_equity_and_physical_stock() {
+        let (mut pre, assignments) = setup();
+        pre.actors.iter_mut()
+            .find(|a| a.actor == "firm")
+            .unwrap()
+            .real.inventories = 20;
+        pre.actors.iter_mut()
+            .find(|a| a.actor == "household")
+            .unwrap()
+            .monetary.deposits = 100;
+        pre.actors.iter_mut()
+            .find(|a| a.actor == "bank")
+            .unwrap()
+            .monetary.deposit_liabilities = 100;
+
+        let transitions = vec![EconomicTransition::TradeCreditSale(
+            super::super::stock_flow::TradeCreditSale::new(
+                "firm", "household", 5, 30
+            ).unwrap(),
+        )];
+        let (post, _) = apply_step(&pre, 1, &transitions, None).unwrap();
+        let receipt = reconcile_step(&pre, &post, &assignments, &transitions).unwrap();
+
+        assert_eq!(receipt.posting_count, 4);
+        assert_eq!(receipt.physical_posting_count, 2);
+        assert_eq!(
+            post.actors.iter().find(|a| a.actor == "firm").unwrap().monetary.trade_receivables,
+            30
+        );
+        assert_eq!(
+            post.actors.iter().find(|a| a.actor == "household").unwrap().monetary.trade_payables,
+            30
+        );
+    }
+
+    #[test]
     fn depreciation_reconciles_capital_and_equity() {
         let (mut pre, assignments) = setup();
         pre.actors.iter_mut().find(|a| a.actor == "firm").unwrap().real.productive_capital = 100;
