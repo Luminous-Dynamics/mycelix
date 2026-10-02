@@ -3,6 +3,7 @@
 // It reconstructs expectations from proposition/theorem vocabulary and scans
 // raw JSON before JSON.parse so duplicate-key normalization cannot hide input.
 import fs from "node:fs";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -114,7 +115,11 @@ if (s0.schema !== "mycelix.qual-001s.s0-dispatch-envelope-v1") throw new Error("
 if (s0.canonicalization_profile !== "RFC8785-JCS-IJSON-v1") throw new Error("wrong S0 canonicalization profile");
 if (typeof s0.epoch_id !== "string" || s0.epoch_id.length === 0) throw new Error("invalid S0 epoch");
 if (s0.candidate_code_executed !== false) throw new Error("S0 candidate execution must be false");
-if (typeof s0.envelope_sha256 !== "string" || s0.envelope_sha256.length !== 64) throw new Error("invalid S0 envelope commitment");
+if (typeof s0.envelope_sha256 !== "string" || !/^[0-9a-f]{64}$/.test(s0.envelope_sha256)) throw new Error("invalid S0 envelope commitment");
+const s0Preimage = {...s0};
+delete s0Preimage.envelope_sha256;
+const computedEnvelopeSha256 = createHash("sha256").update(canonicalAsciiJson(s0Preimage), "utf8").digest("hex");
+if (computedEnvelopeSha256 !== s0.envelope_sha256) throw new Error("S0 envelope commitment does not match canonical preimage");
 
 let fixtureRejected = false;
 try {
