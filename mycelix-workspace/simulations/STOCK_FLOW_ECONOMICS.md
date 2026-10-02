@@ -62,9 +62,17 @@ Accounting substrate
 This keeps the metabolic oracle from becoming an unexplained policy oracle. Future
 adjustments can instead be evaluated as interventions over an explicit state-transition model.
 
+## Current second increment
+
+`sector_flow.rs` now adds a sector transaction matrix with explicit sector, category, direction, and amount. It can verify that a period's sectoral monetary flows clear before behavioral equations are applied.
+
+The individual balance sheet model was also tightened: monetary **cash** and **loan claims** are now separate stocks. Credit creation creates a lender claim plus borrower cash and liability; repayment transfers cash to the lender while retiring the claim and liability. This avoids silently destroying money during debt settlement.
+
 ## Next research increments
 
 ### 1. Sector balance-sheet matrix
+
+The first executable matrix is now present. The next increment is to bind its sector entries to actor balance sheets and require reconciliation at every timestep.
 
 Add explicit sectors:
 
