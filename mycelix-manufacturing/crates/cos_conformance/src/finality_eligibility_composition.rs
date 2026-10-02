@@ -1586,6 +1586,21 @@ mod tests {
             "lifecycle-1",
             "frontier-1",
         ));
+
+        let mut forged_receipt = receipt.clone();
+        forged_receipt.dependency_snapshot_id = "snapshot-substituted".into();
+        assert!(!verify_witness_join_binding(
+            witness,
+            &{
+                assessment.assessment_commitment = witness.d6n_assessment_item_commitment.clone();
+                &assessment
+            },
+            &evidence,
+            Some(&forged_receipt),
+            &set,
+            "lifecycle-1",
+            "frontier-1",
+        ));
     }
 
     #[test]
