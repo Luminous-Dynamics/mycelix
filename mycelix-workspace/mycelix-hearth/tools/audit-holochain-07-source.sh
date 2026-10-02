@@ -153,6 +153,32 @@ else
   done
 fi
 
+# Validation must remain deterministic. Holochain explicitly disallows
+# state-changing / time-varying retrievals and other non-deterministic inputs
+# from validation callbacks. Keep this gate scoped to production source before
+# the test module so test-only helpers do not create false positives.
+check_validation_determinism() {
+  local file="$1"
+  local source
+  source="$(sed '/^#[[:space:]]*cfg(test)/,$d' "$file")"
+  if printf '%s\\n' "$source" | rg -n --pcre2 '\\b(get_links|get_details|get_agent_activity|sys_time|random_bytes|call)\\s*\\(' >/tmp/hearth07_validation_forbidden.$$ 2>/dev/null; then
+    echo "FAIL: $file contains non-deterministic validation host API usage"
+    cat /tmp/hearth07_validation_forbidden.$$
+    fail=1
+  fi
+  if printf '%s\\n' "$source" | rg -n --pcre2 '\\b(?:SystemTime|Instant|thread_rng|random::<|rand::|getrandom::)\\b' >/tmp/hearth07_validation_random.$$ 2>/dev/null; then
+    echo "FAIL: $file contains non-deterministic time/random source in validation production code"
+    cat /tmp/hearth07_validation_random.$$
+    fail=1
+  fi
+  rm -f /tmp/hearth07_validation_forbidden.$$ /tmp/hearth07_validation_random.$$
+  echo "OK:   $file validation determinism surface"
+}
+
+for file in "${integrity_files[@]}"; do
+  check_validation_determinism "$file"
+done
+
 echo
 if [[ "$fail" -ne 0 ]]; then
   echo "HEARTH-0.7 source audit: FAIL"
