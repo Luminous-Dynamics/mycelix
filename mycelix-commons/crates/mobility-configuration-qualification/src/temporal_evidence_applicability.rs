@@ -1031,46 +1031,49 @@ impl EvidenceDispositionReconciliationCoverage {
         let missing_transitions =
             self.collect_missing_transition_dependencies(reconciliation, transitions)?;
 
+        let authority_assessment = EvidenceDispositionAuthorityDelegation::validate_chain(
+            &authority_delegation.delegation_id,
+            delegations,
+        )?;
+
+        if !missing_transitions.is_empty() {
+            return match authority_assessment {
+                AuthorityDelegationChainAssessment::Complete { roots } => {
+                    Ok(EvidenceDispositionCoverageAssessment::Unresolved {
+                        missing: missing_transitions,
+                        authority_roots: roots,
+                    })
+                }
+                AuthorityDelegationChainAssessment::Unresolved { missing, roots } => {
+                    let mut combined = missing_transitions;
+                    combined.extend(missing);
+                    combined.sort_by(|a, b| (&a.namespace, &a.id).cmp(&(&b.namespace, &b.id)));
+                    combined.dedup();
+                    Ok(EvidenceDispositionCoverageAssessment::Unresolved {
+                        missing: combined,
+                        authority_roots: roots,
+                    })
+                }
+            };
+        }
+
         self.validate_against_graph(
             reconciliation,
             authority_scope,
             authority_delegation,
             boundary,
             transitions,
-        )
-        .or_else(|error| {
-            if missing_transitions.is_empty() {
-                Err(error)
-            } else {
-                Err(error)
-            }
-        })?;
-
-        let authority_assessment = EvidenceDispositionAuthorityDelegation::validate_chain(
-            &authority_delegation.delegation_id,
-            delegations,
         )?;
 
         match authority_assessment {
             AuthorityDelegationChainAssessment::Complete { roots } => {
-                if missing_transitions.is_empty() {
-                    Ok(EvidenceDispositionCoverageAssessment::Complete {
-                        authority_roots: roots,
-                    })
-                } else {
-                    Ok(EvidenceDispositionCoverageAssessment::Unresolved {
-                        missing: missing_transitions,
-                        authority_roots: roots,
-                    })
-                }
+                Ok(EvidenceDispositionCoverageAssessment::Complete {
+                    authority_roots: roots,
+                })
             }
             AuthorityDelegationChainAssessment::Unresolved { missing, roots } => {
-                let mut combined = missing_transitions;
-                combined.extend(missing);
-                combined.sort_by(|a, b| (&a.namespace, &a.id).cmp(&(&b.namespace, &b.id)));
-                combined.dedup();
                 Ok(EvidenceDispositionCoverageAssessment::Unresolved {
-                    missing: combined,
+                    missing,
                     authority_roots: roots,
                 })
             }
