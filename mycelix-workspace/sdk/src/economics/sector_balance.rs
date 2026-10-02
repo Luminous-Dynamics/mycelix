@@ -235,6 +235,21 @@ impl SectorBalanceSheet {
         Ok(Self { entries })
     }
 
+    /// Net monetary working capital for a sector:
+    /// inventory carrying value + trade receivables - trade payables.
+    pub fn sector_net_working_capital(&self, sector: EconomicSector) -> i128 {
+        self.sector_instrument_total(
+            sector,
+            BalanceSheetInstrument::InventoryCarryingValue,
+        ) + self.sector_instrument_total(
+            sector,
+            BalanceSheetInstrument::TradeReceivables,
+        ) + self.sector_instrument_total(
+            sector,
+            BalanceSheetInstrument::TradePayables,
+        )
+    }
+
     /// Return the sector total for one instrument.
     pub fn sector_instrument_total(
         &self,
@@ -388,6 +403,24 @@ mod tests {
         let state = EconomicState::new(vec![ActorBalanceSheet::new("household")]);
         let error = SectorBalanceSheet::from_state(&state, &[]).unwrap_err();
         assert!(error.contains("missing sector assignment"));
+    }
+
+    #[test]
+    fn sector_working_capital_consolidates_inventory_and_trade_credit() {
+        let mut firm = ActorBalanceSheet::new("firm");
+        firm.inventory_carrying_value = 50;
+        firm.monetary.trade_receivables = 30;
+        let mut household = ActorBalanceSheet::new("household");
+        household.monetary.trade_payables = 20;
+        let state = EconomicState::new(vec![firm, household]);
+
+        let assignments = vec![
+            SectorAssignment { actor: "firm".into(), sector: EconomicSector::Firm },
+            SectorAssignment { actor: "household".into(), sector: EconomicSector::Household },
+        ];
+        let sheet = SectorBalanceSheet::from_state(&state, &assignments).unwrap();
+        assert_eq!(sheet.sector_net_working_capital(EconomicSector::Firm), 80);
+        assert_eq!(sheet.sector_net_working_capital(EconomicSector::Household), -20);
     }
 
     #[test]
