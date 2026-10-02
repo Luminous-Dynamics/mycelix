@@ -477,17 +477,30 @@ impl FinalityEligibilityLedgerV1 {
         if !composition.semantically_valid() {
             return FinalityCompositionRecordDispositionV1::InsufficientEvidence;
         }
-        match self.compositions.get(&composition.composition_id) {
-            Some(existing) if existing == &composition => {
+        // The semantic composition id identifies the observation-set lineage,
+        // not a single point-in-time state. Store immutable versions by their
+        // content commitment so later frontiers remain representable without
+        // overwriting history.
+        if let Some(existing) = self
+            .compositions
+            .values()
+            .find(|existing| existing.composition_commitment == composition.composition_commitment)
+        {
+            return if existing == &composition {
                 FinalityCompositionRecordDispositionV1::BlockedDuplicate
-            }
-            Some(_) => FinalityCompositionRecordDispositionV1::Conflict,
-            None => {
-                self.compositions
-                    .insert(composition.composition_id.clone(), composition);
-                FinalityCompositionRecordDispositionV1::Recorded
-            }
+            } else {
+                FinalityCompositionRecordDispositionV1::Conflict
+            };
         }
+        if self.compositions.values().any(|existing| {
+            existing.composition_id == composition.composition_id
+                && existing.current_frontier_root == composition.current_frontier_root
+        }) {
+            return FinalityCompositionRecordDispositionV1::Conflict;
+        }
+        self.compositions
+            .insert(composition.composition_commitment.clone(), composition);
+        FinalityCompositionRecordDispositionV1::Recorded
     }
 
     pub fn record_receipt(
@@ -512,7 +525,15 @@ impl FinalityEligibilityLedgerV1 {
         if terminal {
             if let Some(existing_id) = self.terminal_receipt_by_effect.get(&receipt.effect_id) {
                 if existing_id != &receipt.receipt_id {
-                    return FinalityCompositionRecordDispositionV1::Conflict;
+                    let Some(existing) = self.receipts.get(existing_id) else {
+                        return FinalityCompositionRecordDispositionV1::Conflict;
+                    };
+                    // A terminal receipt is unique per effect *and frontier*.
+                    // A later frontier is a new qualified version, not a
+                    // conflict with the historical terminal receipt.
+                    if existing.current_frontier_root == receipt.current_frontier_root {
+                        return FinalityCompositionRecordDispositionV1::Conflict;
+                    }
                 }
             }
         }
@@ -2816,6 +2837,188 @@ mod tests {
     }
 
     #[test]
+    #[test]
+    fn ledger_preserves_terminal_receipts_across_frontier_versions() {
+        let g = generation("observer-A");
+        let e = observation("obs-1", &g, ExternalObservedStateV1::Applied);
+        let s = set(&["obs-1"]);
+        let a = d6n_assessment(
+            &s,
+            &[(
+                "obs-1".into(),
+                "observer-A".into(),
+                ObservationClassificationV1::CorroboratingIndependent,
+            )],
+        );
+        let (_, r) = ledger_and_receipt(&g, &e);
+        let first = compose_finality_eligibility(
+            &s,
+            &a,
+            std::slice::from_ref(&e),
+            std::slice::from_ref(&r),
+            "life-profile-1",
+            "frontier-1",
+            1,
+        );
+        let mut second = first.clone();
+        second.current_frontier_root = "frontier-2".into();
+        for witness in &mut second.witnesses {
+            witness.current_frontier_root = "frontier-2".into();
+        }
+        second.qualification_transition_id = Some("transition-2".into());
+        second.composition_commitment = second.recomputed_commitment();
+
+        let make_receipt = |composition: &FinalityEligibilityCompositionV1, id: &str| {
+            let mut receipt = CurrentFinalityEligibilityReceiptV1 {
+                receipt_id: id.into(),
+                effect_id: composition.effect_id.clone(),
+                effect_lineage_id: composition.effect_lineage_id.clone(),
+                lifecycle_generation_id: composition.lifecycle_generation_id.clone(),
+                route_id: composition.route_id.clone(),
+                provider_id: composition.provider_id.clone(),
+                provider_operation_id: composition.provider_operation_id.clone(),
+                provider_profile_root: composition.provider_profile_root.clone(),
+                semantic_environment_root: composition.semantic_environment_root.clone(),
+                observation_set_id: composition.observation_set_id.clone(),
+                observation_set_commitment: composition.observation_set_commitment.clone(),
+                d6n_assessment_commitment: composition.d6n_assessment_commitment.clone(),
+                composition_commitment: composition.composition_commitment.clone(),
+                witness_eligibility_ids: composition
+                    .witnesses
+                    .iter()
+                    .filter_map(|w| w.d6o_eligibility_id.clone())
+                    .collect(),
+                observer_generation_ids: composition
+                    .witnesses
+                    .iter()
+                    .filter_map(|w| w.observer_generation_id.clone())
+                    .collect(),
+                current_frontier_root: composition.current_frontier_root.clone(),
+                lifecycle_profile_id: composition.lifecycle_profile_id.clone(),
+                eligible_independent_count: composition.eligible_independent_count,
+                preserved_contradictory_count: composition.preserved_contradictory_count,
+                disposition: composition.disposition,
+                qualification_transition_id: composition
+                    .qualification_transition_id
+                    .clone()
+                    .unwrap_or_default(),
+                receipt_commitment: String::new(),
+                claim_ceiling: FINALITY_ELIGIBILITY_COMPOSITION_CLAIM_CEILING.into(),
+            };
+            receipt.receipt_commitment = receipt.recomputed_commitment();
+            receipt
+        };
+
+        let first_receipt = make_receipt(&first, "receipt-frontier-1");
+        let second_receipt = make_receipt(&second, "receipt-frontier-2");
+        let mut ledger = FinalityEligibilityLedgerV1::default();
+
+        assert_eq!(
+            ledger.record_composition(first.clone()),
+            FinalityCompositionRecordDispositionV1::Recorded
+        );
+        assert_eq!(
+            ledger.record_receipt(first_receipt.clone()),
+            FinalityCompositionRecordDispositionV1::Recorded
+        );
+        assert_eq!(
+            ledger.record_composition(second.clone()),
+            FinalityCompositionRecordDispositionV1::Recorded
+        );
+        assert_eq!(
+            ledger.record_receipt(second_receipt.clone()),
+            FinalityCompositionRecordDispositionV1::Recorded
+        );
+
+        assert_eq!(ledger.compositions.len(), 2);
+        assert_eq!(ledger.receipts.len(), 2);
+        assert_eq!(
+            ledger.terminal_receipt_by_effect.get(&first.effect_id),
+            Some(&second_receipt.receipt_id)
+        );
+    }
+
+    #[test]
+    fn ledger_rejects_two_terminal_receipts_for_same_effect_and_frontier() {
+        let g = generation("observer-A");
+        let e = observation("obs-1", &g, ExternalObservedStateV1::Applied);
+        let s = set(&["obs-1"]);
+        let a = d6n_assessment(
+            &s,
+            &[(
+                "obs-1".into(),
+                "observer-A".into(),
+                ObservationClassificationV1::CorroboratingIndependent,
+            )],
+        );
+        let (_, r) = ledger_and_receipt(&g, &e);
+        let composition = compose_finality_eligibility(
+            &s,
+            &a,
+            std::slice::from_ref(&e),
+            std::slice::from_ref(&r),
+            "life-profile-1",
+            "frontier-1",
+            1,
+        );
+        let mut make_receipt = |id: &str| {
+            let mut receipt = CurrentFinalityEligibilityReceiptV1 {
+                receipt_id: id.into(),
+                effect_id: composition.effect_id.clone(),
+                effect_lineage_id: composition.effect_lineage_id.clone(),
+                lifecycle_generation_id: composition.lifecycle_generation_id.clone(),
+                route_id: composition.route_id.clone(),
+                provider_id: composition.provider_id.clone(),
+                provider_operation_id: composition.provider_operation_id.clone(),
+                provider_profile_root: composition.provider_profile_root.clone(),
+                semantic_environment_root: composition.semantic_environment_root.clone(),
+                observation_set_id: composition.observation_set_id.clone(),
+                observation_set_commitment: composition.observation_set_commitment.clone(),
+                d6n_assessment_commitment: composition.d6n_assessment_commitment.clone(),
+                composition_commitment: composition.composition_commitment.clone(),
+                witness_eligibility_ids: composition
+                    .witnesses
+                    .iter()
+                    .filter_map(|w| w.d6o_eligibility_id.clone())
+                    .collect(),
+                observer_generation_ids: composition
+                    .witnesses
+                    .iter()
+                    .filter_map(|w| w.observer_generation_id.clone())
+                    .collect(),
+                current_frontier_root: composition.current_frontier_root.clone(),
+                lifecycle_profile_id: composition.lifecycle_profile_id.clone(),
+                eligible_independent_count: composition.eligible_independent_count,
+                preserved_contradictory_count: composition.preserved_contradictory_count,
+                disposition: composition.disposition,
+                qualification_transition_id: composition
+                    .qualification_transition_id
+                    .clone()
+                    .unwrap_or_default(),
+                receipt_commitment: String::new(),
+                claim_ceiling: FINALITY_ELIGIBILITY_COMPOSITION_CLAIM_CEILING.into(),
+            };
+            receipt.receipt_commitment = receipt.recomputed_commitment();
+            receipt
+        };
+        let first = make_receipt("receipt-1");
+        let second = make_receipt("receipt-2");
+
+        let mut ledger = FinalityEligibilityLedgerV1::default();
+        assert_eq!(
+            ledger.record_composition(composition),
+            FinalityCompositionRecordDispositionV1::Recorded
+        );
+        assert_eq!(
+            ledger.record_receipt(first),
+            FinalityCompositionRecordDispositionV1::Recorded
+        );
+        assert_eq!(
+            ledger.record_receipt(second),
+            FinalityCompositionRecordDispositionV1::Conflict
+        );
+    }
+
     fn out_of_order_d6n_d6o_delivery_converges() {
         let g = generation("observer-A");
         let e = observation("obs-1", &g, ExternalObservedStateV1::Applied);
