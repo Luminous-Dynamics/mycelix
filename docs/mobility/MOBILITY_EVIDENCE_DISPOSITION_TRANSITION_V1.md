@@ -120,6 +120,12 @@ The same composed path permits provenance accumulation without loss: delegation 
 
 Target-scoped delegation validation treats the named delegation record itself as an addressable dependency. When that target record is absent from the supplied dependency set, validation returns `Unresolved` rather than `Err`. This keeps a missing target semantically distinct from a present-but-malformed delegation and preserves the protocol-layer distinction between unavailable evidence and invalid evidence.
 
+### Composed bounded qualification assessment
+
+The canonical composed coverage entry point, `validate_against_graph_and_authority_chain_assessment`, exposes the same distinction across the entire bounded dependency path. It first validates structural identities and cross-layer bindings, then resolves the exact named transition ancestry. A missing branch point, branch head, or predecessor is returned as `Unresolved`; present-but-contradictory transitions remain invalid. This ordering is deliberate: dependency absence cannot mask a structural contradiction already present in the supplied records.
+
+When transition dependencies are complete, the same assessment validates the exact named delegation chain and propagates delegation dependency absence as `Unresolved`. Unrelated delegation records remain outside the named authority-chain dependency boundary.
+
 ### Authority validity is a separate dimension
 
 A complete delegation chain establishes structural provenance for the named authority relationship; it does not establish that the delegation is currently effective. This model deliberately does not infer current validity from local timestamps, record recency, or the mere existence of a delegation chain. Holochain's validation guidance notes that action timestamps come from an author's local clock and can be forged, and identifies signed validity/revocation evidence from a trusted authority as an appropriate pattern when a privilege may be revoked. Therefore any future validity, expiry, suspension, or revocation semantics should be represented by separate addressable witnesses with their own deterministic validation rules, rather than by interpreting this chain as a mutable "current authority" lookup.
