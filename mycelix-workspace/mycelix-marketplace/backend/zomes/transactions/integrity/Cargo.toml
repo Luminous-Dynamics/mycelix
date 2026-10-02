@@ -9,7 +9,7 @@ name = "transactions_integrity"
 
 [dependencies]
 hdi.workspace = true
-listings_integrity = { path = "../../listings/integrity" }
+listings_integrity = { path = "../../listings/integrity", default-features = false }
 serde.workspace = true
 thiserror.workspace = true
 holochain_serialized_bytes.workspace = true
