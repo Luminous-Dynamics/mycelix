@@ -76,9 +76,12 @@ impl SignedCapability {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VerificationEvidence {
-    pub signature_verified: bool,
-    pub not_revoked: bool,
-    pub authority_unambiguous: bool,
+    // Intentionally private: callers must obtain these propositions from an
+    // in-crate verifier boundary rather than constructing trusted evidence
+    // from arbitrary booleans.
+    signature_verified: bool,
+    not_revoked: bool,
+    authority_unambiguous: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -561,7 +564,6 @@ mod tests {
         );
     }
 
-    #[test]
     #[test]
     fn advisory_cannot_authorize() {
         let advisory = AdvisoryResult::new(
