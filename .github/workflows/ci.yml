@@ -104,12 +104,17 @@ jobs:
           # single CI run surfaces every cluster's violations at once,
           # exiting non-zero at the end if any were found.
           status=0
+          # The economics substrate and its evidence projections live under the SDK
+          # workspace; keep its formatting independently gated so a valid PR cannot
+          # carry unformatted accounting code merely because cluster format checks
+          # do not traverse mycelix-workspace/sdk.
           for dir in mycelix-commons mycelix-civic mycelix-hearth mycelix-finance mycelix-governance mycelix-identity mycelix-personal mycelix-attribution; do
             echo "=== Checking $dir ==="
             (cd "$dir" && cargo fmt --all --check) || status=1
           done
           (cd crates/mycelix-bridge-common && cargo fmt --all --check) || status=1
           (cd crates/mycelix-bridge-entry-types && cargo fmt --all --check) || status=1
+          (cd mycelix-workspace/sdk && cargo fmt --all --check) || status=1
           exit $status
 
   # Per-cluster test jobs
