@@ -106,3 +106,5 @@ Delegation provenance is also monotonic across predecessor edges: every basis wi
 The inclusion rule is asymmetric by design: an inherited basis set is a minimum carried-forward set, not an exact child schema. A child delegation may add new addressable witnesses while retaining every predecessor witness. This permits provenance accumulation without permitting silent provenance loss.
 
 A consumer that needs one named delegation chain can use target-scoped validation instead of treating unrelated delegation records as dependencies of that chain. The target-scoped check follows only the named delegation and its explicit predecessors; an unrelated missing predecessor therefore does not make the target chain unresolved. A missing predecessor on the named chain remains unresolved, while cycles remain invalid.
+
+The composed coverage validator reuses this target-scoped authority-chain check after validating the bounded reconciliation, scope, boundary, and transition graph. This gives a single bounded qualification entry point for consumers that need both coverage integrity and the exact delegation provenance used by that coverage.
