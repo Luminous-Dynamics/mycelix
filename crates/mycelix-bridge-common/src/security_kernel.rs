@@ -726,9 +726,7 @@ mod tests {
         assert_eq!(
             verify_capability(
                 cap.clone(),
-                VerificationEvidence::new_for_capability_with_valid_until(
-                    &cap, true, true, true, 175,
-                ),
+                VerificationEvidence::new_for_capability_with_valid_until(&cap, true, true, true, 175),
                 175,
             )
             .unwrap_err(),
@@ -823,9 +821,7 @@ mod tests {
         let cap = capability();
         let verified = verify_capability(
             cap.clone(),
-            VerificationEvidence::new_for_capability_with_valid_until(
-                &cap, true, true, true, 175,
-            ),
+            VerificationEvidence::new_for_capability_with_valid_until(&cap, true, true, true, 175),
             150,
         )
         .unwrap();
