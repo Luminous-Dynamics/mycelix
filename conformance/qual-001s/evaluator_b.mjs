@@ -98,10 +98,15 @@ function canonicalAsciiJson(value) {
 const ao = JSON.parse(fs.readFileSync(path.join(ROOT, "s0_authority_observation_v1.example.json"), "utf8"));
 if (ao.schema !== "mycelix.qual-001s.s0-authority-observation-v1") throw new Error("wrong S0 authority observation schema");
 for (const key of [
-  "repository_id","repository_full_name","s0_workflow_source_commit_sha","s1_workflow_source_commit_sha",
+  "repository_id","repository_full_name","observation_sha256","s0_workflow_source_commit_sha","s1_workflow_source_commit_sha",
   "dispatch_envelope_sha256","dispatch_ref","dispatch_input_commitment_sha256","dispatch_input_canonical_json","authenticated_principal_identity",
   "policy_scope_identity","observation_timestamp"
 ]) if (!(key in ao)) throw new Error("S0 authority observation missing " + key);
+if (!/^[0-9a-f]{64}$/.test(ao.observation_sha256)) throw new Error("invalid authority observation commitment");
+const aoPreimage = {...ao};
+delete aoPreimage.observation_sha256;
+const computedAuthoritySha256 = createHash("sha256").update(canonicalAsciiJson(aoPreimage), "utf8").digest("hex");
+if (computedAuthoritySha256 !== ao.observation_sha256) throw new Error("S0 authority observation commitment does not match canonical preimage");
 if (ao.event_type !== "workflow_dispatch") throw new Error("wrong S0 authority observation event type");
 if (!["OBSERVED", "UNAVAILABLE", "CONTRADICTED"].includes(ao.observation_state)) throw new Error("invalid S0 observation state");
 if (!["OBSERVED", "UNAVAILABLE", "CONTRADICTED"].includes(ao.request_authentication.state)) throw new Error("invalid request authentication state");
