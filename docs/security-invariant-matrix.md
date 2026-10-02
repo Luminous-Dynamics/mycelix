@@ -60,7 +60,7 @@ A permit's effective validity is bounded by all of:
 
 The five-minute constant is therefore an upper bound, not an implied freshness guarantee.
 
-At enforcement time, the evidence lease is checked again alongside revocation and authority ambiguity. A permit cannot outlive the evidence that justified it merely because the permit's own timestamp has not expired.
+At enforcement time, the evidence lease is checked again alongside revocation and authority ambiguity. A permit cannot outlive the evidence that justified it merely because the permit's own timestamp has not expired. The evidence lease is an exclusive upper bound: `now == valid_until` is already stale, matching the existing generation-bound authority freshness semantics.
 
 This is the bridge's local form of continual evaluation: the policy decision is not treated as permanently authoritative after issuance. NIST's Zero Trust Architecture similarly separates policy decision from enforcement and describes ongoing evaluation as supporting information changes over the course of a session.
 
