@@ -55,8 +55,8 @@ pub use stock_flow::{
 };
 
 pub use transition::{
-    apply_step, state_hash, transition_hash, EconomicStepError, EconomicStepReceipt,
-    EconomicTransition,
+    apply_step, state_hash, transition_hash, EconomicChainReceipt, EconomicStepError,
+    EconomicStepReceipt, EconomicTransition,
 };
 
 pub use recognition::{
