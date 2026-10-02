@@ -598,6 +598,63 @@
         "API acceptance implies workflow execution",
         "dispatch acceptance proves candidate code ran"
       ]
+    },
+    {
+      "vector_id": "QUALS-N-023",
+      "kind": "provenance",
+      "proposition_id": "AUTHORITY_ENVELOPE_JOIN",
+      "source_identity": "trusted.s0.authority-observation.v1",
+      "epoch_id": "epoch-001",
+      "requested_claims": [
+        "successor_conformance"
+      ],
+      "admitted_claims": [],
+      "theorem": "An authority observation is admissible only when its dispatch-envelope commitment matches the exact preserved S0 envelope for the same epoch and subject lineage.",
+      "upstream_evidence": [
+        "S0_ENVELOPE_COMMITMENT",
+        "AUTHORITY_OBSERVATION"
+      ],
+      "evidence_disposition": "CONTRADICTED",
+      "authority_outcome": "PROVENANCE_MISMATCH",
+      "expected_state": "CONTRADICTED",
+      "expected_claims": [],
+      "mutation": {
+        "operation": "replace_dispatch_envelope_hash",
+        "target": "dispatch_envelope_sha256",
+        "expected_effect": "authority observation is detached from the S0 envelope"
+      },
+      "nonclaims": [
+        "same epoch and nonce are sufficient without the envelope commitment",
+        "textual similarity substitutes for envelope identity"
+      ]
+    },
+    {
+      "vector_id": "QUALS-P-024",
+      "kind": "positive",
+      "proposition_id": "RUN_ATTEMPT_PAIR",
+      "source_identity": "github.run.provenance.v1",
+      "epoch_id": "epoch-001",
+      "requested_claims": [
+        "execution_observed"
+      ],
+      "admitted_claims": [
+        "execution_observed"
+      ],
+      "theorem": "A workflow run's numeric run identity and its attempt identity must be evaluated as a pair; a re-run changes the attempt while preserving the run identity.",
+      "upstream_evidence": [
+        "WORKFLOW_RUN_ID",
+        "WORKFLOW_RUN_ATTEMPT"
+      ],
+      "evidence_disposition": "VERIFIED",
+      "authority_outcome": "EXECUTION_OBSERVED",
+      "expected_state": "VERIFIED",
+      "expected_claims": [
+        "execution_observed"
+      ],
+      "nonclaims": [
+        "run number alone identifies a unique attempt",
+        "a re-run may reuse the prior attempt identity"
+      ]
     }
   ]
 }
