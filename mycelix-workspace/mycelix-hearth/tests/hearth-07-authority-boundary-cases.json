@@ -64,6 +64,13 @@
       "boundary": "function_dispatch",
       "expected": "ZomeCallResponse::Err",
       "semantic_execution": false
+    },
+    {
+      "case_id": "AUTH-10",
+      "test": "test_assigned_capability_binds_signer_and_revocation",
+      "boundary": "assigned_capability_binding_and_revocation",
+      "expected": "assigned signer + secret: ZomeCallResponse::Ok; same secret with unassigned signer: ZomeCallResponse::Unauthorized; after revocation: ZomeCallResponse::Unauthorized",
+      "semantic_execution": "authorized_only"
     }
   ]
 }
