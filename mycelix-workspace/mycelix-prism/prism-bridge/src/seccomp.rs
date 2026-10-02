@@ -132,7 +132,7 @@ mod linux {
     const BPF_K: u16 = 0x00;
     const BPF_RET: u16 = 0x06;
 
-    const SECCOMP_SET_MODE_FILTER: u32 = 1;
+    const SECCOMP_MODE_FILTER: libc::c_int = 2;
     const SECCOMP_RET_KILL_PROCESS: u32 = 0x8000_0000;
     const SECCOMP_RET_ERRNO: u32 = 0x0005_0000;
     const SECCOMP_RET_ALLOW: u32 = 0x7fff_0000;
@@ -148,16 +148,18 @@ mod linux {
         SockFilter { code: BPF_JMP | BPF_JEQ | BPF_K, jt, jf, k }
     }
 
-    pub fn compile_filter(policy: &SeccompSyscallPolicyV1) -> Result<Vec<SockFilter>, SeccompError> {
+    pub(crate) fn compile_filter(policy: &SeccompSyscallPolicyV1) -> Result<Vec<SockFilter>, SeccompError> {
         if SeccompArchitecture::current() != Some(policy.architecture) {
             return Err(SeccompError::ArchitectureMismatch);
         }
 
-        // arch check + one comparison per allowlisted syscall + terminal
-        // errno/allow instructions. The explicit bound prevents accidental
-        // unbounded BPF generation.
-        let instruction_count = 4usize.saturating_add(policy.allowed_syscalls.len());
-        if instruction_count > u16::MAX as usize {
+        // Architecture check plus two instructions per allowlisted syscall
+        // (match + ALLOW), followed by the bounded default-deny action.
+        // Keeping the match/ALLOW pair adjacent avoids jump-offset overflow
+        // while making the control flow mechanically auditable.
+        let instruction_count = 5usize
+            .saturating_add(policy.allowed_syscalls.len().saturating_mul(2));
+        if instruction_count > 4096 || instruction_count > u16::MAX as usize {
             return Err(SeccompError::FilterTooLarge);
         }
 
@@ -167,15 +169,14 @@ mod linux {
         filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS));
         filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, SECCOMP_DATA_NR_OFFSET));
 
-        for (index, syscall) in policy.allowed_syscalls.iter().enumerate() {
-            let remaining = policy.allowed_syscalls.len() - index - 1;
-            let jump = u8::try_from(remaining)
-                .map_err(|_| SeccompError::FilterTooLarge)?;
-            filter.push(jump_eq(*syscall as u32, jump, 0));
+        for syscall in &policy.allowed_syscalls {
+            // Match -> next instruction is ALLOW; mismatch skips that ALLOW
+            // and continues with the next syscall comparison.
+            filter.push(jump_eq(*syscall as u32, 0, 1));
+            filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_ALLOW));
         }
 
         filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_ERRNO | libc::EPERM as u32));
-        filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_ALLOW));
 
         Ok(filter)
     }
@@ -203,11 +204,12 @@ mod linux {
         };
 
         let rc = unsafe {
-            libc::syscall(
-                libc::SYS_seccomp,
-                SECCOMP_SET_MODE_FILTER,
-                0u32,
+            libc::prctl(
+                libc::PR_SET_SECCOMP,
+                SECCOMP_MODE_FILTER,
                 &program as *const SockFprog,
+                0,
+                0,
             )
         };
         if rc != 0 {
@@ -285,7 +287,7 @@ mod linux {
 }
 
 #[cfg(target_os = "linux")]
-pub use linux::{compile_filter, install};
+pub use linux::install;
 
 #[cfg(not(target_os = "linux"))]
 pub fn install(
@@ -296,7 +298,3 @@ pub fn install(
     Err(SeccompError::UnsupportedPlatform)
 }
 
-#[cfg(not(target_os = "linux"))]
-pub fn compile_filter(_policy: &SeccompSyscallPolicyV1) -> Result<Vec<()>, SeccompError> {
-    Err(SeccompError::UnsupportedPlatform)
-}
