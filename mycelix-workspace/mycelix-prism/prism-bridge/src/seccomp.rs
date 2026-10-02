@@ -146,6 +146,7 @@ pub enum SeccompError {
     InstallationFailed(i32),
     IdentityGenerationFailed,
     PolicyCommitmentMismatch,
+    InvalidAssignmentId,
     ForbiddenRendererSyscall(i64),
 }
 
@@ -160,6 +161,7 @@ impl core::fmt::Display for SeccompError {
             Self::InstallationFailed(errno) => write!(f, "seccomp installation failed: errno {errno}"),
             Self::IdentityGenerationFailed => f.write_str("seccomp installation identity generation failed"),
             Self::PolicyCommitmentMismatch => f.write_str("seccomp policy does not match the renderer profile commitment"),
+            Self::InvalidAssignmentId => f.write_str("renderer process assignment id must be non-zero"),
             Self::ForbiddenRendererSyscall(syscall) => write!(f, "renderer seccomp policy forbids syscall {syscall}"),
         }
     }
@@ -298,6 +300,10 @@ mod linux {
         // this adapter is about to install. Reject mismatches before any
         // irreversible state transition and before generating installation
         // identity material that may itself become unavailable after filtering.
+        if assignment_id.0 == 0 {
+            return Err(SeccompError::InvalidAssignmentId);
+        }
+
         if profile.syscall_policy_digest() == [0u8; 32]
             || policy.digest() != profile.syscall_policy_digest()
         {
@@ -493,6 +499,28 @@ mod linux {
         }
 
         #[test]
+        #[test]
+        fn zero_assignment_rejects_install_before_enforcement() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let policy = SeccompSyscallPolicyV1::new(
+                arch,
+                vec![libc::SYS_getpid],
+            )
+            .unwrap();
+            let profile = SandboxProfileV1::renderer_default()
+                .with_syscall_policy_digest(policy.digest())
+                .unwrap();
+
+            assert!(matches!(
+                install(
+                    RendererProcessAssignmentId(0),
+                    profile,
+                    &policy,
+                ),
+                Err(SeccompError::InvalidAssignmentId)
+            ));
+        }
+
         fn forbidden_renderer_policy_rejects_install_before_enforcement() {
             let arch = SeccompArchitecture::current().unwrap();
             let policy = SeccompSyscallPolicyV1::new(
