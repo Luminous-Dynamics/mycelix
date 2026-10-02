@@ -539,3 +539,44 @@ as a reference boundary, while entity-specific classification rules remain outsi
 simulation substrate.
 
 The working-capital layer is intentionally accounting-only: no behavioral credit-growth, collection-delay, default, or inventory-demand equation is implied by the new stocks and transitions.
+
+
+## Sector liquidity projection and evidence binding (implemented)
+
+The actor-level liquidity decomposition now has a deterministic sector projection:
+`SectorEconomicObservables::from_actor_observations` consolidates exactly-assigned actors into
+canonical sector aggregates without replaying transitions a second time.
+
+Each sector observation carries:
+
+- opening and closing liquidity;
+- net liquidity change;
+- operating, investing, financing, and other liquidity components;
+- net working-capital change;
+- credit received/originated and debt repaid;
+- trade-credit received/extended/settled/collected;
+- sales, goods purchases, COGS, and depreciation.
+
+Two independent stock-flow identities are checked for every resulting sector:
+
+`opening_liquidity + net_liquidity_change = closing_liquidity`
+
+and
+
+`operating + investing + financing + other = net_liquidity_change`.
+
+The sector layer is therefore a deterministic reporting projection over the actor observation
+layer, not a second source of economic truth. Sector assignments must cover every actor exactly
+once, and duplicate or unknown assignments are rejected.
+
+Sector-aware evidence sealing is also available through
+`EconomicEvidenceCapsule::seal_with_actor_and_sector_observations`. When supplied, the
+canonical sector observation map receives its own hash and is included in the evidence binding.
+Actor-only sealing retains its prior evidence-hash binding, so adding the new optional projection
+does not silently rewrite previously defined actor-only evidence semantics.
+
+This is deliberately a **model-defined liquidity-flow bridge**, not a claim of IAS 7 presentation
+compliance. IAS 7 classifies cash flows as operating, investing, and financing and defines cash
+and cash equivalents separately; the Mycelix research substrate currently reports cash plus
+deposits as a broader liquidity measure and keeps its classification policy explicit rather than
+pretending to reproduce financial-reporting rules. 
