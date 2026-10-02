@@ -215,6 +215,24 @@ pub fn postings_for_step(
                     StockPosting::new(buyer, BalanceSheetInstrument::Deposits, -sale.consideration),
                 ]
             }
+            EconomicTransition::TradeCreditSale(sale) => {
+                let seller = sector_for(assignments, &sale.seller)?;
+                let buyer = sector_for(assignments, &sale.buyer)?;
+                vec![
+                    StockPosting::new(seller, BalanceSheetInstrument::TradeReceivables, sale.consideration),
+                    StockPosting::new(buyer, BalanceSheetInstrument::TradePayables, -sale.consideration),
+                ]
+            }
+            EconomicTransition::TradeCreditSettlement(settlement) => {
+                let seller = sector_for(assignments, &settlement.seller)?;
+                let buyer = sector_for(assignments, &settlement.buyer)?;
+                vec![
+                    StockPosting::new(seller, BalanceSheetInstrument::TradeReceivables, -settlement.amount),
+                    StockPosting::new(buyer, BalanceSheetInstrument::TradePayables, settlement.amount),
+                    StockPosting::new(seller, BalanceSheetInstrument::Deposits, settlement.amount),
+                    StockPosting::new(buyer, BalanceSheetInstrument::Deposits, -settlement.amount),
+                ]
+            }
             EconomicTransition::InventoryCostAddition(addition) => {
                 let actor = sector_for(assignments, &addition.actor)?;
                 vec![
@@ -368,6 +386,21 @@ pub fn physical_postings_for_step(
                     sale.quantity,
                 ));
             }
+            EconomicTransition::TradeCreditSale(sale) => {
+                let seller = sector_for(assignments, &sale.seller)?;
+                let buyer = sector_for(assignments, &sale.buyer)?;
+                postings.push(PhysicalStockPosting::new(
+                    seller,
+                    PhysicalStockInstrument::Inventories,
+                    -sale.quantity,
+                ));
+                postings.push(PhysicalStockPosting::new(
+                    buyer,
+                    PhysicalStockInstrument::Inventories,
+                    sale.quantity,
+                ));
+            }
+            EconomicTransition::TradeCreditSettlement(_) => {}
             _ => {}
         }
 
@@ -386,6 +419,10 @@ fn apply_transition(state: &mut EconomicState, transition: &EconomicTransition) 
         EconomicTransition::InventoryTransfer(transfer) => state.apply_inventory_transfer(transfer),
         EconomicTransition::InventoryConsumption(consumption) => state.apply_inventory_consumption(consumption),
         EconomicTransition::GoodsSale(sale) => state.apply_goods_sale(sale),
+        EconomicTransition::TradeCreditSale(sale) => state.apply_trade_credit_sale(sale),
+        EconomicTransition::TradeCreditSettlement(settlement) => {
+            state.apply_trade_credit_settlement(settlement)
+        }
         EconomicTransition::InventoryCostAddition(addition) => state.apply_inventory_cost_addition(addition),
         EconomicTransition::InventoryCostRelief(relief) => state.apply_inventory_cost_relief(relief),
         EconomicTransition::CreditCreation(credit) => state.create_credit(credit),
@@ -698,6 +735,35 @@ mod tests {
         assert_eq!(firm.monetary.deposits, 70);
         assert_eq!(firm.inventory_carrying_value, 30);
         assert_eq!(household.monetary.deposits, 30);
+    }
+
+    #[test]
+    fn trade_credit_sale_and_settlement_reconcile_both_dimensions() {
+        let mut pre = EconomicState::new(vec![
+            super::super::stock_flow::ActorBalanceSheet::new("bank"),
+            super::super::stock_flow::ActorBalanceSheet::new("firm"),
+            super::super::stock_flow::ActorBalanceSheet::new("household"),
+        ]);
+        pre.actors.iter_mut().find(|a| a.actor == "firm").unwrap().real.inventories = 10;
+        pre.actors.iter_mut().find(|a| a.actor == "household").unwrap().monetary.deposits = 100;
+
+        let sale = super::super::stock_flow::TradeCreditSale::new("firm", "household", 4, 80).unwrap();
+        let settlement = super::super::stock_flow::TradeCreditSettlement::new("firm", "household", 30).unwrap();
+        let transitions = vec![
+            EconomicTransition::TradeCreditSale(sale.clone()),
+            EconomicTransition::TradeCreditSettlement(settlement.clone()),
+        ];
+
+        let mut post = pre.clone();
+        post.apply_trade_credit_sale(&sale).unwrap();
+        post.apply_trade_credit_settlement(&settlement).unwrap();
+
+        let assignments = vec![
+            SectorAssignment { actor: "bank".into(), sector: EconomicSector::Bank },
+            SectorAssignment { actor: "firm".into(), sector: EconomicSector::Firm },
+            SectorAssignment { actor: "household".into(), sector: EconomicSector::Household },
+        ];
+        reconcile_step(&pre, &post, &assignments, &transitions).unwrap();
     }
 
     #[test]
