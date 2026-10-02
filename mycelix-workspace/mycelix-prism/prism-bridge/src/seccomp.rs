@@ -121,27 +121,47 @@ impl SeccompSyscallPolicyV1 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum SeccompArgPredicateOpV1 {
+    MaskedEqual,
+    MaskedNotEqual,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SeccompArgPredicateV1 {
     arg_index: u8,
     mask: u64,
     value: u64,
+    op: SeccompArgPredicateOpV1,
 }
 
 impl SeccompArgPredicateV1 {
     pub fn new(arg_index: u8, mask: u64, value: u64) -> Result<Self, SeccompError> {
+        Self::new_with_op(arg_index, mask, value, SeccompArgPredicateOpV1::MaskedEqual)
+    }
+
+    pub fn new_with_op(
+        arg_index: u8,
+        mask: u64,
+        value: u64,
+        op: SeccompArgPredicateOpV1,
+    ) -> Result<Self, SeccompError> {
         const MAX_ARGS: u8 = 6;
         if arg_index >= MAX_ARGS || mask == 0 || value & !mask != 0 {
             return Err(SeccompError::InvalidPolicy);
         }
-        Ok(Self { arg_index, mask, value })
+        Ok(Self { arg_index, mask, value, op })
     }
 
     pub const fn arg_index(&self) -> u8 { self.arg_index }
     pub const fn mask(&self) -> u64 { self.mask }
     pub const fn value(&self) -> u64 { self.value }
+    pub const fn op(&self) -> SeccompArgPredicateOpV1 { self.op }
 
     pub const fn matches(&self, argument: u64) -> bool {
-        argument & self.mask == self.value
+        match self.op {
+            SeccompArgPredicateOpV1::MaskedEqual => argument & self.mask == self.value,
+            SeccompArgPredicateOpV1::MaskedNotEqual => argument & self.mask != self.value,
+        }
     }
 }
 
@@ -269,6 +289,10 @@ impl SeccompSyscallPolicyV2 {
                 hasher.update(&(predicate.arg_index as u32).to_le_bytes());
                 hasher.update(&predicate.mask.to_le_bytes());
                 hasher.update(&predicate.value.to_le_bytes());
+                hasher.update(&[match predicate.op {
+                    SeccompArgPredicateOpV1::MaskedEqual => 0,
+                    SeccompArgPredicateOpV1::MaskedNotEqual => 1,
+                }]);
             }
         }
         *hasher.finalize().as_bytes()
@@ -420,17 +444,21 @@ mod linux {
                 let high_mask = (predicate.mask >> 32) as u32;
                 let high_value = (predicate.value >> 32) as u32;
 
+                let reject_on_equal = predicate.op == SeccompArgPredicateOpV1::MaskedNotEqual;
+                let predicate_jump = |filter: &mut Vec<SockFilter>, value: u32| {
+                    let (jt, jf) = if reject_on_equal { (0, 1) } else { (1, 0) };
+                    filter.push(jump_eq(value, jt, jf));
+                    filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_ERRNO | libc::EPERM as u32));
+                };
                 if low_mask != 0 {
                     filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base));
                     filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, low_mask));
-                    filter.push(jump_eq(low_value, 1, 0));
-                    filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_ERRNO | libc::EPERM as u32));
+                    predicate_jump(&mut filter, low_value);
                 }
                 if high_mask != 0 {
                     filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base + 4));
                     filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, high_mask));
-                    filter.push(jump_eq(high_value, 1, 0));
-                    filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_ERRNO | libc::EPERM as u32));
+                    predicate_jump(&mut filter, high_value);
                 }
             }
 
@@ -696,6 +724,20 @@ mod linux {
     #[cfg(test)]
     mod tests {
         use super::*;
+
+        #[test]
+        fn v2_masked_not_equal_predicate_supports_forbidden_bit_combinations() {
+            let predicate = SeccompArgPredicateV1::new_with_op(
+                2,
+                (libc::PROT_WRITE | libc::PROT_EXEC) as u64,
+                (libc::PROT_WRITE | libc::PROT_EXEC) as u64,
+                SeccompArgPredicateOpV1::MaskedNotEqual,
+            ).unwrap();
+
+            assert!(!predicate.matches((libc::PROT_WRITE | libc::PROT_EXEC) as u64));
+            assert!(predicate.matches(libc::PROT_READ as u64));
+            assert!(predicate.matches(libc::PROT_EXEC as u64));
+        }
 
         #[test]
         fn v2_predicates_are_canonical_and_argument_bound() {
