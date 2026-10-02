@@ -1739,9 +1739,11 @@ pub fn validate_create_reservation_terminal(
     let certificate = certificate_record
         .entry()
         .to_app_option::<ReservationCertificate>()
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
-            "Invalid certificate entry: {e:?}"
-        ))))?
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Invalid certificate entry: {e:?}"
+            )))
+        })?
         .ok_or_else(|| {
             wasm_error!(WasmErrorInner::Guest(
                 "Reservation terminal certificate dependency has the wrong entry type".into(),
