@@ -87,6 +87,14 @@ try {
 }
 
 const corpus = JSON.parse(raw);
+
+function canonicalAsciiJson(value) {
+  if (Array.isArray(value)) return "[" + value.map(canonicalAsciiJson).join(",") + "]";
+  if (value !== null && typeof value === "object") {
+    return "{" + Object.keys(value).sort().map((key) => JSON.stringify(key) + ":" + canonicalAsciiJson(value[key])).join(",") + "}";
+  }
+  return JSON.stringify(value);
+}
 const ao = JSON.parse(fs.readFileSync(path.join(ROOT, "s0_authority_observation_v1.example.json"), "utf8"));
 if (ao.schema !== "mycelix.qual-001s.s0-authority-observation-v1") throw new Error("wrong S0 authority observation schema");
 for (const key of [
@@ -136,13 +144,6 @@ try {
 }
 if (!fixtureRejected) throw new Error("duplicate-key negative control was accepted");
 
-function canonicalAsciiJson(value) {
-  if (Array.isArray(value)) return "[" + value.map(canonicalAsciiJson).join(",") + "]";
-  if (value !== null && typeof value === "object") {
-    return "{" + Object.keys(value).sort().map((key) => JSON.stringify(key) + ":" + canonicalAsciiJson(value[key])).join(",") + "}";
-  }
-  return JSON.stringify(value);
-}
 const expect = new Map([
   ["EXECUTION_AUTHENTICATED", ["VERIFIED", "EXECUTION_OBSERVED"]],
   ["REQUIRED_DEPENDENCY", ["UNAVAILABLE", "EVIDENCE_MISSING"]],
