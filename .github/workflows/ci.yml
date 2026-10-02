@@ -120,6 +120,8 @@ jobs:
   # S0/S1/S2 provenance or become the protected QUAL-001S verdict.
   test-qual-001s:
     name: QUAL-001S Corpus (non-authoritative)
+    permissions:
+      contents: read
     needs: changes
     if: needs.changes.outputs.qual_001s == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
     runs-on: ubuntu-latest
