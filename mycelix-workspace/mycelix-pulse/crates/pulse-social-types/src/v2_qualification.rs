@@ -12,8 +12,7 @@ use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
 
 use crate::chat_projection::{
-    ChatProjectionError, DurableEvidenceIdV1, QualifiedV2MessageV1,
-    V2InboxCompletenessV1,
+    ChatProjectionError, DurableEvidenceIdV1, QualifiedV2MessageV1, V2InboxCompletenessV1,
 };
 
 pub const V2_QUALIFICATION_SCHEMA_VERSION_V1: u8 = 1;
@@ -24,10 +23,7 @@ pub enum V2CandidateEnumerationV1 {
     /// action; it is not a count of individual delete actions. Deleted links
     /// are counted separately so the adapter cannot silently erase the
     /// distinction between "currently live" and "observed then deleted".
-    HostObservedComplete {
-        live_links: u32,
-        deleted_links: u32,
-    },
+    HostObservedComplete { live_links: u32, deleted_links: u32 },
     Incomplete {
         skipped_links: u32,
         unreadable_links: u32,
@@ -121,11 +117,14 @@ pub struct V2InboxQualificationV1 {
 impl V2InboxQualificationV1 {
     pub fn validate(&self) -> Result<(), ChatProjectionError> {
         if self.schema_version != V2_QUALIFICATION_SCHEMA_VERSION_V1 {
-            return Err(ChatProjectionError::UnsupportedSchemaVersion(self.schema_version));
+            return Err(ChatProjectionError::UnsupportedSchemaVersion(
+                self.schema_version,
+            ));
         }
         self.enumeration.validate()?;
 
-        if let V2CandidateEnumerationV1::HostObservedComplete { live_links, .. } = self.enumeration {
+        if let V2CandidateEnumerationV1::HostObservedComplete { live_links, .. } = self.enumeration
+        {
             if live_links as usize != self.candidates.len() {
                 return Err(ChatProjectionError::QualificationCountMismatch);
             }
@@ -224,7 +223,7 @@ impl V2InboxQualificationV1 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::chat_projection::{AgentKeyV1, AGENT_KEY_RAW_BYTES};
+    use crate::chat_projection::{AGENT_KEY_RAW_BYTES, AgentKeyV1};
 
     fn message(byte: u8) -> QualifiedV2MessageV1 {
         QualifiedV2MessageV1 {
@@ -272,7 +271,11 @@ mod tests {
 
     #[test]
     fn valid_candidate_is_structurally_valid_but_projection_stays_closed() {
-        let q = qualification(vec![valid_candidate(1)], vec![message(1)], vec![evidence(1)]);
+        let q = qualification(
+            vec![valid_candidate(1)],
+            vec![message(1)],
+            vec![evidence(1)],
+        );
         assert!(q.validate().is_ok());
         assert_eq!(q.candidate_count(), 1);
         assert_eq!(q.valid_candidate_count(), 1);
@@ -294,7 +297,10 @@ mod tests {
             qualified: vec![message(1)],
             evidence: vec![evidence(1)],
         };
-        assert_eq!(q.validate(), Err(ChatProjectionError::QualificationCountMismatch));
+        assert_eq!(
+            q.validate(),
+            Err(ChatProjectionError::QualificationCountMismatch)
+        );
     }
 
     #[test]
@@ -331,7 +337,10 @@ mod tests {
             qualified: vec![],
             evidence: vec![],
         };
-        assert_eq!(q.validate(), Err(ChatProjectionError::IncompleteCandidateEnumeration));
+        assert_eq!(
+            q.validate(),
+            Err(ChatProjectionError::IncompleteCandidateEnumeration)
+        );
     }
 
     #[test]
@@ -360,13 +369,23 @@ mod tests {
             vec![message(1)],
             vec![evidence(1)],
         );
-        assert_eq!(q.validate(), Err(ChatProjectionError::EvidenceIdentityMismatch));
+        assert_eq!(
+            q.validate(),
+            Err(ChatProjectionError::EvidenceIdentityMismatch)
+        );
     }
 
     #[test]
     fn evidence_identity_must_match_message_and_candidate() {
-        let q = qualification(vec![valid_candidate(1)], vec![message(1)], vec![evidence(2)]);
-        assert_eq!(q.validate(), Err(ChatProjectionError::EvidenceIdentityMismatch));
+        let q = qualification(
+            vec![valid_candidate(1)],
+            vec![message(1)],
+            vec![evidence(2)],
+        );
+        assert_eq!(
+            q.validate(),
+            Err(ChatProjectionError::EvidenceIdentityMismatch)
+        );
     }
 
     #[test]
@@ -402,7 +421,10 @@ mod tests {
             vec![message(1)],
             vec![evidence(1)],
         );
-        assert_eq!(q.validate(), Err(ChatProjectionError::MissingQualifiedCandidate));
+        assert_eq!(
+            q.validate(),
+            Err(ChatProjectionError::MissingQualifiedCandidate)
+        );
     }
 
     #[test]
@@ -422,7 +444,10 @@ mod tests {
             vec![message(1)],
             vec![evidence(1)],
         );
-        assert_eq!(q.validate(), Err(ChatProjectionError::DuplicateEvidenceIdentity));
+        assert_eq!(
+            q.validate(),
+            Err(ChatProjectionError::DuplicateEvidenceIdentity)
+        );
     }
 
     #[test]
@@ -432,7 +457,10 @@ mod tests {
             vec![message(1), message(1)],
             vec![evidence(1), evidence(2)],
         );
-        assert_eq!(q.validate(), Err(ChatProjectionError::DuplicateMessageIdentity));
+        assert_eq!(
+            q.validate(),
+            Err(ChatProjectionError::DuplicateMessageIdentity)
+        );
     }
 
     #[test]
