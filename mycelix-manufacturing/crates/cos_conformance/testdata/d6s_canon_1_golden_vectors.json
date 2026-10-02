@@ -59,15 +59,15 @@
       "sha256": "d7ecfa8c8f2d27bf3d4e315c8207ae70363afb6defdfad3d36f66a1887f244db"
     },
     {
-      "id": "integer-boundaries",
+      "id": "integer-sign-and-width",
       "domain": "projection",
       "value": {
-        "min": -9223372036854776000,
-        "max": 9223372036854776000,
-        "u": 18446744073709552000
+        "min": -2147483648,
+        "max": 2147483647,
+        "u": 4294967295
       },
-      "canonical_json": "{\"max\":9223372036854775807,\"min\":-9223372036854775808,\"u\":18446744073709551615}",
-      "sha256": "d3204ce58a14ba090b5d1e5784809095b271f88b8d4c69fbffa8401bce6aba7d"
+      "canonical_json": "{\"max\":2147483647,\"min\":-2147483648,\"u\":4294967295}",
+      "sha256": "43f5d8ed350f4cef7744dfb450971e554763bd4be261f34cb863adceeee92e14"
     }
   ]
 }
