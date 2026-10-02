@@ -306,6 +306,11 @@
       "id": "EDT-059",
       "case": "authority_provenance_chain_allows_monotonic_basis_accumulation",
       "expected": "accepted"
+    },
+    {
+      "id": "EDT-060",
+      "case": "reconciliation_coverage_accepts_reordered_boundary_sets",
+      "expected": "accepted"
     }
   ]
 }
