@@ -37,7 +37,9 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d
-      - run: cargo test -p prism-bridge --locked
+        with:
+          toolchain: 1.96.0
+      - run: cargo +1.96.0 test -p prism-bridge --locked
 
       - name: Emit qualification identity
         if: ${{ always() }}
