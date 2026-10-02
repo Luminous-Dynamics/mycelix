@@ -401,6 +401,29 @@ impl InventoryCostRelief {
     }
 }
 
+/// Explicit straight-line/current-period depreciation of productive capital.
+///
+/// Depreciation reduces the monetary carrying amount of productive capital and
+/// therefore reduces the actor's derived equity. No physical wear or residual
+/// material flow is inferred here; that belongs to the ecological layer.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Depreciation {
+    pub actor: ActorId,
+    pub amount: i128,
+}
+
+impl Depreciation {
+    pub fn new(actor: impl Into<ActorId>, amount: i128) -> Result<Self, String> {
+        if amount <= 0 {
+            return Err("depreciation amount must be positive".into());
+        }
+        Ok(Self {
+            actor: actor.into(),
+            amount,
+        })
+    }
+}
+
 /// Explicit endogenous credit creation.
 ///
 /// Credit creation increases the lender's financial asset and the borrower's
@@ -731,6 +754,19 @@ impl EconomicState {
         Ok(())
     }
 
+    /// Recognize an explicit depreciation charge against productive capital.
+    pub fn apply_depreciation(&mut self, depreciation: &Depreciation) -> Result<(), String> {
+        let actor = self.actor_mut(&depreciation.actor)?;
+        if actor.real.productive_capital < depreciation.amount {
+            return Err(format!(
+                "productive capital for {} is {}, need {}",
+                actor.actor, actor.real.productive_capital, depreciation.amount
+            ));
+        }
+        actor.real.productive_capital -= depreciation.amount;
+        Ok(())
+    }
+
     /// Create endogenous bank credit with the SFC loan/deposit double entry.
     ///
     /// The lender records a loan claim and a matching deposit liability. The
@@ -932,6 +968,19 @@ mod tests {
         let mut s = state();
         s.actors.iter_mut().find(|a| a.actor == "firm").unwrap().real.resources = 10;
         assert_eq!(s.actors[2].net_worth(), 0);
+    }
+
+    #[test]
+    fn depreciation_reduces_productive_capital_explicitly() {
+        let mut s = state();
+        s.actors.iter_mut().find(|a| a.actor == "firm").unwrap().real.productive_capital = 100;
+
+        s.apply_depreciation(&Depreciation::new("firm", 25).unwrap()).unwrap();
+
+        assert_eq!(
+            s.actors.iter().find(|a| a.actor == "firm").unwrap().real.productive_capital,
+            75
+        );
     }
 
     #[test]
