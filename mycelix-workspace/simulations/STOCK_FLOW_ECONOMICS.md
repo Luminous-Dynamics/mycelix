@@ -356,3 +356,26 @@ and the monetary circuit remains separate:
 `credit -> deposits -> wages/consumption/investment/etc. -> deposits/debt`
 
 The next accounting refinement should connect those circuits through an explicit inventory valuation/cost layer and a sale transaction identity, rather than multiplying physical quantities by an implicit unit price.
+
+
+## Explicit goods-sale bridge
+
+The substrate now has a `GoodsSale` transition that couples two already-explicit domains without collapsing them:
+
+- physical side: seller inventory decreases and buyer inventory increases by `quantity`;
+- monetary side: buyer deposits decrease and seller deposits increase by `consideration`;
+- accounting side: the derived sector equity residual receives the exact balancing postings.
+
+The transition intentionally does **not** infer a unit price, inventory carrying cost, COGS, or profit from the two quantities. A sale of 5 units for 30 monetary units is therefore representable without pretending that the 30 is the inventory's carrying value.
+
+This creates a useful accounting bridge:
+
+`production -> inventory -> goods sale -> deposits`
+
+while preserving a clean boundary for the next layer:
+
+`inventory carrying value -> COGS -> revenue recognition -> operating surplus`
+
+The sector transaction matrix classifies the monetary consideration as `Other` rather than assuming that every sale is household consumption. Final consumption, intermediate demand, and investment goods are economically distinct uses and should become explicit classifications rather than being inferred from the existence of a sale.
+
+This separation follows the broader SFC architecture in which stocks and flows must remain jointly accounted for, while ecological SFC work additionally separates monetary and physical stock-flow structures. The latter literature also emphasizes explicit physical flow matrices and stock-flow matrices when integrating matter/energy constraints. citeturn0search3turn0search0turn0search26
