@@ -126,6 +126,11 @@
       "id": "EDT-023",
       "case": "missing_predecessor_identity",
       "expected": "unresolved_at_protocol_layer"
+    },
+    {
+      "id": "EDT-024",
+      "case": "predecessor_cycle",
+      "expected": "rejected"
     }
   ]
 }
