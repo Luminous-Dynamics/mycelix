@@ -18,10 +18,13 @@ fn child() -> ! {
         vec![libc::SYS_getpid, libc::SYS_write, libc::SYS_exit_group],
     )
     .unwrap_or_else(|_| unsafe { libc::_exit(91) });
+    let profile = SandboxProfileV1::renderer_default()
+        .with_syscall_policy_digest(policy.digest())
+        .unwrap_or_else(|_| unsafe { libc::_exit(92) });
 
     if install(
         RendererProcessAssignmentId::new(1).unwrap(),
-        SandboxProfileV1::renderer_default(),
+        profile,
         &policy,
     )
     .is_err()
@@ -87,6 +90,9 @@ fn thread_sync_child() -> ! {
         vec![libc::SYS_getpid, libc::SYS_write, libc::SYS_exit_group],
     )
     .unwrap_or_else(|_| unsafe { libc::_exit(101) });
+    let profile = SandboxProfileV1::renderer_default()
+        .with_syscall_policy_digest(policy.digest())
+        .unwrap_or_else(|_| unsafe { libc::_exit(102) });
 
     // Spawn the sibling before installing the filter. After installation both
     // threads must be constrained by the same filter tree.
@@ -116,7 +122,7 @@ fn thread_sync_child() -> ! {
 
     if install(
         RendererProcessAssignmentId::new(2).unwrap(),
-        SandboxProfileV1::renderer_default(),
+        profile,
         &policy,
     )
     .is_err()
