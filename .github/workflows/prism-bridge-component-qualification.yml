@@ -91,7 +91,7 @@ jobs:
           root="${RUNNER_TEMP}/prism-bridge-qualification"
           evidence="${RUNNER_TEMP}/prism-bridge-qualification-evidence.txt"
           expected_head="${{ github.event.pull_request.head.sha || github.sha }}"
-          checked_out_head="\$(git rev-parse HEAD)"
+          checked_out_head="$(git rev-parse HEAD)"
           job_status="${{ job.status }}"
           qualified="false"
           if [[ "${job_status}" == "success" && "${checked_out_head}" == "${expected_head}" ]]; then
