@@ -11,6 +11,7 @@
 //! Anti-reflexivity: SAP value never depends on MYCEL, MYCEL never computed
 //! from SAP balance, TEND never convertible to SAP at fixed rate.
 
+pub mod accounting_closure;
 pub mod commons;
 pub mod actor_observables;
 pub mod decay_garden;
@@ -30,6 +31,7 @@ pub mod stock_flow;
 pub mod transition;
 pub mod trace;
 
+pub use accounting_closure::EconomicAccountingClosure;
 pub use commons::{CommonsContribution, CommonsPool, CommonsResult};
 pub use decay_garden::{
     calculate_demurrage, CompostAllocation, CompostDistribution, CompostEvent, DemurrageConfig,
