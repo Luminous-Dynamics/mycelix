@@ -60,5 +60,49 @@
       "preimage_payload_utf8": "{\"receipt_id\":\"receipt-golden-1\",\"effect_id\":\"effect-golden-1\",\"effect_lineage_id\":\"lineage-golden-1\",\"lifecycle_generation_id\":\"generation-golden-1\",\"route_id\":\"route-golden-1\",\"provider_id\":\"provider-golden-1\",\"provider_operation_id\":\"operation-golden-1\",\"provider_profile_root\":\"provider-profile-golden-1\",\"semantic_environment_root\":\"environment-golden-1\",\"observation_set_id\":\"set-golden-1\",\"observation_set_commitment\":\"set-golden-commitment-1\",\"d6n_assessment_commitment\":\"assessment:set-golden-commitment-1\",\"composition_commitment\":\"1c206fd22e612996815a1299ec88cb969b4d1f24d39be7a56e68c1be5ba0a18c\",\"witness_eligibility_ids\":[\"eligibility-golden-1\"],\"observer_generation_ids\":[\"generation-golden-1\"],\"current_frontier_root\":\"frontier-golden-1\",\"lifecycle_profile_id\":\"life-profile-golden-1\",\"eligible_independent_count\":1,\"preserved_contradictory_count\":0,\"disposition\":\"EligibleCurrent\",\"qualification_transition_id\":\"transition-golden-1\",\"receipt_commitment\":\"\",\"claim_ceiling\":\"D6N/D6O finality-eligibility composition reference semantics only; no semantic authority or actuation claim.\"}",
       "sha256": "1d45c59961c53470bea34f62ba217772b00dbdacedcfd9c49d7d2d361f51a0b7"
     }
+  ],
+  "rejection_vectors": [
+    {
+      "id": "d6m-stale-observation-binding",
+      "layer": "D6M",
+      "mutated_field": "observed_state",
+      "stored_commitment": "d6m-observation",
+      "earliest_rejection": "D6M"
+    },
+    {
+      "id": "d6n-stale-assessment-binding",
+      "layer": "D6N",
+      "mutated_field": "classification",
+      "stored_commitment": "d6n-assessment-item",
+      "earliest_rejection": "D6N"
+    },
+    {
+      "id": "d6o-stale-eligibility-binding",
+      "layer": "D6O",
+      "mutated_field": "disposition",
+      "stored_commitment": "d6o-eligibility-receipt",
+      "earliest_rejection": "D6O"
+    },
+    {
+      "id": "d6p-stale-witness-binding",
+      "layer": "D6P",
+      "mutated_field": "d6n_classification",
+      "stored_commitment": "d6p-witness",
+      "earliest_rejection": "D6P:witness"
+    },
+    {
+      "id": "d6p-stale-composition-binding",
+      "layer": "D6P",
+      "mutated_field": "disposition",
+      "stored_commitment": "d6p-composition",
+      "earliest_rejection": "D6P:composition"
+    },
+    {
+      "id": "d6p-stale-receipt-binding",
+      "layer": "D6P",
+      "mutated_field": "eligible_independent_count",
+      "stored_commitment": "d6p-receipt",
+      "earliest_rejection": "D6P:receipt"
+    }
   ]
 }
