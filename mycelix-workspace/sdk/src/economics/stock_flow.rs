@@ -55,11 +55,17 @@ impl MonetaryStock {
 /// A real productive/resource stock.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct RealStock {
-    /// Productive capital stock.
+    /// Productive capital carrying amount in monetary units.
+    ///
+    /// The physical wear/depreciation process remains separately modeled.
     pub productive_capital: i128,
-    /// Finished-goods inventory held for later sale or use.
+    /// Finished-goods inventory quantity in physical model units.
+    ///
+    /// Monetary carrying value is stored separately on ActorBalanceSheet.
     pub inventories: i128,
-    /// Material/resource stock available to the actor or commons.
+    /// Material/resource quantity in physical model units.
+    ///
+    /// This quantity is intentionally not added to monetary net worth.
     pub resources: i128,
 }
 
@@ -88,6 +94,10 @@ impl ActorBalanceSheet {
         }
     }
 
+    /// Monetary net worth using only monetary-valued assets and liabilities.
+    ///
+    /// Physical quantities such as resource units and inventory units remain
+    /// in a separate dimensional accounting domain.
     pub fn net_worth(&self) -> i128 {
         self.monetary.net_position()
             + self.real.productive_capital
