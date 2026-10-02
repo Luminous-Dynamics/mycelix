@@ -17,9 +17,8 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use super::reconciliation::{
-    reconcile_step, StockFlowReconciliation,
-};
+use super::actor_observables::ActorEconomicObservables;
+use super::reconciliation::{reconcile_step, StockFlowReconciliation};
 use super::sector_balance::{SectorAssignment, SectorBalanceSheet};
 use super::sector_financial_flow::SectorFinancialFlowMatrix;
 use super::sector_flow::{EconomicSector, SectorTransactionMatrix};
@@ -33,6 +32,8 @@ pub struct EconomicAccountingClosure {
     pub pre_state_hash: String,
     pub post_state_hash: String,
     pub transition_hash: String,
+    pub transition_count: u64,
+    pub actor_observations_hash: String,
     pub stock_flow_posting_hash: String,
     pub stock_flow_posting_count: u64,
     pub physical_posting_hash: String,
@@ -86,6 +87,10 @@ impl EconomicAccountingClosure {
         sector_financial_flow
             .validate_against_balance_sheet_delta(&pre_balance, &post_balance)?;
 
+        let actor_observations =
+            ActorEconomicObservables::from_state_and_transitions(pre_state, transitions)?;
+        validate_actor_terminal_state(post_state, &actor_observations)?;
+
         let sector_observations = SectorEconomicObservables::from_state_and_transitions(
             pre_state,
             transitions,
@@ -95,6 +100,7 @@ impl EconomicAccountingClosure {
         let stock_flow: StockFlowReconciliation =
             reconcile_step(pre_state, post_state, assignments, transitions)?;
 
+        let actor_observations_hash = hash_json(&actor_observations)?;
         let sector_transaction_hash = hash_json(&sector_transaction)?;
         let sector_financial_flow_hash = hash_json(&sector_financial_flow)?;
         let sector_observations_hash = hash_json(&sector_observations)?;
@@ -103,6 +109,8 @@ impl EconomicAccountingClosure {
             &pre_state_hash,
             &post_state_hash,
             &transition_hash,
+            transitions.len() as u64,
+            &actor_observations_hash,
             &stock_flow.posting_hash,
             stock_flow.posting_count,
             &stock_flow.physical_posting_hash,
@@ -117,6 +125,8 @@ impl EconomicAccountingClosure {
             pre_state_hash,
             post_state_hash,
             transition_hash,
+            transition_count: transitions.len() as u64,
+            actor_observations_hash,
             stock_flow_posting_hash: stock_flow.posting_hash,
             stock_flow_posting_count: stock_flow.posting_count,
             physical_posting_hash: stock_flow.physical_posting_hash,
@@ -127,6 +137,47 @@ impl EconomicAccountingClosure {
             closure_hash,
         })
     }
+}
+
+fn validate_actor_terminal_state(
+    post_state: &EconomicState,
+    observations: &BTreeMap<ActorId, ActorEconomicObservables>,
+) -> Result<(), String> {
+    if observations.len() != post_state.actors.len() {
+        return Err("actor observations do not cover post-state actors exactly once".into());
+    }
+
+    for actor in &post_state.actors {
+        let observation = observations
+            .get(&actor.actor)
+            .ok_or_else(|| format!("missing terminal actor observation for {}", actor.actor))?;
+
+        if observation.cash != actor.monetary.cash
+            || observation.deposits != actor.monetary.deposits
+            || observation.liquidity
+                != actor
+                    .monetary
+                    .cash
+                    .checked_add(actor.monetary.deposits)
+                    .ok_or_else(|| format!("terminal liquidity overflow for {}", actor.actor))?
+            || observation.loan_claims != actor.monetary.claims
+            || observation.debt != actor.monetary.liabilities
+            || observation.trade_receivables != actor.monetary.trade_receivables
+            || observation.trade_payables != actor.monetary.trade_payables
+            || observation.inventory_quantity != actor.real.inventories
+            || observation.inventory_carrying_value != actor.inventory_carrying_value
+            || observation.productive_capital != actor.real.productive_capital
+            || observation.net_financial_position != actor.monetary.try_net_position()?
+            || observation.net_worth != actor.try_net_worth()?
+        {
+            return Err(format!(
+                "actor terminal observation does not match post-state for {}",
+                actor.actor
+            ));
+        }
+    }
+
+    Ok(())
 }
 
 fn hash_json<T: Serialize>(value: &T) -> Result<String, String> {
@@ -220,6 +271,29 @@ mod tests {
         assert!(!a.sector_transaction_hash.is_empty());
         assert!(!a.sector_financial_flow_hash.is_empty());
         assert!(!a.sector_observations_hash.is_empty());
+    }
+
+    #[test]
+    fn closure_rejects_same_sector_actor_tampering() {
+        let (pre, assignments, transitions, mut post) = fixture();
+        post.actors
+            .iter_mut()
+            .find(|actor| actor.actor == "household")
+            .unwrap()
+            .monetary.deposits = 99;
+        post.actors
+            .iter_mut()
+            .find(|actor| actor.actor == "firm")
+            .unwrap()
+            .monetary.deposits = 1;
+
+        assert!(EconomicAccountingClosure::validate_and_seal(
+            &pre,
+            &post,
+            &assignments,
+            &transitions,
+        )
+        .is_err());
     }
 
     #[test]
