@@ -431,6 +431,7 @@ mod tests {
                 buyer: agent(1),
                 seller: agent(2),
                 listing_hash: ActionHash::from_raw_36(vec![3; 36]),
+                reservation_certificate_hash: ActionHash::from_raw_36(vec![4; 36]),
                 quantity: 1,
                 total_price_cents: 1_000,
                 status,
