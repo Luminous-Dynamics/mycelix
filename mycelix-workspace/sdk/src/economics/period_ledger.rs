@@ -36,8 +36,13 @@ pub struct EconomicPeriodLedger {
     pub inventory_transferred: i128,
     /// Finished-goods units explicitly drawn down by final use or loss.
     pub inventory_consumed: i128,
-    /// Monetary consideration recognized from explicit goods sales.
+    /// Monetary consideration recognized from explicit goods sales,
+    /// including deferred trade-credit sales.
     pub sales_consideration: i128,
+    /// Gross consideration newly placed on trade credit.
+    pub trade_credit_extended: i128,
+    /// Gross trade-credit consideration settled through deposits.
+    pub trade_credit_settled: i128,
     /// Physical units sold through explicit goods sales.
     pub sales_quantity: i128,
     /// Inventory carrying amount capitalized during the period.
@@ -120,6 +125,26 @@ impl EconomicPeriodLedger {
                         .sales_consideration
                         .checked_add(sale.consideration)
                         .ok_or_else(|| EconomicStepError::Serialization("period sales consideration overflow".into()))?;
+                }
+                EconomicTransition::TradeCreditSale(sale) => {
+                    ledger.sales_quantity = ledger
+                        .sales_quantity
+                        .checked_add(sale.quantity)
+                        .ok_or_else(|| EconomicStepError::Serialization("period trade-credit sales quantity overflow".into()))?;
+                    ledger.sales_consideration = ledger
+                        .sales_consideration
+                        .checked_add(sale.consideration)
+                        .ok_or_else(|| EconomicStepError::Serialization("period trade-credit sales consideration overflow".into()))?;
+                    ledger.trade_credit_extended = ledger
+                        .trade_credit_extended
+                        .checked_add(sale.consideration)
+                        .ok_or_else(|| EconomicStepError::Serialization("period trade credit extension overflow".into()))?;
+                }
+                EconomicTransition::TradeCreditSettlement(settlement) => {
+                    ledger.trade_credit_settled = ledger
+                        .trade_credit_settled
+                        .checked_add(settlement.amount)
+                        .ok_or_else(|| EconomicStepError::Serialization("period trade credit settlement overflow".into()))?;
                 }
                 EconomicTransition::InventoryCostAddition(addition) => {
                     ledger.inventory_cost_added = ledger
@@ -228,6 +253,24 @@ mod tests {
         assert_eq!(ledger.monetary_transfer_total, 0);
         assert_eq!(ledger.credit_created, 0);
         assert_eq!(ledger.debt_repaid, 0);
+    }
+
+    #[test]
+    fn trade_credit_is_separated_from_deposit_settled_sales() {
+        let transitions = vec![
+            EconomicTransition::TradeCreditSale(
+                super::super::stock_flow::TradeCreditSale::new("firm", "household", 4, 80).unwrap(),
+            ),
+            EconomicTransition::TradeCreditSettlement(
+                super::super::stock_flow::TradeCreditSettlement::new("firm", "household", 30).unwrap(),
+            ),
+        ];
+        let ledger = EconomicPeriodLedger::from_transitions(&transitions).unwrap();
+        assert_eq!(ledger.sales_quantity, 4);
+        assert_eq!(ledger.sales_consideration, 80);
+        assert_eq!(ledger.trade_credit_extended, 80);
+        assert_eq!(ledger.trade_credit_settled, 30);
+        assert_eq!(ledger.monetary_transfer_total, 0);
     }
 
     #[test]
