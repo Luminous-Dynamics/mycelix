@@ -1354,6 +1354,29 @@ mod tests {
     }
 
     #[test]
+    fn exact_attempt_replay_is_side_effect_free() {
+        let mut state = nodes();
+        let candidate = envelope();
+
+        let first = deliver(&mut state, &candidate, 50, true);
+        assert_eq!(first.decision, FederationDecision::AcceptedLocal);
+        let before_identity = delivery_identity_snapshot(&state);
+        let before_attempts = delivery_attempts_snapshot(&state);
+        let before_observations = state.observations.clone();
+
+        let replay = deliver(&mut state, &candidate, 50, true);
+        assert_eq!(replay.decision, FederationDecision::Duplicate);
+        assert_eq!(replay.authority, AuthorityDisposition::LocalAuthority);
+        assert_eq!(delivery_identity_snapshot(&state), before_identity);
+        assert_eq!(delivery_attempts_snapshot(&state), before_attempts);
+        assert_eq!(state.observations, before_observations);
+        assert_eq!(
+            state.delivery("delivery-1").unwrap().attempts().len(),
+            1
+        );
+    }
+
+    #[test]
     fn duplicate_delivery_is_idempotent_but_payload_mutation_conflicts() {
         let mut state = nodes();
         let first = deliver(&mut state, &envelope(), 50, true);
