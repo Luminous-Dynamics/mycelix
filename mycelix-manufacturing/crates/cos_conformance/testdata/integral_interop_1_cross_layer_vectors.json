@@ -76,8 +76,8 @@
         "oad_semantic_commitment": false,
         "d6x_identity": true,
         "d6x_certificate": true,
-        "d6w_input": true,
-        "d6w_derivation": true,
+        "d6w_input": false,
+        "d6w_derivation": false,
         "d6x_status": "BlockedMissingDependency"
       }
     },
