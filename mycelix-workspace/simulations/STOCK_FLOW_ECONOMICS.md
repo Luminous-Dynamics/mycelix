@@ -244,3 +244,47 @@ For a deposit-settled income transfer from payer to recipient:
 The sector balance-sheet representation exposes equity as a signed liability-side residual, so the stock delta is fully explainable without allowing net worth to appear from an unposted behavioral flow.
 
 This is the foundation needed for wages, interest, taxes, transfers, and consumption to become genuine SFC transactions rather than ad hoc balance updates. The next refinement should distinguish the economic category of each income transfer while preserving one accounting posting mechanism.
+
+## Semantic flow categories and period ledger (implemented)
+
+The income/equity boundary has been tightened so **equity is a derived balance-sheet residual**, not a second mutable asset/liability store. For an actor:
+
+`net worth = financial assets - financial liabilities + real assets`
+
+The sector matrix exposes equity as the signed balancing row `-net worth`. This follows the standard SFC convention in which net worth is the balancing item of the balance-sheet matrix, while real assets are not someone else's financial liability. The model therefore does not double-count equity by adding a mutable equity stock on top of net financial position. citeturn0search25turn0search24
+
+`IncomeTransfer` now carries an explicit semantic category:
+
+- `Wage`
+- `Interest`
+- `Tax`
+- `Transfer`
+- `Consumption`
+
+The accounting engine remains singular: every category uses the same deposit/equity double-entry posting mechanism. The category is part of the serialized transition, so changing a wage into an interest payment changes the transition evidence hash even when payer, recipient, and amount are identical.
+
+`EconomicPeriodLedger` is a deterministic projection of the ordered transition log. It records:
+
+- category totals;
+- ordinary monetary-transfer volume;
+- newly-created credit;
+- debt repayment;
+- transition count;
+- the exact transition-list hash;
+- a derived ledger hash.
+
+This is deliberately **derived state rather than mutable state**. The transition log remains authoritative, preventing semantic summaries from becoming a second accounting system.
+
+The sector balance sheet also now validates the stronger per-sector identity:
+
+`signed financial rows + signed equity residual + real assets = 0`
+
+while keeping cash outside the clearing requirement until an explicit issuer/public-money sector is modeled. This preserves the distinction between internal financial claims and real wealth. The SFC literature explicitly links the balance-sheet matrix to the transactions-flow matrix and uses net worth as the balancing item. citeturn0search25turn0search0
+
+### Why this matters for the next layer
+
+This gives the substrate a clean path from accounting to behavior:
+
+`transition log -> period ledger -> sector flow matrix -> balance-sheet delta -> observables`
+
+Only after those identities are executable should production, investment, inventories, interest accrual, capital gains, and Minsky-style financing regimes be added. Ecological SFC work similarly integrates monetary and physical stocks/flows only after the accounting structure is explicit. citeturn0search1
