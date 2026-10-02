@@ -5,8 +5,9 @@ on:
     paths:
       - "mycelix-workspace/mycelix-prism/prism-bridge/**"
       - "mycelix-workspace/mycelix-prism/prism-common/**"
-      - "mycelix-workspace/mycelix-prism/Cargo.toml"
-      - "mycelix-workspace/mycelix-prism/Cargo.lock"
+      - "mycelix-workspace/Cargo.toml"
+      - "mycelix-workspace/Cargo.lock"
+      - "mycelix-workspace/mycelix-prism/**"
       - ".github/workflows/prism-bridge-qualification.yml"
   push:
     branches:
@@ -27,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: mycelix-workspace/mycelix-prism
+        working-directory: mycelix-workspace
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
