@@ -111,27 +111,6 @@ impl SeccompSyscallPolicyV1 {
     /// mutation primitives.
     #[cfg(target_os = "linux")]
     pub fn validate_renderer_policy(&self) -> Result<(), SeccompError> {
-        const FORBIDDEN_RENDERER_SYSCALLS: &[i64] = &[
-            libc::SYS_ptrace,
-            libc::SYS_process_vm_readv,
-            libc::SYS_process_vm_writev,
-            libc::SYS_process_madvise,
-            libc::SYS_pidfd_getfd,
-            libc::SYS_kcmp,
-            libc::SYS_clone,
-            libc::SYS_clone3,
-            libc::SYS_fork,
-            libc::SYS_vfork,
-            libc::SYS_execve,
-            libc::SYS_execveat,
-            libc::SYS_unshare,
-            libc::SYS_setns,
-            libc::SYS_mount,
-            libc::SYS_umount2,
-            libc::SYS_pivot_root,
-            libc::SYS_chroot,
-        ];
-
         for syscall in FORBIDDEN_RENDERER_SYSCALLS {
             if self.allows(*syscall) {
                 return Err(SeccompError::ForbiddenRendererSyscall(*syscall));
@@ -211,6 +190,28 @@ impl SeccompSyscallRuleV2 {
 
 /// Parameter-aware seccomp policy. V1 remains the syscall-number-only format;
 /// V2 adds explicit argument predicates without silently widening V1.
+#[cfg(target_os = "linux")]
+const FORBIDDEN_RENDERER_SYSCALLS: &[i64] = &[
+    libc::SYS_ptrace,
+    libc::SYS_process_vm_readv,
+    libc::SYS_process_vm_writev,
+    libc::SYS_process_madvise,
+    libc::SYS_pidfd_getfd,
+    libc::SYS_kcmp,
+    libc::SYS_clone,
+    libc::SYS_clone3,
+    libc::SYS_fork,
+    libc::SYS_vfork,
+    libc::SYS_execve,
+    libc::SYS_execveat,
+    libc::SYS_unshare,
+    libc::SYS_setns,
+    libc::SYS_mount,
+    libc::SYS_umount2,
+    libc::SYS_pivot_root,
+    libc::SYS_chroot,
+];
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SeccompSyscallPolicyV2 {
     architecture: SeccompArchitecture,
@@ -528,26 +529,6 @@ mod linux {
     }
 
     fn validate_v2_renderer_policy(policy: &SeccompSyscallPolicyV2) -> Result<(), SeccompError> {
-        const FORBIDDEN_RENDERER_SYSCALLS: &[i64] = &[
-            libc::SYS_ptrace,
-            libc::SYS_process_vm_readv,
-            libc::SYS_process_vm_writev,
-            libc::SYS_process_madvise,
-            libc::SYS_pidfd_getfd,
-            libc::SYS_kcmp,
-            libc::SYS_clone,
-            libc::SYS_clone3,
-            libc::SYS_fork,
-            libc::SYS_vfork,
-            libc::SYS_execve,
-            libc::SYS_execveat,
-            libc::SYS_unshare,
-            libc::SYS_setns,
-            libc::SYS_mount,
-            libc::SYS_umount2,
-            libc::SYS_pivot_root,
-            libc::SYS_chroot,
-        ];
         if let Some(rule) = policy.rules.iter().find(|rule| {
             FORBIDDEN_RENDERER_SYSCALLS.contains(&rule.syscall)
         }) {
