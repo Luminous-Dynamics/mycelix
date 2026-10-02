@@ -615,12 +615,14 @@ define_federation_mutations!(
 pub struct FederationScenarioStep {
     pub mutation: FederationMutation,
     pub expected: FederationDecision,
+    pub expected_authority: AuthorityDisposition,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FederationScenarioResult {
     pub mutation: FederationMutation,
     pub actual: FederationDecision,
+    pub actual_authority: AuthorityDisposition,
     pub passed: bool,
     pub delivery_identity_unchanged: bool,
     pub delivery_attempts_unchanged: bool,
@@ -655,6 +657,32 @@ fn expected_scenario_decision(mutation: FederationMutation) -> FederationDecisio
     }
 }
 
+fn expected_scenario_authority(mutation: FederationMutation) -> AuthorityDisposition {
+    match mutation {
+        FederationMutation::LocalEvidence | FederationMutation::NewLogicalDelivery => {
+            AuthorityDisposition::LocalAuthority
+        }
+        FederationMutation::ForeignEvidence => AuthorityDisposition::ForeignEvidence,
+        FederationMutation::DuplicateDelivery | FederationMutation::Reconnect => {
+            AuthorityDisposition::LocalAuthority
+        }
+        FederationMutation::DelayedDelivery
+        | FederationMutation::ReorderedDelivery
+        | FederationMutation::Partition
+        | FederationMutation::StaleSchema
+        | FederationMutation::ConflictingObservation
+        | FederationMutation::ExpiredAuthorization
+        | FederationMutation::ContractOriginMutation
+        | FederationMutation::ContractTargetMutation
+        | FederationMutation::ContractSubjectMutation
+        | FederationMutation::ContractPayloadMutation
+        | FederationMutation::ContractSchemaGenerationMutation
+        | FederationMutation::ContractAuthorizationGenerationMutation
+        | FederationMutation::ContractPredecessorMutation
+        | FederationMutation::ContractExpiryMutation => AuthorityDisposition::NoAuthority,
+    }
+}
+
 fn scenario_steps() -> Vec<FederationScenarioStep> {
     ALL_FEDERATION_MUTATIONS
         .iter()
@@ -662,6 +690,7 @@ fn scenario_steps() -> Vec<FederationScenarioStep> {
         .map(|mutation| FederationScenarioStep {
             mutation,
             expected: expected_scenario_decision(mutation),
+            expected_authority: expected_scenario_authority(mutation),
         })
         .collect()
 }
@@ -776,7 +805,9 @@ pub fn run_scenario(
             }
         }
 
-        let actual = deliver(&mut state, &candidate, now, transport_available).decision;
+        let outcome = deliver(&mut state, &candidate, now, transport_available);
+        let actual = outcome.decision;
+        let actual_authority = outcome.authority;
         let delivery_identity_unchanged =
             delivery_identity_snapshot(&state) == before_delivery_identity;
         let delivery_attempts_unchanged =
@@ -787,7 +818,8 @@ pub fn run_scenario(
         results.push(FederationScenarioResult {
             mutation: step.mutation,
             actual,
-            passed: actual == step.expected,
+            actual_authority,
+            passed: actual == step.expected && actual_authority == step.expected_authority,
             delivery_identity_unchanged,
             delivery_attempts_unchanged,
             observation_ledger_unchanged,
@@ -1511,10 +1543,12 @@ mod tests {
             FederationScenarioStep {
                 mutation: FederationMutation::NewLogicalDelivery,
                 expected: FederationDecision::AcceptedForeign,
+                expected_authority: AuthorityDisposition::ForeignEvidence,
             },
             FederationScenarioStep {
                 mutation: FederationMutation::DuplicateDelivery,
                 expected: FederationDecision::Duplicate,
+                expected_authority: AuthorityDisposition::ForeignEvidence,
             },
         ];
 
@@ -1554,6 +1588,30 @@ mod tests {
         assert!(results.iter().all(|result| result.passed));
 
         for result in &results {
+            if matches!(
+                result.mutation,
+                FederationMutation::ForeignEvidence
+                    | FederationMutation::DuplicateDelivery
+                    | FederationMutation::NewLogicalDelivery
+                    | FederationMutation::LocalEvidence
+                    | FederationMutation::Reconnect
+            ) {
+                // Acceptance/replay variants are the only scenario cases that may carry authority.
+                assert_ne!(
+                    result.actual_authority,
+                    AuthorityDisposition::NoAuthority,
+                    "accepted/replay mutation unexpectedly lost authority: {:?}",
+                    result.mutation
+                );
+            } else {
+                assert_eq!(
+                    result.actual_authority,
+                    AuthorityDisposition::NoAuthority,
+                    "non-authorizing mutation carried authority: {:?}",
+                    result.mutation
+                );
+            }
+
             match result.mutation {
                 FederationMutation::LocalEvidence
                 | FederationMutation::ForeignEvidence
