@@ -10,8 +10,10 @@
 //! not represented as "enforced" by this adapter until a policy-specific,
 //! architecture-qualified filter is installed.
 
-use crate::process::{SandboxAdapterKind, SandboxEnforcementReceipt, SandboxInstallationId,
-    SandboxProfileV1, RendererProcessAssignmentId, ProcessContractError, SandboxEnforcementLayer, SandboxEnforcementSet};
+use crate::process::{
+    SandboxAdapterKind, SandboxEnforcementReceipt, SandboxInstallationId, SandboxProfileV1,
+    RendererProcessAssignmentId, SandboxEnforcementLayer,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SandboxEnforcementError {
@@ -179,14 +181,13 @@ mod linux {
             })
         ).map_err(|_| SandboxEnforcementError::IdentityGenerationFailed)?;
 
-        Ok(SandboxEnforcementReceipt {
+        SandboxEnforcementReceipt::from_adapter(
             assignment_id,
             installation_id,
-            adapter: SandboxAdapterKind::LinuxLandlockFilesystemV1,
-            policy_digest: profile.policy_digest(),
-            enforced_layers: SandboxEnforcementSet::from_layer(SandboxEnforcementLayer::Filesystem),
-            enforced: true,
-        })
+            SandboxAdapterKind::LinuxLandlockFilesystemV1,
+            profile.policy_digest(),
+            SandboxEnforcementLayer::Filesystem,
+        ).map_err(|_| SandboxEnforcementError::InvalidRuleset)
     }
 }
 
