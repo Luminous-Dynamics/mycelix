@@ -304,7 +304,7 @@ pub enum AuthorityDisposition {
     NoAuthority,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct FederationOutcome {
     pub decision: FederationDecision,
     pub authority: AuthorityDisposition,
@@ -630,7 +630,7 @@ pub fn record_observation(
     record_observation_identity(state, observation)
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct PrivacyProjection {
     pub subject_id: String,
     /// The envelope's claimed origin; consult origin_node_known before treating
@@ -656,7 +656,7 @@ pub fn privacy_minimized_projection(
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct CockpitProjection {
     pub node_id: String,
     pub local_authority: bool,
