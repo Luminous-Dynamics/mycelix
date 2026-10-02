@@ -56,6 +56,9 @@ impl InputCommitmentV1 {
         // environment, derivation profile, or stale selected graph binding.
         if !p.structurally_valid()
             || !is_canonical_sha256_commitment(&p.source_dkg_snapshot_commitment)
+            || !e.structurally_valid()
+            || e.dependency_snapshot_root.as_deref()
+                != Some(p.source_dkg_snapshot_commitment.as_str())
             || p.semantic_environment_commitment != e.commitment()
             || closure.projection_commitment != p.commitment()
             || closure.source_dkg_snapshot_commitment != p.source_dkg_snapshot_commitment
@@ -414,6 +417,26 @@ mod tests {
         node.node_commitment = "0000000000000000000000000000000000000000000000000000000000000000".into();
         assert!(!p.commitments_match_sources(&e,&d));
         assert!(InputCommitmentV1::from_projection(&p,&e,&c,&closure_profile(),&d).is_none());
+    }
+
+    #[test]
+    fn d6w_rejects_canonical_source_snapshot_not_bound_to_environment() {
+        let (mut p,e,d,c) = fixture(false);
+        let substituted = canonical_sha256("fixture-dkg-snapshot", &serde_json::json!({
+            "fixture": "d6w",
+            "snapshot": "substituted",
+        }));
+        p.source_dkg_snapshot_commitment = substituted;
+        p.semantic_environment_commitment = e.commitment();
+        assert!(is_canonical_sha256_commitment(&p.source_dkg_snapshot_commitment));
+        assert!(InputCommitmentV1::from_projection(&p, &e, &c, &closure_profile(), &d).is_none());
+    }
+
+    #[test]
+    fn d6w_rejects_environment_without_a_snapshot_binding() {
+        let (p, mut e, d, c) = fixture(false);
+        e.dependency_snapshot_root = None;
+        assert!(InputCommitmentV1::from_projection(&p, &e, &c, &closure_profile(), &d).is_none());
     }
 
     #[test]
