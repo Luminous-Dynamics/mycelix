@@ -369,21 +369,36 @@ impl ActorEconomicObservables {
             == Some(self.net_liquidity_change)
     }
 
-    pub fn gross_debt_service(&self) -> i128 {
+    pub fn try_gross_debt_service(&self) -> Result<i128, String> {
         self.interest_paid
             .checked_add(self.debt_repaid)
+            .ok_or_else(|| "actor debt-service overflow".into())
+    }
+
+    pub fn gross_debt_service(&self) -> i128 {
+        self.try_gross_debt_service()
             .expect("actor debt-service overflow")
     }
 
-    pub fn gross_surplus(&self) -> i128 {
+    pub fn try_gross_surplus(&self) -> Result<i128, String> {
         self.sales_revenue
             .checked_sub(self.cost_of_goods_sold)
+            .ok_or_else(|| "actor surplus overflow".into())
+    }
+
+    pub fn gross_surplus(&self) -> i128 {
+        self.try_gross_surplus()
             .expect("actor surplus overflow")
     }
 
-    pub fn operating_surplus_after_depreciation(&self) -> i128 {
-        self.gross_surplus()
+    pub fn try_operating_surplus_after_depreciation(&self) -> Result<i128, String> {
+        self.try_gross_surplus()?
             .checked_sub(self.depreciation)
+            .ok_or_else(|| "actor operating-surplus overflow".into())
+    }
+
+    pub fn operating_surplus_after_depreciation(&self) -> i128 {
+        self.try_operating_surplus_after_depreciation()
             .expect("actor operating-surplus overflow")
     }
 
@@ -410,20 +425,31 @@ impl ActorEconomicObservables {
     }
 
     /// Monetary operating working capital excludes cash and deposits.
-    pub fn net_working_capital(&self) -> i128 {
+    pub fn try_net_working_capital(&self) -> Result<i128, String> {
         self.inventory_carrying_value
             .checked_add(self.trade_receivables)
             .and_then(|value| value.checked_sub(self.trade_payables))
+            .ok_or_else(|| "actor working-capital overflow".into())
+    }
+
+    pub fn net_working_capital(&self) -> i128 {
+        self.try_net_working_capital()
             .expect("actor working-capital overflow")
     }
 
     /// Liquidity change not explained by explicitly classified financing or
     /// investment transitions. This is a residual, not a claim that every
     /// remaining flow is operating cash flow.
-    pub fn non_financing_liquidity_change(&self) -> i128 {
+    pub fn try_non_financing_liquidity_change(&self) -> Result<i128, String> {
         self.net_liquidity_change
-            - self.financing_net_liquidity()
-            - self.investing_net_liquidity()
+            .checked_sub(self.financing_net_liquidity()?)
+            .and_then(|value| value.checked_sub(self.investing_net_liquidity()?))
+            .ok_or_else(|| "actor non-financing liquidity overflow".into())
+    }
+
+    pub fn non_financing_liquidity_change(&self) -> i128 {
+        self.try_non_financing_liquidity_change()
+            .expect("actor non-financing liquidity overflow")
     }
 
     pub fn leverage(&self) -> Option<RatioObservation> {
@@ -593,6 +619,46 @@ mod tests {
         assert!(firm.liquidity_flow_reconciliation_holds());
         assert_eq!(firm.financing_net_liquidity(), 180);
         assert_eq!(firm.investing_net_liquidity(), 0);
+    }
+
+    #[test]
+    fn checked_actor_derived_totals_fail_closed_on_overflow() {
+        let debt_service = ActorEconomicObservables {
+            interest_paid: i128::MAX,
+            debt_repaid: 1,
+            ..ActorEconomicObservables::default()
+        };
+        assert!(debt_service.try_gross_debt_service().is_err());
+
+        let surplus = ActorEconomicObservables {
+            sales_revenue: i128::MIN,
+            cost_of_goods_sold: 1,
+            ..ActorEconomicObservables::default()
+        };
+        assert!(surplus.try_gross_surplus().is_err());
+
+        let after_depreciation = ActorEconomicObservables {
+            sales_revenue: i128::MIN,
+            depreciation: 1,
+            ..ActorEconomicObservables::default()
+        };
+        assert!(after_depreciation
+            .try_operating_surplus_after_depreciation()
+            .is_err());
+
+        let working_capital = ActorEconomicObservables {
+            inventory_carrying_value: i128::MAX,
+            trade_receivables: 1,
+            ..ActorEconomicObservables::default()
+        };
+        assert!(working_capital.try_net_working_capital().is_err());
+
+        let non_financing = ActorEconomicObservables {
+            net_liquidity_change: i128::MIN,
+            credit_received: 1,
+            ..ActorEconomicObservables::default()
+        };
+        assert!(non_financing.try_non_financing_liquidity_change().is_err());
     }
 
     #[test]
