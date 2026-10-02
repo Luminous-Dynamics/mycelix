@@ -1329,6 +1329,7 @@ mod tests {
             scope_id: id(IdentityKind::ReconciliationWitness, "authority-scope-1"),
             authority: id(IdentityKind::ReconciliationWitness, "authority-1"),
             subject: reconciliation.reconciliation_id.clone(),
+            delegation: id(IdentityKind::ReconciliationWitness, "authority-delegation-1"),
             basis: vec![required],
         };
         assert!(complete.validate_against_reconciliation(&reconciliation, &authority_delegation(&reconciliation.reconciliation_id.id)).is_ok());
