@@ -1,0 +1,75 @@
+#!/usr/bin/env node
+// QUAL-001S evaluator B: independent semantic contract checker.
+// It intentionally reconstructs expectations from the published theorem
+// vocabulary instead of reusing evaluator A's control flow.
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const ROOT = path.dirname(fileURLToPath(import.meta.url));
+const corpus = JSON.parse(fs.readFileSync(path.join(ROOT, "qualification_vectors_v1.json"), "utf8"));
+
+const expect = new Map([
+  ["EXECUTION_AUTHENTICATED", ["VERIFIED", "EXECUTION_OBSERVED"]],
+  ["REQUIRED_DEPENDENCY", ["UNAVAILABLE", "EVIDENCE_MISSING"]],
+  ["CLAIM_CEILING", ["VERIFIED", "NONE"]],
+  ["EPOCH_CONTINUITY", ["CONTRADICTED", "PROVENANCE_MISMATCH"]],
+  ["SOURCE_CLASS", ["CONTRADICTED", "PROVENANCE_MISMATCH"]],
+  ["TEMPORAL_FRONTIER", ["CONTRADICTED", "NOT_ACCEPTED"]],
+  ["RECEIPT_CEILING", ["VERIFIED", "NONE"]],
+  ["CORROBORATION_INDEPENDENCE", ["VERIFIED", "NONE"]],
+  ["SCHEMA_RECOGNITION", ["UNAVAILABLE", "NOT_ACCEPTED"]],
+  ["CANONICAL_JSON", ["CONTRADICTED", "NOT_ACCEPTED"]],
+  ["CLAIM_CEILING_REQUEST", ["CONTRADICTED", "AUTHORITY_REJECTED"]],
+  ["AUTHORITY_REJECTION", ["VERIFIED", "AUTHORITY_REJECTED"]],
+  ["EXECUTION_VS_QUALIFICATION", ["OBSERVED", "EXECUTION_OBSERVED"]],
+  ["CANDIDATE_LOCAL_RECEIPT", ["CONTRADICTED", "NOT_ACCEPTED"]],
+  ["WORKFLOW_IDENTITY", ["CONTRADICTED", "PROVENANCE_MISMATCH"]],
+  ["PRIOR_ATTEMPT", ["CONTRADICTED", "PROVENANCE_MISMATCH"]],
+  ["ALWAYS_PASS_IMPOSTOR", ["CONTRADICTED", "CONFORMANCE_CONTRADICTED"]],
+  ["ALWAYS_FAIL_IMPOSTOR", ["CONTRADICTED", "CONFORMANCE_CONTRADICTED"]],
+  ["POSTFLIGHT_IMMUTABILITY", ["CONTRADICTED", "PROVENANCE_MISMATCH"]],
+  ["CURRENT_QUALIFICATION", ["VERIFIED", "AUTHORITY_AUTHORIZED"]],
+]);
+
+if (corpus.schema !== "mycelix.qual-001s.semantic-corpus-v1") throw new Error("wrong corpus schema");
+if (corpus.corpus_id !== "QUAL-001S") throw new Error("wrong corpus id");
+if (corpus.vectors.length !== 20) throw new Error("expected 20 vectors");
+
+for (const v of corpus.vectors) {
+  const pair = expect.get(v.proposition_id);
+  if (!pair) throw new Error(`${v.vector_id}: no independent theorem expectation`);
+  if (v.expected_state !== pair[0] || v.authority_outcome !== pair[1]) {
+    throw new Error(
+      `${v.vector_id}: expected ${pair[0]}/${pair[1]}, got ${v.expected_state}/${v.authority_outcome}`
+    );
+  }
+
+  const requested = new Set(v.requested_claims);
+  const admitted = new Set(v.admitted_claims);
+  for (const claim of admitted) {
+    if (!requested.has(claim) && v.vector_id !== "QUALS-P-001") {
+      throw new Error(`${v.vector_id}: admitted claim was never requested`);
+    }
+  }
+
+  if (v.kind === "availability" && v.expected_state !== "UNAVAILABLE") {
+    throw new Error(`${v.vector_id}: availability vector must remain unavailable`);
+  }
+
+  if (
+    v.proposition_id === "RECEIPT_CEILING" &&
+    v.expected_claims.includes("rotation_adoption")
+  ) {
+    throw new Error("receipt ceiling violated");
+  }
+
+  if (
+    v.proposition_id === "CORROBORATION_INDEPENDENCE" &&
+    v.mutation?.expected_effect !== "independent corroboration count unchanged"
+  ) {
+    throw new Error("corroboration metamorphic contract missing");
+  }
+}
+
+console.log("QUAL-001S evaluator B: PASS (independent semantic expectations only)");
