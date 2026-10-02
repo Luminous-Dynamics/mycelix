@@ -44,6 +44,8 @@ pub struct EconomicPeriodLedger {
     pub inventory_cost_added: i128,
     /// Inventory carrying amount relieved during the period (COGS at sale).
     pub cost_of_goods_sold: i128,
+    /// Productive-capital carrying amount consumed through explicit depreciation.
+    pub depreciation: i128,
     /// Number of transitions represented by the ledger.
     pub transition_count: u64,
     /// Hash of the exact ordered transition list from which this ledger came.
@@ -131,6 +133,12 @@ impl EconomicPeriodLedger {
                         .checked_add(relief.carrying_value)
                         .ok_or_else(|| EconomicStepError::Serialization("period COGS overflow".into()))?;
                 }
+                EconomicTransition::Depreciation(depreciation) => {
+                    ledger.depreciation = ledger
+                        .depreciation
+                        .checked_add(depreciation.amount)
+                        .ok_or_else(|| EconomicStepError::Serialization("period depreciation overflow".into()))?;
+                }
                 EconomicTransition::CreditCreation(credit) => {
                     ledger.credit_created = ledger
                         .credit_created
@@ -163,9 +171,18 @@ impl EconomicPeriodLedger {
 
     /// Gross sales revenue less explicit COGS reliefs. This is a gross trading
     /// surplus measure; wages, intermediate costs, depreciation, interest and
-    /// taxes remain separate categories until those posting rules are added.
+    /// taxes remain separate until their own accounting boundaries are applied.
     pub fn gross_operating_surplus(&self) -> i128 {
         self.sales_consideration - self.cost_of_goods_sold
+    }
+
+    /// Gross operating surplus less separately recognized depreciation.
+    ///
+    /// This is intentionally not a complete profit measure. Interest, taxes,
+    /// other operating expenses, and any depreciation already capitalized into
+    /// inventory and later included in COGS must not be counted again.
+    pub fn operating_surplus_after_depreciation(&self) -> i128 {
+        self.gross_operating_surplus() - self.depreciation
     }
 
     /// Hash the complete derived ledger for evidence binding.
@@ -211,6 +228,20 @@ mod tests {
         assert_eq!(ledger.monetary_transfer_total, 0);
         assert_eq!(ledger.credit_created, 0);
         assert_eq!(ledger.debt_repaid, 0);
+    }
+
+    #[test]
+    fn depreciation_is_derived_without_becoming_sales_or_cogs() {
+        let transitions = vec![
+            EconomicTransition::Depreciation(
+                Depreciation::new("firm", 15).unwrap(),
+            ),
+        ];
+        let ledger = EconomicPeriodLedger::from_transitions(&transitions).unwrap();
+        assert_eq!(ledger.depreciation, 15);
+        assert_eq!(ledger.sales_consideration, 0);
+        assert_eq!(ledger.cost_of_goods_sold, 0);
+        assert_eq!(ledger.operating_surplus_after_depreciation(), -15);
     }
 
     #[test]
