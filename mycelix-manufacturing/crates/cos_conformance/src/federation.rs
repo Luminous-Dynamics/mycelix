@@ -532,6 +532,14 @@ pub fn deliver(
     }
 
     if let Some(predecessor) = &envelope.predecessor_delivery_id {
+        if predecessor == &envelope.logical_delivery_id {
+            return FederationOutcome::known_origin(
+                FederationDecision::Rejected,
+                AuthorityDisposition::NoAuthority,
+                envelope,
+                "A delivery cannot causally depend on its own logical delivery identity.",
+            );
+        }
         if !state.deliveries.contains_key(predecessor) {
             return FederationOutcome::known_origin(
                 FederationDecision::PendingDependency,
@@ -1665,6 +1673,19 @@ mod tests {
             );
             assert_eq!(state.delivery_count(), 3, "unexpected delivery count for {name}");
         }
+    }
+
+    #[test]
+    fn self_predecessor_is_rejected_without_state_mutation() {
+        let mut state = nodes();
+        let mut candidate = envelope();
+        candidate.predecessor_delivery_id = Some(candidate.logical_delivery_id.clone());
+
+        let outcome = deliver(&mut state, &candidate, 50, true);
+        assert_eq!(outcome.decision, FederationDecision::Rejected);
+        assert_eq!(outcome.authority, AuthorityDisposition::NoAuthority);
+        assert_eq!(state.delivery_count(), 0);
+        assert_eq!(state.observation_count(), 0);
     }
 
     #[test]
