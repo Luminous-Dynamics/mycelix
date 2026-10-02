@@ -226,6 +226,36 @@
       "id": "EDT-043",
       "case": "reconciliation_coverage_rejects_boundary_authority_scope_mismatch",
       "expected": "rejected"
+    },
+    {
+      "id": "EDT-044",
+      "case": "authority_delegation_graph_accepts_continuous_chain",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-045",
+      "case": "authority_delegation_graph_rejects_grantor_discontinuity",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-046",
+      "case": "authority_delegation_graph_rejects_subject_change",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-047",
+      "case": "authority_delegation_graph_reports_missing_predecessor",
+      "expected": "unresolved_at_protocol_layer"
+    },
+    {
+      "id": "EDT-048",
+      "case": "authority_delegation_graph_rejects_cycle",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-049",
+      "case": "authority_scope_requires_exact_delegation_identity",
+      "expected": "rejected"
     }
   ]
 }
