@@ -557,6 +557,7 @@ fn test_authority_case_manifest_is_structurally_valid() {
             "AUTH-07",
             "AUTH-08",
             "AUTH-09",
+            "AUTH-10",
         ]
     );
 
