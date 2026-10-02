@@ -81,8 +81,8 @@
     },
     {
       "case_id": "AUTH-12",
-      "test": "test_wrong_cell_provenance_is_rejected_at_authorization_boundary",
-      "boundary": "cell_provenance_binding",
+      "test": "test_non_author_provenance_is_rejected_at_authorization_boundary",
+      "boundary": "non_author_provenance_authorization",
       "expected": "ZomeCallResponse::Unauthorized",
       "semantic_execution": false
     }
