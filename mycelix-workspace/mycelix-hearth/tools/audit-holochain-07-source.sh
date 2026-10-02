@@ -116,7 +116,7 @@ fi
 
 
 # Semantic 0.7 source-chain validation coverage.
-if git grep -nE -- '\\bmust_get_agent_activity\\s*\\(' -- 'mycelix-workspace/mycelix-hearth/**/*.rs' >/dev/null 2>&1; then
+if git grep -nE -- '\bmust_get_agent_activity\s*\(' -- 'mycelix-workspace/mycelix-hearth/**/*.rs' >/dev/null 2>&1; then
   check_present_any "0.7 activity response: UntilHashMissing" 'MustGetAgentActivityResponse::UntilHashMissing'
   check_present_any "0.7 activity response: UntilHashAfterChainHead" 'MustGetAgentActivityResponse::UntilHashAfterChainHead'
   check_present_any "0.7 activity response: UntilTimestampIndeterminate" 'MustGetAgentActivityResponse::UntilTimestampIndeterminate'
@@ -135,17 +135,17 @@ if ((${#integrity_files[@]} == 0)); then
   fail=1
 else
   for file in "${integrity_files[@]}"; do
-    if rg -n --pcre2 '\\bfn\\s+validate\\s*\\(\\s*(?:op\\s*:\\s*)?Op\\b|\\bvalidate\\s*\\(\\s*op\\s*:\\s*Op\\b' "$file" >/dev/null; then
+    if rg -n --pcre2 '\bfn\s+validate\s*\(\s*(?:op\s*:\s*)?Op\b|\bvalidate\s*\(\s*op\s*:\s*Op\b' "$file" >/dev/null; then
       echo "OK:   $file exposes validate(Op)"
     else
       echo "FAIL: $file missing validate(Op) semantic seam"; fail=1
     fi
-    if rg -n --pcre2 '\\bFlatOp::|flattened\\s*<[^>]*>\\s*\\(' "$file" >/dev/null; then
+    if rg -n --pcre2 '\bFlatOp::|flattened\s*<[^>]*>\s*\(' "$file" >/dev/null; then
       echo "OK:   $file handles flattened 0.7 operations"
     else
       echo "FAIL: $file missing FlatOp/flattened 0.7 operation handling"; fail=1
     fi
-    if rg -n --pcre2 'ActionData::|action\\.(?:author|timestamp)\\s*\\(|\\.header\\.(?:author|timestamp)\\b' "$file" >/dev/null; then
+    if rg -n --pcre2 'ActionData::|action\.(?:author|timestamp)\s*\(|\.header\.(?:author|timestamp)\b' "$file" >/dev/null; then
       echo "OK:   $file inspects 0.7 action semantics"
     else
       echo "FAIL: $file missing explicit 0.7 action semantic access"; fail=1
@@ -154,7 +154,7 @@ else
     # explicitly handle a family or intentionally cover it with a terminal
     # catch-all, but silently dropping a family is a migration defect.
     for family in CreateEntry CreateRecord Update Delete Link AgentActivity; do
-      if rg -n --pcre2 "\\bFlatOp::${family}\\b|\\b_\\s*=>\\s*Ok\\s*\\(" "$file" >/dev/null; then
+      if rg -n --pcre2 "\bFlatOp::${family}\b|\b_\s*=>\s*Ok\s*\(" "$file" >/dev/null; then
         echo "OK:   $file covers FlatOp::$family (explicit or catch-all)"
       else
         echo "FAIL: $file has no FlatOp::$family or terminal catch-all coverage"; fail=1
