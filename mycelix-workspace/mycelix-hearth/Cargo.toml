@@ -4,6 +4,9 @@ members = [
     # Shared crates
     "crates/hearth-types",
     "crates/hearth-coordinator-common",
+    "crates/hearth-bridge-common",
+    "crates/hearth-bridge-entry-types",
+    "crates/hearth-zome-helpers",
 
     # Kinship (core membership + relationships)
     "zomes/hearth-kinship/integrity",
