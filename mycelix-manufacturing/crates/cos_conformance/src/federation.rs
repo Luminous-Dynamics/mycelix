@@ -178,6 +178,10 @@ impl FederationState {
     }
 
     pub fn add_recognition(&mut self, edge: RecognitionEdge) {
+        if self.recognition_edges.iter().any(|existing| existing == &edge) {
+            return;
+        }
+
         self.recognition_edges.push(edge);
         self.recognition_edges.sort_by(|a, b| {
             (
@@ -973,6 +977,48 @@ mod tests {
             replayed.authority,
             AuthorityDisposition::ExplicitDelegatedAuthority
         );
+    }
+
+    #[test]
+    fn exact_duplicate_recognition_edges_are_canonicalized_without_masking_conflicts() {
+        let mut state = nodes();
+        let edge = RecognitionEdge {
+            recognizing_node: "node-a".into(),
+            origin_node: "node-b".into(),
+            scope: "subject-1".into(),
+            mode: RecognitionMode::EvidenceOnly,
+        };
+
+        state.add_recognition(edge.clone());
+        state.add_recognition(edge.clone());
+        assert_eq!(state.recognition_edges.len(), 1);
+
+        let mut foreign = envelope();
+        foreign.envelope_id = "env-recognition-canonical".into();
+        foreign.logical_delivery_id = "delivery-recognition-canonical".into();
+        foreign.origin_node = "node-b".into();
+        foreign.target_node = "node-a".into();
+
+        let outcome = deliver(&mut state, &foreign, 50, true);
+        assert_eq!(outcome.decision, FederationDecision::AcceptedForeign);
+        assert_eq!(
+            outcome.authority,
+            AuthorityDisposition::RecognizedForeignEvidence
+        );
+
+        state.add_recognition(RecognitionEdge {
+            mode: RecognitionMode::DelegatedAuthority,
+            ..edge
+        });
+
+        let second = FederationEnvelope {
+            envelope_id: "env-recognition-conflicting-canonical".into(),
+            logical_delivery_id: "delivery-recognition-conflicting-canonical".into(),
+            ..foreign
+        };
+        let conflict = deliver(&mut state, &second, 50, true);
+        assert_eq!(conflict.decision, FederationDecision::RecognitionConflict);
+        assert_eq!(conflict.authority, AuthorityDisposition::NoAuthority);
     }
 
     #[test]
