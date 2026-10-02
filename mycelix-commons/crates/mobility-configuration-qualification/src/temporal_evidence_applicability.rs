@@ -766,6 +766,9 @@ impl EvidenceDispositionReconciliation {
             let candidates = match by_id.get(head_id) {
                 None => {
                     missing_named_head.get_or_insert_with(|| head_id.clone());
+                    let mut ancestor_ids = std::collections::BTreeSet::new();
+                    ancestor_ids.insert(head_id.clone());
+                    walks.push((head_id.clone(), ancestor_ids));
                     continue;
                 }
                 Some(candidates) => candidates,
@@ -1110,6 +1113,9 @@ impl EvidenceDispositionReconciliationCoverage {
         for head_id in &self.covered_branch_heads {
             if !by_id.contains_key(head_id) {
                 missing.insert(head_id.clone());
+                let mut ancestor_ids = std::collections::BTreeSet::new();
+                ancestor_ids.insert(head_id.clone());
+                walks.push((head_id.clone(), ancestor_ids));
                 continue;
             }
 
