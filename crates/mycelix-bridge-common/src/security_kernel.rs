@@ -22,6 +22,9 @@ use serde::{Deserialize, Serialize};
 use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
 
 pub const MAX_SECURITY_IDENTIFIER_BYTES: usize = 512;
+/// Maximum lifetime of an issued authorization permit, independent of the
+/// underlying capability's absolute expiry.
+pub const MAX_AUTHORIZATION_PERMIT_LIFETIME_US: u64 = 5 * 60 * 1_000_000;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CapabilityAction {
@@ -461,10 +464,13 @@ pub fn authorize_permit(
         ));
     }
 
+    let permit_lifetime_us = now_us.saturating_add(MAX_AUTHORIZATION_PERMIT_LIFETIME_US);
+    let valid_until_us = c.expires_at_us.min(permit_lifetime_us);
+
     Ok(AuthorizationPermit {
         request: request.clone(),
         issued_at_us: now_us,
-        valid_until_us: c.expires_at_us,
+        valid_until_us,
     })
 }
 
@@ -601,6 +607,34 @@ mod tests {
         assert_eq!(enforcement.valid_until_us(), 200);
         assert!(enforcement.is_valid_at(200));
         assert!(!enforcement.is_valid_at(201));
+    }
+
+    #[test]
+    fn permit_lifetime_is_capped_independently_of_capability_expiry() {
+        let long_lived = Capability::new(
+            "did:mycelix:alice",
+            "did:mycelix:issuer",
+            "resource:ledger",
+            vec![CapabilityAction::Read],
+            100,
+            u64::MAX,
+            7,
+        )
+        .unwrap();
+        let verified = verify_capability(
+            long_lived,
+            VerificationEvidence::new(true, true, true),
+            150,
+        )
+        .unwrap();
+        let permit = authorize_permit(&verified, &request(CapabilityAction::Read), 150).unwrap();
+        assert_eq!(
+            permit.valid_until_us(),
+            150 + MAX_AUTHORIZATION_PERMIT_LIFETIME_US
+        );
+        assert!(!permit.is_valid_at(
+            150 + MAX_AUTHORIZATION_PERMIT_LIFETIME_US + 1
+        ));
     }
 
     #[test]
