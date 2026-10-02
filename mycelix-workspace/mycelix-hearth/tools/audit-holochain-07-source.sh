@@ -41,18 +41,6 @@ check_lock_present() {
   fi
 }
 
-check_lock_absent() {
-  local label="$1"
-  local pattern="$2"
-  local file="$3"
-  if rg -n --pcre2 "$pattern" "$file" >/dev/null; then
-    echo "FAIL: $label"
-    fail=1
-  else
-    echo "OK:   $label"
-  fi
-}
-
 check_absent_multiline() {
   local label="$1"
   local pattern="$2"
