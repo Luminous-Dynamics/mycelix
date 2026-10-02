@@ -329,11 +329,16 @@ impl ActorEconomicObservables {
     ///
     /// This is an exact model reconciliation, not a claim of IFRS
     /// presentation compliance; classification policy remains model-defined.
-    pub fn operating_liquidity_change(&self) -> i128 {
+    pub fn try_operating_liquidity_change(&self) -> Result<i128, String> {
         self.net_liquidity_change
-            .checked_sub(self.investing_net_liquidity())
-            .and_then(|value| value.checked_sub(self.financing_net_liquidity()))
+            .checked_sub(self.investing_net_liquidity()?)
+            .and_then(|value| value.checked_sub(self.financing_net_liquidity()?))
             .and_then(|value| value.checked_sub(self.other_liquidity_change))
+            .ok_or_else(|| "actor operating liquidity overflow".into())
+    }
+
+    pub fn operating_liquidity_change(&self) -> i128 {
+        self.try_operating_liquidity_change()
             .expect("actor operating liquidity overflow")
     }
 
@@ -346,9 +351,10 @@ impl ActorEconomicObservables {
     }
 
     pub fn liquidity_flow_reconciliation_holds(&self) -> bool {
-        self.operating_liquidity_change()
-            .checked_add(self.investing_net_liquidity())
-            .and_then(|value| value.checked_add(self.financing_net_liquidity()))
+        self.try_operating_liquidity_change()
+            .ok()
+            .and_then(|operating| operating.checked_add(self.investing_net_liquidity().ok()?))
+            .and_then(|value| value.checked_add(self.financing_net_liquidity().ok()?))
             .and_then(|value| value.checked_add(self.other_liquidity_change))
             == Some(self.net_liquidity_change)
     }
@@ -371,15 +377,25 @@ impl ActorEconomicObservables {
             .expect("actor operating-surplus overflow")
     }
 
-    pub fn financing_net_liquidity(&self) -> i128 {
+    pub fn try_financing_net_liquidity(&self) -> Result<i128, String> {
         self.credit_received
             .checked_sub(self.debt_repaid)
+            .ok_or_else(|| "actor financing liquidity overflow".into())
+    }
+
+    pub fn financing_net_liquidity(&self) -> i128 {
+        self.try_financing_net_liquidity()
             .expect("actor financing liquidity overflow")
     }
 
-    pub fn investing_net_liquidity(&self) -> i128 {
+    pub fn try_investing_net_liquidity(&self) -> Result<i128, String> {
         self.investment_received
             .checked_sub(self.investment_paid)
+            .ok_or_else(|| "actor investing liquidity overflow".into())
+    }
+
+    pub fn investing_net_liquidity(&self) -> i128 {
+        self.try_investing_net_liquidity()
             .expect("actor investing liquidity overflow")
     }
 
