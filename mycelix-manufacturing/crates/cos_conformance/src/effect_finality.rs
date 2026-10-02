@@ -1957,6 +1957,62 @@ mod tests {
     }
 
     #[test]
+    fn observation_commitment_rejects_semantic_mutation() {
+        let effect = effect("effect-1", "lineage-1", "generation-1");
+        let route = route(&effect, "provider-a", "profile-a", "route-a", "operation-a");
+        let outcome = outcome(&route, ProviderOutcomeKindV1::Succeeded);
+        let mut observation = observation(
+            &effect,
+            &route,
+            &outcome,
+            ExternalObservationSourceV1::IndependentObserver,
+            ExternalObservedStateV1::Applied,
+            "frontier-1",
+        );
+
+        assert!(observation.commitment_matches());
+        observation.idempotency_key = "forged-idempotency".into();
+        assert!(!observation.commitment_matches());
+    }
+
+    #[test]
+    fn self_recommitted_observation_cannot_escape_effect_binding() {
+        let effect = effect("effect-1", "lineage-1", "generation-1");
+        let route = route(&effect, "provider-a", "profile-a", "route-a", "operation-a");
+        let outcome = outcome(&route, ProviderOutcomeKindV1::Succeeded);
+        let mut observation = observation(
+            &effect,
+            &route,
+            &outcome,
+            ExternalObservationSourceV1::IndependentObserver,
+            ExternalObservedStateV1::Applied,
+            "frontier-1",
+        );
+        observation.request_commitment = "forged-request".into();
+        observation.observation_commitment = observation.recomputed_commitment();
+
+        let profile = finality_profile(&effect, ExternalFinalityStateV1::Applied, true);
+        let receipt = finality_receipt(&effect, &route, &outcome, &observation, &profile);
+
+        assert!(observation.commitment_matches());
+        assert_eq!(
+            assess_external_finality(
+                &effect,
+                &substitution_profile(),
+                &profile,
+                &route,
+                &outcome,
+                &observation,
+                &receipt,
+                "frontier-1",
+                FinalityUsePurposeV1::CurrentFinality,
+                None,
+            ),
+            FinalityDispositionV1::BlockedReceiptMismatch
+        );
+    }
+
+    #[test]
     fn finality_receipt_does_not_create_a_new_effect() {
         let effect = effect("effect-1", "lineage-1", "generation-1");
         let route = route(&effect, "provider-a", "profile-a", "route-a", "operation-a");
