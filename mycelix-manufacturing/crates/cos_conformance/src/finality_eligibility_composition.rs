@@ -744,7 +744,8 @@ fn observation_matches_set(
     set: &ExternalObservationSetV1,
 ) -> bool {
     let o = &observation.observation;
-    o.effect_id == set.effect_id
+    o.commitment_matches()
+        && o.effect_id == set.effect_id
         && o.effect_lineage_id == set.effect_lineage_id
         && o.lifecycle_generation_id == set.lifecycle_generation_id
         && o.route_id == set.route_id
@@ -847,8 +848,9 @@ pub fn verify_witness_join_binding(
     current_frontier_root: &str,
 ) -> bool {
     if !witness.commitment_matches()
-        || !assessment.structurally_valid()
+        || !assessment.commitment_matches()
         || !evidence.structurally_valid()
+        || !observation.commitment_matches()
         || !set.structurally_valid()
         || lifecycle_profile_id.is_empty()
         || current_frontier_root.is_empty()
