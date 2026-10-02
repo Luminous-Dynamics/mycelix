@@ -729,88 +729,81 @@ impl EvidenceDispositionReconciliation {
             return Err("reconciliation references a different authority scope".into());
         }
         authority_scope.validate_against_reconciliation(self, authority_delegation)?;
-        let mut by_id = std::collections::BTreeMap::new();
+
+        let mut by_id = std::collections::BTreeMap::<
+            IdentityRef,
+            Vec<&EvidenceDispositionTransition>,
+        >::new();
         for transition in transitions {
             transition.validate()?;
-            if by_id.insert(transition.transition_id.clone(), transition).is_some() {
-                return Err("duplicate disposition transition identity".into());
-            }
+            by_id
+                .entry(transition.transition_id.clone())
+                .or_default()
+                .push(transition);
         }
 
-        let branch_point = by_id.get(&self.branch_point)
+        let branch_point = by_id
+            .get(&self.branch_point)
             .ok_or_else(|| "reconciliation branch point is missing".to_string())?;
-        if branch_point.evidence != self.evidence {
+        if branch_point.len() != 1 {
+            return Err("duplicate disposition transition identity".into());
+        }
+        if branch_point[0].evidence != self.evidence {
             return Err("reconciliation branch point belongs to different evidence".into());
         }
+
+        let mut walks = Vec::new();
+        let mut missing_named_head = None;
 
         for head_id in &self.branch_heads {
             if head_id == &self.branch_point {
                 return Err("reconciliation branch head cannot equal the branch point".into());
             }
-            let mut cursor = by_id.get(head_id)
-                .ok_or_else(|| format!("reconciliation branch head is missing: {}", head_id.id))?;
-            if cursor.evidence != self.evidence {
-                return Err("reconciliation branch head belongs to different evidence".into());
+
+            let candidates = match by_id.get(head_id) {
+                None => {
+                    missing_named_head.get_or_insert_with(|| head_id.clone());
+                    continue;
+                }
+                Some(candidates) => candidates,
+            };
+            if candidates.len() != 1 {
+                return Err("duplicate disposition transition identity".into());
             }
-            let mut seen = std::collections::BTreeSet::new();
-            loop {
-                if !seen.insert(cursor.transition_id.clone()) {
-                    return Err("reconciliation graph contains a predecessor cycle".into());
-                }
-                if cursor.transition_id == self.branch_point {
-                    break;
-                }
-                let predecessor = cursor.predecessor.as_ref()
-                    .ok_or_else(|| "reconciliation branch head does not descend from branch point".to_string())?;
-                cursor = by_id.get(predecessor)
-                    .ok_or_else(|| "reconciliation branch ancestry is unresolved".to_string())?;
-                if cursor.evidence != self.evidence {
-                    return Err("reconciliation branch ancestry belongs to different evidence".into());
+
+            let walk = TransitionBoundaryWalk::walk(
+                head_id,
+                &self.branch_point,
+                &self.evidence,
+                &by_id,
+            )?;
+            if walk.missing.is_some() {
+                return Err("reconciliation branch ancestry is unresolved".into());
+            }
+            walks.push((head_id.clone(), walk.ancestor_ids));
+        }
+
+        // Use the same bounded ancestry produced by TransitionBoundaryWalk for
+        // the competing-head contradiction check. This keeps legacy
+        // reconciliation validation from maintaining a second traversal
+        // algorithm with different boundary or missing-dependency semantics.
+        for (index, (left_id, left_ancestors)) in walks.iter().enumerate() {
+            for (right_id, right_ancestors) in walks.iter().skip(index + 1) {
+                if left_ancestors.contains(right_id) || right_ancestors.contains(left_id) {
+                    return Err(
+                        "reconciliation branch heads must be incomparable descendants".into(),
+                    );
                 }
             }
         }
 
-        // Two heads only constitute competing branches when neither head is an
-        // ancestor of the other. Otherwise the later head is simply a
-        // continuation of the earlier branch, not an independent branch to
-        // reconcile.
-        for (index, left_id) in self.branch_heads.iter().enumerate() {
-            for right_id in self.branch_heads.iter().skip(index + 1) {
-                let mut cursor = by_id.get(left_id)
-                    .ok_or_else(|| "reconciliation branch head is missing".to_string())?;
-                let mut seen = std::collections::BTreeSet::new();
-                while let Some(predecessor) = cursor.predecessor.as_ref() {
-                    if !seen.insert(cursor.transition_id.clone()) {
-                        return Err("reconciliation graph contains a predecessor cycle".into());
-                    }
-                    if predecessor == right_id {
-                        return Err("reconciliation branch heads must be incomparable descendants".into());
-                    }
-                    if predecessor == &self.branch_point {
-                        break;
-                    }
-                    cursor = by_id.get(predecessor)
-                        .ok_or_else(|| "reconciliation branch ancestry is unresolved".to_string())?;
-                }
-
-                let mut cursor = by_id.get(right_id)
-                    .ok_or_else(|| "reconciliation branch head is missing".to_string())?;
-                let mut seen = std::collections::BTreeSet::new();
-                while let Some(predecessor) = cursor.predecessor.as_ref() {
-                    if !seen.insert(cursor.transition_id.clone()) {
-                        return Err("reconciliation graph contains a predecessor cycle".into());
-                    }
-                    if predecessor == left_id {
-                        return Err("reconciliation branch heads must be incomparable descendants".into());
-                    }
-                    if predecessor == &self.branch_point {
-                        break;
-                    }
-                    cursor = by_id.get(predecessor)
-                        .ok_or_else(|| "reconciliation branch ancestry is unresolved".to_string())?;
-                }
-            }
+        if let Some(head_id) = missing_named_head {
+            return Err(format!(
+                "reconciliation branch head is missing: {}",
+                head_id.id
+            ));
         }
+
         Ok(())
     }
 }
