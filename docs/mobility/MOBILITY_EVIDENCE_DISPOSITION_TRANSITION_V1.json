@@ -166,6 +166,11 @@
       "id": "EDT-031",
       "case": "reconciliation_coverage_rejects_nested_heads",
       "expected": "rejected"
+    },
+    {
+      "id": "EDT-032",
+      "case": "reconciliation_coverage_rejects_unbound_boundary",
+      "expected": "rejected"
     }
   ]
 }
