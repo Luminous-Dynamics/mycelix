@@ -201,13 +201,14 @@ impl FinalityEligibilityCompositionV1 {
             }
 
             let expected_witness_commitment = format!(
-                "witness:{}:{}:{}",
+                "witness:{}:{}:{}:{}",
                 witness.observation_id,
                 self.observation_set_commitment,
                 witness
                     .d6o_eligibility_id
                     .as_deref()
-                    .unwrap_or("missing")
+                    .unwrap_or("missing"),
+                witness.current_frontier_root
             );
             if witness.witness_commitment != expected_witness_commitment {
                 return false;
@@ -454,13 +455,14 @@ impl FinalityEligibilityLedgerV1 {
         if !witness.structurally_valid()
             || witness.witness_commitment
                 != format!(
-                    "witness:{}:{}:{}",
+                    "witness:{}:{}:{}:{}",
                     witness.observation_id,
                     witness.d6n_observation_set_commitment,
                     witness
                         .d6o_eligibility_id
                         .as_deref()
-                        .unwrap_or("missing")
+                        .unwrap_or("missing"),
+                    witness.current_frontier_root
                 )
         {
             return FinalityCompositionRecordDispositionV1::InsufficientEvidence;
