@@ -49,6 +49,12 @@ The certificate distinguishes two identities:
 
 The semantic identity binds the exact selected node-id → node-commitment mapping and selected edge-id → endpoint/kind/commitment mapping. Selected and missing dependencies are represented through a typed reference algebra (`Node`, `Edge`, `D6PReceipt`). Edge references additionally bind their exact endpoint node IDs and edge kind; this prevents an edge's semantic identity from collapsing to edge ID/commitment alone. D6P receipt references require their identifier and commitment to be identical. Each dependency also has an explicit resolution state (`Present`, `Missing`, `Stale`); not-selected material is represented by absence rather than an `Excluded` dependency. The selected typed set is the canonical semantic dependency set; the parallel node/edge/D6P collections remain explicit compatibility/audit views. Certificate validation reconstructs the canonical selected set from those views and rejects omission, injection, or commitment/type drift. The legacy flat missing-ID view is likewise required to equal the identifier projection of the typed missing-dependency set. It deliberately excludes irrelevant candidate material, so adding unused material must not perturb the closure identity or downstream D6W input identity.
 
+## Canonical certificate encoding
+
+D6X certificates contain maps keyed by typed `SemanticDependencyReferenceV1` values. Those maps are represented as ordered key/value records for commitment hashing rather than as JSON object keys. This is part of the executable D6X-CANON-1 boundary: structured dependency keys remain structured semantic data, and the commitment path never relies on a serializer's treatment of non-string JSON map keys.
+
+The cross-layer Integral fixture also binds its source snapshot identifier to a canonical SHA-256 commitment before D6W consumption. A symbolic snapshot label is not sufficient at the stricter D6W gate.
+
 ## Status semantics
 
 - **Complete** — all required dependencies found and no blocking currentness/resource condition.
