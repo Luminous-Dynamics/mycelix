@@ -257,7 +257,7 @@ fn hash_postings(postings: &HashMap<StockKey, i128>) -> Result<String, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::economics::stock_flow::{ActorBalanceSheet, CapitalInvestment, CreditCreation, DebtRepayment, IncomeTransfer, MonetaryFlow};
+    use crate::economics::stock_flow::{ActorBalanceSheet, CapitalInvestment, ProductionEvent, CreditCreation, DebtRepayment, IncomeTransfer, MonetaryFlow};
     use crate::economics::transition::apply_step;
 
     fn setup() -> (EconomicState, Vec<SectorAssignment>) {
@@ -322,6 +322,20 @@ mod tests {
         pre.create_credit(&CreditCreation::new("bank", "household", 500).unwrap()).unwrap();
         let transitions = vec![EconomicTransition::DebtRepayment(DebtRepayment::new("bank", "household", 200).unwrap())];
         let (post, _) = apply_step(&pre, 1, &transitions, None).unwrap();
+        reconcile_step(&pre, &post, &assignments, &transitions).unwrap();
+    }
+
+    #[test]
+    fn production_reconciles_inventory_and_resource_stocks() {
+        let (mut pre, assignments) = setup();
+        let firm = pre.actors.iter_mut().find(|a| a.actor == "firm").unwrap();
+        firm.real.resources = 100;
+        let transitions = vec![EconomicTransition::Production(
+            ProductionEvent::new("firm", 30, 24).unwrap(),
+        )];
+        let (post, _) = apply_step(&pre, 1, &transitions, None).unwrap();
+        assert_eq!(post.actors.iter().find(|a| a.actor == "firm").unwrap().real.resources, 70);
+        assert_eq!(post.actors.iter().find(|a| a.actor == "firm").unwrap().real.inventories, 24);
         reconcile_step(&pre, &post, &assignments, &transitions).unwrap();
     }
 
