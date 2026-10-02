@@ -44,7 +44,9 @@ impl std::error::Error for SandboxEnforcementError {}
 mod linux {
     use super::*;
     use std::mem::size_of;
-    use std::os::fd::{AsRawFd, RawFd};
+    use std::ffi::CString;
+    use std::os::fd::{AsRawFd, FromRawFd, RawFd};
+    use std::os::unix::ffi::OsStrExt;
 
     const LANDLOCK_CREATE_RULESET_VERSION: u32 = 1 << 0;
     const LANDLOCK_MIN_ABI_FOR_TSYNC: u32 = 8;
@@ -186,8 +188,24 @@ mod linux {
 
         let attr = RulesetAttr { handled_access_fs: handled, _reserved: 0 };
         let fd = landlock_create_ruleset(&attr, 0)?;
-        let root_fd = std::fs::File::open(allowed_root)
-            .map_err(|e| SandboxEnforcementError::EnforcementFailed(e.raw_os_error().unwrap_or(libc::EACCES)))?;
+        // Landlock identifies PATH_BENEATH roots by file descriptor. Use
+        // O_PATH|O_CLOEXEC as recommended by the kernel interface so the
+        // qualification root is identified without requiring read access and
+        // without leaking the descriptor across exec.
+        let root_path = CString::new(allowed_root.as_os_str().as_bytes())
+            .map_err(|_| SandboxEnforcementError::InvalidRuleset)?;
+        let root_fd_raw = unsafe {
+            libc::open(
+                root_path.as_ptr(),
+                libc::O_PATH | libc::O_CLOEXEC,
+            )
+        };
+        if root_fd_raw < 0 {
+            return Err(SandboxEnforcementError::EnforcementFailed(
+                std::io::Error::last_os_error().raw_os_error().unwrap_or(libc::EACCES),
+            ));
+        }
+        let root_fd = unsafe { std::fs::File::from_raw_fd(root_fd_raw) };
 
         #[repr(C, packed)]
         struct PathBeneathAttr {
