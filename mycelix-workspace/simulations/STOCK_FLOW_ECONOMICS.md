@@ -580,3 +580,37 @@ compliance. IAS 7 classifies cash flows as operating, investing, and financing a
 and cash equivalents separately; the Mycelix research substrate currently reports cash plus
 deposits as a broader liquidity measure and keeps its classification policy explicit rather than
 pretending to reproduce financial-reporting rules. 
+
+
+## Financial-claim sector matrix (implemented)
+
+Deferred trade settlement is now represented in a separate
+`SectorFinancialFlowMatrix`. The existing `SectorTransactionMatrix` remains the
+cash/monetary projection; the new matrix represents changes in financial claims and
+obligations.
+
+Supported financial-claim transitions are:
+
+- `CreditCreation` -> `LoanCreation`
+- `DebtRepayment` -> `DebtRepayment`
+- `TradeCreditSale` -> `TradeCreditExtension`
+- `TradeCreditSettlement` -> `TradeCreditSettlement`
+
+Trade-credit extension is oriented buyer -> seller: the buyer acquires a payable and the
+seller acquires the matching receivable. This is deliberately **not** emitted as a cash
+receipt/payment. Settlement is separately represented as extinction of that financial
+relationship while the actor-level liquidity observations capture the accompanying deposit
+movement.
+
+This gives the sector accounting stack two explicit projections with different dimensional
+meaning:
+
+`transition log -> cash/liquidity transaction matrix`
+
+and
+
+`transition log -> financial-claim matrix`.
+
+Neither projection is authoritative over the transition log. Both are deterministic views over
+the same ordered transitions, so deferred settlement can be analyzed without contaminating cash
+flows while still remaining visible in sector-level SFC accounting.
