@@ -110,19 +110,22 @@ pub struct VerificationEvidence {
 /// so this binding remains stable across proof/lease refreshes that do not change the
 /// semantic authority domain. The protocol/profile are committed as well, preventing a
 /// digest from being interpreted under a different canonical freshness scheme.
-pub fn authority_binding_from_freshness_digest(
-    freshness_protocol_version: &str,
-    freshness_profile: &str,
-    freshness_digest: [u8; 32],
-) -> [u8; 32] {
+pub const AUTHORITY_FRESHNESS_PROTOCOL_VERSION: &str = "mycelix-authority-freshness-v0.1";
+pub const AUTHORITY_FRESHNESS_PROFILE: &str =
+    "mycelix-authority-freshness-bundle-v1-blake3-framed";
+
+/// Derive the bridge authority binding from the canonical current-freshness commitment.
+///
+/// The freshness protocol/profile are fixed by this bridge contract rather than supplied
+/// by the caller. This prevents an adapter from accidentally interpreting the same digest
+/// under a different freshness identity scheme. Dynamic proof/lease metadata remains outside
+/// the binding.
+pub fn authority_binding_from_freshness_digest(freshness_digest: [u8; 32]) -> [u8; 32] {
     let mut hasher = blake3::Hasher::new();
     hasher.update(b"mycelix/security/authority-binding/v1");
-    hasher.update(&(freshness_protocol_version.len() as u64).to_le_bytes());
-    hasher.update(freshness_protocol_version.as_bytes());
-    hasher.update(&(freshness_profile.len() as u64).to_le_bytes());
-    hasher.update(freshness_profile.as_bytes());
-    hasher.update(&(freshness_digest.len() as u64).to_le_bytes());
-    hasher.update(&freshness_digest);
+    frame_bytes(&mut hasher, AUTHORITY_FRESHNESS_PROTOCOL_VERSION.as_bytes());
+    frame_bytes(&mut hasher, AUTHORITY_FRESHNESS_PROFILE.as_bytes());
+    frame_bytes(&mut hasher, &freshness_digest);
     *hasher.finalize().as_bytes()
 }
 
@@ -1067,11 +1070,7 @@ mod tests {
     #[test]
     fn authority_binding_is_stable_across_lease_refresh() {
         let digest = [0x11; 32];
-        let initial = authority_binding_from_freshness_digest(
-            "mycelix-authority-freshness-v0.1",
-            "mycelix-authority-freshness-bundle-v1-blake3-framed",
-            digest,
-        );
+        let initial = authority_binding_from_freshness_digest(digest);
         let refreshed = authority_binding_from_freshness_digest(
             "mycelix-authority-freshness-v0.1",
             "mycelix-authority-freshness-bundle-v1-blake3-framed",
@@ -1082,21 +1081,9 @@ mod tests {
 
     #[test]
     fn authority_binding_changes_with_freshness_domain() {
-        let a = authority_binding_from_freshness_digest(
-            "mycelix-authority-freshness-v0.1",
-            "mycelix-authority-freshness-bundle-v1-blake3-framed",
-            [0x11; 32],
-        );
-        let generation_changed = authority_binding_from_freshness_digest(
-            "mycelix-authority-freshness-v0.1",
-            "mycelix-authority-freshness-bundle-v1-blake3-framed",
-            [0x12; 32],
-        );
-        let profile_changed = authority_binding_from_freshness_digest(
-            "mycelix-authority-freshness-v0.1",
-            "mycelix-authority-freshness-bundle-v2-blake3-framed",
-            [0x11; 32],
-        );
+        let a = authority_binding_from_freshness_digest([0x11; 32]);
+        let generation_changed = authority_binding_from_freshness_digest([0x12; 32]);
+        let profile_changed = authority_binding_from_freshness_digest([0x11; 32]);
         assert_ne!(a, generation_changed);
         assert_ne!(a, profile_changed);
     }
