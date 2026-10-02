@@ -160,13 +160,22 @@ fn parameter_predicate_child() -> ! {
             prism_bridge::seccomp::SeccompArgPredicateOpV1::MaskedNotEqual,
         ).unwrap_or_else(|_| unsafe { libc::_exit(113) })],
     ).unwrap_or_else(|_| unsafe { libc::_exit(114) });
+    let mprotect_no_x = SeccompSyscallRuleV2::new(
+        libc::SYS_mprotect,
+        vec![SeccompArgPredicateV1::new_with_op(
+            2,
+            libc::PROT_EXEC as u64,
+            libc::PROT_EXEC as u64,
+            prism_bridge::seccomp::SeccompArgPredicateOpV1::MaskedNotEqual,
+        ).unwrap_or_else(|_| unsafe { libc::_exit(115) })],
+    ).unwrap_or_else(|_| unsafe { libc::_exit(116) });
     let exit_group = SeccompSyscallRuleV2::new(libc::SYS_exit_group, Vec::new())
-        .unwrap_or_else(|_| unsafe { libc::_exit(115) });
+        .unwrap_or_else(|_| unsafe { libc::_exit(117) });
 
     let policy = SeccompSyscallPolicyV2::new(
         architecture,
-        vec![prctl_get, mmap_no_wx, exit_group],
-    ).unwrap_or_else(|_| unsafe { libc::_exit(116) });
+        vec![prctl_get, mmap_no_wx, mprotect_no_x, exit_group],
+    ).unwrap_or_else(|_| unsafe { libc::_exit(118) });
     let profile = SandboxProfileV1::renderer_default()
         .with_syscall_policy_digest(policy.digest())
         .unwrap_or_else(|_| unsafe { libc::_exit(117) });
@@ -224,6 +233,23 @@ fn parameter_predicate_child() -> ! {
     let wx_errno = unsafe { *libc::__errno_location() };
     if wx_mapping != -1 || wx_errno != libc::EPERM {
         unsafe { libc::_exit(121) };
+    }
+
+    if unsafe { libc::syscall(libc::SYS_mprotect, read_mapping as usize, 4096usize, libc::PROT_READ | libc::PROT_WRITE) } != 0 {
+        unsafe { libc::_exit(122) };
+    }
+
+    let exec_rc = unsafe {
+        libc::syscall(
+            libc::SYS_mprotect,
+            read_mapping as usize,
+            4096usize,
+            libc::PROT_READ | libc::PROT_EXEC,
+        )
+    };
+    let exec_errno = unsafe { *libc::__errno_location() };
+    if exec_rc != -1 || exec_errno != libc::EPERM {
+        unsafe { libc::_exit(123) };
     }
 
     // Same syscall number, deliberately different first argument: V2 must
