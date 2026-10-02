@@ -266,6 +266,11 @@
       "id": "EDT-051",
       "case": "authority_delegation_graph_rejects_provenance_drop",
       "expected": "rejected"
+    },
+    {
+      "id": "EDT-052",
+      "case": "authority_delegation_graph_allows_basis_extension",
+      "expected": "accepted"
     }
   ]
 }
