@@ -60,6 +60,27 @@ async fn signed_call<P: serde::Serialize + std::fmt::Debug>(
         .unwrap()
 }
 
+async fn signed_call_with_nonce<P: serde::Serialize + std::fmt::Debug>(
+    conductor: &SweetConductor,
+    cell_id: &CellId,
+    function: &str,
+    payload: P,
+    nonce_bytes: [u8; 32],
+) -> ZomeCallParamsSigned {
+    let mut params =
+        new_zome_call_params(cell_id, function, payload, "hearth_kinship").unwrap();
+
+    // Use explicit ordered nonces so the fixture proves stale/lower-nonce rejection,
+    // rather than relying on the incidental ordering of freshly generated nonces.
+    params.nonce = Nonce256Bits::try_from(nonce_bytes.to_vec())
+        .expect("32-byte nonce must construct a Nonce256Bits value");
+    params.cap_secret = None;
+
+    ZomeCallParamsSigned::try_from_params(&conductor.keystore(), params)
+        .await
+        .unwrap()
+}
+
 async fn signed_expired_call(
     conductor: &SweetConductor,
     cell_id: &CellId,
@@ -324,6 +345,64 @@ async fn test_replayed_signed_call_is_rejected_by_nonce_boundary() {
             other => panic!("replayed signed call should be rejected by nonce authorization, got {other:?}"),
         },
         other => panic!("expected ZomeCalled response for replay rejection, got {other:?}"),
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "requires Holochain conductor (nix develop)"]
+async fn test_stale_lower_nonce_is_rejected_by_nonce_boundary() {
+    let mut conductor = SweetConductor::standard().await;
+    let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
+
+    let (alice,) = conductor
+        .setup_app("test-app", &[dna_file])
+        .await
+        .unwrap()
+        .into_tuple();
+
+    // Submit a deliberately higher nonce first, then a lower nonce from the same
+    // provenance. This isolates the "older call after a higher nonce was seen"
+    // rule without mutating a signed request after signing.
+    let high = signed_call_with_nonce(
+        &conductor,
+        alice.cell_id(),
+        "get_my_hearths",
+        (),
+        [0x01; 32],
+    )
+    .await;
+
+    let low = signed_call_with_nonce(
+        &conductor,
+        alice.cell_id(),
+        "get_my_hearths",
+        (),
+        [0x00; 32],
+    )
+    .await;
+
+    let high_response = submit_call(&conductor, high).await;
+    match high_response {
+        AppResponse::ZomeCalled(result) => match *result {
+            ZomeCallResponse::Ok(output) => {
+                let _: Vec<Record> = output
+                    .decode()
+                    .expect("higher-nonce call must decode");
+            }
+            other => panic!("higher-nonce call must be authorized first, got {other:?}"),
+        },
+        other => panic!("expected ZomeCalled response for higher nonce, got {other:?}"),
+    }
+
+    let low_response = submit_call(&conductor, low).await;
+    match low_response {
+        AppResponse::ZomeCalled(result) => match *result {
+            ZomeCallResponse::Unauthorized(..) => {}
+            other => panic!(
+                "lower nonce after a higher nonce was witnessed should be unauthorized, got {other:?}"
+            ),
+        },
+        other => panic!("expected ZomeCalled response for stale nonce rejection, got {other:?}"),
     }
 }
 
