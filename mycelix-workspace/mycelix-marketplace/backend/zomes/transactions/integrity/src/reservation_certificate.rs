@@ -1091,6 +1091,8 @@ mod tests {
         let mut second = certificate_with_capacity("c2", 2, Some("capacity:1"), 1, 3);
         second.listing_revision = new_revision;
         second.intent.listing_revision = second.listing_revision.clone();
+        second.pre_state = f.post_state();
+        second.post_state = second.pre_state.after_reserve(second.quantity).unwrap();
         assert_eq!(
             f.apply(FrontierEvent::Reserve(second)),
             Ok(ApplyOutcome::Applied)
