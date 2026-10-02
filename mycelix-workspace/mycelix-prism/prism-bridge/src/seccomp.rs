@@ -55,7 +55,10 @@ impl SeccompSyscallPolicyV1 {
         if allowed_syscalls.is_empty() || allowed_syscalls.len() > MAX_SYSCALLS {
             return Err(SeccompError::InvalidPolicy);
         }
-        if allowed_syscalls.iter().any(|n| *n < 0 || *n > u32::MAX as i64) {
+        // seccomp_data.nr is a signed 32-bit syscall number. Values outside
+        // that representable domain are not meaningful policy inputs and
+        // should never reach BPF generation.
+        if allowed_syscalls.iter().any(|n| *n < 0 || *n > i32::MAX as i64) {
             return Err(SeccompError::InvalidPolicy);
         }
         // x86-64 and x32 share AUDIT_ARCH_X86_64. Do not permit a policy to
@@ -360,6 +363,25 @@ mod linux {
                 assert_eq!(filter[10].k, SECCOMP_RET_ERRNO | libc::EPERM as u32);
                 assert_eq!(filter.len(), 11);
             }
+        }
+
+        #[test]
+        fn oversized_syscall_number_is_rejected() {
+            let policy = SeccompSyscallPolicyV1::new(
+                SeccompArchitecture::X86_64,
+                vec![i32::MAX as i64 + 1],
+            );
+            assert!(matches!(policy, Err(SeccompError::InvalidPolicy)));
+        }
+
+        #[test]
+        fn oversized_policy_is_rejected() {
+            let syscalls = (0..257).map(|n| n as i64).collect();
+            let policy = SeccompSyscallPolicyV1::new(
+                SeccompArchitecture::X86_64,
+                syscalls,
+            );
+            assert!(matches!(policy, Err(SeccompError::InvalidPolicy)));
         }
 
         #[test]
