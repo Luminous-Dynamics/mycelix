@@ -963,6 +963,51 @@ mod tests {
     }
 
     #[test]
+    fn recognition_changes_do_not_retroactively_rewrite_admitted_authority() {
+        let mut state = nodes();
+        let mut foreign = envelope();
+        foreign.envelope_id = "env-recognition-drift".into();
+        foreign.logical_delivery_id = "delivery-recognition-drift".into();
+        foreign.origin_node = "node-b".into();
+        foreign.target_node = "node-a".into();
+
+        let admitted = deliver(&mut state, &foreign, 50, true);
+        assert_eq!(admitted.decision, FederationDecision::AcceptedForeign);
+        assert_eq!(admitted.authority, AuthorityDisposition::ForeignEvidence);
+
+        state.add_recognition(RecognitionEdge {
+            recognizing_node: "node-a".into(),
+            origin_node: "node-b".into(),
+            scope: "subject-1".into(),
+            mode: RecognitionMode::DelegatedAuthority,
+        });
+
+        let mut retry = foreign.clone();
+        retry.attempt_id = "attempt-recognition-drift".into();
+        let replayed = deliver(&mut state, &retry, 50, true);
+        assert_eq!(replayed.decision, FederationDecision::Duplicate);
+        assert_eq!(replayed.authority, AuthorityDisposition::ForeignEvidence);
+        assert_eq!(
+            state.delivery("delivery-recognition-drift").unwrap().authority(),
+            AuthorityDisposition::ForeignEvidence
+        );
+
+        state.add_recognition(RecognitionEdge {
+            recognizing_node: "node-a".into(),
+            origin_node: "node-b".into(),
+            scope: "subject-1".into(),
+            mode: RecognitionMode::EvidenceOnly,
+        });
+
+        let mut second_retry = retry;
+        second_retry.attempt_id = "attempt-recognition-conflict".into();
+        let replayed_again = deliver(&mut state, &second_retry, 50, true);
+        assert_eq!(replayed_again.decision, FederationDecision::Duplicate);
+        assert_eq!(replayed_again.authority, AuthorityDisposition::ForeignEvidence);
+        assert_eq!(state.observation_count(), 1);
+    }
+
+    #[test]
     fn conflicting_recognition_fails_closed_without_selecting_an_authority() {
         let mut state = nodes();
         state.add_recognition(RecognitionEdge {
@@ -1432,6 +1477,27 @@ mod tests {
             1
         );
         assert_eq!(expiry_state.observation_count(), 1);
+    }
+
+    #[test]
+    fn admitted_replay_cannot_bypass_node_deactivation() {
+        let mut state = nodes();
+        let candidate = envelope();
+
+        assert_eq!(
+            deliver(&mut state, &candidate, 50, true).decision,
+            FederationDecision::AcceptedLocal
+        );
+
+        state.nodes.get_mut("node-a").unwrap().active = false;
+
+        let mut retry = candidate;
+        retry.attempt_id = "attempt-inactive-retry".into();
+        let outcome = deliver(&mut state, &retry, 50, true);
+        assert_eq!(outcome.decision, FederationDecision::Unauthorized);
+        assert_eq!(outcome.authority, AuthorityDisposition::NoAuthority);
+        assert_eq!(state.delivery("delivery-1").unwrap().attempts().len(), 1);
+        assert_eq!(state.observation_count(), 1);
     }
 
     #[test]
