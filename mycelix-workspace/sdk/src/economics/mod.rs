@@ -15,6 +15,7 @@ pub mod commons;
 pub mod decay_garden;
 pub mod metabolic_oracle;
 pub mod poc;
+pub mod reconciliation;
 pub mod recognition;
 pub mod sector_flow;
 pub mod sector_balance;
@@ -33,6 +34,7 @@ pub use poc::{
     MycelCalculation, MycelComponent, MycelScore,
 };
 pub use sector_flow::{EconomicSector, FlowCategory, SectorFlow, SectorTransactionMatrix};
+pub use reconciliation::{reconcile_step, postings_for_step, StockFlowMismatch, StockFlowReconciliation, StockPosting};
 
 pub use stock_flow::{
     ActorBalanceSheet, ActorId, CreditCreation, DebtRepayment, EconomicState, MonetaryFlow,
