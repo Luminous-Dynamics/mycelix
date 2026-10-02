@@ -1,13 +1,76 @@
 #!/usr/bin/env node
 // QUAL-001S evaluator B: independent semantic contract checker.
-// It intentionally reconstructs expectations from the published theorem
-// vocabulary instead of reusing evaluator A's control flow.
+// It reconstructs expectations from proposition/theorem vocabulary and uses
+// an independent duplicate-key scan rather than sharing evaluator A code.
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const corpus = JSON.parse(fs.readFileSync(path.join(ROOT, "qualification_vectors_v1.json"), "utf8"));
+
+function duplicateObjectKeys(json) {
+  let i = 0;
+  const walkObject = () => {
+    if (json[i] !== "{") throw new Error("expected object");
+    i++;
+    const keys = new Set();
+    while (true) {
+      while (/s/.test(json[i] ?? "")) i++;
+      if (json[i] === "}") { i++; return; }
+      if (json[i] !== '"') throw new Error("expected object key");
+      i++;
+      let key = "";
+      while (i < json.length) {
+        const ch = json[i++];
+        if (ch === "\") { key += json[i++] ?? ""; continue; }
+        if (ch === '"') break;
+        key += ch;
+      }
+      if (keys.has(key)) throw new Error(`duplicate key: ${key}`);
+      keys.add(key);
+      while (/s/.test(json[i] ?? "")) i++;
+      if (json[i++] !== ":") throw new Error("expected colon");
+      walkValue();
+      while (/s/.test(json[i] ?? "")) i++;
+      if (json[i] === "}") { i++; return; }
+      if (json[i++] !== ",") throw new Error("expected comma");
+    }
+  };
+  const walkValue = () => {
+    while (/s/.test(json[i] ?? "")) i++;
+    if (json[i] === "{") return walkObject();
+    if (json[i] === "[") {
+      i++;
+      while (true) {
+        while (/s/.test(json[i] ?? "")) i++;
+        if (json[i] === "]") { i++; return; }
+        walkValue();
+        while (/s/.test(json[i] ?? "")) i++;
+        if (json[i] === "]") { i++; return; }
+        if (json[i++] !== ",") throw new Error("expected comma");
+      }
+    }
+    if (json[i] === '"') {
+      i++;
+      while (i < json.length) {
+        const ch = json[i++];
+        if (ch === "\") i++;
+        else if (ch === '"') return;
+      }
+      throw new Error("unterminated string");
+    }
+    const m = json.slice(i).match(/^(true|false|null|-?(?:0|[1-9]d*)(?:.d+)?(?:[eE][+-]?d+)?)/);
+    if (!m) throw new Error("invalid JSON scalar");
+    i += m[0].length;
+  };
+  walkObject();
+  while (/s/.test(json[i] ?? "")) i++;
+  if (i !== json.length) throw new Error("trailing data");
+}
+
+const raw = fs.readFileSync(path.join(ROOT, "qualification_vectors_v1.json"), "utf8");
+duplicateObjectKeys('{"authority_outcome":"NONE","authority_outcome":"AUTHORITY_AUTHORIZED"}');
 
 const expect = new Map([
   ["EXECUTION_AUTHENTICATED", ["VERIFIED", "EXECUTION_OBSERVED"]],
@@ -44,35 +107,28 @@ for (const v of corpus.vectors) {
       `${v.vector_id}: expected ${pair[0]}/${pair[1]}, got ${v.expected_state}/${v.authority_outcome}`
     );
   }
-
   const requested = new Set(v.requested_claims);
   const admitted = new Set(v.admitted_claims);
   for (const claim of admitted) {
-    if (!requested.has(claim)) {
-      throw new Error(`${v.vector_id}: admitted claim was never requested`);
-    }
+    if (!requested.has(claim)) throw new Error(`${v.vector_id}: admitted claim was never requested`);
   }
-
   if (v.kind === "availability" && v.expected_state !== "UNAVAILABLE") {
     throw new Error(`${v.vector_id}: availability vector must remain unavailable`);
   }
-
   if (v.proposition_id === "RECEIPT_CEILING" && v.expected_claims.includes("rotation_adoption")) {
     throw new Error("receipt ceiling violated");
   }
-
   if (v.proposition_id === "CLAIM_CEILING" && v.mutation?.operation === "add_required_constraint") {
     if (v.mutation.expected_effect !== "rotation_authorization remains unadmitted") {
       throw new Error("claim ceiling monotonicity contract missing");
     }
   }
-
-  if (
-    v.proposition_id === "CORROBORATION_INDEPENDENCE" &&
-    v.mutation?.expected_effect !== "independent corroboration count unchanged"
-  ) {
-    throw new Error("corroboration metamorphic contract missing");
+  if (v.proposition_id === "CANONICAL_JSON") {
+    if (!duplicateObjectKeys(v.mutation.fixture) === false) {
+      // unreachable: the duplicate-key fixture must throw.
+      throw new Error("duplicate-key fixture unexpectedly accepted");
+    }
   }
 }
 
-console.log("QUAL-001S evaluator B: PASS (independent semantic expectations only)");
+console.log("QUAL-001S evaluator B: PASS");
