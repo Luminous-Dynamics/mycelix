@@ -40,6 +40,12 @@ For lifecycle traceability, this is consistent with NIST work describing digital
 
 ## Graph validation
 
+## Bounded transition dependency walk
+
+The canonical composed coverage assessment resolves each named branch head with one deterministic predecessor walk that stops at the declared reconciliation branch point. The walk returns the exact visible ancestry, any first unavailable predecessor, and the validated transition records reached within that boundary.
+
+The same walk result is used for both dependency collection and ancestor/descendant contradiction detection. This keeps unresolved-dependency handling and competing-head semantics aligned: an unavailable record remains unresolved, while a relationship that is already visible inside the bounded cone remains structurally rejectable. No traversal is performed beyond the declared branch point.
+
 Each immutable transition has its own typed `transition_id`. Graph validation resolves predecessor references by that exact identity, checks evidence identity continuity and requires each child's `from` state to equal its predecessor's `to` state. Duplicate transition identities and multiple genesis assertions for one evidence event are invalid. A closed predecessor cycle is also invalid: every complete finite branch must bottom out at a single genesis assertion rather than looping through otherwise valid transition records.
 
 A missing predecessor is returned as an unresolved dependency, not a negative evidence judgment. When multiple children reference one predecessor, the graph assessment reports the branch point and retains every branch; it does not select a winning state. A separate, explicit reconciliation record is required before a consumer may treat the competing branches as reconciled. This graph check validates only the supplied dependency set; callers must retrieve the complete referenced records by address before treating the assessment as complete.
