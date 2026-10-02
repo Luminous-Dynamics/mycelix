@@ -378,4 +378,4 @@ while preserving a clean boundary for the next layer:
 
 The sector transaction matrix classifies the monetary consideration as `Other` rather than assuming that every sale is household consumption. Final consumption, intermediate demand, and investment goods are economically distinct uses and should become explicit classifications rather than being inferred from the existence of a sale.
 
-This separation follows the broader SFC architecture in which stocks and flows must remain jointly accounted for, while ecological SFC work additionally separates monetary and physical stock-flow structures. The latter literature also emphasizes explicit physical flow matrices and stock-flow matrices when integrating matter/energy constraints. citeturn0search3turn0search0turn0search26
+This separation follows the broader SFC architecture in which stocks and flows must remain jointly accounted for, while ecological SFC work additionally separates monetary and physical stock-flow structures. The latter literature also emphasizes explicit physical flow matrices and stock-flow matrices when integrating matter/energy constraints.
