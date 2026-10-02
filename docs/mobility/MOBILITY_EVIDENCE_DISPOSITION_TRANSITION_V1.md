@@ -44,6 +44,8 @@ Each immutable transition has its own typed `transition_id`. Graph validation re
 
 A missing predecessor is returned as an unresolved dependency, not a negative evidence judgment. When multiple children reference one predecessor, the graph assessment reports the branch point and retains every branch; it does not select a winning state. A separate, explicit reconciliation record is required before a consumer may treat the competing branches as reconciled. This graph check validates only the supplied dependency set; callers must retrieve the complete referenced records by address before treating the assessment as complete.
 
+The canonical assessment also exposes structural failures through the typed `EvidenceDispositionCoverageValidationError::Structural` error boundary. Dependency absence is deliberately not encoded as this error: the assessment returns `Unresolved` with explicit missing identities. This keeps definitive structural contradiction separate from dependency availability and lets an eventual Holochain callback map the two outcomes directly to `Invalid` and `UnresolvedDependencies`.
+
 ## Bounded transition dependency walk
 
 The canonical composed coverage assessment resolves each named branch head with one deterministic predecessor walk that stops at the declared reconciliation branch point. The walk returns the exact visible ancestry, any first unavailable predecessor, and the validated transition records reached within that boundary.
