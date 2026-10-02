@@ -224,6 +224,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::ReservationTerminalEvidence(_) => Ok(ValidateCallbackResult::Invalid(
                     "Reservation terminal evidence is immutable".into(),
                 )),
+                EntryTypes::ReservationCapacityEvidence(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Reservation capacity evidence is immutable".into(),
+                )),
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
