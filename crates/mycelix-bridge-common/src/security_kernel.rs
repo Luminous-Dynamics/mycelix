@@ -94,7 +94,7 @@ pub struct VerificationEvidence {
     signature_verified: bool,
     not_revoked: bool,
     authority_unambiguous: bool,
-    /// Upper bound on how long this verification evidence may authorize.
+    /// Exclusive upper bound on how long this verification evidence may authorize.
     valid_until_us: u64,
     /// Stable commitment for the exact capability the evidence verifies.
     capability_binding: [u8; 32],
@@ -122,7 +122,8 @@ impl VerificationEvidence {
     /// Construct trusted evidence with an explicit freshness lease.
     ///
     /// The lease is an upper bound on authorization derived from this evidence;
-    /// enforcement must revalidate it before an external effect.
+    /// The lease is exclusive: equality with the current time is already stale.
+    /// Enforcement must revalidate it before an external effect.
     pub(crate) fn new_for_capability_with_valid_until(
         capability: &Capability,
         signature_verified: bool,
@@ -452,7 +453,7 @@ pub fn verify_capability(
     }
     if now_us < capability.not_before_us
         || now_us > capability.expires_at_us
-        || now_us > evidence.valid_until_us
+        || now_us >= evidence.valid_until_us
     {
         return Err(AuthorizationDecision::Deny(
             AuthorizationDenial::OutsideValidityWindow,
@@ -503,7 +504,7 @@ pub fn revalidate_permit(
             AuthorizationIndeterminacy::AmbiguousAuthority,
         );
     }
-    if now_us > evidence.valid_until_us || !permit.is_valid_at(now_us) {
+    if now_us >= evidence.valid_until_us || !permit.is_valid_at(now_us) {
         return AuthorizationDecision::Deny(AuthorizationDenial::OutsideValidityWindow);
     }
     AuthorizationDecision::Allow
@@ -720,6 +721,22 @@ mod tests {
     }
 
     #[test]
+    fn verification_lease_expires_at_exact_boundary() {
+        let cap = capability();
+        assert_eq!(
+            verify_capability(
+                cap.clone(),
+                VerificationEvidence::new_for_capability_with_valid_until(
+                    &cap, true, true, true, 175,
+                ),
+                175,
+            )
+            .unwrap_err(),
+            AuthorizationDecision::Deny(AuthorizationDenial::OutsideValidityWindow)
+        );
+    }
+
+    #[test]
     fn permit_lifetime_is_bounded_by_verification_freshness() {
         let cap = capability();
         let verified = verify_capability(
@@ -803,6 +820,33 @@ mod tests {
             result,
             Err(AuthorizationDecision::Deny(
                 AuthorizationDenial::VerificationEvidenceMismatch
+            ))
+        );
+    }
+
+    #[test]
+    fn enforcement_rejects_evidence_at_exact_lease_boundary() {
+        let cap = capability();
+        let verified = verify_capability(
+            cap.clone(),
+            VerificationEvidence::new_for_capability_with_valid_until(
+                &cap, true, true, true, 175,
+            ),
+            150,
+        )
+        .unwrap();
+        let permit = authorize_permit(&verified, &request(CapabilityAction::Read), 150).unwrap();
+        let result = EnforcementRequest::from_permit(
+            permit,
+            VerificationEvidence::new_for_capability_with_valid_until(
+                &cap, true, true, true, 175,
+            ),
+            175,
+        );
+        assert_eq!(
+            result,
+            Err(AuthorizationDecision::Deny(
+                AuthorizationDenial::OutsideValidityWindow
             ))
         );
     }
