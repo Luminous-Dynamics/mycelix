@@ -52,6 +52,107 @@ pub struct EconomicObservables {
 }
 
 impl EconomicObservables {
+    /// Checked derivation of aggregate measurements.
+    pub fn try_from_state_and_ledger(
+        state: &EconomicState,
+        ledger: &EconomicPeriodLedger,
+    ) -> Result<Self, String> {
+        let mut aggregate_cash = 0i128;
+        let mut aggregate_deposits = 0i128;
+        let mut aggregate_loans = 0i128;
+        let mut aggregate_debt = 0i128;
+        let mut aggregate_deposit_liabilities = 0i128;
+        let mut aggregate_trade_receivables = 0i128;
+        let mut aggregate_trade_payables = 0i128;
+        let mut aggregate_inventory_value = 0i128;
+
+        for actor in &state.actors {
+            aggregate_cash = aggregate_cash.checked_add(actor.monetary.cash)
+                .ok_or_else(|| "aggregate cash overflow".to_string())?;
+            aggregate_deposits = aggregate_deposits.checked_add(actor.monetary.deposits)
+                .ok_or_else(|| "aggregate deposits overflow".to_string())?;
+            aggregate_loans = aggregate_loans.checked_add(actor.monetary.claims)
+                .ok_or_else(|| "aggregate loans overflow".to_string())?;
+            aggregate_debt = aggregate_debt.checked_add(actor.monetary.liabilities)
+                .ok_or_else(|| "aggregate debt overflow".to_string())?;
+            aggregate_deposit_liabilities = aggregate_deposit_liabilities
+                .checked_add(actor.monetary.deposit_liabilities)
+                .ok_or_else(|| "aggregate deposit liabilities overflow".to_string())?;
+            aggregate_trade_receivables = aggregate_trade_receivables
+                .checked_add(actor.monetary.trade_receivables)
+                .ok_or_else(|| "aggregate trade receivables overflow".to_string())?;
+            aggregate_trade_payables = aggregate_trade_payables
+                .checked_add(actor.monetary.trade_payables)
+                .ok_or_else(|| "aggregate trade payables overflow".to_string())?;
+            aggregate_inventory_value = aggregate_inventory_value
+                .checked_add(actor.inventory_carrying_value)
+                .ok_or_else(|| "aggregate inventory value overflow".to_string())?;
+        }
+
+        let net_working_capital = aggregate_inventory_value
+            .checked_add(aggregate_trade_receivables)
+            .and_then(|value| value.checked_sub(aggregate_trade_payables))
+            .ok_or_else(|| "aggregate working-capital overflow".to_string())?;
+        let liquidity = aggregate_cash
+            .checked_add(aggregate_deposits)
+            .ok_or_else(|| "aggregate liquidity overflow".to_string())?;
+        let assets = state.aggregate_assets();
+        let liabilities = state.aggregate_liabilities();
+
+        let interest_paid = ledger.category_total(EconomicFlowCategory::Interest);
+        let gross_debt_service = interest_paid
+            .checked_add(ledger.debt_repaid)
+            .ok_or_else(|| "aggregate debt service overflow".to_string())?;
+        let gross_operating_surplus = ledger
+            .sales_consideration
+            .checked_sub(ledger.cost_of_goods_sold)
+            .ok_or_else(|| "aggregate operating surplus overflow".to_string())?;
+        let operating_surplus_after_depreciation = gross_operating_surplus
+            .checked_sub(ledger.depreciation)
+            .ok_or_else(|| "aggregate operating surplus after depreciation overflow".to_string())?;
+        let net_credit_impulse = ledger
+            .credit_created
+            .checked_sub(ledger.debt_repaid)
+            .ok_or_else(|| "aggregate net credit overflow".to_string())?;
+
+        Ok(Self {
+            aggregate_cash,
+            aggregate_deposits,
+            aggregate_loans,
+            aggregate_debt,
+            aggregate_deposit_liabilities,
+            aggregate_trade_receivables,
+            aggregate_trade_payables,
+            net_working_capital,
+            liquidity,
+            gross_leverage: (assets != 0).then_some(RatioObservation {
+                numerator: liabilities,
+                denominator: assets,
+            }),
+            credit_created: ledger.credit_created,
+            debt_repaid: ledger.debt_repaid,
+            trade_credit_extended: ledger.trade_credit_extended,
+            trade_credit_settled: ledger.trade_credit_settled,
+            net_credit_impulse,
+            interest_paid,
+            gross_debt_service,
+            sales_consideration: ledger.sales_consideration,
+            cost_of_goods_sold: ledger.cost_of_goods_sold,
+            gross_operating_surplus,
+            depreciation: ledger.depreciation,
+            operating_surplus_after_depreciation,
+        })
+    }
+
+    /// Derive measurements from state stocks and the deterministic period ledger.
+    pub fn from_state_and_ledger(
+        state: &EconomicState,
+        ledger: &EconomicPeriodLedger,
+    ) -> Self {
+        Self::try_from_state_and_ledger(state, ledger)
+            .expect("aggregate economic observable overflow")
+    }
+
     /// Derive measurements from state stocks and the deterministic period ledger.
     pub fn from_state_and_ledger(
         state: &EconomicState,
