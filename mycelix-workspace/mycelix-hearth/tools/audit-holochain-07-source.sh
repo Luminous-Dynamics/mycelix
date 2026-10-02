@@ -153,6 +153,16 @@ else
   done
 fi
 
+    # 0.7 validation must account for every FlatOp family. A zome may
+    # explicitly handle a family or intentionally cover it with a terminal
+    # catch-all, but silently dropping a family is a migration defect.
+    for family in CreateEntry CreateRecord Update Delete Link AgentActivity; do
+      if rg -n --pcre2 "\\bFlatOp::${family}\\b|\\b_\\s*=>\\s*Ok\\s*\\(" "$file" >/dev/null; then
+        echo "OK:   $file covers FlatOp::$family (explicit or catch-all)"
+      else
+        echo "FAIL: $file has no FlatOp::$family or terminal catch-all coverage"; fail=1
+      fi
+    done
 # Validation must remain deterministic. Holochain explicitly disallows
 # state-changing / time-varying retrievals and other non-deterministic inputs
 # from validation callbacks. Keep this gate scoped to production source before
