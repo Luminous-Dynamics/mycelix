@@ -133,7 +133,7 @@ fi
 # FlatOp vocabulary, so reject known 0.6 validation dispatcher patterns.
 legacy_source=0
 while IFS= read -r -d '' file; do
-  for pattern in     'FlatOp::StoreEntry'     'FlatOp::RegisterCreateLink'     'FlatOp::RegisterDeleteLink'     'FlatOp::RegisterUpdate'     'FlatOp::RegisterDelete'     'FlatOp::RegisterAgentActivity'     'Action::Create'     'Action::Update'     'Action::Delete'     'EntryCreationAction'     'ActionBuilderCommon'     'ActionBuilder'     'NewEntryAction'     'NewEntryActionRef'     'SignedActionHashed<'     'signal_url'     'webrtc_config'     'transport-iroh'     'sqlite-encrypted'     'wasmer_sys'
+  for pattern in     'FlatOp::StoreEntry'     'FlatOp::RegisterCreateLink'     'FlatOp::RegisterDeleteLink'     'FlatOp::RegisterUpdate'     'FlatOp::RegisterDelete'     'FlatOp::RegisterAgentActivity'     'Action::Create'     'Action::Update'     'Action::Delete'     'EntryCreationAction'     'ActionBuilderCommon'     'ActionBuilder'     'NewEntryAction'     'NewEntryActionRef'     'SignedActionHashed<'     'signal_url'     'block_agent'     'unblock_agent'     'webrtc_config'     'transport-iroh'     'sqlite-encrypted'     'wasmer_sys'
   do
     if grep -Fq -- "$pattern" "$file"; then
       echo "FAIL: legacy Holochain 0.6 source pattern '$pattern' in $file"
