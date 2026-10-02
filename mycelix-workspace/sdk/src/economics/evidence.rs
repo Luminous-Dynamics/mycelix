@@ -334,6 +334,10 @@ mod tests {
             .as_object_mut()
             .unwrap()
             .remove("sector_observations_hash");
+        value
+            .as_object_mut()
+            .unwrap()
+            .remove("sector_financial_flow_hash");
         let decoded: EconomicEvidenceCapsule = serde_json::from_value(value).unwrap();
         assert_eq!(decoded.sector_observations_hash, None);
     }
