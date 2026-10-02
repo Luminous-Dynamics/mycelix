@@ -548,27 +548,22 @@ impl EvidenceDispositionAuthorityScope {
                 return Err("authority scope basis must include every reconciliation basis witness".into());
             }
         }
+        let target = delegations
+            .iter()
+            .find(|delegation| delegation.delegation_id == self.delegation);
+
         let assessment = EvidenceDispositionAuthorityDelegation::validate_chain(
             &self.delegation,
             delegations,
         )?;
 
-        // A missing target (or missing predecessor) is already an unresolved
-        // dependency classification. Do not turn that protocol-layer result
-        // back into a structural error merely because the target witness is
-        // unavailable for the secondary scope-binding check.
-        if matches!(
-            assessment,
-            AuthorityDelegationChainAssessment::Unresolved { .. }
-        ) {
-            return Ok(assessment);
+        // Preserve structural binding precedence whenever the named target is
+        // present. Only an actually absent target is allowed to remain solely
+        // an unresolved dependency at this scope boundary.
+        if let Some(delegation) = target {
+            delegation.validate_against_scope(self)?;
         }
 
-        let delegation = delegations
-            .iter()
-            .find(|d| d.delegation_id == self.delegation)
-            .ok_or_else(|| "authority scope delegation is missing".to_string())?;
-        delegation.validate_against_scope(self)?;
         Ok(assessment)
     }
 
@@ -3207,6 +3202,66 @@ mod tests {
                 roots: vec![],
             })
         );
+    }
+
+    #[test]
+    fn authority_scope_rejects_binding_mismatch_before_unresolved_predecessor() {
+        let reconciliation = EvidenceDispositionReconciliation {
+            reconciliation_id: id(
+                IdentityKind::ReconciliationWitness,
+                "reconcile-scope-binding-precedence",
+            ),
+            evidence: id(IdentityKind::InspectionRecord, "inspection-graph"),
+            branch_point: id(IdentityKind::ReconciliationWitness, "t1"),
+            branch_heads: vec![
+                id(IdentityKind::ReconciliationWitness, "t2"),
+                id(IdentityKind::ReconciliationWitness, "t3"),
+            ],
+            authority: id(
+                IdentityKind::ReconciliationWitness,
+                "authority-scope-binding-precedence",
+            ),
+            authority_scope: id(
+                IdentityKind::ReconciliationWitness,
+                "authority-scope-binding-precedence-witness",
+            ),
+            authority_delegation: id(
+                IdentityKind::ReconciliationWitness,
+                "authority-delegation-scope-binding-precedence",
+            ),
+            basis: vec![],
+        };
+        let scope = EvidenceDispositionAuthorityScope {
+            scope_id: reconciliation.authority_scope.clone(),
+            authority: reconciliation.authority.clone(),
+            subject: reconciliation.reconciliation_id.clone(),
+            delegation: reconciliation.authority_delegation.clone(),
+            basis: vec![],
+        };
+        let target = EvidenceDispositionAuthorityDelegation {
+            delegation_id: reconciliation.authority_delegation.clone(),
+            grantor: id(
+                IdentityKind::ReconciliationWitness,
+                "authority-grantor-scope-binding-precedence",
+            ),
+            grantee: id(
+                IdentityKind::ReconciliationWitness,
+                "different-authority",
+            ),
+            subject: reconciliation.reconciliation_id.clone(),
+            predecessor: Some(id(
+                IdentityKind::ReconciliationWitness,
+                "authority-missing-before-binding",
+            )),
+            basis: vec![],
+        };
+
+        assert!(scope
+            .validate_against_reconciliation_and_authority_chain(
+                &reconciliation,
+                &[target],
+            )
+            .is_err());
     }
 
     #[test]
