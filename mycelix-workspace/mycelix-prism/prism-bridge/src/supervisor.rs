@@ -196,6 +196,7 @@ mod tests {
                 next_sandbox_installation_id().unwrap(),
                 adapter,
                 state.launch.sandbox.policy_digest(),
+                [0x11; 32],
                 layer,
             ).unwrap(),
         }
@@ -238,6 +239,7 @@ mod tests {
                 next_sandbox_installation_id().unwrap(),
                 SandboxAdapterKind::LinuxLandlockFilesystemV1,
                 SandboxProfileV1::renderer_default().policy_digest(),
+                [0x11; 32],
                 SandboxEnforcementLayer::Syscall,
             ),
             Err(crate::process::ProcessContractError::InvalidSandboxEvidence)
@@ -274,6 +276,7 @@ mod tests {
                 next_sandbox_installation_id().unwrap(),
                 SandboxAdapterKind::LinuxLandlockFilesystemV1,
                 state.launch.sandbox.policy_digest(),
+                [0x22; 32],
                 SandboxEnforcementLayer::Filesystem,
             ).unwrap(),
         };
@@ -328,7 +331,7 @@ mod tests {
         // The typed receipt is immutable; a forged digest cannot be injected
         // through the public renderer-facing data model.
         assert_eq!(
-            receipt.enforcement.policy_digest(),
+            receipt.enforcement.profile_digest(),
             state.launch.sandbox.policy_digest()
         );
         let _ = &mut receipt;
