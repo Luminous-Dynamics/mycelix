@@ -146,6 +146,10 @@ impl SecurityEvent {
         policy_version: u64,
         timestamp_us: u64,
     ) -> Result<Self, &'static str> {
+        let actor_id = actor_id.into();
+        if actor_id != enforcement.request().subject() {
+            return Err("security event actor does not match enforcement subject");
+        }
         if policy_version != enforcement.request().policy_version() {
             return Err("security event policy version does not match enforcement request");
         }
@@ -249,6 +253,37 @@ mod tests {
         assert_eq!(
             event.authority_binding,
             Some(enforcement.authority_binding())
+        );
+    }
+
+    #[test]
+    fn enforcement_event_rejects_actor_mismatch() {
+        let request = crate::security_kernel::AuthorizationRequest::new(
+            "did:mycelix:alice",
+            "resource:ledger",
+            CapabilityAction::Read,
+            7,
+        )
+        .unwrap();
+        let permit = authorize_permit(&verified(), &request, 150).unwrap();
+        let enforcement = EnforcementRequest::from_permit(
+            permit,
+            VerificationEvidence::new_for_capability(&capability(), true, true, true),
+            150,
+        )
+        .unwrap();
+
+        assert_eq!(
+            SecurityEvent::from_enforcement_request(
+                "event:actor-mismatch",
+                "did:mycelix:bob",
+                "capability:read",
+                &enforcement,
+                7,
+                150,
+            )
+            .unwrap_err(),
+            "security event actor does not match enforcement subject"
         );
     }
 
