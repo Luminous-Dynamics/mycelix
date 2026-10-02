@@ -1776,6 +1776,16 @@ fn validate_current_listing_revision(
     candidate_revision: &ActionHash,
     chain_top: &ActionHash,
 ) -> ExternResult<ValidateCallbackResult> {
+    let root_record = must_get_valid_record(listing_hash.clone())?;
+    let root_entry_hash = match root_record.action() {
+        Action::Create(create) => create.entry_hash.clone(),
+        _ => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Listing root hash must identify a Create action".into(),
+            ));
+        }
+    };
+
     let activity = must_get_agent_activity(
         seller.clone(),
         ChainFilter::new(chain_top.clone()).until_hash(listing_hash.clone()),
@@ -1805,7 +1815,10 @@ fn validate_current_listing_revision(
                     latest_revision = Some((sequence, action_hash));
                 }
             }
-            Action::Update(update) if update.original_action_address == *listing_hash => {
+            Action::Update(update) if update.original_entry_address == root_entry_hash => {
+                // Accept both direct-root and chained listing updates. The stable
+                // identity invariant is the original listing entry address;
+                // original_action_address may point to the root or a prior update.
                 if latest_revision
                     .as_ref()
                     .map(|(seq, _)| sequence > *seq)
@@ -1842,6 +1855,19 @@ fn validate_current_listing_revision(
     }
 
     Ok(ValidateCallbackResult::Valid)
+}
+
+fn listing_revision_is_root_derived(
+    revision_action: &Action,
+    revision_hash: &ActionHash,
+    listing_hash: &ActionHash,
+    root_entry_hash: &EntryHash,
+) -> bool {
+    match revision_action {
+        Action::Create(_) => revision_hash == listing_hash,
+        Action::Update(update) => update.original_entry_address == *root_entry_hash,
+        _ => false,
+    }
 }
 
 /// Validate a seller-issued reservation against exact addressable dependencies.
@@ -1904,6 +1930,15 @@ pub fn validate_create_reservation_certificate(
             ))
         })?;
     let listing_action = listing_record.action();
+    let listing_root_entry_hash = match listing_action {
+        Action::Create(create) => create.entry_hash.clone(),
+        _ => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "ReservationCertificate listing hash must identify the listing root create action"
+                    .into(),
+            ));
+        }
+    };
     if listing_action.author() != &certificate.seller {
         return Ok(ValidateCallbackResult::Invalid(
             "ReservationCertificate seller does not own the referenced listing action".into(),
@@ -1947,26 +1982,15 @@ pub fn validate_create_reservation_certificate(
         return Ok(ValidateCallbackResult::Invalid(error));
     }
 
-    match revision_action {
-        Action::Create(_) => {
-            if certificate.listing_revision != certificate.listing_hash {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "A create action can only be the listing's root revision".into(),
-                ));
-            }
-        }
-        Action::Update(update) => {
-            if update.original_action_address != certificate.listing_hash {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Listing revision does not descend from the referenced listing root".into(),
-                ));
-            }
-        }
-        _ => {
-            return Ok(ValidateCallbackResult::Invalid(
-                "Listing revision must reference a listing create or update action".into(),
-            ));
-        }
+    if !listing_revision_is_root_derived(
+        revision_action,
+        &certificate.listing_revision,
+        &certificate.listing_hash,
+        &listing_root_entry_hash,
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Listing revision does not descend from the referenced listing root".into(),
+        ));
     }
     let chain_top = action.prev_action.clone();
     let revision_result = validate_current_listing_revision(
@@ -2131,6 +2155,15 @@ pub fn validate_create_reservation_capacity(
 
     let listing_record = must_get_valid_record(evidence.listing_hash.clone())?;
     let listing_action = listing_record.action();
+    let listing_root_entry_hash = match listing_action {
+        Action::Create(create) => create.entry_hash.clone(),
+        _ => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Reservation capacity listing hash must identify the listing root create action"
+                    .into(),
+            ));
+        }
+    };
     if listing_action.author() != &evidence.seller {
         return Ok(ValidateCallbackResult::Invalid(
             "Reservation capacity listing is not seller-authored".into(),
@@ -2180,14 +2213,15 @@ pub fn validate_create_reservation_capacity(
             "Reservation capacity does not match the bound listing revision inventory".into(),
         ));
     }
-    match revision_action {
-        Action::Create(_) if evidence.listing_revision == evidence.listing_hash => {}
-        Action::Update(update) if update.original_action_address == evidence.listing_hash => {}
-        _ => {
-            return Ok(ValidateCallbackResult::Invalid(
-                "Reservation capacity evidence is not bound to a valid listing revision".into(),
-            ));
-        }
+    if !listing_revision_is_root_derived(
+        revision_action,
+        &evidence.listing_revision,
+        &evidence.listing_hash,
+        &listing_root_entry_hash,
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Reservation capacity evidence is not bound to a valid listing revision".into(),
+        ));
     }
     let chain_top = action.prev_action.clone();
     let revision_result = validate_current_listing_revision(
