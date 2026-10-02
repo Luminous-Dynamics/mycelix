@@ -371,6 +371,16 @@
       "id": "EDT-072",
       "case": "reconciliation_coverage_assessment_aggregates_missing_transition_and_authority_dependencies",
       "expected": "unresolved_at_protocol_layer"
+    },
+    {
+      "id": "EDT-073",
+      "case": "reconciliation_coverage_assessment_ignores_unrelated_invalid_transition",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-074",
+      "case": "reconciliation_coverage_assessment_is_invariant_to_transition_order",
+      "expected": "accepted"
     }
   ]
 }
