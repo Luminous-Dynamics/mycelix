@@ -29,7 +29,10 @@ fn child() -> ! {
         unsafe { libc::_exit(92) };
     }
 
-    if unsafe { libc::getpid() } <= 0 {
+    // Cross the libc boundary for the allowed path as well. A successful
+    // libc getpid() alone does not prove that the kernel evaluated the
+    // syscall against this filter.
+    if unsafe { libc::syscall(libc::SYS_getpid) } <= 0 {
         unsafe { libc::_exit(93) };
     }
 
