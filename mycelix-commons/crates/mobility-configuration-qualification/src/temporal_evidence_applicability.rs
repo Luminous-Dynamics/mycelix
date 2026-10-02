@@ -178,6 +178,26 @@ impl EvidenceDispositionTransition {
         }
         missing.sort_by(|a, b| (&a.namespace, &a.id).cmp(&(&b.namespace, &b.id)));
         missing.dedup();
+
+        // A finite predecessor graph must bottom out at a genesis assertion.
+        // Otherwise the graph contains a closed cycle with no historical root.
+        // Such a cycle is not an unresolved DHT dependency: all referenced
+        // transitions are present, but the claimed append-only history is
+        // structurally impossible.
+        for transition in transitions {
+            let mut seen = std::collections::BTreeSet::new();
+            let mut cursor = transition;
+            while let Some(parent_id) = &cursor.predecessor {
+                if !seen.insert(cursor.transition_id.clone()) {
+                    return Err("disposition transition graph contains a predecessor cycle".into());
+                }
+                match by_id.get(parent_id) {
+                    Some(parent) => cursor = parent,
+                    None => break,
+                }
+            }
+        }
+
         let branch_points = children.into_iter()
             .filter_map(|(parent, count)| if count > 1 { Some(parent) } else { None })
             .collect();
@@ -627,6 +647,27 @@ mod tests {
             Ok(DispositionChainAssessment::Complete {
                 branch_points: vec![id(IdentityKind::ReconciliationWitness, "t1")],
             }));
+    }
+
+    #[test]
+    fn graph_rejects_predecessor_cycle() {
+        let first = graph_transition(
+            "cycle-a",
+            Some("cycle-b"),
+            EvidenceDisposition::Active,
+            EvidenceDisposition::Disputed {
+                by: id(IdentityKind::ReconciliationWitness, "w1"),
+            },
+        );
+        let second = graph_transition(
+            "cycle-b",
+            Some("cycle-a"),
+            EvidenceDisposition::Disputed {
+                by: id(IdentityKind::ReconciliationWitness, "w1"),
+            },
+            EvidenceDisposition::Active,
+        );
+        assert!(EvidenceDispositionTransition::validate_graph(&[first, second]).is_err());
     }
 
     #[test]
