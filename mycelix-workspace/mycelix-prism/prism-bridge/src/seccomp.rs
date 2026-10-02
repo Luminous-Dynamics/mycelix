@@ -133,6 +133,9 @@ mod linux {
     const BPF_RET: u16 = 0x06;
 
     const SECCOMP_MODE_FILTER: libc::c_int = 2;
+    const SECCOMP_SET_MODE_FILTER: libc::c_uint = 1;
+    const SECCOMP_FILTER_FLAG_TSYNC: libc::c_uint = 1 << 0;
+    const SECCOMP_FILTER_FLAG_TSYNC_ESRCH: libc::c_uint = 1 << 4;
     const SECCOMP_RET_KILL_PROCESS: u32 = 0x8000_0000;
     const SECCOMP_RET_ERRNO: u32 = 0x0005_0000;
     const SECCOMP_RET_ALLOW: u32 = 0x7fff_0000;
@@ -181,6 +184,18 @@ mod linux {
         Ok(filter)
     }
 
+    fn seccomp_evidence_digest(policy: &SeccompSyscallPolicyV1) -> [u8; 32] {
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(b"PRISM-SECCOMP-SYSCALL-EVIDENCE-V2");
+        hasher.update(&policy.digest());
+        hasher.update(&SECCOMP_RET_ERRNO.to_le_bytes());
+        hasher.update(&(libc::EPERM as u32).to_le_bytes());
+        hasher.update(&SECCOMP_RET_KILL_PROCESS.to_le_bytes());
+        hasher.update(&SECCOMP_RET_ALLOW.to_le_bytes());
+        hasher.update(&(SECCOMP_FILTER_FLAG_TSYNC | SECCOMP_FILTER_FLAG_TSYNC_ESRCH).to_le_bytes());
+        *hasher.finalize().as_bytes()
+    }
+
     /// Install an explicit architecture-qualified syscall allowlist into the
     /// current process. This call is intended for the renderer bootstrap after
     /// process identity is established and before renderer capability IPC.
@@ -212,13 +227,17 @@ mod linux {
             filter: filter.as_mut_ptr(),
         };
 
+        // A renderer may be multithreaded. prctl(PR_SET_SECCOMP) can only
+        // attach to the calling thread; use the seccomp() API with TSYNC so
+        // the broker never records process-level syscall evidence for a
+        // single-thread-only filter. TSYNC_ESRCH normalizes synchronization
+        // failure to errno instead of exposing a kernel TID as the return value.
         let rc = unsafe {
-            libc::prctl(
-                libc::PR_SET_SECCOMP,
-                SECCOMP_MODE_FILTER,
+            libc::syscall(
+                libc::SYS_seccomp,
+                SECCOMP_SET_MODE_FILTER,
+                SECCOMP_FILTER_FLAG_TSYNC | SECCOMP_FILTER_FLAG_TSYNC_ESRCH,
                 &program as *const SockFprog,
-                0,
-                0,
             )
         };
         if rc != 0 {
@@ -232,7 +251,7 @@ mod linux {
             installation_id,
             SandboxAdapterKind::LinuxSeccompSyscallV1,
             profile.policy_digest(),
-            policy.digest(),
+            seccomp_evidence_digest(policy),
             SandboxEnforcementLayer::Syscall,
         ).map_err(|_| SeccompError::InvalidPolicy)
     }
