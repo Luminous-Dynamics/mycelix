@@ -132,7 +132,7 @@ impl SectorTransactionMatrix {
                 super::transition::EconomicTransition::InventoryTransfer(_) => continue,
                 super::transition::EconomicTransition::InventoryConsumption(_) => continue,
                 super::transition::EconomicTransition::GoodsSale(sale) => {
-                    (sale.seller.clone(), sale.buyer.clone(), FlowCategory::Consumption, sale.consideration)
+                    (sale.seller.clone(), sale.buyer.clone(), FlowCategory::Other, sale.consideration)
                 }
                 super::transition::EconomicTransition::MonetaryTransfer(flow) => (
                     sector_for(&flow.from)?,
