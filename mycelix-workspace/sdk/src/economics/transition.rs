@@ -218,6 +218,34 @@ mod tests {
     }
 
     #[test]
+    fn physical_inventory_circuit_is_deterministic_and_atomic() {
+        let mut state = initial_state();
+        state.actors.iter_mut().find(|a| a.actor == "household").unwrap().real.inventories = 10;
+        let transitions = vec![
+            EconomicTransition::InventoryTransfer(
+                InventoryTransfer::new("household", "bank", 4).unwrap(),
+            ),
+            EconomicTransition::InventoryConsumption(
+                InventoryConsumption::new("bank", 2).unwrap(),
+            ),
+        ];
+
+        let (first, receipt_a) = apply_step(&state, 1, &transitions, None).unwrap();
+        let (second, receipt_b) = apply_step(&state, 1, &transitions, None).unwrap();
+
+        assert_eq!(first, second);
+        assert_eq!(receipt_a, receipt_b);
+        assert_eq!(
+            first.actors.iter().find(|a| a.actor == "household").unwrap().real.inventories,
+            6
+        );
+        assert_eq!(
+            first.actors.iter().find(|a| a.actor == "bank").unwrap().real.inventories,
+            2
+        );
+    }
+
+    #[test]
     fn credit_and_repayment_can_close_a_step() {
         let state = initial_state();
         let transitions = vec![
