@@ -136,6 +136,10 @@ jobs:
       - name: Validate independent semantic expectations
         run: node conformance/qual-001s/evaluator_b.mjs
 
+      - name: Record exact QUAL-001S byte commitments
+        run: |
+          sha256sum             conformance/qual-001s/qualification_vectors_v1.schema.json             conformance/qual-001s/qualification_vectors_v1.json             conformance/qual-001s/evaluator_a.py             conformance/qual-001s/evaluator_b.mjs             conformance/qual-001s/README.md
+
   # Per-cluster test jobs
   test-cos-conformance:
     needs: changes
