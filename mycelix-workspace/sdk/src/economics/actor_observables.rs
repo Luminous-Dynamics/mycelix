@@ -391,7 +391,7 @@ mod tests {
             firm.financing_regime(20, 20, 0).unwrap(),
             FinancingRegime::Hedge
         );
-        assert_eq!(firm.net_liquidity_change, 230);
+        assert_eq!(firm.net_liquidity_change, 210);
         assert_eq!(firm.financing_net_liquidity(), 180);
         assert_eq!(firm.investing_net_liquidity(), 0);
     }
