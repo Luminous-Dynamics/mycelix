@@ -209,6 +209,131 @@ impl EvidenceDispositionTransition {
     }
 }
 
+/// Explicitly records reconciliation of competing disposition branches.
+///
+/// This record never selects a branch implicitly. It identifies the exact
+/// branch heads considered, the branch point they descend from, the evidence
+/// record they concern, and the addressable authority/basis for the
+/// reconciliation. The reconciliation itself is a provenance fact; it does
+/// not establish truth, safety, certification, or causal correctness.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EvidenceDispositionReconciliation {
+    pub reconciliation_id: IdentityRef,
+    pub evidence: IdentityRef,
+    pub branch_point: IdentityRef,
+    pub branch_heads: Vec<IdentityRef>,
+    pub authority: IdentityRef,
+    pub basis: Vec<IdentityRef>,
+}
+
+impl EvidenceDispositionReconciliation {
+    pub fn validate(&self) -> Result<(), String> {
+        self.reconciliation_id.validate()?;
+        self.evidence.validate()?;
+        self.branch_point.validate()?;
+        self.authority.validate()?;
+        if !matches!(self.reconciliation_id.kind, IdentityKind::ReconciliationWitness) {
+            return Err("reconciliation identity must be a ReconciliationWitness".into());
+        }
+        if self.reconciliation_id == self.evidence || self.reconciliation_id == self.branch_point {
+            return Err("reconciliation identity cannot equal evidence or branch point".into());
+        }
+        if !matches!(
+            self.evidence.kind,
+            IdentityKind::InspectionRecord
+                | IdentityKind::TestRecord
+                | IdentityKind::OperationalObservation
+                | IdentityKind::MaintenanceEvent
+        ) {
+            return Err("reconciliation requires a typed evidence event".into());
+        }
+        if !matches!(
+            self.branch_point.kind,
+            IdentityKind::EvidenceRecord | IdentityKind::ReconciliationWitness
+        ) {
+            return Err("reconciliation branch point must be a transition identity".into());
+        }
+        if !matches!(
+            self.authority.kind,
+            IdentityKind::EvidenceRecord | IdentityKind::ReconciliationWitness
+        ) {
+            return Err("reconciliation authority must be an addressable witness".into());
+        }
+        if self.branch_heads.len() < 2 {
+            return Err("reconciliation requires at least two competing branch heads".into());
+        }
+        let mut heads = std::collections::BTreeSet::new();
+        for head in &self.branch_heads {
+            head.validate()?;
+            if !matches!(head.kind, IdentityKind::EvidenceRecord | IdentityKind::ReconciliationWitness) {
+                return Err("reconciliation branch head must be a transition identity".into());
+            }
+            if !heads.insert(head.clone()) {
+                return Err("reconciliation branch heads must be unique".into());
+            }
+            if head == &self.reconciliation_id || head == &self.evidence {
+                return Err("reconciliation branch head cannot equal reconciliation or evidence identity".into());
+            }
+        }
+        for basis in &self.basis {
+            basis.validate()?;
+            if !matches!(basis.kind, IdentityKind::EvidenceRecord | IdentityKind::ReconciliationWitness) {
+                return Err("reconciliation basis must be an addressable witness".into());
+            }
+        }
+        Ok(())
+    }
+
+    /// Verify that every named branch head exists in the supplied transition
+    /// graph, concerns the same evidence, and has a predecessor path to the
+    /// declared branch point. This does not choose a winning branch.
+    pub fn validate_against_graph(
+        &self,
+        transitions: &[EvidenceDispositionTransition],
+    ) -> Result<(), String> {
+        self.validate()?;
+        let mut by_id = std::collections::BTreeMap::new();
+        for transition in transitions {
+            transition.validate()?;
+            if by_id.insert(transition.transition_id.clone(), transition).is_some() {
+                return Err("duplicate disposition transition identity".into());
+            }
+        }
+
+        let branch_point = by_id.get(&self.branch_point)
+            .ok_or_else(|| "reconciliation branch point is missing".to_string())?;
+        if branch_point.evidence != self.evidence {
+            return Err("reconciliation branch point belongs to different evidence".into());
+        }
+
+        for head_id in &self.branch_heads {
+            let mut cursor = by_id.get(head_id)
+                .ok_or_else(|| format!("reconciliation branch head is missing: {}", head_id.id))?;
+            if cursor.evidence != self.evidence {
+                return Err("reconciliation branch head belongs to different evidence".into());
+            }
+            let mut seen = std::collections::BTreeSet::new();
+            loop {
+                if !seen.insert(cursor.transition_id.clone()) {
+                    return Err("reconciliation graph contains a predecessor cycle".into());
+                }
+                if cursor.transition_id == self.branch_point {
+                    break;
+                }
+                let predecessor = cursor.predecessor.as_ref()
+                    .ok_or_else(|| "reconciliation branch head does not descend from branch point".to_string())?;
+                cursor = by_id.get(predecessor)
+                    .ok_or_else(|| "reconciliation branch ancestry is unresolved".to_string())?;
+                if cursor.evidence != self.evidence {
+                    return Err("reconciliation branch ancestry belongs to different evidence".into());
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
 impl EvidenceDisposition {
     pub fn validate(&self, evidence: &IdentityRef) -> Result<(), String> {
         let witness = match self {
@@ -675,6 +800,76 @@ mod tests {
         let one = graph_transition("t1", None, EvidenceDisposition::Active,
             EvidenceDisposition::Disputed { by: id(IdentityKind::ReconciliationWitness, "w1") });
         assert!(EvidenceDispositionTransition::validate_graph(&[one.clone(), one]).is_err());
+    }
+
+    #[test]
+    fn reconciliation_requires_competing_branch_heads() {
+        let reconciliation = EvidenceDispositionReconciliation {
+            reconciliation_id: id(IdentityKind::ReconciliationWitness, "reconcile-1"),
+            evidence: id(IdentityKind::InspectionRecord, "inspection-graph"),
+            branch_point: id(IdentityKind::ReconciliationWitness, "t1"),
+            branch_heads: vec![id(IdentityKind::ReconciliationWitness, "t2")],
+            authority: id(IdentityKind::ReconciliationWitness, "authority-1"),
+            basis: vec![],
+        };
+        assert!(reconciliation.validate().is_err());
+    }
+
+    #[test]
+    fn reconciliation_validates_competing_branch_ancestry_without_selecting_winner() {
+        let disputed = EvidenceDisposition::Disputed {
+            by: id(IdentityKind::ReconciliationWitness, "w1"),
+        };
+        let root = graph_transition("t1", None, EvidenceDisposition::Active, disputed.clone());
+        let left = graph_transition("t2", Some("t1"), disputed.clone(), EvidenceDisposition::Active);
+        let right = graph_transition(
+            "t3",
+            Some("t1"),
+            disputed,
+            EvidenceDisposition::Retracted {
+                by: id(IdentityKind::ReconciliationWitness, "w2"),
+            },
+        );
+        let reconciliation = EvidenceDispositionReconciliation {
+            reconciliation_id: id(IdentityKind::ReconciliationWitness, "reconcile-1"),
+            evidence: id(IdentityKind::InspectionRecord, "inspection-graph"),
+            branch_point: id(IdentityKind::ReconciliationWitness, "t1"),
+            branch_heads: vec![
+                id(IdentityKind::ReconciliationWitness, "t2"),
+                id(IdentityKind::ReconciliationWitness, "t3"),
+            ],
+            authority: id(IdentityKind::ReconciliationWitness, "authority-1"),
+            basis: vec![id(IdentityKind::ReconciliationWitness, "basis-1")],
+        };
+        assert!(reconciliation.validate_against_graph(&[root, left, right]).is_ok());
+    }
+
+    #[test]
+    fn reconciliation_rejects_branch_head_from_unrelated_evidence() {
+        let disputed = EvidenceDisposition::Disputed {
+            by: id(IdentityKind::ReconciliationWitness, "w1"),
+        };
+        let root = graph_transition("t1", None, EvidenceDisposition::Active, disputed.clone());
+        let other = EvidenceDispositionTransition {
+            transition_id: id(IdentityKind::ReconciliationWitness, "other"),
+            evidence: id(IdentityKind::InspectionRecord, "inspection-other"),
+            predecessor: None,
+            from: EvidenceDisposition::Active,
+            to: disputed,
+            basis: id(IdentityKind::ReconciliationWitness, "basis-other"),
+        };
+        let reconciliation = EvidenceDispositionReconciliation {
+            reconciliation_id: id(IdentityKind::ReconciliationWitness, "reconcile-2"),
+            evidence: id(IdentityKind::InspectionRecord, "inspection-graph"),
+            branch_point: id(IdentityKind::ReconciliationWitness, "t1"),
+            branch_heads: vec![
+                id(IdentityKind::ReconciliationWitness, "t1"),
+                id(IdentityKind::ReconciliationWitness, "other"),
+            ],
+            authority: id(IdentityKind::ReconciliationWitness, "authority-1"),
+            basis: vec![],
+        };
+        assert!(reconciliation.validate_against_graph(&[root, other]).is_err());
     }
 
     #[test]
