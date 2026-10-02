@@ -181,7 +181,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             "Emergency entries cannot be deleted once created".into(),
         )),
         FlatOp::Update(OpUpdate::Entry { action, .. }) => {
-            let original = must_get_action(action.original_action_address.clone())?;
+            let original = must_get_valid_record(action.original_action_address.clone())?;
             Ok(check_author_match(
                 original.action().author(),
                 action.author(),
