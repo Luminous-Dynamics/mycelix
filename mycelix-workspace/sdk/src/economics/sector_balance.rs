@@ -227,7 +227,7 @@ impl SectorBalanceSheet {
                 BalanceSheetEntry::new(
                     assignment.sector,
                     BalanceSheetInstrument::Equity,
-                    -actor.net_worth(),
+                    -actor.try_net_worth()?,
                 ),
                 BalanceSheetEntry::new(
                     assignment.sector,
