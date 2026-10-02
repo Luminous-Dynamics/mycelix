@@ -1,0 +1,42 @@
+name: Marketplace Qualification
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - 'mycelix-workspace/mycelix-marketplace/**'
+      - '.github/workflows/marketplace-qualification.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: marketplace-qualification-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Marketplace backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.96.0
+          components: rustfmt
+          targets: wasm32-unknown-unknown
+
+      - name: Check backend formatting
+        working-directory: mycelix-workspace/mycelix-marketplace/backend
+        run: cargo fmt --all --check
+
+      - name: Test transaction integrity algebra
+        working-directory: mycelix-workspace/mycelix-marketplace/backend
+        run: cargo test -p transactions_integrity
+
+      - name: Test marketplace backend workspace
+        working-directory: mycelix-workspace/mycelix-marketplace/backend
+        run: cargo test --workspace
