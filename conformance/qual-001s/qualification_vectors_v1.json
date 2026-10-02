@@ -1,0 +1,773 @@
+{
+  "schema": "mycelix.qual-001s.semantic-corpus-v1",
+  "corpus_id": "QUAL-001S",
+  "revision": "v1",
+  "qualification_target": "mycelix.qual.static-subject-independence.v0.3",
+  "vectors": [
+    {
+      "vector_id": "QUALS-P-001",
+      "kind": "positive",
+      "proposition_id": "EXECUTION_AUTHENTICATED",
+      "source_identity": "trusted.s0.dispatch-envelope.v1",
+      "epoch_id": "epoch-001",
+      "requested_claims": [
+        "execution_observed",
+        "successor_conformance"
+      ],
+      "admitted_claims": [
+        "execution_observed"
+      ],
+      "theorem": "Exact subject SHA/tree/base and registered successor profile are bound to a trusted dispatch envelope.",
+      "upstream_evidence": [
+        "S0_DISCOVERY",
+        "SUBJECT_IDENTITY",
+        "SUCCESSOR_PROFILE"
+      ],
+      "evidence_disposition": "VERIFIED",
+      "authority_outcome": "EXECUTION_OBSERVED",
+      "expected_state": "VERIFIED",
+      "expected_claims": [
+        "execution_observed"
+      ],
+      "nonclaims": [
+        "successor correctness",
+        "rotation authorization",
+        "adoption",
+        "runtime authority"
+      ]
+    },
+    {
+      "vector_id": "QUALS-N-002",
+      "kind": "availability",
+      "proposition_id": "REQUIRED_DEPENDENCY",
+      "source_identity": "trusted.s1.harness.v1",
+      "epoch_id": "epoch-001",
+      "requested_claims": [
+        "successor_conformance"
+      ],
+      "admitted_claims": [],
+      "theorem": "A required upstream dependency is unavailable; absence cannot be transformed into a contradictory observation.",
+      "upstream_evidence": [
+        "REQUIRED_DEPENDENCY_UNAVAILABLE"
+      ],
+      "evidence_disposition": "UNAVAILABLE",
+      "authority_outcome": "EVIDENCE_MISSING",
+      "expected_state": "UNAVAILABLE",
+      "expected_claims": [],
+      "nonclaims": [
+        "dependency failure implies candidate invalidity",
+        "qualification PASS"
+      ]
+    },
+    {
+      "vector_id": "QUALS-M-003",
+      "kind": "metamorphic",
+      "proposition_id": "CLAIM_CEILING",
+      "source_identity": "trusted.claim-policy.v1",
+      "epoch_id": "epoch-001",
+      "requested_claims": [
+        "successor_conformance",
+        "rotation_authorization"
+      ],
+      "admitted_claims": [
+        "successor_conformance"
+      ],
+      "theorem": "Adding an additional qualifying constraint may narrow an admitted claim set but never widen it.",
+      "upstream_evidence": [
+        "BASE_CLAIM_CEILING",
+        "ADDED_CONSTRAINT"
+      ],
+      "evidence_disposition": "VERIFIED",
+      "authority_outcome": "NONE",
+      "expected_state": "VERIFIED",
+      "expected_claims": [
+        "successor_conformance"
+      ],
+      "mutation": {
+        "operation": "add_required_constraint",
+        "target": "rotation_authorization",
+        "expected_effect": "rotation_authorization remains unadmitted"
+      },
+      "nonclaims": [
+        "constraint addition can create new authority"
+      ]
+    },
+    {
+      "vector_id": "QUALS-N-004",
+      "kind": "provenance",
+      "proposition_id": "EPOCH_CONTINUITY",
+      "source_identity": "trusted.s2.receipt-verifier.v1",
+      "epoch_id": "epoch-002",
+      "requested_claims": [
+        "successor_conformance"
+      ],
+      "admitted_claims": [],
+      "theorem": "A receipt bound to a different epoch is not evidence for the current epoch.",
+      "upstream_evidence": [
+        "RECEIPT_EPOCH_001",
+        "CURRENT_EPOCH_002"
+      ],
+      "evidence_disposition": "CONTRADICTED",
+      "authority_outcome": "PROVENANCE_MISMATCH",
+      "expected_state": "CONTRADICTED",
+      "expected_claims": [],
+      "mutation": {
+        "operation": "replace_epoch_member",
+        "target": "verifier_head",
+        "expected_effect": "prior-epoch receipt invalidated"
+      },
+      "nonclaims": [
+        "same vector identity across epochs is sufficient",
+        "receipt portability across epochs"
+      ]
+    },
+    {
+      "vector_id": "QUALS-N-005",
+      "kind": "provenance",
+      "proposition_id": "SOURCE_CLASS",
+      "source_identity": "source.unregistered.class",
+      "epoch_id": "epoch-001",
+      "requested_claims": [
+        "successor_conformance"
+      ],
+      "admitted_claims": [],
+      "theorem": "Changing the source class from registered trusted infrastructure to an unregistered class is an identity mismatch.",
+      "upstream_evidence": [
+        "REGISTERED_SOURCE_CLASS",
+        "UNREGISTERED_SOURCE_CLASS"
+      ],
+      "evidence_disposition": "CONTRADICTED",
+      "authority_outcome": "PROVENANCE_MISMATCH",
+      "expected_state": "CONTRADICTED",
+      "expected_claims": [],
+      "nonclaims": [
+        "source-class substitution is a harmless alias",
+        "equivalent text means equivalent authority"
+      ]
+    },
+    {
+      "vector_id": "QUALS-N-006",
+      "kind": "negative",
+      "proposition_id": "TEMPORAL_FRONTIER",
+      "source_identity": "trusted.receipt.v1",
+      "epoch_id": "epoch-001",
+      "requested_claims": [
+        "execution_observed"
+      ],
+      "admitted_claims": [],
+      "theorem": "Evidence outside its validity interval cannot establish current execution state.",
+      "upstream_evidence": [
+        "STALE_RECEIPT",
+        "CURRENT_TIME"
+      ],
+      "evidence_disposition": "OBSERVED",
+      "authority_outcome": "NOT_ACCEPTED",
+      "expected_state": "CONTRADICTED",
+      "expected_claims": [],
+      "mutation": {
+        "operation": "advance_time_beyond_validity",
+        "target": "receipt",
+        "expected_effect": "current claim not admitted"
+      },
+      "nonclaims": [
+        "stale evidence implies false historical execution",
+        "time advancement rewrites history"
+      ]
+    },
+    {
+      "vector_id": "QUALS-N-007",
+      "kind": "negative",
+      "proposition_id": "RECEIPT_CEILING",
+      "source_identity": "trusted.s2.receipt-verifier.v1",
+      "epoch_id": "epoch-001",
+      "requested_claims": [
+        "rotation_adoption"
+      ],
+      "admitted_claims": [],
+      "theorem": "An authentic conformance receipt is evidence of its stated result only; it cannot authorize lifecycle adoption.",
+      "upstream_evidence": [
+        "AUTHENTIC_S1_RECEIPT",
+        "NO_ADOPTION_EVENT"
+      ],
+      "evidence_disposition": "VERIFIED",
+      "authority_outcome": "NONE",
+      "expected_state": "VERIFIED",
+      "expected_claims": [],
+      "nonclaims": [
+        "receipt authenticity implies adoption",
+        "conformance implies current runtime authority"
+      ]
+    },
+    {
+      "vector_id": "QUALS-N-008",
+      "kind": "negative",
+      "proposition_id": "CORROBORATION_INDEPENDENCE",
+      "source_identity": "trusted.evidence-set.v1",
+      "epoch_id": "epoch-001",
+      "requested_claims": [
+        "successor_conformance"
+      ],
+      "admitted_claims": [],
+      "theorem": "Duplicate copies of the same source/evidence commitment are not independent corroboration.",
+      "upstream_evidence": [
+        "EVIDENCE_A",
+        "EVIDENCE_A_DUPLICATE"
+      ],
+      "evidence_disposition": "VERIFIED",
+      "authority_outcome": "NONE",
+      "expected_state": "VERIFIED",
+      "expected_claims": [],
+      "mutation": {
+        "operation": "duplicate_evidence",
+        "target": "same_commitment",
+        "expected_effect": "independent corroboration count unchanged"
+      },
+      "nonclaims": [
+        "duplicate bytes create independent witnesses",
+        "multiplicity alone increases authority"
+      ]
+    },
+    {
+      "vector_id": "QUALS-N-009",
+      "kind": "availability",
+      "proposition_id": "SCHEMA_RECOGNITION",
+      "source_identity": "artifact.schema.unknown",
+      "epoch_id": "epoch-001",
+      "requested_claims": [
+        "successor_conformance"
+      ],
+      "admitted_claims": [],
+      "theorem": "An unrecognized schema version is unresolved rather than implicitly accepted under a known schema.",
+      "upstream_evidence": [
+        "UNKNOWN_SCHEMA_VERSION"
+      ],
+      "evidence_disposition": "UNAVAILABLE",
+      "authority_outcome": "NOT_ACCEPTED",
+      "expected_state": "UNAVAILABLE",
+      "expected_claims": [],
+      "nonclaims": [
+        "unknown schema is equivalent to latest schema",
+        "forward parsing silently grants authority"
+      ]
+    },
+    {
+      "vector_id": "QUALS-N-010",
+      "kind": "negative",
+      "proposition_id": "CANONICAL_JSON",
+      "source_identity": "receipt.json",
+      "epoch_id": "epoch-001",
+      "requested_claims": [
+        "successor_conformance"
+      ],
+      "admitted_claims": [],
+      "theorem": "Duplicate object keys make canonical receipt interpretation ambiguous and must fail closed.",
+      "upstream_evidence": [
+        "DUPLICATE_JSON_KEYS"
+      ],
+      "evidence_disposition": "CONTRADICTED",
+      "authority_outcome": "NOT_ACCEPTED",
+      "expected_state": "CONTRADICTED",
+      "expected_claims": [],
+      "nonclaims": [
+        "parser-dependent key selection is authoritative"
+      ],
+      "mutation": {
+        "operation": "reject_duplicate_object_keys",
+        "target": "receipt.json",
+        "expected_effect": "ambiguous receipt is rejected",
+        "fixture": "{\"authority_outcome\":\"NONE\",\"\\u0061uthority_outcome\":\"AUTHORITY_AUTHORIZED\"}"
+      }
+    },
+    {
+      "vector_id": "QUALS-N-011",
+      "kind": "negative",
+      "proposition_id": "CLAIM_CEILING_REQUEST",
+      "source_identity": "untrusted.requester",
+      "epoch_id": "epoch-001",
+      "requested_claims": [
+        "rotation_authorization",
+        "rotation_adoption",
+        "post_adoption_independence"
+      ],
+      "admitted_claims": [
+        "successor_conformance"
+      ],
+      "theorem": "A requester cannot elevate the claim ceiling beyond the registered theorem.",
+      "upstream_evidence": [
+        "REGISTERED_THEOREM",
+        "REQUESTED_CEILING"
+      ],
+      "evidence_disposition": "VERIFIED",
+      "authority_outcome": "AUTHORITY_REJECTED",
+      "expected_state": "CONTRADICTED",
+      "expected_claims": [
+        "successor_conformance"
+      ],
+      "nonclaims": [
+        "requested claim becomes authorized because a receipt exists"
+      ]
+    },
+    {
+      "vector_id": "QUALS-N-012",
+      "kind": "negative",
+      "proposition_id": "AUTHORITY_REJECTION",
+      "source_identity": "trusted.s0.policy.v1",
+      "epoch_id": "epoch-001",
+      "requested_claims": [
+        "execution_observed"
+      ],
+      "admitted_claims": [],
+      "theorem": "An authorization rejection blocks the downstream authority proposition; it does not fabricate an execution failure or success.",
+      "upstream_evidence": [
+        "AUTHORITY_REJECTED_EVENT"
+      ],
+      "evidence_disposition": "VERIFIED",
+      "authority_outcome": "AUTHORITY_REJECTED",
+      "expected_state": "VERIFIED",
+      "expected_claims": [],
+      "nonclaims": [
+        "rejection proves candidate code is incorrect",
+        "rejection proves execution occurred"
+      ]
+    },
+    {
+      "vector_id": "QUALS-N-013",
+      "kind": "negative",
+      "proposition_id": "EXECUTION_VS_QUALIFICATION",
+      "source_identity": "github.run.observation",
+      "epoch_id": "epoch-001",
+      "requested_claims": [
+        "successor_conformance"
+      ],
+      "admitted_claims": [
+        "execution_observed"
+      ],
+      "theorem": "Observed workflow execution establishes execution observation only; qualification requires the complete trusted conformance receipt and provenance chain.",
+      "upstream_evidence": [
+        "RUN_OBSERVED",
+        "NO_QUALIFICATION_RECEIPT"
+      ],
+      "evidence_disposition": "OBSERVED",
+      "authority_outcome": "EXECUTION_OBSERVED",
+      "expected_state": "OBSERVED",
+      "expected_claims": [
+        "execution_observed"
+      ],
+      "nonclaims": [
+        "workflow completion is qualification PASS",
+        "run success is authority"
+      ]
+    },
+    {
+      "vector_id": "QUALS-N-014",
+      "kind": "provenance",
+      "proposition_id": "CANDIDATE_LOCAL_RECEIPT",
+      "source_identity": "candidate.writable.workspace",
+      "epoch_id": "epoch-001",
+      "requested_claims": [
+        "successor_conformance"
+      ],
+      "admitted_claims": [],
+      "theorem": "A receipt created in a candidate-controlled location is untrusted candidate output, not the trusted S1 receipt.",
+      "upstream_evidence": [
+        "CANDIDATE_LOCAL_RECEIPT",
+        "TRUSTED_RESULT_CHANNEL_ABSENT"
+      ],
+      "evidence_disposition": "CONTRADICTED",
+      "authority_outcome": "NOT_ACCEPTED",
+      "expected_state": "CONTRADICTED",
+      "expected_claims": [],
+      "nonclaims": [
+        "candidate-authored PASS text is authoritative",
+        "candidate-local artifact ownership proves provenance"
+      ]
+    },
+    {
+      "vector_id": "QUALS-N-015",
+      "kind": "provenance",
+      "proposition_id": "WORKFLOW_IDENTITY",
+      "source_identity": "unregistered.workflow",
+      "epoch_id": "epoch-001",
+      "requested_claims": [
+        "successor_conformance"
+      ],
+      "admitted_claims": [],
+      "theorem": "Receipt artifacts from an unrecognized workflow identity cannot satisfy the S2 provenance theorem.",
+      "upstream_evidence": [
+        "UNREGISTERED_WORKFLOW",
+        "RECEIPT_ARTIFACT"
+      ],
+      "evidence_disposition": "CONTRADICTED",
+      "authority_outcome": "PROVENANCE_MISMATCH",
+      "expected_state": "CONTRADICTED",
+      "expected_claims": [],
+      "nonclaims": [
+        "matching artifact filename is enough",
+        "human-visible check name is workflow identity"
+      ]
+    },
+    {
+      "vector_id": "QUALS-N-016",
+      "kind": "negative",
+      "proposition_id": "PRIOR_ATTEMPT",
+      "source_identity": "trusted.s1.workflow.v1",
+      "epoch_id": "epoch-001",
+      "requested_claims": [
+        "successor_conformance"
+      ],
+      "admitted_claims": [],
+      "theorem": "A receipt from a prior run attempt cannot satisfy the current S0/S1 provenance chain.",
+      "upstream_evidence": [
+        "CURRENT_ATTEMPT",
+        "PRIOR_ATTEMPT_RECEIPT"
+      ],
+      "evidence_disposition": "CONTRADICTED",
+      "authority_outcome": "PROVENANCE_MISMATCH",
+      "expected_state": "CONTRADICTED",
+      "expected_claims": [],
+      "nonclaims": [
+        "rerun identity is interchangeable with original attempt"
+      ]
+    },
+    {
+      "vector_id": "QUALS-N-017",
+      "kind": "negative",
+      "proposition_id": "ALWAYS_PASS_IMPOSTOR",
+      "source_identity": "candidate.always-pass",
+      "epoch_id": "epoch-001",
+      "requested_claims": [
+        "successor_conformance"
+      ],
+      "admitted_claims": [],
+      "theorem": "A verifier that returns PASS for hostile negative controls fails conformance even when its process exits successfully.",
+      "upstream_evidence": [
+        "HOSTILE_NEGATIVE_CONTROL",
+        "CANDIDATE_PASS_OUTPUT"
+      ],
+      "evidence_disposition": "CONTRADICTED",
+      "authority_outcome": "CONFORMANCE_CONTRADICTED",
+      "expected_state": "CONTRADICTED",
+      "expected_claims": [],
+      "nonclaims": [
+        "process exit 0 implies verifier correctness",
+        "self-reported PASS is sufficient"
+      ]
+    },
+    {
+      "vector_id": "QUALS-N-018",
+      "kind": "negative",
+      "proposition_id": "ALWAYS_FAIL_IMPOSTOR",
+      "source_identity": "candidate.always-fail",
+      "epoch_id": "epoch-001",
+      "requested_claims": [
+        "successor_conformance"
+      ],
+      "admitted_claims": [],
+      "theorem": "A verifier that rejects canonical positive controls fails conformance; fail-closed handling cannot erase required positive controls.",
+      "upstream_evidence": [
+        "POSITIVE_CONTROL",
+        "CANDIDATE_FAIL_OUTPUT"
+      ],
+      "evidence_disposition": "CONTRADICTED",
+      "authority_outcome": "CONFORMANCE_CONTRADICTED",
+      "expected_state": "CONTRADICTED",
+      "expected_claims": [],
+      "nonclaims": [
+        "rejecting everything is acceptable conformance",
+        "fail-closed means always-fail is valid"
+      ]
+    },
+    {
+      "vector_id": "QUALS-N-019",
+      "kind": "provenance",
+      "proposition_id": "POSTFLIGHT_IMMUTABILITY",
+      "source_identity": "trusted.s1.harness.v1",
+      "epoch_id": "epoch-001",
+      "requested_claims": [
+        "successor_conformance"
+      ],
+      "admitted_claims": [],
+      "theorem": "Mutation of trusted harness or bound subject inputs after candidate execution invalidates the receipt rather than being absorbed into it.",
+      "upstream_evidence": [
+        "PREHASH_HARNESS",
+        "POSTHASH_HARNESS_MISMATCH"
+      ],
+      "evidence_disposition": "CONTRADICTED",
+      "authority_outcome": "PROVENANCE_MISMATCH",
+      "expected_state": "CONTRADICTED",
+      "expected_claims": [],
+      "mutation": {
+        "operation": "tamper_postflight",
+        "target": "trusted_harness",
+        "expected_effect": "receipt rejected"
+      },
+      "nonclaims": [
+        "postflight mutation can be ignored",
+        "receipt digest can override input mismatch"
+      ]
+    },
+    {
+      "vector_id": "QUALS-P-020",
+      "kind": "positive",
+      "proposition_id": "CURRENT_QUALIFICATION",
+      "source_identity": "trusted.s2.receipt-verifier.v1",
+      "epoch_id": "epoch-001",
+      "requested_claims": [
+        "successor_conformance"
+      ],
+      "admitted_claims": [
+        "successor_conformance"
+      ],
+      "theorem": "Only a complete, provenance-valid receipt for the exact current subject and registered profile may establish the successor-conformance claim.",
+      "upstream_evidence": [
+        "S0_DISPATCH",
+        "S1_RECEIPT",
+        "S1_PROVENANCE",
+        "RECEIPT_SCHEMA",
+        "GATE_CENSUS"
+      ],
+      "evidence_disposition": "VERIFIED",
+      "authority_outcome": "AUTHORITY_AUTHORIZED",
+      "expected_state": "VERIFIED",
+      "expected_claims": [
+        "successor_conformance"
+      ],
+      "nonclaims": [
+        "rotation authorization",
+        "rotation adoption",
+        "post-adoption independence",
+        "runtime authority"
+      ]
+    },
+    {
+      "vector_id": "QUALS-M-021",
+      "kind": "metamorphic",
+      "proposition_id": "CANONICALIZATION_ORDER",
+      "source_identity": "canonical.json.profile.rfc8785-jcs",
+      "epoch_id": "epoch-001",
+      "requested_claims": [
+        "evidence_only"
+      ],
+      "admitted_claims": [
+        "evidence_only"
+      ],
+      "theorem": "Reordering JSON object members without changing their values must not change the RFC 8785 JCS canonical commitment bytes.",
+      "upstream_evidence": [
+        "CANONICAL_OBJECT_A",
+        "CANONICAL_OBJECT_B"
+      ],
+      "evidence_disposition": "VERIFIED",
+      "authority_outcome": "NONE",
+      "expected_state": "VERIFIED",
+      "expected_claims": [
+        "evidence_only"
+      ],
+      "mutation": {
+        "operation": "reorder_object_properties",
+        "target": "s0_dispatch_envelope",
+        "before_wire": "{\"z\":\"last\",\"a\":\"first\",\"m\":{\"b\":2,\"a\":1}}",
+        "after_wire": "{\"m\":{\"a\":1,\"b\":2},\"z\":\"last\",\"a\":\"first\"}",
+        "expected_canonical": "{\"a\":\"first\",\"m\":{\"a\":1,\"b\":2},\"z\":\"last\"}",
+        "expected_effect": "canonical commitment bytes unchanged"
+      },
+      "nonclaims": [
+        "noncanonical wire bytes are interchangeable without canonicalization",
+        "reordering can change semantic authority"
+      ]
+    },
+    {
+      "vector_id": "QUALS-N-022",
+      "kind": "availability",
+      "proposition_id": "DISPATCH_ACCEPTANCE_VS_EXECUTION",
+      "source_identity": "github.dispatch.observation",
+      "epoch_id": "epoch-001",
+      "requested_claims": [
+        "execution_observed"
+      ],
+      "admitted_claims": [],
+      "theorem": "An accepted workflow_dispatch request is not evidence that the target workflow executed; without run attribution the execution proposition remains unavailable.",
+      "upstream_evidence": [
+        "DISPATCH_REQUEST_ACCEPTED",
+        "NO_RUN_ATTRIBUTION"
+      ],
+      "evidence_disposition": "OBSERVED",
+      "authority_outcome": "NOT_ACCEPTED",
+      "expected_state": "UNAVAILABLE",
+      "expected_claims": [],
+      "nonclaims": [
+        "API acceptance implies workflow execution",
+        "dispatch acceptance proves candidate code ran"
+      ]
+    },
+    {
+      "vector_id": "QUALS-N-023",
+      "kind": "provenance",
+      "proposition_id": "AUTHORITY_ENVELOPE_JOIN",
+      "source_identity": "trusted.s0.authority-observation.v1",
+      "epoch_id": "epoch-001",
+      "requested_claims": [
+        "successor_conformance"
+      ],
+      "admitted_claims": [],
+      "theorem": "An authority observation is admissible only when its dispatch-envelope commitment matches the exact preserved S0 envelope for the same epoch and subject lineage.",
+      "upstream_evidence": [
+        "S0_ENVELOPE_COMMITMENT",
+        "AUTHORITY_OBSERVATION"
+      ],
+      "evidence_disposition": "CONTRADICTED",
+      "authority_outcome": "PROVENANCE_MISMATCH",
+      "expected_state": "CONTRADICTED",
+      "expected_claims": [],
+      "mutation": {
+        "operation": "replace_dispatch_envelope_hash",
+        "target": "dispatch_envelope_sha256",
+        "expected_effect": "authority observation is detached from the S0 envelope"
+      },
+      "nonclaims": [
+        "same epoch and nonce are sufficient without the envelope commitment",
+        "textual similarity substitutes for envelope identity"
+      ]
+    },
+    {
+      "vector_id": "QUALS-P-024",
+      "kind": "positive",
+      "proposition_id": "RUN_ATTEMPT_PAIR",
+      "source_identity": "github.run.provenance.v1",
+      "epoch_id": "epoch-001",
+      "requested_claims": [
+        "execution_observed"
+      ],
+      "admitted_claims": [
+        "execution_observed"
+      ],
+      "theorem": "A workflow run's numeric run identity and its attempt identity must be evaluated as a pair; a re-run changes the attempt while preserving the run identity.",
+      "upstream_evidence": [
+        "WORKFLOW_RUN_ID",
+        "WORKFLOW_RUN_ATTEMPT"
+      ],
+      "evidence_disposition": "VERIFIED",
+      "authority_outcome": "EXECUTION_OBSERVED",
+      "expected_state": "VERIFIED",
+      "expected_claims": [
+        "execution_observed"
+      ],
+      "nonclaims": [
+        "run number alone identifies a unique attempt",
+        "a re-run may reuse the prior attempt identity"
+      ]
+    },
+    {
+      "vector_id": "QUALS-N-025",
+      "kind": "provenance",
+      "proposition_id": "AUTHORITY_OBSERVATION_SELF_COMMITMENT",
+      "source_identity": "trusted.s0.authority-observation.v1",
+      "epoch_id": "epoch-001",
+      "requested_claims": [
+        "execution_observed"
+      ],
+      "admitted_claims": [],
+      "theorem": "Changing an authority observation field without changing its self-commitment invalidates the observation.",
+      "upstream_evidence": [
+        "AUTHORITY_OBSERVATION_BYTES",
+        "AUTHORITY_OBSERVATION_HASH"
+      ],
+      "evidence_disposition": "CONTRADICTED",
+      "authority_outcome": "PROVENANCE_MISMATCH",
+      "expected_state": "CONTRADICTED",
+      "expected_claims": [],
+      "mutation": {
+        "operation": "mutate_authority_observation_without_rehash",
+        "target": "policy_scope_identity",
+        "expected_effect": "authority observation rejected"
+      },
+      "nonclaims": [
+        "stale hash remains valid after field mutation",
+        "commitment mismatch can be ignored"
+      ]
+    },
+    {
+      "vector_id": "QUALS-P-026",
+      "kind": "positive",
+      "proposition_id": "S1_RECEIPT_CLAIM_CEILING",
+      "source_identity": "trusted.s1.harness.v1",
+      "epoch_id": "epoch-001",
+      "requested_claims": [
+        "successor_conformance",
+        "rotation_adoption"
+      ],
+      "admitted_claims": [
+        "successor_conformance"
+      ],
+      "theorem": "A complete trusted S1 receipt may establish the registered successor-conformance claim but cannot mint rotation-adoption authority.",
+      "upstream_evidence": [
+        "S1_RECEIPT",
+        "S1_PROVENANCE",
+        "REGISTERED_SUCCESSOR_PROFILE"
+      ],
+      "evidence_disposition": "VERIFIED",
+      "authority_outcome": "EXECUTION_OBSERVED",
+      "expected_state": "VERIFIED",
+      "expected_claims": [
+        "successor_conformance"
+      ],
+      "nonclaims": [
+        "S1 receipt authorizes rotation",
+        "S1 conformance receipt is adoption authority",
+        "conformance implies runtime authority"
+      ]
+    },
+    {
+      "vector_id": "QUALS-N-027",
+      "kind": "provenance",
+      "proposition_id": "S1_RECEIPT_ENVELOPE_JOIN",
+      "source_identity": "trusted.s1.harness.v1",
+      "epoch_id": "epoch-001",
+      "requested_claims": [
+        "successor_conformance"
+      ],
+      "admitted_claims": [],
+      "theorem": "An S1 receipt referencing a different S0 envelope commitment is not evidence for the current qualification epoch.",
+      "upstream_evidence": [
+        "S1_RECEIPT_ENVELOPE_HASH",
+        "CURRENT_S0_ENVELOPE_HASH"
+      ],
+      "evidence_disposition": "CONTRADICTED",
+      "authority_outcome": "PROVENANCE_MISMATCH",
+      "expected_state": "CONTRADICTED",
+      "expected_claims": [],
+      "mutation": {
+        "operation": "replace_s0_envelope_hash",
+        "target": "s0_dispatch_envelope_sha256",
+        "expected_effect": "S1 receipt detached from S0"
+      },
+      "nonclaims": [
+        "epoch text alone proves envelope lineage",
+        "matching run identity can substitute for envelope identity"
+      ]
+    },
+    {
+      "vector_id": "QUALS-N-028",
+      "kind": "negative",
+      "proposition_id": "S1_RECEIPT_ADOPTION_ESCALATION",
+      "source_identity": "trusted.s1.harness.v1",
+      "epoch_id": "epoch-001",
+      "requested_claims": [
+        "rotation_adoption"
+      ],
+      "admitted_claims": [],
+      "theorem": "The S1 receipt claim ceiling excludes rotation adoption even when conformance outcome is PASS.",
+      "upstream_evidence": [
+        "S1_CONFORMANCE_PASS",
+        "S1_CLAIM_CEILING"
+      ],
+      "evidence_disposition": "VERIFIED",
+      "authority_outcome": "NONE",
+      "expected_state": "VERIFIED",
+      "expected_claims": [],
+      "nonclaims": [
+        "PASS receipt is adoption authorization",
+        "trusted builder identity collapses lifecycle gates"
+      ]
+    }
+  ]
+}
