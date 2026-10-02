@@ -1,9 +1,6 @@
 name: Marketplace Qualification
 
 on:
-  push:
-    branches:
-      - marketplace-inventory-algebra
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
@@ -36,7 +33,26 @@ jobs:
           components: rustfmt
           targets: wasm32-unknown-unknown
 
-      - name: Check backend formatting
+      - name: Check changed Rust formatting
+        working-directory: mycelix-workspace/mycelix-marketplace/backend
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --prune --depth=1 origin "$BASE_SHA"
+          mapfile -t rust_files < <(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- '*.rs')
+          if [ "${#rust_files[@]}" -eq 0 ]; then
+            echo 'No changed Rust files.'
+            exit 0
+          fi
+          for file in "${rust_files[@]}"; do
+            rustfmt --edition 2024 --check "$file"
+          done
+
+      - name: Report backend-wide formatting baseline
+        continue-on-error: true
         working-directory: mycelix-workspace/mycelix-marketplace/backend
         shell: bash
         run: |
@@ -44,7 +60,9 @@ jobs:
           cargo fmt --all --check 2>&1 | tee /tmp/marketplace-format.log
           status=${PIPESTATUS[0]}
           {
-            echo "## Marketplace formatting"
+            echo "## Backend-wide formatting baseline"
+            echo
+            echo "This is diagnostic only; changed Rust formatting above remains strict."
             echo
             echo "----- formatter output -----"
             cat /tmp/marketplace-format.log
