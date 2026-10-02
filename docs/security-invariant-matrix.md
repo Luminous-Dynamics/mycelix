@@ -61,8 +61,8 @@ The kernel enforces a stronger rule than a fixed permit maximum:
 
 A permit's effective validity is bounded by all of:
 
-1. the capability's own validity window;
-2. the verification evidence freshness lease;
+1. the capability's own validity window (exclusive at `expires_at_us`);
+2. the verification evidence freshness lease (exclusive at `valid_until_us`);
 3. the kernel's maximum authorization-permit lifetime.
 
 The five-minute constant is therefore an upper bound, not an implied freshness guarantee. The kernel also refuses to mint a permit at the exact evidence-lease boundary, so freshness is enforced both at authorization issuance and at enforcement.
