@@ -58,10 +58,18 @@ impl EconomicChainReceipt {
         step: EconomicStepReceipt,
     ) -> Result<Self, EconomicStepError> {
         let (genesis_state_hash, previous_receipt_hash) = match previous {
-            Some(previous) => (
-                previous.genesis_state_hash.clone(),
-                Some(previous.chain_hash.clone()),
-            ),
+            Some(previous) => {
+                if step.pre_state_hash != previous.step.post_state_hash {
+                    return Err(EconomicStepError::PreStateMismatch {
+                        expected: previous.step.post_state_hash.clone(),
+                        actual: step.pre_state_hash.clone(),
+                    });
+                }
+                (
+                    previous.genesis_state_hash.clone(),
+                    Some(previous.chain_hash.clone()),
+                )
+            }
             None => (step.pre_state_hash.clone(), None),
         };
 
@@ -286,6 +294,24 @@ mod tests {
 
         let reordered = EconomicChainReceipt::link(None, second.step).unwrap();
         assert_ne!(second.chain_hash, reordered.chain_hash);
+    }
+
+    #[test]
+    fn evidence_chain_rejects_disconnected_receipts() {
+        let state = initial_state();
+        let transitions = vec![EconomicTransition::CreditCreation(
+            CreditCreation::new("bank", "household", 500).unwrap(),
+        )];
+        let (_, step) = apply_step(&state, 1, &transitions, None).unwrap();
+        let first = EconomicChainReceipt::link(None, step.clone()).unwrap();
+
+        let mut disconnected = step;
+        disconnected.pre_state_hash = "disconnected".into();
+
+        assert!(matches!(
+            EconomicChainReceipt::link(Some(&first), disconnected),
+            Err(EconomicStepError::PreStateMismatch { .. })
+        ));
     }
 
     #[test]
