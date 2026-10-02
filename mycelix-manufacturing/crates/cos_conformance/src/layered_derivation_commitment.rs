@@ -136,15 +136,17 @@ impl InputCommitmentV1 {
         derivation_profile: &DerivationProfileV1,
         d6p_receipts: &[CurrentFinalityEligibilityReceiptV1],
         d6p_compositions: &[FinalityEligibilityCompositionV1],
+        current_frontier_root: Option<&str>,
     ) -> Option<Self> {
         let closure =
-            qualified_dependency_closure_d6x::compute_dependency_closure_from_authoritative_d6p(
+            qualified_dependency_closure_d6x::compute_dependency_closure_from_authoritative_d6p_at_frontier(
                 p,
                 e,
                 derivation_profile,
                 closure_profile,
                 d6p_receipts,
                 d6p_compositions,
+                current_frontier_root,
             )?;
 
         for expected in &p.d6p_current_receipt_commitments {
@@ -603,6 +605,7 @@ mod tests {
             &d,
             &[],
             &[],
+            Some("frontier-1"),
         );
         assert!(input.is_some());
         let _ = c;
