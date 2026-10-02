@@ -317,7 +317,7 @@ impl ActorEconomicObservables {
             observation.net_financial_position = final_actor.monetary.try_net_position()?;
             observation.net_worth = final_actor.try_net_worth()?;
 
-            let final_nwc = final_actor.net_working_capital();
+            let final_nwc = final_actor.try_net_working_capital()?;
             let initial_nwc = *initial_working_capital
                 .get(actor)
                 .ok_or_else(|| format!("unknown initial actor working capital: {actor}"))?;
