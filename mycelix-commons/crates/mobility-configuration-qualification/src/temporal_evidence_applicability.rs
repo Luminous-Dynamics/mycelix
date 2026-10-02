@@ -2022,6 +2022,82 @@ mod tests {
     }
 
     #[test]
+    fn reconciliation_coverage_assessment_rejects_structural_mismatch_before_unresolved() {
+        let disputed = EvidenceDisposition::Disputed {
+            by: id(IdentityKind::ReconciliationWitness, "w1"),
+        };
+        let left = graph_transition(
+            "t2",
+            Some("missing-transition-parent"),
+            disputed.clone(),
+            EvidenceDisposition::Active,
+        );
+        let right = graph_transition(
+            "t3",
+            Some("missing-transition-parent"),
+            disputed,
+            EvidenceDisposition::Retracted {
+                by: id(IdentityKind::ReconciliationWitness, "w2"),
+            },
+        );
+        let reconciliation = EvidenceDispositionReconciliation {
+            reconciliation_id: id(
+                IdentityKind::ReconciliationWitness,
+                "reconcile-transition-missing-contradiction",
+            ),
+            evidence: id(IdentityKind::InspectionRecord, "inspection-graph"),
+            branch_point: id(
+                IdentityKind::ReconciliationWitness,
+                "missing-transition-parent",
+            ),
+            branch_heads: vec![
+                id(IdentityKind::ReconciliationWitness, "t2"),
+                id(IdentityKind::ReconciliationWitness, "t3"),
+            ],
+            authority: id(IdentityKind::ReconciliationWitness, "authority-1"),
+            authority_scope: id(
+                IdentityKind::ReconciliationWitness,
+                "authority-scope-1",
+            ),
+            authority_delegation: id(
+                IdentityKind::ReconciliationWitness,
+                "authority-delegation-1",
+            ),
+            basis: vec![],
+        };
+        let scope = authority_scope(&reconciliation.reconciliation_id.id);
+        let delegation = authority_delegation(&reconciliation.reconciliation_id.id);
+        let mut boundary = coverage_boundary();
+        boundary.reconciliation = reconciliation.reconciliation_id.clone();
+        boundary.authority = id(
+            IdentityKind::ReconciliationWitness,
+            "contradictory-authority",
+        );
+        let coverage = EvidenceDispositionReconciliationCoverage {
+            coverage_id: id(
+                IdentityKind::ReconciliationWitness,
+                "coverage-transition-missing-contradiction",
+            ),
+            reconciliation: reconciliation.reconciliation_id.clone(),
+            branch_point: reconciliation.branch_point.clone(),
+            covered_branch_heads: reconciliation.branch_heads.clone(),
+            boundary: boundary.boundary_id.clone(),
+            basis: boundary.basis.clone(),
+        };
+
+        assert!(coverage
+            .validate_against_graph_and_authority_chain_assessment(
+                &reconciliation,
+                &scope,
+                &delegation,
+                &[delegation],
+                &boundary,
+                &[left, right],
+            )
+            .is_err());
+    }
+
+    #[test]
     fn reconciliation_coverage_reports_unresolved_named_authority_chain() {
         let mut root = authority_delegation("reconcile-coverage-authority-missing");
         root.delegation_id = id(IdentityKind::ReconciliationWitness, "authority-coverage-root");
