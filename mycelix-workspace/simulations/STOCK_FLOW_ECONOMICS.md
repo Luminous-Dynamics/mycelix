@@ -530,3 +530,5 @@ accrual sales/COGS -> working-capital change -> realized liquidity -> debt-servi
 
 No operating-cash-flow formula is inferred yet. That remains an explicit derived layer so
 the model does not silently mix accrual accounting with cash accounting.
+
+The working-capital layer is intentionally accounting-only: no behavioral credit-growth, collection-delay, default, or inventory-demand equation is implied by the new stocks and transitions.
