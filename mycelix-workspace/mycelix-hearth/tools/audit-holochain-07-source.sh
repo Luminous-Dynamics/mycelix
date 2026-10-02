@@ -209,8 +209,38 @@ check_dependency_semantics() {
   fi
 }
 
+# Immutable-field helpers must prove the referenced CreateRecord is valid and
+# deserialize the original entry before comparing fields. This guards against a
+# future helper that retrieves a record but accidentally treats retrieval as proof.
+check_immutable_dependency_semantics() {
+  local file="$1"
+  local helper_count
+  helper_count="$(rg -n --pcre2 '^\\s*(?:pub\\s+)?fn\\s+validate_[A-Za-z0-9_]*immutable_fields\\s*\\(' "$file" | wc -l)"
+  if [[ "$helper_count" -eq 0 ]]; then
+    echo "OK:   $file has no immutable-field helper sites"
+    return
+  fi
+  if ! rg -n --pcre2 'validate_[A-Za-z0-9_]*immutable_fields\\s*\\(' "$file" >/dev/null 2>&1; then
+    echo "FAIL: $file declares immutable-field helpers but no call site was found"
+    fail=1
+  fi
+  if ! rg -n --pcre2 'must_get_valid_record\\(' "$file" >/dev/null 2>&1; then
+    echo "FAIL: $file immutable-field helpers do not use must_get_valid_record"
+    fail=1
+  fi
+  if ! rg -n --pcre2 '\\.entry\\(\\)\\s*\\.to_app_option\\(\\)' "$file" >/dev/null 2>&1; then
+    echo "FAIL: $file immutable-field helpers do not deserialize the original entry"
+    fail=1
+  fi
+  echo "OK:   $file immutable-field dependency semantics"
+}
+
 for file in "${integrity_files[@]}"; do
   check_dependency_semantics "$file"
+done
+
+for file in "${integrity_files[@]}"; do
+  check_immutable_dependency_semantics "$file"
 done
 
 for file in "${integrity_files[@]}"; do
