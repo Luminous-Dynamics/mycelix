@@ -223,6 +223,7 @@ fn same_immutable_identity(left: &Transaction, right: &Transaction) -> bool {
     left.buyer == right.buyer
         && left.seller == right.seller
         && left.listing_hash == right.listing_hash
+        && left.reservation_certificate_hash == right.reservation_certificate_hash
         && left.quantity == right.quantity
         && left.total_price_cents == right.total_price_cents
         && left.created_at == right.created_at
@@ -503,6 +504,17 @@ mod tests {
             output(2, TransactionStatus::Cancelled),
         ];
         let projection = reduce_heads(&heads).unwrap();
+        assert_eq!(projection.state, TransactionResolutionState::Conflicted);
+    }
+
+    #[test]
+    fn differing_reservation_certificates_never_share_transaction_identity() {
+        let cancelled = output(1, TransactionStatus::Cancelled);
+        let mut confirmed = output(2, TransactionStatus::Confirmed);
+        confirmed.transaction.reservation_certificate_hash =
+            ActionHash::from_raw_36(vec![9; 36]);
+
+        let projection = reduce_heads(&[cancelled, confirmed]).unwrap();
         assert_eq!(projection.state, TransactionResolutionState::Conflicted);
     }
 
