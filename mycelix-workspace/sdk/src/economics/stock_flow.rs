@@ -91,7 +91,6 @@ impl ActorBalanceSheet {
         self.monetary.net_position()
             + self.real.productive_capital
             + self.inventory_carrying_value
-            + self.real.resources
     }
 }
 
@@ -925,6 +924,29 @@ mod tests {
         assert_eq!(s.actors[2].net_worth(), before_firm);
         assert_eq!(s.actors[1].net_worth(), before_household + 200);
         assert!(s.claims_liabilities_identity_holds());
+    }
+
+    #[test]
+    fn physical_resources_do_not_change_monetary_net_worth() {
+        let mut s = state();
+        s.actors.iter_mut().find(|a| a.actor == "firm").unwrap().real.resources = 10;
+        assert_eq!(s.actors[2].net_worth(), 0);
+    }
+
+    #[test]
+    fn inventory_cost_accounting_is_explicit_and_dimensionally_separate() {
+        let mut s = state();
+        s.actors.iter_mut().find(|a| a.actor == "firm").unwrap().real.inventories = 10;
+
+        s.apply_inventory_cost_addition(
+            &InventoryCostAddition::new("firm", 10, 100).unwrap(),
+        ).unwrap();
+        assert_eq!(s.actors[2].inventory_carrying_value, 100);
+
+        s.apply_inventory_cost_relief(
+            &InventoryCostRelief::new("firm", 4, 40).unwrap(),
+        ).unwrap();
+        assert_eq!(s.actors[2].inventory_carrying_value, 60);
     }
 
     #[test]
