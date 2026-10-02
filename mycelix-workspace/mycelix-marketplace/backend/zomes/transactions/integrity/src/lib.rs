@@ -266,10 +266,8 @@ fn validate_create_transaction(
         return Ok(ValidateCallbackResult::Invalid(reason));
     }
 
-    let certificate_record = must_get_valid_record(transaction.reservation_certificate_hash.clone())
-        .map_err(|_| wasm_error!(WasmErrorInner::Guest(
-            "Transaction references a missing or invalid reservation certificate".into(),
-        )))?;
+    let certificate_record =
+        must_get_valid_record(transaction.reservation_certificate_hash.clone())?;
     let certificate = certificate_record
         .entry()
         .to_app_option::<ReservationCertificate>()
