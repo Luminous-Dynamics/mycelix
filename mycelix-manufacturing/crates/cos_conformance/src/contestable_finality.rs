@@ -14,8 +14,10 @@ use crate::effect_finality::{
 use crate::no_resurrection::SemanticTombstone;
 use crate::substitution_continuity::{ProviderRouteV1, SemanticEffectV1};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
+pub const D6N_ASSESSMENT_COMMITMENT_DOMAIN: &[u8] = b"MYCELIX-INTEGRAL-D6N-ASSESSMENT-V1\0";
 pub const CONTESTABLE_FINALITY_CLAIM_CEILING: &str =
     "Contestable external-finality reference evidence only; no physical truth, settlement, or actuation authorization claim.";
 
@@ -209,6 +211,7 @@ pub struct ObservationAssessmentV1 {
     pub classification: ObservationClassificationV1,
     pub evidence_root: String,
     pub custody_root: String,
+    pub observation_commitment: String,
     pub assessment_commitment: String,
     pub claim_ceiling: String,
 }
@@ -219,8 +222,28 @@ impl ObservationAssessmentV1 {
             && non_empty(&self.observer_id)
             && non_empty(&self.evidence_root)
             && non_empty(&self.custody_root)
+            && non_empty(&self.observation_commitment)
             && non_empty(&self.assessment_commitment)
             && self.claim_ceiling == CONTESTABLE_FINALITY_CLAIM_CEILING
+    }
+
+    /// Recompute the D6N assessment identity from every assessment field,
+    /// including the exact canonical D6M observation identity it evaluates.
+    pub fn recomputed_commitment(&self) -> String {
+        let mut unsigned = self.clone();
+        unsigned.assessment_commitment.clear();
+        let payload = serde_json::to_vec(&unsigned)
+            .expect("D6N assessment reference model must be serializable");
+        let mut input =
+            Vec::with_capacity(D6N_ASSESSMENT_COMMITMENT_DOMAIN.len() + payload.len());
+        input.extend_from_slice(D6N_ASSESSMENT_COMMITMENT_DOMAIN);
+        input.extend_from_slice(&payload);
+        let digest = Sha256::digest(&input);
+        digest.iter().map(|byte| format!("{byte:02x}")).collect()
+    }
+
+    pub fn commitment_matches(&self) -> bool {
+        self.structurally_valid() && self.assessment_commitment == self.recomputed_commitment()
     }
 }
 
@@ -706,19 +729,19 @@ pub fn assess_observation_set(
             }
         }
 
-        assessments.push(ObservationAssessmentV1 {
+        let mut assessment = ObservationAssessmentV1 {
             observation_id: o.observation_id.clone(),
             observer_id: item.observer_id.clone(),
             independence: item.observer.independence,
             classification,
             evidence_root: item.observer.evidence_root.clone(),
             custody_root: item.observer.custody_root.clone(),
-            assessment_commitment: format!(
-                "{}:{}:{}",
-                o.observation_id, item.observer.evidence_root, item.observer.custody_root
-            ),
+            observation_commitment: o.observation_commitment.clone(),
+            assessment_commitment: String::new(),
             claim_ceiling: CONTESTABLE_FINALITY_CLAIM_CEILING.to_owned(),
-        });
+        };
+        assessment.assessment_commitment = assessment.recomputed_commitment();
+        assessments.push(assessment);
     }
 
     for i in 0..assessments.len() {
