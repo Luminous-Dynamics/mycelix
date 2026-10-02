@@ -27,6 +27,12 @@ pub struct EconomicEvidenceManifest {
     pub parameter_hash: String,
     pub seed: u64,
     pub initial_state_hash: String,
+    /// Optional exact source revision used to produce the evidence.
+    ///
+    /// When omitted, serialization remains compatible with manifests created
+    /// before source-revision provenance was introduced.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_revision: Option<String>,
 }
 
 impl EconomicEvidenceManifest {
@@ -41,6 +47,7 @@ impl EconomicEvidenceManifest {
             parameter_hash: parameter_hash.into(),
             seed,
             initial_state_hash: initial_state_hash.into(),
+            source_revision: None,
         };
         if manifest.model_version.is_empty()
             || manifest.parameter_hash.is_empty()
@@ -51,6 +58,22 @@ impl EconomicEvidenceManifest {
             ));
         }
         Ok(manifest)
+    }
+
+    /// Attach an exact source revision (for example, a Git commit SHA)
+    /// to the manifest before sealing evidence.
+    pub fn with_source_revision(
+        mut self,
+        source_revision: impl Into<String>,
+    ) -> Result<Self, EconomicStepError> {
+        let source_revision = source_revision.into();
+        if source_revision.is_empty() {
+            return Err(EconomicStepError::Serialization(
+                "source revision must be non-empty".into(),
+            ));
+        }
+        self.source_revision = Some(source_revision);
+        Ok(self)
     }
 
     pub fn hash(&self) -> Result<String, EconomicStepError> {
@@ -451,6 +474,29 @@ mod tests {
             .remove("accounting_closure_hash");
         let decoded: EconomicEvidenceCapsule = serde_json::from_value(value).unwrap();
         assert_eq!(decoded.sector_observations_hash, None);
+    }
+
+    #[test]
+    fn source_revision_is_bound_without_changing_legacy_manifest_hashes() {
+        let base = EconomicEvidenceManifest::new(
+            "economics-v1",
+            "params-abc",
+            42,
+            "genesis",
+        )
+        .unwrap();
+        let revised = base.clone().with_source_revision(
+            "0123456789abcdef0123456789abcdef01234567",
+        ).unwrap();
+
+        assert_eq!(
+            serde_json::to_value(&base).unwrap()
+                .as_object().unwrap()
+                .get("source_revision"),
+            None
+        );
+        assert_ne!(base.hash().unwrap(), revised.hash().unwrap());
+        assert!(base.clone().with_source_revision("").is_err());
     }
 
     #[test]
