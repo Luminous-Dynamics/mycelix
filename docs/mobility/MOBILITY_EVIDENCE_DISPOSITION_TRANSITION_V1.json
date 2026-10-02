@@ -331,6 +331,16 @@
       "id": "EDT-064",
       "case": "authority_scope_reports_missing_named_delegation_predecessor",
       "expected": "unresolved_at_protocol_layer"
+    },
+    {
+      "id": "EDT-065",
+      "case": "authority_scope_ignores_unrelated_invalid_delegation",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-066",
+      "case": "reconciliation_coverage_reports_unresolved_named_authority_chain",
+      "expected": "unresolved_at_protocol_layer"
     }
   ]
 }
