@@ -100,6 +100,18 @@ Required properties:
 - no autonomous escalation of privileges
 - AI recommendations cannot override cryptographic or policy constraints
 
+## Signed capability boundary
+
+The bridge kernel now has an optional Ed25519 path behind the existing identity feature.
+
+- Capability signing bytes use explicit domain separation and length framing rather than JSON serialization.
+- Capability actions are canonicalized as a set at construction; duplicate actions are rejected.
+- SignedCapability provides signing and signature verification when the identity feature is enabled.
+- Successful signature verification establishes integrity/authenticity of the signed capability bytes only. It does not establish issuer authorization, current revocation status, or policy authorization.
+- The permit/enforcement boundary remains responsible for policy authorization, while the independent identity/revocation layer remains responsible for issuer authorization and current status.
+
+This separation prevents a valid signature from being treated as a synthetic proof of institutional authority.
+
 ## Trust boundary
 
 Symthaea must not be the root of trust.
