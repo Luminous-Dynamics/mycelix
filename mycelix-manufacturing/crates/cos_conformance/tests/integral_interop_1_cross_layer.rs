@@ -41,6 +41,16 @@ fn snapshot_commitment() -> String {
     )
 }
 
+fn d6p_receipt_commitment() -> String {
+    canonical_sha256(
+        "integral-interop-1-d6p-receipt",
+        &serde_json::json!({
+            "receipt": "integral-d6p-receipt-1",
+            "frontier": "integral-frontier-1",
+        }),
+    )
+}
+
 fn environment() -> SemanticEnvironmentV1 {
     SemanticEnvironmentV1 {
         semantic_profile_id: "integral-interop-1".into(),
@@ -215,7 +225,7 @@ fn projection(
     }
 
     let d6p_current_receipt_commitments = if d6p_receipt {
-        ["integral-d6p-receipt-1".into()].into_iter().collect()
+        [d6p_receipt_commitment()].into_iter().collect()
     } else {
         BTreeSet::new()
     };
@@ -262,7 +272,7 @@ fn closure_profile(require_d6p_receipt: bool) -> DependencyClosureProfileV1 {
             .collect(),
         required_node_ids: BTreeSet::new(),
         required_d6p_receipt_commitments: if require_d6p_receipt {
-            ["integral-d6p-receipt-1".into()].into_iter().collect()
+            [d6p_receipt_commitment()].into_iter().collect()
         } else {
             BTreeSet::new()
         },
