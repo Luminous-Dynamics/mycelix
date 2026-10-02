@@ -55,3 +55,10 @@ The reconciliation witness deliberately contains no implicit winner field. It re
 ### Competing means incomparable
 
 A reconciliation branch head must be a proper descendant of the declared branch point. Two named heads must also be incomparable in the predecessor graph: neither may be an ancestor of the other. Otherwise the pair describes one branch continuing forward rather than competing branches. The reconciliation validator rejects a branch point used as a head and rejects nested head pairs.
+
+
+### Bounded reconciliation coverage
+
+A reconciliation may carry a separate coverage witness that names the exact branch heads examined under an explicit addressable boundary. The coverage witness must include every branch head named by the reconciliation and must validate those heads against the same supplied predecessor graph.
+
+This is intentionally a **bounded coverage claim**, not a global DHT enumeration claim. The boundary and basis witnesses are addressable provenance objects. The validator does not inspect mutable link collections or infer that an unmentioned branch does not exist. Consequently, coverage can establish consistency with the declared dependency set and declared boundary, while global completeness remains outside this structural validator.
