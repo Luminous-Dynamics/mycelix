@@ -64,6 +64,20 @@ D6X does not re-qualify truth, causality, authority, current-finality, authoriza
 
 Provenance and custody edges are excluded unless the closure profile explicitly selects them. This prevents incidental reachability from becoming semantic dependency. Currentness is likewise evaluated only on edges actually selected by the closure traversal; an unrelated incoming edge cannot make a selected node stale. If multiple rules match the same edge, `CurrentOnly` dominates `Any` deterministically rather than depending on rule iteration order. A dangling edge whose kind/rule does not qualify for traversal is also ignored rather than promoted into a missing semantic dependency.
 
+## D6P provenance boundary
+
+The strict D6X D6P entrypoint is a **qualified-composition** boundary, not an independent reconstruction of D6N/D6O authority.
+
+It verifies that every required D6P receipt:
+
+- is explicitly named by the projection and closure profile;
+- matches the supplied receipt commitment exactly;
+- matches its supplied D6P composition exactly;
+- satisfies the composition's semantic validation;
+- and, when requested, is bound to the caller-supplied current frontier.
+
+This prevents an opaque or historical receipt from silently crossing into D6X, but it does not prove how the supplied composition was originally produced. Authoritative D6N/D6O reconstruction therefore remains an upstream qualification step. D6X must not be described as creating that authority merely because the D6P objects are internally consistent.
+
 ## D6W binding
 
 D6W now requires the exact D6X `closure_identity_commitment` in its input layer:
