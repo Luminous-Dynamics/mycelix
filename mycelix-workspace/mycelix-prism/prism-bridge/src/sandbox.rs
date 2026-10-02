@@ -111,7 +111,7 @@ mod linux {
         Ok(())
     }
 
-    fn restrict_self(fd: RawFd, abi: u32) -> Result<(), SandboxEnforcementError> {
+    fn restrict_self(fd: RawFd) -> Result<(), SandboxEnforcementError> {
         let rc = unsafe { libc::syscall(libc::SYS_landlock_restrict_self, fd, LANDLOCK_RESTRICT_SELF_TSYNC) };
         if rc != 0 {
             return Err(SandboxEnforcementError::EnforcementFailed(
@@ -204,7 +204,7 @@ mod linux {
             libc::syscall(
                 libc::SYS_landlock_add_rule,
                 fd,
-                LANDLOCK_RULE_PATH_BENEATH,
+                LANDLOCK_RULE_PATH_BENEATH as libc::c_uint,
                 &rule,
                 0,
             )
@@ -216,7 +216,7 @@ mod linux {
         }
 
         set_no_new_privs()?;
-        restrict_self(fd, abi)?;
+        restrict_self(fd)?;
         unsafe { libc::close(fd); }
 
         // We only report actual enforcement after restrict_self() succeeds.
