@@ -1,0 +1,66 @@
+# QUAL-001S Semantic Qualification Corpus
+
+This directory contains the implementation-independent semantic corpus for QUAL-001S.
+
+The corpus is deliberately **not** a Rust crate and has no dependency on:
+
+- Mycelix epistemic scoring/types;
+- manufacturing COS semantics;
+- Holochain runtime state;
+- a particular verifier implementation;
+- a particular GitHub Actions runner.
+
+Its purpose is to make the qualification theorem executable by multiple independently implemented evaluators without allowing either evaluator to redefine the claim boundary.
+
+## Three separate algebras
+
+Every vector keeps these propositions distinct:
+
+1. **Evidence disposition** — what is known about the supplied evidence.
+2. **Execution/authority outcome** — what the trusted execution path actually established.
+3. **Claim ceiling** — which explicit claims may be emitted from that evidence.
+
+A stronger-looking value in one algebra never upgrades another algebra.
+
+In particular:
+
+`OBSERVED execution != VERIFIED qualification != ADOPTION != POST_ADOPTION_INDEPENDENCE`
+
+## Corpus contract
+
+Each vector specifies:
+
+- exact proposition/source identity;
+- epoch identity;
+- requested claim set;
+- admissible claim set;
+- theorem and upstream evidence references;
+- evidence disposition;
+- authority/execution outcome;
+- expected evaluator state;
+- explicit nonclaims.
+
+The corpus contains both availability positives and hostile/negative vectors.
+
+## Metamorphic properties
+
+An evaluator conforming to this corpus must preserve these transformations:
+
+- removing a required dependency changes the result to `UNAVAILABLE` rather than `CONTRADICTED`;
+- adding a qualifying constraint cannot widen the admitted claim set;
+- changing any epoch member invalidates receipts bound to the prior epoch;
+- substituting a source class is rejected rather than silently normalized;
+- stale evidence cannot cross the temporal frontier into current authority;
+- an authentic receipt cannot by itself elevate lifecycle state;
+- duplicate evidence is not independent corroboration;
+- unknown schema versions and duplicate keys fail closed.
+
+These are corpus properties, not implementation suggestions.
+
+## Independence requirement
+
+QUAL-001S should consume these same vector bytes through at least two materially independent evaluators before S0/S1/S2 is considered qualified. The second evaluator must be reconstructed from this published corpus/contract rather than copied from the first evaluator's control flow.
+
+## Status
+
+This corpus is a **design/evidence artifact only**. A committed corpus is not a QUAL-001S PASS, does not qualify a verifier, and does not authorize adoption.
