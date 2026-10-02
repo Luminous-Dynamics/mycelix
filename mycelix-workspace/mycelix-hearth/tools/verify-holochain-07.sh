@@ -95,8 +95,13 @@ require "$sdk_lock" '"node_modules/@holochain/client": {' "JS lock contains the 
 require "$sdk_lock" '"version": "0.21.0"' "JS lock resolves a 0.21 client"
 forbid "$sdk_lock" '"version": "0.20.2"' "JS lock no longer resolves client 0.20.2"
 
-# A declaration is not enough: the checked-in Nix graph must not retain the
-# 0.6-era Holonix component set.
+# A dependency declaration is not enough: the checked-in Nix graph must
+# positively identify the intended Holochain 0.7 component family.
+require "$flake_lock" '"ref": "holochain-0.7.0"' "Nix lock resolves Holochain 0.7.0"
+require "$flake_lock" '"ref": "v0.5.0"' "Nix lock resolves Kitsune2 0.5.0"
+require "$flake_lock" '"ref": "v0.7.1"' "Nix lock resolves Lair 0.7.1"
+
+# Retain explicit negative checks as defense in depth.
 forbid "$flake_lock" '"ref": "holochain-0.6.0"' "lockfile no longer resolves Holochain 0.6"
 forbid "$flake_lock" '"ref": "0.600.0-dev.0"' "lockfile no longer resolves hc-scaffold 0.6"
 forbid "$flake_lock" '"ref": "v0.6.3"' "lockfile no longer resolves Lair 0.6"
