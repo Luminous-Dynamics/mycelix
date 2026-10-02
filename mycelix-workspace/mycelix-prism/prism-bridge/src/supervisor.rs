@@ -5,7 +5,7 @@
 //! supervisor cannot attach renderer IPC before sandbox and identity
 //! qualification.
 
-use crate::process::{ProcessIdentity, RendererLaunchReceipt, RendererProcessAssignmentId, SandboxEnforcementReceipt, SandboxEvidenceBundle, SandboxEnforcementLayer, SandboxProfileV1};
+use crate::process::{ProcessIdentity, RendererLaunchReceipt, SandboxEnforcementReceipt, SandboxEvidenceBundle};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RendererProcessState {
@@ -183,7 +183,10 @@ impl RendererSupervisorState {
 mod tests {
     use super::*;
     use crate::identity::RendererProcessId;
-    use crate::process::{next_sandbox_installation_id, SandboxAdapterKind};
+    use crate::process::{
+        next_sandbox_installation_id, RendererProcessAssignmentId, SandboxAdapterKind,
+        SandboxEnforcementLayer, SandboxProfileV1,
+    };
 
     fn receipt(
         state: &RendererSupervisorState,
@@ -218,7 +221,7 @@ mod tests {
 
     #[test]
     fn filesystem_only_landlock_cannot_qualify_full_renderer_profile() {
-        let mut state = RendererSupervisorState::new(launch());
+        let state = RendererSupervisorState::new(launch());
         state.record_sandbox(receipt(
             &state,
             SandboxAdapterKind::LinuxLandlockFilesystemV1,
