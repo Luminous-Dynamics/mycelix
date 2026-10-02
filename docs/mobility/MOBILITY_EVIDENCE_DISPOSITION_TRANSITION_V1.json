@@ -141,6 +141,17 @@
       "id": "EDT-026",
       "case": "explicit_branch_reconciliation_validates_ancestry_without_selecting_winner",
       "expected": "accepted"
+    },
+    {
+      "id": "EDT-027",
+      "case": "reconciliation_rejects_branch_point_as_head",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-028",
+      "case": "reconciliation_rejects_nested_heads_as_competing_branches",
+      "expected": "rejected"
     }
-  ]
+  ],
+  "vectors_count": 28
 }
