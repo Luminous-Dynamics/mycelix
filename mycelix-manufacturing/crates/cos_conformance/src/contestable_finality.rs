@@ -545,6 +545,7 @@ pub fn verify_observation_set_provenance(
     let mut supplied_ids = BTreeSet::new();
     for item in evidence {
         if item.structurally_valid()
+            && item.observation.commitment_matches()
             && set.observation_ids.contains(&item.observation.observation_id)
             && !supplied_ids.insert(item.observation.observation_id.clone())
         {
@@ -1010,26 +1011,29 @@ mod tests {
         observer: ExternalObserverProfileV1,
         state: ExternalObservedStateV1,
     ) -> ExternalObservedEvidenceV1 {
+        let mut observation = ExternalEffectObservationV1 {
+            observation_id: id.into(),
+            effect_id: "effect-1".into(),
+            effect_lineage_id: "lineage-1".into(),
+            lifecycle_generation_id: "generation-1".into(),
+            route_id: "route-1".into(),
+            provider_id: "provider-1".into(),
+            provider_operation_id: "operation-1".into(),
+            provider_profile_root: "provider-profile-1".into(),
+            provider_outcome_id: format!("outcome-{id}"),
+            request_commitment: "request-1".into(),
+            idempotency_key: "idem-1".into(),
+            semantic_environment_root: "env-1".into(),
+            observed_frontier_root: "frontier-1".into(),
+            observed_state: state,
+            source: ExternalObservationSourceV1::IndependentObserver,
+            evidence_root: observer.evidence_root.clone(),
+            observation_commitment: String::new(),
+            claim_ceiling: crate::effect_finality::EXTERNAL_FINALITY_CLAIM_CEILING.into(),
+        };
+        observation.observation_commitment = observation.recomputed_commitment();
         ExternalObservedEvidenceV1 {
-            observation: ExternalEffectObservationV1 {
-                observation_id: id.into(),
-                effect_id: "effect-1".into(),
-                effect_lineage_id: "lineage-1".into(),
-                lifecycle_generation_id: "generation-1".into(),
-                route_id: "route-1".into(),
-                provider_id: "provider-1".into(),
-                provider_operation_id: "operation-1".into(),
-                provider_profile_root: "provider-profile-1".into(),
-                provider_outcome_id: format!("outcome-{id}"),
-                request_commitment: "request-1".into(),
-                idempotency_key: "idem-1".into(),
-                semantic_environment_root: "env-1".into(),
-                observed_frontier_root: "frontier-1".into(),
-                observed_state: state,
-                source: ExternalObservationSourceV1::IndependentObserver,
-                evidence_root: observer.evidence_root.clone(),
-                claim_ceiling: crate::effect_finality::EXTERNAL_FINALITY_CLAIM_CEILING.into(),
-            },
+            observation,
             observer,
         }
     }
