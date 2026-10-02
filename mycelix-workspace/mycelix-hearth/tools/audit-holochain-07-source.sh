@@ -81,6 +81,9 @@ check_absent_multiline "removed ChainFilter builder methods" 'ChainFilter::new\(
 # 0.7 dependency floor must be visible in Hearth manifests.
 check_present "Hearth HDK 0.7.0 dependency floor" 'hdk\s*=\s*"=0\.7\.0"'
 check_present "Hearth HDI 0.8.0 dependency floor" 'hdi\s*=\s*"=0\.8\.0"'
+check_present "Hearth serialized-bytes 0.0.57 floor" 'holochain_serialized_bytes\s*=\s*"0\.0\.57"'
+check_present "Hearth Holochain 0.7.0 test dependency" 'holochain\s*=.*version\s*=\s*"0\.7\.0"'
+check_present "Hearth JS client 0.21 floor" '@holochain/client.*\^0\.21\.0'
 check_present "Hearth flake uses Holonix main-0.7" 'holonix.*ref=main-0\.7'
 check_lock_present "flake.lock pins Holochain 0.7.0" '"original"[[:space:]]*:[[:space:]]*\{[[:space:]]*"owner"[[:space:]]*:[[:space:]]*"holochain"[[:space:]]*,[[:space:]]*"ref"[[:space:]]*:[[:space:]]*"holochain-0\.7\.0"'
 check_lock_present "flake.lock pins Kitsune2 0.5.0" '"original"[[:space:]]*:[[:space:]]*\{[[:space:]]*"owner"[[:space:]]*:[[:space:]]*"holochain"[[:space:]]*,[[:space:]]*"ref"[[:space:]]*:[[:space:]]*"v0\.5\.0"'
