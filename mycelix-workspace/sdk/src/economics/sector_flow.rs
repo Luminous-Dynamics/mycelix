@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use super::stock_flow::{ActorId, EconomicState};
 
 /// Coarse sector classification. Implementations may map many actors into one sector.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum EconomicSector {
     Household,
     Firm,
