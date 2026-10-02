@@ -101,6 +101,13 @@ pub use collective_phi::{
     AgentConsciousnessVector, COLLECTIVE_PHI_MAX_SYNC, CollectivePhiEngine, CollectivePhiResult,
 };
 
+pub mod security_kernel;
+pub use security_kernel::{
+    authorize, verify_capability, AdvisoryResult, AuthorizationDecision,
+    AuthorizationDenial, AuthorizationIndeterminacy, AuthorizationRequest,
+    Capability, CapabilityAction, VerificationEvidence, VerifiedCapability,
+};
+
 pub mod routing;
 pub use routing::{
     BridgeDomain, CIVIC_DOMAINS, COMMONS_DOMAINS, CivicZome, CommonsZome, CrossClusterRole,
