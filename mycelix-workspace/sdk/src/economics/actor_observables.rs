@@ -545,6 +545,10 @@ mod tests {
             FinancingRegime::Hedge
         );
         assert_eq!(firm.net_liquidity_change, 210);
+        assert_eq!(firm.operating_liquidity_change(), 30);
+        assert_eq!(firm.financing_net_liquidity(), 180);
+        assert_eq!(firm.investing_net_liquidity(), 0);
+        assert_eq!(firm.other_liquidity_change, 0);
         assert!(firm.liquidity_flow_reconciliation_holds());
         assert_eq!(firm.financing_net_liquidity(), 180);
         assert_eq!(firm.investing_net_liquidity(), 0);
@@ -1067,6 +1071,8 @@ mod tests {
         assert_eq!(firm.trade_receivables, 50);
         assert_eq!(firm.net_working_capital(), 100);
         assert_eq!(firm.net_liquidity_change, 30);
+        assert_eq!(firm.operating_liquidity_change(), 30);
+        assert!(firm.liquidity_flow_reconciliation_holds());
         assert_eq!(firm.deposits, 130);
         assert_eq!(firm.inventory_quantity, 6);
         assert_eq!(firm.inventory_carrying_value, 50);
