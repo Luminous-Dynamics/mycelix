@@ -105,3 +105,27 @@ The official upgrade guide explicitly requires the Holonix lock update, HDK/HDI 
 - 0.7 conductor startup/network evidence: **not claimed**
 
 This gate intentionally keeps ROS-006 qualification semantics independent of the runtime migration. Holochain 0.7 remains an adapter/host concern, while the qualification core stays version-neutral.
+
+
+## 2026-10-02 — 0.7 Nix input normalization executed
+
+The three Holochain development flakes are now declared against the official 0.7 Holonix generation:
+
+- `mycelix-workspace/flake.nix`: Holonix `main-0.7`, root `nixpkgs.follows = "holonix/nixpkgs"`, Node.js 24.
+- `mycelix-civic/flake.nix`: Holonix `main-0.7` with the same nixpkgs-follow topology.
+- `mycelix-commons/flake.nix`: Holonix `main-0.7` with the same nixpkgs-follow topology.
+
+Commits: `c45e89585631d171bccd2629f33eac5439d41699`, `a86eea46428b322780033eee8686f504853a8057`, `d647c524fc8eff7d0042587ec970bd6584334039`.
+
+### Deliberate lockfile boundary
+
+The existing `flake.lock` still records the previous 0.6-era graph. It is therefore deliberately treated as **stale pending real Nix regeneration**. No generated lock nodes were hand-edited and no build/runtime success is inferred from the declaration change.
+
+Required next executable step, when the repository is available in a Nix-capable environment:
+
+1. Run `nix flake update` in each intended workspace scope as appropriate.
+2. Inspect the generated graph for Holochain 0.7.0, Kitsune2 0.5.x, Lair 0.7.1, and the expected Holonix/nixpkgs lineage.
+3. Run `nix flake check` / the relevant dev-shell evaluation before Cargo migration.
+4. Only then resolve the root Cargo graph and begin the action-model compiler migration.
+
+This sequencing follows Holochain's official 0.6→0.7 upgrade guidance: update the flake, regenerate the lockfile, then proceed with dependency and source migration.
