@@ -2117,6 +2117,49 @@ mod tests {
     }
 
     #[test]
+    fn witness_join_rejects_self_consistent_d6n_to_d6m_substitution() {
+        let composition = matching_composition();
+        let witness = &composition.witnesses[0];
+        let g = generation("observer-A");
+        let evidence = observation("observation-1", &g, ExternalObservedStateV1::Applied);
+        let set = set(&["observation-1"]);
+        let (_, receipt) = ledger_and_receipt(&evidence);
+        let mut assessment = d6n_assessment(
+            &set,
+            &[(
+                "observation-1".into(),
+                "observer-A".into(),
+                witness.d6n_classification,
+            )],
+        )
+        .assessments
+        .remove(0);
+
+        let mut substituted = observation(
+            "observation-substituted",
+            &g,
+            ExternalObservedStateV1::Applied,
+        );
+        substituted.observation.observation_id = "observation-1".into();
+        substituted.observation.observation_commitment =
+            substituted.observation.recomputed_commitment();
+
+        assessment.observation_commitment = substituted.observation.observation_commitment;
+        assessment.assessment_commitment = assessment.recomputed_commitment();
+
+        assert!(assessment.commitment_matches());
+        assert!(!verify_witness_join_binding(
+            witness,
+            &assessment,
+            &evidence,
+            Some(&receipt),
+            &set,
+            "lifecycle-1",
+            "frontier-1",
+        ));
+    }
+
+    #[test]
     fn eligible_independent_witness_counts() {
         let g1 = generation("observer-A");
         let g2 = generation("observer-B");
