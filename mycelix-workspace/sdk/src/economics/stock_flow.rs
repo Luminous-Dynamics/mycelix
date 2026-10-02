@@ -1043,7 +1043,7 @@ impl EconomicState {
     /// Checked sum of all monetary assets held by actors.
     pub fn try_aggregate_assets(&self) -> Result<i128, String> {
         self.actors.iter().try_fold(0i128, |sum, actor| {
-            sum.checked_add(actor.monetary.assets())
+            sum.checked_add(actor.monetary.try_assets()?)
                 .ok_or_else(|| "aggregate assets overflow".to_string())
         })
     }
@@ -1097,7 +1097,7 @@ impl EconomicState {
     /// Checked aggregate net financial position.
     pub fn try_aggregate_net_financial_position(&self) -> Result<i128, String> {
         self.actors.iter().try_fold(0i128, |sum, actor| {
-            sum.checked_add(actor.monetary.net_position())
+            sum.checked_add(actor.monetary.try_net_position()?)
                 .ok_or_else(|| "aggregate net financial position overflow".to_string())
         })
     }
@@ -1196,6 +1196,29 @@ mod tests {
             inventory_carrying_value: 1,
         };
         assert!(actor.try_net_worth().is_err());
+
+        let state = EconomicState::new(vec![
+            ActorBalanceSheet {
+                actor: "a".into(),
+                monetary: MonetaryStock {
+                    cash: i128::MAX,
+                    ..MonetaryStock::default()
+                },
+                real: RealStock::default(),
+                inventory_carrying_value: 0,
+            },
+            ActorBalanceSheet {
+                actor: "b".into(),
+                monetary: MonetaryStock {
+                    cash: 1,
+                    ..MonetaryStock::default()
+                },
+                real: RealStock::default(),
+                inventory_carrying_value: 0,
+            },
+        ]);
+        assert!(state.try_aggregate_assets().is_err());
+        assert!(state.try_aggregate_net_financial_position().is_err());
     }
     use super::*;
 
