@@ -538,7 +538,7 @@ pub fn deliver(
     };
 
     if !matches!(
-        record_observation(state, observation),
+        record_source_observation(state, observation),
         ObservationWriteResult::Inserted
     ) {
         return FederationOutcome::new(
@@ -571,9 +571,10 @@ pub enum ObservationWriteResult {
     Inserted,
     Duplicate,
     Conflict,
+    RejectedSourceClaim,
 }
 
-pub fn record_observation(
+fn record_observation_identity(
     state: &mut FederationState,
     observation: ObservationRecord,
 ) -> ObservationWriteResult {
@@ -587,6 +588,25 @@ pub fn record_observation(
 
     state.observations.insert(observation.observation_id.clone(), observation);
     ObservationWriteResult::Inserted
+}
+
+fn record_source_observation(
+    state: &mut FederationState,
+    observation: ObservationRecord,
+) -> ObservationWriteResult {
+    debug_assert!(observation.source_observation);
+    record_observation_identity(state, observation)
+}
+
+pub fn record_observation(
+    state: &mut FederationState,
+    observation: ObservationRecord,
+) -> ObservationWriteResult {
+    if observation.source_observation {
+        return ObservationWriteResult::RejectedSourceClaim;
+    }
+
+    record_observation_identity(state, observation)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -1260,6 +1280,25 @@ mod tests {
     }
 
     #[test]
+    fn generic_observation_api_cannot_mint_source_observation() {
+        let mut state = nodes();
+        let source_claim = ObservationRecord {
+            observation_id: "obs-forged-source".into(),
+            semantic_subject_id: "subject-1".into(),
+            payload_commitment: "sha256:forged".into(),
+            origin_node: "node-a".into(),
+            recognized_by: None,
+            source_observation: true,
+        };
+
+        assert_eq!(
+            record_observation(&mut state, source_claim),
+            ObservationWriteResult::RejectedSourceClaim
+        );
+        assert_eq!(state.observation_count(), 0);
+    }
+
+    #[test]
     fn observation_identity_is_insert_only_and_conflicts_never_overwrite() {
         let mut state = nodes();
         let first = ObservationRecord {
@@ -1268,7 +1307,7 @@ mod tests {
             payload_commitment: "sha256:a".into(),
             origin_node: "node-a".into(),
             recognized_by: None,
-            source_observation: true,
+            source_observation: false,
         };
         assert_eq!(
             record_observation(&mut state, first.clone()),
@@ -1475,7 +1514,7 @@ mod tests {
             payload_commitment: "sha256:existing".into(),
             origin_node: "node-b".into(),
             recognized_by: None,
-            source_observation: true,
+            source_observation: false,
         };
         assert_eq!(
             record_observation(&mut state, existing.clone()),
@@ -1605,7 +1644,7 @@ mod tests {
             payload_commitment: "sha256:a".into(),
             origin_node: "node-a".into(),
             recognized_by: None,
-            source_observation: true,
+            source_observation: false,
         };
         let b = ObservationRecord {
             observation_id: "obs-b".into(),
@@ -1613,7 +1652,7 @@ mod tests {
             payload_commitment: "sha256:b".into(),
             origin_node: "node-b".into(),
             recognized_by: Some("node-a".into()),
-            source_observation: true,
+            source_observation: false,
         };
         assert_eq!(
             record_observation(&mut state, a),
