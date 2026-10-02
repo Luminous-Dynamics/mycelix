@@ -1213,6 +1213,61 @@ mod tests {
     }
 
     #[test]
+    fn assessment_commitment_binds_classification_and_observation_identity() {
+        let e1 = evidence("obs-1", observer("obs-1", "evidence-1", "custody-1"), ExternalObservedStateV1::Applied);
+        let s = set(&["obs-1"]);
+        let expected = assess_observation_set(
+            &effect(),
+            &route(),
+            &profile(),
+            &s,
+            &[e1.clone()],
+            "frontier-1",
+            "generation-1",
+        );
+        assert!(expected.assessments[0].commitment_matches());
+
+        let mut forged = expected.clone();
+        forged.assessments[0].classification =
+            ObservationClassificationV1::ContradictoryIndependent;
+        forged.assessments[0].assessment_commitment =
+            forged.assessments[0].recomputed_commitment();
+
+        assert!(!verify_observation_set_assessment_provenance(
+            &forged,
+            &effect(),
+            &route(),
+            &profile(),
+            &s,
+            &[e1],
+            "frontier-1",
+            "generation-1",
+        ));
+    }
+
+    #[test]
+    fn self_recommitted_observation_cannot_become_authoritative_d6n_evidence() {
+        let mut item = evidence(
+            "obs-1",
+            observer("obs-1", "evidence-1", "custody-1"),
+            ExternalObservedStateV1::Applied,
+        );
+        item.observation.request_commitment = "forged-request".into();
+        item.observation.observation_commitment = item.observation.recomputed_commitment();
+
+        assert!(item.observation.commitment_matches());
+        assert!(!verify_observation_set_provenance(
+            &set(&["obs-1"]),
+            &effect(),
+            &route(),
+            &profile(),
+            &[item],
+            "frontier-1",
+            "generation-1",
+        ));
+    }
+
+    #[test]
     fn observation_and_observer_identity_are_distinct() {
         let observer_profile = observer("observer-A", "evidence-1", "custody-1");
         let mut item = evidence(
