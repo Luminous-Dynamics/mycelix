@@ -221,6 +221,24 @@ This is intentionally narrower than a full SFC model. Wages, consumption, intere
 
 The design follows the SFC convention that the balance-sheet matrix and transaction-flow matrix form a linked accounting skeleton, with financial assets matched by counterpart liabilities and sector flows satisfying budget constraints. Recent SFC work continues to use explicit bank deposits/loans and linked balance-sheet/transaction-flow structures. Keen's monetary Minsky work likewise treats credit/debt dynamics as explicit monetary state variables rather than an exogenous residual. The next implementation step is therefore to extend the posting vocabulary rather than bypass it with aggregate formulas.
 
+### Sector-flow projection (implemented)
+
+The sector transaction matrix is now derived directly from the ordered transition log. Each supported transition is projected into a sector-to-sector flow with an explicit category:
+
+- IncomeTransfer -> Wage / Interest / Tax / Transfer / Consumption / Investment
+- CapitalInvestment -> Investment
+- CreditCreation -> LoanCreation
+- DebtRepayment -> DebtRepayment
+- MonetaryTransfer -> Other
+
+SectorTransactionMatrix::validate_against now checks that the actor-to-sector assignment covers the state, that the matrix clears, and that its exact ordered flow list matches the transition-derived projection. A hand-edited or stale sector matrix therefore cannot silently diverge from the authoritative transition evidence.
+
+This closes the accounting chain one step further:
+
+transition log -> sector transaction matrix -> sector balance-sheet delta -> evidence hashes
+
+The remaining conceptual gap is not another aggregate formula; it is the real production layer. Inventories, output, intermediate inputs, depreciation, and physical-resource flows should be introduced as typed stock transformations with their own conservation rules rather than being folded into CapitalInvestment.
+
 ### Next accounting frontier
 
 1. Add explicit period-income/equity postings so wage, consumption, interest, tax, and transfer flows can reconcile net worth changes.
@@ -251,7 +269,7 @@ The income/equity boundary has been tightened so **equity is a derived balance-s
 
 `net worth = financial assets - financial liabilities + real assets`
 
-The sector matrix exposes equity as the signed balancing row `-net worth`. This follows the standard SFC convention in which net worth is the balancing item of the balance-sheet matrix, while real assets are not someone else's financial liability. The model therefore does not double-count equity by adding a mutable equity stock on top of net financial position. citeturn0search25turn0search24
+The sector matrix exposes equity as the signed balancing row `-net worth`. This follows the standard SFC convention in which net worth is the balancing item of the balance-sheet matrix, while real assets are not someone else's financial liability. The model therefore does not double-count equity by adding a mutable equity stock on top of net financial position.
 
 `IncomeTransfer` now carries an explicit semantic category:
 
@@ -279,7 +297,7 @@ The sector balance sheet also now validates the stronger per-sector identity:
 
 `signed financial rows + signed equity residual + real assets = 0`
 
-while keeping cash outside the clearing requirement until an explicit issuer/public-money sector is modeled. This preserves the distinction between internal financial claims and real wealth. The SFC literature explicitly links the balance-sheet matrix to the transactions-flow matrix and uses net worth as the balancing item. citeturn0search25turn0search0
+while keeping cash outside the clearing requirement until an explicit issuer/public-money sector is modeled. This preserves the distinction between internal financial claims and real wealth. The SFC literature explicitly links the balance-sheet matrix to the transactions-flow matrix and uses net worth as the balancing item.
 
 ### Why this matters for the next layer
 
