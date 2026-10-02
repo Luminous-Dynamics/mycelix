@@ -181,6 +181,16 @@
       "id": "EDT-034",
       "case": "reconciliation_coverage_rejects_boundary_authority_mismatch",
       "expected": "rejected"
+    },
+    {
+      "id": "EDT-035",
+      "case": "reconciliation_coverage_rejects_boundary_basis_omission",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-036",
+      "case": "reconciliation_coverage_accepts_boundary_basis_extension",
+      "expected": "accepted"
     }
   ]
 }
