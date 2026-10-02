@@ -15,3 +15,4 @@ thiserror = { workspace = true }
 url = { workspace = true }
 blake3 = { workspace = true }
 getrandom = { workspace = true }
+libc = { workspace = true }

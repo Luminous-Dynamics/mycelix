@@ -792,6 +792,7 @@ unsafe_code = "forbid"
 [workspace.dependencies]
 
 log = "0.4"
+libc = "0.2"
 url = "2.5"
 # Cryptography
 # crypto-common — do NOT pin here; aead 0.6.0-rc.2 requires the rc.4 line (has os_rng); stable 0.2.x does not.
