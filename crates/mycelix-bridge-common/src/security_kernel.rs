@@ -454,6 +454,26 @@ mod tests {
         .unwrap()
     }
 
+    #[test]
+    fn capability_action_order_is_canonical_and_duplicates_rejected() {
+        let first = Capability::new(
+            "alice", "issuer", "ledger",
+            vec![CapabilityAction::Admin, CapabilityAction::Read],
+            1, 2, 3,
+        ).unwrap();
+        let second = Capability::new(
+            "alice", "issuer", "ledger",
+            vec![CapabilityAction::Read, CapabilityAction::Admin],
+            1, 2, 3,
+        ).unwrap();
+        assert_eq!(first.signing_bytes(), second.signing_bytes());
+        assert!(Capability::new(
+            "alice", "issuer", "ledger",
+            vec![CapabilityAction::Read, CapabilityAction::Read],
+            1, 2, 3,
+        ).is_err());
+    }
+
     #[cfg(feature = "identity")]
     #[test]
     fn signed_capability_cryptographically_verifies() {
