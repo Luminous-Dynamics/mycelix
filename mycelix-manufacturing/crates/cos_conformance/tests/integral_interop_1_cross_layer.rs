@@ -46,91 +46,430 @@ fn actual_d6p_fixture() -> (
     cos_conformance::finality_eligibility_composition::FinalityEligibilityCompositionV1,
     cos_conformance::finality_eligibility_composition::CurrentFinalityEligibilityReceiptV1,
 ) {
+    use cos_conformance::contestable_finality::{
+        assess_observation_set, verify_observation_set_assessment_provenance,
+        ExternalObservedEvidenceV1, ExternalEffectObservationV1, ExternalObservationSourceV1,
+        ExternalObserverProfileV1, ExternalObservationSetV1, FinalityQualificationProfileV1,
+        ObservationIndependenceV1,
+    };
+    use cos_conformance::effect_finality::{
+        assess_external_finality, ExternalFinalityProfileV1, ExternalFinalityReceiptV1,
+        ExternalFinalityStateV1, ExternalObservedStateV1, FinalityUsePurposeV1,
+        FinalityDispositionV1,
+    };
+    use cos_conformance::observer_lifecycle::{
+        assess_evidence_eligibility, verify_eligibility_receipt_provenance,
+        EvidenceDependencySnapshotV1, EvidenceEligibilityReceiptV1, EvidenceEligibilityDispositionV1,
+        ObserverEvidenceProvenanceV1, ObserverGenerationV1, ObserverLifecycleLedgerV1,
+        ObserverLifecycleProfileV1, ObserverLifecycleUsePurposeV1, ObserverStatusV1,
+        OBSERVER_LIFECYCLE_CLAIM_CEILING,
+    };
+    use cos_conformance::qualified_dependency_closure_d6x::DependencyClosureStatusV1;
     use cos_conformance::finality_eligibility_composition::{
-        FinalityEligibilityCompositionV1, FinalityEligibilityDispositionV1,
-        FinalityWitnessEligibilityV1, CurrentFinalityEligibilityReceiptV1,
-        FINALITY_ELIGIBILITY_COMPOSITION_CLAIM_CEILING,
+        compose_finality_eligibility_from_authoritative_d6n_d6o,
+        CurrentFinalityEligibilityReceiptV1,
+        FinalityEligibilityCompositionV1,
     };
-    use cos_conformance::contestable_finality::ObservationClassificationV1;
-    use cos_conformance::observer_lifecycle::EvidenceEligibilityDispositionV1;
-
-    let mut witness = FinalityWitnessEligibilityV1 {
-        observation_id: "integral-d6n-observation-1".into(),
-        observer_id: "integral-observer-1".into(),
-        observer_generation_id: Some("integral-generation-1".into()),
-        d6n_observation_set_id: "integral-d6n-set-1".into(),
-        d6n_observation_set_commitment: "integral-d6n-set-commitment".into(),
-        d6n_assessment_item_commitment: "integral-d6n-assessment-item-1".into(),
-        d6n_classification: ObservationClassificationV1::CorroboratingIndependent,
-        d6o_eligibility_id: Some("integral-d6o-eligibility-1".into()),
-        d6o_disposition: Some(EvidenceEligibilityDispositionV1::EligibleCurrent),
-        d6o_dependency_snapshot_id: Some("integral-d6o-snapshot-1".into()),
-        observation_frontier_root: "integral-frontier-1".into(),
-        current_frontier_root: "integral-frontier-1".into(),
-        lifecycle_profile_id: "integral-lifecycle-profile-1".into(),
-        witness_commitment: String::new(),
-        claim_ceiling: FINALITY_ELIGIBILITY_COMPOSITION_CLAIM_CEILING.into(),
+    use cos_conformance::substitution_continuity::{
+        IdempotencyScopeV1, ProviderOutcomeKindV1, ProviderOutcomeV1, ProviderRouteV1,
+        SemanticEffectV1, SemanticSubstitutionProfileV1,
     };
-    witness.witness_commitment = witness.recomputed_commitment();
+    use std::collections::{BTreeMap, BTreeSet};
 
-    let mut composition = FinalityEligibilityCompositionV1 {
-        composition_id: "composition:integral-d6n-set-1".into(),
+    let semantic_environment_root = environment().commitment();
+
+    // D6M: provider-neutral semantic effect + provider route + observed outcome
+    // + independently sourced observation + current-finality receipt.
+    let effect = SemanticEffectV1 {
         effect_id: "integral-effect-1".into(),
-        effect_lineage_id: "integral-lineage-1".into(),
-        lifecycle_generation_id: "integral-generation-1".into(),
+        lineage_id: "integral-lineage-1".into(),
+        generation_id: "integral-effect-generation-1".into(),
+        request_commitment: "integral-request-1".into(),
+        semantic_environment_root: semantic_environment_root.clone(),
+        effect_class: "manufacturing-task".into(),
+        resource_id: "water-purifier".into(),
+        tenant_id: "integral-tenant".into(),
+        amount: "1".into(),
+        unit: "unit".into(),
+        authority_claim_id: "integral-authority-1".into(),
+        consent_claim_id: "integral-consent-1".into(),
+        idempotency_key: "integral-idem-1".into(),
+    };
+    let substitution_profile = SemanticSubstitutionProfileV1 {
+        profile_id: "integral-substitution-1".into(),
+        semantic_environment_root: semantic_environment_root.clone(),
+        request_commitment: effect.request_commitment.clone(),
+        effect_class: effect.effect_class.clone(),
+        resource_id: effect.resource_id.clone(),
+        tenant_id: effect.tenant_id.clone(),
+        amount: effect.amount.clone(),
+        unit: effect.unit.clone(),
+        authority_claim_id: effect.authority_claim_id.clone(),
+        consent_claim_id: effect.consent_claim_id.clone(),
+        idempotency_key: effect.idempotency_key.clone(),
+        idempotency_scope: IdempotencyScopeV1::ContractWide,
+        idempotency_policy_root: Some("integral-idempotency-policy".into()),
+        allow_retry_after_no_effect: true,
+        allow_same_provider_retry: true,
+        allowed_provider_profile_roots: BTreeMap::from([
+            ("integral-provider-1".into(), "integral-provider-profile-1".into()),
+        ]),
+        profile_commitment: "integral-substitution-profile-commitment".into(),
+    };
+    let route = ProviderRouteV1 {
         route_id: "integral-route-1".into(),
+        effect_id: effect.effect_id.clone(),
+        substitution_profile_id: substitution_profile.profile_id.clone(),
         provider_id: "integral-provider-1".into(),
-        provider_operation_id: "integral-operation-1".into(),
         provider_profile_root: "integral-provider-profile-1".into(),
-        semantic_environment_root: environment().commitment(),
-        observation_set_id: "integral-d6n-set-1".into(),
-        observation_set_commitment: "integral-d6n-set-commitment".into(),
-        d6n_assessment_commitment: "integral-d6n-assessment-commitment".into(),
-        lifecycle_profile_id: "integral-lifecycle-profile-1".into(),
+        provider_operation_id: "integral-operation-1".into(),
+        route_generation: 0,
+        lifecycle_generation_id: effect.generation_id.clone(),
+        request_commitment: effect.request_commitment.clone(),
+        semantic_environment_root: semantic_environment_root.clone(),
+        effect_class: effect.effect_class.clone(),
+        resource_id: effect.resource_id.clone(),
+        tenant_id: effect.tenant_id.clone(),
+        amount: effect.amount.clone(),
+        unit: effect.unit.clone(),
+        authority_claim_id: effect.authority_claim_id.clone(),
+        consent_claim_id: effect.consent_claim_id.clone(),
+        idempotency_key: effect.idempotency_key.clone(),
+        route_frontier_root: "integral-frontier-1".into(),
+    };
+    let outcome = ProviderOutcomeV1 {
+        outcome_id: "integral-outcome-1".into(),
+        effect_id: effect.effect_id.clone(),
+        route_id: route.route_id.clone(),
+        provider_operation_id: route.provider_operation_id.clone(),
+        provider_id: route.provider_id.clone(),
+        provider_profile_root: route.provider_profile_root.clone(),
+        request_commitment: effect.request_commitment.clone(),
+        idempotency_key: effect.idempotency_key.clone(),
+        semantic_environment_root: semantic_environment_root.clone(),
+        observed_frontier_root: "integral-frontier-1".into(),
+        outcome_kind: ProviderOutcomeKindV1::Succeeded,
+        evidence_root: "integral-provider-evidence-1".into(),
+        claim_ceiling: "Provider observation only; no independent outcome-truth or authorization claim.".into(),
+    };
+    let mut d6m_observation = ExternalEffectObservationV1 {
+        observation_id: "integral-d6m-observation-1".into(),
+        effect_id: effect.effect_id.clone(),
+        effect_lineage_id: effect.lineage_id.clone(),
+        lifecycle_generation_id: effect.generation_id.clone(),
+        route_id: route.route_id.clone(),
+        provider_id: route.provider_id.clone(),
+        provider_operation_id: route.provider_operation_id.clone(),
+        provider_profile_root: route.provider_profile_root.clone(),
+        provider_outcome_id: outcome.outcome_id.clone(),
+        request_commitment: effect.request_commitment.clone(),
+        idempotency_key: effect.idempotency_key.clone(),
+        semantic_environment_root: semantic_environment_root.clone(),
+        observed_frontier_root: "integral-frontier-1".into(),
+        observed_state: ExternalObservedStateV1::Applied,
+        source: ExternalObservationSourceV1::IndependentObserver,
+        evidence_root: "integral-independent-evidence-1".into(),
+        observation_commitment: String::new(),
+        claim_ceiling: cos_conformance::effect_finality::EXTERNAL_FINALITY_CLAIM_CEILING.into(),
+    };
+    d6m_observation.observation_commitment = d6m_observation.recomputed_commitment();
+    let observer_profile = ExternalObserverProfileV1 {
+        observer_id: "integral-observer-1".into(),
+        role: ExternalObserverRoleV1::IndependentObserver,
+        observation_method: "independent-state-read".into(),
+        provider_relationship: "external".into(),
+        evidence_root: "integral-independent-evidence-1".into(),
+        custody_root: "integral-independent-custody-1".into(),
+        upstream_observer_ids: BTreeSet::new(),
+        upstream_evidence_roots: BTreeSet::new(),
+        semantic_environment_root: semantic_environment_root.clone(),
+        observation_profile_id: "integral-observation-profile-1".into(),
+        independence: ObservationIndependenceV1::DeclaredIndependent,
+        independence_commitment: "integral-independence-1".into(),
+        claim_ceiling: cos_conformance::contestable_finality::CONTESTABLE_FINALITY_CLAIM_CEILING.into(),
+    };
+    let d6m_evidence = ExternalObservedEvidenceV1 {
+        observation: d6m_observation.clone(),
+        observer_id: observer_profile.observer_id.clone(),
+        observer: observer_profile.clone(),
+    };
+    let d6m_profile = ExternalFinalityProfileV1 {
+        profile_id: "integral-d6m-finality-profile-1".into(),
+        effect_id: effect.effect_id.clone(),
+        substitution_profile_id: substitution_profile.profile_id.clone(),
+        semantic_environment_root: semantic_environment_root.clone(),
+        request_commitment: effect.request_commitment.clone(),
+        idempotency_key: effect.idempotency_key.clone(),
+        allowed_observation_sources: BTreeSet::from([
+            ExternalObservationSourceV1::IndependentObserver,
+        ]),
+        required_finality_state: ExternalFinalityStateV1::Applied,
+        current_frontier_required: true,
+        profile_commitment: "integral-d6m-finality-profile-commitment".into(),
+        claim_ceiling: cos_conformance::effect_finality::EXTERNAL_FINALITY_CLAIM_CEILING.into(),
+    };
+    let mut d6m_receipt = ExternalFinalityReceiptV1 {
+        receipt_id: "integral-d6m-finality-1".into(),
+        effect_id: effect.effect_id.clone(),
+        effect_lineage_id: effect.lineage_id.clone(),
+        lifecycle_generation_id: effect.generation_id.clone(),
+        route_id: route.route_id.clone(),
+        provider_id: route.provider_id.clone(),
+        provider_operation_id: route.provider_operation_id.clone(),
+        provider_profile_root: route.provider_profile_root.clone(),
+        provider_outcome_id: outcome.outcome_id.clone(),
+        observation_id: d6m_observation.observation_id.clone(),
+        observation_frontier_root: d6m_observation.observed_frontier_root.clone(),
+        finality_profile_id: d6m_profile.profile_id.clone(),
+        semantic_environment_root: semantic_environment_root.clone(),
+        finality_state: ExternalFinalityStateV1::Applied,
+        evidence_root: d6m_observation.evidence_root.clone(),
+        finality_commitment: String::new(),
+        claim_ceiling: cos_conformance::effect_finality::EXTERNAL_FINALITY_CLAIM_CEILING.into(),
+    };
+    d6m_receipt.finality_commitment = d6m_receipt.recomputed_commitment();
+    assert_eq!(
+        assess_external_finality(
+            &effect,
+            &substitution_profile,
+            &d6m_profile,
+            &route,
+            &outcome,
+            &d6m_observation,
+            &d6m_receipt,
+            "integral-frontier-1",
+            FinalityUsePurposeV1::CurrentFinality,
+            None,
+        ),
+        FinalityDispositionV1::AcceptedCurrent
+    );
+
+    // D6O: bind the same observation to a live generation, dependency snapshot,
+    // lifecycle profile, and exact eligibility receipt.
+    let lifecycle_profile = ObserverLifecycleProfileV1 {
+        profile_id: "integral-lifecycle-profile-1".into(),
+        semantic_environment_root: semantic_environment_root.clone(),
+        observation_profile_id: "integral-observation-profile-1".into(),
+        allowed_roles: BTreeSet::from([ExternalObserverRoleV1::IndependentObserver]),
+        current_frontier_required: true,
+        historical_evidence_allowed: true,
+        profile_commitment: "integral-lifecycle-profile-commitment".into(),
+        claim_ceiling: OBSERVER_LIFECYCLE_CLAIM_CEILING.into(),
+    };
+    let generation = ObserverGenerationV1 {
+        generation_id: "integral-observer-generation-1".into(),
+        observer_id: observer_profile.observer_id.clone(),
+        generation_sequence: 1,
+        predecessor_generation_id: None,
+        role: ExternalObserverRoleV1::IndependentObserver,
+        observation_method: observer_profile.observation_method.clone(),
+        provider_relationship: observer_profile.provider_relationship.clone(),
+        evidence_root: observer_profile.evidence_root.clone(),
+        custody_root: observer_profile.custody_root.clone(),
+        upstream_observer_ids: BTreeSet::new(),
+        upstream_evidence_roots: BTreeSet::new(),
+        semantic_environment_root: semantic_environment_root.clone(),
+        observation_profile_id: observer_profile.observation_profile_id.clone(),
+        created_frontier_root: "integral-frontier-1".into(),
+        created_frontier_sequence: 1,
+        initial_status: ObserverStatusV1::Active,
+        generation_commitment: "integral-observer-generation-commitment".into(),
+        claim_ceiling: OBSERVER_LIFECYCLE_CLAIM_CEILING.into(),
+    };
+    let snapshot = EvidenceDependencySnapshotV1 {
+        snapshot_id: "integral-d6o-snapshot-1".into(),
+        observer_generation_id: generation.generation_id.clone(),
+        observation_profile_id: generation.observation_profile_id.clone(),
+        semantic_environment_root: semantic_environment_root.clone(),
+        evidence_root: generation.evidence_root.clone(),
+        custody_root: generation.custody_root.clone(),
+        upstream_observer_ids: BTreeSet::new(),
+        upstream_evidence_roots: BTreeSet::new(),
+        independence: ObservationIndependenceV1::DeclaredIndependent,
+        effective_frontier_root: "integral-frontier-1".into(),
+        effective_frontier_sequence: 1,
+        predecessor_snapshot_id: None,
+        snapshot_commitment: "integral-d6o-snapshot-commitment".into(),
+        claim_ceiling: OBSERVER_LIFECYCLE_CLAIM_CEILING.into(),
+    };
+    let mut d6o_ledger = ObserverLifecycleLedgerV1::default();
+    assert!(matches!(
+        d6o_ledger.record_generation(generation.clone()),
+        cos_conformance::observer_lifecycle::LifecycleRecordDispositionV1::Recorded
+    ));
+    assert!(matches!(
+        d6o_ledger.record_dependency_snapshot(snapshot.clone()),
+        cos_conformance::observer_lifecycle::LifecycleRecordDispositionV1::Recorded
+    ));
+
+    let classification = cos_conformance::contestable_finality::ObservationClassificationV1::CorroboratingIndependent;
+    let disposition = assess_evidence_eligibility(
+        &d6m_evidence,
+        &generation,
+        &snapshot,
+        &lifecycle_profile,
+        &d6o_ledger,
+        classification,
+        ObserverEvidenceProvenanceV1::Live,
+        "integral-frontier-1",
+        1,
+        "integral-frontier-1",
+        1,
+        ObserverLifecycleUsePurposeV1::CurrentFinalityEligibility,
+    );
+    assert_eq!(disposition, EvidenceEligibilityDispositionV1::EligibleCurrent);
+
+    let mut d6o_receipt = EvidenceEligibilityReceiptV1 {
+        eligibility_id: "integral-d6o-eligibility-1".into(),
+        observation_id: d6m_observation.observation_id.clone(),
+        observer_id: generation.observer_id.clone(),
+        observer_generation_id: generation.generation_id.clone(),
+        observation_profile_id: generation.observation_profile_id.clone(),
+        semantic_environment_root: semantic_environment_root.clone(),
+        dependency_snapshot_id: snapshot.snapshot_id.clone(),
+        observation_frontier_root: "integral-frontier-1".into(),
+        observation_frontier_sequence: 1,
         current_frontier_root: "integral-frontier-1".into(),
-        eligible_independent_count: 1,
+        current_frontier_sequence: 1,
+        current_generation_id: Some(generation.generation_id.clone()),
+        qualification_profile_id: lifecycle_profile.profile_id.clone(),
+        provenance: ObserverEvidenceProvenanceV1::Live,
+        classification,
+        disposition,
+        lifecycle_transition_ids: BTreeSet::new(),
+        eligibility_commitment: String::new(),
+        claim_ceiling: OBSERVER_LIFECYCLE_CLAIM_CEILING.into(),
+    };
+    d6o_receipt.eligibility_commitment = d6o_receipt.recomputed_commitment();
+    assert!(verify_eligibility_receipt_provenance(
+        &d6o_receipt,
+        &d6m_evidence,
+        &generation,
+        &snapshot,
+        &lifecycle_profile,
+        &d6o_ledger,
+    ));
+
+    // D6N: reconstruct the exact assessment from the D6M observation.
+    let d6n_profile = FinalityQualificationProfileV1 {
+        profile_id: "integral-d6n-finality-profile-1".into(),
+        semantic_environment_root: semantic_environment_root.clone(),
+        allowed_observation_sources: BTreeSet::from([
+            ExternalObservationSourceV1::IndependentObserver,
+        ]),
         required_independent_observations: 1,
-        preserved_contradictory_count: 0,
-        witnesses: vec![witness],
-        disposition: FinalityEligibilityDispositionV1::EligibleCurrent,
-        qualification_transition_id: Some("integral-qualification-transition-1".into()),
-        composition_commitment: String::new(),
-        claim_ceiling: FINALITY_ELIGIBILITY_COMPOSITION_CLAIM_CEILING.into(),
+        current_frontier_required: true,
+        provider_reports_may_satisfy_independence: false,
+        allow_explicit_conflict_resolution: false,
+        profile_commitment: "integral-d6n-profile-commitment".into(),
+        claim_ceiling: cos_conformance::contestable_finality::CONTESTABLE_FINALITY_CLAIM_CEILING.into(),
     };
-    composition.composition_commitment = composition.recomputed_commitment();
+    let d6n_set = ExternalObservationSetV1 {
+        set_id: "integral-d6n-set-1".into(),
+        effect_id: effect.effect_id.clone(),
+        effect_lineage_id: effect.lineage_id.clone(),
+        lifecycle_generation_id: effect.generation_id.clone(),
+        route_id: route.route_id.clone(),
+        provider_id: route.provider_id.clone(),
+        provider_operation_id: route.provider_operation_id.clone(),
+        provider_profile_root: route.provider_profile_root.clone(),
+        semantic_environment_root: semantic_environment_root.clone(),
+        observation_frontier_root: "integral-frontier-1".into(),
+        qualification_profile_id: d6n_profile.profile_id.clone(),
+        observation_ids: BTreeSet::from([d6m_observation.observation_id.clone()]),
+        target_state: ExternalFinalityStateV1::Applied,
+        set_commitment: "integral-d6n-set-commitment".into(),
+        claim_ceiling: cos_conformance::contestable_finality::CONTESTABLE_FINALITY_CLAIM_CEILING.into(),
+    };
+    assert!(cos_conformance::contestable_finality::verify_observation_set_provenance(
+        &d6n_set,
+        &effect,
+        &route,
+        &d6n_profile,
+        std::slice::from_ref(&d6m_evidence),
+        "integral-frontier-1",
+        &effect.generation_id,
+    ));
+    let d6n_assessment = assess_observation_set(
+        &effect,
+        &route,
+        &d6n_profile,
+        &d6n_set,
+        std::slice::from_ref(&d6m_evidence),
+        "integral-frontier-1",
+        &effect.generation_id,
+    );
+    assert!(verify_observation_set_assessment_provenance(
+        &d6n_assessment,
+        &effect,
+        &route,
+        &d6n_profile,
+        &d6n_set,
+        std::slice::from_ref(&d6m_evidence),
+        "integral-frontier-1",
+        &effect.generation_id,
+    ));
 
-    let mut receipt = CurrentFinalityEligibilityReceiptV1 {
+    // D6P: compose only after authoritative D6N + D6O inputs have been
+    // reconstructed and verified.
+    let d6p = compose_finality_eligibility_from_authoritative_d6n_d6o(
+        &effect,
+        &route,
+        &d6n_profile,
+        &d6n_set,
+        &d6n_assessment,
+        std::slice::from_ref(&d6m_evidence),
+        std::slice::from_ref(&d6o_receipt),
+        &lifecycle_profile,
+        &d6o_ledger,
+        "integral-frontier-1",
+        &effect.generation_id,
+        1,
+    )
+    .expect("D6P composition must consume the verified D6M/D6N/D6O chain");
+
+    assert_eq!(
+        d6p.disposition,
+        cos_conformance::finality_eligibility_composition::FinalityEligibilityDispositionV1::EligibleCurrent
+    );
+    assert!(d6p.semantically_valid());
+    assert!(d6p.commitment_matches());
+
+    let mut d6p_receipt = CurrentFinalityEligibilityReceiptV1 {
         receipt_id: "integral-d6p-receipt-1".into(),
-        effect_id: composition.effect_id.clone(),
-        effect_lineage_id: composition.effect_lineage_id.clone(),
-        lifecycle_generation_id: composition.lifecycle_generation_id.clone(),
-        route_id: composition.route_id.clone(),
-        provider_id: composition.provider_id.clone(),
-        provider_operation_id: composition.provider_operation_id.clone(),
-        provider_profile_root: composition.provider_profile_root.clone(),
-        semantic_environment_root: composition.semantic_environment_root.clone(),
-        observation_set_id: composition.observation_set_id.clone(),
-        observation_set_commitment: composition.observation_set_commitment.clone(),
-        d6n_assessment_commitment: composition.d6n_assessment_commitment.clone(),
-        composition_commitment: composition.composition_commitment.clone(),
-        witness_eligibility_ids: composition.witnesses.iter()
+        effect_id: d6p.effect_id.clone(),
+        effect_lineage_id: d6p.effect_lineage_id.clone(),
+        lifecycle_generation_id: d6p.lifecycle_generation_id.clone(),
+        route_id: d6p.route_id.clone(),
+        provider_id: d6p.provider_id.clone(),
+        provider_operation_id: d6p.provider_operation_id.clone(),
+        provider_profile_root: d6p.provider_profile_root.clone(),
+        semantic_environment_root: d6p.semantic_environment_root.clone(),
+        observation_set_id: d6p.observation_set_id.clone(),
+        observation_set_commitment: d6p.observation_set_commitment.clone(),
+        d6n_assessment_commitment: d6p.d6n_assessment_commitment.clone(),
+        composition_commitment: d6p.composition_commitment.clone(),
+        witness_eligibility_ids: d6p.witnesses.iter()
             .filter_map(|w| w.d6o_eligibility_id.clone()).collect(),
-        observer_generation_ids: composition.witnesses.iter()
+        observer_generation_ids: d6p.witnesses.iter()
             .filter_map(|w| w.observer_generation_id.clone()).collect(),
-        current_frontier_root: composition.current_frontier_root.clone(),
-        lifecycle_profile_id: composition.lifecycle_profile_id.clone(),
-        eligible_independent_count: composition.eligible_independent_count,
-        preserved_contradictory_count: composition.preserved_contradictory_count,
-        disposition: composition.disposition,
-        qualification_transition_id: composition.qualification_transition_id.clone().unwrap_or_default(),
+        current_frontier_root: d6p.current_frontier_root.clone(),
+        lifecycle_profile_id: d6p.lifecycle_profile_id.clone(),
+        eligible_independent_count: d6p.eligible_independent_count,
+        preserved_contradictory_count: d6p.preserved_contradictory_count,
+        disposition: d6p.disposition,
+        qualification_transition_id: d6p.qualification_transition_id.clone().unwrap_or_default(),
         receipt_commitment: String::new(),
-        claim_ceiling: FINALITY_ELIGIBILITY_COMPOSITION_CLAIM_CEILING.into(),
+        claim_ceiling: d6p.claim_ceiling.clone(),
     };
-    receipt.receipt_commitment = receipt.recomputed_commitment();
+    d6p_receipt.receipt_commitment = d6p_receipt.recomputed_commitment();
+    assert!(cos_conformance::finality_eligibility_composition::verify_current_receipt_provenance_from_composition(
+        &d6p_receipt, &d6p
+    ));
 
-    (composition, receipt)
+    let _unused = DependencyClosureStatusV1::Complete;
+    (d6p, d6p_receipt)
 }
-
 fn d6p_receipt_commitment() -> String {
     canonical_sha256(
         "integral-interop-1-d6p-receipt",
