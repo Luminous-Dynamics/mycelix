@@ -368,6 +368,11 @@ impl EconomicEvidenceCapsule {
 
         let manifest_hash = manifest.hash()?;
         let observations_hash = hash_observations(observations)?;
+        if observations_hash != closure.aggregate_observations_hash {
+            return Err(EconomicStepError::Serialization(
+                "aggregate observations do not match accounting closure".into(),
+            ));
+        }
         let binding = (
             &manifest_hash,
             &final_receipt.chain_hash,
@@ -757,6 +762,52 @@ mod tests {
             capsule.actor_observations_hash.as_deref(),
             Some(closure.actor_observations_hash.as_str())
         );
+    }
+
+    #[test]
+    fn evidence_capsule_rejects_aggregate_observation_not_bound_to_closure() {
+        let mut bank = crate::economics::stock_flow::ActorBalanceSheet::new("bank");
+        bank.monetary.cash = 1_000;
+        let state = crate::economics::stock_flow::EconomicState::new(vec![
+            bank,
+            crate::economics::stock_flow::ActorBalanceSheet::new("household"),
+        ]);
+        let assignments = vec![
+            crate::economics::sector_balance::SectorAssignment {
+                actor: "bank".into(),
+                sector: EconomicSector::Bank,
+            },
+            crate::economics::sector_balance::SectorAssignment {
+                actor: "household".into(),
+                sector: EconomicSector::Household,
+            },
+        ];
+        let transitions = vec![EconomicTransition::CreditCreation(
+            CreditCreation::new("bank", "household", 100).unwrap(),
+        )];
+        let (post, step) = apply_step(&state, 1, &transitions, None).unwrap();
+        let chain = EconomicChainReceipt::link(None, step).unwrap();
+        let ledger = EconomicPeriodLedger::from_transitions(&transitions).unwrap();
+        let mut observations = EconomicObservables::from_state_and_ledger(&post, &ledger);
+        let closure = EconomicAccountingClosure::validate_and_seal(
+            &state, &post, &assignments, &transitions,
+        )
+        .unwrap();
+
+        observations.credit_created = 0;
+        assert!(EconomicEvidenceCapsule::seal_with_accounting_closure(
+            EconomicEvidenceManifest::new(
+                "economics-v1",
+                "params-closure",
+                8,
+                crate::economics::transition::state_hash(&state).unwrap(),
+            )
+            .unwrap(),
+            &chain,
+            &observations,
+            &closure,
+        )
+        .is_err());
     }
 
     #[test]
