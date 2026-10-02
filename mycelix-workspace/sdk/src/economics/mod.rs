@@ -18,6 +18,7 @@ pub mod poc;
 pub mod recognition;
 pub mod sector_flow;
 pub mod stock_flow;
+pub mod transition;
 
 pub use commons::{CommonsContribution, CommonsPool, CommonsResult};
 pub use decay_garden::{
@@ -35,6 +36,11 @@ pub use sector_flow::{EconomicSector, FlowCategory, SectorFlow, SectorTransactio
 pub use stock_flow::{
     ActorBalanceSheet, ActorId, CreditCreation, DebtRepayment, EconomicState, MonetaryFlow,
     MonetaryStock, RealStock,
+};
+
+pub use transition::{
+    apply_step, state_hash, transition_hash, EconomicStepError, EconomicStepReceipt,
+    EconomicTransition,
 };
 
 pub use recognition::{
