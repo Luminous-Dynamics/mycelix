@@ -113,4 +113,21 @@ except ValueError as exc:
 else:
     fail("QUALS-N-010 duplicate-key fixture was accepted")
 
+s0 = json.loads((ROOT / "s0_dispatch_envelope_v1.example.json").read_text(encoding="utf-8"), object_pairs_hook=reject_duplicates)
+for key in ("schema", "profile", "canonicalization_profile", "epoch_id", "subject_head_sha",
+            "subject_tree_sha", "current_verifier_head_sha", "proposed_bundle_sha256",
+            "dispatch_nonce_hex", "dispatch_timestamp", "envelope_sha256"):
+    if key not in s0:
+        fail(f"S0 example missing {key}")
+if s0["schema"] != "mycelix.qual-001s.s0-dispatch-envelope-v1":
+    fail("wrong S0 schema")
+if s0["canonicalization_profile"] != "RFC8785-JCS-IJSON-v1":
+    fail("wrong S0 canonicalization profile")
+if not re.fullmatch(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$", s0["epoch_id"]):
+    fail("invalid S0 epoch")
+if s0["candidate_code_executed"] is not False:
+    fail("S0 candidate execution must be false")
+if not re.fullmatch(r"^[0-9a-f]{64}$", s0["envelope_sha256"]):
+    fail("invalid S0 envelope commitment")
+
 print("QUAL-001S evaluator A: PASS")
