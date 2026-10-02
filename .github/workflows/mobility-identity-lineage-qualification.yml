@@ -11,9 +11,6 @@ on:
 jobs:
   rust:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: mycelix-commons
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
