@@ -172,6 +172,8 @@ When a security-critical authorization cannot be established deterministically, 
 
 ## Security event envelope
 
+Successful enforcement events produced from `EnforcementRequest` now carry the kernel-derived capability commitment in addition to any external capability reference. This makes the audit record able to distinguish the exact capability semantics that crossed the enforcement boundary from a caller-supplied label.
+
 Security-sensitive events should converge toward a common conceptual envelope:
 
 - event identifier
