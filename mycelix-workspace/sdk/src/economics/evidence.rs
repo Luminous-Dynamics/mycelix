@@ -67,6 +67,7 @@ pub struct EconomicEvidenceCapsule {
     pub final_chain_hash: String,
     pub observations_hash: String,
     pub actor_observations_hash: Option<String>,
+    #[serde(default)]
     pub sector_observations_hash: Option<String>,
     pub evidence_hash: String,
 }
@@ -238,6 +239,19 @@ mod tests {
             crate::economics::transition::state_hash(&state).unwrap(),
         ).unwrap();
         (manifest, chain, observations)
+    }
+
+    #[test]
+    fn evidence_capsule_accepts_legacy_without_sector_hash() {
+        let (manifest, chain, observations) = fixture();
+        let capsule = EconomicEvidenceCapsule::seal(manifest, &chain, &observations).unwrap();
+        let mut value = serde_json::to_value(&capsule).unwrap();
+        value
+            .as_object_mut()
+            .unwrap()
+            .remove("sector_observations_hash");
+        let decoded: EconomicEvidenceCapsule = serde_json::from_value(value).unwrap();
+        assert_eq!(decoded.sector_observations_hash, None);
     }
 
     #[test]
