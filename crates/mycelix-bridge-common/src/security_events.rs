@@ -63,6 +63,9 @@ pub struct SecurityEvent {
     pub decision: AuthorizationDecision,
     pub policy_version: u64,
     pub timestamp_us: u64,
+    /// Kernel-derived commitment of the exact capability used for a successful
+    /// enforcement request. Directly constructed events may leave this absent.
+    pub capability_binding: Option<[u8; 32]>,
     pub provenance: Vec<ProvenanceRef>,
     pub recovery_correlation: Option<String>,
 }
@@ -99,6 +102,7 @@ impl SecurityEvent {
             decision,
             policy_version,
             timestamp_us,
+            capability_binding: None,
             provenance: Vec::new(),
             recovery_correlation: None,
         })
@@ -136,7 +140,7 @@ impl SecurityEvent {
         policy_version: u64,
         timestamp_us: u64,
     ) -> Result<Self, &'static str> {
-        Self::new(
+        let mut event = Self::new(
             event_id,
             actor_id,
             capability_ref,
@@ -144,7 +148,9 @@ impl SecurityEvent {
             AuthorizationDecision::Allow,
             policy_version,
             timestamp_us,
-        )
+        )?;
+        event.capability_binding = Some(enforcement.capability_binding());
+        Ok(event)
     }
 }
 
