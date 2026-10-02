@@ -99,7 +99,7 @@ const ao = JSON.parse(fs.readFileSync(path.join(ROOT, "s0_authority_observation_
 if (ao.schema !== "mycelix.qual-001s.s0-authority-observation-v1") throw new Error("wrong S0 authority observation schema");
 for (const key of [
   "repository_id","repository_full_name","s0_workflow_source_commit_sha","s1_workflow_source_commit_sha",
-  "dispatch_ref","dispatch_input_commitment_sha256","dispatch_input_canonical_json","authenticated_principal_identity",
+  "dispatch_envelope_sha256","dispatch_ref","dispatch_input_commitment_sha256","dispatch_input_canonical_json","authenticated_principal_identity",
   "policy_scope_identity","observation_timestamp"
 ]) if (!(key in ao)) throw new Error("S0 authority observation missing " + key);
 if (ao.event_type !== "workflow_dispatch") throw new Error("wrong S0 authority observation event type");
@@ -135,6 +135,10 @@ const s0Preimage = {...s0};
 delete s0Preimage.envelope_sha256;
 const computedEnvelopeSha256 = createHash("sha256").update(canonicalAsciiJson(s0Preimage), "utf8").digest("hex");
 if (computedEnvelopeSha256 !== s0.envelope_sha256) throw new Error("S0 envelope commitment does not match canonical preimage");
+if (ao.dispatch_envelope_sha256 !== s0.envelope_sha256) throw new Error("authority observation is not bound to the exact S0 envelope commitment");
+for (const field of ["epoch_id","repository_id","repository_full_name","dispatch_nonce_hex","s0_workflow_source_commit_sha","s1_workflow_source_commit_sha"]) {
+  if (ao[field] !== s0[field]) throw new Error("authority observation " + field + " disagrees with S0 envelope");
+}
 
 let fixtureRejected = false;
 try {
