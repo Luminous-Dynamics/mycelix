@@ -41,27 +41,46 @@ pub struct EconomicStepReceipt {
 /// Evidence-chain receipt linking one timestep receipt to its predecessor.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EconomicChainReceipt {
+    pub genesis_state_hash: String,
     pub previous_receipt_hash: Option<String>,
     pub step: EconomicStepReceipt,
     pub chain_hash: String,
 }
 
 impl EconomicChainReceipt {
-    /// Link a successful step receipt to the previous receipt hash.
+    /// Link a successful step receipt to the previous chain node.
     ///
-    /// The chain hash binds ordering as well as the complete step receipt. A
-    /// changed period, state hash, transition list, or predecessor therefore
-    /// changes the resulting evidence chain.
+    /// The chain hash binds the genesis state, ordering, complete step receipt,
+    /// and predecessor. A changed initial state, period, transition list,
+    /// state hash, or predecessor therefore changes the downstream evidence.
     pub fn link(
-        previous_receipt_hash: Option<&str>,
+        previous: Option<&EconomicChainReceipt>,
         step: EconomicStepReceipt,
     ) -> Result<Self, EconomicStepError> {
-        let previous_receipt_hash = previous_receipt_hash.map(str::to_owned);
-        let bytes = serde_json::to_vec(&(previous_receipt_hash.clone(), &step))
-            .map_err(|error| EconomicStepError::Serialization(error.to_string()))?;
+        let (genesis_state_hash, previous_receipt_hash) = match previous {
+            Some(previous) => (
+                previous.genesis_state_hash.clone(),
+                Some(previous.chain_hash.clone()),
+            ),
+            None => (step.pre_state_hash.clone(), None),
+        };
+
+        if genesis_state_hash.is_empty() {
+            return Err(EconomicStepError::Serialization(
+                "evidence chain requires a non-empty genesis state hash".into(),
+            ));
+        }
+
+        let bytes = serde_json::to_vec(&(
+            &genesis_state_hash,
+            &previous_receipt_hash,
+            &step,
+        ))
+        .map_err(|error| EconomicStepError::Serialization(error.to_string()))?;
         let chain_hash = blake3::hash(&bytes).to_hex().to_string();
 
         Ok(Self {
+            genesis_state_hash,
             previous_receipt_hash,
             step,
             chain_hash,
@@ -224,13 +243,15 @@ mod tests {
         let (_, step) = apply_step(&state, 1, &transitions, None).unwrap();
 
         let first = EconomicChainReceipt::link(None, step.clone()).unwrap();
-        let second = EconomicChainReceipt::link(Some(&first.chain_hash), step.clone()).unwrap();
-        let second_again = EconomicChainReceipt::link(Some(&first.chain_hash), step).unwrap();
+        let second = EconomicChainReceipt::link(Some(&first), step.clone()).unwrap();
+        let second_again = EconomicChainReceipt::link(Some(&first), step).unwrap();
 
         assert_eq!(second, second_again);
+        assert_eq!(first.genesis_state_hash, first.step.pre_state_hash);
+        assert_eq!(second.genesis_state_hash, first.genesis_state_hash);
         assert_ne!(first.chain_hash, second.chain_hash);
 
-        let reordered = EconomicChainReceipt::link(Some("different-predecessor"), second.step).unwrap();
+        let reordered = EconomicChainReceipt::link(None, second.step).unwrap();
         assert_ne!(second.chain_hash, reordered.chain_hash);
     }
 
