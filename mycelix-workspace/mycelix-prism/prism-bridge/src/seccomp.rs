@@ -257,6 +257,25 @@ mod linux {
         }
 
         #[test]
+        fn each_allowlisted_syscall_has_a_reachable_allow_action() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let policy = SeccompSyscallPolicyV1::new(arch, vec![libc::SYS_read, libc::SYS_write]).unwrap();
+            let filter = compile_filter(&policy).unwrap();
+
+            // 0: load arch, 1: arch match, 2: kill on mismatch, 3: load nr.
+            // Each syscall then has JEQ -> ALLOW; mismatch skips exactly one
+            // instruction and reaches the next comparison.
+            assert_eq!(filter[4].jt, 0);
+            assert_eq!(filter[4].jf, 1);
+            assert_eq!(filter[5].k, SECCOMP_RET_ALLOW);
+            assert_eq!(filter[6].jt, 0);
+            assert_eq!(filter[6].jf, 1);
+            assert_eq!(filter[7].k, SECCOMP_RET_ALLOW);
+            assert_eq!(filter[8].k, SECCOMP_RET_ERRNO | libc::EPERM as u32);
+            assert_eq!(filter.len(), 9);
+        }
+
+        #[test]
         fn wrong_architecture_fails_closed() {
             let arch = SeccompArchitecture::current().unwrap();
             let other = match arch {
