@@ -36,6 +36,10 @@ pub struct EconomicPeriodLedger {
     pub inventory_transferred: i128,
     /// Finished-goods units explicitly drawn down by final use or loss.
     pub inventory_consumed: i128,
+    /// Monetary consideration from explicit goods sales.
+    pub sales_consideration: i128,
+    /// Physical units sold through explicit goods sales.
+    pub sales_quantity: i128,
     /// Number of transitions represented by the ledger.
     pub transition_count: u64,
     /// Hash of the exact ordered transition list from which this ledger came.
@@ -101,6 +105,16 @@ impl EconomicPeriodLedger {
                         .checked_add(consumption.quantity)
                         .ok_or_else(|| EconomicStepError::Serialization("period inventory consumption overflow".into()))?;
                 }
+                EconomicTransition::GoodsSale(sale) => {
+                    ledger.sales_quantity = ledger
+                        .sales_quantity
+                        .checked_add(sale.quantity)
+                        .ok_or_else(|| EconomicStepError::Serialization("period sales quantity overflow".into()))?;
+                    ledger.sales_consideration = ledger
+                        .sales_consideration
+                        .checked_add(sale.consideration)
+                        .ok_or_else(|| EconomicStepError::Serialization("period sales consideration overflow".into()))?;
+                }
                 EconomicTransition::CreditCreation(credit) => {
                     ledger.credit_created = ledger
                         .credit_created
@@ -143,7 +157,7 @@ impl EconomicPeriodLedger {
 mod tests {
     use super::*;
     use crate::economics::stock_flow::{
-        CapitalInvestment, ProductionEvent, InventoryTransfer, InventoryConsumption, CreditCreation, DebtRepayment, EconomicFlowCategory, IncomeTransfer, MonetaryFlow,
+        CapitalInvestment, ProductionEvent, InventoryTransfer, InventoryConsumption, GoodsSale, CreditCreation, DebtRepayment, EconomicFlowCategory, IncomeTransfer, MonetaryFlow,
     };
 
     #[test]
