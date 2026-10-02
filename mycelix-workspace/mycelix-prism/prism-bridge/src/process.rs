@@ -480,6 +480,26 @@ mod tests {
     }
 
     #[test]
+    fn sandbox_receipt_preserves_v2_seccomp_adapter_identity() {
+        let assignment_id = RendererProcessAssignmentId::new(1).unwrap();
+        let installation_id = SandboxInstallationId::new(2).unwrap();
+        let profile_digest = [0x11; 32];
+        let evidence_digest = [0x22; 32];
+
+        let receipt = SandboxEnforcementReceipt::from_adapter(
+            assignment_id,
+            installation_id,
+            SandboxAdapterKind::LinuxSeccompSyscallV2,
+            profile_digest,
+            evidence_digest,
+            SandboxEnforcementLayer::Syscall,
+        ).unwrap();
+
+        assert_eq!(receipt.adapter(), SandboxAdapterKind::LinuxSeccompSyscallV2);
+        assert_eq!(receipt.layer(), SandboxEnforcementLayer::Syscall);
+    }
+
+    #[test]
     fn evidence_bundle_retains_independent_layer_receipts() {
         let assignment_id = RendererProcessAssignmentId::new(1).unwrap();
         let installation_id = SandboxInstallationId::new(2).unwrap();
