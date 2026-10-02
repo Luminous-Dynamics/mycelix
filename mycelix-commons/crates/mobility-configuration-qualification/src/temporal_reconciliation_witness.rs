@@ -1,9 +1,9 @@
-use serde::{Deserialize, Serialize};
 use crate::identity_lineage::IdentityRef;
 use crate::temporal_applicability::TemporalInterval;
 use crate::temporal_reconciliation::{
-    classify, Comparability, Compatibility, ReconciliationClass, ReconciliationResult,
+    Comparability, Compatibility, ReconciliationClass, ReconciliationResult, classify,
 };
+use serde::{Deserialize, Serialize};
 
 /// An auditable, reproducible witness for a temporal reconciliation result.
 ///
@@ -27,8 +27,12 @@ pub struct TemporalReconciliationWitness {
 impl TemporalReconciliationWitness {
     pub fn validate(&self) -> Result<(), String> {
         self.witness_identity.validate()?;
-        if self.witness_identity.kind != crate::identity_lineage::IdentityKind::ReconciliationWitness {
-            return Err("reconciliation witness identity must use ReconciliationWitness kind".into());
+        if self.witness_identity.kind
+            != crate::identity_lineage::IdentityKind::ReconciliationWitness
+        {
+            return Err(
+                "reconciliation witness identity must use ReconciliationWitness kind".into(),
+            );
         }
         self.left_claim.validate()?;
         self.right_claim.validate()?;
@@ -58,7 +62,11 @@ mod tests {
     use crate::temporal_applicability::TemporalPoint;
 
     fn claim(id: &str, kind: IdentityKind) -> IdentityRef {
-        IdentityRef { kind, namespace: "synthetic".into(), id: id.into() }
+        IdentityRef {
+            kind,
+            namespace: "synthetic".into(),
+            id: id.into(),
+        }
     }
 
     fn interval(start: Option<i64>, end: Option<i64>) -> TemporalInterval {
@@ -81,7 +89,8 @@ mod tests {
             &right_applicability,
             false,
             false,
-        ).unwrap();
+        )
+        .unwrap();
         TemporalReconciliationWitness {
             witness_identity,
             left_claim: left,
@@ -99,7 +108,10 @@ mod tests {
     #[test]
     fn witness_identity_is_distinct_from_claim_identity() {
         let witness = conflict_witness();
-        assert_eq!(witness.witness_identity.kind, IdentityKind::ReconciliationWitness);
+        assert_eq!(
+            witness.witness_identity.kind,
+            IdentityKind::ReconciliationWitness
+        );
         assert_ne!(witness.witness_identity, witness.left_claim);
         assert_ne!(witness.witness_identity, witness.right_claim);
     }
@@ -121,7 +133,10 @@ mod tests {
     #[test]
     fn valid_conflict_witness_reproduces_exactly() {
         assert!(conflict_witness().validate().is_ok());
-        assert_eq!(conflict_witness().result.classification, ReconciliationClass::Conflicting);
+        assert_eq!(
+            conflict_witness().result.classification,
+            ReconciliationClass::Conflicting
+        );
     }
 
     #[test]
@@ -151,7 +166,10 @@ mod tests {
         witness.disputed = true;
         witness.result.disputed = true;
         assert!(witness.validate().is_ok());
-        assert_eq!(witness.result.classification, ReconciliationClass::Conflicting);
+        assert_eq!(
+            witness.result.classification,
+            ReconciliationClass::Conflicting
+        );
     }
 
     #[test]
@@ -165,9 +183,13 @@ mod tests {
             &witness.right_applicability,
             true,
             false,
-        ).unwrap();
+        )
+        .unwrap();
         assert!(witness.validate().is_ok());
-        assert_eq!(witness.result.classification, ReconciliationClass::Superseded);
+        assert_eq!(
+            witness.result.classification,
+            ReconciliationClass::Superseded
+        );
     }
 
     #[test]
@@ -181,8 +203,12 @@ mod tests {
             &witness.right_applicability,
             false,
             false,
-        ).unwrap();
+        )
+        .unwrap();
         assert!(witness.validate().is_ok());
-        assert_eq!(witness.result.classification, ReconciliationClass::Indeterminate);
+        assert_eq!(
+            witness.result.classification,
+            ReconciliationClass::Indeterminate
+        );
     }
 }
