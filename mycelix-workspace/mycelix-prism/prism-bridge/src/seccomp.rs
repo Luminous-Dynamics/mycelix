@@ -101,14 +101,30 @@ impl SeccompSyscallPolicyV1 {
 
     /// Validate the stricter policy boundary required before this renderer
     /// adapter can install a policy. Generic policy construction remains
-    /// flexible, but renderer qualification never admits direct tracing or
-    /// cross-process memory primitives.
+    /// flexible, but renderer qualification never admits direct tracing,
+    /// cross-process memory, process creation/image replacement, or namespace
+    /// mutation primitives.
     #[cfg(target_os = "linux")]
     pub fn validate_renderer_policy(&self) -> Result<(), SeccompError> {
         const FORBIDDEN_RENDERER_SYSCALLS: &[i64] = &[
             libc::SYS_ptrace,
             libc::SYS_process_vm_readv,
             libc::SYS_process_vm_writev,
+            libc::SYS_process_madvise,
+            libc::SYS_pidfd_getfd,
+            libc::SYS_kcmp,
+            libc::SYS_clone,
+            libc::SYS_clone3,
+            libc::SYS_fork,
+            libc::SYS_vfork,
+            libc::SYS_execve,
+            libc::SYS_execveat,
+            libc::SYS_unshare,
+            libc::SYS_setns,
+            libc::SYS_mount,
+            libc::SYS_umount2,
+            libc::SYS_pivot_root,
+            libc::SYS_chroot,
         ];
 
         for syscall in FORBIDDEN_RENDERER_SYSCALLS {
@@ -497,6 +513,33 @@ mod linux {
                 Err(SeccompError::ForbiddenRendererSyscall(syscall))
                     if syscall == libc::SYS_ptrace
             ));
+        }
+
+        #[test]
+        fn renderer_policy_rejects_process_creation_and_namespace_mutation() {
+            let arch = SeccompArchitecture::current().unwrap();
+
+            for syscall in [
+                libc::SYS_clone,
+                libc::SYS_clone3,
+                libc::SYS_fork,
+                libc::SYS_vfork,
+                libc::SYS_execve,
+                libc::SYS_execveat,
+                libc::SYS_unshare,
+                libc::SYS_setns,
+            ] {
+                let policy = SeccompSyscallPolicyV1::new(
+                    arch,
+                    vec![libc::SYS_getpid, syscall],
+                )
+                .unwrap();
+                assert!(matches!(
+                    policy.validate_renderer_policy(),
+                    Err(SeccompError::ForbiddenRendererSyscall(rejected))
+                        if rejected == syscall
+                ));
+            }
         }
 
         #[test]
