@@ -30,6 +30,10 @@ D6W copies the exact projection source snapshot commitment into InputCommitmentV
 
 D6W additionally requires:
 
+- the semantic environment itself to be structurally valid;
+- the environment to explicitly carry a dependency snapshot root;
+- that root to equal the projection source snapshot commitment exactly;
+- the source snapshot commitment to use the canonical D6S SHA-256 representation;
 - the D6X closure to be complete and valid;
 - the closure projection commitment to equal the projection commitment;
 - the closure source snapshot commitment to equal the projection source snapshot commitment;
@@ -95,3 +99,8 @@ The conformance tests cover:
 4. runtime resolution evidence does not become semantic identity.
 
 The key invariant is **identity propagation without pretending to validate an out-of-bound source object**.
+
+The D6W gate is intentionally stricter than the D6S reference-model boundary:
+qualified downstream consumption requires an explicitly bound, canonically represented
+snapshot identity. A canonical hash that is merely substituted into the projection
+cannot pass by itself; it must agree with the supplied semantic environment.
