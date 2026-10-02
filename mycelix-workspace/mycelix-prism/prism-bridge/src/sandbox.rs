@@ -251,6 +251,24 @@ mod linux {
             SandboxEnforcementLayer::Filesystem,
         ).map_err(|_| SandboxEnforcementError::InvalidRuleset)
     }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn zero_assignment_rejects_landlock_before_enforcement() {
+            let profile = SandboxProfileV1::renderer_default();
+            assert!(matches!(
+                install(
+                    RendererProcessAssignmentId(0),
+                    profile,
+                    std::path::Path::new("/"),
+                ),
+                Err(SandboxEnforcementError::InvalidAssignmentId)
+            ));
+        }
+    }
 }
 
 #[cfg(target_os = "linux")]
