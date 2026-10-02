@@ -39,6 +39,15 @@ pub struct SectorEconomicObservables {
     pub opening_net_working_capital: i128,
     pub net_working_capital: i128,
     pub net_working_capital_change: i128,
+    /// Closing-minus-opening inventory carrying-value change.
+    #[serde(default)]
+    pub inventory_carrying_value_change: i128,
+    /// Closing-minus-opening trade-receivables change.
+    #[serde(default)]
+    pub trade_receivables_change: i128,
+    /// Closing-minus-opening trade-payables change.
+    #[serde(default)]
+    pub trade_payables_change: i128,
 
     pub loan_claims: i128,
     pub debt: i128,
@@ -88,6 +97,9 @@ impl Default for SectorEconomicObservables {
             opening_net_working_capital: 0,
             net_working_capital: 0,
             net_working_capital_change: 0,
+            inventory_carrying_value_change: 0,
+            trade_receivables_change: 0,
+            trade_payables_change: 0,
             loan_claims: 0,
             debt: 0,
             trade_receivables: 0,
@@ -235,6 +247,21 @@ impl SectorEconomicObservables {
                 &mut sector_observation.net_working_capital,
                 observation.net_working_capital(),
                 "sector net working capital",
+            )?;
+            add_checked(
+                &mut sector_observation.inventory_carrying_value_change,
+                observation.inventory_carrying_value_change,
+                "sector inventory carrying-value change",
+            )?;
+            add_checked(
+                &mut sector_observation.trade_receivables_change,
+                observation.trade_receivables_change,
+                "sector trade-receivables change",
+            )?;
+            add_checked(
+                &mut sector_observation.trade_payables_change,
+                observation.trade_payables_change,
+                "sector trade-payables change",
             )?;
 
             for (slot, value, label) in [
@@ -426,6 +453,12 @@ impl SectorEconomicObservables {
                     observation.sector
                 ));
             }
+            if !observation.working_capital_component_reconciliation_holds() {
+                return Err(format!(
+                    "sector working-capital components do not reconcile for {:?}",
+                    observation.sector
+                ));
+            }
             let expected_closing = observation
                 .opening_liquidity
                 .checked_add(observation.net_liquidity_change)
@@ -461,6 +494,15 @@ impl SectorEconomicObservables {
             .checked_add(self.trade_receivables)
             .and_then(|value| value.checked_sub(self.trade_payables))
             .expect("sector working-capital overflow")
+    }
+
+    /// Verify that net working-capital change decomposes exactly into its
+    /// inventory carrying-value, receivable, and payable components.
+    pub fn working_capital_component_reconciliation_holds(&self) -> bool {
+        self.inventory_carrying_value_change
+            .checked_add(self.trade_receivables_change)
+            .and_then(|value| value.checked_sub(self.trade_payables_change))
+            == Some(self.net_working_capital_change)
     }
 
     /// Validate the sector stock snapshot against the consolidated
@@ -682,6 +724,10 @@ mod tests {
         assert_eq!(firm.financing_net_liquidity, 20);
         assert_eq!(firm.trade_credit_extended, 40);
         assert_eq!(firm.net_working_capital_change, 15);
+        assert_eq!(firm.inventory_carrying_value_change, 0);
+        assert_eq!(firm.trade_receivables_change, 15);
+        assert_eq!(firm.trade_payables_change, 0);
+        assert!(firm.working_capital_component_reconciliation_holds());
         assert_eq!(firm.net_working_capital(), 0);
         assert_eq!(firm.opening_net_working_capital, -15);
         assert!(firm.net_working_capital_stock_flow_reconciliation_holds());
@@ -731,6 +777,11 @@ mod tests {
             .unwrap();
         let firm = &sectors[&EconomicSector::Firm];
         assert_eq!(firm.trade_receivables, 25);
+        assert_eq!(firm.inventory_carrying_value_change, 0);
+        assert_eq!(firm.trade_receivables_change, 25);
+        assert_eq!(firm.trade_payables_change, 0);
+        assert_eq!(firm.net_working_capital_change, 25);
+        assert!(firm.working_capital_component_reconciliation_holds());
         assert_eq!(firm.net_working_capital(), 25);
     }
 
