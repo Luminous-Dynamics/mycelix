@@ -1119,6 +1119,66 @@ mod linux {
         }
 
         #[test]
+        fn v2_disjunctive_policy_digest_is_order_independent_and_schema_bound() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let unix = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_UNIX as u64).unwrap(),
+            ])
+            .unwrap();
+            let netlink = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_NETLINK as u64).unwrap(),
+            ])
+            .unwrap();
+
+            let forward = SeccompSyscallRuleV2::new_with_clauses(
+                libc::SYS_socket,
+                vec![unix.clone(), netlink.clone()],
+            )
+            .unwrap();
+            let reverse = SeccompSyscallRuleV2::new_with_clauses(
+                libc::SYS_socket,
+                vec![netlink, unix],
+            )
+            .unwrap();
+            let first = SeccompSyscallPolicyV2::new(arch, vec![forward]).unwrap();
+            let second = SeccompSyscallPolicyV2::new(arch, vec![reverse]).unwrap();
+            assert_eq!(first.digest(), second.digest());
+
+            let single = SeccompSyscallRuleV2::new(
+                libc::SYS_socket,
+                vec![SeccompArgPredicateV1::new(
+                    0,
+                    u64::MAX,
+                    libc::AF_UNIX as u64,
+                )
+                .unwrap()],
+            )
+            .unwrap();
+            let single_policy =
+                SeccompSyscallPolicyV2::new(arch, vec![single]).unwrap();
+            assert_ne!(first.digest(), single_policy.digest());
+        }
+
+        #[test]
+        fn v2_forbidden_renderer_syscall_cannot_be_hidden_in_a_disjunctive_rule() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let tracer = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(0, u64::MAX, 0).unwrap(),
+            ])
+            .unwrap();
+            let forbidden =
+                SeccompSyscallRuleV2::new_with_clauses(libc::SYS_ptrace, vec![tracer])
+                    .unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![forbidden]).unwrap();
+
+            assert!(matches!(
+                validate_v2_renderer_policy(&policy),
+                Err(SeccompError::ForbiddenRendererSyscall(syscall))
+                    if syscall == libc::SYS_ptrace
+            ));
+        }
+
+        #[test]
         fn v2_disjunctive_clauses_reject_duplicate_and_unconditional_widening() {
             let unix = SeccompSyscallClauseV2::new(vec![
                 SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_UNIX as u64).unwrap(),
