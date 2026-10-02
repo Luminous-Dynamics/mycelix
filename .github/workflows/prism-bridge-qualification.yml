@@ -20,6 +20,10 @@ on:
       - "mycelix-workspace/mycelix-prism/Cargo.lock"
       - ".github/workflows/prism-bridge-qualification.yml"
 
+concurrency:
+  group: prism-bridge-qualification-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -35,3 +39,13 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d
       - run: cargo test -p prism-bridge --locked
+
+      - name: Emit qualification identity
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "qualification=PRISM-BRIDGE-CANONICAL"
+          echo "tested_head=${{ github.event.pull_request.head.sha || github.sha }}"
+          echo "event_sha=${GITHUB_SHA}"
+          rustc --version
