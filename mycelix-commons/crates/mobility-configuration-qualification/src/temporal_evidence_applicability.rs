@@ -927,6 +927,39 @@ pub enum EvidenceDispositionCoverageAssessment {
     },
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EvidenceDispositionCoverageValidationError {
+    Structural { reason: String },
+}
+
+impl EvidenceDispositionCoverageValidationError {
+    fn structural(reason: impl Into<String>) -> Self {
+        Self::Structural { reason: reason.into() }
+    }
+}
+
+impl std::fmt::Display for EvidenceDispositionCoverageValidationError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Structural { reason } => formatter.write_str(reason),
+        }
+    }
+}
+
+impl std::error::Error for EvidenceDispositionCoverageValidationError {}
+
+impl From<String> for EvidenceDispositionCoverageValidationError {
+    fn from(reason: String) -> Self {
+        Self::structural(reason)
+    }
+}
+
+impl From<&str> for EvidenceDispositionCoverageValidationError {
+    fn from(reason: &str) -> Self {
+        Self::structural(reason)
+    }
+}
+
 struct TransitionBoundaryWalk {
     reachable: Vec<EvidenceDispositionTransition>,
     ancestor_ids: std::collections::BTreeSet<IdentityRef>,
@@ -1131,7 +1164,7 @@ impl EvidenceDispositionReconciliationCoverage {
         delegations: &[EvidenceDispositionAuthorityDelegation],
         boundary: &EvidenceDispositionCoverageBoundary,
         transitions: &[EvidenceDispositionTransition],
-    ) -> Result<EvidenceDispositionCoverageAssessment, String> {
+    ) -> Result<EvidenceDispositionCoverageAssessment, EvidenceDispositionCoverageValidationError> {
         self.validate()?;
         reconciliation.validate()?;
         authority_scope.validate_against_reconciliation(
@@ -2529,6 +2562,72 @@ mod tests {
                 &[left, right],
             )
             .is_err());
+    }
+
+    #[test]
+    fn reconciliation_coverage_assessment_surfaces_structural_error_as_typed_error() {
+        let witness = id(
+            IdentityKind::EvidenceRecord,
+            "typed-structural-error-basis",
+        );
+        let coverage = EvidenceDispositionReconciliationCoverage {
+            coverage_id: id(
+                IdentityKind::ReconciliationWitness,
+                "typed-structural-error-coverage",
+            ),
+            reconciliation: id(
+                IdentityKind::ReconciliationWitness,
+                "typed-structural-error-reconciliation",
+            ),
+            branch_point: id(
+                IdentityKind::ReconciliationWitness,
+                "t1",
+            ),
+            covered_branch_heads: vec![
+                id(IdentityKind::ReconciliationWitness, "t2"),
+                id(IdentityKind::ReconciliationWitness, "t3"),
+            ],
+            boundary: id(
+                IdentityKind::ReconciliationWitness,
+                "enumeration-boundary-1",
+            ),
+            basis: vec![witness.clone(), witness],
+        };
+        let reconciliation = EvidenceDispositionReconciliation {
+            reconciliation_id: coverage.reconciliation.clone(),
+            evidence: id(IdentityKind::InspectionRecord, "inspection-graph"),
+            branch_point: coverage.branch_point.clone(),
+            branch_heads: coverage.covered_branch_heads.clone(),
+            authority: id(IdentityKind::ReconciliationWitness, "authority-1"),
+            authority_scope: id(
+                IdentityKind::ReconciliationWitness,
+                "authority-scope-1",
+            ),
+            authority_delegation: id(
+                IdentityKind::ReconciliationWitness,
+                "authority-delegation-1",
+            ),
+            basis: vec![],
+        };
+        let scope = authority_scope(&reconciliation.reconciliation_id.id);
+        let delegation = authority_delegation(&reconciliation.reconciliation_id.id);
+        let boundary = coverage_boundary();
+
+        let result = coverage.validate_against_graph_and_authority_chain_assessment(
+            &reconciliation,
+            &scope,
+            &delegation,
+            &[delegation.clone()],
+            &boundary,
+            &[],
+        );
+
+        match result {
+            Err(EvidenceDispositionCoverageValidationError::Structural { reason }) => {
+                assert!(reason.contains("reconciliation coverage basis must be unique"));
+            }
+            other => panic!("expected typed structural error, got {other:?}"),
+        }
     }
 
     #[test]
