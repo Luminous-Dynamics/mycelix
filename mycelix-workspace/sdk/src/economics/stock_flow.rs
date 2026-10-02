@@ -28,23 +28,27 @@ pub type ActorId = String;
 /// A monetary stock held by an actor.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct MonetaryStock {
-    /// Spendable money/cash held by the actor.
+    /// Physical/base money held by the actor.
     pub cash: i128,
-    /// Financial claims on other actors (for example, loans).
+    /// Bank deposits held as financial claims on a deposit issuer.
+    pub deposits: i128,
+    /// Other financial claims on actors (for example, loans).
     pub claims: i128,
-    /// Financial liabilities owed by the actor.
+    /// Debt liabilities owed by the actor.
     pub liabilities: i128,
+    /// Deposit liabilities issued by the actor (normally a bank).
+    pub deposit_liabilities: i128,
 }
 
 impl MonetaryStock {
     /// Total financial assets.
     pub fn assets(&self) -> i128 {
-        self.cash + self.claims
+        self.cash + self.deposits + self.claims
     }
 
     /// Net financial position: financial assets minus liabilities.
     pub fn net_position(&self) -> i128 {
-        self.assets() - self.liabilities
+        self.assets() - self.liabilities - self.deposit_liabilities
     }
 }
 
@@ -79,16 +83,43 @@ impl ActorBalanceSheet {
     }
 }
 
+/// Monetary instrument used by a transfer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum MonetaryInstrument {
+    Cash,
+    Deposit,
+}
+
 /// A transfer of money between actors.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MonetaryFlow {
     pub from: ActorId,
     pub to: ActorId,
     pub amount: i128,
+    pub instrument: MonetaryInstrument,
 }
 
 impl MonetaryFlow {
+    /// Create a physical/base-money transfer.
     pub fn new(from: impl Into<ActorId>, to: impl Into<ActorId>, amount: i128) -> Result<Self, String> {
+        Self::with_instrument(from, to, amount, MonetaryInstrument::Cash)
+    }
+
+    /// Create a bank-deposit transfer.
+    pub fn deposit_transfer(
+        from: impl Into<ActorId>,
+        to: impl Into<ActorId>,
+        amount: i128,
+    ) -> Result<Self, String> {
+        Self::with_instrument(from, to, amount, MonetaryInstrument::Deposit)
+    }
+
+    pub fn with_instrument(
+        from: impl Into<ActorId>,
+        to: impl Into<ActorId>,
+        amount: i128,
+        instrument: MonetaryInstrument,
+    ) -> Result<Self, String> {
         if amount <= 0 {
             return Err("monetary flow amount must be positive".into());
         }
@@ -96,6 +127,7 @@ impl MonetaryFlow {
             from: from.into(),
             to: to.into(),
             amount,
+            instrument,
         })
     }
 }
@@ -215,39 +247,54 @@ impl EconomicState {
     /// Apply a monetary transfer while preserving aggregate monetary assets.
     pub fn apply_flow(&mut self, flow: &MonetaryFlow) -> Result<(), String> {
         let (sender, receiver) = self.actor_pair_mut(&flow.from, &flow.to)?;
-        if sender.monetary.cash < flow.amount {
-            return Err(format!(
-                "insufficient monetary assets for {}: have {}, need {}",
-                sender.actor, sender.monetary.cash, flow.amount
-            ));
+        match flow.instrument {
+            MonetaryInstrument::Cash => {
+                if sender.monetary.cash < flow.amount {
+                    return Err(format!(
+                        "insufficient cash for {}: have {}, need {}",
+                        sender.actor, sender.monetary.cash, flow.amount
+                    ));
+                }
+                sender.monetary.cash -= flow.amount;
+                receiver.monetary.cash += flow.amount;
+            }
+            MonetaryInstrument::Deposit => {
+                if sender.monetary.deposits < flow.amount {
+                    return Err(format!(
+                        "insufficient deposits for {}: have {}, need {}",
+                        sender.actor, sender.monetary.deposits, flow.amount
+                    ));
+                }
+                sender.monetary.deposits -= flow.amount;
+                receiver.monetary.deposits += flow.amount;
+            }
         }
-
-        sender.monetary.cash -= flow.amount;
-        receiver.monetary.cash += flow.amount;
         self.monetary_flow_volume += flow.amount;
         Ok(())
     }
 
-    /// Create endogenous credit with a matching claim/cash/liability triple.
+    /// Create endogenous bank credit with the SFC loan/deposit double entry.
     ///
-    /// The lender receives a claim, the borrower receives spendable cash, and
-    /// the borrower records the matching liability. The consolidated net
-    /// financial position is unchanged.
+    /// The lender records a loan claim and a matching deposit liability. The
+    /// borrower records the deposit asset and the matching debt liability.
+    /// This is the minimal private-money representation of loan creation.
     pub fn create_credit(&mut self, credit: &CreditCreation) -> Result<(), String> {
         let (lender, borrower) = self.actor_pair_mut(&credit.lender, &credit.borrower)?;
-        // The lender receives a financial claim while the borrower receives
-        // matching spendable money and a liability. At the aggregate level,
-        // financial assets and liabilities both increase by the same amount.
         lender.monetary.claims = lender
             .monetary
             .claims
             .checked_add(credit.amount)
             .ok_or_else(|| "lender claim overflow".to_string())?;
-        borrower.monetary.cash = borrower
+        lender.monetary.deposit_liabilities = lender
             .monetary
-            .cash
+            .deposit_liabilities
             .checked_add(credit.amount)
-            .ok_or_else(|| "borrower cash overflow".to_string())?;
+            .ok_or_else(|| "deposit liability overflow".to_string())?;
+        borrower.monetary.deposits = borrower
+            .monetary
+            .deposits
+            .checked_add(credit.amount)
+            .ok_or_else(|| "borrower deposit overflow".to_string())?;
         borrower.monetary.liabilities = borrower
             .monetary
             .liabilities
@@ -265,26 +312,34 @@ impl EconomicState {
         let (lender, borrower) =
             self.actor_pair_mut(&repayment.lender, &repayment.borrower)?;
 
-        if borrower.monetary.assets < repayment.amount {
-            return Err(format!(
-                "borrower {} cannot repay {} with {} available assets",
-                borrower.actor, repayment.amount, borrower.monetary.assets
-            ));
-        }
         if borrower.monetary.liabilities < repayment.amount
             || lender.monetary.claims < repayment.amount
         {
             return Err("repayment exceeds outstanding debt claim".into());
         }
 
-        borrower.monetary.cash -= repayment.amount;
+        if borrower.monetary.deposits >= repayment.amount {
+            if lender.monetary.deposit_liabilities < repayment.amount {
+                return Err("deposit repayment requires a matching lender deposit liability".into());
+            }
+            borrower.monetary.deposits -= repayment.amount;
+            lender.monetary.deposit_liabilities -= repayment.amount;
+        } else if borrower.monetary.cash >= repayment.amount {
+            borrower.monetary.cash -= repayment.amount;
+            lender.monetary.cash = lender
+                .monetary
+                .cash
+                .checked_add(repayment.amount)
+                .ok_or_else(|| "lender cash overflow".to_string())?;
+        } else {
+            return Err(format!(
+                "borrower {} cannot repay {} with deposits={} and cash={}",
+                borrower.actor, repayment.amount, borrower.monetary.deposits, borrower.monetary.cash
+            ));
+        }
+
         borrower.monetary.liabilities -= repayment.amount;
         lender.monetary.claims -= repayment.amount;
-        lender.monetary.cash = lender
-            .monetary
-            .cash
-            .checked_add(repayment.amount)
-            .ok_or_else(|| "lender cash overflow".to_string())?;
 
         self.debt_repaid = self
             .debt_repaid
@@ -376,9 +431,10 @@ mod tests {
 
         assert_eq!(s.aggregate_liabilities(), 0);
         assert_eq!(s.debt_repaid, 500);
-        assert_eq!(s.actors[1].monetary.cash, 0);
+        assert_eq!(s.actors[1].monetary.deposits, 0);
         assert_eq!(s.actors[0].monetary.claims, 0);
-        assert_eq!(s.actors[0].monetary.cash, 1_500);
+        assert_eq!(s.actors[0].monetary.deposit_liabilities, 0);
+        assert_eq!(s.actors[0].monetary.cash, 1_000);
     }
 
     #[test]
