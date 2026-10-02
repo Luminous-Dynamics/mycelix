@@ -206,4 +206,44 @@ for field in ("epoch_id", "repository_id", "repository_full_name", "dispatch_non
     if ao[field] != s0[field]:
         fail(f"authority observation {field} disagrees with S0 envelope")
 
+s1_schema = json.loads((ROOT / "s1_conformance_receipt_v1.schema.json").read_text(encoding="utf-8"), object_pairs_hook=reject_duplicates)
+s1 = json.loads((ROOT / "s1_conformance_receipt_v1.example.json").read_text(encoding="utf-8"), object_pairs_hook=reject_duplicates)
+for key in (
+    "schema", "profile", "epoch_id", "repository_id", "repository_full_name", "pull_request_number",
+    "s0_dispatch_envelope_sha256", "s0_authority_observation_sha256", "dispatch_input_commitment_sha256",
+    "subject_base_sha", "subject_head_sha", "subject_tree_sha", "current_verifier_head_sha",
+    "current_verifier_tree_sha", "current_verifier_bundle_sha256", "current_verifier_profile",
+    "proposed_bundle_sha256", "proposed_verifier_sha256", "proposed_gate_sha256", "registered_successor_profile",
+    "s1_workflow_identity", "s1_workflow_ref", "s1_workflow_source_commit_sha", "run_id", "run_attempt",
+    "run_head_sha", "workflow_event", "builder_id", "builder_version", "harness_source_commit_sha",
+    "harness_bundle_sha256", "corpus_sha256", "candidate_code_executed", "execution_outcome",
+    "conformance_outcome", "admitted_claims", "nonclaims", "receipt_sha256"
+):
+    if key not in s1:
+        fail(f"S1 receipt missing {key}")
+if s1["schema"] != "mycelix.qual-001s.s1-conformance-receipt-v1":
+    fail("wrong S1 receipt schema")
+if s1["candidate_code_executed"] is not True:
+    fail("S1 receipt must record candidate execution")
+if not re.fullmatch(r"^[0-9a-f]{64}$", s1["receipt_sha256"]):
+    fail("invalid S1 receipt commitment")
+s1_preimage = dict(s1)
+del s1_preimage["receipt_sha256"]
+if hashlib.sha256(canonical_jcs_json(s1_preimage).encode("utf-8")).hexdigest() != s1["receipt_sha256"]:
+    fail("S1 receipt commitment does not match canonical preimage")
+if s1["conformance_outcome"] == "PASS" and "successor_conformance" not in s1["admitted_claims"]:
+    fail("S1 PASS must admit successor_conformance")
+if s1["conformance_outcome"] != "PASS" and "successor_conformance" in s1["admitted_claims"]:
+    fail("non-PASS S1 receipt cannot admit successor_conformance")
+if s1["s0_dispatch_envelope_sha256"] != s0["envelope_sha256"]:
+    fail("S1 receipt detached from S0 envelope")
+if s1["s0_authority_observation_sha256"] != ao["observation_sha256"]:
+    fail("S1 receipt detached from S0 authority observation")
+for field in ("epoch_id", "repository_id", "repository_full_name", "pull_request_number",
+              "dispatch_input_commitment_sha256", "s1_workflow_source_commit_sha"):
+    if s1[field] != (s0[field] if field != "dispatch_input_commitment_sha256" and field in s0 else ao[field]):
+        fail(f"S1 receipt {field} disagrees with trusted lineage")
+if s1["run_attempt"] < 1 or s1["run_id"] < 1:
+    fail("invalid S1 run identity")
+
 print("QUAL-001S evaluator A: PASS")
