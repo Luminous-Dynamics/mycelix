@@ -1,0 +1,429 @@
+{
+  "schema": "mycelix.civic-resilience.option-space-qualification.v1",
+  "program": "CIV-RES-004",
+  "semantic_parent": "a923352445db955c8c4cbe7c52d570506e6be0b0",
+  "candidate_input_policy": "oracle_excluded",
+  "canonicalization": "json.sort_keys=true; separators=(',', ':'); utf8",
+  "cases": [
+    {
+      "id": "OS-01",
+      "family": "resource_present_unreachable",
+      "seed": 101,
+      "input": [
+        {
+          "t": "pathway",
+          "id": "p1",
+          "exists": true,
+          "geo": "outside_scope",
+          "time": "2026-10-02T09:00Z",
+          "eligible": true,
+          "capacity": "available"
+        },
+        {
+          "t": "access",
+          "pathway": "p1",
+          "geo": "blocked",
+          "time_window": "2026-10-02T09:00Z/2026-10-02T10:00Z"
+        }
+      ]
+    },
+    {
+      "id": "OS-02",
+      "family": "reachable_but_unusable",
+      "seed": 102,
+      "input": [
+        {
+          "t": "pathway",
+          "id": "p2",
+          "exists": true,
+          "geo": "reachable",
+          "eligible": false,
+          "capacity": "available"
+        },
+        {
+          "t": "access",
+          "pathway": "p2",
+          "geo_reachable": true,
+          "eligibility_satisfied": false
+        }
+      ]
+    },
+    {
+      "id": "OS-03",
+      "family": "conflicting_availability",
+      "seed": 103,
+      "input": [
+        {
+          "t": "capacity",
+          "pathway": "p3",
+          "source": "a",
+          "observed_at": "2026-10-02T09:00Z",
+          "effective_from": "2026-10-02T09:00Z",
+          "effective_to": "2026-10-02T12:00Z",
+          "units": 4
+        },
+        {
+          "t": "capacity",
+          "pathway": "p3",
+          "source": "b",
+          "observed_at": "2026-10-02T09:05Z",
+          "effective_from": "2026-10-02T09:00Z",
+          "effective_to": "2026-10-02T12:00Z",
+          "units": 0
+        }
+      ]
+    },
+    {
+      "id": "OS-04",
+      "family": "stale_capacity",
+      "seed": 104,
+      "input": [
+        {
+          "t": "capacity",
+          "pathway": "p4",
+          "source": "a",
+          "observed_at": "2026-10-01T09:00Z",
+          "effective_from": "2026-10-01T09:00Z",
+          "effective_to": "2026-10-01T12:00Z",
+          "units": 2
+        },
+        {
+          "t": "query",
+          "pathway": "p4",
+          "at": "2026-10-02T09:00Z"
+        }
+      ]
+    },
+    {
+      "id": "OS-05",
+      "family": "redundancy_collapse",
+      "seed": 105,
+      "input": [
+        {
+          "t": "pathway",
+          "id": "p5a",
+          "dependency": [
+            "hub"
+          ]
+        },
+        {
+          "t": "pathway",
+          "id": "p5b",
+          "dependency": [
+            "hub"
+          ]
+        },
+        {
+          "t": "pathway",
+          "id": "p5c",
+          "dependency": [
+            "hub"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "OS-06",
+      "family": "independent_alternatives",
+      "seed": 106,
+      "input": [
+        {
+          "t": "pathway",
+          "id": "p6a",
+          "dependency": [
+            "a"
+          ]
+        },
+        {
+          "t": "pathway",
+          "id": "p6b",
+          "dependency": [
+            "b"
+          ]
+        },
+        {
+          "t": "pathway",
+          "id": "p6c",
+          "dependency": [
+            "c"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "OS-07",
+      "family": "temporal_rescue",
+      "seed": 107,
+      "input": [
+        {
+          "t": "pathway",
+          "id": "p7_now",
+          "available_from": "2026-10-02T09:00Z",
+          "available_to": "2026-10-02T09:10Z"
+        },
+        {
+          "t": "pathway",
+          "id": "p7_later",
+          "available_from": "2026-10-02T10:00Z",
+          "available_to": "2026-10-02T11:00Z"
+        },
+        {
+          "t": "query",
+          "at": "2026-10-02T09:05Z"
+        }
+      ]
+    },
+    {
+      "id": "OS-08",
+      "family": "successful_operational_resolution",
+      "seed": 108,
+      "input": [
+        {
+          "t": "attempt",
+          "id": "a8",
+          "pathway": "p8",
+          "status": "resolved_operationally"
+        },
+        {
+          "t": "acceptance",
+          "attempt": "a8",
+          "status": "not_observed"
+        },
+        {
+          "t": "outcome",
+          "attempt": "a8",
+          "change": "unknown"
+        }
+      ]
+    },
+    {
+      "id": "OS-09",
+      "family": "economic_shock",
+      "seed": 109,
+      "input": [
+        {
+          "t": "economic",
+          "metric": "liquidity_buffer",
+          "before": 120,
+          "after": 40
+        },
+        {
+          "t": "economic",
+          "metric": "housing_cost_pressure",
+          "before": 0.28,
+          "after": 0.46
+        },
+        {
+          "t": "pathway",
+          "id": "p9",
+          "capacity": "reduced"
+        }
+      ]
+    },
+    {
+      "id": "OS-10",
+      "family": "buffering_intervention",
+      "seed": 110,
+      "input": [
+        {
+          "t": "state",
+          "options_before": [
+            "p10a"
+          ]
+        },
+        {
+          "t": "intervention",
+          "pathway": "p10b",
+          "status": "recorded"
+        },
+        {
+          "t": "state",
+          "options_after": [
+            "p10a",
+            "p10b"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "OS-11",
+      "family": "feedback",
+      "seed": 111,
+      "input": [
+        {
+          "t": "capacity",
+          "pathway": "p11",
+          "version": 1,
+          "units": 5
+        },
+        {
+          "t": "outcome",
+          "pathway": "p11",
+          "effect": "adverse"
+        },
+        {
+          "t": "capacity",
+          "pathway": "p11",
+          "version": 2,
+          "units": 2
+        }
+      ]
+    },
+    {
+      "id": "OS-12",
+      "family": "aggregate_projection",
+      "seed": 112,
+      "input": [
+        {
+          "t": "protected_capacity",
+          "scope": "community-A",
+          "pathway": "p12",
+          "units": 3,
+          "synthetic": true
+        },
+        {
+          "t": "projection",
+          "class": "PublicAggregate",
+          "query": "community-A",
+          "history_bound": true,
+          "privacy_scope": "aggregate"
+        }
+      ]
+    },
+    {
+      "id": "OS-13",
+      "family": "individual_inference_attempt",
+      "seed": 113,
+      "input": [
+        {
+          "t": "aggregate",
+          "scope": "community-A",
+          "metric": "option_capacity_trend",
+          "value": "increasing"
+        },
+        {
+          "t": "attempt",
+          "transform": "PersonRiskScore",
+          "source": "aggregate"
+        }
+      ]
+    },
+    {
+      "id": "OS-14",
+      "family": "recommendation_to_authority",
+      "seed": 114,
+      "input": [
+        {
+          "t": "recommendation",
+          "model": "research-model",
+          "pathway": "p14"
+        },
+        {
+          "t": "authority_edge",
+          "from": "recommendation",
+          "to": "ExecutionAuthorization"
+        }
+      ]
+    },
+    {
+      "id": "OS-15",
+      "family": "synthetic_provenance_stripping",
+      "seed": 115,
+      "input": [
+        {
+          "t": "observation",
+          "id": "o15",
+          "synthetic": true,
+          "provenance": "synthetic-fixture-v1"
+        },
+        {
+          "t": "projection",
+          "id": "o15-public",
+          "preserve_synthetic": false
+        }
+      ]
+    },
+    {
+      "id": "OS-16",
+      "family": "missing_unknown",
+      "seed": 116,
+      "input": [
+        {
+          "t": "pathway",
+          "id": "p16",
+          "capacity": "unknown"
+        },
+        {
+          "t": "query",
+          "pathway": "p16",
+          "default_if_missing": "zero"
+        }
+      ]
+    },
+    {
+      "id": "OS-17",
+      "family": "arrival_order_trap",
+      "seed": 117,
+      "input": [
+        {
+          "t": "evidence",
+          "id": "e1",
+          "event_at": "2026-10-02T08:00Z",
+          "effectivity_at": "2026-10-02T10:00Z",
+          "arrival_seq": 2,
+          "units": 2
+        },
+        {
+          "t": "evidence",
+          "id": "e2",
+          "event_at": "2026-10-02T09:00Z",
+          "effectivity_at": "2026-10-02T09:30Z",
+          "arrival_seq": 1,
+          "units": 1
+        }
+      ]
+    },
+    {
+      "id": "OS-18",
+      "family": "path_dependent_recovery",
+      "seed": 118,
+      "input": [
+        {
+          "t": "community",
+          "id": "A",
+          "history": [
+            "shock",
+            "capacity_loss",
+            "repair"
+          ]
+        },
+        {
+          "t": "community",
+          "id": "B",
+          "history": [
+            "stable",
+            "repair"
+          ]
+        },
+        {
+          "t": "state",
+          "community": "A",
+          "current": "capacity=3"
+        },
+        {
+          "t": "state",
+          "community": "B",
+          "current": "capacity=3"
+        }
+      ]
+    }
+  ],
+  "nonclaims": [
+    "clinical_assessment",
+    "suicide_prediction",
+    "violence_prediction",
+    "public_safety_score",
+    "causal_effect",
+    "municipal_authority"
+  ]
+}
