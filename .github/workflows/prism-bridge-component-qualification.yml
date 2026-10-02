@@ -17,6 +17,10 @@ on:
       - "mycelix-workspace/crates/mycelix-claim-types/**"
       - ".github/workflows/prism-bridge-component-qualification.yml"
 
+concurrency:
+  group: prism-bridge-qualification-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -87,6 +91,7 @@ jobs:
           root="${RUNNER_TEMP}/prism-bridge-qualification"
           echo "qualification=PRISM-BRIDGE-COMPONENT"
           echo "rust=1.96.0"
-          echo "source_head=${GITHUB_SHA}"
+          echo "source_head=${{ github.event.pull_request.head.sha || github.sha }}"
+          echo "event_sha=${GITHUB_SHA}"
           echo "workspace_manifest=${root}/Cargo.toml"
           sha256sum "${root}/Cargo.lock"
