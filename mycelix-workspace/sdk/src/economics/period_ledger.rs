@@ -159,6 +159,24 @@ mod tests {
     }
 
     #[test]
+    fn inventory_flows_are_aggregated_without_monetary_side_effects() {
+        let transitions = vec![
+            EconomicTransition::InventoryTransfer(
+                InventoryTransfer::new("firm", "household", 12).unwrap(),
+            ),
+            EconomicTransition::InventoryConsumption(
+                InventoryConsumption::new("household", 5).unwrap(),
+            ),
+        ];
+        let ledger = EconomicPeriodLedger::from_transitions(&transitions).unwrap();
+        assert_eq!(ledger.inventory_transferred, 12);
+        assert_eq!(ledger.inventory_consumed, 5);
+        assert_eq!(ledger.monetary_transfer_total, 0);
+        assert_eq!(ledger.credit_created, 0);
+        assert_eq!(ledger.debt_repaid, 0);
+    }
+
+    #[test]
     fn categories_are_aggregated_deterministically() {
         let transitions = vec![
             EconomicTransition::IncomeTransfer(
