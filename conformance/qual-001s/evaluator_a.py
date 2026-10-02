@@ -147,4 +147,22 @@ if canonical_ascii_json(before_obj) != canon["expected_canonical"]:
     fail("QUALS-M-021 before object canonicalized incorrectly")
 if canonical_ascii_json(after_obj) != canon["expected_canonical"]:
     fail("QUALS-M-021 after object canonicalized incorrectly")
+ao = json.loads((ROOT / "s0_authority_observation_v1.example.json").read_text(encoding="utf-8"), object_pairs_hook=reject_duplicates)
+for key in (
+    "schema", "profile", "epoch_id", "dispatch_nonce_hex", "event_type",
+    "request_authentication", "actor_authorization", "event_authorization",
+    "workflow_source_authentication", "dispatch_result", "run_attribution", "observation_state"
+):
+    if key not in ao:
+        fail(f"S0 authority observation missing {key}")
+if ao["schema"] != "mycelix.qual-001s.s0-authority-observation-v1":
+    fail("wrong S0 authority observation schema")
+if ao["event_type"] != "workflow_dispatch":
+    fail("wrong S0 authority observation event type")
+if ao["dispatch_result"] == "ACCEPTED" and ao["run_attribution"]["state"] == "OBSERVED":
+    # This example deliberately does not assert that API acceptance implies a run.
+    pass
+if ao["run_attribution"]["state"] not in {"OBSERVED", "UNOBSERVED", "CONTRADICTED"}:
+    fail("invalid S0 run attribution state")
+
 print("QUAL-001S evaluator A: PASS")
