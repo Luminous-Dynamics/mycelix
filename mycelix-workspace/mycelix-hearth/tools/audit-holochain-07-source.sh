@@ -185,6 +185,25 @@ check_validation_determinism() {
   echo "OK:   $file validation determinism surface"
 }
 
+# Link deletion is its own 0.7 operation family. Require an explicit
+# DeleteLink arm and an author comparison between the deleting action and the
+# original CreateLink action. A terminal catch-all must never silently accept
+# link deletion without this authorization invariant.
+check_delete_link_authorization() {
+  local file="$1"
+  if ! rg -n --pcre2 'FlatOp::Link\\s*\\(\\s*OpLink::DeleteLink' "$file" >/dev/null 2>&1; then
+    echo "FAIL: $file has no explicit FlatOp::Link(OpLink::DeleteLink) coverage"
+    fail=1
+    return
+  fi
+  if rg -n --pcre2 '(check_link_author_match|original_action\\.author\\(\\)|original_action\\(\\).*author)' "$file" >/dev/null 2>&1; then
+    echo "OK:   $file DeleteLink authorization compares original and deleting authors"
+  else
+    echo "FAIL: $file DeleteLink path lacks an explicit original/deleting author comparison"
+    fail=1
+  fi
+}
+
 # Action-family authorization must not be accidentally absorbed by a terminal
 # catch-all. If a zome validates entry updates at CreateEntry(UpdateEntry), it
 # must also expose an explicit Update(OpUpdate::Entry) path for action-level
@@ -259,6 +278,10 @@ done
 
 for file in "${integrity_files[@]}"; do
   check_update_action_coverage "$file"
+done
+
+for file in "${integrity_files[@]}"; do
+  check_delete_link_authorization "$file"
 done
 
 for file in "${integrity_files[@]}"; do
