@@ -175,7 +175,12 @@ impl SandboxEnforcementReceipt {
             (SandboxAdapterKind::LinuxLandlockFilesystemV1, SandboxEnforcementLayer::Filesystem)
                 | (SandboxAdapterKind::LinuxSeccompSyscallV1, SandboxEnforcementLayer::Syscall)
         );
-        if !valid {
+        if !valid
+            || assignment_id.0 == 0
+            || installation_id.0 == 0
+            || profile_digest == [0u8; 32]
+            || evidence_digest == [0u8; 32]
+        {
             return Err(ProcessContractError::InvalidSandboxEvidence);
         }
         Ok(Self { assignment_id, installation_id, adapter, profile_digest, evidence_digest, layer })
@@ -427,6 +432,25 @@ mod tests {
         assert_ne!(a, b);
         assert_ne!(a.0, 0);
         assert_ne!(b.0, 0);
+    }
+
+
+    #[test]
+    fn sandbox_receipt_rejects_empty_evidence() {
+        let assignment_id = RendererProcessAssignmentId::new(1).unwrap();
+        let installation_id = SandboxInstallationId::new(2).unwrap();
+        let receipt = SandboxEnforcementReceipt::from_adapter(
+            assignment_id,
+            installation_id,
+            SandboxAdapterKind::LinuxSeccompSyscallV1,
+            [0x11; 32],
+            [0u8; 32],
+            SandboxEnforcementLayer::Syscall,
+        );
+        assert!(matches!(
+            receipt,
+            Err(ProcessContractError::InvalidSandboxEvidence)
+        ));
     }
 
     #[test]
