@@ -76,15 +76,8 @@ impl SectorTransactionMatrix {
 
     /// Net monetary flow received by a sector.
     pub fn net_flow(&self, sector: EconomicSector) -> i128 {
-        self.flows.iter().fold(0, |sum, flow| {
-            if flow.to == sector && flow.from != sector {
-                sum + flow.amount
-            } else if flow.from == sector && flow.to != sector {
-                sum - flow.amount
-            } else {
-                sum
-            }
-        })
+        self.try_net_flow(sector)
+            .expect("sector net-flow overflow")
     }
 
     /// Checked sector net flow. Returns an error on arithmetic overflow.
