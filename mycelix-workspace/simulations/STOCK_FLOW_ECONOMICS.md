@@ -750,3 +750,30 @@ integrity chain:
 `actor fields -> checked state aggregates -> aggregate observations`
 
 instead of allowing an extreme-value fixture to wrap before it reaches evidence/reporting layers.
+
+## Cross-layer accounting closure receipt (implemented)
+
+`EconomicAccountingClosure::validate_and_seal` is the single-step closure proof that binds the
+current accounting projections back to one authoritative transition sequence and its terminal
+state. It verifies all of the following together:
+
+- actor observations reproduce the post-state actor stocks exactly;
+- the sector transaction matrix is an exact transition projection and clears;
+- the sector financial-claim matrix is an exact transition projection and reconciles loan,
+  debt, trade-receivable, and trade-payable deltas;
+- the monetary and physical stock-flow postings reconcile exactly against the post-state;
+- sector observations reproduce the terminal sector balance-sheet projection.
+
+The receipt then binds the pre-state hash, post-state hash, transition hash/count, actor-observation
+hash, posting hashes/counts, sector transaction hash, sector financial-flow hash, and sector
+observation hash into one deterministic `closure_hash`.
+
+This is deliberately an accounting/provenance boundary rather than a behavioral model. It makes the
+next layer safer: working-capital equations, leverage dynamics, debt-service rules, Minsky regime
+classification, credit feedback, and ecological constraints can consume one closure-verified step
+instead of independently trusting several projections.
+
+`EconomicEvidenceCapsule::seal_with_accounting_closure` additionally self-verifies the closure and
+requires its pre-state, post-state, transition hash, and transition count to match the final
+evidence-chain step before binding the closure hash into the capsule.
+
