@@ -114,6 +114,45 @@ else
   echo "WARN: no explicit ActionData/header access found in Hearth source"
 fi
 
+
+# Semantic 0.7 source-chain validation coverage.
+if git grep -nE -- '\\bmust_get_agent_activity\\s*\\(' -- 'mycelix-workspace/mycelix-hearth/**/*.rs' >/dev/null 2>&1; then
+  check_present_any "0.7 activity response: UntilHashMissing" 'MustGetAgentActivityResponse::UntilHashMissing'
+  check_present_any "0.7 activity response: UntilHashAfterChainHead" 'MustGetAgentActivityResponse::UntilHashAfterChainHead'
+  check_present_any "0.7 activity response: UntilTimestampIndeterminate" 'MustGetAgentActivityResponse::UntilTimestampIndeterminate'
+  check_present_any "0.7 activity response: UntilTimestampGreaterThanChainHead" 'MustGetAgentActivityResponse::UntilTimestampGreaterThanChainHead'
+  check_present_any "0.7 activity response: IncompleteChain" 'MustGetAgentActivityResponse::IncompleteChain'
+else
+  echo "OK:   no must_get_agent_activity call sites require response coverage"
+fi
+
+# Every tracked integrity zome must expose the 0.7 validation seam, flatten
+# operations through FlatOp, and inspect action semantics explicitly.
+integrity_files=()
+while IFS= read -r -d '' file; do integrity_files+=("$file"); done < <(git ls-files -z 'mycelix-workspace/mycelix-hearth/zomes/*/integrity/src/lib.rs')
+if ((${#integrity_files[@]} == 0)); then
+  echo "FAIL: no tracked Hearth integrity zomes discovered for semantic coverage"
+  fail=1
+else
+  for file in "${integrity_files[@]}"; do
+    if rg -n --pcre2 '\\bfn\\s+validate\\s*\\(\\s*(?:op\\s*:\\s*)?Op\\b|\\bvalidate\\s*\\(\\s*op\\s*:\\s*Op\\b' "$file" >/dev/null; then
+      echo "OK:   $file exposes validate(Op)"
+    else
+      echo "FAIL: $file missing validate(Op) semantic seam"; fail=1
+    fi
+    if rg -n --pcre2 '\\bFlatOp::|flattened\\s*<[^>]*>\\s*\\(' "$file" >/dev/null; then
+      echo "OK:   $file handles flattened 0.7 operations"
+    else
+      echo "FAIL: $file missing FlatOp/flattened 0.7 operation handling"; fail=1
+    fi
+    if rg -n --pcre2 'ActionData::|action\\.(?:author|timestamp)\\s*\\(|\\.header\\.(?:author|timestamp)\\b' "$file" >/dev/null; then
+      echo "OK:   $file inspects 0.7 action semantics"
+    else
+      echo "FAIL: $file missing explicit 0.7 action semantic access"; fail=1
+    fi
+  done
+fi
+
 echo
 if [[ "$fail" -ne 0 ]]; then
   echo "HEARTH-0.7 source audit: FAIL"
