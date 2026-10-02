@@ -1,0 +1,55 @@
+name: Security Kernel Qualification
+
+on:
+  push:
+    branches:
+      - feat/security-sovereignty-model
+  pull_request:
+    paths:
+      - 'crates/mycelix-bridge-common/**'
+      - 'docs/security-*.md'
+      - '.github/workflows/security-kernel-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-kernel-qualification-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Bridge security kernel
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/mycelix-bridge-common
+
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-bridge-common/Cargo.toml -- --check
+
+      - name: Test default feature set
+        run: cargo test --manifest-path crates/mycelix-bridge-common/Cargo.toml
+
+      - name: Test identity feature set
+        run: cargo test --manifest-path crates/mycelix-bridge-common/Cargo.toml --features identity
+
+      - name: Clippy default feature set
+        run: cargo clippy --manifest-path crates/mycelix-bridge-common/Cargo.toml --all-targets -- -D warnings
+
+      - name: Clippy identity feature set
+        run: cargo clippy --manifest-path crates/mycelix-bridge-common/Cargo.toml --all-targets --features identity -- -D warnings
