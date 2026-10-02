@@ -89,15 +89,23 @@ fn thread_sync_child() -> ! {
     // threads must be constrained by the same filter tree.
     let release = Arc::new(AtomicBool::new(false));
     let observed = Arc::new(AtomicI64::new(i64::MIN));
+    let observed_errno = Arc::new(std::sync::atomic::AtomicI32::new(i32::MIN));
     let thread_release = Arc::clone(&release);
     let thread_observed = Arc::clone(&observed);
+    let thread_errno = Arc::clone(&observed_errno);
 
     std::thread::spawn(move || {
         while !thread_release.load(Ordering::Acquire) {
             std::hint::spin_loop();
         }
-        let result = unsafe { libc::getppid() };
+        // Use the raw syscall here too: the enforcement assertion must cross
+        // the libc boundary and observe the kernel's actual errno result.
+        let result = unsafe { libc::syscall(libc::SYS_getppid) };
+        let errno = std::io::Error::last_os_error()
+            .raw_os_error()
+            .unwrap_or_default();
         thread_observed.store(i64::from(result), Ordering::Release);
+        thread_errno.store(errno, Ordering::Release);
         loop {
             std::hint::spin_loop();
         }
@@ -126,7 +134,9 @@ fn thread_sync_child() -> ! {
     // therefore proves that the sibling thread was filtered and received the
     // policy's default EPERM action rather than merely surviving the TSYNC
     // installation.
-    if observed.load(Ordering::Acquire) != -1 {
+    if observed.load(Ordering::Acquire) != -1
+        || observed_errno.load(Ordering::Acquire) != libc::EPERM
+    {
         unsafe { libc::_exit(103) };
     }
 
