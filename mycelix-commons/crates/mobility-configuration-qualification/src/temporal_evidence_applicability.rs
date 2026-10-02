@@ -1555,6 +1555,48 @@ mod tests {
 
 
     #[test]
+    fn reconciliation_coverage_rejects_boundary_authority_scope_mismatch() {
+        let disputed = EvidenceDisposition::Disputed { by: id(IdentityKind::ReconciliationWitness, "w1") };
+        let root = graph_transition("t1", None, EvidenceDisposition::Active, disputed.clone());
+        let left = graph_transition("t2", Some("t1"), disputed.clone(), EvidenceDisposition::Active);
+        let right = graph_transition(
+            "t3",
+            Some("t1"),
+            disputed,
+            EvidenceDisposition::Retracted { by: id(IdentityKind::ReconciliationWitness, "w2") },
+        );
+        let reconciliation = EvidenceDispositionReconciliation {
+            reconciliation_id: id(IdentityKind::ReconciliationWitness, "reconcile-boundary-scope-mismatch"),
+            evidence: id(IdentityKind::InspectionRecord, "inspection-graph"),
+            branch_point: id(IdentityKind::ReconciliationWitness, "t1"),
+            branch_heads: vec![
+                id(IdentityKind::ReconciliationWitness, "t2"),
+                id(IdentityKind::ReconciliationWitness, "t3"),
+            ],
+            authority: id(IdentityKind::ReconciliationWitness, "authority-1"),
+            authority_scope: id(IdentityKind::ReconciliationWitness, "authority-scope-1"),
+            basis: vec![],
+        };
+        let mut boundary = coverage_boundary();
+        boundary.reconciliation = reconciliation.reconciliation_id.clone();
+        boundary.authority_scope = id(IdentityKind::ReconciliationWitness, "different-authority-scope");
+        let coverage = EvidenceDispositionReconciliationCoverage {
+            coverage_id: id(IdentityKind::ReconciliationWitness, "coverage-boundary-scope-mismatch"),
+            reconciliation: reconciliation.reconciliation_id.clone(),
+            branch_point: id(IdentityKind::ReconciliationWitness, "t1"),
+            covered_branch_heads: boundary.branch_heads.clone(),
+            boundary: boundary.boundary_id.clone(),
+            basis: boundary.basis.clone(),
+        };
+        assert!(coverage.validate_against_graph(
+            &reconciliation,
+            &authority_scope(&reconciliation.reconciliation_id.id),
+            &boundary,
+            &[root, left, right],
+        ).is_err());
+    }
+
+    #[test]
     fn reconciliation_coverage_rejects_boundary_basis_omission() {
         let disputed = EvidenceDisposition::Disputed { by: id(IdentityKind::ReconciliationWitness, "w1") };
         let root = graph_transition("t1", None, EvidenceDisposition::Active, disputed.clone());
