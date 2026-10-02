@@ -35,10 +35,10 @@ jobs:
           workspaces: mycelix-workspace
 
       - name: Format
-        run: cargo fmt --manifest-path mycelix-workspace/Cargo.toml -p pulse-social-types -- --check
+        run: cargo fmt --manifest-path mycelix-workspace/mycelix-pulse/crates/pulse-social-types/Cargo.toml -- --check
 
       - name: Test
-        run: cargo test --manifest-path mycelix-workspace/Cargo.toml -p pulse-social-types
+        run: cargo test --manifest-path mycelix-workspace/mycelix-pulse/crates/pulse-social-types/Cargo.toml
 
       - name: Clippy
-        run: cargo clippy --manifest-path mycelix-workspace/Cargo.toml -p pulse-social-types --all-targets -- -D warnings
+        run: cargo clippy --manifest-path mycelix-workspace/mycelix-pulse/crates/pulse-social-types/Cargo.toml --all-targets -- -D warnings
