@@ -21,7 +21,7 @@ use std::collections::BTreeMap;
 use crate::reservation::{ApplyOutcome, Reservation, ReservationError, ReservationLedger};
 
 #[hdk_entry_helper]
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct PurchaseIntent {
     pub intent_id: String,
     pub buyer: AgentPubKey,
@@ -84,7 +84,7 @@ pub enum IntentError {
 }
 
 #[hdk_entry_helper]
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct ReservationCertificate {
     pub certificate_id: String,
     pub seller: AgentPubKey,
@@ -1122,7 +1122,7 @@ mod tests {
 
         assert!(matches!(
             error,
-            CertificateError::Capacity(ReservationError::CapacityBelowActive { .. })
+            CertificateError::Capacity(ReservationError::CapacityBelowActiveReservations { .. })
         ));
         assert_eq!(f.active_reserved(), 2);
         assert_eq!(f.capacity(), 3);
@@ -1533,7 +1533,7 @@ mod tests {
 
 /// Immutable seller-authored terminal evidence for one exact reservation.
 #[hdk_entry_helper]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct ReservationTerminalEvidence {
     pub certificate_hash: ActionHash,
     pub seller: AgentPubKey,
@@ -1555,7 +1555,7 @@ pub enum ReservationTerminalOutcome {
 
 /// Immutable seller-authored capacity revision evidence.
 #[hdk_entry_helper]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct ReservationCapacityEvidence {
     pub seller: AgentPubKey,
     pub listing_hash: ActionHash,
@@ -1832,7 +1832,7 @@ pub fn validate_create_reservation_certificate(
             ))
         })?;
     let listing_action = listing_record.action();
-    if listing_action.author() != &certificate.seller {
+    if listing_action.hashed.author() != &certificate.seller {
         return Ok(ValidateCallbackResult::Invalid(
             "ReservationCertificate seller does not own the referenced listing action".into(),
         ));
@@ -1859,7 +1859,7 @@ pub fn validate_create_reservation_certificate(
                 "ReservationCertificate listing revision is not a Listing entry".into(),
             ))
         })?;
-    if revision_action.author() != &certificate.seller {
+    if revision_action.hashed.author() != &certificate.seller {
         return Ok(ValidateCallbackResult::Invalid(
             "ReservationCertificate listing revision is not seller-authored".into(),
         ));
@@ -1890,20 +1890,15 @@ pub fn validate_create_reservation_certificate(
             ));
         }
     }
-    if let Some(chain_top) = action.prev_action.clone() {
-        let revision_result = validate_current_listing_revision(
-            &certificate.seller,
-            &certificate.listing_hash,
-            &certificate.listing_revision,
-            &chain_top,
-        )?;
-        if !matches!(revision_result, ValidateCallbackResult::Valid) {
-            return Ok(revision_result);
-        }
-    } else {
-        return Ok(ValidateCallbackResult::Invalid(
-            "ReservationCertificate action is missing its seller source-chain predecessor".into(),
-        ));
+    let chain_top = action.prev_action.clone();
+    let revision_result = validate_current_listing_revision(
+        &certificate.seller,
+        &certificate.listing_hash,
+        &certificate.listing_revision,
+        &chain_top,
+    )?;
+    if !matches!(revision_result, ValidateCallbackResult::Valid) {
+        return Ok(revision_result);
     }
 
     if certificate.sequence > 0 {
@@ -2057,7 +2052,7 @@ pub fn validate_create_reservation_capacity(
     }
 
     let listing_action = must_get_action(evidence.listing_hash.clone())?;
-    if listing_action.author() != &evidence.seller {
+    if listing_action.hashed.author() != &evidence.seller {
         return Ok(ValidateCallbackResult::Invalid(
             "Reservation capacity listing is not seller-authored".into(),
         ));
@@ -2077,7 +2072,7 @@ pub fn validate_create_reservation_capacity(
             ))
         })?;
     let revision_action = must_get_action(evidence.listing_revision.clone())?;
-    if revision_action.author() != &evidence.seller {
+    if revision_action.hashed.author() != &evidence.seller {
         return Ok(ValidateCallbackResult::Invalid(
             "Reservation capacity listing revision is not seller-authored".into(),
         ));
@@ -2096,21 +2091,15 @@ pub fn validate_create_reservation_capacity(
             ));
         }
     }
-    if let Some(chain_top) = action.prev_action.clone() {
-        let revision_result = validate_current_listing_revision(
-            &evidence.seller,
-            &evidence.listing_hash,
-            &evidence.listing_revision,
-            &chain_top,
-        )?;
-        if !matches!(revision_result, ValidateCallbackResult::Valid) {
-            return Ok(revision_result);
-        }
-    } else {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Reservation capacity evidence action is missing its seller source-chain predecessor"
-                .into(),
-        ));
+    let chain_top = action.prev_action.clone();
+    let revision_result = validate_current_listing_revision(
+        &evidence.seller,
+        &evidence.listing_hash,
+        &evidence.listing_revision,
+        &chain_top,
+    )?;
+    if !matches!(revision_result, ValidateCallbackResult::Valid) {
+        return Ok(revision_result);
     }
 
     let prior_activity = must_get_agent_activity(
@@ -2260,12 +2249,7 @@ pub fn validate_create_reservation_terminal(
         )));
     }
 
-    let Some(chain_top) = action.prev_action.clone() else {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Reservation terminal evidence action is missing its seller source-chain predecessor"
-                .into(),
-        ));
-    };
+    let chain_top = action.prev_action.clone();
 
     // The certificate is the historical reservation being terminated. It may
     // be separated from this terminal event by later seller-authored frontier
