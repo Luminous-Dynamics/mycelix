@@ -17,6 +17,7 @@ pub mod capability;
 pub mod process;
 pub mod supervisor;
 pub mod sandbox;
+pub mod seccomp;
 pub mod grant;
 pub mod identity;
 pub mod lifecycle;
