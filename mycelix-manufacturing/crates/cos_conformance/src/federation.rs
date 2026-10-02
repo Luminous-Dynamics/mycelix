@@ -533,7 +533,11 @@ pub fn deliver(
         semantic_subject_id: envelope.semantic_subject_id.clone(),
         payload_commitment: envelope.payload_commitment.clone(),
         origin_node: envelope.origin_node.clone(),
-        recognized_by: foreign.then(|| envelope.target_node.clone()),
+        recognized_by: if foreign && recognition.is_some() {
+            Some(envelope.target_node.clone())
+        } else {
+            None
+        },
         source_observation: true,
     };
 
@@ -1022,6 +1026,27 @@ mod tests {
     }
 
     #[test]
+    fn unrecognized_foreign_evidence_does_not_claim_recognition() {
+        let mut state = nodes();
+        let mut foreign = envelope();
+        foreign.envelope_id = "env-foreign-unrecognized".into();
+        foreign.logical_delivery_id = "delivery-foreign-unrecognized".into();
+        foreign.origin_node = "node-b".into();
+        foreign.target_node = "node-a".into();
+
+        let outcome = deliver(&mut state, &foreign, 50, true);
+        assert_eq!(outcome.decision, FederationDecision::AcceptedForeign);
+        assert_eq!(outcome.authority, AuthorityDisposition::ForeignEvidence);
+        assert_eq!(
+            state
+                .observation("env-foreign-unrecognized")
+                .unwrap()
+                .recognized_by,
+            None
+        );
+    }
+
+    #[test]
     fn foreign_evidence_keeps_foreign_origin() {
         let mut state = nodes();
         let mut foreign = envelope();
@@ -1060,6 +1085,10 @@ mod tests {
         let outcome = deliver(&mut state, &foreign, 50, true);
         assert_eq!(outcome.decision, FederationDecision::AcceptedForeign);
         assert_eq!(outcome.authority, AuthorityDisposition::RecognizedForeignEvidence);
+        assert_eq!(
+            state.observation("env-recognized").unwrap().recognized_by.as_deref(),
+            Some("node-a")
+        );
 
         let mut delegated_state = nodes();
         delegated_state.add_recognition(RecognitionEdge {
