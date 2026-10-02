@@ -574,6 +574,30 @@
         "noncanonical wire bytes are interchangeable without canonicalization",
         "reordering can change semantic authority"
       ]
+    },
+    {
+      "vector_id": "QUALS-N-022",
+      "kind": "availability",
+      "proposition_id": "DISPATCH_ACCEPTANCE_VS_EXECUTION",
+      "source_identity": "github.dispatch.observation",
+      "epoch_id": "epoch-001",
+      "requested_claims": [
+        "execution_observed"
+      ],
+      "admitted_claims": [],
+      "theorem": "An accepted workflow_dispatch request is not evidence that the target workflow executed; without run attribution the execution proposition remains unavailable.",
+      "upstream_evidence": [
+        "DISPATCH_REQUEST_ACCEPTED",
+        "NO_RUN_ATTRIBUTION"
+      ],
+      "evidence_disposition": "OBSERVED",
+      "authority_outcome": "NOT_ACCEPTED",
+      "expected_state": "UNAVAILABLE",
+      "expected_claims": [],
+      "nonclaims": [
+        "API acceptance implies workflow execution",
+        "dispatch acceptance proves candidate code ran"
+      ]
     }
   ]
 }
