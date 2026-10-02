@@ -475,6 +475,4 @@ mod tests {
         );
         assert!(serde_json::from_value::<ChatMessageProjectionV1>(encoded).is_err());
     }
-
 }
-
