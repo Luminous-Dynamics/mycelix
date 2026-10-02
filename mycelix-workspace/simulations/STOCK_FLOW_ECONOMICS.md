@@ -228,3 +228,19 @@ The design follows the SFC convention that the balance-sheet matrix and transact
 3. Add typed physical-resource postings and conservation checks for the ecological SFC layer.
 4. Add institutional/financial-regime observables (leverage, debt service, liquidity, refinancing need) on top of reconciled stocks.
 5. Only then add Minsky/Keen behavioral equations, so financial-instability dynamics operate on auditable accounting state rather than hidden balances.
+
+
+## Income/equity double entry (implemented)
+
+The next stock-flow boundary is now explicit: an income transfer is not merely a deposit movement. It also changes the accounting equity residual of both counterparties.
+
+For a deposit-settled income transfer from payer to recipient:
+
+- payer deposits: -amount
+- payer equity: -amount
+- recipient deposits: +amount
+- recipient equity: +amount
+
+The sector balance-sheet representation exposes equity as a signed liability-side residual, so the stock delta is fully explainable without allowing net worth to appear from an unposted behavioral flow.
+
+This is the foundation needed for wages, interest, taxes, transfers, and consumption to become genuine SFC transactions rather than ad hoc balance updates. The next refinement should distinguish the economic category of each income transfer while preserving one accounting posting mechanism.
