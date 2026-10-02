@@ -910,6 +910,41 @@ mod linux {
         }
 
         #[test]
+        fn v2_compiler_preserves_predicate_branch_polarity() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let equal = SeccompSyscallRuleV2::new(
+                libc::SYS_prctl,
+                vec![SeccompArgPredicateV1::new(0, 0xff, 0x12).unwrap()],
+            ).unwrap();
+            let not_equal = SeccompSyscallRuleV2::new(
+                libc::SYS_ioctl,
+                vec![SeccompArgPredicateV1::new_with_op(
+                    1,
+                    0xff,
+                    0x34,
+                    SeccompArgPredicateOpV1::MaskedNotEqual,
+                ).unwrap()],
+            ).unwrap();
+
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![equal, not_equal]).unwrap();
+            let filter = compile_filter_v2(&policy).unwrap();
+
+            let prctl = filter.iter().position(|instruction| {
+                instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                    && instruction.k == libc::SYS_prctl as u32
+            }).unwrap();
+            let equal_jump = &filter[prctl + 3];
+            assert_eq!((equal_jump.jt, equal_jump.jf), (1, 0));
+
+            let ioctl = filter.iter().position(|instruction| {
+                instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                    && instruction.k == libc::SYS_ioctl as u32
+            }).unwrap();
+            let not_equal_jump = &filter[ioctl + 3];
+            assert_eq!((not_equal_jump.jt, not_equal_jump.jf), (0, 1));
+        }
+
+        #[test]
         fn v2_compiler_jump_offsets_skip_only_the_current_rule() {
             let arch = SeccompArchitecture::current().unwrap();
             let single = SeccompSyscallRuleV2::new(
