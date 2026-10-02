@@ -69,6 +69,10 @@ pub struct FinalityWitnessEligibilityV1 {
     pub observer_generation_id: Option<String>,
     pub d6n_observation_set_id: String,
     pub d6n_observation_set_commitment: String,
+    /// Exact D6N assessment-item identity carried through the D6N/D6O join.
+    /// This prevents a witness from silently retaining only set-level identity
+    /// while its per-observation evidence/assessment object is substituted.
+    pub d6n_assessment_item_commitment: String,
     pub d6n_classification: ObservationClassificationV1,
     pub d6o_eligibility_id: Option<String>,
     pub d6o_disposition: Option<EvidenceEligibilityDispositionV1>,
@@ -86,6 +90,7 @@ impl FinalityWitnessEligibilityV1 {
             && !self.observer_id.is_empty()
             && !self.d6n_observation_set_id.is_empty()
             && !self.d6n_observation_set_commitment.is_empty()
+            && !self.d6n_assessment_item_commitment.is_empty()
             && !self.observation_frontier_root.is_empty()
             && !self.current_frontier_root.is_empty()
             && !self.lifecycle_profile_id.is_empty()
@@ -809,6 +814,7 @@ fn witness_from(
         observer_generation_id: receipt.map(|r| r.observer_generation_id.clone()),
         d6n_observation_set_id: set.set_id.clone(),
         d6n_observation_set_commitment: set.set_commitment.clone(),
+        d6n_assessment_item_commitment: assessment.assessment_commitment.clone(),
         d6n_classification: assessment.classification,
         d6o_eligibility_id: receipt.map(|r| r.eligibility_id.clone()),
         d6o_disposition: receipt.map(|r| r.disposition),
@@ -822,6 +828,74 @@ fn witness_from(
     let mut witness = witness;
     witness.witness_commitment = witness.recomputed_commitment();
     witness
+}
+
+/// Verify that a D6P witness is the exact join of one D6N assessment item,
+/// one D6N evidence object, and (when present) one D6O eligibility receipt.
+///
+/// The individual objects may each be internally valid while still referring to
+/// different revisions of the same observation identifier. This predicate makes
+/// the join itself an explicit semantic boundary rather than relying on shared
+/// IDs alone.
+pub fn verify_witness_join_binding(
+    witness: &FinalityWitnessEligibilityV1,
+    assessment: &crate::contestable_finality::ObservationAssessmentV1,
+    evidence: &ExternalObservedEvidenceV1,
+    receipt: Option<&EvidenceEligibilityReceiptV1>,
+    set: &ExternalObservationSetV1,
+    lifecycle_profile_id: &str,
+    current_frontier_root: &str,
+) -> bool {
+    if !witness.commitment_matches()
+        || !assessment.structurally_valid()
+        || !evidence.structurally_valid()
+        || !set.structurally_valid()
+        || lifecycle_profile_id.is_empty()
+        || current_frontier_root.is_empty()
+    {
+        return false;
+    }
+
+    let observation = &evidence.observation;
+
+    if witness.observation_id != assessment.observation_id
+        || witness.observation_id != observation.observation_id
+        || witness.observer_id != assessment.observer_id
+        || witness.observer_id != observation.observer_id
+        || witness.d6n_observation_set_id != set.set_id
+        || witness.d6n_observation_set_commitment != set.set_commitment
+        || witness.d6n_assessment_item_commitment != assessment.assessment_commitment
+        || witness.d6n_classification != assessment.classification
+        || assessment.evidence_root != observation.observer.evidence_root
+        || assessment.custody_root != observation.observer.custody_root
+        || !observation_matches_set(evidence, set)
+        || witness.observation_frontier_root != set.observation_frontier_root
+        || witness.current_frontier_root != current_frontier_root
+        || witness.lifecycle_profile_id != lifecycle_profile_id
+    {
+        return false;
+    }
+
+    match receipt {
+        Some(receipt) => {
+            witness.observer_generation_id.as_deref() == Some(receipt.observer_generation_id.as_str())
+                && witness.d6o_eligibility_id.as_deref() == Some(receipt.eligibility_id.as_str())
+                && witness.d6o_disposition == Some(receipt.disposition)
+                && witness.d6o_dependency_snapshot_id.as_deref()
+                    == Some(receipt.dependency_snapshot_id.as_str())
+                && receipt.observation_id == observation.observation_id
+                && receipt.observer_id == observation.observer_id
+                && receipt.classification == assessment.classification
+                && receipt.observation_frontier_root == set.observation_frontier_root
+                && receipt.current_frontier_root == current_frontier_root
+        }
+        None => {
+            witness.observer_generation_id.is_none()
+                && witness.d6o_eligibility_id.is_none()
+                && witness.d6o_disposition.is_none()
+                && witness.d6o_dependency_snapshot_id.is_none()
+        }
+    }
 }
 
 fn map_receipt_failure(
@@ -933,10 +1007,12 @@ pub fn compose_finality_eligibility(
     for item in evidence {
         if item.structurally_valid() {
             let id = item.observation.observation_id.clone();
-            if let Some(existing) = evidence_by_id.insert(id.clone(), item) {
-                if existing != item {
+            if let Some(existing) = evidence_by_id.get(&id) {
+                if *existing != item {
                     return empty(FinalityEligibilityDispositionV1::BlockedBinding);
                 }
+            } else {
+                evidence_by_id.insert(id.clone(), item);
             }
         }
     }
@@ -945,10 +1021,12 @@ pub fn compose_finality_eligibility(
     for receipt in eligibility_receipts {
         if receipt.structurally_valid() {
             let id = receipt.observation_id.clone();
-            if let Some(existing) = receipt_by_id.insert(id.clone(), receipt) {
-                if existing != receipt {
+            if let Some(existing) = receipt_by_id.get(&id) {
+                if *existing != receipt {
                     return empty(FinalityEligibilityDispositionV1::BlockedBinding);
                 }
+            } else {
+                receipt_by_id.insert(id.clone(), receipt);
             }
         }
     }
@@ -1248,7 +1326,7 @@ pub fn compose_finality_eligibility_from_authoritative_d6o(
         authoritative_receipts.push(receipt.clone());
     }
 
-    compose_finality_eligibility(
+    let composition = compose_finality_eligibility(
         set,
         assessment,
         evidence,
@@ -1256,8 +1334,37 @@ pub fn compose_finality_eligibility_from_authoritative_d6o(
         lifecycle_profile.profile_id.as_str(),
         current_frontier_root,
         required_independent_observations,
-    )
-    .into()
+    );
+
+    for witness in &composition.witnesses {
+        let Some(assessment_item) = assessment
+            .assessments
+            .iter()
+            .find(|item| item.observation_id == witness.observation_id)
+        else {
+            return None;
+        };
+        let Some(observation) = evidence_by_id.get(&witness.observation_id) else {
+            return None;
+        };
+        let receipt = authoritative_receipts
+            .iter()
+            .find(|receipt| receipt.observation_id == witness.observation_id);
+
+        if !verify_witness_join_binding(
+            witness,
+            assessment_item,
+            observation,
+            receipt,
+            set,
+            lifecycle_profile.profile_id.as_str(),
+            current_frontier_root,
+        ) {
+            return None;
+        }
+    }
+
+    Some(composition)
 }
 
 pub fn verify_current_receipt_provenance(
@@ -1367,6 +1474,89 @@ mod tests {
         }
         composition.composition_commitment = composition.recomputed_commitment();
         composition
+    }
+
+    #[test]
+    fn duplicate_evidence_identity_is_rejected_without_last_write_wins() {
+        let g = generation("observer-A");
+        let e = observation("obs-1", &g, ExternalObservedStateV1::Applied);
+        let s = set(&["obs-1"]);
+        let a = d6n_assessment(
+            &s,
+            &[(
+                "obs-1".into(),
+                "observer-A".into(),
+                ObservationClassificationV1::CorroboratingIndependent,
+            )],
+        );
+        let (_, r) = ledger_and_receipt(&g, &e);
+
+        let mut substituted = e.clone();
+        substituted.observation.observed_frontier_root = "frontier-substituted".into();
+
+        let result = compose_finality_eligibility_from_authoritative_d6o(
+            &s,
+            &a,
+            &[e, substituted],
+            &[r],
+            &ObserverLifecycleProfileV1 {
+                profile_id: "life-profile-1".into(),
+                semantic_environment_root: "env-1".into(),
+                observation_profile_id: "obs-profile-1".into(),
+                allowed_roles: BTreeSet::new(),
+                current_frontier_required: true,
+                historical_evidence_allowed: true,
+                profile_commitment: "life-profile-commitment".into(),
+                claim_ceiling: crate::observer_lifecycle::OBSERVER_LIFECYCLE_CLAIM_CEILING.into(),
+            },
+            &ObserverLifecycleLedgerV1::default(),
+            "frontier-1",
+            1,
+        );
+
+        assert!(result.is_none(), "conflicting same-ID evidence must not be resolved by arrival order");
+    }
+
+    #[test]
+    fn witness_join_binding_rejects_cross_object_assessment_substitution() {
+        let composition = matching_composition();
+        let witness = &composition.witnesses[0];
+        let mut assessment = crate::contestable_finality::ObservationAssessmentV1 {
+            observation_id: witness.observation_id.clone(),
+            observer_id: witness.observer_id.clone(),
+            evidence_root: "evidence-1".into(),
+            custody_root: "custody-1".into(),
+            classification: witness.d6n_classification,
+            independence: crate::contestable_finality::ObservationIndependenceV1::DeclaredIndependent,
+            assessment_commitment: witness.d6n_assessment_item_commitment.clone(),
+        };
+        let g = generation("observer-A");
+        let evidence = observation("observation-1", &g, ExternalObservedStateV1::Applied);
+        let set = set(&["observation-1"]);
+        let (_, receipt) = ledger_and_receipt(&g, &evidence);
+
+        assert!(verify_witness_join_binding(
+            witness,
+            &assessment,
+            &evidence,
+            Some(&receipt),
+            &set,
+            "lifecycle-1",
+            "frontier-1",
+        ));
+
+        assessment.evidence_root = "evidence-substituted".into();
+        assessment.assessment_commitment = "assessment-item-substituted".into();
+
+        assert!(!verify_witness_join_binding(
+            witness,
+            &assessment,
+            &evidence,
+            Some(&receipt),
+            &set,
+            "lifecycle-1",
+            "frontier-1",
+        ));
     }
 
     #[test]
@@ -2877,6 +3067,7 @@ mod tests {
             observer_generation_id: Some("observer-A".into()),
             d6n_observation_set_id: "set-1".into(),
             d6n_observation_set_commitment: "set-commitment".into(),
+            d6n_assessment_item_commitment: "assessment-item".into(),
             d6n_classification: ObservationClassificationV1::CorroboratingIndependent,
             d6o_eligibility_id: Some("eligibility-1".into()),
             d6o_disposition: Some(EvidenceEligibilityDispositionV1::EligibleCurrent),
