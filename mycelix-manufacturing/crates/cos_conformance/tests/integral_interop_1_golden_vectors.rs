@@ -92,6 +92,7 @@ struct UpstreamFixture {
     status: String,
     serialization_scope: String,
     hash_input: String,
+    domain_prefix_hex: std::collections::BTreeMap<String, String>,
     vectors: Vec<UpstreamVector>,
 }
 
@@ -183,6 +184,21 @@ fn upstream_d6m_to_d6p_golden_vectors_are_exact_and_linked() {
     assert_eq!(fixture.vectors.len(), 6);
 
     for entry in &fixture.vectors {
+        let expected_domain_hex = match entry.domain_id.as_str() {
+            "D6M_OBSERVATION_COMMITMENT_DOMAIN" => "4d5943454c49582d494e54454752414c2d44364d2d4f42534552564154494f4e2d563100",
+            "D6N_ASSESSMENT_COMMITMENT_DOMAIN" => "4d5943454c49582d494e54454752414c2d44364e2d4153534553534d454e542d563100",
+            "D6O_ELIGIBILITY_RECEIPT_COMMITMENT_DOMAIN" => "4d5943454c49582d494e54454752414c2d44364f2d454c49474942494c4954592d524543454950542d563100",
+            "D6P_WITNESS_COMMITMENT_DOMAIN" => "4d5943454c49582d494e54454752414c2d4436502d5749544e4553532d563100",
+            "D6P_COMPOSITION_COMMITMENT_DOMAIN" => "4d5943454c49582d494e54454752414c2d4436502d434f4d504f534954494f4e2d563100",
+            "D6P_RECEIPT_COMMITMENT_DOMAIN" => "4d5943454c49582d494e54454752414c2d4436502d524543454950542d563100",
+            other => panic!("unknown upstream golden-vector domain {other}"),
+        };
+        assert_eq!(
+            fixture.domain_prefix_hex.get(&entry.domain_id),
+            Some(&expected_domain_hex.to_owned()),
+            "{} domain prefix drifted",
+            entry.id
+        );
         let payload = entry.preimage_payload_utf8.as_bytes();
         assert_eq!(
             upstream_hash(&entry.domain_id, payload),
