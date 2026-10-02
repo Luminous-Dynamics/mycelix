@@ -1063,6 +1063,41 @@ impl EconomicState {
         })
     }
 
+    /// Checked validation of the closed-model financial claim identities.
+    ///
+    /// Each modeled deposit, loan, and trade-credit claim must have a matching
+    /// counterpart liability somewhere in the same EconomicState. This is a
+    /// closed-system assertion; models with intentionally external counterparties
+    /// should represent them explicitly as actors/sectors.
+    pub fn closed_financial_rows_clear(&self) -> bool {
+        self.actors.iter().try_fold(
+            (
+                0i128, // deposits
+                0i128, // deposit liabilities
+                0i128, // loan claims
+                0i128, // debt
+                0i128, // trade receivables
+                0i128, // trade payables
+            ),
+            |(deposits, deposit_liabilities, loans, debt, receivables, payables), actor| {
+                Some((
+                    deposits.checked_add(actor.monetary.deposits)?,
+                    deposit_liabilities.checked_add(actor.monetary.deposit_liabilities)?,
+                    loans.checked_add(actor.monetary.claims)?,
+                    debt.checked_add(actor.monetary.liabilities)?,
+                    receivables.checked_add(actor.monetary.trade_receivables)?,
+                    payables.checked_add(actor.monetary.trade_payables)?,
+                ))
+            },
+        )
+        .map(|(deposits, deposit_liabilities, loans, debt, receivables, payables)| {
+            deposits == deposit_liabilities
+                && loans == debt
+                && receivables == payables
+        })
+        .unwrap_or(false)
+    }
+
     /// Aggregate net financial position.
     pub fn aggregate_net_financial_position(&self) -> i128 {
         self.try_aggregate_net_financial_position()
@@ -1328,3 +1363,24 @@ mod tests {
         assert_eq!(s.net_credit_impulse(), 200);
     }
 }
+
+    #[test]
+    fn closed_financial_rows_require_matching_counterparts() {
+        let mut bank = ActorBalanceSheet::new("bank");
+        let mut firm = ActorBalanceSheet::new("firm");
+        bank.monetary.deposit_liabilities = 100;
+        firm.monetary.deposits = 100;
+        bank.monetary.claims = 50;
+        firm.monetary.liabilities = 50;
+        bank.monetary.trade_receivables = 30;
+        firm.monetary.trade_payables = 30;
+        let state = EconomicState::new(vec![bank, firm]);
+        assert!(state.closed_financial_rows_clear());
+
+        let mut broken = state.clone();
+        broken.actors[1].monetary.trade_payables = 29;
+        assert!(!broken.closed_financial_rows_clear());
+    }
+
+    #[test]
+    fn aggregate_checked_sums_fail_closed_on_overflow() {
