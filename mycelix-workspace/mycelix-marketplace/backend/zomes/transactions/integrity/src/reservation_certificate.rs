@@ -1885,7 +1885,7 @@ pub fn validate_create_reservation_certificate(
     let _ = listing;
 
     let revision_record = must_get_valid_record(certificate.listing_revision.clone())?;
-    let revision_action = must_get_action(certificate.listing_revision.clone())?;
+    let revision_action = revision_record.action();
     let _revision_listing = revision_record
         .entry()
         .to_app_option::<Listing>()
@@ -2091,7 +2091,8 @@ pub fn validate_create_reservation_capacity(
         return Ok(ValidateCallbackResult::Invalid(error.into()));
     }
 
-    let listing_action = must_get_action(evidence.listing_hash.clone())?;
+    let listing_record = must_get_valid_record(evidence.listing_hash.clone())?;
+    let listing_action = listing_record.action();
     if listing_action.hashed.author() != &evidence.seller {
         return Ok(ValidateCallbackResult::Invalid(
             "Reservation capacity listing is not seller-authored".into(),
@@ -2102,7 +2103,6 @@ pub fn validate_create_reservation_capacity(
             "Reservation capacity listing hash must identify the listing root create action".into(),
         ));
     }
-    let listing_record = must_get_valid_record(evidence.listing_hash.clone())?;
     let _listing = listing_record
         .entry()
         .to_app_option::<Listing>()
@@ -2131,7 +2131,7 @@ pub fn validate_create_reservation_capacity(
                 "Reservation capacity listing revision is not a Listing entry".into(),
             ))
         })?;
-    let revision_action = must_get_action(evidence.listing_revision.clone())?;
+    let revision_action = revision_record.action();
     if revision_action.hashed.author() != &evidence.seller {
         return Ok(ValidateCallbackResult::Invalid(
             "Reservation capacity listing revision is not seller-authored".into(),
