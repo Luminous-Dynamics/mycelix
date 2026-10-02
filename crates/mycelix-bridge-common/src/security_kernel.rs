@@ -723,9 +723,10 @@ mod tests {
 
     #[test]
     fn permit_lifetime_is_bounded_by_verification_freshness() {
+        let cap = capability();
         let verified = verify_capability(
-            capability(),
-            VerificationEvidence::new_for_capability_with_valid_until(&capability(), true, true, true, 175),
+            cap.clone(),
+            VerificationEvidence::new_for_capability_with_valid_until(&cap, true, true, true, 175),
             150,
         )
         .unwrap();
@@ -746,9 +747,12 @@ mod tests {
             7,
         )
         .unwrap();
-        let verified =
-            verify_capability(long_lived, VerificationEvidence::new_for_capability(&capability(), true, true, true), 150)
-                .unwrap();
+        let verified = verify_capability(
+            long_lived.clone(),
+            VerificationEvidence::new_for_capability(&long_lived, true, true, true),
+            150,
+        )
+        .unwrap();
         let permit = authorize_permit(&verified, &request(CapabilityAction::Read), 150).unwrap();
         assert_eq!(
             permit.valid_until_us(),
@@ -944,7 +948,11 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            verify_capability(malformed, VerificationEvidence::new_for_capability(&capability(), true, true, true), 1,),
+            verify_capability(
+                malformed,
+                VerificationEvidence::new_for_capability(&capability(), true, true, true),
+                1,
+            ),
             Err(AuthorizationDecision::Deny(
                 AuthorizationDenial::InvalidCapability,
             ))
