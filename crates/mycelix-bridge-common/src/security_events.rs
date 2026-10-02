@@ -418,3 +418,6 @@ mod tests {
             )
             .unwrap_err(),
             "security event policy version does not match request"
+        );
+    }
+}
