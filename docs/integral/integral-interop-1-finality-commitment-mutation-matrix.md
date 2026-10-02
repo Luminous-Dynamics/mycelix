@@ -42,6 +42,7 @@ The reference implementation currently contains:
 - D6P cross-object assessment substitution rejection.
 - D6P D6N→D6M self-consistent substitution rejection.
 - D6P receipt/composition substitution checks.
+- D6M finality receipts now have their own deterministic commitment, require the receipt evidence root to equal the authoritative observation evidence root, and the D6M ledger rejects receipts whose commitment does not match.
 - D6S complete material receipt-field mutation coverage.
 - D6X complete certificate-field mutation coverage.
 
@@ -49,6 +50,6 @@ The reference implementation currently contains:
 
 The next conformance layer should be generated golden vectors for the complete D6M→D6N→D6P→D6O→D6S→D6X chain.
 
-Those vectors should be independently reproduced from the declared serialization/canonicalization contracts before any cross-language interoperability claim is made. D6M now declares `D6M_OBSERVATION_COMMITMENT_SERIALIZATION = serde-json-tuple-v1`; D6N declares `D6N_ASSESSMENT_COMMITMENT_SERIALIZATION = serde-json-struct-v1`. Both are deterministic Rust/Serde reference-model contracts, not cross-language canonicalization specifications. D6S explicitly defines the D6S-CANON-1 canonical encoding. The distinction should remain explicit rather than treating all six layers as already cross-language canonical. A future wire-level contract can use an established canonical JSON scheme such as RFC 8785, which exists specifically to make JSON representations invariant and hashable across implementations, but adopting it would itself be a protocol change requiring versioned vectors and migration evidence. citeturn0search0turn0search1
+Those vectors should be independently reproduced from the declared serialization/canonicalization contracts before any cross-language interoperability claim is made. D6M now declares `D6M_OBSERVATION_COMMITMENT_SERIALIZATION = serde-json-tuple-v1`; D6N declares `D6N_ASSESSMENT_COMMITMENT_SERIALIZATION = serde-json-struct-v1`. D6M finality receipts now declare `D6M_FINALITY_RECEIPT_COMMITMENT_SERIALIZATION = serde-json-struct-v1`. Both are deterministic Rust/Serde reference-model contracts, not cross-language canonicalization specifications. D6S explicitly defines the D6S-CANON-1 canonical encoding. The distinction should remain explicit rather than treating all six layers as already cross-language canonical. A future wire-level contract can use an established canonical JSON scheme such as RFC 8785, which exists specifically to make JSON representations invariant and hashable across implementations, but adopting it would itself be a protocol change requiring versioned vectors and migration evidence. citeturn0search0turn0search1
 
 Claim ceiling: **ReferenceModelOnly**.
