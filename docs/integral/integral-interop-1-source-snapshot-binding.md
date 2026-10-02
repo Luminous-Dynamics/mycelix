@@ -26,7 +26,9 @@ The source snapshot commitment participates in the D6X closure identity alongsid
 
 Therefore changing only source_dkg_snapshot_commitment produces a different D6X closure identity.
 
-D6W copies the exact projection source snapshot commitment into InputCommitmentV1. D6W additionally requires:
+D6W copies the exact projection source snapshot commitment into InputCommitmentV1. At the stricter D6W qualified-consumption boundary, that source snapshot commitment must also be in the canonical D6S SHA-256 representation; symbolic/opaque snapshot labels are rejected. This is a representation/integrity gate, not proof that the underlying DKG snapshot is authoritative.
+
+D6W additionally requires:
 
 - the D6X closure to be complete and valid;
 - the closure projection commitment to equal the projection commitment;
@@ -60,6 +62,12 @@ A caller can therefore distinguish two cases:
 The canonical receipt constructor uses the same source-binding check, so a
 self-consistent projection cannot become a canonical D6S receipt merely by
 recomputing its projection and receipt commitments.
+
+D6W goes one step further: canonical source-snapshot representation is required
+before the material can cross the downstream qualified-consumption boundary.
+This deliberately preserves the D6S ReferenceModelOnly compatibility layer for
+older symbolic fixtures while preventing those opaque identifiers from being
+treated as qualified downstream source commitments.
 
 ## Trust in the environment
 
