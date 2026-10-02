@@ -114,6 +114,16 @@ impl ActorBalanceSheet {
             + self.real.productive_capital
             + self.inventory_carrying_value
     }
+
+    /// Net operating working capital, excluding cash, deposits, and long-term
+    /// financial claims. Physical inventory quantity remains outside this
+    /// monetary measure.
+    pub fn net_working_capital(&self) -> i128 {
+        self.inventory_carrying_value
+            .checked_add(self.monetary.trade_receivables)
+            .and_then(|value| value.checked_sub(self.monetary.trade_payables))
+            .expect("working-capital overflow")
+    }
 }
 
 /// Monetary instrument used by a transfer.
@@ -1103,6 +1113,16 @@ mod tests {
         assert_eq!(s.actors[2].net_worth(), before_firm);
         assert_eq!(s.actors[1].net_worth(), before_household + 200);
         assert!(s.claims_liabilities_identity_holds());
+    }
+
+    #[test]
+    fn working_capital_is_monetary_and_excludes_physical_quantities() {
+        let mut firm = ActorBalanceSheet::new("firm");
+        firm.inventory_carrying_value = 50;
+        firm.monetary.trade_receivables = 30;
+        firm.monetary.trade_payables = 20;
+        firm.real.inventories = 100;
+        assert_eq!(firm.net_working_capital(), 60);
     }
 
     #[test]
