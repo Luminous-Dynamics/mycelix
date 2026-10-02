@@ -40,7 +40,7 @@ state representation.
 - net credit impulse observable
 - accounting-invariant tests
 
-Credit creation now follows the minimal private-money balance-sheet structure: the lender records a loan claim and deposit liability while the borrower records the matching deposit asset and debt liability. Debt repayment reverses the loan/deposit entries. Physical cash remains a distinct instrument. This closes an important modeling gap: in a bank-credit model, a deposit is itself a bank liability rather than an unexplained pool of money. Godley/Lavoie-style SFC accounting explicitly represents deposits and loans this way. citeturn3search15turn3search16
+Credit creation now follows the minimal private-money balance-sheet structure: the lender records a loan claim and deposit liability while the borrower records the matching deposit asset and debt liability. Debt repayment reverses the loan/deposit entries. Physical cash remains a distinct instrument. This closes an important modeling gap: in a bank-credit model, a deposit is itself a bank liability rather than an unexplained pool of money. Godley/Lavoie-style SFC accounting explicitly represents deposits and loans this way.
 
 ## Why this is the correct first step
 
@@ -158,7 +158,7 @@ The simulator should expose trajectories and tradeoffs rather than emit a single
 
 ## Research basis
 
-Godley/Lavoie SFC work explicitly links financial and real sides of an economy through coherent stocks and flows; the SFC literature uses balance-sheet and transactions-flow matrices and emphasizes that financial assets must have counterpart liabilities. citeturn2search12turn3search15 Keen's work connects Minskyan debt dynamics with SFC accounting and treats changes in debt as a distinct driver in monetary dynamics. citeturn0search1turn0search2 Recent ecological SFC work can then be layered on top of this monetary substrate rather than replacing it.
+Godley/Lavoie SFC work explicitly links financial and real sides of an economy through coherent stocks and flows; the SFC literature uses balance-sheet and transactions-flow matrices and emphasizes that financial assets must have counterpart liabilities. Keen's work connects Minskyan debt dynamics with SFC accounting and treats changes in debt as a distinct driver in monetary dynamics. Recent ecological SFC work can then be layered on top of this monetary substrate rather than replacing it.
 
 Relevant sources include:
 
