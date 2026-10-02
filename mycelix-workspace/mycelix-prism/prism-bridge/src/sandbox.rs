@@ -121,6 +121,17 @@ mod linux {
             return Err(SandboxEnforcementError::InvalidRuleset);
         }
 
+        // Mint the installation identity before irreversible restriction.
+        // The filesystem policy may be followed by stricter layers that deny
+        // runtime services such as getrandom(2); evidence construction must
+        // never fail after enforcement has already become irreversible.
+        let mut installation_bytes = [0u8; 16];
+        getrandom::fill(&mut installation_bytes)
+            .map_err(|_| SandboxEnforcementError::IdentityGenerationFailed)?;
+        let installation_id = SandboxInstallationId::new(
+            u128::from_be_bytes(installation_bytes)
+        ).map_err(|_| SandboxEnforcementError::IdentityGenerationFailed)?;
+
         let handled = LANDLOCK_ACCESS_FS_EXECUTE
             | LANDLOCK_ACCESS_FS_WRITE_FILE
             | LANDLOCK_ACCESS_FS_READ_FILE
@@ -173,14 +184,6 @@ mod linux {
         unsafe { libc::close(fd); }
 
         // We only report actual enforcement after restrict_self() succeeds.
-        let installation_id = SandboxInstallationId::new(
-            u128::from_be_bytes({
-                let mut bytes = [0u8; 16];
-                getrandom::fill(&mut bytes).map_err(|_| SandboxEnforcementError::IdentityGenerationFailed)?;
-                bytes
-            })
-        ).map_err(|_| SandboxEnforcementError::IdentityGenerationFailed)?;
-
         SandboxEnforcementReceipt::from_adapter(
             assignment_id,
             installation_id,
