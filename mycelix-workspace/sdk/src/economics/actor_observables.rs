@@ -98,6 +98,10 @@ impl ActorEconomicObservables {
             );
         }
 
+        if observations.len() != state.actors.len() {
+            return Err("economic state contains duplicate actor ids".into());
+        }
+
         let mut ensure_actor = |actor: &str| -> Result<(), String> {
             if !observations.contains_key(actor) {
                 return Err(format!("unknown actor in economic transition: {actor}"));
@@ -378,7 +382,7 @@ impl ActorEconomicObservables {
 }
 
 fn affected_actors(transition: &EconomicTransition) -> Vec<ActorId> {
-    match transition {
+    let mut ids = match transition { {
         EconomicTransition::MonetaryTransfer(flow) => vec![flow.from.clone(), flow.to.clone()],
         EconomicTransition::IncomeTransfer(flow) => vec![flow.payer.clone(), flow.recipient.clone()],
         EconomicTransition::CapitalInvestment(investment) => {
@@ -401,7 +405,8 @@ fn affected_actors(transition: &EconomicTransition) -> Vec<ActorId> {
         EconomicTransition::DebtRepayment(repayment) => {
             vec![repayment.lender.clone(), repayment.borrower.clone()]
         }
-    }
+    };
+    ids
 }
 
 fn apply_transition(
@@ -1025,6 +1030,15 @@ mod tests {
         assert_eq!(firm.inventory_quantity, 6);
         assert_eq!(firm.inventory_carrying_value, 50);
         assert_eq!(firm.net_worth, 80);
+    }
+
+    #[test]
+    fn duplicate_state_actor_ids_are_rejected() {
+        let state = EconomicState::new(vec![
+            ActorBalanceSheet::new("firm"),
+            ActorBalanceSheet::new("firm"),
+        ]);
+        assert!(ActorEconomicObservables::from_state_and_transitions(&state, &[]).is_err());
     }
 
     #[test]
