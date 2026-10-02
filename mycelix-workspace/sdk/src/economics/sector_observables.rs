@@ -385,6 +385,7 @@ mod tests {
     ) -> ActorEconomicObservables {
         ActorEconomicObservables {
             actor: actor.into(),
+            opening_liquidity,
             liquidity: opening_liquidity
                 .checked_add(net_liquidity_change)
                 .unwrap(),
@@ -483,8 +484,8 @@ mod tests {
             "firm-a".into(),
             ActorEconomicObservables {
                 actor: "firm-a".into(),
-                liquidity: 10,
                 opening_liquidity: 10,
+                liquidity: 10,
                 ..ActorEconomicObservables::default()
             },
         );
