@@ -639,7 +639,11 @@ mod linux {
                                     filter.push(jump_eq(low_value, 0, 4));
                                     filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base + 4));
                                     filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, high_mask));
-                                    filter.push(jump_eq(high_value, clause_mismatch_skip, 1));
+                                    // Equality makes the whole 64-bit predicate
+                                    // fail, so fall through to EPERM. Inequality
+                                    // succeeds and skips only that EPERM,
+                                    // continuing with the next predicate.
+                                    filter.push(jump_eq(high_value, 0, 1));
                                     filter.push(stmt(
                                         BPF_RET | BPF_K,
                                         SECCOMP_RET_ERRNO | libc::EPERM as u32,
@@ -652,7 +656,10 @@ mod linux {
                                     };
                                     filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base));
                                     filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, mask));
-                                    filter.push(jump_eq(value, clause_mismatch_skip, 1));
+                                    // Equality fails the NotEqual predicate and
+                                    // must reach EPERM; inequality skips only
+                                    // that EPERM and continues in this clause.
+                                    filter.push(jump_eq(value, 0, 1));
                                     filter.push(stmt(
                                         BPF_RET | BPF_K,
                                         SECCOMP_RET_ERRNO | libc::EPERM as u32,
@@ -1813,6 +1820,45 @@ mod linux {
                 interpret_v2_filter(&filter, arch, libc::SYS_socket, args),
                 SECCOMP_RET_ALLOW,
                 "masked-not-equal failure must fall through to the next clause"
+            );
+        }
+
+        #[test]
+        fn v2_disjunctive_masked_not_equal_high_word_mismatch_reaches_allow() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let first = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new_with_op(
+                    0,
+                    u64::MAX,
+                    0x0000_0001_0000_0001,
+                    SeccompArgPredicateOpV1::MaskedNotEqual,
+                ).unwrap(),
+            ]).unwrap();
+            let rule = SeccompSyscallRuleV2::new_with_clauses(
+                libc::SYS_socket,
+                vec![first],
+            ).unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+            let filter = compile_filter_v2(&policy).unwrap();
+
+            // Low 32 bits match while high 32 bits differ. The whole-word
+            // predicate therefore succeeds and must reach this clause's ALLOW.
+            let arguments = [0x0000_0002_0000_0001, 0, 0, 0, 0, 0];
+            assert!(policy.allows(libc::SYS_socket, &arguments));
+            assert_eq!(
+                interpret_v2_filter(&filter, arch, libc::SYS_socket, arguments),
+                SECCOMP_RET_ALLOW,
+                "high-word inequality must not fall into EPERM"
+            );
+
+            // Exact whole-word equality must still fail the predicate and
+            // reach the global/default denial path.
+            let equal = [0x0000_0001_0000_0001, 0, 0, 0, 0, 0];
+            assert!(!policy.allows(libc::SYS_socket, &equal));
+            assert_eq!(
+                interpret_v2_filter(&filter, arch, libc::SYS_socket, equal),
+                SECCOMP_RET_ERRNO | libc::EPERM as u32,
+                "whole-word equality must deny a MaskedNotEqual predicate"
             );
         }
 
