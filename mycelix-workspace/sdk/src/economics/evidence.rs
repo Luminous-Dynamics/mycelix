@@ -303,7 +303,7 @@ mod tests {
         let sectors = SectorEconomicObservables::from_actor_observations(&actors, &assignments)
             .unwrap();
         let mut changed = sectors.clone();
-        changed.get_mut(&EconomicSector::Household).unwrap().closing_liquidity += 1;
+        changed.get_mut(&EconomicSector::Household).unwrap().depreciation += 1;
 
         let a = EconomicEvidenceCapsule::seal_with_actor_and_sector_observations(
             manifest.clone(),
