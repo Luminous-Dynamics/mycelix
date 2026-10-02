@@ -767,6 +767,52 @@ mod linux {
         }
 
         #[test]
+        fn v2_install_requires_exact_profile_commitment() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let rule = SeccompSyscallRuleV2::new(
+                libc::SYS_prctl,
+                vec![SeccompArgPredicateV1::new(0, u64::MAX, libc::PR_GET_NO_NEW_PRIVS as u64).unwrap()],
+            ).unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+            let profile = SandboxProfileV1::renderer_default();
+            assert!(matches!(
+                install_v2(RendererProcessAssignmentId::new(5).unwrap(), profile, &policy),
+                Err(SeccompError::PolicyCommitmentMismatch)
+            ));
+        }
+
+        #[test]
+        fn v2_install_rejects_forbidden_renderer_syscalls_before_enforcement() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let rule = SeccompSyscallRuleV2::new(
+                libc::SYS_ptrace,
+                Vec::new(),
+            ).unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+            let profile = SandboxProfileV1::renderer_default()
+                .with_syscall_policy_digest(policy.digest())
+                .unwrap();
+
+            assert!(matches!(
+                install_v2(RendererProcessAssignmentId::new(6).unwrap(), profile, &policy),
+                Err(SeccompError::ForbiddenRendererSyscall(syscall))
+                    if syscall == libc::SYS_ptrace
+            ));
+        }
+
+        #[test]
+        fn v2_evidence_digest_is_distinct_from_v2_policy_digest() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let rule = SeccompSyscallRuleV2::new(
+                libc::SYS_prctl,
+                vec![SeccompArgPredicateV1::new(0, u64::MAX, libc::PR_GET_NO_NEW_PRIVS as u64).unwrap()],
+            ).unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+            let filter = compile_filter_v2(&policy).unwrap();
+            assert_ne!(seccomp_evidence_digest_v2(&policy, &filter), policy.digest());
+        }
+
+        #[test]
         fn v2_compiler_rejects_wrong_architecture() {
             let current = SeccompArchitecture::current().unwrap();
             let other = match current {
