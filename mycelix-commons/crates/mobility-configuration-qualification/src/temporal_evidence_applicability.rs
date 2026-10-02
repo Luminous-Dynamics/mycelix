@@ -289,9 +289,15 @@ impl EvidenceDispositionAuthorityDelegation {
     ) -> Result<AuthorityDelegationChainAssessment, String> {
         use std::collections::BTreeMap;
 
-        let mut by_id: BTreeMap<IdentityRef, Vec<&EvidenceDispositionAuthorityDelegation>> = BTreeMap::new();
+        let mut by_id: BTreeMap<
+            IdentityRef,
+            Vec<&EvidenceDispositionAuthorityDelegation>,
+        > = BTreeMap::new();
         for delegation in delegations {
-            by_id.entry(delegation.delegation_id.clone()).or_default().push(delegation);
+            by_id
+                .entry(delegation.delegation_id.clone())
+                .or_default()
+                .push(delegation);
         }
 
         let target = match by_id.get(delegation_id) {
@@ -306,7 +312,48 @@ impl EvidenceDispositionAuthorityDelegation {
             }
             Some(candidates) => candidates[0],
         };
+
+        Self::validate_chain_with_target(target, delegations)
+    }
+
+    /// Validate a named delegation chain when the target delegation record is
+    /// already available as part of the object currently being validated.
+    ///
+    /// The target is therefore not itself a DHT dependency of this operation.
+    /// The supplied slice contains additional predecessor dependencies. If the
+    /// same target identity is also present, it must be byte-for-byte equivalent
+    /// to the direct target witness; unrelated records remain outside the
+    /// dependency cone.
+    pub fn validate_chain_with_target(
+        target: &EvidenceDispositionAuthorityDelegation,
+        delegations: &[EvidenceDispositionAuthorityDelegation],
+    ) -> Result<AuthorityDelegationChainAssessment, String> {
+        use std::collections::BTreeMap;
+
         target.validate()?;
+
+        let mut by_id: BTreeMap<
+            IdentityRef,
+            Vec<&EvidenceDispositionAuthorityDelegation>,
+        > = BTreeMap::new();
+        for delegation in delegations {
+            by_id
+                .entry(delegation.delegation_id.clone())
+                .or_default()
+                .push(delegation);
+        }
+
+        if let Some(candidates) = by_id.get(&target.delegation_id) {
+            if candidates.len() != 1 {
+                return Err("duplicate authority delegation identity".into());
+            }
+            if *candidates[0] != *target {
+                return Err(
+                    "provided authority delegation target conflicts with supplied dependency"
+                        .into(),
+                );
+            }
+        }
 
         let mut current = target;
         let mut seen = std::collections::BTreeSet::new();
@@ -1152,10 +1199,11 @@ impl EvidenceDispositionReconciliationCoverage {
         let (named_transitions, missing_transitions) =
             self.collect_named_transition_dependencies(reconciliation, transitions)?;
 
-        let authority_assessment = EvidenceDispositionAuthorityDelegation::validate_chain(
-            &authority_delegation.delegation_id,
-            delegations,
-        )?;
+        let authority_assessment =
+            EvidenceDispositionAuthorityDelegation::validate_chain_with_target(
+                authority_delegation,
+                delegations,
+            )?;
 
         if !missing_transitions.is_empty() {
             return match authority_assessment {
@@ -2853,6 +2901,124 @@ mod tests {
                     "authority-coverage-missing"
                 )],
                 roots: vec![],
+            })
+        );
+    }
+
+    #[test]
+    fn reconciliation_coverage_uses_direct_authority_target_without_requiring_duplicate_dependency() {
+        let mut root = authority_delegation("reconcile-direct-authority-target");
+        root.delegation_id = id(
+            IdentityKind::ReconciliationWitness,
+            "authority-direct-target-root",
+        );
+        root.grantee = id(
+            IdentityKind::ReconciliationWitness,
+            "authority-direct-target-grantor",
+        );
+        root.subject = id(
+            IdentityKind::ReconciliationWitness,
+            "reconcile-direct-authority-target",
+        );
+
+        let child = EvidenceDispositionAuthorityDelegation {
+            delegation_id: id(
+                IdentityKind::ReconciliationWitness,
+                "authority-direct-target-child",
+            ),
+            grantor: root.grantee.clone(),
+            grantee: id(
+                IdentityKind::ReconciliationWitness,
+                "authority-direct-target",
+            ),
+            subject: root.subject.clone(),
+            predecessor: Some(root.delegation_id.clone()),
+            basis: vec![],
+        };
+        let reconciliation = EvidenceDispositionReconciliation {
+            reconciliation_id: root.subject.clone(),
+            evidence: id(IdentityKind::InspectionRecord, "inspection-graph"),
+            branch_point: id(IdentityKind::ReconciliationWitness, "t1"),
+            branch_heads: vec![
+                id(IdentityKind::ReconciliationWitness, "t2"),
+                id(IdentityKind::ReconciliationWitness, "t3"),
+            ],
+            authority: child.grantee.clone(),
+            authority_scope: id(
+                IdentityKind::ReconciliationWitness,
+                "authority-scope-direct-target",
+            ),
+            authority_delegation: child.delegation_id.clone(),
+            basis: vec![],
+        };
+        let scope = EvidenceDispositionAuthorityScope {
+            scope_id: reconciliation.authority_scope.clone(),
+            authority: reconciliation.authority.clone(),
+            subject: reconciliation.reconciliation_id.clone(),
+            delegation: child.delegation_id.clone(),
+            basis: vec![],
+        };
+        let boundary = EvidenceDispositionCoverageBoundary {
+            boundary_id: id(
+                IdentityKind::ReconciliationWitness,
+                "boundary-direct-target",
+            ),
+            reconciliation: reconciliation.reconciliation_id.clone(),
+            evidence: reconciliation.evidence.clone(),
+            branch_point: reconciliation.branch_point.clone(),
+            branch_heads: reconciliation.branch_heads.clone(),
+            authority: reconciliation.authority.clone(),
+            authority_scope: reconciliation.authority_scope.clone(),
+            authority_delegation: child.delegation_id.clone(),
+            basis: vec![],
+        };
+        let coverage = EvidenceDispositionReconciliationCoverage {
+            coverage_id: id(
+                IdentityKind::ReconciliationWitness,
+                "coverage-direct-target",
+            ),
+            reconciliation: reconciliation.reconciliation_id.clone(),
+            branch_point: reconciliation.branch_point.clone(),
+            covered_branch_heads: reconciliation.branch_heads.clone(),
+            boundary: boundary.boundary_id.clone(),
+            basis: vec![],
+        };
+
+        let disputed = EvidenceDisposition::Disputed {
+            by: id(IdentityKind::ReconciliationWitness, "w1"),
+        };
+        let root_transition = graph_transition(
+            "t1",
+            None,
+            EvidenceDisposition::Active,
+            disputed.clone(),
+        );
+        let left = graph_transition(
+            "t2",
+            Some("t1"),
+            disputed.clone(),
+            EvidenceDisposition::Active,
+        );
+        let right = graph_transition(
+            "t3",
+            Some("t1"),
+            disputed,
+            EvidenceDisposition::Retracted {
+                by: id(IdentityKind::ReconciliationWitness, "w2"),
+            },
+        );
+
+        assert_eq!(
+            coverage.validate_against_graph_and_authority_chain_assessment(
+                &reconciliation,
+                &scope,
+                &child,
+                &[root],
+                &boundary,
+                &[root_transition, left, right],
+            ),
+            Ok(EvidenceDispositionCoverageAssessment::Complete {
+                authority_roots: vec![root.delegation_id],
             })
         );
     }
