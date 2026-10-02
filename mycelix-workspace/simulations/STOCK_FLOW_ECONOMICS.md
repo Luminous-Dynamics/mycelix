@@ -368,11 +368,12 @@ A single deterministic timestep is now linkable into an append-only evidence his
 
 Each chain node binds:
 
+- the genesis state hash;
 - the predecessor receipt hash;
 - the complete step receipt;
 - the resulting chain hash.
 
-Therefore changing transition order, pre/post state, period, or any predecessor changes the downstream chain. This provides a lightweight audit primitive for long economic simulations without putting evidence bookkeeping into the economic state itself.
+The API links a new node from the previous chain node rather than accepting a bare predecessor string, so the genesis identity propagates automatically. Therefore changing transition order, pre/post state, period, genesis, or any predecessor changes the downstream chain. This provides a lightweight audit primitive for long economic simulations without putting evidence bookkeeping into the economic state itself.
 
 The intended evidence path is:
 
