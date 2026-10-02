@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use super::sector_balance::{
-    BalanceSheetInstrument, PhysicalStockInstrument, SectorAssignment,
+    BalanceSheetEntry, BalanceSheetInstrument, PhysicalStockInstrument, SectorAssignment,
     SectorBalanceSheet, SectorPhysicalStock,
 };
 use super::sector_flow::EconomicSector;
