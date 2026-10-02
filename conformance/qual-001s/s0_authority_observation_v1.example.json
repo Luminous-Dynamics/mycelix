@@ -11,12 +11,14 @@
   "request_authentication": {
     "state": "OBSERVED",
     "source": "illustrative authenticated API boundary",
-    "rule_id": "AUTH-EXAMPLE-001"
+    "rule_id": "AUTH-EXAMPLE-001",
+    "principal_identity": "github.example.authorized-actor"
   },
   "actor_authorization": {
     "state": "OBSERVED",
     "source": "illustrative actor policy observation",
-    "rule_id": "ACTOR-EXAMPLE-001"
+    "rule_id": "ACTOR-EXAMPLE-001",
+    "principal_identity": "github.example.authorized-actor"
   },
   "event_authorization": {
     "state": "OBSERVED",
@@ -32,5 +34,10 @@
   "run_attribution": {
     "state": "UNOBSERVED"
   },
-  "observation_state": "OBSERVED"
+  "observation_state": "OBSERVED",
+  "dispatch_ref": "main",
+  "dispatch_input_commitment_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+  "authenticated_principal_identity": "github.example.authorized-actor",
+  "policy_scope_identity": "repository.actions.workflow-execution-protection.v1",
+  "observation_timestamp": "2026-01-01T00:00:02Z"
 }
