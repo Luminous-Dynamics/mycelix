@@ -776,4 +776,15 @@ instead of independently trusting several projections.
 `EconomicEvidenceCapsule::seal_with_accounting_closure` additionally self-verifies the closure and
 requires its pre-state, post-state, transition hash, and transition count to match the final
 evidence-chain step before binding the closure hash into the capsule.
+## Source-revision provenance (implemented)
 
+`EconomicEvidenceManifest` now supports an optional exact source revision, such as the Git commit
+SHA used to generate the evidence. The field is omitted from serialization when unset, preserving
+legacy manifest bytes and therefore legacy hashes; when supplied, it becomes part of the manifest
+hash and is consequently bound into the final evidence capsule.
+
+This separates three reproducibility identities explicitly:
+
+`source revision + parameter hash + seed`
+
+with the initial-state and transition/evidence hashes providing the run-specific execution identity.
