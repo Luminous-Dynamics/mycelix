@@ -306,15 +306,45 @@ pub enum AuthorityDisposition {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct FederationOutcome {
-    pub decision: FederationDecision,
-    pub authority: AuthorityDisposition,
+    decision: FederationDecision,
+    authority: AuthorityDisposition,
     /// The envelope's claimed origin. origin_node_known distinguishes this
     /// claim from a node identity established by the reference model.
-    pub origin_node: Option<String>,
-    pub origin_node_known: bool,
-    pub logical_delivery_id: String,
-    pub attempt_id: String,
-    pub reason: &'static str,
+    origin_node: Option<String>,
+    origin_node_known: bool,
+    logical_delivery_id: String,
+    attempt_id: String,
+    reason: &'static str,
+}
+
+impl FederationOutcome {
+    pub fn decision(&self) -> FederationDecision {
+        self.decision
+    }
+
+    pub fn authority(&self) -> AuthorityDisposition {
+        self.authority
+    }
+
+    pub fn origin_node(&self) -> Option<&str> {
+        self.origin_node.as_deref()
+    }
+
+    pub fn origin_node_known(&self) -> bool {
+        self.origin_node_known
+    }
+
+    pub fn logical_delivery_id(&self) -> &str {
+        &self.logical_delivery_id
+    }
+
+    pub fn attempt_id(&self) -> &str {
+        &self.attempt_id
+    }
+
+    pub fn reason(&self) -> &'static str {
+        self.reason
+    }
 }
 
 impl FederationOutcome {
@@ -1621,6 +1651,23 @@ mod tests {
         assert_eq!(outcome.authority, AuthorityDisposition::NoAuthority);
         assert!(state.deliveries.is_empty());
         assert_eq!(state.observations.get("env-1"), Some(&existing));
+    }
+
+    #[test]
+    fn federation_outcome_exposes_only_read_only_accessors() {
+        let mut state = nodes();
+        let outcome = deliver(&mut state, &envelope(), 50, true);
+
+        assert_eq!(outcome.decision(), FederationDecision::AcceptedLocal);
+        assert_eq!(outcome.authority(), AuthorityDisposition::LocalAuthority);
+        assert_eq!(outcome.origin_node(), Some("node-a"));
+        assert!(outcome.origin_node_known());
+        assert_eq!(outcome.logical_delivery_id(), "delivery-1");
+        assert_eq!(outcome.attempt_id(), "attempt-1");
+        assert_eq!(
+            outcome.reason(),
+            "Delivery admitted without rewriting origin or minting local authority."
+        );
     }
 
     #[test]
