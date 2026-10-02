@@ -94,6 +94,8 @@ pub struct VerificationEvidence {
     signature_verified: bool,
     not_revoked: bool,
     authority_unambiguous: bool,
+    /// Upper bound on how long this verification evidence may authorize.
+    valid_until_us: u64,
 }
 
 impl VerificationEvidence {
@@ -111,6 +113,25 @@ impl VerificationEvidence {
             signature_verified,
             not_revoked,
             authority_unambiguous,
+            valid_until_us: u64::MAX,
+        }
+    }
+
+    /// Construct trusted evidence with an explicit freshness lease.
+    ///
+    /// The lease is an upper bound on authorization derived from this evidence;
+    /// enforcement must revalidate it before an external effect.
+    pub(crate) const fn new_with_valid_until(
+        signature_verified: bool,
+        not_revoked: bool,
+        authority_unambiguous: bool,
+        valid_until_us: u64,
+    ) -> Self {
+        Self {
+            signature_verified,
+            not_revoked,
+            authority_unambiguous,
+            valid_until_us,
         }
     }
 }
@@ -118,6 +139,7 @@ impl VerificationEvidence {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VerifiedCapability {
     capability: Capability,
+    verification_valid_until_us: u64,
 }
 
 /// A short-lived, non-serializable authorization permit bound to one exact
@@ -396,13 +418,19 @@ pub fn verify_capability(
             AuthorizationIndeterminacy::AmbiguousAuthority,
         ));
     }
-    if now_us < capability.not_before_us || now_us > capability.expires_at_us {
+    if now_us < capability.not_before_us
+        || now_us > capability.expires_at_us
+        || now_us > evidence.valid_until_us
+    {
         return Err(AuthorizationDecision::Deny(
             AuthorizationDenial::OutsideValidityWindow,
         ));
     }
 
-    Ok(VerifiedCapability { capability })
+    Ok(VerifiedCapability {
+        capability,
+        verification_valid_until_us: evidence.valid_until_us,
+    })
 }
 
 /// Evaluate authorization from verified credentials and an explicit request.
@@ -437,7 +465,7 @@ pub fn revalidate_permit(
             AuthorizationIndeterminacy::AmbiguousAuthority,
         );
     }
-    if !permit.is_valid_at(now_us) {
+    if now_us > evidence.valid_until_us || !permit.is_valid_at(now_us) {
         return AuthorizationDecision::Deny(AuthorizationDenial::OutsideValidityWindow);
     }
     AuthorizationDecision::Allow
@@ -479,7 +507,10 @@ pub fn authorize_permit(
     }
 
     let permit_lifetime_us = now_us.saturating_add(MAX_AUTHORIZATION_PERMIT_LIFETIME_US);
-    let valid_until_us = c.expires_at_us.min(permit_lifetime_us);
+    let valid_until_us = c
+        .expires_at_us
+        .min(verified.verification_valid_until_us)
+        .min(permit_lifetime_us);
 
     Ok(AuthorizationPermit {
         request: request.clone(),
@@ -621,6 +652,19 @@ mod tests {
         assert_eq!(enforcement.valid_until_us(), 200);
         assert!(enforcement.is_valid_at(200));
         assert!(!enforcement.is_valid_at(201));
+    }
+
+    #[test]
+    fn permit_lifetime_is_bounded_by_verification_freshness() {
+        let verified = verify_capability(
+            capability(),
+            VerificationEvidence::new_with_valid_until(true, true, true, 175),
+            150,
+        )
+        .unwrap();
+        let permit = authorize_permit(&verified, &request(CapabilityAction::Read), 150).unwrap();
+        assert_eq!(permit.valid_until_us(), 175);
+        assert!(!permit.is_valid_at(176));
     }
 
     #[test]
