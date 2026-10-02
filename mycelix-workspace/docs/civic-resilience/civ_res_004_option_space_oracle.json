@@ -1,0 +1,97 @@
+{
+  "schema": "mycelix.civic-resilience.option-space-qualification-oracle.v1",
+  "program": "CIV-RES-004",
+  "oracle_policy": "evaluator_only_not_passed_to_candidate",
+  "cases": [
+    {
+      "id": "OS-01",
+      "check": "exists",
+      "expected": "unreachable_or_unknown"
+    },
+    {
+      "id": "OS-02",
+      "check": "geo_reachable",
+      "expected": "usability_blocked"
+    },
+    {
+      "id": "OS-03",
+      "check": "conflict",
+      "expected": "preserve_conflict"
+    },
+    {
+      "id": "OS-04",
+      "check": "stale",
+      "expected": "not_current"
+    },
+    {
+      "id": "OS-05",
+      "check": "nominal_breadth",
+      "expected": "not_independent_redundancy"
+    },
+    {
+      "id": "OS-06",
+      "check": "independent_roots",
+      "expected": "preserve_separate"
+    },
+    {
+      "id": "OS-07",
+      "check": "later_pathway",
+      "expected": "not_immediate"
+    },
+    {
+      "id": "OS-08",
+      "check": "operational_resolution",
+      "expected": "not_outcome_or_causal"
+    },
+    {
+      "id": "OS-09",
+      "check": "economic_observation",
+      "expected": "descriptive_only"
+    },
+    {
+      "id": "OS-10",
+      "check": "options_after",
+      "expected": "expanded_record_only"
+    },
+    {
+      "id": "OS-11",
+      "check": "versioned_feedback",
+      "expected": "no_historical_mutation"
+    },
+    {
+      "id": "OS-12",
+      "check": "public_aggregate",
+      "expected": "privacy_scope_explicit"
+    },
+    {
+      "id": "OS-13",
+      "check": "person_risk_transform",
+      "expected": "reject"
+    },
+    {
+      "id": "OS-14",
+      "check": "authority_edge",
+      "expected": "reject"
+    },
+    {
+      "id": "OS-15",
+      "check": "synthetic_marker",
+      "expected": "reject_strip"
+    },
+    {
+      "id": "OS-16",
+      "check": "missing_capacity",
+      "expected": "unknown_not_zero"
+    },
+    {
+      "id": "OS-17",
+      "check": "event_effectivity_order",
+      "expected": "deterministic_by_time"
+    },
+    {
+      "id": "OS-18",
+      "check": "same_current_state",
+      "expected": "history_preserved"
+    }
+  ]
+}
