@@ -1966,6 +1966,51 @@ mod tests {
     }
 
     #[test]
+    fn authority_scope_reports_missing_named_delegation_predecessor() {
+        let reconciliation = EvidenceDispositionReconciliation {
+            reconciliation_id: id(IdentityKind::ReconciliationWitness, "reconcile-scope-chain-missing"),
+            evidence: id(IdentityKind::InspectionRecord, "inspection-graph"),
+            branch_point: id(IdentityKind::ReconciliationWitness, "t1"),
+            branch_heads: vec![
+                id(IdentityKind::ReconciliationWitness, "t2"),
+                id(IdentityKind::ReconciliationWitness, "t3"),
+            ],
+            authority: id(IdentityKind::ReconciliationWitness, "authority-scope-chain-missing"),
+            authority_scope: id(IdentityKind::ReconciliationWitness, "authority-scope-chain-missing-witness"),
+            authority_delegation: id(IdentityKind::ReconciliationWitness, "authority-delegation-scope-chain-missing"),
+            basis: vec![],
+        };
+        let delegation = EvidenceDispositionAuthorityDelegation {
+            delegation_id: reconciliation.authority_delegation.clone(),
+            grantor: id(IdentityKind::ReconciliationWitness, "authority-grantor-scope-chain-missing"),
+            grantee: reconciliation.authority.clone(),
+            subject: reconciliation.reconciliation_id.clone(),
+            predecessor: Some(id(IdentityKind::ReconciliationWitness, "authority-delegation-missing-predecessor")),
+            basis: vec![],
+        };
+        let scope = EvidenceDispositionAuthorityScope {
+            scope_id: reconciliation.authority_scope.clone(),
+            authority: reconciliation.authority.clone(),
+            subject: reconciliation.reconciliation_id.clone(),
+            delegation: delegation.delegation_id.clone(),
+            basis: vec![],
+        };
+        assert_eq!(
+            scope.validate_against_reconciliation_and_authority_chain(
+                &reconciliation,
+                &[delegation],
+            ),
+            Ok(AuthorityDelegationChainAssessment::Unresolved {
+                missing: vec![id(
+                    IdentityKind::ReconciliationWitness,
+                    "authority-delegation-missing-predecessor"
+                )],
+                roots: vec![],
+            })
+        );
+    }
+
+    #[test]
     fn authority_scope_validates_named_delegation_chain() {
         let reconciliation = EvidenceDispositionReconciliation {
             reconciliation_id: id(IdentityKind::ReconciliationWitness, "reconcile-scope-chain"),
