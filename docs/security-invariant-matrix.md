@@ -47,6 +47,8 @@ This prevents a downstream enforcement adapter from accepting an arbitrary reque
 
 The new implementation remains a policy/type boundary. `VerificationEvidence` is now intentionally opaque and can only be constructed inside the bridge crate; its capability binding is derived from the canonical capability semantics, so evidence cannot be substituted between capabilities. The actual identity/authority adapter still needs to supply trustworthy signature, revocation, and authority evidence. Its authority-freshness commitment is intentionally opaque in the bridge layer and must track the existing generation-bound authority semantics rather than create a parallel generation model. The intended adapter should reuse Mycelix's existing canonical institutional authority identity (PR #75) rather than duplicate grant identity semantics.
 
+A zero authority-freshness commitment is treated as missing authority evidence and therefore yields `Indeterminate(AmbiguousAuthority)` at both verification and enforcement; it is never a valid “unknown” placeholder for a permit.
+
 ## Evidence durability invariant
 
 Build reproducibility is part of the security evidence boundary as well: the standalone bridge crate is committed with a `Cargo.lock`, and qualification invokes Cargo with `--locked`. A missing or divergent lockfile therefore fails qualification rather than silently changing the dependency graph.
