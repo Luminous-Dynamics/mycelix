@@ -217,19 +217,48 @@ pub fn postings_for_step(
             }
             EconomicTransition::InventoryCostAddition(addition) => {
                 let actor = sector_for(assignments, &addition.actor)?;
-                vec![StockPosting::new(
-                    actor,
-                    BalanceSheetInstrument::InventoryCarryingValue,
-                    addition.carrying_value,
-                )]
+                vec![
+                    StockPosting::new(
+                        actor,
+                        BalanceSheetInstrument::InventoryCarryingValue,
+                        addition.carrying_value,
+                    ),
+                    StockPosting::new(
+                        actor,
+                        BalanceSheetInstrument::Equity,
+                        -addition.carrying_value,
+                    ),
+                ]
             }
             EconomicTransition::InventoryCostRelief(relief) => {
                 let actor = sector_for(assignments, &relief.actor)?;
-                vec![StockPosting::new(
-                    actor,
-                    BalanceSheetInstrument::InventoryCarryingValue,
-                    -relief.carrying_value,
-                )]
+                vec![
+                    StockPosting::new(
+                        actor,
+                        BalanceSheetInstrument::InventoryCarryingValue,
+                        -relief.carrying_value,
+                    ),
+                    StockPosting::new(
+                        actor,
+                        BalanceSheetInstrument::Equity,
+                        relief.carrying_value,
+                    ),
+                ]
+            }
+            EconomicTransition::Depreciation(depreciation) => {
+                let actor = sector_for(assignments, &depreciation.actor)?;
+                vec![
+                    StockPosting::new(
+                        actor,
+                        BalanceSheetInstrument::ProductiveCapital,
+                        -depreciation.amount,
+                    ),
+                    StockPosting::new(
+                        actor,
+                        BalanceSheetInstrument::Equity,
+                        depreciation.amount,
+                    ),
+                ]
             }
             EconomicTransition::CreditCreation(credit) => {
                 let lender = sector_for(assignments, &credit.lender)?;
@@ -467,7 +496,7 @@ mod tests {
     use crate::economics::stock_flow::{
         ActorBalanceSheet, CapitalInvestment, ProductionEvent, InventoryTransfer,
         InventoryConsumption, GoodsSale, InventoryCostAddition, InventoryCostRelief,
-        CreditCreation, DebtRepayment, IncomeTransfer, MonetaryFlow,
+        Depreciation, CreditCreation, DebtRepayment, IncomeTransfer, MonetaryFlow,
     };
     use crate::economics::transition::apply_step;
 
@@ -635,6 +664,20 @@ mod tests {
         )];
         let (post, _) = apply_step(&pre, 1, &transitions, None).unwrap();
         assert_eq!(post.actors.iter().find(|a| a.actor == "household").unwrap().real.inventories, 25);
+        reconcile_step(&pre, &post, &assignments, &transitions).unwrap();
+    }
+
+    #[test]
+    fn depreciation_reconciles_capital_and_equity() {
+        let (mut pre, assignments) = setup();
+        pre.actors.iter_mut().find(|a| a.actor == "firm").unwrap().real.productive_capital = 100;
+
+        let transitions = vec![
+            EconomicTransition::Depreciation(
+                Depreciation::new("firm", 25).unwrap(),
+            ),
+        ];
+        let (post, _) = apply_step(&pre, 1, &transitions, None).unwrap();
         reconcile_step(&pre, &post, &assignments, &transitions).unwrap();
     }
 
