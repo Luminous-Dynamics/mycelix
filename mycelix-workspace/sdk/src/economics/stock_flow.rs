@@ -323,10 +323,18 @@ impl EconomicState {
         self.credit_created - self.debt_repaid
     }
 
-    /// Check the fundamental SFC identity: aggregate net financial assets
-    /// equal the system-level residual rather than silently drifting.
+    /// Check the internal financial-instrument identity: every modeled claim
+    /// has a matching modeled liability. This is deliberately narrower than
+    /// requiring aggregate net financial assets to equal zero, because cash
+    /// can be backed by an issuer or external sector not represented here.
+    pub fn claims_liabilities_identity_holds(&self) -> bool {
+        self.aggregate_claims() == self.aggregate_liabilities()
+    }
+
+    /// Backward-compatible accounting check. New code should prefer the
+    /// instrument-level claims/liabilities identity above.
     pub fn accounting_identity_holds(&self) -> bool {
-        self.aggregate_net_financial_position() == 0
+        self.claims_liabilities_identity_holds()
     }
 }
 
@@ -352,8 +360,9 @@ mod tests {
             .unwrap();
 
         assert_eq!(s.aggregate_assets(), 1_500);
+        assert_eq!(s.aggregate_claims(), 500);
         assert_eq!(s.aggregate_liabilities(), 500);
-        assert_eq!(s.aggregate_net_financial_position(), 1_000);
+        assert!(s.claims_liabilities_identity_holds());
         assert_eq!(s.credit_created, 500);
     }
 
