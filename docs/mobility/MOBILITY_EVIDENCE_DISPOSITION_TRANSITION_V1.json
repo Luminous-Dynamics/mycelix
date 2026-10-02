@@ -396,6 +396,11 @@
       "id": "EDT-077",
       "case": "authority_scope_reports_missing_named_delegation_target",
       "expected": "unresolved_at_protocol_layer"
+    },
+    {
+      "id": "EDT-078",
+      "case": "authority_scope_rejects_binding_mismatch_before_unresolved_predecessor",
+      "expected": "rejected"
     }
   ]
 }
