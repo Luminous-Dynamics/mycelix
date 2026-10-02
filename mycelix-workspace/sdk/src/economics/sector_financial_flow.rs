@@ -10,7 +10,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::sector_balance::SectorAssignment;
+use super::sector_balance::{BalanceSheetInstrument, SectorAssignment, SectorBalanceSheet};
 use super::sector_flow::EconomicSector;
 use super::stock_flow::ActorId;
 use super::transition::EconomicTransition;
@@ -172,6 +172,76 @@ impl SectorFinancialFlowMatrix {
         Ok(matrix)
     }
 
+    /// Validate that financial-claim flows explain the relevant
+    /// balance-sheet instrument deltas between two sector snapshots.
+    pub fn validate_against_balance_sheet_delta(
+        &self,
+        pre: &SectorBalanceSheet,
+        post: &SectorBalanceSheet,
+    ) -> Result<(), String> {
+        const SECTORS: [EconomicSector; 6] = [
+            EconomicSector::Household,
+            EconomicSector::Firm,
+            EconomicSector::Bank,
+            EconomicSector::Commons,
+            EconomicSector::Public,
+            EconomicSector::External,
+        ];
+        const INSTRUMENTS: [BalanceSheetInstrument; 4] = [
+            BalanceSheetInstrument::Loans,
+            BalanceSheetInstrument::Debt,
+            BalanceSheetInstrument::TradeReceivables,
+            BalanceSheetInstrument::TradePayables,
+        ];
+
+        for sector in SECTORS {
+            for instrument in INSTRUMENTS {
+                let actual = post
+                    .sector_instrument_total_checked(sector, instrument)?
+                    .checked_sub(pre.sector_instrument_total_checked(sector, instrument)?)
+                    .ok_or_else(|| "sector financial stock delta overflow".to_string())?;
+                let expected = self.expected_instrument_delta(sector, instrument)?;
+                if actual != expected {
+                    return Err(format!(
+                        "sector {:?} {:?} delta mismatch: expected {}, actual {}",
+                        sector, instrument, expected, actual
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn expected_instrument_delta(
+        &self,
+        sector: EconomicSector,
+        instrument: BalanceSheetInstrument,
+    ) -> Result<i128, String> {
+        self.flows.iter().try_fold(0i128, |sum, flow| {
+            let delta = match (flow.category, flow.from == sector, flow.to == sector) {
+                (FinancialFlowCategory::LoanCreation, true, false)
+                    if instrument == BalanceSheetInstrument::Loans => flow.amount,
+                (FinancialFlowCategory::LoanCreation, false, true)
+                    if instrument == BalanceSheetInstrument::Debt => flow.amount,
+                (FinancialFlowCategory::DebtRepayment, true, false)
+                    if instrument == BalanceSheetInstrument::Debt => -flow.amount,
+                (FinancialFlowCategory::DebtRepayment, false, true)
+                    if instrument == BalanceSheetInstrument::Loans => -flow.amount,
+                (FinancialFlowCategory::TradeCreditExtension, true, false)
+                    if instrument == BalanceSheetInstrument::TradeReceivables => flow.amount,
+                (FinancialFlowCategory::TradeCreditExtension, false, true)
+                    if instrument == BalanceSheetInstrument::TradePayables => flow.amount,
+                (FinancialFlowCategory::TradeCreditSettlement, true, false)
+                    if instrument == BalanceSheetInstrument::TradeReceivables => -flow.amount,
+                (FinancialFlowCategory::TradeCreditSettlement, false, true)
+                    if instrument == BalanceSheetInstrument::TradePayables => -flow.amount,
+                _ => 0,
+            };
+            sum.checked_add(delta)
+                .ok_or_else(|| "sector financial claim delta overflow".to_string())
+        })
+    }
+
     /// Validate exact agreement with the authoritative transition log and
     /// exact-one sector assignment coverage.
     pub fn validate_against(
@@ -284,6 +354,48 @@ mod tests {
         });
         assert!(!m.clears());
         assert!(m.try_gross_flow_volume().is_err());
+    }
+
+    #[test]
+    fn financial_matrix_reconciles_balance_sheet_claim_deltas() {
+        let bank = ActorBalanceSheet::new("bank");
+        let mut firm = ActorBalanceSheet::new("firm");
+        firm.real.inventories = 2;
+        let mut household = ActorBalanceSheet::new("household");
+        household.monetary.deposits = 20;
+        let pre = EconomicState::new(vec![bank, firm, household]);
+        let transitions = vec![
+            EconomicTransition::TradeCreditSale(
+                TradeCreditSale::new("firm", "household", 2, 40).unwrap(),
+            ),
+            EconomicTransition::TradeCreditSettlement(
+                TradeCreditSettlement::new("firm", "household", 15).unwrap(),
+            ),
+        ];
+        let (post, _) =
+            crate::economics::transition::apply_step(&pre, 1, &transitions, None).unwrap();
+        let assignments = assignments();
+        let pre_sheet = SectorBalanceSheet::from_state(&pre, &assignments).unwrap();
+        let post_sheet = SectorBalanceSheet::from_state(&post, &assignments).unwrap();
+        let matrix = SectorFinancialFlowMatrix::from_transitions(&transitions, &assignments).unwrap();
+
+        matrix
+            .validate_against_balance_sheet_delta(&pre_sheet, &post_sheet)
+            .unwrap();
+        assert_eq!(
+            post_sheet.sector_instrument_total(
+                EconomicSector::Firm,
+                BalanceSheetInstrument::TradeReceivables
+            ),
+            25
+        );
+        assert_eq!(
+            post_sheet.sector_instrument_total(
+                EconomicSector::Household,
+                BalanceSheetInstrument::TradePayables
+            ),
+            -25
+        );
     }
 
     #[test]
