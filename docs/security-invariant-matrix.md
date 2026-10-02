@@ -21,7 +21,7 @@ The first deterministic authority boundary is implemented in
 The kernel provides:
 
 - `Capability` and `AuthorizationRequest` as explicit inputs.
-- `VerificationEvidence` as an opaque hand-off from an independent cryptographic/identity verifier; its trusted fields cannot be constructed by downstream callers.
+- `VerificationEvidence` as an opaque, non-serializable hand-off from an independent cryptographic/identity verifier; its trusted fields cannot be constructed or deserialized by downstream callers.
 - `VerifiedCapability` as a non-forgeable-in-module boundary object.
 - `AuthorizationDecision::Allow | Deny | Indeterminate`.
 - `AdvisoryResult` as a separate type with no conversion path to authorization.
