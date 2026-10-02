@@ -1982,3 +1982,6 @@ mod tests {
         assert_eq!(r2.members_missing, 0);
     }
 }
+
+#[cfg(feature = "identity")]
+pub use security_kernel::SignedCapability;
