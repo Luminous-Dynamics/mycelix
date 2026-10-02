@@ -7,16 +7,18 @@ mod conflicts;
 pub use conflicts::*;
 
 mod reservation;
-pub use reservation::{ApplyOutcome, Reservation, ReservationError, ReservationEvent, ReservationLedger, ReservationState};
+pub use reservation::{
+    ApplyOutcome, Reservation, ReservationError, ReservationEvent, ReservationLedger,
+    ReservationState,
+};
 
 mod reservation_certificate;
 pub use reservation_certificate::{
-    validate_create_purchase_intent, validate_create_reservation_capacity,
-    validate_create_reservation_certificate, validate_create_reservation_terminal,
-    validate_transaction_reservation_binding,
-    CertificateError, FrontierEvent, FrontierStateTransition, InventoryFrontier,
-    IntentError, PurchaseIntent, ReservationCertificate, ReservationFrontierState,
-    ReservationCapacityEvidence, ReservationTerminalEvidence, ReservationTerminalOutcome,
+    CertificateError, FrontierEvent, FrontierStateTransition, IntentError, InventoryFrontier,
+    PurchaseIntent, ReservationCapacityEvidence, ReservationCertificate, ReservationFrontierState,
+    ReservationTerminalEvidence, ReservationTerminalOutcome, validate_create_purchase_intent,
+    validate_create_reservation_capacity, validate_create_reservation_certificate,
+    validate_create_reservation_terminal, validate_transaction_reservation_binding,
 };
 
 /// Transaction entry - represents a purchase in the marketplace
@@ -271,12 +273,16 @@ fn validate_create_transaction(
     let certificate = certificate_record
         .entry()
         .to_app_option::<ReservationCertificate>()
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
-            "Could not decode reservation certificate: {e:?}"
-        ))))?
-        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
-            "Transaction reservation dependency is not a ReservationCertificate".into(),
-        )))?;
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Could not decode reservation certificate: {e:?}"
+            )))
+        })?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Transaction reservation dependency is not a ReservationCertificate".into(),
+            ))
+        })?;
 
     if let Err(reason) = validate_transaction_reservation_binding(transaction, &certificate) {
         return Ok(ValidateCallbackResult::Invalid(reason));
