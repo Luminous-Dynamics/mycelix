@@ -71,6 +71,20 @@
       "boundary": "assigned_capability_binding_and_revocation",
       "expected": "assigned signer + secret on listed function: ZomeCallResponse::Ok; same signer + secret on unlisted function: ZomeCallResponse::Unauthorized; same secret with unassigned signer: ZomeCallResponse::Unauthorized; after revocation: ZomeCallResponse::Unauthorized",
       "semantic_execution": "authorized_only"
+    },
+    {
+      "case_id": "AUTH-11",
+      "test": "test_authorized_wrong_zome_is_rejected_at_dispatch_boundary",
+      "boundary": "zome_dispatch",
+      "expected": "ZomeCallResponse::Err",
+      "semantic_execution": false
+    },
+    {
+      "case_id": "AUTH-12",
+      "test": "test_wrong_cell_provenance_is_rejected_at_authorization_boundary",
+      "boundary": "cell_provenance_binding",
+      "expected": "ZomeCallResponse::Unauthorized",
+      "semantic_execution": false
     }
   ]
 }
