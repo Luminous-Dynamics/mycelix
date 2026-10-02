@@ -47,10 +47,17 @@ pub enum RendererSupervisorError {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RendererSupervisorState {
-    pub launch: RendererLaunchReceipt,
-    pub state: RendererProcessState,
-    pub sandbox: Option<SandboxEvidenceBundle>,
-    pub exit: Option<RendererExitReceipt>,
+    launch: RendererLaunchReceipt,
+    state: RendererProcessState,
+    sandbox: Option<SandboxEvidenceBundle>,
+    exit: Option<RendererExitReceipt>,
+}
+
+impl RendererSupervisorState {
+    pub fn launch(&self) -> &RendererLaunchReceipt { &self.launch }
+    pub fn state(&self) -> RendererProcessState { self.state }
+    pub fn sandbox(&self) -> Option<&SandboxEvidenceBundle> { self.sandbox.as_ref() }
+    pub fn exit(&self) -> Option<&RendererExitReceipt> { self.exit.as_ref() }
 }
 
 impl RendererSupervisorState {
@@ -78,8 +85,8 @@ impl RendererSupervisorState {
         let evidence = receipt.enforcement;
         let mut bundle = self.sandbox.unwrap_or_else(|| {
             SandboxEvidenceBundle::new(
-                self.launch.assignment_id,
-                self.launch.sandbox.policy_digest(),
+                self.launch.assignment_id(),
+                self.launch.sandbox().policy_digest(),
             )
         });
 
@@ -108,7 +115,7 @@ impl RendererSupervisorState {
         if self.state != RendererProcessState::SandboxQualified {
             return Err(RendererSupervisorError::SandboxNotQualified);
         }
-        if observed != self.launch.process {
+        if observed != self.launch.process() {
             return Err(RendererSupervisorError::ProcessMismatch);
         }
         self.state = RendererProcessState::IdentityBound;
@@ -155,7 +162,7 @@ impl RendererSupervisorState {
         let receipt = RendererExitReceipt {
             assignment_id: self.launch.assignment_id,
             process: observed,
-            generation: self.launch.generation,
+            generation: self.launch.generation(),
             expected,
         };
         self.exit = Some(receipt);
@@ -195,10 +202,10 @@ mod tests {
     ) -> RendererSandboxReceipt {
         RendererSandboxReceipt {
             enforcement: crate::process::SandboxEnforcementReceipt::from_adapter(
-                state.launch.assignment_id,
+                state.launch().assignment_id(),
                 next_sandbox_installation_id().unwrap(),
                 adapter,
-                state.launch.sandbox.policy_digest(),
+                state.launch().sandbox().policy_digest(),
                 [0x11; 32],
                 layer,
             ).unwrap(),
@@ -227,9 +234,9 @@ mod tests {
             SandboxAdapterKind::LinuxLandlockFilesystemV1,
             SandboxEnforcementLayer::Filesystem,
         )).unwrap();
-        assert_eq!(state.state, RendererProcessState::Assigned);
+        assert_eq!(state.state(), RendererProcessState::Assigned);
         assert!(!state.capability_authority_ready());
-        assert!(state.sandbox.unwrap().enforced_layers().contains(
+        assert!(state.sandbox().unwrap().enforced_layers().contains(
             SandboxEnforcementLayer::Filesystem
         ));
     }
@@ -287,7 +294,7 @@ mod tests {
             state.record_sandbox(forged),
             Err(RendererSupervisorError::SandboxPolicyMismatch)
         ));
-        assert_eq!(state.state, RendererProcessState::Assigned);
+        assert_eq!(state.state(), RendererProcessState::Assigned);
     }
 
     #[test]
@@ -356,7 +363,7 @@ mod tests {
         let mut state = RendererSupervisorState::new(launch());
         // State cannot reach Running until all required layers are independently evidenced.
         assert!(matches!(
-            state.observe_exit(state.launch.process, false),
+            state.observe_exit(state.launch().process(), false),
             Err(RendererSupervisorError::InvalidTransition)
         ));
         assert_eq!(state.state, RendererProcessState::Assigned);
