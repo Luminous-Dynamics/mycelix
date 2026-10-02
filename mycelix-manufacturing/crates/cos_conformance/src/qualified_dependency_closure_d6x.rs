@@ -409,10 +409,34 @@ pub fn compute_dependency_closure_from_authoritative_d6p(
     d6p_receipts: &[CurrentFinalityEligibilityReceiptV1],
     d6p_compositions: &[FinalityEligibilityCompositionV1],
 ) -> Option<DependencyClosureCertificateV1> {
+    compute_dependency_closure_from_authoritative_d6p_at_frontier(
+        projection,
+        environment,
+        derivation_profile,
+        profile,
+        d6p_receipts,
+        d6p_compositions,
+        None,
+    )
+}
+
+/// Strict authoritative D6X entrypoint. When a current frontier is supplied,
+/// every selected D6P receipt must prove that exact frontier. This prevents a
+/// structurally valid historical receipt from being replayed as "current".
+pub fn compute_dependency_closure_from_authoritative_d6p_at_frontier(
+    projection: &QualifiedProjectionV1,
+    environment: &SemanticEnvironmentV1,
+    derivation_profile: &DerivationProfileV1,
+    profile: &DependencyClosureProfileV1,
+    d6p_receipts: &[CurrentFinalityEligibilityReceiptV1],
+    d6p_compositions: &[FinalityEligibilityCompositionV1],
+    current_frontier_root: Option<&str>,
+) -> Option<DependencyClosureCertificateV1> {
     if !projection.structurally_valid()
         || !environment.structurally_valid()
         || !derivation_profile.structurally_valid()
         || !profile.structurally_valid()
+        || current_frontier_root.is_some_and(|root| root.trim().is_empty())
     {
         return None;
     }
@@ -422,6 +446,11 @@ pub fn compute_dependency_closure_from_authoritative_d6p(
             return None;
         }
         let receipt = d6p_receipts.iter().find(|r| r.receipt_commitment == *commitment)?;
+        if let Some(expected_frontier) = current_frontier_root {
+            if receipt.current_frontier_root != expected_frontier {
+                return None;
+            }
+        }
         let composition = d6p_compositions
             .iter()
             .find(|c| c.composition_commitment == receipt.composition_commitment)?;
