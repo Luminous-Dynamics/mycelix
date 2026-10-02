@@ -594,6 +594,23 @@ pub struct FederationScenarioResult {
     pub mutation: FederationMutation,
     pub actual: FederationDecision,
     pub passed: bool,
+    pub delivery_identity_unchanged: bool,
+    pub observation_ledger_unchanged: bool,
+}
+
+fn delivery_identity_snapshot(
+    state: &FederationState,
+) -> BTreeMap<String, (ImmutableDeliveryContract, AuthorityDisposition)> {
+    state
+        .deliveries
+        .iter()
+        .map(|(id, record)| {
+            (
+                id.clone(),
+                (record.contract.clone(), record.authority),
+            )
+        })
+        .collect()
 }
 
 pub fn run_scenario(
@@ -606,6 +623,9 @@ pub fn run_scenario(
     let mut results = Vec::with_capacity(steps.len());
 
     for step in steps {
+        let before_delivery_identity = delivery_identity_snapshot(&state);
+        let before_observations = state.observations.clone();
+
         let mut candidate = envelope.clone();
         let transport_available = !matches!(step.mutation, FederationMutation::Partition);
 
@@ -684,10 +704,17 @@ pub fn run_scenario(
         }
 
         let actual = deliver(&mut state, &candidate, now, transport_available).decision;
+        let delivery_identity_unchanged =
+            delivery_identity_snapshot(&state) == before_delivery_identity;
+        let observation_ledger_unchanged =
+            state.observations == before_observations;
+
         results.push(FederationScenarioResult {
             mutation: step.mutation,
             actual,
             passed: actual == step.expected,
+            delivery_identity_unchanged,
+            observation_ledger_unchanged,
         });
     }
 
@@ -1274,5 +1301,30 @@ mod tests {
 
         let results = run_scenario(initial, candidate, &steps, 50);
         assert!(results.iter().all(|result| result.passed));
+
+        for result in &results {
+            match result.mutation {
+                FederationMutation::NewLogicalDelivery => {
+                    assert!(!result.delivery_identity_unchanged);
+                    assert!(!result.observation_ledger_unchanged);
+                }
+                FederationMutation::DuplicateDelivery => {
+                    assert!(result.delivery_identity_unchanged);
+                    assert!(result.observation_ledger_unchanged);
+                }
+                _ => {
+                    assert!(
+                        result.delivery_identity_unchanged,
+                        "rejected/non-new mutation changed delivery identity state: {:?}",
+                        result.mutation
+                    );
+                    assert!(
+                        result.observation_ledger_unchanged,
+                        "rejected/non-new mutation changed observation state: {:?}",
+                        result.mutation
+                    );
+                }
+            }
+        }
     }
 }
