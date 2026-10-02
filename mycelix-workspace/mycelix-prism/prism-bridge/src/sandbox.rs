@@ -111,11 +111,7 @@ mod linux {
         Ok(())
     }
 
-    fn restrict_self(fd: RawFd) -> Result<(), SandboxEnforcementError> {
-        let abi = landlock_abi_version()?;
-        if abi < LANDLOCK_MIN_ABI_FOR_TSYNC {
-            return Err(SandboxEnforcementError::LandlockAbiTooOld(abi));
-        }
+    fn restrict_self(fd: RawFd, abi: u32) -> Result<(), SandboxEnforcementError> {
         let rc = unsafe { libc::syscall(libc::SYS_landlock_restrict_self, fd, LANDLOCK_RESTRICT_SELF_TSYNC) };
         if rc != 0 {
             return Err(SandboxEnforcementError::EnforcementFailed(
@@ -154,6 +150,11 @@ mod linux {
     ) -> Result<SandboxEnforcementReceipt, SandboxEnforcementError> {
         if !allowed_root.is_absolute() {
             return Err(SandboxEnforcementError::InvalidRuleset);
+        }
+
+        let abi = landlock_abi_version()?;
+        if abi < LANDLOCK_MIN_ABI_FOR_TSYNC {
+            return Err(SandboxEnforcementError::LandlockAbiTooOld(abi));
         }
 
         // Mint the installation identity before irreversible restriction.
@@ -215,7 +216,7 @@ mod linux {
         }
 
         set_no_new_privs()?;
-        restrict_self(fd)?;
+        restrict_self(fd, abi)?;
         unsafe { libc::close(fd); }
 
         // We only report actual enforcement after restrict_self() succeeds.
@@ -224,7 +225,7 @@ mod linux {
             installation_id,
             SandboxAdapterKind::LinuxLandlockFilesystemV1,
             profile.policy_digest(),
-            filesystem_evidence_digest(landlock_abi_version()?, handled, allowed_root),
+            filesystem_evidence_digest(abi, handled, allowed_root),
             SandboxEnforcementLayer::Filesystem,
         ).map_err(|_| SandboxEnforcementError::InvalidRuleset)
     }
