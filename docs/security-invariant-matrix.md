@@ -18,6 +18,7 @@ The kernel now has a second, narrower boundary after authorization:
 6. Enforcement additionally rejects verification evidence whose capability commitment does not match the permit being exercised.
 7. Permits also carry an opaque authority-freshness commitment supplied by the authority adapter; revalidation rejects evidence from a different authority generation.
 8. `SecurityEvent` records Allow, Deny, and Indeterminate decisions and can carry explicit provenance references and recovery correlation, including the authority-freshness commitment for successful enforcement. Its general constructor cannot mint an Allow record; successful Allow events must originate from a revalidated `EnforcementRequest`, while Deny and Indeterminate records remain directly recordable.
+Successful enforcement-event timestamps must equal the `EnforcementRequest` revalidation timestamp, preventing independent backdating or future-dating of the enforcement record.
 
 This prevents a downstream enforcement adapter from accepting an arbitrary request as though it had already passed the policy decision point. It also makes the authorization decision reconstructable without making the event record itself authoritative.
 
