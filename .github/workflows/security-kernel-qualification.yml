@@ -15,7 +15,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: security-kernel-qualification-${{ github.head_ref || github.ref }}
+  group: security-kernel-qualification-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 env:
