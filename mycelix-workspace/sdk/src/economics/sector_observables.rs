@@ -182,17 +182,17 @@ impl SectorEconomicObservables {
             )?;
             add_checked(
                 &mut sector_observation.operating_liquidity_change,
-                observation.operating_liquidity_change(),
+                observation.try_operating_liquidity_change()?,
                 "sector operating liquidity change",
             )?;
             add_checked(
                 &mut sector_observation.investing_net_liquidity,
-                observation.investing_net_liquidity(),
+                observation.try_investing_net_liquidity()?,
                 "sector investing liquidity",
             )?;
             add_checked(
                 &mut sector_observation.financing_net_liquidity,
-                observation.financing_net_liquidity(),
+                observation.try_financing_net_liquidity()?,
                 "sector financing liquidity",
             )?;
             add_checked(
