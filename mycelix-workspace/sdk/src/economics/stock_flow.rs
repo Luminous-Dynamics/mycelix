@@ -224,11 +224,19 @@ impl EconomicState {
     /// Create endogenous credit with a matching asset/liability pair.
     pub fn create_credit(&mut self, credit: &CreditCreation) -> Result<(), String> {
         let (lender, borrower) = self.actor_pair_mut(&credit.lender, &credit.borrower)?;
+        // The lender receives a financial claim while the borrower receives
+        // matching spendable money and a liability. At the aggregate level,
+        // financial assets and liabilities both increase by the same amount.
         lender.monetary.assets = lender
             .monetary
             .assets
             .checked_add(credit.amount)
             .ok_or_else(|| "lender asset overflow".to_string())?;
+        borrower.monetary.assets = borrower
+            .monetary
+            .assets
+            .checked_add(credit.amount)
+            .ok_or_else(|| "borrower asset overflow".to_string())?;
         borrower.monetary.liabilities = borrower
             .monetary
             .liabilities
@@ -338,15 +346,13 @@ mod tests {
         let mut s = state();
         s.create_credit(&CreditCreation::new("bank", "household", 500).unwrap())
             .unwrap();
-
-        // Give the household enough money to repay.
-        s.apply_flow(&MonetaryFlow::new("bank", "household", 500).unwrap())
-            .unwrap();
         s.repay_debt(&DebtRepayment::new("bank", "household", 500).unwrap())
             .unwrap();
 
         assert_eq!(s.aggregate_liabilities(), 0);
         assert_eq!(s.debt_repaid, 500);
+        assert_eq!(s.actors[1].monetary.assets, 0);
+        assert_eq!(s.actors[0].monetary.assets, 1_500);
     }
 
     #[test]
