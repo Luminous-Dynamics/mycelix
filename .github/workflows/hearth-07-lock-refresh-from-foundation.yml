@@ -5,13 +5,12 @@ on:
   push:
     branches:
       - chore/hearth-0.7-lock-refresh-from-foundation
-  pull_request:
-    branches:
-      - main
-    types:
-      - opened
-      - synchronize
-      - reopened
+  workflow_call:
+    inputs:
+      ref:
+        description: "Exact 40-character commit SHA whose dependency closure should be generated"
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       ref:
@@ -30,7 +29,7 @@ jobs:
     name: Generate Hearth 0.7 dependency closure
     runs-on: ubuntu-24.04
     env:
-      TARGET_REF: ${{ inputs.ref || github.event.pull_request.head.sha || github.sha }}
+      TARGET_REF: ${{ inputs.ref || github.sha }}
     timeout-minutes: 120
     steps:
       - name: Require immutable commit ref
