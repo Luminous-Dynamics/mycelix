@@ -130,7 +130,9 @@ for (const field of ["request_authentication","actor_authorization","event_autho
 }
 if (ao.request_authentication.state === "OBSERVED" && ao.request_authentication.principal_identity !== ao.authenticated_principal_identity) throw new Error("top-level authenticated principal disagrees with request authentication");
 
-const s0 = JSON.parse(fs.readFileSync(path.join(ROOT, "s0_dispatch_envelope_v1.example.json"), "utf8"));
+const s0Raw = fs.readFileSync(path.join(ROOT, "s0_dispatch_envelope_v1.example.json"), "utf8");
+scanDuplicateObjectKeys(s0Raw);
+const s0 = JSON.parse(s0Raw);
 if (s0.schema !== "mycelix.qual-001s.s0-dispatch-envelope-v1") throw new Error("wrong S0 schema");
 if (s0.canonicalization_profile !== "RFC8785-JCS-IJSON-v1") throw new Error("wrong S0 canonicalization profile");
 if (typeof s0.epoch_id !== "string" || s0.epoch_id.length === 0) throw new Error("invalid S0 epoch");
@@ -215,7 +217,9 @@ for (const v of corpus.vectors) {
   }
 }
 
-const s1 = JSON.parse(fs.readFileSync(path.join(ROOT, "s1_conformance_receipt_v1.example.json"), "utf8"));
+const s1Raw = fs.readFileSync(path.join(ROOT, "s1_conformance_receipt_v1.example.json"), "utf8");
+scanDuplicateObjectKeys(s1Raw);
+const s1 = JSON.parse(s1Raw);
 for (const key of [
   "schema","profile","epoch_id","repository_id","repository_full_name","pull_request_number",
   "s0_dispatch_envelope_sha256","s0_authority_observation_sha256","dispatch_input_commitment_sha256",
