@@ -101,7 +101,7 @@ impl RendererSupervisorState {
         })?;
 
         self.sandbox = Some(bundle);
-        if bundle.enforced_layers().covers(self.launch.sandbox.required_enforcement_layers()) {
+        if bundle.enforced_layers().covers(self.launch.sandbox().required_enforcement_layers()) {
             self.state = RendererProcessState::SandboxQualified;
         }
 
@@ -155,12 +155,12 @@ impl RendererSupervisorState {
         ) {
             return Err(RendererSupervisorError::InvalidTransition);
         }
-        if observed != self.launch.process {
+        if observed != self.launch.process() {
             return Err(RendererSupervisorError::ProcessMismatch);
         }
 
         let receipt = RendererExitReceipt {
-            assignment_id: self.launch.assignment_id,
+            assignment_id: self.launch.assignment_id(),
             process: observed,
             generation: self.launch.generation(),
             expected,
@@ -310,10 +310,10 @@ mod tests {
             SandboxAdapterKind::LinuxSeccompSyscallV1,
             SandboxEnforcementLayer::Syscall,
         )).unwrap();
-        let layers = state.sandbox.unwrap().enforced_layers();
+        let layers = state.sandbox().unwrap().enforced_layers();
         assert!(layers.contains(SandboxEnforcementLayer::Filesystem));
         assert!(layers.contains(SandboxEnforcementLayer::Syscall));
-        assert_eq!(state.state, RendererProcessState::Assigned);
+        assert_eq!(state.state(), RendererProcessState::Assigned);
     }
 
     #[test]
