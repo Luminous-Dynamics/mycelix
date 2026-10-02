@@ -43,3 +43,10 @@ For lifecycle traceability, this is consistent with NIST work describing digital
 Each immutable transition has its own typed `transition_id`. Graph validation resolves predecessor references by that exact identity, checks evidence identity continuity and requires each child's `from` state to equal its predecessor's `to` state. Duplicate transition identities and multiple genesis assertions for one evidence event are invalid. A closed predecessor cycle is also invalid: every complete finite branch must bottom out at a single genesis assertion rather than looping through otherwise valid transition records.
 
 A missing predecessor is returned as an unresolved dependency, not a negative evidence judgment. When multiple children reference one predecessor, the graph assessment reports the branch point and retains every branch; it does not select a winning state. A separate, explicit reconciliation record is required before a consumer may treat the competing branches as reconciled. This graph check validates only the supplied dependency set; callers must retrieve the complete referenced records by address before treating the assessment as complete.
+
+
+## Explicit branch reconciliation
+
+A competing-branch condition is not resolved by selecting the first, latest, or locally observed branch. `EvidenceDispositionReconciliation` is an explicit addressable witness that names the exact evidence event, branch point, at least two competing branch heads, an addressable authority witness, and any addressable basis witnesses. Graph validation verifies that each named branch head descends from the declared branch point and concerns the same evidence event.
+
+The reconciliation witness deliberately contains no implicit winner field. It records that a set of branches was explicitly reconciled and who/what supplied the authority and basis; any resulting disposition assertion remains a separate transition record. Missing branch ancestry remains unresolved rather than being interpreted as a negative finding.
