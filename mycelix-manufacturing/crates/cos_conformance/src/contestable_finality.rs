@@ -454,7 +454,8 @@ fn observation_matches(
 }
 
 fn profiles_share_dependency(a: &ExternalObserverProfileV1, b: &ExternalObserverProfileV1) -> bool {
-    a.evidence_root == b.evidence_root
+    a.observer_id == b.observer_id
+        || a.evidence_root == b.evidence_root
         || a.custody_root == b.custody_root
         || a.upstream_observer_ids.contains(&b.observer_id)
         || b.upstream_observer_ids.contains(&a.observer_id)
@@ -1111,6 +1112,41 @@ mod tests {
             "frontier-1",
             "generation-1",
         ));
+    }
+
+    #[test]
+    fn same_observer_cannot_supply_multiple_independent_witnesses() {
+        let observer_profile = observer("observer-A", "evidence-1", "custody-1");
+        let e1 = evidence(
+            "obs-1",
+            observer_profile.clone(),
+            ExternalObservedStateV1::Applied,
+        );
+        let mut e2_profile = observer_profile;
+        e2_profile.evidence_root = "evidence-2".into();
+        e2_profile.custody_root = "custody-2".into();
+        e2_profile.independence_commitment = "independence-observer-A-2".into();
+        let e2 = evidence("obs-2", e2_profile, ExternalObservedStateV1::Applied);
+
+        let s = set(&["obs-1", "obs-2"]);
+        let result = assess_observation_set(
+            &effect(),
+            &route(),
+            &profile(),
+            &s,
+            &[e1, e2],
+            "frontier-1",
+            "generation-1",
+        );
+
+        assert_eq!(result.independent_count, 0);
+        assert_eq!(result.disposition, ObservationSetDispositionV1::InsufficientEvidence);
+        assert!(result.assessments.iter().all(|assessment| {
+            matches!(
+                assessment.classification,
+                ObservationClassificationV1::CorroboratingDependent
+            )
+        }));
     }
 
     #[test]
