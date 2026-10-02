@@ -12,6 +12,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
+use super::accounting_closure::EconomicAccountingClosure;
 use super::actor_observables::ActorEconomicObservables;
 use super::observables::EconomicObservables;
 use super::sector_observables::SectorEconomicObservables;
@@ -71,6 +72,8 @@ pub struct EconomicEvidenceCapsule {
     pub sector_observations_hash: Option<String>,
     #[serde(default)]
     pub sector_financial_flow_hash: Option<String>,
+    #[serde(default)]
+    pub accounting_closure_hash: Option<String>,
     pub evidence_hash: String,
 }
 
@@ -136,6 +139,7 @@ impl EconomicEvidenceCapsule {
             actor_observations_hash,
             sector_observations_hash: None,
             sector_financial_flow_hash: None,
+            accounting_closure_hash: None,
             evidence_hash,
         })
     }
@@ -213,6 +217,7 @@ impl EconomicEvidenceCapsule {
             actor_observations_hash,
             sector_observations_hash,
             sector_financial_flow_hash: None,
+            accounting_closure_hash: None,
             evidence_hash,
         })
     }
@@ -238,7 +243,23 @@ impl EconomicEvidenceCapsule {
 
         let observations_hash = hash_observations(observations)?;
         let actor_observations_hash = actor_observations
-            .map(hash_actor_observations)
+            .map(|values| {
+                if values.iter().any(|(actor, observation)| {
+                    actor != &observation.actor
+                        || observation
+                            .cash
+                            .checked_add(observation.deposits)
+                            != Some(observation.liquidity)
+                        || !observation.liquidity_stock_flow_reconciliation_holds()
+                        || !observation.net_working_capital_stock_flow_reconciliation_holds()
+                        || !observation.liquidity_flow_reconciliation_holds()
+                }) {
+                    return Err(EconomicStepError::Serialization(
+                        "actor observations fail structural liquidity reconciliation".into(),
+                    ));
+                }
+                hash_actor_observations(values)
+            })
             .transpose()?;
         let sector_observations_hash = sector_observations
             .map(|values| {
@@ -246,6 +267,7 @@ impl EconomicEvidenceCapsule {
                     *sector != observation.sector
                         || !observation.liquidity_flow_reconciliation_holds()
                         || !observation.liquidity_stock_flow_reconciliation_holds()
+                        || !observation.net_working_capital_stock_flow_reconciliation_holds()
                 }) {
                     return Err(EconomicStepError::Serialization(
                         "sector observations fail structural liquidity reconciliation".into(),
@@ -285,6 +307,58 @@ impl EconomicEvidenceCapsule {
             actor_observations_hash,
             sector_observations_hash,
             sector_financial_flow_hash,
+            accounting_closure_hash: None,
+            evidence_hash,
+        })
+    }
+
+    /// Bind a self-verifying cross-layer accounting closure into the evidence capsule.
+    pub fn seal_with_accounting_closure(
+        manifest: EconomicEvidenceManifest,
+        final_receipt: &EconomicChainReceipt,
+        observations: &EconomicObservables,
+        closure: &EconomicAccountingClosure,
+    ) -> Result<Self, EconomicStepError> {
+        closure
+            .verify()
+            .map_err(EconomicStepError::Serialization)?;
+
+        if final_receipt.genesis_state_hash != manifest.initial_state_hash {
+            return Err(EconomicStepError::Serialization(
+                "final evidence chain does not descend from the manifest initial state".into(),
+            ));
+        }
+        if closure.pre_state_hash != final_receipt.step.pre_state_hash
+            || closure.post_state_hash != final_receipt.step.post_state_hash
+            || closure.transition_hash != final_receipt.step.transition_hash
+            || closure.transition_count != final_receipt.step.transition_count
+        {
+            return Err(EconomicStepError::Serialization(
+                "accounting closure does not match the final evidence step".into(),
+            ));
+        }
+
+        let manifest_hash = manifest.hash()?;
+        let observations_hash = hash_observations(observations)?;
+        let binding = (
+            &manifest_hash,
+            &final_receipt.chain_hash,
+            &observations_hash,
+            &closure.closure_hash,
+        );
+        let bytes = serde_json::to_vec(&binding)
+            .map_err(|error| EconomicStepError::Serialization(error.to_string()))?;
+        let evidence_hash = blake3::hash(&bytes).to_hex().to_string();
+
+        Ok(Self {
+            manifest,
+            manifest_hash,
+            final_chain_hash: final_receipt.chain_hash.clone(),
+            observations_hash,
+            actor_observations_hash: Some(closure.actor_observations_hash.clone()),
+            sector_observations_hash: Some(closure.sector_observations_hash.clone()),
+            sector_financial_flow_hash: Some(closure.sector_financial_flow_hash.clone()),
+            accounting_closure_hash: Some(closure.closure_hash.clone()),
             evidence_hash,
         })
     }
@@ -371,6 +445,10 @@ mod tests {
             .as_object_mut()
             .unwrap()
             .remove("sector_financial_flow_hash");
+        value
+            .as_object_mut()
+            .unwrap()
+            .remove("accounting_closure_hash");
         let decoded: EconomicEvidenceCapsule = serde_json::from_value(value).unwrap();
         assert_eq!(decoded.sector_observations_hash, None);
     }
@@ -532,6 +610,82 @@ mod tests {
 
         assert_ne!(a.sector_financial_flow_hash, b.sector_financial_flow_hash);
         assert_ne!(a.evidence_hash, b.evidence_hash);
+    }
+
+    #[test]
+    fn evidence_capsule_binds_accounting_closure() {
+        let mut bank = crate::economics::stock_flow::ActorBalanceSheet::new("bank");
+        bank.monetary.cash = 1_000;
+        let mut firm = crate::economics::stock_flow::ActorBalanceSheet::new("firm");
+        firm.real.inventories = 10;
+        firm.inventory_carrying_value = 30;
+        let state = crate::economics::stock_flow::EconomicState::new(vec![
+            bank,
+            firm,
+            crate::economics::stock_flow::ActorBalanceSheet::new("household"),
+        ]);
+        let assignments = vec![
+            crate::economics::sector_balance::SectorAssignment {
+                actor: "bank".into(),
+                sector: EconomicSector::Bank,
+            },
+            crate::economics::sector_balance::SectorAssignment {
+                actor: "firm".into(),
+                sector: EconomicSector::Firm,
+            },
+            crate::economics::sector_balance::SectorAssignment {
+                actor: "household".into(),
+                sector: EconomicSector::Household,
+            },
+        ];
+        let transitions = vec![
+            EconomicTransition::CreditCreation(
+                CreditCreation::new("bank", "household", 100).unwrap(),
+            ),
+            EconomicTransition::TradeCreditSale(
+                crate::economics::stock_flow::TradeCreditSale::new(
+                    "firm", "household", 1, 30,
+                )
+                .unwrap(),
+            ),
+            EconomicTransition::TradeCreditSettlement(
+                crate::economics::stock_flow::TradeCreditSettlement::new(
+                    "firm", "household", 30,
+                )
+                .unwrap(),
+            ),
+        ];
+        let (post, step) = apply_step(&state, 1, &transitions, None).unwrap();
+        let chain = EconomicChainReceipt::link(None, step).unwrap();
+        let ledger = EconomicPeriodLedger::from_transitions(&transitions).unwrap();
+        let observations = EconomicObservables::from_state_and_ledger(&post, &ledger);
+        let closure = EconomicAccountingClosure::validate_and_seal(
+            &state, &post, &assignments, &transitions,
+        )
+        .unwrap();
+
+        let capsule = EconomicEvidenceCapsule::seal_with_accounting_closure(
+            EconomicEvidenceManifest::new(
+                "economics-v1",
+                "params-closure",
+                7,
+                crate::economics::transition::state_hash(&state).unwrap(),
+            )
+            .unwrap(),
+            &chain,
+            &observations,
+            &closure,
+        )
+        .unwrap();
+
+        assert_eq!(
+            capsule.accounting_closure_hash.as_deref(),
+            Some(closure.closure_hash.as_str())
+        );
+        assert_eq!(
+            capsule.actor_observations_hash.as_deref(),
+            Some(closure.actor_observations_hash.as_str())
+        );
     }
 
     #[test]
