@@ -231,7 +231,8 @@ mod tests {
             "resource:ledger",
             CapabilityAction::Admin,
             7,
-        ).unwrap();
+        )
+        .unwrap();
         let event = SecurityEvent::new(
             "event:deny",
             "did:mycelix:alice",
