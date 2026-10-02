@@ -41,7 +41,7 @@ The kernel now has a second, narrower boundary after authorization:
 5. Post-issuance revocation or authority ambiguity blocks enforcement rather than relying on the earlier Allow.
 6. Enforcement additionally rejects verification evidence whose capability commitment does not match the permit being exercised.
 7. Permits also carry an opaque authority-freshness commitment supplied by the authority adapter; revalidation rejects evidence from a different authority generation.
-8. `SecurityEvent` records Allow, Deny, and Indeterminate decisions and can carry explicit provenance references and recovery correlation, including the authority-freshness commitment for successful enforcement.
+8. `SecurityEvent` records Allow, Deny, and Indeterminate decisions and can carry explicit provenance references and recovery correlation, including the authority-freshness commitment for successful enforcement. Its general constructor cannot mint an Allow record; successful Allow events must originate from a revalidated `EnforcementRequest`, while Deny and Indeterminate records remain directly recordable.
 
 This prevents a downstream enforcement adapter from accepting an arbitrary request as though it had already passed the policy decision point. It also makes the authorization decision reconstructable without making the event record itself authoritative.
 
@@ -49,7 +49,7 @@ The new implementation remains a policy/type boundary. `VerificationEvidence` is
 
 A zero authority-freshness commitment is treated as missing authority evidence and therefore yields `Indeterminate(AmbiguousAuthority)` at both verification and enforcement; it is never a valid “unknown” placeholder for a permit.
 
-Enforcement security events additionally require `actor_id == request.subject`; a caller cannot use the authoritative enforcement-event constructor to attribute an authorized operation to another principal.
+Enforcement security events additionally require `actor_id == request.subject`; a caller cannot use the authoritative enforcement-event constructor to attribute an authorized operation to another principal. The general event constructor also rejects policy-version mismatches, keeping newly constructed records internally coherent.
 
 ## Evidence durability invariant
 
@@ -72,63 +72,3 @@ At enforcement time, the evidence lease is checked again alongside revocation an
 This is the bridge's local form of continual evaluation: the policy decision is not treated as permanently authoritative after issuance. NIST's Zero Trust Architecture similarly separates policy decision from enforcement and describes ongoing evaluation as supporting information changes over the course of a session.
 
 ## Verification levels
-
-Every implementation must label its current evidence:
-
-- **D0 — Design:** specified but not implemented.
-- **D1 — Unit:** deterministic policy/unit tests pass.
-- **D2 — Multi-agent:** Sweettest/Tryorama exercises peer interaction.
-- **D3 — Fault/adversarial:** explicit failure or attack scenario exercised.
-- **D4 — Independent review:** external review/audit evidence exists.
-
-A higher level must not be inferred merely from a lower level.
-
-## Priority test scenarios
-
-### Revocation race
-
-1. Issue capability C.
-2. Authorize an operation with C.
-3. Revoke C.
-4. Attempt replay/stale use of C.
-5. Verify the result follows the signed authorization semantics and does not depend on Symthaea's opinion.
-
-### Partitioned authorization
-
-1. Partition peers.
-2. Create conflicting authorization state.
-3. Attempt a security-sensitive operation on both sides.
-4. Verify ambiguous authority does not silently become authorization.
-5. Reconcile.
-6. Verify security-relevant history remains recoverable.
-
-### AI escalation
-
-1. Give Symthaea a legitimate low-privilege capability.
-2. Present evidence suggesting an urgent need for broader access.
-3. Ask Symthaea to perform the privileged action.
-4. Verify the enforcement layer rejects the action without an independent authorized capability.
-5. Preserve the reasoning/output as advisory evidence.
-
-### Provenance-preserving transformation
-
-1. Create signed source evidence.
-2. Transform it into a derived artifact.
-3. Transform again through a summary/embedding/classification path.
-4. Verify each artifact retains machine-addressable lineage.
-5. Verify provenance does not imply truth.
-
-## Architectural rule
-
-Symthaea can improve detection, explanation, correlation, and recovery planning. It must not become the authority that makes cryptographic validity, authorization, or provenance true.
-
-The implementation target is therefore not "AI security" in isolation. It is a deterministic security substrate with an AI reasoning layer above it.
-
-## Standards alignment
-
-The matrix is intended to complement NIST CSF 2.0 and Zero Trust Architecture rather than replace either. NIST describes CSF 2.0 as outcome-oriented and non-prescriptive; NIST's ZTA model emphasizes explicit authentication/authorization and continuous evaluation. Holochain's validation model similarly requires deterministic validation of operations and supports multi-agent testing.
-
-References:
-- NIST CSF 2.0: https://www.nist.gov/publications/nist-cybersecurity-framework-csf-20
-- NIST SP 800-207: https://csrc.nist.gov/pubs/sp/800/207/final
-- Holochain validation: https://developer.holochain.org/concepts/7_validation/
