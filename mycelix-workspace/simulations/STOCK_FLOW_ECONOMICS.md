@@ -278,7 +278,7 @@ This is the foundation needed for wages, interest, taxes, transfers, and consump
 
 The income/equity boundary has been tightened so **equity is a derived balance-sheet residual**, not a second mutable asset/liability store. For an actor:
 
-`net worth = financial assets - financial liabilities + real assets`
+`net worth = financial assets - financial liabilities + monetary-valued real assets`
 
 The sector matrix exposes equity as the signed balancing row `-net worth`. This follows the standard SFC convention in which net worth is the balancing item of the balance-sheet matrix, while real assets are not someone else's financial liability. The model therefore does not double-count equity by adding a mutable equity stock on top of net financial position.
 
@@ -302,11 +302,13 @@ The accounting engine remains singular: every category uses the same deposit/equ
 - the exact transition-list hash;
 - a derived ledger hash.
 
-This is deliberately **derived state rather than mutable state**. The transition log remains authoritative, preventing semantic summaries from becoming a second accounting system.
+This is deliberately **derived state rather than mutable state**. The transition log remains authoritative, preventing semantic summaries from becoming a second accounting system. Physical quantities are kept in a separate physical-stock projection and are never added to currency-denominated net worth.
 
-The sector balance sheet also now validates the stronger per-sector identity:
+The sector balance sheet now validates the monetary per-sector identity:
 
-`signed financial rows + signed equity residual + real assets = 0`
+`signed financial rows + signed equity residual + monetary-valued real assets = 0`
+
+Physical inventory and resource quantities are validated in a separate physical-stock dimension.
 
 while keeping cash outside the clearing requirement until an explicit issuer/public-money sector is modeled. This preserves the distinction between internal financial claims and real wealth. The SFC literature explicitly links the balance-sheet matrix to the transactions-flow matrix and uses net worth as the balancing item.
 
@@ -356,7 +358,7 @@ A sale therefore has an explicit three-part accounting pattern when valuation is
 
 `InventoryCostRelief -> GoodsSale -> InventoryCostAddition`
 
-The first side recognizes seller COGS by relieving carrying value; `GoodsSale` records the physical quantity and deposit consideration; the buyer-side addition records acquired inventory at its explicit carrying amount. No FIFO, weighted-average, specific-identification, unit-price, or cost allocation rule is inferred by the transition engine. Those policy/calculation results must be supplied explicitly.
+The first side recognizes seller COGS by relieving carrying value; `GoodsSale` records the physical quantity and deposit consideration; the buyer-side addition records acquired inventory at its explicit carrying amount. `InventoryCostAddition` must not be treated as free value creation: it records an externally determined cost allocation/reclassification and any underlying financing, wage, or input-cost transition remains explicit. No FIFO, weighted-average, specific-identification, unit-price, or cost allocation rule is inferred by the transition engine. Those policy/calculation results must be supplied explicitly.
 
 The period ledger now derives `sales_consideration`, `cost_of_goods_sold`, and `gross_operating_surplus = sales_consideration - cost_of_goods_sold`. This is deliberately a **gross trading surplus** measure until wages, intermediate inputs, depreciation, interest, and taxes have their own explicit expense/accrual boundaries.
 
