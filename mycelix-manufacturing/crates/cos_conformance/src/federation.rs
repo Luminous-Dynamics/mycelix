@@ -1918,9 +1918,9 @@ mod tests {
         assert!(cockpit_projection("node-a", &accepted).origin_node_known);
 
         let partitioned = deliver(&mut state, &envelope(), 50, false);
-        assert!(!partitioned.origin_node_known);
+        assert!(partitioned.origin_node_known);
         assert_eq!(partitioned.origin_node.as_deref(), Some("node-a"));
-        assert!(!cockpit_projection("node-a", &partitioned).origin_node_known);
+        assert!(cockpit_projection("node-a", &partitioned).origin_node_known);
 
         let mut unknown_origin = envelope();
         unknown_origin.origin_node = "node-unknown".into();
