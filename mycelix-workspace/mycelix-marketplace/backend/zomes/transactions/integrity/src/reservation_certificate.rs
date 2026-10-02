@@ -599,8 +599,7 @@ impl InventoryFrontier {
             return Err(CertificateError::WrongListing);
         }
 
-        let outcome = self
-            .ledger
+        self.ledger
             .apply(crate::reservation::ReservationEvent::SetCapacity { capacity })
             .map_err(CertificateError::Capacity)?;
         // Capacity evidence is also the frontier bridge to a new seller-owned
@@ -657,10 +656,11 @@ mod tests {
         quantity: u32,
         capacity: u32,
     ) -> ReservationCertificate {
-        let intent = PurchaseIntent {
+        let mut intent = PurchaseIntent {
             quantity,
             ..intent()
         };
+        intent.intent_id = format!("intent-{id}");
         ReservationCertificate {
             certificate_id: id.into(),
             seller: agent(2),
@@ -765,7 +765,7 @@ mod tests {
         );
         assert!(
             a.canonical_identity_material()
-                .starts_with(&36u32.to_le_bytes())
+                .starts_with(&38u32.to_le_bytes())
         );
     }
 
@@ -776,7 +776,7 @@ mod tests {
         bad.seller = agent(9);
         assert_eq!(
             f.apply(FrontierEvent::Reserve(bad)),
-            Err(CertificateError::WrongSeller)
+            Err(CertificateError::SellerMismatch)
         );
 
         let mut bad = certificate("c1", 0, None, 1);
@@ -790,8 +790,10 @@ mod tests {
     #[test]
     fn listing_capacity_cannot_drop_below_outstanding_reservations() {
         let mut f = frontier(5);
-        f.apply(FrontierEvent::Reserve(certificate("c1", 0, None, 4)))
-            .unwrap();
+        f.apply(FrontierEvent::Reserve(certificate_with_capacity(
+            "c1", 0, None, 4, 3,
+        )))
+        .unwrap();
         assert!(matches!(
             f.apply(FrontierEvent::SetCapacity {
                 listing_hash: hash(3),
@@ -906,8 +908,10 @@ mod tests {
                 available: 5
             }
         );
-        f.apply(FrontierEvent::Reserve(certificate("c1", 0, None, 3)))
-            .unwrap();
+        f.apply(FrontierEvent::Reserve(certificate_with_capacity(
+            "c1", 0, None, 3, 5,
+        )))
+        .unwrap();
         assert_eq!(
             f.post_state(),
             ReservationFrontierState {
@@ -1047,7 +1051,7 @@ mod tests {
         }];
         assert_eq!(
             reconstruct_frontier(genesis.clone(), &tampered),
-            Err("frontier post-state does not match the deterministic transition")
+            Err("Frontier post-state does not match the deterministic transition")
         );
 
         tampered[0].post_state = reserved.clone();
@@ -1279,8 +1283,10 @@ mod tests {
     #[test]
     fn forked_frontier_is_rejected_by_previous_certificate_binding() {
         let mut f = frontier(3);
-        f.apply(FrontierEvent::Reserve(certificate("c1", 0, None, 1)))
-            .unwrap();
+        f.apply(FrontierEvent::Reserve(certificate_with_capacity(
+            "c1", 0, None, 1, 3,
+        )))
+        .unwrap();
         let error = f
             .apply(FrontierEvent::Reserve(certificate(
                 "c2",
