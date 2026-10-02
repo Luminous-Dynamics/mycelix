@@ -484,6 +484,47 @@ impl EvidenceDispositionReconciliationCoverage {
                     .ok_or_else(|| "reconciliation coverage ancestry is unresolved".to_string())?;
             }
         }
+
+        // A coverage set names branch heads, so its members must be maximal
+        // descendants under the declared branch point. An ancestor/descendant
+        // pair is one continuing branch, not two independently covered heads.
+        for (index, left_id) in self.covered_branch_heads.iter().enumerate() {
+            for right_id in self.covered_branch_heads.iter().skip(index + 1) {
+                let mut cursor = by_id.get(left_id)
+                    .ok_or_else(|| "reconciliation coverage branch head is missing".to_string())?;
+                let mut seen = std::collections::BTreeSet::new();
+                while let Some(predecessor) = cursor.predecessor.as_ref() {
+                    if !seen.insert(cursor.transition_id.clone()) {
+                        return Err("reconciliation coverage graph contains a predecessor cycle".into());
+                    }
+                    if predecessor == right_id {
+                        return Err("reconciliation coverage branch heads must be incomparable descendants".into());
+                    }
+                    if predecessor == &self.branch_point {
+                        break;
+                    }
+                    cursor = by_id.get(predecessor)
+                        .ok_or_else(|| "reconciliation coverage ancestry is unresolved".to_string())?;
+                }
+
+                let mut cursor = by_id.get(right_id)
+                    .ok_or_else(|| "reconciliation coverage branch head is missing".to_string())?;
+                let mut seen = std::collections::BTreeSet::new();
+                while let Some(predecessor) = cursor.predecessor.as_ref() {
+                    if !seen.insert(cursor.transition_id.clone()) {
+                        return Err("reconciliation coverage graph contains a predecessor cycle".into());
+                    }
+                    if predecessor == left_id {
+                        return Err("reconciliation coverage branch heads must be incomparable descendants".into());
+                    }
+                    if predecessor == &self.branch_point {
+                        break;
+                    }
+                    cursor = by_id.get(predecessor)
+                        .ok_or_else(|| "reconciliation coverage ancestry is unresolved".to_string())?;
+                }
+            }
+        }
         Ok(())
     }
 }
@@ -1079,6 +1120,42 @@ mod tests {
             basis: vec![],
         };
         assert!(coverage.validate_against_graph(&reconciliation, &[root, left, right]).is_ok());
+    }
+
+    #[test]
+    fn reconciliation_coverage_rejects_nested_heads() {
+        let disputed = EvidenceDisposition::Disputed { by: id(IdentityKind::ReconciliationWitness, "w1") };
+        let root = graph_transition("t1", None, EvidenceDisposition::Active, disputed.clone());
+        let first = graph_transition("t2", Some("t1"), disputed.clone(), EvidenceDisposition::Active);
+        let second = graph_transition(
+            "t3",
+            Some("t2"),
+            disputed,
+            EvidenceDisposition::Retracted { by: id(IdentityKind::ReconciliationWitness, "w2") },
+        );
+        let reconciliation = EvidenceDispositionReconciliation {
+            reconciliation_id: id(IdentityKind::ReconciliationWitness, "reconcile-coverage-nested"),
+            evidence: id(IdentityKind::InspectionRecord, "inspection-graph"),
+            branch_point: id(IdentityKind::ReconciliationWitness, "t1"),
+            branch_heads: vec![
+                id(IdentityKind::ReconciliationWitness, "t2"),
+                id(IdentityKind::ReconciliationWitness, "t3"),
+            ],
+            authority: id(IdentityKind::ReconciliationWitness, "authority-1"),
+            basis: vec![],
+        };
+        let coverage = EvidenceDispositionReconciliationCoverage {
+            coverage_id: id(IdentityKind::ReconciliationWitness, "coverage-nested"),
+            reconciliation: id(IdentityKind::ReconciliationWitness, "reconcile-coverage-nested"),
+            branch_point: id(IdentityKind::ReconciliationWitness, "t1"),
+            covered_branch_heads: vec![
+                id(IdentityKind::ReconciliationWitness, "t2"),
+                id(IdentityKind::ReconciliationWitness, "t3"),
+            ],
+            boundary: id(IdentityKind::EvidenceRecord, "enumeration-boundary-1"),
+            basis: vec![],
+        };
+        assert!(coverage.validate_against_graph(&reconciliation, &[root, first, second]).is_err());
     }
 
     #[test]
