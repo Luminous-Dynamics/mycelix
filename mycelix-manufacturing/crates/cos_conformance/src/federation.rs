@@ -150,7 +150,17 @@ pub struct FederationState {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FederationNodeError {
+    EmptyNodeId,
     DuplicateNodeId,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FederationRecognitionError {
+    EmptyRecognizingNode,
+    EmptyOriginNode,
+    EmptyScope,
+    UnknownRecognizingNode,
+    UnknownOriginNode,
 }
 
 impl FederationState {
@@ -160,6 +170,9 @@ impl FederationState {
         let mut node_map = BTreeMap::new();
         for node in nodes {
             let node_id = node.node_id.clone();
+            if node_id.is_empty() {
+                return Err(FederationNodeError::EmptyNodeId);
+            }
             if node_map.insert(node_id, node).is_some() {
                 return Err(FederationNodeError::DuplicateNodeId);
             }
@@ -177,9 +190,27 @@ impl FederationState {
         Self::try_new(nodes).expect("FederationState::new requires unique node IDs")
     }
 
-    pub fn add_recognition(&mut self, edge: RecognitionEdge) {
+    pub fn try_add_recognition(
+        &mut self,
+        edge: RecognitionEdge,
+    ) -> Result<bool, FederationRecognitionError> {
+        if edge.recognizing_node.is_empty() {
+            return Err(FederationRecognitionError::EmptyRecognizingNode);
+        }
+        if edge.origin_node.is_empty() {
+            return Err(FederationRecognitionError::EmptyOriginNode);
+        }
+        if edge.scope.is_empty() {
+            return Err(FederationRecognitionError::EmptyScope);
+        }
+        if !self.nodes.contains_key(&edge.recognizing_node) {
+            return Err(FederationRecognitionError::UnknownRecognizingNode);
+        }
+        if !self.nodes.contains_key(&edge.origin_node) {
+            return Err(FederationRecognitionError::UnknownOriginNode);
+        }
         if self.recognition_edges.iter().any(|existing| existing == &edge) {
-            return;
+            return Ok(false);
         }
 
         self.recognition_edges.push(edge);
@@ -197,6 +228,13 @@ impl FederationState {
                     b.mode,
                 ))
         });
+
+        Ok(true)
+    }
+
+    pub fn add_recognition(&mut self, edge: RecognitionEdge) {
+        self.try_add_recognition(edge)
+            .expect("FederationState::add_recognition requires known, non-empty identities");
     }
 
     pub fn delivery(&self, logical_delivery_id: &str) -> Option<&DeliveryRecord> {
@@ -307,6 +345,26 @@ pub fn deliver(
     now: u64,
     transport_available: bool,
 ) -> FederationOutcome {
+    if envelope.envelope_id.is_empty()
+        || envelope.semantic_subject_id.is_empty()
+        || envelope.payload_commitment.is_empty()
+        || envelope.logical_delivery_id.is_empty()
+        || envelope.attempt_id.is_empty()
+        || envelope.origin_node.is_empty()
+        || envelope.target_node.is_empty()
+        || envelope
+            .predecessor_delivery_id
+            .as_ref()
+            .is_some_and(String::is_empty)
+    {
+        return FederationOutcome::new(
+            FederationDecision::Rejected,
+            AuthorityDisposition::NoAuthority,
+            envelope,
+            "Required federation identity fields must be non-empty.",
+        );
+    }
+
     if !transport_available {
         return FederationOutcome::new(
             FederationDecision::PartitionUnknown,
@@ -885,6 +943,18 @@ mod tests {
     }
 
     #[test]
+    fn empty_node_ids_are_rejected_by_the_safe_constructor() {
+        let result = FederationState::try_new([NodeProfile {
+            node_id: String::new(),
+            schema_generation: 1,
+            authorization_generation: 1,
+            active: true,
+        }]);
+
+        assert_eq!(result, Err(FederationNodeError::EmptyNodeId));
+    }
+
+    #[test]
     fn duplicate_node_ids_are_rejected_by_the_safe_constructor() {
         let result = FederationState::try_new([
             NodeProfile {
@@ -977,6 +1047,52 @@ mod tests {
             replayed.authority,
             AuthorityDisposition::ExplicitDelegatedAuthority
         );
+    }
+
+    #[test]
+    fn recognition_edges_require_non_empty_known_identities() {
+        let mut state = nodes();
+
+        let empty_scope = RecognitionEdge {
+            recognizing_node: "node-a".into(),
+            origin_node: "node-b".into(),
+            scope: String::new(),
+            mode: RecognitionMode::EvidenceOnly,
+        };
+        assert_eq!(
+            state.try_add_recognition(empty_scope),
+            Err(FederationRecognitionError::EmptyScope)
+        );
+
+        let unknown_origin = RecognitionEdge {
+            recognizing_node: "node-a".into(),
+            origin_node: "node-unknown".into(),
+            scope: "subject-1".into(),
+            mode: RecognitionMode::EvidenceOnly,
+        };
+        assert_eq!(
+            state.try_add_recognition(unknown_origin),
+            Err(FederationRecognitionError::UnknownOriginNode)
+        );
+
+        let unknown_recognizer = RecognitionEdge {
+            recognizing_node: "node-unknown".into(),
+            origin_node: "node-b".into(),
+            scope: "subject-1".into(),
+            mode: RecognitionMode::EvidenceOnly,
+        };
+        assert_eq!(
+            state.try_add_recognition(unknown_recognizer),
+            Err(FederationRecognitionError::UnknownRecognizingNode)
+        );
+
+        let valid = RecognitionEdge {
+            recognizing_node: "node-a".into(),
+            origin_node: "node-b".into(),
+            scope: "subject-1".into(),
+            mode: RecognitionMode::EvidenceOnly,
+        };
+        assert_eq!(state.try_add_recognition(valid), Ok(true));
     }
 
     #[test]
@@ -1387,6 +1503,32 @@ mod tests {
         assert_eq!(unknown.decision, FederationDecision::UnknownNode);
         assert!(!unknown.origin_node_known);
         assert_eq!(unknown.origin_node.as_deref(), Some("node-unknown"));
+    }
+
+    #[test]
+    fn empty_envelope_identity_fields_fail_closed_without_state_mutation() {
+        let cases: [fn(&mut FederationEnvelope); 8] = [
+            |e| e.envelope_id.clear(),
+            |e| e.semantic_subject_id.clear(),
+            |e| e.payload_commitment.clear(),
+            |e| e.logical_delivery_id.clear(),
+            |e| e.attempt_id.clear(),
+            |e| e.origin_node.clear(),
+            |e| e.target_node.clear(),
+            |e| e.predecessor_delivery_id = Some(String::new()),
+        ];
+
+        for mutate in cases {
+            let mut state = nodes();
+            let mut malformed = envelope();
+            mutate(&mut malformed);
+
+            let outcome = deliver(&mut state, &malformed, 50, true);
+            assert_eq!(outcome.decision, FederationDecision::Rejected);
+            assert_eq!(outcome.authority, AuthorityDisposition::NoAuthority);
+            assert_eq!(state.delivery_count(), 0);
+            assert_eq!(state.observation_count(), 0);
+        }
     }
 
     #[test]
