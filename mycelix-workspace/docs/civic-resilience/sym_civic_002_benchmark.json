@@ -1,0 +1,378 @@
+{
+  "schema": "mycelix.sym-civic.causal-falsification-benchmark.v1",
+  "program": "SYM-CIVIC-002",
+  "parent_subject": "424e9342fcea47f982d3c5b9f43ad9a4cce4f1a0",
+  "hypothesis": "structural adversity + lower reachable option-space + weaker buffering + higher lethal permeability -> greater probability of harmful/irreversible transitions",
+  "analysis_role": "research_only",
+  "input_contract": {
+    "study_manifest": [
+      "study_id",
+      "input_snapshot",
+      "population_or_cohort",
+      "geographic_scope",
+      "temporal_scope",
+      "estimand",
+      "model_identity",
+      "execution_identity",
+      "seed_or_randomness",
+      "uncertainty",
+      "missingness_policy",
+      "identification_assumptions",
+      "diagnostics",
+      "sensitivity_analyses",
+      "spillover_displacement_checks",
+      "alternative_explanations",
+      "output_disposition"
+    ],
+    "output_dispositions": [
+      "Supported",
+      "Contradicted",
+      "Inconclusive",
+      "Underpowered",
+      "Confounded",
+      "Invalidated"
+    ]
+  },
+  "counterexample_cases": [
+    "CF-01",
+    "CF-02",
+    "CF-03",
+    "CF-04",
+    "CF-05",
+    "CF-06",
+    "CF-07",
+    "CF-08",
+    "CF-09",
+    "CF-10"
+  ],
+  "prohibited_surfaces": [
+    "individual_risk_label",
+    "individual_danger_label",
+    "combined_violence_score",
+    "combined_resilience_score",
+    "combined_safety_score",
+    "authority_action",
+    "diagnosis"
+  ],
+  "nonclaims": [
+    "real_world_causal_effect",
+    "clinical_validity",
+    "suicide_prevention",
+    "violence_reduction",
+    "municipal_legitimacy",
+    "deployment_readiness"
+  ],
+  "required_causal_threat_checks": [
+    "positivity_overlap",
+    "time_varying_confounding_feedback",
+    "network_interference_spillover",
+    "measurement_error_misclassification"
+  ],
+  "upstream_qualification": {
+    "program": "CIV-RES-004",
+    "qualifier_commit": "424e9342fcea47f982d3c5b9f43ad9a4cce4f1a0",
+    "workflow_run_id": 37040844685,
+    "receipt_sha256": "3e35ec4c9049ccfcabe164548b379ec45404509ae58162e1f765b886ca0bdce7",
+    "fixture_sha256": "68c3266ee77f59afd5fb9e0d24f0caa13c19b56943102703fb783148239b09db",
+    "oracle_sha256": "e5fb8b63bd2ca0cc5a2a55649fa9fe9ce31590dc0818bf5bc13e14a1cfcb8722",
+    "case_count": 18,
+    "candidate_input_policy": "oracle_excluded"
+  },
+  "case_contract": {
+    "required_fields": [
+      "id",
+      "family",
+      "seed",
+      "design",
+      "observation",
+      "threat_checks",
+      "identification_assumptions",
+      "notes"
+    ],
+    "threat_check_fields": [
+      "positivity_overlap",
+      "time_varying_confounding_feedback",
+      "network_interference_spillover",
+      "measurement_error_misclassification"
+    ],
+    "disposition_field_forbidden": true,
+    "oracle_policy": "case fixtures contain conditions and observations only; scientific output disposition is derived by the analysis layer"
+  },
+  "cases": [
+    {
+      "id": "CF-01",
+      "family": "adversity_changes_option_stable",
+      "seed": 101,
+      "design": {
+        "contrast": "structural adversity shift",
+        "community_a": {
+          "adversity": "lower",
+          "option_space": "stable"
+        },
+        "community_b": {
+          "adversity": "higher",
+          "option_space": "stable"
+        },
+        "buffering": "stable",
+        "lethal_permeability": "stable"
+      },
+      "observation": {
+        "outcome_change": "none_required",
+        "option_space_change": "none",
+        "alternative_explanation": "adversity_only_shift"
+      },
+      "threat_checks": {
+        "positivity_overlap": "declared",
+        "time_varying_confounding_feedback": "declared",
+        "network_interference_spillover": "declared",
+        "measurement_error_misclassification": "declared"
+      },
+      "identification_assumptions": [
+        "option-space measurement is stable across the contrast",
+        "adversity change is observed before the outcome window"
+      ],
+      "notes": "Tests whether the proposed mechanism survives adversity change without reachable-option change."
+    },
+    {
+      "id": "CF-02",
+      "family": "option_expands_no_outcome_improvement",
+      "seed": 102,
+      "design": {
+        "contrast": "option-space expansion",
+        "baseline_option_space": "lower",
+        "post_option_space": "higher",
+        "intervention_buffering": "expanded",
+        "observation_window": "fixed"
+      },
+      "observation": {
+        "outcome_improvement": "none",
+        "reachability_change": "present",
+        "causal_effect_status": "unresolved"
+      },
+      "threat_checks": {
+        "positivity_overlap": "declared",
+        "time_varying_confounding_feedback": "declared",
+        "network_interference_spillover": "declared",
+        "measurement_error_misclassification": "declared"
+      },
+      "identification_assumptions": [
+        "expanded options are actually reachable",
+        "outcome window is sufficient to observe the target estimand"
+      ],
+      "notes": "Prevents option-space expansion from being treated as outcome improvement."
+    },
+    {
+      "id": "CF-03",
+      "family": "connection_environment_harmful",
+      "seed": 103,
+      "design": {
+        "contrast": "social-connection level",
+        "connection": "high",
+        "harmful_context": "present",
+        "option_space": "unchanged",
+        "buffering": "present"
+      },
+      "observation": {
+        "harmful_context": "present",
+        "connection_level": "high",
+        "outcome_change": "compatible_with_harm"
+      },
+      "threat_checks": {
+        "positivity_overlap": "declared",
+        "time_varying_confounding_feedback": "declared",
+        "network_interference_spillover": "declared",
+        "measurement_error_misclassification": "declared"
+      },
+      "identification_assumptions": [
+        "connection is not treated as a universal mediator",
+        "contextual harm is separately represented"
+      ],
+      "notes": "Tests whether connection is incorrectly treated as sufficient protection independent of environment."
+    },
+    {
+      "id": "CF-04",
+      "family": "nominally_available_unreachable",
+      "seed": 104,
+      "design": {
+        "listed_resources": "present",
+        "geographic_scope": "nominal",
+        "transport_constraint": "binding",
+        "eligibility_constraint": "binding"
+      },
+      "observation": {
+        "practical_reachability": "none",
+        "nominal_availability": "present",
+        "usable_capacity": "unknown"
+      },
+      "threat_checks": {
+        "positivity_overlap": "declared",
+        "time_varying_confounding_feedback": "declared",
+        "network_interference_spillover": "declared",
+        "measurement_error_misclassification": "declared"
+      },
+      "identification_assumptions": [
+        "listed resource status is not a proxy for practical access"
+      ],
+      "notes": "Separates nominal availability from reachable option-space."
+    },
+    {
+      "id": "CF-05",
+      "family": "shared_hidden_dependency",
+      "seed": 105,
+      "design": {
+        "nominal_pathways": 3,
+        "shared_dependency": "single_critical_provider",
+        "failure_mode": "common_dependency_loss"
+      },
+      "observation": {
+        "independent_redundancy": 1,
+        "nominal_pathway_count": 3,
+        "effective_independent_pathways": "collapsed"
+      },
+      "threat_checks": {
+        "positivity_overlap": "declared",
+        "time_varying_confounding_feedback": "declared",
+        "network_interference_spillover": "declared",
+        "measurement_error_misclassification": "declared"
+      },
+      "identification_assumptions": [
+        "pathway independence is explicitly assessed",
+        "provider concentration is observable enough for the estimand"
+      ],
+      "notes": "Tests whether pathway count is mistaken for independent redundancy."
+    },
+    {
+      "id": "CF-06",
+      "family": "lethal_permeability_changes_mortality",
+      "seed": 106,
+      "design": {
+        "upstream_adversity": "stable",
+        "option_space": "stable",
+        "buffering": "stable",
+        "downstream_permeability_change": "present"
+      },
+      "observation": {
+        "upstream_crisis_change": "none",
+        "downstream_outcome_change": "present",
+        "mechanism_isolation": "required"
+      },
+      "threat_checks": {
+        "positivity_overlap": "declared",
+        "time_varying_confounding_feedback": "declared",
+        "network_interference_spillover": "declared",
+        "measurement_error_misclassification": "declared"
+      },
+      "identification_assumptions": [
+        "downstream permeability is measured separately from upstream adversity",
+        "spillover pathways are checked"
+      ],
+      "notes": "Prevents downstream outcome changes from being back-propagated into an upstream crisis claim."
+    },
+    {
+      "id": "CF-07",
+      "family": "same_current_different_history",
+      "seed": 107,
+      "design": {
+        "current_state_pair": "equal",
+        "trajectory_a": "stable",
+        "trajectory_b": "recent_shock",
+        "history_window": "retained"
+      },
+      "observation": {
+        "current_state": "equal",
+        "historical_path": "different",
+        "outcome_window": "same"
+      },
+      "threat_checks": {
+        "positivity_overlap": "declared",
+        "time_varying_confounding_feedback": "declared",
+        "network_interference_spillover": "declared",
+        "measurement_error_misclassification": "declared"
+      },
+      "identification_assumptions": [
+        "history is retained in the input snapshot",
+        "current-state sufficiency is tested rather than assumed"
+      ],
+      "notes": "Tests path dependence and guards against single-snapshot causal claims."
+    },
+    {
+      "id": "CF-08",
+      "family": "prediction_contradicted_by_observation",
+      "seed": 108,
+      "design": {
+        "model_prediction": "improvement",
+        "future_observation_window": "closed",
+        "reanalysis_allowed": true
+      },
+      "observation": {
+        "prediction_result": "contradicted_by_later_observation",
+        "observed_direction": "opposite_or_null",
+        "model_update_required": true
+      },
+      "threat_checks": {
+        "positivity_overlap": "declared",
+        "time_varying_confounding_feedback": "declared",
+        "network_interference_spillover": "declared",
+        "measurement_error_misclassification": "declared"
+      },
+      "identification_assumptions": [
+        "future observations are bound to the same study snapshot lineage",
+        "prediction error is not relabeled as diagnosis"
+      ],
+      "notes": "Requires later evidence to be allowed to falsify a model prediction."
+    },
+    {
+      "id": "CF-09",
+      "family": "reporting_change_mimics_outcome",
+      "seed": 109,
+      "design": {
+        "true_rate_process": "stable",
+        "reporting_process": "changed",
+        "measurement_protocol": "changed"
+      },
+      "observation": {
+        "measured_true_rate": "stable",
+        "reported_rate_change": "present",
+        "measurement_change": "present"
+      },
+      "threat_checks": {
+        "positivity_overlap": "declared",
+        "time_varying_confounding_feedback": "declared",
+        "network_interference_spillover": "declared",
+        "measurement_error_misclassification": "explicit_sensitivity_required"
+      },
+      "identification_assumptions": [
+        "measurement process is modeled separately",
+        "reporting changes are not interpreted as physical outcome changes"
+      ],
+      "notes": "Tests measurement and reporting artifacts that can mimic intervention or outcome effects."
+    },
+    {
+      "id": "CF-10",
+      "family": "alternative_specification_erases_effect",
+      "seed": 110,
+      "design": {
+        "primary_specification": "apparent_effect",
+        "alternative_specification": "effect_absent",
+        "covariate_set": "changed",
+        "estimand": "same_target"
+      },
+      "observation": {
+        "effect_under_alternative": "absent",
+        "specification_sensitivity": "material",
+        "causal_claim_ceiling": "inconclusive"
+      },
+      "threat_checks": {
+        "positivity_overlap": "declared",
+        "time_varying_confounding_feedback": "declared",
+        "network_interference_spillover": "declared",
+        "measurement_error_misclassification": "declared"
+      },
+      "identification_assumptions": [
+        "estimand remains explicitly identified across specifications",
+        "alternative specification is predeclared and reproducible"
+      ],
+      "notes": "Prevents a single model specification from being treated as causal confirmation."
+    }
+  ]
+}

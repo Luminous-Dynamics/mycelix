@@ -1,0 +1,67 @@
+name: SYM-CIVIC-002 Causal Falsification Benchmark
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'mycelix-workspace/docs/civic-resilience/sym_civic_002_benchmark.json'
+      - 'mycelix-workspace/docs/civic-resilience/SYM_CIVIC_002_BENCHMARK_V1.md'
+      - 'scripts/qualification/sym_civic_002_benchmark_v1.py'
+      - '.github/workflows/sym-civic-002-falsification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sym-civic-002-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Causal falsification benchmark semantics
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Exact parent and clean subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='424e9342fcea47f982d3c5b9f43ad9a4cce4f1a0'
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
+          test -z "$(git status --short)"
+      - name: Exact benchmark tranche
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='424e9342fcea47f982d3c5b9f43ad9a4cce4f1a0'
+          test "$(git rev-list --count "$EXPECTED_PARENT"..HEAD)" = '1'
+          git diff --check "$EXPECTED_PARENT" HEAD
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_PARENT" HEAD | sort)
+          expected=(
+            '.github/workflows/sym-civic-002-falsification.yml'
+            'mycelix-workspace/docs/civic-resilience/SYM_CIVIC_002_BENCHMARK_V1.md'
+            'mycelix-workspace/docs/civic-resilience/sym_civic_002_benchmark.json'
+            'scripts/qualification/sym_civic_002_benchmark_v1.py'
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${changed[@]}")
+      - name: Execute benchmark qualifier
+        run: python3 scripts/qualification/sym_civic_002_benchmark_v1.py
+      - name: Static no-runtime audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='424e9342fcea47f982d3c5b9f43ad9a4cce4f1a0'
+          changed="$(git diff --name-only "$EXPECTED_PARENT" HEAD)"
+          if printf '%s\n' "$changed" | grep -E '\.(rs|toml|lock)$'; then
+            echo 'SYM-CIVIC-002 is research corpus/manifest/validator/workflow only' >&2
+            exit 1
+          fi
+      - name: Immutable checkout postflight
+        run: test -z "$(git status --short)"
