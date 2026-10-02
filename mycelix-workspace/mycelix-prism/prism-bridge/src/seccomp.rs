@@ -1855,6 +1855,103 @@ mod linux {
         }
 
         #[test]
+        fn v2_disjunctive_each_predicate_boundary_falls_through_to_next_clause() {
+            let arch = SeccompArchitecture::current().unwrap();
+
+            for failing_index in 0..4u8 {
+                let first = SeccompSyscallClauseV2::new(
+                    (0..4u8)
+                        .map(|arg_index| {
+                            let value = if arg_index == failing_index {
+                                0xfeed_u64
+                            } else {
+                                0x100_u64 + u64::from(arg_index)
+                            };
+                            SeccompArgPredicateV1::new(arg_index, u32::MAX as u64, value).unwrap()
+                        })
+                        .collect(),
+                )
+                .unwrap();
+
+                let second = SeccompSyscallClauseV2::new(
+                    (0..4u8)
+                        .map(|arg_index| {
+                            SeccompArgPredicateV1::new(
+                                arg_index,
+                                u32::MAX as u64,
+                                0x100_u64 + u64::from(arg_index),
+                            )
+                            .unwrap()
+                        })
+                        .collect(),
+                )
+                .unwrap();
+
+                let rule = SeccompSyscallRuleV2::new_with_clauses(
+                    libc::SYS_socket,
+                    vec![first, second],
+                )
+                .unwrap();
+                let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+                let filter = compile_filter_v2(&policy).unwrap();
+
+                let arguments = [
+                    0x100_u64,
+                    0x101_u64,
+                    0x102_u64,
+                    0x103_u64,
+                    0,
+                    0,
+                ];
+                assert!(policy.allows(libc::SYS_socket, &arguments));
+                assert_eq!(
+                    interpret_v2_filter(&filter, arch, libc::SYS_socket, arguments),
+                    SECCOMP_RET_ALLOW,
+                    "predicate {failing_index} failure must reach the second clause"
+                );
+            }
+        }
+
+        #[test]
+        fn v2_disjunctive_64bit_masked_not_equal_boundary_falls_through() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let first = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new_with_op(
+                    0,
+                    u64::MAX,
+                    0x0000_0001_0000_0001,
+                    SeccompArgPredicateOpV1::MaskedNotEqual,
+                )
+                .unwrap(),
+            ])
+            .unwrap();
+            let second = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(
+                    0,
+                    u64::MAX,
+                    0x0000_0002_0000_0002,
+                )
+                .unwrap(),
+            ])
+            .unwrap();
+            let rule = SeccompSyscallRuleV2::new_with_clauses(
+                libc::SYS_socket,
+                vec![first, second],
+            )
+            .unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+            let filter = compile_filter_v2(&policy).unwrap();
+            let arguments = [0x0000_0001_0000_0001, 0, 0, 0, 0, 0];
+
+            assert!(policy.allows(libc::SYS_socket, &arguments));
+            assert_eq!(
+                interpret_v2_filter(&filter, arch, libc::SYS_socket, arguments),
+                SECCOMP_RET_ALLOW,
+                "64-bit masked-not-equal failure must reach the second clause"
+            );
+        }
+
+        #[test]
         fn architecture_guard_is_present_before_syscall_allowlist() {
             let arch = SeccompArchitecture::current().unwrap();
             let policy = SeccompSyscallPolicyV1::new(arch, vec![libc::SYS_read, libc::SYS_write]).unwrap();
