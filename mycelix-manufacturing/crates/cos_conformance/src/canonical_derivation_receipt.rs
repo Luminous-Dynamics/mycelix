@@ -713,6 +713,44 @@ mod tests {
     }
 
     #[test]
+    fn d6t_golden_vector_file_matches_implementation() {
+        let corpus: serde_json::Value = serde_json::from_str(include_str!(
+            "../testdata/d6s_canon_1_golden_vectors.json"
+        ))
+        .expect("D6S-CANON-1 golden vector corpus must be valid JSON");
+
+        assert_eq!(
+            corpus["canonicalization_version"],
+            D6S_REFERENCE_CANONICALIZATION_VERSION
+        );
+        for vector in corpus["vectors"]
+            .as_array()
+            .expect("D6S golden vectors must be an array")
+        {
+            let domain = vector["domain"]
+                .as_str()
+                .expect("D6S golden vector domain must be a string");
+            let value = &vector["value"];
+            let expected_bytes = vector["canonical_json"]
+                .as_str()
+                .expect("D6S golden vector canonical_json must be a string")
+                .as_bytes();
+            assert_eq!(
+                canonical_bytes(value).expect("golden vector value must canonicalize"),
+                expected_bytes,
+                "canonical bytes drifted for vector {}",
+                vector["id"]
+            );
+            assert_eq!(
+                canonical_sha256(domain, value),
+                vector["sha256"].as_str().expect("sha256 must be a string"),
+                "hash drifted for vector {}",
+                vector["id"]
+            );
+        }
+    }
+
+    #[test]
     fn d6t_uses_utf16_property_order() {
         let value = serde_json::json!({
             "\u{10000}": 1,
