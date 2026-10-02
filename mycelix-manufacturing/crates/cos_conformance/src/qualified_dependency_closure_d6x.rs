@@ -426,9 +426,14 @@ pub fn compute_dependency_closure_from_authoritative_d6p(
     )
 }
 
-/// Strict authoritative D6X entrypoint. When a current frontier is supplied,
+/// Strict qualified D6X entrypoint. When a current frontier is supplied,
 /// every selected D6P receipt must prove that exact frontier. This prevents a
 /// structurally valid historical receipt from being replayed as "current".
+///
+/// The caller remains responsible for establishing that the supplied D6P
+/// composition was produced from authoritative D6N/D6O evidence. This function
+/// verifies exact receipt-to-composition provenance and frontier binding, not
+/// the upstream D6N/D6O authority claim.
 pub fn compute_dependency_closure_from_authoritative_d6p_at_frontier(
     projection: &QualifiedProjectionV1,
     environment: &SemanticEnvironmentV1,
