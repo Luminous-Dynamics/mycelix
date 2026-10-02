@@ -1842,11 +1842,11 @@ pub fn validate_create_purchase_intent(
 ///
 /// Listing updates may be interleaved with unrelated seller-chain actions, so
 /// source-chain adjacency is deliberately not required. Instead, the bounded
-/// source-chain slice is searched for the listing root and every Update whose
-/// original_action_address is that root; the greatest action sequence is the
-/// authoritative current revision. This is deterministic because action
-/// sequence is part of the source-chain action and hash-bounded activity is a
-/// contiguous source-chain slice.
+/// source-chain slice is walked in action-sequence order and an Update becomes
+/// root-derived only when its original_action_address already belongs to the
+/// root's exact ActionHash lineage. This supports both direct-root and chained
+/// update organizations without confusing distinct listings that share identical
+/// entry content.
 fn validate_current_listing_revision(
     seller: &AgentPubKey,
     listing_hash: &ActionHash,
