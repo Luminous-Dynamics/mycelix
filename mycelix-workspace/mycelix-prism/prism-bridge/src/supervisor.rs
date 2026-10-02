@@ -285,7 +285,7 @@ mod tests {
                 other,
                 next_sandbox_installation_id().unwrap(),
                 SandboxAdapterKind::LinuxLandlockFilesystemV1,
-                state.launch.sandbox.policy_digest(),
+                state.launch().sandbox().policy_digest(),
                 [0x22; 32],
                 SandboxEnforcementLayer::Filesystem,
             ).unwrap(),
@@ -345,7 +345,7 @@ mod tests {
             state.launch.sandbox.policy_digest()
         );
         let _ = &receipt;
-        assert_eq!(state.state, RendererProcessState::Assigned);
+        assert_eq!(state.state(), RendererProcessState::Assigned);
     }
 
     #[test]
