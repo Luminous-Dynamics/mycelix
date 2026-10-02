@@ -357,14 +357,27 @@ impl FederationOutcome {
         envelope: &FederationEnvelope,
         reason: &'static str,
     ) -> Self {
+        Self::with_origin_knowledge(
+            decision,
+            authority,
+            envelope,
+            reason,
+            !matches!(decision, FederationDecision::PartitionUnknown),
+        )
+    }
+
+    fn with_origin_knowledge(
+        decision: FederationDecision,
+        authority: AuthorityDisposition,
+        envelope: &FederationEnvelope,
+        reason: &'static str,
+        origin_node_known: bool,
+    ) -> Self {
         Self {
             decision,
             authority,
             origin_node: Some(envelope.origin_node.clone()),
-            origin_node_known: !matches!(
-                decision,
-                FederationDecision::PartitionUnknown | FederationDecision::UnknownNode
-            ),
+            origin_node_known,
             logical_delivery_id: envelope.logical_delivery_id.clone(),
             attempt_id: envelope.attempt_id.clone(),
             reason,
@@ -390,11 +403,12 @@ pub fn deliver(
             .as_ref()
             .is_some_and(String::is_empty)
     {
-        return FederationOutcome::new(
+        return FederationOutcome::with_origin_knowledge(
             FederationDecision::Rejected,
             AuthorityDisposition::NoAuthority,
             envelope,
             "Required federation identity fields must be non-empty.",
+            false,
         );
     }
 
@@ -439,11 +453,12 @@ pub fn deliver(
     }
 
     let Some(origin) = state.nodes.get(&envelope.origin_node) else {
-        return FederationOutcome::new(
+        return FederationOutcome::with_origin_knowledge(
             FederationDecision::UnknownNode,
             AuthorityDisposition::NoAuthority,
             envelope,
             "Origin node is not known to the reference federation.",
+            false,
         );
     };
     let Some(target) = state.nodes.get(&envelope.target_node) else {
@@ -1813,6 +1828,19 @@ mod tests {
         assert_eq!(unknown.decision, FederationDecision::UnknownNode);
         assert!(!unknown.origin_node_known);
         assert_eq!(unknown.origin_node.as_deref(), Some("node-unknown"));
+
+        let mut unknown_target = envelope();
+        unknown_target.target_node = "node-unknown".into();
+        let target_unknown = deliver(&mut state, &unknown_target, 50, true);
+        assert_eq!(target_unknown.decision, FederationDecision::UnknownNode);
+        assert!(target_unknown.origin_node_known);
+        assert_eq!(target_unknown.origin_node.as_deref(), Some("node-a"));
+
+        let mut malformed = envelope();
+        malformed.origin_node.clear();
+        let malformed_outcome = deliver(&mut state, &malformed, 50, true);
+        assert_eq!(malformed_outcome.decision, FederationDecision::Rejected);
+        assert!(!malformed_outcome.origin_node_known);
     }
 
     #[test]
