@@ -247,6 +247,32 @@ impl AdvisoryResult {
 }
 
 impl Capability {
+    fn validate(&self) -> Result<(), &'static str> {
+        if self.subject.is_empty() || self.issuer.is_empty() || self.resource.is_empty() {
+            return Err("capability identifiers cannot be empty");
+        }
+        if self.subject.len() > MAX_SECURITY_IDENTIFIER_BYTES
+            || self.issuer.len() > MAX_SECURITY_IDENTIFIER_BYTES
+            || self.resource.len() > MAX_SECURITY_IDENTIFIER_BYTES
+        {
+            return Err("capability identifier exceeds size limit");
+        }
+        if self.expires_at_us < self.not_before_us {
+            return Err("capability validity window is inverted");
+        }
+        if self.actions.is_empty() {
+            return Err("capability must grant at least one action");
+        }
+        if self
+            .actions
+            .windows(2)
+            .any(|pair| pair[0] as u8 >= pair[1] as u8)
+        {
+            return Err("capability actions must be canonical and unique");
+        }
+        Ok(())
+    }
+
     /// Stable semantic bytes for cryptographic signing.
     ///
     /// Actions are canonicalized at construction, so semantically identical
@@ -282,28 +308,7 @@ impl Capability {
         let issuer = issuer.into();
         let resource = resource.into();
 
-        if subject.is_empty() || issuer.is_empty() || resource.is_empty() {
-            return Err("capability identifiers cannot be empty");
-        }
-        if subject.len() > MAX_SECURITY_IDENTIFIER_BYTES
-            || issuer.len() > MAX_SECURITY_IDENTIFIER_BYTES
-            || resource.len() > MAX_SECURITY_IDENTIFIER_BYTES
-        {
-            return Err("capability identifier exceeds size limit");
-        }
-        if expires_at_us < not_before_us {
-            return Err("capability validity window is inverted");
-        }
-        if actions.is_empty() {
-            return Err("capability must grant at least one action");
-        }
-
-        actions.sort_by_key(|action| *action as u8);
-        if actions.windows(2).any(|pair| pair[0] == pair[1]) {
-            return Err("capability actions cannot contain duplicates");
-        }
-
-        Ok(Self {
+        let mut capability = Self {
             subject,
             issuer,
             resource,
@@ -311,7 +316,11 @@ impl Capability {
             not_before_us,
             expires_at_us,
             policy_version,
-        })
+        };
+
+        capability.actions.sort_by_key(|action| *action as u8);
+        capability.validate()?;
+        Ok(capability)
     }
 
     pub fn subject(&self) -> &str {
@@ -367,6 +376,11 @@ pub fn verify_capability(
     evidence: VerificationEvidence,
     now_us: u64,
 ) -> Result<VerifiedCapability, AuthorizationDecision> {
+    if capability.validate().is_err() {
+        return Err(AuthorizationDecision::Deny(
+            AuthorizationDenial::InvalidCapability,
+        ));
+    }
     if !evidence.signature_verified {
         return Err(AuthorizationDecision::Deny(
             AuthorizationDenial::InvalidCapability,
@@ -764,6 +778,32 @@ mod tests {
         assert_eq!(
             authorize(&verified(), &request(CapabilityAction::Read), 201),
             AuthorizationDecision::Deny(AuthorizationDenial::OutsideValidityWindow)
+        );
+    }
+
+    #[test]
+    fn deserialized_malformed_capability_is_rejected_before_authorization() {
+        let malformed: Capability = serde_json::from_str(
+            r#"{
+                "subject":"alice",
+                "issuer":"issuer",
+                "resource":"ledger",
+                "actions":["Read","Read"],
+                "not_before_us":1,
+                "expires_at_us":2,
+                "policy_version":1
+            }"#,
+        )
+        .unwrap();
+        assert_eq!(
+            verify_capability(
+                malformed,
+                VerificationEvidence::new(true, true, true),
+                1,
+            ),
+            Err(AuthorizationDecision::Deny(
+                AuthorizationDenial::InvalidCapability,
+            ))
         );
     }
 
