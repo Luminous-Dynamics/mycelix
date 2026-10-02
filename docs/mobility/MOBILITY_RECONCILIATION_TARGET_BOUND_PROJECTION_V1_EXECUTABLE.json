@@ -782,7 +782,7 @@
       "expected_state": {
         "epistemic_disposition": "supported",
         "lifecycle_disposition": "current",
-        "conflict_disposition": "disputed",
+        "conflict_disposition": "uncontested",
         "authority_provenance": "commons",
         "evidence_modality": "interpretation",
         "contradiction_reference": null,
