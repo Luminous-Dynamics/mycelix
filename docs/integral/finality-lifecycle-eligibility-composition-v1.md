@@ -33,6 +33,17 @@ Therefore neither layer is sufficient by itself.
 
 D6P is a join, not a new source of truth.
 
+## Evidence identity is single-valued at the join
+
+D6P consumes D6N evidence by observation ID, so the D6N provenance boundary treats
+a duplicate supplied identity as ambiguous input rather than applying last-write-wins.
+This applies even when only one observation ID is required: a conflicting second
+representation cannot be hidden by matching the cardinality check.
+
+The assessment constructor follows the same rule and returns insufficient evidence
+for duplicate observation identities. This keeps source selection deterministic and
+independent of input order.
+
 ## Exact D6N artifact
 
 D6P consumes D6N ObservationSetAssessmentV1 as an exact reference-model artifact.
@@ -292,7 +303,8 @@ The module contains source-level tests for:
 24. composition cannot authorize actuation;
 25. lifecycle evidence alone cannot establish finality;
 26. arrival order cannot change the eligible witness count;
-27. cross-frontier witness replacement is rejected and explicit witness selection requires the expected frontier.
+27. cross-frontier witness replacement is rejected and explicit witness selection requires the expected frontier;
+28. duplicate D6N evidence identities are rejected rather than resolved by last-write-wins.
 
 ## Claim ceiling
 
