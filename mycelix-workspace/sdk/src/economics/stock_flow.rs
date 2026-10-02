@@ -353,9 +353,20 @@ impl EconomicState {
         self.actors.iter().map(|a| a.monetary.assets()).sum()
     }
 
-    /// Sum of all outstanding financial liabilities.
+    /// Sum of all outstanding financial liabilities, including issued deposits.
     pub fn aggregate_liabilities(&self) -> i128 {
-        self.actors.iter().map(|a| a.monetary.liabilities).sum()
+        self.actors
+            .iter()
+            .map(|a| a.monetary.liabilities + a.monetary.deposit_liabilities)
+            .sum()
+    }
+
+    /// Sum of modeled internal financial claims, including deposits.
+    pub fn aggregate_claims(&self) -> i128 {
+        self.actors
+            .iter()
+            .map(|a| a.monetary.deposits + a.monetary.claims)
+            .sum()
     }
 
     /// Aggregate net financial position.
