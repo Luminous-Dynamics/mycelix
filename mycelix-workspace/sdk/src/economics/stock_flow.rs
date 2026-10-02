@@ -1362,9 +1362,8 @@ mod tests {
             .unwrap();
         assert_eq!(s.net_credit_impulse(), 200);
     }
-}
 
-    #[test]
+#[test]
     fn closed_financial_rows_require_matching_counterparts() {
         let mut bank = ActorBalanceSheet::new("bank");
         let mut firm = ActorBalanceSheet::new("firm");
@@ -1384,3 +1383,5 @@ mod tests {
 
     #[test]
     fn aggregate_checked_sums_fail_closed_on_overflow() {
+
+}
