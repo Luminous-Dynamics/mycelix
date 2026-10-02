@@ -129,6 +129,8 @@ impl SectorTransactionMatrix {
         for transition in transitions {
             let (from, to, category, amount) = match transition {
                 super::transition::EconomicTransition::Production(_) => continue,
+                super::transition::EconomicTransition::InventoryTransfer(_) => continue,
+                super::transition::EconomicTransition::InventoryConsumption(_) => continue,
                 super::transition::EconomicTransition::MonetaryTransfer(flow) => (
                     sector_for(&flow.from)?,
                     sector_for(&flow.to)?,
