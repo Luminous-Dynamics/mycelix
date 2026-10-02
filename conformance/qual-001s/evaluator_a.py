@@ -101,6 +101,16 @@ for v in vectors:
             if not isinstance(value, str) or not value:
                 fail(f"{v['vector_id']}: mutation field {key} must be non-empty text")
 
+def canonical_ascii_json(value):
+    if isinstance(value, dict):
+        return "{" + ",".join(
+            json.dumps(str(k), ensure_ascii=False) + ":" + canonical_ascii_json(value[k])
+            for k in sorted(value)
+        ) + "}"
+    if isinstance(value, list):
+        return "[" + ",".join(canonical_ascii_json(x) for x in value) + "]"
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+
 n10 = next(v for v in vectors if v["vector_id"] == "QUALS-N-010")
 fixture = n10.get("mutation", {}).get("fixture")
 if fixture != '{"authority_outcome":"NONE","authority_outcome":"AUTHORITY_AUTHORIZED"}':
@@ -130,4 +140,11 @@ if s0["candidate_code_executed"] is not False:
 if not re.fullmatch(r"^[0-9a-f]{64}$", s0["envelope_sha256"]):
     fail("invalid S0 envelope commitment")
 
+canon = next(v for v in vectors if v["vector_id"] == "QUALS-M-021")["mutation"]
+before_obj = json.loads(canon["before_wire"], object_pairs_hook=reject_duplicates)
+after_obj = json.loads(canon["after_wire"], object_pairs_hook=reject_duplicates)
+if canonical_ascii_json(before_obj) != canon["expected_canonical"]:
+    fail("QUALS-M-021 before object canonicalized incorrectly")
+if canonical_ascii_json(after_obj) != canon["expected_canonical"]:
+    fail("QUALS-M-021 after object canonicalized incorrectly")
 print("QUAL-001S evaluator A: PASS")
