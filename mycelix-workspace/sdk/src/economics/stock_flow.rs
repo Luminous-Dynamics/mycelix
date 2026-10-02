@@ -251,6 +251,57 @@ impl ProductionEvent {
     }
 }
 
+/// Transfer finished-goods inventory between actors.
+///
+/// This is deliberately a physical transition. Payment is a separate monetary
+/// transition, so price formation and physical goods movement cannot become an
+/// implicit side effect of one another.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InventoryTransfer {
+    pub from: ActorId,
+    pub to: ActorId,
+    pub quantity: i128,
+}
+
+impl InventoryTransfer {
+    pub fn new(
+        from: impl Into<ActorId>,
+        to: impl Into<ActorId>,
+        quantity: i128,
+    ) -> Result<Self, String> {
+        if quantity <= 0 {
+            return Err("inventory transfer quantity must be positive".into());
+        }
+        Ok(Self {
+            from: from.into(),
+            to: to.into(),
+            quantity,
+        })
+    }
+}
+
+/// Consume/draw down finished-goods inventory.
+///
+/// This represents final use, spoilage, destruction, or another explicit
+/// inventory sink. Monetary consumption remains a separate transition.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InventoryConsumption {
+    pub consumer: ActorId,
+    pub quantity: i128,
+}
+
+impl InventoryConsumption {
+    pub fn new(consumer: impl Into<ActorId>, quantity: i128) -> Result<Self, String> {
+        if quantity <= 0 {
+            return Err("inventory consumption quantity must be positive".into());
+        }
+        Ok(Self {
+            consumer: consumer.into(),
+            quantity,
+        })
+    }
+}
+
 /// Explicit endogenous credit creation.
 ///
 /// Credit creation increases the lender's financial asset and the borrower's
@@ -455,7 +506,7 @@ impl EconomicState {
         if producer.real.resources < production.resource_input {
             return Err(format!(
                 "insufficient resources for {}: have {}, need {}",
-                producer.actor, producer.real.resources, production.resource_input
+                producer.actor, production.resource_input, production.resource_input
             ));
         }
         producer.real.resources -= production.resource_input;
@@ -464,6 +515,45 @@ impl EconomicState {
             .inventories
             .checked_add(production.output)
             .ok_or_else(|| "inventory overflow".to_string())?;
+        Ok(())
+    }
+
+    /// Transfer finished-goods inventory without introducing an implicit
+    /// monetary payment.
+    pub fn apply_inventory_transfer(
+        &mut self,
+        transfer: &InventoryTransfer,
+    ) -> Result<(), String> {
+        let (sender, receiver) = self.actor_pair_mut(&transfer.from, &transfer.to)?;
+        if sender.real.inventories < transfer.quantity {
+            return Err(format!(
+                "insufficient inventory for {}: have {}, need {}",
+                sender.actor, sender.real.inventories, transfer.quantity
+            ));
+        }
+        sender.real.inventories -= transfer.quantity;
+        receiver.real.inventories = receiver
+            .real
+            .inventories
+            .checked_add(transfer.quantity)
+            .ok_or_else(|| "inventory transfer overflow".to_string())?;
+        Ok(())
+    }
+
+    /// Draw down finished-goods inventory without creating an implicit
+    /// monetary flow.
+    pub fn apply_inventory_consumption(
+        &mut self,
+        consumption: &InventoryConsumption,
+    ) -> Result<(), String> {
+        let consumer = self.actor_mut(&consumption.consumer)?;
+        if consumer.real.inventories < consumption.quantity {
+            return Err(format!(
+                "insufficient inventory for {}: have {}, need {}",
+                consumer.actor, consumer.real.inventories, consumption.quantity
+            ));
+        }
+        consumer.real.inventories -= consumption.quantity;
         Ok(())
     }
 
