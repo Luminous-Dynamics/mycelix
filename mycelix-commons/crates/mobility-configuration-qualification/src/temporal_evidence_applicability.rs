@@ -13,25 +13,30 @@ impl EvidenceEventInterval {
     /// Validate only the predecessor chain rooted at a named delegation.
     ///
     /// This is intentionally narrower than validate_graph: unrelated
-    /// delegations in the supplied set do not make the named chain unresolved.
-    /// Missing predecessors on the named chain remain unresolved, and a
-    /// closed cycle is invalid because it has no historical root.
+    /// delegations in the supplied set do not become dependencies of the
+    /// named chain. Only the target and its explicit predecessors are
+    /// structurally validated.
     pub fn validate_chain(
         delegation_id: &IdentityRef,
         delegations: &[EvidenceDispositionAuthorityDelegation],
     ) -> Result<AuthorityDelegationChainAssessment, String> {
         use std::collections::BTreeMap;
-        let mut by_id = BTreeMap::new();
+
+        let mut by_id: BTreeMap<IdentityRef, Vec<&EvidenceDispositionAuthorityDelegation>> = BTreeMap::new();
         for delegation in delegations {
-            delegation.validate()?;
-            if by_id.insert(delegation.delegation_id.clone(), delegation).is_some() {
-                return Err("duplicate authority delegation identity".into());
-            }
+            by_id.entry(delegation.delegation_id.clone()).or_default().push(delegation);
         }
 
-        let mut current = by_id
-            .get(delegation_id)
-            .ok_or_else(|| "target authority delegation is missing".to_string())?;
+        let target = match by_id.get(delegation_id) {
+            None => return Err("target authority delegation is missing".to_string()),
+            Some(candidates) if candidates.len() != 1 => {
+                return Err("duplicate authority delegation identity".into());
+            }
+            Some(candidates) => candidates[0],
+        };
+        target.validate()?;
+
+        let mut current = target;
         let mut seen = std::collections::BTreeSet::new();
         loop {
             if !seen.insert(current.delegation_id.clone()) {
@@ -50,7 +55,12 @@ impl EvidenceEventInterval {
                             roots: vec![],
                         });
                     }
-                    Some(predecessor) => {
+                    Some(candidates) if candidates.len() != 1 => {
+                        return Err("duplicate authority delegation identity".into());
+                    }
+                    Some(candidates) => {
+                        let predecessor = candidates[0];
+                        predecessor.validate()?;
                         if predecessor.subject != current.subject {
                             return Err("authority delegation predecessor subject must match".into());
                         }
@@ -68,6 +78,7 @@ impl EvidenceEventInterval {
             }
         }
     }
+
     pub fn validate(&self) -> Result<(), String> {
         ApplicabilityInterval { start: self.start, end: self.end }
             .validate()
@@ -1508,6 +1519,37 @@ mod tests {
         };
         assert_eq!(
             EvidenceDispositionAuthorityDelegation::validate_graph(&[root.clone(), child]),
+            Ok(AuthorityDelegationChainAssessment::Complete {
+                roots: vec![root.delegation_id],
+            })
+        );
+    }
+
+    #[test]
+    fn authority_delegation_target_chain_ignores_unrelated_invalid_record() {
+        let root = authority_delegation("reconcile-delegation-target-valid");
+        let child = EvidenceDispositionAuthorityDelegation {
+            delegation_id: id(IdentityKind::ReconciliationWitness, "authority-delegation-target-valid-child"),
+            grantor: root.grantee.clone(),
+            grantee: id(IdentityKind::ReconciliationWitness, "authority-target-valid-child"),
+            subject: root.subject.clone(),
+            predecessor: Some(root.delegation_id.clone()),
+            basis: vec![],
+        };
+        let unrelated = EvidenceDispositionAuthorityDelegation {
+            delegation_id: id(IdentityKind::ReconciliationWitness, "authority-delegation-unrelated-invalid"),
+            grantor: id(IdentityKind::ConfigurationRevision, "invalid-grantor-kind"),
+            grantee: id(IdentityKind::ReconciliationWitness, "unrelated-grantee"),
+            subject: id(IdentityKind::ReconciliationWitness, "unrelated-subject"),
+            predecessor: None,
+            basis: vec![],
+        };
+
+        assert_eq!(
+            EvidenceDispositionAuthorityDelegation::validate_chain(
+                &child.delegation_id,
+                &[root.clone(), child, unrelated],
+            ),
             Ok(AuthorityDelegationChainAssessment::Complete {
                 roots: vec![root.delegation_id],
             })
