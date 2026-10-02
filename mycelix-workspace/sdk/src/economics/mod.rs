@@ -25,6 +25,7 @@ pub mod sector_flow;
 pub mod sector_balance;
 pub mod stock_flow;
 pub mod transition;
+pub mod trace;
 
 pub use commons::{CommonsContribution, CommonsPool, CommonsResult};
 pub use decay_garden::{
@@ -60,6 +61,7 @@ pub use transition::{
     apply_step, state_hash, transition_hash, EconomicChainReceipt, EconomicStepError,
     EconomicStepReceipt, EconomicTransition,
 };
+pub use trace::{EconomicSimulationStep, EconomicSimulationTrace};
 
 pub use recognition::{
     calculate_recognition_score, ContributionType, RecognitionConfig, RecognitionEvent,
