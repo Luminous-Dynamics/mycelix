@@ -1481,6 +1481,30 @@ mod tests {
     }
 
     #[test]
+    fn authority_delegation_target_chain_reports_missing_predecessor() {
+        let delegation = EvidenceDispositionAuthorityDelegation {
+            delegation_id: id(IdentityKind::ReconciliationWitness, "authority-delegation-target-missing"),
+            grantor: id(IdentityKind::ReconciliationWitness, "authority-grantor-target"),
+            grantee: id(IdentityKind::ReconciliationWitness, "authority-target"),
+            subject: id(IdentityKind::ReconciliationWitness, "reconcile-target-missing"),
+            predecessor: Some(id(IdentityKind::ReconciliationWitness, "authority-target-missing")),
+            basis: vec![],
+        };
+        assert_eq!(
+            EvidenceDispositionAuthorityDelegation::validate_chain(
+                &delegation.delegation_id,
+                &[delegation],
+            ),
+            Ok(AuthorityDelegationChainAssessment::Unresolved {
+                missing: vec![id(
+                    IdentityKind::ReconciliationWitness,
+                    "authority-target-missing"
+                )],
+                roots: vec![],
+            })
+        );
+    }
+    #[test]
     fn authority_delegation_graph_requires_basis_continuity() {
         let mut root = authority_delegation("reconcile-delegation-basis");
         let inherited = id(IdentityKind::EvidenceRecord, "delegation-root-basis");
