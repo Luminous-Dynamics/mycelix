@@ -30,6 +30,17 @@ fn fixture() -> Value {
     .expect("Integral fixture must be valid JSON")
 }
 
+fn snapshot_commitment() -> String {
+    canonical_sha256(
+        "integral-interop-1-snapshot",
+        &serde_json::json!({
+            "fixture": "Integral-Interop-1",
+            "version": 1,
+            "snapshot": "integral-snapshot-1",
+        }),
+    )
+}
+
 fn environment() -> SemanticEnvironmentV1 {
     SemanticEnvironmentV1 {
         semantic_profile_id: "integral-interop-1".into(),
@@ -39,7 +50,7 @@ fn environment() -> SemanticEnvironmentV1 {
         d6n_observer_context_root: None,
         d6o_lifecycle_context_root: None,
         membership_authority_scope_root: None,
-        dependency_snapshot_root: Some("integral-snapshot-1".into()),
+        dependency_snapshot_root: Some(snapshot_commitment()),
         historical_cutoff: None,
         policy_version: "integral-interop-1".into(),
         claim_ceiling: D6S_CLAIM_CEILING.into(),
@@ -213,7 +224,7 @@ fn projection(
         projection_id: "integral-interop-1-projection".into(),
         projection_version: "1".into(),
         canonicalization_version: "D6S-CANON-1".into(),
-        source_dkg_snapshot_commitment: "integral-snapshot-1".into(),
+        source_dkg_snapshot_commitment: snapshot_commitment(),
         nodes,
         edges,
         d6p_current_receipt_commitments,
