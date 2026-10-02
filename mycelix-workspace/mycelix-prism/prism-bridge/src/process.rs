@@ -110,6 +110,7 @@ impl SandboxInstallationId {
 pub enum SandboxAdapterKind {
     LinuxLandlockFilesystemV1,
     LinuxSeccompSyscallV1,
+    LinuxSeccompSyscallV2,
     UnsupportedPlatform,
 }
 
@@ -174,6 +175,7 @@ impl SandboxEnforcementReceipt {
             (adapter, layer),
             (SandboxAdapterKind::LinuxLandlockFilesystemV1, SandboxEnforcementLayer::Filesystem)
                 | (SandboxAdapterKind::LinuxSeccompSyscallV1, SandboxEnforcementLayer::Syscall)
+                | (SandboxAdapterKind::LinuxSeccompSyscallV2, SandboxEnforcementLayer::Syscall)
         );
         if !valid
             || assignment_id.0 == 0
