@@ -50,3 +50,8 @@ A missing predecessor is returned as an unresolved dependency, not a negative ev
 A competing-branch condition is not resolved by selecting the first, latest, or locally observed branch. `EvidenceDispositionReconciliation` is an explicit addressable witness that names the exact evidence event, branch point, at least two competing branch heads, an addressable authority witness, and any addressable basis witnesses. Graph validation verifies that each named branch head descends from the declared branch point and concerns the same evidence event.
 
 The reconciliation witness deliberately contains no implicit winner field. It records that a set of branches was explicitly reconciled and who/what supplied the authority and basis; any resulting disposition assertion remains a separate transition record. Missing branch ancestry remains unresolved rather than being interpreted as a negative finding.
+
+
+### Competing means incomparable
+
+A reconciliation branch head must be a proper descendant of the declared branch point. Two named heads must also be incomparable in the predecessor graph: neither may be an ancestor of the other. Otherwise the pair describes one branch continuing forward rather than competing branches. The reconciliation validator rejects a branch point used as a head and rejects nested head pairs.
