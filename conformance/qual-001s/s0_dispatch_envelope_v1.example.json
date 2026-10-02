@@ -23,5 +23,7 @@
   "dispatch_nonce_hex": "1111111111111111111111111111111111111111111111111111111111111111",
   "dispatch_timestamp": "2026-01-01T00:00:00Z",
   "candidate_code_executed": false,
-  "canonicalization_profile": "RFC8785-JCS-IJSON-v1"
+  "canonicalization_profile": "RFC8785-JCS-IJSON-v1",
+  "epoch_id": "epoch-001",
+  "envelope_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
 }
