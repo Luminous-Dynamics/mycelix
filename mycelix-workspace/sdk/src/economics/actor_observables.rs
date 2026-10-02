@@ -43,6 +43,7 @@ pub struct ActorEconomicObservables {
     pub actor: ActorId,
     pub cash: i128,
     pub deposits: i128,
+    pub opening_liquidity: i128,
     pub liquidity: i128,
     pub net_liquidity_change: i128,
     /// Liquidity changes from generic monetary transfers whose economic
@@ -96,6 +97,11 @@ impl ActorEconomicObservables {
                 actor.actor.clone(),
                 Self {
                     actor: actor.actor.clone(),
+                    opening_liquidity: actor
+                        .monetary
+                        .cash
+                        .checked_add(actor.monetary.deposits)
+                        .ok_or_else(|| format!("liquidity overflow for {}", actor.actor))?,
                     ..Self::default()
                 },
             );
@@ -333,6 +339,13 @@ impl ActorEconomicObservables {
     }
 
     /// Verify that every observed liquidity change is classified exactly once.
+    /// Verify the period opening/closing liquidity stock-flow identity.
+    pub fn liquidity_stock_flow_reconciliation_holds(&self) -> bool {
+        self.opening_liquidity
+            .checked_add(self.net_liquidity_change)
+            == Some(self.liquidity)
+    }
+
     pub fn liquidity_flow_reconciliation_holds(&self) -> bool {
         self.operating_liquidity_change()
             .checked_add(self.investing_net_liquidity())
@@ -546,6 +559,7 @@ mod tests {
             FinancingRegime::Hedge
         );
         assert_eq!(firm.net_liquidity_change, 210);
+        assert!(firm.liquidity_stock_flow_reconciliation_holds());
         assert_eq!(firm.operating_liquidity_change(), 30);
         assert_eq!(firm.financing_net_liquidity(), 180);
         assert_eq!(firm.investing_net_liquidity(), 0);
