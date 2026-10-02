@@ -579,7 +579,7 @@ async fn test_authorized_wrong_zome_is_rejected_at_dispatch_boundary() {
 
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
-async fn test_wrong_cell_provenance_is_rejected_at_authorization_boundary() {
+async fn test_non_author_provenance_is_rejected_at_authorization_boundary() {
     let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
 
@@ -590,8 +590,8 @@ async fn test_wrong_cell_provenance_is_rejected_at_authorization_boundary() {
         .into_tuple();
 
     // The target cell belongs to Alice, but the signed invocation provenance is
-    // an unrelated generated agent. The app interface therefore sees a valid
-    // target cell with a provenance that does not match that cell's authority.
+    // an unrelated generated agent. With no explicit capability grant for that
+    // non-author signer, the call must fail at Holochain's authorization boundary.
     let bob = conductor
         .keystore()
         .new_sign_keypair_random()
@@ -923,7 +923,7 @@ fn test_authority_case_manifest_is_structurally_valid() {
         "test_authorized_unknown_function_is_rejected_at_dispatch_boundary",
         "test_assigned_capability_binds_signer_and_revocation",
         "test_authorized_wrong_zome_is_rejected_at_dispatch_boundary",
-        "test_wrong_cell_provenance_is_rejected_at_authorization_boundary",
+        "test_non_author_provenance_is_rejected_at_authorization_boundary",
     ];
 
     let manifest_tests = cases
