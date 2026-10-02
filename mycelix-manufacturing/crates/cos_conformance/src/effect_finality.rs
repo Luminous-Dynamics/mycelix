@@ -19,6 +19,10 @@ use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
 pub const D6M_OBSERVATION_COMMITMENT_DOMAIN: &[u8] = b"MYCELIX-INTEGRAL-D6M-OBSERVATION-V1\0";
+/// Reference-model serialization contract for D6M observation commitments.
+/// This is deterministic within the Rust/Serde reference implementation, but
+/// is not itself a cross-language canonicalization specification.
+pub const D6M_OBSERVATION_COMMITMENT_SERIALIZATION: &str = "serde-json-tuple-v1";
 pub const EXTERNAL_FINALITY_CLAIM_CEILING: &str =
     "External-effect finality evidence only; no provider truth, legal settlement, or actuation authorization claim.";
 pub const COMPENSATION_CLAIM_CEILING: &str =
@@ -123,8 +127,12 @@ impl ExternalEffectObservationV1 {
             && self.claim_ceiling == EXTERNAL_FINALITY_CLAIM_CEILING
     }
 
-    /// Recompute the canonical observation commitment from the complete
-    /// observation payload, excluding the commitment field itself.
+    /// Recompute the reference-model observation commitment from the complete
+    /// observation payload, excluding the commitment field itself. The byte
+    /// preimage is defined by `D6M_OBSERVATION_COMMITMENT_SERIALIZATION` and
+    /// `D6M_OBSERVATION_COMMITMENT_DOMAIN`; it is intentionally not described
+    /// as cross-language canonical until independent golden-vector
+    /// reproduction exists.
     pub fn recomputed_commitment(&self) -> String {
         let payload = serde_json::to_vec(&(
             &self.observation_id,
