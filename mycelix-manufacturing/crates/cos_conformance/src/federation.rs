@@ -351,19 +351,22 @@ impl FederationOutcome {
 }
 
 impl FederationOutcome {
-    fn new(
+    fn known_origin(
         decision: FederationDecision,
         authority: AuthorityDisposition,
         envelope: &FederationEnvelope,
         reason: &'static str,
     ) -> Self {
-        Self::with_origin_knowledge(
-            decision,
-            authority,
-            envelope,
-            reason,
-            !matches!(decision, FederationDecision::PartitionUnknown),
-        )
+        Self::with_origin_knowledge(decision, authority, envelope, reason, true)
+    }
+
+    fn unknown_origin(
+        decision: FederationDecision,
+        authority: AuthorityDisposition,
+        envelope: &FederationEnvelope,
+        reason: &'static str,
+    ) -> Self {
+        Self::with_origin_knowledge(decision, authority, envelope, reason, false)
     }
 
     fn with_origin_knowledge(
@@ -403,17 +406,16 @@ pub fn deliver(
             .as_ref()
             .is_some_and(String::is_empty)
     {
-        return FederationOutcome::with_origin_knowledge(
+        return FederationOutcome::unknown_origin(
             FederationDecision::Rejected,
             AuthorityDisposition::NoAuthority,
             envelope,
             "Required federation identity fields must be non-empty.",
-            false,
         );
     }
 
     if !transport_available {
-        return FederationOutcome::new(
+        return FederationOutcome::unknown_origin(
             FederationDecision::PartitionUnknown,
             AuthorityDisposition::NoAuthority,
             envelope,
@@ -423,7 +425,7 @@ pub fn deliver(
 
     if let Some(existing) = state.deliveries.get(&envelope.logical_delivery_id) {
         if existing.contract.origin_node != envelope.origin_node {
-            let mut outcome = FederationOutcome::new(
+            let mut outcome = FederationOutcome::known_origin(
                 FederationDecision::OriginConflict,
                 AuthorityDisposition::NoAuthority,
                 envelope,
@@ -435,7 +437,7 @@ pub fn deliver(
         if existing.contract.payload_commitment != envelope.payload_commitment
             || existing.contract.semantic_subject_id != envelope.semantic_subject_id
         {
-            return FederationOutcome::new(
+            return FederationOutcome::known_origin(
                 FederationDecision::PayloadConflict,
                 AuthorityDisposition::NoAuthority,
                 envelope,
@@ -443,7 +445,7 @@ pub fn deliver(
             );
         }
         if existing.contract != ImmutableDeliveryContract::from(envelope) {
-            return FederationOutcome::new(
+            return FederationOutcome::known_origin(
                 FederationDecision::ContractConflict,
                 AuthorityDisposition::NoAuthority,
                 envelope,
@@ -453,16 +455,15 @@ pub fn deliver(
     }
 
     let Some(origin) = state.nodes.get(&envelope.origin_node) else {
-        return FederationOutcome::with_origin_knowledge(
+        return FederationOutcome::unknown_origin(
             FederationDecision::UnknownNode,
             AuthorityDisposition::NoAuthority,
             envelope,
             "Origin node is not known to the reference federation.",
-            false,
         );
     };
     let Some(target) = state.nodes.get(&envelope.target_node) else {
-        return FederationOutcome::new(
+        return FederationOutcome::known_origin(
             FederationDecision::UnknownNode,
             AuthorityDisposition::NoAuthority,
             envelope,
@@ -471,7 +472,7 @@ pub fn deliver(
     };
 
     if !origin.active || !target.active {
-        return FederationOutcome::new(
+        return FederationOutcome::known_origin(
             FederationDecision::Unauthorized,
             AuthorityDisposition::NoAuthority,
             envelope,
@@ -480,7 +481,7 @@ pub fn deliver(
     }
 
     if envelope.schema_generation != target.schema_generation {
-        return FederationOutcome::new(
+        return FederationOutcome::known_origin(
             FederationDecision::StaleGeneration,
             AuthorityDisposition::NoAuthority,
             envelope,
@@ -489,7 +490,7 @@ pub fn deliver(
     }
 
     if envelope.authorization_generation != target.authorization_generation {
-        return FederationOutcome::new(
+        return FederationOutcome::known_origin(
             FederationDecision::StaleGeneration,
             AuthorityDisposition::NoAuthority,
             envelope,
@@ -503,7 +504,7 @@ pub fn deliver(
             AuthorizationState::Revoked | AuthorizationState::Absent => FederationDecision::Unauthorized,
             AuthorizationState::Active => unreachable!(),
         };
-        return FederationOutcome::new(
+        return FederationOutcome::known_origin(
             decision,
             AuthorityDisposition::NoAuthority,
             envelope,
@@ -512,7 +513,7 @@ pub fn deliver(
     }
 
     if envelope.expires_at.is_some_and(|expiry| now >= expiry) {
-        return FederationOutcome::new(
+        return FederationOutcome::known_origin(
             FederationDecision::ExpiredAuthorization,
             AuthorityDisposition::NoAuthority,
             envelope,
@@ -522,7 +523,7 @@ pub fn deliver(
 
     if let Some(existing) = state.deliveries.get_mut(&envelope.logical_delivery_id) {
         existing.attempts.insert(envelope.attempt_id.clone());
-        return FederationOutcome::new(
+        return FederationOutcome::known_origin(
             FederationDecision::Duplicate,
             existing.authority,
             envelope,
@@ -532,7 +533,7 @@ pub fn deliver(
 
     if let Some(predecessor) = &envelope.predecessor_delivery_id {
         if !state.deliveries.contains_key(predecessor) {
-            return FederationOutcome::new(
+            return FederationOutcome::known_origin(
                 FederationDecision::PendingDependency,
                 AuthorityDisposition::NoAuthority,
                 envelope,
@@ -550,7 +551,7 @@ pub fn deliver(
     ) {
         Ok(mode) => mode,
         Err(()) => {
-            return FederationOutcome::new(
+            return FederationOutcome::known_origin(
                 FederationDecision::RecognitionConflict,
                 AuthorityDisposition::NoAuthority,
                 envelope,
@@ -599,7 +600,7 @@ pub fn deliver(
         record_source_observation(state, observation),
         ObservationWriteResult::Inserted
     ) {
-        return FederationOutcome::new(
+        return FederationOutcome::known_origin(
             FederationDecision::Rejected,
             AuthorityDisposition::NoAuthority,
             envelope,
@@ -616,7 +617,7 @@ pub fn deliver(
         },
     );
 
-    FederationOutcome::new(
+    FederationOutcome::known_origin(
         decision,
         authority,
         envelope,
