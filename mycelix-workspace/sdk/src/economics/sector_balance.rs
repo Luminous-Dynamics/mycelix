@@ -23,8 +23,10 @@ pub enum BalanceSheetInstrument {
     Cash,
     Deposits,
     Loans,
+    TradeReceivables,
     Debt,
     DepositLiabilities,
+    TradePayables,
     Equity,
     ProductiveCapital,
     InventoryCarryingValue,
@@ -191,6 +193,11 @@ impl SectorBalanceSheet {
                 ),
                 BalanceSheetEntry::new(
                     assignment.sector,
+                    BalanceSheetInstrument::TradeReceivables,
+                    m.trade_receivables,
+                ),
+                BalanceSheetEntry::new(
+                    assignment.sector,
                     BalanceSheetInstrument::Debt,
                     -m.liabilities,
                 ),
@@ -198,6 +205,11 @@ impl SectorBalanceSheet {
                     assignment.sector,
                     BalanceSheetInstrument::DepositLiabilities,
                     -m.deposit_liabilities,
+                ),
+                BalanceSheetEntry::new(
+                    assignment.sector,
+                    BalanceSheetInstrument::TradePayables,
+                    -m.trade_payables,
                 ),
                 // Equity/net worth is the balance-sheet residual, not an
                 // independent asset. Store it on the signed liability side.
@@ -246,8 +258,10 @@ impl SectorBalanceSheet {
             // Cash/reserves may have an issuer outside the modeled sectors.
             BalanceSheetInstrument::Deposits,
             BalanceSheetInstrument::Loans,
+            BalanceSheetInstrument::TradeReceivables,
             BalanceSheetInstrument::Debt,
             BalanceSheetInstrument::DepositLiabilities,
+            BalanceSheetInstrument::TradePayables,
         ]
         .iter()
         .all(|instrument| {
@@ -374,6 +388,37 @@ mod tests {
         let state = EconomicState::new(vec![ActorBalanceSheet::new("household")]);
         let error = SectorBalanceSheet::from_state(&state, &[]).unwrap_err();
         assert!(error.contains("missing sector assignment"));
+    }
+
+    #[test]
+    fn trade_credit_consolidates_as_matching_financial_rows() {
+        let mut firm = ActorBalanceSheet::new("firm");
+        firm.monetary.trade_receivables = 80;
+        let mut household = ActorBalanceSheet::new("household");
+        household.monetary.trade_payables = 80;
+        let state = EconomicState::new(vec![firm, household]);
+
+        let assignments = vec![
+            SectorAssignment { actor: "firm".into(), sector: EconomicSector::Firm },
+            SectorAssignment { actor: "household".into(), sector: EconomicSector::Household },
+        ];
+        let sheet = SectorBalanceSheet::from_state(&state, &assignments).unwrap();
+        assert_eq!(
+            sheet.sector_instrument_total(
+                EconomicSector::Firm,
+                BalanceSheetInstrument::TradeReceivables
+            ),
+            80
+        );
+        assert_eq!(
+            sheet.sector_instrument_total(
+                EconomicSector::Household,
+                BalanceSheetInstrument::TradePayables
+            ),
+            -80
+        );
+        assert!(sheet.financial_rows_clear());
+        assert!(sheet.balance_sheet_identity_holds());
     }
 
     #[test]
