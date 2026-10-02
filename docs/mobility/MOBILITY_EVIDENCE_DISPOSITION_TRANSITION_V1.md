@@ -71,3 +71,6 @@ This is intentionally a **bounded coverage claim**, not a global DHT enumeration
 The coverage boundary is explicitly scoped to one reconciliation witness and carries the same authority witness as that reconciliation. Coverage therefore cannot be detached from the reconciliation it claims to cover, nor can a different authority be silently substituted at the boundary layer. This is a structural provenance binding, not an assertion that the authority is objectively correct, certified, or globally entitled.
 
 The boundary remains addressable and finite: it names the exact evidence event, branch point, branch heads, authority, and basis used for the bounded claim. The validator still makes no claim that unmentioned mutable links or globally undiscovered records do not exist.
+
+
+The reconciliation basis is the minimum provenance basis for the bounded coverage boundary: every reconciliation basis witness MUST be carried into the boundary basis. The boundary MAY add coverage-specific basis witnesses. This is deliberately an inclusion relationship rather than exact equality: reconciliation establishes why the competing branch set was reconciled, while additional boundary witnesses may justify why the explicitly examined dependency boundary is sufficient for the bounded coverage assertion. Basis omission is invalid; additional addressable basis is permitted.
