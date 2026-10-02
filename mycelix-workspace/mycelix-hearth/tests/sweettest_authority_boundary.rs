@@ -7,12 +7,15 @@
 //! This test deliberately avoids SweetConductor::call() for the exercised calls.
 //! It opens an authenticated app websocket and submits AppRequest::CallZome with
 //! conductor-signed ZomeCallParamsSigned values, so the request crosses the
-//! actual authentication/authorization boundary before reaching the zome.
+//! actual authenticated app-interface authorization boundary.
 //!
 //! Evidence semantics:
 //! - authorized_reached_zome: a valid signed author call returns ZomeCallResponse::Ok.
-//! - unauthorized_pre_zome: a signed call carrying an invalid capability secret returns
-//!   ZomeCallResponse::Unauthorized; Holochain rejects it before zome dispatch.
+//! - unauthorized_at_authorization_boundary: a signed call carrying an invalid capability
+//!   secret returns ZomeCallResponse::Unauthorized. This records authorization failure at
+//!   the app-interface boundary without inferring function-body execution from ZomeCalled.
+//! - signature_binding: mutating signed parameter bytes without re-signing returns
+//!   ZomeCallResponse::Unauthorized.
 //! - authorized_deserialization_rejection: a valid signed call with a payload that cannot
 //!   deserialize to the target function input returns a zome-call error before function-body
 //!   execution.
