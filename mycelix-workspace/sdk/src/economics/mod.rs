@@ -17,6 +17,7 @@ pub mod metabolic_oracle;
 pub mod poc;
 pub mod recognition;
 pub mod sector_flow;
+pub mod sector_balance;
 pub mod stock_flow;
 pub mod transition;
 
@@ -239,3 +240,6 @@ mod tests {
         assert!(member.is_apprentice);
     }
 }
+
+
+pub use sector_balance::{BalanceSheetEntry, BalanceSheetInstrument, SectorAssignment, SectorBalanceSheet};
