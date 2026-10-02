@@ -161,8 +161,7 @@
       "id": "EDT-030",
       "case": "reconciliation_coverage_rejects_uncovered_reconciliation_head",
       "expected": "rejected"
-    }
-,
+    },
     {
       "id": "EDT-031",
       "case": "reconciliation_coverage_rejects_nested_heads",
