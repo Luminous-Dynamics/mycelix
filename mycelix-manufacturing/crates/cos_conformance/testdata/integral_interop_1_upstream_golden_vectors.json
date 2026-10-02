@@ -1,0 +1,64 @@
+{
+  "schema_version": "integral-interop-upstream-golden-v1",
+  "status": "ReferenceModelOnly",
+  "serialization_scope": "Exact Rust/Serde payload bytes used by D6M/D6N/D6O/D6P commitment helpers; not a cross-language wire-schema claim.",
+  "hash_input": "domain-prefix-bytes || canonical_payload_utf8",
+  "domain_prefix_hex": {
+    "D6M_OBSERVATION_COMMITMENT_DOMAIN": "4d5943454c49582d494e54454752414c2d44364d2d4f42534552564154494f4e2d563100",
+    "D6N_ASSESSMENT_COMMITMENT_DOMAIN": "4d5943454c49582d494e54454752414c2d44364e2d4153534553534d454e542d563100",
+    "D6O_ELIGIBILITY_RECEIPT_COMMITMENT_DOMAIN": "4d5943454c49582d494e54454752414c2d44364f2d454c49474942494c4954592d524543454950542d563100",
+    "D6P_WITNESS_COMMITMENT_DOMAIN": "4d5943454c49582d494e54454752414c2d4436502d5749544e4553532d563100",
+    "D6P_COMPOSITION_COMMITMENT_DOMAIN": "4d5943454c49582d494e54454752414c2d4436502d434f4d504f534954494f4e2d563100",
+    "D6P_RECEIPT_COMMITMENT_DOMAIN": "4d5943454c49582d494e54454752414c2d4436502d524543454950542d563100"
+  },
+  "vectors": [
+    {
+      "id": "d6m-observation",
+      "layer": "D6M",
+      "domain_id": "D6M_OBSERVATION_COMMITMENT_DOMAIN",
+      "serialization": "serde-json-tuple-v1",
+      "preimage_payload_utf8": "[\"obs-golden-1\",\"effect-golden-1\",\"lineage-golden-1\",\"generation-golden-1\",\"route-golden-1\",\"provider-golden-1\",\"operation-golden-1\",\"provider-profile-golden-1\",\"outcome-golden-1\",\"request-golden-1\",\"idempotency-golden-1\",\"environment-golden-1\",\"frontier-golden-1\",\"Applied\",\"IndependentObserver\",\"evidence-golden-1\",\"External-effect finality evidence only; no provider truth, legal settlement, or actuation authorization claim.\"]",
+      "sha256": "519c8bc75ab45586c71b4556034bd3b5e197a016f2f4638b83058e1bdae820d1"
+    },
+    {
+      "id": "d6n-assessment-item",
+      "layer": "D6N",
+      "domain_id": "D6N_ASSESSMENT_COMMITMENT_DOMAIN",
+      "serialization": "serde-json-struct-v1",
+      "preimage_payload_utf8": "{\"observation_id\":\"obs-golden-1\",\"observer_id\":\"observer-golden-1\",\"independence\":\"DeclaredIndependent\",\"classification\":\"CorroboratingIndependent\",\"evidence_root\":\"evidence-golden-1\",\"custody_root\":\"custody-golden-1\",\"observation_commitment\":\"519c8bc75ab45586c71b4556034bd3b5e197a016f2f4638b83058e1bdae820d1\",\"assessment_commitment\":\"\",\"claim_ceiling\":\"Contestable external-finality reference evidence only; no physical truth, settlement, or actuation authorization claim.\"}",
+      "sha256": "e68851ea6fd7e5debc995fb757b3398d4ebee8d9f444b4e0a4826c279a0a6b1e"
+    },
+    {
+      "id": "d6o-eligibility-receipt",
+      "layer": "D6O",
+      "domain_id": "D6O_ELIGIBILITY_RECEIPT_COMMITMENT_DOMAIN",
+      "serialization": "serde-json-struct-v1",
+      "preimage_payload_utf8": "{\"eligibility_id\":\"eligibility-golden-1\",\"observation_id\":\"obs-golden-1\",\"observer_id\":\"observer-golden-1\",\"observer_generation_id\":\"generation-golden-1\",\"observation_profile_id\":\"observation-profile-golden-1\",\"semantic_environment_root\":\"environment-golden-1\",\"dependency_snapshot_id\":\"snapshot-golden-1\",\"observation_frontier_root\":\"frontier-golden-1\",\"observation_frontier_sequence\":7,\"current_frontier_root\":\"frontier-golden-1\",\"current_frontier_sequence\":7,\"current_generation_id\":\"generation-golden-1\",\"qualification_profile_id\":\"d6p-profile-golden-1\",\"provenance\":\"Live\",\"classification\":\"CorroboratingIndependent\",\"disposition\":\"EligibleCurrent\",\"lifecycle_transition_ids\":[],\"eligibility_commitment\":\"\",\"claim_ceiling\":\"Observer/evidence lifecycle reference semantics only; no real-world trust, revocation infrastructure, or authority claim.\"}",
+      "sha256": "de6a53df8f83ac5b544b047311169d16743bb121263b9f827d75c9561941fd48"
+    },
+    {
+      "id": "d6p-witness",
+      "layer": "D6P",
+      "domain_id": "D6P_WITNESS_COMMITMENT_DOMAIN",
+      "serialization": "serde-json-struct-v1",
+      "preimage_payload_utf8": "{\"observation_id\":\"obs-golden-1\",\"observer_id\":\"observer-golden-1\",\"observer_generation_id\":\"generation-golden-1\",\"d6n_observation_set_id\":\"set-golden-1\",\"d6n_observation_set_commitment\":\"set-golden-commitment-1\",\"d6n_assessment_item_commitment\":\"e68851ea6fd7e5debc995fb757b3398d4ebee8d9f444b4e0a4826c279a0a6b1e\",\"d6n_classification\":\"CorroboratingIndependent\",\"d6o_eligibility_id\":\"eligibility-golden-1\",\"d6o_disposition\":\"EligibleCurrent\",\"d6o_dependency_snapshot_id\":\"snapshot-golden-1\",\"observation_frontier_root\":\"frontier-golden-1\",\"current_frontier_root\":\"frontier-golden-1\",\"lifecycle_profile_id\":\"life-profile-golden-1\",\"witness_commitment\":\"\",\"claim_ceiling\":\"D6N/D6O finality-eligibility composition reference semantics only; no semantic authority or actuation claim.\"}",
+      "sha256": "ec161eae36618a81d2069042fe623746f734e302eeefe9225374f0411cae1aae"
+    },
+    {
+      "id": "d6p-composition",
+      "layer": "D6P",
+      "domain_id": "D6P_COMPOSITION_COMMITMENT_DOMAIN",
+      "serialization": "serde-json-struct-v1",
+      "preimage_payload_utf8": "{\"composition_id\":\"composition:set-golden-1\",\"effect_id\":\"effect-golden-1\",\"effect_lineage_id\":\"lineage-golden-1\",\"lifecycle_generation_id\":\"generation-golden-1\",\"route_id\":\"route-golden-1\",\"provider_id\":\"provider-golden-1\",\"provider_operation_id\":\"operation-golden-1\",\"provider_profile_root\":\"provider-profile-golden-1\",\"semantic_environment_root\":\"environment-golden-1\",\"observation_set_id\":\"set-golden-1\",\"observation_set_commitment\":\"set-golden-commitment-1\",\"d6n_assessment_commitment\":\"assessment:set-golden-commitment-1\",\"lifecycle_profile_id\":\"life-profile-golden-1\",\"current_frontier_root\":\"frontier-golden-1\",\"eligible_independent_count\":1,\"required_independent_observations\":1,\"preserved_contradictory_count\":0,\"witnesses\":[{\"observation_id\":\"obs-golden-1\",\"observer_id\":\"observer-golden-1\",\"observer_generation_id\":\"generation-golden-1\",\"d6n_observation_set_id\":\"set-golden-1\",\"d6n_observation_set_commitment\":\"set-golden-commitment-1\",\"d6n_assessment_item_commitment\":\"e68851ea6fd7e5debc995fb757b3398d4ebee8d9f444b4e0a4826c279a0a6b1e\",\"d6n_classification\":\"CorroboratingIndependent\",\"d6o_eligibility_id\":\"eligibility-golden-1\",\"d6o_disposition\":\"EligibleCurrent\",\"d6o_dependency_snapshot_id\":\"snapshot-golden-1\",\"observation_frontier_root\":\"frontier-golden-1\",\"current_frontier_root\":\"frontier-golden-1\",\"lifecycle_profile_id\":\"life-profile-golden-1\",\"witness_commitment\":\"ec161eae36618a81d2069042fe623746f734e302eeefe9225374f0411cae1aae\",\"claim_ceiling\":\"D6N/D6O finality-eligibility composition reference semantics only; no semantic authority or actuation claim.\"}],\"disposition\":\"EligibleCurrent\",\"qualification_transition_id\":\"transition-golden-1\",\"composition_commitment\":\"\",\"claim_ceiling\":\"D6N/D6O finality-eligibility composition reference semantics only; no semantic authority or actuation claim.\"}",
+      "sha256": "1c206fd22e612996815a1299ec88cb969b4d1f24d39be7a56e68c1be5ba0a18c"
+    },
+    {
+      "id": "d6p-receipt",
+      "layer": "D6P",
+      "domain_id": "D6P_RECEIPT_COMMITMENT_DOMAIN",
+      "serialization": "serde-json-struct-v1",
+      "preimage_payload_utf8": "{\"receipt_id\":\"receipt-golden-1\",\"effect_id\":\"effect-golden-1\",\"effect_lineage_id\":\"lineage-golden-1\",\"lifecycle_generation_id\":\"generation-golden-1\",\"route_id\":\"route-golden-1\",\"provider_id\":\"provider-golden-1\",\"provider_operation_id\":\"operation-golden-1\",\"provider_profile_root\":\"provider-profile-golden-1\",\"semantic_environment_root\":\"environment-golden-1\",\"observation_set_id\":\"set-golden-1\",\"observation_set_commitment\":\"set-golden-commitment-1\",\"d6n_assessment_commitment\":\"assessment:set-golden-commitment-1\",\"composition_commitment\":\"1c206fd22e612996815a1299ec88cb969b4d1f24d39be7a56e68c1be5ba0a18c\",\"witness_eligibility_ids\":[\"eligibility-golden-1\"],\"observer_generation_ids\":[\"generation-golden-1\"],\"current_frontier_root\":\"frontier-golden-1\",\"lifecycle_profile_id\":\"life-profile-golden-1\",\"eligible_independent_count\":1,\"preserved_contradictory_count\":0,\"disposition\":\"EligibleCurrent\",\"qualification_transition_id\":\"transition-golden-1\",\"receipt_commitment\":\"\",\"claim_ceiling\":\"D6N/D6O finality-eligibility composition reference semantics only; no semantic authority or actuation claim.\"}",
+      "sha256": "1d45c59961c53470bea34f62ba217772b00dbdacedcfd9c49d7d2d361f51a0b7"
+    }
+  ]
+}
