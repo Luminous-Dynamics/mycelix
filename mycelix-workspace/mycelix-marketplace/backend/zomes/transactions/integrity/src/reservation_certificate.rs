@@ -2199,12 +2199,7 @@ pub fn validate_create_reservation_terminal(
             })?
         {
             let previous_certificate =
-                must_get_valid_record(previous_terminal.certificate_hash.clone())
-                    .map_err(|_| {
-                        wasm_error!(WasmErrorInner::Guest(
-                            "Previous terminal frontier references a missing certificate".into(),
-                        ))
-                    })?
+                must_get_valid_record(previous_terminal.certificate_hash.clone())?
                     .entry()
                     .to_app_option::<ReservationCertificate>()
                     .map_err(|e| {
