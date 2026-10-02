@@ -139,16 +139,27 @@ impl SectorPhysicalStock {
         Ok(Self { entries })
     }
 
+    pub fn try_sector_stock_total(
+        &self,
+        sector: EconomicSector,
+        instrument: PhysicalStockInstrument,
+    ) -> Result<i128, String> {
+        self.entries
+            .iter()
+            .filter(|entry| entry.sector == sector && entry.instrument == instrument)
+            .try_fold(0i128, |sum, entry| {
+                sum.checked_add(entry.amount)
+                    .ok_or_else(|| "sector physical-stock total overflow".to_string())
+            })
+    }
+
     pub fn sector_stock_total(
         &self,
         sector: EconomicSector,
         instrument: PhysicalStockInstrument,
     ) -> i128 {
-        self.entries
-            .iter()
-            .filter(|entry| entry.sector == sector && entry.instrument == instrument)
-            .map(|entry| entry.amount)
-            .sum()
+        self.try_sector_stock_total(sector, instrument)
+            .expect("sector physical-stock total overflow")
     }
 }
 
@@ -238,29 +249,47 @@ impl SectorBalanceSheet {
     /// Net monetary working capital for a sector:
     /// inventory carrying value + trade receivables - trade payables.
     pub fn sector_net_working_capital(&self, sector: EconomicSector) -> i128 {
-        self.sector_instrument_total(
+        self.sector_instrument_total_checked(
             sector,
             BalanceSheetInstrument::InventoryCarryingValue,
-        ) + self.sector_instrument_total(
-            sector,
-            BalanceSheetInstrument::TradeReceivables,
-        ) + self.sector_instrument_total(
-            sector,
-            BalanceSheetInstrument::TradePayables,
         )
+        .and_then(|value| {
+            value.checked_add(self.sector_instrument_total_checked(
+                sector,
+                BalanceSheetInstrument::TradeReceivables,
+            )?)
+        })
+        .and_then(|value| {
+            value.checked_add(self.sector_instrument_total_checked(
+                sector,
+                BalanceSheetInstrument::TradePayables,
+            )?)
+        })
+        .expect("sector working-capital overflow")
     }
 
     /// Return the sector total for one instrument.
+    pub fn sector_instrument_total_checked(
+        &self,
+        sector: EconomicSector,
+        instrument: BalanceSheetInstrument,
+    ) -> Result<i128, String> {
+        self.entries
+            .iter()
+            .filter(|entry| entry.sector == sector && entry.instrument == instrument)
+            .try_fold(0i128, |sum, entry| {
+                sum.checked_add(entry.amount)
+                    .ok_or_else(|| "sector instrument total overflow".to_string())
+            })
+    }
+
     pub fn sector_instrument_total(
         &self,
         sector: EconomicSector,
         instrument: BalanceSheetInstrument,
     ) -> i128 {
-        self.entries
-            .iter()
-            .filter(|entry| entry.sector == sector && entry.instrument == instrument)
-            .map(|entry| entry.amount)
-            .sum()
+        self.sector_instrument_total_checked(sector, instrument)
+            .expect("sector instrument total overflow")
     }
 
     /// Financial claim/liability rows should consolidate to zero.
@@ -283,9 +312,8 @@ impl SectorBalanceSheet {
             self.entries
                 .iter()
                 .filter(|entry| entry.instrument == *instrument)
-                .map(|entry| entry.amount)
-                .sum::<i128>()
-                == 0
+                .try_fold(0i128, |sum, entry| sum.checked_add(entry.amount))
+                == Some(0)
         })
     }
 
@@ -300,9 +328,8 @@ impl SectorBalanceSheet {
             self.entries
                 .iter()
                 .filter(|entry| entry.sector == sector)
-                .map(|entry| entry.amount)
-                .sum::<i128>()
-                == 0
+                .try_fold(0i128, |sum, entry| sum.checked_add(entry.amount))
+                == Some(0)
         })
     }
 
@@ -452,6 +479,32 @@ mod tests {
         );
         assert!(sheet.financial_rows_clear());
         assert!(sheet.balance_sheet_identity_holds());
+    }
+
+    #[test]
+    fn balance_sheet_predicates_fail_closed_on_overflow() {
+        let sheet = SectorBalanceSheet {
+            entries: vec![
+                BalanceSheetEntry::new(
+                    EconomicSector::Firm,
+                    BalanceSheetInstrument::Deposits,
+                    i128::MAX,
+                ),
+                BalanceSheetEntry::new(
+                    EconomicSector::Firm,
+                    BalanceSheetInstrument::Deposits,
+                    1,
+                ),
+            ],
+        };
+        assert!(!sheet.financial_rows_clear());
+        assert!(!sheet.balance_sheet_identity_holds());
+        assert!(sheet
+            .sector_instrument_total_checked(
+                EconomicSector::Firm,
+                BalanceSheetInstrument::Deposits
+            )
+            .is_err());
     }
 
     #[test]
