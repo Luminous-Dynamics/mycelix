@@ -10,7 +10,9 @@
 //! metadata fields into behavioral rules.
 
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
+use super::actor_observables::ActorEconomicObservables;
 use super::observables::EconomicObservables;
 use super::period_ledger::EconomicPeriodLedger;
 use super::transition::{EconomicChainReceipt, EconomicStepError};
@@ -62,6 +64,7 @@ pub struct EconomicEvidenceCapsule {
     pub manifest_hash: String,
     pub final_chain_hash: String,
     pub observations_hash: String,
+    pub actor_observations_hash: Option<String>,
     pub evidence_hash: String,
 }
 
@@ -72,6 +75,17 @@ impl EconomicEvidenceCapsule {
         final_receipt: &EconomicChainReceipt,
         observations: &EconomicObservables,
     ) -> Result<Self, EconomicStepError> {
+        Self::seal_with_actor_observations(manifest, final_receipt, observations, None)
+    }
+
+    /// Seal aggregate observations together with an optional deterministic
+    /// actor-observation map.
+    pub fn seal_with_actor_observations(
+        manifest: EconomicEvidenceManifest,
+        final_receipt: &EconomicChainReceipt,
+        observations: &EconomicObservables,
+        actor_observations: Option<&BTreeMap<String, ActorEconomicObservables>>,
+    ) -> Result<Self, EconomicStepError> {
         let manifest_hash = manifest.hash()?;
         if final_receipt.genesis_state_hash != manifest.initial_state_hash {
             return Err(EconomicStepError::Serialization(
@@ -79,10 +93,14 @@ impl EconomicEvidenceCapsule {
             ));
         }
         let observations_hash = hash_observations(observations)?;
+        let actor_observations_hash = actor_observations
+            .map(hash_actor_observations)
+            .transpose()?;
         let binding = (
             &manifest_hash,
             &final_receipt.chain_hash,
             &observations_hash,
+            &actor_observations_hash,
         );
         let bytes = serde_json::to_vec(&binding)
             .map_err(|error| EconomicStepError::Serialization(error.to_string()))?;
@@ -93,9 +111,18 @@ impl EconomicEvidenceCapsule {
             manifest_hash,
             final_chain_hash: final_receipt.chain_hash.clone(),
             observations_hash,
+            actor_observations_hash,
             evidence_hash,
         })
     }
+}
+
+fn hash_actor_observations(
+    observations: &BTreeMap<String, ActorEconomicObservables>,
+) -> Result<String, EconomicStepError> {
+    let bytes = serde_json::to_vec(observations)
+        .map_err(|error| EconomicStepError::Serialization(error.to_string()))?;
+    Ok(blake3::hash(&bytes).to_hex().to_string())
 }
 
 fn hash_observations(
@@ -111,6 +138,12 @@ mod tests {
     use super::*;
     use crate::economics::stock_flow::{ActorBalanceSheet, CreditCreation, EconomicState};
     use crate::economics::transition::{apply_step, EconomicTransition};
+
+    fn fixture_state() -> EconomicState {
+        let mut bank = ActorBalanceSheet::new("bank");
+        bank.monetary.cash = 1_000;
+        EconomicState::new(vec![bank, ActorBalanceSheet::new("household")])
+    }
 
     fn fixture() -> (
         EconomicEvidenceManifest,
@@ -150,6 +183,33 @@ mod tests {
         let (mut manifest, chain, observations) = fixture();
         manifest.initial_state_hash = "wrong-genesis".into();
         assert!(EconomicEvidenceCapsule::seal(manifest, &chain, &observations).is_err());
+    }
+
+    #[test]
+    fn evidence_capsule_binds_actor_observations_when_supplied() {
+        let (manifest, chain, observations) = fixture();
+        let actors_a = ActorEconomicObservables::from_state_and_transitions(
+            &fixture_state(),
+            &[],
+        ).unwrap();
+        let mut actors_b = actors_a.clone();
+        actors_b.get_mut("household").unwrap().deposits += 1;
+
+        let a = EconomicEvidenceCapsule::seal_with_actor_observations(
+            manifest.clone(),
+            &chain,
+            &observations,
+            Some(&actors_a),
+        ).unwrap();
+        let b = EconomicEvidenceCapsule::seal_with_actor_observations(
+            manifest,
+            &chain,
+            &observations,
+            Some(&actors_b),
+        ).unwrap();
+
+        assert_ne!(a.actor_observations_hash, b.actor_observations_hash);
+        assert_ne!(a.evidence_hash, b.evidence_hash);
     }
 
     #[test]
