@@ -991,6 +991,12 @@ impl TransitionBoundaryWalk {
                 Some(predecessor_id) => predecessor_id,
             };
 
+            // Retain the referenced predecessor identity even when its
+            // record is unavailable. This lets bounded contradiction checks
+            // recognize that a present branch head directly or indirectly
+            // names another declared branch head as an ancestor.
+            ancestor_ids.insert(predecessor_id.clone());
+
             let predecessor = match by_id.get(predecessor_id) {
                 None => {
                     return Ok(Self {
@@ -2681,6 +2687,70 @@ mod tests {
                 authority_roots: vec![delegation.delegation_id],
             })
         );
+    }
+
+    #[test]
+    fn reconciliation_coverage_assessment_rejects_present_descendant_of_missing_named_head() {
+        let disputed = EvidenceDisposition::Disputed {
+            by: id(IdentityKind::ReconciliationWitness, "missing-head-w1"),
+        };
+        let missing_head = id(
+            IdentityKind::ReconciliationWitness,
+            "missing-named-head",
+        );
+        let descendant_head = graph_transition(
+            "present-descendant-of-missing-head",
+            Some("missing-named-head"),
+            disputed,
+            EvidenceDisposition::Active,
+        );
+        let reconciliation = EvidenceDispositionReconciliation {
+            reconciliation_id: id(
+                IdentityKind::ReconciliationWitness,
+                "reconcile-present-descendant-of-missing-head",
+            ),
+            evidence: id(IdentityKind::InspectionRecord, "inspection-graph"),
+            branch_point: id(
+                IdentityKind::ReconciliationWitness,
+                "missing-branch-point-for-named-head",
+            ),
+            branch_heads: vec![missing_head.clone(), descendant_head.transition_id.clone()],
+            authority: id(IdentityKind::ReconciliationWitness, "authority-1"),
+            authority_scope: id(IdentityKind::ReconciliationWitness, "authority-scope-1"),
+            authority_delegation: id(
+                IdentityKind::ReconciliationWitness,
+                "authority-delegation-1",
+            ),
+            basis: vec![],
+        };
+        let scope = authority_scope(&reconciliation.reconciliation_id.id);
+        let delegation = authority_delegation(&reconciliation.reconciliation_id.id);
+        let mut boundary = coverage_boundary();
+        boundary.reconciliation = reconciliation.reconciliation_id.clone();
+        boundary.branch_point = reconciliation.branch_point.clone();
+        boundary.branch_heads = reconciliation.branch_heads.clone();
+        let coverage = EvidenceDispositionReconciliationCoverage {
+            coverage_id: id(
+                IdentityKind::ReconciliationWitness,
+                "coverage-present-descendant-of-missing-head",
+            ),
+            reconciliation: reconciliation.reconciliation_id.clone(),
+            branch_point: reconciliation.branch_point.clone(),
+            covered_branch_heads: reconciliation.branch_heads.clone(),
+            boundary: boundary.boundary_id.clone(),
+            basis: boundary.basis.clone(),
+        };
+
+        assert!(coverage
+            .validate_against_graph_and_authority_chain_assessment(
+                &reconciliation,
+                &scope,
+                &delegation,
+                &[delegation],
+                &boundary,
+                &[descendant_head],
+            )
+            .is_err());
     }
 
     #[test]
