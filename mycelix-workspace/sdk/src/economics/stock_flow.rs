@@ -506,7 +506,7 @@ impl EconomicState {
         if producer.real.resources < production.resource_input {
             return Err(format!(
                 "insufficient resources for {}: have {}, need {}",
-                producer.actor, production.resource_input, production.resource_input
+                producer.actor, producer.real.resources, production.resource_input
             ));
         }
         producer.real.resources -= production.resource_input;
