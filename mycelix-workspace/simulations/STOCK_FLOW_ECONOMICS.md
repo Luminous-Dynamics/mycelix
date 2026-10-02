@@ -826,3 +826,18 @@ This is still an accounting representation, not a behavioral assumption: it does
 inventory targets, payment terms, collection lags, supplier finance, default rates, or credit
 demand. It simply exposes the state changes that a later working-capital behavioral layer can
 consume without reconstructing hidden intermediate quantities.
+
+
+## Aggregate-observation provenance closure (implemented)
+
+The cross-layer accounting closure now also binds the aggregate `EconomicObservables` projection derived from the exact post-state and deterministic period ledger.
+
+This prevents a subtle mix-and-match evidence failure: a valid actor/sector/stock-flow closure could previously coexist with an independently supplied aggregate observation payload. The closure now stores `aggregate_observations_hash`, and `seal_with_accounting_closure` requires the supplied aggregate observation hash to match it before the evidence capsule can be sealed.
+
+The resulting provenance chain is:
+
+`pre-state + ordered transitions -> post-state + ledger -> aggregate observations`
+
+and that aggregate observation hash is bound alongside the actor, sector, financial-claim, physical-posting, and sector-transaction projections.
+
+This is consistent with the SFC emphasis on integrating opening stocks, period flows, and closing stocks rather than treating reporting aggregates as an independent source of truth. It also keeps the behavioral boundary intact: no credit-demand, collection, refinancing, or policy rule is introduced by this change.
