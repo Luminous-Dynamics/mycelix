@@ -576,6 +576,7 @@ pub enum ObservationWriteResult {
     Duplicate,
     Conflict,
     RejectedSourceClaim,
+    RejectedRecognitionClaim,
     RejectedMalformedObservation,
 }
 
@@ -621,6 +622,9 @@ pub fn record_observation(
 ) -> ObservationWriteResult {
     if observation.source_observation {
         return ObservationWriteResult::RejectedSourceClaim;
+    }
+    if observation.recognized_by.is_some() {
+        return ObservationWriteResult::RejectedRecognitionClaim;
     }
 
     record_observation_identity(state, observation)
@@ -1322,6 +1326,25 @@ mod tests {
     }
 
     #[test]
+    fn generic_observation_api_cannot_mint_recognition_claim() {
+        let mut state = nodes();
+        let recognition_claim = ObservationRecord {
+            observation_id: "obs-forged-recognition".into(),
+            semantic_subject_id: "subject-1".into(),
+            payload_commitment: "sha256:forged".into(),
+            origin_node: "node-b".into(),
+            recognized_by: Some("node-a".into()),
+            source_observation: false,
+        };
+
+        assert_eq!(
+            record_observation(&mut state, recognition_claim),
+            ObservationWriteResult::RejectedRecognitionClaim
+        );
+        assert_eq!(state.observation_count(), 0);
+    }
+
+    #[test]
     fn generic_observation_api_rejects_empty_identity_fields() {
         let mut state = nodes();
         let cases: [fn(&mut ObservationRecord); 5] = [
@@ -1723,7 +1746,7 @@ mod tests {
             semantic_subject_id: "subject-1".into(),
             payload_commitment: "sha256:b".into(),
             origin_node: "node-b".into(),
-            recognized_by: Some("node-a".into()),
+            recognized_by: None,
             source_observation: false,
         };
         assert_eq!(
