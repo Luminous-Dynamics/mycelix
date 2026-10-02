@@ -37,6 +37,7 @@ jobs:
       sdk: ${{ steps.filter.outputs.sdk }}
       prism: ${{ steps.filter.outputs.prism }}
       cos_conformance: ${{ steps.filter.outputs.cos_conformance }}
+      qual_001s: ${{ steps.filter.outputs.qual_001s }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -80,6 +81,8 @@ jobs:
               - 'mycelix-manufacturing/Cargo.lock'
               - 'docs/integral/cos-reference-node-v1.md'
               - 'mycelix-manufacturing/tests/cos_reference_conformance.md'
+            qual_001s:
+              - 'conformance/qual-001s/**'
 
   # Format check (always runs when CI is admitted)
   format:
@@ -111,6 +114,22 @@ jobs:
           (cd crates/mycelix-bridge-common && cargo fmt --all --check) || status=1
           (cd crates/mycelix-bridge-entry-types && cargo fmt --all --check) || status=1
           exit $status
+
+  # Developer-only corpus validation. This job is explicitly NON-AUTHORITATIVE:
+  # candidate-controlled workflow changes and its result must never satisfy
+  # S0/S1/S2 provenance or become the protected QUAL-001S verdict.
+  test-qual-001s:
+    name: QUAL-001S Corpus (non-authoritative)
+    needs: changes
+    if: needs.changes.outputs.qual_001s == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate semantic corpus JSON and schema-shaped invariants
+        run: python3 conformance/qual-001s/evaluator_a.py
+      - name: Validate independent semantic expectations
+        run: node conformance/qual-001s/evaluator_b.mjs
 
   # Per-cluster test jobs
   test-cos-conformance:
