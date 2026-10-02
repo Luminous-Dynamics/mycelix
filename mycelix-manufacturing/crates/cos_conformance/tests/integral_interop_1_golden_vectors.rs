@@ -1,15 +1,16 @@
 use cos_conformance::canonical_derivation_receipt::{canonical_bytes, canonical_sha256, D6S_REFERENCE_CANONICALIZATION_VERSION};
 use cos_conformance::contestable_finality::{
     ObservationAssessmentV1, ObservationIndependenceV1, ObservationClassificationV1,
-    ExternalFinalityStateV1, ExternalObserverProfileV1, ExternalObservationSetV1,
-    ExternalObservedEvidenceV1, ExternalObserverRoleV1, verify_witness_join_binding,
+    ExternalObserverProfileV1, ExternalObservationSetV1, ExternalObservedEvidenceV1,
+    ExternalObserverRoleV1,
 };
 use cos_conformance::effect_finality::{
-    ExternalEffectObservationV1, ExternalObservedStateV1, ExternalObservationSourceV1,
+    ExternalEffectObservationV1, ExternalFinalityStateV1, ExternalObservedStateV1,
+    ExternalObservationSourceV1,
 };
 use cos_conformance::finality_eligibility_composition::{
-    CurrentFinalityEligibilityReceiptV1, FinalityEligibilityCompositionV1,
-    FinalityWitnessEligibilityV1,
+    verify_witness_join_binding, CurrentFinalityEligibilityReceiptV1,
+    FinalityEligibilityCompositionV1, FinalityWitnessEligibilityV1,
 };
 use cos_conformance::observer_lifecycle::EvidenceEligibilityReceiptV1;
 use serde_json::Value;
