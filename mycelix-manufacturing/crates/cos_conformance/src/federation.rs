@@ -266,7 +266,10 @@ pub enum AuthorityDisposition {
 pub struct FederationOutcome {
     pub decision: FederationDecision,
     pub authority: AuthorityDisposition,
+    /// The envelope's claimed origin. origin_node_known distinguishes this
+    /// claim from a node identity established by the reference model.
     pub origin_node: Option<String>,
+    pub origin_node_known: bool,
     pub logical_delivery_id: String,
     pub attempt_id: String,
     pub reason: &'static str,
@@ -283,6 +286,10 @@ impl FederationOutcome {
             decision,
             authority,
             origin_node: Some(envelope.origin_node.clone()),
+            origin_node_known: !matches!(
+                decision,
+                FederationDecision::PartitionUnknown | FederationDecision::UnknownNode
+            ),
             logical_delivery_id: envelope.logical_delivery_id.clone(),
             attempt_id: envelope.attempt_id.clone(),
             reason,
@@ -550,6 +557,7 @@ pub struct CockpitProjection {
     pub delegated_foreign_authority: bool,
     pub decision: FederationDecision,
     pub origin_node: Option<String>,
+    pub origin_node_known: bool,
     pub logical_delivery_id: String,
     pub attempt_id: String,
     pub reason: String,
@@ -570,6 +578,7 @@ pub fn cockpit_projection(node_id: &str, outcome: &FederationOutcome) -> Cockpit
         ),
         decision: outcome.decision,
         origin_node: outcome.origin_node.clone(),
+        origin_node_known: outcome.origin_node_known,
         logical_delivery_id: outcome.logical_delivery_id.clone(),
         attempt_id: outcome.attempt_id.clone(),
         reason: outcome.reason.to_owned(),
@@ -1306,6 +1315,28 @@ mod tests {
         assert_eq!(outcome.authority, AuthorityDisposition::NoAuthority);
         assert!(state.deliveries.is_empty());
         assert_eq!(state.observations.get("env-1"), Some(&existing));
+    }
+
+    #[test]
+    fn origin_projection_distinguishes_claimed_from_model_known_identity() {
+        let mut state = nodes();
+
+        let accepted = deliver(&mut state, &envelope(), 50, true);
+        assert!(accepted.origin_node_known);
+        assert_eq!(accepted.origin_node.as_deref(), Some("node-a"));
+        assert!(cockpit_projection("node-a", &accepted).origin_node_known);
+
+        let partitioned = deliver(&mut state, &envelope(), 50, false);
+        assert!(!partitioned.origin_node_known);
+        assert_eq!(partitioned.origin_node.as_deref(), Some("node-a"));
+        assert!(!cockpit_projection("node-a", &partitioned).origin_node_known);
+
+        let mut unknown_origin = envelope();
+        unknown_origin.origin_node = "node-unknown".into();
+        let unknown = deliver(&mut state, &unknown_origin, 50, true);
+        assert_eq!(unknown.decision, FederationDecision::UnknownNode);
+        assert!(!unknown.origin_node_known);
+        assert_eq!(unknown.origin_node.as_deref(), Some("node-unknown"));
     }
 
     #[test]
