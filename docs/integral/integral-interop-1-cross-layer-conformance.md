@@ -44,11 +44,11 @@ Each vector declares:
 - `operation`: `set`, `candidate-noise`, `require-d6p-receipt`, or `runtime-evidence`;
 - `path`: mutation target, or `$` for whole-fixture operations;
 - `value`: operation-specific value;
-- `expected`: one of `identity-preserving`, `identity-changing`, `invalid-no-identity`, `blocked-no-d6w`, `dependency-satisfied`, or `audit-only`.
+- `expected`: an object containing the validity result, expected D6X status, and exact per-boundary delta booleans for OAD semantic identity, D6X identity/certificate, and D6W input/derivation.
 
 The source-level conformance suite validates the corpus schema and the declared blocked/complete D6X→D6W boundary. The corpus is a declarative mutation matrix; the individual semantic mutations remain exercised by the corresponding Rust tests rather than being dynamically interpreted from this JSON file. Runtime evidence is deliberately handled by the dedicated audit-boundary test because it mutates the D6X certificate rather than the source OAD fixture.
 
-This makes the mutation matrix reviewable as data while retaining Rust-level assertions for the cryptographic propagation boundary.
+This makes the mutation matrix reviewable as data while retaining Rust-level assertions for the cryptographic propagation boundary. The companion Rust golden-vector test additionally freezes exact commitments for the baseline, missing-dependency rejection, and dependency-satisfied paths.
 
 
 ## Exact propagation matrix
