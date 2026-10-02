@@ -253,10 +253,10 @@ This is closer to ecological SFC practice, which explicitly combines monetary an
 ### Next accounting frontier
 
 1. Add explicit production-cost accumulation so wages, intermediate inputs, and other production costs can feed inventory carrying value without hidden financing.
-2. Add explicit depreciation and capital-consumption postings for productive capital.
+2. Add explicit depreciation and capital-consumption postings for productive capital. (The monetary depreciation boundary is now implemented.)
 3. Add typed physical units and material-balance/conservation rules for the ecological SFC layer.
 4. Add institutional/financial-regime observables (leverage, debt service, liquidity, refinancing need) on top of reconciled stocks.
-5. Only then add Minsky/Keen behavioral equations, so financial-instability dynamics operate on auditable accounting state rather than hidden balances.
+5. Add Minsky/Keen behavioral equations only after the accounting state is observable and reconciled, with clear separation between operating surplus and financing flows.
 
 
 ## Income/equity double entry (implemented)
@@ -338,6 +338,17 @@ This follows the SFC structure in which investment is represented in the transac
 The next refinement should therefore be a distinct production/inventory layer rather than silently expanding `CapitalInvestment` to cover everything. That layer can introduce output, inventories, intermediate inputs, resource depletion, wages, and operating surplus while retaining the same deterministic posting/reconciliation machinery.
 
 
+## Explicit depreciation boundary (implemented)
+
+`Depreciation` is now an explicit monetary-valued productive-capital transition:
+
+- productive capital: `-D`;
+- equity residual: `+D` in the signed balance-sheet representation.
+
+It changes no deposits and creates no hidden cash flow. The period ledger records depreciation separately and derives `operating_surplus_after_depreciation = gross_operating_surplus - depreciation`.
+
+This distinction matters because depreciation can also enter production overhead/cost of conversion and subsequently flow into inventory carrying value and COGS. The substrate therefore does not automatically subtract the same depreciation twice. A caller must represent capitalization versus period expense explicitly.
+
 ## Physical inventory circuit and carrying value (implemented)
 
 The physical side has four explicit quantity transitions:
@@ -360,7 +371,7 @@ A sale therefore has an explicit three-part accounting pattern when valuation is
 
 The first side recognizes seller COGS by relieving carrying value; `GoodsSale` records the physical quantity and deposit consideration; the buyer-side addition records acquired inventory at its explicit carrying amount. `InventoryCostAddition` must not be treated as free value creation: it records an externally determined cost allocation/reclassification and any underlying financing, wage, or input-cost transition remains explicit. No FIFO, weighted-average, specific-identification, unit-price, or cost allocation rule is inferred by the transition engine. Those policy/calculation results must be supplied explicitly.
 
-The period ledger now derives `sales_consideration`, `cost_of_goods_sold`, and `gross_operating_surplus = sales_consideration - cost_of_goods_sold`. This is deliberately a **gross trading surplus** measure until wages, intermediate inputs, depreciation, interest, and taxes have their own explicit expense/accrual boundaries.
+The period ledger now derives `sales_consideration`, `cost_of_goods_sold`, `gross_operating_surplus = sales_consideration - cost_of_goods_sold`, and explicit `depreciation`. It also exposes `operating_surplus_after_depreciation` as a transparent derived quantity. This is deliberately not a complete profit measure: wages, intermediate inputs, interest, taxes, financing flows, and any depreciation already capitalized into inventory remain separate boundaries.
 
 
 ## Explicit goods-sale bridge
