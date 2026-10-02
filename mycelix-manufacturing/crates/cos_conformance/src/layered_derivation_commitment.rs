@@ -126,9 +126,14 @@ impl InputCommitmentV1 {
         };
         v.commitment = v.recompute(); Some(v)
     }
-    /// Strict D6W entrypoint for callers that can supply the authoritative D6P
-    /// composition set. Every D6P receipt named by the projection is reconstructed
-    /// against a composition before the ordinary D6W identity is admitted.
+    /// Strict D6W entrypoint for callers that can supply the qualified D6P
+    /// composition set. Every D6P receipt named by the projection is checked
+    /// against its committed composition before the ordinary D6W identity is
+    /// admitted.
+    ///
+    /// This is a D6P integrity/provenance check, not independent reconstruction of
+    /// D6N/D6O authority. Callers that need that stronger guarantee must establish
+    /// the authoritative D6P composition upstream before presenting it here.
     pub fn from_projection_with_authoritative_d6p(
         p: &QualifiedProjectionV1,
         e: &SemanticEnvironmentV1,
