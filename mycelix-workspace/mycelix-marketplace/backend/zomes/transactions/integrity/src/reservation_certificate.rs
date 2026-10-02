@@ -684,7 +684,7 @@ mod tests {
     }
 
     #[test]
-    fn seller_frontier_serializes_two_competing_reservations() {
+    fn frontier_rejects_second_reservation_with_stale_pre_state() {
         let mut f = frontier(1);
         assert_eq!(
             f.apply(FrontierEvent::Reserve(certificate_with_capacity(
@@ -692,7 +692,7 @@ mod tests {
             ))),
             Ok(ApplyOutcome::Applied)
         );
-        assert!(matches!(
+        assert_eq!(
             f.apply(FrontierEvent::Reserve(certificate_with_capacity(
                 "c2",
                 1,
@@ -700,10 +700,8 @@ mod tests {
                 1,
                 1
             ))),
-            Err(CertificateError::Capacity(
-                ReservationError::InsufficientCapacity { .. }
-            ))
-        ));
+            Err(CertificateError::InvalidPreState)
+        );
         assert_eq!(f.active_reserved(), 1);
         assert_eq!(f.available(), 0);
     }
