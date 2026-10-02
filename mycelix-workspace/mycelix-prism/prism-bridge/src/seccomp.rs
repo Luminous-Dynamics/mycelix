@@ -581,13 +581,6 @@ mod linux {
                 filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_ALLOW));
             } else {
                 for (clause_index, clause) in rule.clauses.iter().enumerate() {
-                    let clause_tail_after = rule
-                        .clauses
-                        .iter()
-                        .skip(clause_index + 1)
-                        .map(clause_instruction_count)
-                        .sum::<usize>();
-
                     for (predicate_index, predicate) in clause.predicates.iter().enumerate() {
                         let later_in_predicates = clause
                             .predicates
@@ -595,10 +588,14 @@ mod linux {
                             .skip(predicate_index + 1)
                             .map(predicate_instruction_count)
                             .sum::<usize>();
+                        // From a predicate-failure jump, skip the
+                        // remainder of this clause only: the current
+                        // predicate's EPERM plus later predicates and this
+                        // clause's ALLOW. The next alternative clause must
+                        // remain reachable.
                         let clause_mismatch_skip = u8::try_from(
                             later_in_predicates
                                 .checked_add(2)
-                                .and_then(|n| n.checked_add(clause_tail_after))
                                 .ok_or(SeccompError::FilterTooLarge)?,
                         )
                         .map_err(|_| SeccompError::FilterTooLarge)?;
@@ -614,8 +611,7 @@ mod linux {
                                 if low_mask != 0 {
                                     let high_tail = usize::from(high_mask != 0) * 4
                                         + later_in_predicates
-                                        + 2
-                                        + clause_tail_after;
+                                        + 2;
                                     let mismatch_skip = u8::try_from(high_tail)
                                         .map_err(|_| SeccompError::FilterTooLarge)?;
                                     filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base));
@@ -1728,6 +1724,93 @@ mod linux {
                 interpret_v2_filter(&filter, wrong_arch, libc::SYS_exit_group, [0; 6]),
                 SECCOMP_RET_KILL_PROCESS,
                 "architecture mismatch must kill before syscall dispatch"
+            );
+        }
+
+        #[test]
+        fn v2_disjunctive_64bit_equality_failures_reach_later_clause() {
+            let arch = SeccompArchitecture::current().unwrap();
+
+            let first_low_mismatch = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(0, u64::MAX, 0x0000_0001_0000_0001).unwrap(),
+            ]).unwrap();
+            let second_low_mismatch = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(0, u64::MAX, 0x0000_0002_0000_0002).unwrap(),
+            ]).unwrap();
+            let low_policy = SeccompSyscallPolicyV2::new(
+                arch,
+                vec![SeccompSyscallRuleV2::new_with_clauses(
+                    libc::SYS_socket,
+                    vec![first_low_mismatch, second_low_mismatch],
+                ).unwrap()],
+            ).unwrap();
+            let low_filter = compile_filter_v2(&low_policy).unwrap();
+
+            let low_args = [0x0000_0002_0000_0002, 0, 0, 0, 0, 0];
+            assert!(low_policy.allows(libc::SYS_socket, &low_args));
+            assert_eq!(
+                interpret_v2_filter(&low_filter, arch, libc::SYS_socket, low_args),
+                SECCOMP_RET_ALLOW,
+                "low-word predicate failure must fall through to the next clause"
+            );
+
+            let first_high_mismatch = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(0, u64::MAX, 0x0000_0001_0000_0000).unwrap(),
+            ]).unwrap();
+            let second_high_mismatch = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(0, u64::MAX, 0x0000_0002_0000_0000).unwrap(),
+            ]).unwrap();
+            let high_policy = SeccompSyscallPolicyV2::new(
+                arch,
+                vec![SeccompSyscallRuleV2::new_with_clauses(
+                    libc::SYS_socket,
+                    vec![first_high_mismatch, second_high_mismatch],
+                ).unwrap()],
+            ).unwrap();
+            let high_filter = compile_filter_v2(&high_policy).unwrap();
+
+            let high_args = [0x0000_0002_0000_0000, 0, 0, 0, 0, 0];
+            assert!(high_policy.allows(libc::SYS_socket, &high_args));
+            assert_eq!(
+                interpret_v2_filter(&high_filter, arch, libc::SYS_socket, high_args),
+                SECCOMP_RET_ALLOW,
+                "high-word predicate failure must fall through to the next clause"
+            );
+        }
+
+        #[test]
+        fn v2_disjunctive_masked_not_equal_failure_reaches_later_clause() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let not_equal = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new_with_op(
+                    0,
+                    0x0000_0000_0000_00ff,
+                    1,
+                    SeccompArgPredicateOpV1::MaskedNotEqual,
+                ).unwrap(),
+            ]).unwrap();
+            let later_equal = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(
+                    0,
+                    0x0000_0000_0000_ffff,
+                    1,
+                ).unwrap(),
+            ]).unwrap();
+            let rule = SeccompSyscallRuleV2::new_with_clauses(
+                libc::SYS_socket,
+                vec![not_equal, later_equal],
+            ).unwrap();
+            assert_eq!(rule.clauses()[0].predicates()[0].op(), SeccompArgPredicateOpV1::MaskedNotEqual);
+
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+            let filter = compile_filter_v2(&policy).unwrap();
+            let args = [1, 0, 0, 0, 0, 0];
+
+            assert!(policy.allows(libc::SYS_socket, &args));
+            assert_eq!(
+                interpret_v2_filter(&filter, arch, libc::SYS_socket, args),
+                SECCOMP_RET_ALLOW,
+                "masked-not-equal failure must fall through to the next clause"
             );
         }
 
