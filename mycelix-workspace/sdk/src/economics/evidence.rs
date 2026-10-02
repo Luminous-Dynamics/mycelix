@@ -416,6 +416,23 @@ mod tests {
     }
 
     #[test]
+    fn evidence_capsule_rejects_tampered_actor_liquidity() {
+        let (manifest, chain, observations) = fixture();
+        let mut actors =
+            ActorEconomicObservables::from_state_and_transitions(&fixture_state(), &[])
+                .unwrap();
+        actors.get_mut("household").unwrap().liquidity = 1;
+
+        assert!(EconomicEvidenceCapsule::seal_with_actor_observations(
+            manifest,
+            &chain,
+            &observations,
+            Some(&actors),
+        )
+        .is_err());
+    }
+
+    #[test]
     fn evidence_capsule_binds_sector_observations_when_supplied() {
         let (manifest, chain, observations) = fixture();
         let actors = ActorEconomicObservables::from_state_and_transitions(
