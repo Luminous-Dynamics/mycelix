@@ -397,10 +397,16 @@ fn cycle_exists(nodes: &BTreeSet<String>, edges: &[(String, String)]) -> bool {
     adjacency.keys().any(|id| visit(id, &adjacency, &mut active, &mut done))
 }
 
-/// Authoritative D6X entrypoint: before a closure can consume D6P receipt
-/// commitments, reconstruct each selected receipt from its authoritative D6P
-/// composition. This closes the finality->closure gap where an opaque receipt
-/// commitment could otherwise be treated as sufficient provenance.
+/// Qualified D6X entrypoint: before a closure can consume D6P receipt
+/// commitments, require each selected receipt to be an exact projection of the
+/// supplied committed D6P composition. This closes the finality->closure gap
+/// where an opaque receipt commitment could otherwise be treated as sufficient
+/// provenance.
+///
+/// This boundary does NOT independently reconstruct D6P from D6N/D6O source
+/// state. The supplied composition is itself treated as the qualified D6P
+/// source object; independent upstream authority reconstruction belongs at the
+/// D6P admission boundary.
 pub fn compute_dependency_closure_from_authoritative_d6p(
     projection: &QualifiedProjectionV1,
     environment: &SemanticEnvironmentV1,
