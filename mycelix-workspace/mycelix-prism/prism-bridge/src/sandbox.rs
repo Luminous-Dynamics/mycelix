@@ -47,7 +47,7 @@ mod linux {
     use super::*;
     use std::mem::size_of;
     use std::ffi::CString;
-    use std::os::fd::{AsRawFd, FromRawFd, RawFd};
+    use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
     use std::os::unix::ffi::OsStrExt;
 
     const LANDLOCK_CREATE_RULESET_VERSION: u32 = 1 << 0;
@@ -78,14 +78,24 @@ mod linux {
         _reserved: u64,
     }
 
-    fn landlock_create_ruleset(attr: *const RulesetAttr, flags: u32) -> Result<RawFd, SandboxEnforcementError> {
-        let rc = unsafe { libc::syscall(libc::SYS_landlock_create_ruleset, attr, size_of::<RulesetAttr>(), flags) };
+    fn landlock_create_ruleset(
+        attr: *const RulesetAttr,
+        flags: u32,
+    ) -> Result<OwnedFd, SandboxEnforcementError> {
+        let rc = unsafe {
+            libc::syscall(
+                libc::SYS_landlock_create_ruleset,
+                attr,
+                size_of::<RulesetAttr>(),
+                flags,
+            )
+        };
         if rc < 0 {
             return Err(SandboxEnforcementError::EnforcementFailed(
                 std::io::Error::last_os_error().raw_os_error().unwrap_or(libc::ENOSYS),
             ));
         }
-        Ok(rc as RawFd)
+        Ok(unsafe { OwnedFd::from_raw_fd(rc as RawFd) })
     }
 
     fn landlock_abi_version() -> Result<u32, SandboxEnforcementError> {
@@ -209,7 +219,7 @@ mod linux {
             | LANDLOCK_ACCESS_FS_IOCTL_DEV;
 
         let attr = RulesetAttr { handled_access_fs: handled, _reserved: 0 };
-        let fd = landlock_create_ruleset(&attr, 0)?;
+        let ruleset_fd = landlock_create_ruleset(&attr, 0)?;
         // Landlock identifies PATH_BENEATH roots by file descriptor. Use
         // O_PATH|O_CLOEXEC as recommended by the kernel interface so the
         // qualification root is identified without requiring read access and
@@ -242,7 +252,7 @@ mod linux {
         let rc = unsafe {
             libc::syscall(
                 libc::SYS_landlock_add_rule,
-                fd,
+                ruleset_fd.as_raw_fd(),
                 LANDLOCK_RULE_PATH_BENEATH as libc::c_uint,
                 &rule,
                 0,
@@ -250,12 +260,10 @@ mod linux {
         };
         if rc != 0 {
             let errno = std::io::Error::last_os_error().raw_os_error().unwrap_or(libc::EACCES);
-            unsafe { libc::close(fd); }
             return Err(SandboxEnforcementError::EnforcementFailed(errno));
         }
 
-        restrict_self(fd, abi)?;
-        unsafe { libc::close(fd); }
+        restrict_self(ruleset_fd.as_raw_fd(), abi)?;
 
         // We only report actual enforcement after restrict_self() succeeds.
         SandboxEnforcementReceipt::from_adapter(
