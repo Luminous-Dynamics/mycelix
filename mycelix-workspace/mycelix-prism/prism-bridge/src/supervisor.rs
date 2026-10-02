@@ -221,7 +221,7 @@ mod tests {
 
     #[test]
     fn filesystem_only_landlock_cannot_qualify_full_renderer_profile() {
-        let state = RendererSupervisorState::new(launch());
+        let mut state = RendererSupervisorState::new(launch());
         state.record_sandbox(receipt(
             &state,
             SandboxAdapterKind::LinuxLandlockFilesystemV1,
