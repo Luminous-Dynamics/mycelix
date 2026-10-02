@@ -1392,6 +1392,46 @@ mod tests {
         assert!(evidence.validate_state_transition(&certificate).is_err());
     }
 
+    fn listing(quantity: u32, price_cents: u64) -> Listing {
+        Listing {
+            title: "Test Product".into(),
+            description: "Test listing".into(),
+            price_cents,
+            category: listings_integrity::ListingCategory::Other,
+            photos_ipfs_cids: vec![
+                "QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG".into(),
+            ],
+            quantity_available: quantity,
+            status: listings_integrity::ListingStatus::Active,
+            epistemic: listings_integrity::EpistemicClassification {
+                empirical: listings_integrity::EmpiricalLevel::E1Testimonial,
+                normative: listings_integrity::NormativeLevel::N0Personal,
+                materiality: listings_integrity::MaterialityLevel::M1Temporal,
+            },
+            created_at: Timestamp::from_micros(1_000_000),
+            updated_at: Timestamp::from_micros(1_000_000),
+        }
+    }
+
+    #[test]
+    fn reservation_listing_binding_accepts_exact_price_and_genesis_capacity() {
+        let c = certificate_with_capacity("c1", 0, None, 2, 10);
+        let l = listing(10, 500);
+        assert!(validate_reservation_listing_binding(&c, &l).is_ok());
+    }
+
+    #[test]
+    fn reservation_listing_binding_rejects_price_and_genesis_capacity_mismatch() {
+        let mut c = certificate_with_capacity("c1", 0, None, 2, 10);
+        let l = listing(10, 501);
+        assert!(validate_reservation_listing_binding(&c, &l).unwrap_err().contains("price"));
+
+        c.intent.unit_price_cents = 500;
+        assert!(validate_reservation_listing_binding(&c, &listing(9, 500))
+            .unwrap_err()
+            .contains("capacity"));
+    }
+
     fn transaction_for(intent: &PurchaseIntent) -> crate::Transaction {
         crate::Transaction {
             buyer: intent.buyer.clone(),
