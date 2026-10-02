@@ -17,12 +17,12 @@ pub mod capability;
 pub mod process;
 pub mod supervisor;
 pub mod sandbox;
+pub mod seccomp;
 pub mod grant;
 pub mod identity;
 pub mod lifecycle;
 pub mod resource;
 pub mod renderer_ipc;
-pub mod runtime;
 pub mod session;
 
 /// Maximum IPC frame size (2MB, matching existing Symthaea convention).
