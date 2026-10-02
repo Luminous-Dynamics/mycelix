@@ -4,6 +4,7 @@
 use hdk::prelude::*;
 use mycelix_common::{bridge, error_handling, link_queries, remote_calls, time};
 use reputation_integrity::*;
+use std::collections::HashMap;
 
 mod cache;
 
@@ -174,7 +175,7 @@ pub fn record_fulfillment_reputation(
         ),
         subject: current.transaction.seller.clone(),
         counterparty: current.transaction.buyer.clone(),
-        transaction_hash: resolution.root_transaction_hash,
+        transaction_hash: resolution.root_transaction_hash.clone(),
         source_hash: current.transaction_hash.clone(),
         kind: ReputationEventKind::FulfillmentDelivered,
         value_cents: current.transaction.total_price_cents,
@@ -510,7 +511,7 @@ struct TransactionOutputWire {
     transaction: TransactionEvidenceWire,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 struct TransactionEvidenceWire {
     buyer: AgentPubKey,
     seller: AgentPubKey,
@@ -531,7 +532,7 @@ enum TransactionStatusWire {
     Cancelled,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 struct ArbitrationResultWire {
     dispute_hash: ActionHash,
     dispute_revision_hash: ActionHash,
@@ -540,7 +541,7 @@ struct ArbitrationResultWire {
     finalized_at: Timestamp,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 struct DisputeWire {
     transaction_hash: ActionHash,
     transaction_revision_hash: ActionHash,
@@ -548,6 +549,10 @@ struct DisputeWire {
     seller: AgentPubKey,
     arbitrators: Vec<AgentPubKey>,
 }
+
+holochain_serial!(TransactionEvidenceWire);
+holochain_serial!(ArbitrationResultWire);
+holochain_serial!(DisputeWire);
 
 /// Compute Proof of Gradient Quality
 ///
