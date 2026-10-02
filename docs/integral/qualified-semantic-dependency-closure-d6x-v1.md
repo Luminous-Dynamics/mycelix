@@ -141,6 +141,7 @@ The reference model currently includes fixtures for:
 32. a lossless runtime-resolution evidence envelope round-trips address domain, outcome, address, and observations while leaving closure identity unchanged.
 33. the typed runtime-resolution envelope rejects drift between its typed attempt and legacy opaque evidence representation.
 34. the D6X closure identity explicitly binds the canonicalization contract version rather than relying only on an implicit implementation dependency.
+35. the candidate-bound closure certificate commitment is mutation-tested across every semantic certificate field; only the stored commitment itself is excluded from its own preimage.
 
 Before interoperability or production claims, add cross-language golden vectors, currentness/D6P fixtures, contradiction-preservation fixtures, cycle fixtures, resource-limit fixtures, and execute the Rust/WASM/Holochain conformance corpus.
 
