@@ -86,6 +86,17 @@ try {
 }
 
 const corpus = JSON.parse(raw);
+const ao = JSON.parse(fs.readFileSync(path.join(ROOT, "s0_authority_observation_v1.example.json"), "utf8"));
+if (ao.schema !== "mycelix.qual-001s.s0-authority-observation-v1") throw new Error("wrong S0 authority observation schema");
+if (ao.event_type !== "workflow_dispatch") throw new Error("wrong S0 authority observation event type");
+if (!["OBSERVED", "UNAVAILABLE", "CONTRADICTED"].includes(ao.observation_state)) throw new Error("invalid S0 observation state");
+if (!["OBSERVED", "UNAVAILABLE", "CONTRADICTED"].includes(ao.request_authentication.state)) throw new Error("invalid request authentication state");
+if (!["OBSERVED", "UNAVAILABLE", "CONTRADICTED"].includes(ao.actor_authorization.state)) throw new Error("invalid actor authorization state");
+if (!["OBSERVED", "UNAVAILABLE", "CONTRADICTED"].includes(ao.event_authorization.state)) throw new Error("invalid event authorization state");
+if (!["OBSERVED", "UNAVAILABLE", "CONTRADICTED"].includes(ao.workflow_source_authentication.state)) throw new Error("invalid workflow source authentication state");
+if (!["ACCEPTED", "REJECTED", "UNOBSERVED"].includes(ao.dispatch_result)) throw new Error("invalid dispatch result");
+if (!["OBSERVED", "UNOBSERVED", "CONTRADICTED"].includes(ao.run_attribution.state)) throw new Error("invalid run attribution state");
+
 const s0 = JSON.parse(fs.readFileSync(path.join(ROOT, "s0_dispatch_envelope_v1.example.json"), "utf8"));
 if (s0.schema !== "mycelix.qual-001s.s0-dispatch-envelope-v1") throw new Error("wrong S0 schema");
 if (s0.canonicalization_profile !== "RFC8785-JCS-IJSON-v1") throw new Error("wrong S0 canonicalization profile");
