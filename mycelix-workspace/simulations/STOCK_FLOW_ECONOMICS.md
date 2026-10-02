@@ -239,6 +239,14 @@ transition log -> sector transaction matrix -> sector balance-sheet delta -> evi
 
 The remaining conceptual gap is not another aggregate formula; it is the real production layer. Inventories, output, intermediate inputs, depreciation, and physical-resource flows should be introduced as typed stock transformations with their own conservation rules rather than being folded into CapitalInvestment.
 
+### Production and inventory bridge (implemented)
+
+Production is now an explicit real-stock transition rather than an implicit side effect of investment. `ProductionEvent` consumes a producer's `resources` and creates `inventories`; it carries no hidden monetary transfer. Wages, sales, financing, and investment therefore remain separately auditable transitions.
+
+Sector balance sheets expose `Inventories`, while stock-flow reconciliation binds production to the exact resource and inventory deltas. The period ledger separately records physical output and resource input without treating either as monetary turnover.
+
+This separation follows the SFC literature's treatment of inventories as a distinct dynamic stock and preserves the ecological extension path: monetary and physical stocks/flows can later be coupled while retaining explicit accounting boundaries. citeturn0search0turn0search1
+
 ### Next accounting frontier
 
 1. Add explicit period-income/equity postings so wage, consumption, interest, tax, and transfer flows can reconcile net worth changes.
