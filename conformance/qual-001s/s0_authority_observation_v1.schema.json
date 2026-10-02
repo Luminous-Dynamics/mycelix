@@ -14,6 +14,11 @@
     "s0_workflow_source_commit_sha",
     "s1_workflow_source_commit_sha",
     "dispatch_nonce_hex",
+    "dispatch_ref",
+    "dispatch_input_commitment_sha256",
+    "authenticated_principal_identity",
+    "policy_scope_identity",
+    "observation_timestamp",
     "event_type",
     "request_authentication",
     "actor_authorization",
@@ -109,6 +114,28 @@
         "UNAVAILABLE",
         "CONTRADICTED"
       ]
+    },
+    "dispatch_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "dispatch_input_commitment_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "authenticated_principal_identity": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "policy_scope_identity": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "observation_timestamp": {
+      "type": "string",
+      "format": "date-time"
     }
   },
   "$defs": {
@@ -143,8 +170,103 @@
         "rule_id": {
           "type": "string",
           "maxLength": 200
+        },
+        "principal_identity": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "OBSERVED"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "rule_id",
+              "principal_identity"
+            ]
+          }
+        }
+      ]
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "run_attribution": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "run_id",
+            "attempt",
+            "workflow_file_commit_sha"
+          ],
+          "properties": {
+            "state": {
+              "const": "OBSERVED"
+            },
+            "run_id": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "attempt": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "workflow_file_commit_sha": {
+              "$ref": "#/$defs/git_sha"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state"
+          ],
+          "properties": {
+            "state": {
+              "const": "UNOBSERVED"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state"
+          ],
+          "properties": {
+            "state": {
+              "const": "CONTRADICTED"
+            },
+            "run_id": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "attempt": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "workflow_file_commit_sha": {
+              "$ref": "#/$defs/git_sha"
+            }
+          }
+        }
+      ]
     }
   }
 }
