@@ -947,12 +947,9 @@ mod tests {
             }"#,
         )
         .unwrap();
-        assert_eq!(
-            verify_capability(
-                malformed,
-                VerificationEvidence::new_for_capability(&capability(), true, true, true),
-                1,
-            ),
+        let evidence =
+            VerificationEvidence::new_for_capability(&malformed, true, true, true);
+        assert_eq!(verify_capability(malformed, evidence, 1),
             Err(AuthorizationDecision::Deny(
                 AuthorizationDenial::InvalidCapability,
             ))
