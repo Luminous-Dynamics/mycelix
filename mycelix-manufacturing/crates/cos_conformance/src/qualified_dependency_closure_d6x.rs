@@ -437,6 +437,7 @@ pub fn compute_dependency_closure_from_authoritative_d6p_at_frontier(
         || !derivation_profile.structurally_valid()
         || !profile.structurally_valid()
         || current_frontier_root.is_some_and(|root| root.trim().is_empty())
+        || (!profile.required_d6p_receipt_commitments.is_empty() && current_frontier_root.is_none())
     {
         return None;
     }
