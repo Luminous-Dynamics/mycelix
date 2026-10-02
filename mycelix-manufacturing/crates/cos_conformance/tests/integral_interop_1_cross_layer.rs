@@ -16,9 +16,9 @@ use cos_conformance::layered_derivation_commitment::{
     DerivationCommitmentV1, InputCommitmentV1,
 };
 use cos_conformance::qualified_dependency_closure_d6x::{
-    compute_dependency_closure, DependencyClosureProfileV1, DependencyCurrentnessV1,
-    DependencyRuleV1, DependencyClosureStatusV1, SemanticDependencyReferenceV1,
-    SemanticDependencyResolutionEvidenceV1,
+    compute_dependency_closure, compute_dependency_closure_from_authoritative_d6p_at_frontier,
+    DependencyClosureProfileV1, DependencyCurrentnessV1, DependencyRuleV1,
+    DependencyClosureStatusV1, SemanticDependencyReferenceV1, SemanticDependencyResolutionEvidenceV1,
 };
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
@@ -39,6 +39,95 @@ fn snapshot_commitment() -> String {
             "snapshot": "integral-snapshot-1",
         }),
     )
+}
+
+fn actual_d6p_fixture() -> (
+    cos_conformance::finality_eligibility_composition::FinalityEligibilityCompositionV1,
+    cos_conformance::finality_eligibility_composition::CurrentFinalityEligibilityReceiptV1,
+) {
+    use cos_conformance::finality_eligibility_composition::{
+        FinalityEligibilityCompositionV1, FinalityEligibilityDispositionV1,
+        FinalityWitnessEligibilityV1, CurrentFinalityEligibilityReceiptV1,
+        FINALITY_ELIGIBILITY_COMPOSITION_CLAIM_CEILING,
+    };
+    use cos_conformance::contestable_finality::ObservationClassificationV1;
+    use cos_conformance::observer_lifecycle::EvidenceEligibilityDispositionV1;
+
+    let mut witness = FinalityWitnessEligibilityV1 {
+        observation_id: "integral-d6n-observation-1".into(),
+        observer_id: "integral-observer-1".into(),
+        observer_generation_id: Some("integral-generation-1".into()),
+        d6n_observation_set_id: "integral-d6n-set-1".into(),
+        d6n_observation_set_commitment: "integral-d6n-set-commitment".into(),
+        d6n_assessment_item_commitment: "integral-d6n-assessment-item-1".into(),
+        d6n_classification: ObservationClassificationV1::CorroboratingIndependent,
+        d6o_eligibility_id: Some("integral-d6o-eligibility-1".into()),
+        d6o_disposition: Some(EvidenceEligibilityDispositionV1::EligibleCurrent),
+        d6o_dependency_snapshot_id: Some("integral-d6o-snapshot-1".into()),
+        observation_frontier_root: "integral-frontier-1".into(),
+        current_frontier_root: "integral-frontier-1".into(),
+        lifecycle_profile_id: "integral-lifecycle-profile-1".into(),
+        witness_commitment: String::new(),
+        claim_ceiling: FINALITY_ELIGIBILITY_COMPOSITION_CLAIM_CEILING.into(),
+    };
+    witness.witness_commitment = witness.recomputed_commitment();
+
+    let mut composition = FinalityEligibilityCompositionV1 {
+        composition_id: "composition:integral-d6n-set-1".into(),
+        effect_id: "integral-effect-1".into(),
+        effect_lineage_id: "integral-lineage-1".into(),
+        lifecycle_generation_id: "integral-generation-1".into(),
+        route_id: "integral-route-1".into(),
+        provider_id: "integral-provider-1".into(),
+        provider_operation_id: "integral-operation-1".into(),
+        provider_profile_root: "integral-provider-profile-1".into(),
+        semantic_environment_root: environment().commitment(),
+        observation_set_id: "integral-d6n-set-1".into(),
+        observation_set_commitment: "integral-d6n-set-commitment".into(),
+        d6n_assessment_commitment: "integral-d6n-assessment-commitment".into(),
+        lifecycle_profile_id: "integral-lifecycle-profile-1".into(),
+        current_frontier_root: "integral-frontier-1".into(),
+        eligible_independent_count: 1,
+        required_independent_observations: 1,
+        preserved_contradictory_count: 0,
+        witnesses: vec![witness],
+        disposition: FinalityEligibilityDispositionV1::EligibleCurrent,
+        qualification_transition_id: Some("integral-qualification-transition-1".into()),
+        composition_commitment: String::new(),
+        claim_ceiling: FINALITY_ELIGIBILITY_COMPOSITION_CLAIM_CEILING.into(),
+    };
+    composition.composition_commitment = composition.recomputed_commitment();
+
+    let mut receipt = CurrentFinalityEligibilityReceiptV1 {
+        receipt_id: "integral-d6p-receipt-1".into(),
+        effect_id: composition.effect_id.clone(),
+        effect_lineage_id: composition.effect_lineage_id.clone(),
+        lifecycle_generation_id: composition.lifecycle_generation_id.clone(),
+        route_id: composition.route_id.clone(),
+        provider_id: composition.provider_id.clone(),
+        provider_operation_id: composition.provider_operation_id.clone(),
+        provider_profile_root: composition.provider_profile_root.clone(),
+        semantic_environment_root: composition.semantic_environment_root.clone(),
+        observation_set_id: composition.observation_set_id.clone(),
+        observation_set_commitment: composition.observation_set_commitment.clone(),
+        d6n_assessment_commitment: composition.d6n_assessment_commitment.clone(),
+        composition_commitment: composition.composition_commitment.clone(),
+        witness_eligibility_ids: composition.witnesses.iter()
+            .filter_map(|w| w.d6o_eligibility_id.clone()).collect(),
+        observer_generation_ids: composition.witnesses.iter()
+            .filter_map(|w| w.observer_generation_id.clone()).collect(),
+        current_frontier_root: composition.current_frontier_root.clone(),
+        lifecycle_profile_id: composition.lifecycle_profile_id.clone(),
+        eligible_independent_count: composition.eligible_independent_count,
+        preserved_contradictory_count: composition.preserved_contradictory_count,
+        disposition: composition.disposition,
+        qualification_transition_id: composition.qualification_transition_id.clone().unwrap_or_default(),
+        receipt_commitment: String::new(),
+        claim_ceiling: FINALITY_ELIGIBILITY_COMPOSITION_CLAIM_CEILING.into(),
+    };
+    receipt.receipt_commitment = receipt.recomputed_commitment();
+
+    (composition, receipt)
 }
 
 fn d6p_receipt_commitment() -> String {
@@ -719,6 +808,56 @@ fn cross_layer_golden_vectors_pin_exact_commitments_and_gate() {
     assert_ne!(present.d6x_identity, blocked.d6x_identity);
 }
  
+#[test]
+fn strict_d6x_d6p_boundary_accepts_committed_receipt_and_rejects_substitution() {
+    let baseline = fixture();
+    let (composition, receipt) = actual_d6p_fixture();
+    let (projection, environment, derivation_profile) = projection(&baseline, false, false);
+
+    let mut qualified_projection = projection;
+    qualified_projection.d6p_current_receipt_commitments =
+        [receipt.receipt_commitment.clone()].into_iter().collect();
+
+    let profile = DependencyClosureProfileV1 {
+        required_d6p_receipt_commitments =
+            [receipt.receipt_commitment.clone()].into_iter().collect(),
+        ..closure_profile(true)
+    };
+
+    let qualified = compute_dependency_closure_from_authoritative_d6p_at_frontier(
+        &qualified_projection,
+        &environment,
+        &derivation_profile,
+        &profile,
+        std::slice::from_ref(&receipt),
+        std::slice::from_ref(&composition),
+        Some("integral-frontier-1"),
+    )
+    .expect("committed D6P receipt must qualify the D6X boundary");
+
+    assert_eq!(qualified.status, DependencyClosureStatusV1::Complete);
+    assert!(qualified.valid());
+    assert!(qualified.included_d6p_receipt_commitments.contains(&receipt.receipt_commitment));
+
+    let mut forged = receipt.clone();
+    forged.provider_id = "integral-provider-attacker".into();
+    forged.receipt_commitment = forged.recomputed_commitment();
+    assert!(forged.commitment_matches());
+    assert!(
+        compute_dependency_closure_from_authoritative_d6p_at_frontier(
+            &qualified_projection,
+            &environment,
+            &derivation_profile,
+            &profile,
+            std::slice::from_ref(&forged),
+            std::slice::from_ref(&composition),
+            Some("integral-frontier-1"),
+        )
+        .is_none(),
+        "self-consistent receipt substitution must fail at the D6P provenance boundary"
+    );
+}
+
 #[test]
 fn cross_layer_mutation_matrix_is_executable() {
     let baseline = fixture();
