@@ -217,7 +217,7 @@ impl AuthorizationPermit {
     /// Permit validity is inclusive at the exact expiry boundary, matching the
     /// kernel's other validity-window checks.
     pub fn is_valid_at(&self, now_us: u64) -> bool {
-        now_us <= self.valid_until_us
+        self.issued_at_us <= now_us && now_us <= self.valid_until_us
     }
 }
 
@@ -271,7 +271,7 @@ impl EnforcementRequest {
     }
 
     pub fn is_valid_at(&self, now_us: u64) -> bool {
-        now_us <= self.valid_until_us
+        self.issued_at_us <= now_us && now_us <= self.valid_until_us
     }
 }
 
@@ -831,6 +831,25 @@ mod tests {
             150 + MAX_AUTHORIZATION_PERMIT_LIFETIME_US
         );
         assert!(!permit.is_valid_at(150 + MAX_AUTHORIZATION_PERMIT_LIFETIME_US + 1));
+    }
+
+    #[test]
+    fn enforcement_rejects_time_before_permit_issuance() {
+        let permit =
+            authorize_permit(&verified(), &request(CapabilityAction::Read), 150).unwrap();
+
+        let result = EnforcementRequest::from_permit(
+            permit,
+            VerificationEvidence::new_for_capability(&capability(), true, true, true),
+            149,
+        );
+
+        assert_eq!(
+            result,
+            Err(AuthorizationDecision::Deny(
+                AuthorizationDenial::OutsideValidityWindow
+            ))
+        );
     }
 
     #[test]
