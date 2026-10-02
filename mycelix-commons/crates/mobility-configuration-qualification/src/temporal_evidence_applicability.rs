@@ -240,6 +240,32 @@ impl EvidenceDispositionTransition {
     }
 }
 
+    /// Validate adding exactly one new transition to an existing append-only graph.
+    ///
+    /// The existing graph is validated first, then the candidate is checked for
+    /// structural validity and exact-identity uniqueness. The candidate may extend
+    /// any existing branch or create a new branch, but it may not replace an
+    /// already-addressed transition record. Missing candidate predecessors remain
+    /// unresolved through the normal graph assessment.
+    pub fn validate_append(
+        existing: &[EvidenceDispositionTransition],
+        candidate: &EvidenceDispositionTransition,
+    ) -> Result<DispositionChainAssessment, String> {
+        Self::validate_graph(existing)?;
+        candidate.validate()?;
+
+        if existing
+            .iter()
+            .any(|transition| transition.transition_id == candidate.transition_id)
+        {
+            return Err("cannot append disposition transition with an existing identity".into());
+        }
+
+        let mut combined = existing.to_vec();
+        combined.push(candidate.clone());
+        Self::validate_graph(&combined)
+    }
+
 /// Explicitly records reconciliation of competing disposition branches.
 ///
 /// This record never selects a branch implicitly. It identifies the exact
@@ -2076,6 +2102,77 @@ mod tests {
         value.disposition = EvidenceDisposition::Unresolved;
         assert!(value.validate().is_ok());
         assert_eq!(value.effectivity_interval.start, 120);
+    }
+
+    #[test]
+    fn append_accepts_a_new_successor_of_an_existing_transition() {
+        let genesis = graph_transition(
+            "genesis",
+            None,
+            EvidenceDisposition::Active,
+            EvidenceDisposition::Disputed {
+                by: id(IdentityKind::ReconciliationWitness, "dispute"),
+            },
+        );
+        let successor = graph_transition(
+            "successor",
+            Some("genesis"),
+            EvidenceDisposition::Disputed {
+                by: id(IdentityKind::ReconciliationWitness, "dispute"),
+            },
+            EvidenceDisposition::Active,
+        );
+
+        let assessment =
+            EvidenceDispositionTransition::validate_append(&[genesis], &successor).unwrap();
+        assert_eq!(
+            assessment,
+            DispositionChainAssessment::Complete { branch_points: vec![] }
+        );
+    }
+
+    #[test]
+    fn append_rejects_rewriting_an_existing_transition_identity() {
+        let genesis = graph_transition(
+            "genesis",
+            None,
+            EvidenceDisposition::Active,
+            EvidenceDisposition::Disputed {
+                by: id(IdentityKind::ReconciliationWitness, "dispute"),
+            },
+        );
+        let replacement = graph_transition(
+            "genesis",
+            None,
+            EvidenceDisposition::Active,
+            EvidenceDisposition::Unresolved,
+        );
+
+        let error = EvidenceDispositionTransition::validate_append(&[genesis], &replacement)
+            .unwrap_err();
+        assert_eq!(
+            error,
+            "cannot append disposition transition with an existing identity"
+        );
+    }
+
+    #[test]
+    fn append_preserves_unresolved_missing_predecessor_status() {
+        let candidate = graph_transition(
+            "successor",
+            Some("missing"),
+            EvidenceDisposition::Active,
+            EvidenceDisposition::Unresolved,
+        );
+
+        let assessment = EvidenceDispositionTransition::validate_append(&[], &candidate).unwrap();
+        assert_eq!(
+            assessment,
+            DispositionChainAssessment::Unresolved {
+                missing: vec![id(IdentityKind::ReconciliationWitness, "missing")],
+                branch_points: vec![],
+            }
+        );
     }
 
     fn graph_transition(
