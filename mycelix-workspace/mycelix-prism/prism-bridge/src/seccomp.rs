@@ -255,6 +255,11 @@ impl SeccompSyscallPolicyV2 {
     pub fn digest(&self) -> [u8; 32] {
         let mut hasher = blake3::Hasher::new();
         hasher.update(b"PRISM-SECCOMP-SYSCALL-POLICY-V2");
+        if cfg!(target_endian = "little") {
+            hasher.update(b"PRISM-SECCOMP-ENDIAN-LITTLE-V1");
+        } else {
+            hasher.update(b"PRISM-SECCOMP-ENDIAN-BIG-V1");
+        }
         hasher.update(&(self.architecture as u32).to_le_bytes());
         hasher.update(&(self.rules.len() as u32).to_le_bytes());
         for rule in &self.rules {
@@ -799,20 +804,29 @@ mod linux {
         }
 
         #[test]
-        fn v2_policy_digest_commits_little_endian_requirement() {
+        fn v2_policy_digest_commits_endian_domain() {
             let arch = SeccompArchitecture::current().unwrap();
             let rule = SeccompSyscallRuleV2::new(
                 libc::SYS_prctl,
                 vec![SeccompArgPredicateV1::new(1, 0xff00_0000_0000_0000, 0x1200_0000_0000_0000).unwrap()],
             ).unwrap();
             let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
-            assert_ne!(policy.digest(), SeccompSyscallPolicyV2::new(
-                arch,
-                vec![SeccompSyscallRuleV2::new(
-                    libc::SYS_prctl,
-                    vec![SeccompArgPredicateV1::new(1, 0xff00_0000_0000_0000, 0x1300_0000_0000_0000).unwrap()],
-                ).unwrap()],
-            ).unwrap().digest());
+
+            let mut legacy = blake3::Hasher::new();
+            legacy.update(b"PRISM-SECCOMP-SYSCALL-POLICY-V2");
+            legacy.update(&(arch as u32).to_le_bytes());
+            legacy.update(&(policy.rules().len() as u32).to_le_bytes());
+            for rule in policy.rules() {
+                legacy.update(&(rule.syscall() as u32).to_le_bytes());
+                legacy.update(&(rule.predicates().len() as u32).to_le_bytes());
+                for predicate in rule.predicates() {
+                    legacy.update(&(predicate.arg_index() as u32).to_le_bytes());
+                    legacy.update(&predicate.mask().to_le_bytes());
+                    legacy.update(&predicate.value().to_le_bytes());
+                }
+            }
+
+            assert_ne!(policy.digest(), *legacy.finalize().as_bytes());
         }
 
         #[test]
