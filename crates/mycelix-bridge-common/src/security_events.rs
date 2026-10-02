@@ -236,6 +236,28 @@ mod tests {
     }
 
     #[test]
+    #[test]
+    fn legacy_security_event_without_binding_deserializes() {
+        let json = r#"{
+            "event_id":"event:legacy",
+            "actor_id":"did:mycelix:alice",
+            "capability_ref":"capability:legacy",
+            "request":{
+                "subject":"did:mycelix:alice",
+                "resource":"resource:ledger",
+                "action":"Read",
+                "policy_version":7
+            },
+            "decision":"Allow",
+            "policy_version":7,
+            "timestamp_us":151,
+            "provenance":[],
+            "recovery_correlation":null
+        }"#;
+        let event: SecurityEvent = serde_json::from_str(json).unwrap();
+        assert_eq!(event.capability_binding, None);
+    }
+
     fn security_event_can_record_denial() {
         let request = crate::security_kernel::AuthorizationRequest::new(
             "did:mycelix:alice",
