@@ -595,7 +595,12 @@ pub fn authorize_permit(
         ));
     }
 
-    let permit_lifetime_us = now_us.saturating_add(MAX_AUTHORIZATION_PERMIT_LIFETIME_US);
+    let Some(permit_lifetime_us) = now_us.checked_add(MAX_AUTHORIZATION_PERMIT_LIFETIME_US)
+    else {
+        return Err(AuthorizationDecision::Deny(
+            AuthorizationDenial::OutsideValidityWindow,
+        ));
+    };
     let valid_until_us = c
         .expires_at_us
         .min(verified.verification_valid_until_us)
@@ -805,6 +810,28 @@ mod tests {
         let permit = authorize_permit(&verified, &request(CapabilityAction::Read), 150).unwrap();
         assert_eq!(permit.valid_until_us(), 175);
         assert!(!permit.is_valid_at(176));
+    }
+
+    #[test]
+    fn permit_lifetime_overflow_fails_closed() {
+        let cap = Capability::new(
+            "did:mycelix:alice",
+            "did:mycelix:issuer",
+            "resource:ledger",
+            vec![CapabilityAction::Read],
+            u64::MAX - MAX_AUTHORIZATION_PERMIT_LIFETIME_US + 1,
+            u64::MAX,
+            7,
+        )
+        .unwrap();
+        let evidence = VerificationEvidence::new_for_capability(&cap, true, true, true);
+        let verified = verify_capability(cap, evidence, u64::MAX - 1).unwrap();
+        assert_eq!(
+            authorize_permit(&verified, &request(CapabilityAction::Read), u64::MAX - 1),
+            Err(AuthorizationDecision::Deny(
+                AuthorizationDenial::OutsideValidityWindow,
+            ))
+        );
     }
 
     #[test]
