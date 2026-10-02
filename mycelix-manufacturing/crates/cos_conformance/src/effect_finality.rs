@@ -23,7 +23,7 @@ pub const D6M_OBSERVATION_COMMITMENT_DOMAIN: &[u8] = b"MYCELIX-INTEGRAL-D6M-OBSE
 /// This is deterministic within the Rust/Serde reference implementation, but
 /// is not itself a cross-language canonicalization specification.
 pub const D6M_OBSERVATION_COMMITMENT_SERIALIZATION: &str = "serde-json-tuple-v1";
-pub const D6M_FINALITY_RECEIPT_COMMITMENT_DOMAIN: &[u8] = b"MYCELIX-INTEGRAL-D6M-FINALITY-RECEIPT-V1\\0";
+pub const D6M_FINALITY_RECEIPT_COMMITMENT_DOMAIN: &[u8] = b"MYCELIX-INTEGRAL-D6M-FINALITY-RECEIPT-V1\0";
 pub const D6M_FINALITY_RECEIPT_COMMITMENT_SERIALIZATION: &str = "serde-json-struct-v1";
 pub const EXTERNAL_FINALITY_CLAIM_CEILING: &str =
     "External-effect finality evidence only; no provider truth, legal settlement, or actuation authorization claim.";
