@@ -61,6 +61,12 @@ These are corpus properties, not implementation suggestions.
 
 QUAL-001S should consume these same vector bytes through at least two materially independent evaluators before S0/S1/S2 is considered qualified. The second evaluator must be reconstructed from this published corpus/contract rather than copied from the first evaluator's control flow.
 
+## S0 dispatch envelope
+
+The S0 trust-plane boundary has a separate machine-readable envelope schema at `s0_dispatch_envelope_v1.schema.json`. It binds exact repository/PR subject identity, current/proposed verifier commitments, registered successor profile, S0/S1 workflow identities and refs, a 256-bit dispatch nonce, timestamp, and `candidate_code_executed=false`.
+
+The schema does **not** claim that the candidate ran, passed, was adopted, or became authoritative. The example in `s0_dispatch_envelope_v1.example.json` is illustrative only and uses placeholder commitments.
+
 ## Local evaluators
 
 The two reference evaluators are deliberately small and independent:
