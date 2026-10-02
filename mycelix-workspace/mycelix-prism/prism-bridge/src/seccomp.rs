@@ -98,6 +98,26 @@ impl SeccompSyscallPolicyV1 {
     pub fn allows(&self, syscall: i64) -> bool {
         self.allowed_syscalls.binary_search(&syscall).is_ok()
     }
+
+    /// Validate the stricter policy boundary required before this renderer
+    /// adapter can install a policy. Generic policy construction remains
+    /// flexible, but renderer qualification never admits direct tracing or
+    /// cross-process memory primitives.
+    #[cfg(target_os = "linux")]
+    pub fn validate_renderer_policy(&self) -> Result<(), SeccompError> {
+        const FORBIDDEN_RENDERER_SYSCALLS: &[i64] = &[
+            libc::SYS_ptrace,
+            libc::SYS_process_vm_readv,
+            libc::SYS_process_vm_writev,
+        ];
+
+        for syscall in FORBIDDEN_RENDERER_SYSCALLS {
+            if self.allows(*syscall) {
+                return Err(SeccompError::ForbiddenRendererSyscall(*syscall));
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -110,6 +130,7 @@ pub enum SeccompError {
     InstallationFailed(i32),
     IdentityGenerationFailed,
     PolicyCommitmentMismatch,
+    ForbiddenRendererSyscall(i64),
 }
 
 impl core::fmt::Display for SeccompError {
@@ -123,6 +144,7 @@ impl core::fmt::Display for SeccompError {
             Self::InstallationFailed(errno) => write!(f, "seccomp installation failed: errno {errno}"),
             Self::IdentityGenerationFailed => f.write_str("seccomp installation identity generation failed"),
             Self::PolicyCommitmentMismatch => f.write_str("seccomp policy does not match the renderer profile commitment"),
+            Self::ForbiddenRendererSyscall(syscall) => write!(f, "renderer seccomp policy forbids syscall {syscall}"),
         }
     }
 }
@@ -265,6 +287,8 @@ mod linux {
         {
             return Err(SeccompError::PolicyCommitmentMismatch);
         }
+
+        policy.validate_renderer_policy()?;
 
         // Generate the installation identity before irreversible enforcement.
         // Once seccomp is installed, a policy may legitimately deny getrandom(2)
@@ -434,6 +458,21 @@ mod linux {
                     &policy,
                 ),
                 Err(SeccompError::PolicyCommitmentMismatch)
+            ));
+        }
+
+        #[test]
+        fn renderer_policy_rejects_process_tracing_primitives() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let policy = SeccompSyscallPolicyV1::new(
+                arch,
+                vec![libc::SYS_getpid, libc::SYS_ptrace],
+            )
+            .unwrap();
+            assert!(matches!(
+                policy.validate_renderer_policy(),
+                Err(SeccompError::ForbiddenRendererSyscall(syscall))
+                    if syscall == libc::SYS_ptrace
             ));
         }
 
