@@ -134,6 +134,94 @@ fn seccomp_enforcement_is_not_claimed_off_linux() {
 }
 
 #[cfg(target_os = "linux")]
+fn parameter_predicate_child() -> ! {
+    use prism_bridge::process::{RendererProcessAssignmentId, SandboxProfileV1};
+    use prism_bridge::seccomp::{
+        install_v2, SeccompArgPredicateV1, SeccompArchitecture, SeccompSyscallPolicyV2,
+        SeccompSyscallRuleV2,
+    };
+
+    let architecture = SeccompArchitecture::current().unwrap_or_else(|| unsafe { libc::_exit(110) });
+
+    let prctl_get = SeccompSyscallRuleV2::new(
+        libc::SYS_prctl,
+        vec![SeccompArgPredicateV1::new(
+            0,
+            u64::MAX,
+            libc::PR_GET_NO_NEW_PRIVS as u64,
+        ).unwrap_or_else(|_| unsafe { libc::_exit(111) })],
+    ).unwrap_or_else(|_| unsafe { libc::_exit(112) });
+    let exit_group = SeccompSyscallRuleV2::new(libc::SYS_exit_group, Vec::new())
+        .unwrap_or_else(|_| unsafe { libc::_exit(113) });
+
+    let policy = SeccompSyscallPolicyV2::new(
+        architecture,
+        vec![prctl_get, exit_group],
+    ).unwrap_or_else(|_| unsafe { libc::_exit(114) });
+    let profile = SandboxProfileV1::renderer_default()
+        .with_syscall_policy_digest(policy.digest())
+        .unwrap_or_else(|_| unsafe { libc::_exit(115) });
+
+    // Warm the raw syscall/errno path before the irreversible transition.
+    let _ = unsafe { libc::syscall(libc::SYS_prctl, libc::PR_GET_NO_NEW_PRIVS, 0, 0, 0, 0) };
+    let _ = unsafe { *libc::__errno_location() };
+
+    if install_v2(
+        RendererProcessAssignmentId::new(4).unwrap(),
+        profile,
+        &policy,
+    ).is_err()
+    {
+        unsafe { libc::_exit(116) };
+    }
+
+    let allowed = unsafe {
+        libc::syscall(
+            libc::SYS_prctl,
+            libc::PR_GET_NO_NEW_PRIVS,
+            0, 0, 0, 0,
+        )
+    };
+    if allowed != 1 {
+        unsafe { libc::_exit(117) };
+    }
+
+    // Same syscall number, deliberately different first argument: V2 must
+    // reject it instead of widening the rule to all prctl invocations.
+    let denied = unsafe {
+        libc::syscall(
+            libc::SYS_prctl,
+            libc::PR_SET_NO_NEW_PRIVS,
+            1, 0, 0, 0,
+        )
+    };
+    let errno = unsafe { *libc::__errno_location() };
+    if denied != -1 || errno != libc::EPERM {
+        unsafe { libc::_exit(118) };
+    }
+
+    unsafe { libc::_exit(0) }
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn seccomp_parameter_predicate_is_positive_and_negative() {
+    if std::env::var_os("PRISM_SECCOMP_PARAMETER_CHILD").is_some() {
+        parameter_predicate_child();
+    }
+
+    let status = std::process::Command::new(std::env::current_exe().unwrap())
+        .arg("--exact")
+        .arg("seccomp_parameter_predicate_is_positive_and_negative")
+        .arg("--nocapture")
+        .env("PRISM_SECCOMP_PARAMETER_CHILD", "1")
+        .status()
+        .expect("failed to launch seccomp parameter child");
+
+    assert!(status.success(), "seccomp parameter child failed: {status}");
+}
+
+#[cfg(target_os = "linux")]
 #[test]
 fn seccomp_install_rejects_wrong_architecture_before_enforcement() {
     use prism_bridge::process::{RendererProcessAssignmentId, SandboxProfileV1};
