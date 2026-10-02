@@ -186,6 +186,7 @@ mod linux {
             installation_id,
             SandboxAdapterKind::LinuxLandlockFilesystemV1,
             profile.policy_digest(),
+            blake3::hash(allowed_root.to_string_lossy().as_bytes()).into(),
             SandboxEnforcementLayer::Filesystem,
         ).map_err(|_| SandboxEnforcementError::InvalidRuleset)
     }
