@@ -65,6 +65,7 @@ pub struct SecurityEvent {
     pub timestamp_us: u64,
     /// Kernel-derived commitment of the exact capability used for a successful
     /// enforcement request. Directly constructed events may leave this absent.
+    #[serde(default)]
     pub capability_binding: Option<[u8; 32]>,
     pub provenance: Vec<ProvenanceRef>,
     pub recovery_correlation: Option<String>,
