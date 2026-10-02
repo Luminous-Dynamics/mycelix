@@ -124,11 +124,14 @@ The resulting evidence should represent independently established propositions:
 - signature verified;
 - authority is currently not revoked;
 - authority resolution is unambiguous;
+- authority-freshness binding is present and non-zero;
 - evidence is bound to the exact capability semantics;
 - the evidence is bound to the exact authority generation/freshness state;
 - the bounded freshness lease remains valid.
 
 ## Required qualification scenarios
+
+A zero authority-freshness commitment is treated as missing authority evidence and fails closed.
 
 The integration tranche is not complete until deterministic tests cover:
 
