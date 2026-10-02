@@ -50,7 +50,8 @@ The adapter must preserve:
 - authoritative source reference;
 - verification reference;
 - verification timestamp;
-- bounded freshness lease.
+- bounded freshness lease;
+- the existing current-freshness semantic digest used as the bridge authority binding.
 
 The stable authority identity and the dynamic verification/lease metadata must not be conflated.
 
@@ -69,6 +70,8 @@ It does **not** prove institutional authorization.
 The adapter must then establish:
 
 `issuer key -> authorized institutional authority -> canonical AuthorityGrant identity -> current freshness -> policy authorization`
+
+For the bridge hand-off, the authority-freshness commitment should be the existing `CurrentAuthorityFreshness.freshness_digest` (or the exact equivalent from the integrated authority stack). That digest represents the authoritative freshness domain; dynamic `verified_at` / lease metadata remains separate evidence.
 
 Only after this chain is established may the bridge kernel receive trusted verification evidence.
 
@@ -114,7 +117,7 @@ Current authority status belongs in the runtime/application authority provider. 
 
 The integration must therefore create trusted evidence only inside the bridge's verifier boundary. Public callers must not receive a constructor that accepts arbitrary booleans such as `verified: true`.
 
-The resulting evidence must also be bound to the exact capability and authority-freshness state it verifies. The bridge kernel derives a stable capability commitment from the canonical capability semantics and records that commitment in the opaque evidence and any issued permit. The adapter must also supply an opaque authority-freshness commitment that changes when the authoritative generation changes. The permit carries that commitment through enforcement, so evidence for a newer authority generation cannot silently revalidate a permit issued under an older generation. Evidence for one capability therefore cannot be replayed to qualify or revalidate a different capability.
+The resulting evidence must also be bound to the exact capability and authority-freshness state it verifies. The bridge kernel derives a stable capability commitment from the canonical capability semantics and records that commitment in the opaque evidence and any issued permit. The adapter must also supply the existing current-freshness semantic digest as the opaque bridge authority binding. It must change when the authoritative freshness domain changes, including an authority generation/state change, while remaining stable across proof/lease refreshes that do not change that semantic domain. The permit carries that commitment through enforcement, so evidence for a newer authority generation cannot silently revalidate a permit issued under an older generation. Evidence for one capability therefore cannot be replayed to qualify or revalidate a different capability.
 
 The resulting evidence should represent independently established propositions:
 
