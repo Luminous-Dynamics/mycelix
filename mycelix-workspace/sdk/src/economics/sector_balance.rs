@@ -107,10 +107,17 @@ impl SectorPhysicalStock {
 
         let mut entries = Vec::new();
         for actor in actors {
-            let assignment = assignments
+            let matching = assignments
                 .iter()
-                .find(|assignment| assignment.actor == actor.actor)
-                .ok_or_else(|| format!("missing sector assignment for {}", actor.actor))?;
+                .filter(|assignment| assignment.actor == actor.actor)
+                .collect::<Vec<_>>();
+            if matching.len() != 1 {
+                return Err(format!(
+                    "actor {} must have exactly one sector assignment",
+                    actor.actor
+                ));
+            }
+            let assignment = matching[0];
 
             entries.extend([
                 PhysicalStockEntry::new(
@@ -155,10 +162,17 @@ impl SectorBalanceSheet {
         let mut entries = Vec::new();
 
         for actor in actors {
-            let assignment = assignments
+            let matching = assignments
                 .iter()
-                .find(|assignment| assignment.actor == actor.actor)
-                .ok_or_else(|| format!("missing sector assignment for {}", actor.actor))?;
+                .filter(|assignment| assignment.actor == actor.actor)
+                .collect::<Vec<_>>();
+            if matching.len() != 1 {
+                return Err(format!(
+                    "actor {} must have exactly one sector assignment",
+                    actor.actor
+                ));
+            }
+            let assignment = matching[0];
 
             let m = actor.monetary;
             let r = actor.real;
