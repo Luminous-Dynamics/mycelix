@@ -1529,6 +1529,7 @@ mod tests {
             classification: witness.d6n_classification,
             independence: crate::contestable_finality::ObservationIndependenceV1::DeclaredIndependent,
             assessment_commitment: witness.d6n_assessment_item_commitment.clone(),
+            claim_ceiling: CONTESTABLE_FINALITY_CLAIM_CEILING.into(),
         };
         let g = generation("observer-A");
         let evidence = observation("observation-1", &g, ExternalObservedStateV1::Applied);
