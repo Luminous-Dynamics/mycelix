@@ -100,7 +100,22 @@ impl EconomicEvidenceCapsule {
         }
         let observations_hash = hash_observations(observations)?;
         let actor_observations_hash = actor_observations
-            .map(hash_actor_observations)
+            .map(|values| {
+                if values.iter().any(|(actor, observation)| {
+                    actor != &observation.actor
+                        || observation
+                            .cash
+                            .checked_add(observation.deposits)
+                            != Some(observation.liquidity)
+                        || !observation.liquidity_stock_flow_reconciliation_holds()
+                        || !observation.liquidity_flow_reconciliation_holds()
+                }) {
+                    return Err(EconomicStepError::Serialization(
+                        "actor observations fail structural liquidity reconciliation".into(),
+                    ));
+                }
+                hash_actor_observations(values)
+            })
             .transpose()?;
         let binding = (
             &manifest_hash,
@@ -144,7 +159,22 @@ impl EconomicEvidenceCapsule {
 
         let observations_hash = hash_observations(observations)?;
         let actor_observations_hash = actor_observations
-            .map(hash_actor_observations)
+            .map(|values| {
+                if values.iter().any(|(actor, observation)| {
+                    actor != &observation.actor
+                        || observation
+                            .cash
+                            .checked_add(observation.deposits)
+                            != Some(observation.liquidity)
+                        || !observation.liquidity_stock_flow_reconciliation_holds()
+                        || !observation.liquidity_flow_reconciliation_holds()
+                }) {
+                    return Err(EconomicStepError::Serialization(
+                        "actor observations fail structural liquidity reconciliation".into(),
+                    ));
+                }
+                hash_actor_observations(values)
+            })
             .transpose()?;
         let sector_observations_hash = sector_observations
             .map(|values| {
