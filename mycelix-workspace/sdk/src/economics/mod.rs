@@ -14,6 +14,7 @@
 pub mod commons;
 pub mod decay_garden;
 pub mod metabolic_oracle;
+pub mod observables;
 pub mod period_ledger;
 pub mod poc;
 #[path = "reconciliation_v2.rs"]
@@ -41,6 +42,9 @@ pub use reconciliation::{
     PhysicalStockPosting, StockFlowMismatch, StockFlowReconciliation, StockPosting,
 };
 pub use period_ledger::EconomicPeriodLedger;
+pub use observables::{
+    classify_financing_regime, EconomicObservables, FinancingRegime, RatioObservation,
+};
 
 pub use stock_flow::{
     ActorBalanceSheet, ActorId, CapitalInvestment, ProductionEvent, InventoryTransfer,
