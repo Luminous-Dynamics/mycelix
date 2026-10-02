@@ -45,6 +45,24 @@ This prevents a downstream enforcement adapter from accepting an arbitrary reque
 
 The new implementation remains a policy/type boundary. `VerificationEvidence` is now intentionally opaque and can only be constructed inside the bridge crate; the actual identity/authority adapter still needs to supply trustworthy signature, revocation, and authority evidence. The intended adapter should reuse Mycelix's existing canonical institutional authority identity (PR #75) rather than duplicate grant identity semantics.
 
+## Evidence durability invariant
+
+The kernel enforces a stronger rule than a fixed permit maximum:
+
+> **No authorization decision may become more durable than the evidence supporting it.**
+
+A permit's effective validity is bounded by all of:
+
+1. the capability's own validity window;
+2. the verification evidence freshness lease;
+3. the kernel's maximum authorization-permit lifetime.
+
+The five-minute constant is therefore an upper bound, not an implied freshness guarantee.
+
+At enforcement time, the evidence lease is checked again alongside revocation and authority ambiguity. A permit cannot outlive the evidence that justified it merely because the permit's own timestamp has not expired.
+
+This is the bridge's local form of continual evaluation: the policy decision is not treated as permanently authoritative after issuance. NIST's Zero Trust Architecture similarly separates policy decision from enforcement and describes ongoing evaluation as supporting information changes over the course of a session.
+
 ## Verification levels
 
 Every implementation must label its current evidence:
