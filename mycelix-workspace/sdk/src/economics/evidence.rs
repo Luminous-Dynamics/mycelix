@@ -73,6 +73,11 @@ impl EconomicEvidenceCapsule {
         observations: &EconomicObservables,
     ) -> Result<Self, EconomicStepError> {
         let manifest_hash = manifest.hash()?;
+        if final_receipt.genesis_state_hash != manifest.initial_state_hash {
+            return Err(EconomicStepError::Serialization(
+                "final evidence chain does not descend from the manifest initial state".into(),
+            ));
+        }
         let observations_hash = hash_observations(observations)?;
         let binding = (
             &manifest_hash,
@@ -138,6 +143,13 @@ mod tests {
         let b = EconomicEvidenceCapsule::seal(manifest, &chain, &observations).unwrap();
         assert_eq!(a, b);
         assert_eq!(a.manifest_hash, a.manifest.hash().unwrap());
+    }
+
+    #[test]
+    fn evidence_capsule_rejects_wrong_genesis() {
+        let (mut manifest, chain, observations) = fixture();
+        manifest.initial_state_hash = "wrong-genesis".into();
+        assert!(EconomicEvidenceCapsule::seal(manifest, &chain, &observations).is_err());
     }
 
     #[test]
