@@ -1,0 +1,54 @@
+name: Pulse V2 Qualification Sweettest Compile
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-workspace/mycelix-pulse/holochain/**"
+      - "mycelix-workspace/mycelix-pulse/crates/pulse-social-types/**"
+      - "mycelix-workspace/mycelix-pulse/tests/**"
+      - ".github/workflows/pulse-v2-qualification-sweettest-compile.yml"
+  push:
+    branches:
+      - main
+      - "feat/**"
+    paths:
+      - "mycelix-workspace/mycelix-pulse/holochain/**"
+      - "mycelix-workspace/mycelix-pulse/crates/pulse-social-types/**"
+      - "mycelix-workspace/mycelix-pulse/tests/**"
+
+permissions:
+  contents: read
+
+jobs:
+  compile:
+    name: Compile Pulse V2 Sweettest harness
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            mycelix-workspace/mycelix-pulse/tests
+
+      # This is deliberately compile-only. The integration tests are marked
+      # #[ignore] because they require a freshly packed Pulse DNA and a
+      # conductor runtime. Compilation still proves the new qualification
+      # scenario and its Holochain 0.6 API usage type-check.
+      - name: Compile Sweettest integration harness
+        run: |
+          cargo test \
+            --manifest-path mycelix-workspace/mycelix-pulse/tests/Cargo.toml \
+            --test sweettest_mail_security \
+            --no-run
+
+      - name: Check test harness formatting
+        run: |
+          cargo fmt \
+            --manifest-path mycelix-workspace/mycelix-pulse/tests/Cargo.toml \
+            -- --check
