@@ -504,6 +504,121 @@ mod linux {
         *hasher.finalize().as_bytes()
     }
 
+    fn seccomp_evidence_digest_v2(
+        policy: &SeccompSyscallPolicyV2,
+        filter: &[SockFilter],
+    ) -> [u8; 32] {
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(b"PRISM-SECCOMP-SYSCALL-EVIDENCE-V4");
+        hasher.update(&policy.digest());
+        hasher.update(&(filter.len() as u32).to_le_bytes());
+        for instruction in filter {
+            hasher.update(&instruction.code.to_le_bytes());
+            hasher.update(&[instruction.jt, instruction.jf]);
+            hasher.update(&instruction.k.to_le_bytes());
+        }
+        hasher.update(b"PRISM-SECCOMP-RENDERER-POLICY-VALIDATION-V1");
+        hasher.update(b"PRISM-SECCOMP-NO-NEW-PRIVS-REQUIRED-V1");
+        hasher.update(&SECCOMP_RET_ERRNO.to_le_bytes());
+        hasher.update(&(libc::EPERM as u32).to_le_bytes());
+        hasher.update(&SECCOMP_RET_KILL_PROCESS.to_le_bytes());
+        hasher.update(&SECCOMP_RET_ALLOW.to_le_bytes());
+        hasher.update(&(SECCOMP_FILTER_FLAG_TSYNC | SECCOMP_FILTER_FLAG_TSYNC_ESRCH).to_le_bytes());
+        *hasher.finalize().as_bytes()
+    }
+
+    fn validate_v2_renderer_policy(policy: &SeccompSyscallPolicyV2) -> Result<(), SeccompError> {
+        const FORBIDDEN_RENDERER_SYSCALLS: &[i64] = &[
+            libc::SYS_ptrace,
+            libc::SYS_process_vm_readv,
+            libc::SYS_process_vm_writev,
+            libc::SYS_process_madvise,
+            libc::SYS_pidfd_getfd,
+            libc::SYS_kcmp,
+            libc::SYS_clone,
+            libc::SYS_clone3,
+            libc::SYS_fork,
+            libc::SYS_vfork,
+            libc::SYS_execve,
+            libc::SYS_execveat,
+            libc::SYS_unshare,
+            libc::SYS_setns,
+            libc::SYS_mount,
+            libc::SYS_umount2,
+            libc::SYS_pivot_root,
+            libc::SYS_chroot,
+        ];
+        if let Some(rule) = policy.rules.iter().find(|rule| {
+            FORBIDDEN_RENDERER_SYSCALLS.contains(&rule.syscall)
+        }) {
+            return Err(SeccompError::ForbiddenRendererSyscall(rule.syscall));
+        }
+        Ok(())
+    }
+
+    /// Install a parameter-aware V2 policy. V1 remains the stable
+    /// syscall-number-only installation path; V2 must commit its complete
+    /// predicate-bearing policy to the renderer profile before enforcement.
+    pub fn install_v2(
+        assignment_id: RendererProcessAssignmentId,
+        profile: SandboxProfileV1,
+        policy: &SeccompSyscallPolicyV2,
+    ) -> Result<SandboxEnforcementReceipt, SeccompError> {
+        if assignment_id.0 == 0 {
+            return Err(SeccompError::InvalidAssignmentId);
+        }
+        if profile.syscall_policy_digest() == [0u8; 32]
+            || policy.digest() != profile.syscall_policy_digest()
+        {
+            return Err(SeccompError::PolicyCommitmentMismatch);
+        }
+        validate_v2_renderer_policy(policy)?;
+
+        let mut bytes = [0u8; 16];
+        getrandom::fill(&mut bytes).map_err(|_| SeccompError::IdentityGenerationFailed)?;
+        let installation_id = SandboxInstallationId::new(u128::from_be_bytes(bytes))
+            .map_err(|_| SeccompError::IdentityGenerationFailed)?;
+
+        let mut filter = compile_filter_v2(policy)?;
+
+        let rc = unsafe { libc::prctl(libc::PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) };
+        if rc != 0 {
+            return Err(SeccompError::InstallationFailed(
+                std::io::Error::last_os_error().raw_os_error().unwrap_or(libc::EPERM),
+            ));
+        }
+
+        let program = SockFprog {
+            len: u16::try_from(filter.len()).map_err(|_| SeccompError::FilterTooLarge)?,
+            filter: filter.as_mut_ptr(),
+        };
+        let rc = unsafe {
+            libc::syscall(
+                libc::SYS_seccomp,
+                SECCOMP_SET_MODE_FILTER,
+                SECCOMP_FILTER_FLAG_TSYNC | SECCOMP_FILTER_FLAG_TSYNC_ESRCH,
+                &program as *const SockFprog,
+            )
+        };
+        if rc < 0 {
+            return Err(SeccompError::InstallationFailed(
+                std::io::Error::last_os_error().raw_os_error().unwrap_or(libc::EPERM),
+            ));
+        }
+        if rc > 0 {
+            return Err(SeccompError::InstallationFailed(libc::ESRCH));
+        }
+
+        SandboxEnforcementReceipt::from_adapter(
+            assignment_id,
+            installation_id,
+            SandboxAdapterKind::LinuxSeccompSyscallV1,
+            profile.policy_digest(),
+            seccomp_evidence_digest_v2(policy, &filter),
+            SandboxEnforcementLayer::Syscall,
+        ).map_err(|_| SeccompError::InvalidPolicy)
+    }
+
     /// Install an explicit architecture-qualified syscall allowlist into the
     /// current process. This call is intended for the renderer bootstrap after
     /// process identity is established and before renderer capability IPC.
@@ -964,7 +1079,16 @@ mod linux {
 }
 
 #[cfg(target_os = "linux")]
-pub use linux::install;
+pub use linux::{install, install_v2};
+
+#[cfg(not(target_os = "linux"))]
+pub fn install_v2(
+    _assignment_id: RendererProcessAssignmentId,
+    _profile: SandboxProfileV1,
+    _policy: &SeccompSyscallPolicyV2,
+) -> Result<SandboxEnforcementReceipt, SeccompError> {
+    Err(SeccompError::UnsupportedPlatform)
+}
 
 #[cfg(not(target_os = "linux"))]
 pub fn install(
