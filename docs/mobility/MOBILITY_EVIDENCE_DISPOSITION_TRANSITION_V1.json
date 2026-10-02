@@ -281,6 +281,21 @@
       "id": "EDT-054",
       "case": "authority_delegation_target_chain_reports_missing_predecessor",
       "expected": "unresolved_at_protocol_layer"
+    },
+    {
+      "id": "EDT-055",
+      "case": "reconciliation_basis_must_be_unique",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-056",
+      "case": "reconciliation_coverage_basis_must_be_unique",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-057",
+      "case": "reconciliation_coverage_validates_named_authority_chain",
+      "expected": "accepted"
     }
   ]
 }
