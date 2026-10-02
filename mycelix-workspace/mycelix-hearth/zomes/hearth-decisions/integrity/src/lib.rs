@@ -173,6 +173,18 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 "Decision entries cannot be deleted".into(),
             ))
         }
+        // INVARIANT: action-level update authorization is validated independently
+        // of CreateEntry(UpdateEntry), so a valid Update op cannot bypass the
+        // original-author check through a terminal catch-all.
+        FlatOp::Update(OpUpdate::Entry { action, .. }) => {
+            let original = must_get_valid_record(action.original_action_address.clone())?;
+            Ok(check_author_match(
+                original.action().author(),
+                action.author(),
+                "update",
+            ))
+        }
+        FlatOp::Update(_) => Ok(ValidateCallbackResult::Valid),
         _ => Ok(ValidateCallbackResult::Valid),
     }
 }
