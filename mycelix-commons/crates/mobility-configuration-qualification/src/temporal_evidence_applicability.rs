@@ -2156,6 +2156,33 @@ mod tests {
     }
 
     #[test]
+    fn append_can_fill_a_previously_missing_predecessor() {
+        let child = graph_transition(
+            "successor",
+            Some("missing"),
+            EvidenceDisposition::Disputed {
+                by: id(IdentityKind::ReconciliationWitness, "dispute"),
+            },
+            EvidenceDisposition::Active,
+        );
+        let predecessor = graph_transition(
+            "missing",
+            None,
+            EvidenceDisposition::Active,
+            EvidenceDisposition::Disputed {
+                by: id(IdentityKind::ReconciliationWitness, "dispute"),
+            },
+        );
+
+        let assessment =
+            EvidenceDispositionTransition::validate_append(&[child], &predecessor).unwrap();
+        assert_eq!(
+            assessment,
+            DispositionChainAssessment::Complete { branch_points: vec![] }
+        );
+    }
+
+    #[test]
     fn append_preserves_unresolved_missing_predecessor_status() {
         let candidate = graph_transition(
             "successor",
