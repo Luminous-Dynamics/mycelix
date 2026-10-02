@@ -9,7 +9,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::stock_flow::{CapitalInvestment, CreditCreation, DebtRepayment, EconomicState, IncomeTransfer, MonetaryFlow};
+use super::stock_flow::{CapitalInvestment, ProductionEvent, CreditCreation, DebtRepayment, EconomicState, IncomeTransfer, MonetaryFlow};
 
 /// One explicit economic state transition.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -17,6 +17,7 @@ pub enum EconomicTransition {
     MonetaryTransfer(MonetaryFlow),
     IncomeTransfer(IncomeTransfer),
     CapitalInvestment(CapitalInvestment),
+    Production(ProductionEvent),
     CreditCreation(CreditCreation),
     DebtRepayment(DebtRepayment),
 }
