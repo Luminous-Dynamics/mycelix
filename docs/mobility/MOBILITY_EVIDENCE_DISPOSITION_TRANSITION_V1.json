@@ -131,6 +131,16 @@
       "id": "EDT-024",
       "case": "predecessor_cycle",
       "expected": "rejected"
+    },
+    {
+      "id": "EDT-025",
+      "case": "explicit_branch_reconciliation_requires_two_heads",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-026",
+      "case": "explicit_branch_reconciliation_validates_ancestry_without_selecting_winner",
+      "expected": "accepted"
     }
   ]
 }
