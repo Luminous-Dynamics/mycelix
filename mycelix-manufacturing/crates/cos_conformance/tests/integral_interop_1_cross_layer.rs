@@ -522,6 +522,59 @@ fn actual_d6p_fixture() -> (
         &d6p_receipt, &d6p
     ));
 
+    // Frozen layered golden commitments. D6M/D6O use their explicit
+    // serde-based reference-model commitment domains; D6N's set-level
+    // assessment identity is deliberately explicit; D6P binds the D6N/D6O
+    // join and D6S/D6X consume only those committed products.
+    assert_eq!(
+        d6m_observation.observation_commitment,
+        "0d3297752f853efb0c091cd9a8edb747972039f5e3eef47b921d5bd2a4077d6b"
+    );
+    assert_eq!(
+        d6m_receipt.finality_commitment,
+        "631bc0ce6ee5fed3bf37902ed57e24173197c1176cedc541c1b608518d6249f4"
+    );
+    assert_eq!(
+        lifecycle_profile.profile_commitment,
+        "bebf29c932e74485c2edbbc5bd22b7da9ac4744a92709777b75fd8a39b181311"
+    );
+    assert_eq!(
+        generation.generation_commitment,
+        "24d781092b9a049e7989715bc413decd183ade934c88964b9d6d05bff19493bd"
+    );
+    assert_eq!(
+        snapshot.snapshot_commitment,
+        "183136d3dbae695d09ccaa2c10710e7cc323de9da341a0ff7063bfc9b31de404"
+    );
+    assert_eq!(
+        d6o_receipt.eligibility_commitment,
+        "18a7aa203feecb180fecad4fad792aa2495e47c8d26e04904417a78bff4150c4"
+    );
+    assert_eq!(
+        d6n_assessment.assessment_commitment,
+        "assessment:integral-d6n-set-commitment"
+    );
+    assert_eq!(
+        d6n_assessment.assessments[0].observation_commitment,
+        d6m_observation.observation_commitment
+    );
+    assert_eq!(
+        d6n_assessment.assessments[0].assessment_commitment,
+        "assessment:integral-d6n-set-commitment"
+    );
+    assert_eq!(
+        d6p.witnesses[0].witness_commitment,
+        "ea29e32dffe0e92edc3ee18e820c1247d838345c3b1379066b2f67e1b12b3ddc"
+    );
+    assert_eq!(
+        d6p.composition_commitment,
+        "a89169af5a2fba65dbe60a137f102a5397fcb7002ba17945f694d26f053bbea2"
+    );
+    assert_eq!(
+        d6p_receipt.receipt_commitment,
+        "0d3003e880bf4621f30b81277454d84e5d90ecf50187219e831e5299e788694f"
+    );
+
     (d6p, d6p_receipt)
 }
 fn d6p_receipt_commitment() -> String {
