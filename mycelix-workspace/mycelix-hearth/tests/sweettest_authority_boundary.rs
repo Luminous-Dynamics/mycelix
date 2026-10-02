@@ -12,7 +12,9 @@
 //! Evidence semantics:
 //! - authorized_reached_zome: a valid signed author call returns ZomeCallResponse::Ok.
 //! - unauthorized_pre_zome: a signed call carrying an invalid capability secret returns
-//!   ZomeCallResponse::Unauthorized; the zome is not dispatched.
+//!   ZomeCallResponse::Unauthorized; Holochain rejects it before zome dispatch.
+//! - authorized_semantic_rejection: a valid signed author call returns the guest error
+//!   emitted by update_member_role, which intentionally rejects all calls.
 //!
 //! This is runtime evidence of the Holochain 0.7 app-interface boundary, not a claim
 //! that every possible authorization dimension has been qualified.
@@ -171,8 +173,10 @@ async fn test_authorized_call_reaches_zome_and_is_semantically_rejected() {
             ZomeCallResponse::Err(error) => {
                 let message = format!("{error:?}");
                 assert!(
-                    message.contains("Role changes are disabled"),
-                    "expected Hearth semantic rejection, got {message}"
+                    message.contains(
+                        "Role changes are disabled until governance-authorized membership revisions are implemented"
+                    ),
+                    "expected the Hearth guest rejection, got {message}"
                 );
             }
             other => panic!("expected semantic zome rejection, got {other:?}"),
