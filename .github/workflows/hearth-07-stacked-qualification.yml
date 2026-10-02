@@ -71,6 +71,11 @@ jobs:
         working-directory: mycelix-workspace/mycelix-hearth
         run: bash tools/verify-holochain-07.sh
 
+      - name: Validate locked dependency metadata
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: |
+          nix develop .#ci --locked --command cargo metadata --locked --format-version 1 >/dev/null
+
       - uses: cachix/install-nix-action@8aa03977d8d733052d78f4e008a241fd1dbf36b3 # v31.10.6
         with:
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
@@ -98,7 +103,12 @@ jobs:
           nix develop .#ci --locked --command hc dna pack dna/
           test -s dna/mycelix_hearth.dna
           sha256sum dna/mycelix_hearth.dna | tee -a "$RUNNER_TEMP/hearth-07-qualification-evidence.txt"
-          sha256sum flake.lock Cargo.lock tests/Cargo.lock tests/Cargo.toml sdk-ts/package-lock.json | tee -a "$RUNNER_TEMP/hearth-07-qualification-evidence.txt"
+          {
+            echo "=== exact source inputs ==="
+            sha256sum flake.nix flake.lock Cargo.lock tests/Cargo.lock tests/Cargo.toml sdk-ts/package.json sdk-ts/package-lock.json
+            echo "=== all tracked Cargo manifests ==="
+            git ls-files -- '*Cargo.toml' | sort | xargs -r sha256sum
+          } | tee -a "$RUNNER_TEMP/hearth-07-qualification-evidence.txt"
 
       - name: Run dedicated Sweettest workspace against Holochain 0.7
         working-directory: mycelix-workspace/mycelix-hearth/tests
