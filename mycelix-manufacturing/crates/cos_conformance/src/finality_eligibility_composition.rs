@@ -1551,19 +1551,19 @@ mod tests {
     fn witness_join_binding_rejects_cross_object_assessment_substitution() {
         let composition = matching_composition();
         let witness = &composition.witnesses[0];
-        let mut assessment = crate::contestable_finality::ObservationAssessmentV1 {
-            observation_id: witness.observation_id.clone(),
-            observer_id: witness.observer_id.clone(),
-            evidence_root: "evidence-1".into(),
-            custody_root: "custody-1".into(),
-            classification: witness.d6n_classification,
-            independence: crate::contestable_finality::ObservationIndependenceV1::DeclaredIndependent,
-            assessment_commitment: witness.d6n_assessment_item_commitment.clone(),
-            claim_ceiling: CONTESTABLE_FINALITY_CLAIM_CEILING.into(),
-        };
         let g = generation("observer-A");
         let evidence = observation("observation-1", &g, ExternalObservedStateV1::Applied);
         let set = set(&["observation-1"]);
+        let mut assessment = d6n_assessment(
+            &set,
+            &[(
+                "observation-1".into(),
+                "observer-A".into(),
+                witness.d6n_classification,
+            )],
+        )
+        .assessments
+        .remove(0);
         let (_, receipt) = ledger_and_receipt(&g, &evidence);
 
         assert!(verify_witness_join_binding(
@@ -1946,15 +1946,26 @@ mod tests {
     ) -> ObservationSetAssessmentV1 {
         let assessments = classifications
             .iter()
-            .map(|(observation_id, observer_id, classification)| ObservationAssessmentV1 {
-                observation_id: observation_id.clone(),
-                observer_id: observer_id.clone(),
-                independence: crate::contestable_finality::ObservationIndependenceV1::DeclaredIndependent,
-                classification: *classification,
-                evidence_root: format!("evidence-{observer_id}"),
-                custody_root: format!("custody-{observer_id}"),
-                assessment_commitment: format!("assessment-item:{observation_id}"),
-                claim_ceiling: CONTESTABLE_FINALITY_CLAIM_CEILING.into(),
+            .map(|(observation_id, observer_id, classification)| {
+                let observer = generation(observer_id);
+                let evidence = observation(
+                    observation_id,
+                    &observer,
+                    ExternalObservedStateV1::Applied,
+                );
+                let mut assessment = ObservationAssessmentV1 {
+                    observation_id: observation_id.clone(),
+                    observer_id: observer_id.clone(),
+                    independence: crate::contestable_finality::ObservationIndependenceV1::DeclaredIndependent,
+                    classification: *classification,
+                    evidence_root: format!("evidence-{observer_id}"),
+                    custody_root: format!("custody-{observer_id}"),
+                    observation_commitment: evidence.observation.observation_commitment.clone(),
+                    assessment_commitment: String::new(),
+                    claim_ceiling: CONTESTABLE_FINALITY_CLAIM_CEILING.into(),
+                };
+                assessment.assessment_commitment = assessment.recomputed_commitment();
+                assessment
             })
             .collect();
 
