@@ -39,6 +39,8 @@ pub struct EconomicObservables {
     pub gross_leverage: Option<RatioObservation>,
     pub credit_created: i128,
     pub debt_repaid: i128,
+    pub trade_credit_extended: i128,
+    pub trade_credit_settled: i128,
     pub net_credit_impulse: i128,
     pub interest_paid: i128,
     pub gross_debt_service: i128,
@@ -100,6 +102,8 @@ impl EconomicObservables {
             }),
             credit_created: ledger.credit_created,
             debt_repaid: ledger.debt_repaid,
+            trade_credit_extended: ledger.trade_credit_extended,
+            trade_credit_settled: ledger.trade_credit_settled,
             net_credit_impulse: ledger.net_credit(),
             interest_paid: ledger.category_total(EconomicFlowCategory::Interest),
             gross_debt_service: ledger.category_total(EconomicFlowCategory::Interest)
@@ -208,6 +212,8 @@ mod tests {
         assert_eq!(observations.net_working_capital, 0);
         assert_eq!(observations.depreciation, 25);
         assert_eq!(observations.net_credit_impulse, 0);
+        assert_eq!(observations.trade_credit_extended, 0);
+        assert_eq!(observations.trade_credit_settled, 0);
         assert_eq!(observations.liquidity_to_debt_service(), None);
     }
 
