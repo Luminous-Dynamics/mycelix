@@ -215,6 +215,8 @@ impl AdvisoryResult {
 impl Capability {
     /// Stable semantic bytes for cryptographic signing.
     ///
+    /// Actions are canonicalized at construction, so semantically identical
+    /// action sets do not acquire different signatures from vector ordering.
     /// The framing avoids dependence on JSON/map ordering and binds every
     /// authority-relevant capability field.
     pub fn signing_bytes(&self) -> Vec<u8> {
@@ -260,6 +262,11 @@ impl Capability {
         }
         if actions.is_empty() {
             return Err("capability must grant at least one action");
+        }
+
+        actions.sort_by_key(|action| *action as u8);
+        if actions.windows(2).any(|pair| pair[0] == pair[1]) {
+            return Err("capability actions cannot contain duplicates");
         }
 
         Ok(Self {
