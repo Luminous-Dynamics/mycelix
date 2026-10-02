@@ -149,7 +149,10 @@ if canonical_jcs_json(after_obj) != canon["expected_canonical"]:
     fail("QUALS-M-021 after object canonicalized incorrectly")
 ao = json.loads((ROOT / "s0_authority_observation_v1.example.json").read_text(encoding="utf-8"), object_pairs_hook=reject_duplicates)
 for key in (
-    "schema", "profile", "epoch_id", "dispatch_nonce_hex", "event_type",
+    "schema", "profile", "epoch_id", "repository_id", "repository_full_name",
+    "s0_workflow_source_commit_sha", "s1_workflow_source_commit_sha",
+    "dispatch_nonce_hex", "dispatch_ref", "dispatch_input_commitment_sha256",
+    "authenticated_principal_identity", "policy_scope_identity", "observation_timestamp", "event_type",
     "request_authentication", "actor_authorization", "event_authorization",
     "workflow_source_authentication", "dispatch_result", "run_attribution", "observation_state"
 ):
@@ -164,5 +167,15 @@ if ao["dispatch_result"] == "ACCEPTED" and ao["run_attribution"]["state"] == "OB
     pass
 if ao["run_attribution"]["state"] not in {"OBSERVED", "UNOBSERVED", "CONTRADICTED"}:
     fail("invalid S0 run attribution state")
+if not re.fullmatch(r"^[0-9a-f]{64}$", ao["dispatch_input_commitment_sha256"]):
+    fail("invalid S0 dispatch input commitment")
+if ao["dispatch_ref"] != "main":
+    fail("wrong S0 dispatch ref")
+if ao["run_attribution"]["state"] == "UNOBSERVED" and len(ao["run_attribution"]) != 1:
+    fail("unobserved run attribution must not carry run identifiers")
+for field in ("request_authentication", "actor_authorization", "event_authorization", "workflow_source_authentication"):
+    d = ao[field]
+    if d["state"] == "OBSERVED" and ("rule_id" not in d or "principal_identity" not in d):
+        fail(f"S0 {field} lacks observed authority identity")
 
 print("QUAL-001S evaluator A: PASS")
