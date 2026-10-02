@@ -141,7 +141,7 @@ impl SectorBalanceSheet {
     /// than claims on another sector.
     pub fn financial_rows_clear(&self) -> bool {
         [
-            BalanceSheetInstrument::Cash,
+            // Cash/reserves may have an issuer outside the modeled sectors.
             BalanceSheetInstrument::Deposits,
             BalanceSheetInstrument::Loans,
             BalanceSheetInstrument::Debt,
