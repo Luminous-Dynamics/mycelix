@@ -104,9 +104,12 @@ jobs:
 
       - name: Check shared frontend formatting
         run: |
-          cargo fmt --manifest-path crates/mycelix-leptos-core/Cargo.toml --all -- --check
-          cargo fmt --manifest-path crates/mycelix-leptos-ui/Cargo.toml --all -- --check
-          cargo fmt --manifest-path crates/mycelix-leptos-client/Cargo.toml --all -- --check
+          # Do not use --all here: these manifests live inside a larger
+          # workspace, and broad formatting would gate frontend restoration on
+          # unrelated packages outside the qualification scope.
+          cargo fmt --manifest-path crates/mycelix-leptos-core/Cargo.toml -- --check
+          cargo fmt --manifest-path crates/mycelix-leptos-ui/Cargo.toml -- --check
+          cargo fmt --manifest-path crates/mycelix-leptos-client/Cargo.toml -- --check
 
       - name: Check shared frontend crates for wasm32
         run: |
