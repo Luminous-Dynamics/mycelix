@@ -108,22 +108,73 @@ jobs:
           for path in "${allowed[@]}"; do test -s "$path" || { echo "FAIL: missing $path"; exit 1; }; done
           printf '%s\n' "${allowed[@]}" | while read -r path; do sha256sum "$path"; done >> "$RUNNER_TEMP/hearth-07-lock-refresh-evidence.txt"
 
+      - name: Validate generated dependency versions
+        working-directory: mycelix-workspace/mycelix-hearth
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import tomllib
+          from pathlib import Path
+
+          def cargo_versions(path):
+              data = tomllib.loads(Path(path).read_text(encoding="utf-8"))
+              return {(p["name"], p["version"]) for p in data.get("package", [])}
+
+          hearth = cargo_versions("Cargo.lock")
+          tests = cargo_versions("tests/Cargo.lock")
+
+          required_hearth = {
+              ("hdk", "0.7.0"),
+              ("hdi", "0.8.0"),
+              ("holochain_integrity_types", "0.7.0"),
+              ("holochain_serialized_bytes", "0.0.57"),
+          }
+          required_tests = {
+              ("hdk", "0.7.0"),
+              ("hdi", "0.8.0"),
+              ("holochain", "0.7.0"),
+              ("holochain_types", "0.7.0"),
+          }
+          for item in sorted(required_hearth - hearth):
+              raise SystemExit(f"FAIL: Hearth Cargo.lock missing exact package {item[0]} {item[1]}")
+          for item in sorted(required_tests - tests):
+              raise SystemExit(f"FAIL: tests/Cargo.lock missing exact package {item[0]} {item[1]}")
+
+          relevant = {"hdk", "hdi", "holochain", "holochain_types", "holochain_integrity_types"}
+          for path, versions in [("Cargo.lock", hearth), ("tests/Cargo.lock", tests)]:
+              for name, version in versions:
+                  if name in relevant and version.startswith("0.6."):
+                      raise SystemExit(f"FAIL: {path} contains forbidden {name} {version}")
+
+          sdk = json.loads(Path("sdk-ts/package-lock.json").read_text(encoding="utf-8"))
+          client = sdk.get("packages", {}).get("node_modules/@holochain/client", {}).get("version")
+          if not client or not client.startswith("0.21."):
+              raise SystemExit(f"FAIL: package-lock.json resolved @holochain/client={client!r}; expected 0.21.x")
+
+          print("Generated dependency version invariants: PASS")
+          PY
+
       - name: Commit generated closure
         shell: bash
         env:
           TARGET_REF: ${{ inputs.ref || github.sha }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           branch="hearth-0.7-lock-refresh/$TARGET_REF"
           git switch -c "$branch"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add mycelix-workspace/mycelix-hearth/flake.lock             mycelix-workspace/mycelix-hearth/Cargo.lock             mycelix-workspace/mycelix-hearth/tests/Cargo.lock             mycelix-workspace/mycelix-hearth/sdk-ts/package-lock.json
+          git add mycelix-workspace/mycelix-hearth/flake.lock mycelix-workspace/mycelix-hearth/Cargo.lock mycelix-workspace/mycelix-hearth/tests/Cargo.lock mycelix-workspace/mycelix-hearth/sdk-ts/package-lock.json
           git diff --cached --quiet && { echo "No dependency-lock changes generated."; exit 0; }
           git commit -m "HEARTH-0.7-LOCKS: seal generated dependency closure"
           generated_commit="$(git rev-parse HEAD)"
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           git push --set-upstream origin "$branch"
-          printf '%s\n' "generated_branch=$branch" "generated_commit=$generated_commit" >> "$RUNNER_TEMP/hearth-07-lock-refresh-evidence.txt"
+          printf '%s
+' "generated_branch=$branch" "generated_commit=$generated_commit" >> "$RUNNER_TEMP/hearth-07-lock-refresh-evidence.txt"
 
       - name: Publish lock evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
