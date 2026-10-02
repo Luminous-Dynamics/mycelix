@@ -1308,8 +1308,8 @@ impl EvidenceDispositionReconciliationCoverage {
             boundary,
             transitions,
         )?;
-        EvidenceDispositionAuthorityDelegation::validate_chain(
-            &authority_delegation.delegation_id,
+        EvidenceDispositionAuthorityDelegation::validate_chain_with_target(
+            authority_delegation,
             delegations,
         )
     }
@@ -3191,6 +3191,20 @@ mod tests {
             ),
             Ok(EvidenceDispositionCoverageAssessment::Complete {
                 authority_roots: vec![root.delegation_id],
+            })
+        );
+
+        assert_eq!(
+            coverage.validate_against_graph_and_authority_chain(
+                &reconciliation,
+                &scope,
+                &child,
+                &[root],
+                &boundary,
+                &[root_transition.clone(), left.clone(), right.clone()],
+            ),
+            Ok(AuthorityDelegationChainAssessment::Complete {
+                roots: vec![root.delegation_id],
             })
         );
     }
