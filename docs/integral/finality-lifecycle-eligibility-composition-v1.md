@@ -85,6 +85,18 @@ D6O binds:
 
 D6P therefore carries both values and requires the caller to supply the exact D6O lifecycle profile ID. It does not incorrectly require the two IDs to be equal.
 
+## Witness commitment
+
+Each D6P witness has a canonical commitment computed over the complete witness
+payload, with the commitment field itself excluded from the payload before hashing.
+This binds the D6N/D6O join's semantic fields together, including observer identity,
+generation and lifecycle bindings, dependency snapshot, classifications, frontiers,
+and claim ceiling.
+
+This commitment provides integrity and exact-object identity; it does not establish
+that the witness was produced by authoritative D6N/D6O sources. That provenance is
+checked separately by the qualified D6P reconstruction path.
+
 ## Recomputed witness count
 
 D6N exposes an independent_count. D6P does not trust that count as current-finality authority.
