@@ -433,8 +433,12 @@ receipt.commitment_matches()
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FinalityEligibilityLedgerV1 {
     pub witnesses: BTreeMap<String, FinalityWitnessEligibilityV1>,
+    /// Immutable composition versions keyed by canonical composition commitment.
+    /// The semantic composition id may recur across frontier versions.
     pub compositions: BTreeMap<String, FinalityEligibilityCompositionV1>,
     pub receipts: BTreeMap<String, CurrentFinalityEligibilityReceiptV1>,
+    /// Latest terminal receipt observed for each effect. Historical terminal
+    /// receipts remain preserved in the receipts map; this index is not a history log.
     pub terminal_receipt_by_effect: BTreeMap<String, String>,
 }
 
