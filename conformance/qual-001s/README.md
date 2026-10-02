@@ -66,6 +66,8 @@ QUAL-001S should consume these same vector bytes through at least two materially
 S0 commitment bytes use the declared `RFC8785-JCS-IJSON-v1` profile. This removes property-order ambiguity and requires duplicate JSON property names to be rejected before canonicalization. QUAL-001S also constrains numeric identifiers to the exact-in-IEEE-754 integer range; stronger numeric domains must use strings rather than silently relying on floating-point JSON numbers. RFC 8785 is an informational RFC, so this repository treats the profile as an explicit protocol choice rather than an implicit property of JSON.
 
 ## S0 authority observation
+The corpus includes an explicit availability case for `dispatch_result=ACCEPTED` with no observed run attribution. That state remains `UNAVAILABLE` for execution; API acceptance is not silently promoted to execution evidence.
+
 
 `s0_authority_observation_v1.schema.json` separates five historically distinct propositions: request authentication, actor authorization, event authorization, workflow-source authentication, and run attribution. `dispatch_result=ACCEPTED` is an API observation only; it does not imply that a workflow run occurred. `run_attribution=OBSERVED` does not imply candidate conformance. The example is illustrative and is not evidence of an actual authorized dispatch.
 
