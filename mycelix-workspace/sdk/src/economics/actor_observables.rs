@@ -341,7 +341,8 @@ impl ActorEconomicObservables {
     pub fn leverage(&self) -> Option<RatioObservation> {
         let assets = self.cash
             + self.deposits
-            + self.loan_claims;
+            + self.loan_claims
+            + self.trade_receivables;
         (assets != 0).then_some(RatioObservation {
             numerator: self.debt,
             denominator: assets,
