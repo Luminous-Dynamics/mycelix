@@ -2138,7 +2138,12 @@ mod tests {
         tampered.finality_state = ExternalFinalityStateV1::NotApplied;
         assert!(!tampered.commitment_matches());
 
-        let mut ledger = ExternalEffectLedgerV1::default();
+        let mut ledger = ExternalEffectLedgerV1 {
+            observations: BTreeMap::new(),
+            finality_receipts: BTreeMap::new(),
+            finality_by_effect: BTreeMap::new(),
+            compensation_links: BTreeMap::new(),
+        };
         assert_eq!(
             ledger.record_finality(tampered),
             ExternalEffectLedgerDispositionV1::InsufficientEvidence
