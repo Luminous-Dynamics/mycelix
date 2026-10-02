@@ -2892,7 +2892,8 @@ mod tests {
             ledger.record_witness(witness.clone()),
             FinalityCompositionRecordDispositionV1::Recorded
         );
-        witness.witness_commitment = "different".into();
+        witness.observer_generation_id = Some("generation-substituted".into());
+        witness.witness_commitment = witness.recomputed_commitment();
         assert_eq!(
             ledger.record_witness(witness),
             FinalityCompositionRecordDispositionV1::Conflict
@@ -3489,9 +3490,10 @@ mod tests {
             observation_frontier_root: "frontier-1".into(),
             current_frontier_root: "frontier-1".into(),
             lifecycle_profile_id: "life-profile-1".into(),
-            witness_commitment: "witness-1".into(),
+            witness_commitment: String::new(),
             claim_ceiling: FINALITY_ELIGIBILITY_COMPOSITION_CLAIM_CEILING.into(),
         };
+        witness.witness_commitment = witness.recomputed_commitment();
         assert!(!witness.counts_as_current_independent_witness());
     }
 
