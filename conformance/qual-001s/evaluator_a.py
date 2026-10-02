@@ -90,6 +90,16 @@ for v in vectors:
         fail(f"{v['vector_id']}: duplicate nonclaims")
     if v["admitted_claims"] != v["expected_claims"]:
         fail(f"{v['vector_id']}: admitted_claims != expected_claims")
+    if "mutation" in v:
+        m = v["mutation"]
+        if not isinstance(m, dict) or "operation" not in m:
+            fail(f"{v['vector_id']}: malformed mutation object")
+        allowed = {"operation", "target", "expected_effect", "fixture"}
+        if set(m) - allowed:
+            fail(f"{v['vector_id']}: unknown mutation fields")
+        for key, value in m.items():
+            if not isinstance(value, str) or not value:
+                fail(f"{v['vector_id']}: mutation field {key} must be non-empty text")
 
 n10 = next(v for v in vectors if v["vector_id"] == "QUALS-N-010")
 fixture = n10.get("mutation", {}).get("fixture")
