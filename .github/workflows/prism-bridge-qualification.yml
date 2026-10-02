@@ -44,7 +44,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          expected_head="${{ github.event.pull_request.head.sha || github.sha }}"
+          checked_out_head="$(git rev-parse HEAD)"
+          if [[ "${checked_out_head}" != "${expected_head}" ]]; then
+            echo "ERROR: checkout provenance mismatch" >&2
+            echo "expected_head=${expected_head}" >&2
+            echo "checked_out_head=${checked_out_head}" >&2
+            exit 1
+          fi
           echo "qualification=PRISM-BRIDGE-CANONICAL"
-          echo "tested_head=${{ github.event.pull_request.head.sha || github.sha }}"
+          echo "tested_head=${expected_head}"
+          echo "checked_out_head=${checked_out_head}"
           echo "event_sha=${GITHUB_SHA}"
           rustc --version
