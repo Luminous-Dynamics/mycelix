@@ -61,7 +61,7 @@ In particular, these are high-risk direct pins:
 
 If application source does not import them directly, the preferred migration is to let Holochain 0.7's dependency graph provide them rather than inventing new independent version pins.
 
-This is especially important because Holochain 0.7 changed conductor storage internals and the WASM/runtime stack. The official release notes describe the switch away from the old `holochain_sqlite`/`holochain_state` conductor database and the upgrade of Kitsune2, Wasmer, and Lair. citeturn0search6
+This is especially important because Holochain 0.7 changed conductor storage internals and the WASM/runtime stack. The official release notes describe the switch away from the old `holochain_sqlite`/`holochain_state` conductor database and the upgrade of Kitsune2, Wasmer, and Lair.
 
 ## Standalone-workspace interaction
 
@@ -90,7 +90,7 @@ The repository also contains explicit workspace exclusions for some standalone/l
 10. Clear/recreate 0.7 conductor data roots; do not reuse 0.6 databases.
 11. Record new DNA hashes as a deliberate network-identity break.
 
-The official upgrade guide explicitly requires the Holonix lock update, HDK/HDI update, action-model migration, conductor configuration changes, and clearing 0.6 conductor data. citeturn0search0
+The official upgrade guide explicitly requires the Holonix lock update, HDK/HDI update, action-model migration, conductor configuration changes, and clearing 0.6 conductor data.
 
 ## Current evidence status
 
