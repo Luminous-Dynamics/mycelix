@@ -30,6 +30,20 @@ The kernel provides:
 
 This directly exercises I-2, I-4, I-7, and I-8 at the shared-type boundary. It does **not** yet constitute cryptographic verification, a complete revocation protocol, or multi-agent evidence; those remain integration work.
 
+## Current enforcement boundary
+
+The kernel now has a second, narrower boundary after authorization:
+
+1. `authorize_permit()` evaluates the verified capability against the exact request.
+2. A successful decision yields an `AuthorizationPermit` that is not serializable and has no public constructor.
+3. `EnforcementRequest::from_permit()` is the only public constructor for an enforcement request.
+4. Deny and Indeterminate outcomes produce no permit.
+5. `SecurityEvent` records Allow, Deny, and Indeterminate decisions and can carry explicit provenance references and recovery correlation.
+
+This prevents a downstream enforcement adapter from accepting an arbitrary request as though it had already passed the policy decision point. It also makes the authorization decision reconstructable without making the event record itself authoritative.
+
+The new implementation remains a policy/type boundary. `VerificationEvidence` is still an integration hand-off; it does not itself perform cryptographic verification or revocation lookup.
+
 ## Verification levels
 
 Every implementation must label its current evidence:
