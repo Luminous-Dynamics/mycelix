@@ -2117,6 +2117,11 @@ pub fn validate_create_reservation_certificate(
                         .into(),
                 ));
             }
+            if previous_certificate.listing_revision != certificate.listing_revision {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Listing revision changed without a capacity frontier bridge".into(),
+                ));
+            }
             if previous_certificate.sequence.checked_add(1) != Some(certificate.sequence) {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Reservation frontier sequence does not follow its previous certificate".into(),
@@ -2142,6 +2147,12 @@ pub fn validate_create_reservation_certificate(
             {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Previous frontier capacity evidence belongs to a different seller/listing"
+                        .into(),
+                ));
+            }
+            if previous_capacity.listing_revision != certificate.listing_revision {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Capacity frontier bridge does not establish the certificate listing revision"
                         .into(),
                 ));
             }
@@ -2191,6 +2202,11 @@ pub fn validate_create_reservation_certificate(
             {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Previous frontier terminal evidence belongs to a different seller/listing/revision".into(),
+                ));
+            }
+            if terminal_certificate.listing_revision != certificate.listing_revision {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Listing revision changed without a capacity frontier bridge".into(),
                 ));
             }
             if previous_terminal.sequence.checked_add(1) != Some(certificate.sequence) {
