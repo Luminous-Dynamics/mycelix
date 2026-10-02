@@ -25,7 +25,7 @@ fn add_checked(slot: &mut i128, amount: i128, label: &str) -> Result<(), String>
 }
 
 /// Sector-level derived liquidity and cash-flow observations for one period.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SectorEconomicObservables {
     pub sector: EconomicSector,
     pub opening_liquidity: i128,
@@ -51,6 +51,33 @@ pub struct SectorEconomicObservables {
     pub goods_purchases: i128,
     pub cost_of_goods_sold: i128,
     pub depreciation: i128,
+}
+
+impl Default for SectorEconomicObservables {
+    fn default() -> Self {
+        Self {
+            sector: EconomicSector::Household,
+            opening_liquidity: 0,
+            closing_liquidity: 0,
+            net_liquidity_change: 0,
+            operating_liquidity_change: 0,
+            investing_net_liquidity: 0,
+            financing_net_liquidity: 0,
+            other_liquidity_change: 0,
+            net_working_capital_change: 0,
+            credit_received: 0,
+            credit_originated: 0,
+            debt_repaid: 0,
+            trade_credit_received: 0,
+            trade_credit_extended: 0,
+            trade_credit_settled: 0,
+            trade_credit_collected: 0,
+            sales_revenue: 0,
+            goods_purchases: 0,
+            cost_of_goods_sold: 0,
+            depreciation: 0,
+        }
+    }
 }
 
 impl SectorEconomicObservables {
@@ -270,7 +297,7 @@ mod tests {
         actor: &str,
         opening_liquidity: i128,
         net_liquidity_change: i128,
-        operating: i128,
+        _operating: i128,
         investing: i128,
         financing: i128,
         other: i128,
