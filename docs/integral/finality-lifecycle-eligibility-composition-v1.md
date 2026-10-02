@@ -119,6 +119,29 @@ This prevents one observer from inflating a multi-observer threshold by emitting
 multiple independently classified observations. Distinct observers remain subject
 to the existing evidence/custody/upstream dependency checks as well.
 
+## Cross-layer semantic join binding
+
+D6P does not treat shared observation IDs as sufficient evidence that the D6N and D6O objects describe the same underlying observation.
+
+Each FinalityWitnessEligibilityV1 now carries the exact D6N assessment-item commitment in addition to the D6N observation-set commitment. The qualified D6P reconstruction verifies the witness against the specific D6N assessment item, the specific D6N evidence object, the selected D6O receipt, the observation set, and the requested current frontier.
+
+The join therefore requires all of the following to agree:
+
+- observation identity;
+- observer identity;
+- D6N observation-set identity and commitment;
+- D6N per-observation assessment commitment;
+- D6N classification and evidence/custody roots;
+- D6N observation-to-set semantic fields;
+- D6O generation, eligibility, disposition, and dependency-snapshot identities;
+- observation frontier;
+- current frontier;
+- lifecycle profile.
+
+Conflicting duplicate evidence or receipt representations for the same observation ID are rejected rather than resolved by map insertion order. This makes source selection deterministic and prevents a valid object from one revision being silently paired with a valid object from another revision.
+
+This is an integrity/semantic-binding boundary, not a provenance authority oracle. The authoritative D6N/D6O reconstruction remains responsible for proving that the selected objects actually originate from their respective authoritative sources. This separation is consistent with provenance models that distinguish identified entities/versions from the derivation and generation relationships that establish how an object was produced.
+
 ## Recomputed witness count
 
 D6N exposes an independent_count. D6P does not trust that count as current-finality authority.
