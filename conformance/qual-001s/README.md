@@ -93,3 +93,11 @@ A future qualified S1 implementation should consume the same corpus bytes withou
 ## Status
 
 This corpus is a **design/evidence artifact only**. A committed corpus is not a QUAL-001S PASS, does not qualify a verifier, and does not authorize adoption.
+
+## S1 trusted conformance receipt
+
+`s1_conformance_receipt_v1.schema.json` defines the trusted S1 receipt boundary. It binds the exact subject, S0 dispatch envelope, S0 authority observation, dispatch-input commitment, workflow/run identity (including run attempt), builder identity, harness identity, corpus identity, execution outcome, and the receipt's own canonical commitment.
+
+SLSA 1.2 provides a useful provenance shape here: identify the subject, execution/build platform, invocation identity, and the inputs/dependencies needed to interpret the result. QUAL-001S applies that separation to qualification evidence without claiming SLSA conformance.
+
+An S1 PASS receipt may carry `successor_conformance` in its claim ceiling, but the schema explicitly excludes rotation adoption and later lifecycle authority. S2 remains responsible for adjudicating the preserved evidence and its provenance.
