@@ -444,21 +444,47 @@ mod linux {
                 let high_mask = (predicate.mask >> 32) as u32;
                 let high_value = (predicate.value >> 32) as u32;
 
-                let reject_on_equal = predicate.op == SeccompArgPredicateOpV1::MaskedNotEqual;
-                let predicate_jump = |filter: &mut Vec<SockFilter>, value: u32| {
-                    let (jt, jf) = if reject_on_equal { (0, 1) } else { (1, 0) };
-                    filter.push(jump_eq(value, jt, jf));
-                    filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_ERRNO | libc::EPERM as u32));
-                };
-                if low_mask != 0 {
-                    filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base));
-                    filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, low_mask));
-                    predicate_jump(&mut filter, low_value);
-                }
-                if high_mask != 0 {
-                    filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base + 4));
-                    filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, high_mask));
-                    predicate_jump(&mut filter, high_value);
+                match predicate.op {
+                    SeccompArgPredicateOpV1::MaskedEqual => {
+                        if low_mask != 0 {
+                            filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base));
+                            filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, low_mask));
+                            filter.push(jump_eq(low_value, 1, 0));
+                            filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_ERRNO | libc::EPERM as u32));
+                        }
+                        if high_mask != 0 {
+                            filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base + 4));
+                            filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, high_mask));
+                            filter.push(jump_eq(high_value, 1, 0));
+                            filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_ERRNO | libc::EPERM as u32));
+                        }
+                    }
+                    SeccompArgPredicateOpV1::MaskedNotEqual => {
+                        // For a 64-bit masked inequality, the whole word differs
+                        // when either 32-bit half differs. If both halves are
+                        // present, a matching low half must therefore fall
+                        // through to the high-half comparison; a mismatching
+                        // low half skips the high-half check entirely.
+                        if low_mask != 0 && high_mask != 0 {
+                            filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base));
+                            filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, low_mask));
+                            filter.push(jump_eq(low_value, 0, 4));
+                            filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base + 4));
+                            filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, high_mask));
+                            filter.push(jump_eq(high_value, 0, 1));
+                            filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_ERRNO | libc::EPERM as u32));
+                        } else {
+                            let (base, mask, value) = if low_mask != 0 {
+                                (base, low_mask, low_value)
+                            } else {
+                                (base + 4, high_mask, high_value)
+                            };
+                            filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base));
+                            filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, mask));
+                            filter.push(jump_eq(value, 0, 1));
+                            filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_ERRNO | libc::EPERM as u32));
+                        }
+                    }
                 }
             }
 
@@ -907,6 +933,30 @@ mod linux {
             let policy = SeccompSyscallPolicyV2::new(arch, rules).unwrap();
             let filter = compile_filter_v2(&policy).unwrap();
             assert!(filter.len() <= 4096);
+        }
+
+        #[test]
+        fn v2_masked_not_equal_compiler_requires_both_halves_to_match_for_denial() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let rule = SeccompSyscallRuleV2::new(
+                libc::SYS_mmap,
+                vec![SeccompArgPredicateV1::new_with_op(
+                    2,
+                    u64::MAX,
+                    0x1122_3344_5566_7788,
+                    SeccompArgPredicateOpV1::MaskedNotEqual,
+                ).unwrap()],
+            ).unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+            let filter = compile_filter_v2(&policy).unwrap();
+
+            let jump = filter.iter().position(|instruction| {
+                instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                    && instruction.k == 0x5566_7788
+            }).unwrap();
+            // Low-half equality falls through to the high-half load; a low-half
+            // mismatch skips exactly the remaining high-half predicate body.
+            assert_eq!((filter[jump].jt, filter[jump].jf), (0, 4));
         }
 
         #[test]
