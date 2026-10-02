@@ -261,7 +261,7 @@ mod tests {
             vec![
                 SectorAssignment { actor: "bank".into(), sector: EconomicSector::Bank },
                 SectorAssignment { actor: "household".into(), sector: EconomicSector::Household },
-                SectorAssignment { actor: "firm".into(), sector: EconomicSector::NonFinancialCorporation },
+                SectorAssignment { actor: "firm".into(), sector: EconomicSector::Firm },
             ],
         )
     }
