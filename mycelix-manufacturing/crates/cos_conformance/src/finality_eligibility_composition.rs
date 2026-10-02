@@ -878,7 +878,9 @@ pub fn verify_witness_join_binding(
 
     match receipt {
         Some(receipt) => {
-            witness.observer_generation_id.as_deref() == Some(receipt.observer_generation_id.as_str())
+            receipt.commitment_matches()
+                && receipt.qualification_profile_id == lifecycle_profile_id
+                && witness.observer_generation_id.as_deref() == Some(receipt.observer_generation_id.as_str())
                 && witness.d6o_eligibility_id.as_deref() == Some(receipt.eligibility_id.as_str())
                 && witness.d6o_disposition == Some(receipt.disposition)
                 && witness.d6o_dependency_snapshot_id.as_deref()
@@ -886,6 +888,8 @@ pub fn verify_witness_join_binding(
                 && receipt.observation_id == observation.observation_id
                 && receipt.observer_id == observation.observer_id
                 && receipt.classification == assessment.classification
+                && receipt.observation_profile_id == observation.observer.observation_profile_id
+                && receipt.semantic_environment_root == set.semantic_environment_root
                 && receipt.observation_frontier_root == set.observation_frontier_root
                 && receipt.current_frontier_root == current_frontier_root
         }
