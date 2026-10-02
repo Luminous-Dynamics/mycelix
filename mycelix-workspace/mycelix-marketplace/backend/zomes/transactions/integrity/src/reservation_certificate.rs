@@ -1507,7 +1507,6 @@ pub fn validate_create_reservation_capacity(
         .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("Invalid reservation certificate: {e:?}"))))? {
         if certificate.seller != evidence.seller
             || certificate.listing_hash != evidence.listing_hash
-            || certificate.listing_revision != evidence.listing_revision
             || certificate.sequence.checked_add(1) != Some(evidence.sequence)
         {
             return Ok(ValidateCallbackResult::Invalid(
