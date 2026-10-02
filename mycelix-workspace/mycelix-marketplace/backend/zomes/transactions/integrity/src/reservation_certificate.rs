@@ -21,7 +21,7 @@ use std::collections::BTreeMap;
 use crate::reservation::{ApplyOutcome, Reservation, ReservationError, ReservationLedger};
 
 #[hdk_entry_helper]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PurchaseIntent {
     pub intent_id: String,
     pub buyer: AgentPubKey,
