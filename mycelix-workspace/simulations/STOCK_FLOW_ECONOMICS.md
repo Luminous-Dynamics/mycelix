@@ -39,6 +39,7 @@ state representation.
 - `EconomicChainReceipt` multi-period evidence chaining
 - `EconomicEvidenceManifest` configuration identity
 - `EconomicEvidenceCapsule` terminal evidence sealing
+- `EconomicSimulationStep` / `EconomicSimulationTrace` multi-period execution
 - `EconomicState`
 - aggregate asset/liability accounting
 - gross leverage observable
@@ -258,10 +259,10 @@ This is closer to ecological SFC practice, which explicitly combines monetary an
 
 ### Next accounting frontier
 
-1. Add explicit production-cost accumulation so wages, intermediate inputs, and other production costs can feed inventory carrying value without hidden financing.
+1. Add explicit production-cost accumulation so wages, intermediate inputs, and other production costs can feed inventory carrying value without hidden financing. The current layer can already represent the accounting pattern as separate wage/payment and inventory-cost transitions.
 2. Add explicit depreciation and capital-consumption postings for productive capital. (The monetary depreciation boundary is now implemented.)
 3. Add typed physical units and material-balance/conservation rules for the ecological SFC layer.
-4. Add institutional/financial-regime observables (leverage, debt service, liquidity, refinancing need) on top of reconciled stocks.
+4. Add institutional/financial-regime observables (leverage, debt service, liquidity, refinancing need) on top of reconciled stocks. The current layer provides aggregate measurements and an externally-fed financing-regime classifier.
 5. Add Minsky/Keen behavioral equations only after the accounting state is observable and reconciled, with clear separation between operating surplus and financing flows.
 
 
@@ -343,6 +344,25 @@ This follows the SFC structure in which investment is represented in the transac
 
 The next refinement should therefore be a distinct production/inventory layer rather than silently expanding `CapitalInvestment` to cover everything. That layer can introduce output, inventories, intermediate inputs, resource depletion, wages, and operating surplus while retaining the same deterministic posting/reconciliation machinery.
 
+
+## Deterministic multi-period trace (implemented)
+
+EconomicSimulationTrace runs an ordered list of EconomicSimulationStep values against a private working state.
+
+For every period it:
+
+- applies the complete transition list atomically;
+- creates a normal EconomicStepReceipt;
+- links that receipt to the previous chain node;
+- carries the original genesis state hash through the chain.
+
+The final trace also binds the initial state hash, final state hash, and ordered receipt list into a trace hash. A failed later period returns an error without exposing a partially committed trace.
+
+This gives scenario runners a direct execution primitive:
+
+`initial state -> period transitions -> chained receipts -> final state`
+
+and lets the evidence capsule seal the resulting trace against model and parameter identity.
 
 ## Reproducible evidence capsule (implemented)
 
