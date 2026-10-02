@@ -26,6 +26,8 @@ pub struct EconomicPeriodLedger {
     pub credit_created: i128,
     /// Gross debt repayment.
     pub debt_repaid: i128,
+    /// Gross capital formation settled during the period.
+    pub investment: i128,
     /// Number of transitions represented by the ledger.
     pub transition_count: u64,
     /// Hash of the exact ordered transition list from which this ledger came.
@@ -51,6 +53,14 @@ impl EconomicPeriodLedger {
                         .checked_add(flow.amount)
                         .ok_or_else(|| EconomicStepError::Serialization(
                             "period monetary transfer total overflow".into(),
+                        ))?;
+                }
+                EconomicTransition::CapitalInvestment(investment) => {
+                    ledger.investment = ledger
+                        .investment
+                        .checked_add(investment.amount)
+                        .ok_or_else(|| EconomicStepError::Serialization(
+                            "period investment total overflow".into(),
                         ))?;
                 }
                 EconomicTransition::IncomeTransfer(flow) => {
@@ -103,7 +113,7 @@ impl EconomicPeriodLedger {
 mod tests {
     use super::*;
     use crate::economics::stock_flow::{
-        CreditCreation, DebtRepayment, EconomicFlowCategory, IncomeTransfer, MonetaryFlow,
+        CapitalInvestment, CreditCreation, DebtRepayment, EconomicFlowCategory, IncomeTransfer, MonetaryFlow,
     };
 
     #[test]
@@ -136,6 +146,9 @@ mod tests {
                 )
                 .unwrap(),
             ),
+            EconomicTransition::CapitalInvestment(
+                CapitalInvestment::new("firm", "capital-producer", 200).unwrap(),
+            ),
             EconomicTransition::CreditCreation(
                 CreditCreation::new("bank", "firm", 500).unwrap(),
             ),
@@ -154,6 +167,7 @@ mod tests {
         assert_eq!(a.category_total(EconomicFlowCategory::Wage), 100);
         assert_eq!(a.category_total(EconomicFlowCategory::Interest), 20);
         assert_eq!(a.category_total(EconomicFlowCategory::Tax), 30);
+        assert_eq!(a.investment, 200);
         assert_eq!(a.credit_created, 500);
         assert_eq!(a.debt_repaid, 100);
         assert_eq!(a.net_credit(), 400);
