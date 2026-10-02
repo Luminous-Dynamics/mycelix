@@ -74,6 +74,7 @@ pub struct ActorBalanceSheet {
     /// This is deliberately separate from real.inventories, which is a
     /// physical quantity. The value changes only through explicit inventory
     /// accounting transitions.
+    #[serde(default)]
     pub inventory_carrying_value: i128,
 }
 
