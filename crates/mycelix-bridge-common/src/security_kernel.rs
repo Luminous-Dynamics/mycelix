@@ -1043,6 +1043,50 @@ mod tests {
     }
 
     #[test]
+    fn refreshed_authority_lease_cannot_extend_existing_permit() {
+        let cap = capability();
+        let initial_evidence =
+            VerificationEvidence::new_for_capability_with_authority_binding_and_valid_until(
+                &cap, [1; 32], true, true, true, 175,
+            );
+        let verified = verify_capability(cap.clone(), initial_evidence, 150).unwrap();
+        let permit = authorize_permit(&verified, &request(CapabilityAction::Read), 150).unwrap();
+        assert_eq!(permit.valid_until_us(), 175);
+        assert_eq!(
+            revalidate_permit(
+                &permit,
+                VerificationEvidence::new_for_capability_with_authority_binding_and_valid_until(
+                    &cap, [1; 32], true, true, true, 190,
+                ),
+                174,
+            ),
+            AuthorizationDecision::Allow
+        );
+
+        let refreshed_evidence =
+            VerificationEvidence::new_for_capability_with_authority_binding_and_valid_until(
+                &cap, [1; 32], true, true, true, 190,
+            );
+        assert_eq!(
+            revalidate_permit(&permit, refreshed_evidence, 175),
+            AuthorizationDecision::Deny(AuthorizationDenial::OutsideValidityWindow)
+        );
+
+        let refreshed_verified = verify_capability(
+            cap,
+            VerificationEvidence::new_for_capability_with_authority_binding_and_valid_until(
+                &capability(), [1; 32], true, true, true, 190,
+            ),
+            175,
+        )
+        .unwrap();
+        let replacement_permit =
+            authorize_permit(&refreshed_verified, &request(CapabilityAction::Read), 175).unwrap();
+        assert_eq!(replacement_permit.issued_at_us(), 175);
+        assert_eq!(replacement_permit.valid_until_us(), 190);
+    }
+
+    #[test]
     fn authority_generation_binding_blocks_revalidation_with_new_generation() {
         let cap = capability();
         let evidence_a =
