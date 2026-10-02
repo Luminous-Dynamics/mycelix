@@ -401,6 +401,16 @@
       "id": "EDT-078",
       "case": "authority_scope_rejects_binding_mismatch_before_unresolved_predecessor",
       "expected": "rejected"
+    },
+    {
+      "id": "EDT-079",
+      "case": "reconciliation_coverage_uses_direct_authority_target_without_requiring_duplicate_dependency",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-080",
+      "case": "authority_delegation_direct_target_conflict_is_rejected",
+      "expected": "rejected"
     }
   ]
 }
