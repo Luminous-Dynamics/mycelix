@@ -42,15 +42,15 @@ jobs:
 
       - name: Check qualification adapter
         run: |
-          cargo check --manifest-path mycelix-workspace/Cargo.toml -p mail_messages
+          cargo check --manifest-path mycelix-workspace/mycelix-pulse/holochain/Cargo.toml -p mail_messages
 
       - name: Test qualification adapter
         run: |
-          cargo test --manifest-path mycelix-workspace/Cargo.toml -p mail_messages
+          cargo test --manifest-path mycelix-workspace/mycelix-pulse/holochain/Cargo.toml -p mail_messages
 
       - name: Clippy
         run: |
-          cargo clippy --manifest-path mycelix-workspace/Cargo.toml -p mail_messages --all-targets -- -D warnings
+          cargo clippy --manifest-path mycelix-workspace/mycelix-pulse/holochain/Cargo.toml -p mail_messages --all-targets -- -D warnings
 
       - name: Checkout immutability
         if: always()
