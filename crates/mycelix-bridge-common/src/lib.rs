@@ -103,9 +103,14 @@ pub use collective_phi::{
 
 pub mod security_kernel;
 pub use security_kernel::{
-    authorize, verify_capability, AdvisoryResult, AuthorizationDecision,
-    AuthorizationDenial, AuthorizationIndeterminacy, AuthorizationRequest,
-    Capability, CapabilityAction, VerificationEvidence, VerifiedCapability,
+    authorize, authorize_permit, verify_capability, AdvisoryResult, AuthorizationDecision,
+    AuthorizationDenial, AuthorizationIndeterminacy, AuthorizationPermit, AuthorizationRequest,
+    Capability, CapabilityAction, EnforcementRequest, VerificationEvidence, VerifiedCapability,
+};
+
+pub mod security_events;
+pub use security_events::{
+    ProvenanceRef, ProvenanceRelation, SecurityEvent, MAX_PROVENANCE_IDENTIFIER_BYTES,
 };
 
 pub mod routing;
