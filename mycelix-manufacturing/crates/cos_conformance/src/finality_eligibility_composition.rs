@@ -433,6 +433,10 @@ receipt.commitment_matches()
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FinalityEligibilityLedgerV1 {
+    /// Single-view witness registry keyed by observation ID. This registry
+    /// deliberately rejects a second witness version for the same observation;
+    /// historical frontier versions are preserved inside immutable D6P
+    /// compositions rather than inferred from this convenience view.
     pub witnesses: BTreeMap<String, FinalityWitnessEligibilityV1>,
     /// Immutable composition versions keyed by canonical composition commitment.
     /// The semantic composition id may recur across frontier versions.
@@ -1372,6 +1376,41 @@ mod tests {
         };
         composition.composition_commitment = composition.recomputed_commitment();
         composition
+    }
+
+    #[test]
+    fn ledger_witness_registry_rejects_cross_frontier_replacement() {
+        let composition = matching_composition();
+        let witness = composition.witnesses[0].clone();
+        let mut replay = witness.clone();
+        replay.current_frontier_root = "frontier-replayed".into();
+        replay.observation_frontier_root = "frontier-replayed".into();
+        replay.witness_commitment = format!(
+            "witness:{}:{}:{}:{}",
+            replay.observation_id,
+            replay.d6n_observation_set_commitment,
+            replay.d6o_eligibility_id.as_deref().unwrap_or("missing"),
+            replay.current_frontier_root,
+        );
+
+        let mut ledger = FinalityEligibilityLedgerV1::default();
+        assert_eq!(
+            ledger.record_witness(witness.clone()),
+            FinalityCompositionRecordDispositionV1::Recorded
+        );
+        assert_eq!(
+            ledger.record_witness(replay),
+            FinalityCompositionRecordDispositionV1::Conflict
+        );
+        assert_eq!(
+            ledger
+                .witness_at_frontier(&witness.observation_id, &witness.current_frontier_root)
+                .map(|stored| &stored.witness_commitment),
+            Some(&witness.witness_commitment)
+        );
+        assert!(ledger
+            .witness_at_frontier(&witness.observation_id, "frontier-replayed")
+            .is_none());
     }
 
     #[test]
