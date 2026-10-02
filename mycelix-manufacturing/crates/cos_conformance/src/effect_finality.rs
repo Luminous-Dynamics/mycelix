@@ -2146,6 +2146,57 @@ mod tests {
     }
 
     #[test]
+    fn finality_receipt_commitment_covers_every_semantic_field() {
+        let effect = effect("effect-1", "lineage-1", "generation-1");
+        let route = route(&effect, "provider-a", "profile-a", "route-1", "operation-1");
+        let outcome = outcome(&route, ProviderOutcomeKindV1::Succeeded);
+        let observation = observation(
+            &effect,
+            &route,
+            &outcome,
+            ExternalObservationSourceV1::IndependentObserver,
+            ExternalObservedStateV1::Applied,
+            "frontier-1",
+        );
+        let profile = finality_profile(&effect, ExternalFinalityStateV1::Applied, true);
+        let baseline = finality_receipt(&effect, &route, &outcome, &observation, &profile);
+        let expected = baseline.recomputed_commitment();
+
+        macro_rules! assert_field_bound {
+            ($field:ident, $value:expr) => {{
+                let mut changed = baseline.clone();
+                changed.$field = $value;
+                assert_ne!(
+                    changed.recomputed_commitment(),
+                    expected,
+                    concat!("D6M receipt commitment does not cover ", stringify!($field))
+                );
+            }};
+        }
+
+        assert_field_bound!(receipt_id, "finality-2".into());
+        assert_field_bound!(effect_id, "effect-2".into());
+        assert_field_bound!(effect_lineage_id, "lineage-2".into());
+        assert_field_bound!(lifecycle_generation_id, "generation-2".into());
+        assert_field_bound!(route_id, "route-2".into());
+        assert_field_bound!(provider_id, "provider-b".into());
+        assert_field_bound!(provider_operation_id, "operation-2".into());
+        assert_field_bound!(provider_profile_root, "profile-b".into());
+        assert_field_bound!(provider_outcome_id, "outcome-route-2".into());
+        assert_field_bound!(observation_id, "observation-route-2".into());
+        assert_field_bound!(observation_frontier_root, "frontier-2".into());
+        assert_field_bound!(finality_profile_id, "finality-profile-2".into());
+        assert_field_bound!(semantic_environment_root, "env-2".into());
+        assert_field_bound!(finality_state, ExternalFinalityStateV1::NotApplied);
+        assert_field_bound!(evidence_root, "evidence-2".into());
+        assert_field_bound!(claim_ceiling, "changed-claim-ceiling".into());
+
+        let mut changed_commitment = baseline.clone();
+        changed_commitment.finality_commitment = "00".repeat(32);
+        assert_eq!(changed_commitment.recomputed_commitment(), expected);
+    }
+
+    #[test]
     fn finality_receipt_does_not_create_a_new_effect() {
         let effect = effect("effect-1", "lineage-1", "generation-1");
         let route = route(&effect, "provider-a", "profile-a", "route-a", "operation-a");
