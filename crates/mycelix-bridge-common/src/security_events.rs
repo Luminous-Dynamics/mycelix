@@ -196,7 +196,15 @@ mod tests {
             7,
         ).unwrap();
         let permit = authorize_permit(&verified(), &request, 150).unwrap();
-        let enforcement = EnforcementRequest::from_permit(permit);
+        let enforcement = EnforcementRequest::from_permit(
+            permit,
+            VerificationEvidence {
+                signature_verified: true,
+                not_revoked: true,
+                authority_unambiguous: true,
+            },
+            150,
+        ).unwrap();
         let source = ProvenanceRef::new("evidence:source-1", ProvenanceRelation::DerivedFrom).unwrap();
 
         let event = SecurityEvent::from_enforcement_request(
