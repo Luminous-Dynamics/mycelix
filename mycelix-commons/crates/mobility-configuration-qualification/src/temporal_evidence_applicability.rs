@@ -1100,7 +1100,11 @@ impl EvidenceDispositionReconciliationCoverage {
             }
         }
 
-        for head_id in &reconciliation.branch_heads {
+        // The coverage boundary, not merely the reconciliation minimum set,
+        // defines the complete bounded transition dependency cone. Additional
+        // explicitly covered heads are valid and must be resolved as part of
+        // the same deterministic walk.
+        for head_id in &self.covered_branch_heads {
             if !by_id.contains_key(head_id) {
                 missing.insert(head_id.clone());
                 continue;
@@ -3981,6 +3985,90 @@ mod tests {
             basis: vec![],
         };
         assert!(coverage.validate_against_graph(&reconciliation, &authority_scope(&reconciliation.reconciliation_id.id), &authority_delegation(&reconciliation.reconciliation_id.id), &coverage_boundary(), &[root, left, right]).is_ok());
+    }
+
+    #[test]
+    fn reconciliation_coverage_assessment_accepts_additional_covered_branch_head() {
+        let disputed = EvidenceDisposition::Disputed {
+            by: id(IdentityKind::ReconciliationWitness, "extra-head-w1"),
+        };
+        let root = graph_transition(
+            "extra-head-t1",
+            None,
+            EvidenceDisposition::Active,
+            disputed.clone(),
+        );
+        let left = graph_transition(
+            "extra-head-t2",
+            Some("extra-head-t1"),
+            disputed.clone(),
+            EvidenceDisposition::Active,
+        );
+        let right = graph_transition(
+            "extra-head-t3",
+            Some("extra-head-t1"),
+            disputed.clone(),
+            EvidenceDisposition::Retracted {
+                by: id(IdentityKind::ReconciliationWitness, "extra-head-w2"),
+            },
+        );
+        let additional = graph_transition(
+            "extra-head-t4",
+            Some("extra-head-t1"),
+            disputed,
+            EvidenceDisposition::Unresolved,
+        );
+        let reconciliation = EvidenceDispositionReconciliation {
+            reconciliation_id: id(
+                IdentityKind::ReconciliationWitness,
+                "reconcile-extra-covered-head",
+            ),
+            evidence: id(IdentityKind::InspectionRecord, "inspection-graph"),
+            branch_point: root.transition_id.clone(),
+            branch_heads: vec![left.transition_id.clone(), right.transition_id.clone()],
+            authority: id(IdentityKind::ReconciliationWitness, "authority-1"),
+            authority_scope: id(IdentityKind::ReconciliationWitness, "authority-scope-1"),
+            authority_delegation: id(
+                IdentityKind::ReconciliationWitness,
+                "authority-delegation-1",
+            ),
+            basis: vec![],
+        };
+        let scope = authority_scope(&reconciliation.reconciliation_id.id);
+        let delegation = authority_delegation(&reconciliation.reconciliation_id.id);
+        let mut boundary = coverage_boundary();
+        boundary.reconciliation = reconciliation.reconciliation_id.clone();
+        boundary.branch_point = reconciliation.branch_point.clone();
+        boundary.branch_heads = vec![
+            left.transition_id.clone(),
+            right.transition_id.clone(),
+            additional.transition_id.clone(),
+        ];
+        let coverage = EvidenceDispositionReconciliationCoverage {
+            coverage_id: id(
+                IdentityKind::ReconciliationWitness,
+                "coverage-extra-covered-head",
+            ),
+            reconciliation: reconciliation.reconciliation_id.clone(),
+            branch_point: reconciliation.branch_point.clone(),
+            covered_branch_heads: boundary.branch_heads.clone(),
+            boundary: boundary.boundary_id.clone(),
+            basis: boundary.basis.clone(),
+        };
+
+        assert_eq!(
+            coverage.validate_against_graph_and_authority_chain_assessment(
+                &reconciliation,
+                &scope,
+                &delegation,
+                &[delegation.clone()],
+                &boundary,
+                &[root, left, right, additional],
+            ),
+            Ok(EvidenceDispositionCoverageAssessment::Complete {
+                authority_roots: vec![delegation.delegation_id],
+            })
+        );
     }
 
     #[test]
