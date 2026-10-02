@@ -57,11 +57,13 @@ pub fn create_transaction(input: CreateTransactionInput) -> ExternResult<Transac
         .intent
         .unit_price_cents
         .checked_mul(certificate.quantity as u64)
-        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Reservation price multiplication overflow".into())))?;
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Reservation price multiplication overflow".into()
+            ))
+        })?;
 
-    if input.seller != certificate.seller
-        || input.total_price_cents != expected_total
-    {
+    if input.seller != certificate.seller || input.total_price_cents != expected_total {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Submitted transaction terms do not match the reservation certificate".into(),
         )));
@@ -1249,19 +1251,24 @@ fn update_transaction_status(
 fn get_reservation_certificate(
     certificate_hash: ActionHash,
 ) -> ExternResult<ReservationCertificate> {
-    let record = get(certificate_hash, GetOptions::default())?
-        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
+    let record = get(certificate_hash, GetOptions::default())?.ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
             "Reservation certificate not found".into(),
-        )))?;
+        ))
+    })?;
     record
         .entry()
         .to_app_option::<ReservationCertificate>()
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
-            "Could not decode reservation certificate: {e:?}"
-        ))))?
-        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
-            "Reservation certificate record does not contain an application entry".into(),
-        )))
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Could not decode reservation certificate: {e:?}"
+            )))
+        })?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Reservation certificate record does not contain an application entry".into(),
+            ))
+        })
 }
 
 // ===== Input/Output Types =====
