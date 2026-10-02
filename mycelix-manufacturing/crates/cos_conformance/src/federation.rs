@@ -1924,6 +1924,41 @@ mod tests {
     }
 
     #[test]
+    fn admitted_predecessor_is_historical_dependency_not_fresh_authority() {
+        let mut state = nodes();
+
+        let mut predecessor = envelope();
+        predecessor.envelope_id = "env-foreign-parent".into();
+        predecessor.logical_delivery_id = "delivery-foreign-parent".into();
+        predecessor.attempt_id = "attempt-foreign-parent".into();
+        predecessor.origin_node = "node-b".into();
+        predecessor.target_node = "node-a".into();
+
+        assert_eq!(
+            deliver(&mut state, &predecessor, 50, true).decision,
+            FederationDecision::AcceptedForeign
+        );
+        assert_eq!(
+            state.delivery("delivery-foreign-parent").unwrap().authority(),
+            AuthorityDisposition::ForeignEvidence
+        );
+
+        state.nodes.get_mut("node-b").unwrap().active = false;
+
+        let mut child = envelope();
+        child.envelope_id = "env-local-child".into();
+        child.logical_delivery_id = "delivery-local-child".into();
+        child.attempt_id = "attempt-local-child".into();
+        child.predecessor_delivery_id = Some("delivery-foreign-parent".into());
+
+        let outcome = deliver(&mut state, &child, 50, true);
+        assert_eq!(outcome.decision, FederationDecision::AcceptedLocal);
+        assert_eq!(outcome.authority, AuthorityDisposition::LocalAuthority);
+        assert_eq!(state.delivery_count(), 2);
+        assert_eq!(state.observation_count(), 2);
+    }
+
+    #[test]
     fn delayed_and_reordered_events_remain_pending_until_dependency_exists() {
         let mut state = nodes();
         let mut child = envelope();
