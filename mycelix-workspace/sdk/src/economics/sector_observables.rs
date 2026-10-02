@@ -483,27 +483,33 @@ impl SectorEconomicObservables {
             .checked_add(balance_sheet.sector_instrument_total_checked(
                 self.sector,
                 BalanceSheetInstrument::Deposits,
-            )?)?
+            )?)
+            .ok_or_else(|| format!("sector net-financial-position overflow for {:?}", self.sector))?
             .checked_add(balance_sheet.sector_instrument_total_checked(
                 self.sector,
                 BalanceSheetInstrument::Loans,
-            )?)?
+            )?)
+            .ok_or_else(|| format!("sector net-financial-position overflow for {:?}", self.sector))?
             .checked_add(balance_sheet.sector_instrument_total_checked(
                 self.sector,
                 BalanceSheetInstrument::TradeReceivables,
-            )?)?
+            )?)
+            .ok_or_else(|| format!("sector net-financial-position overflow for {:?}", self.sector))?
             .checked_add(balance_sheet.sector_instrument_total_checked(
                 self.sector,
                 BalanceSheetInstrument::Debt,
-            )?)?
+            )?)
+            .ok_or_else(|| format!("sector net-financial-position overflow for {:?}", self.sector))?
             .checked_add(balance_sheet.sector_instrument_total_checked(
                 self.sector,
                 BalanceSheetInstrument::DepositLiabilities,
-            )?)?
+            )?)
+            .ok_or_else(|| format!("sector net-financial-position overflow for {:?}", self.sector))?
             .checked_add(balance_sheet.sector_instrument_total_checked(
                 self.sector,
                 BalanceSheetInstrument::TradePayables,
-            )?)?;
+            )?)
+            .ok_or_else(|| format!("sector net-financial-position overflow for {:?}", self.sector))?;
         if nfp != self.net_financial_position {
             return Err(format!(
                 "sector net financial position does not match balance sheet for {:?}",
