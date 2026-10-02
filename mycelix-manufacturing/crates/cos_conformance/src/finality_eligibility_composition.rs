@@ -1589,12 +1589,10 @@ mod tests {
 
         let mut forged_receipt = receipt.clone();
         forged_receipt.dependency_snapshot_id = "snapshot-substituted".into();
+        assessment.assessment_commitment = witness.d6n_assessment_item_commitment.clone();
         assert!(!verify_witness_join_binding(
             witness,
-            &{
-                assessment.assessment_commitment = witness.d6n_assessment_item_commitment.clone();
-                &assessment
-            },
+            &assessment,
             &evidence,
             Some(&forged_receipt),
             &set,
