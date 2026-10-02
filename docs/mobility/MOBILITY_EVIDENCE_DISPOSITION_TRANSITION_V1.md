@@ -74,3 +74,9 @@ The boundary remains addressable and finite: it names the exact evidence event, 
 
 
 The reconciliation basis is the minimum provenance basis for the bounded coverage boundary: every reconciliation basis witness MUST be carried into the boundary basis. The boundary MAY add coverage-specific basis witnesses. This is deliberately an inclusion relationship rather than exact equality: reconciliation establishes why the competing branch set was reconciled, while additional boundary witnesses may justify why the explicitly examined dependency boundary is sufficient for the bounded coverage assertion. Basis omission is invalid; additional addressable basis is permitted.
+
+### Explicit authority scope
+
+An `EvidenceDispositionAuthorityScope` is now a separate addressable witness that binds the exact reconciliation subject to the exact authority witness. The reconciliation references that scope identity, and graph validation requires the supplied scope witness to match both the reconciliation identity and authority. The scope basis must also contain every reconciliation basis witness, while permitting additional scope-specific provenance.
+
+This prevents an authority witness from being structurally reused for an unrelated reconciliation merely because both identities are individually well-typed. It still does **not** establish real-world institutional authority, delegation legitimacy, certification, or entitlement; those remain external claims that must be represented by appropriate evidence.
