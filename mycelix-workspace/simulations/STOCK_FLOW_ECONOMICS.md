@@ -31,6 +31,7 @@ state representation.
 - explicit `MonetaryFlow`
 - explicit `CreditCreation`
 - explicit `DebtRepayment`
+- explicit `Depreciation`
 - explicit cash vs deposit instruments
 - bank loan/deposit double-entry credit creation
 - deterministic `EconomicTransition` timestep execution
@@ -90,22 +91,22 @@ Every flow should identify its source sector, destination sector, and accounting
 
 ### 2. Debt-dynamics observables
 
-Add time-series measurements for:
+The derived EconomicObservables layer now reports:
 
-- debt stock
-- new credit
-- repayment
-- interest/service burden
-- leverage
-- asset-price exposure
-- liquidity buffer
-- credit impulse
+- aggregate debt and loan stocks;
+- deposits, cash, deposit liabilities, and liquidity;
+- exact rational leverage and liquidity/debt-service ratios;
+- credit created, debt repaid, and net credit impulse;
+- interest paid and gross debt service;
+- sales consideration, COGS, gross operating surplus, and depreciation.
 
-These should be observations, not scores.
+Ratios are represented as integer numerator/denominator pairs rather than floating-point scores. A zero denominator is represented as an undefined ratio.
+
+These are observations, not scores.
 
 ### 3. Minsky-style regime observables
 
-Represent financing structures explicitly:
+classify_financing_regime now provides a descriptive Hedge / Speculative / Ponzi classification when the caller supplies an explicit cash-flow-available-for-debt-service amount and contractual interest/principal due. The function does not infer cash flow from revenue, accounting surplus, or liquidity.
 
 - hedge: cash flow covers principal + interest
 - speculative: cash flow covers interest but not principal
@@ -337,6 +338,17 @@ This follows the SFC structure in which investment is represented in the transac
 
 The next refinement should therefore be a distinct production/inventory layer rather than silently expanding `CapitalInvestment` to cover everything. That layer can introduce output, inventories, intermediate inputs, resource depletion, wages, and operating surplus while retaining the same deterministic posting/reconciliation machinery.
 
+
+## Derived financial and financing observables (implemented)
+
+EconomicObservables is a pure projection of reconciled state plus the deterministic period ledger. It adds measurements without modifying the accounting state.
+
+The layer deliberately keeps two concepts separate:
+
+- accounting surplus is derived from recognized sales/COGS/depreciation;
+- debt-service financing regime requires an explicit cash-flow input.
+
+This prevents an accounting profit measure from being silently treated as cash available for repayment. It also makes the later Keen/Minsky behavioral layer able to consume the same auditable observations without embedding a policy rule inside the accounting substrate.
 
 ## Explicit depreciation boundary (implemented)
 
