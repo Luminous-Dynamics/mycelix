@@ -50,7 +50,7 @@ The canonical assessment also exposes structural failures through the typed `Evi
 
 The transition graph can also be qualified as an explicit append operation: `validate_append` first validates the existing graph, then validates the candidate transition, rejects any candidate whose exact `transition_id` is already present, and revalidates the combined graph. This makes record identity the immutability boundary for an append: a new transition may extend an existing branch or create a new branch, but it cannot replace an already-addressed transition.
 
-A candidate that names an unavailable predecessor remains `Unresolved` rather than being accepted as complete. A candidate with a present predecessor must satisfy the same evidence and state-continuity rules as ordinary graph validation. This API does not claim that a storage layer can physically prevent mutation of bytes already persisted; it provides the semantic append/replacement boundary that a storage or Holochain layer can enforce against addressable records.
+A candidate that names an unavailable predecessor remains `Unresolved` rather than being accepted as complete. If a later append supplies that previously missing predecessor under its exact referenced identity, the combined graph may become `Complete` without rewriting the already-addressed child; this is still additive record publication. A candidate with a present predecessor must satisfy the same evidence and state-continuity rules as ordinary graph validation. This API does not claim that a storage layer can physically prevent mutation of bytes already persisted; it provides the semantic append/replacement boundary that a storage or Holochain layer can enforce against addressable records.
 
 ## Bounded transition dependency walk
 
