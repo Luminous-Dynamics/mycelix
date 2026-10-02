@@ -178,11 +178,15 @@ const expect = new Map([
   ["DISPATCH_ACCEPTANCE_VS_EXECUTION", ["UNAVAILABLE", "NOT_ACCEPTED"]],
   ["AUTHORITY_ENVELOPE_JOIN", ["CONTRADICTED", "PROVENANCE_MISMATCH"]],
   ["RUN_ATTEMPT_PAIR", ["VERIFIED", "EXECUTION_OBSERVED"]],
+  ["AUTHORITY_OBSERVATION_SELF_COMMITMENT", ["CONTRADICTED", "PROVENANCE_MISMATCH"]],
+  ["S1_RECEIPT_CLAIM_CEILING", ["VERIFIED", "EXECUTION_OBSERVED"]],
+  ["S1_RECEIPT_ENVELOPE_JOIN", ["CONTRADICTED", "PROVENANCE_MISMATCH"]],
+  ["S1_RECEIPT_ADOPTION_ESCALATION", ["VERIFIED", "NONE"]],
 ]);
 
 if (corpus.schema !== "mycelix.qual-001s.semantic-corpus-v1") throw new Error("wrong corpus schema");
 if (corpus.corpus_id !== "QUAL-001S") throw new Error("wrong corpus id");
-if (corpus.vectors.length !== 24) throw new Error("expected 24 vectors");
+if (corpus.vectors.length !== 28) throw new Error("expected 28 vectors");
 
 for (const v of corpus.vectors) {
   const pair = expect.get(v.proposition_id);
