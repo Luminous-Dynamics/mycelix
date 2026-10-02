@@ -305,7 +305,9 @@ mod tests {
             Ok(ApplyOutcome::Applied)
         );
         assert_eq!(
-            ledger.apply(ReservationEvent::Consume { intent_id: "i1".into() }),
+            ledger.apply(ReservationEvent::Consume {
+                intent_id: "i1".into()
+            }),
             Ok(ApplyOutcome::Idempotent)
         );
         assert_eq!(
