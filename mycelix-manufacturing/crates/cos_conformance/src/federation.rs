@@ -1275,11 +1275,16 @@ mod tests {
             mode: RecognitionMode::EvidenceOnly,
         });
 
-        let candidate = envelope();
+        let mut candidate = envelope();
+        candidate.envelope_id = "env-recognition-order".into();
+        candidate.logical_delivery_id = "delivery-recognition-order".into();
+        candidate.origin_node = "node-b".into();
+        candidate.target_node = "node-a".into();
+
         let steps = [
             FederationScenarioStep {
                 mutation: FederationMutation::NewLogicalDelivery,
-                expected: FederationDecision::AcceptedLocal,
+                expected: FederationDecision::AcceptedForeign,
             },
             FederationScenarioStep {
                 mutation: FederationMutation::DuplicateDelivery,
