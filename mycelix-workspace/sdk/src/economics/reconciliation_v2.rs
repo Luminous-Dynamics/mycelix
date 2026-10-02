@@ -172,6 +172,18 @@ pub fn postings_for_step(
                     StockPosting::new(sector, BalanceSheetInstrument::Equity, consumption.quantity),
                 ]
             }
+            EconomicTransition::GoodsSale(sale) => {
+                let seller = sector_for(assignments, &sale.seller)?;
+                let buyer = sector_for(assignments, &sale.buyer)?;
+                vec![
+                    StockPosting::new(seller, BalanceSheetInstrument::Inventories, -sale.quantity),
+                    StockPosting::new(seller, BalanceSheetInstrument::Deposits, sale.consideration),
+                    StockPosting::new(seller, BalanceSheetInstrument::Equity, sale.quantity - sale.consideration),
+                    StockPosting::new(buyer, BalanceSheetInstrument::Inventories, sale.quantity),
+                    StockPosting::new(buyer, BalanceSheetInstrument::Deposits, -sale.consideration),
+                    StockPosting::new(buyer, BalanceSheetInstrument::Equity, sale.consideration - sale.quantity),
+                ]
+            }
             EconomicTransition::CreditCreation(credit) => {
                 let lender = sector_for(assignments, &credit.lender)?;
                 let borrower = sector_for(assignments, &credit.borrower)?;
@@ -228,6 +240,7 @@ fn apply_transition(state: &mut EconomicState, transition: &EconomicTransition) 
         EconomicTransition::Production(production) => state.apply_production(production),
         EconomicTransition::InventoryTransfer(transfer) => state.apply_inventory_transfer(transfer),
         EconomicTransition::InventoryConsumption(consumption) => state.apply_inventory_consumption(consumption),
+        EconomicTransition::GoodsSale(sale) => state.apply_goods_sale(sale),
         EconomicTransition::CreditCreation(credit) => state.create_credit(credit),
         EconomicTransition::DebtRepayment(repayment) => state.repay_debt(repayment),
     }
@@ -278,7 +291,7 @@ fn hash_postings(postings: &HashMap<StockKey, i128>) -> Result<String, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::economics::stock_flow::{ActorBalanceSheet, CapitalInvestment, ProductionEvent, InventoryTransfer, InventoryConsumption, CreditCreation, DebtRepayment, IncomeTransfer, MonetaryFlow};
+    use crate::economics::stock_flow::{ActorBalanceSheet, CapitalInvestment, ProductionEvent, InventoryTransfer, InventoryConsumption, GoodsSale, CreditCreation, DebtRepayment, IncomeTransfer, MonetaryFlow};
     use crate::economics::transition::apply_step;
 
     fn setup() -> (EconomicState, Vec<SectorAssignment>) {
