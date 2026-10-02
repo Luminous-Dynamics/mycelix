@@ -414,7 +414,7 @@ mod tests {
         assert_eq!(a.debt_repaid, 100);
         assert_eq!(a.net_credit(), 400);
         assert_eq!(a.monetary_transfer_total, 25);
-        assert_eq!(a.transition_count, 6);
+        assert_eq!(a.transition_count, 7);
         assert_eq!(a.hash().unwrap(), b.hash().unwrap());
     }
 
