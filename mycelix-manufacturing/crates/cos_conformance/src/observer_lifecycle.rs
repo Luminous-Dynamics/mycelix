@@ -1107,6 +1107,7 @@ pub fn assess_evidence_eligibility(
     }
 
     if !evidence.structurally_valid()
+        || !evidence.observation.commitment_matches()
         || !generation.structurally_valid()
         || !snapshot.structurally_valid()
         || !profile.commitment_matches()
@@ -1249,6 +1250,7 @@ pub fn eligibility_receipt_matches(
 ) -> bool {
     receipt.structurally_valid()
         && evidence.structurally_valid()
+        && evidence.observation.commitment_matches()
         && generation.structurally_valid()
         && snapshot.structurally_valid()
         && profile.commitment_matches()
@@ -1455,26 +1457,30 @@ mod tests {
         frontier_root: &str,
         state: ExternalObservedStateV1,
     ) -> ExternalObservedEvidenceV1 {
+        let mut observation = ExternalEffectObservationV1 {
+            observation_id: id.into(),
+            effect_id: "effect-1".into(),
+            effect_lineage_id: "lineage-1".into(),
+            lifecycle_generation_id: "generation-1".into(),
+            route_id: "route-1".into(),
+            provider_id: "provider-1".into(),
+            provider_operation_id: "operation-1".into(),
+            provider_profile_root: "provider-profile-1".into(),
+            provider_outcome_id: format!("outcome-{id}"),
+            request_commitment: "request-1".into(),
+            idempotency_key: "idem-1".into(),
+            semantic_environment_root: "env-1".into(),
+            observed_frontier_root: frontier_root.into(),
+            observed_state: state,
+            source: ExternalObservationSourceV1::IndependentObserver,
+            evidence_root: generation.evidence_root.clone(),
+            observation_commitment: String::new(),
+            claim_ceiling: crate::effect_finality::EXTERNAL_FINALITY_CLAIM_CEILING.into(),
+        };
+        observation.observation_commitment = observation.recomputed_commitment();
+
         ExternalObservedEvidenceV1 {
-            observation: ExternalEffectObservationV1 {
-                observation_id: id.into(),
-                effect_id: "effect-1".into(),
-                effect_lineage_id: "lineage-1".into(),
-                lifecycle_generation_id: "generation-1".into(),
-                route_id: "route-1".into(),
-                provider_id: "provider-1".into(),
-                provider_operation_id: "operation-1".into(),
-                provider_profile_root: "provider-profile-1".into(),
-                provider_outcome_id: format!("outcome-{id}"),
-                request_commitment: "request-1".into(),
-                idempotency_key: "idem-1".into(),
-                semantic_environment_root: "env-1".into(),
-                observed_frontier_root: frontier_root.into(),
-                observed_state: state,
-                source: ExternalObservationSourceV1::IndependentObserver,
-                evidence_root: generation.evidence_root.clone(),
-                claim_ceiling: crate::effect_finality::EXTERNAL_FINALITY_CLAIM_CEILING.into(),
-            },
+            observation,
             observer_id: generation.observer_id.clone(),
             observer: crate::contestable_finality::ExternalObserverProfileV1 {
                 observer_id: generation.observer_id.clone(),
@@ -1596,6 +1602,36 @@ mod tests {
             certificate_commitment: "rotation-commitment-1".into(),
             claim_ceiling: OBSERVER_LIFECYCLE_CLAIM_CEILING.into(),
         }
+    }
+
+    #[test]
+    fn stale_d6m_observation_commitment_is_rejected_at_d6o_boundary() {
+        let (ledger, generation, snapshot) = active_ledger();
+        let valid = evidence(
+            "obs-d6m-integrity",
+            &generation,
+            "frontier-1",
+            ExternalObservedStateV1::Applied,
+        );
+        assert!(valid.observation.commitment_matches());
+
+        let mut stale = valid.clone();
+        stale.observation.observed_state = ExternalObservedStateV1::Reversed;
+        assert!(!stale.observation.commitment_matches());
+
+        assert_eq!(
+            eligibility(
+                &ledger,
+                &stale,
+                &generation,
+                &snapshot,
+                ObserverLifecycleUsePurposeV1::CurrentFinalityEligibility,
+                ObservationClassificationV1::CorroboratingIndependent,
+                1,
+                1,
+            ),
+            EvidenceEligibilityDispositionV1::InsufficientEvidence
+        );
     }
 
     #[test]
