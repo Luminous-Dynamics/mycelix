@@ -221,6 +221,11 @@
       "id": "EDT-042",
       "case": "coverage_boundary_authority_scope_must_match_reconciliation_scope",
       "expected": "rejected"
+    },
+    {
+      "id": "EDT-043",
+      "case": "reconciliation_coverage_rejects_boundary_authority_scope_mismatch",
+      "expected": "rejected"
     }
   ]
 }
