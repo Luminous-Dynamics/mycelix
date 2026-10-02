@@ -805,6 +805,60 @@ mod tests {
     }
 
     #[test]
+    fn historical_reservation_can_terminate_after_listing_revision_bridge() {
+        let mut f = frontier(2);
+        let first = certificate_with_capacity("c1", 0, None, 1, 2);
+        assert_eq!(f.apply(FrontierEvent::Reserve(first)), Ok(ApplyOutcome::Applied));
+
+        let new_revision = hash(7);
+        assert_eq!(
+            f.apply(FrontierEvent::SetCapacity {
+                listing_hash: hash(3),
+                listing_revision: new_revision.clone(),
+                capacity: 2,
+                seller: agent(2),
+                sequence: 1,
+                previous_certificate_id: Some("c1".into()),
+            }),
+            Ok(ApplyOutcome::Applied)
+        );
+
+        assert_eq!(
+            f.apply(FrontierEvent::Release {
+                certificate_id: "c1".into(),
+                seller: agent(2),
+                sequence: 2,
+                previous_certificate_id: Some("capacity:1".into()),
+            }),
+            Ok(ApplyOutcome::Applied)
+        );
+        assert_eq!(f.active_reserved(), 0);
+        assert_eq!(f.available(), 2);
+        assert_eq!(f.listing_revision(), &new_revision);
+    }
+
+    #[test]
+    fn capacity_revision_cannot_reduce_below_existing_reservations() {
+        let mut f = frontier(3);
+        let first = certificate_with_capacity("c1", 0, None, 2, 3);
+        assert_eq!(f.apply(FrontierEvent::Reserve(first)), Ok(ApplyOutcome::Applied));
+
+        let error = f.apply(FrontierEvent::SetCapacity {
+            listing_hash: hash(3),
+            listing_revision: hash(8),
+            capacity: 1,
+            seller: agent(2),
+            sequence: 1,
+            previous_certificate_id: Some("c1".into()),
+        }).unwrap_err();
+
+        assert!(matches!(error, CertificateError::Capacity(ReservationError::CapacityBelowActive { .. })));
+        assert_eq!(f.active_reserved(), 2);
+        assert_eq!(f.capacity(), 3);
+        assert_eq!(f.listing_revision(), &hash(4));
+    }
+
+    #[test]
     fn consume_permanently_removes_capacity() {
         let mut f = frontier(1);
         f.apply(FrontierEvent::Reserve(certificate_with_capacity("c1", 0, None, 1, 1))).unwrap();
@@ -1557,7 +1611,6 @@ pub fn validate_create_reservation_capacity(
             .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Terminal predecessor has wrong certificate type".into())))?;
         if certificate.seller != evidence.seller
             || certificate.listing_hash != evidence.listing_hash
-            || certificate.listing_revision != evidence.listing_revision
             || terminal.sequence.checked_add(1) != Some(evidence.sequence)
         {
             return Ok(ValidateCallbackResult::Invalid(
