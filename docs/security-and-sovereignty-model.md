@@ -115,6 +115,7 @@ The bridge kernel now has an optional Ed25519 path behind the existing identity 
 - Authorization permits are additionally capped by `MAX_AUTHORIZATION_PERMIT_LIFETIME_US` (currently five minutes), so a long-lived capability cannot create an equally long-lived enforcement credential.
 - Permit lifetime is also bounded by the freshness lease of the verification evidence that produced it. A five-minute kernel cap is therefore a maximum, not a promise that five minutes of authority exists.
 - Enforcement revalidates both current revocation/authority state and the evidence freshness lease before effect; stale evidence cannot authorize merely because the permit itself has not expired.
+- Enforcement also revalidates an opaque authority-freshness commitment; evidence from a changed authority generation cannot silently extend an older permit.
 - `VerificationEvidence` is now opaque outside the bridge crate; callers cannot manufacture trusted evidence by supplying boolean fields.
 - The unbounded evidence-construction helper is test-only; production verification paths must supply an explicit bounded freshness lease.
 - The next adapter should consume the existing Mycelix institutional authority identity rather than inventing a second grant-hashing or authority-identity scheme. The canonical profile developed in PR #75 (`mycelix-authority-grant-v1-blake3-framed-semantic`) binds authority-relevant grant semantics, including proof lineage and delegation parent. That work remains a separate draft integration dependency.
@@ -173,7 +174,7 @@ When a security-critical authorization cannot be established deterministically, 
 
 ## Security event envelope
 
-Successful enforcement events produced from `EnforcementRequest` now carry the kernel-derived capability commitment in addition to any external capability reference. This makes the audit record able to distinguish the exact capability semantics that crossed the enforcement boundary from a caller-supplied label.
+Successful enforcement events produced from `EnforcementRequest` now carry the kernel-derived capability commitment in addition to any external capability reference. They also carry the opaque authority-freshness commitment supplied by the authority adapter. This makes the audit record able to distinguish the exact capability semantics and authority-generation evidence that crossed the enforcement boundary from caller-supplied labels.
 
 Security-sensitive events should converge toward a common conceptual envelope:
 
