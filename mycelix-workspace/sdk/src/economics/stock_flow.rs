@@ -366,9 +366,9 @@ impl EconomicState {
 
     /// Apply a deposit-settled income transfer.
     ///
-    /// Deposits move between actors while the payer's equity falls and the
-    /// recipient's equity rises by the same amount. This prevents income from
-    /// appearing as unexplained net worth.
+    /// Deposits move between actors. Net worth changes are represented by the
+    /// derived balance-sheet equity residual; there is intentionally no mutable
+    /// equity field to update separately, preventing double counting.
     pub fn apply_income_transfer(&mut self, transfer: &IncomeTransfer) -> Result<(), String> {
         let (payer, recipient) = self.actor_pair_mut(&transfer.payer, &transfer.recipient)?;
         if payer.monetary.deposits < transfer.amount {
