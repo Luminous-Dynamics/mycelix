@@ -254,11 +254,19 @@ impl ProcessIdentity {
 /// process observation, generation, and the sandbox policy that was required.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RendererLaunchReceipt {
-    pub assignment_id: RendererProcessAssignmentId,
-    pub renderer_process: RendererProcessId,
-    pub process: ProcessIdentity,
-    pub generation: u64,
-    pub sandbox: SandboxProfileV1,
+    assignment_id: RendererProcessAssignmentId,
+    renderer_process: RendererProcessId,
+    process: ProcessIdentity,
+    generation: u64,
+    sandbox: SandboxProfileV1,
+}
+
+impl RendererLaunchReceipt {
+    pub fn assignment_id(&self) -> RendererProcessAssignmentId { self.assignment_id }
+    pub fn renderer_process(&self) -> RendererProcessId { self.renderer_process }
+    pub fn process(&self) -> ProcessIdentity { self.process }
+    pub fn generation(&self) -> u64 { self.generation }
+    pub fn sandbox(&self) -> SandboxProfileV1 { self.sandbox }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
