@@ -35,7 +35,7 @@ pub use sector_flow::{EconomicSector, FlowCategory, SectorFlow, SectorTransactio
 
 pub use stock_flow::{
     ActorBalanceSheet, ActorId, CreditCreation, DebtRepayment, EconomicState, MonetaryFlow,
-    MonetaryStock, RealStock,
+    MonetaryInstrument, MonetaryStock, RealStock,
 };
 
 pub use transition::{
