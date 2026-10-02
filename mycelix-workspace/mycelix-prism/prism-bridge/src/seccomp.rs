@@ -477,6 +477,29 @@ mod linux {
         }
 
         #[test]
+        fn forbidden_renderer_policy_rejects_install_before_enforcement() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let policy = SeccompSyscallPolicyV1::new(
+                arch,
+                vec![libc::SYS_getpid, libc::SYS_ptrace],
+            )
+            .unwrap();
+            let profile = SandboxProfileV1::renderer_default()
+                .with_syscall_policy_digest(policy.digest())
+                .unwrap();
+
+            assert!(matches!(
+                install(
+                    RendererProcessAssignmentId::new(1).unwrap(),
+                    profile,
+                    &policy,
+                ),
+                Err(SeccompError::ForbiddenRendererSyscall(syscall))
+                    if syscall == libc::SYS_ptrace
+            ));
+        }
+
+        #[test]
         fn profile_policy_digest_is_part_of_profile_commitment() {
             let arch = SeccompArchitecture::current().unwrap();
             let policy = SeccompSyscallPolicyV1::new(arch, vec![libc::SYS_getpid]).unwrap();
@@ -496,16 +519,4 @@ mod linux {
             assert_ne!(a.digest(), b.digest());
         }
     }
-}
-
-#[cfg(target_os = "linux")]
-pub use linux::install;
-
-#[cfg(not(target_os = "linux"))]
-pub fn install(
-    _assignment_id: RendererProcessAssignmentId,
-    _profile: SandboxProfileV1,
-    _policy: &SeccompSyscallPolicyV1,
-) -> Result<SandboxEnforcementReceipt, SeccompError> {
-    Err(SeccompError::UnsupportedPlatform)
 }
