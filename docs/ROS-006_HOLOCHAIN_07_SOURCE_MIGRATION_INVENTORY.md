@@ -94,6 +94,46 @@ The 0.7 `must_get_agent_activity` response has additional deterministic failure 
 
 The source migration is not complete when Rust compiles. Holochain 0.7 removes tx5/WebRTC in favor of iroh/QUIC and removes obsolete conductor fields such as `signal_url` and `webrtc_config`. Host evidence belongs to the dedicated normalization effort.
 
+
+## Second-pass source findings
+
+A branch-head inspection was performed against `dd04521004d5d416043c5229ed98cecffd24e80f`. This pass confirms that the migration is not limited to the dispatcher names: several integrity zomes also read the pre-0.7 action fields directly.
+
+### Confirmed direct-field hotspots
+
+| File | Confirmed 0.6-shaped access | Migration implication |
+| --- | --- | --- |
+| `mycelix-civic/zomes/civic-bridge/integrity/src/lib.rs` | `action.author` in update/delete/link-delete checks; `original.action().author()` retained | Move only the current action access to `action.author()`; preserve both sides of the authorization comparison |
+| `mycelix-civic/zomes/emergency-incidents/integrity/src/lib.rs` | `action.author` in link/delete/application checks; `update.author` is an application entry field, not an Holochain action field | Do not mechanically rename every `.author`; distinguish Holochain action metadata from application data |
+| `mycelix-commons/zomes/property-registry/integrity/src/lib.rs` | `EntryCreationAction::Create`; direct `action.author`; helper constructors/tests using legacy action types | Migrate production signatures and test fixtures together |
+| `mycelix-commons/zomes/property-transfer/integrity/src/lib.rs` | `EntryCreationAction::Create`; direct `action.author`; test helper builds legacy `Create` | Treat tests as part of the API migration, not as post-migration cleanup |
+| `mycelix-commons/zomes/housing-membership/integrity/src/lib.rs` | direct `action.author` in link/update/delete/application validation | Preserve the distinction between action author and application-level actor fields |
+
+### Important false-positive guard
+
+The branch contains ordinary application fields named `author` and `update.author`. These are not Holochain 0.6 API uses and must not be rewritten. The migration should therefore be performed by typed/contextual transformation rather than a repository-wide text replacement of `.author`.
+
+### Coordinator boundary
+
+The next source pass should explicitly inventory coordinator `signal_action` implementations before any integrity migration is declared complete. Holochain 0.7 changes these matches from `Action::...` to `ActionData::...` over the action's `data` field. This is a separate migration unit from integrity validation and should be tracked independently so that a successful integrity compile cannot be mistaken for a complete zome migration.
+
+### Source-tree duplication remains a migration risk
+
+The branch audit already established byte-identical workspace roots for Civic and Commons. The API inventory must be applied to the actual source-of-truth path and then mirrored/verified where duplicate trees remain. Do not independently hand-edit duplicate trees: divergence here would create a false sense of migration completeness.
+
+### Recommended next implementation slice
+
+The safest next code slice is now narrower than a repository-wide rewrite:
+
+1. establish the 0.7 dependency graph in the real Nix/Cargo environment;
+2. migrate `civic-bridge/integrity` as the compiler fixture;
+3. compile and run its existing validation tests;
+4. capture the exact transformation pattern, including typed-action conversions and link-delete handling;
+5. inventory/migrate coordinator `signal_action` separately;
+6. propagate only after the fixture is proven.
+
+This keeps ROS-006's qualification boundary untouched and prevents a broad mechanical rewrite from changing application authorization semantics.
+
 ## Evidence gates
 
 For each migration unit, record evidence separately:
