@@ -25,6 +25,7 @@ pub enum BalanceSheetInstrument {
     Loans,
     Debt,
     DepositLiabilities,
+    Equity,
     ProductiveCapital,
     Resources,
 }
@@ -105,6 +106,13 @@ impl SectorBalanceSheet {
                     BalanceSheetInstrument::DepositLiabilities,
                     -m.deposit_liabilities,
                 ),
+                // Equity/net worth is the balance-sheet residual, not an
+                // independent asset. Store it on the signed liability side.
+                BalanceSheetEntry::new(
+                    assignment.sector,
+                    BalanceSheetInstrument::Equity,
+                    -actor.net_worth(),
+                ),
                 BalanceSheetEntry::new(
                     assignment.sector,
                     BalanceSheetInstrument::ProductiveCapital,
@@ -135,10 +143,11 @@ impl SectorBalanceSheet {
             .sum()
     }
 
-    /// Financial instrument rows should consolidate to zero.
+    /// Financial claim/liability rows should consolidate to zero.
     ///
-    /// Real assets intentionally do not: they represent tangible wealth rather
-    /// than claims on another sector.
+    /// Equity is intentionally excluded: it is the balancing item against
+    /// real assets, not a claim held by another sector. Cash is also excluded
+    /// until its issuer is explicitly modeled.
     pub fn financial_rows_clear(&self) -> bool {
         [
             // Cash/reserves may have an issuer outside the modeled sectors.
@@ -152,6 +161,23 @@ impl SectorBalanceSheet {
             self.entries
                 .iter()
                 .filter(|entry| entry.instrument == *instrument)
+                .map(|entry| entry.amount)
+                .sum::<i128>()
+                == 0
+        })
+    }
+
+    /// Each sector's signed balance sheet must satisfy assets + liabilities +
+    /// equity = 0. This catches unexplained stock changes while preserving the
+    /// fact that aggregate equity balances the sector's real wealth.
+    pub fn balance_sheet_identity_holds(&self) -> bool {
+        let mut sectors = self.entries.iter().map(|e| e.sector).collect::<Vec<_>>();
+        sectors.sort_by_key(|s| *s as u8);
+        sectors.dedup();
+        sectors.into_iter().all(|sector| {
+            self.entries
+                .iter()
+                .filter(|entry| entry.sector == sector)
                 .map(|entry| entry.amount)
                 .sum::<i128>()
                 == 0
@@ -181,6 +207,9 @@ impl SectorBalanceSheet {
 
         if !self.financial_rows_clear() {
             return Err("sector financial balance-sheet rows do not clear".into());
+        }
+        if !self.balance_sheet_identity_holds() {
+            return Err("sector balance-sheet identities do not hold".into());
         }
 
         Ok(())
@@ -218,6 +247,7 @@ mod tests {
 
         let sheet = SectorBalanceSheet::from_state(&state, &assignments).unwrap();
         assert!(sheet.financial_rows_clear());
+        assert!(sheet.balance_sheet_identity_holds());
         sheet.validate(&state, &assignments).unwrap();
         assert_eq!(
             sheet.sector_instrument_total(
@@ -255,6 +285,7 @@ mod tests {
 
         let sheet = SectorBalanceSheet::from_state(&state, &assignments).unwrap();
         assert!(sheet.financial_rows_clear());
+        assert!(sheet.balance_sheet_identity_holds());
         assert_eq!(
             sheet.sector_instrument_total(
                 EconomicSector::Household,
