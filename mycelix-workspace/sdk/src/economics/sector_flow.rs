@@ -138,6 +138,7 @@ impl SectorTransactionMatrix {
                 super::transition::EconomicTransition::InventoryConsumption(_) => continue,
                 super::transition::EconomicTransition::InventoryCostAddition(_) => continue,
                 super::transition::EconomicTransition::InventoryCostRelief(_) => continue,
+                super::transition::EconomicTransition::Depreciation(_) => continue,
                 super::transition::EconomicTransition::GoodsSale(sale) => {
                     (sale.seller.clone(), sale.buyer.clone(), FlowCategory::Other, sale.consideration)
                 }
