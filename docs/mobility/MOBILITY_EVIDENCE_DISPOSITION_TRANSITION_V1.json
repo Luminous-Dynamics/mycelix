@@ -411,6 +411,11 @@
       "id": "EDT-080",
       "case": "authority_delegation_direct_target_conflict_is_rejected",
       "expected": "rejected"
+    },
+    {
+      "id": "EDT-081",
+      "case": "reconciliation_coverage_assessment_rejects_present_descendant_of_missing_named_head",
+      "expected": "rejected"
     }
   ]
 }
