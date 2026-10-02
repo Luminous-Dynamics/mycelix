@@ -854,6 +854,129 @@ mod tests {
     }
 
     #[test]
+    fn closure_certificate_commitment_covers_every_semantic_field() {
+        let (projection, environment, derivation_profile) = projection(false);
+        let baseline = compute_dependency_closure(
+            &projection,
+            &environment,
+            &derivation_profile,
+            &profile(BTreeSet::new()),
+        )
+        .unwrap();
+        let expected = baseline.recompute();
+
+        let mut mutated = baseline.clone();
+        mutated.schema_version = "D6X-2".into();
+        assert_ne!(expected, mutated.recompute());
+
+        let mut mutated = baseline.clone();
+        mutated.algorithm_version = "D6X-CLOSURE-5".into();
+        assert_ne!(expected, mutated.recompute());
+
+        let mut mutated = baseline.clone();
+        mutated.closure_profile_commitment = "profile-other".into();
+        assert_ne!(expected, mutated.recompute());
+
+        let mut mutated = baseline.clone();
+        mutated.source_dkg_snapshot_commitment = "snapshot-other".into();
+        assert_ne!(expected, mutated.recompute());
+
+        let mut mutated = baseline.clone();
+        mutated.projection_commitment = "projection-other".into();
+        assert_ne!(expected, mutated.recompute());
+
+        let mut mutated = baseline.clone();
+        mutated.closure_identity_commitment = "identity-other".into();
+        assert_ne!(expected, mutated.recompute());
+
+        let mut mutated = baseline.clone();
+        mutated.semantic_environment_commitment = "environment-other".into();
+        assert_ne!(expected, mutated.recompute());
+
+        let mut mutated = baseline.clone();
+        mutated.derivation_profile_commitment = "derivation-profile-other".into();
+        assert_ne!(expected, mutated.recompute());
+
+        let mut mutated = baseline.clone();
+        mutated.root_node_ids.insert("another-root".into());
+        assert_ne!(expected, mutated.recompute());
+
+        let mut mutated = baseline.clone();
+        mutated.included_node_ids.insert("another-node".into());
+        assert_ne!(expected, mutated.recompute());
+
+        let mut mutated = baseline.clone();
+        mutated.included_node_commitments.insert("commit-another-node".into());
+        assert_ne!(expected, mutated.recompute());
+
+        let mut mutated = baseline.clone();
+        mutated.included_nodes.insert("another-node".into(), "commit-another-node".into());
+        assert_ne!(expected, mutated.recompute());
+
+        let mut mutated = baseline.clone();
+        mutated.included_d6p_receipt_commitments.insert("receipt-other".into());
+        assert_ne!(expected, mutated.recompute());
+
+        let mut mutated = baseline.clone();
+        mutated.included_edge_commitments.insert("edge-other".into());
+        assert_ne!(expected, mutated.recompute());
+
+        let mut mutated = baseline.clone();
+        mutated.included_edges.insert(
+            "edge-other".into(),
+            ("root".into(), "dep".into(), ClaimGraphEdgeKindV1::Supports, "edge-other".into()),
+        );
+        assert_ne!(expected, mutated.recompute());
+
+        let mut mutated = baseline.clone();
+        mutated.dependencies.insert(SemanticDependencyReferenceV1::node("extra", Some("commit-extra".into())));
+        assert_ne!(expected, mutated.recompute());
+
+        let mut mutated = baseline.clone();
+        mutated.missing_dependency_ids.insert("missing-other".into());
+        assert_ne!(expected, mutated.recompute());
+
+        let mut mutated = baseline.clone();
+        mutated.missing_dependencies.insert(SemanticDependencyReferenceV1::node("missing-other", None));
+        assert_ne!(expected, mutated.recompute());
+
+        let mut mutated = baseline.clone();
+        mutated.dependency_resolutions.insert(
+            SemanticDependencyReferenceV1::node("extra", Some("commit-extra".into())),
+            SemanticDependencyResolutionV1::Present,
+        );
+        assert_ne!(expected, mutated.recompute());
+
+        let mut mutated = baseline.clone();
+        mutated.resolution_evidence.insert(
+            SemanticDependencyReferenceV1::node("root", Some("commit-root".into())),
+            SemanticDependencyResolutionEvidenceV1 {
+                source: "other-source".into(),
+                observed_commitment: None,
+                qualification_context_commitment: None,
+            },
+        );
+        assert_ne!(expected, mutated.recompute());
+
+        let mut mutated = baseline.clone();
+        mutated.status = DependencyClosureStatusV1::BlockedResourceLimit;
+        assert_ne!(expected, mutated.recompute());
+
+        let mut mutated = baseline.clone();
+        mutated.cycle_detected = !mutated.cycle_detected;
+        assert_ne!(expected, mutated.recompute());
+
+        let mut mutated = baseline.clone();
+        mutated.claim_ceiling = "different-claim-ceiling".into();
+        assert_ne!(expected, mutated.recompute());
+
+        // The stored commitment itself is excluded from its own preimage.
+        let mut mutated = baseline;
+        mutated.commitment = "different-commitment".into();
+        assert_eq!(expected, mutated.recompute());
+    }
+
+    #[test]
     fn selected_node_commitment_changes_identity() {
         let (mut a,e,d)=projection(false); let p=profile(BTreeSet::new());
         let before=compute_dependency_closure(&a,&e,&d,&p).unwrap();
