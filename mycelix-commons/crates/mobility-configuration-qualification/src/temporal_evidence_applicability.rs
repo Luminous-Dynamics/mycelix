@@ -379,6 +379,115 @@ impl EvidenceDispositionReconciliation {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EvidenceDispositionReconciliationCoverage {
+    pub coverage_id: IdentityRef,
+    pub reconciliation: IdentityRef,
+    pub branch_point: IdentityRef,
+    pub covered_branch_heads: Vec<IdentityRef>,
+    pub boundary: IdentityRef,
+    pub basis: Vec<IdentityRef>,
+}
+
+impl EvidenceDispositionReconciliationCoverage {
+    pub fn validate(&self) -> Result<(), String> {
+        self.coverage_id.validate()?;
+        self.reconciliation.validate()?;
+        self.branch_point.validate()?;
+        self.boundary.validate()?;
+        if self.coverage_id.kind != IdentityKind::ReconciliationWitness {
+            return Err("reconciliation coverage identity must be a ReconciliationWitness".into());
+        }
+        if self.reconciliation.kind != IdentityKind::ReconciliationWitness {
+            return Err("reconciliation coverage must reference a ReconciliationWitness".into());
+        }
+        if !matches!(self.branch_point.kind, IdentityKind::EvidenceRecord | IdentityKind::ReconciliationWitness) {
+            return Err("reconciliation coverage branch point must be a transition identity".into());
+        }
+        if !matches!(self.boundary.kind, IdentityKind::EvidenceRecord | IdentityKind::ReconciliationWitness) {
+            return Err("reconciliation coverage boundary must be an addressable witness".into());
+        }
+        if self.covered_branch_heads.is_empty() {
+            return Err("reconciliation coverage requires at least one covered branch head".into());
+        }
+        let mut heads = std::collections::BTreeSet::new();
+        for head in &self.covered_branch_heads {
+            head.validate()?;
+            if !matches!(head.kind, IdentityKind::EvidenceRecord | IdentityKind::ReconciliationWitness) {
+                return Err("reconciliation coverage branch head must be a transition identity".into());
+            }
+            if !heads.insert(head.clone()) {
+                return Err("reconciliation coverage branch heads must be unique".into());
+            }
+            if head == &self.coverage_id || head == &self.reconciliation {
+                return Err("reconciliation coverage branch head cannot equal a coverage or reconciliation identity".into());
+            }
+        }
+        for basis in &self.basis {
+            basis.validate()?;
+            if !matches!(basis.kind, IdentityKind::EvidenceRecord | IdentityKind::ReconciliationWitness) {
+                return Err("reconciliation coverage basis must be an addressable witness".into());
+            }
+        }
+        Ok(())
+    }
+
+    /// Validates a bounded, explicitly named coverage set. It does not
+    /// enumerate the DHT or establish global completeness.
+    pub fn validate_against_graph(
+        &self,
+        reconciliation: &EvidenceDispositionReconciliation,
+        transitions: &[EvidenceDispositionTransition],
+    ) -> Result<(), String> {
+        self.validate()?;
+        reconciliation.validate_against_graph(transitions)?;
+        if self.reconciliation != reconciliation.reconciliation_id {
+            return Err("reconciliation coverage references a different reconciliation".into());
+        }
+        if self.branch_point != reconciliation.branch_point {
+            return Err("reconciliation coverage references a different branch point".into());
+        }
+        for head in &reconciliation.branch_heads {
+            if !self.covered_branch_heads.contains(head) {
+                return Err("reconciliation branch head is outside the declared coverage set".into());
+            }
+        }
+        let mut by_id = std::collections::BTreeMap::new();
+        for transition in transitions {
+            if by_id.insert(transition.transition_id.clone(), transition).is_some() {
+                return Err("duplicate disposition transition identity".into());
+            }
+        }
+        let branch_point = by_id.get(&self.branch_point)
+            .ok_or_else(|| "reconciliation coverage branch point is missing".to_string())?;
+        for head_id in &self.covered_branch_heads {
+            if head_id == &self.branch_point {
+                return Err("reconciliation coverage branch head cannot equal the branch point".into());
+            }
+            let mut cursor = by_id.get(head_id)
+                .ok_or_else(|| format!("reconciliation coverage branch head is missing: {}", head_id.id))?;
+            if cursor.evidence != branch_point.evidence {
+                return Err("reconciliation coverage branch head belongs to different evidence".into());
+            }
+            let mut seen = std::collections::BTreeSet::new();
+            loop {
+                if !seen.insert(cursor.transition_id.clone()) {
+                    return Err("reconciliation coverage graph contains a predecessor cycle".into());
+                }
+                if cursor.transition_id == self.branch_point {
+                    break;
+                }
+                let predecessor = cursor.predecessor.as_ref()
+                    .ok_or_else(|| "reconciliation coverage branch head does not descend from branch point".to_string())?;
+                cursor = by_id.get(predecessor)
+                    .ok_or_else(|| "reconciliation coverage ancestry is unresolved".to_string())?;
+            }
+        }
+        Ok(())
+    }
+}
+
 impl EvidenceDisposition {
     pub fn validate(&self, evidence: &IdentityRef) -> Result<(), String> {
         let witness = match self {
