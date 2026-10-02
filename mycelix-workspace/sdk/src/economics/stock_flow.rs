@@ -140,6 +140,7 @@ pub enum EconomicFlowCategory {
     Tax,
     Transfer,
     Consumption,
+    Investment,
 }
 
 impl EconomicFlowCategory {
@@ -150,6 +151,7 @@ impl EconomicFlowCategory {
             Self::Tax => "tax",
             Self::Transfer => "transfer",
             Self::Consumption => "consumption",
+            Self::Investment => "investment",
         }
     }
 }
@@ -186,6 +188,37 @@ impl IncomeTransfer {
             recipient: recipient.into(),
             amount,
             category,
+        })
+    }
+}
+
+/// Capital formation paid for through a deposit transfer.
+///
+/// The buyer exchanges deposits for newly-formed productive capital. The
+/// producer receives the deposits; the buyer's net worth is unchanged because
+/// one asset is exchanged for another, while the producer's net worth rises
+/// through the sale proceeds. This is the minimal real/financial bridge for
+/// investment before inventories and production functions are introduced.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CapitalInvestment {
+    pub buyer: ActorId,
+    pub producer: ActorId,
+    pub amount: i128,
+}
+
+impl CapitalInvestment {
+    pub fn new(
+        buyer: impl Into<ActorId>,
+        producer: impl Into<ActorId>,
+        amount: i128,
+    ) -> Result<Self, String> {
+        if amount <= 0 {
+            return Err("capital investment amount must be positive".into());
+        }
+        Ok(Self {
+            buyer: buyer.into(),
+            producer: producer.into(),
+            amount,
         })
     }
 }
@@ -353,6 +386,37 @@ impl EconomicState {
         self.monetary_flow_volume = self
             .monetary_flow_volume
             .checked_add(transfer.amount)
+            .ok_or_else(|| "monetary flow counter overflow".to_string())?;
+        Ok(())
+    }
+
+    /// Settle a capital investment: deposits move from buyer to producer and
+    /// newly-formed productive capital is recorded by the buyer.
+    pub fn apply_capital_investment(
+        &mut self,
+        investment: &CapitalInvestment,
+    ) -> Result<(), String> {
+        let (buyer, producer) = self.actor_pair_mut(&investment.buyer, &investment.producer)?;
+        if buyer.monetary.deposits < investment.amount {
+            return Err(format!(
+                "insufficient deposits for {}: have {}, need {}",
+                buyer.actor, buyer.monetary.deposits, investment.amount
+            ));
+        }
+        buyer.monetary.deposits -= investment.amount;
+        buyer.real.productive_capital = buyer
+            .real
+            .productive_capital
+            .checked_add(investment.amount)
+            .ok_or_else(|| "productive capital overflow".to_string())?;
+        producer.monetary.deposits = producer
+            .monetary
+            .deposits
+            .checked_add(investment.amount)
+            .ok_or_else(|| "producer deposit overflow".to_string())?;
+        self.monetary_flow_volume = self
+            .monetary_flow_volume
+            .checked_add(investment.amount)
             .ok_or_else(|| "monetary flow counter overflow".to_string())?;
         Ok(())
     }
