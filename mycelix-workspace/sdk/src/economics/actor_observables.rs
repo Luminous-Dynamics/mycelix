@@ -48,6 +48,8 @@ pub struct ActorEconomicObservables {
     /// Liquidity changes from generic monetary transfers whose economic
     /// purpose is not further classified by the transition type.
     pub other_liquidity_change: i128,
+    #[serde(default)]
+    pub opening_net_working_capital: i128,
     pub net_working_capital_change: i128,
     pub loan_claims: i128,
     pub debt: i128,
@@ -101,6 +103,7 @@ impl ActorEconomicObservables {
                         .cash
                         .checked_add(actor.monetary.deposits)
                         .ok_or_else(|| format!("liquidity overflow for {}", actor.actor))?,
+                    opening_net_working_capital: actor.net_working_capital(),
                     ..Self::default()
                 },
             );
@@ -343,6 +346,13 @@ impl ActorEconomicObservables {
     }
 
     /// Verify that every observed liquidity change is classified exactly once.
+    /// Verify the period opening/closing net working-capital identity.
+    pub fn net_working_capital_stock_flow_reconciliation_holds(&self) -> bool {
+        self.opening_net_working_capital
+            .checked_add(self.net_working_capital_change)
+            == Some(self.net_working_capital())
+    }
+
     /// Verify the period opening/closing liquidity stock-flow identity.
     pub fn liquidity_stock_flow_reconciliation_holds(&self) -> bool {
         self.opening_liquidity
@@ -575,6 +585,7 @@ mod tests {
         );
         assert_eq!(firm.net_liquidity_change, 210);
         assert!(firm.liquidity_stock_flow_reconciliation_holds());
+        assert!(firm.net_working_capital_stock_flow_reconciliation_holds());
         assert_eq!(firm.operating_liquidity_change(), 30);
         assert_eq!(firm.financing_net_liquidity(), 180);
         assert_eq!(firm.investing_net_liquidity(), 0);
