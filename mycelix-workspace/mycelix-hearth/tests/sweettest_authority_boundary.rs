@@ -131,3 +131,52 @@ async fn test_invalid_capability_is_rejected_before_zome_dispatch() {
         other => panic!("expected ZomeCalled response, got {other:?}"),
     }
 }
+
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "requires Holochain conductor (nix develop)"]
+async fn test_authorized_call_reaches_zome_and_is_semantically_rejected() {
+    let mut conductor = SweetConductor::standard().await;
+    let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
+
+    let (alice,) = conductor
+        .setup_app("test-app", &[dna_file])
+        .await
+        .unwrap()
+        .into_tuple();
+
+    // This function deliberately rejects every invocation inside the zome. The
+    // valid author signature and absent capability secret prove the request crosses
+    // Holochain authorization before the rejection is produced by Hearth itself.
+    let payload = serde_json::json!({
+        "membership_hash": ActionHash::from_raw_36(vec![0u8; 36]),
+        "new_role": "Adult"
+    });
+    let signed = signed_call(
+        &conductor,
+        alice.cell_id(),
+        "update_member_role",
+        payload,
+        None,
+    )
+    .await;
+
+    let response = submit_call(&conductor, signed).await;
+
+    match response {
+        AppResponse::ZomeCalled(result) => match *result {
+            ZomeCallResponse::Ok(_) => {
+                panic!("disabled role mutation unexpectedly succeeded")
+            }
+            ZomeCallResponse::Err(error) => {
+                let message = format!("{error:?}");
+                assert!(
+                    message.contains("Role changes are disabled"),
+                    "expected Hearth semantic rejection, got {message}"
+                );
+            }
+            other => panic!("expected semantic zome rejection, got {other:?}"),
+        },
+        other => panic!("expected ZomeCalled response, got {other:?}"),
+    }
+}
