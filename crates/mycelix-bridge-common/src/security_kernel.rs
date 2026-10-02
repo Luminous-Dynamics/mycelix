@@ -511,19 +511,6 @@ pub fn verify_capability(
     })
 }
 
-/// Evaluate authorization from verified credentials and an explicit request.
-///
-/// This is the only public path that can produce Allow.
-pub fn authorize(
-    verified: &VerifiedCapability,
-    request: &AuthorizationRequest,
-    now_us: u64,
-) -> AuthorizationDecision {
-    authorize_permit(verified, request, now_us)
-        .map(|_| AuthorizationDecision::Allow)
-        .unwrap_or_else(|decision| decision)
-}
-
 /// Revalidate a previously issued permit at the enforcement boundary.
 ///
 /// This closes the most important authorization TOCTOU window represented by
@@ -764,10 +751,7 @@ mod tests {
 
     #[test]
     fn valid_capability_allows_granted_action() {
-        assert_eq!(
-            authorize(&verified(), &request(CapabilityAction::Read), 150),
-            AuthorizationDecision::Allow
-        );
+        assert!(authorize_permit(&verified(), &request(CapabilityAction::Read), 150).is_ok());
     }
 
     #[test]
@@ -1094,16 +1078,16 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            authorize(&verified(), &req, 150),
-            AuthorizationDecision::Deny(AuthorizationDenial::SubjectMismatch)
+            authorize_permit(&verified(), &req, 150),
+            Err(AuthorizationDecision::Deny(AuthorizationDenial::SubjectMismatch))
         );
     }
 
     #[test]
     fn ungranted_action_is_denied() {
         assert_eq!(
-            authorize(&verified(), &request(CapabilityAction::Admin), 150),
-            AuthorizationDecision::Deny(AuthorizationDenial::ActionNotGranted)
+            authorize_permit(&verified(), &request(CapabilityAction::Admin), 150),
+            Err(AuthorizationDecision::Deny(AuthorizationDenial::ActionNotGranted))
         );
     }
 
@@ -1117,16 +1101,16 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            authorize(&verified(), &req, 150),
-            AuthorizationDecision::Deny(AuthorizationDenial::PolicyVersionMismatch)
+            authorize_permit(&verified(), &req, 150),
+            Err(AuthorizationDecision::Deny(AuthorizationDenial::PolicyVersionMismatch))
         );
     }
 
     #[test]
     fn expired_capability_is_denied() {
         assert_eq!(
-            authorize(&verified(), &request(CapabilityAction::Read), 201),
-            AuthorizationDecision::Deny(AuthorizationDenial::OutsideValidityWindow)
+            authorize_permit(&verified(), &request(CapabilityAction::Read), 201),
+            Err(AuthorizationDecision::Deny(AuthorizationDenial::OutsideValidityWindow))
         );
     }
 
