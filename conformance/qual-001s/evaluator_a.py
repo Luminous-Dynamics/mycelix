@@ -157,7 +157,7 @@ ao = json.loads((ROOT / "s0_authority_observation_v1.example.json").read_text(en
 for key in (
     "schema", "profile", "epoch_id", "repository_id", "repository_full_name",
     "s0_workflow_source_commit_sha", "s1_workflow_source_commit_sha",
-    "dispatch_nonce_hex", "dispatch_ref", "dispatch_input_commitment_sha256",
+    "dispatch_nonce_hex", "dispatch_ref", "dispatch_input_commitment_sha256", "dispatch_input_canonical_json",
     "authenticated_principal_identity", "policy_scope_identity", "observation_timestamp", "event_type",
     "request_authentication", "actor_authorization", "event_authorization",
     "workflow_source_authentication", "dispatch_result", "run_attribution", "observation_state"
@@ -175,6 +175,16 @@ if ao["run_attribution"]["state"] not in {"OBSERVED", "UNOBSERVED", "CONTRADICTE
     fail("invalid S0 run attribution state")
 if not re.fullmatch(r"^[0-9a-f]{64}$", ao["dispatch_input_commitment_sha256"]):
     fail("invalid S0 dispatch input commitment")
+try:
+    dispatch_inputs = json.loads(ao["dispatch_input_canonical_json"], object_pairs_hook=reject_duplicates)
+except Exception as exc:
+    fail(f"invalid canonical dispatch inputs: {exc}")
+if not isinstance(dispatch_inputs, dict):
+    fail("canonical dispatch inputs must be a JSON object")
+if canonical_jcs_json(dispatch_inputs) != ao["dispatch_input_canonical_json"]:
+    fail("dispatch input bytes are not canonical JCS")
+if hashlib.sha256(ao["dispatch_input_canonical_json"].encode("utf-8")).hexdigest() != ao["dispatch_input_commitment_sha256"]:
+    fail("dispatch input commitment does not match canonical input bytes")
 if ao["dispatch_ref"] != "main":
     fail("wrong S0 dispatch ref")
 if ao["run_attribution"]["state"] == "UNOBSERVED" and len(ao["run_attribution"]) != 1:
@@ -183,5 +193,7 @@ for field in ("request_authentication", "actor_authorization", "event_authorizat
     d = ao[field]
     if d["state"] == "OBSERVED" and ("rule_id" not in d or "principal_identity" not in d):
         fail(f"S0 {field} lacks observed authority identity")
+if ao["request_authentication"]["state"] == "OBSERVED" and ao["request_authentication"]["principal_identity"] != ao["authenticated_principal_identity"]:
+    fail("top-level authenticated principal disagrees with request authentication")
 
 print("QUAL-001S evaluator A: PASS")
