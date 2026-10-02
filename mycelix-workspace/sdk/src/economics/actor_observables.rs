@@ -47,6 +47,8 @@ pub struct ActorEconomicObservables {
     pub net_liquidity_change: i128,
     pub loan_claims: i128,
     pub debt: i128,
+    pub trade_receivables: i128,
+    pub trade_payables: i128,
     pub inventory_quantity: i128,
     pub inventory_carrying_value: i128,
     pub productive_capital: i128,
@@ -56,6 +58,9 @@ pub struct ActorEconomicObservables {
     pub credit_received: i128,
     pub credit_originated: i128,
     pub debt_repaid: i128,
+    pub trade_credit_received: i128,
+    pub trade_credit_extended: i128,
+    pub trade_credit_settled: i128,
     pub interest_paid: i128,
     pub interest_received: i128,
     pub wages_paid: i128,
@@ -89,6 +94,8 @@ impl ActorEconomicObservables {
                     liquidity: actor.monetary.cash + actor.monetary.deposits,
                     loan_claims: actor.monetary.claims,
                     debt: actor.monetary.liabilities,
+                    trade_receivables: actor.monetary.trade_receivables,
+                    trade_payables: actor.monetary.trade_payables,
                     inventory_quantity: actor.real.inventories,
                     inventory_carrying_value: actor.inventory_carrying_value,
                     productive_capital: actor.real.productive_capital,
@@ -132,6 +139,39 @@ impl ActorEconomicObservables {
                         &mut observations.get_mut(&credit.borrower).unwrap().credit_received,
                         credit.amount,
                         "actor credit received",
+                    )?;
+                }
+                EconomicTransition::TradeCreditSale(sale) => {
+                    ensure_actor(&sale.seller)?;
+                    ensure_actor(&sale.buyer)?;
+                    add_checked(
+                        &mut observations.get_mut(&sale.seller).unwrap().trade_credit_extended,
+                        sale.consideration,
+                        "actor trade credit extended",
+                    )?;
+                    add_checked(
+                        &mut observations.get_mut(&sale.buyer).unwrap().trade_credit_received,
+                        sale.consideration,
+                        "actor trade credit received",
+                    )?;
+                    add_checked(
+                        &mut observations.get_mut(&sale.seller).unwrap().sales_revenue,
+                        sale.consideration,
+                        "actor trade-credit sales revenue",
+                    )?;
+                    add_checked(
+                        &mut observations.get_mut(&sale.buyer).unwrap().goods_purchases,
+                        sale.consideration,
+                        "actor trade-credit goods purchases",
+                    )?;
+                }
+                EconomicTransition::TradeCreditSettlement(settlement) => {
+                    ensure_actor(&settlement.seller)?;
+                    ensure_actor(&settlement.buyer)?;
+                    add_checked(
+                        &mut observations.get_mut(&settlement.buyer).unwrap().trade_credit_settled,
+                        settlement.amount,
+                        "actor trade credit settled",
                     )?;
                 }
                 EconomicTransition::DebtRepayment(repayment) => {
@@ -224,23 +264,41 @@ impl ActorEconomicObservables {
     }
 
     pub fn gross_debt_service(&self) -> i128 {
-        self.interest_paid + self.debt_repaid
+        self.interest_paid
+            .checked_add(self.debt_repaid)
+            .expect("actor debt-service overflow")
     }
 
     pub fn gross_surplus(&self) -> i128 {
-        self.sales_revenue - self.cost_of_goods_sold
+        self.sales_revenue
+            .checked_sub(self.cost_of_goods_sold)
+            .expect("actor surplus overflow")
     }
 
     pub fn operating_surplus_after_depreciation(&self) -> i128 {
-        self.gross_surplus() - self.depreciation
+        self.gross_surplus()
+            .checked_sub(self.depreciation)
+            .expect("actor operating-surplus overflow")
     }
 
     pub fn financing_net_liquidity(&self) -> i128 {
-        self.credit_received - self.debt_repaid
+        self.credit_received
+            .checked_sub(self.debt_repaid)
+            .expect("actor financing liquidity overflow")
     }
 
     pub fn investing_net_liquidity(&self) -> i128 {
-        self.investment_received - self.investment_paid
+        self.investment_received
+            .checked_sub(self.investment_paid)
+            .expect("actor investing liquidity overflow")
+    }
+
+    /// Monetary operating working capital excludes cash and deposits.
+    pub fn net_working_capital(&self) -> i128 {
+        self.inventory_carrying_value
+            .checked_add(self.trade_receivables)
+            .and_then(|value| value.checked_sub(self.trade_payables))
+            .expect("actor working-capital overflow")
     }
 
     /// Liquidity change not explained by explicitly classified financing or
@@ -290,6 +348,10 @@ fn affected_actors(transition: &EconomicTransition) -> Vec<ActorId> {
         }
         EconomicTransition::InventoryConsumption(consumption) => vec![consumption.consumer.clone()],
         EconomicTransition::GoodsSale(sale) => vec![sale.seller.clone(), sale.buyer.clone()],
+        EconomicTransition::TradeCreditSale(sale) => vec![sale.seller.clone(), sale.buyer.clone()],
+        EconomicTransition::TradeCreditSettlement(settlement) => {
+            vec![settlement.seller.clone(), settlement.buyer.clone()]
+        }
         EconomicTransition::InventoryCostAddition(addition) => vec![addition.actor.clone()],
         EconomicTransition::InventoryCostRelief(relief) => vec![relief.actor.clone()],
         EconomicTransition::Depreciation(depreciation) => vec![depreciation.actor.clone()],
@@ -318,6 +380,10 @@ fn apply_transition(
             state.apply_inventory_consumption(consumption)
         }
         EconomicTransition::GoodsSale(sale) => state.apply_goods_sale(sale),
+        EconomicTransition::TradeCreditSale(sale) => state.apply_trade_credit_sale(sale),
+        EconomicTransition::TradeCreditSettlement(settlement) => {
+            state.apply_trade_credit_settlement(settlement)
+        }
         EconomicTransition::InventoryCostAddition(addition) => {
             state.apply_inventory_cost_addition(addition)
         }
@@ -403,6 +469,34 @@ mod tests {
             observables.financing_regime(100, 50, 100).unwrap(),
             FinancingRegime::Speculative
         );
+    }
+
+    #[test]
+    fn working_capital_observation_tracks_deferred_sales_and_settlement() {
+        let mut firm = ActorBalanceSheet::new("firm");
+        firm.monetary.deposits = 100;
+        firm.real.inventories = 10;
+        firm.inventory_carrying_value = 50;
+        let mut household = ActorBalanceSheet::new("household");
+        household.monetary.deposits = 100;
+
+        let state = EconomicState::new(vec![firm, household]);
+        let transitions = vec![
+            EconomicTransition::TradeCreditSale(
+                TradeCreditSale::new("firm", "household", 4, 80).unwrap(),
+            ),
+            EconomicTransition::TradeCreditSettlement(
+                TradeCreditSettlement::new("firm", "household", 30).unwrap(),
+            ),
+        ];
+        let observations = ActorEconomicObservables::from_state_and_transitions(&state, &transitions).unwrap();
+
+        let firm = &observations["firm"];
+        assert_eq!(firm.trade_credit_extended, 80);
+        assert_eq!(firm.sales_revenue, 80);
+        assert_eq!(firm.trade_receivables, 50);
+        assert_eq!(firm.net_working_capital(), 100);
+        assert_eq!(firm.net_liquidity_change, 30);
     }
 
     #[test]
