@@ -1804,7 +1804,9 @@ pub fn validate_create_reservation_certificate(
             "ReservationCertificate unit price does not match the bound listing revision".into(),
         ));
     }
-    if certificate.sequence == 0 && certificate.pre_state.capacity != _revision_listing.quantity_available {
+    if certificate.sequence == 0
+        && certificate.pre_state.capacity != _revision_listing.quantity_available
+    {
         return Ok(ValidateCallbackResult::Invalid(
             "Genesis reservation capacity does not match the bound listing revision inventory".into(),
         ));
@@ -1930,7 +1932,8 @@ pub fn validate_create_reservation_certificate(
                     "Previous frontier terminal evidence belongs to another seller".into(),
                 ));
             }
-            let terminal_certificate = must_get_valid_record(previous_terminal.certificate_hash.clone())?;
+            let terminal_certificate =
+                must_get_valid_record(previous_terminal.certificate_hash.clone())?;
             let terminal_certificate = terminal_certificate
                 .entry()
                 .to_app_option::<ReservationCertificate>()
