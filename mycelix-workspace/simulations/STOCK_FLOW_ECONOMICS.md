@@ -74,7 +74,7 @@ The individual balance sheet model was tightened again: **cash**, **deposits**, 
 
 ### 1. Sector balance-sheet matrix
 
-The sector transaction matrix is intentionally not yet treated as a balance-sheet matrix. Its current `clears()` check only establishes aggregate sector conservation; it cannot by itself prove that sector stocks changed consistently. The next increment is therefore a real sector balance-sheet matrix, with instrument rows (deposits, loans, cash/reserves, equity, etc.) and sector columns, followed by explicit reconciliation against actor-level state.
+The actor-to-sector reconciliation layer is now present. `SectorBalanceSheet::from_state` deterministically consolidates actors into sectors, while `financial_rows_clear()` checks modeled claim/liability rows. Cash is deliberately treated as issuer-backed residual until a central-bank/public-money instrument is explicitly modeled. The existing sector transaction matrix remains a flow layer; the balance sheet is now the stock layer that it must reconcile against.
 
 Add explicit sectors:
 
@@ -191,3 +191,10 @@ Before adding autonomous policy adaptation:
 5. Scenario outputs are deterministic under fixed seed/model version.
 6. Every policy intervention is represented as an explicit input.
 7. Simulation evidence is reproducible from a pinned configuration.
+
+
+## Research update: why the matrix matters
+
+The research cross-check reinforces the architecture. SFC models conventionally use two linked structures: a balance-sheet matrix for stocks and a transactions-flow matrix for flows. Financial rows/columns clear because a financial asset held by one sector is a liability or counterpart position elsewhere. Recent SFC energy-transition work continues to use this structure, including explicit deposits and bank loans. citeturn0search1turn0search13
+
+Ecological SFC research goes one step further by explicitly formalising monetary and physical stocks and flows together, including resource constraints and thermodynamic accounting. That supports treating the Mycelix financial substrate as one layer rather than the whole economic ontology. citeturn0search0turn0search3
