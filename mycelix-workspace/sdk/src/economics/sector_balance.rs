@@ -16,8 +16,8 @@ use super::stock_flow::{ActorId, EconomicState};
 /// A signed sector balance-sheet entry.
 ///
 /// Positive values are sector assets; negative values are sector liabilities.
-/// Real assets survive consolidation because they have no matching financial
-/// liability inside the closed financial matrix.
+/// Monetary-valued real assets survive consolidation because they have no
+/// matching financial liability inside the closed financial matrix.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum BalanceSheetInstrument {
     Cash,
@@ -246,9 +246,9 @@ impl SectorBalanceSheet {
         })
     }
 
-    /// Each sector's signed balance sheet must satisfy assets + liabilities +
-    /// equity = 0. This catches unexplained stock changes while preserving the
-    /// fact that aggregate equity balances the sector's real wealth.
+    /// Each sector's signed monetary balance sheet must satisfy assets +
+    /// liabilities + equity = 0. Physical quantities are reconciled separately
+    /// and are never added to currency-denominated rows.
     pub fn balance_sheet_identity_holds(&self) -> bool {
         let mut sectors = self.entries.iter().map(|e| e.sector).collect::<Vec<_>>();
         sectors.sort_by_key(|s| *s as u8);
