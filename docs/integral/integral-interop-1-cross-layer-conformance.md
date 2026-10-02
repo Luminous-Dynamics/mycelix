@@ -93,3 +93,14 @@ Selected graph mutations must propagate through D6X and D6W even when the origin
 This deliberately separates the **source semantic boundary** from the **qualified graph boundary**: a graph can change without the upstream OAD semantic projection changing, and the test must prove whether that graph mutation is inside or outside the declared D6X dependency policy.
 
 The public Integral documentation currently describes the OAD → COS Certified Design Package as the contract that carries the certified design's production-plan information, while the project's technical-specification page labels the Certified Design data structure as DRAFT and the OAD → COS interface as PENDING. This is why these vectors remain explicitly ReferenceModelOnly rather than being presented as a ratified Integral protocol. citeturn0search22turn0search3
+
+
+## Canonicalization interoperability boundary
+
+The D6S canonicalizer deliberately shares an important interoperability property with RFC 8785 JCS: recursive JSON object-property ordering is based on UTF-16 code units, while array order is preserved. RFC 8785 defines this ordering explicitly for deterministic JSON representations. citeturn644921search0turn644921search24
+
+D6S-CANON-1 is nevertheless **not** declared JCS-compatible. Its numeric policy is intentionally narrower: non-integral JSON numbers are rejected rather than serialized using JCS/ECMAScript number rules. Its domain-separated hash construction is also specific to this reference model.
+
+This distinction is useful for cross-runtime implementation work: the shared sorting rule can be reused as a conceptual interoperability anchor, while the exact byte contract remains the repository's own frozen specification until an explicit cross-language protocol is adopted.
+
+The provenance model follows the same philosophy at a semantic level. W3C PROV treats provenance validity as a consistency problem with explicit constraints, including uniqueness, event ordering, impossibility, and typing constraints, rather than treating an internally well-formed record as automatically authoritative. citeturn644921search2
