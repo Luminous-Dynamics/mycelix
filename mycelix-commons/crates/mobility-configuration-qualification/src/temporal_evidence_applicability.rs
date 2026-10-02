@@ -1228,9 +1228,9 @@ mod tests {
             ],
             authority: id(IdentityKind::ReconciliationWitness, "authority-1"),
             authority_scope: id(IdentityKind::ReconciliationWitness, "authority-scope-1"),
-            basis: vec![id(IdentityKind::ReconciliationWitness, "basis-1")],
+            basis: vec![],
         };
-        assert!(reconciliation.validate_against_graph((&authority_scope("reconcile-placeholder"), &[root, left, right]).is_ok());
+        assert!(reconciliation.validate_against_graph(&authority_scope(&reconciliation.reconciliation_id.id), &[root, left, right]).is_ok());
     }
 
 
@@ -1259,7 +1259,7 @@ mod tests {
             authority_scope: id(IdentityKind::ReconciliationWitness, "authority-scope-1"),
             basis: vec![],
         };
-        assert!(reconciliation.validate_against_graph((&authority_scope("reconcile-placeholder"), &[root, right]).is_err());
+        assert!(reconciliation.validate_against_graph(&authority_scope(&reconciliation.reconciliation_id.id), &[root, right]).is_err());
     }
 
     #[test]
@@ -1289,7 +1289,7 @@ mod tests {
             authority_scope: id(IdentityKind::ReconciliationWitness, "authority-scope-1"),
             basis: vec![],
         };
-        assert!(reconciliation.validate_against_graph((&authority_scope("reconcile-placeholder"), &[root, first, second]).is_err());
+        assert!(reconciliation.validate_against_graph(&authority_scope(&reconciliation.reconciliation_id.id), &[root, first, second]).is_err());
     }
 
 
@@ -1338,7 +1338,7 @@ mod tests {
             reconciliation: id(IdentityKind::ReconciliationWitness, "reconcile-coverage"),
             branch_point: id(IdentityKind::ReconciliationWitness, "t1"),
             covered_branch_heads: vec![id(IdentityKind::ReconciliationWitness, "t2"), id(IdentityKind::ReconciliationWitness, "t3")],
-            boundary: id(IdentityKind::EvidenceRecord, "enumeration-boundary-1"),
+            boundary: id(IdentityKind::ReconciliationWitness, "enumeration-boundary-1"),
             basis: vec![],
         };
         assert!(coverage.validate_against_graph(&reconciliation, &authority_scope(&reconciliation.reconciliation_id.id), &coverage_boundary(), &[root, left, right]).is_ok());
@@ -1375,7 +1375,7 @@ mod tests {
                 id(IdentityKind::ReconciliationWitness, "t2"),
                 id(IdentityKind::ReconciliationWitness, "t3"),
             ],
-            boundary: id(IdentityKind::EvidenceRecord, "enumeration-boundary-1"),
+            boundary: id(IdentityKind::ReconciliationWitness, "enumeration-boundary-1"),
             basis: vec![],
         };
         assert!(coverage.validate_against_graph(&reconciliation, &authority_scope(&reconciliation.reconciliation_id.id), &coverage_boundary(), &[root, first, second]).is_err());
@@ -1431,7 +1431,7 @@ mod tests {
             reconciliation: id(IdentityKind::ReconciliationWitness, "reconcile-coverage"),
             branch_point: id(IdentityKind::ReconciliationWitness, "t1"),
             covered_branch_heads: vec![id(IdentityKind::ReconciliationWitness, "t2")],
-            boundary: id(IdentityKind::EvidenceRecord, "enumeration-boundary-1"),
+            boundary: id(IdentityKind::ReconciliationWitness, "enumeration-boundary-1"),
             basis: vec![],
         };
         assert!(coverage.validate_against_graph(&reconciliation, &authority_scope(&reconciliation.reconciliation_id.id), &coverage_boundary(), &[root, left, right]).is_err());
@@ -1626,7 +1626,7 @@ mod tests {
             authority_scope: id(IdentityKind::ReconciliationWitness, "authority-scope-1"),
             basis: vec![],
         };
-        assert!(reconciliation.validate_against_graph((&authority_scope("reconcile-placeholder"), &[root, other]).is_err());
+        assert!(reconciliation.validate_against_graph(&authority_scope(&reconciliation.reconciliation_id.id), &[root, other]).is_err());
     }
 
     #[test]
