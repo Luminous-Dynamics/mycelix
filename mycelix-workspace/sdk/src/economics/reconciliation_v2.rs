@@ -225,6 +225,9 @@ fn apply_transition(state: &mut EconomicState, transition: &EconomicTransition) 
         EconomicTransition::MonetaryTransfer(flow) => state.apply_flow(flow),
         EconomicTransition::IncomeTransfer(transfer) => state.apply_income_transfer(transfer),
         EconomicTransition::CapitalInvestment(investment) => state.apply_capital_investment(investment),
+        EconomicTransition::Production(production) => state.apply_production(production),
+        EconomicTransition::InventoryTransfer(transfer) => state.apply_inventory_transfer(transfer),
+        EconomicTransition::InventoryConsumption(consumption) => state.apply_inventory_consumption(consumption),
         EconomicTransition::CreditCreation(credit) => state.create_credit(credit),
         EconomicTransition::DebtRepayment(repayment) => state.repay_debt(repayment),
     }
