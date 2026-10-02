@@ -307,6 +307,13 @@ pub enum AuthorityDisposition {
     NoAuthority,
 }
 
+/// One-way authority/reporting output.
+///
+/// ```compile_fail
+/// use serde_json::from_str;
+/// # use cos_conformance::federation::FederationOutcome;
+/// let _: FederationOutcome = from_str("{}").unwrap();
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct FederationOutcome {
     decision: FederationDecision,
@@ -701,6 +708,13 @@ pub fn record_observation(
     record_observation_identity(state, observation)
 }
 
+/// One-way privacy/reporting projection.
+///
+/// ```compile_fail
+/// use serde_json::from_str;
+/// # use cos_conformance::federation::PrivacyProjection;
+/// let _: PrivacyProjection = from_str("{}").unwrap();
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct PrivacyProjection {
     pub subject_id: String,
@@ -727,6 +741,13 @@ pub fn privacy_minimized_projection(
     }
 }
 
+/// One-way cockpit/reporting projection.
+///
+/// ```compile_fail
+/// use serde_json::from_str;
+/// # use cos_conformance::federation::CockpitProjection;
+/// let _: CockpitProjection = from_str("{}").unwrap();
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct CockpitProjection {
     pub node_id: String,
