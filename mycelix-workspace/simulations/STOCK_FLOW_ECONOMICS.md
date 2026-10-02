@@ -804,3 +804,25 @@ substrate authoritative while making financial fragility a reproducible derived 
 
 This matches the core Minsky formulation in which financing posture is defined by the relationship
 between prospective cash flows and payment commitments on liabilities.
+
+## Working-capital component deltas (implemented)
+
+Actor and sector observables now expose the monetary components of period working-capital change
+explicitly, rather than requiring later equations to reverse-engineer them from the aggregate:
+
+- inventory carrying-value change;
+- trade-receivables change;
+- trade-payables change.
+
+The exact identity is:
+
+`ΔNWC = Δinventory_carrying_value + Δtrade_receivables - Δtrade_payables`.
+
+These deltas are derived from the same opening state and authoritative transition replay that
+produce the closing stock snapshot, then checked with overflow-safe arithmetic. Sector values are
+deterministic sums of the actor-level components.
+
+This is still an accounting representation, not a behavioral assumption: it does not choose
+inventory targets, payment terms, collection lags, supplier finance, default rates, or credit
+demand. It simply exposes the state changes that a later working-capital behavioral layer can
+consume without reconstructing hidden intermediate quantities.
