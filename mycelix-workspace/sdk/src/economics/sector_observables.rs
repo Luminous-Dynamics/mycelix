@@ -159,14 +159,15 @@ impl SectorEconomicObservables {
                 ..Self::default()
             });
 
-            let opening_liquidity = observation
-                .liquidity
-                .checked_sub(observation.net_liquidity_change)
-                .ok_or_else(|| format!("opening liquidity overflow for {actor_id}"))?;
+            if !observation.liquidity_stock_flow_reconciliation_holds() {
+                return Err(format!(
+                    "actor opening/closing liquidity does not reconcile for {actor_id}"
+                ));
+            }
 
             add_checked(
                 &mut sector_observation.opening_liquidity,
-                opening_liquidity,
+                observation.opening_liquidity,
                 "sector opening liquidity",
             )?;
             add_checked(
@@ -483,6 +484,7 @@ mod tests {
             ActorEconomicObservables {
                 actor: "firm-a".into(),
                 liquidity: 10,
+                opening_liquidity: 10,
                 ..ActorEconomicObservables::default()
             },
         );
