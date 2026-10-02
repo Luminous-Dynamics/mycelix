@@ -98,6 +98,9 @@ pub struct VerificationEvidence {
     valid_until_us: u64,
     /// Stable commitment for the exact capability the evidence verifies.
     capability_binding: [u8; 32],
+    /// Opaque commitment supplied by the authority adapter for the exact
+    /// authority generation/freshness state that qualified this evidence.
+    authority_binding: [u8; 32],
 }
 
 impl VerificationEvidence {
@@ -131,12 +134,35 @@ impl VerificationEvidence {
         authority_unambiguous: bool,
         valid_until_us: u64,
     ) -> Self {
+        Self::new_for_capability_with_authority_binding_and_valid_until(
+            capability,
+            [0; 32],
+            signature_verified,
+            not_revoked,
+            authority_unambiguous,
+            valid_until_us,
+        )
+    }
+
+    /// Construct trusted evidence with an explicit capability binding and an
+    /// opaque authority-freshness commitment supplied by the authority adapter.
+    ///
+    /// The commitment must change when the authoritative generation changes.
+    pub(crate) fn new_for_capability_with_authority_binding_and_valid_until(
+        capability: &Capability,
+        authority_binding: [u8; 32],
+        signature_verified: bool,
+        not_revoked: bool,
+        authority_unambiguous: bool,
+        valid_until_us: u64,
+    ) -> Self {
         Self {
             signature_verified,
             not_revoked,
             authority_unambiguous,
             valid_until_us,
             capability_binding: capability.binding_digest(),
+            authority_binding,
         }
     }
 }
@@ -145,6 +171,7 @@ impl VerificationEvidence {
 pub struct VerifiedCapability {
     capability: Capability,
     verification_valid_until_us: u64,
+    authority_binding: [u8; 32],
 }
 
 /// A short-lived, non-serializable authorization permit bound to one exact
@@ -156,6 +183,7 @@ pub struct AuthorizationPermit {
     issued_at_us: u64,
     valid_until_us: u64,
     capability_binding: [u8; 32],
+    authority_binding: [u8; 32],
 }
 
 /// The only request type accepted by an enforcement adapter.
@@ -165,6 +193,7 @@ pub struct EnforcementRequest {
     issued_at_us: u64,
     valid_until_us: u64,
     capability_binding: [u8; 32],
+    authority_binding: [u8; 32],
 }
 
 impl AuthorizationPermit {
@@ -203,6 +232,7 @@ impl EnforcementRequest {
                 issued_at_us: permit.issued_at_us,
                 valid_until_us: permit.valid_until_us,
                 capability_binding: permit.capability_binding,
+                authority_binding: permit.authority_binding,
             }),
             decision => Err(decision),
         }
@@ -223,6 +253,12 @@ impl EnforcementRequest {
     /// Stable commitment for the exact capability that authorized this request.
     pub fn capability_binding(&self) -> [u8; 32] {
         self.capability_binding
+    }
+
+    /// Opaque commitment for the authority generation/freshness state that
+    /// qualified this enforcement request.
+    pub fn authority_binding(&self) -> [u8; 32] {
+        self.authority_binding
     }
 
     pub fn is_valid_at(&self, now_us: u64) -> bool {
@@ -255,6 +291,7 @@ pub enum AuthorizationDenial {
     PolicyVersionMismatch,
     OutsideValidityWindow,
     VerificationEvidenceMismatch,
+    AuthorityBindingMismatch,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -463,6 +500,7 @@ pub fn verify_capability(
     Ok(VerifiedCapability {
         capability,
         verification_valid_until_us: evidence.valid_until_us,
+        authority_binding: evidence.authority_binding,
     })
 }
 
@@ -495,6 +533,9 @@ pub fn revalidate_permit(
     }
     if evidence.capability_binding != permit.capability_binding {
         return AuthorizationDecision::Deny(AuthorizationDenial::VerificationEvidenceMismatch);
+    }
+    if evidence.authority_binding != permit.authority_binding {
+        return AuthorizationDecision::Deny(AuthorizationDenial::AuthorityBindingMismatch);
     }
     if !evidence.not_revoked {
         return AuthorizationDecision::Deny(AuthorizationDenial::RevokedCapability);
@@ -556,6 +597,7 @@ pub fn authorize_permit(
         issued_at_us: now_us,
         valid_until_us,
         capability_binding: c.binding_digest(),
+        authority_binding: verified.authority_binding,
     })
 }
 
@@ -839,6 +881,50 @@ mod tests {
                 AuthorizationDenial::OutsideValidityWindow
             ))
         );
+    }
+
+    #[test]
+    fn authority_generation_binding_blocks_revalidation_with_new_generation() {
+        let cap = capability();
+        let authority_a = [1; 32];
+        let authority_b = [2; 32];
+        let evidence_a =
+            VerificationEvidence::new_for_capability_with_authority_binding_and_valid_until(
+                &cap, authority_a, true, true, true, 200,
+            );
+        let verified =
+            verify_capability(cap.clone(), evidence_a, 150).expect("generation A verifies");
+        let permit = authorize_permit(&verified, &request(CapabilityAction::Read), 150).unwrap();
+
+        let evidence_b =
+            VerificationEvidence::new_for_capability_with_authority_binding_and_valid_until(
+                &cap, authority_b, true, true, true, 200,
+            );
+        assert_eq!(
+            revalidate_permit(&permit, evidence_b, 151),
+            AuthorizationDecision::Deny(AuthorizationDenial::AuthorityBindingMismatch)
+        );
+    }
+
+    #[test]
+    fn authority_generation_binding_is_preserved_at_enforcement() {
+        let cap = capability();
+        let authority = [9; 32];
+        let evidence =
+            VerificationEvidence::new_for_capability_with_authority_binding_and_valid_until(
+                &cap, authority, true, true, true, 200,
+            );
+        let verified = verify_capability(cap.clone(), evidence, 150).unwrap();
+        let permit = authorize_permit(&verified, &request(CapabilityAction::Read), 150).unwrap();
+        let enforcement = EnforcementRequest::from_permit(
+            permit,
+            VerificationEvidence::new_for_capability_with_authority_binding_and_valid_until(
+                &cap, authority, true, true, true, 200,
+            ),
+            151,
+        )
+        .unwrap();
+        assert_eq!(enforcement.authority_binding(), authority);
     }
 
     #[test]
