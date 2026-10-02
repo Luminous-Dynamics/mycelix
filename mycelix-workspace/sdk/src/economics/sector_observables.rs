@@ -36,6 +36,7 @@ pub struct SectorEconomicObservables {
     pub financing_net_liquidity: i128,
     pub other_liquidity_change: i128,
 
+    pub opening_net_working_capital: i128,
     pub net_working_capital: i128,
     pub net_working_capital_change: i128,
 
@@ -84,6 +85,7 @@ impl Default for SectorEconomicObservables {
             investing_net_liquidity: 0,
             financing_net_liquidity: 0,
             other_liquidity_change: 0,
+            opening_net_working_capital: 0,
             net_working_capital: 0,
             net_working_capital_change: 0,
             loan_claims: 0,
@@ -201,6 +203,11 @@ impl SectorEconomicObservables {
                     "actor opening/closing liquidity does not reconcile for {actor_id}"
                 ));
             }
+            if !observation.net_working_capital_stock_flow_reconciliation_holds() {
+                return Err(format!(
+                    "actor opening/closing working capital does not reconcile for {actor_id}"
+                ));
+            }
 
             add_checked(
                 &mut sector_observation.opening_liquidity,
@@ -216,6 +223,11 @@ impl SectorEconomicObservables {
                 &mut sector_observation.net_liquidity_change,
                 observation.net_liquidity_change,
                 "sector net liquidity change",
+            )?;
+            add_checked(
+                &mut sector_observation.opening_net_working_capital,
+                observation.opening_net_working_capital,
+                "sector opening net working capital",
             )?;
             add_checked(
                 &mut sector_observation.net_working_capital,
@@ -418,6 +430,18 @@ impl SectorEconomicObservables {
                 .ok_or_else(|| {
                     format!("sector closing liquidity overflow for {:?}", observation.sector)
                 })?;
+            let expected_nwc = observation
+                .opening_net_working_capital
+                .checked_add(observation.net_working_capital_change)
+                .ok_or_else(|| {
+                    format!("sector working-capital closure overflow for {:?}", observation.sector)
+                })?;
+            if expected_nwc != observation.net_working_capital {
+                return Err(format!(
+                    "sector opening/closing working capital does not reconcile for {:?}",
+                    observation.sector
+                ));
+            }
             if expected_closing != observation.closing_liquidity {
                 return Err(format!(
                     "sector opening/closing liquidity does not reconcile for {:?}",
@@ -616,6 +640,7 @@ mod tests {
         let mut observations = BTreeMap::new();
         let mut firm = observation("firm-a", 100, 30, 20, -10, 20, 0);
         firm.net_working_capital_change = 15;
+        firm.opening_net_working_capital = -15;
         firm.trade_credit_extended = 40;
         firm.sales_revenue = 80;
         firm.cost_of_goods_sold = 50;
@@ -656,6 +681,8 @@ mod tests {
         assert_eq!(firm.trade_credit_extended, 40);
         assert_eq!(firm.net_working_capital_change, 15);
         assert_eq!(firm.net_working_capital(), 0);
+        assert_eq!(firm.opening_net_working_capital, -15);
+        assert!(firm.net_working_capital_stock_flow_reconciliation_holds());
         assert_eq!(firm.wages_paid, 12);
         assert_eq!(firm.interest_paid, 3);
         assert_eq!(firm.taxes_paid, 4);
