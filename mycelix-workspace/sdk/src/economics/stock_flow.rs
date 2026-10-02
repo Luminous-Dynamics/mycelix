@@ -1448,11 +1448,9 @@ mod tests {
 
     #[test]
     fn checked_net_credit_impulse_fails_closed_on_overflow() {
-        let state = EconomicState {
-            actors: Vec::new(),
-            credit_created: i128::MIN,
-            debt_repaid: 1,
-        };
+        let mut state = EconomicState::new(Vec::new());
+        state.credit_created = i128::MIN;
+        state.debt_repaid = 1;
         assert!(state.try_net_credit_impulse().is_err());
     }
 
