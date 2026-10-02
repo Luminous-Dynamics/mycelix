@@ -49,8 +49,8 @@ fn actual_d6p_fixture() -> (
     use cos_conformance::contestable_finality::{
         assess_observation_set, verify_observation_set_assessment_provenance,
         ExternalObservedEvidenceV1, ExternalEffectObservationV1, ExternalObservationSourceV1,
-        ExternalObserverProfileV1, ExternalObservationSetV1, FinalityQualificationProfileV1,
-        ObservationIndependenceV1,
+        ExternalObserverProfileV1, ExternalObserverRoleV1, ExternalObservationSetV1,
+        FinalityQualificationProfileV1, ObservationIndependenceV1,
     };
     use cos_conformance::effect_finality::{
         assess_external_finality, ExternalFinalityProfileV1, ExternalFinalityReceiptV1,
@@ -64,7 +64,6 @@ fn actual_d6p_fixture() -> (
         ObserverLifecycleProfileV1, ObserverLifecycleUsePurposeV1, ObserverStatusV1,
         OBSERVER_LIFECYCLE_CLAIM_CEILING,
     };
-    use cos_conformance::qualified_dependency_closure_d6x::DependencyClosureStatusV1;
     use cos_conformance::finality_eligibility_composition::{
         compose_finality_eligibility_from_authoritative_d6n_d6o,
         CurrentFinalityEligibilityReceiptV1,
@@ -467,7 +466,6 @@ fn actual_d6p_fixture() -> (
         &d6p_receipt, &d6p
     ));
 
-    let _unused = DependencyClosureStatusV1::Complete;
     (d6p, d6p_receipt)
 }
 fn d6p_receipt_commitment() -> String {
