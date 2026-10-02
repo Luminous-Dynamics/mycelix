@@ -155,8 +155,8 @@ mod tests {
         Capability, CapabilityAction, VerificationEvidence, VerifiedCapability, authorize_permit,
     };
 
-    fn verified() -> VerifiedCapability {
-        let capability = Capability::new(
+    fn capability() -> Capability {
+        Capability::new(
             "did:mycelix:alice",
             "did:mycelix:issuer",
             "resource:ledger",
@@ -165,10 +165,14 @@ mod tests {
             200,
             7,
         )
-        .unwrap();
+        .unwrap()
+    }
+
+    fn verified() -> VerifiedCapability {
+        let capability = capability();
         crate::security_kernel::verify_capability(
-            capability,
-            VerificationEvidence::new(true, true, true),
+            capability.clone(),
+            VerificationEvidence::new_for_capability(&capability, true, true, true),
             150,
         )
         .unwrap()
@@ -198,7 +202,7 @@ mod tests {
         let permit = authorize_permit(&verified(), &request, 150).unwrap();
         let enforcement = EnforcementRequest::from_permit(
             permit,
-            VerificationEvidence::new(true, true, true),
+            VerificationEvidence::new_for_capability(&capability(), true, true, true),
             150,
         )
         .unwrap();
