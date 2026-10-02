@@ -381,6 +381,67 @@ impl EvidenceDispositionReconciliation {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct EvidenceDispositionCoverageBoundary {
+    pub boundary_id: IdentityRef,
+    pub evidence: IdentityRef,
+    pub branch_point: IdentityRef,
+    pub branch_heads: Vec<IdentityRef>,
+    pub authority: IdentityRef,
+    pub basis: Vec<IdentityRef>,
+}
+
+impl EvidenceDispositionCoverageBoundary {
+    pub fn validate(&self) -> Result<(), String> {
+        self.boundary_id.validate()?;
+        self.evidence.validate()?;
+        self.branch_point.validate()?;
+        self.authority.validate()?;
+        if self.boundary_id.kind != IdentityKind::ReconciliationWitness {
+            return Err("coverage boundary identity must be a ReconciliationWitness".into());
+        }
+        if !matches!(
+            self.evidence.kind,
+            IdentityKind::InspectionRecord
+                | IdentityKind::TestRecord
+                | IdentityKind::OperationalObservation
+                | IdentityKind::MaintenanceEvent
+        ) {
+            return Err("coverage boundary requires a typed evidence event".into());
+        }
+        if !matches!(self.branch_point.kind, IdentityKind::EvidenceRecord | IdentityKind::ReconciliationWitness) {
+            return Err("coverage boundary branch point must be a transition identity".into());
+        }
+        if !matches!(self.authority.kind, IdentityKind::EvidenceRecord | IdentityKind::ReconciliationWitness) {
+            return Err("coverage boundary authority must be an addressable witness".into());
+        }
+        if self.branch_heads.is_empty() {
+            return Err("coverage boundary requires at least one branch head".into());
+        }
+        let mut heads = std::collections::BTreeSet::new();
+        for head in &self.branch_heads {
+            head.validate()?;
+            if !matches!(head.kind, IdentityKind::EvidenceRecord | IdentityKind::ReconciliationWitness) {
+                return Err("coverage boundary branch head must be a transition identity".into());
+            }
+            if !heads.insert(head.clone()) {
+                return Err("coverage boundary branch heads must be unique".into());
+            }
+            if head == &self.boundary_id || head == &self.evidence || head == &self.branch_point {
+                return Err("coverage boundary branch head cannot equal boundary, evidence, or branch point".into());
+            }
+        }
+        for basis in &self.basis {
+            basis.validate()?;
+            if !matches!(basis.kind, IdentityKind::EvidenceRecord | IdentityKind::ReconciliationWitness) {
+                return Err("coverage boundary basis must be an addressable witness".into());
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct EvidenceDispositionReconciliationCoverage {
     pub coverage_id: IdentityRef,
     pub reconciliation: IdentityRef,
@@ -405,8 +466,8 @@ impl EvidenceDispositionReconciliationCoverage {
         if !matches!(self.branch_point.kind, IdentityKind::EvidenceRecord | IdentityKind::ReconciliationWitness) {
             return Err("reconciliation coverage branch point must be a transition identity".into());
         }
-        if !matches!(self.boundary.kind, IdentityKind::EvidenceRecord | IdentityKind::ReconciliationWitness) {
-            return Err("reconciliation coverage boundary must be an addressable witness".into());
+        if self.boundary.kind != IdentityKind::ReconciliationWitness {
+            return Err("reconciliation coverage boundary must be a ReconciliationWitness".into());
         }
         if self.covered_branch_heads.is_empty() {
             return Err("reconciliation coverage requires at least one covered branch head".into());
@@ -438,10 +499,26 @@ impl EvidenceDispositionReconciliationCoverage {
     pub fn validate_against_graph(
         &self,
         reconciliation: &EvidenceDispositionReconciliation,
+        boundary: &EvidenceDispositionCoverageBoundary,
         transitions: &[EvidenceDispositionTransition],
     ) -> Result<(), String> {
         self.validate()?;
         reconciliation.validate_against_graph(transitions)?;
+        boundary.validate()?;
+        if self.boundary != boundary.boundary_id {
+            return Err("reconciliation coverage references a different coverage boundary".into());
+        }
+        if boundary.evidence != reconciliation.evidence {
+            return Err("coverage boundary references different evidence".into());
+        }
+        if self.branch_point != boundary.branch_point {
+            return Err("coverage boundary references a different branch point".into());
+        }
+        if self.covered_branch_heads != boundary.branch_heads {
+            return Err("reconciliation coverage heads must exactly match the coverage boundary".into());
+        }
+        if self.basis != boundary.basis {
+            return Err("reconciliation coverage basis must exactly match the coverage boundary".into());
         if self.reconciliation != reconciliation.reconciliation_id {
             return Err("reconciliation coverage references a different reconciliation".into());
         }
@@ -1097,6 +1174,20 @@ mod tests {
     }
 
 
+    fn coverage_boundary() -> EvidenceDispositionCoverageBoundary {
+        EvidenceDispositionCoverageBoundary {
+            boundary_id: id(IdentityKind::ReconciliationWitness, "enumeration-boundary-1"),
+            evidence: id(IdentityKind::InspectionRecord, "inspection-graph"),
+            branch_point: id(IdentityKind::ReconciliationWitness, "t1"),
+            branch_heads: vec![
+                id(IdentityKind::ReconciliationWitness, "t2"),
+                id(IdentityKind::ReconciliationWitness, "t3"),
+            ],
+            authority: id(IdentityKind::ReconciliationWitness, "authority-1"),
+            basis: vec![],
+        }
+    }
+
     #[test]
     fn reconciliation_coverage_accepts_bounded_declared_head_set() {
         let disputed = EvidenceDisposition::Disputed { by: id(IdentityKind::ReconciliationWitness, "w1") };
@@ -1119,7 +1210,7 @@ mod tests {
             boundary: id(IdentityKind::EvidenceRecord, "enumeration-boundary-1"),
             basis: vec![],
         };
-        assert!(coverage.validate_against_graph(&reconciliation, &[root, left, right]).is_ok());
+        assert!(coverage.validate_against_graph(&reconciliation, &coverage_boundary(), &[root, left, right]).is_ok());
     }
 
     #[test]
