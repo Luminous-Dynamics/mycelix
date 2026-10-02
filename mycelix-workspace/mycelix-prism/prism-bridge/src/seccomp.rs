@@ -282,6 +282,7 @@ pub enum SeccompError {
     IdentityGenerationFailed,
     PolicyCommitmentMismatch,
     InvalidAssignmentId,
+    UnsupportedEndianness,
     ForbiddenRendererSyscall(i64),
 }
 
@@ -298,6 +299,7 @@ impl core::fmt::Display for SeccompError {
             Self::IdentityGenerationFailed => f.write_str("seccomp installation identity generation failed"),
             Self::PolicyCommitmentMismatch => f.write_str("seccomp policy does not match the renderer profile commitment"),
             Self::InvalidAssignmentId => f.write_str("renderer process assignment id must be non-zero"),
+            Self::UnsupportedEndianness => f.write_str("parameter-aware seccomp policy requires little-endian execution"),
             Self::ForbiddenRendererSyscall(syscall) => write!(f, "renderer seccomp policy forbids syscall {syscall}"),
         }
     }
@@ -358,6 +360,9 @@ mod linux {
     }
 
     fn compile_filter_v2(policy: &SeccompSyscallPolicyV2) -> Result<Vec<SockFilter>, SeccompError> {
+        #[cfg(target_endian = "big")]
+        return Err(SeccompError::UnsupportedEndianness);
+
         if SeccompArchitecture::current() != Some(policy.architecture) {
             return Err(SeccompError::ArchitectureMismatch);
         }
@@ -791,6 +796,23 @@ mod linux {
             let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
             let filter = compile_filter_v2(&policy).unwrap();
             assert_ne!(seccomp_evidence_digest_v2(&policy, &filter), policy.digest());
+        }
+
+        #[test]
+        fn v2_policy_digest_commits_little_endian_requirement() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let rule = SeccompSyscallRuleV2::new(
+                libc::SYS_prctl,
+                vec![SeccompArgPredicateV1::new(1, 0xff00_0000_0000_0000, 0x1200_0000_0000_0000).unwrap()],
+            ).unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+            assert_ne!(policy.digest(), SeccompSyscallPolicyV2::new(
+                arch,
+                vec![SeccompSyscallRuleV2::new(
+                    libc::SYS_prctl,
+                    vec![SeccompArgPredicateV1::new(1, 0xff00_0000_0000_0000, 0x1300_0000_0000_0000).unwrap()],
+                ).unwrap()],
+            ).unwrap().digest());
         }
 
         #[test]
