@@ -867,6 +867,73 @@ mod tests {
     }
 
     #[test]
+    fn historical_release_is_valid_after_listing_revision_bridge() {
+        let mut f = frontier(2);
+        assert_eq!(
+            f.apply(FrontierEvent::Reserve(certificate_with_capacity(
+                "c1", 0, None, 1, 2
+            ))),
+            Ok(ApplyOutcome::Applied)
+        );
+        assert_eq!(
+            f.apply(FrontierEvent::SetCapacity {
+                listing_hash: hash(3),
+                listing_revision: hash(7),
+                capacity: 2,
+                seller: agent(2),
+                sequence: 1,
+                previous_certificate_id: Some("c1".into()),
+            }),
+            Ok(ApplyOutcome::Applied)
+        );
+        assert_eq!(
+            f.apply(FrontierEvent::Release {
+                certificate_id: "c1".into(),
+                seller: agent(2),
+                sequence: 2,
+                previous_certificate_id: Some("capacity:1".into()),
+            }),
+            Ok(ApplyOutcome::Applied)
+        );
+        assert_eq!(f.active_reserved(), 0);
+        assert_eq!(f.available(), 2);
+    }
+
+    #[test]
+    fn historical_consume_is_valid_after_listing_revision_bridge() {
+        let mut f = frontier(2);
+        assert_eq!(
+            f.apply(FrontierEvent::Reserve(certificate_with_capacity(
+                "c1", 0, None, 1, 2
+            ))),
+            Ok(ApplyOutcome::Applied)
+        );
+        assert_eq!(
+            f.apply(FrontierEvent::SetCapacity {
+                listing_hash: hash(3),
+                listing_revision: hash(7),
+                capacity: 2,
+                seller: agent(2),
+                sequence: 1,
+                previous_certificate_id: Some("c1".into()),
+            }),
+            Ok(ApplyOutcome::Applied)
+        );
+        assert_eq!(
+            f.apply(FrontierEvent::Consume {
+                certificate_id: "c1".into(),
+                seller: agent(2),
+                sequence: 2,
+                previous_certificate_id: Some("capacity:1".into()),
+            }),
+            Ok(ApplyOutcome::Applied)
+        );
+        assert_eq!(f.active_reserved(), 0);
+        assert_eq!(f.capacity(), 1);
+        assert_eq!(f.available(), 1);
+    }
+
+    #[test]
     fn consume_permanently_removes_capacity() {
         let mut f = frontier(1);
         f.apply(FrontierEvent::Reserve(certificate_with_capacity("c1", 0, None, 1, 1))).unwrap();
@@ -1140,8 +1207,10 @@ impl ReservationCapacityEvidence {
 
 impl ReservationTerminalEvidence {
     /// Pure validation of the economic state transition represented by this
-    /// terminal event. The Holochain validator additionally binds the evidence
-    /// to the addressable certificate and seller source-chain predecessor.
+    /// terminal event. The certificate is the immutable economic reservation
+    /// being terminated; the frontier predecessor is supplied separately by
+    /// the Holochain validation boundary and may be a later capacity/revision
+    /// bridge.
     pub fn validate_state_transition(
         &self,
         certificate: &ReservationCertificate,
@@ -1151,12 +1220,6 @@ impl ReservationTerminalEvidence {
         }
         if self.intent_hash != certificate.intent_hash {
             return Err("Terminal evidence intent does not match certificate intent");
-        }
-        if self.previous_frontier_action != self.certificate_hash {
-            return Err("Terminal evidence predecessor must equal certificate");
-        }
-        if self.pre_state != certificate.post_state {
-            return Err("Terminal pre-state must equal certificate post-state");
         }
 
         let transition = match self.outcome {
@@ -1675,10 +1738,14 @@ pub fn validate_create_reservation_terminal(
     let certificate = certificate_record
         .entry()
         .to_app_option::<ReservationCertificate>()
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("Invalid certificate entry: {e:?}"))))?
-        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest(
-            "Reservation terminal certificate dependency has the wrong entry type".into(),
-        )))?;
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+            "Invalid certificate entry: {e:?}"
+        ))))?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Reservation terminal certificate dependency has the wrong entry type".into(),
+            ))
+        })?;
 
     if certificate.seller != evidence.seller || certificate.intent_hash != evidence.intent_hash {
         return Ok(ValidateCallbackResult::Invalid(
@@ -1686,33 +1753,43 @@ pub fn validate_create_reservation_terminal(
         ));
     }
 
-    if evidence.previous_frontier_action != evidence.certificate_hash {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Reservation terminal predecessor must equal its reservation certificate".into(),
-        ));
-    }
-
-    if evidence.pre_state != certificate.post_state {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Reservation terminal pre-state must equal the reservation certificate post-state".into(),
-        ));
-    }
-
-    let expected_transition = match evidence.outcome {
-        ReservationTerminalOutcome::Released => FrontierStateTransition::Release {
-            quantity: certificate.quantity,
-        },
-        ReservationTerminalOutcome::Consumed => FrontierStateTransition::Consume {
-            quantity: certificate.quantity,
-        },
-    };
-    if let Err(error) = evidence.pre_state.validate_transition(
-        expected_transition,
-        &evidence.post_state,
-    ) {
+    if let Err(error) = evidence.validate_state_transition(&certificate) {
         return Ok(ValidateCallbackResult::Invalid(format!(
             "Reservation terminal state transition is invalid: {error}"
         )));
+    }
+
+    let Some(chain_top) = action.prev_action.clone() else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Reservation terminal evidence action is missing its seller source-chain predecessor".into(),
+        ));
+    };
+
+    // The certificate is the historical reservation being terminated. It may
+    // be separated from this terminal event by later seller-authored frontier
+    // events (for example a listing-revision/capacity bridge). Therefore the
+    // certificate remains an economic dependency, while the actual frontier
+    // predecessor determines the terminal sequence and pre-state.
+    let prior_activity = must_get_agent_activity(
+        evidence.seller.clone(),
+        ChainFilter::new(chain_top.clone())
+            .until_hash(evidence.certificate_hash.clone()),
+    )?;
+    if !prior_activity
+        .iter()
+        .any(|activity| activity.action.hashed.hash == evidence.certificate_hash)
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Reservation terminal certificate is not an earlier action on the seller source chain".into(),
+        ));
+    }
+    if !prior_activity
+        .iter()
+        .any(|activity| activity.action.hashed.hash == evidence.previous_frontier_action)
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Reservation terminal frontier predecessor is not an earlier action on the seller source chain".into(),
+        ));
     }
 
     let previous = must_get_valid_record(evidence.previous_frontier_action.clone()).map_err(|_| {
@@ -1726,26 +1803,89 @@ pub fn validate_create_reservation_terminal(
         ));
     }
 
-    let prior_activity = must_get_agent_activity(
-        evidence.seller.clone(),
-        ChainFilter::new(action.prev_action.clone())
-            .until_hash(evidence.certificate_hash.clone()),
-    )?;
-    if !prior_activity
-        .iter()
-        .any(|activity| activity.action.hashed.hash == evidence.certificate_hash)
-    {
+    let (previous_sequence, previous_post_state, previous_listing_hash) =
+        if let Some(previous_certificate) = previous
+            .entry()
+            .to_app_option::<ReservationCertificate>()
+            .map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Invalid previous frontier certificate entry: {e:?}"
+                )))
+            })?
+        {
+            (
+                previous_certificate.sequence,
+                previous_certificate.post_state,
+                previous_certificate.listing_hash,
+            )
+        } else if let Some(previous_terminal) = previous
+            .entry()
+            .to_app_option::<ReservationTerminalEvidence>()
+            .map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Invalid previous frontier terminal entry: {e:?}"
+                )))
+            })?
+        {
+            let previous_certificate = must_get_valid_record(
+                previous_terminal.certificate_hash.clone(),
+            )
+            .map_err(|_| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "Previous terminal frontier references a missing certificate".into(),
+                ))
+            })?
+            .entry()
+            .to_app_option::<ReservationCertificate>()
+            .map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Invalid previous terminal certificate entry: {e:?}"
+                )))
+            })?
+            .ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "Previous terminal certificate has the wrong entry type".into(),
+                ))
+            })?;
+
+            (
+                previous_terminal.sequence,
+                previous_terminal.post_state,
+                previous_certificate.listing_hash,
+            )
+        } else if let Some(previous_capacity) = previous
+            .entry()
+            .to_app_option::<ReservationCapacityEvidence>()
+            .map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Invalid previous capacity entry: {e:?}"
+                )))
+            })?
+        {
+            (
+                previous_capacity.sequence,
+                previous_capacity.post_state,
+                previous_capacity.listing_hash,
+            )
+        } else {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Reservation terminal previous frontier is not a recognized frontier event".into(),
+            ));
+        };
+
+    if previous_listing_hash != certificate.listing_hash {
         return Ok(ValidateCallbackResult::Invalid(
-            "Reservation terminal certificate is not an earlier action on the seller source chain".into(),
+            "Reservation terminal frontier predecessor belongs to a different listing".into(),
         ));
     }
-    if evidence.sequence != certificate.sequence.checked_add(1).ok_or_else(|| {
-        wasm_error!(WasmErrorInner::Guest(
-            "Reservation terminal evidence sequence overflow".into(),
-        ))
-    })? {
+    if previous_sequence.checked_add(1) != Some(evidence.sequence) {
         return Ok(ValidateCallbackResult::Invalid(
-            "Reservation terminal evidence sequence does not follow its certificate".into(),
+            "Reservation terminal evidence sequence does not follow its actual frontier predecessor".into(),
+        ));
+    }
+    if previous_post_state != evidence.pre_state {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Reservation terminal pre-state does not equal its actual frontier predecessor post-state".into(),
         ));
     }
 
