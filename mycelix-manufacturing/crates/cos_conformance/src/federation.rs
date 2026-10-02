@@ -530,7 +530,10 @@ pub fn record_observation(
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PrivacyProjection {
     pub subject_id: String,
+    /// The envelope's claimed origin; consult origin_node_known before treating
+    /// it as a model-established node identity.
     pub origin_node: String,
+    pub origin_node_known: bool,
     pub status: FederationDecision,
     pub source_observation: bool,
     pub may_authorize_local_action: bool,
@@ -543,6 +546,7 @@ pub fn privacy_minimized_projection(
     PrivacyProjection {
         subject_id: subject_id.to_owned(),
         origin_node: outcome.origin_node.clone().unwrap_or_default(),
+        origin_node_known: outcome.origin_node_known,
         status: outcome.decision,
         source_observation: false,
         may_authorize_local_action: false,
@@ -1580,8 +1584,16 @@ mod tests {
         let mut state = nodes();
         let outcome = deliver(&mut state, &envelope(), 50, true);
         let projection = privacy_minimized_projection(&outcome, "subject-1");
+        assert!(projection.origin_node_known);
         assert!(!projection.source_observation);
         assert!(!projection.may_authorize_local_action);
+
+        let partitioned = deliver(&mut state, &envelope(), 50, false);
+        let partition_projection = privacy_minimized_projection(&partitioned, "subject-1");
+        assert_eq!(partition_projection.origin_node, "node-a");
+        assert!(!partition_projection.origin_node_known);
+        assert!(!partition_projection.source_observation);
+        assert!(!partition_projection.may_authorize_local_action);
     }
 
     #[test]
