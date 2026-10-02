@@ -14,6 +14,7 @@
 pub mod commons;
 pub mod decay_garden;
 pub mod metabolic_oracle;
+pub mod period_ledger;
 pub mod poc;
 #[path = "reconciliation_v2.rs"]
 pub mod reconciliation;
@@ -36,9 +37,10 @@ pub use poc::{
 };
 pub use sector_flow::{EconomicSector, FlowCategory, SectorFlow, SectorTransactionMatrix};
 pub use reconciliation::{reconcile_step, postings_for_step, StockFlowMismatch, StockFlowReconciliation, StockPosting};
+pub use period_ledger::EconomicPeriodLedger;
 
 pub use stock_flow::{
-    ActorBalanceSheet, ActorId, CreditCreation, DebtRepayment, IncomeTransfer, EconomicState, MonetaryFlow,
+    ActorBalanceSheet, ActorId, CreditCreation, DebtRepayment, EconomicFlowCategory, IncomeTransfer, EconomicState, MonetaryFlow,
     MonetaryInstrument, MonetaryStock, RealStock,
 };
 
