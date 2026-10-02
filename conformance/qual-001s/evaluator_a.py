@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""QUAL-001S evaluator A: schema/invariant checker.
+"""QUAL-001S evaluator A: structural and canonical-input checker.
 
-This evaluator reads only the published corpus and schema. It does not import
-any Mycelix crate and emits no qualification authority.
+This evaluator reads only the published corpus/schema. It does not import
+Mycelix crates, execute candidate verifier code, or publish authority.
 """
-
 import json
 import re
 import sys
@@ -14,15 +13,23 @@ ROOT = Path(__file__).resolve().parent
 SCHEMA = ROOT / "qualification_vectors_v1.schema.json"
 CORPUS = ROOT / "qualification_vectors_v1.json"
 
+def reject_duplicates(pairs):
+    out = {}
+    for key, value in pairs:
+        if key in out:
+            raise ValueError(f"duplicate JSON object key: {key}")
+        out[key] = value
+    return out
+
 def fail(message: str) -> None:
     print(f"FAIL: {message}")
     raise SystemExit(1)
 
 try:
-    schema = json.loads(SCHEMA.read_text(encoding="utf-8"))
-    corpus = json.loads(CORPUS.read_text(encoding="utf-8"))
+    schema = json.loads(SCHEMA.read_text(encoding="utf-8"), object_pairs_hook=reject_duplicates)
+    corpus = json.loads(CORPUS.read_text(encoding="utf-8"), object_pairs_hook=reject_duplicates)
 except Exception as exc:
-    fail(f"JSON parse error: {exc}")
+    fail(f"canonical JSON parse error: {exc}")
 
 if corpus.get("schema") != "mycelix.qual-001s.semantic-corpus-v1":
     fail("wrong corpus schema")
@@ -69,7 +76,7 @@ for v in vectors:
             fail(f"{v['vector_id']}: {field} must be a unique list")
         if any(x not in claims for x in xs):
             fail(f"{v['vector_id']}: invalid claim token")
-    if v["evidence_disposition"] not in states or v["expected_state"] not in states:
+    if not states.issuperset({v["evidence_disposition"], v["expected_state"]}):
         fail(f"{v['vector_id']}: invalid state")
     if v["authority_outcome"] not in authority:
         fail(f"{v['vector_id']}: invalid authority outcome")
@@ -79,7 +86,21 @@ for v in vectors:
         fail(f"{v['vector_id']}: duplicate upstream evidence")
     if not isinstance(v["nonclaims"], list) or not v["nonclaims"]:
         fail(f"{v['vector_id']}: missing nonclaims")
+    if len(v["nonclaims"]) != len(set(v["nonclaims"])):
+        fail(f"{v['vector_id']}: duplicate nonclaims")
     if v["admitted_claims"] != v["expected_claims"]:
         fail(f"{v['vector_id']}: admitted_claims != expected_claims")
 
-print("QUAL-001S evaluator A: PASS (structural/schema-aligned only)")
+n10 = next(v for v in vectors if v["vector_id"] == "QUALS-N-010")
+fixture = n10.get("mutation", {}).get("fixture")
+if fixture != '{"authority_outcome":"NONE","authority_outcome":"AUTHORITY_AUTHORIZED"}':
+    fail("QUALS-N-010 fixture missing or changed")
+try:
+    json.loads(fixture, object_pairs_hook=reject_duplicates)
+except ValueError as exc:
+    if "duplicate JSON object key" not in str(exc):
+        fail(f"duplicate-key fixture failed for unexpected reason: {exc}")
+else:
+    fail("QUALS-N-010 duplicate-key fixture was accepted")
+
+print("QUAL-001S evaluator A: PASS")
