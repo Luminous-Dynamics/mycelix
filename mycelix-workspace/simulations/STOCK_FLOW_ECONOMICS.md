@@ -356,7 +356,7 @@ For every period it:
 - links that receipt to the previous chain node;
 - carries the original genesis state hash through the chain.
 
-The final trace also binds the initial state hash, final state hash, and ordered receipt list into a trace hash. A failed later period returns an error without exposing a partially committed trace.
+The final trace also binds the canonical initial state hash, final state hash, and ordered receipt list into a trace hash. State hashing is canonical over actor ordering and rejects duplicate actor IDs. A failed later period returns an error without exposing a partially committed trace.
 
 This gives scenario runners a direct execution primitive:
 
@@ -393,13 +393,30 @@ Each chain node binds:
 - the complete step receipt;
 - the resulting chain hash.
 
-The API links a new node from the previous chain node rather than accepting a bare predecessor string, so the genesis identity propagates automatically. Therefore changing transition order, pre/post state, period, genesis, or any predecessor changes the downstream chain. This provides a lightweight audit primitive for long economic simulations without putting evidence bookkeeping into the economic state itself.
+The API links a new node from the previous chain node rather than accepting a bare predecessor string, so the genesis identity propagates automatically. Adjacent receipts must satisfy `next.pre_state_hash == previous.post_state_hash`; disconnected histories are rejected. Therefore changing transition order, pre/post state, period, genesis, or any predecessor changes the downstream chain. This provides a lightweight audit primitive for long economic simulations without putting evidence bookkeeping into the economic state itself.
 
 The intended evidence path is:
 
 `model/parameters -> initial state hash -> step receipt -> chained receipt -> observations`
 
 Later scenario runners can persist the chain alongside parameter manifests and observation provenance so an output can be traced to the exact sequence of state transitions that produced it.
+
+## Actor-level liquidity and financing observations (implemented)
+
+ActorEconomicObservables derives deterministic per-actor measurements from a reconciled terminal state and the ordered transition log.
+
+The projection records:
+
+- current liquidity, debt, loan claims, inventory carrying value, productive capital, net financial position, and net worth;
+- credit received/originated and debt actually repaid;
+- wages, interest, taxes, transfers, consumption, investment, sales, purchases, COGS, and depreciation by actor;
+- net liquidity change across the transition sequence;
+- explicitly classified financing and investment liquidity changes;
+- a residual non-financing liquidity change.
+
+The residual is intentionally not called operating cash flow. It can still contain monetary transfers, operating receipts/payments, taxes, interest, or other flows that have not been assigned a formal cash-flow statement treatment.
+
+Financing-regime classification requires explicit contractual interest due and principal due. Actual principal repaid remains a separate observation and is never substituted for principal due.
 
 ## Derived financial and financing observables (implemented)
 
