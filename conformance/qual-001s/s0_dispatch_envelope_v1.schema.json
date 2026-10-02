@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/conformance/qual-001s/s0_dispatch_envelope_v1.schema.json",
   "title": "QUAL-001S S0 Successor Conformance Dispatch Envelope V1",
-  "description": "Implementation-independent schema for the trusted S0 discovery/dispatch record. A valid envelope is evidence of an authorized dispatch request, not evidence of candidate conformance, adoption, or runtime authority. Canonical commitments over the envelope use the declared RFC 8785 JCS/I-JSON profile; duplicate property names are rejected before parsing, and numeric identifiers are constrained to the exact-in-IEEE-754 integer range. The epoch identifier prevents a receipt or dispatch envelope from silently crossing a verifier lineage epoch. The envelope commitment is a SHA-256 commitment over the canonicalized envelope with this field itself excluded during preimage construction.",
+  "description": "Implementation-independent schema for the trusted S0 discovery/dispatch record. A valid envelope is evidence of an authorized dispatch request, not evidence of candidate conformance, adoption, or runtime authority. Canonical commitments over the envelope use the declared RFC 8785 JCS/I-JSON profile; duplicate property names are rejected before parsing, and numeric identifiers are constrained to the exact-in-IEEE-754 integer range. The epoch identifier prevents a receipt or dispatch envelope from silently crossing a verifier lineage epoch. The envelope commitment is a SHA-256 commitment over the canonicalized envelope with this field itself excluded during preimage construction. Workflow refs remain navigational only; the source commit fields freeze the exact default-branch workflow definitions that authored/targeted the S0/S1 planes.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -26,8 +26,10 @@
     "registered_successor_profile",
     "s0_workflow_identity",
     "s0_workflow_ref",
+    "s0_workflow_source_commit_sha",
     "s1_workflow_identity",
     "s1_workflow_ref",
+    "s1_workflow_source_commit_sha",
     "dispatch_nonce_hex",
     "epoch_id",
     "envelope_sha256",
@@ -136,6 +138,12 @@
     "envelope_sha256": {
       "type": "string",
       "pattern": "^[0-9a-f]{64}$"
+    },
+    "s0_workflow_source_commit_sha": {
+      "$ref": "#/$defs/git_sha"
+    },
+    "s1_workflow_source_commit_sha": {
+      "$ref": "#/$defs/git_sha"
     }
   },
   "$defs": {
