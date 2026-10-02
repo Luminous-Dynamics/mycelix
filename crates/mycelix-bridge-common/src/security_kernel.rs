@@ -101,6 +101,14 @@ impl EnforcementRequest {
     pub fn issued_at_us(&self) -> u64 {
         self.issued_at_us
     }
+
+    pub fn valid_until_us(&self) -> u64 {
+        self.valid_until_us
+    }
+
+    pub fn is_valid_at(&self, now_us: u64) -> bool {
+        now_us <= self.valid_until_us
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
