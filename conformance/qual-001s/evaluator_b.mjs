@@ -211,4 +211,33 @@ for (const v of corpus.vectors) {
   }
 }
 
+const s1 = JSON.parse(fs.readFileSync(path.join(ROOT, "s1_conformance_receipt_v1.example.json"), "utf8"));
+for (const key of [
+  "schema","profile","epoch_id","repository_id","repository_full_name","pull_request_number",
+  "s0_dispatch_envelope_sha256","s0_authority_observation_sha256","dispatch_input_commitment_sha256",
+  "subject_base_sha","subject_head_sha","subject_tree_sha","current_verifier_head_sha",
+  "current_verifier_tree_sha","current_verifier_bundle_sha256","current_verifier_profile",
+  "proposed_bundle_sha256","proposed_verifier_sha256","proposed_gate_sha256","registered_successor_profile",
+  "s1_workflow_identity","s1_workflow_ref","s1_workflow_source_commit_sha","run_id","run_attempt",
+  "run_head_sha","workflow_event","builder_id","builder_version","harness_source_commit_sha",
+  "harness_bundle_sha256","corpus_sha256","candidate_code_executed","execution_outcome",
+  "conformance_outcome","admitted_claims","nonclaims","receipt_sha256"
+]) if (!(key in s1)) throw new Error("S1 receipt missing " + key);
+if (s1.schema !== "mycelix.qual-001s.s1-conformance-receipt-v1") throw new Error("wrong S1 receipt schema");
+if (s1.candidate_code_executed !== true) throw new Error("S1 receipt must record candidate execution");
+if (!/^[0-9a-f]{64}$/.test(s1.receipt_sha256)) throw new Error("invalid S1 receipt commitment");
+const s1Preimage = {...s1};
+delete s1Preimage.receipt_sha256;
+const computedS1Sha256 = createHash("sha256").update(canonicalAsciiJson(s1Preimage), "utf8").digest("hex");
+if (computedS1Sha256 !== s1.receipt_sha256) throw new Error("S1 receipt commitment does not match canonical preimage");
+if (s1.conformance_outcome === "PASS" && !s1.admitted_claims.includes("successor_conformance")) throw new Error("S1 PASS must admit successor_conformance");
+if (s1.conformance_outcome !== "PASS" && s1.admitted_claims.includes("successor_conformance")) throw new Error("non-PASS S1 receipt cannot admit successor_conformance");
+if (s1.s0_dispatch_envelope_sha256 !== s0.envelope_sha256) throw new Error("S1 receipt detached from S0 envelope");
+if (s1.s0_authority_observation_sha256 !== ao.observation_sha256) throw new Error("S1 receipt detached from S0 authority observation");
+for (const field of ["epoch_id","repository_id","repository_full_name","pull_request_number","s1_workflow_source_commit_sha"]) {
+  if (s1[field] !== s0[field]) throw new Error("S1 receipt " + field + " disagrees with S0 envelope");
+}
+if (s1.dispatch_input_commitment_sha256 !== ao.dispatch_input_commitment_sha256) throw new Error("S1 receipt dispatch input commitment disagrees with S0 authority observation");
+if (!Number.isInteger(s1.run_id) || s1.run_id < 1 || !Number.isInteger(s1.run_attempt) || s1.run_attempt < 1) throw new Error("invalid S1 run identity");
+
 console.log("QUAL-001S evaluator B: PASS");
