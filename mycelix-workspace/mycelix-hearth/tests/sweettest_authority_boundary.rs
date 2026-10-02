@@ -60,6 +60,25 @@ async fn signed_call<P: serde::Serialize + std::fmt::Debug>(
         .unwrap()
 }
 
+async fn signed_call_with_identity<P: serde::Serialize + std::fmt::Debug>(
+    conductor: &SweetConductor,
+    cell_id: &CellId,
+    provenance: AgentPubKey,
+    zome: &str,
+    function: &str,
+    payload: P,
+    cap_secret: Option<CapSecret>,
+) -> ZomeCallParamsSigned {
+    let mut params =
+        new_zome_call_params(cell_id, function, payload, zome).unwrap();
+    params.provenance = provenance;
+    params.cap_secret = cap_secret;
+
+    ZomeCallParamsSigned::try_from_params(&conductor.keystore(), params)
+        .await
+        .unwrap()
+}
+
 async fn signed_call_as_agent<P: serde::Serialize + std::fmt::Debug>(
     conductor: &SweetConductor,
     cell_id: &CellId,
@@ -68,14 +87,16 @@ async fn signed_call_as_agent<P: serde::Serialize + std::fmt::Debug>(
     payload: P,
     cap_secret: CapSecret,
 ) -> ZomeCallParamsSigned {
-    let mut params =
-        new_zome_call_params(cell_id, function, payload, "hearth_kinship").unwrap();
-    params.provenance = provenance;
-    params.cap_secret = Some(cap_secret);
-
-    ZomeCallParamsSigned::try_from_params(&conductor.keystore(), params)
-        .await
-        .unwrap()
+    signed_call_with_identity(
+        conductor,
+        cell_id,
+        provenance,
+        "hearth_kinship",
+        function,
+        payload,
+        Some(cap_secret),
+    )
+    .await
 }
 
 async fn signed_call_with_nonce<P: serde::Serialize + std::fmt::Debug>(
@@ -516,6 +537,87 @@ async fn test_authorized_call_reaches_zome_and_is_semantically_rejected() {
 }
 
 
+
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "requires Holochain conductor (nix develop)"]
+async fn test_authorized_wrong_zome_is_rejected_at_dispatch_boundary() {
+    let mut conductor = SweetConductor::standard().await;
+    let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
+
+    let (alice,) = conductor
+        .setup_app("test-app", &[dna_file])
+        .await
+        .unwrap()
+        .into_tuple();
+
+    let signed = signed_call_with_identity(
+        &conductor,
+        alice.cell_id(),
+        alice.agent_pubkey().clone(),
+        "zome_that_does_not_exist",
+        "get_my_hearths",
+        (),
+        None,
+    )
+    .await;
+
+    match submit_call(&conductor, signed).await {
+        AppResponse::ZomeCalled(result) => match *result {
+            ZomeCallResponse::Err(error) => {
+                let message = format!("{error:?}");
+                assert!(
+                    !message.contains("Role changes are disabled"),
+                    "unknown zome must not reach Hearth semantic validation: {message}"
+                );
+            }
+            other => panic!("unknown zome should be rejected at dispatch, got {other:?}"),
+        },
+        other => panic!("expected ZomeCalled response for zome dispatch rejection, got {other:?}"),
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "requires Holochain conductor (nix develop)"]
+async fn test_wrong_cell_provenance_is_rejected_at_authorization_boundary() {
+    let mut conductor = SweetConductor::standard().await;
+    let alice_dna = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
+    let bob_dna = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
+
+    let (alice,) = conductor
+        .setup_app("test-app-alice", &[alice_dna])
+        .await
+        .unwrap()
+        .into_tuple();
+    let (bob,) = conductor
+        .setup_app("test-app-bob", &[bob_dna])
+        .await
+        .unwrap()
+        .into_tuple();
+
+    // The request is signed by Alice but targets Bob's cell. This isolates
+    // provenance-to-cell binding from capability, nonce, expiry, and function
+    // semantics.
+    let signed = signed_call_with_identity(
+        &conductor,
+        bob.cell_id(),
+        alice.agent_pubkey().clone(),
+        "hearth_kinship",
+        "get_my_hearths",
+        (),
+        None,
+    )
+    .await;
+
+    match submit_call(&conductor, signed).await {
+        AppResponse::ZomeCalled(result) => match *result {
+            ZomeCallResponse::Unauthorized(..) => {}
+            other => panic!("wrong-cell provenance should be unauthorized, got {other:?}"),
+        },
+        other => panic!("expected ZomeCalled response for wrong-cell rejection, got {other:?}"),
+    }
+}
+
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_assigned_capability_binds_signer_and_revocation() {
@@ -778,7 +880,7 @@ fn test_authority_case_manifest_is_structurally_valid() {
         .as_array()
         .expect("authority case manifest must contain a cases array");
 
-    assert_eq!(cases.len(), 10, "manifest must enumerate all current authority cases");
+    assert_eq!(cases.len(), 12, "manifest must enumerate all current authority cases");
 
     let mut ids = cases
         .iter()
@@ -804,6 +906,8 @@ fn test_authority_case_manifest_is_structurally_valid() {
             "AUTH-08",
             "AUTH-09",
             "AUTH-10",
+            "AUTH-11",
+            "AUTH-12",
         ]
     );
 
