@@ -302,6 +302,38 @@ impl InventoryConsumption {
     }
 }
 
+/// Explicit sale of finished goods at a stated monetary amount.
+///
+/// Physical quantity and monetary consideration are intentionally separate
+/// fields. The transition transfers inventory and deposits atomically, while
+/// the carrying-value/COGS layer remains a future explicit accounting policy.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GoodsSale {
+    pub seller: ActorId,
+    pub buyer: ActorId,
+    pub quantity: i128,
+    pub consideration: i128,
+}
+
+impl GoodsSale {
+    pub fn new(
+        seller: impl Into<ActorId>,
+        buyer: impl Into<ActorId>,
+        quantity: i128,
+        consideration: i128,
+    ) -> Result<Self, String> {
+        if quantity <= 0 || consideration <= 0 {
+            return Err("sale quantity and consideration must be positive".into());
+        }
+        Ok(Self {
+            seller: seller.into(),
+            buyer: buyer.into(),
+            quantity,
+            consideration,
+        })
+    }
+}
+
 /// Explicit endogenous credit creation.
 ///
 /// Credit creation increases the lender's financial asset and the borrower's
@@ -554,6 +586,36 @@ impl EconomicState {
             ));
         }
         consumer.real.inventories -= consumption.quantity;
+        Ok(())
+    }
+
+    /// Settle a goods sale: inventory moves physically while deposits move
+    /// monetarily. No inventory valuation or profit recognition is implied yet.
+    pub fn apply_goods_sale(&mut self, sale: &GoodsSale) -> Result<(), String> {
+        let (seller, buyer) = self.actor_pair_mut(&sale.seller, &sale.buyer)?;
+        if seller.real.inventories < sale.quantity {
+            return Err(format!(
+                "insufficient inventory for {}: have {}, need {}",
+                seller.actor, seller.real.inventories, sale.quantity
+            ));
+        }
+        if buyer.monetary.deposits < sale.consideration {
+            return Err(format!(
+                "insufficient deposits for {}: have {}, need {}",
+                buyer.actor, buyer.monetary.deposits, sale.consideration
+            ));
+        }
+        seller.real.inventories -= sale.quantity;
+        buyer.real.inventories = buyer.real.inventories
+            .checked_add(sale.quantity)
+            .ok_or_else(|| "buyer inventory overflow".to_string())?;
+        buyer.monetary.deposits -= sale.consideration;
+        seller.monetary.deposits = seller.monetary.deposits
+            .checked_add(sale.consideration)
+            .ok_or_else(|| "seller deposit overflow".to_string())?;
+        self.monetary_flow_volume = self.monetary_flow_volume
+            .checked_add(sale.consideration)
+            .ok_or_else(|| "monetary flow counter overflow".to_string())?;
         Ok(())
     }
 
