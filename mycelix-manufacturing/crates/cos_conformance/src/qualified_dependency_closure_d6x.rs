@@ -353,30 +353,78 @@ impl DependencyClosureCertificateV1 {
         );
         expected
     }
+    /// Convert maps keyed by structured dependency references into canonical
+    /// arrays before hashing. JSON object keys are strings; representing these
+    /// bindings as explicit key/value records keeps the commitment format
+    /// deterministic and executable instead of depending on serializer-specific
+    /// treatment of non-string map keys.
+    fn canonical_hash_material(&self) -> serde_json::Value {
+        serde_json::json!({
+            "schema_version": self.schema_version,
+            "algorithm_version": self.algorithm_version,
+            "closure_profile_commitment": self.closure_profile_commitment,
+            "source_dkg_snapshot_commitment": self.source_dkg_snapshot_commitment,
+            "projection_commitment": self.projection_commitment,
+            "closure_identity_commitment": self.closure_identity_commitment,
+            "semantic_environment_commitment": self.semantic_environment_commitment,
+            "derivation_profile_commitment": self.derivation_profile_commitment,
+            "root_node_ids": self.root_node_ids,
+            "included_node_commitments": self.included_node_commitments,
+            "included_node_ids": self.included_node_ids,
+            "included_nodes": self.included_nodes,
+            "included_d6p_receipt_commitments": self.included_d6p_receipt_commitments,
+            "included_edge_commitments": self.included_edge_commitments,
+            "included_edges": self.included_edges,
+            "missing_dependency_ids": self.missing_dependency_ids,
+            "missing_dependencies": self.missing_dependencies,
+            "dependencies": self.dependencies,
+            "dependency_resolutions": self.dependency_resolutions.iter()
+                .map(|(dependency, resolution)| serde_json::json!({
+                    "dependency": dependency,
+                    "resolution": resolution,
+                }))
+                .collect::<Vec<_>>(),
+            "resolution_evidence": self.resolution_evidence.iter()
+                .map(|(dependency, evidence)| serde_json::json!({
+                    "dependency": dependency,
+                    "evidence": evidence,
+                }))
+                .collect::<Vec<_>>(),
+            "status": self.status,
+            "cycle_detected": self.cycle_detected,
+            "claim_ceiling": self.claim_ceiling,
+        })
+    }
+
     pub fn closure_identity(&self) -> String {
-        let identity = (
-            &self.schema_version,
-            &self.algorithm_version,
-            &D6X_CANONICALIZATION_VERSION,
-            &self.closure_profile_commitment,
-            &self.source_dkg_snapshot_commitment,
-            &self.semantic_environment_commitment,
-            &self.derivation_profile_commitment,
-            &self.root_node_ids,
-            &self.dependencies,
-            &self.missing_dependencies,
-            &self.dependency_resolutions,
-            &self.status,
-            &self.cycle_detected,
-            &self.claim_ceiling,
-        );
+        let identity = serde_json::json!({
+            "schema_version": self.schema_version,
+            "algorithm_version": self.algorithm_version,
+            "canonicalization_version": D6X_CANONICALIZATION_VERSION,
+            "closure_profile_commitment": self.closure_profile_commitment,
+            "source_dkg_snapshot_commitment": self.source_dkg_snapshot_commitment,
+            "semantic_environment_commitment": self.semantic_environment_commitment,
+            "derivation_profile_commitment": self.derivation_profile_commitment,
+            "root_node_ids": self.root_node_ids,
+            "dependencies": self.dependencies,
+            "missing_dependencies": self.missing_dependencies,
+            "dependency_resolutions": self.dependency_resolutions.iter()
+                .map(|(dependency, resolution)| serde_json::json!({
+                    "dependency": dependency,
+                    "resolution": resolution,
+                }))
+                .collect::<Vec<_>>(),
+            "status": self.status,
+            "cycle_detected": self.cycle_detected,
+            "claim_ceiling": self.claim_ceiling,
+        });
         canonical_sha256("d6x-closure-identity", &identity)
     }
 
     pub fn recompute(&self) -> String {
         let mut unsigned = self.clone();
         unsigned.commitment.clear();
-        canonical_sha256("d6x-dependency-closure", &unsigned)
+        canonical_sha256("d6x-dependency-closure", &unsigned.canonical_hash_material())
     }
 }
 
@@ -784,6 +832,45 @@ mod tests {
             )
             .is_none()
         );
+    }
+
+    #[test]
+    fn structured_dependency_maps_are_hashable_and_deterministic() {
+        let (projection, environment, derivation_profile) = projection(false);
+        let profile = profile(BTreeSet::new());
+        let closure = compute_dependency_closure(
+            &projection,
+            &environment,
+            &derivation_profile,
+            &profile,
+        )
+        .expect("baseline closure");
+
+        let first = closure.recompute();
+        assert_eq!(first, closure.recompute());
+        assert!(closure.commitment == first);
+
+        let mut with_evidence = closure.clone();
+        let dependency = SemanticDependencyReferenceV1::node(
+            "root",
+            Some(
+                projection
+                    .nodes
+                    .get("root")
+                    .expect("root")
+                    .node_commitment
+                    .clone(),
+            ),
+        );
+        with_evidence.resolution_evidence.insert(
+            dependency,
+            SemanticDependencyResolutionEvidenceV1 {
+                retrieval_reference: Some("runtime://resolver/golden".into()),
+                observed_commitment: None,
+                qualification_context_commitment: Some("qualification-1".into()),
+            },
+        );
+        assert_ne!(first, with_evidence.recompute());
     }
 
     #[test]
