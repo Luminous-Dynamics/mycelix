@@ -808,7 +808,10 @@ mod tests {
     fn historical_reservation_can_terminate_after_listing_revision_bridge() {
         let mut f = frontier(2);
         let first = certificate_with_capacity("c1", 0, None, 1, 2);
-        assert_eq!(f.apply(FrontierEvent::Reserve(first)), Ok(ApplyOutcome::Applied));
+        assert_eq!(
+            f.apply(FrontierEvent::Reserve(first)),
+            Ok(ApplyOutcome::Applied)
+        );
 
         let new_revision = hash(7);
         assert_eq!(
@@ -843,16 +846,21 @@ mod tests {
         let first = certificate_with_capacity("c1", 0, None, 2, 3);
         assert_eq!(f.apply(FrontierEvent::Reserve(first)), Ok(ApplyOutcome::Applied));
 
-        let error = f.apply(FrontierEvent::SetCapacity {
-            listing_hash: hash(3),
-            listing_revision: hash(8),
-            capacity: 1,
-            seller: agent(2),
-            sequence: 1,
-            previous_certificate_id: Some("c1".into()),
-        }).unwrap_err();
+        let error = f
+            .apply(FrontierEvent::SetCapacity {
+                listing_hash: hash(3),
+                listing_revision: hash(8),
+                capacity: 1,
+                seller: agent(2),
+                sequence: 1,
+                previous_certificate_id: Some("c1".into()),
+            })
+            .unwrap_err();
 
-        assert!(matches!(error, CertificateError::Capacity(ReservationError::CapacityBelowActive { .. })));
+        assert!(matches!(
+            error,
+            CertificateError::Capacity(ReservationError::CapacityBelowActive { .. })
+        ));
         assert_eq!(f.active_reserved(), 2);
         assert_eq!(f.capacity(), 3);
         assert_eq!(f.listing_revision(), &hash(4));
