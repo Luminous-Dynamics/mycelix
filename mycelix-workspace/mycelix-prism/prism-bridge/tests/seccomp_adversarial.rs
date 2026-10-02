@@ -320,6 +320,117 @@ fn seccomp_parameter_predicate_is_positive_and_negative() {
 }
 
 #[cfg(target_os = "linux")]
+fn disjunctive_socket_child() -> ! {
+    use prism_bridge::process::{RendererProcessAssignmentId, SandboxProfileV1};
+    use prism_bridge::seccomp::{
+        install_v2, SeccompArgPredicateV1, SeccompArchitecture, SeccompSyscallClauseV2,
+        SeccompSyscallPolicyV2, SeccompSyscallRuleV2,
+    };
+
+    let architecture =
+        SeccompArchitecture::current().unwrap_or_else(|| unsafe { libc::_exit(130) });
+
+    let unix = SeccompSyscallClauseV2::new(vec![
+        SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_UNIX as u64)
+            .unwrap_or_else(|_| unsafe { libc::_exit(131) }),
+    ])
+    .unwrap_or_else(|_| unsafe { libc::_exit(132) });
+    let netlink = SeccompSyscallClauseV2::new(vec![
+        SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_NETLINK as u64)
+            .unwrap_or_else(|_| unsafe { libc::_exit(133) }),
+    ])
+    .unwrap_or_else(|_| unsafe { libc::_exit(134) });
+    let socket = SeccompSyscallRuleV2::new_with_clauses(
+        libc::SYS_socket,
+        vec![unix, netlink],
+    )
+    .unwrap_or_else(|_| unsafe { libc::_exit(135) });
+    let exit_group = SeccompSyscallRuleV2::new(libc::SYS_exit_group, Vec::new())
+        .unwrap_or_else(|_| unsafe { libc::_exit(136) });
+
+    let policy = SeccompSyscallPolicyV2::new(architecture, vec![socket, exit_group])
+        .unwrap_or_else(|_| unsafe { libc::_exit(137) });
+    let profile = SandboxProfileV1::renderer_default()
+        .with_syscall_policy_digest(policy.digest())
+        .unwrap_or_else(|_| unsafe { libc::_exit(138) });
+
+    // Resolve the raw syscall/errno path before the irreversible transition.
+    let warmup = unsafe {
+        libc::syscall(
+            libc::SYS_socket,
+            libc::AF_UNIX,
+            libc::SOCK_STREAM,
+            0,
+        )
+    };
+    if warmup >= 0 {
+        unsafe { libc::close(warmup as libc::c_int) };
+    }
+    let _ = unsafe { *libc::__errno_location() };
+
+    if install_v2(
+        RendererProcessAssignmentId::new(5).unwrap(),
+        profile,
+        &policy,
+    )
+    .is_err()
+    {
+        unsafe { libc::_exit(139) };
+    }
+
+    let unix_socket =
+        unsafe { libc::syscall(libc::SYS_socket, libc::AF_UNIX, libc::SOCK_STREAM, 0) };
+    if unix_socket < 0 {
+        unsafe { libc::_exit(140) };
+    }
+
+    let netlink_socket =
+        unsafe { libc::syscall(libc::SYS_socket, libc::AF_NETLINK, libc::SOCK_DGRAM, 0) };
+    if netlink_socket < 0 {
+        unsafe { libc::_exit(141) };
+    }
+
+    let denied = unsafe {
+        libc::syscall(
+            libc::SYS_socket,
+            libc::AF_INET,
+            libc::SOCK_STREAM,
+            0,
+        )
+    };
+    let denied_errno = unsafe { *libc::__errno_location() };
+    if denied != -1 || denied_errno != libc::EPERM {
+        unsafe { libc::_exit(142) };
+    }
+
+    let unlisted = unsafe { libc::syscall(libc::SYS_getpid) };
+    let unlisted_errno = unsafe { *libc::__errno_location() };
+    if unlisted != -1 || unlisted_errno != libc::EPERM {
+        unsafe { libc::_exit(143) };
+    }
+
+    unsafe { libc::_exit(0) }
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn seccomp_disjunctive_argument_clauses_are_enforced() {
+    if std::env::var_os("PRISM_SECCOMP_DISJUNCTIVE_CHILD").is_some() {
+        disjunctive_socket_child();
+    }
+
+    let status = std::process::Command::new(std::env::current_exe().unwrap())
+        .arg("--exact")
+        .arg("seccomp_disjunctive_argument_clauses_are_enforced")
+        .arg("--nocapture")
+        .env("PRISM_SECCOMP_DISJUNCTIVE_CHILD", "1")
+        .status()
+        .expect("failed to launch seccomp disjunctive child");
+
+    assert!(status.success(), "seccomp disjunctive child failed: {status}");
+}
+
+#[cfg(target_os = "linux")]
 #[test]
 fn seccomp_install_rejects_wrong_architecture_before_enforcement() {
     use prism_bridge::process::{
