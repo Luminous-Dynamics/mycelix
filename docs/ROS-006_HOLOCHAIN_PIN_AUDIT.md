@@ -6,6 +6,8 @@ Purpose: establish the Holochain 0.7 target without performing an unsafe partial
 
 Detailed execution matrix: [`ROS-006_HOLOCHAIN_07_NORMALIZATION_MATRIX.md`](ROS-006_HOLOCHAIN_07_NORMALIZATION_MATRIX.md).
 
+Concrete upstream lock target: [`ROS-006_HOLOCHAIN_07_UPSTREAM_LOCK_TARGET.md`](ROS-006_HOLOCHAIN_07_UPSTREAM_LOCK_TARGET.md).
+
 Concrete source inventory: [`ROS-006_HOLOCHAIN_07_SOURCE_MIGRATION_INVENTORY.md`](ROS-006_HOLOCHAIN_07_SOURCE_MIGRATION_INVENTORY.md).
 
 ## Current state
