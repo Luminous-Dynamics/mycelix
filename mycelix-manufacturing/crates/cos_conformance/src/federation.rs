@@ -682,28 +682,6 @@ pub fn run_scenario(
         let transport_available = !matches!(step.mutation, FederationMutation::Partition);
 
         match step.mutation {
-            FederationMutation::LocalEvidence
-            | FederationMutation::ForeignEvidence
-            | FederationMutation::DuplicateDelivery
-            | FederationMutation::NewLogicalDelivery
-            | FederationMutation::DelayedDelivery
-            | FederationMutation::ReorderedDelivery
-            | FederationMutation::Partition
-            | FederationMutation::Reconnect
-            | FederationMutation::StaleSchema
-            | FederationMutation::ConflictingObservation
-            | FederationMutation::ExpiredAuthorization
-            | FederationMutation::ContractOriginMutation
-            | FederationMutation::ContractTargetMutation
-            | FederationMutation::ContractSubjectMutation
-            | FederationMutation::ContractPayloadMutation
-            | FederationMutation::ContractSchemaGenerationMutation
-            | FederationMutation::ContractAuthorizationGenerationMutation
-            | FederationMutation::ContractPredecessorMutation
-            | FederationMutation::ContractExpiryMutation => {}
-        }
-
-        match step.mutation {
             FederationMutation::ForeignEvidence => {
                 candidate.envelope_id = format!("{}-foreign", candidate.envelope_id);
                 candidate.logical_delivery_id =
