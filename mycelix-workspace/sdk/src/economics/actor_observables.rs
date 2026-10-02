@@ -17,6 +17,13 @@ use super::stock_flow::{
 };
 use super::transition::EconomicTransition;
 
+fn add_checked(slot: &mut i128, amount: i128, label: &str) -> Result<(), String> {
+    *slot = slot
+        .checked_add(amount)
+        .ok_or_else(|| format!("{label} overflow"))?;
+    Ok(())
+}
+
 /// Derived stock/flow observations for one actor over one period.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct ActorEconomicObservables {
@@ -90,61 +97,81 @@ impl ActorEconomicObservables {
                 EconomicTransition::CreditCreation(credit) => {
                     ensure_actor(&credit.lender)?;
                     ensure_actor(&credit.borrower)?;
-                    observations.get_mut(&credit.lender).unwrap().credit_originated += credit.amount;
-                    observations.get_mut(&credit.borrower).unwrap().credit_received += credit.amount;
+                    add_checked(
+                        &mut observations.get_mut(&credit.lender).unwrap().credit_originated,
+                        credit.amount,
+                        "actor credit originated",
+                    )?;
+                    add_checked(
+                        &mut observations.get_mut(&credit.borrower).unwrap().credit_received,
+                        credit.amount,
+                        "actor credit received",
+                    )?;
                 }
                 EconomicTransition::DebtRepayment(repayment) => {
                     ensure_actor(&repayment.lender)?;
                     ensure_actor(&repayment.borrower)?;
-                    observations.get_mut(&repayment.borrower).unwrap().debt_repaid += repayment.amount;
+                    add_checked(
+                        &mut observations.get_mut(&repayment.borrower).unwrap().debt_repaid,
+                        repayment.amount,
+                        "actor debt repaid",
+                    )?;
                 }
                 EconomicTransition::IncomeTransfer(flow) => {
                     ensure_actor(&flow.payer)?;
                     ensure_actor(&flow.recipient)?;
                     match flow.category {
                         EconomicFlowCategory::Wage => {
-                            observations.get_mut(&flow.payer).unwrap().wages_paid += flow.amount;
-                            observations.get_mut(&flow.recipient).unwrap().wages_received += flow.amount;
+                            add_checked(&mut observations.get_mut(&flow.payer).unwrap().wages_paid, flow.amount, "actor wages paid")?;
+                            add_checked(&mut observations.get_mut(&flow.recipient).unwrap().wages_received, flow.amount, "actor wages received")?;
                         }
                         EconomicFlowCategory::Interest => {
-                            observations.get_mut(&flow.payer).unwrap().interest_paid += flow.amount;
-                            observations.get_mut(&flow.recipient).unwrap().interest_received += flow.amount;
+                            add_checked(&mut observations.get_mut(&flow.payer).unwrap().interest_paid, flow.amount, "actor interest paid")?;
+                            add_checked(&mut observations.get_mut(&flow.recipient).unwrap().interest_received, flow.amount, "actor interest received")?;
                         }
                         EconomicFlowCategory::Tax => {
-                            observations.get_mut(&flow.payer).unwrap().taxes_paid += flow.amount;
+                            add_checked(&mut observations.get_mut(&flow.payer).unwrap().taxes_paid, flow.amount, "actor taxes paid")?;
                         }
                         EconomicFlowCategory::Transfer => {
-                            observations.get_mut(&flow.payer).unwrap().transfers_paid += flow.amount;
-                            observations.get_mut(&flow.recipient).unwrap().transfers_received += flow.amount;
+                            add_checked(&mut observations.get_mut(&flow.payer).unwrap().transfers_paid, flow.amount, "actor transfers paid")?;
+                            add_checked(&mut observations.get_mut(&flow.recipient).unwrap().transfers_received, flow.amount, "actor transfers received")?;
                         }
                         EconomicFlowCategory::Consumption => {
-                            observations.get_mut(&flow.payer).unwrap().consumption_paid += flow.amount;
+                            add_checked(&mut observations.get_mut(&flow.payer).unwrap().consumption_paid, flow.amount, "actor consumption paid")?;
                         }
                         EconomicFlowCategory::Investment => {
-                            observations.get_mut(&flow.payer).unwrap().investment_paid += flow.amount;
-                            observations.get_mut(&flow.recipient).unwrap().investment_received += flow.amount;
+                            add_checked(&mut observations.get_mut(&flow.payer).unwrap().investment_paid, flow.amount, "actor investment paid")?;
+                            add_checked(&mut observations.get_mut(&flow.recipient).unwrap().investment_received, flow.amount, "actor investment received")?;
                         }
                     }
                 }
                 EconomicTransition::CapitalInvestment(investment) => {
                     ensure_actor(&investment.buyer)?;
                     ensure_actor(&investment.producer)?;
-                    observations.get_mut(&investment.buyer).unwrap().investment_paid += investment.amount;
-                    observations.get_mut(&investment.producer).unwrap().investment_received += investment.amount;
+                    add_checked(&mut observations.get_mut(&investment.buyer).unwrap().investment_paid, investment.amount, "actor investment paid")?;
+                    add_checked(&mut observations.get_mut(&investment.producer).unwrap().investment_received, investment.amount, "actor investment received")?;
                 }
                 EconomicTransition::GoodsSale(sale) => {
                     ensure_actor(&sale.seller)?;
                     ensure_actor(&sale.buyer)?;
-                    observations.get_mut(&sale.seller).unwrap().sales_revenue += sale.consideration;
-                    observations.get_mut(&sale.buyer).unwrap().goods_purchases += sale.consideration;
+                    add_checked(&mut observations.get_mut(&sale.seller).unwrap().sales_revenue, sale.consideration, "actor sales revenue")?;
+                    add_checked(&mut observations.get_mut(&sale.buyer).unwrap().goods_purchases, sale.consideration, "actor goods purchases")?;
                 }
                 EconomicTransition::InventoryCostRelief(relief) => {
                     ensure_actor(&relief.actor)?;
-                    observations.get_mut(&relief.actor).unwrap().cost_of_goods_sold += relief.carrying_value;
+                    add_checked(
+                        &mut observations.get_mut(&relief.actor).unwrap().cost_of_goods_sold,
+                        relief.carrying_value,
+                        "actor COGS",
+                    )?;
                 }
                 EconomicTransition::Depreciation(depreciation) => {
                     ensure_actor(&depreciation.actor)?;
-                    observations.get_mut(&depreciation.actor).unwrap().depreciation += depreciation.amount;
+                    add_checked(
+                        &mut observations.get_mut(&depreciation.actor).unwrap().depreciation,
+                        depreciation.amount,
+                        "actor depreciation",
+                    )?;
                 }
                 EconomicTransition::MonetaryTransfer(_)
                 | EconomicTransition::Production(_)
