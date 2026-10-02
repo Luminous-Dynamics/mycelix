@@ -793,10 +793,11 @@ fn witness_from(
         current_frontier_root: current_frontier_root.to_owned(),
         lifecycle_profile_id: lifecycle_profile_id.to_owned(),
         witness_commitment: format!(
-            "witness:{}:{}:{}",
+            "witness:{}:{}:{}:{}",
             assessment.observation_id,
             set.set_commitment,
-            receipt.map(|r| r.eligibility_id.as_str()).unwrap_or("missing")
+            receipt.map(|r| r.eligibility_id.as_str()).unwrap_or("missing"),
+            current_frontier_root
         ),
         claim_ceiling: FINALITY_ELIGIBILITY_COMPOSITION_CLAIM_CEILING.to_owned(),
     }
@@ -1332,7 +1333,7 @@ mod tests {
                 observation_frontier_root: "frontier-1".into(),
                 current_frontier_root: "frontier-1".into(),
                 lifecycle_profile_id: "lifecycle-1".into(),
-                witness_commitment: "witness:observation-1:set-commitment-1:witness-1".into(),
+                witness_commitment: "witness:observation-1:set-commitment-1:witness-1:frontier-1".into(),
                 claim_ceiling: FINALITY_ELIGIBILITY_COMPOSITION_CLAIM_CEILING.into(),
             }],
             disposition: FinalityEligibilityDispositionV1::EligibleCurrent,
@@ -1342,6 +1343,36 @@ mod tests {
         };
         composition.composition_commitment = composition.recomputed_commitment();
         composition
+    }
+
+    #[test]
+    fn witness_commitment_binds_current_frontier() {
+        let composition = matching_composition();
+        let witness = &composition.witnesses[0];
+        let expected = format!(
+            "witness:{}:{}:{}:{}",
+            witness.observation_id,
+            witness.d6n_observation_set_commitment,
+            witness.d6o_eligibility_id.as_deref().unwrap_or("missing"),
+            witness.current_frontier_root,
+        );
+        assert_eq!(witness.witness_commitment, expected);
+
+        let mut replay = witness.clone();
+        replay.current_frontier_root = "frontier-replayed".into();
+        assert_ne!(replay.witness_commitment, format!(
+            "witness:{}:{}:{}:{}",
+            replay.observation_id,
+            replay.d6n_observation_set_commitment,
+            replay.d6o_eligibility_id.as_deref().unwrap_or("missing"),
+            replay.current_frontier_root,
+        ));
+        assert!(!{
+            let mut candidate = composition.clone();
+            candidate.witnesses[0] = replay;
+            candidate.composition_commitment = candidate.recomputed_commitment();
+            candidate.semantically_valid()
+        });
     }
 
     #[test]
