@@ -1779,7 +1779,7 @@ pub fn validate_create_reservation_certificate(
     let _ = listing;
 
     let revision_record = must_get_valid_record(certificate.listing_revision.clone())?;
-    let revision_action = revision_record.action();
+    let revision_action = must_get_action(certificate.listing_revision.clone())?;
     let _revision_listing = revision_record
         .entry()
         .to_app_option::<Listing>()
