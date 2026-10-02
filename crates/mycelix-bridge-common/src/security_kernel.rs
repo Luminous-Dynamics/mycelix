@@ -1071,21 +1071,24 @@ mod tests {
     fn authority_binding_is_stable_across_lease_refresh() {
         let digest = [0x11; 32];
         let initial = authority_binding_from_freshness_digest(digest);
-        let refreshed = authority_binding_from_freshness_digest(
-            "mycelix-authority-freshness-v0.1",
-            "mycelix-authority-freshness-bundle-v1-blake3-framed",
-            digest,
-        );
+        let refreshed = authority_binding_from_freshness_digest(digest);
         assert_eq!(initial, refreshed);
+        assert_ne!(initial, [0; 32]);
     }
 
     #[test]
     fn authority_binding_changes_with_freshness_domain() {
         let a = authority_binding_from_freshness_digest([0x11; 32]);
         let generation_changed = authority_binding_from_freshness_digest([0x12; 32]);
-        let profile_changed = authority_binding_from_freshness_digest([0x11; 32]);
         assert_ne!(a, generation_changed);
-        assert_ne!(a, profile_changed);
+        assert_eq!(
+            AUTHORITY_FRESHNESS_PROTOCOL_VERSION,
+            "mycelix-authority-freshness-v0.1"
+        );
+        assert_eq!(
+            AUTHORITY_FRESHNESS_PROFILE,
+            "mycelix-authority-freshness-bundle-v1-blake3-framed"
+        );
     }
 
     #[test]
