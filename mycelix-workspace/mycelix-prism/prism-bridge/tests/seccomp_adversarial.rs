@@ -80,7 +80,7 @@ fn child() -> ! {
     // Exercise the corresponding write-side primitive against a valid
     // writable self-address. Without the filter this has a successful kernel
     // path; with renderer policy it must be denied with EPERM.
-    let mut write_byte = byte;
+    let write_byte = byte;
     let write_local = libc::iovec {
         iov_base: (&write_byte as *const u8).cast_mut().cast(),
         iov_len: 1,
@@ -141,7 +141,8 @@ fn parameter_predicate_child() -> ! {
         SeccompSyscallRuleV2,
     };
 
-    let architecture = SeccompArchitecture::current().unwrap_or_else(|| unsafe { libc::_exit(110) });
+    let architecture =
+        SeccompArchitecture::current().unwrap_or_else(|| unsafe { libc::_exit(110) });
 
     let prctl_get = SeccompSyscallRuleV2::new(
         libc::SYS_prctl,
@@ -149,8 +150,10 @@ fn parameter_predicate_child() -> ! {
             0,
             u64::MAX,
             libc::PR_GET_NO_NEW_PRIVS as u64,
-        ).unwrap_or_else(|_| unsafe { libc::_exit(111) })],
-    ).unwrap_or_else(|_| unsafe { libc::_exit(112) });
+        )
+        .unwrap_or_else(|_| unsafe { libc::_exit(111) })],
+    )
+    .unwrap_or_else(|_| unsafe { libc::_exit(112) });
     let mmap_no_wx = SeccompSyscallRuleV2::new(
         libc::SYS_mmap,
         vec![SeccompArgPredicateV1::new_with_op(
@@ -158,8 +161,10 @@ fn parameter_predicate_child() -> ! {
             (libc::PROT_WRITE | libc::PROT_EXEC) as u64,
             (libc::PROT_WRITE | libc::PROT_EXEC) as u64,
             prism_bridge::seccomp::SeccompArgPredicateOpV1::MaskedNotEqual,
-        ).unwrap_or_else(|_| unsafe { libc::_exit(113) })],
-    ).unwrap_or_else(|_| unsafe { libc::_exit(114) });
+        )
+        .unwrap_or_else(|_| unsafe { libc::_exit(113) })],
+    )
+    .unwrap_or_else(|_| unsafe { libc::_exit(114) });
     let mprotect_no_x = SeccompSyscallRuleV2::new(
         libc::SYS_mprotect,
         vec![SeccompArgPredicateV1::new_with_op(
@@ -167,28 +172,41 @@ fn parameter_predicate_child() -> ! {
             libc::PROT_EXEC as u64,
             libc::PROT_EXEC as u64,
             prism_bridge::seccomp::SeccompArgPredicateOpV1::MaskedNotEqual,
-        ).unwrap_or_else(|_| unsafe { libc::_exit(115) })],
-    ).unwrap_or_else(|_| unsafe { libc::_exit(116) });
+        )
+        .unwrap_or_else(|_| unsafe { libc::_exit(115) })],
+    )
+    .unwrap_or_else(|_| unsafe { libc::_exit(116) });
     let exit_group = SeccompSyscallRuleV2::new(libc::SYS_exit_group, Vec::new())
         .unwrap_or_else(|_| unsafe { libc::_exit(117) });
 
     let policy = SeccompSyscallPolicyV2::new(
         architecture,
         vec![prctl_get, mmap_no_wx, mprotect_no_x, exit_group],
-    ).unwrap_or_else(|_| unsafe { libc::_exit(118) });
+    )
+    .unwrap_or_else(|_| unsafe { libc::_exit(118) });
     let profile = SandboxProfileV1::renderer_default()
         .with_syscall_policy_digest(policy.digest())
         .unwrap_or_else(|_| unsafe { libc::_exit(119) });
 
     // Warm the raw syscall/errno path before the irreversible transition.
-    let _ = unsafe { libc::syscall(libc::SYS_prctl, libc::PR_GET_NO_NEW_PRIVS, 0, 0, 0, 0) };
+    let _ = unsafe {
+        libc::syscall(
+            libc::SYS_prctl,
+            libc::PR_GET_NO_NEW_PRIVS,
+            0,
+            0,
+            0,
+            0,
+        )
+    };
     let _ = unsafe { *libc::__errno_location() };
 
     if install_v2(
         RendererProcessAssignmentId::new(4).unwrap(),
         profile,
         &policy,
-    ).is_err()
+    )
+    .is_err()
     {
         unsafe { libc::_exit(120) };
     }
@@ -197,7 +215,10 @@ fn parameter_predicate_child() -> ! {
         libc::syscall(
             libc::SYS_prctl,
             libc::PR_GET_NO_NEW_PRIVS,
-            0, 0, 0, 0,
+            0,
+            0,
+            0,
+            0,
         )
     };
     if allowed != 1 {
@@ -215,7 +236,7 @@ fn parameter_predicate_child() -> ! {
             0usize,
         )
     };
-    if read_mapping == libc::MAP_FAILED as isize {
+    if read_mapping == libc::MAP_FAILED as i64 {
         unsafe { libc::_exit(122) };
     }
 
@@ -235,7 +256,15 @@ fn parameter_predicate_child() -> ! {
         unsafe { libc::_exit(123) };
     }
 
-    if unsafe { libc::syscall(libc::SYS_mprotect, read_mapping as usize, 4096usize, libc::PROT_READ | libc::PROT_WRITE) } != 0 {
+    if unsafe {
+        libc::syscall(
+            libc::SYS_mprotect,
+            read_mapping as usize,
+            4096usize,
+            libc::PROT_READ | libc::PROT_WRITE,
+        )
+    } != 0
+    {
         unsafe { libc::_exit(124) };
     }
 
@@ -258,7 +287,10 @@ fn parameter_predicate_child() -> ! {
         libc::syscall(
             libc::SYS_prctl,
             libc::PR_SET_NO_NEW_PRIVS,
-            1, 0, 0, 0,
+            1,
+            0,
+            0,
+            0,
         )
     };
     let errno = unsafe { *libc::__errno_location() };
@@ -290,8 +322,12 @@ fn seccomp_parameter_predicate_is_positive_and_negative() {
 #[cfg(target_os = "linux")]
 #[test]
 fn seccomp_install_rejects_wrong_architecture_before_enforcement() {
-    use prism_bridge::process::{RendererProcessAssignmentId, SandboxProfileV1};
-    use prism_bridge::seccomp::{install, SeccompArchitecture, SeccompError, SeccompSyscallPolicyV1};
+    use prism_bridge::process::{
+        RendererProcessAssignmentId, SandboxProfileV1
+    };
+    use prism_bridge::seccomp::{
+        install, SeccompArchitecture, SeccompError, SeccompSyscallPolicyV1
+    };
 
     let current = SeccompArchitecture::current().expect("qualification host architecture");
     let wrong = match current {
@@ -322,7 +358,8 @@ fn thread_sync_child() -> ! {
     use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
     use std::sync::Arc;
 
-    let architecture = SeccompArchitecture::current().unwrap_or_else(|| unsafe { libc::_exit(100) });
+    let architecture =
+        SeccompArchitecture::current().unwrap_or_else(|| unsafe { libc::_exit(100) });
     let policy = SeccompSyscallPolicyV1::new(
         architecture,
         vec![libc::SYS_getpid, libc::SYS_write, libc::SYS_exit_group],
