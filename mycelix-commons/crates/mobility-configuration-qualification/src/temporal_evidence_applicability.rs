@@ -2845,7 +2845,7 @@ mod tests {
             basis: boundary.basis.clone(),
         };
 
-        assert!(coverage
+        let result = coverage
             .validate_against_graph_and_authority_chain_assessment(
                 &reconciliation,
                 &scope,
@@ -2853,8 +2853,14 @@ mod tests {
                 &[delegation],
                 &boundary,
                 &[descendant_head],
-            )
-            .is_err());
+            );
+
+        assert!(matches!(
+            result,
+            Err(
+                EvidenceDispositionCoverageValidationError::Structural { reason }
+            ) if reason == "reconciliation branch heads must be incomparable descendants"
+        ));
     }
 
     #[test]
