@@ -190,15 +190,29 @@ impl EconomicPeriodLedger {
         self.category_totals.get(&category).copied().unwrap_or(0)
     }
 
+    pub fn try_net_credit(&self) -> Result<i128, String> {
+        self.credit_created
+            .checked_sub(self.debt_repaid)
+            .ok_or_else(|| "period net credit overflow".into())
+    }
+
     pub fn net_credit(&self) -> i128 {
-        self.credit_created - self.debt_repaid
+        self.try_net_credit()
+            .expect("period net credit overflow")
     }
 
     /// Gross sales revenue less explicit COGS reliefs. This is a gross trading
     /// surplus measure; wages, intermediate costs, depreciation, interest and
     /// taxes remain separate until their own accounting boundaries are applied.
+    pub fn try_gross_operating_surplus(&self) -> Result<i128, String> {
+        self.sales_consideration
+            .checked_sub(self.cost_of_goods_sold)
+            .ok_or_else(|| "period gross operating surplus overflow".into())
+    }
+
     pub fn gross_operating_surplus(&self) -> i128 {
-        self.sales_consideration - self.cost_of_goods_sold
+        self.try_gross_operating_surplus()
+            .expect("period gross operating surplus overflow")
     }
 
     /// Gross operating surplus less separately recognized depreciation.
@@ -206,8 +220,15 @@ impl EconomicPeriodLedger {
     /// This is intentionally not a complete profit measure. Interest, taxes,
     /// other operating expenses, and any depreciation already capitalized into
     /// inventory and later included in COGS must not be counted again.
+    pub fn try_operating_surplus_after_depreciation(&self) -> Result<i128, String> {
+        self.try_gross_operating_surplus()?
+            .checked_sub(self.depreciation)
+            .ok_or_else(|| "period operating surplus after depreciation overflow".into())
+    }
+
     pub fn operating_surplus_after_depreciation(&self) -> i128 {
-        self.gross_operating_surplus() - self.depreciation
+        self.try_operating_surplus_after_depreciation()
+            .expect("period operating surplus after depreciation overflow")
     }
 
     /// Hash the complete derived ledger for evidence binding.
@@ -271,6 +292,32 @@ mod tests {
         assert_eq!(ledger.trade_credit_extended, 80);
         assert_eq!(ledger.trade_credit_settled, 30);
         assert_eq!(ledger.monetary_transfer_total, 0);
+    }
+
+    #[test]
+    fn checked_derived_totals_fail_closed_on_subtraction_overflow() {
+        let net_credit = EconomicPeriodLedger {
+            credit_created: i128::MIN,
+            debt_repaid: 1,
+            ..EconomicPeriodLedger::default()
+        };
+        assert!(net_credit.try_net_credit().is_err());
+
+        let surplus = EconomicPeriodLedger {
+            sales_consideration: i128::MIN,
+            cost_of_goods_sold: 1,
+            ..EconomicPeriodLedger::default()
+        };
+        assert!(surplus.try_gross_operating_surplus().is_err());
+
+        let after_depreciation = EconomicPeriodLedger {
+            sales_consideration: i128::MIN,
+            depreciation: 1,
+            ..EconomicPeriodLedger::default()
+        };
+        assert!(after_depreciation
+            .try_operating_surplus_after_depreciation()
+            .is_err());
     }
 
     #[test]
