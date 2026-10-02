@@ -633,7 +633,11 @@ impl EconomicState {
                     ));
                 }
                 sender.monetary.cash -= flow.amount;
-                receiver.monetary.cash += flow.amount;
+                receiver.monetary.cash = receiver
+                    .monetary
+                    .cash
+                    .checked_add(flow.amount)
+                    .ok_or_else(|| "receiver cash overflow".to_string())?;
             }
             MonetaryInstrument::Deposit => {
                 if sender.monetary.deposits < flow.amount {
@@ -643,10 +647,17 @@ impl EconomicState {
                     ));
                 }
                 sender.monetary.deposits -= flow.amount;
-                receiver.monetary.deposits += flow.amount;
+                receiver.monetary.deposits = receiver
+                    .monetary
+                    .deposits
+                    .checked_add(flow.amount)
+                    .ok_or_else(|| "receiver deposit overflow".to_string())?;
             }
         }
-        self.monetary_flow_volume += flow.amount;
+        self.monetary_flow_volume = self
+            .monetary_flow_volume
+            .checked_add(flow.amount)
+            .ok_or_else(|| "monetary flow counter overflow".to_string())?;
         Ok(())
     }
 
