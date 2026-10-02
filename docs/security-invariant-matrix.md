@@ -21,7 +21,7 @@ The first deterministic authority boundary is implemented in
 The kernel provides:
 
 - `Capability` and `AuthorizationRequest` as explicit inputs.
-- `VerificationEvidence` as the hand-off from an independent cryptographic/identity verifier.
+- `VerificationEvidence` as an opaque hand-off from an independent cryptographic/identity verifier; its trusted fields cannot be constructed by downstream callers.
 - `VerifiedCapability` as a non-forgeable-in-module boundary object.
 - `AuthorizationDecision::Allow | Deny | Indeterminate`.
 - `AdvisoryResult` as a separate type with no conversion path to authorization.
@@ -43,7 +43,7 @@ The kernel now has a second, narrower boundary after authorization:
 
 This prevents a downstream enforcement adapter from accepting an arbitrary request as though it had already passed the policy decision point. It also makes the authorization decision reconstructable without making the event record itself authoritative.
 
-The new implementation remains a policy/type boundary. `VerificationEvidence` is still an integration hand-off; it does not itself perform cryptographic verification or revocation lookup.
+The new implementation remains a policy/type boundary. `VerificationEvidence` is now intentionally opaque and can only be constructed inside the bridge crate; the actual identity/authority adapter still needs to supply trustworthy signature, revocation, and authority evidence. The intended adapter should reuse Mycelix's existing canonical institutional authority identity (PR #75) rather than duplicate grant identity semantics.
 
 ## Verification levels
 
