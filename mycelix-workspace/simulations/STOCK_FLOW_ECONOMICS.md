@@ -331,3 +331,28 @@ This is intentionally a **capital-formation primitive**, not yet a complete prod
 This follows the SFC structure in which investment is represented in the transactions-flow matrix while the corresponding capital stock appears on the balance sheet. The literature also treats credit, money, equities, and real capital as linked stocks and flows across periods.
 
 The next refinement should therefore be a distinct production/inventory layer rather than silently expanding `CapitalInvestment` to cover everything. That layer can introduce output, inventories, intermediate inputs, resource depletion, wages, and operating surplus while retaining the same deterministic posting/reconciliation machinery.
+
+
+## Physical inventory circuit (implemented)
+
+The real-side layer now has three explicit physical transitions:
+
+- `ProductionEvent`: resources -> finished-goods inventory;
+- `InventoryTransfer`: inventory moves between actors;
+- `InventoryConsumption`: inventory is explicitly drawn down by final use, spoilage, destruction, or another modeled sink.
+
+These transitions do **not** create hidden monetary payments. A monetary sale can therefore be represented as a physical inventory transfer plus a separately classified monetary transfer. This prevents a sale price from being silently treated as a physical quantity and leaves price/cost formation as an explicit future layer.
+
+The reconciliation engine now includes the corresponding equity-residual postings. This matters because the current balance-sheet representation treats real-stock quantities as part of the actor residual: a production change, inventory movement, or drawdown must therefore explain the resulting equity change rather than only the visible physical-stock delta.
+
+The design deliberately stops short of claiming that physical inventory units are monetary valuation. Conventional inventory accounting distinguishes physical stock from its carrying value/cost and tracks cost of goods sold separately; that distinction is now an explicit future boundary for this substrate rather than being hidden inside a sale primitive.
+
+The resulting physical circuit is:
+
+`resources -> production -> inventories -> transfer/consumption`
+
+and the monetary circuit remains separate:
+
+`credit -> deposits -> wages/consumption/investment/etc. -> deposits/debt`
+
+The next accounting refinement should connect those circuits through an explicit inventory valuation/cost layer and a sale transaction identity, rather than multiplying physical quantities by an implicit unit price.
