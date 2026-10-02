@@ -95,6 +95,7 @@ pub enum SeccompError {
     FilterTooLarge,
     InstallationFailed(i32),
     IdentityGenerationFailed,
+    PolicyCommitmentMismatch,
 }
 
 impl core::fmt::Display for SeccompError {
@@ -107,6 +108,7 @@ impl core::fmt::Display for SeccompError {
             Self::FilterTooLarge => f.write_str("seccomp BPF filter exceeds the bounded instruction budget"),
             Self::InstallationFailed(errno) => write!(f, "seccomp installation failed: errno {errno}"),
             Self::IdentityGenerationFailed => f.write_str("seccomp installation identity generation failed"),
+            Self::PolicyCommitmentMismatch => f.write_str("seccomp policy does not match the renderer profile commitment"),
         }
     }
 }
@@ -211,6 +213,16 @@ mod linux {
         profile: SandboxProfileV1,
         policy: &SeccompSyscallPolicyV1,
     ) -> Result<SandboxEnforcementReceipt, SeccompError> {
+        // The renderer profile must commit to the exact syscall policy that
+        // this adapter is about to install. Reject mismatches before any
+        // irreversible state transition and before generating installation
+        // identity material that may itself become unavailable after filtering.
+        if profile.syscall_policy_digest() == [0u8; 32]
+            || policy.digest() != profile.syscall_policy_digest()
+        {
+            return Err(SeccompError::PolicyCommitmentMismatch);
+        }
+
         // Generate the installation identity before irreversible enforcement.
         // Once seccomp is installed, a policy may legitimately deny getrandom(2)
         // and other runtime helpers. A post-install RNG failure must never leave
@@ -330,6 +342,33 @@ mod linux {
                 SeccompSyscallPolicyV1::new(arch, vec![]),
                 Err(SeccompError::InvalidPolicy)
             ));
+        }
+
+        #[test]
+        fn uncommitted_profile_rejects_install_before_enforcement() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let policy = SeccompSyscallPolicyV1::new(arch, vec![libc::SYS_getpid]).unwrap();
+            let profile = SandboxProfileV1::renderer_default();
+            assert!(matches!(
+                install(
+                    RendererProcessAssignmentId::new(1).unwrap(),
+                    profile,
+                    &policy,
+                ),
+                Err(SeccompError::PolicyCommitmentMismatch)
+            ));
+        }
+
+        #[test]
+        fn profile_policy_digest_is_part_of_profile_commitment() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let policy = SeccompSyscallPolicyV1::new(arch, vec![libc::SYS_getpid]).unwrap();
+            let committed = SandboxProfileV1::renderer_default()
+                .with_syscall_policy_digest(policy.digest())
+                .unwrap();
+            let other = SeccompSyscallPolicyV1::new(arch, vec![libc::SYS_getppid]).unwrap();
+            assert_ne!(committed.syscall_policy_digest(), other.digest());
+            assert_ne!(committed.policy_digest(), SandboxProfileV1::renderer_default().policy_digest());
         }
 
         #[test]
