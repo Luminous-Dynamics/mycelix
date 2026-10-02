@@ -873,6 +873,124 @@ mod tests {
     }
 
     #[test]
+    fn immutable_delivery_contract_rejects_each_mutable_component_change() {
+        let cases: [(&str, fn(&mut FederationEnvelope), FederationDecision); 8] = [
+            (
+                "origin",
+                |candidate| candidate.origin_node = "node-b".into(),
+                FederationDecision::OriginConflict,
+            ),
+            (
+                "target",
+                |candidate| candidate.target_node = "node-b".into(),
+                FederationDecision::ContractConflict,
+            ),
+            (
+                "semantic_subject",
+                |candidate| candidate.semantic_subject_id = "subject-2".into(),
+                FederationDecision::PayloadConflict,
+            ),
+            (
+                "payload_commitment",
+                |candidate| candidate.payload_commitment = "sha256:changed".into(),
+                FederationDecision::PayloadConflict,
+            ),
+            (
+                "schema_generation",
+                |candidate| candidate.schema_generation = 2,
+                FederationDecision::StaleGeneration,
+            ),
+            (
+                "authorization_generation",
+                |candidate| candidate.authorization_generation = 2,
+                FederationDecision::StaleGeneration,
+            ),
+            (
+                "predecessor",
+                |candidate| candidate.predecessor_delivery_id = Some("delivery-parent-2".into()),
+                FederationDecision::ContractConflict,
+            ),
+            (
+                "expiry",
+                |candidate| candidate.expires_at = Some(101),
+                FederationDecision::ContractConflict,
+            ),
+        ];
+
+        for (name, mutate, expected) in cases {
+            let mut state = nodes();
+
+            let mut parent = envelope();
+            parent.envelope_id = "env-parent-1".into();
+            parent.logical_delivery_id = "delivery-parent-1".into();
+            assert_eq!(
+                deliver(&mut state, &parent, 50, true).decision,
+                FederationDecision::AcceptedLocal
+            );
+
+            let mut second_parent = parent.clone();
+            second_parent.envelope_id = "env-parent-2".into();
+            second_parent.logical_delivery_id = "delivery-parent-2".into();
+            second_parent.attempt_id = "attempt-parent-2".into();
+            assert_eq!(
+                deliver(&mut state, &second_parent, 50, true).decision,
+                FederationDecision::AcceptedLocal
+            );
+
+            let mut original = envelope();
+            original.envelope_id = format!("env-child-{name}");
+            original.logical_delivery_id = format!("delivery-child-{name}");
+            original.predecessor_delivery_id = Some("delivery-parent-1".into());
+
+            assert_eq!(
+                deliver(&mut state, &original, 50, true).decision,
+                FederationDecision::AcceptedLocal,
+                "baseline failed for {name}"
+            );
+            let before = state.delivery(original.logical_delivery_id.as_str()).cloned();
+
+            let mut mutated = original.clone();
+            mutated.attempt_id = format!("attempt-mutated-{name}");
+            mutate(&mut mutated);
+
+            let outcome = deliver(&mut state, &mutated, 50, true);
+            assert_eq!(outcome.decision, expected, "mutation: {name}");
+            assert_eq!(outcome.authority, AuthorityDisposition::NoAuthority);
+            assert_eq!(
+                state.delivery(original.logical_delivery_id.as_str()),
+                before.as_ref(),
+                "state changed after {name} rejection"
+            );
+            assert_eq!(state.delivery_count(), 3, "unexpected delivery count for {name}");
+        }
+    }
+
+    #[test]
+    fn retry_identity_changes_do_not_create_alias_observations() {
+        let mut state = nodes();
+        let original = envelope();
+
+        let first = deliver(&mut state, &original, 50, true);
+        assert_eq!(first.decision, FederationDecision::AcceptedLocal);
+        assert_eq!(state.observation_count(), 1);
+        assert!(state.observation("env-1").is_some());
+
+        let mut retry = original.clone();
+        retry.attempt_id = "attempt-alias-check".into();
+        retry.envelope_id = "env-retry-alias".into();
+
+        let duplicate = deliver(&mut state, &retry, 50, true);
+        assert_eq!(duplicate.decision, FederationDecision::Duplicate);
+        assert_eq!(state.observation_count(), 1);
+        assert!(state.observation("env-1").is_some());
+        assert!(state.observation("env-retry-alias").is_none());
+        assert_eq!(
+            state.delivery("delivery-1").unwrap().attempts().len(),
+            2
+        );
+    }
+
+    #[test]
     fn delivery_admission_uses_insert_only_observation_identity() {
         let mut state = nodes();
         let existing = ObservationRecord {
