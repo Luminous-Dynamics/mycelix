@@ -408,6 +408,47 @@ async fn test_stale_lower_nonce_is_rejected_by_nonce_boundary() {
 
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
+async fn test_authorized_unknown_function_is_rejected_at_dispatch_boundary() {
+    let mut conductor = SweetConductor::standard().await;
+    let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
+
+    let (alice,) = conductor
+        .setup_app("test-app", &[dna_file])
+        .await
+        .unwrap()
+        .into_tuple();
+
+    // The caller is a valid cell author and the zome name is valid. Only the
+    // function identity is invalid, isolating dispatch lookup from signature,
+    // capability, nonce, and application-level semantic validation.
+    let signed = signed_call(
+        &conductor,
+        alice.cell_id(),
+        "function_that_does_not_exist",
+        (),
+        None,
+    )
+    .await;
+
+    let response = submit_call(&conductor, signed).await;
+
+    match response {
+        AppResponse::ZomeCalled(result) => match *result {
+            ZomeCallResponse::Err(error) => {
+                let message = format!("{error:?}");
+                assert!(
+                    !message.contains("Role changes are disabled"),
+                    "unknown function must not reach Hearth semantic validation: {message}"
+                );
+            }
+            other => panic!("unknown function should be rejected at dispatch, got {other:?}"),
+        },
+        other => panic!("expected ZomeCalled response for dispatch rejection, got {other:?}"),
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_authorized_call_reaches_zome_and_is_semantically_rejected() {
     let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
@@ -473,7 +514,7 @@ fn test_authority_case_manifest_is_structurally_valid() {
         .as_array()
         .expect("authority case manifest must contain a cases array");
 
-    assert_eq!(cases.len(), 8, "manifest must enumerate all current authority cases");
+    assert_eq!(cases.len(), 9, "manifest must enumerate all current authority cases");
 
     let mut ids = cases
         .iter()
@@ -497,6 +538,7 @@ fn test_authority_case_manifest_is_structurally_valid() {
             "AUTH-06",
             "AUTH-07",
             "AUTH-08",
+            "AUTH-09",
         ]
     );
 
