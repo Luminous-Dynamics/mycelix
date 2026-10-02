@@ -139,6 +139,11 @@ impl SectorTransactionMatrix {
                 super::transition::EconomicTransition::InventoryCostAddition(_) => continue,
                 super::transition::EconomicTransition::InventoryCostRelief(_) => continue,
                 super::transition::EconomicTransition::Depreciation(_) => continue,
+                // Trade credit is a non-cash balance-sheet transaction here;
+                // the receivable/payable movement is reconciled in the stock
+                // matrix rather than misrepresented as a deposit flow.
+                super::transition::EconomicTransition::TradeCreditSale(_) => continue,
+                super::transition::EconomicTransition::TradeCreditSettlement(_) => continue,
                 super::transition::EconomicTransition::GoodsSale(sale) => {
                     (sale.seller.clone(), sale.buyer.clone(), FlowCategory::Other, sale.consideration)
                 }
