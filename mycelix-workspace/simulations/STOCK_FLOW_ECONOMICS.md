@@ -27,6 +27,7 @@ state representation.
 - `ActorBalanceSheet`
 - `MonetaryStock`
 - `RealStock`
+- explicit `inventory_carrying_value` monetary stock
 - explicit `MonetaryFlow`
 - explicit `CreditCreation`
 - explicit `DebtRepayment`
@@ -241,17 +242,19 @@ The remaining conceptual gap is not another aggregate formula; it is the real pr
 
 ### Production and inventory bridge (implemented)
 
-Production is now an explicit real-stock transition rather than an implicit side effect of investment. `ProductionEvent` consumes a producer's `resources` and creates `inventories`; it carries no hidden monetary transfer. Wages, sales, financing, and investment therefore remain separately auditable transitions.
+Production is an explicit physical-stock transition rather than an implicit side effect of investment. `ProductionEvent` consumes a producer's `resources` and creates `inventories`; it carries no hidden monetary transfer.
 
-Sector balance sheets expose `Inventories`, while stock-flow reconciliation binds production to the exact resource and inventory deltas. The period ledger separately records physical output and resource input without treating either as monetary turnover.
+The sector layer now keeps physical quantities out of the monetary balance sheet. `SectorBalanceSheet` contains monetary claims, liabilities, productive capital values, and inventory carrying value; `SectorPhysicalStock` separately consolidates inventory and resource quantities. This removes the previous dimensional ambiguity where a unit count could enter a currency-denominated equity identity.
 
-This separation follows the SFC literature's treatment of inventories as a distinct dynamic stock and preserves the ecological extension path: monetary and physical stocks/flows can later be coupled while retaining explicit accounting boundaries.
+The reconciliation engine mirrors that separation: monetary postings reconcile against the sector balance sheet, while physical postings reconcile against the sector physical-stock projection. Both posting sets are hashed, so a reproduced period must match both accounting domains.
+
+This is closer to ecological SFC practice, which explicitly combines monetary and physical stocks/flows rather than treating physical quantities as monetary values.
 
 ### Next accounting frontier
 
-1. Add explicit period-income/equity postings so wage, consumption, interest, tax, and transfer flows can reconcile net worth changes.
-2. Add production/investment postings linking monetary flows to productive-capital and inventory stocks.
-3. Add typed physical-resource postings and conservation checks for the ecological SFC layer.
+1. Add explicit production-cost accumulation so wages, intermediate inputs, and other production costs can feed inventory carrying value without hidden financing.
+2. Add explicit depreciation and capital-consumption postings for productive capital.
+3. Add typed physical units and material-balance/conservation rules for the ecological SFC layer.
 4. Add institutional/financial-regime observables (leverage, debt service, liquidity, refinancing need) on top of reconciled stocks.
 5. Only then add Minsky/Keen behavioral equations, so financial-instability dynamics operate on auditable accounting state rather than hidden balances.
 
@@ -333,49 +336,47 @@ This follows the SFC structure in which investment is represented in the transac
 The next refinement should therefore be a distinct production/inventory layer rather than silently expanding `CapitalInvestment` to cover everything. That layer can introduce output, inventories, intermediate inputs, resource depletion, wages, and operating surplus while retaining the same deterministic posting/reconciliation machinery.
 
 
-## Physical inventory circuit (implemented)
+## Physical inventory circuit and carrying value (implemented)
 
-The real-side layer now has three explicit physical transitions:
+The physical side has four explicit quantity transitions:
 
 - `ProductionEvent`: resources -> finished-goods inventory;
 - `InventoryTransfer`: inventory moves between actors;
-- `InventoryConsumption`: inventory is explicitly drawn down by final use, spoilage, destruction, or another modeled sink.
+- `InventoryConsumption`: inventory is explicitly drawn down by final use, spoilage, destruction, or another modeled sink;
+- `GoodsSale`: seller inventory decreases and buyer inventory increases by the stated quantity.
 
-These transitions do **not** create hidden monetary payments. A monetary sale can therefore be represented as a physical inventory transfer plus a separately classified monetary transfer. This prevents a sale price from being silently treated as a physical quantity and leaves price/cost formation as an explicit future layer.
+Physical quantities never enter a monetary equity identity. They are reconciled through `SectorPhysicalStock` and `PhysicalStockPosting`.
 
-The reconciliation engine now includes the corresponding equity-residual postings. This matters because the current balance-sheet representation treats real-stock quantities as part of the actor residual: a production change, inventory movement, or drawdown must therefore explain the resulting equity change rather than only the visible physical-stock delta.
+Inventory carrying value is now a separate monetary stock. Two explicit accounting transitions expose the valuation boundary:
 
-The design deliberately stops short of claiming that physical inventory units are monetary valuation. Conventional inventory accounting distinguishes physical stock from its carrying value/cost and tracks cost of goods sold separately; that distinction is now an explicit future boundary for this substrate rather than being hidden inside a sale primitive.
+- `InventoryCostAddition`: add a cost amount to physically-held inventory;
+- `InventoryCostRelief`: remove a cost amount from inventory, serving as the COGS posting in a sale sequence.
 
-The resulting physical circuit is:
+A sale therefore has an explicit three-part accounting pattern when valuation is available:
 
-`resources -> production -> inventories -> transfer/consumption`
+`InventoryCostRelief -> GoodsSale -> InventoryCostAddition`
 
-and the monetary circuit remains separate:
+The first side recognizes seller COGS by relieving carrying value; `GoodsSale` records the physical quantity and deposit consideration; the buyer-side addition records acquired inventory at its explicit carrying amount. No FIFO, weighted-average, specific-identification, unit-price, or cost allocation rule is inferred by the transition engine. Those policy/calculation results must be supplied explicitly.
 
-`credit -> deposits -> wages/consumption/investment/etc. -> deposits/debt`
-
-The next accounting refinement should connect those circuits through an explicit inventory valuation/cost layer and a sale transaction identity, rather than multiplying physical quantities by an implicit unit price.
+The period ledger now derives `sales_consideration`, `cost_of_goods_sold`, and `gross_operating_surplus = sales_consideration - cost_of_goods_sold`. This is deliberately a **gross trading surplus** measure until wages, intermediate inputs, depreciation, interest, and taxes have their own explicit expense/accrual boundaries.
 
 
 ## Explicit goods-sale bridge
 
-The substrate now has a `GoodsSale` transition that couples two already-explicit domains without collapsing them:
+The substrate now has a `GoodsSale` transition that couples two explicit domains without collapsing their units:
 
 - physical side: seller inventory decreases and buyer inventory increases by `quantity`;
 - monetary side: buyer deposits decrease and seller deposits increase by `consideration`;
-- accounting side: the derived sector equity residual receives the exact balancing postings.
+- carrying value: unchanged by the sale itself; COGS and buyer inventory cost are separate explicit transitions.
 
-The transition intentionally does **not** infer a unit price, inventory carrying cost, COGS, or profit from the two quantities. A sale of 5 units for 30 monetary units is therefore representable without pretending that the 30 is the inventory's carrying value.
+The transition therefore never multiplies quantity by an implicit price and never assumes consideration equals carrying value. The sector transaction matrix still classifies sale consideration as `Other`, because a sale can represent final consumption, intermediate demand, investment goods, or external demand.
 
-This creates a useful accounting bridge:
+This gives a deterministic accounting chain:
 
-`production -> inventory -> goods sale -> deposits`
+`transition log -> physical stock delta + monetary balance-sheet delta -> period ledger`
 
-while preserving a clean boundary for the next layer:
+and, when inventory costing is present:
 
-`inventory carrying value -> COGS -> revenue recognition -> operating surplus`
+`inventory cost relief -> goods sale -> inventory cost addition -> gross operating surplus`
 
-The sector transaction matrix classifies the monetary consideration as `Other` rather than assuming that every sale is household consumption. Final consumption, intermediate demand, and investment goods are economically distinct uses and should become explicit classifications rather than being inferred from the existence of a sale.
-
-This separation follows the broader SFC architecture in which stocks and flows must remain jointly accounted for, while ecological SFC work additionally separates monetary and physical stock-flow structures. The latter literature also emphasizes explicit physical flow matrices and stock-flow matrices when integrating matter/energy constraints.
+The resulting structure aligns with conventional inventory accounting's distinction between physical inventory, carrying cost, and cost recognized as an expense, while remaining compatible with the SFC requirement that stocks and flows reconcile.
