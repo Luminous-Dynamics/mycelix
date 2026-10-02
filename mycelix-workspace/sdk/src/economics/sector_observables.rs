@@ -133,7 +133,9 @@ impl SectorEconomicObservables {
         let observations =
             ActorEconomicObservables::from_state_and_transitions(state, transitions)?;
         let sectors = Self::from_actor_observations(&observations, assignments)?;
-        let balance_sheet = SectorBalanceSheet::from_state(state, assignments)?;
+        let (post_state, _) = super::transition::apply_step(state, 0, transitions, None)
+            .map_err(|error| format!("sector post-state replay failed: {error}"))?;
+        let balance_sheet = SectorBalanceSheet::from_state(&post_state, assignments)?;
         for observation in sectors.values() {
             observation.validate_against_balance_sheet(&balance_sheet)?;
         }
@@ -690,6 +692,46 @@ mod tests {
         assert_eq!(firm.operating_surplus_after_depreciation(), 30);
         assert!(firm.liquidity_flow_reconciliation_holds());
         assert!(firm.liquidity_stock_flow_reconciliation_holds());
+    }
+
+    #[test]
+    fn state_to_sector_projection_validates_terminal_stocks() {
+        let mut firm = ActorBalanceSheet::new("firm-a");
+        firm.monetary.deposits = 100;
+        firm.real.inventories = 2;
+        let mut household = ActorBalanceSheet::new("household-a");
+        household.monetary.deposits = 50;
+        let state = EconomicState::new(vec![firm, household]);
+        let assignments = vec![
+            SectorAssignment {
+                actor: "firm-a".into(),
+                sector: EconomicSector::Firm,
+            },
+            SectorAssignment {
+                actor: "household-a".into(),
+                sector: EconomicSector::Household,
+            },
+        ];
+        let transitions = vec![EconomicTransition::TradeCreditSale(
+            crate::economics::stock_flow::TradeCreditSale::new(
+                "firm-a",
+                "household-a",
+                1,
+                25,
+            )
+            .unwrap(),
+        )];
+
+        let sectors =
+            SectorEconomicObservables::from_state_and_transitions(
+                &state,
+                &transitions,
+                &assignments,
+            )
+            .unwrap();
+        let firm = &sectors[&EconomicSector::Firm];
+        assert_eq!(firm.trade_receivables, 25);
+        assert_eq!(firm.net_working_capital(), 25);
     }
 
     #[test]
