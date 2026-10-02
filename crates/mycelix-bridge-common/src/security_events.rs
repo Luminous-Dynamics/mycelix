@@ -98,6 +98,12 @@ impl SecurityEvent {
         {
             return Err("security event identifier exceeds size limit");
         }
+        if matches!(decision, AuthorizationDecision::Allow) {
+            return Err("allow security events must originate from enforcement");
+        }
+        if policy_version != request.policy_version() {
+            return Err("security event policy version does not match request");
+        }
 
         Ok(Self {
             event_id,
@@ -340,6 +346,58 @@ mod tests {
     }
 
     #[test]
+    fn security_event_constructor_rejects_allow() {
+        let request = crate::security_kernel::AuthorizationRequest::new(
+            "did:mycelix:alice",
+            "resource:ledger",
+            CapabilityAction::Read,
+            7,
+        )
+        .unwrap();
+
+        assert_eq!(
+            SecurityEvent::new(
+                "event:allow",
+                "did:mycelix:alice",
+                "capability:1",
+                request,
+                AuthorizationDecision::Allow,
+                7,
+                151,
+            )
+            .unwrap_err(),
+            "allow security events must originate from enforcement"
+        );
+    }
+
+    #[test]
+    fn security_event_constructor_rejects_policy_version_mismatch() {
+        let request = crate::security_kernel::AuthorizationRequest::new(
+            "did:mycelix:alice",
+            "resource:ledger",
+            CapabilityAction::Read,
+            7,
+        )
+        .unwrap();
+
+        assert_eq!(
+            SecurityEvent::new(
+                "event:mismatch",
+                "did:mycelix:alice",
+                "capability:1",
+                request,
+                AuthorizationDecision::Deny(
+                    crate::security_kernel::AuthorizationDenial::ActionNotGranted,
+                ),
+                8,
+                151,
+            )
+            .unwrap_err(),
+            "security event policy version does not match request"
+        );
+    }
+
+    #[test]
     fn security_event_can_record_denial() {
         let request = crate::security_kernel::AuthorizationRequest::new(
             "did:mycelix:alice",
@@ -358,8 +416,3 @@ mod tests {
             ),
             7,
             151,
-        )
-        .unwrap();
-        assert!(matches!(event.decision, AuthorizationDecision::Deny(_)));
-    }
-}
