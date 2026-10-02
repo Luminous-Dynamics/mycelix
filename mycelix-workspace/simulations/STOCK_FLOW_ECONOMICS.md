@@ -245,7 +245,7 @@ Production is now an explicit real-stock transition rather than an implicit side
 
 Sector balance sheets expose `Inventories`, while stock-flow reconciliation binds production to the exact resource and inventory deltas. The period ledger separately records physical output and resource input without treating either as monetary turnover.
 
-This separation follows the SFC literature's treatment of inventories as a distinct dynamic stock and preserves the ecological extension path: monetary and physical stocks/flows can later be coupled while retaining explicit accounting boundaries. citeturn0search0turn0search1
+This separation follows the SFC literature's treatment of inventories as a distinct dynamic stock and preserves the ecological extension path: monetary and physical stocks/flows can later be coupled while retaining explicit accounting boundaries.
 
 ### Next accounting frontier
 
