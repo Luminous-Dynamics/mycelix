@@ -1,0 +1,62 @@
+{
+  "schema_version": "HEARTH-AUTH-0.7-CASESET-1",
+  "claim_ceiling": "RuntimeQualificationPending; case expectations describe intended boundary semantics and do not constitute observed Holochain runtime evidence until the ignored Sweettest suite executes in the pinned environment.",
+  "cases": [
+    {
+      "case_id": "AUTH-01",
+      "test": "test_authenticated_app_call_reaches_zome",
+      "boundary": "authorized_execution",
+      "expected": "ZomeCallResponse::Ok",
+      "semantic_execution": true
+    },
+    {
+      "case_id": "AUTH-02",
+      "test": "test_signed_payload_mutation_is_rejected_by_signature_binding",
+      "boundary": "signature_binding",
+      "expected": "ZomeCallResponse::Unauthorized",
+      "semantic_execution": false
+    },
+    {
+      "case_id": "AUTH-03",
+      "test": "test_authorized_malformed_payload_is_rejected_before_function_body",
+      "boundary": "payload_deserialization",
+      "expected": "ZomeCallResponse::Err",
+      "semantic_execution": false
+    },
+    {
+      "case_id": "AUTH-04",
+      "test": "test_invalid_capability_is_rejected_at_authorization_boundary",
+      "boundary": "capability_authorization",
+      "expected": "ZomeCallResponse::Unauthorized",
+      "semantic_execution": false
+    },
+    {
+      "case_id": "AUTH-05",
+      "test": "test_expired_signed_call_is_rejected_at_authorization_boundary",
+      "boundary": "expiry_authorization",
+      "expected": "ZomeCallResponse::Unauthorized",
+      "semantic_execution": false
+    },
+    {
+      "case_id": "AUTH-06",
+      "test": "test_replayed_signed_call_is_rejected_by_nonce_boundary",
+      "boundary": "nonce_replay",
+      "expected": "first: ZomeCallResponse::Ok; second: ZomeCallResponse::Unauthorized",
+      "semantic_execution": "first_only"
+    },
+    {
+      "case_id": "AUTH-07",
+      "test": "test_stale_lower_nonce_is_rejected_by_nonce_boundary",
+      "boundary": "nonce_monotonicity",
+      "expected": "higher: ZomeCallResponse::Ok; lower-after-higher: ZomeCallResponse::Unauthorized",
+      "semantic_execution": "higher_only"
+    },
+    {
+      "case_id": "AUTH-08",
+      "test": "test_authorized_call_reaches_zome_and_is_semantically_rejected",
+      "boundary": "zome_semantic_validation",
+      "expected": "ZomeCallResponse::Err with Hearth guest rejection",
+      "semantic_execution": true
+    }
+  ]
+}
