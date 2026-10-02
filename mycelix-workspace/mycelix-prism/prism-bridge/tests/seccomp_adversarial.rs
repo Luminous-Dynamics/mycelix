@@ -236,7 +236,7 @@ fn parameter_predicate_child() -> ! {
             0usize,
         )
     };
-    if read_mapping == libc::MAP_FAILED as i64 {
+    if read_mapping == -1 {
         unsafe { libc::_exit(122) };
     }
 
