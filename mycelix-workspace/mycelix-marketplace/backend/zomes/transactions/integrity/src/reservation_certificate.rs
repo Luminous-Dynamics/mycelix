@@ -2285,6 +2285,19 @@ pub fn validate_create_reservation_terminal(
             "Reservation terminal frontier predecessor belongs to a different listing".into(),
         ));
     }
+    if previous_sequence < certificate.sequence {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Reservation terminal frontier predecessor predates the historical reservation".into(),
+        ));
+    }
+    if previous_sequence == certificate.sequence
+        && evidence.previous_frontier_action != evidence.certificate_hash
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Reservation terminal predecessor at the reservation sequence must be the certificate itself"
+                .into(),
+        ));
+    }
     if previous_sequence.checked_add(1) != Some(evidence.sequence) {
         return Ok(ValidateCallbackResult::Invalid(
             "Reservation terminal evidence sequence does not follow its actual frontier predecessor".into(),
