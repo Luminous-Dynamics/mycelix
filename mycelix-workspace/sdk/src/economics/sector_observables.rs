@@ -36,6 +36,7 @@ pub struct SectorEconomicObservables {
     pub financing_net_liquidity: i128,
     pub other_liquidity_change: i128,
 
+    pub net_working_capital: i128,
     pub net_working_capital_change: i128,
 
     pub loan_claims: i128,
@@ -83,6 +84,7 @@ impl Default for SectorEconomicObservables {
             investing_net_liquidity: 0,
             financing_net_liquidity: 0,
             other_liquidity_change: 0,
+            net_working_capital: 0,
             net_working_capital_change: 0,
             loan_claims: 0,
             debt: 0,
@@ -128,7 +130,12 @@ impl SectorEconomicObservables {
     ) -> Result<BTreeMap<EconomicSector, Self>, String> {
         let observations =
             ActorEconomicObservables::from_state_and_transitions(state, transitions)?;
-        Self::from_actor_observations(&observations, assignments)
+        let sectors = Self::from_actor_observations(&observations, assignments)?;
+        let balance_sheet = SectorBalanceSheet::from_state(state, assignments)?;
+        for observation in sectors.values() {
+            observation.validate_against_balance_sheet(&balance_sheet)?;
+        }
+        Ok(sectors)
     }
 
     /// Aggregate actor observations into sectors using exactly one assignment
@@ -210,6 +217,12 @@ impl SectorEconomicObservables {
                 observation.net_liquidity_change,
                 "sector net liquidity change",
             )?;
+            add_checked(
+                &mut sector_observation.net_working_capital,
+                observation.net_working_capital(),
+                "sector net working capital",
+            )?;
+
             for (slot, value, label) in [
                 (
                     &mut sector_observation.loan_claims,
@@ -414,6 +427,14 @@ impl SectorEconomicObservables {
         }
 
         Ok(sectors)
+    }
+
+    /// Closing monetary net working capital.
+    pub fn net_working_capital(&self) -> i128 {
+        self.inventory_carrying_value
+            .checked_add(self.trade_receivables)
+            .and_then(|value| value.checked_sub(self.trade_payables))
+            .expect("sector working-capital overflow")
     }
 
     /// Validate the sector stock snapshot against the consolidated
@@ -634,6 +655,7 @@ mod tests {
         assert_eq!(firm.financing_net_liquidity, 20);
         assert_eq!(firm.trade_credit_extended, 40);
         assert_eq!(firm.net_working_capital_change, 15);
+        assert_eq!(firm.net_working_capital(), 0);
         assert_eq!(firm.wages_paid, 12);
         assert_eq!(firm.interest_paid, 3);
         assert_eq!(firm.taxes_paid, 4);
