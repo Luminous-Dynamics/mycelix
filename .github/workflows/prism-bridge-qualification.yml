@@ -55,6 +55,11 @@ jobs:
             exit 1
           fi
           echo "qualification=PRISM-BRIDGE-CANONICAL"
+          if [[ "${{ job.status }}" == "success" ]]; then
+            echo "qualified=true"
+          else
+            echo "qualified=false"
+          fi
           echo "tested_head=${expected_head}"
           echo "checked_out_head=${checked_out_head}"
           echo "event_sha=${GITHUB_SHA}"
