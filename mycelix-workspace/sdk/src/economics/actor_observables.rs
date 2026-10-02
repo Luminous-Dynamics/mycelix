@@ -312,8 +312,8 @@ impl ActorEconomicObservables {
             observation.inventory_quantity = final_actor.real.inventories;
             observation.inventory_carrying_value = final_actor.inventory_carrying_value;
             observation.productive_capital = final_actor.real.productive_capital;
-            observation.net_financial_position = final_actor.monetary.net_position();
-            observation.net_worth = final_actor.net_worth();
+            observation.net_financial_position = final_actor.monetary.try_net_position()?;
+            observation.net_worth = final_actor.try_net_worth()?;
 
             let final_nwc = final_actor.net_working_capital();
             let initial_nwc = *initial_working_capital
