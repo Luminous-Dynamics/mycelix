@@ -741,6 +741,9 @@ impl EvidenceDispositionReconciliation {
                 .or_default()
                 .push(transition);
         }
+        if by_id.values().any(|candidates| candidates.len() != 1) {
+            return Err("duplicate disposition transition identity".into());
+        }
 
         let branch_point = by_id
             .get(&self.branch_point)
