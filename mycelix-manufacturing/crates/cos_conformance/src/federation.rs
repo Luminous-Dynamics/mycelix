@@ -1336,17 +1336,29 @@ mod tests {
         let duplicate = deliver(&mut state, &retry, 50, true);
         assert_eq!(duplicate.decision, FederationDecision::Duplicate);
 
+        let before_contract_conflicts = (
+            delivery_identity_snapshot(&state),
+            delivery_attempts_snapshot(&state),
+            state.observations.clone(),
+        );
+
         let mut mutated = retry;
         mutated.attempt_id = "attempt-3".into();
         mutated.payload_commitment = "sha256:changed".into();
         let conflict = deliver(&mut state, &mutated, 50, true);
         assert_eq!(conflict.decision, FederationDecision::PayloadConflict);
+        assert_eq!(delivery_identity_snapshot(&state), before_contract_conflicts.0);
+        assert_eq!(delivery_attempts_snapshot(&state), before_contract_conflicts.1);
+        assert_eq!(state.observations, before_contract_conflicts.2);
 
-        let mut foreign_origin = retry;
+        let mut foreign_origin = envelope();
         foreign_origin.attempt_id = "attempt-4".into();
         foreign_origin.origin_node = "node-b".into();
         let origin_conflict = deliver(&mut state, &foreign_origin, 50, true);
         assert_eq!(origin_conflict.decision, FederationDecision::OriginConflict);
+        assert_eq!(delivery_identity_snapshot(&state), before_contract_conflicts.0);
+        assert_eq!(delivery_attempts_snapshot(&state), before_contract_conflicts.1);
+        assert_eq!(state.observations, before_contract_conflicts.2);
     }
 
     #[test]
@@ -1604,6 +1616,9 @@ mod tests {
                 "baseline failed for {name}"
             );
             let before = state.delivery(original.logical_delivery_id.as_str()).cloned();
+            let before_identity = delivery_identity_snapshot(&state);
+            let before_attempts = delivery_attempts_snapshot(&state);
+            let before_observations = state.observations.clone();
 
             let mut mutated = original.clone();
             mutated.attempt_id = format!("attempt-mutated-{name}");
@@ -1616,6 +1631,21 @@ mod tests {
                 state.delivery(original.logical_delivery_id.as_str()),
                 before.as_ref(),
                 "state changed after {name} rejection"
+            );
+            assert_eq!(
+                delivery_identity_snapshot(&state),
+                before_identity,
+                "delivery identity ledger changed after {name} rejection"
+            );
+            assert_eq!(
+                delivery_attempts_snapshot(&state),
+                before_attempts,
+                "delivery attempt ledger changed after {name} rejection"
+            );
+            assert_eq!(
+                state.observations,
+                before_observations,
+                "observation ledger changed after {name} rejection"
             );
             assert_eq!(state.delivery_count(), 3, "unexpected delivery count for {name}");
         }
