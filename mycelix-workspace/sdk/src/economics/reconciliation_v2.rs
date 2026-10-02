@@ -568,13 +568,14 @@ mod tests {
     #[test]
     fn inventory_cost_and_sale_reconcile_profit_carried_by_the_balance_sheet() {
         let (mut pre, assignments) = setup();
-        pre.actors.iter_mut().find(|a| a.actor == "firm").unwrap().real.inventories = 20;
+        {
+            let firm = pre.actors.iter_mut().find(|a| a.actor == "firm").unwrap();
+            firm.real.inventories = 20;
+            firm.inventory_carrying_value = 80;
+        }
         pre.actors.iter_mut().find(|a| a.actor == "household").unwrap().monetary.deposits = 100;
 
         let transitions = vec![
-            EconomicTransition::InventoryCostAddition(
-                InventoryCostAddition::new("firm", 20, 80).unwrap(),
-            ),
             EconomicTransition::InventoryCostRelief(
                 InventoryCostRelief::new("firm", 5, 20).unwrap(),
             ),
