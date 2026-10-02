@@ -48,7 +48,7 @@ A missing predecessor is returned as an unresolved dependency, not a negative ev
 
 The canonical composed coverage assessment resolves each named branch head with one deterministic predecessor walk that stops at the declared reconciliation branch point. The walk returns the exact visible ancestry, any first unavailable predecessor, and the validated transition records reached within that boundary.
 
-The same walk result is used for both dependency collection and ancestor/descendant contradiction detection. This keeps unresolved-dependency handling and competing-head semantics aligned: an unavailable record remains unresolved, while a relationship that is already visible inside the bounded cone remains structurally rejectable. No traversal is performed beyond the declared branch point.
+The same walk result is used for both dependency collection and ancestor/descendant contradiction detection. A referenced predecessor identity is retained in the visible ancestry even when that predecessor record is unavailable, so a present descendant can still establish a nested named-head contradiction. The overall assessment remains unresolved for the missing record, but the known structural contradiction retains precedence. This keeps unresolved-dependency handling and competing-head semantics aligned: an unavailable record remains unresolved, while a relationship that is already visible inside the bounded cone remains structurally rejectable. No traversal is performed beyond the declared branch point.
 
 
 ## Explicit branch reconciliation
