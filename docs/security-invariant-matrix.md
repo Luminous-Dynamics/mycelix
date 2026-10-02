@@ -36,9 +36,10 @@ The kernel now has a second, narrower boundary after authorization:
 
 1. `authorize_permit()` evaluates the verified capability against the exact request.
 2. A successful decision yields an `AuthorizationPermit` that is not serializable and has no public constructor.
-3. `EnforcementRequest::from_permit()` is the only public constructor for an enforcement request.
+3. `EnforcementRequest::from_permit()` is the only public constructor for an enforcement request and revalidates the permit at the enforcement boundary.
 4. Deny and Indeterminate outcomes produce no permit.
-5. `SecurityEvent` records Allow, Deny, and Indeterminate decisions and can carry explicit provenance references and recovery correlation.
+5. Post-issuance revocation or authority ambiguity blocks enforcement rather than relying on the earlier Allow.
+6. `SecurityEvent` records Allow, Deny, and Indeterminate decisions and can carry explicit provenance references and recovery correlation.
 
 This prevents a downstream enforcement adapter from accepting an arbitrary request as though it had already passed the policy decision point. It also makes the authorization decision reconstructable without making the event record itself authoritative.
 
