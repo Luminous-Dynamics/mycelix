@@ -156,7 +156,7 @@ if canonical_jcs_json(after_obj) != canon["expected_canonical"]:
 ao = json.loads((ROOT / "s0_authority_observation_v1.example.json").read_text(encoding="utf-8"), object_pairs_hook=reject_duplicates)
 for key in (
     "schema", "profile", "epoch_id", "repository_id", "repository_full_name",
-    "s0_workflow_source_commit_sha", "s1_workflow_source_commit_sha",
+    "observation_sha256", "s0_workflow_source_commit_sha", "s1_workflow_source_commit_sha",
     "dispatch_envelope_sha256", "dispatch_nonce_hex", "dispatch_ref", "dispatch_input_commitment_sha256", "dispatch_input_canonical_json",
     "authenticated_principal_identity", "policy_scope_identity", "observation_timestamp", "event_type",
     "request_authentication", "actor_authorization", "event_authorization",
@@ -166,6 +166,10 @@ for key in (
         fail(f"S0 authority observation missing {key}")
 if ao["schema"] != "mycelix.qual-001s.s0-authority-observation-v1":
     fail("wrong S0 authority observation schema")
+ao_preimage = dict(ao)
+del ao_preimage["observation_sha256"]
+if hashlib.sha256(canonical_jcs_json(ao_preimage).encode("utf-8")).hexdigest() != ao["observation_sha256"]:
+    fail("S0 authority observation commitment does not match canonical preimage")
 if ao["event_type"] != "workflow_dispatch":
     fail("wrong S0 authority observation event type")
 if ao["dispatch_result"] == "ACCEPTED" and ao["run_attribution"]["state"] == "OBSERVED":
