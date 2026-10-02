@@ -15,8 +15,10 @@ use crate::substitution_continuity::{
     SemanticEffectV1, SemanticSubstitutionProfileV1,
 };
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
+pub const D6M_OBSERVATION_COMMITMENT_DOMAIN: &[u8] = b"MYCELIX-INTEGRAL-D6M-OBSERVATION-V1\0";
 pub const EXTERNAL_FINALITY_CLAIM_CEILING: &str =
     "External-effect finality evidence only; no provider truth, legal settlement, or actuation authorization claim.";
 pub const COMPENSATION_CLAIM_CEILING: &str =
@@ -97,6 +99,7 @@ pub struct ExternalEffectObservationV1 {
     pub observed_state: ExternalObservedStateV1,
     pub source: ExternalObservationSourceV1,
     pub evidence_root: String,
+    pub observation_commitment: String,
     pub claim_ceiling: String,
 }
 
@@ -116,7 +119,42 @@ impl ExternalEffectObservationV1 {
             && non_empty(&self.semantic_environment_root)
             && non_empty(&self.observed_frontier_root)
             && non_empty(&self.evidence_root)
+            && non_empty(&self.observation_commitment)
             && self.claim_ceiling == EXTERNAL_FINALITY_CLAIM_CEILING
+    }
+
+    /// Recompute the canonical observation commitment from the complete
+    /// observation payload, excluding the commitment field itself.
+    pub fn recomputed_commitment(&self) -> String {
+        let payload = serde_json::to_vec(&(
+            &self.observation_id,
+            &self.effect_id,
+            &self.effect_lineage_id,
+            &self.lifecycle_generation_id,
+            &self.route_id,
+            &self.provider_id,
+            &self.provider_operation_id,
+            &self.provider_profile_root,
+            &self.provider_outcome_id,
+            &self.request_commitment,
+            &self.idempotency_key,
+            &self.semantic_environment_root,
+            &self.observed_frontier_root,
+            &self.observed_state,
+            &self.source,
+            &self.evidence_root,
+            &self.claim_ceiling,
+        ))
+        .expect("D6M observation reference model must be serializable");
+        let mut input = Vec::with_capacity(D6M_OBSERVATION_COMMITMENT_DOMAIN.len() + payload.len());
+        input.extend_from_slice(D6M_OBSERVATION_COMMITMENT_DOMAIN);
+        input.extend_from_slice(&payload);
+        let digest = Sha256::digest(&input);
+        digest.iter().map(|byte| format!("{byte:02x}")).collect()
+    }
+
+    pub fn commitment_matches(&self) -> bool {
+        self.structurally_valid() && self.observation_commitment == self.recomputed_commitment()
     }
 }
 
@@ -1042,7 +1080,7 @@ mod tests {
         state: ExternalObservedStateV1,
         frontier: &str,
     ) -> ExternalEffectObservationV1 {
-        ExternalEffectObservationV1 {
+        let mut observation = ExternalEffectObservationV1 {
             observation_id: format!("observation-{}", route.route_id),
             effect_id: effect.effect_id.clone(),
             effect_lineage_id: effect.lineage_id.clone(),
@@ -1059,8 +1097,11 @@ mod tests {
             observed_state: state,
             source,
             evidence_root: "independent-evidence-1".into(),
+            observation_commitment: String::new(),
             claim_ceiling: EXTERNAL_FINALITY_CLAIM_CEILING.into(),
-        }
+        };
+        observation.observation_commitment = observation.recomputed_commitment();
+        observation
     }
 
     fn finality_profile(
