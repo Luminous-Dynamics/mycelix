@@ -5,8 +5,9 @@
 //! This intentionally tests propagation properties, not an Integral wire schema.
 
 use cos_conformance::canonical_derivation_receipt::{
-    canonical_sha256, DerivationProfileV1, QualifiedEdgeV1, QualifiedNodeV1,
-    QualifiedProjectionV1, SemanticEnvironmentV1, D6S_CLAIM_CEILING,
+    build_canonical_receipt_with_authoritative_d6p, canonical_sha256, commitment_set_digest,
+    verify_canonical_receipt_with_authoritative_d6p, DerivationProfileV1, DerivationResultStatusV1,
+    QualifiedEdgeV1, QualifiedNodeV1, QualifiedProjectionV1, SemanticEnvironmentV1, D6S_CLAIM_CEILING,
 };
 use cos_conformance::evidence_claim_graph::{ClaimGraphEdgeKindV1, ClaimGraphNodeKindV1};
 use cos_conformance::integral_interop::{
@@ -808,6 +809,91 @@ fn cross_layer_golden_vectors_pin_exact_commitments_and_gate() {
     assert_ne!(present.d6x_identity, blocked.d6x_identity);
 }
  
+#[test]
+fn strict_d6s_d6p_boundary_rejects_self_consistent_receipt_substitution() {
+    let baseline = fixture();
+    let (composition, receipt) = actual_d6p_fixture();
+    let (projection, base_environment, derivation_profile) = projection(&baseline, false, false);
+    let receipt_set: BTreeSet<String> = [receipt.receipt_commitment.clone()].into_iter().collect();
+    let mut environment = base_environment;
+    environment.d6p_eligibility_context_root = Some(commitment_set_digest(&receipt_set));
+    let mut projection = projection;
+    projection.d6p_current_receipt_commitments = receipt_set;
+    projection.semantic_environment_commitment = environment.commitment();
+
+    let result_commitment = canonical_sha256(
+        "integral-interop-1-result",
+        &serde_json::json!({"result": "supported"}),
+    );
+    let receipt = std::slice::from_ref(&receipt);
+    let d6s = build_canonical_receipt_with_authoritative_d6p(
+        &projection,
+        &environment,
+        &derivation_profile,
+        receipt,
+        std::slice::from_ref(&composition),
+        DerivationResultStatusV1::Supported,
+        result_commitment,
+        false,
+        false,
+    ).expect("strict D6S gate must accept the committed D6P composition");
+    assert!(verify_canonical_receipt_with_authoritative_d6p(
+        &d6s,
+        &projection,
+        &environment,
+        &derivation_profile,
+        receipt,
+        std::slice::from_ref(&composition),
+    ));
+
+    let mut forged = receipt[0].clone();
+    forged.provider_id = "integral-provider-attacker".into();
+    forged.receipt_commitment = forged.recomputed_commitment();
+    assert!(forged.semantically_valid());
+
+    let forged_receipts = [forged.clone()];
+    let forged_set: BTreeSet<String> = [forged.receipt_commitment.clone()].into_iter().collect();
+    let mut forged_environment = environment.clone();
+    forged_environment.d6p_eligibility_context_root = Some(commitment_set_digest(&forged_set));
+    let mut forged_projection = projection.clone();
+    forged_projection.d6p_current_receipt_commitments = forged_set;
+    forged_projection.semantic_environment_commitment = forged_environment.commitment();
+
+    assert!(
+        cos_conformance::canonical_derivation_receipt::build_canonical_receipt(
+            &forged_projection,
+            &forged_environment,
+            &derivation_profile,
+            &forged_receipts,
+            DerivationResultStatusV1::Supported,
+            canonical_sha256(
+                "integral-interop-1-result",
+                &serde_json::json!({"result": "supported-forged"}),
+            ),
+            false,
+            false,
+        ).is_some(),
+        "plain D6S integrity builder intentionally does not claim D6P composition provenance"
+    );
+    assert!(
+        build_canonical_receipt_with_authoritative_d6p(
+            &forged_projection,
+            &forged_environment,
+            &derivation_profile,
+            &forged_receipts,
+            std::slice::from_ref(&composition),
+            DerivationResultStatusV1::Supported,
+            canonical_sha256(
+                "integral-interop-1-result",
+                &serde_json::json!({"result": "supported-forged"}),
+            ),
+            false,
+            false,
+        ).is_none(),
+        "strict D6S gate must reject a self-consistent receipt that diverges from its composition"
+    );
+}
+
 #[test]
 fn strict_d6x_d6p_boundary_accepts_committed_receipt_and_rejects_substitution() {
     let baseline = fixture();
