@@ -1,0 +1,576 @@
+{
+  "schema": "mycelix.sym-civic.result-claim-binding.v1",
+  "program": "SYM-CIVIC-004",
+  "parent_subject": "f6df4a700b236fe3fb982a8be5e14fd83d01fbac",
+  "analysis_role": "research_only",
+  "receipt_role": "result_claim_binding_only",
+  "required_fields": [
+    "result_artifact",
+    "study_execution_evidence_ref",
+    "upstream_evidence_cut",
+    "result_semantics",
+    "claim_scope",
+    "claim_proposition",
+    "supporting_result_refs",
+    "derivation_refs",
+    "uncertainty_ref",
+    "limitations",
+    "alternative_explanations",
+    "output_disposition",
+    "claim_provenance"
+  ],
+  "invariants": [
+    "immutable_result_binding",
+    "execution_receipt_binding",
+    "explicit_scope",
+    "explicit_derivation",
+    "uncertainty_not_guarantee",
+    "invalidation_propagation",
+    "aggregate_not_person",
+    "recommendation_not_authority",
+    "canonicalization_required",
+    "protected_data_not_copied",
+    "authority_plane_absent"
+  ],
+  "cases": [
+    {
+      "id": "RC-01",
+      "family": "result_digest_mismatch",
+      "reference": {},
+      "candidate": {
+        "result_artifact": {
+          "digest": "sha256:r-b"
+        },
+        "study_execution_evidence_ref": "immutable:exec-a",
+        "upstream_evidence_cut": "immutable:cut-a",
+        "result_semantics": "descriptive",
+        "claim_scope": {
+          "population": "synthetic-population-a",
+          "geography": "synthetic-region-a",
+          "time": "2026-Q3",
+          "estimand": "descriptive-rate"
+        },
+        "claim_proposition": "The observed rate is 0.2.",
+        "supporting_result_refs": [
+          "sha256:r-a"
+        ],
+        "derivation_refs": [],
+        "uncertainty_ref": "immutable:u-a",
+        "limitations": [
+          "synthetic"
+        ],
+        "alternative_explanations": [
+          "measurement-error"
+        ],
+        "output_disposition": "Descriptive",
+        "claim_provenance": "immutable:claim-a"
+      },
+      "note": "result digest mismatch"
+    },
+    {
+      "id": "RC-02",
+      "family": "result_artifact_mutation_after_binding",
+      "reference": {},
+      "candidate": {
+        "result_artifact": {
+          "bound_digest": "sha256:r-a",
+          "current_digest": "sha256:r-b"
+        },
+        "study_execution_evidence_ref": "immutable:exec-a",
+        "upstream_evidence_cut": "immutable:cut-a",
+        "result_semantics": "descriptive",
+        "claim_scope": {
+          "population": "synthetic-population-a",
+          "geography": "synthetic-region-a",
+          "time": "2026-Q3",
+          "estimand": "descriptive-rate"
+        },
+        "claim_proposition": "The observed rate is 0.2.",
+        "supporting_result_refs": [
+          "sha256:r-a"
+        ],
+        "derivation_refs": [],
+        "uncertainty_ref": "immutable:u-a",
+        "limitations": [
+          "synthetic"
+        ],
+        "alternative_explanations": [
+          "measurement-error"
+        ],
+        "output_disposition": "Descriptive",
+        "claim_provenance": "immutable:claim-a"
+      },
+      "note": "result artifact mutation after binding"
+    },
+    {
+      "id": "RC-03",
+      "family": "mutable_claim_provenance",
+      "reference": {},
+      "candidate": {
+        "result_artifact": {
+          "digest": "sha256:r-a"
+        },
+        "study_execution_evidence_ref": "immutable:exec-a",
+        "upstream_evidence_cut": "latest",
+        "result_semantics": "descriptive",
+        "claim_scope": {
+          "population": "synthetic-population-a",
+          "geography": "synthetic-region-a",
+          "time": "2026-Q3",
+          "estimand": "descriptive-rate"
+        },
+        "claim_proposition": "The observed rate is 0.2.",
+        "supporting_result_refs": [
+          "sha256:r-a"
+        ],
+        "derivation_refs": [],
+        "uncertainty_ref": "immutable:u-a",
+        "limitations": [
+          "synthetic"
+        ],
+        "alternative_explanations": [
+          "measurement-error"
+        ],
+        "output_disposition": "Descriptive",
+        "claim_provenance": "refs/heads/research"
+      },
+      "note": "mutable claim provenance"
+    },
+    {
+      "id": "RC-04",
+      "family": "scope_widening",
+      "reference": {
+        "scope": {
+          "population": "synthetic-population-a",
+          "geography": "synthetic-region-a",
+          "time": "2026-Q3",
+          "estimand": "descriptive-rate"
+        }
+      },
+      "candidate": {
+        "result_artifact": {
+          "digest": "sha256:r-a"
+        },
+        "study_execution_evidence_ref": "immutable:exec-a",
+        "upstream_evidence_cut": "immutable:cut-a",
+        "result_semantics": "descriptive",
+        "claim_scope": {
+          "population": "all-humans",
+          "geography": "global",
+          "time": "all-time",
+          "estimand": "descriptive-rate"
+        },
+        "claim_proposition": "The observed rate is 0.2.",
+        "supporting_result_refs": [
+          "sha256:r-a"
+        ],
+        "derivation_refs": [],
+        "uncertainty_ref": "immutable:u-a",
+        "limitations": [
+          "synthetic"
+        ],
+        "alternative_explanations": [
+          "measurement-error"
+        ],
+        "output_disposition": "Descriptive",
+        "claim_provenance": "immutable:claim-a"
+      },
+      "note": "scope widening"
+    },
+    {
+      "id": "RC-05",
+      "family": "uncertainty_to_guarantee",
+      "reference": {},
+      "candidate": {
+        "result_artifact": {
+          "digest": "sha256:r-a"
+        },
+        "study_execution_evidence_ref": "immutable:exec-a",
+        "upstream_evidence_cut": "immutable:cut-a",
+        "result_semantics": "estimate",
+        "claim_scope": {
+          "population": "synthetic-population-a",
+          "geography": "synthetic-region-a",
+          "time": "2026-Q3",
+          "estimand": "descriptive-rate"
+        },
+        "claim_proposition": "The intervention guarantees the outcome.",
+        "supporting_result_refs": [
+          "sha256:r-a"
+        ],
+        "derivation_refs": [],
+        "uncertainty_ref": "immutable:ci-95",
+        "limitations": [
+          "synthetic"
+        ],
+        "alternative_explanations": [
+          "measurement-error"
+        ],
+        "output_disposition": "Descriptive",
+        "claim_provenance": "immutable:claim-a"
+      },
+      "note": "uncertainty to guarantee"
+    },
+    {
+      "id": "RC-06",
+      "family": "heterogeneous_result_collapse",
+      "reference": {},
+      "candidate": {
+        "result_artifact": {
+          "digest": "sha256:r-combined"
+        },
+        "study_execution_evidence_ref": "immutable:exec-a",
+        "upstream_evidence_cut": "immutable:cut-a",
+        "result_semantics": "aggregate",
+        "claim_scope": {
+          "population": "synthetic-population-a",
+          "geography": "synthetic-region-a",
+          "time": "2026-Q3",
+          "estimand": "descriptive-rate"
+        },
+        "claim_proposition": "All component effects are identical and positive.",
+        "supporting_result_refs": [
+          "sha256:r-a",
+          "sha256:r-b"
+        ],
+        "derivation_refs": [],
+        "uncertainty_ref": "immutable:u-a",
+        "limitations": [
+          "synthetic"
+        ],
+        "alternative_explanations": [
+          "measurement-error"
+        ],
+        "output_disposition": "Descriptive",
+        "claim_provenance": "immutable:claim-a"
+      },
+      "note": "heterogeneous result collapse"
+    },
+    {
+      "id": "RC-07",
+      "family": "missing_derivation_edge",
+      "reference": {},
+      "candidate": {
+        "result_artifact": {
+          "digest": "sha256:r-aggregate"
+        },
+        "study_execution_evidence_ref": "immutable:exec-a",
+        "upstream_evidence_cut": "immutable:cut-a",
+        "result_semantics": "aggregated",
+        "claim_scope": {
+          "population": "synthetic-population-a",
+          "geography": "synthetic-region-a",
+          "time": "2026-Q3",
+          "estimand": "descriptive-rate"
+        },
+        "claim_proposition": "The aggregate effect is 0.3.",
+        "supporting_result_refs": [
+          "sha256:r-a",
+          "sha256:r-b"
+        ],
+        "derivation_refs": [],
+        "uncertainty_ref": "immutable:u-a",
+        "limitations": [
+          "synthetic"
+        ],
+        "alternative_explanations": [
+          "measurement-error"
+        ],
+        "output_disposition": "Descriptive",
+        "claim_provenance": "immutable:claim-a"
+      },
+      "note": "missing derivation edge"
+    },
+    {
+      "id": "RC-08",
+      "family": "invalidated_source_survival",
+      "reference": {},
+      "candidate": {
+        "result_artifact": {
+          "digest": "sha256:r-a"
+        },
+        "study_execution_evidence_ref": "immutable:exec-a",
+        "upstream_evidence_cut": "immutable:cut-a",
+        "result_semantics": "descriptive",
+        "claim_scope": {
+          "population": "synthetic-population-a",
+          "geography": "synthetic-region-a",
+          "time": "2026-Q3",
+          "estimand": "descriptive-rate"
+        },
+        "claim_proposition": "The observed rate is 0.2.",
+        "supporting_result_refs": [
+          "sha256:r-a"
+        ],
+        "derivation_refs": [],
+        "uncertainty_ref": "immutable:u-a",
+        "limitations": [
+          "source-invalidated"
+        ],
+        "alternative_explanations": [
+          "measurement-error"
+        ],
+        "output_disposition": "Descriptive",
+        "claim_provenance": "immutable:claim-a",
+        "source_status": "invalidated"
+      },
+      "note": "invalidated source survival"
+    },
+    {
+      "id": "RC-09",
+      "family": "aggregate_to_person_inference",
+      "reference": {},
+      "candidate": {
+        "result_artifact": {
+          "digest": "sha256:r-aggregate"
+        },
+        "study_execution_evidence_ref": "immutable:exec-a",
+        "upstream_evidence_cut": "immutable:cut-a",
+        "result_semantics": "aggregate",
+        "claim_scope": {
+          "population": "synthetic-population-a",
+          "geography": "synthetic-region-a",
+          "time": "2026-Q3",
+          "estimand": "descriptive-rate"
+        },
+        "claim_proposition": "Person P therefore has the predicted outcome.",
+        "supporting_result_refs": [
+          "sha256:r-a"
+        ],
+        "derivation_refs": [],
+        "uncertainty_ref": "immutable:u-a",
+        "limitations": [
+          "aggregate-only"
+        ],
+        "alternative_explanations": [
+          "measurement-error"
+        ],
+        "output_disposition": "Descriptive",
+        "claim_provenance": "immutable:claim-a"
+      },
+      "note": "aggregate to person inference"
+    },
+    {
+      "id": "RC-10",
+      "family": "recommendation_to_authorization",
+      "reference": {},
+      "candidate": {
+        "result_artifact": {
+          "digest": "sha256:r-a"
+        },
+        "study_execution_evidence_ref": "immutable:exec-a",
+        "upstream_evidence_cut": "immutable:cut-a",
+        "result_semantics": "recommendation",
+        "claim_scope": {
+          "population": "synthetic-population-a",
+          "geography": "synthetic-region-a",
+          "time": "2026-Q3",
+          "estimand": "descriptive-rate"
+        },
+        "claim_proposition": "The model recommends action X.",
+        "supporting_result_refs": [
+          "sha256:r-a"
+        ],
+        "derivation_refs": [],
+        "uncertainty_ref": "immutable:u-a",
+        "limitations": [
+          "synthetic"
+        ],
+        "alternative_explanations": [
+          "measurement-error"
+        ],
+        "output_disposition": "Recommendation",
+        "claim_provenance": "immutable:claim-a",
+        "model_recommendation": "action-x",
+        "civic_authorization": "authorized"
+      },
+      "note": "recommendation to authorization"
+    },
+    {
+      "id": "RC-11",
+      "family": "missing_execution_binding",
+      "reference": {},
+      "candidate": {
+        "result_artifact": {
+          "digest": "sha256:r-a"
+        },
+        "study_execution_evidence_ref": "latest",
+        "upstream_evidence_cut": "immutable:cut-a",
+        "result_semantics": "descriptive",
+        "claim_scope": {
+          "population": "synthetic-population-a",
+          "geography": "synthetic-region-a",
+          "time": "2026-Q3",
+          "estimand": "descriptive-rate"
+        },
+        "claim_proposition": "The observed rate is 0.2.",
+        "supporting_result_refs": [
+          "sha256:r-a"
+        ],
+        "derivation_refs": [],
+        "uncertainty_ref": "immutable:u-a",
+        "limitations": [
+          "synthetic"
+        ],
+        "alternative_explanations": [
+          "measurement-error"
+        ],
+        "output_disposition": "Descriptive",
+        "claim_provenance": "immutable:claim-a"
+      },
+      "note": "missing execution binding"
+    },
+    {
+      "id": "RC-12",
+      "family": "valid_descriptive_binding",
+      "reference": {},
+      "candidate": {
+        "result_artifact": {
+          "digest": "sha256:r-a"
+        },
+        "study_execution_evidence_ref": "immutable:exec-a",
+        "upstream_evidence_cut": "immutable:cut-a",
+        "result_semantics": "descriptive",
+        "claim_scope": {
+          "population": "synthetic-population-a",
+          "geography": "synthetic-region-a",
+          "time": "2026-Q3",
+          "estimand": "descriptive-rate"
+        },
+        "claim_proposition": "The observed rate is 0.2.",
+        "supporting_result_refs": [
+          "sha256:r-a"
+        ],
+        "derivation_refs": [],
+        "uncertainty_ref": "immutable:u-a",
+        "limitations": [
+          "synthetic"
+        ],
+        "alternative_explanations": [
+          "measurement-error"
+        ],
+        "output_disposition": "Descriptive",
+        "claim_provenance": "immutable:claim-a"
+      },
+      "note": "valid descriptive binding"
+    },
+    {
+      "id": "RC-13",
+      "family": "valid_causal_estimate_with_uncertainty",
+      "reference": {},
+      "candidate": {
+        "result_artifact": {
+          "digest": "sha256:r-causal"
+        },
+        "study_execution_evidence_ref": "immutable:exec-causal-a",
+        "upstream_evidence_cut": "immutable:cut-causal-a",
+        "result_semantics": "causal_estimate",
+        "claim_scope": {
+          "population": "synthetic-population-a",
+          "geography": "synthetic-region-a",
+          "time": "2026-Q3",
+          "estimand": "target-effect"
+        },
+        "claim_proposition": "Estimated effect is 0.3 with declared uncertainty.",
+        "supporting_result_refs": [
+          "sha256:r-causal"
+        ],
+        "derivation_refs": [],
+        "uncertainty_ref": "immutable:ci-95",
+        "limitations": [
+          "synthetic",
+          "assumption-sensitive"
+        ],
+        "alternative_explanations": [
+          "residual-confounding"
+        ],
+        "output_disposition": "CausalEstimate",
+        "claim_provenance": "immutable:claim-causal-a"
+      },
+      "note": "valid causal estimate with uncertainty"
+    },
+    {
+      "id": "RC-14",
+      "family": "valid_inconclusive_disposition",
+      "reference": {},
+      "candidate": {
+        "result_artifact": {
+          "digest": "sha256:r-inconclusive"
+        },
+        "study_execution_evidence_ref": "immutable:exec-b",
+        "upstream_evidence_cut": "immutable:cut-b",
+        "result_semantics": "inconclusive",
+        "claim_scope": {
+          "population": "synthetic-population-a",
+          "geography": "synthetic-region-a",
+          "time": "2026-Q3",
+          "estimand": "target-effect"
+        },
+        "claim_proposition": "Evidence is insufficient to distinguish the declared alternatives.",
+        "supporting_result_refs": [
+          "sha256:r-inconclusive"
+        ],
+        "derivation_refs": [],
+        "uncertainty_ref": "immutable:u-wide",
+        "limitations": [
+          "low-power"
+        ],
+        "alternative_explanations": [
+          "null-effect",
+          "measurement-error"
+        ],
+        "output_disposition": "Inconclusive",
+        "claim_provenance": "immutable:claim-b"
+      },
+      "note": "valid inconclusive disposition"
+    },
+    {
+      "id": "RC-15",
+      "family": "valid_stochastic_replication",
+      "reference": {},
+      "candidate": {
+        "result_artifact": {
+          "digest": "sha256:r-stochastic"
+        },
+        "study_execution_evidence_ref": "immutable:exec-stoch",
+        "upstream_evidence_cut": "immutable:cut-stoch",
+        "result_semantics": "stochastic_result",
+        "claim_scope": {
+          "population": "synthetic-population-a",
+          "geography": "synthetic-region-a",
+          "time": "2026-Q3",
+          "estimand": "distributional-effect"
+        },
+        "claim_proposition": "The observed distribution is consistent with the declared stochastic replication semantics.",
+        "supporting_result_refs": [
+          "sha256:r-stochastic"
+        ],
+        "derivation_refs": [],
+        "uncertainty_ref": "immutable:u-dist",
+        "limitations": [
+          "stochastic"
+        ],
+        "alternative_explanations": [
+          "sampling-variation"
+        ],
+        "output_disposition": "ReplicationDistribution",
+        "claim_provenance": "immutable:claim-stoch",
+        "replication_semantics": "distributional"
+      },
+      "note": "valid stochastic replication"
+    }
+  ],
+  "nonclaims": [
+    "real_world_causal_effect",
+    "scientific_truth",
+    "clinical_validity",
+    "public_safety",
+    "municipal_legitimacy",
+    "deployment_readiness"
+  ],
+  "prohibited_receipt_fields": [
+    "raw_subject_identifier",
+    "raw_payload",
+    "civic_authorization"
+  ]
+}
