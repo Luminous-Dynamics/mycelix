@@ -45,15 +45,15 @@ jobs:
 
           root="${RUNNER_TEMP}/prism-bridge-qualification"
           rm -rf "${root}"
-          mkdir -p "${root}/prism-bridge" "${root}/prism-common" "${root}/crates/mycelix-claim-types"
+          mkdir -p "${root}/mycelix-prism/prism-bridge" "${root}/mycelix-prism/prism-common" "${root}/crates/mycelix-claim-types"
 
-          cp -a mycelix-workspace/mycelix-prism/prism-bridge/. "${root}/prism-bridge/"
-          cp -a mycelix-workspace/mycelix-prism/prism-common/. "${root}/prism-common/"
+          cp -a mycelix-workspace/mycelix-prism/prism-bridge/. "${root}/mycelix-prism/prism-bridge/"
+          cp -a mycelix-workspace/mycelix-prism/prism-common/. "${root}/mycelix-prism/prism-common/"
           cp -a mycelix-workspace/crates/mycelix-claim-types/. "${root}/crates/mycelix-claim-types/"
 
           cat > "${root}/Cargo.toml" <<'EOF'
           [workspace]
-          members = ["prism-bridge", "prism-common", "crates/mycelix-claim-types"]
+          members = ["mycelix-prism/prism-bridge", "mycelix-prism/prism-common", "crates/mycelix-claim-types"]
           resolver = "3"
 
           [workspace.package]
