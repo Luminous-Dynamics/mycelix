@@ -726,7 +726,9 @@ mod tests {
         assert_eq!(
             verify_capability(
                 cap.clone(),
-                VerificationEvidence::new_for_capability_with_valid_until(&cap, true, true, true, 175),
+                VerificationEvidence::new_for_capability_with_valid_until(
+                    &cap, true, true, true, 175
+                ),
                 175,
             )
             .unwrap_err(),
@@ -828,9 +830,7 @@ mod tests {
         let permit = authorize_permit(&verified, &request(CapabilityAction::Read), 150).unwrap();
         let result = EnforcementRequest::from_permit(
             permit,
-            VerificationEvidence::new_for_capability_with_valid_until(
-                &cap, true, true, true, 175,
-            ),
+            VerificationEvidence::new_for_capability_with_valid_until(&cap, true, true, true, 175),
             175,
         );
         assert_eq!(
