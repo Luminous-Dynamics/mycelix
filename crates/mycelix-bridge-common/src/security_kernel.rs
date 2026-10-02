@@ -635,12 +635,9 @@ mod tests {
             7,
         )
         .unwrap();
-        let verified = verify_capability(
-            long_lived,
-            VerificationEvidence::new(true, true, true),
-            150,
-        )
-        .unwrap();
+        let verified =
+            verify_capability(long_lived, VerificationEvidence::new(true, true, true), 150)
+                .unwrap();
         let permit = authorize_permit(&verified, &request(CapabilityAction::Read), 150).unwrap();
         assert_eq!(
             permit.valid_until_us(),
