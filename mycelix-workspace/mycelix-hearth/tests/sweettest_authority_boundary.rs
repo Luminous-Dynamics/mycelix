@@ -516,6 +516,151 @@ async fn test_authorized_call_reaches_zome_and_is_semantically_rejected() {
 }
 
 
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "requires Holochain conductor (nix develop)"]
+async fn test_assigned_capability_binds_signer_and_revocation() {
+    let mut conductor = SweetConductor::standard().await;
+    let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
+
+    let (alice,) = conductor
+        .setup_app("test-app", &[dna_file])
+        .await
+        .unwrap()
+        .into_tuple();
+
+    // Generate two non-author signing identities. Neither is the cell author,
+    // so neither receives the implicit author grant.
+    let bob = conductor
+        .keystore()
+        .new_sign_keypair_random()
+        .await
+        .unwrap();
+    let eve = conductor
+        .keystore()
+        .new_sign_keypair_random()
+        .await
+        .unwrap();
+
+    let cap_secret = CapSecret::from([0xC3; CAP_SECRET_BYTES]);
+    let mut functions = std::collections::HashSet::new();
+    functions.insert(("hearth_kinship".into(), "get_my_hearths".into()));
+
+    let mut assignees = std::collections::BTreeSet::new();
+    assignees.insert(bob.clone());
+
+    let grant_action_hash = conductor
+        .grant_zome_call_capability(GrantZomeCallCapabilityPayload {
+            cell_id: alice.cell_id().clone(),
+            cap_grant: GrantZomeCallCapabilityGrant {
+                tag: "HEARTH-AUTH-ASSIGNED-1".into(),
+                constraint: GrantConstraint::Assigned {
+                    secret: cap_secret,
+                    assignees,
+                },
+                grant: ZomeCallGrant {
+                    functions: GrantedFunctions::Listed(functions),
+                },
+            },
+        })
+        .await
+        .unwrap();
+
+    retry_fn_until_timeout(
+        || async {
+            conductor
+                .all_ops_integrated(alice.cell_id().dna_hash())
+                .await
+                .unwrap()
+        },
+        None,
+        None,
+    )
+    .await
+    .unwrap();
+
+    // Correct signer + correct secret: the assigned capability authorizes the call.
+    let bob_call = signed_call_as_agent(
+        &conductor,
+        alice.cell_id(),
+        bob.clone(),
+        "get_my_hearths",
+        (),
+        cap_secret,
+    )
+    .await;
+    match submit_call(&conductor, bob_call).await {
+        AppResponse::ZomeCalled(result) => match *result {
+            ZomeCallResponse::Ok(output) => {
+                let _: Vec<Record> = output.decode().expect("assigned call must decode");
+            }
+            other => panic!("assigned signer with correct secret must succeed, got {other:?}"),
+        },
+        other => panic!("expected ZomeCalled for assigned positive case, got {other:?}"),
+    }
+
+    // Same secret, wrong signer: the secret alone must not confer access.
+    let eve_call = signed_call_as_agent(
+        &conductor,
+        alice.cell_id(),
+        eve,
+        "get_my_hearths",
+        (),
+        cap_secret,
+    )
+    .await;
+    match submit_call(&conductor, eve_call).await {
+        AppResponse::ZomeCalled(result) => match *result {
+            ZomeCallResponse::Unauthorized(..) => {}
+            other => panic!("unassigned signer must be unauthorized, got {other:?}"),
+        },
+        other => panic!("expected ZomeCalled for assigned negative case, got {other:?}"),
+    }
+
+    // Revoke the exact grant, then prove the previously authorized signer loses access.
+    let (admin_tx, _admin_rx) = conductor.admin_ws_client::<AdminResponse>().await;
+    let revoke_response = admin_tx
+        .request(AdminRequest::RevokeZomeCallCapability {
+            action_hash: grant_action_hash,
+            cell_id: alice.cell_id().clone(),
+        })
+        .await
+        .unwrap();
+    assert!(
+        matches!(revoke_response, AdminResponse::ZomeCallCapabilityRevoked),
+        "capability revocation failed: {revoke_response:?}"
+    );
+
+    retry_fn_until_timeout(
+        || async {
+            conductor
+                .all_ops_integrated(alice.cell_id().dna_hash())
+                .await
+                .unwrap()
+        },
+        None,
+        None,
+    )
+    .await
+    .unwrap();
+
+    let bob_after_revoke = signed_call_as_agent(
+        &conductor,
+        alice.cell_id(),
+        bob,
+        "get_my_hearths",
+        (),
+        cap_secret,
+    )
+    .await;
+    match submit_call(&conductor, bob_after_revoke).await {
+        AppResponse::ZomeCalled(result) => match *result {
+            ZomeCallResponse::Unauthorized(..) => {}
+            other => panic!("revoked assigned capability must be unauthorized, got {other:?}"),
+        },
+        other => panic!("expected ZomeCalled after assigned capability revocation, got {other:?}"),
+    }
+}
+
 #[test]
 fn test_authority_case_manifest_is_structurally_valid() {
     let manifest: serde_json::Value = serde_json::from_str(include_str!(
