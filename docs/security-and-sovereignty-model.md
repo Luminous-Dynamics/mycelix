@@ -109,8 +109,10 @@ The bridge kernel now has an optional Ed25519 path behind the existing identity 
 - SignedCapability provides signing and signature verification when the identity feature is enabled.
 - Successful signature verification establishes integrity/authenticity of the signed capability bytes only. It does not establish issuer authorization, current revocation status, or policy authorization.
 - The permit/enforcement boundary remains responsible for policy authorization, while the independent identity/revocation layer remains responsible for issuer authorization and current status.
+- `VerificationEvidence` is now opaque outside the bridge crate; callers cannot manufacture trusted evidence by supplying boolean fields.
+- The next adapter should consume the existing Mycelix institutional authority identity rather than inventing a second grant-hashing or authority-identity scheme. The canonical profile developed in PR #75 (`mycelix-authority-grant-v1-blake3-framed-semantic`) binds authority-relevant grant semantics, including proof lineage and delegation parent. That work remains a separate draft integration dependency.
 
-This separation prevents a valid signature from being treated as a synthetic proof of institutional authority.
+This separation prevents a valid signature from being treated as a synthetic proof of institutional authority, and prevents arbitrary callers from manufacturing the verification hand-off itself.
 
 ## Trust boundary
 
