@@ -951,7 +951,7 @@ mod tests {
         mutated.resolution_evidence.insert(
             SemanticDependencyReferenceV1::node("root", Some("commit-root".into())),
             SemanticDependencyResolutionEvidenceV1 {
-                source: "other-source".into(),
+                retrieval_reference: Some("other-source".into()),
                 observed_commitment: None,
                 qualification_context_commitment: None,
             },
