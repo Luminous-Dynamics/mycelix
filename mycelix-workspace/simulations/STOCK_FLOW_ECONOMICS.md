@@ -704,3 +704,25 @@ This follows the SFC principle that opening stocks interact with period transact
 closing stocks, while sector financial positions remain subject to exact accounting constraints.
 The transaction-flow and balance-sheet structures therefore stay coupled, but neither becomes a
 behavioral assumption by itself. 
+
+
+## Trade-credit settlement cross-matrix closure (implemented)
+
+Trade-credit timing is now represented orthogonally across the two sector-flow projections:
+
+- `TradeCreditSale` is omitted from the monetary transaction matrix because it creates a
+  receivable/payable without moving cash or deposits, but it appears in the financial-claim
+  matrix as `TradeCreditExtension`.
+- `TradeCreditSettlement` appears in the monetary transaction matrix as an explicit
+  `TradeCreditSettlement` flow from buyer sector to seller sector because deposits actually
+  move.
+- The same `TradeCreditSettlement` transition appears in the financial-claim matrix because
+  the receivable/payable pair is simultaneously extinguished.
+
+Therefore one deferred sale followed by settlement is not forced into a single overloaded
+transaction category. The economic event has a non-cash claim creation phase and a later
+monetary settlement phase, both tied to the same authoritative transition sequence.
+
+This is especially useful for later working-capital and debt-service dynamics: a model can
+distinguish recognized sales, outstanding operating claims, and actual liquidity settlement
+without inventing a collection-delay function at the accounting layer.
