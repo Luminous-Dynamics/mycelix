@@ -222,6 +222,60 @@ mod tests {
     }
 
     #[test]
+    fn transition_projection_is_deterministic_and_semantic() {
+        use super::super::stock_flow::{
+            CapitalInvestment, CreditCreation, DebtRepayment, EconomicFlowCategory,
+            IncomeTransfer,
+        };
+        use super::super::transition::EconomicTransition;
+
+        let actors = vec![
+            ("bank".to_string(), EconomicSector::Bank),
+            ("firm".to_string(), EconomicSector::Firm),
+            ("household".to_string(), EconomicSector::Household),
+        ];
+        let transitions = vec![
+            EconomicTransition::IncomeTransfer(
+                IncomeTransfer::with_category(
+                    "firm",
+                    "household",
+                    100,
+                    EconomicFlowCategory::Wage,
+                )
+                .unwrap(),
+            ),
+            EconomicTransition::CapitalInvestment(
+                CapitalInvestment::new("firm", "household", 25).unwrap(),
+            ),
+            EconomicTransition::CreditCreation(
+                CreditCreation::new("bank", "firm", 50).unwrap(),
+            ),
+            EconomicTransition::DebtRepayment(
+                DebtRepayment::new("bank", "firm", 10).unwrap(),
+            ),
+        ];
+
+        let matrix = SectorTransactionMatrix::from_transitions(&transitions, &actors).unwrap();
+        assert_eq!(matrix.flows.len(), 4);
+        assert_eq!(matrix.flows[0].category, FlowCategory::Wage);
+        assert_eq!(matrix.flows[1].category, FlowCategory::Investment);
+        assert_eq!(matrix.flows[2].category, FlowCategory::LoanCreation);
+        assert_eq!(matrix.flows[3].category, FlowCategory::DebtRepayment);
+        assert!(matrix.clears());
+
+        let state = EconomicState::new(vec![
+            super::super::stock_flow::ActorBalanceSheet::new("bank"),
+            super::super::stock_flow::ActorBalanceSheet::new("firm"),
+            super::super::stock_flow::ActorBalanceSheet::new("household"),
+        ]);
+        matrix.validate_against(&state, &actors, &transitions).unwrap();
+
+        let mut tampered = matrix.clone();
+        tampered.flows[0].amount = 99;
+        assert!(tampered.validate_against(&state, &actors, &transitions).is_err());
+    }
+
+    #[test]
     fn unbalanced_matrix_is_rejected() {
         let mut m = SectorTransactionMatrix::default();
         m.push(SectorFlow::new(
