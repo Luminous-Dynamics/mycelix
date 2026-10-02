@@ -251,3 +251,33 @@ The branch tree and maintained workspace files were rechecked against the migrat
 ### Updated gate interpretation
 
 R0 remains **blocked** on actual Holonix 0.7 pin selection and lock/shell execution. R1 and R3 now have confirmed concrete remediation targets in the SDK TypeScript Docker conductor fixture and workspace launcher, but remain **pending** until a 0.7 conductor parses and starts them. R2 additionally requires a fail-closed data-root policy in the new launcher. No ROS-006 qualification or projection semantics were changed in this audit.
+
+
+## Repository topology audit — duplicate public workspace paths (2026-10-02)
+
+A branch-tree comparison found two copies of both the Civic and Commons workspace trees:
+
+- `mycelix-civic/` and `mycelix-workspace/mycelix-civic/`
+- `mycelix-commons/` and `mycelix-workspace/mycelix-commons/`
+
+For the four highest-impact migration entrypoints audited here, the Git blob SHA is identical in each pair:
+
+| Pair | Blob equality |
+| --- | --- |
+| Civic `Cargo.toml` | identical |
+| Civic `flake.nix` | identical |
+| Commons `Cargo.toml` | identical |
+| Commons `flake.nix` | identical |
+
+This is useful evidence: the duplication is currently mirrored rather than divergent for these entrypoints. It is nevertheless a migration hazard because a future 0.7 patch can update one tree while leaving the other behind.
+
+### Migration rule
+
+Do not independently hand-edit both copies during the 0.7 migration. First establish which path is the supported public source-of-truth; then either:
+
+1. make one path an explicit compatibility mirror generated/verified from the source-of-truth, or
+2. migrate both in one atomic change and add a deterministic equality check.
+
+The same rule should be applied to any duplicated conductor fixtures, lockfiles, package manifests, or zome sources discovered during the remaining audit.
+
+This topology finding does **not** justify deleting or archiving either tree yet. No path ownership decision is claimed by this audit.
