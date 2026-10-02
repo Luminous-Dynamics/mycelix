@@ -51,10 +51,21 @@ impl SeccompSyscallPolicyV1 {
         mut allowed_syscalls: Vec<i64>,
     ) -> Result<Self, SeccompError> {
         const MAX_SYSCALLS: usize = 256;
+        const X32_SYSCALL_BIT: i64 = 0x4000_0000;
         if allowed_syscalls.is_empty() || allowed_syscalls.len() > MAX_SYSCALLS {
             return Err(SeccompError::InvalidPolicy);
         }
         if allowed_syscalls.iter().any(|n| *n < 0 || *n > u32::MAX as i64) {
+            return Err(SeccompError::InvalidPolicy);
+        }
+        // x86-64 and x32 share AUDIT_ARCH_X86_64. Do not permit a policy to
+        // explicitly allow an x32-tagged syscall number, because the
+        // architecture field alone cannot distinguish the two ABIs.
+        if architecture == SeccompArchitecture::X86_64
+            && allowed_syscalls
+                .iter()
+                .any(|n| (*n & X32_SYSCALL_BIT) != 0)
+        {
             return Err(SeccompError::InvalidPolicy);
         }
         allowed_syscalls.sort_unstable();
@@ -139,6 +150,7 @@ mod linux {
     const BPF_ABS: u16 = 0x20;
     const BPF_JMP: u16 = 0x05;
     const BPF_JEQ: u16 = 0x10;
+    const BPF_JGE: u16 = 0x30;
     const BPF_K: u16 = 0x00;
     const BPF_RET: u16 = 0x06;
 
@@ -160,16 +172,27 @@ mod linux {
         SockFilter { code: BPF_JMP | BPF_JEQ | BPF_K, jt, jf, k }
     }
 
+    fn jump_ge(k: u32, jt: u8, jf: u8) -> SockFilter {
+        SockFilter { code: BPF_JMP | BPF_JGE | BPF_K, jt, jf, k }
+    }
+
     fn compile_filter(policy: &SeccompSyscallPolicyV1) -> Result<Vec<SockFilter>, SeccompError> {
         if SeccompArchitecture::current() != Some(policy.architecture) {
             return Err(SeccompError::ArchitectureMismatch);
         }
 
-        // Architecture check plus two instructions per allowlisted syscall
-        // (match + ALLOW), followed by the bounded default-deny action.
-        // Keeping the match/ALLOW pair adjacent avoids jump-offset overflow
-        // while making the control flow mechanically auditable.
+        // Architecture check plus an x32-ABI guard where required, two
+        // instructions per allowlisted syscall (match + ALLOW), followed by
+        // the bounded default-deny action. Keeping the match/ALLOW pair
+        // adjacent avoids jump-offset overflow while making the control flow
+        // mechanically auditable.
+        let abi_guard_instructions = if policy.architecture == SeccompArchitecture::X86_64 {
+            2usize
+        } else {
+            0usize
+        };
         let instruction_count = 5usize
+            .saturating_add(abi_guard_instructions)
             .saturating_add(policy.allowed_syscalls.len().saturating_mul(2));
         if instruction_count > 4096 || instruction_count > u16::MAX as usize {
             return Err(SeccompError::FilterTooLarge);
@@ -180,6 +203,14 @@ mod linux {
         filter.push(jump_eq(policy.architecture as u32, 1, 0));
         filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS));
         filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, SECCOMP_DATA_NR_OFFSET));
+
+        if policy.architecture == SeccompArchitecture::X86_64 {
+            const X32_SYSCALL_BIT: u32 = 0x4000_0000;
+            // x32 uses the same audit architecture value but sets bit 30 in
+            // the syscall number. Kill it explicitly before the allowlist.
+            filter.push(jump_ge(X32_SYSCALL_BIT, 0, 1));
+            filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS));
+        }
 
         for syscall in &policy.allowed_syscalls {
             // Match -> next instruction is ALLOW; mismatch skips that ALLOW
@@ -311,17 +342,33 @@ mod linux {
             let policy = SeccompSyscallPolicyV1::new(arch, vec![libc::SYS_read, libc::SYS_write]).unwrap();
             let filter = compile_filter(&policy).unwrap();
 
-            // 0: load arch, 1: arch match, 2: kill on mismatch, 3: load nr.
-            // Each syscall then has JEQ -> ALLOW; mismatch skips exactly one
-            // instruction and reaches the next comparison.
-            assert_eq!(filter[4].jt, 0);
-            assert_eq!(filter[4].jf, 1);
-            assert_eq!(filter[5].k, SECCOMP_RET_ALLOW);
-            assert_eq!(filter[6].jt, 0);
-            assert_eq!(filter[6].jf, 1);
-            assert_eq!(filter[7].k, SECCOMP_RET_ALLOW);
-            assert_eq!(filter[8].k, SECCOMP_RET_ERRNO | libc::EPERM as u32);
-            assert_eq!(filter.len(), 9);
+            // x86-64: 0 load arch, 1 arch match, 2 kill on mismatch,
+            // 3 load nr, 4 x32 guard, 5 kill x32, then JEQ -> ALLOW pairs.
+            // Mismatch skips exactly one ALLOW and reaches the next comparison.
+            if arch == SeccompArchitecture::X86_64 {
+                assert_eq!(filter[4].code, BPF_JMP | BPF_JGE | BPF_K);
+                assert_eq!(filter[4].k, 0x4000_0000);
+                assert_eq!(filter[4].jt, 0);
+                assert_eq!(filter[4].jf, 1);
+                assert_eq!(filter[5].k, SECCOMP_RET_KILL_PROCESS);
+                assert_eq!(filter[6].jt, 0);
+                assert_eq!(filter[6].jf, 1);
+                assert_eq!(filter[7].k, SECCOMP_RET_ALLOW);
+                assert_eq!(filter[8].jt, 0);
+                assert_eq!(filter[8].jf, 1);
+                assert_eq!(filter[9].k, SECCOMP_RET_ALLOW);
+                assert_eq!(filter[10].k, SECCOMP_RET_ERRNO | libc::EPERM as u32);
+                assert_eq!(filter.len(), 11);
+            }
+        }
+
+        #[test]
+        fn x32_tagged_syscalls_are_rejected_from_x86_policy() {
+            let policy = SeccompSyscallPolicyV1::new(
+                SeccompArchitecture::X86_64,
+                vec![0x4000_0000],
+            );
+            assert!(matches!(policy, Err(SeccompError::InvalidPolicy)));
         }
 
         #[test]
