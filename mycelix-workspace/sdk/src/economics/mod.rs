@@ -36,11 +36,16 @@ pub use poc::{
     MycelCalculation, MycelComponent, MycelScore,
 };
 pub use sector_flow::{EconomicSector, FlowCategory, SectorFlow, SectorTransactionMatrix};
-pub use reconciliation::{reconcile_step, postings_for_step, StockFlowMismatch, StockFlowReconciliation, StockPosting};
+pub use reconciliation::{
+    physical_postings_for_step, postings_for_step, reconcile_step, PhysicalStockMismatch,
+    PhysicalStockPosting, StockFlowMismatch, StockFlowReconciliation, StockPosting,
+};
 pub use period_ledger::EconomicPeriodLedger;
 
 pub use stock_flow::{
-    ActorBalanceSheet, ActorId, CapitalInvestment, ProductionEvent, InventoryTransfer, InventoryConsumption, GoodsSale, CreditCreation, DebtRepayment, EconomicFlowCategory, IncomeTransfer, EconomicState, MonetaryFlow,
+    ActorBalanceSheet, ActorId, CapitalInvestment, ProductionEvent, InventoryTransfer,
+    InventoryConsumption, GoodsSale, InventoryCostAddition, InventoryCostRelief, CreditCreation,
+    DebtRepayment, EconomicFlowCategory, IncomeTransfer, EconomicState, MonetaryFlow,
     MonetaryInstrument, MonetaryStock, RealStock,
 };
 
@@ -247,4 +252,7 @@ mod tests {
 }
 
 
-pub use sector_balance::{BalanceSheetEntry, BalanceSheetInstrument, SectorAssignment, SectorBalanceSheet};
+pub use sector_balance::{
+    BalanceSheetEntry, BalanceSheetInstrument, PhysicalStockEntry, PhysicalStockInstrument,
+    SectorAssignment, SectorBalanceSheet, SectorPhysicalStock,
+};
