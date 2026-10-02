@@ -148,18 +148,33 @@ pub struct FederationState {
     observations: BTreeMap<String, ObservationRecord>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FederationNodeError {
+    DuplicateNodeId,
+}
+
 impl FederationState {
-    pub fn new(nodes: impl IntoIterator<Item = NodeProfile>) -> Self {
-        let nodes = nodes
-            .into_iter()
-            .map(|node| (node.node_id.clone(), node))
-            .collect();
-        Self {
-            nodes,
+    pub fn try_new(
+        nodes: impl IntoIterator<Item = NodeProfile>,
+    ) -> Result<Self, FederationNodeError> {
+        let mut node_map = BTreeMap::new();
+        for node in nodes {
+            let node_id = node.node_id.clone();
+            if node_map.insert(node_id, node).is_some() {
+                return Err(FederationNodeError::DuplicateNodeId);
+            }
+        }
+
+        Ok(Self {
+            nodes: node_map,
             recognition_edges: Vec::new(),
             deliveries: BTreeMap::new(),
             observations: BTreeMap::new(),
-        }
+        })
+    }
+
+    pub fn new(nodes: impl IntoIterator<Item = NodeProfile>) -> Self {
+        Self::try_new(nodes).expect("FederationState::new requires unique node IDs")
     }
 
     pub fn add_recognition(&mut self, edge: RecognitionEdge) {
@@ -348,7 +363,7 @@ pub fn deliver(
         );
     }
 
-    if envelope.expires_at.is_some_and(|expiry| now > expiry) {
+    if envelope.expires_at.is_some_and(|expiry| now >= expiry) {
         return FederationOutcome::new(
             FederationDecision::ExpiredAuthorization,
             AuthorityDisposition::NoAuthority,
@@ -818,6 +833,26 @@ mod tests {
             expires_at: Some(100),
             predecessor_delivery_id: None,
         }
+    }
+
+    #[test]
+    fn duplicate_node_ids_are_rejected_by_the_safe_constructor() {
+        let result = FederationState::try_new([
+            NodeProfile {
+                node_id: "node-a".into(),
+                schema_generation: 1,
+                authorization_generation: 1,
+                active: true,
+            },
+            NodeProfile {
+                node_id: "node-a".into(),
+                schema_generation: 2,
+                authorization_generation: 2,
+                active: false,
+            },
+        ]);
+
+        assert_eq!(result, Err(FederationNodeError::DuplicateNodeId));
     }
 
     #[test]
@@ -1365,6 +1400,31 @@ mod tests {
             1
         );
         assert_eq!(expiry_state.observation_count(), 1);
+    }
+
+    #[test]
+    fn expiry_is_exclusive_at_the_declared_expiration_instant() {
+        let mut state = nodes();
+        let mut expiring = envelope();
+        expiring.expires_at = Some(100);
+
+        assert_eq!(
+            deliver(&mut state, &expiring, 99, true).decision,
+            FederationDecision::AcceptedLocal
+        );
+
+        let mut retry = expiring;
+        retry.attempt_id = "attempt-at-expiry".into();
+        let outcome = deliver(&mut state, &retry, 100, true);
+        assert_eq!(
+            outcome.decision,
+            FederationDecision::ExpiredAuthorization
+        );
+        assert_eq!(outcome.authority, AuthorityDisposition::NoAuthority);
+        assert_eq!(
+            state.delivery("delivery-1").unwrap().attempts().len(),
+            1
+        );
     }
 
     #[test]
