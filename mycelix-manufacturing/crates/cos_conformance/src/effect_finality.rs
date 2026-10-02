@@ -23,6 +23,8 @@ pub const D6M_OBSERVATION_COMMITMENT_DOMAIN: &[u8] = b"MYCELIX-INTEGRAL-D6M-OBSE
 /// This is deterministic within the Rust/Serde reference implementation, but
 /// is not itself a cross-language canonicalization specification.
 pub const D6M_OBSERVATION_COMMITMENT_SERIALIZATION: &str = "serde-json-tuple-v1";
+pub const D6M_FINALITY_RECEIPT_COMMITMENT_DOMAIN: &[u8] = b"MYCELIX-INTEGRAL-D6M-FINALITY-RECEIPT-V1\\0";
+pub const D6M_FINALITY_RECEIPT_COMMITMENT_SERIALIZATION: &str = "serde-json-struct-v1";
 pub const EXTERNAL_FINALITY_CLAIM_CEILING: &str =
     "External-effect finality evidence only; no provider truth, legal settlement, or actuation authorization claim.";
 pub const COMPENSATION_CLAIM_CEILING: &str =
@@ -302,6 +304,28 @@ impl ExternalFinalityReceiptV1 {
             && non_empty(&self.finality_commitment)
             && self.claim_ceiling == EXTERNAL_FINALITY_CLAIM_CEILING
     }
+
+    /// Recompute the D6M finality-receipt commitment from the complete receipt
+    /// payload, excluding the commitment field itself. This is a deterministic
+    /// Rust/Serde reference-model contract, not a cross-language canonicalization
+    /// specification.
+    pub fn recomputed_commitment(&self) -> String {
+        let mut unsigned = self.clone();
+        unsigned.finality_commitment.clear();
+        let payload = serde_json::to_vec(&unsigned)
+            .expect("D6M finality receipt reference model must be serializable");
+        let mut input = Vec::with_capacity(
+            D6M_FINALITY_RECEIPT_COMMITMENT_DOMAIN.len() + payload.len(),
+        );
+        input.extend_from_slice(D6M_FINALITY_RECEIPT_COMMITMENT_DOMAIN);
+        input.extend_from_slice(&payload);
+        let digest = Sha256::digest(&input);
+        digest.iter().map(|byte| format!("{byte:02x}")).collect()
+    }
+
+    pub fn commitment_matches(&self) -> bool {
+        self.structurally_valid() && self.finality_commitment == self.recomputed_commitment()
+    }
 }
 
 fn finality_receipt_matches(
@@ -325,6 +349,8 @@ fn finality_receipt_matches(
         && receipt.finality_profile_id == profile.profile_id
         && receipt.semantic_environment_root == effect.semantic_environment_root
         && receipt.finality_state == profile.required_finality_state
+        && receipt.evidence_root == observation.evidence_root
+        && receipt.commitment_matches()
 }
 
 fn outcome_is_compatible_with_finality(
@@ -1144,7 +1170,7 @@ mod tests {
         observation: &ExternalEffectObservationV1,
         profile: &ExternalFinalityProfileV1,
     ) -> ExternalFinalityReceiptV1 {
-        ExternalFinalityReceiptV1 {
+        let mut receipt = ExternalFinalityReceiptV1 {
             receipt_id: "finality-1".into(),
             effect_id: effect.effect_id.clone(),
             effect_lineage_id: effect.lineage_id.clone(),
@@ -1159,10 +1185,12 @@ mod tests {
             finality_profile_id: profile.profile_id.clone(),
             semantic_environment_root: effect.semantic_environment_root.clone(),
             finality_state: profile.required_finality_state,
-            evidence_root: "finality-evidence-1".into(),
-            finality_commitment: "finality-commitment-1".into(),
+            evidence_root: observation.evidence_root.clone(),
+            finality_commitment: String::new(),
             claim_ceiling: EXTERNAL_FINALITY_CLAIM_CEILING.into(),
-        }
+        };
+        receipt.finality_commitment = receipt.recomputed_commitment();
+        receipt
     }
 
     fn tombstone(effect: &SemanticEffectV1) -> SemanticTombstone {
@@ -2065,6 +2093,38 @@ mod tests {
             ),
             FinalityDispositionV1::BlockedReceiptMismatch
         );
+    }
+
+    #[test]
+    fn finality_receipt_commitment_rejects_semantic_mutation() {
+        let (effect, route, outcome, observation, profile) = fixture();
+        let receipt = finality_receipt(&effect, &route, &outcome, &observation, &profile);
+        assert!(receipt.commitment_matches());
+
+        let mut changed = receipt.clone();
+        changed.evidence_root = "forged-evidence-root".into();
+        changed.finality_commitment = changed.recomputed_commitment();
+        assert!(changed.commitment_matches());
+        assert_ne!(changed.evidence_root, observation.evidence_root);
+        assert_eq!(
+            assess_external_finality(
+                &effect,
+                &substitution_profile(),
+                &profile,
+                &route,
+                &outcome,
+                &observation,
+                &changed,
+                "frontier-1",
+                FinalityUsePurposeV1::CurrentFinality,
+                None,
+            ),
+            FinalityDispositionV1::BlockedReceiptMismatch
+        );
+
+        let mut tampered = receipt;
+        tampered.finality_state = ExternalFinalityStateV1::NotApplied;
+        assert!(!tampered.commitment_matches());
     }
 
     #[test]
