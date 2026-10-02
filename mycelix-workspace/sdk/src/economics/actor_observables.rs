@@ -103,7 +103,7 @@ impl ActorEconomicObservables {
                         .cash
                         .checked_add(actor.monetary.deposits)
                         .ok_or_else(|| format!("liquidity overflow for {}", actor.actor))?,
-                    opening_net_working_capital: actor.net_working_capital(),
+                    opening_net_working_capital: actor.try_net_working_capital()?,
                     ..Self::default()
                 },
             );
@@ -123,8 +123,10 @@ impl ActorEconomicObservables {
         let initial_working_capital = state
             .actors
             .iter()
-            .map(|actor| (actor.actor.clone(), actor.net_working_capital()))
-            .collect::<BTreeMap<_, _>>();
+            .map(|actor| -> Result<_, String> {
+                Ok((actor.actor.clone(), actor.try_net_working_capital()?))
+            })
+            .collect::<Result<BTreeMap<_, _>, _>>()?;
 
         let mut working = state.clone();
 
