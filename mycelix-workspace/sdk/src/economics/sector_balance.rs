@@ -27,6 +27,7 @@ pub enum BalanceSheetInstrument {
     DepositLiabilities,
     Equity,
     ProductiveCapital,
+    Inventories,
     Resources,
 }
 
@@ -117,6 +118,11 @@ impl SectorBalanceSheet {
                     assignment.sector,
                     BalanceSheetInstrument::ProductiveCapital,
                     r.productive_capital,
+                ),
+                BalanceSheetEntry::new(
+                    assignment.sector,
+                    BalanceSheetInstrument::Inventories,
+                    r.inventories,
                 ),
                 BalanceSheetEntry::new(
                     assignment.sector,
