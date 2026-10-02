@@ -126,13 +126,14 @@ impl SocialRevisionV1 {
 impl SocialAudience {
     pub fn validate(&self) -> Result<(), SocialContractError> {
         if let Self::Custom(value) = self {
-            validate_bounded(value, "custom_audience", MAX_CUSTOM_AUDIENCE_BYTES)
-                .map_err(|error| match error {
+            validate_bounded(value, "custom_audience", MAX_CUSTOM_AUDIENCE_BYTES).map_err(
+                |error| match error {
                     SocialContractError::EmptyField(_) => {
                         SocialContractError::InvalidCustomAudience
                     }
                     other => other,
-                })?;
+                },
+            )?;
         }
         Ok(())
     }
