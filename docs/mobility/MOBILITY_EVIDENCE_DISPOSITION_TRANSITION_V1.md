@@ -83,7 +83,7 @@ This prevents an authority witness from being structurally reused for an unrelat
 
 The authority-scope witness is also carried through coverage validation: the boundary must name the exact same scope identity as the reconciliation, and the supplied scope witness must bind that identity to the same authority and reconciliation subject. This closes the remaining structural gap between naming an authority and naming the scope in which that authority witness is being relied upon.
 
-Consumers that stop at the scope layer can use the chain-aware scope validator to validate the exact named delegation chain in the same bounded operation. This prevents a correctly bound scope from being mistaken for evidence that its delegation ancestry is complete; missing predecessors remain unresolved and reachable structural contradictions remain invalid.
+Consumers that stop at the scope layer can use the chain-aware scope validator to validate the exact named delegation chain in the same bounded operation. This prevents a correctly bound scope from being mistaken for evidence that its delegation ancestry is complete; missing predecessors remain unresolved and reachable structural contradictions remain invalid. The scope-layer validator therefore exposes the same Complete/Unresolved distinction as the delegation graph validator rather than collapsing dependency absence into success.
 
 
 ### Authority delegation chains
