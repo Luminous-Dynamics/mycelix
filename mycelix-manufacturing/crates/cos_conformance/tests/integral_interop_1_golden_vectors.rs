@@ -190,26 +190,44 @@ fn upstream_d6m_to_d6p_golden_vectors_are_exact_and_linked() {
             "{} golden commitment drifted",
             entry.id
         );
-
-        let value: Value = serde_json::from_str(&entry.preimage_payload_utf8)
-            .expect("golden payload must itself be valid JSON");
-        assert_eq!(
-            String::from_utf8(canonical_bytes(&value).expect("payload must use D6S JSON canonical bytes"))
-                .expect("payload must be UTF-8"),
-            entry.preimage_payload_utf8,
-            "{} payload is not byte-stable",
-            entry.id
-        );
     }
 
     let d6m = vector(&fixture, "d6m-observation");
     let observation = golden_d6m_observation();
+    let d6m_payload = serde_json::to_vec(&(
+        &observation.observation_id,
+        &observation.effect_id,
+        &observation.effect_lineage_id,
+        &observation.lifecycle_generation_id,
+        &observation.route_id,
+        &observation.provider_id,
+        &observation.provider_operation_id,
+        &observation.provider_profile_root,
+        &observation.provider_outcome_id,
+        &observation.request_commitment,
+        &observation.idempotency_key,
+        &observation.semantic_environment_root,
+        &observation.observed_frontier_root,
+        &observation.observed_state,
+        &observation.source,
+        &observation.evidence_root,
+        &observation.claim_ceiling,
+    )).expect("D6M tuple serialization must succeed");
+    assert_eq!(
+        String::from_utf8(d6m_payload).expect("D6M payload must be UTF-8"),
+        d6m.preimage_payload_utf8
+    );
     assert_eq!(observation.observation_commitment, d6m.sha256);
     assert!(observation.commitment_matches());
 
     let d6n = vector(&fixture, "d6n-assessment-item");
     let mut assessment: ObservationAssessmentV1 =
         serde_json::from_str(&d6n.preimage_payload_utf8).expect("D6N vector must deserialize");
+    assert_eq!(
+        String::from_utf8(serde_json::to_vec(&assessment).expect("D6N serialization must succeed"))
+            .expect("D6N payload must be UTF-8"),
+        d6n.preimage_payload_utf8
+    );
     assert_eq!(assessment.observation_commitment, observation.observation_commitment);
     assessment.assessment_commitment = d6n.sha256.clone();
     assert_eq!(assessment.recomputed_commitment(), d6n.sha256);
@@ -218,12 +236,22 @@ fn upstream_d6m_to_d6p_golden_vectors_are_exact_and_linked() {
     let d6o = vector(&fixture, "d6o-eligibility-receipt");
     let mut eligibility: EvidenceEligibilityReceiptV1 =
         serde_json::from_str(&d6o.preimage_payload_utf8).expect("D6O vector must deserialize");
+    assert_eq!(
+        String::from_utf8(serde_json::to_vec(&eligibility).expect("D6O serialization must succeed"))
+            .expect("D6O payload must be UTF-8"),
+        d6o.preimage_payload_utf8
+    );
     eligibility.eligibility_commitment = d6o.sha256.clone();
     assert!(eligibility.commitment_matches());
 
     let d6pw = vector(&fixture, "d6p-witness");
     let mut witness: FinalityWitnessEligibilityV1 =
         serde_json::from_str(&d6pw.preimage_payload_utf8).expect("D6P witness vector must deserialize");
+    assert_eq!(
+        String::from_utf8(serde_json::to_vec(&witness).expect("D6P witness serialization must succeed"))
+            .expect("D6P witness payload must be UTF-8"),
+        d6pw.preimage_payload_utf8
+    );
     assert_eq!(witness.d6n_assessment_item_commitment, assessment.assessment_commitment);
     assert_eq!(witness.d6o_eligibility_id, Some(eligibility.eligibility_id.clone()));
     witness.witness_commitment = d6pw.sha256.clone();
@@ -232,6 +260,11 @@ fn upstream_d6m_to_d6p_golden_vectors_are_exact_and_linked() {
     let d6pc = vector(&fixture, "d6p-composition");
     let mut composition: FinalityEligibilityCompositionV1 =
         serde_json::from_str(&d6pc.preimage_payload_utf8).expect("D6P composition vector must deserialize");
+    assert_eq!(
+        String::from_utf8(serde_json::to_vec(&composition).expect("D6P composition serialization must succeed"))
+            .expect("D6P composition payload must be UTF-8"),
+        d6pc.preimage_payload_utf8
+    );
     assert_eq!(composition.witnesses, vec![witness.clone()]);
     composition.composition_commitment = d6pc.sha256.clone();
     assert!(composition.commitment_matches());
@@ -240,6 +273,11 @@ fn upstream_d6m_to_d6p_golden_vectors_are_exact_and_linked() {
     let d6pr = vector(&fixture, "d6p-receipt");
     let mut receipt: CurrentFinalityEligibilityReceiptV1 =
         serde_json::from_str(&d6pr.preimage_payload_utf8).expect("D6P receipt vector must deserialize");
+    assert_eq!(
+        String::from_utf8(serde_json::to_vec(&receipt).expect("D6P receipt serialization must succeed"))
+            .expect("D6P receipt payload must be UTF-8"),
+        d6pr.preimage_payload_utf8
+    );
     assert_eq!(receipt.composition_commitment, composition.composition_commitment);
     receipt.receipt_commitment = d6pr.sha256.clone();
     assert!(receipt.commitment_matches());
