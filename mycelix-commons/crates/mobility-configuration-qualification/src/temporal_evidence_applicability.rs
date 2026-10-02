@@ -1423,6 +1423,37 @@ mod tests {
     }
 
     #[test]
+    fn authority_delegation_graph_requires_basis_continuity() {
+        let mut root = authority_delegation("reconcile-delegation-basis");
+        let inherited = id(IdentityKind::EvidenceRecord, "delegation-root-basis");
+        root.basis = vec![inherited.clone()];
+        let child = EvidenceDispositionAuthorityDelegation {
+            delegation_id: id(IdentityKind::ReconciliationWitness, "authority-delegation-child"),
+            grantor: root.grantee.clone(),
+            grantee: id(IdentityKind::ReconciliationWitness, "authority-child"),
+            subject: root.subject.clone(),
+            predecessor: Some(root.delegation_id.clone()),
+            basis: vec![inherited],
+        };
+        assert!(EvidenceDispositionAuthorityDelegation::validate_graph(&[root, child]).is_ok());
+    }
+
+    #[test]
+    fn authority_delegation_graph_rejects_provenance_drop() {
+        let mut root = authority_delegation("reconcile-delegation-basis-drop");
+        root.basis = vec![id(IdentityKind::EvidenceRecord, "delegation-root-basis")];
+        let child = EvidenceDispositionAuthorityDelegation {
+            delegation_id: id(IdentityKind::ReconciliationWitness, "authority-delegation-child"),
+            grantor: root.grantee.clone(),
+            grantee: id(IdentityKind::ReconciliationWitness, "authority-child"),
+            subject: root.subject.clone(),
+            predecessor: Some(root.delegation_id.clone()),
+            basis: vec![],
+        };
+        assert!(EvidenceDispositionAuthorityDelegation::validate_graph(&[root, child]).is_err());
+    }
+
+    #[test]
     fn authority_delegation_graph_rejects_grantor_discontinuity() {
         let root = authority_delegation("reconcile-delegation-discontinuity");
         let child = EvidenceDispositionAuthorityDelegation {
