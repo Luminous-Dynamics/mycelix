@@ -142,6 +142,7 @@ pub enum MaterialityLevel {
 }
 
 /// Link types for listing discovery and relationships
+#[cfg(feature = "zome")]
 #[hdk_link_types]
 pub enum LinkTypes {
     /// Links from agent to their listings
@@ -162,6 +163,7 @@ pub enum LinkTypes {
 }
 
 /// Entry types for this integrity zome
+#[cfg(feature = "zome")]
 #[hdk_entry_types]
 #[unit_enum(UnitEntryTypes)]
 pub enum EntryTypes {
@@ -172,6 +174,7 @@ pub enum EntryTypes {
 ///
 /// This enforces marketplace rules at the DHT level.
 /// Invalid listings are rejected by the network.
+#[cfg(feature = "zome")]
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
