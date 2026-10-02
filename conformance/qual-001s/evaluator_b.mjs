@@ -124,10 +124,13 @@ for (const v of corpus.vectors) {
     }
   }
   if (v.proposition_id === "CANONICAL_JSON") {
-    if (!duplicateObjectKeys(v.mutation.fixture) === false) {
-      // unreachable: the duplicate-key fixture must throw.
-      throw new Error("duplicate-key fixture unexpectedly accepted");
+    let rejected = false;
+    try {
+      duplicateObjectKeys(v.mutation.fixture);
+    } catch (err) {
+      rejected = String(err).includes("duplicate key");
     }
+    if (!rejected) throw new Error("duplicate-key fixture was not rejected");
   }
 }
 
