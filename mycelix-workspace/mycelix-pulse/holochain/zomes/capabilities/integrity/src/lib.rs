@@ -64,6 +64,7 @@ pub enum MailboxAccessType {
 /// delivery-completeness witnesses, and V2 qualification must not infer
 /// entitlement from these fields until Pulse defines an authoritative binding.
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum DeliveryEntitlementScopeV1 {
     /// Entitlement applies to a direct recipient relationship.
     DirectRecipient,
