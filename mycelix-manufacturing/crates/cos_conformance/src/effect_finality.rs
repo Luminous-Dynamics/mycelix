@@ -1976,6 +1976,53 @@ mod tests {
     }
 
     #[test]
+    fn observation_commitment_covers_every_semantic_field() {
+        let effect = effect("effect-1", "lineage-1", "generation-1");
+        let route = route(&effect, "provider-a", "profile-a", "route-a", "operation-a");
+        let outcome = outcome(&route, ProviderOutcomeKindV1::Succeeded);
+        let observation = observation(
+            &effect,
+            &route,
+            &outcome,
+            ExternalObservationSourceV1::IndependentObserver,
+            ExternalObservedStateV1::Applied,
+            "frontier-1",
+        );
+        assert!(observation.commitment_matches());
+
+        macro_rules! assert_field_bound {
+            ($field:ident, $value:expr) => {{
+                let mut candidate = observation.clone();
+                candidate.$field = $value;
+                assert_ne!(
+                    candidate.observation_commitment,
+                    candidate.recomputed_commitment(),
+                    "field {} was not commitment-bound",
+                    stringify!($field)
+                );
+            }};
+        }
+
+        assert_field_bound!(observation_id, "observation-mutated".into());
+        assert_field_bound!(effect_id, "effect-mutated".into());
+        assert_field_bound!(effect_lineage_id, "lineage-mutated".into());
+        assert_field_bound!(lifecycle_generation_id, "generation-mutated".into());
+        assert_field_bound!(route_id, "route-mutated".into());
+        assert_field_bound!(provider_id, "provider-mutated".into());
+        assert_field_bound!(provider_operation_id, "operation-mutated".into());
+        assert_field_bound!(provider_profile_root, "profile-mutated".into());
+        assert_field_bound!(provider_outcome_id, "outcome-mutated".into());
+        assert_field_bound!(request_commitment, "request-mutated".into());
+        assert_field_bound!(idempotency_key, "idem-mutated".into());
+        assert_field_bound!(semantic_environment_root, "environment-mutated".into());
+        assert_field_bound!(observed_frontier_root, "frontier-mutated".into());
+        assert_field_bound!(observed_state, ExternalObservedStateV1::Failed);
+        assert_field_bound!(source, ExternalObservationSourceV1::ProviderReported);
+        assert_field_bound!(evidence_root, "evidence-mutated".into());
+        assert_field_bound!(claim_ceiling, "claim-ceiling-mutated".into());
+    }
+
+    #[test]
     fn self_recommitted_observation_cannot_escape_effect_binding() {
         let effect = effect("effect-1", "lineage-1", "generation-1");
         let route = route(&effect, "provider-a", "profile-a", "route-a", "operation-a");
