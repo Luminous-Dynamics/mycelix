@@ -18,7 +18,7 @@ Every vector keeps these propositions distinct:
 
 1. **Evidence disposition** — what is known about the supplied evidence.
 2. **Execution/authority outcome** — what the trusted execution path actually established.
-3. **Claim ceiling** — which explicit claims may be emitted from that evidence.
+3. **Claim ceiling** — the explicit set of propositions that may be emitted from that evidence. This is a capability boundary, not a numeric confidence score or ordinal rank.
 
 A stronger-looking value in one algebra never upgrades another algebra.
 
