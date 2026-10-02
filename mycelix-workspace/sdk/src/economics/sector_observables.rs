@@ -124,6 +124,16 @@ impl SectorEconomicObservables {
                 .get(actor_id)
                 .ok_or_else(|| format!("missing sector assignment for actor: {actor_id}"))?;
 
+            let expected_liquidity = observation
+                .cash
+                .checked_add(observation.deposits)
+                .ok_or_else(|| format!("actor liquidity overflow for {actor_id}"))?;
+            if expected_liquidity != observation.liquidity {
+                return Err(format!(
+                    "actor liquidity snapshot does not match cash + deposits for {actor_id}"
+                ));
+            }
+
             let sector_observation = sectors.entry(sector).or_insert_with(|| Self {
                 sector,
                 ..Self::default()
@@ -363,6 +373,30 @@ mod tests {
         assert_eq!(firm.operating_surplus_after_depreciation(), 30);
         assert!(firm.liquidity_flow_reconciliation_holds());
         assert!(firm.liquidity_stock_flow_reconciliation_holds());
+    }
+
+    #[test]
+    fn sector_projection_rejects_inconsistent_actor_liquidity() {
+        let mut observations = BTreeMap::new();
+        observations.insert(
+            "firm-a".into(),
+            ActorEconomicObservables {
+                actor: "firm-a".into(),
+                cash: 10,
+                deposits: 5,
+                liquidity: 99,
+                ..ActorEconomicObservables::default()
+            },
+        );
+        let assignments = vec![SectorAssignment {
+            actor: "firm-a".into(),
+            sector: EconomicSector::Firm,
+        }];
+        assert!(SectorEconomicObservables::from_actor_observations(
+            &observations,
+            &assignments
+        )
+        .is_err());
     }
 
     #[test]
