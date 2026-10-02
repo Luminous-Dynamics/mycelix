@@ -88,6 +88,11 @@ try {
 const corpus = JSON.parse(raw);
 const ao = JSON.parse(fs.readFileSync(path.join(ROOT, "s0_authority_observation_v1.example.json"), "utf8"));
 if (ao.schema !== "mycelix.qual-001s.s0-authority-observation-v1") throw new Error("wrong S0 authority observation schema");
+for (const key of [
+  "repository_id","repository_full_name","s0_workflow_source_commit_sha","s1_workflow_source_commit_sha",
+  "dispatch_ref","dispatch_input_commitment_sha256","authenticated_principal_identity",
+  "policy_scope_identity","observation_timestamp"
+]) if (!(key in ao)) throw new Error("S0 authority observation missing " + key);
 if (ao.event_type !== "workflow_dispatch") throw new Error("wrong S0 authority observation event type");
 if (!["OBSERVED", "UNAVAILABLE", "CONTRADICTED"].includes(ao.observation_state)) throw new Error("invalid S0 observation state");
 if (!["OBSERVED", "UNAVAILABLE", "CONTRADICTED"].includes(ao.request_authentication.state)) throw new Error("invalid request authentication state");
@@ -96,6 +101,13 @@ if (!["OBSERVED", "UNAVAILABLE", "CONTRADICTED"].includes(ao.event_authorization
 if (!["OBSERVED", "UNAVAILABLE", "CONTRADICTED"].includes(ao.workflow_source_authentication.state)) throw new Error("invalid workflow source authentication state");
 if (!["ACCEPTED", "REJECTED", "UNOBSERVED"].includes(ao.dispatch_result)) throw new Error("invalid dispatch result");
 if (!["OBSERVED", "UNOBSERVED", "CONTRADICTED"].includes(ao.run_attribution.state)) throw new Error("invalid run attribution state");
+if (!/^[0-9a-f]{64}$/.test(ao.dispatch_input_commitment_sha256)) throw new Error("invalid S0 dispatch input commitment");
+if (ao.dispatch_ref !== "main") throw new Error("wrong S0 dispatch ref");
+if (ao.run_attribution.state === "UNOBSERVED" && Object.keys(ao.run_attribution).length !== 1) throw new Error("unobserved run attribution must not carry run identifiers");
+for (const field of ["request_authentication","actor_authorization","event_authorization","workflow_source_authentication"]) {
+  const d = ao[field];
+  if (d.state === "OBSERVED" && (!d.rule_id || !d.principal_identity)) throw new Error("observed authority identity missing for " + field);
+}
 
 const s0 = JSON.parse(fs.readFileSync(path.join(ROOT, "s0_dispatch_envelope_v1.example.json"), "utf8"));
 if (s0.schema !== "mycelix.qual-001s.s0-dispatch-envelope-v1") throw new Error("wrong S0 schema");
