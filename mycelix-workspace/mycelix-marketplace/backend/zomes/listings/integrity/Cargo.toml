@@ -9,6 +9,7 @@ name = "listings_integrity"
 
 [dependencies]
 hdi.workspace = true
+listings_types = { path = "../types" }
 holochain_zome_types.workspace = true
 holochain_integrity_types.workspace = true
 holo_hash.workspace = true
@@ -20,6 +21,3 @@ holochain_serialized_bytes.workspace = true
 [dev-dependencies]
 serde_json = "1"
 
-[features]
-default = ["zome"]
-zome = []
