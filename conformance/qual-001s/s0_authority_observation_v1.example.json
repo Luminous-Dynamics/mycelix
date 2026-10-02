@@ -40,5 +40,6 @@
   "authenticated_principal_identity": "github.example.authorized-actor",
   "policy_scope_identity": "repository.actions.workflow-execution-protection.v1",
   "observation_timestamp": "2026-01-01T00:00:02Z",
-  "dispatch_input_canonical_json": "{}"
+  "dispatch_input_canonical_json": "{}",
+  "dispatch_envelope_sha256": "530b9ef0d8c8e13d9ee50931c5187425003c7d2f04e9a988f729a2a0d21ba7df"
 }
