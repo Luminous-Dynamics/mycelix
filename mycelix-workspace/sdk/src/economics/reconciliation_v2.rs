@@ -278,7 +278,7 @@ fn hash_postings(postings: &HashMap<StockKey, i128>) -> Result<String, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::economics::stock_flow::{ActorBalanceSheet, CapitalInvestment, ProductionEvent, CreditCreation, DebtRepayment, IncomeTransfer, MonetaryFlow};
+    use crate::economics::stock_flow::{ActorBalanceSheet, CapitalInvestment, ProductionEvent, InventoryTransfer, InventoryConsumption, CreditCreation, DebtRepayment, IncomeTransfer, MonetaryFlow};
     use crate::economics::transition::apply_step;
 
     fn setup() -> (EconomicState, Vec<SectorAssignment>) {
@@ -357,6 +357,35 @@ mod tests {
         let (post, _) = apply_step(&pre, 1, &transitions, None).unwrap();
         assert_eq!(post.actors.iter().find(|a| a.actor == "firm").unwrap().real.resources, 70);
         assert_eq!(post.actors.iter().find(|a| a.actor == "firm").unwrap().real.inventories, 24);
+        reconcile_step(&pre, &post, &assignments, &transitions).unwrap();
+    }
+
+    #[test]
+    fn inventory_transfer_reconciles_physical_stock_and_equity_residuals() {
+        let (mut pre, assignments) = setup();
+        pre.actors.iter_mut()
+            .find(|a| a.actor == "firm").unwrap()
+            .real.inventories = 100;
+        let transitions = vec![EconomicTransition::InventoryTransfer(
+            InventoryTransfer::new("firm", "household", 40).unwrap(),
+        )];
+        let (post, _) = apply_step(&pre, 1, &transitions, None).unwrap();
+        assert_eq!(post.actors.iter().find(|a| a.actor == "firm").unwrap().real.inventories, 60);
+        assert_eq!(post.actors.iter().find(|a| a.actor == "household").unwrap().real.inventories, 40);
+        reconcile_step(&pre, &post, &assignments, &transitions).unwrap();
+    }
+
+    #[test]
+    fn inventory_consumption_reconciles_drawdown_and_equity_residual() {
+        let (mut pre, assignments) = setup();
+        pre.actors.iter_mut()
+            .find(|a| a.actor == "household").unwrap()
+            .real.inventories = 40;
+        let transitions = vec![EconomicTransition::InventoryConsumption(
+            InventoryConsumption::new("household", 15).unwrap(),
+        )];
+        let (post, _) = apply_step(&pre, 1, &transitions, None).unwrap();
+        assert_eq!(post.actors.iter().find(|a| a.actor == "household").unwrap().real.inventories, 25);
         reconcile_step(&pre, &post, &assignments, &transitions).unwrap();
     }
 
