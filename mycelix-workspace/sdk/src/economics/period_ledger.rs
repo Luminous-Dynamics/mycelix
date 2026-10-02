@@ -28,6 +28,10 @@ pub struct EconomicPeriodLedger {
     pub debt_repaid: i128,
     /// Gross capital formation settled during the period.
     pub investment: i128,
+    /// Physical output added to inventories during the period.
+    pub production_output: i128,
+    /// Physical resources consumed by production during the period.
+    pub resource_input: i128,
     /// Number of transitions represented by the ledger.
     pub transition_count: u64,
     /// Hash of the exact ordered transition list from which this ledger came.
@@ -71,6 +75,16 @@ impl EconomicPeriodLedger {
                         )
                     })?;
                 }
+                EconomicTransition::Production(production) => {
+                    ledger.production_output = ledger
+                        .production_output
+                        .checked_add(production.output)
+                        .ok_or_else(|| EconomicStepError::Serialization("period production output overflow".into()))?;
+                    ledger.resource_input = ledger
+                        .resource_input
+                        .checked_add(production.resource_input)
+                        .ok_or_else(|| EconomicStepError::Serialization("period resource input overflow".into()))?;
+                }
                 EconomicTransition::CreditCreation(credit) => {
                     ledger.credit_created = ledger
                         .credit_created
@@ -113,8 +127,20 @@ impl EconomicPeriodLedger {
 mod tests {
     use super::*;
     use crate::economics::stock_flow::{
-        CapitalInvestment, CreditCreation, DebtRepayment, EconomicFlowCategory, IncomeTransfer, MonetaryFlow,
+        CapitalInvestment, ProductionEvent, CreditCreation, DebtRepayment, EconomicFlowCategory, IncomeTransfer, MonetaryFlow,
     };
+
+    #[test]
+    fn production_is_aggregated_without_becoming_a_monetary_flow() {
+        let transitions = vec![EconomicTransition::Production(
+            ProductionEvent::new("firm", 30, 24).unwrap(),
+        )];
+        let ledger = EconomicPeriodLedger::from_transitions(&transitions).unwrap();
+        assert_eq!(ledger.production_output, 24);
+        assert_eq!(ledger.resource_input, 30);
+        assert_eq!(ledger.monetary_transfer_total, 0);
+        assert_eq!(ledger.investment, 0);
+    }
 
     #[test]
     fn categories_are_aggregated_deterministically() {
