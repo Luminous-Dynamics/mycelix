@@ -1617,6 +1617,44 @@ mod linux {
         }
 
         #[test]
+        fn v2_disjunctive_compiled_filter_matches_model_across_clause_boundaries() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let unix = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_UNIX as u64).unwrap(),
+            ])
+            .unwrap();
+            let netlink = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_NETLINK as u64).unwrap(),
+            ])
+            .unwrap();
+            let rule = SeccompSyscallRuleV2::new_with_clauses(
+                libc::SYS_socket,
+                vec![unix, netlink],
+            )
+            .unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+            let filter = compile_filter_v2(&policy).unwrap();
+
+            for domain in [libc::AF_UNIX, libc::AF_NETLINK] {
+                let args = [domain as u64, 1, 0, 0, 0, 0];
+                assert_eq!(policy.allows(libc::SYS_socket, &args), true);
+                assert_eq!(
+                    interpret_v2_filter(&filter, arch, libc::SYS_socket, args),
+                    SECCOMP_RET_ALLOW,
+                    "allowed clause {domain} must reach ALLOW"
+                );
+            }
+
+            let denied_args = [libc::AF_INET as u64, 1, 0, 0, 0, 0];
+            assert!(!policy.allows(libc::SYS_socket, &denied_args));
+            assert_eq!(
+                interpret_v2_filter(&filter, arch, libc::SYS_socket, denied_args),
+                SECCOMP_RET_ERRNO | libc::EPERM as u32,
+                "failed alternatives must reach global default deny"
+            );
+        }
+
+        #[test]
         fn architecture_guard_is_present_before_syscall_allowlist() {
             let arch = SeccompArchitecture::current().unwrap();
             let policy = SeccompSyscallPolicyV1::new(arch, vec![libc::SYS_read, libc::SYS_write]).unwrap();
