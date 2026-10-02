@@ -179,6 +179,7 @@ impl FinalityEligibilityCompositionV1 {
         if !self.commitment_matches()
             || self.required_independent_observations == 0
             || self.witnesses.is_empty()
+            || self.composition_id != format!("composition:{}", self.observation_set_id)
         {
             return false;
         }
@@ -1264,6 +1265,20 @@ mod tests {
         receipt.eligible_independent_count += 1;
         receipt.receipt_commitment = receipt.recomputed_commitment();
         assert!(!verify_current_receipt_provenance_from_composition(&receipt, &composition));
+    }
+
+    #[test]
+    fn ledger_rejects_noncanonical_composition_id() {
+        let mut ledger = FinalityEligibilityLedgerV1::default();
+        let mut composition = matching_composition();
+        composition.composition_id = "composition:attacker-shadow".into();
+        composition.composition_commitment = composition.recomputed_commitment();
+
+        assert!(!composition.semantically_valid());
+        assert_eq!(
+            ledger.record_composition(composition),
+            FinalityCompositionRecordDispositionV1::InsufficientEvidence
+        );
     }
 
     #[test]
