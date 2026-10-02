@@ -124,6 +124,7 @@ jobs:
         working-directory: mycelix-workspace/mycelix-hearth/tests
         timeout-minutes: 45
         run: |
+          set -o pipefail
           nix develop ../.#ci --locked --command cargo test --locked --release -- --ignored --test-threads=1 2>&1 | tee -a "$RUNNER_TEMP/hearth-07-qualification-evidence.txt"
 
       - name: Seal post-test source tree
