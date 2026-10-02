@@ -217,6 +217,7 @@ pub struct InventoryFrontier {
     next_sequence: u64,
     head_certificate_id: Option<String>,
     certificates: BTreeMap<String, ReservationCertificate>,
+    terminal_events: BTreeMap<(String, bool), (u64, Option<String>)>,
 }
 
 /// Deterministic snapshot of the economic state represented by a frontier.
@@ -350,6 +351,7 @@ impl InventoryFrontier {
             next_sequence: 0,
             head_certificate_id: None,
             certificates: BTreeMap::new(),
+            terminal_events: BTreeMap::new(),
         }
     }
 
@@ -517,6 +519,16 @@ impl InventoryFrontier {
             .get(certificate_id)
             .ok_or_else(|| CertificateError::UnknownCertificate(certificate_id.to_owned()))?;
 
+        let terminal_key = (certificate_id.to_owned(), release);
+        if let Some((recorded_sequence, recorded_previous)) =
+            self.terminal_events.get(&terminal_key)
+        {
+            if *recorded_sequence == sequence && *recorded_previous == previous_certificate_id {
+                return Ok(ApplyOutcome::Idempotent);
+            }
+            return Err(CertificateError::IntentConflict);
+        }
+
         let expected_head = format!(
             "{}:{}",
             certificate_id,
@@ -554,6 +566,8 @@ impl InventoryFrontier {
             other => CertificateError::Capacity(other),
         })?;
 
+        self.terminal_events
+            .insert(terminal_key, (sequence, previous_certificate_id.clone()));
         self.advance(format!(
             "{}:{}",
             certificate_id,
@@ -1147,6 +1161,33 @@ mod tests {
     }
 
     #[test]
+    #[test]
+    fn terminal_replay_after_listing_revision_bridge_is_idempotent() {
+        let mut f = frontier(2);
+        f.apply(FrontierEvent::Reserve(certificate_with_capacity(
+            "c1", 0, None, 1, 2
+        )))
+        .unwrap();
+        f.apply(FrontierEvent::SetCapacity {
+            listing_hash: hash(3),
+            listing_revision: hash(7),
+            capacity: 2,
+            seller: agent(2),
+            sequence: 1,
+            previous_certificate_id: Some("c1".into()),
+        })
+        .unwrap();
+
+        let terminal = FrontierEvent::Release {
+            certificate_id: "c1".into(),
+            seller: agent(2),
+            sequence: 2,
+            previous_certificate_id: Some("capacity:1".into()),
+        };
+        assert_eq!(f.apply(terminal.clone()), Ok(ApplyOutcome::Applied));
+        assert_eq!(f.apply(terminal), Ok(ApplyOutcome::Idempotent));
+    }
+
     fn historical_consume_is_valid_after_listing_revision_bridge() {
         let mut f = frontier(2);
         assert_eq!(
