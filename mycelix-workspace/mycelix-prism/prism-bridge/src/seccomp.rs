@@ -1231,6 +1231,50 @@ mod linux {
         }
 
         #[test]
+        fn v2_disjunctive_compiler_enforces_instruction_budget_boundary() {
+            let arch = SeccompArchitecture::current().unwrap();
+
+            fn full_clause(syscall: i64) -> SeccompSyscallClauseV2 {
+                SeccompSyscallClauseV2::new(vec![
+                    SeccompArgPredicateV1::new(0, u64::MAX, 0).unwrap(),
+                    SeccompArgPredicateV1::new(1, u64::MAX, 1).unwrap(),
+                    SeccompArgPredicateV1::new(2, u64::MAX, 2).unwrap(),
+                    SeccompArgPredicateV1::new(3, u64::MAX, 3).unwrap(),
+                ])
+                .unwrap()
+            }
+
+            let full_rule = |syscall: i64| {
+                SeccompSyscallRuleV2::new_with_clauses(
+                    syscall,
+                    vec![
+                        full_clause(syscall),
+                        full_clause(syscall + 1),
+                        full_clause(syscall + 2),
+                        full_clause(syscall + 3),
+                    ],
+                )
+                .unwrap()
+            };
+
+            let under = (0..30)
+                .map(|index| full_rule(10_000 + index * 4))
+                .collect::<Vec<_>>();
+            let under_policy = SeccompSyscallPolicyV2::new(arch, under).unwrap();
+            let under_filter = compile_filter_v2(&under_policy).unwrap();
+            assert!(under_filter.len() <= 4096);
+
+            let over = (0..31)
+                .map(|index| full_rule(20_000 + index * 4))
+                .collect::<Vec<_>>();
+            let over_policy = SeccompSyscallPolicyV2::new(arch, over).unwrap();
+            assert!(matches!(
+                compile_filter_v2(&over_policy),
+                Err(SeccompError::FilterTooLarge)
+            ));
+        }
+
+        #[test]
         fn v2_compiler_rejects_wrong_architecture() {
             let current = SeccompArchitecture::current().unwrap();
             let other = match current {
