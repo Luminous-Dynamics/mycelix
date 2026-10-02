@@ -295,7 +295,12 @@ impl EvidenceDispositionAuthorityDelegation {
         }
 
         let target = match by_id.get(delegation_id) {
-            None => return Err("target authority delegation is missing".to_string()),
+            None => {
+                return Ok(AuthorityDelegationChainAssessment::Unresolved {
+                    missing: vec![delegation_id.clone()],
+                    roots: vec![],
+                });
+            }
             Some(candidates) if candidates.len() != 1 => {
                 return Err("duplicate authority delegation identity".into());
             }
