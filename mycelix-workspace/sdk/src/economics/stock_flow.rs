@@ -79,7 +79,7 @@ impl ActorBalanceSheet {
     }
 
     pub fn net_worth(&self) -> i128 {
-        self.monetary.net_position() + self.real.productive_capital + self.real.resources
+        self.monetary.net_position() + self.monetary.equity + self.real.productive_capital + self.real.resources
     }
 }
 
