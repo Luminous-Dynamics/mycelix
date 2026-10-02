@@ -1433,78 +1433,65 @@ impl EvidenceDispositionReconciliationCoverage {
                 return Err("reconciliation branch head is outside the declared coverage set".into());
             }
         }
-        let mut by_id = std::collections::BTreeMap::new();
+        let mut by_id = std::collections::BTreeMap::<
+            IdentityRef,
+            Vec<&EvidenceDispositionTransition>,
+        >::new();
         for transition in transitions {
-            if by_id.insert(transition.transition_id.clone(), transition).is_some() {
-                return Err("duplicate disposition transition identity".into());
-            }
+            by_id
+                .entry(transition.transition_id.clone())
+                .or_default()
+                .push(transition);
         }
-        let branch_point = by_id.get(&self.branch_point)
-            .ok_or_else(|| "reconciliation coverage branch point is missing".to_string())?;
+
+        let mut walks = Vec::new();
         for head_id in &self.covered_branch_heads {
             if head_id == &self.branch_point {
                 return Err("reconciliation coverage branch head cannot equal the branch point".into());
             }
-            let mut cursor = by_id.get(head_id)
-                .ok_or_else(|| format!("reconciliation coverage branch head is missing: {}", head_id.id))?;
-            if cursor.evidence != branch_point.evidence {
-                return Err("reconciliation coverage branch head belongs to different evidence".into());
+
+            let candidates = by_id
+                .get(head_id)
+                .ok_or_else(|| format!(
+                    "reconciliation coverage branch head is missing: {}",
+                    head_id.id
+                ))?;
+            if candidates.len() != 1 {
+                return Err("duplicate disposition transition identity".into());
             }
-            let mut seen = std::collections::BTreeSet::new();
-            loop {
-                if !seen.insert(cursor.transition_id.clone()) {
-                    return Err("reconciliation coverage graph contains a predecessor cycle".into());
+            if candidates[0].evidence != reconciliation.evidence {
+                return Err(
+                    "reconciliation coverage branch head belongs to different evidence".into(),
+                );
+            }
+
+            let walk = TransitionBoundaryWalk::walk(
+                head_id,
+                &reconciliation.branch_point,
+                &reconciliation.evidence,
+                &by_id,
+            )?;
+            if walk.missing.is_some() {
+                return Err("reconciliation coverage ancestry is unresolved".into());
+            }
+            walks.push((head_id.clone(), walk.ancestor_ids));
+        }
+
+        // Covered-head incomparability uses the same bounded ancestry that
+        // admitted each head into the dependency cone. This prevents the
+        // legacy coverage validator from maintaining a second traversal path
+        // that could disagree with the canonical composed assessment.
+        for (index, (left_id, left_ancestors)) in walks.iter().enumerate() {
+            for (right_id, right_ancestors) in walks.iter().skip(index + 1) {
+                if left_ancestors.contains(right_id) || right_ancestors.contains(left_id) {
+                    return Err(
+                        "reconciliation coverage branch heads must be incomparable descendants"
+                            .into(),
+                    );
                 }
-                if cursor.transition_id == self.branch_point {
-                    break;
-                }
-                let predecessor = cursor.predecessor.as_ref()
-                    .ok_or_else(|| "reconciliation coverage branch head does not descend from branch point".to_string())?;
-                cursor = by_id.get(predecessor)
-                    .ok_or_else(|| "reconciliation coverage ancestry is unresolved".to_string())?;
             }
         }
 
-        // A coverage set names branch heads, so its members must be maximal
-        // descendants under the declared branch point. An ancestor/descendant
-        // pair is one continuing branch, not two independently covered heads.
-        for (index, left_id) in self.covered_branch_heads.iter().enumerate() {
-            for right_id in self.covered_branch_heads.iter().skip(index + 1) {
-                let mut cursor = by_id.get(left_id)
-                    .ok_or_else(|| "reconciliation coverage branch head is missing".to_string())?;
-                let mut seen = std::collections::BTreeSet::new();
-                while let Some(predecessor) = cursor.predecessor.as_ref() {
-                    if !seen.insert(cursor.transition_id.clone()) {
-                        return Err("reconciliation coverage graph contains a predecessor cycle".into());
-                    }
-                    if predecessor == right_id {
-                        return Err("reconciliation coverage branch heads must be incomparable descendants".into());
-                    }
-                    if predecessor == &self.branch_point {
-                        break;
-                    }
-                    cursor = by_id.get(predecessor)
-                        .ok_or_else(|| "reconciliation coverage ancestry is unresolved".to_string())?;
-                }
-
-                let mut cursor = by_id.get(right_id)
-                    .ok_or_else(|| "reconciliation coverage branch head is missing".to_string())?;
-                let mut seen = std::collections::BTreeSet::new();
-                while let Some(predecessor) = cursor.predecessor.as_ref() {
-                    if !seen.insert(cursor.transition_id.clone()) {
-                        return Err("reconciliation coverage graph contains a predecessor cycle".into());
-                    }
-                    if predecessor == left_id {
-                        return Err("reconciliation coverage branch heads must be incomparable descendants".into());
-                    }
-                    if predecessor == &self.branch_point {
-                        break;
-                    }
-                    cursor = by_id.get(predecessor)
-                        .ok_or_else(|| "reconciliation coverage ancestry is unresolved".to_string())?;
-                }
-            }
-        }
         Ok(())
     }
 }
