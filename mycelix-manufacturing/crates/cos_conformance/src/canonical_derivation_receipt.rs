@@ -11,7 +11,7 @@
 use crate::evidence_claim_graph::{ClaimGraphEdgeKindV1, ClaimGraphNodeKindV1};
 use crate::finality_eligibility_composition::{
     verify_current_receipt_provenance_from_composition,
-    CurrentFinalityEligibilityReceiptV1, CurrentFinalityEligibilityCompositionV1,
+    CurrentFinalityEligibilityReceiptV1, FinalityEligibilityCompositionV1,
     FinalityEligibilityDispositionV1,
 };
 use serde::{Deserialize, Serialize};
