@@ -945,7 +945,7 @@ enum FinancePaymentStatusWire {
     Disputed,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 struct FinancePaymentWire {
     id: String,
     source_happ: String,
@@ -958,6 +958,10 @@ struct FinancePaymentWire {
     created_at: Timestamp,
     completed_at: Option<Timestamp>,
 }
+
+// Use Holochain's canonical serialization macro rather than the legacy derive path.
+// This keeps TryFrom<SerializedBytes> compatible with RecordEntry::to_app_option.
+holochain_serial!(FinancePaymentWire);
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct FinancePaymentInputWire {
