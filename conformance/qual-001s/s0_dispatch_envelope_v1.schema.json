@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/conformance/qual-001s/s0_dispatch_envelope_v1.schema.json",
+  "title": "QUAL-001S S0 Successor Conformance Dispatch Envelope V1",
+  "description": "Implementation-independent schema for the trusted S0 discovery/dispatch record. A valid envelope is evidence of an authorized dispatch request, not evidence of candidate conformance, adoption, or runtime authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "profile",
+    "repository_id",
+    "repository_full_name",
+    "pull_request_number",
+    "subject_base_sha",
+    "subject_head_sha",
+    "subject_tree_sha",
+    "current_verifier_head_sha",
+    "current_verifier_tree_sha",
+    "current_verifier_bundle_sha256",
+    "current_verifier_profile",
+    "proposed_bundle_sha256",
+    "proposed_verifier_sha256",
+    "proposed_gate_sha256",
+    "proposed_rotation_policy_sha256",
+    "registered_successor_profile",
+    "s0_workflow_identity",
+    "s0_workflow_ref",
+    "s1_workflow_identity",
+    "s1_workflow_ref",
+    "dispatch_nonce_hex",
+    "dispatch_timestamp",
+    "candidate_code_executed"
+  ],
+  "properties": {
+    "schema": {
+      "const": "mycelix.qual-001s.s0-dispatch-envelope-v1"
+    },
+    "profile": {
+      "const": "mycelix.qual.static-subject-independence.v0.3"
+    },
+    "repository_id": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "repository_full_name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+    },
+    "pull_request_number": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "subject_base_sha": {
+      "$ref": "#/$defs/git_sha"
+    },
+    "subject_head_sha": {
+      "$ref": "#/$defs/git_sha"
+    },
+    "subject_tree_sha": {
+      "$ref": "#/$defs/git_sha"
+    },
+    "current_verifier_head_sha": {
+      "$ref": "#/$defs/git_sha"
+    },
+    "current_verifier_tree_sha": {
+      "$ref": "#/$defs/git_sha"
+    },
+    "current_verifier_bundle_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "current_verifier_profile": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "proposed_bundle_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "proposed_verifier_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "proposed_gate_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "proposed_rotation_policy_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "registered_successor_profile": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "s0_workflow_identity": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "s0_workflow_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "s1_workflow_identity": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "s1_workflow_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "dispatch_nonce_hex": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "dispatch_timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "candidate_code_executed": {
+      "const": false
+    }
+  },
+  "$defs": {
+    "git_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}
