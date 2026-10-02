@@ -85,12 +85,20 @@ impl AuthorizationPermit {
 }
 
 impl EnforcementRequest {
-    /// Construct only from a permit produced by successful authorization.
-    pub fn from_permit(permit: AuthorizationPermit) -> Self {
-        Self {
-            request: permit.request,
-            issued_at_us: permit.issued_at_us,
-            valid_until_us: permit.valid_until_us,
+    /// Construct only from a permit that is still valid and whose independent
+    /// verification evidence remains authoritative.
+    pub fn from_permit(
+        permit: AuthorizationPermit,
+        evidence: VerificationEvidence,
+        now_us: u64,
+    ) -> Result<Self, AuthorizationDecision> {
+        match revalidate_permit(&permit, evidence, now_us) {
+            AuthorizationDecision::Allow => Ok(Self {
+                request: permit.request,
+                issued_at_us: permit.issued_at_us,
+                valid_until_us: permit.valid_until_us,
+            }),
+            decision => Err(decision),
         }
     }
 
@@ -283,6 +291,31 @@ pub fn authorize(
         .unwrap_or_else(|decision| decision)
 }
 
+/// Revalidate a previously issued permit at the enforcement boundary.
+///
+/// This closes the most important authorization TOCTOU window represented by
+/// this kernel: revocation or authority ambiguity discovered after issuance
+/// must prevent enforcement. The independent verifier remains responsible for
+/// supplying trustworthy evidence.
+pub fn revalidate_permit(
+    permit: &AuthorizationPermit,
+    evidence: VerificationEvidence,
+    now_us: u64,
+) -> AuthorizationDecision {
+    if !evidence.not_revoked {
+        return AuthorizationDecision::Deny(AuthorizationDenial::RevokedCapability);
+    }
+    if !evidence.authority_unambiguous {
+        return AuthorizationDecision::Indeterminate(
+            AuthorizationIndeterminacy::AmbiguousAuthority,
+        );
+    }
+    if !permit.is_valid_at(now_us) {
+        return AuthorizationDecision::Deny(AuthorizationDenial::OutsideValidityWindow);
+    }
+    AuthorizationDecision::Allow
+}
+
 /// Evaluate authorization and, on success, mint a non-forgeable-in-module
 /// permit bound to the exact request that was checked.
 pub fn authorize_permit(
@@ -366,12 +399,40 @@ mod tests {
     #[test]
     fn allow_mints_exactly_bound_enforcement_request() {
         let permit = authorize_permit(&verified(), &request(CapabilityAction::Read), 150).unwrap();
-        let enforcement = EnforcementRequest::from_permit(permit);
+        let enforcement = EnforcementRequest::from_permit(
+            permit,
+            VerificationEvidence {
+                signature_verified: true,
+                not_revoked: true,
+                authority_unambiguous: true,
+            },
+            150,
+        ).unwrap();
         assert_eq!(enforcement.request(), &request(CapabilityAction::Read));
         assert_eq!(enforcement.issued_at_us(), 150);
         assert_eq!(enforcement.valid_until_us(), 200);
         assert!(enforcement.is_valid_at(200));
         assert!(!enforcement.is_valid_at(201));
+    }
+
+    #[test]
+    fn revocation_after_authorization_blocks_enforcement() {
+        let permit = authorize_permit(&verified(), &request(CapabilityAction::Read), 150).unwrap();
+        let result = EnforcementRequest::from_permit(
+            permit,
+            VerificationEvidence {
+                signature_verified: true,
+                not_revoked: false,
+                authority_unambiguous: true,
+            },
+            151,
+        );
+        assert_eq!(
+            result,
+            Err(AuthorizationDecision::Deny(
+                AuthorizationDenial::RevokedCapability
+            ))
+        );
     }
 
     #[test]
