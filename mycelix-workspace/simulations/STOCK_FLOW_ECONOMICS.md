@@ -726,3 +726,27 @@ monetary settlement phase, both tied to the same authoritative transition sequen
 This is especially useful for later working-capital and debt-service dynamics: a model can
 distinguish recognized sales, outstanding operating claims, and actual liquidity settlement
 without inventing a collection-delay function at the accounting layer.
+
+
+## Closed-state and aggregate arithmetic hardening (implemented)
+
+The root `EconomicState` now exposes checked aggregate asset, liability, claim, and net-financial-
+position sums. The legacy convenience methods remain available, but the checked variants are used
+by the checked aggregate-observable constructor.
+
+A closed-model invariant is also available through `closed_financial_rows_clear`. It verifies,
+with fail-closed arithmetic, that modeled deposits equal issued deposit liabilities, loan claims
+equal debt, and trade receivables equal trade payables. This is intentionally a closed-system
+assertion: a model that includes external counterparties should represent those counterparties
+explicitly rather than silently accepting an unpaired claim.
+
+The distinction matters for SFC calibration. A model can deliberately choose an open boundary, but
+the boundary should be explicit; otherwise a debt or deposit shock can appear to create or destroy
+net financial assets merely because its counterpart was omitted.
+
+The aggregate observable layer now has a checked derivation path as well. This makes the numerical
+integrity chain:
+
+`actor fields -> checked state aggregates -> aggregate observations`
+
+instead of allowing an extreme-value fixture to wrap before it reaches evidence/reporting layers.
