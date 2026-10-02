@@ -392,24 +392,33 @@ pub fn deliver(
         }
     };
 
+    let observation = ObservationRecord {
+        observation_id: envelope.envelope_id.clone(),
+        semantic_subject_id: envelope.semantic_subject_id.clone(),
+        payload_commitment: envelope.payload_commitment.clone(),
+        origin_node: envelope.origin_node.clone(),
+        recognized_by: foreign.then(|| envelope.target_node.clone()),
+        source_observation: true,
+    };
+
+    if !matches!(
+        record_observation(state, observation),
+        ObservationWriteResult::Inserted
+    ) {
+        return FederationOutcome::new(
+            FederationDecision::Rejected,
+            AuthorityDisposition::NoAuthority,
+            envelope,
+            "An existing observation identity cannot be rebound or reused while admitting a new delivery.",
+        );
+    }
+
     state.deliveries.insert(
         envelope.logical_delivery_id.clone(),
         DeliveryRecord {
             contract: ImmutableDeliveryContract::from(envelope),
             authority,
             attempts: BTreeSet::from([envelope.attempt_id.clone()]),
-        },
-    );
-
-    state.observations.insert(
-        envelope.envelope_id.clone(),
-        ObservationRecord {
-            observation_id: envelope.envelope_id.clone(),
-            semantic_subject_id: envelope.semantic_subject_id.clone(),
-            payload_commitment: envelope.payload_commitment.clone(),
-            origin_node: envelope.origin_node.clone(),
-            recognized_by: foreign.then(|| envelope.target_node.clone()),
-            source_observation: true,
         },
     );
 
@@ -812,6 +821,29 @@ mod tests {
     }
 
     #[test]
+    fn delivery_admission_uses_insert_only_observation_identity() {
+        let mut state = nodes();
+        let existing = ObservationRecord {
+            observation_id: "env-1".into(),
+            semantic_subject_id: "subject-existing".into(),
+            payload_commitment: "sha256:existing".into(),
+            origin_node: "node-b".into(),
+            recognized_by: None,
+            source_observation: true,
+        };
+        assert_eq!(
+            record_observation(&mut state, existing.clone()),
+            ObservationWriteResult::Inserted
+        );
+
+        let outcome = deliver(&mut state, &envelope(), 50, true);
+        assert_eq!(outcome.decision, FederationDecision::Rejected);
+        assert_eq!(outcome.authority, AuthorityDisposition::NoAuthority);
+        assert!(state.deliveries.is_empty());
+        assert_eq!(state.observations.get("env-1"), Some(&existing));
+    }
+
+    #[test]
     fn stale_generation_fails_closed() {
         let mut state = nodes();
         let mut stale = envelope();
@@ -895,7 +927,7 @@ mod tests {
         );
         assert_eq!(
             record_observation(&mut state, b),
-            ObservationConflict::DistinctRecords
+            ObservationWriteResult::Inserted
         );
         assert_eq!(state.observations.len(), 2);
     }
