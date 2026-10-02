@@ -662,7 +662,7 @@ mod tests {
         let physical = vec![
             PhysicalStockPosting::new(
                 EconomicSector::Firm,
-                PhysicalStockInstrument::Inventory,
+                PhysicalStockInstrument::Inventories,
                 i128::MAX,
             ),
             PhysicalStockPosting::new(
