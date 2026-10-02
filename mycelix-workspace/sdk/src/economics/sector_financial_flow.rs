@@ -219,22 +219,30 @@ impl SectorFinancialFlowMatrix {
     ) -> Result<i128, String> {
         self.flows.iter().try_fold(0i128, |sum, flow| {
             let delta = match (flow.category, flow.from == sector, flow.to == sector) {
-                (FinancialFlowCategory::LoanCreation, true, false)
-                    if instrument == BalanceSheetInstrument::Loans => flow.amount,
-                (FinancialFlowCategory::LoanCreation, false, true)
-                    if instrument == BalanceSheetInstrument::Debt => flow.amount,
-                (FinancialFlowCategory::DebtRepayment, true, false)
-                    if instrument == BalanceSheetInstrument::Debt => -flow.amount,
-                (FinancialFlowCategory::DebtRepayment, false, true)
-                    if instrument == BalanceSheetInstrument::Loans => -flow.amount,
-                (FinancialFlowCategory::TradeCreditExtension, true, false)
-                    if instrument == BalanceSheetInstrument::TradeReceivables => flow.amount,
-                (FinancialFlowCategory::TradeCreditExtension, false, true)
-                    if instrument == BalanceSheetInstrument::TradePayables => flow.amount,
-                (FinancialFlowCategory::TradeCreditSettlement, true, false)
-                    if instrument == BalanceSheetInstrument::TradeReceivables => -flow.amount,
-                (FinancialFlowCategory::TradeCreditSettlement, false, true)
-                    if instrument == BalanceSheetInstrument::TradePayables => -flow.amount,
+                (FinancialFlowCategory::LoanCreation, true, _)
+                    if instrument == BalanceSheetInstrument::Loans =>
+                    flow.amount,
+                (FinancialFlowCategory::LoanCreation, _, true)
+                    if instrument == BalanceSheetInstrument::Debt =>
+                    flow.amount,
+                (FinancialFlowCategory::DebtRepayment, true, _)
+                    if instrument == BalanceSheetInstrument::Debt =>
+                    -flow.amount,
+                (FinancialFlowCategory::DebtRepayment, _, true)
+                    if instrument == BalanceSheetInstrument::Loans =>
+                    -flow.amount,
+                (FinancialFlowCategory::TradeCreditExtension, true, _)
+                    if instrument == BalanceSheetInstrument::TradeReceivables =>
+                    flow.amount,
+                (FinancialFlowCategory::TradeCreditExtension, _, true)
+                    if instrument == BalanceSheetInstrument::TradePayables =>
+                    flow.amount,
+                (FinancialFlowCategory::TradeCreditSettlement, true, _)
+                    if instrument == BalanceSheetInstrument::TradeReceivables =>
+                    -flow.amount,
+                (FinancialFlowCategory::TradeCreditSettlement, _, true)
+                    if instrument == BalanceSheetInstrument::TradePayables =>
+                    -flow.amount,
                 _ => 0,
             };
             sum.checked_add(delta)
@@ -405,6 +413,53 @@ mod tests {
         assert!(matrix
             .validate_against_balance_sheet_delta(&pre_sheet, &tampered)
             .is_err());
+    }
+
+    #[test]
+    fn financial_matrix_handles_intra_sector_claim_changes() {
+        let pre = EconomicState::new(vec![
+            ActorBalanceSheet::new("firm-a"),
+            ActorBalanceSheet::new("firm-b"),
+        ]);
+        let transitions = vec![EconomicTransition::TradeCreditSale(
+            TradeCreditSale::new("firm-a", "firm-b", 1, 25).unwrap(),
+        )];
+        let (post, _) =
+            crate::economics::transition::apply_step(&pre, 1, &transitions, None).unwrap();
+
+        let same_sector = vec![
+            SectorAssignment {
+                actor: "firm-a".into(),
+                sector: EconomicSector::Firm,
+            },
+            SectorAssignment {
+                actor: "firm-b".into(),
+                sector: EconomicSector::Firm,
+            },
+        ];
+        let pre_sheet = SectorBalanceSheet::from_state(&pre, &same_sector).unwrap();
+        let post_sheet = SectorBalanceSheet::from_state(&post, &same_sector).unwrap();
+        let matrix =
+            SectorFinancialFlowMatrix::from_transitions(&transitions, &same_sector).unwrap();
+
+        assert_eq!(matrix.net_flow(EconomicSector::Firm), 0);
+        matrix
+            .validate_against_balance_sheet_delta(&pre_sheet, &post_sheet)
+            .unwrap();
+        assert_eq!(
+            post_sheet.sector_instrument_total(
+                EconomicSector::Firm,
+                BalanceSheetInstrument::TradeReceivables
+            ),
+            25
+        );
+        assert_eq!(
+            post_sheet.sector_instrument_total(
+                EconomicSector::Firm,
+                BalanceSheetInstrument::TradePayables
+            ),
+            -25
+        );
     }
 
     #[test]
