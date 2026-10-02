@@ -2409,7 +2409,7 @@ mod tests {
         let partitioned = deliver(&mut state, &envelope(), 50, false);
         let partition_projection = privacy_minimized_projection(&partitioned, "subject-1");
         assert_eq!(partition_projection.origin_node, "node-a");
-        assert!(!partition_projection.origin_node_known);
+        assert!(partition_projection.origin_node_known);
         assert!(!partition_projection.source_observation);
         assert!(!partition_projection.may_authorize_local_action);
     }
