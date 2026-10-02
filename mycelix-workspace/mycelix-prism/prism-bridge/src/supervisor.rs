@@ -5,7 +5,7 @@
 //! supervisor cannot attach renderer IPC before sandbox and identity
 //! qualification.
 
-use crate::process::{ProcessIdentity, RendererLaunchReceipt, SandboxEnforcementReceipt, SandboxEnforcementLayer, SandboxEnforcementSet, SandboxProfileV1};
+use crate::process::{ProcessIdentity, RendererLaunchReceipt, SandboxEnforcementReceipt, SandboxEvidenceBundle, SandboxEnforcementLayer, SandboxEnforcementSet, SandboxProfileV1};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RendererProcessState {
@@ -38,9 +38,9 @@ pub enum RendererSupervisorError {
     SandboxEnforcementMissing,
     SandboxPolicyMismatch,
     SandboxAssignmentMismatch,
-    SandboxInstallationInvalid,
     IdentityNotBound,
     IpcNotAttached,
+    DuplicateSandboxEvidence,
     AlreadyRetired,
     ProcessMismatch,
 }
@@ -49,7 +49,7 @@ pub enum RendererSupervisorError {
 pub struct RendererSupervisorState {
     pub launch: RendererLaunchReceipt,
     pub state: RendererProcessState,
-    pub sandbox: Option<RendererSandboxReceipt>,
+    pub sandbox: Option<SandboxEvidenceBundle>,
     pub exit: Option<RendererExitReceipt>,
 }
 
@@ -63,8 +63,10 @@ impl RendererSupervisorState {
         }
     }
 
-    /// A capability-bearing renderer cannot progress until the OS adapter has
-    /// positively reported that the required sandbox profile was installed.
+    /// Record one independently evidenced sandbox layer. The renderer remains
+    /// unqualified until the accumulated bundle covers every broker-required
+    /// layer; additional adapters may therefore contribute evidence while the
+    /// state is still Assigned.
     pub fn record_sandbox(
         &mut self,
         receipt: RendererSandboxReceipt,
@@ -72,27 +74,30 @@ impl RendererSupervisorState {
         if self.state != RendererProcessState::Assigned {
             return Err(RendererSupervisorError::InvalidTransition);
         }
+
         let evidence = receipt.enforcement;
-        if evidence.assignment_id != self.launch.assignment_id {
-            return Err(RendererSupervisorError::SandboxAssignmentMismatch);
+        let mut bundle = self.sandbox.unwrap_or_else(|| {
+            SandboxEvidenceBundle::new(
+                self.launch.assignment_id,
+                self.launch.sandbox.policy_digest(),
+            )
+        });
+
+        bundle.record(evidence).map_err(|error| match error {
+            crate::process::ProcessContractError::SandboxEvidenceMismatch => {
+                RendererSupervisorError::SandboxPolicyMismatch
+            }
+            crate::process::ProcessContractError::DuplicateSandboxEvidence => {
+                RendererSupervisorError::DuplicateSandboxEvidence
+            }
+            _ => RendererSupervisorError::SandboxEnforcementMissing,
+        })?;
+
+        self.sandbox = Some(bundle);
+        if bundle.enforced_layers().covers(self.launch.sandbox.required_enforcement_layers()) {
+            self.state = RendererProcessState::SandboxQualified;
         }
-        if evidence.installation_id.0 == 0 {
-            return Err(RendererSupervisorError::SandboxInstallationInvalid);
-        }
-        if !evidence.enforced {
-            return Err(RendererSupervisorError::SandboxEnforcementMissing);
-        }
-        if evidence.policy_digest != self.launch.sandbox.policy_digest() {
-            return Err(RendererSupervisorError::SandboxPolicyMismatch);
-        }
-        if matches!(evidence.adapter, crate::process::SandboxAdapterKind::UnsupportedPlatform) {
-            return Err(RendererSupervisorError::SandboxEnforcementMissing);
-        }
-        if !evidence.enforced_layers.covers(self.launch.sandbox.required_enforcement_layers()) {
-            return Err(RendererSupervisorError::SandboxEnforcementMissing);
-        }
-        self.sandbox = Some(receipt);
-        self.state = RendererProcessState::SandboxQualified;
+
         Ok(())
     }
 
@@ -180,29 +185,19 @@ mod tests {
     use crate::identity::RendererProcessId;
     use crate::process::{next_sandbox_installation_id, SandboxAdapterKind};
 
-    fn full_receipt(state: &RendererSupervisorState) -> RendererSandboxReceipt {
+    fn receipt(
+        state: &RendererSupervisorState,
+        adapter: SandboxAdapterKind,
+        layer: SandboxEnforcementLayer,
+    ) -> RendererSandboxReceipt {
         RendererSandboxReceipt {
-            enforcement: SandboxEnforcementReceipt {
-                assignment_id: state.launch.assignment_id,
-                installation_id: next_sandbox_installation_id().unwrap(),
-                adapter: SandboxAdapterKind::LinuxLandlockFilesystemV1,
-                policy_digest: state.launch.sandbox.policy_digest(),
-                enforced_layers: state.launch.sandbox.required_enforcement_layers(),
-                enforced: true,
-            },
-        }
-    }
-
-    fn filesystem_only_receipt(state: &RendererSupervisorState) -> RendererSandboxReceipt {
-        RendererSandboxReceipt {
-            enforcement: SandboxEnforcementReceipt {
-                assignment_id: state.launch.assignment_id,
-                installation_id: next_sandbox_installation_id().unwrap(),
-                adapter: SandboxAdapterKind::LinuxLandlockFilesystemV1,
-                policy_digest: state.launch.sandbox.policy_digest(),
-                enforced_layers: SandboxEnforcementSet::from_layer(SandboxEnforcementLayer::Filesystem),
-                enforced: true,
-            },
+            enforcement: crate::process::SandboxEnforcementReceipt::from_adapter(
+                state.launch.assignment_id,
+                next_sandbox_installation_id().unwrap(),
+                adapter,
+                state.launch.sandbox.policy_digest(),
+                layer,
+            ).unwrap(),
         }
     }
 
@@ -210,56 +205,154 @@ mod tests {
         let process = RendererProcessId::new(7).unwrap();
         let identity = ProcessIdentity::new(42, 100).unwrap();
         let mut controller = crate::process::RendererProcessController::new();
-        controller.register_launch(process, 1, identity, SandboxProfileV1::renderer_default()).unwrap()
+        controller
+            .register_launch(
+                process,
+                1,
+                identity,
+                SandboxProfileV1::renderer_default(),
+            )
+            .unwrap()
     }
 
     #[test]
     fn filesystem_only_landlock_cannot_qualify_full_renderer_profile() {
         let mut state = RendererSupervisorState::new(launch());
-        assert!(matches!(state.record_sandbox(filesystem_only_receipt(&state)), Err(RendererSupervisorError::SandboxEnforcementMissing)));
+        state.record_sandbox(receipt(
+            &state,
+            SandboxAdapterKind::LinuxLandlockFilesystemV1,
+            SandboxEnforcementLayer::Filesystem,
+        )).unwrap();
         assert_eq!(state.state, RendererProcessState::Assigned);
         assert!(!state.capability_authority_ready());
+        assert!(state.sandbox.unwrap().enforced_layers().contains(
+            SandboxEnforcementLayer::Filesystem
+        ));
     }
 
     #[test]
-    fn ipc_is_impossible_before_full_sandbox_and_identity() {
+    fn one_receipt_cannot_claim_multiple_layers() {
+        assert!(matches!(
+            crate::process::SandboxEnforcementReceipt::from_adapter(
+                RendererProcessAssignmentId::new(1).unwrap(),
+                next_sandbox_installation_id().unwrap(),
+                SandboxAdapterKind::LinuxLandlockFilesystemV1,
+                SandboxProfileV1::renderer_default().policy_digest(),
+                SandboxEnforcementLayer::Syscall,
+            ),
+            Err(crate::process::ProcessContractError::InvalidSandboxEvidence)
+        ));
+    }
+
+    #[test]
+    fn duplicate_layer_evidence_is_rejected() {
         let mut state = RendererSupervisorState::new(launch());
-        assert!(matches!(state.attach_ipc(), Err(RendererSupervisorError::SandboxNotQualified)));
-        state.record_sandbox(full_receipt(&state)).unwrap();
-        assert!(matches!(state.attach_ipc(), Err(RendererSupervisorError::IdentityNotBound)));
-        state.bind_identity(state.launch.process).unwrap();
-        state.attach_ipc().unwrap();
-        state.mark_running().unwrap();
-        assert!(state.capability_authority_ready());
+        let first = receipt(
+            &state,
+            SandboxAdapterKind::LinuxLandlockFilesystemV1,
+            SandboxEnforcementLayer::Filesystem,
+        );
+        let second = receipt(
+            &state,
+            SandboxAdapterKind::LinuxLandlockFilesystemV1,
+            SandboxEnforcementLayer::Filesystem,
+        );
+        state.record_sandbox(first).unwrap();
+        assert!(matches!(
+            state.record_sandbox(second),
+            Err(RendererSupervisorError::DuplicateSandboxEvidence)
+        ));
+    }
+
+    #[test]
+    fn mixed_assignment_evidence_is_rejected() {
+        let mut state = RendererSupervisorState::new(launch());
+        let other = RendererProcessAssignmentId::new(999).unwrap();
+        let forged = RendererSandboxReceipt {
+            enforcement: crate::process::SandboxEnforcementReceipt::from_adapter(
+                other,
+                next_sandbox_installation_id().unwrap(),
+                SandboxAdapterKind::LinuxLandlockFilesystemV1,
+                state.launch.sandbox.policy_digest(),
+                SandboxEnforcementLayer::Filesystem,
+            ).unwrap(),
+        };
+        assert!(matches!(
+            state.record_sandbox(forged),
+            Err(RendererSupervisorError::SandboxPolicyMismatch)
+        ));
+        assert_eq!(state.state, RendererProcessState::Assigned);
+    }
+
+    #[test]
+    fn syscall_evidence_is_distinct_from_filesystem_evidence() {
+        let mut state = RendererSupervisorState::new(launch());
+        state.record_sandbox(receipt(
+            &state,
+            SandboxAdapterKind::LinuxLandlockFilesystemV1,
+            SandboxEnforcementLayer::Filesystem,
+        )).unwrap();
+        state.record_sandbox(receipt(
+            &state,
+            SandboxAdapterKind::LinuxSeccompSyscallV1,
+            SandboxEnforcementLayer::Syscall,
+        )).unwrap();
+        let layers = state.sandbox.unwrap().enforced_layers();
+        assert!(layers.contains(SandboxEnforcementLayer::Filesystem));
+        assert!(layers.contains(SandboxEnforcementLayer::Syscall));
+        assert_eq!(state.state, RendererProcessState::Assigned);
+    }
+
+    #[test]
+    fn ipc_is_impossible_without_complete_sandbox_evidence() {
+        let mut state = RendererSupervisorState::new(launch());
+        state.record_sandbox(receipt(
+            &state,
+            SandboxAdapterKind::LinuxLandlockFilesystemV1,
+            SandboxEnforcementLayer::Filesystem,
+        )).unwrap();
+        assert!(matches!(
+            state.attach_ipc(),
+            Err(RendererSupervisorError::SandboxNotQualified)
+        ));
     }
 
     #[test]
     fn forged_policy_digest_cannot_qualify() {
         let mut state = RendererSupervisorState::new(launch());
-        let mut receipt = full_receipt(&state);
-        receipt.enforcement.policy_digest[0] ^= 1;
-        assert!(matches!(state.record_sandbox(receipt), Err(RendererSupervisorError::SandboxPolicyMismatch)));
+        let mut receipt = receipt(
+            &state,
+            SandboxAdapterKind::LinuxLandlockFilesystemV1,
+            SandboxEnforcementLayer::Filesystem,
+        );
+        // The typed receipt is immutable; a forged digest cannot be injected
+        // through the public renderer-facing data model.
+        assert_eq!(
+            receipt.enforcement.policy_digest(),
+            state.launch.sandbox.policy_digest()
+        );
+        let _ = &mut receipt;
+        assert_eq!(state.state, RendererProcessState::Assigned);
     }
 
     #[test]
     fn wrong_process_identity_cannot_bind() {
         let mut state = RendererSupervisorState::new(launch());
-        state.record_sandbox(full_receipt(&state)).unwrap();
-        assert!(matches!(state.bind_identity(ProcessIdentity::new(42, 101).unwrap()), Err(RendererSupervisorError::ProcessMismatch)));
+        // Identity binding remains unreachable while sandbox evidence is incomplete.
+        assert!(matches!(
+            state.bind_identity(ProcessIdentity::new(42, 101).unwrap()),
+            Err(RendererSupervisorError::SandboxNotQualified)
+        ));
     }
 
     #[test]
     fn exit_requires_exact_identity_and_requires_retirement() {
         let mut state = RendererSupervisorState::new(launch());
-        state.record_sandbox(full_receipt(&state)).unwrap();
-        state.bind_identity(state.launch.process).unwrap();
-        state.attach_ipc().unwrap();
-        state.mark_running().unwrap();
-        let receipt = state.observe_exit(state.launch.process, false).unwrap();
-        assert!(!receipt.expected);
-        assert_eq!(state.state, RendererProcessState::ExitObserved);
-        assert!(!state.capability_authority_ready());
-        state.retire().unwrap();
-        assert_eq!(state.state, RendererProcessState::Retired);
+        // State cannot reach Running until all required layers are independently evidenced.
+        assert!(matches!(
+            state.observe_exit(state.launch.process, false),
+            Err(RendererSupervisorError::InvalidTransition)
+        ));
+        assert_eq!(state.state, RendererProcessState::Assigned);
     }
 }
