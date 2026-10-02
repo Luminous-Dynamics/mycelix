@@ -106,6 +106,7 @@ impl VerificationEvidence {
     /// This is deliberately crate-private: the public API must not allow an
     /// arbitrary caller to manufacture signature, revocation, or authority
     /// claims by supplying booleans.
+    #[cfg(test)]
     pub(crate) fn new_for_capability(
         capability: &Capability,
         signature_verified: bool,
