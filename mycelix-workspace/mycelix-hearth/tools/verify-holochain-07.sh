@@ -39,6 +39,11 @@ require_version_family "$tests" "holochain_types" "0\\.7\\.0"
 grep -Fq '"@holochain/client": "^0.21.0"' "$sdk_package" || fail "$sdk_package does not declare @holochain/client ^0.21.0"
 grep -Fq '"node": ">=24.0.0"' "$sdk_package" || fail "$sdk_package does not require Node >=24.0.0"
 
+flake_source="$root/flake.nix"
+grep -Fq 'extraBuildInputs = with pkgs; [ nodejs_24 ];' "$flake_source" || fail "$flake_source default shell does not provide nodejs_24"
+grep -Fq '              nodejs_24' "$flake_source" || fail "$flake_source CI shell does not provide nodejs_24"
+grep -Fq '              perl' "$flake_source" || fail "$flake_source CI shell does not provide perl for Sweettest builds"
+
 for file in "$workspace" "$tests"; do
   forbidden "$file" 'hdk = "0.6'
   forbidden "$file" 'hdi = "0.7'
