@@ -13,6 +13,23 @@ This matrix turns the Security & Sovereignty Model into an implementation/test b
 | I-7 | Agency | autonomous privilege escalation | bounded signed capabilities | model requests capability expansion | authorization trace |
 | I-8 | Authority | ambiguous authorization accepted | fail-closed policy | stale/revoked/missing credential | denial evidence |
 
+## Current implementation
+
+The first deterministic authority boundary is implemented in
+`crates/mycelix-bridge-common/src/security_kernel.rs`.
+
+The kernel provides:
+
+- `Capability` and `AuthorizationRequest` as explicit inputs.
+- `VerificationEvidence` as the hand-off from an independent cryptographic/identity verifier.
+- `VerifiedCapability` as a non-forgeable-in-module boundary object.
+- `AuthorizationDecision::Allow | Deny | Indeterminate`.
+- `AdvisoryResult` as a separate type with no conversion path to authorization.
+- Explicit denial for invalid, revoked, expired, subject-mismatched, action-mismatched, and stale-policy capabilities.
+- Explicit indeterminate handling for ambiguous authority.
+
+This directly exercises I-2, I-4, I-7, and I-8 at the shared-type boundary. It does **not** yet constitute cryptographic verification, a complete revocation protocol, or multi-agent evidence; those remain integration work.
+
 ## Verification levels
 
 Every implementation must label its current evidence:
