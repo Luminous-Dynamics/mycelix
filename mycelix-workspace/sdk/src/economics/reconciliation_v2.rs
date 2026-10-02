@@ -15,7 +15,10 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use super::sector_balance::{BalanceSheetInstrument, SectorAssignment, SectorBalanceSheet};
+use super::sector_balance::{
+    BalanceSheetInstrument, PhysicalStockEntry, PhysicalStockInstrument, SectorAssignment,
+    SectorBalanceSheet, SectorPhysicalStock,
+};
 use super::sector_flow::EconomicSector;
 use super::stock_flow::{EconomicState, MonetaryInstrument};
 use super::transition::EconomicTransition;
@@ -33,19 +36,48 @@ impl StockPosting {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct PhysicalStockPosting {
+    pub sector: EconomicSector,
+    pub instrument: PhysicalStockInstrument,
+    pub delta: i128,
+}
+
+impl PhysicalStockPosting {
+    pub const fn new(
+        sector: EconomicSector,
+        instrument: PhysicalStockInstrument,
+        delta: i128,
+    ) -> Self {
+        Self { sector, instrument, delta }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StockFlowReconciliation {
     pub pre_state_hash: String,
     pub post_state_hash: String,
     pub transition_hash: String,
+    /// Hash of monetary balance-sheet postings.
     pub posting_hash: String,
     pub posting_count: u64,
+    /// Hash of physical quantity postings.
+    pub physical_posting_hash: String,
+    pub physical_posting_count: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StockFlowMismatch {
     pub sector: EconomicSector,
     pub instrument: BalanceSheetInstrument,
+    pub expected: i128,
+    pub actual: i128,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PhysicalStockMismatch {
+    pub sector: EconomicSector,
+    pub instrument: PhysicalStockInstrument,
     pub expected: i128,
     pub actual: i128,
 }
@@ -61,12 +93,12 @@ pub fn reconcile_step(
     let expected = aggregate_postings(postings_for_step(pre_state, assignments, transitions)?);
     let actual = balance_sheet_delta(&pre, &post);
 
-    let mut mismatches = Vec::new();
+    let mut financial_mismatches = Vec::new();
     for key in union_keys(&actual, &expected) {
         let actual_delta = actual.get(&key).copied().unwrap_or(0);
         let expected_delta = expected.get(&key).copied().unwrap_or(0);
         if actual_delta != expected_delta {
-            mismatches.push(StockFlowMismatch {
+            financial_mismatches.push(StockFlowMismatch {
                 sector: key.0,
                 instrument: key.1,
                 expected: expected_delta,
@@ -74,10 +106,33 @@ pub fn reconcile_step(
             });
         }
     }
+    if !financial_mismatches.is_empty() {
+        return Err(serde_json::to_string(&financial_mismatches)
+            .map_err(|e| format!("failed to serialize financial reconciliation mismatches: {e}"))?);
+    }
 
-    if !mismatches.is_empty() {
-        return Err(serde_json::to_string(&mismatches)
-            .map_err(|e| format!("failed to serialize reconciliation mismatches: {e}"))?);
+    let pre_physical = SectorPhysicalStock::from_state(pre_state, assignments)?;
+    let post_physical = SectorPhysicalStock::from_state(post_state, assignments)?;
+    let expected_physical =
+        aggregate_physical_postings(physical_postings_for_step(pre_state, assignments, transitions)?);
+    let actual_physical = physical_stock_delta(&pre_physical, &post_physical);
+
+    let mut physical_mismatches = Vec::new();
+    for key in union_physical_keys(&actual_physical, &expected_physical) {
+        let actual_delta = actual_physical.get(&key).copied().unwrap_or(0);
+        let expected_delta = expected_physical.get(&key).copied().unwrap_or(0);
+        if actual_delta != expected_delta {
+            physical_mismatches.push(PhysicalStockMismatch {
+                sector: key.0,
+                instrument: key.1,
+                expected: expected_delta,
+                actual: actual_delta,
+            });
+        }
+    }
+    if !physical_mismatches.is_empty() {
+        return Err(serde_json::to_string(&physical_mismatches)
+            .map_err(|e| format!("failed to serialize physical reconciliation mismatches: {e}"))?);
     }
 
     Ok(StockFlowReconciliation {
@@ -86,6 +141,8 @@ pub fn reconcile_step(
         transition_hash: super::transition::transition_hash(transitions).map_err(|e| e.to_string())?,
         posting_hash: hash_postings(&expected)?,
         posting_count: expected.len() as u64,
+        physical_posting_hash: hash_physical_postings(&expected_physical)?,
+        physical_posting_count: expected_physical.len() as u64,
     })
 }
 
@@ -147,42 +204,32 @@ pub fn postings_for_step(
                     ),
                 ]
             }
-            EconomicTransition::Production(production) => {
-                let sector = sector_for(assignments, &production.producer)?;
-                vec![
-                    StockPosting::new(sector, BalanceSheetInstrument::Resources, -production.resource_input),
-                    StockPosting::new(sector, BalanceSheetInstrument::Inventories, production.output),
-                    StockPosting::new(sector, BalanceSheetInstrument::Equity, production.resource_input - production.output),
-                ]
-            }
-            EconomicTransition::InventoryTransfer(transfer) => {
-                let from = sector_for(assignments, &transfer.from)?;
-                let to = sector_for(assignments, &transfer.to)?;
-                vec![
-                    StockPosting::new(from, BalanceSheetInstrument::Inventories, -transfer.quantity),
-                    StockPosting::new(from, BalanceSheetInstrument::Equity, transfer.quantity),
-                    StockPosting::new(to, BalanceSheetInstrument::Inventories, transfer.quantity),
-                    StockPosting::new(to, BalanceSheetInstrument::Equity, -transfer.quantity),
-                ]
-            }
-            EconomicTransition::InventoryConsumption(consumption) => {
-                let sector = sector_for(assignments, &consumption.consumer)?;
-                vec![
-                    StockPosting::new(sector, BalanceSheetInstrument::Inventories, -consumption.quantity),
-                    StockPosting::new(sector, BalanceSheetInstrument::Equity, consumption.quantity),
-                ]
-            }
+            EconomicTransition::Production(_)
+            | EconomicTransition::InventoryTransfer(_)
+            | EconomicTransition::InventoryConsumption(_) => Vec::new(),
             EconomicTransition::GoodsSale(sale) => {
                 let seller = sector_for(assignments, &sale.seller)?;
                 let buyer = sector_for(assignments, &sale.buyer)?;
                 vec![
-                    StockPosting::new(seller, BalanceSheetInstrument::Inventories, -sale.quantity),
                     StockPosting::new(seller, BalanceSheetInstrument::Deposits, sale.consideration),
-                    StockPosting::new(seller, BalanceSheetInstrument::Equity, sale.quantity - sale.consideration),
-                    StockPosting::new(buyer, BalanceSheetInstrument::Inventories, sale.quantity),
                     StockPosting::new(buyer, BalanceSheetInstrument::Deposits, -sale.consideration),
-                    StockPosting::new(buyer, BalanceSheetInstrument::Equity, sale.consideration - sale.quantity),
                 ]
+            }
+            EconomicTransition::InventoryCostAddition(addition) => {
+                let actor = sector_for(assignments, &addition.actor)?;
+                vec![StockPosting::new(
+                    actor,
+                    BalanceSheetInstrument::InventoryCarryingValue,
+                    addition.carrying_value,
+                )]
+            }
+            EconomicTransition::InventoryCostRelief(relief) => {
+                let actor = sector_for(assignments, &relief.actor)?;
+                vec![StockPosting::new(
+                    actor,
+                    BalanceSheetInstrument::InventoryCarryingValue,
+                    -relief.carrying_value,
+                )]
             }
             EconomicTransition::CreditCreation(credit) => {
                 let lender = sector_for(assignments, &credit.lender)?;
@@ -232,6 +279,75 @@ pub fn postings_for_step(
     Ok(postings)
 }
 
+/// Derive physical quantity postings from the authoritative transition log.
+pub fn physical_postings_for_step(
+    pre_state: &EconomicState,
+    assignments: &[SectorAssignment],
+    transitions: &[EconomicTransition],
+) -> Result<Vec<PhysicalStockPosting>, String> {
+    let mut working = pre_state.clone();
+    let mut postings = Vec::new();
+
+    for transition in transitions {
+        match transition {
+            EconomicTransition::Production(production) => {
+                let sector = sector_for(assignments, &production.producer)?;
+                postings.push(PhysicalStockPosting::new(
+                    sector,
+                    PhysicalStockInstrument::Resources,
+                    -production.resource_input,
+                ));
+                postings.push(PhysicalStockPosting::new(
+                    sector,
+                    PhysicalStockInstrument::Inventories,
+                    production.output,
+                ));
+            }
+            EconomicTransition::InventoryTransfer(transfer) => {
+                let from = sector_for(assignments, &transfer.from)?;
+                let to = sector_for(assignments, &transfer.to)?;
+                postings.push(PhysicalStockPosting::new(
+                    from,
+                    PhysicalStockInstrument::Inventories,
+                    -transfer.quantity,
+                ));
+                postings.push(PhysicalStockPosting::new(
+                    to,
+                    PhysicalStockInstrument::Inventories,
+                    transfer.quantity,
+                ));
+            }
+            EconomicTransition::InventoryConsumption(consumption) => {
+                let sector = sector_for(assignments, &consumption.consumer)?;
+                postings.push(PhysicalStockPosting::new(
+                    sector,
+                    PhysicalStockInstrument::Inventories,
+                    -consumption.quantity,
+                ));
+            }
+            EconomicTransition::GoodsSale(sale) => {
+                let seller = sector_for(assignments, &sale.seller)?;
+                let buyer = sector_for(assignments, &sale.buyer)?;
+                postings.push(PhysicalStockPosting::new(
+                    seller,
+                    PhysicalStockInstrument::Inventories,
+                    -sale.quantity,
+                ));
+                postings.push(PhysicalStockPosting::new(
+                    buyer,
+                    PhysicalStockInstrument::Inventories,
+                    sale.quantity,
+                ));
+            }
+            _ => {}
+        }
+
+        apply_transition(&mut working, transition)?;
+    }
+
+    Ok(postings)
+}
+
 fn apply_transition(state: &mut EconomicState, transition: &EconomicTransition) -> Result<(), String> {
     match transition {
         EconomicTransition::MonetaryTransfer(flow) => state.apply_flow(flow),
@@ -241,6 +357,8 @@ fn apply_transition(state: &mut EconomicState, transition: &EconomicTransition) 
         EconomicTransition::InventoryTransfer(transfer) => state.apply_inventory_transfer(transfer),
         EconomicTransition::InventoryConsumption(consumption) => state.apply_inventory_consumption(consumption),
         EconomicTransition::GoodsSale(sale) => state.apply_goods_sale(sale),
+        EconomicTransition::InventoryCostAddition(addition) => state.apply_inventory_cost_addition(addition),
+        EconomicTransition::InventoryCostRelief(relief) => state.apply_inventory_cost_relief(relief),
         EconomicTransition::CreditCreation(credit) => state.create_credit(credit),
         EconomicTransition::DebtRepayment(repayment) => state.repay_debt(repayment),
     }
@@ -274,11 +392,66 @@ fn aggregate_postings(postings: Vec<StockPosting>) -> HashMap<StockKey, i128> {
     result
 }
 
+fn physical_stock_delta(
+    pre: &SectorPhysicalStock,
+    post: &SectorPhysicalStock,
+) -> HashMap<PhysicalKey, i128> {
+    let mut result = HashMap::new();
+    for entry in pre.entries.iter().chain(post.entries.iter()) {
+        result.entry((entry.sector, entry.instrument)).or_insert(0);
+    }
+    for key in result.keys().copied().collect::<Vec<_>>() {
+        let before = pre.entries.iter()
+            .filter(|e| (e.sector, e.instrument) == key)
+            .map(|e| e.amount)
+            .sum::<i128>();
+        let after = post.entries.iter()
+            .filter(|e| (e.sector, e.instrument) == key)
+            .map(|e| e.amount)
+            .sum::<i128>();
+        result.insert(key, after - before);
+    }
+    result
+}
+
+type PhysicalKey = (EconomicSector, PhysicalStockInstrument);
+
+fn aggregate_physical_postings(
+    postings: Vec<PhysicalStockPosting>,
+) -> HashMap<PhysicalKey, i128> {
+    let mut result = HashMap::new();
+    for posting in postings {
+        *result.entry((posting.sector, posting.instrument)).or_insert(0) += posting.delta;
+    }
+    result
+}
+
+fn union_physical_keys(
+    left: &HashMap<PhysicalKey, i128>,
+    right: &HashMap<PhysicalKey, i128>,
+) -> Vec<PhysicalKey> {
+    let mut keys = left.keys().chain(right.keys()).copied().collect::<Vec<_>>();
+    keys.sort_by_key(|(sector, instrument)| (*sector as u8, *instrument as u8));
+    keys.dedup();
+    keys
+}
+
 fn union_keys(left: &HashMap<StockKey, i128>, right: &HashMap<StockKey, i128>) -> Vec<StockKey> {
     let mut keys = left.keys().chain(right.keys()).copied().collect::<Vec<_>>();
     keys.sort_by_key(|(sector, instrument)| (*sector as u8, *instrument as u8));
     keys.dedup();
     keys
+}
+
+fn hash_physical_postings(postings: &HashMap<PhysicalKey, i128>) -> Result<String, String> {
+    let mut ordered = postings
+        .iter()
+        .map(|(key, value)| (key.0 as u8, key.1 as u8, *value))
+        .collect::<Vec<_>>();
+    ordered.sort_unstable();
+    let bytes = serde_json::to_vec(&ordered)
+        .map_err(|e| format!("failed to serialize physical postings: {e}"))?;
+    Ok(blake3::hash(&bytes).to_hex().to_string())
 }
 
 fn hash_postings(postings: &HashMap<StockKey, i128>) -> Result<String, String> {
@@ -291,7 +464,11 @@ fn hash_postings(postings: &HashMap<StockKey, i128>) -> Result<String, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::economics::stock_flow::{ActorBalanceSheet, CapitalInvestment, ProductionEvent, InventoryTransfer, InventoryConsumption, GoodsSale, CreditCreation, DebtRepayment, IncomeTransfer, MonetaryFlow};
+    use crate::economics::stock_flow::{
+        ActorBalanceSheet, CapitalInvestment, ProductionEvent, InventoryTransfer,
+        InventoryConsumption, GoodsSale, InventoryCostAddition, InventoryCostRelief,
+        CreditCreation, DebtRepayment, IncomeTransfer, MonetaryFlow,
+    };
     use crate::economics::transition::apply_step;
 
     fn setup() -> (EconomicState, Vec<SectorAssignment>) {
@@ -371,6 +548,51 @@ mod tests {
         assert_eq!(post.actors.iter().find(|a| a.actor == "firm").unwrap().real.resources, 70);
         assert_eq!(post.actors.iter().find(|a| a.actor == "firm").unwrap().real.inventories, 24);
         reconcile_step(&pre, &post, &assignments, &transitions).unwrap();
+    }
+
+    #[test]
+    fn goods_sale_reconciles_physical_and_monetary_dimensions() {
+        let (mut pre, assignments) = setup();
+        pre.actors.iter_mut().find(|a| a.actor == "firm").unwrap().real.inventories = 20;
+        pre.actors.iter_mut().find(|a| a.actor == "household").unwrap().monetary.deposits = 100;
+
+        let transitions = vec![EconomicTransition::GoodsSale(
+            GoodsSale::new("firm", "household", 5, 30).unwrap(),
+        )];
+        let (post, _) = apply_step(&pre, 1, &transitions, None).unwrap();
+        let receipt = reconcile_step(&pre, &post, &assignments, &transitions).unwrap();
+        assert_eq!(receipt.posting_count, 2);
+        assert_eq!(receipt.physical_posting_count, 2);
+    }
+
+    #[test]
+    fn inventory_cost_and_sale_reconcile_profit_carried_by_the_balance_sheet() {
+        let (mut pre, assignments) = setup();
+        pre.actors.iter_mut().find(|a| a.actor == "firm").unwrap().real.inventories = 20;
+        pre.actors.iter_mut().find(|a| a.actor == "household").unwrap().monetary.deposits = 100;
+
+        let transitions = vec![
+            EconomicTransition::InventoryCostAddition(
+                InventoryCostAddition::new("firm", 20, 80).unwrap(),
+            ),
+            EconomicTransition::InventoryCostRelief(
+                InventoryCostRelief::new("firm", 5, 20).unwrap(),
+            ),
+            EconomicTransition::GoodsSale(
+                GoodsSale::new("firm", "household", 5, 30).unwrap(),
+            ),
+            EconomicTransition::InventoryCostAddition(
+                InventoryCostAddition::new("household", 5, 30).unwrap(),
+            ),
+        ];
+        let (post, _) = apply_step(&pre, 1, &transitions, None).unwrap();
+        reconcile_step(&pre, &post, &assignments, &transitions).unwrap();
+        let firm = post.actors.iter().find(|a| a.actor == "firm").unwrap();
+        let household = post.actors.iter().find(|a| a.actor == "household").unwrap();
+        assert_eq!(firm.inventory_carrying_value, 60);
+        assert_eq!(household.inventory_carrying_value, 30);
+        assert_eq!(firm.monetary.deposits, 30);
+        assert_eq!(household.monetary.deposits, 70);
     }
 
     #[test]
