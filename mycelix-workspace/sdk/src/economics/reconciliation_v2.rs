@@ -90,8 +90,8 @@ pub fn reconcile_step(
 ) -> Result<StockFlowReconciliation, String> {
     let pre = SectorBalanceSheet::from_state(pre_state, assignments)?;
     let post = SectorBalanceSheet::from_state(post_state, assignments)?;
-    let expected = aggregate_postings(postings_for_step(pre_state, assignments, transitions)?);
-    let actual = balance_sheet_delta(&pre, &post);
+    let expected = aggregate_postings(postings_for_step(pre_state, assignments, transitions)?)?;
+    let actual = balance_sheet_delta(&pre, &post)?;
 
     let mut financial_mismatches = Vec::new();
     for key in union_keys(&actual, &expected) {
@@ -114,8 +114,8 @@ pub fn reconcile_step(
     let pre_physical = SectorPhysicalStock::from_state(pre_state, assignments)?;
     let post_physical = SectorPhysicalStock::from_state(post_state, assignments)?;
     let expected_physical =
-        aggregate_physical_postings(physical_postings_for_step(pre_state, assignments, transitions)?);
-    let actual_physical = physical_stock_delta(&pre_physical, &post_physical);
+        aggregate_physical_postings(physical_postings_for_step(pre_state, assignments, transitions)?)?;
+    let actual_physical = physical_stock_delta(&pre_physical, &post_physical)?;
 
     let mut physical_mismatches = Vec::new();
     for key in union_physical_keys(&actual_physical, &expected_physical) {
@@ -457,59 +457,114 @@ fn sector_for(assignments: &[SectorAssignment], actor: &str) -> Result<EconomicS
 
 type StockKey = (EconomicSector, BalanceSheetInstrument);
 
-fn balance_sheet_delta(pre: &SectorBalanceSheet, post: &SectorBalanceSheet) -> HashMap<StockKey, i128> {
-    let mut result = HashMap::new();
+fn balance_sheet_delta(
+    pre: &SectorBalanceSheet,
+    post: &SectorBalanceSheet,
+) -> Result<HashMap<StockKey, i128>, String> {
+    let mut keys = HashMap::new();
     for entry in pre.entries.iter().chain(post.entries.iter()) {
-        result.entry((entry.sector, entry.instrument)).or_insert(0);
+        keys.entry((entry.sector, entry.instrument)).or_insert(());
     }
-    for key in result.keys().copied().collect::<Vec<_>>() {
-        let before = pre.entries.iter().filter(|e| (e.sector, e.instrument) == key).map(|e| e.amount).sum::<i128>();
-        let after = post.entries.iter().filter(|e| (e.sector, e.instrument) == key).map(|e| e.amount).sum::<i128>();
-        result.insert(key, after - before);
+
+    let mut result = HashMap::new();
+    for key in keys.keys().copied() {
+        let before = pre
+            .entries
+            .iter()
+            .filter(|e| (e.sector, e.instrument) == key)
+            .try_fold(0i128, |sum, entry| {
+                sum.checked_add(entry.amount)
+                    .ok_or_else(|| format!("pre-state balance-sheet delta overflow for {:?}", key))
+            })?;
+        let after = post
+            .entries
+            .iter()
+            .filter(|e| (e.sector, e.instrument) == key)
+            .try_fold(0i128, |sum, entry| {
+                sum.checked_add(entry.amount)
+                    .ok_or_else(|| format!("post-state balance-sheet delta overflow for {:?}", key))
+            })?;
+        let delta = after
+            .checked_sub(before)
+            .ok_or_else(|| format!("balance-sheet stock delta overflow for {:?}", key))?;
+        result.insert(key, delta);
     }
-    result
+    Ok(result)
 }
 
-fn aggregate_postings(postings: Vec<StockPosting>) -> HashMap<StockKey, i128> {
+fn aggregate_postings(postings: Vec<StockPosting>) -> Result<HashMap<StockKey, i128>, String> {
     let mut result = HashMap::new();
     for posting in postings {
-        *result.entry((posting.sector, posting.instrument)).or_insert(0) += posting.delta;
+        let slot = result
+            .entry((posting.sector, posting.instrument))
+            .or_insert(0);
+        *slot = slot
+            .checked_add(posting.delta)
+            .ok_or_else(|| {
+                format!(
+                    "stock-posting aggregation overflow for {:?}",
+                    (posting.sector, posting.instrument)
+                )
+            })?;
     }
-    result
+    Ok(result)
 }
 
 fn physical_stock_delta(
     pre: &SectorPhysicalStock,
     post: &SectorPhysicalStock,
-) -> HashMap<PhysicalKey, i128> {
-    let mut result = HashMap::new();
+) -> Result<HashMap<PhysicalKey, i128>, String> {
+    let mut keys = HashMap::new();
     for entry in pre.entries.iter().chain(post.entries.iter()) {
-        result.entry((entry.sector, entry.instrument)).or_insert(0);
+        keys.entry((entry.sector, entry.instrument)).or_insert(());
     }
-    for key in result.keys().copied().collect::<Vec<_>>() {
-        let before = pre.entries.iter()
+
+    let mut result = HashMap::new();
+    for key in keys.keys().copied() {
+        let before = pre
+            .entries
+            .iter()
             .filter(|e| (e.sector, e.instrument) == key)
-            .map(|e| e.amount)
-            .sum::<i128>();
-        let after = post.entries.iter()
+            .try_fold(0i128, |sum, entry| {
+                sum.checked_add(entry.amount)
+                    .ok_or_else(|| format!("pre-state physical-stock delta overflow for {:?}", key))
+            })?;
+        let after = post
+            .entries
+            .iter()
             .filter(|e| (e.sector, e.instrument) == key)
-            .map(|e| e.amount)
-            .sum::<i128>();
-        result.insert(key, after - before);
+            .try_fold(0i128, |sum, entry| {
+                sum.checked_add(entry.amount)
+                    .ok_or_else(|| format!("post-state physical-stock delta overflow for {:?}", key))
+            })?;
+        let delta = after
+            .checked_sub(before)
+            .ok_or_else(|| format!("physical-stock delta overflow for {:?}", key))?;
+        result.insert(key, delta);
     }
-    result
+    Ok(result)
 }
 
 type PhysicalKey = (EconomicSector, PhysicalStockInstrument);
 
 fn aggregate_physical_postings(
     postings: Vec<PhysicalStockPosting>,
-) -> HashMap<PhysicalKey, i128> {
+) -> Result<HashMap<PhysicalKey, i128>, String> {
     let mut result = HashMap::new();
     for posting in postings {
-        *result.entry((posting.sector, posting.instrument)).or_insert(0) += posting.delta;
+        let slot = result
+            .entry((posting.sector, posting.instrument))
+            .or_insert(0);
+        *slot = slot
+            .checked_add(posting.delta)
+            .ok_or_else(|| {
+                format!(
+                    "physical-posting aggregation overflow for {:?}",
+                    (posting.sector, posting.instrument)
+                )
+            })?;
     }
-    result
+    Ok(result)
 }
 
 fn union_physical_keys(
@@ -568,6 +623,55 @@ mod tests {
                 SectorAssignment { actor: "firm".into(), sector: EconomicSector::Firm },
             ],
         )
+    }
+
+    #[test]
+    fn reconciliation_deltas_fail_closed_on_arithmetic_overflow() {
+        let mut pre = SectorBalanceSheet::default();
+        pre.entries.push(BalanceSheetEntry {
+            sector: EconomicSector::Firm,
+            instrument: BalanceSheetInstrument::Equity,
+            amount: i128::MIN,
+        });
+        pre.entries.push(BalanceSheetEntry {
+            sector: EconomicSector::Firm,
+            instrument: BalanceSheetInstrument::Equity,
+            amount: -1,
+        });
+        let post = SectorBalanceSheet::default();
+        let err = balance_sheet_delta(&pre, &post).unwrap_err();
+        assert!(err.contains("pre-state balance-sheet delta overflow"));
+    }
+
+    #[test]
+    fn posting_aggregation_fails_closed_on_overflow() {
+        let postings = vec![
+            StockPosting::new(
+                EconomicSector::Firm,
+                BalanceSheetInstrument::Equity,
+                i128::MAX,
+            ),
+            StockPosting::new(
+                EconomicSector::Firm,
+                BalanceSheetInstrument::Equity,
+                1,
+            ),
+        ];
+        assert!(aggregate_postings(postings).is_err());
+
+        let physical = vec![
+            PhysicalStockPosting::new(
+                EconomicSector::Firm,
+                PhysicalStockInstrument::Inventory,
+                i128::MAX,
+            ),
+            PhysicalStockPosting::new(
+                EconomicSector::Firm,
+                PhysicalStockInstrument::Inventory,
+                1,
+            ),
+        ];
+        assert!(aggregate_physical_postings(physical).is_err());
     }
 
     #[test]
