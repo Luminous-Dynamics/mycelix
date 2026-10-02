@@ -356,7 +356,10 @@ mod tests {
             vec![message(1)],
             vec![evidence(1)],
         );
-        assert_eq!(q.validate(), Err(ChatProjectionError::UnqualifiedCandidate));
+        assert_eq!(
+            q.validate(),
+            Err(ChatProjectionError::UnqualifiedCandidate)
+        );
     }
 
     #[test]
@@ -434,7 +437,10 @@ mod tests {
             vec![message(1), message(2)],
             vec![evidence(1)],
         );
-        assert_eq!(q.validate(), Err(ChatProjectionError::QualificationCountMismatch));
+        assert_eq!(
+            q.validate(),
+            Err(ChatProjectionError::QualificationCountMismatch)
+        );
     }
 
     #[test]
@@ -470,7 +476,10 @@ mod tests {
             vec![message(1), message(2)],
             vec![evidence(1), evidence(1)],
         );
-        assert_eq!(q.validate(), Err(ChatProjectionError::DuplicateEvidenceIdentity));
+        assert_eq!(
+            q.validate(),
+            Err(ChatProjectionError::DuplicateEvidenceIdentity)
+        );
     }
 
     #[test]
