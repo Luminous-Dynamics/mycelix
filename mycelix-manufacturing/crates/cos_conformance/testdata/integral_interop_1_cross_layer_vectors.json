@@ -23,7 +23,8 @@
         "d6x_certificate": false,
         "d6w_input": false,
         "d6w_derivation": false,
-        "d6x_status": "Complete"
+        "d6x_status": "Complete",
+        "earliest_rejection_boundary": "None"
       }
     },
     {
@@ -38,7 +39,8 @@
         "d6x_certificate": true,
         "d6w_input": true,
         "d6w_derivation": true,
-        "d6x_status": "Complete"
+        "d6x_status": "Complete",
+        "earliest_rejection_boundary": "None"
       }
     },
     {
@@ -53,7 +55,8 @@
         "d6x_certificate": true,
         "d6w_input": false,
         "d6w_derivation": false,
-        "d6x_status": "Complete"
+        "d6x_status": "Complete",
+        "earliest_rejection_boundary": "None"
       }
     },
     {
@@ -63,7 +66,8 @@
       "value": 0.25,
       "expected": {
         "valid": false,
-        "d6x_status": "Complete"
+        "d6x_status": "Complete",
+        "earliest_rejection_boundary": "OADSemanticValidation"
       }
     },
     {
@@ -78,7 +82,8 @@
         "d6x_certificate": true,
         "d6w_input": false,
         "d6w_derivation": false,
-        "d6x_status": "BlockedMissingDependency"
+        "d6x_status": "BlockedMissingDependency",
+        "earliest_rejection_boundary": "D6WInputConsumption"
       }
     },
     {
@@ -93,7 +98,8 @@
         "d6x_certificate": true,
         "d6w_input": true,
         "d6w_derivation": true,
-        "d6x_status": "Complete"
+        "d6x_status": "Complete",
+        "earliest_rejection_boundary": "None"
       }
     },
     {
@@ -108,7 +114,8 @@
         "d6x_certificate": true,
         "d6w_input": false,
         "d6w_derivation": false,
-        "d6x_status": "Complete"
+        "d6x_status": "Complete",
+        "earliest_rejection_boundary": "None"
       }
     },
     {
@@ -124,7 +131,8 @@
         "d6x_certificate": true,
         "d6w_input": true,
         "d6w_derivation": true,
-        "d6x_status": "Complete"
+        "d6x_status": "Complete",
+        "earliest_rejection_boundary": "None"
       }
     },
     {
@@ -140,7 +148,8 @@
         "d6x_certificate": true,
         "d6w_input": true,
         "d6w_derivation": true,
-        "d6x_status": "Complete"
+        "d6x_status": "Complete",
+        "earliest_rejection_boundary": "None"
       }
     },
     {
@@ -156,7 +165,8 @@
         "d6x_certificate": true,
         "d6w_input": true,
         "d6w_derivation": true,
-        "d6x_status": "Complete"
+        "d6x_status": "Complete",
+        "earliest_rejection_boundary": "None"
       }
     },
     {
@@ -172,7 +182,8 @@
         "d6x_certificate": true,
         "d6w_input": true,
         "d6w_derivation": true,
-        "d6x_status": "Complete"
+        "d6x_status": "Complete",
+        "earliest_rejection_boundary": "None"
       }
     },
     {
@@ -188,7 +199,8 @@
         "d6x_certificate": true,
         "d6w_input": false,
         "d6w_derivation": false,
-        "d6x_status": "Complete"
+        "d6x_status": "Complete",
+        "earliest_rejection_boundary": "None"
       }
     },
     {
@@ -204,7 +216,8 @@
         "d6x_certificate": true,
         "d6w_input": false,
         "d6w_derivation": false,
-        "d6x_status": "Complete"
+        "d6x_status": "Complete",
+        "earliest_rejection_boundary": "None"
       }
     }
   ]
