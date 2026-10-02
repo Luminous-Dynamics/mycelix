@@ -45,6 +45,7 @@ pub struct ActorEconomicObservables {
     pub deposits: i128,
     pub liquidity: i128,
     pub net_liquidity_change: i128,
+    pub net_working_capital_change: i128,
     pub loan_claims: i128,
     pub debt: i128,
     pub trade_receivables: i128,
@@ -113,6 +114,12 @@ impl ActorEconomicObservables {
             }
             Ok(())
         };
+
+        let initial_working_capital = state
+            .actors
+            .iter()
+            .map(|actor| (actor.actor.clone(), actor.net_working_capital()))
+            .collect::<BTreeMap<_, _>>();
 
         let mut working = state.clone();
 
@@ -264,6 +271,21 @@ impl ActorEconomicObservables {
                     "actor net liquidity change",
                 )?;
             }
+        }
+
+        for (actor, observation) in observations.iter_mut() {
+            let final_nwc = working
+                .actors
+                .iter()
+                .find(|candidate| &candidate.actor == actor)
+                .ok_or_else(|| format!("unknown actor after transition replay: {actor}"))?
+                .net_working_capital();
+            let initial_nwc = *initial_working_capital
+                .get(actor)
+                .ok_or_else(|| format!("unknown initial actor working capital: {actor}"))?;
+            observation.net_working_capital_change = final_nwc
+                .checked_sub(initial_nwc)
+                .ok_or_else(|| format!("working-capital change overflow for {actor}"))?;
         }
 
         Ok(observations)
@@ -981,6 +1003,7 @@ mod tests {
         assert_eq!(firm.trade_credit_extended, 80);
         assert_eq!(firm.trade_credit_collected, 30);
         assert_eq!(firm.sales_revenue, 80);
+        assert_eq!(firm.net_working_capital_change, 50);
         assert_eq!(firm.trade_receivables, 50);
         assert_eq!(firm.net_working_capital(), 100);
         assert_eq!(firm.net_liquidity_change, 30);
