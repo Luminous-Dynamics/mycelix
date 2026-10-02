@@ -207,7 +207,6 @@ check_dependency_semantics() {
   else
     echo "OK:   $file has no must_get_valid_record dependency sites"
   fi
-  rm -f /tmp/hearth07_weak_dependency.$
 }
 
 for file in "${integrity_files[@]}"; do
