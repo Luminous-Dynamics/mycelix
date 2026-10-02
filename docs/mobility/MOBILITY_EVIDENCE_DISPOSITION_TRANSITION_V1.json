@@ -276,6 +276,11 @@
       "id": "EDT-053",
       "case": "authority_delegation_target_chain_ignores_unrelated_missing_predecessor",
       "expected": "accepted"
+    },
+    {
+      "id": "EDT-054",
+      "case": "authority_delegation_target_chain_reports_missing_predecessor",
+      "expected": "unresolved_at_protocol_layer"
     }
   ]
 }
