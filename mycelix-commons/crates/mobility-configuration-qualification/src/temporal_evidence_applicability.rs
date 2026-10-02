@@ -872,6 +872,101 @@ pub enum EvidenceDispositionCoverageAssessment {
     },
 }
 
+struct TransitionBoundaryWalk {
+    reachable: Vec<EvidenceDispositionTransition>,
+    ancestor_ids: std::collections::BTreeSet<IdentityRef>,
+    missing: Option<IdentityRef>,
+}
+
+impl TransitionBoundaryWalk {
+    fn walk(
+        head_id: &IdentityRef,
+        branch_point: &IdentityRef,
+        evidence: &IdentityRef,
+        by_id: &std::collections::BTreeMap<
+            IdentityRef,
+            Vec<&EvidenceDispositionTransition>,
+        >,
+    ) -> Result<Self, String> {
+        let candidates = by_id
+            .get(head_id)
+            .ok_or_else(|| "reconciliation coverage branch head is missing".to_string())?;
+        if candidates.len() != 1 {
+            return Err("duplicate disposition transition identity".into());
+        }
+
+        let mut cursor = candidates[0];
+        let mut seen = std::collections::BTreeSet::new();
+        let mut reachable = Vec::new();
+        let mut ancestor_ids = std::collections::BTreeSet::new();
+
+        loop {
+            if !seen.insert(cursor.transition_id.clone()) {
+                return Err("reconciliation coverage graph contains a predecessor cycle".into());
+            }
+            cursor.validate()?;
+            if cursor.evidence != *evidence {
+                return Err(
+                    "reconciliation coverage transition belongs to different evidence".into(),
+                );
+            }
+
+            ancestor_ids.insert(cursor.transition_id.clone());
+            reachable.push(cursor.clone());
+
+            // The bounded assessment intentionally treats the declared
+            // reconciliation branch point as its dependency boundary. Its
+            // own predecessor history belongs to an upstream qualification
+            // context and is not traversed here.
+            if cursor.transition_id == *branch_point {
+                return Ok(Self {
+                    reachable,
+                    ancestor_ids,
+                    missing: None,
+                });
+            }
+
+            let predecessor_id = match &cursor.predecessor {
+                None => {
+                    return Err(
+                        "reconciliation coverage branch head does not descend from branch point"
+                            .into(),
+                    );
+                }
+                Some(predecessor_id) => predecessor_id,
+            };
+
+            let predecessor = match by_id.get(predecessor_id) {
+                None => {
+                    return Ok(Self {
+                        reachable,
+                        ancestor_ids,
+                        missing: Some(predecessor_id.clone()),
+                    });
+                }
+                Some(candidates) if candidates.len() != 1 => {
+                    return Err("duplicate disposition transition identity".into());
+                }
+                Some(candidates) => candidates[0],
+            };
+
+            predecessor.validate()?;
+            if predecessor.evidence != cursor.evidence {
+                return Err(
+                    "reconciliation coverage predecessor belongs to different evidence".into(),
+                );
+            }
+            if predecessor.to != cursor.from {
+                return Err(
+                    "reconciliation coverage transition source state does not match predecessor target state"
+                        .into(),
+                );
+            }
+            cursor = predecessor;
+        }
+    }
+}
+
 impl EvidenceDispositionReconciliationCoverage {
     fn collect_named_transition_dependencies(
         &self,
@@ -893,6 +988,7 @@ impl EvidenceDispositionReconciliationCoverage {
 
         let mut missing = BTreeSet::new();
         let mut reachable = BTreeMap::<IdentityRef, EvidenceDispositionTransition>::new();
+        let mut walks = Vec::new();
 
         match by_id.get(&reconciliation.branch_point) {
             None => {
@@ -918,129 +1014,39 @@ impl EvidenceDispositionReconciliationCoverage {
         }
 
         for head_id in &reconciliation.branch_heads {
-            let Some(candidates) = by_id.get(head_id) else {
+            if !by_id.contains_key(head_id) {
                 missing.insert(head_id.clone());
                 continue;
-            };
-            if candidates.len() != 1 {
-                return Err("duplicate disposition transition identity".into());
             }
 
-            let mut cursor = candidates[0];
-            let mut seen = BTreeSet::new();
+            let walk = TransitionBoundaryWalk::walk(
+                head_id,
+                &reconciliation.branch_point,
+                &reconciliation.evidence,
+                &by_id,
+            )?;
 
-            loop {
-                if !seen.insert(cursor.transition_id.clone()) {
-                    return Err("reconciliation coverage graph contains a predecessor cycle".into());
-                }
-                cursor.validate()?;
-                if cursor.evidence != reconciliation.evidence {
-                    return Err(
-                        "reconciliation coverage transition belongs to different evidence"
-                            .into(),
-                    );
-                }
+            for transition in &walk.reachable {
                 reachable
-                    .entry(cursor.transition_id.clone())
-                    .or_insert_with(|| cursor.clone());
-
-                if cursor.transition_id == reconciliation.branch_point {
-                    break;
-                }
-
-                match &cursor.predecessor {
-                    None => {
-                        return Err(
-                            "reconciliation coverage branch head does not descend from branch point"
-                                .into(),
-                        );
-                    }
-                    Some(predecessor_id) => match by_id.get(predecessor_id) {
-                        None => {
-                            missing.insert(predecessor_id.clone());
-                            break;
-                        }
-                        Some(candidates) if candidates.len() != 1 => {
-                            return Err("duplicate disposition transition identity".into());
-                        }
-                        Some(candidates) => {
-                            let predecessor = candidates[0];
-                            predecessor.validate()?;
-                            if predecessor.evidence != cursor.evidence {
-                                return Err(
-                                    "reconciliation coverage predecessor belongs to different evidence"
-                                        .into(),
-                                );
-                            }
-                            if predecessor.to != cursor.from {
-                                return Err(
-                                    "reconciliation coverage transition source state does not match predecessor target state"
-                                        .into(),
-                                );
-                            }
-                            cursor = predecessor;
-                        }
-                    },
-                }
+                    .entry(transition.transition_id.clone())
+                    .or_insert_with(|| transition.clone());
             }
+            if let Some(dependency) = &walk.missing {
+                missing.insert(dependency.clone());
+            }
+            walks.push((head_id.clone(), walk.ancestor_ids));
         }
 
-        // Detect a fully visible ancestor/descendant head contradiction even when
-        // another dependency in the bounded cone is missing.
-        for (index, left_id) in reconciliation.branch_heads.iter().enumerate() {
-            for right_id in reconciliation.branch_heads.iter().skip(index + 1) {
-                if let (Some(left), Some(right)) = (by_id.get(left_id), by_id.get(right_id)) {
-                    if left.len() != 1 || right.len() != 1 {
-                        return Err("duplicate disposition transition identity".into());
-                    }
-
-                    let mut cursor = left[0];
-                    let mut seen = BTreeSet::new();
-                    while cursor.transition_id != reconciliation.branch_point {
-                        if !seen.insert(cursor.transition_id.clone()) {
-                            return Err("reconciliation coverage graph contains a predecessor cycle".into());
-                        }
-                        let Some(predecessor_id) = cursor.predecessor.as_ref() else {
-                            break;
-                        };
-                        if predecessor_id == right_id {
-                            return Err(
-                                "reconciliation branch heads must be incomparable descendants"
-                                    .into(),
-                            );
-                        }
-                        let Some(predecessor) = by_id.get(predecessor_id) else {
-                            break;
-                        };
-                        if predecessor.len() != 1 {
-                            return Err("duplicate disposition transition identity".into());
-                        }
-                        cursor = predecessor[0];
-                    }
-
-                    let mut cursor = right[0];
-                    let mut seen = BTreeSet::new();
-                    while cursor.transition_id != reconciliation.branch_point {
-                        if !seen.insert(cursor.transition_id.clone()) {
-                            return Err("reconciliation coverage graph contains a predecessor cycle".into());
-                        }
-                        let Some(predecessor_id) = cursor.predecessor.as_ref() else {
-                            break;
-                        };
-                        if predecessor_id == left_id {
-                            return Err(
-                                "reconciliation branch heads must be incomparable descendants"
-                                    .into(),
-                            );
-                        }
-                        let Some(predecessor) = by_id.get(predecessor_id) else {
-                            break;
-                        };
-                        if predecessor.len() != 1 {
-                            return Err("duplicate disposition transition identity".into());
-                        }
-                        cursor = predecessor[0];
-                    }
+        // Because every named head now comes from the same bounded walk,
+        // nested-head detection cannot accidentally traverse past the
+        // declared branch point or use different missing-dependency rules.
+        for (index, (left_id, left_ancestors)) in walks.iter().enumerate() {
+            for (right_id, right_ancestors) in walks.iter().skip(index + 1) {
+                if left_ancestors.contains(right_id) || right_ancestors.contains(left_id) {
+                    return Err(
+                        "reconciliation branch heads must be incomparable descendants"
+                            .into(),
+                    );
                 }
             }
         }
