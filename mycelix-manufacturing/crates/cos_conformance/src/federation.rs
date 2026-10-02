@@ -573,6 +573,13 @@ pub enum FederationMutation {
     StaleSchema,
     ConflictingObservation,
     ExpiredAuthorization,
+    ContractOriginMutation,
+    ContractTargetMutation,
+    ContractSubjectMutation,
+    ContractPayloadMutation,
+    ContractAuthorizationGenerationMutation,
+    ContractPredecessorMutation,
+    ContractExpiryMutation,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -638,6 +645,28 @@ pub fn run_scenario(
             }
             FederationMutation::Reconnect => {}
             FederationMutation::LocalEvidence | FederationMutation::Partition => {}
+            FederationMutation::ContractOriginMutation => {
+                candidate.origin_node = "node-b".to_owned();
+            }
+            FederationMutation::ContractTargetMutation => {
+                candidate.target_node = "node-b".to_owned();
+            }
+            FederationMutation::ContractSubjectMutation => {
+                candidate.semantic_subject_id = "subject-mutated".to_owned();
+            }
+            FederationMutation::ContractPayloadMutation => {
+                candidate.payload_commitment.push_str("-mutated");
+            }
+            FederationMutation::ContractAuthorizationGenerationMutation => {
+                candidate.authorization_generation =
+                    candidate.authorization_generation.saturating_add(1);
+            }
+            FederationMutation::ContractPredecessorMutation => {
+                candidate.predecessor_delivery_id = Some(candidate.logical_delivery_id.clone());
+            }
+            FederationMutation::ContractExpiryMutation => {
+                candidate.expires_at = candidate.expires_at.map(|expiry| expiry.saturating_add(1));
+            }
         }
 
         let actual = deliver(&mut state, &candidate, now, transport_available).decision;
@@ -1170,6 +1199,34 @@ mod tests {
             FederationScenarioStep {
                 mutation: FederationMutation::ExpiredAuthorization,
                 expected: FederationDecision::ExpiredAuthorization,
+            },
+            FederationScenarioStep {
+                mutation: FederationMutation::ContractTargetMutation,
+                expected: FederationDecision::ContractConflict,
+            },
+            FederationScenarioStep {
+                mutation: FederationMutation::ContractOriginMutation,
+                expected: FederationDecision::OriginConflict,
+            },
+            FederationScenarioStep {
+                mutation: FederationMutation::ContractSubjectMutation,
+                expected: FederationDecision::PayloadConflict,
+            },
+            FederationScenarioStep {
+                mutation: FederationMutation::ContractPayloadMutation,
+                expected: FederationDecision::PayloadConflict,
+            },
+            FederationScenarioStep {
+                mutation: FederationMutation::ContractAuthorizationGenerationMutation,
+                expected: FederationDecision::StaleGeneration,
+            },
+            FederationScenarioStep {
+                mutation: FederationMutation::ContractPredecessorMutation,
+                expected: FederationDecision::ContractConflict,
+            },
+            FederationScenarioStep {
+                mutation: FederationMutation::ContractExpiryMutation,
+                expected: FederationDecision::ContractConflict,
             },
         ];
 
