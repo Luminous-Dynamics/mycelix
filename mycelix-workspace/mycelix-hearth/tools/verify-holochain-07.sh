@@ -5,6 +5,8 @@ root="$(cd -- "$(dirname -- "$BASH_SOURCE")/.." && pwd)"
 workspace="$root/Cargo.toml"
 tests="$root/tests/Cargo.toml"
 flake_lock="$root/flake.lock"
+sdk_package="$root/sdk-ts/package.json"
+sdk_lock="$root/sdk-ts/package-lock.json"
 
 fail() {
   echo "FAIL: $*" >&2
