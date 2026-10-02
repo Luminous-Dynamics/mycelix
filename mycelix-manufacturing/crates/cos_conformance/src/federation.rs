@@ -68,7 +68,7 @@ pub struct ObservationRecord {
     pub source_observation: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ImmutableDeliveryContract {
     pub logical_delivery_id: String,
     pub origin_node: String,
@@ -97,19 +97,55 @@ impl From<&FederationEnvelope> for ImmutableDeliveryContract {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Admitted delivery state produced only by `deliver()`.
+///
+/// ```compile_fail
+/// use serde_json::from_str;
+/// # use cos_conformance::federation::DeliveryRecord;
+/// let _: DeliveryRecord = from_str("{}").unwrap();
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct DeliveryRecord {
-    pub contract: ImmutableDeliveryContract,
-    pub authority: AuthorityDisposition,
-    pub attempts: BTreeSet<String>,
+    contract: ImmutableDeliveryContract,
+    authority: AuthorityDisposition,
+    attempts: BTreeSet<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+impl DeliveryRecord {
+    pub fn contract(&self) -> &ImmutableDeliveryContract {
+        &self.contract
+    }
+
+    pub fn authority(&self) -> AuthorityDisposition {
+        self.authority
+    }
+
+    pub fn attempts(&self) -> &BTreeSet<String> {
+        &self.attempts
+    }
+}
+
+/// In-memory federation state owned by the reference-model transition API.
+///
+/// The authoritative maps are intentionally private and the state does not
+/// implement `Deserialize`. Callers therefore cannot manufacture an admitted
+/// delivery or observation by mutating a public map or deserializing a state
+/// snapshot. State enters through the explicit transition methods below.
+///
+/// ```compile_fail
+/// use serde_json::from_str;
+/// # use cos_conformance::federation::FederationState;
+/// let _: FederationState = from_str("{}").unwrap();
+/// ```
+///
+/// The model remains `ReferenceModelOnly`; this is an API-boundary hardening,
+/// not a claim about production persistence.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FederationState {
-    pub nodes: BTreeMap<String, NodeProfile>,
-    pub recognition_edges: Vec<RecognitionEdge>,
-    pub deliveries: BTreeMap<String, DeliveryRecord>,
-    pub observations: BTreeMap<String, ObservationRecord>,
+    nodes: BTreeMap<String, NodeProfile>,
+    recognition_edges: Vec<RecognitionEdge>,
+    deliveries: BTreeMap<String, DeliveryRecord>,
+    observations: BTreeMap<String, ObservationRecord>,
 }
 
 impl FederationState {
@@ -142,6 +178,22 @@ impl FederationState {
                     b.mode,
                 ))
         });
+    }
+
+    pub fn delivery(&self, logical_delivery_id: &str) -> Option<&DeliveryRecord> {
+        self.deliveries.get(logical_delivery_id)
+    }
+
+    pub fn observation(&self, observation_id: &str) -> Option<&ObservationRecord> {
+        self.observations.get(observation_id)
+    }
+
+    pub fn delivery_count(&self) -> usize {
+        self.deliveries.len()
+    }
+
+    pub fn observation_count(&self) -> usize {
+        self.observations.len()
     }
 
     fn recognition_mode(
@@ -737,7 +789,7 @@ mod tests {
         let outcome = deliver(&mut state, &foreign, 50, true);
         assert_eq!(outcome.decision, FederationDecision::RecognitionConflict);
         assert_eq!(outcome.authority, AuthorityDisposition::NoAuthority);
-        assert!(state.deliveries.is_empty());
+        assert!(state.delivery_count() == 0);
     }
 
     #[test]
@@ -770,7 +822,7 @@ mod tests {
         let original = envelope();
         let admitted = deliver(&mut state, &original, 50, true);
         assert_eq!(admitted.authority, AuthorityDisposition::LocalAuthority);
-        let original_record = state.deliveries.get("delivery-1").unwrap().clone();
+        let original_record = state.delivery("delivery-1").unwrap().clone();
 
         let mut redirected = original.clone();
         redirected.target_node = "node-b".into();
@@ -779,8 +831,8 @@ mod tests {
         assert_eq!(outcome.decision, FederationDecision::ContractConflict);
         assert_eq!(outcome.authority, AuthorityDisposition::NoAuthority);
         assert!(!cockpit_projection("node-b", &outcome).local_authority);
-        assert_eq!(state.deliveries.get("delivery-1"), Some(&original_record));
-        assert_eq!(state.deliveries.len(), 1);
+        assert_eq!(state.delivery("delivery-1"), Some(&original_record));
+        assert_eq!(state.delivery_count(), 1);
     }
 
     #[test]
@@ -808,8 +860,8 @@ mod tests {
             record_observation(&mut state, changed),
             ObservationWriteResult::Conflict
         );
-        assert_eq!(state.observations.get("obs-fixed"), Some(&first));
-        assert_eq!(state.observations.len(), 1);
+        assert_eq!(state.observation("obs-fixed"), Some(&first));
+        assert_eq!(state.observation_count(), 1);
 
         let mut independent = first;
         independent.observation_id = "obs-independent".into();
