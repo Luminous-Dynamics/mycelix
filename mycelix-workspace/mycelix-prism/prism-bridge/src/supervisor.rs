@@ -326,7 +326,7 @@ mod tests {
     #[test]
     fn forged_policy_digest_cannot_qualify() {
         let mut state = RendererSupervisorState::new(launch());
-        let mut receipt = receipt(
+        let receipt = receipt(
             &state,
             SandboxAdapterKind::LinuxLandlockFilesystemV1,
             SandboxEnforcementLayer::Filesystem,
@@ -337,7 +337,7 @@ mod tests {
             receipt.enforcement.profile_digest(),
             state.launch.sandbox.policy_digest()
         );
-        let _ = &mut receipt;
+        let _ = &receipt;
         assert_eq!(state.state, RendererProcessState::Assigned);
     }
 
