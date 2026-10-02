@@ -1722,11 +1722,7 @@ pub fn validate_create_reservation_certificate(
         ));
     }
 
-    let intent_record = must_get_valid_record(certificate.intent_hash.clone()).map_err(|_| {
-        wasm_error!(WasmErrorInner::Guest(
-            "ReservationCertificate references a missing or invalid PurchaseIntent".into(),
-        ))
-    })?;
+    let intent_record = must_get_valid_record(certificate.intent_hash.clone())?;
     let intent = intent_record
         .entry()
         .to_app_option::<PurchaseIntent>()
@@ -1833,12 +1829,7 @@ pub fn validate_create_reservation_certificate(
             ));
         }
 
-        let previous = must_get_valid_record(previous_hash).map_err(|_| {
-            wasm_error!(WasmErrorInner::Guest(
-                "ReservationCertificate references a missing or invalid previous frontier record"
-                    .into(),
-            ))
-        })?;
+        let previous = must_get_valid_record(previous_hash)?;
         if previous.action().author() != &certificate.seller {
             return Ok(ValidateCallbackResult::Invalid(
                 "Previous frontier record is not seller-authored".into(),
@@ -1891,14 +1882,7 @@ pub fn validate_create_reservation_certificate(
                     "Previous frontier terminal evidence belongs to another seller".into(),
                 ));
             }
-            let terminal_certificate = must_get_valid_record(
-                previous_terminal.certificate_hash.clone(),
-            )
-            .map_err(|_| {
-                wasm_error!(WasmErrorInner::Guest(
-                    "Previous frontier terminal evidence references a missing certificate".into(),
-                ))
-            })?;
+            let terminal_certificate = must_get_valid_record(previous_terminal.certificate_hash.clone())?;
             let terminal_certificate = terminal_certificate
                 .entry()
                 .to_app_option::<ReservationCertificate>()
@@ -2017,12 +2001,7 @@ pub fn validate_create_reservation_capacity(
         ));
     }
 
-    let previous =
-        must_get_valid_record(evidence.previous_frontier_action.clone()).map_err(|_| {
-            wasm_error!(WasmErrorInner::Guest(
-                "Reservation capacity evidence references a missing frontier predecessor".into(),
-            ))
-        })?;
+    let previous = must_get_valid_record(evidence.previous_frontier_action.clone())?;
     if previous.action().author() != &evidence.seller {
         return Ok(ValidateCallbackResult::Invalid(
             "Reservation capacity predecessor is not seller-authored".into(),
@@ -2056,12 +2035,7 @@ pub fn validate_create_reservation_capacity(
             )))
         })?
     {
-        let certificate_record =
-            must_get_valid_record(terminal.certificate_hash.clone()).map_err(|_| {
-                wasm_error!(WasmErrorInner::Guest(
-                    "Terminal evidence references a missing certificate".into()
-                ))
-            })?;
+        let certificate_record = must_get_valid_record(terminal.certificate_hash.clone())?;
         let certificate = certificate_record
             .entry()
             .to_app_option::<ReservationCertificate>()
@@ -2132,12 +2106,7 @@ pub fn validate_create_reservation_terminal(
         ));
     }
 
-    let certificate_record =
-        must_get_valid_record(evidence.certificate_hash.clone()).map_err(|_| {
-            wasm_error!(WasmErrorInner::Guest(
-                "Reservation terminal evidence references a missing or invalid certificate".into(),
-            ))
-        })?;
+    let certificate_record = must_get_valid_record(evidence.certificate_hash.clone())?;
     let certificate = certificate_record
         .entry()
         .to_app_option::<ReservationCertificate>()
@@ -2198,13 +2167,7 @@ pub fn validate_create_reservation_terminal(
         ));
     }
 
-    let previous =
-        must_get_valid_record(evidence.previous_frontier_action.clone()).map_err(|_| {
-            wasm_error!(WasmErrorInner::Guest(
-                "Reservation terminal evidence references a missing or invalid previous frontier"
-                    .into(),
-            ))
-        })?;
+    let previous = must_get_valid_record(evidence.previous_frontier_action.clone())?;
     if previous.action().author() != &evidence.seller {
         return Ok(ValidateCallbackResult::Invalid(
             "Reservation terminal previous frontier is not seller-authored".into(),
