@@ -381,6 +381,16 @@
       "id": "EDT-074",
       "case": "reconciliation_coverage_assessment_is_invariant_to_transition_order",
       "expected": "accepted"
+    },
+    {
+      "id": "EDT-075",
+      "case": "reconciliation_coverage_assessment_stops_at_declared_branch_point",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-076",
+      "case": "reconciliation_coverage_assessment_rejects_known_nested_heads_even_with_missing_boundary",
+      "expected": "rejected"
     }
   ]
 }
