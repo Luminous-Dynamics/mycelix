@@ -84,6 +84,25 @@ pub struct VerificationEvidence {
     authority_unambiguous: bool,
 }
 
+impl VerificationEvidence {
+    /// Construct trusted verification evidence from an in-crate verifier.
+    ///
+    /// This is deliberately crate-private: the public API must not allow an
+    /// arbitrary caller to manufacture signature, revocation, or authority
+    /// claims by supplying booleans.
+    pub(crate) const fn new(
+        signature_verified: bool,
+        not_revoked: bool,
+        authority_unambiguous: bool,
+    ) -> Self {
+        Self {
+            signature_verified,
+            not_revoked,
+            authority_unambiguous,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VerifiedCapability {
     capability: Capability,
