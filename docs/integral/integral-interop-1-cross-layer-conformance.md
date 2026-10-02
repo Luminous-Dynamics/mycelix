@@ -46,7 +46,7 @@ Each vector declares:
 - `value`: operation-specific value;
 - `expected`: one of `identity-preserving`, `identity-changing`, `invalid-no-identity`, `blocked-no-d6w`, `dependency-satisfied`, or `audit-only`.
 
-The test runner validates the corpus vocabulary and executes each supported semantic mutation. Runtime evidence is deliberately handled by the dedicated audit-boundary test because it mutates the D6X certificate rather than the source OAD fixture.
+The source-level conformance suite validates the corpus schema and the declared blocked/complete D6X→D6W boundary. The corpus is a declarative mutation matrix; the individual semantic mutations remain exercised by the corresponding Rust tests rather than being dynamically interpreted from this JSON file. Runtime evidence is deliberately handled by the dedicated audit-boundary test because it mutates the D6X certificate rather than the source OAD fixture.
 
 This makes the mutation matrix reviewable as data while retaining Rust-level assertions for the cryptographic propagation boundary.
 
