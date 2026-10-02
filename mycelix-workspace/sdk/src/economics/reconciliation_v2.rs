@@ -250,17 +250,18 @@ fn hash_postings(postings: &HashMap<StockKey, i128>) -> Result<String, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::economics::stock_flow::{ActorBalanceSheet, CreditCreation, DebtRepayment, IncomeTransfer, MonetaryFlow};
+    use crate::economics::stock_flow::{ActorBalanceSheet, CapitalInvestment, CreditCreation, DebtRepayment, IncomeTransfer, MonetaryFlow};
     use crate::economics::transition::apply_step;
 
     fn setup() -> (EconomicState, Vec<SectorAssignment>) {
         let mut bank = ActorBalanceSheet::new("bank");
         bank.monetary.cash = 1_000;
         (
-            EconomicState::new(vec![bank, ActorBalanceSheet::new("household")]),
+            EconomicState::new(vec![bank, ActorBalanceSheet::new("household"), ActorBalanceSheet::new("firm")]),
             vec![
                 SectorAssignment { actor: "bank".into(), sector: EconomicSector::Bank },
                 SectorAssignment { actor: "household".into(), sector: EconomicSector::Household },
+                SectorAssignment { actor: "firm".into(), sector: EconomicSector::NonFinancialCorporation },
             ],
         )
     }
@@ -289,6 +290,20 @@ mod tests {
         pre.create_credit(&CreditCreation::new("bank", "household", 500).unwrap()).unwrap();
         let transitions = vec![EconomicTransition::IncomeTransfer(
             IncomeTransfer::new("household", "bank", 100).unwrap(),
+        )];
+        let (post, _) = apply_step(&pre, 1, &transitions, None).unwrap();
+        reconcile_step(&pre, &post, &assignments, &transitions).unwrap();
+    }
+
+    #[test]
+    fn capital_investment_reconciles_real_and_financial_stocks() {
+        let (mut pre, assignments) = setup();
+        pre.actors.iter_mut()
+            .find(|a| a.actor == "firm")
+            .unwrap()
+            .monetary.deposits = 500;
+        let transitions = vec![EconomicTransition::CapitalInvestment(
+            CapitalInvestment::new("firm", "household", 200).unwrap(),
         )];
         let (post, _) = apply_step(&pre, 1, &transitions, None).unwrap();
         reconcile_step(&pre, &post, &assignments, &transitions).unwrap();
