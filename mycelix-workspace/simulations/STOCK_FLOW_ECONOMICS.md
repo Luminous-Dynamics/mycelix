@@ -30,15 +30,17 @@ state representation.
 - explicit `MonetaryFlow`
 - explicit `CreditCreation`
 - explicit `DebtRepayment`
+- explicit cash vs deposit instruments
+- bank loan/deposit double-entry credit creation
+- deterministic `EconomicTransition` timestep execution
+- `EconomicStepReceipt` state/transition hashes
 - `EconomicState`
 - aggregate asset/liability accounting
 - gross leverage observable
 - net credit impulse observable
 - accounting-invariant tests
 
-Credit creation is represented as a matching increase in the lender's financial claim,
-the borrower's spendable monetary asset, and the borrower's liability. Debt repayment retires
-the corresponding asset and liability.
+Credit creation now follows the minimal private-money balance-sheet structure: the lender records a loan claim and deposit liability while the borrower records the matching deposit asset and debt liability. Debt repayment reverses the loan/deposit entries. Physical cash remains a distinct instrument. This closes an important modeling gap: in a bank-credit model, a deposit is itself a bank liability rather than an unexplained pool of money. Godley/Lavoie-style SFC accounting explicitly represents deposits and loans this way. citeturn3search15turn3search16
 
 ## Why this is the correct first step
 
@@ -66,13 +68,13 @@ adjustments can instead be evaluated as interventions over an explicit state-tra
 
 `sector_flow.rs` now adds a sector transaction matrix with explicit sector, category, direction, and amount. It can verify that a period's sectoral monetary flows clear before behavioral equations are applied.
 
-The individual balance sheet model was also tightened: monetary **cash** and **loan claims** are now separate stocks. Credit creation creates a lender claim plus borrower cash and liability; repayment transfers cash to the lender while retiring the claim and liability. This avoids silently destroying money during debt settlement.
+The individual balance sheet model was tightened again: **cash**, **deposits**, **loan claims**, **debt liabilities**, and **issued deposit liabilities** are distinct. This makes credit creation and repayment explicit rather than treating bank-created money as an unbacked cash injection. The new deterministic timestep layer hashes the complete pre-state, exact ordered transition list, and post-state, and rejects a step if modeled claims and liabilities do not reconcile.
 
 ## Next research increments
 
 ### 1. Sector balance-sheet matrix
 
-The first executable matrix is now present. The next increment is to bind its sector entries to actor balance sheets and require reconciliation at every timestep.
+The sector transaction matrix is intentionally not yet treated as a balance-sheet matrix. Its current `clears()` check only establishes aggregate sector conservation; it cannot by itself prove that sector stocks changed consistently. The next increment is therefore a real sector balance-sheet matrix, with instrument rows (deposits, loans, cash/reserves, equity, etc.) and sector columns, followed by explicit reconciliation against actor-level state.
 
 Add explicit sectors:
 
@@ -139,7 +141,7 @@ Every scenario should carry:
 - uncertainty assumptions
 - output hash
 
-That makes economic simulations compatible with Mycelix's existing evidence/attestation work.
+The timestep layer now implements the core hash binding for one period. The next step is to chain receipts across periods and bind the transition-rule/model version and parameter manifest into the evidence record. That makes economic simulations compatible with Mycelix's existing evidence/attestation work.
 
 ### 6. Counterfactual laboratory
 
@@ -156,9 +158,7 @@ The simulator should expose trajectories and tradeoffs rather than emit a single
 
 ## Research basis
 
-Godley/Lavoie SFC work explicitly links financial and real sides of an economy through
-coherent stocks and flows. Recent ecological SFC research couples aggregate demand,
-distribution, banking, green-energy investment, and physical resource constraints.
+Godley/Lavoie SFC work explicitly links financial and real sides of an economy through coherent stocks and flows; the SFC literature uses balance-sheet and transactions-flow matrices and emphasizes that financial assets must have counterpart liabilities. citeturn2search12turn3search15 Keen's work connects Minskyan debt dynamics with SFC accounting and treats changes in debt as a distinct driver in monetary dynamics. citeturn0search1turn0search2 Recent ecological SFC work can then be layered on top of this monetary substrate rather than replacing it.
 
 Relevant sources include:
 
