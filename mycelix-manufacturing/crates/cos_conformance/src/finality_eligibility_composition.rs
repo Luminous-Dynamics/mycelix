@@ -35,6 +35,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 pub const FINALITY_ELIGIBILITY_COMPOSITION_CLAIM_CEILING: &str =
     "D6N/D6O finality-eligibility composition reference semantics only; no semantic authority or actuation claim.";
+pub const D6P_WITNESS_COMMITMENT_DOMAIN: &[u8] = b"MYCELIX-INTEGRAL-D6P-WITNESS-V1\0";
 pub const D6P_RECEIPT_COMMITMENT_DOMAIN: &[u8] = b"MYCELIX-INTEGRAL-D6P-RECEIPT-V1\0";
 pub const D6P_COMPOSITION_COMMITMENT_DOMAIN: &[u8] = b"MYCELIX-INTEGRAL-D6P-COMPOSITION-V1\0";
 
@@ -90,6 +91,26 @@ impl FinalityWitnessEligibilityV1 {
             && !self.lifecycle_profile_id.is_empty()
             && !self.witness_commitment.is_empty()
             && self.claim_ceiling == FINALITY_ELIGIBILITY_COMPOSITION_CLAIM_CEILING
+    }
+
+    /// Recompute the witness commitment from every semantic witness field.
+    /// This binds the witness identity to the complete D6N/D6O join rather
+    /// than a selected subset of fields. It is an integrity binding only;
+    /// provenance and authority are established by the qualified D6P path.
+    pub fn recomputed_commitment(&self) -> String {
+        let mut unsigned = self.clone();
+        unsigned.witness_commitment.clear();
+        let payload = serde_json::to_vec(&unsigned)
+            .expect("D6P witness reference model must be serializable");
+        let mut input = Vec::with_capacity(D6P_WITNESS_COMMITMENT_DOMAIN.len() + payload.len());
+        input.extend_from_slice(D6P_WITNESS_COMMITMENT_DOMAIN);
+        input.extend_from_slice(&payload);
+        let digest = Sha256::digest(&input);
+        digest.iter().map(|byte| format!("{byte:02x}")).collect()
+    }
+
+    pub fn commitment_matches(&self) -> bool {
+        self.structurally_valid() && self.witness_commitment == self.recomputed_commitment()
     }
 
     pub fn counts_as_current_independent_witness(&self) -> bool {
@@ -200,17 +221,7 @@ impl FinalityEligibilityCompositionV1 {
                 return false;
             }
 
-            let expected_witness_commitment = format!(
-                "witness:{}:{}:{}:{}",
-                witness.observation_id,
-                self.observation_set_commitment,
-                witness
-                    .d6o_eligibility_id
-                    .as_deref()
-                    .unwrap_or("missing"),
-                witness.current_frontier_root
-            );
-            if witness.witness_commitment != expected_witness_commitment {
+            if !witness.commitment_matches() {
                 return false;
             }
 
@@ -456,19 +467,7 @@ impl FinalityEligibilityLedgerV1 {
         &mut self,
         witness: FinalityWitnessEligibilityV1,
     ) -> FinalityCompositionRecordDispositionV1 {
-        if !witness.structurally_valid()
-            || witness.witness_commitment
-                != format!(
-                    "witness:{}:{}:{}:{}",
-                    witness.observation_id,
-                    witness.d6n_observation_set_commitment,
-                    witness
-                        .d6o_eligibility_id
-                        .as_deref()
-                        .unwrap_or("missing"),
-                    witness.current_frontier_root
-                )
-        {
+        if !witness.commitment_matches() {
             return FinalityCompositionRecordDispositionV1::InsufficientEvidence;
         }
         match self.witnesses.get(&witness.observation_id) {
@@ -497,17 +496,9 @@ impl FinalityEligibilityLedgerV1 {
             return None;
         }
         let witness = self.witnesses.get(observation_id)?;
-        let expected_commitment = format!(
-            "witness:{}:{}:{}:{}",
-            witness.observation_id,
-            witness.d6n_observation_set_commitment,
-            witness.d6o_eligibility_id.as_deref().unwrap_or("missing"),
-            expected_frontier_root
-        );
         (witness.current_frontier_root == expected_frontier_root
             && witness.observation_frontier_root == expected_frontier_root
-            && witness.witness_commitment == expected_commitment
-            && witness.structurally_valid())
+            && witness.commitment_matches())
             .then_some(witness)
     }
 
@@ -825,15 +816,12 @@ fn witness_from(
         observation_frontier_root: set.observation_frontier_root.clone(),
         current_frontier_root: current_frontier_root.to_owned(),
         lifecycle_profile_id: lifecycle_profile_id.to_owned(),
-        witness_commitment: format!(
-            "witness:{}:{}:{}:{}",
-            assessment.observation_id,
-            set.set_commitment,
-            receipt.map(|r| r.eligibility_id.as_str()).unwrap_or("missing"),
-            current_frontier_root
-        ),
+        witness_commitment: String::new(),
         claim_ceiling: FINALITY_ELIGIBILITY_COMPOSITION_CLAIM_CEILING.to_owned(),
-    }
+    };
+    let mut witness = witness;
+    witness.witness_commitment = witness.recomputed_commitment();
+    witness
 }
 
 fn map_receipt_failure(
@@ -1366,7 +1354,7 @@ mod tests {
                 observation_frontier_root: "frontier-1".into(),
                 current_frontier_root: "frontier-1".into(),
                 lifecycle_profile_id: "lifecycle-1".into(),
-                witness_commitment: "witness:observation-1:set-commitment-1:witness-1:frontier-1".into(),
+                witness_commitment: String::new(),
                 claim_ceiling: FINALITY_ELIGIBILITY_COMPOSITION_CLAIM_CEILING.into(),
             }],
             disposition: FinalityEligibilityDispositionV1::EligibleCurrent,
@@ -1374,6 +1362,9 @@ mod tests {
             composition_commitment: "composition-commitment-1".into(),
             claim_ceiling: FINALITY_ELIGIBILITY_COMPOSITION_CLAIM_CEILING.into(),
         };
+        for witness in &mut composition.witnesses {
+            witness.witness_commitment = witness.recomputed_commitment();
+        }
         composition.composition_commitment = composition.recomputed_commitment();
         composition
     }
@@ -1393,6 +1384,7 @@ mod tests {
             replay.current_frontier_root,
         );
 
+        witness.witness_commitment = witness.recomputed_commitment();
         let mut ledger = FinalityEligibilityLedgerV1::default();
         assert_eq!(
             ledger.record_witness(witness.clone()),
@@ -1438,32 +1430,32 @@ mod tests {
     }
 
     #[test]
+    fn witness_commitment_binds_all_semantic_fields() {
+        let mut witness = matching_composition().witnesses[0].clone();
+        assert!(witness.commitment_matches());
+
+        witness.observer_id = "observer-substituted".into();
+        assert!(!witness.commitment_matches());
+
+        witness = matching_composition().witnesses[0].clone();
+        witness.d6o_dependency_snapshot_id = Some("snapshot-substituted".into());
+        assert!(!witness.commitment_matches());
+    }
+
+    #[test]
     fn witness_commitment_binds_current_frontier() {
         let composition = matching_composition();
         let witness = &composition.witnesses[0];
-        let expected = format!(
-            "witness:{}:{}:{}:{}",
-            witness.observation_id,
-            witness.d6n_observation_set_commitment,
-            witness.d6o_eligibility_id.as_deref().unwrap_or("missing"),
-            witness.current_frontier_root,
-        );
-        assert_eq!(witness.witness_commitment, expected);
+        assert!(witness.commitment_matches());
 
         let mut replay = witness.clone();
         replay.current_frontier_root = "frontier-replayed".into();
-        assert_ne!(replay.witness_commitment, format!(
-            "witness:{}:{}:{}:{}",
-            replay.observation_id,
-            replay.d6n_observation_set_commitment,
-            replay.d6o_eligibility_id.as_deref().unwrap_or("missing"),
-            replay.current_frontier_root,
-        ));
-        assert!(!{
+        assert!(!replay.commitment_matches());
+        assert!({
             let mut candidate = composition.clone();
             candidate.witnesses[0] = replay;
             candidate.composition_commitment = candidate.recomputed_commitment();
-            candidate.semantically_valid()
+            !candidate.semantically_valid()
         });
     }
 
