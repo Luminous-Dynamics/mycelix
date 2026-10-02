@@ -169,7 +169,7 @@ fn parameter_predicate_child() -> ! {
     ).unwrap_or_else(|_| unsafe { libc::_exit(116) });
     let profile = SandboxProfileV1::renderer_default()
         .with_syscall_policy_digest(policy.digest())
-        .unwrap_or_else(|_| unsafe { libc::_exit(115) });
+        .unwrap_or_else(|_| unsafe { libc::_exit(117) });
 
     // Warm the raw syscall/errno path before the irreversible transition.
     let _ = unsafe { libc::syscall(libc::SYS_prctl, libc::PR_GET_NO_NEW_PRIVS, 0, 0, 0, 0) };
