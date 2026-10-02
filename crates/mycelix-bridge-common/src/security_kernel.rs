@@ -741,13 +741,7 @@ mod tests {
         let cap = capability();
         let verified = verify_capability(
             cap.clone(),
-            VerificationEvidence::new_for_capability_with_valid_until(
-                &cap,
-                true,
-                true,
-                true,
-                175,
-            ),
+            VerificationEvidence::new_for_capability_with_valid_until(&cap, true, true, true, 175),
             150,
         )
         .unwrap();
@@ -995,8 +989,7 @@ mod tests {
             }"#,
         )
         .unwrap();
-        let evidence =
-            VerificationEvidence::new_for_capability(&malformed, true, true, true);
+        let evidence = VerificationEvidence::new_for_capability(&malformed, true, true, true);
         assert_eq!(
             verify_capability(malformed, evidence, 1),
             Err(AuthorizationDecision::Deny(
