@@ -578,6 +578,7 @@ pub enum FederationMutation {
     ContractTargetMutation,
     ContractSubjectMutation,
     ContractPayloadMutation,
+    ContractSchemaGenerationMutation,
     ContractAuthorizationGenerationMutation,
     ContractPredecessorMutation,
     ContractExpiryMutation,
@@ -645,6 +646,7 @@ pub fn run_scenario(
             | FederationMutation::ContractTargetMutation
             | FederationMutation::ContractSubjectMutation
             | FederationMutation::ContractPayloadMutation
+            | FederationMutation::ContractSchemaGenerationMutation
             | FederationMutation::ContractAuthorizationGenerationMutation
             | FederationMutation::ContractPredecessorMutation
             | FederationMutation::ContractExpiryMutation => {}
@@ -690,6 +692,9 @@ pub fn run_scenario(
             }
             FederationMutation::ContractPayloadMutation => {
                 candidate.payload_commitment.push_str("-mutated");
+            }
+            FederationMutation::ContractSchemaGenerationMutation => {
+                candidate.schema_generation = candidate.schema_generation.saturating_add(1);
             }
             FederationMutation::ContractAuthorizationGenerationMutation => {
                 candidate.authorization_generation =
@@ -1284,6 +1289,10 @@ mod tests {
             FederationScenarioStep {
                 mutation: FederationMutation::ContractPayloadMutation,
                 expected: FederationDecision::PayloadConflict,
+            },
+            FederationScenarioStep {
+                mutation: FederationMutation::ContractSchemaGenerationMutation,
+                expected: FederationDecision::StaleGeneration,
             },
             FederationScenarioStep {
                 mutation: FederationMutation::ContractAuthorizationGenerationMutation,
