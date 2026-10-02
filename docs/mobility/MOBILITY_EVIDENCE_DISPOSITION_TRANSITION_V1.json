@@ -171,6 +171,16 @@
       "id": "EDT-032",
       "case": "reconciliation_coverage_rejects_unbound_boundary",
       "expected": "rejected"
+    },
+    {
+      "id": "EDT-033",
+      "case": "reconciliation_coverage_rejects_boundary_reconciliation_mismatch",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-034",
+      "case": "reconciliation_coverage_rejects_boundary_authority_mismatch",
+      "expected": "rejected"
     }
   ]
 }
