@@ -342,7 +342,7 @@ mod tests {
         );
 
         request.resource = Some(CapabilityResource::new(
-            "https://cdn.example.com/assets/../private.js",
+            "file:///etc/passwd",
         ).unwrap());
         assert_eq!(
             grant.authorizes(process, &site, &origin, cluster, &request, 150),
