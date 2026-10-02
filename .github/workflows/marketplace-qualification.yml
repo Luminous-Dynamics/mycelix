@@ -17,10 +17,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  backend:
-    name: Marketplace backend
+  format:
+    name: Marketplace formatting
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
@@ -35,6 +35,21 @@ jobs:
       - name: Check backend formatting
         working-directory: mycelix-workspace/mycelix-marketplace/backend
         run: cargo fmt --all --check
+
+  tests:
+    name: Marketplace tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.96.0
+          components: rustfmt
+          targets: wasm32-unknown-unknown
 
       - name: Test transaction integrity algebra
         working-directory: mycelix-workspace/mycelix-marketplace/backend
