@@ -311,6 +311,16 @@
       "id": "EDT-060",
       "case": "reconciliation_coverage_accepts_reordered_boundary_sets",
       "expected": "accepted"
+    },
+    {
+      "id": "EDT-061",
+      "case": "reconciliation_coverage_rejects_authority_scope_basis_omission",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-062",
+      "case": "reconciliation_coverage_accepts_authority_scope_basis_at_boundary",
+      "expected": "accepted"
     }
   ]
 }
