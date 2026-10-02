@@ -114,8 +114,9 @@ impl VerificationEvidence {
         not_revoked: bool,
         authority_unambiguous: bool,
     ) -> Self {
-        Self::new_for_capability_with_valid_until(
+        Self::new_for_capability_with_authority_binding_and_valid_until(
             capability,
+            [0xA5; 32],
             signature_verified,
             not_revoked,
             authority_unambiguous,
@@ -489,6 +490,11 @@ pub fn verify_capability(
             AuthorizationIndeterminacy::AmbiguousAuthority,
         ));
     }
+    if evidence.authority_binding == [0; 32] {
+        return Err(AuthorizationDecision::Indeterminate(
+            AuthorizationIndeterminacy::AmbiguousAuthority,
+        ));
+    }
     if now_us < capability.not_before_us
         || now_us > capability.expires_at_us
         || now_us >= evidence.valid_until_us
@@ -534,6 +540,11 @@ pub fn revalidate_permit(
     }
     if evidence.capability_binding != permit.capability_binding {
         return AuthorizationDecision::Deny(AuthorizationDenial::VerificationEvidenceMismatch);
+    }
+    if evidence.authority_binding == [0; 32] {
+        return AuthorizationDecision::Indeterminate(
+            AuthorizationIndeterminacy::AmbiguousAuthority,
+        );
     }
     if evidence.authority_binding != permit.authority_binding {
         return AuthorizationDecision::Deny(AuthorizationDenial::AuthorityBindingMismatch);
@@ -909,6 +920,42 @@ mod tests {
             Err(AuthorizationDecision::Deny(
                 AuthorizationDenial::OutsideValidityWindow
             ))
+        );
+    }
+
+    #[test]
+    fn missing_authority_binding_fails_closed_at_verification() {
+        let cap = capability();
+        let evidence =
+            VerificationEvidence::new_for_capability_with_authority_binding_and_valid_until(
+                &cap, [0; 32], true, true, true, 200,
+            );
+        assert_eq!(
+            verify_capability(cap, evidence, 150).unwrap_err(),
+            AuthorizationDecision::Indeterminate(
+                AuthorizationIndeterminacy::AmbiguousAuthority
+            )
+        );
+    }
+
+    #[test]
+    fn missing_authority_binding_fails_closed_at_enforcement() {
+        let cap = capability();
+        let valid_evidence =
+            VerificationEvidence::new_for_capability_with_authority_binding_and_valid_until(
+                &cap, [7; 32], true, true, true, 200,
+            );
+        let verified = verify_capability(cap.clone(), valid_evidence, 150).unwrap();
+        let permit = authorize_permit(&verified, &request(CapabilityAction::Read), 150).unwrap();
+        let missing_evidence =
+            VerificationEvidence::new_for_capability_with_authority_binding_and_valid_until(
+                &cap, [0; 32], true, true, true, 200,
+            );
+        assert_eq!(
+            revalidate_permit(&permit, missing_evidence, 151),
+            AuthorizationDecision::Indeterminate(
+                AuthorizationIndeterminacy::AmbiguousAuthority
+            )
         );
     }
 
