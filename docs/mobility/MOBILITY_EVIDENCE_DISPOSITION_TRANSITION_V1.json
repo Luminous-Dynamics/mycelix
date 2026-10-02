@@ -391,6 +391,11 @@
       "id": "EDT-076",
       "case": "reconciliation_coverage_assessment_rejects_known_nested_heads_even_with_missing_boundary",
       "expected": "rejected"
+    },
+    {
+      "id": "EDT-077",
+      "case": "authority_scope_reports_missing_named_delegation_target",
+      "expected": "unresolved_at_protocol_layer"
     }
   ]
 }
