@@ -382,7 +382,7 @@ impl ActorEconomicObservables {
 }
 
 fn affected_actors(transition: &EconomicTransition) -> Vec<ActorId> {
-    let mut ids = match transition { {
+    let mut ids = match transition {
         EconomicTransition::MonetaryTransfer(flow) => vec![flow.from.clone(), flow.to.clone()],
         EconomicTransition::IncomeTransfer(flow) => vec![flow.payer.clone(), flow.recipient.clone()],
         EconomicTransition::CapitalInvestment(investment) => {
@@ -392,20 +392,27 @@ fn affected_actors(transition: &EconomicTransition) -> Vec<ActorId> {
         EconomicTransition::InventoryTransfer(transfer) => {
             vec![transfer.from.clone(), transfer.to.clone()]
         }
-        EconomicTransition::InventoryConsumption(consumption) => vec![consumption.consumer.clone()],
+        EconomicTransition::InventoryConsumption(consumption) => {
+            vec![consumption.consumer.clone()]
+        }
         EconomicTransition::GoodsSale(sale) => vec![sale.seller.clone(), sale.buyer.clone()],
-        EconomicTransition::TradeCreditSale(sale) => vec![sale.seller.clone(), sale.buyer.clone()],
+        EconomicTransition::TradeCreditSale(sale) => {
+            vec![sale.seller.clone(), sale.buyer.clone()]
+        }
         EconomicTransition::TradeCreditSettlement(settlement) => {
             vec![settlement.seller.clone(), settlement.buyer.clone()]
         }
         EconomicTransition::InventoryCostAddition(addition) => vec![addition.actor.clone()],
         EconomicTransition::InventoryCostRelief(relief) => vec![relief.actor.clone()],
         EconomicTransition::Depreciation(depreciation) => vec![depreciation.actor.clone()],
-        EconomicTransition::CreditCreation(credit) => vec![credit.lender.clone(), credit.borrower.clone()],
+        EconomicTransition::CreditCreation(credit) => {
+            vec![credit.lender.clone(), credit.borrower.clone()]
+        }
         EconomicTransition::DebtRepayment(repayment) => {
             vec![repayment.lender.clone(), repayment.borrower.clone()]
         }
     };
+    ids.dedup();
     ids
 }
 
