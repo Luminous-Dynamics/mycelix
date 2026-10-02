@@ -1631,6 +1631,22 @@ mod tests {
         );
     }
     #[test]
+    fn authority_delegation_target_chain_reports_missing_target_as_unresolved() {
+        let missing = id(
+            IdentityKind::ReconciliationWitness,
+            "authority-delegation-target-absent",
+        );
+
+        assert_eq!(
+            EvidenceDispositionAuthorityDelegation::validate_chain(&missing, &[]),
+            Ok(AuthorityDelegationChainAssessment::Unresolved {
+                missing: vec![missing],
+                roots: vec![],
+            })
+        );
+    }
+
+    #[test]
     fn authority_delegation_graph_requires_basis_continuity() {
         let mut root = authority_delegation("reconcile-delegation-basis");
         let inherited = id(IdentityKind::EvidenceRecord, "delegation-root-basis");
