@@ -264,17 +264,6 @@ mod tests {
     use tokio::io::AsyncWriteExt;
     use tokio::net::UnixStream;
 
-    fn binding(process: RendererProcessId, generation: u64) -> RendererBinding {
-        RendererBinding {
-            process,
-            site: SiteIdentity::new("https://example.com").unwrap(),
-            origin: OriginBinding::new("https://example.com").unwrap(),
-            agent_cluster: AgentClusterId::new(1).unwrap(),
-            generation,
-        }
-    }
-
-
     fn controller(process: RendererProcessId, generation: u64) -> Arc<Mutex<RendererSecurityController>> {
         let mut controller = RendererSecurityController::new();
         controller
@@ -408,7 +397,7 @@ mod tests {
         writer.write_all(&envelope).await.unwrap();
 
         let mut connection =
-            RendererCapabilityConnection::from_stream(reader, controller(process, 2)).unwrap();
+            RendererCapabilityConnection::from_stream(reader, controller(process, 1)).unwrap();
         connection.close();
 
         assert!(matches!(
