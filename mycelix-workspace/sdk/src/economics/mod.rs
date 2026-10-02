@@ -53,8 +53,8 @@ pub use evidence::{EconomicEvidenceCapsule, EconomicEvidenceManifest};
 
 pub use stock_flow::{
     ActorBalanceSheet, ActorId, CapitalInvestment, ProductionEvent, InventoryTransfer,
-    InventoryConsumption, GoodsSale, InventoryCostAddition, InventoryCostRelief, Depreciation,
-    CreditCreation,
+    InventoryConsumption, GoodsSale, TradeCreditSale, TradeCreditSettlement, InventoryCostAddition,
+    InventoryCostRelief, Depreciation, CreditCreation,
     DebtRepayment, EconomicFlowCategory, IncomeTransfer, EconomicState, MonetaryFlow,
     MonetaryInstrument, MonetaryStock, RealStock,
 };
