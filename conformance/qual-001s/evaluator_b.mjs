@@ -107,11 +107,12 @@ const expect = new Map([
   ["ALWAYS_FAIL_IMPOSTOR", ["CONTRADICTED", "CONFORMANCE_CONTRADICTED"]],
   ["POSTFLIGHT_IMMUTABILITY", ["CONTRADICTED", "PROVENANCE_MISMATCH"]],
   ["CURRENT_QUALIFICATION", ["VERIFIED", "AUTHORITY_AUTHORIZED"]],
+  ["CANONICALIZATION_ORDER", ["VERIFIED", "NONE"]],
 ]);
 
 if (corpus.schema !== "mycelix.qual-001s.semantic-corpus-v1") throw new Error("wrong corpus schema");
 if (corpus.corpus_id !== "QUAL-001S") throw new Error("wrong corpus id");
-if (corpus.vectors.length !== 20) throw new Error("expected 20 vectors");
+if (corpus.vectors.length !== 21) throw new Error("expected 20 vectors");
 
 for (const v of corpus.vectors) {
   const pair = expect.get(v.proposition_id);
@@ -135,6 +136,11 @@ for (const v of corpus.vectors) {
   if (v.proposition_id === "CLAIM_CEILING" && v.mutation?.operation === "add_required_constraint") {
     if (v.mutation.expected_effect !== "rotation_authorization remains unadmitted") {
       throw new Error("claim ceiling monotonicity contract missing");
+    }
+  }
+  if (v.proposition_id === "CANONICALIZATION_ORDER") {
+    if (v.mutation?.expected_effect !== "canonical commitment bytes unchanged") {
+      throw new Error("canonicalization metamorphic contract missing");
     }
   }
   if (v.proposition_id === "CANONICAL_JSON") {
