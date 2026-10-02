@@ -369,7 +369,7 @@ pub fn deliver(
     }
 
     if let Some(existing) = state.deliveries.get_mut(&envelope.logical_delivery_id) {
-        if existing.origin_node != envelope.origin_node {
+        if existing.contract.origin_node != envelope.origin_node {
             return FederationOutcome::new(
                 FederationDecision::OriginConflict,
                 AuthorityDisposition::NoAuthority,
@@ -561,8 +561,20 @@ pub fn cockpit_projection(node_id: &str, outcome: &FederationOutcome) -> Cockpit
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum FederationMutation {
+macro_rules! define_federation_mutations {
+    ($( $variant:ident ),+ $(,)?) => {
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+        pub enum FederationMutation {
+            $( $variant ),+
+        }
+
+        const ALL_FEDERATION_MUTATIONS: &[FederationMutation] = &[
+            $( FederationMutation::$variant ),+
+        ];
+    };
+}
+
+define_federation_mutations!(
     LocalEvidence,
     ForeignEvidence,
     DuplicateDelivery,
@@ -582,7 +594,7 @@ pub enum FederationMutation {
     ContractAuthorizationGenerationMutation,
     ContractPredecessorMutation,
     ContractExpiryMutation,
-}
+);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FederationScenarioStep {
@@ -597,6 +609,45 @@ pub struct FederationScenarioResult {
     pub passed: bool,
     pub delivery_identity_unchanged: bool,
     pub observation_ledger_unchanged: bool,
+}
+
+fn expected_scenario_decision(mutation: FederationMutation) -> FederationDecision {
+    match mutation {
+        FederationMutation::LocalEvidence => FederationDecision::AcceptedLocal,
+        FederationMutation::ForeignEvidence => FederationDecision::AcceptedForeign,
+        FederationMutation::DuplicateDelivery => FederationDecision::Duplicate,
+        FederationMutation::NewLogicalDelivery => FederationDecision::AcceptedLocal,
+        FederationMutation::DelayedDelivery | FederationMutation::ReorderedDelivery => {
+            FederationDecision::PendingDependency
+        }
+        FederationMutation::Partition => FederationDecision::PartitionUnknown,
+        FederationMutation::Reconnect => FederationDecision::Duplicate,
+        FederationMutation::StaleSchema => FederationDecision::StaleGeneration,
+        FederationMutation::ConflictingObservation => FederationDecision::PayloadConflict,
+        FederationMutation::ExpiredAuthorization => FederationDecision::ExpiredAuthorization,
+        FederationMutation::ContractOriginMutation => FederationDecision::OriginConflict,
+        FederationMutation::ContractTargetMutation => FederationDecision::ContractConflict,
+        FederationMutation::ContractSubjectMutation | FederationMutation::ContractPayloadMutation => {
+            FederationDecision::PayloadConflict
+        }
+        FederationMutation::ContractSchemaGenerationMutation
+        | FederationMutation::ContractAuthorizationGenerationMutation => {
+            FederationDecision::StaleGeneration
+        }
+        FederationMutation::ContractPredecessorMutation
+        | FederationMutation::ContractExpiryMutation => FederationDecision::ContractConflict,
+    }
+}
+
+fn scenario_steps() -> Vec<FederationScenarioStep> {
+    ALL_FEDERATION_MUTATIONS
+        .iter()
+        .copied()
+        .map(|mutation| FederationScenarioStep {
+            mutation,
+            expected: expected_scenario_decision(mutation),
+        })
+        .collect()
 }
 
 fn delivery_identity_snapshot(
@@ -654,6 +705,10 @@ pub fn run_scenario(
 
         match step.mutation {
             FederationMutation::ForeignEvidence => {
+                candidate.envelope_id = format!("{}-foreign", candidate.envelope_id);
+                candidate.logical_delivery_id =
+                    format!("{}-foreign", candidate.logical_delivery_id);
+                candidate.attempt_id = format!("{}-foreign", candidate.attempt_id);
                 candidate.origin_node = "node-b".to_owned();
             }
             FederationMutation::DuplicateDelivery => {
@@ -1299,67 +1354,27 @@ mod tests {
     }
 
     #[test]
+    fn scenario_corpus_matches_declared_mutation_set() {
+        let steps = scenario_steps();
+        let declared = ALL_FEDERATION_MUTATIONS.iter().copied().collect::<BTreeSet<_>>();
+        let exercised = steps
+            .iter()
+            .map(|step| step.mutation)
+            .collect::<BTreeSet<_>>();
+
+        assert_eq!(
+            steps.len(),
+            declared.len(),
+            "scenario corpus contains duplicate or missing mutation declarations"
+        );
+        assert_eq!(exercised, declared);
+    }
+
+    #[test]
     fn scenario_oracle_is_deterministic_and_claim_bounded() {
         let initial = nodes();
         let candidate = envelope();
-        let steps = [
-            FederationScenarioStep {
-                mutation: FederationMutation::LocalEvidence,
-                expected: FederationDecision::AcceptedLocal,
-            },
-            FederationScenarioStep {
-                mutation: FederationMutation::DuplicateDelivery,
-                expected: FederationDecision::Duplicate,
-            },
-            FederationScenarioStep {
-                mutation: FederationMutation::NewLogicalDelivery,
-                expected: FederationDecision::AcceptedLocal,
-            },
-            FederationScenarioStep {
-                mutation: FederationMutation::StaleSchema,
-                expected: FederationDecision::StaleGeneration,
-            },
-            FederationScenarioStep {
-                mutation: FederationMutation::Partition,
-                expected: FederationDecision::PartitionUnknown,
-            },
-            FederationScenarioStep {
-                mutation: FederationMutation::ExpiredAuthorization,
-                expected: FederationDecision::ExpiredAuthorization,
-            },
-            FederationScenarioStep {
-                mutation: FederationMutation::ContractTargetMutation,
-                expected: FederationDecision::ContractConflict,
-            },
-            FederationScenarioStep {
-                mutation: FederationMutation::ContractOriginMutation,
-                expected: FederationDecision::OriginConflict,
-            },
-            FederationScenarioStep {
-                mutation: FederationMutation::ContractSubjectMutation,
-                expected: FederationDecision::PayloadConflict,
-            },
-            FederationScenarioStep {
-                mutation: FederationMutation::ContractPayloadMutation,
-                expected: FederationDecision::PayloadConflict,
-            },
-            FederationScenarioStep {
-                mutation: FederationMutation::ContractSchemaGenerationMutation,
-                expected: FederationDecision::StaleGeneration,
-            },
-            FederationScenarioStep {
-                mutation: FederationMutation::ContractAuthorizationGenerationMutation,
-                expected: FederationDecision::StaleGeneration,
-            },
-            FederationScenarioStep {
-                mutation: FederationMutation::ContractPredecessorMutation,
-                expected: FederationDecision::ContractConflict,
-            },
-            FederationScenarioStep {
-                mutation: FederationMutation::ContractExpiryMutation,
-                expected: FederationDecision::ContractConflict,
-            },
-        ];
+        let steps = scenario_steps();
 
         let results = run_scenario(initial.clone(), candidate.clone(), &steps, 50);
         let repeated = run_scenario(initial, candidate, &steps, 50);
@@ -1369,11 +1384,13 @@ mod tests {
 
         for result in &results {
             match result.mutation {
-                FederationMutation::NewLogicalDelivery => {
+                FederationMutation::LocalEvidence
+                | FederationMutation::ForeignEvidence
+                | FederationMutation::NewLogicalDelivery => {
                     assert!(!result.delivery_identity_unchanged);
                     assert!(!result.observation_ledger_unchanged);
                 }
-                FederationMutation::DuplicateDelivery => {
+                FederationMutation::DuplicateDelivery | FederationMutation::Reconnect => {
                     assert!(result.delivery_identity_unchanged);
                     assert!(result.observation_ledger_unchanged);
                 }
