@@ -1976,7 +1976,7 @@ mod tests {
                 id(IdentityKind::ReconciliationWitness, "t3"),
             ],
             authority: id(IdentityKind::ReconciliationWitness, "authority-scope-chain"),
-            authority_scope: id(IdentityKind::ReconciliationWitness, "authority-scope-chain"),
+            authority_scope: id(IdentityKind::ReconciliationWitness, "authority-scope-chain-witness"),
             authority_delegation: id(IdentityKind::ReconciliationWitness, "authority-delegation-scope-chain"),
             basis: vec![],
         };
