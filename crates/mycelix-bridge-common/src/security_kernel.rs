@@ -165,6 +165,7 @@ pub struct EnforcementRequest {
     request: AuthorizationRequest,
     issued_at_us: u64,
     valid_until_us: u64,
+    capability_binding: [u8; 32],
 }
 
 impl AuthorizationPermit {
@@ -202,6 +203,7 @@ impl EnforcementRequest {
                 request: permit.request,
                 issued_at_us: permit.issued_at_us,
                 valid_until_us: permit.valid_until_us,
+                capability_binding: permit.capability_binding,
             }),
             decision => Err(decision),
         }
@@ -217,6 +219,11 @@ impl EnforcementRequest {
 
     pub fn valid_until_us(&self) -> u64 {
         self.valid_until_us
+    }
+
+    /// Stable commitment for the exact capability that authorized this request.
+    pub fn capability_binding(&self) -> [u8; 32] {
+        self.capability_binding
     }
 
     pub fn is_valid_at(&self, now_us: u64) -> bool {
