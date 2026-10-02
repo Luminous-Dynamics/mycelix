@@ -19,8 +19,12 @@
 //! - authorized_semantic_rejection: a valid signed author call returns the guest error
 //!   emitted by update_member_role, which intentionally rejects all calls.
 //!
-//! This is runtime evidence of the Holochain 0.7 app-interface boundary, not a claim
-//! that every possible authorization dimension has been qualified.
+//! This is runtime evidence of selected Holochain 0.7 app-interface authorization
+//! dimensions, not a claim that every authorization dimension has been qualified.
+//!
+//! Important response-semantics rule: AppResponse::ZomeCalled means the zome-call response
+//! was successfully formed/deserialized at the app interface. It is not itself proof that
+//! the zome function body ran; authorization failures can use the same outer response.
 
 use holochain::conductor::api::{AppRequest, AppResponse, ZomeCallParamsSigned};
 use holochain::prelude::*;
@@ -213,7 +217,7 @@ async fn test_authorized_malformed_payload_is_rejected_before_function_body() {
 
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
-async fn test_invalid_capability_is_rejected_before_zome_dispatch() {
+async fn test_invalid_capability_is_rejected_at_authorization_boundary() {
     let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
 
@@ -224,8 +228,8 @@ async fn test_invalid_capability_is_rejected_before_zome_dispatch() {
         .into_tuple();
 
     // Same application call as the authorized case, but with an invalid capability.
-    // Any Unauthorized response therefore isolates capability rejection rather than
-    // a Hearth semantic/business-rule failure.
+    // Unauthorized is the documented authorization-failure response; do not infer
+    // function-body execution merely because the outer response is ZomeCalled.
     let invalid_secret = CapSecret::from([0xA5; CAP_SECRET_BYTES]);
     let signed = signed_call(
         &conductor,
@@ -250,7 +254,7 @@ async fn test_invalid_capability_is_rejected_before_zome_dispatch() {
 
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
-async fn test_expired_signed_call_is_rejected_before_zome_dispatch() {
+async fn test_expired_signed_call_is_rejected_at_authorization_boundary() {
     let mut conductor = SweetConductor::standard().await;
     let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
 
@@ -266,7 +270,7 @@ async fn test_expired_signed_call_is_rejected_before_zome_dispatch() {
     match response {
         AppResponse::ZomeCalled(result) => match *result {
             ZomeCallResponse::Unauthorized(..) => {}
-            other => panic!("expired invocation should be rejected before zome dispatch, got {other:?}"),
+            other => panic!("expired invocation should be rejected at authorization boundary, got {other:?}"),
         },
         other => panic!("expected ZomeCalled response for expiry rejection, got {other:?}"),
     }
@@ -314,7 +318,7 @@ async fn test_replayed_signed_call_is_rejected_by_nonce_boundary() {
     match second_response {
         AppResponse::ZomeCalled(result) => match *result {
             ZomeCallResponse::Unauthorized(..) => {}
-            other => panic!("replayed signed call should be rejected by nonce, got {other:?}"),
+            other => panic!("replayed signed call should be rejected by nonce authorization, got {other:?}"),
         },
         other => panic!("expected ZomeCalled response for replay rejection, got {other:?}"),
     }
