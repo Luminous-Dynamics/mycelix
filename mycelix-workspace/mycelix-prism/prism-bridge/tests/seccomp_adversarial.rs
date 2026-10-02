@@ -323,8 +323,8 @@ fn seccomp_parameter_predicate_is_positive_and_negative() {
 fn disjunctive_socket_child() -> ! {
     use prism_bridge::process::{RendererProcessAssignmentId, SandboxProfileV1};
     use prism_bridge::seccomp::{
-        install_v2, SeccompArgPredicateV1, SeccompArchitecture, SeccompSyscallClauseV2,
-        SeccompSyscallPolicyV2, SeccompSyscallRuleV2,
+        install_v2, SeccompArgPredicateOpV1, SeccompArgPredicateV1, SeccompArchitecture,
+        SeccompSyscallClauseV2, SeccompSyscallPolicyV2, SeccompSyscallRuleV2,
     };
 
     let architecture =
@@ -345,10 +345,52 @@ fn disjunctive_socket_child() -> ! {
         vec![unix, netlink],
     )
     .unwrap_or_else(|_| unsafe { libc::_exit(135) });
-    let exit_group = SeccompSyscallRuleV2::new(libc::SYS_exit_group, Vec::new())
-        .unwrap_or_else(|_| unsafe { libc::_exit(136) });
+    let lseek_not_equal = SeccompSyscallClauseV2::new(vec![
+        SeccompArgPredicateV1::new_with_op(
+            1,
+            u64::MAX,
+            0x0000_0001_0000_0001,
+            SeccompArgPredicateOpV1::MaskedNotEqual,
+        )
+        .unwrap_or_else(|_| unsafe { libc::_exit(136) }),
+    ])
+    .unwrap_or_else(|_| unsafe { libc::_exit(137) });
+    let lseek_equal = SeccompSyscallClauseV2::new(vec![
+        SeccompArgPredicateV1::new(
+            1,
+            u64::MAX,
+            0x0000_0001_0000_0001,
+        )
+        .unwrap_or_else(|_| unsafe { libc::_exit(138) }),
+    ])
+    .unwrap_or_else(|_| unsafe { libc::_exit(139) });
+    let lseek = SeccompSyscallRuleV2::new_with_clauses(
+        libc::SYS_lseek,
+        vec![lseek_not_equal, lseek_equal],
+    )
+    .unwrap_or_else(|_| unsafe { libc::_exit(140) });
 
-    let policy = SeccompSyscallPolicyV2::new(architecture, vec![socket, exit_group])
+    let exit_group = SeccompSyscallRuleV2::new(libc::SYS_exit_group, Vec::new())
+        .unwrap_or_else(|_| unsafe { libc::_exit(141) });
+
+    // Open a stable fd before the filter is installed. /dev/null lseek is
+    // harmless; the important observation after installation is whether the
+    // syscall reaches the kernel (any non-EPERM result) or is denied by the
+    // seccomp filter itself.
+    let seek_fd = unsafe {
+        libc::open(
+            c"/dev/null".as_ptr(),
+            libc::O_RDONLY,
+        )
+    };
+    if seek_fd < 0 {
+        unsafe { libc::_exit(142) };
+    }
+
+    let policy = SeccompSyscallPolicyV2::new(
+        architecture,
+        vec![socket, lseek, exit_group],
+    )
         .unwrap_or_else(|_| unsafe { libc::_exit(137) });
     let profile = SandboxProfileV1::renderer_default()
         .with_syscall_policy_digest(policy.digest())
@@ -375,7 +417,33 @@ fn disjunctive_socket_child() -> ! {
     )
     .is_err()
     {
-        unsafe { libc::_exit(139) };
+        unsafe { libc::_exit(143) };
+    }
+
+    let high_mismatch = unsafe {
+        libc::syscall(
+            libc::SYS_lseek,
+            seek_fd,
+            0x0000_0002_0000_0001u64,
+            libc::SEEK_SET,
+        )
+    };
+    let high_mismatch_errno = unsafe { *libc::__errno_location() };
+    if high_mismatch == -1 && high_mismatch_errno == libc::EPERM {
+        unsafe { libc::_exit(144) };
+    }
+
+    let exact_match = unsafe {
+        libc::syscall(
+            libc::SYS_lseek,
+            seek_fd,
+            0x0000_0001_0000_0001u64,
+            libc::SEEK_SET,
+        )
+    };
+    let exact_match_errno = unsafe { *libc::__errno_location() };
+    if exact_match == -1 && exact_match_errno == libc::EPERM {
+        unsafe { libc::_exit(145) };
     }
 
     let unix_socket =
