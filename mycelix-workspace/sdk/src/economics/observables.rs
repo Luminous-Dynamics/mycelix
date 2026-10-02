@@ -96,8 +96,8 @@ impl EconomicObservables {
         let liquidity = aggregate_cash
             .checked_add(aggregate_deposits)
             .ok_or_else(|| "aggregate liquidity overflow".to_string())?;
-        let assets = state.aggregate_assets();
-        let liabilities = state.aggregate_liabilities();
+        let assets = state.try_aggregate_assets()?;
+        let liabilities = state.try_aggregate_liabilities()?;
 
         let interest_paid = ledger.category_total(EconomicFlowCategory::Interest);
         let gross_debt_service = interest_paid
