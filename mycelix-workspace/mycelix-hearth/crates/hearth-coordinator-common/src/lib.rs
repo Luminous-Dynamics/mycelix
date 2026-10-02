@@ -6,7 +6,9 @@ use hearth_types::MemberRole;
 
 use mycelix_zome_helpers as _;
 // Re-export from mycelix-zome-helpers so existing consumers keep compiling.
-pub use mycelix_zome_helpers::{get_latest_record, records_from_links};
+pub use mycelix_zome_helpers::{
+    get_latest_record, get_unique_latest_record, records_from_links, records_from_links_canonical,
+};
 
 /// Decode a typed value from a ZomeCallResponse, providing context for error messages.
 pub fn decode_zome_response<T: serde::de::DeserializeOwned + std::fmt::Debug>(

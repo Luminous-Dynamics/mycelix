@@ -171,20 +171,60 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(OpEntry::CreateEntry { app_entry, action }) => match app_entry {
-            EntryTypes::Hearth(hearth) => validate_hearth(&hearth),
+        // 0.7: entry ops are named for the action being validated. The
+        // TypedAction payload exposes the common author via author().
+        FlatOp::CreateEntry(OpEntry::CreateEntry { app_entry, action }) => match app_entry {
+            EntryTypes::Hearth(hearth) => {
+                let structural = validate_hearth(&hearth)?;
+                if structural != ValidateCallbackResult::Valid {
+                    return Ok(structural);
+                }
+                Ok(validate_claimed_agent(
+                    action.author(),
+                    &hearth.created_by,
+                    "Hearth.created_by",
+                ))
+            },
             EntryTypes::HearthMembership(membership) => {
+                let authorship = validate_claimed_agent(
+                    action.author(),
+                    &membership.agent,
+                    "HearthMembership.agent",
+                );
+                if authorship != ValidateCallbackResult::Valid {
+                    return Ok(authorship);
+                }
                 let structural = validate_membership(&membership)?;
                 if structural != ValidateCallbackResult::Valid {
                     return Ok(structural);
                 }
                 validate_membership_admission(&membership)
             }
-            EntryTypes::KinshipBond(bond) => validate_bond(&bond),
-            EntryTypes::HearthInvitation(invitation) => validate_invitation(&invitation),
+            EntryTypes::KinshipBond(bond) => {
+                let structural = validate_bond(&bond)?;
+                if structural != ValidateCallbackResult::Valid {
+                    return Ok(structural);
+                }
+                // member_a is the actor represented by the coordinator's bond
+                // creation operation. Bind that claim to the cryptographic
+                // action author so a forged bond cannot later inherit the
+                // original-author update rule with a different actor.
+                validate_claimed_agent(action.author(), &bond.member_a, "KinshipBond.member_a")
+            },
+            EntryTypes::HearthInvitation(invitation) => {
+                let authorship = validate_claimed_agent(
+                    action.author(),
+                    &invitation.inviter,
+                    "HearthInvitation.inviter",
+                );
+                if authorship != ValidateCallbackResult::Valid {
+                    return Ok(authorship);
+                }
+                validate_invitation(&invitation)
+            },
             EntryTypes::InvitationResponse(response) => {
                 let authorship = validate_claimed_agent(
-                    &action.author,
+                    action.author(),
                     &response.invitee_agent,
                     "InvitationResponse.invitee_agent",
                 );
@@ -196,31 +236,48 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
             EntryTypes::WeeklyDigest(digest) => validate_weekly_digest(&digest),
         },
-        FlatOp::StoreEntry(OpEntry::UpdateEntry {
-            app_entry,
-            original_action_hash,
-            ..
+        FlatOp::CreateEntry(OpEntry::UpdateEntry {
+            app_entry, action, ..
         }) => match app_entry {
             EntryTypes::Hearth(hearth) => {
                 let structural = validate_hearth(&hearth)?;
                 if structural != ValidateCallbackResult::Valid {
                     return Ok(structural);
                 }
-                validate_hearth_immutable_fields(&hearth, &original_action_hash)
+                validate_hearth_immutable_fields(&hearth, &action.original_action_address)
             }
             EntryTypes::HearthMembership(membership) => {
                 let structural = validate_membership(&membership)?;
                 if structural != ValidateCallbackResult::Valid {
                     return Ok(structural);
                 }
-                validate_membership_immutable_fields(&membership, &original_action_hash)
+                let original_record = must_get_valid_record(action.original_action_address.clone())?;
+                let original: HearthMembership = original_record
+                    .entry()
+                    .to_app_option()
+                    .map_err(|e| {
+                        wasm_error!(WasmErrorInner::Guest(format!(
+                            "Failed to deserialize original HearthMembership: {e}"
+                        )))
+                    })?
+                    .ok_or(wasm_error!(WasmErrorInner::Guest(
+                        "Original HearthMembership entry is missing".into()
+                    )))?;
+                let authorship = validate_membership_update_author(action.author(), &original.agent);
+                if authorship != ValidateCallbackResult::Valid {
+                    return Ok(authorship);
+                }
+                validate_membership_immutable_fields(
+                    &membership,
+                    &action.original_action_address,
+                )
             }
             EntryTypes::KinshipBond(bond) => {
                 let structural = validate_bond(&bond)?;
                 if structural != ValidateCallbackResult::Valid {
                     return Ok(structural);
                 }
-                validate_bond_immutable_fields(&bond, &original_action_hash)
+                validate_bond_immutable_fields(&bond, &action.original_action_address)
             }
             EntryTypes::HearthInvitation(_) => Ok(ValidateCallbackResult::Invalid(
                 "HearthInvitation is immutable; publish an InvitationResponse instead".into(),
@@ -228,50 +285,52 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             EntryTypes::InvitationResponse(_) => Ok(ValidateCallbackResult::Invalid(
                 "InvitationResponse cannot be updated once created".into(),
             )),
-            EntryTypes::Anchor(_) => {
-                // INVARIANT: Anchor immutability — anchors are deterministic link bases
-                // and must not be modified after creation.
-                Ok(ValidateCallbackResult::Invalid(
-                    "Anchor cannot be updated once created".into(),
-                ))
-            }
-            EntryTypes::WeeklyDigest(_) => {
-                // INVARIANT: WeeklyDigest immutability — digests are rollup snapshots
-                // of an epoch and cannot be modified after creation.
-                Ok(ValidateCallbackResult::Invalid(
-                    "WeeklyDigest cannot be updated once created".into(),
-                ))
-            }
+            EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Invalid(
+                "Anchor cannot be updated once created".into(),
+            )),
+            EntryTypes::WeeklyDigest(_) => Ok(ValidateCallbackResult::Invalid(
+                "WeeklyDigest cannot be updated once created".into(),
+            )),
         },
-        FlatOp::StoreEntry(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterCreateLink {
-            link_type,
-            base_address,
-            target_address,
-            tag,
-            action,
-        } => {
-            if tag.0.len() > 512 {
+        FlatOp::CreateEntry(_) => Ok(ValidateCallbackResult::Valid),
+
+        // 0.7 folds create/delete link validation into one Link variant.
+        FlatOp::Link(OpLink::CreateLink {
+            link_type, action, ..
+        }) => {
+            if action.tag.0.len() > 512 {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Link tag exceeds 512 bytes".into(),
                 ));
             }
-            validate_create_link(link_type, base_address, target_address, &action.author)
+            validate_create_link(
+                link_type,
+                action.base_address.clone(),
+                action.target_address.clone(),
+                action.author(),
+            )
         }
-        FlatOp::RegisterDeleteLink { tag, action, .. } => {
-            let original_action = must_get_action(action.link_add_address.clone())?;
-            let result = check_link_author_match(original_action.action().author(), &action.author);
+        FlatOp::Link(OpLink::DeleteLink {
+            action,
+            original_action,
+            ..
+        }) => {
+            let result =
+                check_link_author_match(original_action.author(), action.author());
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }
-            if tag.0.len() > 512 {
+            if action.tag.0.len() > 512 {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Link tag exceeds 512 bytes".into(),
                 ));
             }
             Ok(ValidateCallbackResult::Valid)
         }
-        FlatOp::RegisterUpdate(update) => {
+
+        // 0.7 update/delete arms use TypedAction and expose their target
+        // addresses through the action payload/accessors.
+        FlatOp::Update(update) => {
             let action = match &update {
                 OpUpdate::Entry { action, .. }
                 | OpUpdate::PrivateEntry { action, .. }
@@ -279,19 +338,36 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 | OpUpdate::CapClaim { action, .. }
                 | OpUpdate::CapGrant { action, .. } => action,
             };
-            let original = must_get_action(action.original_action_address.clone())?;
+            let original = must_get_action(update.original_action_hash())?;
             Ok(check_author_match(
                 original.action().author(),
-                &action.author,
+                action.author(),
                 "update",
             ))
         }
-        FlatOp::RegisterDelete(OpDelete { action, .. }) => {
-            let original = must_get_action(action.deletes_address.clone())?;
-            Ok(check_author_match(
-                original.action().author(),
-                &action.author,
+        FlatOp::Delete(OpDelete { action }) => {
+            let original = must_get_valid_record(action.deletes_address.clone())?;
+            let original_action =
+                TypedAction::<EntryCreationData>::try_from_action(original.action().clone())?;
+
+            let authorship = check_author_match(
+                original_action.author(),
+                action.author(),
                 "delete",
+            );
+            if authorship != ValidateCallbackResult::Valid {
+                return Ok(authorship);
+            }
+
+            // Hearth's integrity model is append-only for application evidence.
+            // Membership departure is represented by the constrained
+            // Active -> Departed update, never by deletion. Deleting an
+            // admission proof, Hearth identity, membership revision, invitation,
+            // response, index anchor, bond, or digest would create an avoidable
+            // gap between historical provenance and current authority.
+            Ok(ValidateCallbackResult::Invalid(
+                "Hearth application entries cannot be deleted; use the defined update lifecycle instead"
+                    .into(),
             ))
         }
         _ => Ok(ValidateCallbackResult::Valid),
@@ -479,6 +555,19 @@ pub fn validate_hearth(hearth: &Hearth) -> ExternResult<ValidateCallbackResult> 
         ));
     }
     Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_claimed_agent(
+    action_author: &AgentPubKey,
+    claimed_agent: &AgentPubKey,
+    field: &str,
+) -> ValidateCallbackResult {
+    if action_author != claimed_agent {
+        return ValidateCallbackResult::Invalid(format!(
+            "{field} must match the action author",
+        ));
+    }
+    ValidateCallbackResult::Valid
 }
 
 pub fn validate_membership(membership: &HearthMembership) -> ExternResult<ValidateCallbackResult> {
@@ -746,6 +835,18 @@ fn validate_hearth_immutable_fields(
     Ok(ValidateCallbackResult::Valid)
 }
 
+fn validate_membership_update_author(
+    action_author: &AgentPubKey,
+    original_agent: &AgentPubKey,
+) -> ValidateCallbackResult {
+    if action_author != original_agent {
+        return ValidateCallbackResult::Invalid(
+            "Only the member can publish a membership departure update".into(),
+        );
+    }
+    ValidateCallbackResult::Valid
+}
+
 fn validate_membership_immutable_fields(
     new: &HearthMembership,
     original_action_hash: &ActionHash,
@@ -910,6 +1011,20 @@ mod tests {
             expires_at: Timestamp::from_micros(2_000_000),
             status: InvitationStatus::Pending,
         }
+    }
+
+    // ---- Membership update authorship ----
+
+    #[test]
+    fn membership_departure_update_requires_member_author() {
+        assert_eq!(
+            validate_membership_update_author(&fake_agent_a(), &fake_agent_a()),
+            ValidateCallbackResult::Valid
+        );
+        assert!(matches!(
+            validate_membership_update_author(&fake_agent_b(), &fake_agent_a()),
+            ValidateCallbackResult::Invalid(_)
+        ));
     }
 
     // ---- Hearth Serde Roundtrips ----
@@ -1589,6 +1704,37 @@ mod tests {
         let mut b = a.clone();
         b.expires_at = Timestamp::from_micros(9_000_000);
         assert_ne!(a.expires_at, b.expires_at);
+    }
+
+    #[test]
+    fn identity_bearing_entry_author_must_match_claimed_identity() {
+        assert_eq!(
+            validate_claimed_agent(&fake_agent_a(), &fake_agent_a(), "Hearth.created_by"),
+            ValidateCallbackResult::Valid
+        );
+        assert!(matches!(
+            validate_claimed_agent(&fake_agent_a(), &fake_agent_b(), "Hearth.created_by"),
+            ValidateCallbackResult::Invalid(message) if message.contains("Hearth.created_by")
+        ));
+    }
+
+    #[test]
+    fn membership_author_binding_blocks_forged_founder_identity() {
+        // A malicious author must not be able to publish a membership that
+        // claims to belong to another agent, even if its admission payload is
+        // otherwise structurally valid.
+        assert!(matches!(
+            validate_claimed_agent(&fake_agent_b(), &fake_agent_a(), "HearthMembership.agent"),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
+    fn invitation_author_binding_blocks_forged_inviter_identity() {
+        assert!(matches!(
+            validate_claimed_agent(&fake_agent_b(), &fake_agent_a(), "HearthInvitation.inviter"),
+            ValidateCallbackResult::Invalid(_)
+        ));
     }
 
     #[test]
