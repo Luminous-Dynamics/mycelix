@@ -548,22 +548,33 @@ async fn test_assigned_capability_binds_signer_and_revocation() {
     let mut assignees = std::collections::BTreeSet::new();
     assignees.insert(bob.clone());
 
-    let grant_action_hash = conductor
-        .grant_zome_call_capability(GrantZomeCallCapabilityPayload {
-            cell_id: alice.cell_id().clone(),
-            cap_grant: GrantZomeCallCapabilityGrant {
-                tag: "HEARTH-AUTH-ASSIGNED-1".into(),
-                constraint: GrantConstraint::Assigned {
-                    secret: cap_secret,
-                    assignees,
-                },
-                grant: ZomeCallGrant {
-                    functions: GrantedFunctions::Listed(functions),
+    // Exercise the public 0.7 Admin API for both grant creation and revocation.
+    // This keeps AUTH-10 at the same conductor/admin boundary rather than mixing
+    // a direct test helper for creation with an AdminRequest only for revocation.
+    let (admin_tx, _admin_rx) = conductor.admin_ws_client::<AdminResponse>().await;
+    let grant_response = admin_tx
+        .request(AdminRequest::GrantZomeCallCapability(Box::new(
+            GrantZomeCallCapabilityPayload {
+                cell_id: alice.cell_id().clone(),
+                cap_grant: GrantZomeCallCapabilityGrant {
+                    tag: "HEARTH-AUTH-ASSIGNED-1".into(),
+                    constraint: GrantConstraint::Assigned {
+                        secret: cap_secret,
+                        assignees,
+                    },
+                    grant: ZomeCallGrant {
+                        functions: GrantedFunctions::Listed(functions),
+                    },
                 },
             },
-        })
+        )))
         .await
         .unwrap();
+
+    let grant_action_hash = match grant_response {
+        AdminResponse::ZomeCallCapabilityGranted(action_hash) => action_hash,
+        other => panic!("assigned capability grant failed: {other:?}"),
+    };
 
     retry_fn_until_timeout(
         || async {
@@ -617,7 +628,6 @@ async fn test_assigned_capability_binds_signer_and_revocation() {
     }
 
     // Revoke the exact grant, then prove the previously authorized signer loses access.
-    let (admin_tx, _admin_rx) = conductor.admin_ws_client::<AdminResponse>().await;
     let revoke_response = admin_tx
         .request(AdminRequest::RevokeZomeCallCapability {
             action_hash: grant_action_hash,
