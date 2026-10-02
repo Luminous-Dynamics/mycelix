@@ -49,6 +49,8 @@ The new implementation remains a policy/type boundary. `VerificationEvidence` is
 
 ## Evidence durability invariant
 
+Build reproducibility is part of the security evidence boundary as well: the standalone bridge crate is committed with a `Cargo.lock`, and qualification invokes Cargo with `--locked`. A missing or divergent lockfile therefore fails qualification rather than silently changing the dependency graph.
+
 The kernel enforces a stronger rule than a fixed permit maximum:
 
 > **No authorization decision may become more durable than the evidence supporting it.**
