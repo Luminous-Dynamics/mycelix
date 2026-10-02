@@ -150,7 +150,7 @@ mod linux {
         SockFilter { code: BPF_JMP | BPF_JEQ | BPF_K, jt, jf, k }
     }
 
-    pub(crate) fn compile_filter(policy: &SeccompSyscallPolicyV1) -> Result<Vec<SockFilter>, SeccompError> {
+    fn compile_filter(policy: &SeccompSyscallPolicyV1) -> Result<Vec<SockFilter>, SeccompError> {
         if SeccompArchitecture::current() != Some(policy.architecture) {
             return Err(SeccompError::ArchitectureMismatch);
         }
