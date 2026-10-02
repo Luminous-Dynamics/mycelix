@@ -36,6 +36,7 @@ state representation.
 - bank loan/deposit double-entry credit creation
 - deterministic `EconomicTransition` timestep execution
 - `EconomicStepReceipt` state/transition hashes
+- `EconomicChainReceipt` multi-period evidence chaining
 - `EconomicState`
 - aggregate asset/liability accounting
 - gross leverage observable
@@ -340,6 +341,24 @@ This follows the SFC structure in which investment is represented in the transac
 
 The next refinement should therefore be a distinct production/inventory layer rather than silently expanding `CapitalInvestment` to cover everything. That layer can introduce output, inventories, intermediate inputs, resource depletion, wages, and operating surplus while retaining the same deterministic posting/reconciliation machinery.
 
+
+## Multi-period evidence chain (implemented)
+
+A single deterministic timestep is now linkable into an append-only evidence history through EconomicChainReceipt.
+
+Each chain node binds:
+
+- the predecessor receipt hash;
+- the complete step receipt;
+- the resulting chain hash.
+
+Therefore changing transition order, pre/post state, period, or any predecessor changes the downstream chain. This provides a lightweight audit primitive for long economic simulations without putting evidence bookkeeping into the economic state itself.
+
+The intended evidence path is:
+
+`model/parameters -> initial state hash -> step receipt -> chained receipt -> observations`
+
+Later scenario runners can persist the chain alongside parameter manifests and observation provenance so an output can be traced to the exact sequence of state transitions that produced it.
 
 ## Derived financial and financing observables (implemented)
 
