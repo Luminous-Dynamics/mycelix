@@ -480,6 +480,33 @@ impl FinalityEligibilityLedgerV1 {
         }
     }
 
+    /// Return a witness only when the stored witness is bound to the exact
+    /// frontier requested by the caller. This is a selection/binding check,
+    /// not an authority proof: the caller must still establish that the
+    /// expected frontier is authoritative for its trust domain.
+    pub fn witness_at_frontier(
+        &self,
+        observation_id: &str,
+        expected_frontier_root: &str,
+    ) -> Option<&FinalityWitnessEligibilityV1> {
+        if observation_id.is_empty() || expected_frontier_root.is_empty() {
+            return None;
+        }
+        let witness = self.witnesses.get(observation_id)?;
+        let expected_commitment = format!(
+            "witness:{}:{}:{}:{}",
+            witness.observation_id,
+            witness.d6n_observation_set_commitment,
+            witness.d6o_eligibility_id.as_deref().unwrap_or("missing"),
+            expected_frontier_root
+        );
+        (witness.current_frontier_root == expected_frontier_root
+            && witness.observation_frontier_root == expected_frontier_root
+            && witness.witness_commitment == expected_commitment
+            && witness.structurally_valid())
+            .then_some(witness)
+    }
+
     pub fn record_composition(
         &mut self,
         composition: FinalityEligibilityCompositionV1,
@@ -1345,6 +1372,30 @@ mod tests {
         };
         composition.composition_commitment = composition.recomputed_commitment();
         composition
+    }
+
+    #[test]
+    fn ledger_witness_selection_requires_expected_frontier() {
+        let composition = matching_composition();
+        let witness = composition.witnesses[0].clone();
+        let mut ledger = FinalityEligibilityLedgerV1::default();
+
+        assert_eq!(
+            ledger.record_witness(witness.clone()),
+            FinalityCompositionRecordDispositionV1::Recorded
+        );
+        assert_eq!(
+            ledger
+                .witness_at_frontier(&witness.observation_id, &witness.current_frontier_root)
+                .map(|stored| &stored.witness_commitment),
+            Some(&witness.witness_commitment)
+        );
+        assert!(ledger
+            .witness_at_frontier(&witness.observation_id, "frontier-replayed")
+            .is_none());
+        assert!(ledger
+            .witness_at_frontier(&witness.observation_id, "")
+            .is_none());
     }
 
     #[test]
