@@ -15,6 +15,7 @@
 //! stream is supplied.
 
 use hdi::prelude::*;
+use listings_integrity::Listing;
 use std::collections::BTreeMap;
 
 use crate::reservation::{ApplyOutcome, Reservation, ReservationError, ReservationLedger};
@@ -1748,14 +1749,50 @@ pub fn validate_create_reservation_certificate(
         ));
     }
 
-    let listing_action = must_get_action(certificate.listing_hash.clone())?;
+    // The action hash must resolve to an actual, already-valid Marketplace Listing;
+    // an arbitrary seller-authored Create/Update action is not sufficient authority.
+    let listing_record = must_get_valid_record(certificate.listing_hash.clone())?;
+    let listing = listing_record
+        .entry()
+        .to_app_option::<Listing>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Invalid listing entry: {e:?}"
+            )))
+        })?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "ReservationCertificate listing dependency is not a Listing entry".into(),
+            ))
+        })?;
+    let listing_action = listing_record.action();
     if listing_action.author() != &certificate.seller {
         return Ok(ValidateCallbackResult::Invalid(
             "ReservationCertificate seller does not own the referenced listing action".into(),
         ));
     }
 
-    let revision_action = must_get_action(certificate.listing_revision.clone())?;
+    // Keep the decoded Listing live so a successful type check is an explicit
+    // dependency of validation; the transaction protocol currently does not
+    // require a particular ListingStatus here because inventory authority is
+    // represented by the reservation frontier itself.
+    let _ = listing;
+
+    let revision_record = must_get_valid_record(certificate.listing_revision.clone())?;
+    let revision_action = revision_record.action();
+    let _revision_listing = revision_record
+        .entry()
+        .to_app_option::<Listing>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Invalid listing revision entry: {e:?}"
+            )))
+        })?
+        .ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "ReservationCertificate listing revision is not a Listing entry".into(),
+            ))
+        })?;
     if revision_action.author() != &certificate.seller {
         return Ok(ValidateCallbackResult::Invalid(
             "ReservationCertificate listing revision is not seller-authored".into(),
