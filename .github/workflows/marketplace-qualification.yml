@@ -38,7 +38,19 @@ jobs:
 
       - name: Check backend formatting
         working-directory: mycelix-workspace/mycelix-marketplace/backend
-        run: cargo fmt --all --check
+        shell: bash
+        run: |
+          set +e
+          cargo fmt --all --check 2>&1 | tee /tmp/marketplace-format.log
+          status=${PIPESTATUS[0]}
+          {
+            echo "## Marketplace formatting"
+            echo
+            echo "----- formatter output -----"
+            cat /tmp/marketplace-format.log
+            echo "----- end formatter output -----"
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
 
   tests:
     name: Marketplace tests
@@ -57,8 +69,32 @@ jobs:
 
       - name: Test transaction integrity algebra
         working-directory: mycelix-workspace/mycelix-marketplace/backend
-        run: cargo test -p transactions_integrity
+        shell: bash
+        run: |
+          set +e
+          cargo test -p transactions_integrity 2>&1 | tee /tmp/transactions-integrity.log
+          status=${PIPESTATUS[0]}
+          {
+            echo "## transactions_integrity"
+            echo
+            echo "----- test output -----"
+            cat /tmp/transactions-integrity.log
+            echo "----- end test output -----"
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
 
       - name: Test marketplace backend workspace
         working-directory: mycelix-workspace/mycelix-marketplace/backend
-        run: cargo test --workspace
+        shell: bash
+        run: |
+          set +e
+          cargo test --workspace 2>&1 | tee /tmp/marketplace-workspace.log
+          status=${PIPESTATUS[0]}
+          {
+            echo "## Marketplace workspace"
+            echo
+            echo "----- workspace output -----"
+            cat /tmp/marketplace-workspace.log
+            echo "----- end workspace output -----"
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
