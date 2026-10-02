@@ -174,7 +174,7 @@ impl ActorEconomicObservables {
             + self.deposits
             + self.loan_claims;
         (assets != 0).then_some(RatioObservation {
-            numerator: self.debt + self.debt_repaid.saturating_sub(self.debt_repaid),
+            numerator: self.debt,
             denominator: assets,
         })
     }
