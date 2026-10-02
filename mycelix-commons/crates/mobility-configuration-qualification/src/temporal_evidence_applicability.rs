@@ -1939,6 +1939,232 @@ mod tests {
     }
 
     #[test]
+    fn reconciliation_coverage_assessment_rejects_invalid_authority_chain_before_unresolved() {
+        let disputed = EvidenceDisposition::Disputed {
+            by: id(IdentityKind::ReconciliationWitness, "w1"),
+        };
+        let left = graph_transition(
+            "t2",
+            Some("missing-transition-parent-invalid-authority"),
+            disputed.clone(),
+            EvidenceDisposition::Active,
+        );
+        let right = graph_transition(
+            "t3",
+            Some("missing-transition-parent-invalid-authority"),
+            disputed,
+            EvidenceDisposition::Retracted {
+                by: id(IdentityKind::ReconciliationWitness, "w2"),
+            },
+        );
+        let reconciliation = EvidenceDispositionReconciliation {
+            reconciliation_id: id(
+                IdentityKind::ReconciliationWitness,
+                "reconcile-invalid-authority-precedence",
+            ),
+            evidence: id(IdentityKind::InspectionRecord, "inspection-graph"),
+            branch_point: id(
+                IdentityKind::ReconciliationWitness,
+                "missing-transition-parent-invalid-authority",
+            ),
+            branch_heads: vec![
+                id(IdentityKind::ReconciliationWitness, "t2"),
+                id(IdentityKind::ReconciliationWitness, "t3"),
+            ],
+            authority: id(IdentityKind::ReconciliationWitness, "authority-invalid-precedence"),
+            authority_scope: id(
+                IdentityKind::ReconciliationWitness,
+                "authority-scope-invalid-precedence",
+            ),
+            authority_delegation: id(
+                IdentityKind::ReconciliationWitness,
+                "authority-delegation-invalid-precedence-child",
+            ),
+            basis: vec![],
+        };
+        let scope = EvidenceDispositionAuthorityScope {
+            scope_id: reconciliation.authority_scope.clone(),
+            authority: reconciliation.authority.clone(),
+            subject: reconciliation.reconciliation_id.clone(),
+            delegation: reconciliation.authority_delegation.clone(),
+            basis: vec![],
+        };
+        let child = EvidenceDispositionAuthorityDelegation {
+            delegation_id: reconciliation.authority_delegation.clone(),
+            grantor: id(
+                IdentityKind::ReconciliationWitness,
+                "authority-grantor-invalid-precedence",
+            ),
+            grantee: reconciliation.authority.clone(),
+            subject: reconciliation.reconciliation_id.clone(),
+            predecessor: Some(id(
+                IdentityKind::ReconciliationWitness,
+                "authority-delegation-invalid-precedence-root",
+            )),
+            basis: vec![],
+        };
+        let invalid_root = EvidenceDispositionAuthorityDelegation {
+            delegation_id: child.predecessor.clone().unwrap(),
+            grantor: id(
+                IdentityKind::ReconciliationWitness,
+                "authority-root-grantor-invalid-precedence",
+            ),
+            grantee: child.grantor.clone(),
+            subject: id(
+                IdentityKind::ReconciliationWitness,
+                "different-authority-subject",
+            ),
+            predecessor: None,
+            basis: vec![],
+        };
+        let boundary = EvidenceDispositionCoverageBoundary {
+            boundary_id: id(
+                IdentityKind::ReconciliationWitness,
+                "boundary-invalid-authority-precedence",
+            ),
+            reconciliation: reconciliation.reconciliation_id.clone(),
+            evidence: reconciliation.evidence.clone(),
+            branch_point: reconciliation.branch_point.clone(),
+            branch_heads: reconciliation.branch_heads.clone(),
+            authority: reconciliation.authority.clone(),
+            authority_scope: reconciliation.authority_scope.clone(),
+            authority_delegation: reconciliation.authority_delegation.clone(),
+            basis: vec![],
+        };
+        let coverage = EvidenceDispositionReconciliationCoverage {
+            coverage_id: id(
+                IdentityKind::ReconciliationWitness,
+                "coverage-invalid-authority-precedence",
+            ),
+            reconciliation: reconciliation.reconciliation_id.clone(),
+            branch_point: reconciliation.branch_point.clone(),
+            covered_branch_heads: reconciliation.branch_heads.clone(),
+            boundary: boundary.boundary_id.clone(),
+            basis: boundary.basis.clone(),
+        };
+
+        assert!(coverage
+            .validate_against_graph_and_authority_chain_assessment(
+                &reconciliation,
+                &scope,
+                &child,
+                &[invalid_root, child],
+                &boundary,
+                &[left, right],
+            )
+            .is_err());
+    }
+
+    #[test]
+    fn reconciliation_coverage_assessment_aggregates_missing_transition_and_authority_dependencies() {
+        let disputed = EvidenceDisposition::Disputed {
+            by: id(IdentityKind::ReconciliationWitness, "w1"),
+        };
+        let missing_transition = id(
+            IdentityKind::ReconciliationWitness,
+            "missing-transition-and-authority",
+        );
+        let left = graph_transition(
+            "t2",
+            Some("missing-transition-and-authority"),
+            disputed.clone(),
+            EvidenceDisposition::Active,
+        );
+        let right = graph_transition(
+            "t3",
+            Some("missing-transition-and-authority"),
+            disputed,
+            EvidenceDisposition::Retracted {
+                by: id(IdentityKind::ReconciliationWitness, "w2"),
+            },
+        );
+        let missing_delegation = id(
+            IdentityKind::ReconciliationWitness,
+            "missing-authority-dependency",
+        );
+        let reconciliation = EvidenceDispositionReconciliation {
+            reconciliation_id: id(
+                IdentityKind::ReconciliationWitness,
+                "reconcile-multiple-missing",
+            ),
+            evidence: id(IdentityKind::InspectionRecord, "inspection-graph"),
+            branch_point: missing_transition.clone(),
+            branch_heads: vec![
+                id(IdentityKind::ReconciliationWitness, "t2"),
+                id(IdentityKind::ReconciliationWitness, "t3"),
+            ],
+            authority: id(IdentityKind::ReconciliationWitness, "authority-multiple-missing"),
+            authority_scope: id(
+                IdentityKind::ReconciliationWitness,
+                "authority-scope-multiple-missing",
+            ),
+            authority_delegation: missing_delegation.clone(),
+            basis: vec![],
+        };
+        let scope = EvidenceDispositionAuthorityScope {
+            scope_id: reconciliation.authority_scope.clone(),
+            authority: reconciliation.authority.clone(),
+            subject: reconciliation.reconciliation_id.clone(),
+            delegation: reconciliation.authority_delegation.clone(),
+            basis: vec![],
+        };
+        let delegation = EvidenceDispositionAuthorityDelegation {
+            delegation_id: missing_delegation.clone(),
+            grantor: id(
+                IdentityKind::ReconciliationWitness,
+                "authority-grantor-multiple-missing",
+            ),
+            grantee: reconciliation.authority.clone(),
+            subject: reconciliation.reconciliation_id.clone(),
+            predecessor: None,
+            basis: vec![],
+        };
+        let boundary = EvidenceDispositionCoverageBoundary {
+            boundary_id: id(
+                IdentityKind::ReconciliationWitness,
+                "boundary-multiple-missing",
+            ),
+            reconciliation: reconciliation.reconciliation_id.clone(),
+            evidence: reconciliation.evidence.clone(),
+            branch_point: reconciliation.branch_point.clone(),
+            branch_heads: reconciliation.branch_heads.clone(),
+            authority: reconciliation.authority.clone(),
+            authority_scope: reconciliation.authority_scope.clone(),
+            authority_delegation: reconciliation.authority_delegation.clone(),
+            basis: vec![],
+        };
+        let coverage = EvidenceDispositionReconciliationCoverage {
+            coverage_id: id(
+                IdentityKind::ReconciliationWitness,
+                "coverage-multiple-missing",
+            ),
+            reconciliation: reconciliation.reconciliation_id.clone(),
+            branch_point: reconciliation.branch_point.clone(),
+            covered_branch_heads: reconciliation.branch_heads.clone(),
+            boundary: boundary.boundary_id.clone(),
+            basis: boundary.basis.clone(),
+        };
+
+        let mut expected_missing = vec![missing_delegation, missing_transition];
+        expected_missing.sort_by(|a, b| (&a.namespace, &a.id).cmp(&(&b.namespace, &b.id)));
+
+        assert_eq!(
+            coverage.validate_against_graph_and_authority_chain_assessment(
+                &reconciliation,
+                &scope,
+                &delegation,
+                &[],
+                &boundary,
+                &[left, right],
+            ),
+            Ok(EvidenceDispositionCoverageAssessment::Unresolved {
+                missing: expected_missing,
+                authority_roots: vec![],
+            })
+        );
+    }
+
+    #[test]
     fn authority_delegation_graph_requires_basis_continuity() {
         let mut root = authority_delegation("reconcile-delegation-basis");
         let inherited = id(IdentityKind::EvidenceRecord, "delegation-root-basis");
