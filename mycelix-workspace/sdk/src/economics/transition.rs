@@ -130,7 +130,7 @@ pub fn transition_hash(
 }
 
 fn aggregate_claims(state: &EconomicState) -> i128 {
-    state.actors.iter().map(|actor| actor.monetary.claims).sum()
+    state.aggregate_claims()
 }
 
 #[cfg(test)]
