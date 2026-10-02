@@ -42,43 +42,43 @@ jobs:
       - run: cargo +1.96.0 test -p prism-bridge --locked
 
       - name: Emit qualification identity
-        if: \${{ always() }}
+        if: ${{ always() }}
         shell: bash
         run: |
           set -euo pipefail
-          evidence="\${RUNNER_TEMP}/prism-bridge-qualification-evidence.txt"
-          expected_head="\${{ github.event.pull_request.head.sha || github.sha }}"
+          evidence="${RUNNER_TEMP}/prism-bridge-qualification-evidence.txt"
+          expected_head="${{ github.event.pull_request.head.sha || github.sha }}"
           checked_out_head="\$(git rev-parse HEAD)"
-          job_status="\${{ job.status }}"
+          job_status="${{ job.status }}"
           qualified="false"
-          if [[ "\${job_status}" == "success" && "\${checked_out_head}" == "\${expected_head}" ]]; then
+          if [[ "${job_status}" == "success" && "${checked_out_head}" == "${expected_head}" ]]; then
             qualified="true"
           fi
 
           {
             echo "schema=PRISM-BRIDGE-QUALIFICATION-EVIDENCE-V1"
             echo "qualification=PRISM-BRIDGE-CANONICAL"
-            echo "qualified=\${qualified}"
-            echo "job_status=\${job_status}"
-            echo "workflow=\${GITHUB_WORKFLOW}"
-            echo "run_id=\${GITHUB_RUN_ID}"
-            echo "run_attempt=\${GITHUB_RUN_ATTEMPT}"
-            echo "tested_head=\${expected_head}"
-            echo "checked_out_head=\${checked_out_head}"
-            echo "event_sha=\${GITHUB_SHA}"
+            echo "qualified=${qualified}"
+            echo "job_status=${job_status}"
+            echo "workflow=${GITHUB_WORKFLOW}"
+            echo "run_id=${GITHUB_RUN_ID}"
+            echo "run_attempt=${GITHUB_RUN_ATTEMPT}"
+            echo "tested_head=${expected_head}"
+            echo "checked_out_head=${checked_out_head}"
+            echo "event_sha=${GITHUB_SHA}"
             echo "rust=1.96.0"
-          } | tee "\${evidence}"
+          } | tee "${evidence}"
 
-          if [[ "\${checked_out_head}" != "\${expected_head}" ]]; then
-            echo "ERROR: checkout provenance mismatch" | tee -a "\${evidence}" >&2
+          if [[ "${checked_out_head}" != "${expected_head}" ]]; then
+            echo "ERROR: checkout provenance mismatch" | tee -a "${evidence}" >&2
             exit 1
           fi
 
       - name: Upload qualification evidence
-        if: \${{ always() }}
+        if: ${{ always() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: prism-bridge-qualification-evidence-\${{ github.run_id }}-\${{ github.run_attempt }}
-          path: \${{ runner.temp }}/prism-bridge-qualification-evidence.txt
+          name: prism-bridge-qualification-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/prism-bridge-qualification-evidence.txt
           if-no-files-found: error
           retention-days: 90
