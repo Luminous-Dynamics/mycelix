@@ -788,6 +788,8 @@ define_federation_mutations!(
     StaleSchema,
     ConflictingObservation,
     ExpiredAuthorization,
+    RevokedAuthorization,
+    AbsentAuthorization,
     ContractOriginMutation,
     ContractTargetMutation,
     ContractSubjectMutation,
@@ -830,6 +832,9 @@ fn expected_scenario_decision(mutation: FederationMutation) -> FederationDecisio
         FederationMutation::StaleSchema => FederationDecision::StaleGeneration,
         FederationMutation::ConflictingObservation => FederationDecision::PayloadConflict,
         FederationMutation::ExpiredAuthorization => FederationDecision::ExpiredAuthorization,
+        FederationMutation::RevokedAuthorization | FederationMutation::AbsentAuthorization => {
+            FederationDecision::Unauthorized
+        }
         FederationMutation::ContractOriginMutation => FederationDecision::OriginConflict,
         FederationMutation::ContractTargetMutation => FederationDecision::ContractConflict,
         FederationMutation::ContractSubjectMutation | FederationMutation::ContractPayloadMutation => {
@@ -859,6 +864,8 @@ fn expected_scenario_authority(mutation: FederationMutation) -> AuthorityDisposi
         | FederationMutation::StaleSchema
         | FederationMutation::ConflictingObservation
         | FederationMutation::ExpiredAuthorization
+        | FederationMutation::RevokedAuthorization
+        | FederationMutation::AbsentAuthorization
         | FederationMutation::ContractOriginMutation
         | FederationMutation::ContractTargetMutation
         | FederationMutation::ContractSubjectMutation
@@ -962,6 +969,12 @@ pub fn run_scenario(
             }
             FederationMutation::ExpiredAuthorization => {
                 candidate.expires_at = Some(now.saturating_sub(1));
+            }
+            FederationMutation::RevokedAuthorization => {
+                candidate.authorization = AuthorizationState::Revoked;
+            }
+            FederationMutation::AbsentAuthorization => {
+                candidate.authorization = AuthorizationState::Absent;
             }
             FederationMutation::Reconnect => {}
             FederationMutation::LocalEvidence | FederationMutation::Partition => {}
@@ -1912,6 +1925,26 @@ mod tests {
 
             let outcome = deliver(&mut state, &malformed, 50, true);
             assert_eq!(outcome.decision, FederationDecision::Rejected);
+            assert_eq!(outcome.authority, AuthorityDisposition::NoAuthority);
+            assert_eq!(state.delivery_count(), 0);
+            assert_eq!(state.observation_count(), 0);
+        }
+    }
+
+    #[test]
+    fn explicit_non_active_authorization_states_fail_closed_without_mutation() {
+        for authorization in [AuthorizationState::Expired, AuthorizationState::Revoked, AuthorizationState::Absent] {
+            let mut state = nodes();
+            let mut candidate = envelope();
+            candidate.authorization = authorization;
+
+            let outcome = deliver(&mut state, &candidate, 50, true);
+            let expected = match authorization {
+                AuthorizationState::Expired => FederationDecision::ExpiredAuthorization,
+                AuthorizationState::Revoked | AuthorizationState::Absent => FederationDecision::Unauthorized,
+                AuthorizationState::Active => unreachable!(),
+            };
+            assert_eq!(outcome.decision, expected, "unexpected decision for {authorization:?}");
             assert_eq!(outcome.authority, AuthorityDisposition::NoAuthority);
             assert_eq!(state.delivery_count(), 0);
             assert_eq!(state.observation_count(), 0);
