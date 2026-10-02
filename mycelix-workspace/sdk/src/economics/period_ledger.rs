@@ -243,7 +243,9 @@ impl EconomicPeriodLedger {
 mod tests {
     use super::*;
     use crate::economics::stock_flow::{
-        CapitalInvestment, ProductionEvent, InventoryTransfer, InventoryConsumption, GoodsSale, CreditCreation, DebtRepayment, EconomicFlowCategory, IncomeTransfer, MonetaryFlow,
+        CapitalInvestment, CreditCreation, DebtRepayment, Depreciation, EconomicFlowCategory,
+        GoodsSale, IncomeTransfer, InventoryConsumption, InventoryCostAddition,
+        InventoryCostRelief, InventoryTransfer, MonetaryFlow, ProductionEvent,
     };
 
     #[test]
