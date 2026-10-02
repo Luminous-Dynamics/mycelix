@@ -77,7 +77,8 @@ check_absent "legacy 0.6 sandbox transport spelling" '\bwebrtc\b'
 check_absent_multiline "removed ChainFilter builder methods" 'ChainFilter::new\([^)]*\)[[:space:]]*\.[[:space:]]*(until_hash|take|until_timestamp)[[:space:]]*\('
 
 # 0.7 dependency floor must be visible in Hearth manifests.
-check_present "Hearth HDK/HDI 0.7 dependency floor" 'hdk\s*=\s*"=0\.7\.0"|hdi\s*=\s*"=0\.8\.0"'
+check_present "Hearth HDK 0.7.0 dependency floor" 'hdk\s*=\s*"=0\.7\.0"'
+check_present "Hearth HDI 0.8.0 dependency floor" 'hdi\s*=\s*"=0\.8\.0"'
 check_present "Hearth flake uses Holonix main-0.7" 'holonix.*ref=main-0\.7'
 check_lock_present "flake.lock pins Holochain 0.7.0" '"original"[[:space:]]*:[[:space:]]*\{[[:space:]]*"owner"[[:space:]]*:[[:space:]]*"holochain"[[:space:]]*,[[:space:]]*"ref"[[:space:]]*:[[:space:]]*"holochain-0\.7\.0"'
 check_lock_present "flake.lock pins Kitsune2 0.5.0" '"original"[[:space:]]*:[[:space:]]*\{[[:space:]]*"owner"[[:space:]]*:[[:space:]]*"holochain"[[:space:]]*,[[:space:]]*"ref"[[:space:]]*:[[:space:]]*"v0\.5\.0"'
