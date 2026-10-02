@@ -103,6 +103,14 @@
       "mutated_field": "eligible_independent_count",
       "stored_commitment": "d6p-receipt",
       "earliest_rejection": "D6P:receipt"
+    },
+    {
+      "id": "d6p-recomputed-d6o-profile-substitution",
+      "layer": "D6P",
+      "mutated_field": "d6o.qualification_profile_id",
+      "stored_commitment": "d6o-eligibility-receipt",
+      "earliest_rejection": "D6P:witness-join",
+      "property": "local-integrity-preserved-cross-layer-provenance-rejected"
     }
   ]
 }
