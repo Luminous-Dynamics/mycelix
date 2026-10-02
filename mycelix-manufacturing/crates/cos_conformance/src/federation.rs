@@ -1246,6 +1246,54 @@ mod tests {
     }
 
     #[test]
+    fn scenario_oracle_is_invariant_to_recognition_input_order() {
+        let mut forward = nodes();
+        forward.add_recognition(RecognitionEdge {
+            recognizing_node: "node-a".into(),
+            origin_node: "node-b".into(),
+            scope: "subject-1".into(),
+            mode: RecognitionMode::EvidenceOnly,
+        });
+        forward.add_recognition(RecognitionEdge {
+            recognizing_node: "node-a".into(),
+            origin_node: "node-c".into(),
+            scope: "subject-2".into(),
+            mode: RecognitionMode::DelegatedAuthority,
+        });
+
+        let mut reverse = nodes();
+        reverse.add_recognition(RecognitionEdge {
+            recognizing_node: "node-a".into(),
+            origin_node: "node-c".into(),
+            scope: "subject-2".into(),
+            mode: RecognitionMode::DelegatedAuthority,
+        });
+        reverse.add_recognition(RecognitionEdge {
+            recognizing_node: "node-a".into(),
+            origin_node: "node-b".into(),
+            scope: "subject-1".into(),
+            mode: RecognitionMode::EvidenceOnly,
+        });
+
+        let candidate = envelope();
+        let steps = [
+            FederationScenarioStep {
+                mutation: FederationMutation::NewLogicalDelivery,
+                expected: FederationDecision::AcceptedLocal,
+            },
+            FederationScenarioStep {
+                mutation: FederationMutation::DuplicateDelivery,
+                expected: FederationDecision::Duplicate,
+            },
+        ];
+
+        assert_eq!(
+            run_scenario(forward, candidate.clone(), &steps, 50),
+            run_scenario(reverse, candidate, &steps, 50)
+        );
+    }
+
+    #[test]
     fn scenario_oracle_is_deterministic_and_claim_bounded() {
         let initial = nodes();
         let candidate = envelope();
@@ -1308,7 +1356,10 @@ mod tests {
             },
         ];
 
-        let results = run_scenario(initial, candidate, &steps, 50);
+        let results = run_scenario(initial.clone(), candidate.clone(), &steps, 50);
+        let repeated = run_scenario(initial, candidate, &steps, 50);
+
+        assert_eq!(results, repeated);
         assert!(results.iter().all(|result| result.passed));
 
         for result in &results {
