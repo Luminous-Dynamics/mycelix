@@ -359,6 +359,17 @@ mod tests {
     }
 
     #[test]
+    fn duplicate_assignment_is_rejected_deterministically() {
+        let state = EconomicState::new(vec![ActorBalanceSheet::new("household")]);
+        let assignments = vec![
+            SectorAssignment { actor: "household".into(), sector: EconomicSector::Household },
+            SectorAssignment { actor: "household".into(), sector: EconomicSector::Firm },
+        ];
+        let error = SectorBalanceSheet::from_state(&state, &assignments).unwrap_err();
+        assert!(error.contains("exactly one sector assignment"));
+    }
+
+    #[test]
     fn missing_assignment_is_rejected() {
         let state = EconomicState::new(vec![ActorBalanceSheet::new("household")]);
         let error = SectorBalanceSheet::from_state(&state, &[]).unwrap_err();
