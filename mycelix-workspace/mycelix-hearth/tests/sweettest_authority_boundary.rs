@@ -455,3 +455,59 @@ async fn test_authorized_call_reaches_zome_and_is_semantically_rejected() {
         other => panic!("expected ZomeCalled response, got {other:?}"),
     }
 }
+
+
+#[test]
+fn test_authority_case_manifest_is_structurally_valid() {
+    let manifest: serde_json::Value = serde_json::from_str(include_str!(
+        "hearth-07-authority-boundary-cases.json"
+    ))
+    .expect("authority case manifest must be valid JSON");
+
+    assert_eq!(
+        manifest["schema_version"],
+        "HEARTH-AUTH-0.7-CASESET-1"
+    );
+
+    let cases = manifest["cases"]
+        .as_array()
+        .expect("authority case manifest must contain a cases array");
+
+    assert_eq!(cases.len(), 8, "manifest must enumerate all current authority cases");
+
+    let mut ids = cases
+        .iter()
+        .map(|case| {
+            case["case_id"]
+                .as_str()
+                .expect("every authority case needs a case_id")
+                .to_owned()
+        })
+        .collect::<Vec<_>>();
+    ids.sort();
+
+    assert_eq!(
+        ids,
+        vec![
+            "AUTH-01",
+            "AUTH-02",
+            "AUTH-03",
+            "AUTH-04",
+            "AUTH-05",
+            "AUTH-06",
+            "AUTH-07",
+            "AUTH-08",
+        ]
+    );
+
+    for case in cases {
+        assert!(case["test"].is_string(), "every case needs a test name");
+        assert!(case["boundary"].is_string(), "every case needs a boundary");
+        assert!(case["expected"].is_string(), "every case needs an expected result");
+        assert!(
+            case["semantic_execution"].is_boolean()
+                || case["semantic_execution"].as_str().is_some(),
+            "semantic_execution must be boolean or a documented phase marker"
+        );
+    }
+}
