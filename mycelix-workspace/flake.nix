@@ -19,14 +19,13 @@
   description = "Mycelix Ecosystem - Unified development environment for all hApps";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nixpkgs.follows = "holonix/nixpkgs";
     flake-utils.url = "github:numtide/flake-utils";
 
-    # Holochain from Holonix — direct commit pin below is the source of truth.
-    # Current pin is Holochain 0.6-era; the ROS-006 0.7 normalization must update this input and regenerate flake.lock together.
+    # Holochain 0.7 generation. The lockfile must be regenerated from this input;
+    # do not hand-edit the generated dependency graph.
     holonix = {
-      url = "github:holochain/holonix/d21b3543"; # Update this input together with flake.lock; no separate holochain-versions.nix authority.
-      inputs.nixpkgs.follows = "nixpkgs";
+      url = "github:holochain/holonix?ref=main-0.7";
     };
 
     # Rust toolchain
@@ -87,7 +86,7 @@
 
         # Node.js packages
         nodeEnv = with pkgs; [
-          nodejs_20
+          nodejs_24
           nodePackages.pnpm
           nodePackages.typescript
           nodePackages.typescript-language-server
