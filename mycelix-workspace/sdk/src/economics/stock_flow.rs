@@ -1363,7 +1363,7 @@ mod tests {
         assert_eq!(s.net_credit_impulse(), 200);
     }
 
-#[test]
+    #[test]
     fn closed_financial_rows_require_matching_counterparts() {
         let mut bank = ActorBalanceSheet::new("bank");
         let mut firm = ActorBalanceSheet::new("firm");
@@ -1383,5 +1383,13 @@ mod tests {
 
     #[test]
     fn aggregate_checked_sums_fail_closed_on_overflow() {
+        let mut max_actor = ActorBalanceSheet::new("max");
+        max_actor.monetary.deposits = i128::MAX;
+        let mut overflow_actor = ActorBalanceSheet::new("overflow");
+        overflow_actor.monetary.deposits = 1;
+        let state = EconomicState::new(vec![max_actor, overflow_actor]);
 
+        assert!(state.try_aggregate_claims().is_err());
+        assert!(state.try_aggregate_assets().is_err());
+    }
 }
