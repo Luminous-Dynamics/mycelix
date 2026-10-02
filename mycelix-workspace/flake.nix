@@ -25,7 +25,7 @@
     # Holochain from Holonix — direct commit pin below is the source of truth.
     # Current pin is Holochain 0.6-era; the ROS-006 0.7 normalization must update this input and regenerate flake.lock together.
     holonix = {
-      url = "github:holochain/holonix/d21b3543"; # Must match holonixCommit in holochain-versions.nix
+      url = "github:holochain/holonix/d21b3543"; # Update this input together with flake.lock; no separate holochain-versions.nix authority.
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
