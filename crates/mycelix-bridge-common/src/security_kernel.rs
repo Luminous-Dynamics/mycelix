@@ -465,6 +465,9 @@ pub fn revalidate_permit(
     evidence: VerificationEvidence,
     now_us: u64,
 ) -> AuthorizationDecision {
+    if !evidence.signature_verified {
+        return AuthorizationDecision::Deny(AuthorizationDenial::InvalidCapability);
+    }
     if !evidence.not_revoked {
         return AuthorizationDecision::Deny(AuthorizationDenial::RevokedCapability);
     }
@@ -696,6 +699,22 @@ mod tests {
             150 + MAX_AUTHORIZATION_PERMIT_LIFETIME_US
         );
         assert!(!permit.is_valid_at(150 + MAX_AUTHORIZATION_PERMIT_LIFETIME_US + 1));
+    }
+
+    #[test]
+    fn invalid_fresh_signature_evidence_blocks_enforcement() {
+        let permit = authorize_permit(&verified(), &request(CapabilityAction::Read), 150).unwrap();
+        let result = EnforcementRequest::from_permit(
+            permit,
+            VerificationEvidence::new(false, true, true),
+            151,
+        );
+        assert_eq!(
+            result,
+            Err(AuthorizationDecision::Deny(
+                AuthorizationDenial::InvalidCapability
+            ))
+        );
     }
 
     #[test]
