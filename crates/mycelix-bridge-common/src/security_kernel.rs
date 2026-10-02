@@ -52,6 +52,50 @@ pub struct VerifiedCapability {
     capability: Capability,
 }
 
+/// A short-lived, non-serializable authorization permit bound to one exact
+/// request. It is deliberately not constructible from advisory output or
+/// from a bare Allow value.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AuthorizationPermit {
+    request: AuthorizationRequest,
+    issued_at_us: u64,
+}
+
+/// The only request type accepted by an enforcement adapter.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EnforcementRequest {
+    request: AuthorizationRequest,
+    issued_at_us: u64,
+}
+
+impl AuthorizationPermit {
+    pub fn request(&self) -> &AuthorizationRequest {
+        &self.request
+    }
+
+    pub fn issued_at_us(&self) -> u64 {
+        self.issued_at_us
+    }
+}
+
+impl EnforcementRequest {
+    /// Construct only from a permit produced by successful authorization.
+    pub fn from_permit(permit: AuthorizationPermit) -> Self {
+        Self {
+            request: permit.request,
+            issued_at_us: permit.issued_at_us,
+        }
+    }
+
+    pub fn request(&self) -> &AuthorizationRequest {
+        &self.request
+    }
+
+    pub fn issued_at_us(&self) -> u64 {
+        self.issued_at_us
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AuthorizationRequest {
     subject: String,
@@ -219,25 +263,40 @@ pub fn authorize(
     request: &AuthorizationRequest,
     now_us: u64,
 ) -> AuthorizationDecision {
+    authorize_permit(verified, request, now_us)
+        .map(|_| AuthorizationDecision::Allow)
+        .unwrap_or_else(|decision| decision)
+}
+
+/// Evaluate authorization and, on success, mint a non-forgeable-in-module
+/// permit bound to the exact request that was checked.
+pub fn authorize_permit(
+    verified: &VerifiedCapability,
+    request: &AuthorizationRequest,
+    now_us: u64,
+) -> Result<AuthorizationPermit, AuthorizationDecision> {
     let c = &verified.capability;
 
     if now_us < c.not_before_us || now_us > c.expires_at_us {
-        return AuthorizationDecision::Deny(AuthorizationDenial::OutsideValidityWindow);
+        return Err(AuthorizationDecision::Deny(AuthorizationDenial::OutsideValidityWindow));
     }
     if c.subject != request.subject {
-        return AuthorizationDecision::Deny(AuthorizationDenial::SubjectMismatch);
+        return Err(AuthorizationDecision::Deny(AuthorizationDenial::SubjectMismatch));
     }
     if c.resource != request.resource {
-        return AuthorizationDecision::Deny(AuthorizationDenial::ResourceMismatch);
+        return Err(AuthorizationDecision::Deny(AuthorizationDenial::ResourceMismatch));
     }
     if !c.actions.contains(&request.action) {
-        return AuthorizationDecision::Deny(AuthorizationDenial::ActionNotGranted);
+        return Err(AuthorizationDecision::Deny(AuthorizationDenial::ActionNotGranted));
     }
     if c.policy_version != request.policy_version {
-        return AuthorizationDecision::Deny(AuthorizationDenial::PolicyVersionMismatch);
+        return Err(AuthorizationDecision::Deny(AuthorizationDenial::PolicyVersionMismatch));
     }
 
-    AuthorizationDecision::Allow
+    Ok(AuthorizationPermit {
+        request: request.clone(),
+        issued_at_us: now_us,
+    })
 }
 
 #[cfg(test)]
@@ -288,6 +347,24 @@ mod tests {
         );
     }
 
+    #[test]
+    fn allow_mints_exactly_bound_enforcement_request() {
+        let permit = authorize_permit(&verified(), &request(CapabilityAction::Read), 150).unwrap();
+        let enforcement = EnforcementRequest::from_permit(permit);
+        assert_eq!(enforcement.request(), &request(CapabilityAction::Read));
+        assert_eq!(enforcement.issued_at_us(), 150);
+    }
+
+    #[test]
+    fn deny_mints_no_enforcement_request() {
+        let result = authorize_permit(&verified(), &request(CapabilityAction::Admin), 150);
+        assert_eq!(
+            result,
+            Err(AuthorizationDecision::Deny(AuthorizationDenial::ActionNotGranted))
+        );
+    }
+
+    #[test]
     #[test]
     fn advisory_cannot_authorize() {
         let advisory = AdvisoryResult::new(
