@@ -74,7 +74,7 @@ impl SignedCapability {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct VerificationEvidence {
     // Intentionally private: callers must obtain these propositions from an
     // in-crate verifier boundary rather than constructing trusted evidence
