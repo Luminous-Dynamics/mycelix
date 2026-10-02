@@ -23,6 +23,7 @@ pub enum SandboxEnforcementError {
     EnforcementFailed(i32),
     LandlockAbiTooOld(u32),
     IdentityGenerationFailed,
+    InvalidAssignmentId,
 }
 
 impl core::fmt::Display for SandboxEnforcementError {
@@ -34,6 +35,7 @@ impl core::fmt::Display for SandboxEnforcementError {
             Self::EnforcementFailed(errno) => write!(f, "renderer sandbox enforcement failed: errno {errno}"),
             Self::LandlockAbiTooOld(abi) => write!(f, "Landlock ABI {abi} lacks renderer thread-synchronization support"),
             Self::IdentityGenerationFailed => f.write_str("sandbox installation identity generation failed"),
+            Self::InvalidAssignmentId => f.write_str("renderer process assignment id must be non-zero"),
         }
     }
 }
@@ -149,6 +151,9 @@ mod linux {
         profile: SandboxProfileV1,
         allowed_root: &std::path::Path,
     ) -> Result<SandboxEnforcementReceipt, SandboxEnforcementError> {
+        if assignment_id.0 == 0 {
+            return Err(SandboxEnforcementError::InvalidAssignmentId);
+        }
         if !allowed_root.is_absolute() {
             return Err(SandboxEnforcementError::InvalidRuleset);
         }
