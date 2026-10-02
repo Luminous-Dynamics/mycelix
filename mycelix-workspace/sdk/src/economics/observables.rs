@@ -104,16 +104,14 @@ impl EconomicObservables {
             .checked_add(ledger.debt_repaid)
             .ok_or_else(|| "aggregate debt service overflow".to_string())?;
         let gross_operating_surplus = ledger
-            .sales_consideration
-            .checked_sub(ledger.cost_of_goods_sold)
-            .ok_or_else(|| "aggregate operating surplus overflow".to_string())?;
-        let operating_surplus_after_depreciation = gross_operating_surplus
-            .checked_sub(ledger.depreciation)
-            .ok_or_else(|| "aggregate operating surplus after depreciation overflow".to_string())?;
+            .try_gross_operating_surplus()
+            .map_err(|error| format!("aggregate {error}"))?;
+        let operating_surplus_after_depreciation = ledger
+            .try_operating_surplus_after_depreciation()
+            .map_err(|error| format!("aggregate {error}"))?;
         let net_credit_impulse = ledger
-            .credit_created
-            .checked_sub(ledger.debt_repaid)
-            .ok_or_else(|| "aggregate net credit overflow".to_string())?;
+            .try_net_credit()
+            .map_err(|error| format!("aggregate {error}"))?;
 
         Ok(Self {
             aggregate_cash,
