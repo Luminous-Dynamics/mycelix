@@ -315,7 +315,7 @@ mod tests {
         assert_eq!(matrix.flows[1].category, FlowCategory::Investment);
         assert_eq!(matrix.flows[2].category, FlowCategory::LoanCreation);
         assert_eq!(matrix.flows[3].category, FlowCategory::DebtRepayment);
-        assert!(matrix.flows.iter().any(|flow| flow.category == FlowCategory::TradeCreditSettlement));
+
         assert!(matrix.clears());
 
         let state = EconomicState::new(vec![
@@ -347,6 +347,30 @@ mod tests {
         });
         assert!(!m.clears());
         assert!(m.try_gross_flow_volume().is_err());
+    }
+
+    #[test]
+    fn trade_credit_settlement_is_projected_as_monetary_sector_flow() {
+        use super::super::stock_flow::TradeCreditSettlement;
+        use super::super::transition::EconomicTransition;
+
+        let actors = vec![
+            ("firm".to_string(), EconomicSector::Firm),
+            ("household".to_string(), EconomicSector::Household),
+        ];
+        let transitions = vec![EconomicTransition::TradeCreditSettlement(
+            TradeCreditSettlement::new("firm", "household", 15).unwrap(),
+        )];
+
+        let matrix = SectorTransactionMatrix::from_transitions(&transitions, &actors).unwrap();
+        assert_eq!(matrix.flows.len(), 1);
+        assert_eq!(matrix.flows[0].from, EconomicSector::Household);
+        assert_eq!(matrix.flows[0].to, EconomicSector::Firm);
+        assert_eq!(
+            matrix.flows[0].category,
+            FlowCategory::TradeCreditSettlement
+        );
+        assert!(matrix.clears());
     }
 
     #[test]
