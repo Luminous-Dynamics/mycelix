@@ -1,0 +1,62 @@
+{
+  "schema": "mycelix.civic-resilience.option-space-evidence-capsule.v1",
+  "program": "CIV-RES-004",
+  "qualifier_commit": "424e9342fcea47f982d3c5b9f43ad9a4cce4f1a0",
+  "qualifier_parent": "a923352445db955c8c4cbe7c52d570506e6be0b0",
+  "workflow": {
+    "run_id": 37040844685,
+    "job_id": 110950289043,
+    "workflow_name": "CIV-RES-004 Option Space Corpus",
+    "conclusion": "success",
+    "runner": "ubuntu-24.04"
+  },
+  "evaluator": {
+    "identity": "civ-res-004-python-evaluator-v2",
+    "receipt_schema": "mycelix.civic-resilience.option-space-qualification-receipt.v1",
+    "receipt_sha256": "3e35ec4c9049ccfcabe164548b379ec45404509ae58162e1f765b886ca0bdce7"
+  },
+  "inputs": {
+    "fixture_path": "mycelix-workspace/docs/civic-resilience/civ_res_004_option_space_cases.json",
+    "fixture_sha256": "68c3266ee77f59afd5fb9e0d24f0caa13c19b56943102703fb783148239b09db",
+    "oracle_path": "mycelix-workspace/docs/civic-resilience/civ_res_004_option_space_oracle.json",
+    "oracle_sha256": "e5fb8b63bd2ca0cc5a2a55649fa9fe9ce31590dc0818bf5bc13e14a1cfcb8722"
+  },
+  "qualification": {
+    "case_count": 18,
+    "candidate_input_policy": "oracle_excluded",
+    "dispositions": [
+      "unreachable_or_unknown",
+      "usability_blocked",
+      "preserve_conflict",
+      "not_current",
+      "not_independent_redundancy",
+      "preserve_separate",
+      "not_immediate",
+      "not_outcome_or_causal",
+      "descriptive_only",
+      "expanded_record_only",
+      "no_historical_mutation",
+      "privacy_scope_explicit",
+      "reject",
+      "reject",
+      "reject_strip",
+      "unknown_not_zero",
+      "deterministic_by_time",
+      "history_preserved"
+    ],
+    "semantic_claim": "synthetic semantic/provenance/privacy/temporal/authority boundaries only",
+    "nonclaims": [
+      "clinical_assessment",
+      "suicide_prediction",
+      "violence_prediction",
+      "public_safety_score",
+      "causal_effect",
+      "municipal_authority"
+    ]
+  },
+  "provenance": {
+    "source_pr": "https://github.com/Luminous-Dynamics/mycelix/pull/3836",
+    "archived_from_run_at": "2026-10-02T17:35:31Z",
+    "immutable_commit_binding": true
+  }
+}
