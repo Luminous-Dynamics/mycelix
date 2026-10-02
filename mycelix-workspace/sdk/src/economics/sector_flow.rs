@@ -118,11 +118,16 @@ impl SectorTransactionMatrix {
         actors: &[(ActorId, EconomicSector)],
     ) -> Result<Self, String> {
         let sector_for = |actor: &str| {
-            actors
+            let matching = actors
                 .iter()
-                .find(|(id, _)| id == actor)
-                .map(|(_, sector)| *sector)
-                .ok_or_else(|| format!("unknown actor in sector assignment: {actor}"))
+                .filter(|(id, _)| id == actor)
+                .collect::<Vec<_>>();
+            if matching.len() != 1 {
+                return Err(format!(
+                    "actor {actor} must have exactly one sector assignment"
+                ));
+            }
+            Ok(matching[0].1)
         };
 
         let mut matrix = Self::default();
@@ -187,10 +192,15 @@ impl SectorTransactionMatrix {
         actors: &[(ActorId, EconomicSector)],
         transitions: &[super::transition::EconomicTransition],
     ) -> Result<(), String> {
-        if state.actors.iter().any(|actor| {
-            !actors.iter().any(|(id, _)| id == &actor.actor)
-        }) {
-            return Err("sector assignments are incomplete for economic state".into());
+        if state.actors.len() != actors.len()
+            || state.actors.iter().any(|actor| {
+                actors.iter().filter(|(id, _)| id == &actor.actor).count() != 1
+            })
+            || actors.iter().any(|(id, _)| {
+                state.actors.iter().filter(|actor| &actor.actor == id).count() != 1
+            })
+        {
+            return Err("sector assignments must cover each economic actor exactly once".into());
         }
         if !self.clears() {
             return Err("sector transaction matrix does not clear".into());
