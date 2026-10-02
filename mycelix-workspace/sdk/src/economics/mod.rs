@@ -25,6 +25,7 @@ pub mod recognition;
 pub mod sector_flow;
 pub mod sector_balance;
 pub mod sector_observables;
+pub mod sector_financial_flow;
 pub mod stock_flow;
 pub mod transition;
 pub mod trace;
@@ -42,6 +43,9 @@ pub use poc::{
 };
 pub use sector_flow::{EconomicSector, FlowCategory, SectorFlow, SectorTransactionMatrix};
 pub use sector_observables::SectorEconomicObservables;
+pub use sector_financial_flow::{
+    FinancialFlowCategory, SectorFinancialFlow, SectorFinancialFlowMatrix,
+};
 pub use reconciliation::{
     physical_postings_for_step, postings_for_step, reconcile_step, PhysicalStockMismatch,
     PhysicalStockPosting, StockFlowMismatch, StockFlowReconciliation, StockPosting,
