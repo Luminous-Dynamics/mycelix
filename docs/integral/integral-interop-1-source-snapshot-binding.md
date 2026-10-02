@@ -120,9 +120,7 @@ composition material. It is intentionally separate from commitment equality: a r
 and composition can both be internally self-consistent without establishing that the
 composition itself came from an authoritative D6N/D6O boundary.
 
-This follows the same provenance distinction used by established provenance models:
-derivation/identity records describe how artifacts relate, while trust in the provenance
-record and its source must be established separately. citeturn0search0turn0search2
+This follows the same provenance distinction used by established provenance models such as W3C PROV: derivation/identity records describe how artifacts relate, while trust in the provenance record and its source must be established separately.
 
 Consequently, D6W can now make a precise claim at each boundary:
 
