@@ -180,6 +180,7 @@ impl SandboxEnforcementReceipt {
             || installation_id.0 == 0
             || profile_digest == [0u8; 32]
             || evidence_digest == [0u8; 32]
+            || profile_digest == evidence_digest
         {
             return Err(ProcessContractError::InvalidSandboxEvidence);
         }
@@ -454,6 +455,27 @@ mod tests {
         assert_ne!(b.0, 0);
     }
 
+
+    #[test]
+    fn sandbox_receipt_rejects_policy_evidence_digest_aliasing() {
+        let assignment_id = RendererProcessAssignmentId::new(1).unwrap();
+        let installation_id = SandboxInstallationId::new(2).unwrap();
+        let digest = [0x44; 32];
+
+        let receipt = SandboxEnforcementReceipt::from_adapter(
+            assignment_id,
+            installation_id,
+            SandboxAdapterKind::LinuxLandlockFilesystemV1,
+            digest,
+            digest,
+            SandboxEnforcementLayer::Filesystem,
+        );
+
+        assert!(matches!(
+            receipt,
+            Err(ProcessContractError::InvalidSandboxEvidence)
+        ));
+    }
 
     #[test]
     fn evidence_bundle_retains_independent_layer_receipts() {
