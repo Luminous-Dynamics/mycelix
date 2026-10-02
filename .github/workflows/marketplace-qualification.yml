@@ -1,6 +1,9 @@
 name: Marketplace Qualification
 
 on:
+  push:
+    branches:
+      - marketplace-inventory-algebra
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
