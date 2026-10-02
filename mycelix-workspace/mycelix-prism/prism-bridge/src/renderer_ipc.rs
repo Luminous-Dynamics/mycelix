@@ -148,15 +148,15 @@ impl RendererCapabilityConnection {
         stream: UnixStream,
         controller: Arc<Mutex<RendererSecurityController>>,
     ) -> Result<Self, RendererIpcError> {
-        {
+        let session_id = {
             let mut guard = controller.lock().map_err(|_| RendererIpcError::SecurityController(
                 RendererSecurityError::NoActiveBinding,
             ))?;
-            let session_id = guard
+            guard
                 .establish_renderer_session(&stream)
-                .map_err(RendererIpcError::SecurityController)?;
-            return Ok(Self { stream, controller, session_id });
-        }
+                .map_err(RendererIpcError::SecurityController)?
+        };
+        Ok(Self { stream, controller, session_id })
     }
 
     pub fn authoritative(&self) -> Result<RendererBinding, RendererIpcError> {
