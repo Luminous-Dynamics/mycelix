@@ -21,7 +21,7 @@ check_absent() {
 check_present() {
   local label="$1"
   local pattern="$2"
-  if git grep -nE -- "$pattern" -- 'mycelix-workspace/mycelix-hearth/**/*.toml' 'mycelix-workspace/mycelix-hearth/**/*.nix'; then
+  if git grep -nE -- "$pattern" --       'mycelix-workspace/mycelix-hearth/**/*.toml'       'mycelix-workspace/mycelix-hearth/**/*.nix'       'mycelix-workspace/mycelix-hearth/**/*.json'       'mycelix-workspace/mycelix-hearth/**/*.yaml'       'mycelix-workspace/mycelix-hearth/**/*.yml'; then
     echo "OK:   $label"
   else
     echo "FAIL: $label"
@@ -43,8 +43,7 @@ check_present_any() {
 check_lock_present() {
   local label="$1"
   local pattern="$2"
-  local file="$3"
-  if rg -n --pcre2 "$pattern" "$file" >/dev/null; then
+  if rg -n --pcre2 "$pattern" mycelix-workspace/mycelix-hearth/flake.lock >/dev/null; then
     echo "OK:   $label"
   else
     echo "FAIL: $label"
