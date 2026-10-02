@@ -178,7 +178,7 @@ fn parameter_predicate_child() -> ! {
     ).unwrap_or_else(|_| unsafe { libc::_exit(118) });
     let profile = SandboxProfileV1::renderer_default()
         .with_syscall_policy_digest(policy.digest())
-        .unwrap_or_else(|_| unsafe { libc::_exit(117) });
+        .unwrap_or_else(|_| unsafe { libc::_exit(119) });
 
     // Warm the raw syscall/errno path before the irreversible transition.
     let _ = unsafe { libc::syscall(libc::SYS_prctl, libc::PR_GET_NO_NEW_PRIVS, 0, 0, 0, 0) };
@@ -190,7 +190,7 @@ fn parameter_predicate_child() -> ! {
         &policy,
     ).is_err()
     {
-        unsafe { libc::_exit(116) };
+        unsafe { libc::_exit(120) };
     }
 
     let allowed = unsafe {
@@ -201,7 +201,7 @@ fn parameter_predicate_child() -> ! {
         )
     };
     if allowed != 1 {
-        unsafe { libc::_exit(117) };
+        unsafe { libc::_exit(121) };
     }
 
     let read_mapping = unsafe {
@@ -216,7 +216,7 @@ fn parameter_predicate_child() -> ! {
         )
     };
     if read_mapping == libc::MAP_FAILED as isize {
-        unsafe { libc::_exit(120) };
+        unsafe { libc::_exit(122) };
     }
 
     let wx_mapping = unsafe {
@@ -232,11 +232,11 @@ fn parameter_predicate_child() -> ! {
     };
     let wx_errno = unsafe { *libc::__errno_location() };
     if wx_mapping != -1 || wx_errno != libc::EPERM {
-        unsafe { libc::_exit(121) };
+        unsafe { libc::_exit(123) };
     }
 
     if unsafe { libc::syscall(libc::SYS_mprotect, read_mapping as usize, 4096usize, libc::PROT_READ | libc::PROT_WRITE) } != 0 {
-        unsafe { libc::_exit(122) };
+        unsafe { libc::_exit(124) };
     }
 
     let exec_rc = unsafe {
@@ -249,7 +249,7 @@ fn parameter_predicate_child() -> ! {
     };
     let exec_errno = unsafe { *libc::__errno_location() };
     if exec_rc != -1 || exec_errno != libc::EPERM {
-        unsafe { libc::_exit(123) };
+        unsafe { libc::_exit(125) };
     }
 
     // Same syscall number, deliberately different first argument: V2 must
@@ -263,7 +263,7 @@ fn parameter_predicate_child() -> ! {
     };
     let errno = unsafe { *libc::__errno_location() };
     if denied != -1 || errno != libc::EPERM {
-        unsafe { libc::_exit(118) };
+        unsafe { libc::_exit(126) };
     }
 
     unsafe { libc::_exit(0) }
