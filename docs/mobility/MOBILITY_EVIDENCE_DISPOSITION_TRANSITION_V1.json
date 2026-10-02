@@ -321,6 +321,11 @@
       "id": "EDT-062",
       "case": "reconciliation_coverage_accepts_authority_scope_basis_at_boundary",
       "expected": "accepted"
+    },
+    {
+      "id": "EDT-063",
+      "case": "authority_scope_validates_named_delegation_chain",
+      "expected": "accepted"
     }
   ]
 }
