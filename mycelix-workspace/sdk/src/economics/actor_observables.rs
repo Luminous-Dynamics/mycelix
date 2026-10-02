@@ -45,6 +45,9 @@ pub struct ActorEconomicObservables {
     pub deposits: i128,
     pub liquidity: i128,
     pub net_liquidity_change: i128,
+    /// Liquidity changes from generic monetary transfers whose economic
+    /// purpose is not further classified by the transition type.
+    pub other_liquidity_change: i128,
     pub net_working_capital_change: i128,
     pub loan_claims: i128,
     pub debt: i128,
@@ -246,8 +249,22 @@ impl ActorEconomicObservables {
                         "actor depreciation",
                     )?;
                 }
-                EconomicTransition::MonetaryTransfer(_)
-                | EconomicTransition::Production(_)
+                EconomicTransition::MonetaryTransfer(flow) => {
+                    ensure_actor(&flow.from)?;
+                    ensure_actor(&flow.to)?;
+                    let amount = flow.amount;
+                    add_checked(
+                        &mut observations.get_mut(&flow.from).unwrap().other_liquidity_change,
+                        -amount,
+                        "actor other liquidity change",
+                    )?;
+                    add_checked(
+                        &mut observations.get_mut(&flow.to).unwrap().other_liquidity_change,
+                        amount,
+                        "actor other liquidity change",
+                    )?;
+                }
+                EconomicTransition::Production(_)
                 | EconomicTransition::InventoryTransfer(_)
                 | EconomicTransition::InventoryConsumption(_)
                 | EconomicTransition::InventoryCostAddition(_) => {}
@@ -291,12 +308,6 @@ impl ActorEconomicObservables {
             observation.net_worth = final_actor.net_worth();
 
             let final_nwc = final_actor.net_working_capital();
-
-                .actors
-                .iter()
-                .find(|candidate| &candidate.actor == actor)
-                .ok_or_else(|| format!("unknown actor after transition replay: {actor}"))?
-                .net_working_capital();
             let initial_nwc = *initial_working_capital
                 .get(actor)
                 .ok_or_else(|| format!("unknown initial actor working capital: {actor}"))?;
@@ -306,6 +317,28 @@ impl ActorEconomicObservables {
         }
 
         Ok(observations)
+    }
+
+    /// Liquidity change attributed to operating activity after removing
+    /// explicitly classified investing, financing, and other transfers.
+    ///
+    /// This is an exact model reconciliation, not a claim of IFRS
+    /// presentation compliance; classification policy remains model-defined.
+    pub fn operating_liquidity_change(&self) -> i128 {
+        self.net_liquidity_change
+            .checked_sub(self.investing_net_liquidity())
+            .and_then(|value| value.checked_sub(self.financing_net_liquidity()))
+            .and_then(|value| value.checked_sub(self.other_liquidity_change))
+            .expect("actor operating liquidity overflow")
+    }
+
+    /// Verify that every observed liquidity change is classified exactly once.
+    pub fn liquidity_flow_reconciliation_holds(&self) -> bool {
+        self.operating_liquidity_change()
+            + self.investing_net_liquidity()
+            + self.financing_net_liquidity()
+            + self.other_liquidity_change
+            == self.net_liquidity_change
     }
 
     pub fn gross_debt_service(&self) -> i128 {
@@ -512,6 +545,7 @@ mod tests {
             FinancingRegime::Hedge
         );
         assert_eq!(firm.net_liquidity_change, 210);
+        assert!(firm.liquidity_flow_reconciliation_holds());
         assert_eq!(firm.financing_net_liquidity(), 180);
         assert_eq!(firm.investing_net_liquidity(), 0);
     }
