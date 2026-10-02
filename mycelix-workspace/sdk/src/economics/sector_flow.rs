@@ -35,6 +35,7 @@ pub enum FlowCategory {
     Interest,
     LoanCreation,
     DebtRepayment,
+    TradeCreditSettlement,
     Resource,
     Other,
 }
@@ -167,7 +168,12 @@ impl SectorTransactionMatrix {
                 // the receivable/payable movement is reconciled in the stock
                 // matrix rather than misrepresented as a deposit flow.
                 super::transition::EconomicTransition::TradeCreditSale(_) => continue,
-                super::transition::EconomicTransition::TradeCreditSettlement(_) => continue,
+                super::transition::EconomicTransition::TradeCreditSettlement(settlement) => (
+                    sector_for(&settlement.buyer)?,
+                    sector_for(&settlement.seller)?,
+                    FlowCategory::TradeCreditSettlement,
+                    settlement.amount,
+                ),
                 super::transition::EconomicTransition::GoodsSale(sale) => {
                     (sale.seller.clone(), sale.buyer.clone(), FlowCategory::Other, sale.consideration)
                 }
@@ -309,6 +315,7 @@ mod tests {
         assert_eq!(matrix.flows[1].category, FlowCategory::Investment);
         assert_eq!(matrix.flows[2].category, FlowCategory::LoanCreation);
         assert_eq!(matrix.flows[3].category, FlowCategory::DebtRepayment);
+        assert!(matrix.flows.iter().any(|flow| flow.category == FlowCategory::TradeCreditSettlement));
         assert!(matrix.clears());
 
         let state = EconomicState::new(vec![
