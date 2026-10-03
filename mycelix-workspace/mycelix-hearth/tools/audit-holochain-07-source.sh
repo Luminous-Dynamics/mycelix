@@ -749,6 +749,76 @@ check_qualification_workflow_provenance() {
   fi
 }
 
+# Coordinator-to-integrity operation binding. A static validator can be internally
+# complete while the coordinator silently uses an operation family that the integrity
+# zome does not model explicitly. Tie the application write surface to its validator
+# counterpart without assuming every zome must expose every operation family.
+check_coordinator_operation_bindings() {
+  local coordinator file zome
+  while IFS= read -r -d "" coordinator; do
+    zome="$(basename "$(dirname "$(dirname "$(dirname "$coordinator")")")")"
+    file="mycelix-workspace/mycelix-hearth/zomes/$zome/integrity/src/lib.rs"
+    if [[ ! -f "$file" ]]; then
+      echo "FAIL: coordinator $coordinator has no paired integrity source $file"
+      fail=1
+      continue
+    fi
+
+    # Entry creation is paired with both 0.7 validation surfaces.
+    if rg -n --pcre2 '\bcreate_entry\s*\(' "$coordinator" >/dev/null 2>&1; then
+      if rg -n --pcre2 'FlatOp::CreateEntry\s*\(' "$file" >/dev/null 2>&1 \
+        && rg -n --pcre2 'FlatOp::CreateRecord\s*\(\s*OpRecord::CreateEntry' "$file" >/dev/null 2>&1; then
+        echo "OK:   $zome coordinator entry writes map to CreateEntry + CreateRecord validation"
+      else
+        echo "FAIL: $zome coordinator calls create_entry but integrity lacks paired 0.7 create validation"
+        fail=1
+      fi
+    fi
+
+    # Mutable entry writes need content validation, CreateRecord parity, and
+    # action-level author authorization.
+    if rg -n --pcre2 '\bupdate_entry\s*\(' "$coordinator" >/dev/null 2>&1; then
+      if rg -n --pcre2 'FlatOp::CreateEntry\s*\(\s*OpEntry::UpdateEntry' "$file" >/dev/null 2>&1 \
+        && rg -n --pcre2 'FlatOp::CreateRecord\s*\(\s*OpRecord::UpdateEntry' "$file" >/dev/null 2>&1 \
+        && rg -n --pcre2 'FlatOp::Update\s*\(\s*OpUpdate::Entry' "$file" >/dev/null 2>&1; then
+        echo "OK:   $zome coordinator update_entry maps to content + CreateRecord + Update authorization"
+      else
+        echo "FAIL: $zome coordinator calls update_entry without complete 0.7 update validation coverage"
+        fail=1
+      fi
+    fi
+
+    if rg -n --pcre2 '\bdelete_entry\s*\(' "$coordinator" >/dev/null 2>&1; then
+      if rg -n --pcre2 'FlatOp::Delete\s*\(\s*OpDelete\s*\{\s*action' "$file" >/dev/null 2>&1 \
+        && rg -n --pcre2 'must_get_valid_record\s*\(\s*action\.deletes_address' "$file" >/dev/null 2>&1; then
+        echo "OK:   $zome coordinator delete_entry maps to validated Delete authorization"
+      else
+        echo "FAIL: $zome coordinator calls delete_entry without validated Delete authorization coverage"
+        fail=1
+      fi
+    fi
+
+    if rg -n --pcre2 '\bcreate_link\s*\(' "$coordinator" >/dev/null 2>&1; then
+      if rg -n --pcre2 'FlatOp::Link\s*\(\s*OpLink::CreateLink' "$file" >/dev/null 2>&1; then
+        echo "OK:   $zome coordinator create_link maps to explicit CreateLink validation"
+      else
+        echo "FAIL: $zome coordinator calls create_link but integrity lacks explicit CreateLink validation"
+        fail=1
+      fi
+    fi
+
+    if rg -n --pcre2 '\bdelete_link\s*\(' "$coordinator" >/dev/null 2>&1; then
+      if rg -n --pcre2 'FlatOp::Link\s*\([^)]*OpLink::DeleteLink' "$file" >/dev/null 2>&1 \
+        && rg -n --pcre2 'must_get_valid_record\s*\(\s*action\.link_add_address' "$file" >/dev/null 2>&1; then
+        echo "OK:   $zome coordinator delete_link maps to validated DeleteLink authorization"
+      else
+        echo "FAIL: $zome coordinator calls delete_link without validated DeleteLink authorization coverage"
+        fail=1
+      fi
+    fi
+  done < <(git ls-files -z -- "mycelix-workspace/mycelix-hearth/zomes/*/coordinator/src/lib.rs")
+}
+
 check_dna_source_completeness() {
   local dna="mycelix-workspace/mycelix-hearth/dna/dna.yaml"
   local count=0
@@ -775,6 +845,7 @@ check_dna_source_completeness() {
 }
 check_standalone_tests_workspace_boundary
 check_qualification_workflow_provenance
+check_coordinator_operation_bindings
 check_dna_source_completeness
 check_semantic_validation_suite_wiring
 check_semantic_case_entrypoints
