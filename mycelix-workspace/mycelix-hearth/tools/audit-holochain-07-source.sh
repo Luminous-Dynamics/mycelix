@@ -244,6 +244,47 @@ check_entry_type_dispatch() {
   done < <(printf '%s\n' "$enum_block" | rg --pcre2 -o '^\\s*[A-Za-z_][A-Za-z0-9_]*\\s*\\(' | sed -E 's/^\\s*([A-Za-z_][A-Za-z0-9_]*).*$/\\1/')
 }
 
+# Every entry-bearing action must be validated on both 0.7 operation surfaces.
+# Holochain emits CreateEntry and CreateRecord operations for entry writes; a
+# permissive CreateRecord catch-all would leave a second validation surface
+# without the application-level entry policy. Updates are checked the same way.
+check_create_record_coverage() {
+  local file="$1"
+  if ! rg -n --pcre2 'FlatOp::CreateRecord\s*\(\s*OpRecord::CreateEntry' "$file" >/dev/null 2>&1; then
+    echo "FAIL: $file has no explicit FlatOp::CreateRecord(OpRecord::CreateEntry) validation"
+    fail=1
+  else
+    echo "OK:   $file explicitly validates CreateRecord entry creation"
+  fi
+  if rg -n --pcre2 'FlatOp::CreateEntry\s*\(\s*OpEntry::UpdateEntry' "$file" >/dev/null 2>&1; then
+    if rg -n --pcre2 'FlatOp::CreateRecord\s*\(\s*OpRecord::UpdateEntry' "$file" >/dev/null 2>&1; then
+      echo "OK:   $file explicitly validates CreateRecord update data"
+    else
+      echo "FAIL: $file has UpdateEntry validation but no CreateRecord update validation"
+      fail=1
+    fi
+  fi
+  if rg -n --pcre2 'FlatOp::CreateRecord\s*\(\)\s*=>\s*Ok\s*\(\s*ValidateCallbackResult::Valid' "$file" >/dev/null 2>&1; then
+    echo "FAIL: $file has permissive CreateRecord(_) => Valid catch-all"
+    fail=1
+  fi
+}
+
+# Dangerous operation families must never be accepted solely by a terminal
+# wildcard. Delete and Link carry authorization/state semantics of their own;
+# CreateRecord is guarded above, and Update is paired with explicit action-level
+# authorization by check_update_action_coverage().
+check_dangerous_operation_catchalls() {
+  local file="$1"
+  for family in Delete Link; do
+    if rg -n --pcre2 "FlatOp::${family}\s*\(\s*_\s*\)\s*=>\s*Ok\s*\(\s*ValidateCallbackResult::Valid" "$file" >/dev/null 2>&1; then
+      echo "FAIL: $file has permissive FlatOp::$family(_) => Valid catch-all"
+      fail=1
+    else
+      echo "OK:   $file has no permissive FlatOp::$family(_) => Valid catch-all"
+    fi
+  done
+}
 # Dependency retrieval semantics: must_get_action only proves retrieval; it does not prove
 # that the referenced record passed application validation. Update/delete authorization
 # therefore uses must_get_valid_record before trusting the referenced author. Valid-record
@@ -294,6 +335,13 @@ check_immutable_dependency_semantics() {
   echo "OK:   $file immutable-field dependency semantics"
 }
 
+for file in "${integrity_files[@]}"; do
+  check_create_record_coverage "$file"
+done
+
+for file in "${integrity_files[@]}"; do
+  check_dangerous_operation_catchalls "$file"
+done
 for file in "${integrity_files[@]}"; do
   check_dependency_semantics "$file"
 done
