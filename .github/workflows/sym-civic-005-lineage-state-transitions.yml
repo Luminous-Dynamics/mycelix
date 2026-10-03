@@ -1,0 +1,57 @@
+name: SYM-CIVIC-005 Lineage State Transitions
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'mycelix-workspace/docs/civic-resilience/sym_civic_005_lineage_state_transitions.json'
+      - 'mycelix-workspace/docs/civic-resilience/SYM_CIVIC_005_LINEAGE_STATE_TRANSITIONS_V1.md'
+      - 'scripts/qualification/sym_civic_005_lineage_state_transitions_v1.py'
+      - '.github/workflows/sym-civic-005-lineage-state-transitions.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  qualify:
+    name: Temporal lineage invalidation boundary
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Exact ancestry and clean subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='dc847acae5c52383c797266e676f901db8b17e71'
+          test "$(git merge-base HEAD "$EXPECTED_PARENT")" = "$EXPECTED_PARENT"
+          test -z "$(git status --short)"
+      - name: Exact lineage tranche
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='dc847acae5c52383c797266e676f901db8b17e71'
+          git diff --check "$EXPECTED_PARENT" HEAD
+          expected=' .github/workflows/sym-civic-005-lineage-state-transitions.yml
+          mycelix-workspace/docs/civic-resilience/SYM_CIVIC_005_LINEAGE_STATE_TRANSITIONS_V1.md
+          mycelix-workspace/docs/civic-resilience/sym_civic_005_lineage_state_transitions.json
+          scripts/qualification/sym_civic_005_lineage_state_transitions_v1.py'
+          expected="${expected# }"
+          actual="$(git diff --name-only "$EXPECTED_PARENT" HEAD | sort)"
+          test "$actual" = "$expected"
+      - name: Execute qualifier
+        run: python3 scripts/qualification/sym_civic_005_lineage_state_transitions_v1.py
+      - name: Static no-runtime audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='dc847acae5c52383c797266e676f901db8b17e71'
+          changed="$(git diff --name-only "$EXPECTED_PARENT" HEAD)"
+          if printf '%s' "$changed" | grep -E '[.]rs$|[.]toml$|[.]lock$'; then
+            echo 'SYM-CIVIC-005 is research provenance only' >&2
+            exit 1
+          fi
+      - name: Immutable checkout postflight
+        run: test -z "$(git status --short)"
