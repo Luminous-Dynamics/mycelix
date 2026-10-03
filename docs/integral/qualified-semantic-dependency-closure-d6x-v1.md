@@ -77,6 +77,8 @@ The executable model therefore preserves `Stale` across node dequeue/inclusion, 
 
 For a `CurrentOnly` edge, currentness is established explicitly from the selected target node and the semantic environment: the node must not be marked `historical_only`, and both the node and environment must carry a frontier root with exact equality. A missing frontier on either side is not evidence of currentness. This remains a D6X policy check rather than a mutation of the upstream D6S node commitment format, preserving upstream compatibility while preventing a mutable frontier annotation from being treated as cryptographically bound merely because the node commitment matches.
 
+Resource truncation is also endpoint-closed: D6X never records a selected edge whose target node cannot enter the selected closure because the node budget is already exhausted. This keeps the certificate's selected-edge view internally closed even for blocked resource results.
+
 ## Status semantics
 
 - **Complete** — all required dependencies found and no blocking currentness/resource condition.
@@ -184,8 +186,10 @@ The reference model currently includes fixtures for:
 39. a selected CurrentOnly dependency with a mismatched node frontier is Stale and blocks closure.
 40. a selected CurrentOnly dependency with omitted frontier metadata is Stale and blocks closure.
 41. a selected Any dependency remains Present when its node frontier differs from the environment frontier.
+42. node-budget truncation cannot leave a selected edge pointing at an unselected target node.
+43. the machine-readable D6X golden corpus freezes closure and certificate commitments for baseline, edge-free, missing, cyclic, currentness, and resource cases.
 
-Before interoperability or production claims, add cross-language golden vectors, currentness/D6P fixtures, contradiction-preservation fixtures, cycle fixtures, resource-limit fixtures, and execute the Rust/WASM/Holochain conformance corpus.
+The machine-readable corpus is at `testdata/d6x_qualified_closure_golden_vectors.json`. Its commitment values were independently reconstructed from the frozen D6S-CANON-1 encoding (cross-checked against the existing D6S golden corpus); Rust reference-model execution has not yet been run. Before interoperability or production claims, execute the Rust/WASM/Holochain conformance corpus and reconcile its emitted values against these vectors.
 
 Claim ceiling: **ReferenceModelOnly**.
 
