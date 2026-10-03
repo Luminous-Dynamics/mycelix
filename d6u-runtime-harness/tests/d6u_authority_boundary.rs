@@ -408,7 +408,7 @@ async fn d6u_runtime_authority_boundary() {
     let (n, exp) = holochain_nonce::fresh_nonce(Timestamp::now()).unwrap();
     let before = reached.load(Ordering::SeqCst);
     expect_unauthorized_reason(
-call(
+        call(
             &app_api,
             "d6u-alice",
             &conductor.keystore(),
@@ -425,6 +425,7 @@ call(
         )
         .await,
         "BadCapGrant",
+        "BadCapGrant",,
         "BadCapGrant",
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
@@ -433,7 +434,7 @@ call(
     let (n, exp) = holochain_nonce::fresh_nonce(Timestamp::now()).unwrap();
     let before = reached.load(Ordering::SeqCst);
     expect_unauthorized_reason(
-call(
+        call(
             &app_api,
             "d6u-alice",
             &conductor.keystore(),
@@ -451,6 +452,7 @@ call(
         .await,
     ,
         "BadCapGrant"
+        "BadCapGrant",,
         "BadCapGrant",
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
@@ -478,7 +480,7 @@ call(
     let (n, exp) = holochain_nonce::fresh_nonce(Timestamp::now()).unwrap();
     let before = reached.load(Ordering::SeqCst);
     expect_unauthorized_reason(
-call(
+        call(
             &app_api,
             "d6u-alice",
             &conductor.keystore(),
@@ -496,6 +498,7 @@ call(
         .await,
     ,
         "BadCapGrant"
+        "BadCapGrant",,
         "BadCapGrant",
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
@@ -530,7 +533,7 @@ call(
 
     let before = reached.load(Ordering::SeqCst);
     expect_unauthorized_reason(
-app_api
+        app_api
             .handle_request(
                 "d6u-bob".into(),
                 Ok(AppRequest::CallZome(Box::new(replay_signed))),
@@ -539,6 +542,7 @@ app_api
             .unwrap(),
     ,
         "BadCapGrant"
+        "BadNonce",,
         "BadNonce",
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
@@ -556,9 +560,10 @@ app_api
     );
     let before = reached.load(Ordering::SeqCst);
     expect_unauthorized_reason(
-call(&app_api, "d6u-bob", &conductor.keystore(), stale).await,
+        call(&app_api, "d6u-bob", &conductor.keystore(), stale).await,
     ,
         "BadNonce"
+        "BadNonce",,
         "BadNonce",
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
@@ -576,7 +581,7 @@ call(&app_api, "d6u-bob", &conductor.keystore(), stale).await,
     );
     let before = reached.load(Ordering::SeqCst);
     expect_unauthorized_reason(
-call(
+        call(
             &app_api,
             "d6u-alice",
             &conductor.keystore(),
@@ -585,6 +590,7 @@ call(
         .await,
     ,
         "BadNonce"
+        "BadNonce",,
         "BadNonce",
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
@@ -602,15 +608,13 @@ call(
     );
     let before = reached.load(Ordering::SeqCst);
     expect_ribosome_error(
-call(
+        call(
             &app_api,
             "d6u-alice",
             &conductor.keystore(),
             wrong_zome,
         )
-        .await,
-    ,
-        "BadNonce"
+        .await,,
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
     record_case("wrong-zome", "routing-failed");
@@ -627,13 +631,14 @@ call(
     );
     let before = reached.load(Ordering::SeqCst);
     expect_unauthorized_reason(
-call(
+        call(
             &app_api,
             "d6u-alice",
             &conductor.keystore(),
             wrong_function,
         )
         .await,
+        "BadCapGrant",,
         "BadCapGrant",
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
@@ -652,15 +657,13 @@ call(
     );
     let before = reached.load(Ordering::SeqCst);
     expect_internal_error(
-call(
+        call(
             &app_api,
             "d6u-bob",
             &conductor.keystore(),
             wrong_cell,
         )
-        .await,
-    ,
-        "BadCapGrant"
+        .await,,
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
     record_case("wrong-cell", "routing-failed");
