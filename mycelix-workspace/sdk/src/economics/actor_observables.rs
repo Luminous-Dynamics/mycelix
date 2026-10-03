@@ -387,6 +387,22 @@ impl ActorEconomicObservables {
         Ok(())
     }
 
+    /// Re-derive the complete actor observation map and require exact actor coverage.
+    ///
+    /// Unlike the per-actor verifier, this method rejects missing or unexpected actor
+    /// observations as well as tampered fields.
+    pub fn verify_map_against(
+        observations: &BTreeMap<ActorId, ActorEconomicObservables>,
+        state: &EconomicState,
+        transitions: &[EconomicTransition],
+    ) -> Result<(), String> {
+        let expected = Self::from_state_and_transitions(state, transitions)?;
+        if observations != &expected {
+            return Err("actor observation map does not match transition-derived projection".into());
+        }
+        Ok(())
+    }
+
     /// Liquidity change attributed to operating activity after removing
     /// explicitly classified investing, financing, and other transfers.
     ///
@@ -636,6 +652,31 @@ mod tests {
         let mut observation = observations.get("household").unwrap().clone();
         observation.deposits = 1;
         assert!(observation.verify_against(&state, &transitions).is_err());
+    }
+
+
+    #[test]
+    fn actor_observation_map_verifier_rejects_extra_actor() {
+        let state = EconomicState::new(vec![
+            ActorBalanceSheet::new("household"),
+        ]);
+        let transitions = vec![];
+        let mut observations =
+            ActorEconomicObservables::from_state_and_transitions(&state, &transitions).unwrap();
+        observations.insert(
+            "unexpected".into(),
+            ActorEconomicObservables {
+                actor: "unexpected".into(),
+                ..Default::default()
+            },
+        );
+
+        assert!(ActorEconomicObservables::verify_map_against(
+            &observations,
+            &state,
+            &transitions,
+        )
+        .is_err());
     }
 
     #[test]
