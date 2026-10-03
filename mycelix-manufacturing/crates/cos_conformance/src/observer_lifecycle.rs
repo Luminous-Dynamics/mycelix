@@ -2225,7 +2225,7 @@ mod tests {
             2,
             None,
         );
-        suspend_transition.transition_commitment = transition.recomputed_commitment();
+        suspend_transition.transition_commitment = suspend_transition.recomputed_commitment();
         assert!(suspend_transition.commitment_matches());
         suspend_transition.reason = "forged-reason".into();
         assert!(!suspend_transition.commitment_matches());
@@ -2246,7 +2246,7 @@ mod tests {
 
         let mut successor = generation("observer-A-g2", 2, Some(&base_generation.generation_id));
         let mut rotation_transition = transition(
-            &generation,
+            &base_generation,
             "rotate-canonical",
             ObserverStatusV1::Superseded,
             2,
