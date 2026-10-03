@@ -196,6 +196,18 @@ fn expect_internal_error(response: AppResponse) {
     );
 }
 
+fn expect_internal_error_contains(response: AppResponse, reason: &str) {
+    match response {
+        AppResponse::Error(ExternalApiWireError::InternalError(message)) => {
+            assert!(
+                message.contains(reason),
+                "expected internal error reason {reason}, got {message}"
+            );
+        }
+        other => panic!("expected conductor internal error, got {other:?}"),
+    }
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn d6u_runtime_authority_boundary() {
     assert_frozen_d6s_identity();
@@ -559,6 +571,7 @@ async fn d6u_runtime_authority_boundary() {
         "Future",
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
+    println!("D6U_SUBSTRATE_CHECK\tfuture-expiry-rejection\tFuture\tPASS");
     let expired = params(
         &alice_cell,
         &alice,
@@ -588,7 +601,10 @@ async fn d6u_runtime_authority_boundary() {
         holochain_nonce::fresh_nonce(Timestamp::now()).unwrap().1,
     );
     let before = reached.load(Ordering::SeqCst);
-    expect_internal_error(call(&app_api, "d6u-alice", &conductor.keystore(), wrong_zome).await);
+    expect_internal_error_contains(
+        call(&app_api, "d6u-alice", &conductor.keystore(), wrong_zome).await,
+        "Zome not found",
+    );
     assert_eq!(reached.load(Ordering::SeqCst), before);
     record_case("wrong-zome", "routing-failed");
 
