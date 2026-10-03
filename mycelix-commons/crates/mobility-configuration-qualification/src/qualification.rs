@@ -207,6 +207,23 @@ mod tests {
     }
 
     #[test]
+    fn require_missing_recanonicalizes_existing_unresolved_dependencies() {
+        let status = QualificationStatus::Unresolved {
+            missing: vec![id("z"), id("a"), id("z")],
+            partial: 7u8,
+        }
+        .require_missing(Vec::new());
+
+        assert_eq!(
+            status,
+            QualificationStatus::Unresolved {
+                missing: vec![id("a"), id("z")],
+                partial: 7u8,
+            }
+        );
+    }
+
+    #[test]
     fn map_preserves_resolution_state() {
         let complete = QualificationStatus::Complete(2u8).map(|value| value * 2);
         assert_eq!(complete, QualificationStatus::Complete(4u8));
