@@ -408,7 +408,7 @@ async fn d6u_runtime_authority_boundary() {
     let (n, exp) = holochain_nonce::fresh_nonce(Timestamp::now()).unwrap();
     let before = reached.load(Ordering::SeqCst);
     expect_unauthorized_reason(
-        call(
+call(
             &app_api,
             "d6u-alice",
             &conductor.keystore(),
@@ -425,6 +425,7 @@ async fn d6u_runtime_authority_boundary() {
         )
         .await,
         "BadCapGrant",
+        "BadCapGrant",
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
     record_case("wrong-capability", "authorization-failed");
@@ -432,7 +433,7 @@ async fn d6u_runtime_authority_boundary() {
     let (n, exp) = holochain_nonce::fresh_nonce(Timestamp::now()).unwrap();
     let before = reached.load(Ordering::SeqCst);
     expect_unauthorized_reason(
-        call(
+call(
             &app_api,
             "d6u-alice",
             &conductor.keystore(),
@@ -449,7 +450,9 @@ async fn d6u_runtime_authority_boundary() {
         )
         .await,
     ,
-        "BadCapGrant");
+        "BadCapGrant"
+        "BadCapGrant",
+    );
     assert_eq!(reached.load(Ordering::SeqCst), before);
     record_case("provenance-mismatch", "authorization-failed");
 
@@ -475,7 +478,7 @@ async fn d6u_runtime_authority_boundary() {
     let (n, exp) = holochain_nonce::fresh_nonce(Timestamp::now()).unwrap();
     let before = reached.load(Ordering::SeqCst);
     expect_unauthorized_reason(
-        call(
+call(
             &app_api,
             "d6u-alice",
             &conductor.keystore(),
@@ -492,7 +495,9 @@ async fn d6u_runtime_authority_boundary() {
         )
         .await,
     ,
-        "BadCapGrant");
+        "BadCapGrant"
+        "BadCapGrant",
+    );
     assert_eq!(reached.load(Ordering::SeqCst), before);
     record_case("revoked-capability", "authorization-failed");
 
@@ -525,7 +530,7 @@ async fn d6u_runtime_authority_boundary() {
 
     let before = reached.load(Ordering::SeqCst);
     expect_unauthorized_reason(
-        app_api
+app_api
             .handle_request(
                 "d6u-bob".into(),
                 Ok(AppRequest::CallZome(Box::new(replay_signed))),
@@ -533,7 +538,9 @@ async fn d6u_runtime_authority_boundary() {
             .await
             .unwrap(),
     ,
-        "BadCapGrant");
+        "BadCapGrant"
+        "BadNonce",
+    );
     assert_eq!(reached.load(Ordering::SeqCst), before);
     record_case("nonce-replay", "authorization-failed");
 
@@ -549,9 +556,11 @@ async fn d6u_runtime_authority_boundary() {
     );
     let before = reached.load(Ordering::SeqCst);
     expect_unauthorized_reason(
-        call(&app_api, "d6u-bob", &conductor.keystore(), stale).await,
+call(&app_api, "d6u-bob", &conductor.keystore(), stale).await,
     ,
-        "BadNonce");
+        "BadNonce"
+        "BadNonce",
+    );
     assert_eq!(reached.load(Ordering::SeqCst), before);
     record_case("nonce-stale", "authorization-failed");
 
@@ -567,7 +576,7 @@ async fn d6u_runtime_authority_boundary() {
     );
     let before = reached.load(Ordering::SeqCst);
     expect_unauthorized_reason(
-        call(
+call(
             &app_api,
             "d6u-alice",
             &conductor.keystore(),
@@ -575,7 +584,9 @@ async fn d6u_runtime_authority_boundary() {
         )
         .await,
     ,
-        "BadNonce");
+        "BadNonce"
+        "BadNonce",
+    );
     assert_eq!(reached.load(Ordering::SeqCst), before);
     record_case("expired-invocation", "authorization-failed");
 
@@ -590,8 +601,8 @@ async fn d6u_runtime_authority_boundary() {
         holochain_nonce::fresh_nonce(Timestamp::now()).unwrap().1,
     );
     let before = reached.load(Ordering::SeqCst);
-    expect_unauthorized_reason(
-        call(
+    expect_ribosome_error(
+call(
             &app_api,
             "d6u-alice",
             &conductor.keystore(),
@@ -599,7 +610,8 @@ async fn d6u_runtime_authority_boundary() {
         )
         .await,
     ,
-        "BadNonce");
+        "BadNonce"
+    );
     assert_eq!(reached.load(Ordering::SeqCst), before);
     record_case("wrong-zome", "routing-failed");
 
@@ -614,14 +626,15 @@ async fn d6u_runtime_authority_boundary() {
         holochain_nonce::fresh_nonce(Timestamp::now()).unwrap().1,
     );
     let before = reached.load(Ordering::SeqCst);
-    expect_ribosome_error(
-        call(
+    expect_unauthorized_reason(
+call(
             &app_api,
             "d6u-alice",
             &conductor.keystore(),
             wrong_function,
         )
         .await,
+        "BadCapGrant",
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
     record_case("wrong-function", "authorization-failed");
@@ -637,8 +650,8 @@ async fn d6u_runtime_authority_boundary() {
         holochain_nonce::fresh_nonce(Timestamp::now()).unwrap().1,
     );
     let before = reached.load(Ordering::SeqCst);
-    expect_unauthorized_reason(
-        call(
+    expect_internal_error(
+call(
             &app_api,
             "d6u-bob",
             &conductor.keystore(),
@@ -646,9 +659,44 @@ async fn d6u_runtime_authority_boundary() {
         )
         .await,
     ,
-        "BadCapGrant");
+        "BadCapGrant"
+    );
     assert_eq!(reached.load(Ordering::SeqCst), before);
     record_case("wrong-cell", "routing-failed");
+
+    let before = reached.load(Ordering::SeqCst);
+    conductor
+        .raw_handle()
+        .holochain_p2p()
+        .block(Block::new(
+            BlockTarget::Cell(alice_cell.clone(), CellBlockReason::BadCrypto),
+            InclusiveTimestampInterval::try_new(Timestamp::now(), Timestamp::max())
+                .expect("block interval must be valid"),
+        ))
+        .await
+        .expect("system block must be committed");
+
+    expect_unauthorized_reason(
+        call(
+            &app_api,
+            "d6u-alice",
+            &conductor.keystore(),
+            params(
+                &alice_cell,
+                &alice,
+                SweetInlineZomes::COORDINATOR.into(),
+                "probe".into(),
+                None,
+                base,
+                Nonce256Bits::from([0x74; 32]),
+                holochain_nonce::fresh_nonce(Timestamp::now()).unwrap().1,
+            ),
+        )
+        .await,
+        "BlockedProvenance",
+    );
+    assert_eq!(reached.load(Ordering::SeqCst), before);
+    record_case("blocked-provenance", "authorization-failed");
 
     assert!(reached.load(Ordering::SeqCst) >= 4);
 }
