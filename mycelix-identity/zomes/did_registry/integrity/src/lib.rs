@@ -796,6 +796,46 @@ mod tests {
     }
 
     // =========================================================================
+    // Canonical AgentToDid link binding (P0)
+    // =========================================================================
+
+    #[test]
+    fn forged_agent_to_did_link_is_rejected_before_dht_lookup() {
+        let victim = AgentPubKey::from_raw_36(vec![0u8; 36]);
+        let attacker = AgentPubKey::from_raw_36(vec![1u8; 36]);
+
+        let link = CreateLink {
+            author: attacker,
+            timestamp: Timestamp::from_micros(0),
+            action_seq: 1,
+            prev_action: ActionHash::from_raw_36(vec![2u8; 36]),
+            base_address: victim.clone().into(),
+            target_address: ActionHash::from_raw_36(vec![3u8; 36]).into(),
+            zome_index: ZomeIndex(0),
+            link_type: LinkType::new(0),
+            tag: ().into(),
+            weight: Default::default(),
+        };
+
+        let result = validate_agent_to_did_link(
+            &link.base_address,
+            &link.target_address,
+            &link,
+        )
+        .expect("link validation should return a callback result");
+
+        match result {
+            ValidateCallbackResult::Invalid(message) => {
+                assert!(
+                    message.contains("authored by the base agent"),
+                    "expected owner-binding error, got: {message}"
+                );
+            }
+            other => panic!("forged AgentToDid link must be rejected, got {other:?}"),
+        }
+    }
+
+    // =========================================================================
     // DID deactivation author-binding (P0)
     // =========================================================================
 
