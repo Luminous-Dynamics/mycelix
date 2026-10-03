@@ -397,7 +397,11 @@ impl AdvisoryResult {
                 1.0
             },
             rationale: rationale.into(),
-            recommended_action,        }    }}
+            recommended_action,
+        }
+    }
+}
+
 impl Capability {
     fn validate(&self) -> Result<(), &'static str> {
         if self.subject.is_empty() || self.issuer.is_empty() || self.resource.is_empty() {
