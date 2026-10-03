@@ -21,8 +21,7 @@ const D6S_DOMAIN: &[u8] = b"MYCELIX-INTEGRAL-D6S-RECEIPT-V1\0";
 const D6S_CANON1_CORPUS_SHA256: &str =
     "9d61cdb2e625c13c5813fffb7cceea4af2f93ed60d7d64c068dc6d3f6f6b614d";
 const FROZEN_CANONICAL: &[u8] = br#"{"a":1,"b":2}"#;
-const FROZEN_COMMITMENT: &str =
-    "6e2d6dcd7ab2bc1bd2a1f7be2b45e735202775da406edafc0b30719b09b1a363";
+const FROZEN_COMMITMENT: &str = "6e2d6dcd7ab2bc1bd2a1f7be2b45e735202775da406edafc0b30719b09b1a363";
 
 #[derive(Debug, Clone, Serialize, Deserialize, SerializedBytes)]
 struct ProbeInput {
@@ -97,13 +96,13 @@ fn authority_probe_zome(reached: Arc<AtomicUsize>) -> SweetInlineZomes {
                 }),
                 ChainTopOrdering::default(),
             ))?;
-            Ok(GrantMaterial { action_hash, secret })
+            Ok(GrantMaterial {
+                action_hash,
+                secret,
+            })
         })
         .function("revoke_probe", move |api, action_hash: ActionHash| {
-            Ok(api.delete(DeleteInput::new(
-                action_hash,
-                ChainTopOrdering::default(),
-            ))?)
+            Ok(api.delete(DeleteInput::new(action_hash, ChainTopOrdering::default()))?)
         })
 }
 
@@ -138,12 +137,9 @@ async fn call(
     let signed = ZomeCallParamsSigned::try_from_params(keystore, params)
         .await
         .expect("test keystore must sign invocation");
-    api.handle_request(
-        "".to_string(),
-        Ok(AppRequest::CallZome(Box::new(signed))),
-    )
-    .await
-    .expect("app interface request must complete")
+    api.handle_request("".to_string(), Ok(AppRequest::CallZome(Box::new(signed))))
+        .await
+        .expect("app interface request must complete")
 }
 
 fn decode(response: AppResponse) -> ZomeCallResponse {
@@ -195,14 +191,20 @@ fn expect_unauthorized_reason(response: AppResponse, reason: &str) {
 
 fn expect_ribosome_error(response: AppResponse) {
     assert!(
-        matches!(response, AppResponse::Error(ExternalApiWireError::RibosomeError(_))),
+        matches!(
+            response,
+            AppResponse::Error(ExternalApiWireError::RibosomeError(_))
+        ),
         "expected ribosome routing error, got {response:?}"
     );
 }
 
 fn expect_internal_error(response: AppResponse) {
     assert!(
-        matches!(response, AppResponse::Error(ExternalApiWireError::InternalError(_))),
+        matches!(
+            response,
+            AppResponse::Error(ExternalApiWireError::InternalError(_))
+        ),
         "expected conductor internal error, got {response:?}"
     );
 }
@@ -326,12 +328,10 @@ async fn d6u_runtime_authority_boundary() {
         Nonce256Bits::from([0x31; 32]),
         holochain_nonce::fresh_nonce(Timestamp::now()).unwrap().1,
     );
-    let alice_signed = ZomeCallParamsSigned::try_from_params(
-        &conductor.keystore(),
-        alice_params.clone(),
-    )
-    .await
-    .expect("Alice signature fixture must be constructible");
+    let alice_signed =
+        ZomeCallParamsSigned::try_from_params(&conductor.keystore(), alice_params.clone())
+            .await
+            .expect("Alice signature fixture must be constructible");
     let bob_signed = ZomeCallParamsSigned::try_from_params(
         &conductor.keystore(),
         ZomeCallParams {
@@ -342,10 +342,8 @@ async fn d6u_runtime_authority_boundary() {
     .await
     .expect("Bob signature fixture must be constructible");
 
-    let invalid_signature = ZomeCallParamsSigned::new(
-        alice_signed.bytes.into(),
-        bob_signed.signature,
-    );
+    let invalid_signature =
+        ZomeCallParamsSigned::new(alice_signed.bytes.into(), bob_signed.signature);
     let before = reached.load(Ordering::SeqCst);
     let invalid_response = app_api
         .handle_request(
@@ -507,10 +505,9 @@ async fn d6u_runtime_authority_boundary() {
         replay_nonce,
         holochain_nonce::fresh_nonce(Timestamp::now()).unwrap().1,
     );
-    let replay_signed =
-        ZomeCallParamsSigned::try_from_params(&conductor.keystore(), replay_params)
-            .await
-            .expect("replay fixture must sign");
+    let replay_signed = ZomeCallParamsSigned::try_from_params(&conductor.keystore(), replay_params)
+        .await
+        .expect("replay fixture must sign");
 
     expect_probe_result(
         app_api
@@ -567,13 +564,7 @@ async fn d6u_runtime_authority_boundary() {
     );
     let before = reached.load(Ordering::SeqCst);
     expect_unauthorized_reason(
-        call(
-            &app_api,
-            "d6u-alice",
-            &conductor.keystore(),
-            expired,
-        )
-        .await,
+        call(&app_api, "d6u-alice", &conductor.keystore(), expired).await,
         "BadNonce",
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
@@ -590,15 +581,7 @@ async fn d6u_runtime_authority_boundary() {
         holochain_nonce::fresh_nonce(Timestamp::now()).unwrap().1,
     );
     let before = reached.load(Ordering::SeqCst);
-    expect_ribosome_error(
-        call(
-            &app_api,
-            "d6u-alice",
-            &conductor.keystore(),
-            wrong_zome,
-        )
-        .await,
-    );
+    expect_ribosome_error(call(&app_api, "d6u-alice", &conductor.keystore(), wrong_zome).await);
     assert_eq!(reached.load(Ordering::SeqCst), before);
     record_case("wrong-zome", "routing-failed");
 
@@ -614,13 +597,7 @@ async fn d6u_runtime_authority_boundary() {
     );
     let before = reached.load(Ordering::SeqCst);
     expect_unauthorized_reason(
-        call(
-            &app_api,
-            "d6u-alice",
-            &conductor.keystore(),
-            wrong_function,
-        )
-        .await,
+        call(&app_api, "d6u-alice", &conductor.keystore(), wrong_function).await,
         "BadCapGrant",
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
@@ -638,15 +615,7 @@ async fn d6u_runtime_authority_boundary() {
         holochain_nonce::fresh_nonce(Timestamp::now()).unwrap().1,
     );
     let before = reached.load(Ordering::SeqCst);
-    expect_internal_error(
-        call(
-            &app_api,
-            "d6u-bob",
-            &conductor.keystore(),
-            wrong_cell,
-        )
-        .await,
-    );
+    expect_internal_error(call(&app_api, "d6u-bob", &conductor.keystore(), wrong_cell).await);
     assert_eq!(reached.load(Ordering::SeqCst), before);
     record_case("wrong-cell", "routing-failed");
 
