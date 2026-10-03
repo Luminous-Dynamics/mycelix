@@ -486,6 +486,26 @@
       "id": "EDT-095",
       "case": "independent_reference_validator_accepts_only_the_declared_adapter_boundary_contract",
       "expected": "accepted"
+    },
+    {
+      "id": "EDT-096",
+      "case": "logical_dependency_binds_to_exactly_one_runtime_address",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-097",
+      "case": "logical_dependency_rebinding_is_rejected_as_typed_structural_error",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-098",
+      "case": "unbound_logical_dependency_remains_unresolved",
+      "expected": "unresolved_at_protocol_layer"
+    },
+    {
+      "id": "EDT-099",
+      "case": "logical_dependency_resolution_is_invariant_to_request_order",
+      "expected": "accepted"
     }
   ]
 }
