@@ -174,10 +174,30 @@ The disposition validators share a common protocol-status algebra in the standal
 
 The runtime-specific identity/address and validation-result boundary is specified separately in `docs/mobility/MOBILITY_QUALIFICATION_ADAPTER_BOUNDARY_V1.md`. The machine-readable companion is `docs/mobility/MOBILITY_QUALIFICATION_ADAPTER_BOUNDARY_V1.json`, and the standalone qualification crate parses that contract during tests. The workflow also runs `tools/mobility_qualification_adapter_boundary_reference.py` as an independent structural reference check.
 - `QualificationDecision<T>` is the runtime-neutral adapter boundary: `Valid(T)`, `Invalid { reason }`, and `Unresolved { missing, partial }` are mutually exclusive and contain no Holochain-specific types. This keeps the pure qualification crate portable while giving a future integrity-zome adapter a direct three-outcome mapping.
-- The intended Holochain adapter mapping is direct: `Valid(T)` → `ValidateCallbackResult::Valid`, `Invalid { reason }` → `ValidateCallbackResult::Invalid(reason)`, and `Unresolved { missing, partial }` → `ValidateCallbackResult::UnresolvedDependencies(...)`; host/runtime failures remain outside this semantic result algebra.
+- The Holochain adapter maps `Valid(T)` directly to `ValidateCallbackResult::Valid` and structural `Invalid { reason }` directly to `ValidateCallbackResult::Invalid(reason)`. A pure `Unresolved { missing, partial }` whose identities are still unbound remains a runtime-neutral preflight state; only after an explicit address binding exists can `must_get_*` retrieve the dependency and let Holochain produce `UnresolvedDependencies` for unavailable protocol data. Host/runtime failures remain outside this semantic result algebra.
 - The unresolved identities exposed by the pure layer are logical engineering identifiers, not Holochain hashes. The runtime adapter must perform an explicit identity-to-address binding before constructing `UnresolvedDependencies`; no implicit string/hash interpretation is permitted.
 - `QualificationValidationError::Structural { reason }` means the supplied records contain a definitive structural contradiction.
 
 Transition-graph, authority-delegation, and composed-coverage validators expose adapters into this same algebra. Their existing `Result<_, String>` entry points remain available, and the existing coverage typed-error name is retained as a compatibility alias to the shared structural-error type.
 
-This is intentionally an internal protocol algebra, not a Holochain type dependency. An eventual integrity-zome adapter can map `Complete` to `Valid`, `Structural` to `Invalid`, and `Unresolved` to `UnresolvedDependencies` at the Holochain boundary, while keeping the qualification crate dependency-free. Holochain's current validation documentation defines those three semantic outcomes and reserves `Err` for true host/runtime failures rather than semantic invalidity.
+This is intentionally an internal protocol algebra, not a Holochain type dependency. The concrete adapter now maps the complete pure state into addressable Holochain retrievals without reinterpreting the logical identity. Once every required identity has an explicit binding, `must_get_valid_record(ActionHash)`, `must_get_action(ActionHash)`, and `must_get_entry(EntryHash)` are the only retrieval routes. Holochain's current validation documentation defines the three callback outcomes and reserves runtime errors for actual host/runtime failures rather than semantic invalidity.
+
+
+## Concrete Holochain 0.7 adapter boundary
+
+The concrete adapter is isolated in mycelix-commons/crates/mobility-qualification-holochain-adapter with hdi pinned to 0.8.0. It is a separate Cargo workspace so the Holochain-0.6-compatible parent workspace is not implicitly upgraded.
+
+The adapter performs exactly two runtime-specific operations:
+
+- explicit binding from an IdentityRef to either ActionHash or EntryHash;
+- dispatch of the declared retrieval intent to the matching must_get_* host function.
+
+The mapping is machine-tested in both directions:
+
+- ValidRecord → ActionHash → must_get_valid_record;
+- Action → ActionHash → must_get_action;
+- Entry → EntryHash → must_get_entry.
+
+Wrong address kinds are rejected before a host call. The adapter never parses, hashes, derives, or otherwise interprets the logical identity text as a protocol address.
+
+The unresolved boundary is deliberately two-phase. A missing binding is still the pure qualification layer's Unresolved state because no Holochain hash exists yet. After a binding exists, a missing addressable record is delegated to the deterministic must_get_* primitive; Holochain then supplies UnresolvedDependencies during validate-callback processing. This prevents a missing logical binding from being turned into either a false negative or a malformed protocol dependency.
