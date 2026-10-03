@@ -79,7 +79,7 @@ def main() -> int:
     authority_contract = contract.get("authority_agent_binding")
     if not isinstance(authority_contract, dict):
         raise SystemExit("machine contract missing authority_agent_binding object")
-    expected_contract = {
+    expected_authority_contract = {
         "registry_retains_verified_credential": True,
         "audit_credential_accessor": "HolochainAuthorityAgentBindingSet::credential_for",
         "runtime_binding_requires_exact_authority_scope_match": True,
@@ -88,9 +88,29 @@ def main() -> int:
         "registered_credential_basis_is_minimum_runtime_basis": True,
         "runtime_binding_witness_must_differ_from_authority_credential_witness": True,
     }
-    for key, expected in expected_contract.items():
+    for key, expected in expected_authority_contract.items():
         if authority_contract.get(key) != expected:
             raise SystemExit(f"machine contract drift for {key}: expected {expected!r}")
+
+    serialization_contract = contract.get("signed_payload_serialization")
+    if not isinstance(serialization_contract, dict):
+        raise SystemExit("machine contract missing signed_payload_serialization object")
+    expected_serialization_contract = {
+        "library": "holochain_serialized_bytes",
+        "version": "0.0.57",
+        "representation": "SerializedBytes",
+        "schema_fields_are_owned_strings": True,
+        "explicit_try_from_roundtrip_tested": True,
+        "verify_signature_remains_single_crypto_verifier": True,
+    }
+    for key, expected in expected_serialization_contract.items():
+        if serialization_contract.get(key) != expected:
+            raise SystemExit(f"machine serialization contract drift for {key}: expected {expected!r}")
+    if serialization_contract.get("payloads") != [
+        "HolochainAuthorityAgentBindingPayload",
+        "HolochainBindingAttestationPayload",
+    ]:
+        raise SystemExit("machine serialization contract payload list drifted")
 
     if "agent_for(&authority)" not in source:
         raise SystemExit("runtime binding must expose authority-agent lookup")
