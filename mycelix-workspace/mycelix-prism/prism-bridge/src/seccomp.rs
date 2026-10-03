@@ -1605,12 +1605,12 @@ mod linux {
             }).unwrap();
             let first_predicate_jump = &filter[dispatch + 3];
 
-            // MaskedEqual: equality skips only the local EPERM and continues
-            // toward this clause's ALLOW; inequality skips the remainder of
-            // this clause to the next alternative.
-            assert_eq!(first_predicate_jump.jt, 1);
-            assert_eq!(first_predicate_jump.jf, 2);
-            assert_eq!(filter[dispatch + 5].k, SECCOMP_RET_ALLOW);
+            // MaskedEqual: equality continues to the clause ALLOW;
+            // inequality skips that ALLOW and falls through to the next
+            // alternative. There is no local EPERM in a disjunctive clause.
+            assert_eq!(first_predicate_jump.jt, 0);
+            assert_eq!(first_predicate_jump.jf, 1);
+            assert_eq!(filter[dispatch + 4].k, SECCOMP_RET_ALLOW);
         }
 
         #[test]
