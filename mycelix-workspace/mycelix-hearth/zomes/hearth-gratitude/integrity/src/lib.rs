@@ -134,7 +134,12 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             _ => Ok(ValidateCallbackResult::Valid),
         },
         FlatOp::Link(OpLink::CreateLink { link_type, action }) => {
-            validate_create_link(link_type, &action.data.tag)
+            validate_create_link(
+                link_type,
+                action.data.base_address.clone(),
+                action.data.target_address.clone(),
+                &action.data.tag,
+            )
         }
         FlatOp::Link(link @ OpLink::DeleteLink {
             link_type,
@@ -284,6 +289,8 @@ fn validate_anchor_update(anchor: GratitudeAnchor) -> ExternResult<ValidateCallb
 
 fn validate_create_link(
     link_type: LinkTypes,
+    base_address: AnyLinkableHash,
+    target_address: AnyLinkableHash,
     tag: &LinkTag,
 ) -> ExternResult<ValidateCallbackResult> {
     let max_len = link_tag_max_len(&link_type);
@@ -292,6 +299,58 @@ fn validate_create_link(
             "{:?} link tag too long (max {} bytes)",
             link_type, max_len
         )));
+    }
+    let action_hash = |hash: AnyLinkableHash, label: &str| -> Result<ActionHash, ValidateCallbackResult> {
+        ActionHash::try_from(hash)
+            .map_err(|_| ValidateCallbackResult::Invalid(format!("{label} must be an ActionHash")))
+    };
+    match link_type {
+        LinkTypes::HearthToGratitude => {
+            let base = action_hash(base_address, "HearthToGratitude base")?;
+            let target = action_hash(target_address, "HearthToGratitude target")?;
+            let record = must_get_valid_record(target)?;
+            let entry: GratitudeExpression = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("GratitudeExpression entry missing".into())))?;
+            if entry.hearth_hash != base {
+                return Ok(ValidateCallbackResult::Invalid("GratitudeExpression belongs to a different hearth".into()));
+            }
+        }
+        LinkTypes::AgentToGratitudeGiven | LinkTypes::AgentToGratitudeReceived => {
+            let base = AgentPubKey::try_from(base_address).map_err(|_| ValidateCallbackResult::Invalid("Gratitude agent base must be an AgentPubKey".into()))?;
+            let target = action_hash(target_address, "Gratitude target")?;
+            let record = must_get_valid_record(target)?;
+            let entry: GratitudeExpression = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("GratitudeExpression entry missing".into())))?;
+            let expected = if matches!(link_type, LinkTypes::AgentToGratitudeGiven) { &entry.from_agent } else { &entry.to_agent };
+            if expected != &base {
+                return Ok(ValidateCallbackResult::Invalid("Agent gratitude link base does not match the expression agent".into()));
+            }
+        }
+        LinkTypes::HearthToCircles => {
+            let base = action_hash(base_address, "HearthToCircles base")?;
+            let target = action_hash(target_address, "HearthToCircles target")?;
+            let record = must_get_valid_record(target)?;
+            let entry: AppreciationCircle = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("AppreciationCircle entry missing".into())))?;
+            if entry.hearth_hash != base {
+                return Ok(ValidateCallbackResult::Invalid("AppreciationCircle belongs to a different hearth".into()));
+            }
+        }
+        LinkTypes::AgentToCircles => {
+            let base = AgentPubKey::try_from(base_address).map_err(|_| ValidateCallbackResult::Invalid("AgentToCircles base must be an AgentPubKey".into()))?;
+            let target = action_hash(target_address, "AgentToCircles target")?;
+            let record = must_get_valid_record(target)?;
+            let entry: AppreciationCircle = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("AppreciationCircle entry missing".into())))?;
+            if !entry.participants.contains(&base) {
+                return Ok(ValidateCallbackResult::Invalid("AgentToCircles base is not a circle participant".into()));
+            }
+        }
+        LinkTypes::HearthToGratitudeAnchors => {
+            let base = action_hash(base_address, "HearthToGratitudeAnchors base")?;
+            let target = action_hash(target_address, "HearthToGratitudeAnchors target")?;
+            let record = must_get_valid_record(target)?;
+            let entry: GratitudeAnchor = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("GratitudeAnchor entry missing".into())))?;
+            if entry.hearth_hash != base {
+                return Ok(ValidateCallbackResult::Invalid("GratitudeAnchor belongs to a different hearth".into()));
+            }
+        }
     }
     Ok(ValidateCallbackResult::Valid)
 }
