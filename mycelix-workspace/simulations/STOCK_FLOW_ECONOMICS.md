@@ -1045,3 +1045,22 @@ The hardening pass also repaired an older test fixture that contained unmatched 
 stocks. The fixture now satisfies the closed-financial invariant before observing its period
 depreciation, so the stronger validation is exercised against a valid accounting base rather than
 hidden by test data.
+
+## Reconciliation API convergence (implemented)
+
+The legacy financial reconciliation surface and the newer physical-aware reconciliation surface now
+share the same input-domain guarantees at their public entry points.
+
+Both direct posting constructors validate the opening state and exact sector assignment coverage,
+and both reject deserialized transitions that fail the canonical transition-domain validator before
+building postings or replaying mutations.
+
+This prevents an exported low-level posting function from becoming a weaker bypass around the
+validated `reconcile_step` boundary.
+
+The resulting rule is uniform:
+
+`public reconciliation/posting API -> validated state + validated transitions + exact assignments`
+
+The v2 layer additionally retains its physical-stock reconciliation, while the legacy layer preserves
+its narrower financial-stock semantics for compatibility.
