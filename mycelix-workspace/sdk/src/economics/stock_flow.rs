@@ -709,6 +709,10 @@ impl EconomicState {
     /// derived balance-sheet equity residual; there is intentionally no mutable
     /// equity field to update separately, preventing double counting.
     pub fn apply_income_transfer(&mut self, transfer: &IncomeTransfer) -> Result<(), String> {
+        let next_flow_volume = self
+            .monetary_flow_volume
+            .checked_add(transfer.amount)
+            .ok_or_else(|| "monetary flow counter overflow".to_string())?;
         let (payer, recipient) = self.actor_pair_mut(&transfer.payer, &transfer.recipient)?;
         if payer.monetary.deposits < transfer.amount {
             return Err(format!(
@@ -716,16 +720,14 @@ impl EconomicState {
                 payer.actor, payer.monetary.deposits, transfer.amount
             ));
         }
-        payer.monetary.deposits -= transfer.amount;
-        recipient.monetary.deposits = recipient
+        let recipient_deposits = recipient
             .monetary
             .deposits
             .checked_add(transfer.amount)
             .ok_or_else(|| "recipient deposit overflow".to_string())?;
-        self.monetary_flow_volume = self
-            .monetary_flow_volume
-            .checked_add(transfer.amount)
-            .ok_or_else(|| "monetary flow counter overflow".to_string())?;
+        payer.monetary.deposits -= transfer.amount;
+        recipient.monetary.deposits = recipient_deposits;
+        self.monetary_flow_volume = next_flow_volume;
         Ok(())
     }
 
@@ -735,6 +737,10 @@ impl EconomicState {
         &mut self,
         investment: &CapitalInvestment,
     ) -> Result<(), String> {
+        let next_flow_volume = self
+            .monetary_flow_volume
+            .checked_add(investment.amount)
+            .ok_or_else(|| "monetary flow counter overflow".to_string())?;
         let (buyer, producer) = self.actor_pair_mut(&investment.buyer, &investment.producer)?;
         if buyer.monetary.deposits < investment.amount {
             return Err(format!(
@@ -742,21 +748,20 @@ impl EconomicState {
                 buyer.actor, buyer.monetary.deposits, investment.amount
             ));
         }
-        buyer.monetary.deposits -= investment.amount;
-        buyer.real.productive_capital = buyer
+        let buyer_capital = buyer
             .real
             .productive_capital
             .checked_add(investment.amount)
             .ok_or_else(|| "productive capital overflow".to_string())?;
-        producer.monetary.deposits = producer
+        let producer_deposits = producer
             .monetary
             .deposits
             .checked_add(investment.amount)
             .ok_or_else(|| "producer deposit overflow".to_string())?;
-        self.monetary_flow_volume = self
-            .monetary_flow_volume
-            .checked_add(investment.amount)
-            .ok_or_else(|| "monetary flow counter overflow".to_string())?;
+        buyer.monetary.deposits -= investment.amount;
+        buyer.real.productive_capital = buyer_capital;
+        producer.monetary.deposits = producer_deposits;
+        self.monetary_flow_volume = next_flow_volume;
         Ok(())
     }
 
@@ -769,12 +774,13 @@ impl EconomicState {
                 producer.actor, producer.real.resources, production.resource_input
             ));
         }
-        producer.real.resources -= production.resource_input;
-        producer.real.inventories = producer
+        let inventories = producer
             .real
             .inventories
             .checked_add(production.output)
             .ok_or_else(|| "inventory overflow".to_string())?;
+        producer.real.resources -= production.resource_input;
+        producer.real.inventories = inventories;
         Ok(())
     }
 
@@ -791,12 +797,13 @@ impl EconomicState {
                 sender.actor, sender.real.inventories, transfer.quantity
             ));
         }
-        sender.real.inventories -= transfer.quantity;
-        receiver.real.inventories = receiver
+        let receiver_inventories = receiver
             .real
             .inventories
             .checked_add(transfer.quantity)
             .ok_or_else(|| "inventory transfer overflow".to_string())?;
+        sender.real.inventories -= transfer.quantity;
+        receiver.real.inventories = receiver_inventories;
         Ok(())
     }
 
@@ -821,6 +828,10 @@ impl EconomicState {
     /// move monetarily. Inventory carrying value is unchanged; explicit
     /// cost-relief and buyer-side cost-addition transitions carry the accounting.
     pub fn apply_goods_sale(&mut self, sale: &GoodsSale) -> Result<(), String> {
+        let next_flow_volume = self
+            .monetary_flow_volume
+            .checked_add(sale.consideration)
+            .ok_or_else(|| "monetary flow counter overflow".to_string())?;
         let (seller, buyer) = self.actor_pair_mut(&sale.seller, &sale.buyer)?;
         if seller.real.inventories < sale.quantity {
             return Err(format!(
@@ -834,17 +845,21 @@ impl EconomicState {
                 buyer.actor, buyer.monetary.deposits, sale.consideration
             ));
         }
-        seller.real.inventories -= sale.quantity;
-        buyer.real.inventories = buyer.real.inventories
+        let buyer_inventories = buyer
+            .real
+            .inventories
             .checked_add(sale.quantity)
             .ok_or_else(|| "buyer inventory overflow".to_string())?;
-        buyer.monetary.deposits -= sale.consideration;
-        seller.monetary.deposits = seller.monetary.deposits
+        let seller_deposits = seller
+            .monetary
+            .deposits
             .checked_add(sale.consideration)
             .ok_or_else(|| "seller deposit overflow".to_string())?;
-        self.monetary_flow_volume = self.monetary_flow_volume
-            .checked_add(sale.consideration)
-            .ok_or_else(|| "monetary flow counter overflow".to_string())?;
+        seller.real.inventories -= sale.quantity;
+        buyer.real.inventories = buyer_inventories;
+        buyer.monetary.deposits -= sale.consideration;
+        seller.monetary.deposits = seller_deposits;
+        self.monetary_flow_volume = next_flow_volume;
         Ok(())
     }
 
@@ -860,10 +875,11 @@ impl EconomicState {
                 addition.quantity, actor.actor, actor.real.inventories
             ));
         }
-        actor.inventory_carrying_value = actor
+        let carrying_value = actor
             .inventory_carrying_value
             .checked_add(addition.carrying_value)
             .ok_or_else(|| "inventory carrying value overflow".to_string())?;
+        actor.inventory_carrying_value = carrying_value;
         Ok(())
     }
 
@@ -916,22 +932,25 @@ impl EconomicState {
                 seller.actor, seller.real.inventories, sale.quantity
             ));
         }
-        seller.real.inventories -= sale.quantity;
-        buyer.real.inventories = buyer
+        let buyer_inventories = buyer
             .real
             .inventories
             .checked_add(sale.quantity)
             .ok_or_else(|| "buyer inventory overflow".to_string())?;
-        seller.monetary.trade_receivables = seller
+        let seller_receivables = seller
             .monetary
             .trade_receivables
             .checked_add(sale.consideration)
             .ok_or_else(|| "trade receivable overflow".to_string())?;
-        buyer.monetary.trade_payables = buyer
+        let buyer_payables = buyer
             .monetary
             .trade_payables
             .checked_add(sale.consideration)
             .ok_or_else(|| "trade payable overflow".to_string())?;
+        seller.real.inventories -= sale.quantity;
+        buyer.real.inventories = buyer_inventories;
+        seller.monetary.trade_receivables = seller_receivables;
+        buyer.monetary.trade_payables = buyer_payables;
         Ok(())
     }
 
@@ -1485,6 +1504,68 @@ mod tests {
         s.actors.iter_mut().find(|a| a.actor == "household").unwrap().monetary.trade_payables = 1;
         let before = s.clone();
         assert!(s.apply_trade_credit_settlement(&TradeCreditSettlement::new("firm", "household", 1).unwrap()).is_err());
+        assert_eq!(s, before);
+    }
+
+    #[test]
+    fn income_transfer_overflow_is_atomic() {
+        let mut s = state();
+        s.actors.iter_mut().find(|a| a.actor == "household").unwrap().monetary.deposits = 1;
+        s.actors.iter_mut().find(|a| a.actor == "bank").unwrap().monetary.deposits = i128::MAX;
+        let before = s.clone();
+        assert!(s.apply_income_transfer(&IncomeTransfer::new("household", "bank", 1).unwrap()).is_err());
+        assert_eq!(s, before);
+    }
+
+    #[test]
+    fn capital_investment_overflow_is_atomic() {
+        let mut s = state();
+        s.actors.iter_mut().find(|a| a.actor == "firm").unwrap().monetary.deposits = 1;
+        s.actors.iter_mut().find(|a| a.actor == "household").unwrap().real.productive_capital = i128::MAX;
+        let before = s.clone();
+        assert!(s.apply_capital_investment(&CapitalInvestment::new("firm", "household", 1).unwrap()).is_err());
+        assert_eq!(s, before);
+    }
+
+    #[test]
+    fn production_overflow_is_atomic() {
+        let mut s = state();
+        let producer = s.actors.iter_mut().find(|a| a.actor == "firm").unwrap();
+        producer.real.resources = 1;
+        producer.real.inventories = i128::MAX;
+        let before = s.clone();
+        assert!(s.apply_production(&ProductionEvent::new("firm", 1, 1).unwrap()).is_err());
+        assert_eq!(s, before);
+    }
+
+    #[test]
+    fn inventory_transfer_overflow_is_atomic() {
+        let mut s = state();
+        s.actors.iter_mut().find(|a| a.actor == "firm").unwrap().real.inventories = 1;
+        s.actors.iter_mut().find(|a| a.actor == "household").unwrap().real.inventories = i128::MAX;
+        let before = s.clone();
+        assert!(s.apply_inventory_transfer(&InventoryTransfer::new("firm", "household", 1).unwrap()).is_err());
+        assert_eq!(s, before);
+    }
+
+    #[test]
+    fn goods_sale_overflow_is_atomic() {
+        let mut s = state();
+        s.actors.iter_mut().find(|a| a.actor == "firm").unwrap().real.inventories = 1;
+        s.actors.iter_mut().find(|a| a.actor == "household").unwrap().monetary.deposits = 1;
+        s.actors.iter_mut().find(|a| a.actor == "household").unwrap().real.inventories = i128::MAX;
+        let before = s.clone();
+        assert!(s.apply_goods_sale(&GoodsSale::new("firm", "household", 1, 1).unwrap()).is_err());
+        assert_eq!(s, before);
+    }
+
+    #[test]
+    fn trade_credit_sale_overflow_is_atomic() {
+        let mut s = state();
+        s.actors.iter_mut().find(|a| a.actor == "firm").unwrap().real.inventories = 1;
+        s.actors.iter_mut().find(|a| a.actor == "firm").unwrap().monetary.trade_receivables = i128::MAX;
+        let before = s.clone();
+        assert!(s.apply_trade_credit_sale(&TradeCreditSale::new("firm", "household", 1, 1).unwrap()).is_err());
         assert_eq!(s, before);
     }
 
