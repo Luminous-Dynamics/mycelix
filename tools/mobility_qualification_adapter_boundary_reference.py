@@ -112,7 +112,8 @@ def main() -> int:
         {"logical_identity_type", "protocol_address_type", "implicit_string_to_hash_conversion",
          "adapter_binding_required", "exactly_one_address_per_logical_identity",
          "duplicate_logical_identity_binding", "unbound_logical_identity_is_semantic_invalidity",
-         "binding_order_independent"},
+         "binding_order_independent", "resolution_operation", "resolution_success",
+         "resolution_missing", "duplicate_requests_deduplicated", "address_derivation"},
         "identity boundary",
     )
     if identity.get("logical_identity_type") != "IdentityRef":
@@ -126,6 +127,18 @@ def main() -> int:
         raise SystemExit("duplicate logical identity binding must be rejected")
     require_bool(identity, "unbound_logical_identity_is_semantic_invalidity", False)
     require_bool(identity, "binding_order_independent", True)
+    if identity.get("resolution_operation") != "QualificationDependencyBindingSet::resolve_required":
+        raise SystemExit("unexpected binding resolution operation")
+    if identity.get("resolution_success") != (
+        "all requested logical identities bound; return canonical identity/address pairs"
+    ):
+        raise SystemExit("binding resolution success semantics changed")
+    if identity.get("resolution_missing") != (
+        "return canonical missing logical identities and preserve unresolved semantic state"
+    ):
+        raise SystemExit("binding resolution missing semantics changed")
+    require_bool(identity, "duplicate_requests_deduplicated", True)
+    require_bool(identity, "address_derivation", False)
 
     dependencies = document.get("dependency_retrieval")
     if not isinstance(dependencies, dict):
