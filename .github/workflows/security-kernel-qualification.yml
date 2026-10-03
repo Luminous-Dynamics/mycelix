@@ -29,7 +29,6 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          submodules: recursive
           persist-credentials: false
 
       - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # master
@@ -43,6 +42,25 @@ jobs:
 
       - name: Format
         run: cargo fmt --manifest-path crates/mycelix-bridge-common/Cargo.toml -- --check
+
+      - name: Assert kernel trust surface remains private
+        shell: bash
+        run: |
+          set -euo pipefail
+          for pattern in \
+            'pub\\(crate\\).*SignatureVerification' \
+            'pub\\(crate\\).*RevocationStatus' \
+            'pub\\(crate\\).*AuthorityResolution' \
+            'pub\\(crate\\).*AUTHORITY_FRESHNESS_' \
+            'pub\\(crate\\).*authority_binding_from_freshness_digest' \
+            'pub\\(crate\\).*new_for_capability' \
+            'pub\\(crate\\).*binding_digest' \
+            'pub\\(crate\\).*revalidate_permit'; do
+            if rg -n \"$pattern\" crates/mycelix-bridge-common/src/security_kernel.rs; then
+              echo "security-kernel trust-surface regression: $pattern" >&2
+              exit 1
+            fi
+          done
 
       - name: Test default feature set
         run: cargo test --locked --manifest-path crates/mycelix-bridge-common/Cargo.toml
