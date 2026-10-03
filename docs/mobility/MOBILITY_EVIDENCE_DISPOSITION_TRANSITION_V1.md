@@ -201,3 +201,12 @@ The mapping is machine-tested in both directions:
 Wrong address kinds are rejected before a host call. The adapter never parses, hashes, derives, or otherwise interprets the logical identity text as a protocol address.
 
 The unresolved boundary is deliberately two-phase. A missing binding is still the pure qualification layer's Unresolved state because no Holochain hash exists yet. After a binding exists, a missing addressable record is delegated to the deterministic must_get_* primitive; Holochain then supplies UnresolvedDependencies during validate-callback processing. This prevents a missing logical binding from being turned into either a false negative or a malformed protocol dependency.
+
+
+### Binding provenance hardening
+
+The logical-to-protocol binding is now itself required to carry a bounded provenance witness. `QualificationDependencyBindingProvenance` names the exact logical dependency, a distinct provenance witness identity, the authority identity supporting the binding, and a unique basis set that includes that authority.
+
+The pure witness deliberately contains no Holochain address. The concrete adapter combines the witness with the explicit `ActionHash` or `EntryHash` binding only after both sides are structurally valid. A witness must name the exact logical identity being bound, cannot self-reference through its own basis, and cannot reuse the same witness identity for another runtime binding.
+
+This preserves a single semantic interpretation layer: the witness explains provenance, the adapter supplies the protocol address, and Holochain supplies deterministic dependency retrieval. The witness is not a cryptographic proof, legal-authority determination, or global completeness assertion. Corpus vectors `EDT-113`–`EDT-125` pin acceptance, rejection, uniqueness, serialization, one-to-one witness use, and preservation through unresolved partial resolution.
