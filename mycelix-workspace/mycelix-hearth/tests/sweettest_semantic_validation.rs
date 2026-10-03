@@ -361,3 +361,93 @@ async fn test_cross_hearth_collection_story_link_reaches_integrity_validation() 
         "CollectionToStories story belongs to a different hearth",
     );
 }
+
+
+#[test]
+fn test_semantic_case_manifest_is_structurally_valid() {
+    let manifest: serde_json::Value = serde_json::from_str(include_str!(
+        "hearth-07-semantic-validation-cases.json"
+    ))
+    .expect("semantic-validation case manifest must be valid JSON");
+
+    assert_eq!(
+        manifest["schema_version"],
+        "HEARTH-SEMANTIC-0.7-CASESET-1"
+    );
+    assert!(
+        manifest["claim_ceiling"]
+            .as_str()
+            .expect("claim ceiling must be a string")
+            .contains("RuntimeQualificationPending"),
+        "semantic manifest must retain the runtime-pending evidence ceiling"
+    );
+
+    let cases = manifest["cases"]
+        .as_array()
+        .expect("semantic manifest must contain a cases array");
+    assert!(!cases.is_empty(), "semantic manifest must contain at least one case");
+
+    let allowed_surfaces = [
+        "CreateEntry",
+        "CreateRecord",
+        "Update",
+        "Delete",
+        "Link.CreateLink",
+        "Link.DeleteLink",
+    ];
+    let mut seen_ids = std::collections::BTreeSet::new();
+    let mut seen_tests = std::collections::BTreeSet::new();
+
+    for case in cases {
+        let case_id = case["case_id"]
+            .as_str()
+            .expect("every semantic case needs a case_id");
+        let test = case["test"]
+            .as_str()
+            .expect("every semantic case needs a test name");
+        let zome = case["zome"]
+            .as_str()
+            .expect("every semantic case needs a zome");
+        let operation = case["operation"]
+            .as_str()
+            .expect("every semantic case needs an operation");
+        let invariant = case["invariant"]
+            .as_str()
+            .expect("every semantic case needs an invariant");
+        let boundary = case["boundary"]
+            .as_str()
+            .expect("every semantic case needs a boundary");
+
+        assert!(seen_ids.insert(case_id), "duplicate semantic case_id: {case_id}");
+        assert!(seen_tests.insert(test), "duplicate semantic test name: {test}");
+        assert!(
+            case_id.starts_with("SEM-"),
+            "semantic case_id must use SEM-* namespace: {case_id}"
+        );
+        assert!(!zome.is_empty(), "semantic case zome must not be empty");
+        assert!(!operation.is_empty(), "semantic case operation must not be empty");
+        assert!(!invariant.is_empty(), "semantic case invariant must not be empty");
+        assert_eq!(
+            boundary, "integrity_validation",
+            "{case_id} must target the integrity validation boundary"
+        );
+
+        let surfaces = case["operation_surface"]
+            .as_array()
+            .expect("every semantic case needs operation_surface");
+        assert!(
+            !surfaces.is_empty(),
+            "{case_id} operation_surface must not be empty"
+        );
+        for surface in surfaces {
+            let surface = surface
+                .as_str()
+                .expect("operation_surface values must be strings");
+            assert!(
+                allowed_surfaces.contains(&surface),
+                "{case_id} contains unknown Holochain operation surface {surface:?}"
+            );
+        }
+    }
+}
+
