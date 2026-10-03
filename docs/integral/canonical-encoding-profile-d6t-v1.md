@@ -1,6 +1,6 @@
 # Integral D6T — Cross-Language Canonical Encoding Profile
 
-Status: **ReferenceModelOnly / design freeze pending**
+Status: **ReferenceModelOnly / D6S-CANON-1 frozen as a reference profile**
 
 ## Purpose
 
@@ -19,20 +19,32 @@ This is required before D6S receipts can be treated as interoperable commitments
 
 ## Current reference implementation
 
-D6S currently uses `serde_json` over ordered Rust collections followed by SHA-256.
+D6S-CANON-1 is now a D6S-specific canonical JSON subset rather than a claim of RFC 8785/JCS compatibility.
 
-That implementation is intentionally **not** described as RFC 8785/JCS-compatible.
+The profile intentionally avoids floating-point canonicalization: current D6S schema numerics are integral, so non-integral JSON numbers are rejected rather than inheriting runtime-specific number formatting.
 
-RFC 8785 defines canonical JSON using I-JSON constraints, deterministic property sorting, specified primitive serialization, and UTF-8 output. It also notes that Unicode normalization is not applied by JCS, so implementations must preserve string data consistently. citeturn0search0turn0search1
+The profile uses recursive UTF-16 code-unit ordering for object properties, preserves array order, preserves Unicode scalar values without normalization, defines deterministic JSON escaping, and emits exact UTF-8 bytes.
 
-D6T must therefore either:
+No cross-language interoperability claim is made until an independent implementation reproduces the frozen vectors.
 
-1. adopt a verified JCS profile; or
-2. define a distinct D6S canonical encoding profile with equally explicit interoperability rules.
+## D6S-CANON-1 frozen reference rules
 
-No interoperability claim should be made until this decision is frozen and golden vectors pass.
+The current reference profile deliberately defines a **D6S-specific canonical JSON subset** rather than claiming RFC 8785/JCS compatibility.
 
-## D6S-CANON-1 requirements
+1. **Objects:** property names are sorted recursively by their UTF-16 code-unit sequences. Locale, insertion order, and runtime map order are irrelevant.
+2. **Arrays:** element order is preserved exactly; arrays are never sorted by the canonicalizer.
+3. **Strings:** UTF-8 Unicode scalar values are preserved without Unicode normalization. JSON quoting uses deterministic escaping: \b, \t, \n, \f, \r for the five short control escapes, \uXXXX for remaining U+0000..U+001F controls, and escaping only quote/backslash otherwise.
+4. **Numbers:** only signed 64-bit and unsigned 64-bit integers are admitted. Decimal floating-point values, exponent forms, NaN, infinity, and integers outside the frozen i64/u64 domain are rejected. At raw parser boundaries, negative zero is rejected rather than normalized. This is intentional: all current D6S numeric schema fields are integral, and the profile does not attempt to freeze cross-runtime floating-point semantics.
+5. **Null/booleans:** null, true, and false use those exact lowercase spellings.
+6. **UTF-8:** canonical output is the exact UTF-8 byte sequence of the resulting canonical JSON text.
+7. **Duplicate properties:** typed Rust values cannot represent duplicate object properties; any future parser-facing implementation MUST reject duplicate names rather than last-write-wins coercion.
+8. **Domain separation:** commitments hash the frozen D6S domain prefix, an explicit object-domain label, a zero-byte separator, and the canonical bytes. Frozen object labels are `environment`, `derivation-profile`, `qualified-projection`, `canonical-receipt`, and `d6p-context-set`.
+
+9. **Self-commitment:** the receipt_commitment field is cleared before receipt commitment calculation, preventing recursive self-hashing.
+10. **Schema/profile versioning:** the canonicalization version is part of the committed projection/receipt material and MUST change for any incompatible encoding change.
+
+This profile is intentionally narrower than general-purpose JSON canonicalization. It is therefore easier to implement independently, but it MUST NOT be described as JCS-compatible.
+
 
 The frozen profile MUST specify:
 
@@ -49,6 +61,10 @@ The frozen profile MUST specify:
 - receipt self-commitment construction.
 
 The profile MUST be independent of programming-language map iteration order.
+
+## Reference implementation boundary
+
+The Rust implementation in canonical_derivation_receipt.rs is a reference implementation of D6S-CANON-1. Its current golden vectors cover empty/nested values, ordering, UTF-16 ordering, controls, integer rejection, domain separation, and material-field mutation. Independent implementations should reproduce these vectors before interoperability is claimed.
 
 ## Security boundary
 
@@ -87,9 +103,9 @@ D6T should maintain vectors covering:
 - reordered properties;
 - Unicode and escaped strings;
 - control characters;
-- large and boundary numeric values;
-- negative zero;
-- duplicate properties;
+- i64/u64 boundary numeric values;
+- negative zero rejection;
+- duplicate-property rejection;
 - optional fields;
 - every D6S receipt field;
 - exact D6P receipt bindings;
@@ -97,7 +113,7 @@ D6T should maintain vectors covering:
 - altered derivation profile;
 - altered input commitments.
 
-RFC 8785 currently has verified errata, including guidance concerning negative zero; any JCS adoption should account for the errata rather than relying on an unqualified summary of the original text. citeturn0search2
+If a future D6S profile adopts RFC 8785/JCS, its current errata and number semantics MUST be incorporated into that profile rather than copied from an older summary.
 
 ## Exit gate
 

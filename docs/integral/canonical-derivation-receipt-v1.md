@@ -139,9 +139,21 @@ Contradiction remains contradiction unless an explicit qualified profile supplie
 
 ## Reference implementation status
 
-The current Rust reference implementation uses deterministic `serde_json` encoding over ordered collections and SHA-256 integrity commitments. This is intentionally a reference-model mechanism, not yet a cross-language canonicalization standard.
+D6T (#3464) freezes **D6S-CANON-1** as a D6S-specific canonical JSON subset.
 
-D6T (#3464) freezes the cross-language encoding profile before any interoperability or cryptographic interoperability claim is made. In particular, the implementation MUST NOT be described as RFC 8785/JCS-compatible until its primitive serialization, Unicode handling, ordering rules, rejection rules, and golden vectors have been independently verified.
+The profile explicitly defines:
+
+- recursive UTF-16 code-unit ordering for object properties;
+- preserved array order;
+- deterministic JSON string escaping with no Unicode normalization;
+- integer-only numeric representation;
+- exact lowercase spellings for null and booleans;
+- exact UTF-8 output;
+- typed-value duplicate-property exclusion;
+- explicit SHA-256 domain separation and per-object commitment labels;
+- receipt self-commitment with the commitment field excluded from its own preimage.
+
+D6S-CANON-1 is deliberately **not** described as RFC 8785/JCS-compatible. A future JCS compatibility claim requires independent primitive, Unicode, number, parser, and golden-vector verification.
 
 ## Receipt identity
 
@@ -161,7 +173,7 @@ DerivationCommitment =
   )
 ```
 
-The current reference implementation uses SHA-256. The hash algorithm and domain-separation labels become protocol commitments only after the D6T canonical encoding profile is frozen.
+D6T freezes SHA-256 as the reference commitment algorithm and freezes the D6S domain prefix plus per-object commitment labels. The receipt commitment excludes `receipt_commitment` itself from its preimage.
 
 The important invariant is that every semantically material input is committed.
 
@@ -205,7 +217,7 @@ This specification does not establish physical truth, causal validity, legal aut
 
 ## D6S hardening: source, frontier, and conflict conservation
 
-The reference implementation now binds the selected projection to an exact `source_dkg_snapshot_commitment` and an explicit `D6S-RUST-REF-1` canonicalization version. Both are receipt inputs.
+The reference implementation now binds the selected projection to an exact `source_dkg_snapshot_commitment` and an explicit `D6S-CANON-1` canonicalization version. Both are receipt inputs.
 
 For current `Supported` results:
 
