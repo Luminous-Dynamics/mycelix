@@ -192,6 +192,25 @@ async fn create_test_hearth(conductor: &SweetConductor, alice: &SweetCell) -> Ac
     record.action_address().clone()
 }
 
+fn expected_reason(test_name: &str) -> String {
+    let manifest: serde_json::Value = serde_json::from_str(include_str!(
+        "hearth-07-semantic-validation-cases.json"
+    ))
+    .expect("semantic-validation case manifest must be valid JSON");
+
+    manifest["cases"]
+        .as_array()
+        .and_then(|cases| {
+            cases.iter().find_map(|case| {
+                (case["test"].as_str() == Some(test_name))
+                    .then(|| case["invariant"].as_str())
+                    .flatten()
+            })
+        })
+        .unwrap_or_else(|| panic!("semantic manifest has no invariant for {test_name}"))
+        .to_string()
+}
+
 fn assert_integrity_rejection<T, E: std::fmt::Debug>(result: Result<T, E>, expected_reason: &str) {
     let err = result.expect_err("invalid input must be rejected by the zome");
     let debug = format!("{err:?}");
@@ -224,7 +243,7 @@ async fn test_invalid_decision_entry_reaches_integrity_validation() {
         )
         .await;
 
-    assert_integrity_rejection(result, "Decision title cannot be empty");
+    assert_integrity_rejection(result, &expected_reason("test_invalid_decision_entry_reaches_integrity_validation"));
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -248,7 +267,7 @@ async fn test_invalid_resource_entry_reaches_integrity_validation() {
         )
         .await;
 
-    assert_integrity_rejection(result, "Resource name cannot be empty");
+    assert_integrity_rejection(result, &expected_reason("test_invalid_resource_entry_reaches_integrity_validation"));
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -273,7 +292,7 @@ async fn test_invalid_story_entry_reaches_integrity_validation() {
         )
         .await;
 
-    assert_integrity_rejection(result, "Story title cannot be empty");
+    assert_integrity_rejection(result, &expected_reason("test_invalid_story_entry_reaches_integrity_validation"));
 }
 
 
@@ -313,7 +332,7 @@ async fn test_invalid_story_update_reaches_integrity_validation() {
         )
         .await;
 
-    assert_integrity_rejection(result, "Story title cannot be empty");
+    assert_integrity_rejection(result, &expected_reason("test_invalid_story_update_reaches_integrity_validation"));
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -340,7 +359,7 @@ async fn test_invalid_bridge_notification_reaches_integrity_validation() {
         )
         .await;
 
-    assert_integrity_rejection(result, "source_cluster cannot be empty");
+    assert_integrity_rejection(result, &expected_reason("test_invalid_bridge_notification_reaches_integrity_validation"));
 }
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
@@ -404,7 +423,7 @@ async fn test_cross_hearth_collection_story_link_reaches_integrity_validation() 
 
     assert_integrity_rejection(
         result,
-        "CollectionToStories story belongs to a different hearth",
+        &expected_reason("test_cross_hearth_collection_story_link_reaches_integrity_validation"),
     );
 }
 
