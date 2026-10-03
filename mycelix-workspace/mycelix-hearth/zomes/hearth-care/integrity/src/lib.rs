@@ -160,14 +160,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             }
             Ok(ValidateCallbackResult::Valid)
         }
-        FlatOp::Link(link @ OpLink::DeleteLink {
-            action,
-            original_action,
-            ..
-        }) => {
-            Ok(check_link_author_match(
-                original_action.author(), action.author(),
-            ))
+        F
         }
         FlatOp::CreateRecord(OpRecord::CreateEntry { app_entry, .. }) => match app_entry {
                 EntryTypes::CareSchedule(schedule) => validate_schedule(&schedule),
