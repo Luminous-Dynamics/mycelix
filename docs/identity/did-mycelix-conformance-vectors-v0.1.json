@@ -47,6 +47,7 @@
     {"id":"REC-004","operation":"vote","authority":"configured-trustee","expected":"reject-votes-for-nonexistent-requests"},
     {"id":"REC-005","operation":"vote","authority":"configured-trustee","expected":"reject-votes-from-non-trustees"},
     {"id":"REC-006","operation":"state-read","authority":"canonical-latest-record","expected":"follow-recovery-config-update-chain"},
+    {"id":"REC-007","operation":"time-lock-arming","authority":"original-request-author","expected":"arm-only-after-DHT-derived-quorum-approval"},
     {"id":"RES-005","operation":"json-shape","expected":"omit-absent-optional-resolution-metadata-properties"}
   ],
   "authority_vectors": [
