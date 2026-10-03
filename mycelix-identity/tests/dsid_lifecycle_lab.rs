@@ -2177,6 +2177,7 @@ async fn dsid_028_recovery_time_lock_arming_is_cross_agent_safe() {
     let armed_req: RecoveryRequestMirror = armed.entry().to_app_option().unwrap().unwrap();
     assert_eq!(armed_req.status, RecoveryStatusMirror::Approved);
     assert!(armed_req.time_lock_expires.is_some());
+    assert!(armed_req.approval_certificate.is_some());
 
     let observed: Option<Record> = conductor.call(&bob.zome("recovery"), "get_recovery_request", req.id.clone()).await;
     let observed_req: RecoveryRequestMirror = observed.unwrap().entry().to_app_option().unwrap().unwrap();
@@ -2197,7 +2198,13 @@ async fn dsid_028_recovery_time_lock_arming_is_cross_agent_safe() {
         agents,
         &[&setup, &request, &armed],
         "The original request author can arm a DHT-derived approved quorum, and the replacement agent can read the armed request without being able to execute before the lock expires.",
-        format!("armed_status={:?} timelock_present={} early_execute_rejected={}", observed_req.status, observed_req.time_lock_expires.is_some(), early.is_err()),
+        format!(
+            "armed_status={:?} timelock_present={} certificate_present={} early_execute_rejected={}",
+            observed_req.status,
+            observed_req.time_lock_expires.is_some(),
+            observed_req.approval_certificate.is_some(),
+            early.is_err()
+        ),
         true,
     );
 }
