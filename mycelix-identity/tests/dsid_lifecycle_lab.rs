@@ -727,7 +727,7 @@ async fn dsid_010_cross_agent_resolution_projection_matches_did() {
         "cross-agent-resolution-projection-matches-did",
         &dna,
         agents,
-        &[],
+        &[&alice_record],
         "Cross-agent DID resolution exposes the same canonical state through a typed projection without requiring browser-side Holochain Record decoding.",
         format!(
             "resolved_did={} version={} active={}",
