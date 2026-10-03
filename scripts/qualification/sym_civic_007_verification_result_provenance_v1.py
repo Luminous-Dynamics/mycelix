@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 
 ROOT=pathlib.Path(__file__).resolve().parents[2]
 MAN=ROOT/"mycelix-workspace/docs/civic-resilience/sym_civic_007_verification_result_provenance.json"
-IDS=[f"V-{i:02d}" for i in range(1,23)]
+IDS=[f"V-{i:02d}" for i in range(1,24)]
 CONTENT_UNQUALIFIED={"uncertain","failed","unsupported"}
 
 def fail(m):
@@ -46,27 +46,29 @@ def policy_reference_ok(x):
     return True
 
 def policy_evaluation_ok(x):
-    evaln=x.get("policy_evaluation")
     policies=x.get("policies")
     if not policies:
-        return evaln is None
-    if evaln is None:
-        return False
-    ref=policies[0]
-    if evaln.get("digest") != ref.get("digest"):
-        return False
-    if evaln.get("version") != ref.get("version"):
-        return False
-    scope=set(evaln.get("scope",[]))
-    if not scope:
+        return x.get("policy_evaluation") is None and not x.get("policy_evaluations")
+    evaluations=x.get("policy_evaluations")
+    if evaluations is None:
+        single=x.get("policy_evaluation")
+        evaluations=[single] if single is not None else None
+    if not isinstance(evaluations,list) or len(evaluations)!=len(policies):
         return False
     t=instant(x["timeCreated"])
-    if ref.get("valid_from") and t < instant(ref["valid_from"]):
-        return False
-    if ref.get("valid_until") and t >= instant(ref["valid_until"]) and not x.get("verification_policy_history",False):
-        return False
-    if x.get("verification_policy_history") and not ref.get("valid_from"):
-        return False
+    for ref,evaln in zip(policies,evaluations):
+        if not isinstance(evaln,dict):
+            return False
+        if evaln.get("digest") != ref.get("digest") or evaln.get("version") != ref.get("version"):
+            return False
+        if not set(evaln.get("scope",[])):
+            return False
+        if ref.get("valid_from") and t < instant(ref["valid_from"]):
+            return False
+        if ref.get("valid_until") and t >= instant(ref["valid_until"]) and not x.get("verification_policy_history",False):
+            return False
+        if x.get("verification_policy_history") and not ref.get("valid_from"):
+            return False
     return True
 
 def execution_time_ok(x):
@@ -157,7 +159,7 @@ def main():
         "VERIFIED",
     )}
     expected={
-        "REJECT_VERIFICATION_PROVENANCE":15,
+        "REJECT_VERIFICATION_PROVENANCE":16,
         "VERIFIED_CONTENT_UNQUALIFIED":3,
         "VERIFIED":4,
     }
