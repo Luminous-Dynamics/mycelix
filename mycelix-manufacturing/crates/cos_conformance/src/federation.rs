@@ -872,6 +872,7 @@ define_federation_mutations!(
     ContractAuthorizationGenerationMutation,
     ContractPredecessorMutation,
     ContractExpiryMutation,
+    AttemptIdentityMutation,
 );
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -920,6 +921,7 @@ fn expected_scenario_decision(mutation: FederationMutation) -> FederationDecisio
         }
         FederationMutation::ContractPredecessorMutation
         | FederationMutation::ContractExpiryMutation => FederationDecision::ContractConflict,
+        FederationMutation::AttemptIdentityMutation => FederationDecision::AttemptConflict,
     }
 }
 
@@ -947,7 +949,8 @@ fn expected_scenario_authority(mutation: FederationMutation) -> AuthorityDisposi
         | FederationMutation::ContractSchemaGenerationMutation
         | FederationMutation::ContractAuthorizationGenerationMutation
         | FederationMutation::ContractPredecessorMutation
-        | FederationMutation::ContractExpiryMutation => AuthorityDisposition::NoAuthority,
+        | FederationMutation::ContractExpiryMutation
+        | FederationMutation::AttemptIdentityMutation => AuthorityDisposition::NoAuthority,
     }
 }
 
@@ -1124,6 +1127,9 @@ pub fn run_scenario(
             }
             FederationMutation::ContractExpiryMutation => {
                 candidate.expires_at = candidate.expires_at.map(|expiry| expiry.saturating_add(1));
+            }
+            FederationMutation::AttemptIdentityMutation => {
+                candidate.envelope_id = format!("{}-attempt-rebound", candidate.envelope_id);
             }
         }
 
