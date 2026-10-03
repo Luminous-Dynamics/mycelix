@@ -713,7 +713,7 @@ mod tests {
         let duplicate = deliver(&mut state, &retry, 50, true);
         assert_eq!(duplicate.decision, FederationDecision::Duplicate);
 
-        let mut mutated = retry;
+        let mut mutated = retry.clone();
         mutated.attempt_id = "attempt-3".into();
         mutated.payload_commitment = "sha256:changed".into();
         let conflict = deliver(&mut state, &mutated, 50, true);
