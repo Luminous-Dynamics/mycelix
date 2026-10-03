@@ -515,7 +515,7 @@
     {
       "id": "EDT-101",
       "case": "bound_protocol_address_wrong_for_selected_retrieval_primitive_is_adapter_error",
-      "expected": "typed_structural_error"
+      "expected": "adapter_boundary_error"
     }
   ]
 }
