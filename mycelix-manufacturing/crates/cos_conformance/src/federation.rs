@@ -397,8 +397,7 @@ impl FederationOutcome {
     }
 
     pub fn origin_node(&self) -> Option<&str> {
-        self.origin_node.as_deref()
-    }
+        self.origin_node.as_deref()    }
 
     pub fn origin_node_known(&self) -> bool {
         self.origin_node_known
@@ -797,8 +796,7 @@ pub fn record_observation(
 /// use serde_json::from_str;
 /// # use cos_conformance::federation::PrivacyProjection;
 /// let _: PrivacyProjection = from_str("{}").unwrap();
-/// ```
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+/// ```#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct PrivacyProjection {
     pub subject_id: String,
     /// The envelope's claimed origin; consult origin_node_known before treating
@@ -1044,6 +1042,32 @@ fn source_observation_matches_delivery(state: &FederationState, record: &Deliver
             == record.source_observation_recognized_by.as_deref()
 }
 
+fn delivery_map_keys_match_contracts(state: &FederationState) -> bool {
+    state.deliveries.iter().all(|(map_id, record)| {
+        map_id == &record.contract.logical_delivery_id
+    })
+}
+
+fn observation_map_keys_match_records(state: &FederationState) -> bool {
+    state.observations.iter().all(|(map_id, observation)| {
+        map_id == &observation.observation_id
+    })
+}
+
+fn federation_state_invariants_hold(state: &FederationState) -> bool {
+    delivery_map_keys_match_contracts(state)
+        && observation_map_keys_match_records(state)
+        && source_observation_ids_match_delivery_links(state)
+        && state
+            .deliveries
+            .values()
+            .all(|record| {
+                !record.attempts.is_empty()
+                    && attempt_history_matches_bindings(record)
+                    && source_observation_matches_delivery(state, record)
+            })
+}
+
 fn source_observation_ids_match_delivery_links(state: &FederationState) -> bool {
     let linked_ids = state
         .deliveries
@@ -1183,6 +1207,10 @@ pub fn run_scenario(
         }
 
         let outcome = deliver(&mut state, &candidate, now, transport_available);
+        debug_assert!(
+            federation_state_invariants_hold(&state),
+            "federation transition violated an internal state invariant"
+        );
         let actual = outcome.decision;
         let actual_authority = outcome.authority;
         let delivery_identity_unchanged =
@@ -1197,8 +1225,7 @@ pub fn run_scenario(
             actual,
             actual_authority,
             passed: actual == step.expected && actual_authority == step.expected_authority,
-            delivery_identity_unchanged,
-            delivery_attempts_unchanged,
+            delivery_identity_unchanged,            delivery_attempts_unchanged,
             observation_ledger_unchanged,
         });
     }
@@ -1372,6 +1399,48 @@ mod tests {
             assert!(source_observation_matches_delivery(&state, record));
             assert!(attempt_history_matches_bindings(record));
         }
+    }
+
+    #[test]
+    fn admitted_state_satisfies_all_cross_ledger_invariants() {
+        let mut state = nodes();
+        assert_eq!(
+            deliver(&mut state, &envelope(), 50, true).decision(),
+            FederationDecision::AcceptedLocal
+        );
+        assert!(federation_state_invariants_hold(&state));
+
+        let mut second = envelope();
+        second.envelope_id = "env-second".into();
+        second.logical_delivery_id = "delivery-second".into();
+        second.attempt_id = "attempt-second".into();
+        assert_eq!(
+            deliver(&mut state, &second, 50, true).decision(),
+            FederationDecision::AcceptedLocal
+        );
+        assert!(federation_state_invariants_hold(&state));
+    }
+
+    #[test]
+    fn cross_ledger_invariant_detects_map_key_identity_corruption() {
+        let mut state = nodes();
+        assert_eq!(
+            deliver(&mut state, &envelope(), 50, true).decision(),
+            FederationDecision::AcceptedLocal
+        );
+
+        let record = state.deliveries.remove("delivery-1").unwrap();
+        state
+            .deliveries
+            .insert("wrong-delivery-key".into(), record);
+        assert!(!federation_state_invariants_hold(&state));
+
+        let mut observation = state.observations.remove("env-1").unwrap();
+        observation.observation_id = "env-1".into();
+        state
+            .observations
+            .insert("wrong-observation-key".into(), observation);
+        assert!(!federation_state_invariants_hold(&state));
     }
 
     #[test]
@@ -1597,8 +1666,7 @@ mod tests {
         );
 
         let valid = RecognitionEdge {
-            recognizing_node: "node-a".into(),
-            origin_node: "node-b".into(),
+            recognizing_node: "node-a".into(),            origin_node: "node-b".into(),
             scope: "subject-1".into(),
             mode: RecognitionMode::EvidenceOnly,
         };
@@ -1998,7 +2066,6 @@ mod tests {
         );
         assert_eq!(state.observation_count(), 0);
     }
-
     #[test]
     fn generic_observation_api_cannot_mint_recognition_claim() {
         let mut state = nodes();
@@ -2397,8 +2464,7 @@ mod tests {
         assert_eq!(outcome.logical_delivery_id(), "delivery-1");
         assert_eq!(outcome.attempt_id(), "attempt-1");
         assert_eq!(
-            outcome.reason(),
-            "Delivery admitted without rewriting origin or minting local authority."
+            outcome.reason(),            "Delivery admitted without rewriting origin or minting local authority."
         );
     }
 
@@ -2797,8 +2863,7 @@ mod tests {
         );
         assert_eq!(
             authorization_state
-                .delivery("delivery-1")
-                .unwrap()
+                .delivery("delivery-1")                .unwrap()
                 .attempts()
                 .len(),
             1
