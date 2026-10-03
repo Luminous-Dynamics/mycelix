@@ -673,6 +673,65 @@ mod tests {
                 .and_then(serde_json::Value::as_bool),
             Some(true)
         );
+        assert_eq!(
+            dependencies
+                .get("retrieval_kind_mappings")
+                .and_then(serde_json::Value::as_array)
+                .map(std::vec::Vec::len),
+            Some(3)
+        );
+        let mappings = dependencies
+            .get("retrieval_kind_mappings")
+            .and_then(serde_json::Value::as_array)
+            .expect("retrieval-kind mappings must be declared");
+        assert_eq!(
+            mappings[0].get("pure").and_then(serde_json::Value::as_str),
+            Some("ValidRecord")
+        );
+        assert_eq!(
+            mappings[0]
+                .get("protocol_address_type")
+                .and_then(serde_json::Value::as_str),
+            Some("ActionHash")
+        );
+        assert_eq!(
+            mappings[0]
+                .get("host_function")
+                .and_then(serde_json::Value::as_str),
+            Some("must_get_valid_record")
+        );
+        assert_eq!(
+            mappings[1].get("pure").and_then(serde_json::Value::as_str),
+            Some("Action")
+        );
+        assert_eq!(
+            mappings[1]
+                .get("protocol_address_type")
+                .and_then(serde_json::Value::as_str),
+            Some("ActionHash")
+        );
+        assert_eq!(
+            mappings[1]
+                .get("host_function")
+                .and_then(serde_json::Value::as_str),
+            Some("must_get_action")
+        );
+        assert_eq!(
+            mappings[2].get("pure").and_then(serde_json::Value::as_str),
+            Some("Entry")
+        );
+        assert_eq!(
+            mappings[2]
+                .get("protocol_address_type")
+                .and_then(serde_json::Value::as_str),
+            Some("EntryHash")
+        );
+        assert_eq!(
+            mappings[2]
+                .get("host_function")
+                .and_then(serde_json::Value::as_str),
+            Some("must_get_entry")
+        );
 
         let determinism = document
             .get("determinism")
