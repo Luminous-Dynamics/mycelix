@@ -1392,9 +1392,7 @@ pub fn get_recovery_status(request_id: String) -> ExternResult<Option<RecoverySt
     // is not allowed to regress because a trustee later publishes a conflicting
     // immutable vote.
     let vote_records = get_recovery_votes(request.id.clone())?;
-    let mut approve_count = 0u32;
-    let mut reject_count = 0u32;
-    let mut seen_trustees = std::collections::BTreeSet::new();
+    let mut candidate_votes = Vec::new();
 
     for record in vote_records {
         let Some(vote) = record
@@ -1405,14 +1403,26 @@ pub fn get_recovery_status(request_id: String) -> ExternResult<Option<RecoverySt
             continue;
         };
 
-        if vote.request_id != request.id
-            || !config.trustees.contains(&vote.trustee)
-            || !seen_trustees.insert(vote.trustee.clone())
-        {
-            continue;
+        if vote.request_id == request.id && config.trustees.contains(&vote.trustee) {
+            candidate_votes.push((
+                vote.trustee,
+                vote.voted_at,
+                record.action_address().clone(),
+                vote.vote,
+            ));
         }
+    }
 
-        match vote.vote {
+    // Use the exact same canonical trustee projection as the quorum
+    // transition and approval-certificate builder. This keeps every
+    // authorization-facing read deterministic even if duplicate immutable
+    // votes are present in the DHT.
+    let canonical_votes = canonical_trustee_votes(candidate_votes);
+    let mut approve_count = 0u32;
+    let mut reject_count = 0u32;
+
+    for (_, (_, _, vote)) in canonical_votes {
+        match vote {
             VoteDecision::Approve => approve_count += 1,
             VoteDecision::Reject => reject_count += 1,
             VoteDecision::Abstain => {}
