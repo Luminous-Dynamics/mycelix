@@ -105,6 +105,92 @@ pub struct EconomicEvidenceCapsule {
 }
 
 impl EconomicEvidenceCapsule {
+    /// Verify the capsule's internal hashes and structural hash binding.
+    ///
+    /// This checks only material stored inside the capsule. Verification of
+    /// the referenced receipt, states, observations, or accounting closure
+    /// still requires those external artifacts and their stronger verification
+    /// APIs.
+    pub fn verify_integrity(&self) -> Result<(), EconomicStepError> {
+        if self.final_chain_hash.is_empty() || self.observations_hash.is_empty() {
+            return Err(EconomicStepError::Serialization(
+                "evidence capsule requires non-empty final chain and observation hashes".into(),
+            ));
+        }
+
+        let expected_manifest_hash = self.manifest.hash()?;
+        if self.manifest_hash != expected_manifest_hash {
+            return Err(EconomicStepError::Serialization(
+                "evidence capsule manifest hash mismatch".into(),
+            ));
+        }
+
+        if self
+            .actor_observations_hash
+            .as_ref()
+            .is_some_and(String::is_empty)
+            || self
+                .sector_observations_hash
+                .as_ref()
+                .is_some_and(String::is_empty)
+            || self
+                .sector_financial_flow_hash
+                .as_ref()
+                .is_some_and(String::is_empty)
+            || self
+                .accounting_closure_hash
+                .as_ref()
+                .is_some_and(String::is_empty)
+        {
+            return Err(EconomicStepError::Serialization(
+                "evidence capsule optional hashes must be non-empty when present".into(),
+            ));
+        }
+
+        let bytes = if let Some(closure_hash) = &self.accounting_closure_hash {
+            serde_json::to_vec(&(
+                &self.manifest_hash,
+                &self.final_chain_hash,
+                &self.observations_hash,
+                closure_hash,
+            ))
+        } else if self.sector_financial_flow_hash.is_some() {
+            serde_json::to_vec(&(
+                &self.manifest_hash,
+                &self.final_chain_hash,
+                &self.observations_hash,
+                &self.actor_observations_hash,
+                &self.sector_observations_hash,
+                &self.sector_financial_flow_hash,
+            ))
+        } else if self.sector_observations_hash.is_some() {
+            serde_json::to_vec(&(
+                &self.manifest_hash,
+                &self.final_chain_hash,
+                &self.observations_hash,
+                &self.actor_observations_hash,
+                &self.sector_observations_hash,
+            ))
+        } else {
+            serde_json::to_vec(&(
+                &self.manifest_hash,
+                &self.final_chain_hash,
+                &self.observations_hash,
+                &self.actor_observations_hash,
+            ))
+        }
+        .map_err(|error| EconomicStepError::Serialization(error.to_string()))?;
+
+        let expected_evidence_hash = blake3::hash(&bytes).to_hex().to_string();
+        if self.evidence_hash != expected_evidence_hash {
+            return Err(EconomicStepError::Serialization(
+                "evidence capsule hash mismatch".into(),
+            ));
+        }
+
+        Ok(())
+    }
+
     /// Bind a manifest, final receipt-chain node, and terminal observations.
     pub fn seal(
         manifest: EconomicEvidenceManifest,
@@ -692,6 +778,26 @@ mod tests {
         );
         assert_ne!(base.hash().unwrap(), revised.hash().unwrap());
         assert!(base.clone().with_source_revision("").is_err());
+    }
+
+    #[test]
+    fn evidence_capsule_integrity_verification_detects_tampering() {
+        let (manifest, chain, observations) = fixture();
+        let capsule = EconomicEvidenceCapsule::seal(
+            manifest,
+            &chain,
+            &observations,
+        )
+        .unwrap();
+        capsule.verify_integrity().unwrap();
+
+        let mut tampered_manifest_hash = capsule.clone();
+        tampered_manifest_hash.manifest_hash = "tampered".into();
+        assert!(tampered_manifest_hash.verify_integrity().is_err());
+
+        let mut tampered_evidence_hash = capsule;
+        tampered_evidence_hash.evidence_hash = "tampered".into();
+        assert!(tampered_evidence_hash.verify_integrity().is_err());
     }
 
     #[test]
