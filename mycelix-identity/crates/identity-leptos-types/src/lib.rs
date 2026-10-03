@@ -333,11 +333,19 @@ pub struct VerificationAnchorView {
     pub masked_identifier: String,
 }
 
+/// A self-recovery anchor projection. Unlike an MFA factor, the underlying
+/// recovery anchor currently has no independent enrollment timestamp.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SelfRecoveryAnchorView {
+    pub anchor_type: VerificationAnchorType,
+    pub masked_identifier: String,
+}
+
 /// Self-recovery configuration for the frontend.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SelfRecoveryConfigView {
     pub did: String,
-    pub anchors: Vec<VerificationAnchorView>,
+    pub anchors: Vec<SelfRecoveryAnchorView>,
     pub anchor_threshold: u32,
     pub time_lock_secs: u64,
     pub active: bool,
