@@ -114,5 +114,17 @@
     "binding_requires_provenance": true,
     "provenance_carried_through_runtime_resolution": true,
     "provenance_witness_identity_must_be_unique_per_binding": true
+  },
+  "cryptographic_attestation": {
+    "supported": true,
+    "required": false,
+    "algorithm": "Ed25519",
+    "verification_host_function": "verify_signature",
+    "payload_canonically_serialized": true,
+    "payload_binds_schema_provenance_address_and_retrieval_kind": true,
+    "verified_signature_required_for_attested_bind": true,
+    "invalid_signature_is_semantic_invalidity": true,
+    "verification_failure_host_error_remains_runtime_error": true,
+    "signature_does_not_resolve_authority_identity": true
   }
 }
