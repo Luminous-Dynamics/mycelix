@@ -5187,7 +5187,7 @@ mod tests {
                     &reconciliation,
                     &authority_scope(&reconciliation.reconciliation_id.id),
                     &unresolved_delegation,
-                    &[unresolved_delegation],
+                    &[unresolved_delegation.clone()],
                     &boundary,
                     &[root, first, second]
                 )
