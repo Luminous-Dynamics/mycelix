@@ -1459,7 +1459,7 @@ mod tests {
         let mut state = nodes();
         state.recognition_edges.push(RecognitionEdge {
             recognizing_node: "node-a".into(),
-            origin_node: "node-b".into(),
+            origin_node: "unknown-node".into(),
             scope: "scope-1".into(),
             mode: RecognitionMode::EvidenceOnly,
         });
@@ -1613,6 +1613,12 @@ mod tests {
         );
 
         let mut state = nodes();
+        state.recognition_edges.push(RecognitionEdge {
+            recognizing_node: "node-a".into(),
+            origin_node: "node-b".into(),
+            scope: "scope-1".into(),
+            mode: RecognitionMode::EvidenceOnly,
+        });
         state.recognition_edges.push(RecognitionEdge {
             recognizing_node: "node-a".into(),
             origin_node: "node-b".into(),
