@@ -1099,6 +1099,89 @@ pub fn get_trustee_responsibilities(trustee_did: String) -> ExternResult<Vec<Rec
 }
 
 // =============================================================================
+ // Browser-safe self-recovery projection
+ // =============================================================================
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct SelfRecoveryAnchorView {
+    pub anchor_type: String,
+    pub masked_identifier: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct SelfRecoveryConfigView {
+    pub did: String,
+    pub anchors: Vec<SelfRecoveryAnchorView>,
+    pub anchor_threshold: u32,
+    pub time_lock_secs: u64,
+    pub active: bool,
+    pub superseded_by_social: bool,
+    pub created: i64,
+}
+
+fn mask_anchor(value: &str) -> String {
+    if value.len() <= 12 {
+        return format!("{}…", &value[..value.len().min(4)]);
+    }
+    format!("{}…{}", &value[..8], &value[value.len() - 4..])
+}
+
+fn self_recovery_anchor_view(anchor: VerificationAnchor) -> SelfRecoveryAnchorView {
+    match anchor {
+        VerificationAnchor::PhoneHash(value) => SelfRecoveryAnchorView {
+            anchor_type: "Phone".into(),
+            masked_identifier: mask_anchor(&value),
+        },
+        VerificationAnchor::EmailHash(value) => SelfRecoveryAnchorView {
+            anchor_type: "Email".into(),
+            masked_identifier: mask_anchor(&value),
+        },
+        VerificationAnchor::PasskeyCredentialId(value) => SelfRecoveryAnchorView {
+            anchor_type: "Passkey".into(),
+            masked_identifier: mask_anchor(&value),
+        },
+        VerificationAnchor::DeviceAttestation(value) => SelfRecoveryAnchorView {
+            anchor_type: "Device".into(),
+            masked_identifier: mask_anchor(&value),
+        },
+        VerificationAnchor::BiometricHash(value) => SelfRecoveryAnchorView {
+            anchor_type: "Biometric".into(),
+            masked_identifier: mask_anchor(&value),
+        },
+    }
+}
+
+#[hdk_extern]
+pub fn get_self_recovery_view(did: String) -> ExternResult<Option<SelfRecoveryConfigView>> {
+    match get_self_recovery_config(did)? {
+        Some(record) => {
+            let config: SelfRecoveryConfig = record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Invalid self-recovery config record".into()
+                )))?;
+
+            Ok(Some(SelfRecoveryConfigView {
+                did: config.did,
+                anchors: config
+                    .anchors
+                    .into_iter()
+                    .map(self_recovery_anchor_view)
+                    .collect(),
+                anchor_threshold: config.anchor_threshold,
+                time_lock_secs: config.time_lock,
+                active: config.active,
+                superseded_by_social: config.superseded_by_social,
+                created: config.created.as_micros(),
+            }))
+        }
+        None => Ok(None),
+    }
+}
+
+// =============================================================================
 // PROGRESSIVE RECOVERY — Self-Recovery Functions
 // =============================================================================
 
