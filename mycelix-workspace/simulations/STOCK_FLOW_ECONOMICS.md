@@ -980,6 +980,25 @@ This establishes a useful invariant for transported evidence:
 A recomputed hash is therefore not sufficient to make malformed evidence acceptable at the chain
 boundary; the structure must also satisfy the same identity rules used by normal construction.
 
+## Complete observation and reconciliation provenance (implemented)
+
+Actor and sector observation layers now expose complete-map verifiers in addition to the existing
+per-actor/per-sector checks. A caller can therefore verify an entire serialized observation map in
+one operation; missing or unexpected actors/sectors and tampered fields are rejected together.
+
+The legacy financial reconciliation and physical-aware reconciliation receipts also expose
+`verify_against` methods that re-derive the receipt from the supplied opening/closing states,
+sector assignments, and ordered transition program. This closes the gap between a receipt that is
+internally well formed and a receipt that was actually produced by the supplied accounting inputs.
+
+The externally reproducible projection ladder is now:
+
+`transitions -> state replay -> ledger/matrices -> actor/sector/aggregate observations -> reconciliation -> closure -> evidence`
+
+Each derived layer now has an explicit re-verification boundary where serialized artifacts can be
+checked against the upstream accounting inputs instead of being trusted solely because their local
+hashes or arithmetic identities are self-consistent.
+
 ## Canonical mutation coverage and legacy boundary closure (implemented)
 
 The accounting replay layer now has one transition-to-state mutation dispatcher across the execution
