@@ -11,7 +11,7 @@ use leptos::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 use identity_leptos_types::*;
 
-use mycelix_leptos_core::holochain_provider::use_holochain;
+use mycelix_leptos_core::holochain_provider::{use_holochain, HolochainCtx};
 use crate::mock_data;
 
 /// Version signals — bumped by actions to trigger data reload.
@@ -36,6 +36,7 @@ pub struct IdentityCtx {
     pub reputation: RwSignal<Option<ReputationView>>,
     pub my_name: RwSignal<Option<NameRegistryView>>,
     pub loading: RwSignal<bool>,
+    pub last_error: RwSignal<Option<String>>,
 }
 
 pub fn provide_identity_context() {
@@ -47,23 +48,30 @@ pub fn provide_identity_context() {
         trust: RwSignal::new(0),
     };
 
-    // Initialize with mock data immediately (instant render)
+    // Demo mode may use fixture data; live mode must start empty so test fixtures
+    // can never be mistaken for a real sovereign identity.
+    let hc = use_holochain();
+    let demo = hc.is_mock();
     let ctx = IdentityCtx {
         versions,
-        did_document: RwSignal::new(Some(mock_data::mock_did_document())),
-        mfa_state: RwSignal::new(Some(mock_data::mock_mfa_state())),
-        recovery_config: RwSignal::new(Some(mock_data::mock_recovery_config())),
-        credentials_held: RwSignal::new(mock_data::mock_credentials_held()),
-        credentials_issued: RwSignal::new(mock_data::mock_credentials_issued()),
-        trust_credentials: RwSignal::new(mock_data::mock_trust_credentials()),
-        reputation: RwSignal::new(Some(mock_data::mock_reputation())),
-        my_name: RwSignal::new(Some(mock_data::mock_name())),
-        loading: RwSignal::new(true),
+        did_document: RwSignal::new(demo.then(mock_data::mock_did_document)),
+        mfa_state: RwSignal::new(demo.then(mock_data::mock_mfa_state)),
+        recovery_config: RwSignal::new(demo.then(mock_data::mock_recovery_config)),
+        credentials_held: RwSignal::new(if demo { mock_data::mock_credentials_held() } else { Vec::new() }),
+        credentials_issued: RwSignal::new(if demo { mock_data::mock_credentials_issued() } else { Vec::new() }),
+        trust_credentials: RwSignal::new(if demo { mock_data::mock_trust_credentials() } else { Vec::new() }),
+        reputation: RwSignal::new(demo.then(mock_data::mock_reputation)),
+        my_name: RwSignal::new(demo.then(mock_data::mock_name)),
+        loading: RwSignal::new(!demo),
+        last_error: RwSignal::new(None),
     };
 
     provide_context(ctx.clone());
 
     // Launch independent async loads — each domain fetches concurrently (no waterfall).
+    if demo {
+        return;
+    }
     let ctx_did = ctx.clone();
     spawn_local(async move {
         gloo_timers::future::sleep(std::time::Duration::from_millis(500)).await;
@@ -89,8 +97,16 @@ pub fn provide_identity_context() {
     });
 
     let ctx_loading = ctx.clone();
+    let hc_loading = hc.clone();
     spawn_local(async move {
-        gloo_timers::future::sleep(std::time::Duration::from_secs(3)).await;
+        // Never leave the identity UI in an indefinite spinner. The conductor
+        // provider has its own bounded connection/health-check lifecycle.
+        for _ in 0..60 {
+            if hc_loading.status.get_untracked() != mycelix_leptos_core::holochain_provider::ConnectionStatus::Connecting {
+                break;
+            }
+            gloo_timers::future::sleep(std::time::Duration::from_millis(250)).await;
+        }
         ctx_loading.loading.set(false);
     });
 }
@@ -114,7 +130,9 @@ async fn load_did(ctx: IdentityCtx) {
             }
         }
         Err(e) => {
-            web_sys::console::warn_1(&format!("[Identity] get_my_did failed: {e}").into());
+            let message = format!("DID load failed: {e}");
+            web_sys::console::warn_1(&message.clone().into());
+            ctx.last_error.set(Some(message));
         }
     }
 }
@@ -211,4 +229,24 @@ async fn load_reputation(ctx: IdentityCtx) {
 
 pub fn use_identity() -> IdentityCtx {
     expect_context::<IdentityCtx>()
+}
+
+
+/// Create the caller's first sovereign identity on the live identity DNA.
+///
+/// The zome generates the DID from the conductor-owned agent key; the browser
+/// never supplies or invents the authoritative identifier. After creation we
+/// re-read the canonical DID document so the UI is driven by DHT state.
+pub async fn create_my_did(ctx: IdentityCtx, hc: HolochainCtx) -> Result<(), String> {
+    if hc.is_mock() {
+        return Err("Demo mode cannot create a live DID".into());
+    }
+    if hc.status.get_untracked() != mycelix_leptos_core::holochain_provider::ConnectionStatus::Connected {
+        return Err("Holochain identity runtime is not connected".into());
+    }
+
+    hc.call_zome_default::<(), serde_json::Value>("did_registry", "create_did", &())
+        .await?;
+    load_did(ctx).await;
+    Ok(())
 }
