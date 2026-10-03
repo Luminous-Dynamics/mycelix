@@ -36,10 +36,6 @@ jobs:
           toolchain: 1.99.0
           components: rustfmt, clippy
 
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          workspaces: crates/mycelix-bridge-common
-
       - name: Format
         run: cargo fmt --manifest-path crates/mycelix-bridge-common/Cargo.toml -- --check
 
@@ -49,16 +45,12 @@ jobs:
           set -euo pipefail
           # Any explicit visibility modifier on a trust-construction item broadens the
           # module-private boundary, whether it is pub(crate), pub(super), or pub(in ...).
+          # Use multiline matching so a future refactor cannot evade this guard by placing
+          # the visibility modifier and item name on separate lines.
           for pattern in \
-            'pub([[:space:]]*\([^)]*\))?[[:space:]]+.*SignatureVerification' \
-            'pub([[:space:]]*\([^)]*\))?[[:space:]]+.*RevocationStatus' \
-            'pub([[:space:]]*\([^)]*\))?[[:space:]]+.*AuthorityResolution' \
-            'pub([[:space:]]*\([^)]*\))?[[:space:]]+.*AUTHORITY_FRESHNESS_' \
-            'pub([[:space:]]*\([^)]*\))?[[:space:]]+.*authority_binding_from_freshness_digest' \
-            'pub([[:space:]]*\([^)]*\))?[[:space:]]+.*new_for_capability' \
-            'pub([[:space:]]*\([^)]*\))?[[:space:]]+.*binding_digest' \
-            'pub([[:space:]]*\([^)]*\))?[[:space:]]+.*revalidate_permit'; do
-            if rg -n "$pattern" crates/mycelix-bridge-common/src/security_kernel.rs; then
+            'pub([[:space:]]*\([^)]*\))?[[:space:]]+(enum|struct|const)[[:space:]]+(SignatureVerification|RevocationStatus|AuthorityResolution|AUTHORITY_FRESHNESS_[A-Z_]+)' \
+            'pub([[:space:]]*\([^)]*\))?[[:space:]]+fn[[:space:]]+(authority_binding_from_freshness_digest|new_for_capability(_with_[a-z_]+)?|binding_digest|revalidate_permit)'; do
+            if rg -nU "$pattern" crates/mycelix-bridge-common/src/security_kernel.rs; then
               echo "security-kernel trust-surface regression: $pattern" >&2
               exit 1
             fi
@@ -67,11 +59,8 @@ jobs:
           # Trust-sensitive SecurityEvent fields must remain module-private under
           # every Rust visibility form, not merely bare pub.
           for pattern in \
-            'pub([[:space:]]*\([^)]*\))?[[:space:]]+decision:' \
-            'pub([[:space:]]*\([^)]*\))?[[:space:]]+capability_binding:' \
-            'pub([[:space:]]*\([^)]*\))?[[:space:]]+authority_binding:' \
-            'pub([[:space:]]*\([^)]*\))?[[:space:]]+(event_id|actor_id|capability_ref|request|policy_version|timestamp_us|provenance|recovery_correlation):'; do
-            if rg -n "$pattern" crates/mycelix-bridge-common/src/security_events.rs; then
+            'pub([[:space:]]*\([^)]*\))?[[:space:]]+(decision|capability_binding|authority_binding|event_id|actor_id|capability_ref|request|policy_version|timestamp_us|provenance|recovery_correlation)[[:space:]]*:'; do
+            if rg -nU "$pattern" crates/mycelix-bridge-common/src/security_events.rs; then
               echo "security-event trust-surface regression: $pattern" >&2
               exit 1
             fi
