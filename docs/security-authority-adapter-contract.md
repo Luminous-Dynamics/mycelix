@@ -141,9 +141,13 @@ The integration must therefore create trusted evidence only inside the bridge's 
 
 The resulting evidence must also be bound to the exact capability and authority-freshness state it verifies. The bridge kernel derives a stable capability commitment from the canonical capability semantics and records that commitment in the opaque evidence and any issued permit. The adapter must also supply the existing current-freshness semantic digest as the opaque bridge authority binding. It must change when the authoritative freshness domain changes, including an authority generation/state change, while remaining stable across proof/lease refreshes that do not change that semantic domain. The permit carries that commitment through enforcement, so evidence for a newer authority generation cannot silently revalidate a permit issued under an older generation. Evidence for one capability therefore cannot be replayed to qualify or revalidate a different capability.
 
-The resulting evidence should represent independently established propositions:
+The resulting evidence should represent independently established typed propositions:
 
+- `SignatureVerification::Verified` / `Invalid`;
+- `RevocationStatus::Current` / `Revoked`;
+- `AuthorityResolution::Unambiguous` / `Ambiguous`;
 - signature verified;
+
 - authority is currently not revoked;
 - authority resolution is unambiguous;
 - authority-freshness binding is present and non-zero;
