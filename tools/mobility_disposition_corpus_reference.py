@@ -12,6 +12,7 @@ ALLOWED_OUTCOMES = {
     "accepted",
     "rejected",
     "typed_structural_error",
+    "adapter_boundary_error",
     "unresolved_at_protocol_layer",
 }
 EXPECTED_BINDING_VECTORS = [
@@ -43,7 +44,7 @@ EXPECTED_BINDING_VECTORS = [
     (
         "EDT-101",
         "bound_protocol_address_wrong_for_selected_retrieval_primitive_is_adapter_error",
-        "typed_structural_error",
+        "adapter_boundary_error",
     ),
 ]
 
