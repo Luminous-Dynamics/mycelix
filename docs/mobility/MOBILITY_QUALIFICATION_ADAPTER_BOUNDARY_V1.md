@@ -60,9 +60,12 @@ For Holochain, dependency retrieval SHOULD use the deterministic `must_get_*` ho
 The runtime adapter owns:
 
 1. resolving each logical `IdentityRef` to its addressable protocol representation;
-2. retrieving the referenced record/action through deterministic host functions;
-3. converting a missing protocol dependency into Holochain's unresolved outcome;
-4. feeding retrieved records back into the pure qualification layer.
+2. preserving the protocol address *kind* required by the selected retrieval primitive;
+3. retrieving the referenced record/action through deterministic host functions;
+4. converting a missing protocol dependency into Holochain's unresolved outcome;
+5. feeding retrieved records back into the pure qualification layer.
+
+The binding MUST preserve address-kind compatibility. For example, Holochain's `must_get_valid_record` requires an `ActionHash`; an `EntryHash` or another address type must not be silently substituted. A binding that cannot satisfy the selected retrieval primitive is an adapter-boundary error, not an unresolved DHT result.
 
 The pure layer owns:
 
