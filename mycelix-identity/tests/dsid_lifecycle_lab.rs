@@ -22,6 +22,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
+const SELF_RECOVERY_DEFAULT_TIME_LOCK: u64 = 7 * 24 * 3600;
+
 const EVIDENCE_SCHEMA: u16 = 1;
 
 #[derive(Debug, Serialize)]
@@ -409,8 +411,8 @@ async fn dsid_006_self_recovery_projection_matches_canonical_state() {
 
     assert_eq!(view["did"], did.id);
     assert_eq!(view["anchors"].as_array().map(Vec::len), Some(0));
-    assert_eq!(view["anchor_threshold"], 1);
-    assert_eq!(view["time_lock_secs"], 7 * 24 * 3600);
+    assert_eq!(view["anchor_threshold"], 1u64);
+    assert_eq!(view["time_lock_secs"], SELF_RECOVERY_DEFAULT_TIME_LOCK);
     assert_eq!(view["active"], true);
     assert_eq!(view["superseded_by_social"], false);
 
