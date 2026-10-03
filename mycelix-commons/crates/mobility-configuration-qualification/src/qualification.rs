@@ -88,6 +88,43 @@ impl<A> QualificationDependencyBindingSet<A> {
         self.bindings.is_empty()
     }
 
+    /// Resolve a required logical-dependency set in canonical identity order.
+    ///
+    /// Success returns every bound logical identity alongside its opaque runtime
+    /// address. Failure returns only the canonical set of identities for which
+    /// no binding exists. Missing bindings are therefore an unresolved
+    /// dependency condition, not a semantic invalidity.
+    pub fn resolve_required<I>(
+        &self,
+        identities: I,
+    ) -> Result<Vec<(&IdentityRef, &A)>, Vec<IdentityRef>>
+    where
+        I: IntoIterator<Item = IdentityRef>,
+    {
+        let requested: std::collections::BTreeSet<_> = identities.into_iter().collect();
+        let missing: Vec<_> = requested
+            .iter()
+            .filter(|identity| !self.bindings.contains_key(*identity))
+            .cloned()
+            .collect();
+
+        if !missing.is_empty() {
+            return Err(missing);
+        }
+
+        Ok(requested
+            .iter()
+            .map(|identity| {
+                (
+                    identity,
+                    self.bindings
+                        .get(identity)
+                        .expect("requested identity was proven bound"),
+                )
+            })
+            .collect())
+    }
+
     /// Iterate in canonical logical-identity order, independent of insertion order.
     pub fn iter(&self) -> impl Iterator<Item = (&IdentityRef, &A)> {
         self.bindings.iter()
@@ -378,6 +415,54 @@ mod tests {
             first.iter().collect::<Vec<_>>(),
             second.iter().collect::<Vec<_>>()
         );
+    }
+
+    #[test]
+    fn dependency_binding_resolution_returns_canonical_bound_pairs() {
+        let mut bindings = QualificationDependencyBindingSet::new();
+        let z = id("z");
+        let a = id("a");
+        bindings.insert(z.clone(), "address-z").unwrap();
+        bindings.insert(a.clone(), "address-a").unwrap();
+
+        let resolved = bindings
+            .resolve_required(vec![z, a, a.clone()])
+            .expect("all logical dependencies are bound");
+
+        assert_eq!(
+            resolved,
+            vec![
+                (&a, &"address-a"),
+                (&id("z"), &"address-z"),
+            ]
+        );
+    }
+
+    #[test]
+    fn dependency_binding_resolution_reports_only_unbound_logical_identities() {
+        let mut bindings = QualificationDependencyBindingSet::new();
+        bindings.insert(id("z"), "address-z").unwrap();
+
+        let result = bindings.resolve_required(vec![id("z"), id("m"), id("m"), id("a")]);
+
+        assert_eq!(result, Err(vec![id("a"), id("m")]));
+    }
+
+    #[test]
+    fn dependency_binding_resolution_is_independent_of_request_order() {
+        let mut bindings = QualificationDependencyBindingSet::new();
+        bindings.insert(id("a"), "address-a").unwrap();
+        bindings.insert(id("b"), "address-b").unwrap();
+        bindings.insert(id("c"), "address-c").unwrap();
+
+        let forward = bindings
+            .resolve_required(vec![id("c"), id("a"), id("b")])
+            .unwrap();
+        let reverse = bindings
+            .resolve_required(vec![id("b"), id("c"), id("a")])
+            .unwrap();
+
+        assert_eq!(forward, reverse);
     }
 
     #[test]
