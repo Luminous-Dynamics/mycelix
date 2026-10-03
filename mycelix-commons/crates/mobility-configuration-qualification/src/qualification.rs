@@ -692,6 +692,46 @@ mod tests {
             Some(true)
         );
 
+        let cryptographic = document
+            .get("cryptographic_attestation")
+            .expect("adapter contract must declare cryptographic attestation");
+        assert_eq!(
+            cryptographic
+                .get("algorithm")
+                .and_then(serde_json::Value::as_str),
+            Some("Ed25519")
+        );
+        assert_eq!(
+            cryptographic
+                .get("verification_host_function")
+                .and_then(serde_json::Value::as_str),
+            Some("verify_signature")
+        );
+        assert_eq!(
+            cryptographic
+                .get("required")
+                .and_then(serde_json::Value::as_bool),
+            Some(false)
+        );
+        assert_eq!(
+            cryptographic
+                .get("payload_canonically_serialized")
+                .and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(
+            cryptographic
+                .get("verified_signature_required_for_attested_bind")
+                .and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(
+            cryptographic
+                .get("signature_does_not_resolve_authority_identity")
+                .and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+
         let dependencies = document
             .get("dependency_retrieval")
             .expect("adapter contract must declare dependency retrieval");
