@@ -38,3 +38,10 @@ An integrity-zome validate callback should:
 The adapter deliberately does not turn an unbound IdentityRef into ValidateCallbackResult::UnresolvedDependencies. No correct Holochain unresolved-dependency value can be built until the logical identity has an addressable protocol binding.
 
 This separation keeps the semantic algebra in one place and the protocol mechanics in one place, rather than creating a second semantic interpretation layer.
+
+
+## Callback semantic boundary
+
+The adapter exposes one callback-facing mapping seam. Pure `Valid` becomes `ValidateCallbackResult::Valid`; pure structural `Invalid` becomes `ValidateCallbackResult::Invalid`. A malformed logical identity discovered defensively during binding is the same semantic invalidity and follows the same `Invalid` path. A pure `Unresolved` cannot be converted yet because its missing values are logical identities rather than Holochain hashes. True adapter defects such as duplicate bindings or address-kind mismatches remain boundary errors rather than becoming facts about the underlying record.
+
+This keeps semantic interpretation single-sourced: the pure qualification layer decides the meaning, while this crate only performs typed protocol binding, deterministic retrieval, and the final protocol-result mapping.
