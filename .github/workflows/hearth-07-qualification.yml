@@ -138,9 +138,6 @@ jobs:
             echo "rust_version=$(nix develop .#ci --impure --command rustc --version 2>/dev/null || true)"
             echo "cargo_version=$(nix develop .#ci --impure --command cargo --version 2>/dev/null || true)"
             echo "dna_present=$(test -s dna/mycelix_hearth.dna && echo true || echo false)"
-            if [[ -s qualification-source-contract-sha256.txt ]]; then
-              echo "source_contract_digest=$(sha256sum qualification-source-contract-sha256.txt | awk '{print $1}')"
-            fi
           } > qualification-toolchain.txt
 
           : > qualification-wasm-sha256.txt
@@ -173,6 +170,7 @@ jobs:
             fi
             echo "tested_sha=${QUALIFY_SHA}"
             echo "checked_out_sha=$(git rev-parse HEAD)"
+            echo "source_contract_digest=$(sha256sum qualification-source-contract-sha256.txt | awk '{print $1}')"
             echo "pr_head_sha=${{ github.event.pull_request.head.sha || '' }}"
             echo "pr_base_sha=${{ github.event.pull_request.base.sha || '' }}"
             echo "ref=${GITHUB_REF_NAME}"
