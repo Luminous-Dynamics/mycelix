@@ -310,7 +310,18 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             Ok(ValidateCallbackResult::Valid)
         }
         FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
+        // RegisterAgentActivity is the chain-authority validation boundary.
+        // A malicious coordinator can bypass coordinator-side duplicate-vote
+        // checks, so enforce one RecoveryVote per request on the signer's
+        // cryptographically ordered source chain rather than relying on DHT
+        // link order or self-reported timestamps.
+        FlatOp::RegisterAgentActivity(activity) => match activity {
+            OpActivity::CreateEntry {
+                app_entry_type: Some(UnitEntryTypes::RecoveryVote),
+                action,
+            } => validate_recovery_vote_chain_uniqueness(action),
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
         FlatOp::RegisterUpdate(update) => {
             let action = match &update {
                 OpUpdate::Entry { action, .. }
@@ -1549,6 +1560,59 @@ mod tests {
 }
 
 /// Validate recovery vote creation
+/// Enforce the one-vote-per-trustee-per-request invariant at the
+/// chain-authority boundary.
+///
+/// Coordinator checks are availability/convenience protections only. A
+/// modified coordinator can call `create_entry` directly, so the integrity
+/// zome must inspect the signer's prior source-chain history and reject a
+/// second immutable vote for the same request.
+///
+/// `ChainFilter::new(prev_action)` walks the signer chain backwards to
+/// genesis, making the history dependency deterministic for validation.
+fn validate_recovery_vote_chain_uniqueness(action: Create) -> ExternResult<ValidateCallbackResult> {
+    let current_entry = must_get_entry(action.entry_hash.clone())?;
+    let current_vote: RecoveryVote = current_entry.try_into()?;
+
+    let activity = must_get_agent_activity(
+        action.author.clone(),
+        ChainFilter::new(action.prev_action.clone()),
+    )?;
+
+    let recovery_vote_entry_type =
+        EntryType::App(AppEntryDef::try_from(UnitEntryTypes::RecoveryVote)?);
+
+    for prior in activity {
+        let prior_action = prior.action.action();
+        let Action::Create(create) = prior_action else {
+            continue;
+        };
+
+        if create.entry_type != recovery_vote_entry_type {
+            continue;
+        }
+
+        let prior_record = must_get_valid_record(prior.action.action_address().clone())?;
+        let Some(prior_vote) = prior_record
+            .entry()
+            .to_app_option::<RecoveryVote>()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        else {
+            return Ok(ValidateCallbackResult::Invalid(
+                "RecoveryVote chain history action did not contain a RecoveryVote entry".into(),
+            ));
+        };
+
+        if prior_vote.request_id == current_vote.request_id {
+            return Ok(ValidateCallbackResult::Invalid(
+                "A trustee may cast at most one recovery vote for a request".into(),
+            ));
+        }
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
 fn validate_create_recovery_vote(
     action: EntryCreationAction,
     vote: RecoveryVote,
