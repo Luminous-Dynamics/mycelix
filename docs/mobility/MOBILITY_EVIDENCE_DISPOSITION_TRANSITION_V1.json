@@ -716,6 +716,46 @@
       "id": "EDT-141",
       "case": "attested_binding_acceptance_occurs_only_after_signature_verification",
       "expected": "accepted"
+    },
+    {
+      "id": "EDT-142",
+      "case": "authority_agent_credential_binds_exact_domain_authority_to_agent_pub_key",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-143",
+      "case": "authority_agent_credential_requires_issuer_to_equal_bound_agent",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-144",
+      "case": "authority_agent_registry_rejects_duplicate_authority_binding",
+      "expected": "adapter_boundary_error"
+    },
+    {
+      "id": "EDT-145",
+      "case": "runtime_binding_requires_authority_agent_binding_before_signer_acceptance",
+      "expected": "unresolved_at_protocol_layer"
+    },
+    {
+      "id": "EDT-146",
+      "case": "runtime_binding_signer_must_match_registered_authority_agent",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-147",
+      "case": "authority_agent_binding_retains_domain_provenance_requirement",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-148",
+      "case": "authority_agent_signature_does_not_infer_domain_authority_identity",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-149",
+      "case": "authority_agent_binding_is_order_independent_and_immutable",
+      "expected": "accepted"
     }
   ],
   "outcome_classes": [
