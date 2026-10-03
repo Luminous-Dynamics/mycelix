@@ -139,16 +139,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             }
             Ok(ValidateCallbackResult::Valid)
         }
-        FlatOp::Link(link @ OpLink::DeleteLink {
-            action,
-            original_action,
-            ..
-        }) => {
-            let result = check_link_author_match(original_action.author(), action.author());
-            if result != ValidateCallbackResult::Valid {
-                return Ok(result);
-            }
-            if link.tag().0.len() > 512 {
+        Fif link.tag().0.len() > 512 {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Link tag exceeds 512 bytes".into(),
                 ));
