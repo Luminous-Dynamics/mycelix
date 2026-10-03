@@ -848,7 +848,18 @@ mod tests {
         });
         assert!(serde_json::from_value::<Capability>(empty_actions).is_err());
 
-        let reversed_duplicate_actions = serde_json::json!({
+        let oversized_subject = serde_json::json!({
+            "subject": "x".repeat(MAX_SECURITY_IDENTIFIER_BYTES + 1),
+            "issuer": "did:mycelix:issuer",
+            "resource": "resource:ledger",
+            "actions": ["Read"],
+            "not_before_us": 100,
+            "expires_at_us": 200,
+            "policy_version": 7
+        });
+        assert!(serde_json::from_value::<Capability>(oversized_subject).is_err());
+
+        let duplicate_actions = serde_json::json!({
             "subject": "did:mycelix:alice",
             "issuer": "did:mycelix:issuer",
             "resource": "resource:ledger",
@@ -857,7 +868,7 @@ mod tests {
             "expires_at_us": 200,
             "policy_version": 7
         });
-        assert!(serde_json::from_value::<Capability>(reversed_duplicate_actions).is_err());
+        assert!(serde_json::from_value::<Capability>(duplicate_actions).is_err());
 
         let invalid_window = serde_json::json!({
             "subject": "did:mycelix:alice",
