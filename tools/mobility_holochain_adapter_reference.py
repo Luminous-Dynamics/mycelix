@@ -31,6 +31,7 @@ def main() -> int:
 
     for fragment in (
         'hdi = "=0.8.0"',
+        'holochain_serialized_bytes = "=0.0.57"',
         'mobility-configuration-qualification = { path = "../mobility-configuration-qualification" }',
         "[workspace]",
     ):
@@ -122,6 +123,18 @@ def main() -> int:
         raise SystemExit("attested bind must preserve host errors outside semantic invalidity")
     if "hdi::ed25519::verify_signature" not in source:
         raise SystemExit("signed binding attestation must use deterministic Holochain signature verification")
+
+    for payload in ("HolochainAuthorityAgentBindingPayload", "HolochainBindingAttestationPayload"):
+        if "serde::Deserialize" not in source:
+            raise SystemExit(f"{payload} must be deserializable for canonical wire round-trip")
+    if "SerializedBytes" not in source:
+        raise SystemExit("signed payloads must expose canonical SerializedBytes round-trips")
+    if "SerializedBytes::try_from(payload.clone())" not in source:
+        raise SystemExit("canonical payload bytes must be produced through SerializedBytes TryFrom")
+    if ".try_from(encoded)" not in source:
+        raise SystemExit("canonical payload bytes must be decoded through the declared payload type")
+    if "pub schema: String" not in source:
+        raise SystemExit("signed payload schema identifiers must be owned Strings")
 
     if "provenance: QualificationDependencyBindingProvenance" not in source:
         raise SystemExit("resolved dependencies must carry their provenance witness")
