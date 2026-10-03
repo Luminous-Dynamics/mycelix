@@ -1135,20 +1135,59 @@ pub fn deactivate_did(reason: String) -> ExternResult<Record> {
         (),
     )?;
 
-    // Cascade: revoke all credentials issued by this DID.
-    // The DID deactivation entry is already committed above, so even if cascade
-    // revocation fails, the DID itself is deactivated. We propagate the error so
-    // the caller knows credentials may still be active and can retry.
-    cascade_revoke_credentials_for_did(&current_did.id, &reason, now)?;
-
-    // Notify bridge of deactivation for ecosystem-wide awareness
-    if let Err(e) = notify_bridge_of_deactivation(&current_did.id, &reason, now) {
-        debug!("Failed to notify bridge of DID deactivation: {:?}", e);
-    }
-
+    // Credential cascade and bridge notification run from post_commit.
+    // They therefore cannot roll back this successful DID deactivation.
     get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
         "Could not find deactivation record".into()
     )))
+}
+
+/// Post-commit follow-up for lifecycle work that must not affect DID commit
+/// atomicity. Deactivation is durable before credential cascade/notifications
+/// are attempted.
+#[hdk_extern(infallible)]
+pub fn post_commit(committed_actions: Vec<SignedActionHashed>) {
+    for action in committed_actions {
+        if !matches!(action.action().data, ActionData::Create(_)) {
+            continue;
+        }
+
+        let Some(record) = get(action.action_address().clone(), GetOptions::default()).ok().flatten()
+        else {
+            continue;
+        };
+
+        let Ok(Some(deactivation)) = record
+            .entry()
+            .to_app_option::<DidDeactivation>()
+        else {
+            continue;
+        };
+
+        if let Err(error) = cascade_revoke_credentials_for_did(
+            &deactivation.did,
+            &deactivation.reason,
+            deactivation.deactivated_at,
+        ) {
+            debug!(
+                "Post-commit credential cascade failed for {}: {:?}. DID remains deactivated; retry is safe.",
+                deactivation.did,
+                error
+            );
+        }
+
+        if let Err(error) = notify_bridge_of_deactivation(
+            &deactivation.did,
+            &deactivation.reason,
+            deactivation.deactivated_at,
+        ) {
+            debug!(
+                "Post-commit deactivation notification failed for {}: {:?}",
+                deactivation.did,
+                error
+            );
+        }
+    }
 }
 
 /// Notify bridge of DID deactivation via cross-zome call
