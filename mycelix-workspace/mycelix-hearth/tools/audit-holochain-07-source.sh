@@ -124,7 +124,7 @@ check_dna_source_completeness() {
   local expected_names=()
   while IFS= read -r -d '' file; do
     local dir name
-    dir="$(basename "$(dirname "$(dirname "$file")")")"
+    dir="$(basename "$(dirname "$(dirname "$(dirname "$file")")")")"
     name="${dir//-/_}_integrity"
     expected_names+=("$name")
   done < <(git ls-files -z 'mycelix-workspace/mycelix-hearth/zomes/*/integrity/src/lib.rs')
