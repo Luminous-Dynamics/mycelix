@@ -109,9 +109,8 @@ jobs:
           assert all(row["commit_sha"] for row in rows)
           assert len({row["commit_sha"] for row in rows}) == 1
           assert all(row["agents"] for row in rows)
-          assert rows[0]["action_hashes"]
-          assert rows[0]["entry_hashes"]
-          assert all(row["action_hashes"] or row["scenario_id"] == "DSID-006" for row in rows)
+          assert all(row["action_hashes"] for row in rows)
+          assert all(row["entry_hashes"] for row in rows)
           PY
 
           sha256sum dsid-lifecycle-evidence.jsonl > dsid-lifecycle-evidence.sha256
