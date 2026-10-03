@@ -248,7 +248,6 @@ pub struct VerifiedCapability {
 /// cannot intentionally reuse an already-revalidated request before its expiry;
 /// effect-specific idempotency belongs to the enforcement adapter.
 #[must_use = "authorization permits must be consumed by EnforcementRequest::from_permit"]
-#[derive(PartialEq, Eq)]
 pub struct AuthorizationPermit {
     request: AuthorizationRequest,
     issued_at_us: u64,
@@ -272,7 +271,6 @@ impl AuthorizationPermit {
 /// the underlying effect is idempotent or single-use remains an enforcement-layer
 /// property.
 #[must_use = "enforcement requests are the only effect-bound authorization hand-off"]
-#[derive(PartialEq, Eq)]
 pub struct EnforcementRequest {
     request: AuthorizationRequest,
     issued_at_us: u64,
