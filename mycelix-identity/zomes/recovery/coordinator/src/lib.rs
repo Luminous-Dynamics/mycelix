@@ -744,27 +744,29 @@ pub fn get_recovery_votes(request_id: String) -> ExternResult<Vec<Record>> {
     Ok(votes)
 }
 
-/// Check threshold and update request status
-/// Select exactly one vote per trustee using a deterministic first-vote-wins rule.
+/// Check threshold and update request status.
+/// Select exactly one vote per trustee using the cryptographically ordered
+/// source-chain action sequence, with an ActionHash tie-breaker for any
+/// pathological duplicate action sequence.
 ///
-/// DHT link traversal order is not an authorization primitive. If a trustee
-/// somehow publishes multiple immutable votes for the same request, quorum
-/// must not depend on peer-local record ordering. The earliest vote timestamp
-/// wins; the action-hash string is the deterministic tie-breaker.
+/// DHT link traversal order is not an authorization primitive. New duplicate
+/// votes are rejected at the chain-authority integrity boundary. This
+/// canonicalization remains as deterministic defense-in-depth for legacy or
+/// otherwise already-visible conflicting records.
 fn canonical_trustee_votes(
-    votes: Vec<(String, Timestamp, ActionHash, VoteDecision)>,
-) -> std::collections::BTreeMap<String, (Timestamp, ActionHash, VoteDecision)> {
+    votes: Vec<(String, u32, ActionHash, VoteDecision)>,
+) -> std::collections::BTreeMap<String, (u32, ActionHash, VoteDecision)> {
     let mut canonical = std::collections::BTreeMap::new();
-    for (trustee, voted_at, action_hash, decision) in votes {
+    for (trustee, action_seq, action_hash, decision) in votes {
         let replace = match canonical.get(&trustee) {
             None => true,
-            Some((existing_time, existing_hash, _)) => {
-                (voted_at.as_micros(), action_hash.to_string())
-                    < (existing_time.as_micros(), existing_hash.to_string())
+            Some((existing_seq, existing_hash, _)) => {
+                (action_seq, action_hash.to_string())
+                    < (*existing_seq, existing_hash.to_string())
             }
         };
         if replace {
-            canonical.insert(trustee, (voted_at, action_hash, decision));
+            canonical.insert(trustee, (action_seq, action_hash, decision));
         }
     }
     canonical
@@ -819,7 +821,7 @@ fn check_and_update_request_status(request_id: String) -> ExternResult<()> {
         if vote.request_id == request_id && config.trustees.contains(&vote.trustee) {
             candidate_votes.push((
                 vote.trustee,
-                vote.voted_at,
+                record.action().action_seq(),
                 record.action_address().clone(),
                 vote.vote,
             ));
@@ -896,7 +898,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn duplicate_trustee_votes_use_earliest_vote() {
+    fn duplicate_trustee_votes_use_earliest_action_sequence() {
         let trustee = "did:mycelix:trustee".to_string();
         let first_hash = ActionHash::from_raw_36(vec![1u8; 36]);
         let later_hash = ActionHash::from_raw_36(vec![0u8; 36]);
@@ -904,13 +906,13 @@ mod tests {
         let canonical = canonical_trustee_votes(vec![
             (
                 trustee.clone(),
-                Timestamp::from_micros(20),
+                20,
                 later_hash,
                 VoteDecision::Approve,
             ),
             (
                 trustee.clone(),
-                Timestamp::from_micros(10),
+                10,
                 first_hash.clone(),
                 VoteDecision::Reject,
             ),
@@ -922,7 +924,7 @@ mod tests {
     }
 
     #[test]
-    fn duplicate_same_timestamp_votes_use_action_hash_tiebreaker() {
+    fn duplicate_same_action_sequence_uses_action_hash_tiebreaker() {
         let trustee = "did:mycelix:trustee".to_string();
         let low_hash = ActionHash::from_raw_36(vec![0u8; 36]);
         let high_hash = ActionHash::from_raw_36(vec![1u8; 36]);
@@ -930,13 +932,13 @@ mod tests {
         let canonical = canonical_trustee_votes(vec![
             (
                 trustee.clone(),
-                Timestamp::from_micros(10),
+                10,
                 high_hash,
                 VoteDecision::Approve,
             ),
             (
                 trustee.clone(),
-                Timestamp::from_micros(10),
+                10,
                 low_hash.clone(),
                 VoteDecision::Reject,
             ),
@@ -1032,7 +1034,7 @@ fn create_recovery_approval_certificate(
         if vote.request_id == request.id && config.trustees.contains(&vote.trustee) {
             candidate_votes.push((
                 vote.trustee,
-                vote.voted_at,
+                record.action().action_seq(),
                 record.action_address().clone(),
                 vote.vote,
             ));
@@ -1406,7 +1408,7 @@ pub fn get_recovery_status(request_id: String) -> ExternResult<Option<RecoverySt
         if vote.request_id == request.id && config.trustees.contains(&vote.trustee) {
             candidate_votes.push((
                 vote.trustee,
-                vote.voted_at,
+                record.action().action_seq(),
                 record.action_address().clone(),
                 vote.vote,
             ));
