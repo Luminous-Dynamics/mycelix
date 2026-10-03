@@ -245,8 +245,10 @@ pub async fn create_my_did(ctx: IdentityCtx, hc: HolochainCtx) -> Result<(), Str
         return Err("Holochain identity runtime is not connected".into());
     }
 
-    hc.call_zome_default::<(), DidDocumentView>("did_registry", "create_did_view", &())
-        .await?;
-    load_did(ctx).await;
+    let did = hc
+        .call_zome_default::<(), DidDocumentView>("did_registry", "create_did_view", &())
+        .await
+        .map_err(|e| e.to_string())?;
+    ctx.did_document.set(Some(did));
     Ok(())
 }
