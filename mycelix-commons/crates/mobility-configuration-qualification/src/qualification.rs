@@ -607,6 +607,25 @@ mod tests {
             Some(false)
         );
 
+        assert_eq!(
+            dependencies
+                .get("binding_preserves_address_kind")
+                .and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(
+            dependencies
+                .get("valid_record_requires_action_hash")
+                .and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(
+            dependencies
+                .get("wrong_address_kind_is_adapter_boundary_error")
+                .and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+
         let determinism = document
             .get("determinism")
             .expect("adapter contract must declare determinism");
