@@ -75,7 +75,7 @@
             buildInputs = with pkgs; [
               holochainPackages.holochain
               holochainPackages.hc
-              holochainBase.rustToolchain
+              holochainPackages.rust
               pkg-config
               openssl
               openssl.dev
