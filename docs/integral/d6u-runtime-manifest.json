@@ -1,7 +1,7 @@
 {
   "profile": "D6U-RUNTIME-1",
   "kind": "holochain-0.7-authority-boundary-runtime-manifest",
-  "version": 1,
+  "version": 2,
   "substrate": {
     "holochain": "0.7.0",
     "hdk": "0.7.0",
@@ -24,7 +24,6 @@
     "revoked-capability",
     "provenance-mismatch",
     "nonce-replay",
-    "nonce-stale",
     "expired-invocation",
     "wrong-zome",
     "wrong-function",
@@ -32,7 +31,8 @@
     "blocked-provenance"
   ],
   "unsupported_reference_cases": [
-    "wire-signature-valid"
+    "wire-signature-valid",
+    "nonce-stale"
   ],
   "evidence_fields": [
     "source_commit",
@@ -80,7 +80,6 @@
     "revoked-capability": "authorization-failed",
     "provenance-mismatch": "authorization-failed",
     "nonce-replay": "authorization-failed",
-    "nonce-stale": "authorization-failed",
     "expired-invocation": "authorization-failed",
     "wrong-zome": "routing-failed",
     "wrong-function": "authorization-failed",
@@ -94,5 +93,9 @@
     "authentication-failed",
     "authorization-failed",
     "routing-failed"
-  ]
+  ],
+  "unsupported_reference_case_reasons": {
+    "wire-signature-valid": "The isolated authenticated-but-not-yet-authorized intermediate state is not exposed as a standalone Holochain 0.7 app-interface result.",
+    "nonce-stale": "Holochain 0.7 uses random 256-bit nonces and witnesses Fresh, Duplicate, Expired, or Future; the D6S reference state's distinct stale/older-nonce condition is not independently reproducible on this substrate."
+  }
 }
