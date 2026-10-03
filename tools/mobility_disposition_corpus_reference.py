@@ -67,6 +67,8 @@ def main() -> int:
     path = root / "docs/mobility/MOBILITY_EVIDENCE_DISPOSITION_TRANSITION_V1.json"
     document = load(path)
 
+    if set(document) != {"schema", "authority", "semantics", "outcome_classes", "vectors"}:
+        raise SystemExit("disposition corpus top-level schema drifted")
     if document.get("schema") != EXPECTED_SCHEMA:
         raise SystemExit("unexpected disposition corpus schema")
     if document.get("outcome_classes") != EXPECTED_OUTCOME_CLASSES:
