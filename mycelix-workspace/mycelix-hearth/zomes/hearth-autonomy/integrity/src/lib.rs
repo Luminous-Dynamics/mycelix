@@ -197,7 +197,12 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             }
             Ok(ValidateCallbackResult::Valid)
         }
-        F
+        FlatOp::Link(link @ OpLink::DeleteLink {
+            action,
+            ..
+        }) => {
+            let original_record = must_get_valid_record(action.link_add_address.clone())?;
+            Ok(check_link_author_match(original_record.action().author(), action.author()))
         }
         FlatOp::CreateRecord(OpRecord::CreateEntry { app_entry, .. }) => match app_entry {
                 EntryTypes::AutonomyProfile(profile) => validate_profile(&profile),
