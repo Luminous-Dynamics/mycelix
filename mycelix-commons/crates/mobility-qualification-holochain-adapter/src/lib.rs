@@ -1353,11 +1353,8 @@ mod tests {
                         binding_provenance_for_test(logical.clone(), authority);
                     provenance.authority_scope = runtime_scope;
                     provenance.authority_delegation = runtime_delegation;
-                    provenance.basis = vec![
-                        provenance.authority.clone(),
-                        provenance.authority_scope.clone(),
-                        provenance.authority_delegation.clone(),
-                    ];
+                    provenance.basis = credential_provenance.basis.clone();
+                    provenance.basis.push(provenance.authority.clone());
                     provenance
                 },
                 address: HolochainDependencyAddress::Action(action_hash(36)),
@@ -1501,6 +1498,7 @@ mod tests {
         provenance.authority_scope = credential_provenance.authority_scope;
         provenance.authority_delegation = credential_provenance.authority_delegation;
         provenance.basis = credential_provenance.basis;
+        provenance.basis.push(provenance.authority.clone());
         provenance.basis.reverse();
 
         let binding = SignedHolochainBindingAttestation {
@@ -1551,6 +1549,7 @@ mod tests {
             binding_provenance_for_test(logical, authority);
         provenance.authority_delegation = registered_delegation;
         provenance.basis = registered_basis;
+        provenance.basis.push(provenance.authority.clone());
         provenance.basis.push(provenance.authority_scope.clone());
         let binding = SignedHolochainBindingAttestation {
             signer: agent,
@@ -1602,6 +1601,7 @@ mod tests {
             binding_provenance_for_test(logical.clone(), authority.clone());
         provenance.authority_scope = registered_scope;
         provenance.basis = registered_basis;
+        provenance.basis.push(provenance.authority.clone());
         provenance.basis.push(provenance.authority_delegation.clone());
         let binding = SignedHolochainBindingAttestation {
             signer: agent,
