@@ -2,6 +2,20 @@
 
 Status: **ReferenceModelOnly**
 
+## Source-bound certificate verification
+
+The existing self-check, `DependencyClosureCertificateV1::valid()`, answers an internal consistency question: the certificate's own fields, identities, dependency-resolution keys, status, and commitment agree with one another. That is necessary but not sufficient for source-bound consumption.
+
+D6X now exposes `DependencyClosureCertificateV1::verifies_against_sources(...)` as the stronger semantic gate. It deterministically re-executes the declared closure policy against the supplied projection, semantic environment, derivation profile, and closure profile, then compares the complete semantic closure result. Audit-only resolution evidence remains outside that semantic comparison while still remaining commitment-bound.
+
+This mirrors a broader validation principle: provenance validity is expressed through explicit consistency constraints, and Holochain's validation model requires deterministic results for a given operation while treating unavailable dependencies separately from definitive invalidity.
+
+The resulting boundary is:
+
+`self-consistency -> source correspondence -> downstream consumption`
+
+A certificate can therefore be internally coherent after a malicious root, cycle, or status substitution and still fail the source-correspondence gate. D6W uses this stronger check before constructing a downstream input commitment.
+
 ## Purpose
 
 D6X makes semantic dependency selection executable without equating graph reachability with semantic dependency. A closure is computed from:
