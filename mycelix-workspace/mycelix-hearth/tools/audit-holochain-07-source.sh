@@ -505,6 +505,68 @@ check_immutable_dependency_semantics() {
   echo "OK:   $file immutable-field dependency semantics"
 }
 
+check_standalone_tests_workspace_boundary() {
+  local manifest="mycelix-workspace/mycelix-hearth/tests/Cargo.toml"
+  if [[ -f "$manifest" ]] && rg -n --fixed-strings "[workspace]" "$manifest" >/dev/null 2>&1; then
+    echo "OK:   Hearth integration tests declare their standalone Cargo workspace boundary"
+  else
+    echo "FAIL: Hearth integration tests must declare an explicit standalone Cargo workspace boundary"
+    fail=1
+  fi
+}
+
+check_qualification_workflow_provenance() {
+  local workflow=".github/workflows/hearth-07-qualification.yml"
+  if [[ ! -f "$workflow" ]]; then
+    echo "FAIL: missing Hearth 0.7 qualification workflow"
+    fail=1
+    return
+  fi
+  if rg -n --fixed-strings "target_sha:" "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings "ref: ${{ env.QUALIFY_SHA }}" "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings "git rev-parse HEAD" "$workflow" >/dev/null 2>&1; then
+    echo "OK:   qualification workflow binds execution to an exact candidate SHA"
+  else
+    echo "FAIL: qualification workflow does not enforce exact candidate-SHA checkout provenance"
+    fail=1
+  fi
+  if rg -n --fixed-strings "cargo build --locked" "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings "cargo test --locked" "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings "cargo generate-lockfile" "$workflow" >/dev/null 2>&1; then
+    echo "OK:   qualification workflow generates and consumes locked Rust closures"
+  else
+    echo "FAIL: qualification workflow is missing locked Rust dependency closure enforcement"
+    fail=1
+  fi
+}
+
+check_dna_source_completeness() {
+  local dna="mycelix-workspace/mycelix-hearth/dna/dna.yaml"
+  local count=0
+  while IFS= read -r -d "" file; do
+    local dir name
+    dir="$(basename "$(dirname "$(dirname "$(dirname "$file")")")")"
+    name="${dir//-/_}_integrity"
+    if rg -n --fixed-strings "- name: $name" "$dna" >/dev/null 2>&1; then
+      echo "OK:   DNA packages discovered integrity zome $name"
+    else
+      echo "FAIL: DNA is missing discovered integrity zome $name"
+      fail=1
+    fi
+    count=$((count + 1))
+  done < <(git ls-files -z -- "mycelix-workspace/mycelix-hearth/zomes/*/integrity/src/lib.rs")
+  local dna_count
+  dna_count="$(rg -n "^[[:space:]]*-[[:space:]]*name:[[:space:]]*hearth_[A-Za-z0-9_]+_integrity$" "$dna" | wc -l)"
+  if [[ "$dna_count" -eq "$count" ]]; then
+    echo "OK:   DNA integrity-zome count matches tracked Hearth integrity zomes ($count)"
+  else
+    echo "FAIL: DNA integrity-zome count ($dna_count) differs from tracked Hearth integrity zomes ($count)"
+    fail=1
+  fi
+}
+check_standalone_tests_workspace_boundary
+check_qualification_workflow_provenance
+check_dna_source_completeness
 check_semantic_validation_suite_wiring
 
 for file in "${integrity_files[@]}"; do
