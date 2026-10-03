@@ -380,6 +380,15 @@ fn agent_key_from_link(
         .map_err(|_| ValidateCallbackResult::Invalid(format!("{label} must be an AgentPubKey")))
 }
 
+fn load_anchor(hash: EntryHash, label: &str) -> ExternResult<Anchor> {
+    let bytes = must_get_entry(hash)?;
+    Anchor::try_from(bytes).map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to deserialize {label}: {e}"
+        )))
+    })
+}
+
 fn validate_create_link(
     link_type: LinkTypes,
     base_address: AnyLinkableHash,
@@ -499,6 +508,55 @@ fn validate_create_link(
                 ));
             }
         }
+        LinkTypes::AllHearths => {
+            let anchor_hash = EntryHash::try_from(base_address).map_err(|_| {
+                ValidateCallbackResult::Invalid("AllHearths base must be an EntryHash".into())
+            })?;
+            let _anchor = load_anchor(anchor_hash, "AllHearths anchor")?;
+            let hearth_hash = action_hash_from_link(target_address, "AllHearths target")?;
+            let _ = load_original_typed_entry::<Hearth>(hearth_hash, "Hearth")?;
+        }
+        LinkTypes::HearthToBonds => {
+            let hearth_hash = action_hash_from_link(base_address, "HearthToBonds base")?;
+            let bond_hash = action_hash_from_link(target_address, "HearthToBonds target")?;
+            let (bond, _bond_author): (KinshipBond, AgentPubKey) =
+                load_original_typed_entry(bond_hash, "KinshipBond")?;
+            if bond.hearth_hash != hearth_hash {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "HearthToBonds target belongs to a different hearth".into(),
+                ));
+            }
+        }
+        LinkTypes::MemberToBonds => {
+            let member = agent_key_from_link(base_address, "MemberToBonds base")?;
+            let bond_hash = action_hash_from_link(target_address, "MemberToBonds target")?;
+            let (bond, _bond_author): (KinshipBond, AgentPubKey) =
+                load_original_typed_entry(bond_hash, "KinshipBond")?;
+            if bond.member_a != member && bond.member_b != member {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "MemberToBonds base is not a member of the bond".into(),
+                ));
+            }
+        }
+        LinkTypes::TypeToHearths => {
+            let anchor_hash = EntryHash::try_from(base_address).map_err(|_| {
+                ValidateCallbackResult::Invalid("TypeToHearths base must be an EntryHash".into())
+            })?;
+            let _anchor = load_anchor(anchor_hash, "TypeToHearths anchor")?;
+            let hearth_hash = action_hash_from_link(target_address, "TypeToHearths target")?;
+            let _ = load_original_typed_entry::<Hearth>(hearth_hash, "Hearth")?;
+        }
+        LinkTypes::HearthToDigests => {
+            let hearth_hash = action_hash_from_link(base_address, "HearthToDigests base")?;
+            let digest_hash = action_hash_from_link(target_address, "HearthToDigests target")?;
+            let (digest, _digest_author): (WeeklyDigest, AgentPubKey) =
+                load_original_typed_entry(digest_hash, "WeeklyDigest")?;
+            if digest.hearth_hash != hearth_hash {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "WeeklyDigest belongs to a different hearth".into(),
+                ));
+            }
+        }
         LinkTypes::AgentToInvitationResponses => {
             let invitee = match agent_key_from_link(base_address, "AgentToInvitationResponses base")
             {
@@ -523,7 +581,6 @@ fn validate_create_link(
                 ));
             }
         }
-        _ => {}
     }
     Ok(ValidateCallbackResult::Valid)
 }
