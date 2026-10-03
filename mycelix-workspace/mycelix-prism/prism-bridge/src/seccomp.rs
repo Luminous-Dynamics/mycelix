@@ -548,6 +548,39 @@ mod linux {
             return Err(SeccompError::CompilerInvariantViolation);
         }
 
+        // Every emitted instruction must participate in the control-flow graph.
+        // A destination that is merely in-bounds can still skip an entire rule
+        // and leave dead instructions behind. Reject such dead regions before
+        // the filter reaches the kernel.
+        let mut reachable = vec![false; filter.len()];
+        let mut work = vec![0usize];
+        while let Some(index) = work.pop() {
+            if reachable[index] {
+                continue;
+            }
+            reachable[index] = true;
+            let instruction = &filter[index];
+            match instruction.code {
+                code if code == BPF_JMP | BPF_JEQ | BPF_K => {
+                    let true_target = index + 1 + usize::from(instruction.jt);
+                    let false_target = index + 1 + usize::from(instruction.jf);
+                    work.push(true_target);
+                    work.push(false_target);
+                }
+                code if code == BPF_JMP | BPF_JGE | BPF_K => {
+                    let true_target = index + 1 + usize::from(instruction.jt);
+                    let false_target = index + 1 + usize::from(instruction.jf);
+                    work.push(true_target);
+                    work.push(false_target);
+                }
+                code if code == BPF_RET | BPF_K => {}
+                _ => work.push(index + 1),
+            }
+        }
+        if reachable.iter().any(|seen| !seen) {
+            return Err(SeccompError::CompilerInvariantViolation);
+        }
+
         Ok(())
     }
 
@@ -2139,6 +2172,47 @@ mod linux {
             unexpected_jump[4].k = 1;
             assert!(matches!(
                 validate_compiled_filter(&unexpected_jump),
+                Err(SeccompError::CompilerInvariantViolation)
+            ));
+        }
+
+        #[test]
+        fn compiled_filter_rejects_in_bounds_dead_region() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let policy = SeccompSyscallPolicyV2::new(
+                arch,
+                vec![
+                    SeccompSyscallRuleV2::new(libc::SYS_socket, Vec::new()).unwrap(),
+                    SeccompSyscallRuleV2::new(libc::SYS_prctl, Vec::new()).unwrap(),
+                ],
+            )
+            .unwrap();
+            let mut filter = compile_filter_v2(&policy).unwrap();
+            let socket_jump = filter
+                .iter()
+                .position(|instruction| {
+                    instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                        && instruction.k == libc::SYS_socket as u32
+                })
+                .unwrap();
+            let prctl_jump = filter
+                .iter()
+                .position(|instruction| {
+                    instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                        && instruction.k == libc::SYS_prctl as u32
+                })
+                .unwrap();
+
+            // Skip the entire prctl rule while still landing inside the
+            // program. The target remains formally valid, but the prctl rule
+            // becomes unreachable and must be rejected.
+            let skip = prctl_jump
+                .checked_sub(socket_jump + 1)
+                .unwrap()
+                .saturating_add(2);
+            filter[socket_jump].jf = u8::try_from(skip).unwrap();
+            assert!(matches!(
+                validate_compiled_filter(&filter),
                 Err(SeccompError::CompilerInvariantViolation)
             ));
         }
