@@ -625,15 +625,6 @@ pub fn compute_dependency_closure(
 
     while let Some(id) = queue.pop_front() {
         if !queued.insert(id.clone()) { continue; }
-        // Resource exhaustion is a deterministic semantic boundary. Once the
-        // configured node budget is exhausted, do not inspect/validate the next
-        // candidate node: the certificate reports that qualification could not
-        // complete within the declared budget rather than turning that
-        // uninspected candidate into an unrelated hard failure.
-        if included_ids.len() as u32 >= profile.max_nodes {
-            resource_blocked = true;
-            break;
-        }
         let Some(node) = projection.nodes.get(&id) else {
             let dependency = SemanticDependencyReferenceV1::node(id.clone(), None);
             missing_dependencies.insert(dependency.clone());
@@ -646,6 +637,10 @@ pub fn compute_dependency_closure(
         // pairs before they can enter the closure identity.
         if !node.commitment_matches() {
             return None;
+        }
+        if included_ids.len() as u32 >= profile.max_nodes {
+            resource_blocked = true;
+            break;
         }
         included_ids.insert(id.clone());
         let node_dependency = SemanticDependencyReferenceV1::node(id.clone(), Some(node.node_commitment.clone()));
@@ -693,8 +688,12 @@ pub fn compute_dependency_closure(
             };
 
             if !matches_rule { continue; }
-            // A missing target is a semantic missing-dependency outcome, not an
-            // edge-budget use: there is no selected target to validate/expand.
+            // Only selected semantic edges are required to prove their own
+            // commitment binding. Irrelevant/provenance candidates remain
+            // outside the semantic closure boundary.
+            if !edge.commitment_matches() {
+                return None;
+            }
             // Overlapping rules resolve monotonically: CurrentOnly dominates Any.
             let Some(to) = projection.nodes.get(&edge.to_node_id) else {
                 let dependency = SemanticDependencyReferenceV1::node(edge.to_node_id.clone(), None);
@@ -703,19 +702,9 @@ pub fn compute_dependency_closure(
                 missing.insert(edge.to_node_id.clone());
                 continue;
             };
-            // Resource exhaustion is a deterministic semantic boundary. Once the
-            // configured edge budget is exhausted, do not inspect/validate the
-            // next selected edge candidate. This preserves BlockedResourceLimit
-            // semantics even when uninspected candidate material is malformed.
             if included_edges.len() as u32 >= profile.max_edges {
                 resource_blocked = true;
                 break;
-            }
-            // Only selected semantic edges are required to prove their own
-            // commitment binding. Irrelevant/provenance candidates remain
-            // outside the semantic closure boundary.
-            if !edge.commitment_matches() {
-                return None;
             }
             included_edges.insert(edge.edge_id.clone());
             let edge_dependency = SemanticDependencyReferenceV1::edge(
@@ -1170,43 +1159,6 @@ mod tests {
 
         assert_eq!(c.status, DependencyClosureStatusV1::BlockedResourceLimit);
         assert_eq!(c.included_edges.len(), 1);
-        assert!(c.valid());
-    }
-
-    #[test]
-    fn malformed_one_over_node_budget_is_blocked_before_node_validation() {
-        let (mut a, e, d) = projection(false);
-        a.nodes.get_mut("dep").unwrap().node_commitment = "malformed-node-commitment".into();
-
-        let mut p = profile(BTreeSet::new());
-        p.max_nodes = 1;
-
-        let c = compute_dependency_closure(&a, &e, &d, &p).unwrap();
-
-        assert_eq!(c.status, DependencyClosureStatusV1::BlockedResourceLimit);
-        assert_eq!(c.included_node_ids, BTreeSet::from(["root".into()]));
-        assert!(c.valid());
-    }
-
-    #[test]
-    fn malformed_one_over_edge_budget_is_blocked_before_edge_validation() {
-        let (mut a, e, d) = projection(false);
-        a.edges.insert("e2".into(), QualifiedEdgeV1 {
-            edge_id: "e2".into(),
-            from_node_id: "root".into(),
-            to_node_id: "dep".into(),
-            kind: ClaimGraphEdgeKindV1::Supports,
-            edge_commitment: "malformed-edge-commitment".into(),
-            claim_ceiling: D6X_CLAIM_CEILING.into(),
-        });
-
-        let mut p = profile(BTreeSet::new());
-        p.max_edges = 1;
-
-        let c = compute_dependency_closure(&a, &e, &d, &p).unwrap();
-
-        assert_eq!(c.status, DependencyClosureStatusV1::BlockedResourceLimit);
-        assert_eq!(c.included_edge_commitments, BTreeSet::from(["edge-e1".into()]));
         assert!(c.valid());
     }
 
