@@ -1,0 +1,1633 @@
+{
+  "schema": "mycelix.sym-civic.decision-finality.v1",
+  "program": "SYM-CIVIC-012",
+  "parent_subject": "31383e903499a5614bb7b664139b249235d0be78",
+  "analysis_role": "research_only",
+  "invariants": [
+    "decision_identity_binding",
+    "separate_finality_evidence",
+    "immutable_finality_transitions",
+    "bounded_finality_horizon",
+    "no_horizon_widening",
+    "exact_authority_profile",
+    "trusted_finality_issuer",
+    "historical_vs_current_time",
+    "supersession_nontransfer",
+    "revocation_preserves_history",
+    "conflict_preservation",
+    "order_independence",
+    "exact_replay_idempotent",
+    "decision_finality_not_authorization",
+    "decision_finality_not_civic_authority"
+  ],
+  "cases": [
+    {
+      "id": "F-01",
+      "family": "exact_current_finality",
+      "candidate": {
+        "decision": {
+          "id": "decision-a",
+          "subject_digest": "sha256:subject-a",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "outcome": "allow",
+          "policy_id": "https://example.org/policies/security",
+          "policy_version": "2026-10",
+          "policy_digest": "sha256:policy-a",
+          "composition_digest": "sha256:composition-a",
+          "evaluated_at": "2026-10-03T01:00:00Z",
+          "identity_material": {
+            "subject_digest": "sha256:subject-a",
+            "policy_id": "https://example.org/policies/security",
+            "policy_version": "2026-10",
+            "policy_digest": "sha256:policy-a",
+            "composition_digest": "sha256:composition-a",
+            "evaluated_at": "2026-10-03T01:00:00Z",
+            "decision_valid_until": "2026-10-04T00:00:00Z",
+            "outcome": "allow"
+          },
+          "identity_digest": "sha256:bf2e763056f4b22a318f5e0fcaf6bf3654e158f505523489ebc108ddec37ad56"
+        },
+        "authority_profile": {
+          "id": "authority/finality/a",
+          "version": "2026-10",
+          "digest": "sha256:authority-a",
+          "actual_digest": "sha256:authority-a",
+          "valid_from": "2026-10-03T00:00:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "trusted_issuers": [
+            "issuer-a",
+            "issuer-b"
+          ]
+        },
+        "finality_assertions": [
+          {
+            "id": "finality-a",
+            "decision_id": "decision-a",
+            "decision_identity_digest": "sha256:bf2e763056f4b22a318f5e0fcaf6bf3654e158f505523489ebc108ddec37ad56",
+            "issuer": "issuer-a",
+            "authority_profile_ref": "authority/finality/a",
+            "authority_profile_digest": "sha256:authority-a",
+            "asserted_at": "2026-10-03T02:00:00Z",
+            "valid_from": "2026-10-03T02:00:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "status": "FINAL",
+            "mutable_status": false,
+            "successor_id": null,
+            "predecessor_id": null,
+            "identity_material": {
+              "id": "finality-a",
+              "decision_id": "decision-a",
+              "decision_identity_digest": "sha256:bf2e763056f4b22a318f5e0fcaf6bf3654e158f505523489ebc108ddec37ad56",
+              "issuer": "issuer-a",
+              "authority_profile_ref": "authority/finality/a",
+              "authority_profile_digest": "sha256:authority-a",
+              "asserted_at": "2026-10-03T02:00:00Z",
+              "valid_from": "2026-10-03T02:00:00Z",
+              "valid_until": "2026-10-04T00:00:00Z",
+              "status": "FINAL",
+              "successor_id": null,
+              "predecessor_id": null
+            },
+            "identity_digest": "sha256:48b133d759767fd56ea10165ec8570550ca0fa24b77e90013125856038abb008"
+          }
+        ],
+        "currentness_check_time": "2026-10-03T03:00:00Z"
+      },
+      "note": "Exact current finality evidence is bound to the decision and authority."
+    },
+    {
+      "id": "F-02",
+      "family": "missing_finality",
+      "candidate": {
+        "decision": {
+          "id": "decision-a",
+          "subject_digest": "sha256:subject-a",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "outcome": "allow",
+          "policy_id": "https://example.org/policies/security",
+          "policy_version": "2026-10",
+          "policy_digest": "sha256:policy-a",
+          "composition_digest": "sha256:composition-a",
+          "evaluated_at": "2026-10-03T01:00:00Z",
+          "identity_material": {
+            "subject_digest": "sha256:subject-a",
+            "policy_id": "https://example.org/policies/security",
+            "policy_version": "2026-10",
+            "policy_digest": "sha256:policy-a",
+            "composition_digest": "sha256:composition-a",
+            "evaluated_at": "2026-10-03T01:00:00Z",
+            "decision_valid_until": "2026-10-04T00:00:00Z",
+            "outcome": "allow"
+          },
+          "identity_digest": "sha256:bf2e763056f4b22a318f5e0fcaf6bf3654e158f505523489ebc108ddec37ad56"
+        },
+        "authority_profile": {
+          "id": "authority/finality/a",
+          "version": "2026-10",
+          "digest": "sha256:authority-a",
+          "actual_digest": "sha256:authority-a",
+          "valid_from": "2026-10-03T00:00:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "trusted_issuers": [
+            "issuer-a",
+            "issuer-b"
+          ]
+        },
+        "finality_assertions": [],
+        "currentness_check_time": "2026-10-03T03:00:00Z"
+      },
+      "note": "A decision may exist without any separate finality evidence."
+    },
+    {
+      "id": "F-03",
+      "family": "wrong_decision_id",
+      "candidate": {
+        "decision": {
+          "id": "decision-a",
+          "subject_digest": "sha256:subject-a",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "outcome": "allow",
+          "policy_id": "https://example.org/policies/security",
+          "policy_version": "2026-10",
+          "policy_digest": "sha256:policy-a",
+          "composition_digest": "sha256:composition-a",
+          "evaluated_at": "2026-10-03T01:00:00Z",
+          "identity_material": {
+            "subject_digest": "sha256:subject-a",
+            "policy_id": "https://example.org/policies/security",
+            "policy_version": "2026-10",
+            "policy_digest": "sha256:policy-a",
+            "composition_digest": "sha256:composition-a",
+            "evaluated_at": "2026-10-03T01:00:00Z",
+            "decision_valid_until": "2026-10-04T00:00:00Z",
+            "outcome": "allow"
+          },
+          "identity_digest": "sha256:bf2e763056f4b22a318f5e0fcaf6bf3654e158f505523489ebc108ddec37ad56"
+        },
+        "authority_profile": {
+          "id": "authority/finality/a",
+          "version": "2026-10",
+          "digest": "sha256:authority-a",
+          "actual_digest": "sha256:authority-a",
+          "valid_from": "2026-10-03T00:00:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "trusted_issuers": [
+            "issuer-a",
+            "issuer-b"
+          ]
+        },
+        "finality_assertions": [
+          {
+            "id": "finality-a",
+            "decision_id": "decision-other",
+            "decision_identity_digest": "sha256:bf2e763056f4b22a318f5e0fcaf6bf3654e158f505523489ebc108ddec37ad56",
+            "issuer": "issuer-a",
+            "authority_profile_ref": "authority/finality/a",
+            "authority_profile_digest": "sha256:authority-a",
+            "asserted_at": "2026-10-03T02:00:00Z",
+            "valid_from": "2026-10-03T02:00:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "status": "FINAL",
+            "mutable_status": false,
+            "successor_id": null,
+            "predecessor_id": null,
+            "identity_material": {
+              "id": "finality-a",
+              "decision_id": "decision-other",
+              "decision_identity_digest": "sha256:bf2e763056f4b22a318f5e0fcaf6bf3654e158f505523489ebc108ddec37ad56",
+              "issuer": "issuer-a",
+              "authority_profile_ref": "authority/finality/a",
+              "authority_profile_digest": "sha256:authority-a",
+              "asserted_at": "2026-10-03T02:00:00Z",
+              "valid_from": "2026-10-03T02:00:00Z",
+              "valid_until": "2026-10-04T00:00:00Z",
+              "status": "FINAL",
+              "successor_id": null,
+              "predecessor_id": null
+            },
+            "identity_digest": "sha256:7de4f3813d8f7ffb37be0bf5e6a08e4da1d14400db2e539731336037dcfddb64"
+          }
+        ],
+        "currentness_check_time": "2026-10-03T03:00:00Z"
+      },
+      "note": "Finality can be issued for a different decision."
+    },
+    {
+      "id": "F-04",
+      "family": "wrong_decision_identity",
+      "candidate": {
+        "decision": {
+          "id": "decision-a",
+          "subject_digest": "sha256:subject-a",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "outcome": "allow",
+          "policy_id": "https://example.org/policies/security",
+          "policy_version": "2026-10",
+          "policy_digest": "sha256:policy-a",
+          "composition_digest": "sha256:composition-a",
+          "evaluated_at": "2026-10-03T01:00:00Z",
+          "identity_material": {
+            "subject_digest": "sha256:subject-a",
+            "policy_id": "https://example.org/policies/security",
+            "policy_version": "2026-10",
+            "policy_digest": "sha256:policy-a",
+            "composition_digest": "sha256:composition-a",
+            "evaluated_at": "2026-10-03T01:00:00Z",
+            "decision_valid_until": "2026-10-04T00:00:00Z",
+            "outcome": "allow"
+          },
+          "identity_digest": "sha256:bf2e763056f4b22a318f5e0fcaf6bf3654e158f505523489ebc108ddec37ad56"
+        },
+        "authority_profile": {
+          "id": "authority/finality/a",
+          "version": "2026-10",
+          "digest": "sha256:authority-a",
+          "actual_digest": "sha256:authority-a",
+          "valid_from": "2026-10-03T00:00:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "trusted_issuers": [
+            "issuer-a",
+            "issuer-b"
+          ]
+        },
+        "finality_assertions": [
+          {
+            "id": "finality-a",
+            "decision_id": "decision-a",
+            "decision_identity_digest": "sha256:other",
+            "issuer": "issuer-a",
+            "authority_profile_ref": "authority/finality/a",
+            "authority_profile_digest": "sha256:authority-a",
+            "asserted_at": "2026-10-03T02:00:00Z",
+            "valid_from": "2026-10-03T02:00:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "status": "FINAL",
+            "mutable_status": false,
+            "successor_id": null,
+            "predecessor_id": null,
+            "identity_material": {
+              "id": "finality-a",
+              "decision_id": "decision-a",
+              "decision_identity_digest": "sha256:other",
+              "issuer": "issuer-a",
+              "authority_profile_ref": "authority/finality/a",
+              "authority_profile_digest": "sha256:authority-a",
+              "asserted_at": "2026-10-03T02:00:00Z",
+              "valid_from": "2026-10-03T02:00:00Z",
+              "valid_until": "2026-10-04T00:00:00Z",
+              "status": "FINAL",
+              "successor_id": null,
+              "predecessor_id": null
+            },
+            "identity_digest": "sha256:8036cd7daf7fa31f26390b2598aab14c6d17c2853f0f4de0d3edf9a7ca5bdeb1"
+          }
+        ],
+        "currentness_check_time": "2026-10-03T03:00:00Z"
+      },
+      "note": "Finality can carry a different semantic decision identity."
+    },
+    {
+      "id": "F-05",
+      "family": "mutable_finality_status",
+      "candidate": {
+        "decision": {
+          "id": "decision-a",
+          "subject_digest": "sha256:subject-a",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "outcome": "allow",
+          "policy_id": "https://example.org/policies/security",
+          "policy_version": "2026-10",
+          "policy_digest": "sha256:policy-a",
+          "composition_digest": "sha256:composition-a",
+          "evaluated_at": "2026-10-03T01:00:00Z",
+          "identity_material": {
+            "subject_digest": "sha256:subject-a",
+            "policy_id": "https://example.org/policies/security",
+            "policy_version": "2026-10",
+            "policy_digest": "sha256:policy-a",
+            "composition_digest": "sha256:composition-a",
+            "evaluated_at": "2026-10-03T01:00:00Z",
+            "decision_valid_until": "2026-10-04T00:00:00Z",
+            "outcome": "allow"
+          },
+          "identity_digest": "sha256:bf2e763056f4b22a318f5e0fcaf6bf3654e158f505523489ebc108ddec37ad56"
+        },
+        "authority_profile": {
+          "id": "authority/finality/a",
+          "version": "2026-10",
+          "digest": "sha256:authority-a",
+          "actual_digest": "sha256:authority-a",
+          "valid_from": "2026-10-03T00:00:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "trusted_issuers": [
+            "issuer-a",
+            "issuer-b"
+          ]
+        },
+        "finality_assertions": [
+          {
+            "id": "finality-a",
+            "decision_id": "decision-a",
+            "decision_identity_digest": "",
+            "issuer": "issuer-a",
+            "authority_profile_ref": "authority/finality/a",
+            "authority_profile_digest": "sha256:authority-a",
+            "asserted_at": "2026-10-03T02:00:00Z",
+            "valid_from": "2026-10-03T02:00:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "status": "FINAL",
+            "mutable_status": true,
+            "successor_id": null,
+            "predecessor_id": null,
+            "identity_material": {
+              "id": "finality-a",
+              "decision_id": "decision-a",
+              "decision_identity_digest": "",
+              "issuer": "issuer-a",
+              "authority_profile_ref": "authority/finality/a",
+              "authority_profile_digest": "sha256:authority-a",
+              "asserted_at": "2026-10-03T02:00:00Z",
+              "valid_from": "2026-10-03T02:00:00Z",
+              "valid_until": "2026-10-04T00:00:00Z",
+              "status": "FINAL",
+              "successor_id": null,
+              "predecessor_id": null
+            },
+            "identity_digest": "sha256:5ee1548897aba2e5b30b16481f1df43e1f06f80a9790ec98b4bd64f37f9ed7a4"
+          }
+        ],
+        "currentness_check_time": "2026-10-03T03:00:00Z"
+      },
+      "note": "Finality state may be presented as mutable."
+    },
+    {
+      "id": "F-06",
+      "family": "horizon_widening",
+      "candidate": {
+        "decision": {
+          "id": "decision-a",
+          "subject_digest": "sha256:subject-a",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "outcome": "allow",
+          "policy_id": "https://example.org/policies/security",
+          "policy_version": "2026-10",
+          "policy_digest": "sha256:policy-a",
+          "composition_digest": "sha256:composition-a",
+          "evaluated_at": "2026-10-03T01:00:00Z",
+          "identity_material": {
+            "subject_digest": "sha256:subject-a",
+            "policy_id": "https://example.org/policies/security",
+            "policy_version": "2026-10",
+            "policy_digest": "sha256:policy-a",
+            "composition_digest": "sha256:composition-a",
+            "evaluated_at": "2026-10-03T01:00:00Z",
+            "decision_valid_until": "2026-10-04T00:00:00Z",
+            "outcome": "allow"
+          },
+          "identity_digest": "sha256:bf2e763056f4b22a318f5e0fcaf6bf3654e158f505523489ebc108ddec37ad56"
+        },
+        "authority_profile": {
+          "id": "authority/finality/a",
+          "version": "2026-10",
+          "digest": "sha256:authority-a",
+          "actual_digest": "sha256:authority-a",
+          "valid_from": "2026-10-03T00:00:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "trusted_issuers": [
+            "issuer-a",
+            "issuer-b"
+          ]
+        },
+        "finality_assertions": [
+          {
+            "id": "finality-a",
+            "decision_id": "decision-a",
+            "decision_identity_digest": "",
+            "issuer": "issuer-a",
+            "authority_profile_ref": "authority/finality/a",
+            "authority_profile_digest": "sha256:authority-a",
+            "asserted_at": "2026-10-03T02:00:00Z",
+            "valid_from": "2026-10-03T02:00:00Z",
+            "valid_until": "2026-10-05T00:00:00Z",
+            "status": "FINAL",
+            "mutable_status": false,
+            "successor_id": null,
+            "predecessor_id": null,
+            "identity_material": {
+              "id": "finality-a",
+              "decision_id": "decision-a",
+              "decision_identity_digest": "",
+              "issuer": "issuer-a",
+              "authority_profile_ref": "authority/finality/a",
+              "authority_profile_digest": "sha256:authority-a",
+              "asserted_at": "2026-10-03T02:00:00Z",
+              "valid_from": "2026-10-03T02:00:00Z",
+              "valid_until": "2026-10-05T00:00:00Z",
+              "status": "FINAL",
+              "successor_id": null,
+              "predecessor_id": null
+            },
+            "identity_digest": "sha256:706cfaee40d92aa448441895102aaf7927aacd23595dc17bcd9c6a623c1cc167"
+          }
+        ],
+        "currentness_check_time": "2026-10-03T03:00:00Z"
+      },
+      "note": "Finality may be given a wider horizon than the decision."
+    },
+    {
+      "id": "F-07",
+      "family": "untrusted_issuer",
+      "candidate": {
+        "decision": {
+          "id": "decision-a",
+          "subject_digest": "sha256:subject-a",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "outcome": "allow",
+          "policy_id": "https://example.org/policies/security",
+          "policy_version": "2026-10",
+          "policy_digest": "sha256:policy-a",
+          "composition_digest": "sha256:composition-a",
+          "evaluated_at": "2026-10-03T01:00:00Z",
+          "identity_material": {
+            "subject_digest": "sha256:subject-a",
+            "policy_id": "https://example.org/policies/security",
+            "policy_version": "2026-10",
+            "policy_digest": "sha256:policy-a",
+            "composition_digest": "sha256:composition-a",
+            "evaluated_at": "2026-10-03T01:00:00Z",
+            "decision_valid_until": "2026-10-04T00:00:00Z",
+            "outcome": "allow"
+          },
+          "identity_digest": "sha256:bf2e763056f4b22a318f5e0fcaf6bf3654e158f505523489ebc108ddec37ad56"
+        },
+        "authority_profile": {
+          "id": "authority/finality/a",
+          "version": "2026-10",
+          "digest": "sha256:authority-a",
+          "actual_digest": "sha256:authority-a",
+          "valid_from": "2026-10-03T00:00:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "trusted_issuers": [
+            "issuer-a",
+            "issuer-b"
+          ]
+        },
+        "finality_assertions": [
+          {
+            "id": "finality-a",
+            "decision_id": "decision-a",
+            "decision_identity_digest": "",
+            "issuer": "issuer-x",
+            "authority_profile_ref": "authority/finality/a",
+            "authority_profile_digest": "sha256:authority-a",
+            "asserted_at": "2026-10-03T02:00:00Z",
+            "valid_from": "2026-10-03T02:00:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "status": "FINAL",
+            "mutable_status": false,
+            "successor_id": null,
+            "predecessor_id": null,
+            "identity_material": {
+              "id": "finality-a",
+              "decision_id": "decision-a",
+              "decision_identity_digest": "",
+              "issuer": "issuer-x",
+              "authority_profile_ref": "authority/finality/a",
+              "authority_profile_digest": "sha256:authority-a",
+              "asserted_at": "2026-10-03T02:00:00Z",
+              "valid_from": "2026-10-03T02:00:00Z",
+              "valid_until": "2026-10-04T00:00:00Z",
+              "status": "FINAL",
+              "successor_id": null,
+              "predecessor_id": null
+            },
+            "identity_digest": "sha256:944401955fb55c2c64a9602f0c08b46bde0d053b6d8674cec5e09d73b700f1b5"
+          }
+        ],
+        "currentness_check_time": "2026-10-03T03:00:00Z"
+      },
+      "note": "Finality may be issued by an untrusted principal."
+    },
+    {
+      "id": "F-08",
+      "family": "mutable_latest_authority",
+      "candidate": {
+        "decision": {
+          "id": "decision-a",
+          "subject_digest": "sha256:subject-a",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "outcome": "allow",
+          "policy_id": "https://example.org/policies/security",
+          "policy_version": "2026-10",
+          "policy_digest": "sha256:policy-a",
+          "composition_digest": "sha256:composition-a",
+          "evaluated_at": "2026-10-03T01:00:00Z",
+          "identity_material": {
+            "subject_digest": "sha256:subject-a",
+            "policy_id": "https://example.org/policies/security",
+            "policy_version": "2026-10",
+            "policy_digest": "sha256:policy-a",
+            "composition_digest": "sha256:composition-a",
+            "evaluated_at": "2026-10-03T01:00:00Z",
+            "decision_valid_until": "2026-10-04T00:00:00Z",
+            "outcome": "allow"
+          },
+          "identity_digest": "sha256:bf2e763056f4b22a318f5e0fcaf6bf3654e158f505523489ebc108ddec37ad56"
+        },
+        "authority_profile": {
+          "id": "authority/finality/a",
+          "version": "2026-10",
+          "digest": "sha256:authority-a",
+          "actual_digest": "sha256:authority-a",
+          "valid_from": "2026-10-03T00:00:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "trusted_issuers": [
+            "issuer-a",
+            "issuer-b"
+          ]
+        },
+        "finality_assertions": [
+          {
+            "id": "finality-a",
+            "decision_id": "decision-a",
+            "decision_identity_digest": "",
+            "issuer": "issuer-a",
+            "authority_profile_ref": "https://example.org/authority/latest",
+            "authority_profile_digest": "sha256:authority-a",
+            "asserted_at": "2026-10-03T02:00:00Z",
+            "valid_from": "2026-10-03T02:00:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "status": "FINAL",
+            "mutable_status": false,
+            "successor_id": null,
+            "predecessor_id": null,
+            "identity_material": {
+              "id": "finality-a",
+              "decision_id": "decision-a",
+              "decision_identity_digest": "",
+              "issuer": "issuer-a",
+              "authority_profile_ref": "https://example.org/authority/latest",
+              "authority_profile_digest": "sha256:authority-a",
+              "asserted_at": "2026-10-03T02:00:00Z",
+              "valid_from": "2026-10-03T02:00:00Z",
+              "valid_until": "2026-10-04T00:00:00Z",
+              "status": "FINAL",
+              "successor_id": null,
+              "predecessor_id": null
+            },
+            "identity_digest": "sha256:c980a60013a3988ea06ddd7c8af3a047823b4fe39364b9326c4a2c42f4918e8b"
+          }
+        ],
+        "currentness_check_time": "2026-10-03T03:00:00Z"
+      },
+      "note": "Authority may be addressed through a mutable latest reference."
+    },
+    {
+      "id": "F-09",
+      "family": "asserted_before_decision",
+      "candidate": {
+        "decision": {
+          "id": "decision-a",
+          "subject_digest": "sha256:subject-a",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "outcome": "allow",
+          "policy_id": "https://example.org/policies/security",
+          "policy_version": "2026-10",
+          "policy_digest": "sha256:policy-a",
+          "composition_digest": "sha256:composition-a",
+          "evaluated_at": "2026-10-03T01:00:00Z",
+          "identity_material": {
+            "subject_digest": "sha256:subject-a",
+            "policy_id": "https://example.org/policies/security",
+            "policy_version": "2026-10",
+            "policy_digest": "sha256:policy-a",
+            "composition_digest": "sha256:composition-a",
+            "evaluated_at": "2026-10-03T01:00:00Z",
+            "decision_valid_until": "2026-10-04T00:00:00Z",
+            "outcome": "allow"
+          },
+          "identity_digest": "sha256:bf2e763056f4b22a318f5e0fcaf6bf3654e158f505523489ebc108ddec37ad56"
+        },
+        "authority_profile": {
+          "id": "authority/finality/a",
+          "version": "2026-10",
+          "digest": "sha256:authority-a",
+          "actual_digest": "sha256:authority-a",
+          "valid_from": "2026-10-03T00:00:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "trusted_issuers": [
+            "issuer-a",
+            "issuer-b"
+          ]
+        },
+        "finality_assertions": [
+          {
+            "id": "finality-a",
+            "decision_id": "decision-a",
+            "decision_identity_digest": "",
+            "issuer": "issuer-a",
+            "authority_profile_ref": "authority/finality/a",
+            "authority_profile_digest": "sha256:authority-a",
+            "asserted_at": "2026-10-03T00:30:00Z",
+            "valid_from": "2026-10-03T00:30:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "status": "FINAL",
+            "mutable_status": false,
+            "successor_id": null,
+            "predecessor_id": null,
+            "identity_material": {
+              "id": "finality-a",
+              "decision_id": "decision-a",
+              "decision_identity_digest": "",
+              "issuer": "issuer-a",
+              "authority_profile_ref": "authority/finality/a",
+              "authority_profile_digest": "sha256:authority-a",
+              "asserted_at": "2026-10-03T00:30:00Z",
+              "valid_from": "2026-10-03T00:30:00Z",
+              "valid_until": "2026-10-04T00:00:00Z",
+              "status": "FINAL",
+              "successor_id": null,
+              "predecessor_id": null
+            },
+            "identity_digest": "sha256:4e47d181bc2f1e284d5a8a3e36616babe2f6a24b186c68e69f082047715a4bab"
+          }
+        ],
+        "currentness_check_time": "2026-10-03T03:00:00Z"
+      },
+      "note": "Finality may be timestamped before decision evaluation."
+    },
+    {
+      "id": "F-10",
+      "family": "expired_finality",
+      "candidate": {
+        "decision": {
+          "id": "decision-a",
+          "subject_digest": "sha256:subject-a",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "outcome": "allow",
+          "policy_id": "https://example.org/policies/security",
+          "policy_version": "2026-10",
+          "policy_digest": "sha256:policy-a",
+          "composition_digest": "sha256:composition-a",
+          "evaluated_at": "2026-10-03T01:00:00Z",
+          "identity_material": {
+            "subject_digest": "sha256:subject-a",
+            "policy_id": "https://example.org/policies/security",
+            "policy_version": "2026-10",
+            "policy_digest": "sha256:policy-a",
+            "composition_digest": "sha256:composition-a",
+            "evaluated_at": "2026-10-03T01:00:00Z",
+            "decision_valid_until": "2026-10-04T00:00:00Z",
+            "outcome": "allow"
+          },
+          "identity_digest": "sha256:bf2e763056f4b22a318f5e0fcaf6bf3654e158f505523489ebc108ddec37ad56"
+        },
+        "authority_profile": {
+          "id": "authority/finality/a",
+          "version": "2026-10",
+          "digest": "sha256:authority-a",
+          "actual_digest": "sha256:authority-a",
+          "valid_from": "2026-10-03T00:00:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "trusted_issuers": [
+            "issuer-a",
+            "issuer-b"
+          ]
+        },
+        "finality_assertions": [
+          {
+            "id": "finality-a",
+            "decision_id": "decision-a",
+            "decision_identity_digest": "sha256:bf2e763056f4b22a318f5e0fcaf6bf3654e158f505523489ebc108ddec37ad56",
+            "issuer": "issuer-a",
+            "authority_profile_ref": "authority/finality/a",
+            "authority_profile_digest": "sha256:authority-a",
+            "asserted_at": "2026-10-03T02:00:00Z",
+            "valid_from": "2026-10-03T02:00:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "status": "FINAL",
+            "mutable_status": false,
+            "successor_id": null,
+            "predecessor_id": null,
+            "identity_material": {
+              "id": "finality-a",
+              "decision_id": "decision-a",
+              "decision_identity_digest": "sha256:bf2e763056f4b22a318f5e0fcaf6bf3654e158f505523489ebc108ddec37ad56",
+              "issuer": "issuer-a",
+              "authority_profile_ref": "authority/finality/a",
+              "authority_profile_digest": "sha256:authority-a",
+              "asserted_at": "2026-10-03T02:00:00Z",
+              "valid_from": "2026-10-03T02:00:00Z",
+              "valid_until": "2026-10-04T00:00:00Z",
+              "status": "FINAL",
+              "successor_id": null,
+              "predecessor_id": null
+            },
+            "identity_digest": "sha256:48b133d759767fd56ea10165ec8570550ca0fa24b77e90013125856038abb008"
+          }
+        ],
+        "currentness_check_time": "2026-10-04T01:00:00Z"
+      },
+      "note": "A bounded finality assertion can expire."
+    },
+    {
+      "id": "F-11",
+      "family": "revoked_finality",
+      "candidate": {
+        "decision": {
+          "id": "decision-a",
+          "subject_digest": "sha256:subject-a",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "outcome": "allow",
+          "policy_id": "https://example.org/policies/security",
+          "policy_version": "2026-10",
+          "policy_digest": "sha256:policy-a",
+          "composition_digest": "sha256:composition-a",
+          "evaluated_at": "2026-10-03T01:00:00Z",
+          "identity_material": {
+            "subject_digest": "sha256:subject-a",
+            "policy_id": "https://example.org/policies/security",
+            "policy_version": "2026-10",
+            "policy_digest": "sha256:policy-a",
+            "composition_digest": "sha256:composition-a",
+            "evaluated_at": "2026-10-03T01:00:00Z",
+            "decision_valid_until": "2026-10-04T00:00:00Z",
+            "outcome": "allow"
+          },
+          "identity_digest": "sha256:bf2e763056f4b22a318f5e0fcaf6bf3654e158f505523489ebc108ddec37ad56"
+        },
+        "authority_profile": {
+          "id": "authority/finality/a",
+          "version": "2026-10",
+          "digest": "sha256:authority-a",
+          "actual_digest": "sha256:authority-a",
+          "valid_from": "2026-10-03T00:00:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "trusted_issuers": [
+            "issuer-a",
+            "issuer-b"
+          ]
+        },
+        "finality_assertions": [
+          {
+            "id": "finality-revocation",
+            "decision_id": "decision-a",
+            "decision_identity_digest": "",
+            "issuer": "issuer-a",
+            "authority_profile_ref": "authority/finality/a",
+            "authority_profile_digest": "sha256:authority-a",
+            "asserted_at": "2026-10-03T04:00:00Z",
+            "valid_from": "2026-10-03T04:00:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "status": "REVOKED",
+            "mutable_status": false,
+            "successor_id": null,
+            "predecessor_id": "finality-a",
+            "identity_material": {
+              "id": "finality-revocation",
+              "decision_id": "decision-a",
+              "decision_identity_digest": "",
+              "issuer": "issuer-a",
+              "authority_profile_ref": "authority/finality/a",
+              "authority_profile_digest": "sha256:authority-a",
+              "asserted_at": "2026-10-03T04:00:00Z",
+              "valid_from": "2026-10-03T04:00:00Z",
+              "valid_until": "2026-10-04T00:00:00Z",
+              "status": "REVOKED",
+              "successor_id": null,
+              "predecessor_id": "finality-a"
+            },
+            "identity_digest": "sha256:6ef3c64f89fc6267f9b80eea137597637ad7fae73b7b0bfb3d942a85d5b29bb9"
+          }
+        ],
+        "currentness_check_time": "2026-10-03T05:00:00Z"
+      },
+      "note": "A revocation is represented as a distinct transition."
+    },
+    {
+      "id": "F-12",
+      "family": "superseded_finality",
+      "candidate": {
+        "decision": {
+          "id": "decision-a",
+          "subject_digest": "sha256:subject-a",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "outcome": "allow",
+          "policy_id": "https://example.org/policies/security",
+          "policy_version": "2026-10",
+          "policy_digest": "sha256:policy-a",
+          "composition_digest": "sha256:composition-a",
+          "evaluated_at": "2026-10-03T01:00:00Z",
+          "identity_material": {
+            "subject_digest": "sha256:subject-a",
+            "policy_id": "https://example.org/policies/security",
+            "policy_version": "2026-10",
+            "policy_digest": "sha256:policy-a",
+            "composition_digest": "sha256:composition-a",
+            "evaluated_at": "2026-10-03T01:00:00Z",
+            "decision_valid_until": "2026-10-04T00:00:00Z",
+            "outcome": "allow"
+          },
+          "identity_digest": "sha256:bf2e763056f4b22a318f5e0fcaf6bf3654e158f505523489ebc108ddec37ad56"
+        },
+        "authority_profile": {
+          "id": "authority/finality/a",
+          "version": "2026-10",
+          "digest": "sha256:authority-a",
+          "actual_digest": "sha256:authority-a",
+          "valid_from": "2026-10-03T00:00:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "trusted_issuers": [
+            "issuer-a",
+            "issuer-b"
+          ]
+        },
+        "finality_assertions": [
+          {
+            "id": "finality-supersession",
+            "decision_id": "decision-a",
+            "decision_identity_digest": "",
+            "issuer": "issuer-a",
+            "authority_profile_ref": "authority/finality/a",
+            "authority_profile_digest": "sha256:authority-a",
+            "asserted_at": "2026-10-03T04:00:00Z",
+            "valid_from": "2026-10-03T04:00:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "status": "SUPERSEDED",
+            "mutable_status": false,
+            "successor_id": "decision-b",
+            "predecessor_id": "finality-a",
+            "identity_material": {
+              "id": "finality-supersession",
+              "decision_id": "decision-a",
+              "decision_identity_digest": "",
+              "issuer": "issuer-a",
+              "authority_profile_ref": "authority/finality/a",
+              "authority_profile_digest": "sha256:authority-a",
+              "asserted_at": "2026-10-03T04:00:00Z",
+              "valid_from": "2026-10-03T04:00:00Z",
+              "valid_until": "2026-10-04T00:00:00Z",
+              "status": "SUPERSEDED",
+              "successor_id": "decision-b",
+              "predecessor_id": "finality-a"
+            },
+            "identity_digest": "sha256:0f0b81849d319c3da2ea18e7e9d7fbdf9b6813a5212af0317165e34959fd76c2"
+          }
+        ],
+        "currentness_check_time": "2026-10-03T05:00:00Z"
+      },
+      "note": "A supersession is represented as a distinct transition."
+    },
+    {
+      "id": "F-13",
+      "family": "successor_no_transfer",
+      "candidate": {
+        "decision": {
+          "id": "decision-a",
+          "subject_digest": "sha256:subject-a",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "outcome": "allow",
+          "policy_id": "https://example.org/policies/security",
+          "policy_version": "2026-10",
+          "policy_digest": "sha256:policy-a",
+          "composition_digest": "sha256:composition-a",
+          "evaluated_at": "2026-10-03T01:00:00Z",
+          "identity_material": {
+            "subject_digest": "sha256:subject-a",
+            "policy_id": "https://example.org/policies/security",
+            "policy_version": "2026-10",
+            "policy_digest": "sha256:policy-a",
+            "composition_digest": "sha256:composition-a",
+            "evaluated_at": "2026-10-03T01:00:00Z",
+            "decision_valid_until": "2026-10-04T00:00:00Z",
+            "outcome": "allow"
+          },
+          "identity_digest": "sha256:bf2e763056f4b22a318f5e0fcaf6bf3654e158f505523489ebc108ddec37ad56"
+        },
+        "authority_profile": {
+          "id": "authority/finality/a",
+          "version": "2026-10",
+          "digest": "sha256:authority-a",
+          "actual_digest": "sha256:authority-a",
+          "valid_from": "2026-10-03T00:00:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "trusted_issuers": [
+            "issuer-a",
+            "issuer-b"
+          ]
+        },
+        "finality_assertions": [
+          {
+            "id": "finality-a",
+            "decision_id": "decision-b",
+            "decision_identity_digest": "sha256:decision-b",
+            "issuer": "issuer-a",
+            "authority_profile_ref": "authority/finality/a",
+            "authority_profile_digest": "sha256:authority-a",
+            "asserted_at": "2026-10-03T02:00:00Z",
+            "valid_from": "2026-10-03T02:00:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "status": "FINAL",
+            "mutable_status": false,
+            "successor_id": null,
+            "predecessor_id": null,
+            "identity_material": {
+              "id": "finality-a",
+              "decision_id": "decision-b",
+              "decision_identity_digest": "sha256:decision-b",
+              "issuer": "issuer-a",
+              "authority_profile_ref": "authority/finality/a",
+              "authority_profile_digest": "sha256:authority-a",
+              "asserted_at": "2026-10-03T02:00:00Z",
+              "valid_from": "2026-10-03T02:00:00Z",
+              "valid_until": "2026-10-04T00:00:00Z",
+              "status": "FINAL",
+              "successor_id": null,
+              "predecessor_id": null
+            },
+            "identity_digest": "sha256:9f1c3b9d193dcf2996c6c4a24181a20360345cde47a6fc4c3ccbc367cb9e279c"
+          }
+        ],
+        "currentness_check_time": "2026-10-03T05:00:00Z"
+      },
+      "note": "A successor's finality can be presented against the predecessor."
+    },
+    {
+      "id": "F-14",
+      "family": "conflicting_current_assertions",
+      "candidate": {
+        "decision": {
+          "id": "decision-a",
+          "subject_digest": "sha256:subject-a",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "outcome": "allow",
+          "policy_id": "https://example.org/policies/security",
+          "policy_version": "2026-10",
+          "policy_digest": "sha256:policy-a",
+          "composition_digest": "sha256:composition-a",
+          "evaluated_at": "2026-10-03T01:00:00Z",
+          "identity_material": {
+            "subject_digest": "sha256:subject-a",
+            "policy_id": "https://example.org/policies/security",
+            "policy_version": "2026-10",
+            "policy_digest": "sha256:policy-a",
+            "composition_digest": "sha256:composition-a",
+            "evaluated_at": "2026-10-03T01:00:00Z",
+            "decision_valid_until": "2026-10-04T00:00:00Z",
+            "outcome": "allow"
+          },
+          "identity_digest": "sha256:bf2e763056f4b22a318f5e0fcaf6bf3654e158f505523489ebc108ddec37ad56"
+        },
+        "authority_profile": {
+          "id": "authority/finality/a",
+          "version": "2026-10",
+          "digest": "sha256:authority-a",
+          "actual_digest": "sha256:authority-a",
+          "valid_from": "2026-10-03T00:00:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "trusted_issuers": [
+            "issuer-a",
+            "issuer-b"
+          ]
+        },
+        "finality_assertions": [
+          {
+            "id": "finality-a",
+            "decision_id": "decision-a",
+            "decision_identity_digest": "",
+            "issuer": "issuer-a",
+            "authority_profile_ref": "authority/finality/a",
+            "authority_profile_digest": "sha256:authority-a",
+            "asserted_at": "2026-10-03T02:00:00Z",
+            "valid_from": "2026-10-03T02:00:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "status": "FINAL",
+            "mutable_status": false,
+            "successor_id": null,
+            "predecessor_id": null,
+            "identity_material": {
+              "id": "finality-a",
+              "decision_id": "decision-a",
+              "decision_identity_digest": "",
+              "issuer": "issuer-a",
+              "authority_profile_ref": "authority/finality/a",
+              "authority_profile_digest": "sha256:authority-a",
+              "asserted_at": "2026-10-03T02:00:00Z",
+              "valid_from": "2026-10-03T02:00:00Z",
+              "valid_until": "2026-10-04T00:00:00Z",
+              "status": "FINAL",
+              "successor_id": null,
+              "predecessor_id": null
+            },
+            "identity_digest": "sha256:5ee1548897aba2e5b30b16481f1df43e1f06f80a9790ec98b4bd64f37f9ed7a4"
+          },
+          {
+            "id": "finality-revocation",
+            "decision_id": "decision-a",
+            "decision_identity_digest": "",
+            "issuer": "issuer-a",
+            "authority_profile_ref": "authority/finality/a",
+            "authority_profile_digest": "sha256:authority-a",
+            "asserted_at": "2026-10-03T02:30:00Z",
+            "valid_from": "2026-10-03T02:30:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "status": "REVOKED",
+            "mutable_status": false,
+            "successor_id": null,
+            "predecessor_id": "finality-a",
+            "identity_material": {
+              "id": "finality-revocation",
+              "decision_id": "decision-a",
+              "decision_identity_digest": "",
+              "issuer": "issuer-a",
+              "authority_profile_ref": "authority/finality/a",
+              "authority_profile_digest": "sha256:authority-a",
+              "asserted_at": "2026-10-03T02:30:00Z",
+              "valid_from": "2026-10-03T02:30:00Z",
+              "valid_until": "2026-10-04T00:00:00Z",
+              "status": "REVOKED",
+              "successor_id": null,
+              "predecessor_id": "finality-a"
+            },
+            "identity_digest": "sha256:1a1947711a91825895c22a14b340b54df02b7013283a01ccaaa2b388702d1967"
+          }
+        ],
+        "currentness_check_time": "2026-10-03T03:00:00Z",
+        "finality_conflict_handling": "preserve"
+      },
+      "note": "Applicable finality states can conflict."
+    },
+    {
+      "id": "F-15",
+      "family": "order_independent_assertions",
+      "candidate": {
+        "decision": {
+          "id": "decision-a",
+          "subject_digest": "sha256:subject-a",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "outcome": "allow",
+          "policy_id": "https://example.org/policies/security",
+          "policy_version": "2026-10",
+          "policy_digest": "sha256:policy-a",
+          "composition_digest": "sha256:composition-a",
+          "evaluated_at": "2026-10-03T01:00:00Z",
+          "identity_material": {
+            "subject_digest": "sha256:subject-a",
+            "policy_id": "https://example.org/policies/security",
+            "policy_version": "2026-10",
+            "policy_digest": "sha256:policy-a",
+            "composition_digest": "sha256:composition-a",
+            "evaluated_at": "2026-10-03T01:00:00Z",
+            "decision_valid_until": "2026-10-04T00:00:00Z",
+            "outcome": "allow"
+          },
+          "identity_digest": "sha256:bf2e763056f4b22a318f5e0fcaf6bf3654e158f505523489ebc108ddec37ad56"
+        },
+        "authority_profile": {
+          "id": "authority/finality/a",
+          "version": "2026-10",
+          "digest": "sha256:authority-a",
+          "actual_digest": "sha256:authority-a",
+          "valid_from": "2026-10-03T00:00:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "trusted_issuers": [
+            "issuer-a",
+            "issuer-b"
+          ]
+        },
+        "finality_assertions": [
+          {
+            "id": "finality-a",
+            "decision_id": "decision-a",
+            "decision_identity_digest": "",
+            "issuer": "issuer-a",
+            "authority_profile_ref": "authority/finality/a",
+            "authority_profile_digest": "sha256:authority-a",
+            "asserted_at": "2026-10-03T02:00:00Z",
+            "valid_from": "2026-10-03T02:00:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "status": "FINAL",
+            "mutable_status": false,
+            "successor_id": null,
+            "predecessor_id": null,
+            "identity_material": {
+              "id": "finality-a",
+              "decision_id": "decision-a",
+              "decision_identity_digest": "",
+              "issuer": "issuer-a",
+              "authority_profile_ref": "authority/finality/a",
+              "authority_profile_digest": "sha256:authority-a",
+              "asserted_at": "2026-10-03T02:00:00Z",
+              "valid_from": "2026-10-03T02:00:00Z",
+              "valid_until": "2026-10-04T00:00:00Z",
+              "status": "FINAL",
+              "successor_id": null,
+              "predecessor_id": null
+            },
+            "identity_digest": "sha256:5ee1548897aba2e5b30b16481f1df43e1f06f80a9790ec98b4bd64f37f9ed7a4"
+          },
+          {
+            "id": "finality-b",
+            "decision_id": "decision-a",
+            "decision_identity_digest": "",
+            "issuer": "issuer-a",
+            "authority_profile_ref": "authority/finality/a",
+            "authority_profile_digest": "sha256:authority-a",
+            "asserted_at": "2026-10-03T02:00:00Z",
+            "valid_from": "2026-10-03T02:00:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "status": "FINAL",
+            "mutable_status": false,
+            "successor_id": null,
+            "predecessor_id": null,
+            "identity_material": {
+              "id": "finality-b",
+              "decision_id": "decision-a",
+              "decision_identity_digest": "",
+              "issuer": "issuer-a",
+              "authority_profile_ref": "authority/finality/a",
+              "authority_profile_digest": "sha256:authority-a",
+              "asserted_at": "2026-10-03T02:00:00Z",
+              "valid_from": "2026-10-03T02:00:00Z",
+              "valid_until": "2026-10-04T00:00:00Z",
+              "status": "FINAL",
+              "successor_id": null,
+              "predecessor_id": null
+            },
+            "identity_digest": "sha256:61d5a7fbc6851739e2a63e9d9b5ce3168ef53a795e83db6bb35d653c90ab20da"
+          }
+        ],
+        "currentness_check_time": "2026-10-03T03:00:00Z"
+      },
+      "note": "Equivalent applicable assertions can arrive in a different order."
+    },
+    {
+      "id": "F-16",
+      "family": "exact_replay",
+      "candidate": {
+        "decision": {
+          "id": "decision-a",
+          "subject_digest": "sha256:subject-a",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "outcome": "allow",
+          "policy_id": "https://example.org/policies/security",
+          "policy_version": "2026-10",
+          "policy_digest": "sha256:policy-a",
+          "composition_digest": "sha256:composition-a",
+          "evaluated_at": "2026-10-03T01:00:00Z",
+          "identity_material": {
+            "subject_digest": "sha256:subject-a",
+            "policy_id": "https://example.org/policies/security",
+            "policy_version": "2026-10",
+            "policy_digest": "sha256:policy-a",
+            "composition_digest": "sha256:composition-a",
+            "evaluated_at": "2026-10-03T01:00:00Z",
+            "decision_valid_until": "2026-10-04T00:00:00Z",
+            "outcome": "allow"
+          },
+          "identity_digest": "sha256:bf2e763056f4b22a318f5e0fcaf6bf3654e158f505523489ebc108ddec37ad56"
+        },
+        "authority_profile": {
+          "id": "authority/finality/a",
+          "version": "2026-10",
+          "digest": "sha256:authority-a",
+          "actual_digest": "sha256:authority-a",
+          "valid_from": "2026-10-03T00:00:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "trusted_issuers": [
+            "issuer-a",
+            "issuer-b"
+          ]
+        },
+        "finality_assertions": [
+          {
+            "id": "finality-a",
+            "decision_id": "decision-a",
+            "decision_identity_digest": "sha256:bf2e763056f4b22a318f5e0fcaf6bf3654e158f505523489ebc108ddec37ad56",
+            "issuer": "issuer-a",
+            "authority_profile_ref": "authority/finality/a",
+            "authority_profile_digest": "sha256:authority-a",
+            "asserted_at": "2026-10-03T02:00:00Z",
+            "valid_from": "2026-10-03T02:00:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "status": "FINAL",
+            "mutable_status": false,
+            "successor_id": null,
+            "predecessor_id": null,
+            "identity_material": {
+              "id": "finality-a",
+              "decision_id": "decision-a",
+              "decision_identity_digest": "sha256:bf2e763056f4b22a318f5e0fcaf6bf3654e158f505523489ebc108ddec37ad56",
+              "issuer": "issuer-a",
+              "authority_profile_ref": "authority/finality/a",
+              "authority_profile_digest": "sha256:authority-a",
+              "asserted_at": "2026-10-03T02:00:00Z",
+              "valid_from": "2026-10-03T02:00:00Z",
+              "valid_until": "2026-10-04T00:00:00Z",
+              "status": "FINAL",
+              "successor_id": null,
+              "predecessor_id": null
+            },
+            "identity_digest": "sha256:48b133d759767fd56ea10165ec8570550ca0fa24b77e90013125856038abb008"
+          }
+        ],
+        "currentness_check_time": "2026-10-03T03:00:00Z",
+        "exact_replay": true,
+        "replay_of": "finality-a"
+      },
+      "note": "An identical finality assertion can be replayed."
+    },
+    {
+      "id": "F-17",
+      "family": "reused_finality_id_changed_status",
+      "candidate": {
+        "decision": {
+          "id": "decision-a",
+          "subject_digest": "sha256:subject-a",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "outcome": "allow",
+          "policy_id": "https://example.org/policies/security",
+          "policy_version": "2026-10",
+          "policy_digest": "sha256:policy-a",
+          "composition_digest": "sha256:composition-a",
+          "evaluated_at": "2026-10-03T01:00:00Z",
+          "identity_material": {
+            "subject_digest": "sha256:subject-a",
+            "policy_id": "https://example.org/policies/security",
+            "policy_version": "2026-10",
+            "policy_digest": "sha256:policy-a",
+            "composition_digest": "sha256:composition-a",
+            "evaluated_at": "2026-10-03T01:00:00Z",
+            "decision_valid_until": "2026-10-04T00:00:00Z",
+            "outcome": "allow"
+          },
+          "identity_digest": "sha256:bf2e763056f4b22a318f5e0fcaf6bf3654e158f505523489ebc108ddec37ad56"
+        },
+        "authority_profile": {
+          "id": "authority/finality/a",
+          "version": "2026-10",
+          "digest": "sha256:authority-a",
+          "actual_digest": "sha256:authority-a",
+          "valid_from": "2026-10-03T00:00:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "trusted_issuers": [
+            "issuer-a",
+            "issuer-b"
+          ]
+        },
+        "finality_assertions": [
+          {
+            "id": "finality-a",
+            "decision_id": "decision-a",
+            "decision_identity_digest": "",
+            "issuer": "issuer-a",
+            "authority_profile_ref": "authority/finality/a",
+            "authority_profile_digest": "sha256:authority-a",
+            "asserted_at": "2026-10-03T02:00:00Z",
+            "valid_from": "2026-10-03T02:00:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "status": "REVOKED",
+            "mutable_status": false,
+            "successor_id": null,
+            "predecessor_id": null,
+            "identity_material": {
+              "id": "finality-a",
+              "decision_id": "decision-a",
+              "decision_identity_digest": "",
+              "issuer": "issuer-a",
+              "authority_profile_ref": "authority/finality/a",
+              "authority_profile_digest": "sha256:authority-a",
+              "asserted_at": "2026-10-03T02:00:00Z",
+              "valid_from": "2026-10-03T02:00:00Z",
+              "valid_until": "2026-10-04T00:00:00Z",
+              "status": "REVOKED",
+              "successor_id": null,
+              "predecessor_id": null
+            },
+            "identity_digest": "sha256:9329a5593fe811edf41ef3ef6f08116a805f82592777f3789380d95fe8fee45c"
+          }
+        ],
+        "currentness_check_time": "2026-10-03T03:00:00Z",
+        "previous_finality_id": "finality-a",
+        "previous_finality_identity_material": {
+          "id": "finality-a",
+          "decision_id": "decision-a",
+          "decision_identity_digest": "",
+          "issuer": "issuer-a",
+          "authority_profile_ref": "authority/finality/a",
+          "authority_profile_digest": "sha256:authority-a",
+          "asserted_at": "2026-10-03T02:00:00Z",
+          "valid_from": "2026-10-03T02:00:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "status": "FINAL",
+          "successor_id": null,
+          "predecessor_id": null
+        }
+      },
+      "note": "The same finality identifier can be reused with changed semantics."
+    },
+    {
+      "id": "F-18",
+      "family": "authorization_promotion",
+      "candidate": {
+        "decision": {
+          "id": "decision-a",
+          "subject_digest": "sha256:subject-a",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "outcome": "allow",
+          "policy_id": "https://example.org/policies/security",
+          "policy_version": "2026-10",
+          "policy_digest": "sha256:policy-a",
+          "composition_digest": "sha256:composition-a",
+          "evaluated_at": "2026-10-03T01:00:00Z",
+          "identity_material": {
+            "subject_digest": "sha256:subject-a",
+            "policy_id": "https://example.org/policies/security",
+            "policy_version": "2026-10",
+            "policy_digest": "sha256:policy-a",
+            "composition_digest": "sha256:composition-a",
+            "evaluated_at": "2026-10-03T01:00:00Z",
+            "decision_valid_until": "2026-10-04T00:00:00Z",
+            "outcome": "allow"
+          },
+          "identity_digest": "sha256:bf2e763056f4b22a318f5e0fcaf6bf3654e158f505523489ebc108ddec37ad56"
+        },
+        "authority_profile": {
+          "id": "authority/finality/a",
+          "version": "2026-10",
+          "digest": "sha256:authority-a",
+          "actual_digest": "sha256:authority-a",
+          "valid_from": "2026-10-03T00:00:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "trusted_issuers": [
+            "issuer-a",
+            "issuer-b"
+          ]
+        },
+        "finality_assertions": [
+          {
+            "id": "finality-a",
+            "decision_id": "decision-a",
+            "decision_identity_digest": "sha256:bf2e763056f4b22a318f5e0fcaf6bf3654e158f505523489ebc108ddec37ad56",
+            "issuer": "issuer-a",
+            "authority_profile_ref": "authority/finality/a",
+            "authority_profile_digest": "sha256:authority-a",
+            "asserted_at": "2026-10-03T02:00:00Z",
+            "valid_from": "2026-10-03T02:00:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "status": "FINAL",
+            "mutable_status": false,
+            "successor_id": null,
+            "predecessor_id": null,
+            "identity_material": {
+              "id": "finality-a",
+              "decision_id": "decision-a",
+              "decision_identity_digest": "sha256:bf2e763056f4b22a318f5e0fcaf6bf3654e158f505523489ebc108ddec37ad56",
+              "issuer": "issuer-a",
+              "authority_profile_ref": "authority/finality/a",
+              "authority_profile_digest": "sha256:authority-a",
+              "asserted_at": "2026-10-03T02:00:00Z",
+              "valid_from": "2026-10-03T02:00:00Z",
+              "valid_until": "2026-10-04T00:00:00Z",
+              "status": "FINAL",
+              "successor_id": null,
+              "predecessor_id": null
+            },
+            "identity_digest": "sha256:48b133d759767fd56ea10165ec8570550ca0fa24b77e90013125856038abb008"
+          }
+        ],
+        "currentness_check_time": "2026-10-03T03:00:00Z",
+        "finality_authorization_mapping": "authorize"
+      },
+      "note": "Finality can be presented as authorization."
+    },
+    {
+      "id": "F-19",
+      "family": "civic_authority_promotion",
+      "candidate": {
+        "decision": {
+          "id": "decision-a",
+          "subject_digest": "sha256:subject-a",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "outcome": "allow",
+          "policy_id": "https://example.org/policies/security",
+          "policy_version": "2026-10",
+          "policy_digest": "sha256:policy-a",
+          "composition_digest": "sha256:composition-a",
+          "evaluated_at": "2026-10-03T01:00:00Z",
+          "identity_material": {
+            "subject_digest": "sha256:subject-a",
+            "policy_id": "https://example.org/policies/security",
+            "policy_version": "2026-10",
+            "policy_digest": "sha256:policy-a",
+            "composition_digest": "sha256:composition-a",
+            "evaluated_at": "2026-10-03T01:00:00Z",
+            "decision_valid_until": "2026-10-04T00:00:00Z",
+            "outcome": "allow"
+          },
+          "identity_digest": "sha256:bf2e763056f4b22a318f5e0fcaf6bf3654e158f505523489ebc108ddec37ad56"
+        },
+        "authority_profile": {
+          "id": "authority/finality/a",
+          "version": "2026-10",
+          "digest": "sha256:authority-a",
+          "actual_digest": "sha256:authority-a",
+          "valid_from": "2026-10-03T00:00:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "trusted_issuers": [
+            "issuer-a",
+            "issuer-b"
+          ]
+        },
+        "finality_assertions": [
+          {
+            "id": "finality-a",
+            "decision_id": "decision-a",
+            "decision_identity_digest": "sha256:bf2e763056f4b22a318f5e0fcaf6bf3654e158f505523489ebc108ddec37ad56",
+            "issuer": "issuer-a",
+            "authority_profile_ref": "authority/finality/a",
+            "authority_profile_digest": "sha256:authority-a",
+            "asserted_at": "2026-10-03T02:00:00Z",
+            "valid_from": "2026-10-03T02:00:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "status": "FINAL",
+            "mutable_status": false,
+            "successor_id": null,
+            "predecessor_id": null,
+            "identity_material": {
+              "id": "finality-a",
+              "decision_id": "decision-a",
+              "decision_identity_digest": "sha256:bf2e763056f4b22a318f5e0fcaf6bf3654e158f505523489ebc108ddec37ad56",
+              "issuer": "issuer-a",
+              "authority_profile_ref": "authority/finality/a",
+              "authority_profile_digest": "sha256:authority-a",
+              "asserted_at": "2026-10-03T02:00:00Z",
+              "valid_from": "2026-10-03T02:00:00Z",
+              "valid_until": "2026-10-04T00:00:00Z",
+              "status": "FINAL",
+              "successor_id": null,
+              "predecessor_id": null
+            },
+            "identity_digest": "sha256:48b133d759767fd56ea10165ec8570550ca0fa24b77e90013125856038abb008"
+          }
+        ],
+        "currentness_check_time": "2026-10-03T03:00:00Z",
+        "finality_authority_claim": "civic_authority"
+      },
+      "note": "Finality can be presented as civic authority."
+    },
+    {
+      "id": "F-20",
+      "family": "historical_not_current",
+      "candidate": {
+        "decision": {
+          "id": "decision-a",
+          "subject_digest": "sha256:subject-a",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "outcome": "allow",
+          "policy_id": "https://example.org/policies/security",
+          "policy_version": "2026-10",
+          "policy_digest": "sha256:policy-a",
+          "composition_digest": "sha256:composition-a",
+          "evaluated_at": "2026-10-03T01:00:00Z",
+          "identity_material": {
+            "subject_digest": "sha256:subject-a",
+            "policy_id": "https://example.org/policies/security",
+            "policy_version": "2026-10",
+            "policy_digest": "sha256:policy-a",
+            "composition_digest": "sha256:composition-a",
+            "evaluated_at": "2026-10-03T01:00:00Z",
+            "decision_valid_until": "2026-10-04T00:00:00Z",
+            "outcome": "allow"
+          },
+          "identity_digest": "sha256:bf2e763056f4b22a318f5e0fcaf6bf3654e158f505523489ebc108ddec37ad56"
+        },
+        "authority_profile": {
+          "id": "authority/finality/a",
+          "version": "2026-10",
+          "digest": "sha256:authority-a",
+          "actual_digest": "sha256:authority-a",
+          "valid_from": "2026-10-03T00:00:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "trusted_issuers": [
+            "issuer-a",
+            "issuer-b"
+          ]
+        },
+        "finality_assertions": [
+          {
+            "id": "finality-a",
+            "decision_id": "decision-a",
+            "decision_identity_digest": "sha256:bf2e763056f4b22a318f5e0fcaf6bf3654e158f505523489ebc108ddec37ad56",
+            "issuer": "issuer-a",
+            "authority_profile_ref": "authority/finality/a",
+            "authority_profile_digest": "sha256:authority-a",
+            "asserted_at": "2026-10-03T02:00:00Z",
+            "valid_from": "2026-10-03T02:00:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "status": "FINAL",
+            "mutable_status": false,
+            "successor_id": null,
+            "predecessor_id": null,
+            "identity_material": {
+              "id": "finality-a",
+              "decision_id": "decision-a",
+              "decision_identity_digest": "sha256:bf2e763056f4b22a318f5e0fcaf6bf3654e158f505523489ebc108ddec37ad56",
+              "issuer": "issuer-a",
+              "authority_profile_ref": "authority/finality/a",
+              "authority_profile_digest": "sha256:authority-a",
+              "asserted_at": "2026-10-03T02:00:00Z",
+              "valid_from": "2026-10-03T02:00:00Z",
+              "valid_until": "2026-10-04T00:00:00Z",
+              "status": "FINAL",
+              "successor_id": null,
+              "predecessor_id": null
+            },
+            "identity_digest": "sha256:48b133d759767fd56ea10165ec8570550ca0fa24b77e90013125856038abb008"
+          }
+        ],
+        "currentness_check_time": "2026-10-04T01:00:00Z",
+        "historical_reconstruction": true
+      },
+      "note": "A historical finality record can outlive its currentness."
+    },
+    {
+      "id": "F-21",
+      "family": "latest_registry_state_substitution",
+      "candidate": {
+        "decision": {
+          "id": "decision-a",
+          "subject_digest": "sha256:subject-a",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "outcome": "allow",
+          "policy_id": "https://example.org/policies/security",
+          "policy_version": "2026-10",
+          "policy_digest": "sha256:policy-a",
+          "composition_digest": "sha256:composition-a",
+          "evaluated_at": "2026-10-03T01:00:00Z",
+          "identity_material": {
+            "subject_digest": "sha256:subject-a",
+            "policy_id": "https://example.org/policies/security",
+            "policy_version": "2026-10",
+            "policy_digest": "sha256:policy-a",
+            "composition_digest": "sha256:composition-a",
+            "evaluated_at": "2026-10-03T01:00:00Z",
+            "decision_valid_until": "2026-10-04T00:00:00Z",
+            "outcome": "allow"
+          },
+          "identity_digest": "sha256:bf2e763056f4b22a318f5e0fcaf6bf3654e158f505523489ebc108ddec37ad56"
+        },
+        "authority_profile": {
+          "id": "authority/finality/a",
+          "version": "2026-10",
+          "digest": "sha256:authority-a",
+          "actual_digest": "sha256:authority-a",
+          "valid_from": "2026-10-03T00:00:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "trusted_issuers": [
+            "issuer-a",
+            "issuer-b"
+          ]
+        },
+        "finality_assertions": [
+          {
+            "id": "finality-a",
+            "decision_id": "decision-a",
+            "decision_identity_digest": "sha256:bf2e763056f4b22a318f5e0fcaf6bf3654e158f505523489ebc108ddec37ad56",
+            "issuer": "issuer-a",
+            "authority_profile_ref": "authority/finality/a",
+            "authority_profile_digest": "sha256:authority-a",
+            "asserted_at": "2026-10-03T02:00:00Z",
+            "valid_from": "2026-10-03T02:00:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "status": "FINAL",
+            "mutable_status": false,
+            "successor_id": null,
+            "predecessor_id": null,
+            "identity_material": {
+              "id": "finality-a",
+              "decision_id": "decision-a",
+              "decision_identity_digest": "sha256:bf2e763056f4b22a318f5e0fcaf6bf3654e158f505523489ebc108ddec37ad56",
+              "issuer": "issuer-a",
+              "authority_profile_ref": "authority/finality/a",
+              "authority_profile_digest": "sha256:authority-a",
+              "asserted_at": "2026-10-03T02:00:00Z",
+              "valid_from": "2026-10-03T02:00:00Z",
+              "valid_until": "2026-10-04T00:00:00Z",
+              "status": "FINAL",
+              "successor_id": null,
+              "predecessor_id": null
+            },
+            "identity_digest": "sha256:48b133d759767fd56ea10165ec8570550ca0fa24b77e90013125856038abb008"
+          }
+        ],
+        "currentness_check_time": "2026-10-03T03:00:00Z",
+        "currentness_source": {
+          "ref": "https://example.org/finality-registry/latest",
+          "mutable": true
+        }
+      },
+      "note": "A mutable latest registry can be offered instead of exact evidence."
+    }
+  ]
+}
