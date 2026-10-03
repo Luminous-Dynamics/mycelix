@@ -2111,9 +2111,12 @@ mod tests {
     #[test]
     fn invariant_mutation_pair_matrix_is_deterministic_and_order_aware() {
         let mutations = FederationInvariantMutation::ALL;
+        let mut pair_count = 0;
+        let mut order_sensitive_pairs = 0;
 
         for (first_index, first) in mutations.iter().enumerate() {
             for second in mutations.iter().skip(first_index + 1) {
+                pair_count += 1;
                 // Build both semantic compositions from the same clean seed.
                 let mut forward = FederationInvariantMutation::pair_seed(*first, *second);
                 first.mutate(&mut forward);
@@ -2184,6 +2187,7 @@ mod tests {
                 if *first == FederationInvariantMutation::DeliveryAttemptHistory
                     && *second == FederationInvariantMutation::AttemptEnvelopeBindings
                 {
+                    order_sensitive_pairs += 1;
                     assert_eq!(
                         forward_violations,
                         vec![
@@ -2215,6 +2219,16 @@ mod tests {
                 }
             }
         }
+
+        assert_eq!(
+            pair_count,
+            mutations.len() * (mutations.len() - 1) / 2,
+            "pairwise corpus must cover every unordered mutation pair"
+        );
+        assert_eq!(
+            order_sensitive_pairs, 1,
+            "only attempt-history deletion plus binding injection is order-sensitive"
+        );
     }
 
     #[test]
