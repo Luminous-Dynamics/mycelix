@@ -64,6 +64,10 @@ jobs:
           if [[ -f evidence/cargo-test.exit-code ]]; then
             test_exit_code="$(cat evidence/cargo-test.exit-code)"
           fi
+          tested_baseline_sha="null"
+          if [[ -f evidence/tested-baseline-sha.txt ]]; then
+            tested_baseline_sha="$(cat evidence/tested-baseline-sha.txt)"
+          fi
           cat > evidence/run-envelope.json <<JSON
           {
             "schema": "MYCELIX-COS-CONFORMANCE-BASELINE-V1",
@@ -71,7 +75,7 @@ jobs:
             "repository": "${{ github.repository }}",
             "trigger_commit_sha": "${{ github.sha }}",
             "tested_ref": "myc-int-demo-d6w-layered-commitments",
-            "tested_baseline_sha": "$(cat evidence/tested-baseline-sha.txt)",
+            "tested_baseline_sha": "$tested_baseline_sha",
             "workflow": "${{ github.workflow }}",
             "run_id": ${{ github.run_id }},
             "run_attempt": ${{ github.run_attempt }},
