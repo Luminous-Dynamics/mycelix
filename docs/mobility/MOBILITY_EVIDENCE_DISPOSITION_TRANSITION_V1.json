@@ -876,6 +876,11 @@
       "id": "EDT-173",
       "case": "binding_attestation_payload_rejects_schema_identifier_change",
       "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-174",
+      "case": "valid_record_retrieval_is_explicitly_inductive_and_does_not_prove_later_operations",
+      "expected": "accepted"
     }
   ],
   "outcome_classes": [
