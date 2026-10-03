@@ -85,7 +85,7 @@ For the bridge hand-off, the authority-freshness commitment should be the existi
 
 Only after this chain is established may the bridge kernel receive trusted verification evidence.
 
-The bridge binding is derived deterministically from that stable freshness commitment. The `mycelix-bridge-common::authority_binding_from_freshness_digest` helper is crate-private so the derivation domain is not part of the external bridge API; it commits the authority-binding domain separator, the bridge's pinned canonical freshness protocol/profile, and the exact `CurrentAuthorityFreshness.freshness_digest`. The protocol/profile are not caller-supplied, preventing an adapter from accidentally interpreting a digest under a different freshness identity scheme. The helper does not include `verified_at_ms`, `lease_until_ms`, transport metadata, or other dynamic proof fields.
+The bridge binding is derived deterministically from that stable freshness commitment. The `mycelix-bridge-common::authority_binding_from_freshness_digest` helper is private to `security_kernel` so the derivation domain is not part of the bridge's crate-wide API; it commits the authority-binding domain separator, the bridge's pinned canonical freshness protocol/profile, and the exact `CurrentAuthorityFreshness.freshness_digest`. The protocol/profile are not caller-supplied, preventing an adapter from accidentally interpreting a digest under a different freshness identity scheme. The helper does not include `verified_at_ms`, `lease_until_ms`, transport metadata, or other dynamic proof fields.
 
 Therefore:
 
@@ -137,19 +137,17 @@ Current authority status belongs in the runtime/application authority provider. 
 
 `VerificationEvidence` remains opaque and non-serializable outside the bridge crate.
 
-The integration must therefore create trusted evidence only inside the bridge's verifier boundary. Public callers must not receive a constructor that accepts arbitrary booleans such as `verified: true`. Production bridge evidence construction derives its opaque authority binding from the canonical freshness digest; the raw authority-binding constructor is test-only and exists solely to exercise mismatch/fail-closed paths.
+The integration must therefore create trusted evidence only inside the bridge's verifier boundary. The proposition types and evidence constructors are private to `security_kernel`; they are not crate-wide construction APIs. Public callers must not receive a constructor that accepts arbitrary booleans such as `verified: true`. Production bridge evidence construction derives its opaque authority binding from the canonical freshness digest; the raw authority-binding constructor is test-only and exists solely to exercise mismatch/fail-closed paths.
 
 The resulting evidence must also be bound to the exact capability and authority-freshness state it verifies. The bridge kernel derives a stable capability commitment from the canonical capability semantics and records that commitment in the opaque evidence and any issued permit. The adapter must also supply the existing current-freshness semantic digest as the opaque bridge authority binding. It must change when the authoritative freshness domain changes, including an authority generation/state change, while remaining stable across proof/lease refreshes that do not change that semantic domain. The permit carries that commitment through enforcement, so evidence for a newer authority generation cannot silently revalidate a permit issued under an older generation. Evidence for one capability therefore cannot be replayed to qualify or revalidate a different capability.
 
 The resulting evidence should represent independently established typed propositions:
 
-- `SignatureVerification::Verified` / `Invalid`;
-- `RevocationStatus::Current` / `Revoked`;
-- `AuthorityResolution::Unambiguous` / `Ambiguous`;
-- signature verified;
+- `SignatureVerification::Verified` / `Invalid` — the capability signature check result;
+- `RevocationStatus::Current` / `Revoked` — the authoritative current-status result;
+- `AuthorityResolution::Unambiguous` / `Ambiguous` — the current authority-resolution result.
 
-- authority is currently not revoked;
-- authority resolution is unambiguous;
+These types prevent category confusion, but they are not provenance attestations by themselves. The adapter must establish each proposition from the corresponding verifier/authority check before crossing the kernel boundary.
 - authority-freshness binding is present and non-zero;
 - evidence is bound to the exact capability semantics;
 - the evidence is bound to the exact authority generation/freshness state;
