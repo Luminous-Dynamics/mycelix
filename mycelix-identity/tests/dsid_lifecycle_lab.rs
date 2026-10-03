@@ -654,7 +654,7 @@ async fn dsid_008_updated_did_remains_canonical() {
         "updated-did-remains-canonical",
         &dna,
         agents,
-        &[],
+        &[&did_record, &updated],
         "A legitimate controller update replaces the canonical AgentToDid link and remains the resolved DID state.",
         format!(
             "did={} version={} services={}",
