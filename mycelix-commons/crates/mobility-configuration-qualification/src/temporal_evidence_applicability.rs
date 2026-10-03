@@ -1467,6 +1467,7 @@ impl EvidenceDispositionReconciliationCoverage {
                 delegations,
             )?;
 
+        let has_missing_transitions = !missing_transitions.is_empty();
         let combined_qualification = authority_assessment
             .into_qualification()
             .require_missing(missing_transitions);
@@ -1479,7 +1480,7 @@ impl EvidenceDispositionReconciliationCoverage {
                 missing,
                 partial,
             } if !missing.is_empty() => {
-                if !missing_transitions.is_empty() {
+                if has_missing_transitions {
                     return Ok(EvidenceDispositionCoverageAssessment::Unresolved {
                         missing,
                         authority_roots: partial.authority_roots,
