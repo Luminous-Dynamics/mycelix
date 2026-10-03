@@ -150,6 +150,7 @@ impl SectorTransactionMatrix {
 
         let mut matrix = Self::default();
         for transition in transitions {
+            transition.validate()?;
             let (from, to, category, amount) = match transition {
                 super::transition::EconomicTransition::Production(_) => continue,
                 super::transition::EconomicTransition::InventoryTransfer(_) => continue,
