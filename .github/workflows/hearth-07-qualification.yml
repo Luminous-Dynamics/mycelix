@@ -83,6 +83,20 @@ jobs:
           set -o pipefail
           nix develop .#ci --impure --command             cargo fmt --manifest-path tests/Cargo.toml --check 2>&1 | tee qualification-format.log
 
+      - name: Generate exact Rust dependency locks
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: |
+          set -euo pipefail
+          nix develop .#ci --impure --command cargo generate-lockfile
+          nix develop .#ci --impure --command bash -c 'cd tests && cargo generate-lockfile'
+          test -s Cargo.lock
+          test -s tests/Cargo.lock
+          sha256sum Cargo.lock tests/Cargo.lock > qualification-cargo-lock-sha256.txt
+          {
+            echo "hearth_cargo_lock=$(sha256sum Cargo.lock | awk '{print $1}')"
+            echo "tests_cargo_lock=$(sha256sum tests/Cargo.lock | awk '{print $1}')"
+          } > qualification-cargo-lock-summary.txt
+
       - name: Build Hearth 0.7 zomes
         working-directory: mycelix-workspace/mycelix-hearth
         run: |
@@ -90,7 +104,7 @@ jobs:
           # Prevent a removed/renamed zome from being silently packed from a
           # stale prior build artifact in the runner workspace.
           rm -f target/wasm32-unknown-unknown/release/*.wasm
-          nix develop .#ci --impure --command             cargo build --release --target wasm32-unknown-unknown --workspace 2>&1 | tee qualification-build.log
+          nix develop .#ci --impure --command             cargo build --locked --release --target wasm32-unknown-unknown --workspace 2>&1 | tee qualification-build.log
 
       - name: Pack Hearth 0.7 DNA
         working-directory: mycelix-workspace/mycelix-hearth
@@ -102,7 +116,7 @@ jobs:
         working-directory: mycelix-workspace/mycelix-hearth
         run: |
           set -o pipefail
-          nix develop .#ci --impure --command bash -c             'set -o pipefail; cd tests && cargo test --release -- --include-ignored --test-threads=1 2>&1 | tee ../qualification-sweettest.log'
+          nix develop .#ci --impure --command bash -c             'set -o pipefail; cd tests && cargo test --locked --release -- --include-ignored --test-threads=1 2>&1 | tee ../qualification-sweettest.log'
 
       - name: Capture immutable qualification evidence
         if: always()
@@ -167,5 +181,9 @@ jobs:
             mycelix-workspace/mycelix-hearth/qualification-toolchain.txt
             mycelix-workspace/mycelix-hearth/qualification-wasm-sha256.txt
             mycelix-workspace/mycelix-hearth/qualification-dna-sha256.txt
+            mycelix-workspace/mycelix-hearth/qualification-cargo-lock-sha256.txt
+            mycelix-workspace/mycelix-hearth/qualification-cargo-lock-summary.txt
+            mycelix-workspace/mycelix-hearth/Cargo.lock
+            mycelix-workspace/mycelix-hearth/tests/Cargo.lock
           if-no-files-found: warn
           retention-days: 14
