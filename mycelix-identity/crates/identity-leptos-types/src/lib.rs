@@ -233,6 +233,27 @@ impl DidDocumentView {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DidResolutionMetadataView {
+    /// Empty on success; a method-specific error code on resolution failure.
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DidDocumentMetadataView {
+    pub created: String,
+    pub updated: String,
+    pub deactivated: bool,
+    pub version_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DidResolutionView {
+    pub did_document: Option<DidDocumentView>,
+    pub resolution_metadata: DidResolutionMetadataView,
+    pub document_metadata: Option<DidDocumentMetadataView>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FactorView {
     pub factor_type: FactorType,
     pub factor_id: String,
