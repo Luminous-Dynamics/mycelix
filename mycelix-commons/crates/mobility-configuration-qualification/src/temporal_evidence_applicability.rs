@@ -2149,7 +2149,8 @@ mod tests {
             EvidenceDisposition::Unresolved,
         );
 
-        let error = EvidenceDispositionTransition::validate_append(&[genesis], &replacement).unwrap_err();
+        let error =
+            EvidenceDispositionTransition::validate_append(&[genesis], &replacement).unwrap_err();
         assert_eq!(
             error,
             "cannot append disposition transition with an existing identity"
