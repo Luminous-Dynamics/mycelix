@@ -522,6 +522,143 @@ fn seccomp_disjunctive_argument_clauses_are_enforced() {
 }
 
 #[cfg(target_os = "linux")]
+fn maximum_dispatch_offset_child() -> ! {
+    use prism_bridge::process::{RendererProcessAssignmentId, SandboxProfileV1};
+    use prism_bridge::seccomp::{
+        install_v2, SeccompArgPredicateOpV1, SeccompArgPredicateV1, SeccompArchitecture,
+        SeccompSyscallClauseV2, SeccompSyscallPolicyV2, SeccompSyscallRuleV2,
+    };
+
+    let architecture =
+        SeccompArchitecture::current().unwrap_or_else(|| unsafe { libc::_exit(150) });
+
+    // Four clauses x four full-width MaskedNotEqual predicates is the
+    // compiler's maximum V2 rule-body shape: 4 * (4 * 7 + 1) = 116
+    // instructions. Make this the first syscall rule so the next dispatch
+    // must take a 116-instruction forward jump when the syscall number does
+    // not match. The following syscall rule is intentionally unconditional;
+    // a successful call to it therefore proves that the kernel accepted and
+    // executed the largest generated dispatch offset rather than merely
+    // accepting the bytecode at installation time.
+    let mut clauses = Vec::with_capacity(4);
+    for clause_index in 0..4u64 {
+        let mut predicates = Vec::with_capacity(4);
+        for arg_index in 0..4u32 {
+            let value = 0x0100_0000_0000_0000u64
+                | (clause_index << 12)
+                | u64::from(arg_index);
+            let predicate = SeccompArgPredicateV1::new_with_op(
+                arg_index,
+                u64::MAX,
+                value,
+                SeccompArgPredicateOpV1::MaskedNotEqual,
+            )
+            .unwrap_or_else(|_| unsafe { libc::_exit(151) });
+            predicates.push(predicate);
+        }
+        clauses.push(
+            SeccompSyscallClauseV2::new(predicates)
+                .unwrap_or_else(|_| unsafe { libc::_exit(152) }),
+        );
+    }
+
+    let getpid_nr = libc::SYS_getpid;
+    let prctl_nr = libc::SYS_prctl;
+    let (large_dispatch_syscall, allowed_syscall, allowed_is_getpid) =
+        if getpid_nr < prctl_nr {
+            (getpid_nr, prctl_nr, false)
+        } else {
+            (prctl_nr, getpid_nr, true)
+        };
+
+    let large_rule = SeccompSyscallRuleV2::new_with_clauses(large_dispatch_syscall, clauses)
+        .unwrap_or_else(|_| unsafe { libc::_exit(153) });
+    let unconditional_rule = SeccompSyscallRuleV2::new(allowed_syscall, Vec::new())
+        .unwrap_or_else(|_| unsafe { libc::_exit(154) });
+
+    let policy = SeccompSyscallPolicyV2::new(
+        architecture,
+        vec![large_rule, unconditional_rule],
+    )
+    .unwrap_or_else(|_| unsafe { libc::_exit(155) });
+    let profile = SandboxProfileV1::renderer_default()
+        .with_syscall_policy_digest(policy.digest())
+        .unwrap_or_else(|_| unsafe { libc::_exit(156) });
+
+    // Pre-resolve the exact raw path used after installation. No libc helper
+    // is needed on the irreversible side of the boundary.
+    if allowed_is_getpid {
+        let _ = unsafe { libc::syscall(libc::SYS_getpid) };
+    } else {
+        let _ = unsafe {
+            libc::syscall(
+                libc::SYS_prctl,
+                libc::PR_GET_NO_NEW_PRIVS,
+                0,
+                0,
+                0,
+                0,
+            )
+        };
+    }
+    let _ = unsafe { *libc::__errno_location() };
+
+    if install_v2(
+        RendererProcessAssignmentId::new(6).unwrap(),
+        profile,
+        &policy,
+    )
+    .is_err()
+    {
+        unsafe { libc::_exit(157) };
+    }
+
+    let allowed = if allowed_is_getpid {
+        unsafe { libc::syscall(libc::SYS_getpid) }
+    } else {
+        unsafe {
+            libc::syscall(
+                libc::SYS_prctl,
+                libc::PR_GET_NO_NEW_PRIVS,
+                0,
+                0,
+                0,
+                0,
+            )
+        }
+    };
+    let errno = unsafe { *libc::__errno_location() };
+    let success = if allowed_is_getpid { allowed > 0 } else { allowed == 1 };
+    if !success {
+        let _ = errno;
+        unsafe { libc::_exit(158) };
+    }
+
+    unsafe { libc::_exit(0) }
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn seccomp_maximum_dispatch_offset_is_kernel_enforced() {
+    if std::env::var_os("PRISM_SECCOMP_MAX_DISPATCH_CHILD").is_some() {
+        maximum_dispatch_offset_child();
+    }
+
+    let status = std::process::Command::new(std::env::current_exe().unwrap())
+        .arg("--exact")
+        .arg("seccomp_maximum_dispatch_offset_is_kernel_enforced")
+        .arg("--nocapture")
+        .env("PRISM_SECCOMP_MAX_DISPATCH_CHILD", "1")
+        .status()
+        .expect("failed to launch seccomp maximum-dispatch child");
+
+    assert!(
+        status.success(),
+        "seccomp maximum-dispatch child failed: {status}"
+    );
+}
+
+#[cfg(target_os = "linux")]
 #[test]
 fn seccomp_install_rejects_wrong_architecture_before_enforcement() {
     use prism_bridge::process::{
