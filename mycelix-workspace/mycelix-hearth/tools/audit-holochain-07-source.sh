@@ -426,7 +426,7 @@ check_create_record_entry_dispatch() {
       echo "FAIL: $file CreateRecord create dispatch misses EntryTypes::$variant"
       fail=1
     fi
-    if [[ "$variant" != "Anchor" ]] && printf '%s\n' "$create_block" | rg -n --pcre2 "EntryTypes::${variant}\\([^)]*\\)[[:space:]]*=>[[:space:]]*Ok[[:space:]]*\\([[:space:]]*ValidateCallbackResult::Valid" >/dev/null 2>&1; then
+    if [[ "$variant" != "Anchor" ]] && printf '%s\n' "$create_block" | rg -nU --pcre2 "EntryTypes::${variant}\\([^)]*\\)[[:space:]]*=>[[:space:]]*Ok[[:space:]]*\\([[:space:]]*ValidateCallbackResult::Valid" >/dev/null 2>&1; then
       echo "FAIL: $file CreateRecord accepts non-anchor EntryTypes::$variant without application validation"
       fail=1
     fi
