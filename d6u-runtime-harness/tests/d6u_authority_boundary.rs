@@ -523,7 +523,7 @@ async fn d6u_runtime_authority_boundary() {
             )
             .await
             .unwrap(),
-        "BadNonce",
+        "Duplicate",
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
     record_case("nonce-replay", "authorization-failed");
@@ -543,7 +543,7 @@ async fn d6u_runtime_authority_boundary() {
     let before = reached.load(Ordering::SeqCst);
     expect_unauthorized_reason(
         call(&app_api, "d6u-bob", &conductor.keystore(), future).await,
-        "BadNonce",
+        "Future",
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
     let expired = params(
@@ -559,7 +559,7 @@ async fn d6u_runtime_authority_boundary() {
     let before = reached.load(Ordering::SeqCst);
     expect_unauthorized_reason(
         call(&app_api, "d6u-alice", &conductor.keystore(), expired).await,
-        "BadNonce",
+        "Expired",
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
     record_case("expired-invocation", "authorization-failed");
