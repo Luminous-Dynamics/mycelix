@@ -108,6 +108,11 @@ def main() -> int:
         "must remain unresolved until the required addressable dependency is available"
     ):
         raise SystemExit("dependency absence must remain unresolved")
+    if errors.get("adapter_boundary_error") != (
+        "protocol binding/type mismatch is an adapter contract failure, not semantic Invalid"
+    ):
+        raise SystemExit("adapter-boundary failures must remain outside semantic Invalid")
+    require_bool(errors, "adapter_boundary_error_is_semantic_invalidity", False)
 
     identity = document.get("identity_boundary")
     if not isinstance(identity, dict):
