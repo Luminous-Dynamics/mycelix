@@ -60,6 +60,25 @@ fn validate_multibase_key(key: &str) -> Result<AlgorithmId, String> {
         })
 }
 
+/// Encode a Holochain agent's raw Ed25519 public key into the Mycelix
+/// W3C multibase representation: z + base58btc(multicodec(0xed01) || key).
+///
+/// Holochain AgentPubKey is a typed 36-byte hash, so the first four bytes are
+/// the HoloHash type discriminator and are not part of the Ed25519 key.
+fn agent_pub_key_multibase(agent_pub_key: &AgentPubKey) -> Result<String, String> {
+    let raw = agent_pub_key.get_raw_36();
+    if raw.len() != 36 {
+        return Err(format!(
+            "Unexpected AgentPubKey raw length: expected 36, got {}",
+            raw.len()
+        ));
+    }
+
+    TaggedPublicKey::new(AlgorithmId::Ed25519, raw[4..].to_vec())
+        .map(|key| key.to_multibase())
+        .map_err(|e| e.to_string())
+}
+
 /// Legacy Ed25519-only validator (delegates to the algorithm-agnostic version).
 #[cfg(test)]
 fn validate_multibase_ed25519_key(key: &str) -> Result<(), String> {
@@ -374,7 +393,11 @@ pub fn create_did() -> ExternResult<Record> {
             .did_verification_method_type()
             .to_string(),
         controller: did_id.clone(),
-        public_key_multibase: format!("z{}", agent_pub_key),
+        public_key_multibase: agent_pub_key_multibase(&agent_pub_key)
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+                "Failed to encode initial Ed25519 public key: {}",
+                e
+            ))))?,
         algorithm: Some(AlgorithmId::Ed25519.as_u16()),
     };
 
