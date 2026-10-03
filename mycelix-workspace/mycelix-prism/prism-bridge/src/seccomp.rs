@@ -381,6 +381,10 @@ pub enum SeccompError {
     DuplicateArgumentPredicate,
     DuplicateArgumentClause,
     FilterTooLarge,
+    /// The compiler's emitted instruction stream violated its own structural invariants.
+    /// This is deliberately distinct from caller-supplied policy errors so any
+    /// compiler/accounting drift fails closed rather than producing a receipt.
+    CompilerInvariantViolation,
     InstallationFailed(i32),
     IdentityGenerationFailed,
     PolicyCommitmentMismatch,
@@ -399,6 +403,7 @@ impl core::fmt::Display for SeccompError {
             Self::DuplicateArgumentPredicate => f.write_str("seccomp argument predicate contains a duplicate"),
             Self::DuplicateArgumentClause => f.write_str("seccomp argument clause contains a duplicate"),
             Self::FilterTooLarge => f.write_str("seccomp BPF filter exceeds the bounded instruction budget"),
+            Self::CompilerInvariantViolation => f.write_str("seccomp compiler emitted an internally inconsistent BPF program"),
             Self::InstallationFailed(errno) => write!(f, "seccomp installation failed: errno {errno}"),
             Self::IdentityGenerationFailed => f.write_str("seccomp installation identity generation failed"),
             Self::PolicyCommitmentMismatch => f.write_str("seccomp policy does not match the renderer profile commitment"),
@@ -461,6 +466,45 @@ mod linux {
 
     fn jump_ge(k: u32, jt: u8, jf: u8) -> SockFilter {
         SockFilter { code: BPF_JMP | BPF_JGE | BPF_K, jt, jf, k }
+    }
+
+    /// Validate the actual emitted cBPF stream, not merely the forecast used
+    /// for allocation/budgeting. This is the backstop for compiler/accounting
+    /// drift: every conditional edge must land on a real instruction, all
+    /// non-branch records must have zero jump metadata, and the program must
+    /// retain its global fail-closed terminator.
+    fn validate_compiled_filter(filter: &[SockFilter]) -> Result<(), SeccompError> {
+        if filter.is_empty() {
+            return Err(SeccompError::CompilerInvariantViolation);
+        }
+
+        for (index, instruction) in filter.iter().enumerate() {
+            match instruction.code {
+                code if code == BPF_JMP | BPF_JEQ | BPF_K || code == BPF_JMP | BPF_JGE | BPF_K => {
+                    for offset in [instruction.jt, instruction.jf] {
+                        let target = index
+                            .checked_add(1)
+                            .and_then(|pc| pc.checked_add(usize::from(offset)))
+                            .ok_or(SeccompError::CompilerInvariantViolation)?;
+                        if target >= filter.len() {
+                            return Err(SeccompError::CompilerInvariantViolation);
+                        }
+                    }
+                }
+                _ if instruction.jt != 0 || instruction.jf != 0 => {
+                    return Err(SeccompError::CompilerInvariantViolation);
+                }
+                _ => {}
+            }
+        }
+
+        let default_deny = SECCOMP_RET_ERRNO | libc::EPERM as u32;
+        let last = filter.last().ok_or(SeccompError::CompilerInvariantViolation)?;
+        if last.code != BPF_RET | BPF_K || last.k != default_deny {
+            return Err(SeccompError::CompilerInvariantViolation);
+        }
+
+        Ok(())
     }
 
     fn compile_filter_v2(policy: &SeccompSyscallPolicyV2) -> Result<Vec<SockFilter>, SeccompError> {
@@ -692,6 +736,10 @@ mod linux {
             }
         }
         filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_ERRNO | libc::EPERM as u32));
+        if filter.len() != instruction_count {
+            return Err(SeccompError::CompilerInvariantViolation);
+        }
+        validate_compiled_filter(&filter)?;
         Ok(filter)
     }
 
@@ -740,6 +788,10 @@ mod linux {
 
         filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_ERRNO | libc::EPERM as u32));
 
+        if filter.len() != instruction_count {
+            return Err(SeccompError::CompilerInvariantViolation);
+        }
+        validate_compiled_filter(&filter)?;
         Ok(filter)
     }
 
@@ -1897,6 +1949,57 @@ mod linux {
                 "disjunctive 64-bit MaskedNotEqual body length must match dispatch"
             );
             assert_eq!(disj_filter[disj_lseek].jf, 17);
+        }
+
+        #[test]
+        fn compiled_filter_rejects_out_of_range_conditional_jump() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let policy = SeccompSyscallPolicyV2::new(
+                arch,
+                vec![
+                    SeccompSyscallRuleV2::new(libc::SYS_socket, Vec::new()).unwrap(),
+                    SeccompSyscallRuleV2::new(libc::SYS_prctl, Vec::new()).unwrap(),
+                ],
+            )
+            .unwrap();
+            let mut filter = compile_filter_v2(&policy).unwrap();
+            let socket_jump = filter
+                .iter()
+                .position(|instruction| {
+                    instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                        && instruction.k == libc::SYS_socket as u32
+                })
+                .unwrap();
+
+            // Simulate the class of defect fixed in this tranche: a computed
+            // branch offset that escapes the emitted program. The validator
+            // must reject it before kernel installation can occur.
+            filter[socket_jump].jf = u8::MAX;
+            assert!(matches!(
+                validate_compiled_filter(&filter),
+                Err(SeccompError::CompilerInvariantViolation)
+            ));
+        }
+
+        #[test]
+        fn compiled_filter_requires_exact_forecasted_length() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let predicate = SeccompArgPredicateV1::new_with_op(
+                0,
+                u64::MAX,
+                0x0000_0001_0000_0001,
+                SeccompArgPredicateOpV1::MaskedNotEqual,
+            )
+            .unwrap();
+            let rule = SeccompSyscallRuleV2::new(libc::SYS_socket, vec![predicate]).unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+            let filter = compile_filter_v2(&policy).unwrap();
+            validate_compiled_filter(&filter).unwrap();
+
+            // The full-width MaskedNotEqual path is intentionally seven
+            // instructions (low body 3 + high body 4), not eight. The emitted
+            // program and accounting forecast must remain identical.
+            assert_eq!(filter.len(), if arch == SeccompArchitecture::X86_64 { 16 } else { 14 });
         }
 
         #[test]
