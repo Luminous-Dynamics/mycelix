@@ -713,6 +713,13 @@ fn validate_create_recovery_approval_certificate(
         ));
     }
 
+    let request_action = must_get_action(certificate.request_action_hash.clone())?;
+    if !matches!(request_action.action().data, ActionData::Create(_)) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Recovery approval certificate must bind to the original RecoveryRequest creation action".into(),
+        ));
+    }
+
     let request_record = must_get_valid_record(certificate.request_action_hash.clone())?;
     let request: RecoveryRequest = request_record
         .entry()
