@@ -38,12 +38,15 @@ impl<T> QualificationStatus<T> {
         additional: impl IntoIterator<Item = IdentityRef>,
     ) -> Self {
         let additional: Vec<_> = additional.into_iter().collect();
-        if additional.is_empty() {
-            return self;
-        }
 
         match self {
-            Self::Complete(partial) => Self::unresolved(additional, partial),
+            Self::Complete(partial) => {
+                if additional.is_empty() {
+                    Self::Complete(partial)
+                } else {
+                    Self::unresolved(additional, partial)
+                }
+            }
             Self::Unresolved {
                 mut missing,
                 partial,
