@@ -141,8 +141,16 @@ The boundary is deliberately split:
 
 The signed layer is optional because applications may have an independent authoritative mechanism for establishing the logical-to-protocol binding. It must never become an excuse to infer authority from a bare protocol signature.
 
-The signed payload types also derive Holochain's `SerializedBytes` representation using `holochain_serialized_bytes = 0.0.57`. Their schema identifiers are owned strings rather than borrowed static references, allowing explicit `SerializedBytes` round-trip tests to define the wire representation. This does not introduce a second signing mechanism: `verify_signature` remains the single cryptographic verification path. Holochain's serialization project specifically recommends `SerializedBytes` when canonical bytes are part of an interoperability contract. citeturn797434search2turn797434search3
+The signed payload types also derive Holochain's `SerializedBytes` representation using `holochain_serialized_bytes = 0.0.57`. Their schema identifiers are owned strings rather than borrowed static references, allowing explicit `SerializedBytes` round-trip tests to define the wire representation. This does not introduce a second signing mechanism: `verify_signature` remains the single cryptographic verification path. Holochain's serialization project recommends `SerializedBytes` for canonical typed representations shared across systems.
 
+
+## Signed wire-schema evolution boundary
+
+The signed payloads are deliberately strict `v1` wire types. Their schema identifiers are part of the signed payload, and both payload types reject unknown fields during canonical deserialization.
+
+This means a compatible change must preserve the exact `v1` schema identifier and field set. A breaking field addition, removal, rename, or type change requires a new schema identifier and a new payload contract rather than relying on silent forward/backward deserialization. The existing validators pin this policy, and negative `SerializedBytes` round-trip tests demonstrate rejection of unexpected fields for both signed payload types.
+
+This is intentionally stricter than generic data-transfer compatibility: the payload participates in cryptographic attestation, so an unnoticed wire-schema reinterpretation must not preserve the appearance of a valid signature while changing the meaning of the signed statement.
 
 ## Authority-agent identity boundary
 
