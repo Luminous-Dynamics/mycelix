@@ -2381,7 +2381,8 @@ pub fn get_mfa_view(did: String) -> ExternResult<Option<MfaStateView>> {
                         factor_id: mask_factor_identifier(&factor.factor_id),
                         enrolled_at: factor.enrolled_at.as_micros(),
                         last_verified: factor.last_verified.as_micros(),
-                        effective_strength: factor.effective_strength,
+                        // Recompute using the canonical factor-specific decay policy.
+                        effective_strength: factor.current_strength(now),
                         active: factor.active,
                         metadata: String::new(),
                     })
