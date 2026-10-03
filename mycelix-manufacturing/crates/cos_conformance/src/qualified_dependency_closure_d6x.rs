@@ -719,7 +719,15 @@ pub fn compute_dependency_closure(
             );
             dependencies.insert(edge_dependency.clone());
             dependency_resolutions.insert(edge_dependency, SemanticDependencyResolutionV1::Present);
-            if requires_current && to.historical_only {
+            // Node commitments deliberately remain compatible with the
+            // upstream D6S model and therefore do not include the mutable
+            // currentness annotations. CurrentOnly qualification must bind both
+            // historical state and the node's declared frontier to the semantic
+            // environment explicitly.
+            let target_is_current = !to.historical_only
+                && to.current_frontier_root.as_deref()
+                    == environment.current_frontier_root.as_deref();
+            if requires_current && !target_is_current {
                 blocked_currentness = true;
                 let target_dependency = SemanticDependencyReferenceV1::node(
                     to.node_id.clone(),
@@ -1599,6 +1607,64 @@ mod tests {
         );
         assert_eq!(c.status, DependencyClosureStatusV1::BlockedCurrentness);
         assert!(c.valid());
+    }
+
+    #[test]
+    fn frontier_mismatch_marks_selected_dependency_stale() {
+        let (mut a, e, d) = projection(false);
+        a.nodes.get_mut("dep").unwrap().current_frontier_root = Some("frontier-old".into());
+
+        let mut p = profile(BTreeSet::new());
+        p.rules = [DependencyRuleV1 {
+            edge_kind: ClaimGraphEdgeKindV1::Supports,
+            from_kind: Some(ClaimGraphNodeKindV1::Statement),
+            to_kind: Some(ClaimGraphNodeKindV1::Evidence),
+            currentness: DependencyCurrentnessV1::CurrentOnly,
+        }]
+        .into_iter()
+        .collect();
+
+        let c = compute_dependency_closure(&a, &e, &d, &p).unwrap();
+        let dep = SemanticDependencyReferenceV1::node("dep", Some("commit-dep".into()));
+
+        assert_eq!(
+            c.dependency_resolutions.get(&dep),
+            Some(&SemanticDependencyResolutionV1::Stale)
+        );
+        assert_eq!(c.status, DependencyClosureStatusV1::BlockedCurrentness);
+        assert!(c.valid());
+    }
+
+    #[test]
+    fn frontier_match_is_required_for_current_only_but_not_any() {
+        let (mut a, e, d) = projection(false);
+        a.nodes.get_mut("dep").unwrap().current_frontier_root = Some("frontier-old".into());
+
+        let mut any = profile(BTreeSet::new());
+        any.rules = [DependencyRuleV1 {
+            edge_kind: ClaimGraphEdgeKindV1::Supports,
+            from_kind: Some(ClaimGraphNodeKindV1::Statement),
+            to_kind: Some(ClaimGraphNodeKindV1::Evidence),
+            currentness: DependencyCurrentnessV1::Any,
+        }]
+        .into_iter()
+        .collect();
+
+        let complete = compute_dependency_closure(&a, &e, &d, &any).unwrap();
+        assert_eq!(complete.status, DependencyClosureStatusV1::Complete);
+
+        let mut current = any.clone();
+        current.rules = [DependencyRuleV1 {
+            edge_kind: ClaimGraphEdgeKindV1::Supports,
+            from_kind: Some(ClaimGraphNodeKindV1::Statement),
+            to_kind: Some(ClaimGraphNodeKindV1::Evidence),
+            currentness: DependencyCurrentnessV1::CurrentOnly,
+        }]
+        .into_iter()
+        .collect();
+
+        let blocked = compute_dependency_closure(&a, &e, &d, &current).unwrap();
+        assert_eq!(blocked.status, DependencyClosureStatusV1::BlockedCurrentness);
     }
 
     #[test]
