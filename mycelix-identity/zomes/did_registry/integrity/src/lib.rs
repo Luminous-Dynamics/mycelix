@@ -607,6 +607,133 @@ mod tests {
         assert!(validate_mycelix_did_syntax("did:mycelix:uhCAk-_0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz").is_ok());
     }
 
+
+    #[test]
+    fn verification_method_accepts_canonical_ed25519_multibase() {
+        let did = "did:mycelix:uhCAkSELF";
+        let key = TaggedPublicKey::new(AlgorithmId::Ed25519, vec![0x42; 32])
+            .expect("valid Ed25519 fixture")
+            .to_multibase();
+        let method = VerificationMethod {
+            id: format!("{did}#keys-1"),
+            type_: AlgorithmId::Ed25519.did_verification_method_type().into(),
+            controller: did.into(),
+            public_key_multibase: key,
+            algorithm: Some(AlgorithmId::Ed25519.as_u16()),
+        };
+        assert_eq!(
+            validate_verification_method(&method, did),
+            Ok(AlgorithmId::Ed25519)
+        );
+    }
+
+    #[test]
+    fn verification_method_rejects_malformed_multibase() {
+        let did = "did:mycelix:uhCAkSELF";
+        let method = VerificationMethod {
+            id: format!("{did}#keys-1"),
+            type_: AlgorithmId::Ed25519.did_verification_method_type().into(),
+            controller: did.into(),
+            public_key_multibase: "znot-a-valid-key".into(),
+            algorithm: Some(AlgorithmId::Ed25519.as_u16()),
+        };
+        let error = validate_verification_method(&method, did)
+            .expect_err("malformed multibase must be rejected");
+        assert!(error.contains("Invalid verification method key"));
+    }
+
+    #[test]
+    fn verification_method_rejects_declared_algorithm_mismatch() {
+        let did = "did:mycelix:uhCAkSELF";
+        let key = TaggedPublicKey::new(AlgorithmId::Ed25519, vec![0x42; 32])
+            .expect("valid Ed25519 fixture")
+            .to_multibase();
+        let method = VerificationMethod {
+            id: format!("{did}#keys-1"),
+            type_: AlgorithmId::Ed25519.did_verification_method_type().into(),
+            controller: did.into(),
+            public_key_multibase: key,
+            algorithm: Some(AlgorithmId::MlDsa65.as_u16()),
+        };
+        let error = validate_verification_method(&method, did)
+            .expect_err("declared algorithm mismatch must be rejected");
+        assert!(error.contains("does not match multibase key"));
+    }
+
+    #[test]
+    fn verification_method_rejects_type_algorithm_mismatch() {
+        let did = "did:mycelix:uhCAkSELF";
+        let key = TaggedPublicKey::new(AlgorithmId::Ed25519, vec![0x42; 32])
+            .expect("valid Ed25519 fixture")
+            .to_multibase();
+        let method = VerificationMethod {
+            id: format!("{did}#keys-1"),
+            type_: "MlDsa65VerificationKey2024".into(),
+            controller: did.into(),
+            public_key_multibase: key,
+            algorithm: Some(AlgorithmId::Ed25519.as_u16()),
+        };
+        let error = validate_verification_method(&method, did)
+            .expect_err("type/algorithm mismatch must be rejected");
+        assert!(error.contains("type does not match key algorithm"));
+    }
+
+    #[test]
+    fn verification_relationship_rejects_kem_as_authentication() {
+        let did = "did:mycelix:uhCAkSELF";
+        let key = TaggedPublicKey::new(AlgorithmId::MlKem768, vec![0x42; 1184])
+            .expect("valid ML-KEM fixture")
+            .to_multibase();
+        let document = DidDocument {
+            id: did.into(),
+            controller: AgentPubKey::from_raw_36(vec![0u8; 36]),
+            verification_method: vec![VerificationMethod {
+                id: format!("{did}#kem-1"),
+                type_: AlgorithmId::MlKem768.did_verification_method_type().into(),
+                controller: did.into(),
+                public_key_multibase: key,
+                algorithm: Some(AlgorithmId::MlKem768.as_u16()),
+            }],
+            authentication: vec![format!("{did}#kem-1")],
+            key_agreement: vec![],
+            service: vec![],
+            created: Timestamp::from_micros(0),
+            updated: Timestamp::from_micros(1),
+            version: 1,
+        };
+        let error = validate_verification_method_set(&document)
+            .expect_err("KEM cannot be used for authentication");
+        assert!(error.contains("signature algorithm"));
+    }
+
+    #[test]
+    fn verification_relationship_rejects_signing_key_as_key_agreement() {
+        let did = "did:mycelix:uhCAkSELF";
+        let key = TaggedPublicKey::new(AlgorithmId::Ed25519, vec![0x42; 32])
+            .expect("valid Ed25519 fixture")
+            .to_multibase();
+        let document = DidDocument {
+            id: did.into(),
+            controller: AgentPubKey::from_raw_36(vec![0u8; 36]),
+            verification_method: vec![VerificationMethod {
+                id: format!("{did}#keys-1"),
+                type_: AlgorithmId::Ed25519.did_verification_method_type().into(),
+                controller: did.into(),
+                public_key_multibase: key,
+                algorithm: Some(AlgorithmId::Ed25519.as_u16()),
+            }],
+            authentication: vec![format!("{did}#keys-1")],
+            key_agreement: vec![format!("{did}#keys-1")],
+            service: vec![],
+            created: Timestamp::from_micros(0),
+            updated: Timestamp::from_micros(1),
+            version: 1,
+        };
+        let error = validate_verification_method_set(&document)
+            .expect_err("signing key cannot be used for keyAgreement");
+        assert!(error.contains("ML-KEM algorithm"));
+    }
+
     #[test]
     fn did_id_must_match_committing_agent() {
         let me = "did:mycelix:uhCAkSELF";
