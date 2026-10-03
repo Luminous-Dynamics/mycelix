@@ -20,7 +20,9 @@
       "expiry_state": "live",
       "boundary_result": "authorized",
       "zome_reached": true,
-      "semantic_result": "subject-to-zome-validation"
+      "semantic_result": "subject-to-zome-validation",
+      "terminal_gate": "capability-authorization",
+      "authority_state": "authorized"
     },
     {
       "case_id": "authorized-semantic-rejection",
@@ -34,7 +36,9 @@
       "expiry_state": "live",
       "boundary_result": "authorized",
       "zome_reached": true,
-      "semantic_result": "rejected-by-zome"
+      "semantic_result": "rejected-by-zome",
+      "terminal_gate": "zome-semantic-validation",
+      "authority_state": "authorized"
     },
     {
       "case_id": "blocked-provenance",
@@ -48,7 +52,9 @@
       "expiry_state": "live",
       "boundary_result": "holochain-authorization-rejection",
       "zome_reached": false,
-      "semantic_result": "not-reached"
+      "semantic_result": "not-reached",
+      "terminal_gate": "capability-authorization",
+      "authority_state": "not-authorized"
     },
     {
       "case_id": "canonical-payload-accepted",
@@ -62,7 +68,9 @@
       "expiry_state": "live",
       "boundary_result": "authorized",
       "zome_reached": true,
-      "semantic_result": "subject-to-zome-validation"
+      "semantic_result": "subject-to-zome-validation",
+      "terminal_gate": "capability-authorization",
+      "authority_state": "authorized"
     },
     {
       "case_id": "expired-invocation",
@@ -76,7 +84,9 @@
       "expiry_state": "expired",
       "boundary_result": "holochain-expiry-rejection",
       "zome_reached": false,
-      "semantic_result": "not-reached"
+      "semantic_result": "not-reached",
+      "terminal_gate": "invocation-expiry",
+      "authority_state": "not-authorized"
     },
     {
       "case_id": "nonce-replay",
@@ -90,7 +100,9 @@
       "expiry_state": "live",
       "boundary_result": "holochain-nonce-rejection",
       "zome_reached": false,
-      "semantic_result": "not-reached"
+      "semantic_result": "not-reached",
+      "terminal_gate": "nonce-replay-protection",
+      "authority_state": "not-authorized"
     },
     {
       "case_id": "nonce-stale",
@@ -104,7 +116,9 @@
       "expiry_state": "live",
       "boundary_result": "holochain-nonce-rejection",
       "zome_reached": false,
-      "semantic_result": "not-reached"
+      "semantic_result": "not-reached",
+      "terminal_gate": "nonce-replay-protection",
+      "authority_state": "not-authorized"
     },
     {
       "case_id": "payload-mutation",
@@ -118,7 +132,9 @@
       "expiry_state": "live",
       "boundary_result": "d6s-commitment-mismatch",
       "zome_reached": false,
-      "semantic_result": "not-reached"
+      "semantic_result": "not-reached",
+      "terminal_gate": "d6s-integrity",
+      "authority_state": "authenticated-not-authorized"
     },
     {
       "case_id": "provenance-mismatch",
@@ -132,7 +148,9 @@
       "expiry_state": "live",
       "boundary_result": "holochain-authorization-rejection",
       "zome_reached": false,
-      "semantic_result": "not-reached"
+      "semantic_result": "not-reached",
+      "terminal_gate": "capability-authorization",
+      "authority_state": "not-authorized"
     },
     {
       "case_id": "revoked-capability",
@@ -146,7 +164,9 @@
       "expiry_state": "live",
       "boundary_result": "holochain-authorization-rejection",
       "zome_reached": false,
-      "semantic_result": "not-reached"
+      "semantic_result": "not-reached",
+      "terminal_gate": "capability-authorization",
+      "authority_state": "not-authorized"
     },
     {
       "case_id": "valid-capability",
@@ -160,7 +180,9 @@
       "expiry_state": "live",
       "boundary_result": "authorized",
       "zome_reached": true,
-      "semantic_result": "subject-to-zome-validation"
+      "semantic_result": "subject-to-zome-validation",
+      "terminal_gate": "capability-authorization",
+      "authority_state": "authorized"
     },
     {
       "case_id": "wire-signature-invalid",
@@ -174,7 +196,9 @@
       "expiry_state": "not-yet-evaluated",
       "boundary_result": "holochain-signature-authentication-rejection",
       "zome_reached": false,
-      "semantic_result": "not-reached"
+      "semantic_result": "not-reached",
+      "terminal_gate": "wire-authentication",
+      "authority_state": "unauthenticated"
     },
     {
       "case_id": "wire-signature-valid",
@@ -188,7 +212,9 @@
       "expiry_state": "not-yet-evaluated",
       "boundary_result": "authenticated",
       "zome_reached": false,
-      "semantic_result": "authorization-not-yet-evaluated"
+      "semantic_result": "authorization-not-yet-evaluated",
+      "terminal_gate": "wire-authentication",
+      "authority_state": "authenticated-not-authorized"
     },
     {
       "case_id": "wrong-capability",
@@ -202,7 +228,9 @@
       "expiry_state": "live",
       "boundary_result": "holochain-authorization-rejection",
       "zome_reached": false,
-      "semantic_result": "not-reached"
+      "semantic_result": "not-reached",
+      "terminal_gate": "capability-authorization",
+      "authority_state": "not-authorized"
     },
     {
       "case_id": "wrong-cell",
@@ -216,7 +244,9 @@
       "expiry_state": "live",
       "boundary_result": "holochain-routing-or-binding-rejection",
       "zome_reached": false,
-      "semantic_result": "not-reached"
+      "semantic_result": "not-reached",
+      "terminal_gate": "invocation-routing-or-binding",
+      "authority_state": "not-authorized"
     },
     {
       "case_id": "wrong-function",
@@ -230,7 +260,9 @@
       "expiry_state": "live",
       "boundary_result": "holochain-binding-or-authorization-rejection",
       "zome_reached": false,
-      "semantic_result": "not-reached"
+      "semantic_result": "not-reached",
+      "terminal_gate": "invocation-binding-or-authorization",
+      "authority_state": "not-authorized"
     },
     {
       "case_id": "wrong-zome",
@@ -244,7 +276,9 @@
       "expiry_state": "live",
       "boundary_result": "holochain-binding-or-authorization-rejection",
       "zome_reached": false,
-      "semantic_result": "not-reached"
+      "semantic_result": "not-reached",
+      "terminal_gate": "invocation-binding-or-authorization",
+      "authority_state": "not-authorized"
     }
   ]
 }
