@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use leptos::prelude::*;
-use crate::identity_context::use_identity;
+use wasm_bindgen_futures::spawn_local;
+use mycelix_leptos_core::holochain_provider::{use_holochain, ConnectionStatus};
+use crate::identity_context::{create_my_did, use_identity};
 
 #[component]
 pub fn DidPage() -> impl IntoView {
@@ -10,6 +12,32 @@ pub fn DidPage() -> impl IntoView {
 
     let did = move || ctx.did_document.get();
     let name = move || ctx.my_name.get();
+    let hc = use_holochain();
+    let creating = RwSignal::new(false);
+    let action_error = RwSignal::new(None::<String>);
+
+    let create_identity = {
+        let ctx = ctx.clone();
+        let hc = hc.clone();
+        move |_| {
+            if creating.get_untracked() { return; }
+            creating.set(true);
+            action_error.set(None);
+            let ctx = ctx.clone();
+            let hc = hc.clone();
+            spawn_local(async move {
+                if hc.status.get_untracked() != ConnectionStatus::Connected {
+                    action_error.set(Some("Connect the live Holochain identity runtime first.".into()));
+                    creating.set(false);
+                    return;
+                }
+                if let Err(error) = create_my_did(ctx, hc).await {
+                    action_error.set(Some(error));
+                }
+                creating.set(false);
+            });
+        }
+    };
 
     view! {
         <div class="page page-did">
@@ -105,6 +133,29 @@ pub fn DidPage() -> impl IntoView {
                             }.into_any()
                         }}
                     </section>
+
+                    // ── Identity creation ──
+                    {move || if did().is_none() {
+                        view! {
+                            <section class="did-section did-create-card">
+                                <h2>"Create your sovereign identity"</h2>
+                                <p class="section-desc">
+                                    "Your Holochain agent key is the cryptographic root. The identity DNA creates the canonical DID and initializes its first authentication state."
+                                </p>
+                                <button class="btn btn-primary" disabled=move || creating.get() on:click=create_identity>
+                                    {move || if creating.get() { "Creating DID…" } else { "Create Mycelix Identity" }}
+                                </button>
+                                {move || action_error.get().map(|error| view! {
+                                    <p class="action-error" role="alert">{error}</p>
+                                })}
+                                <p class="action-note">
+                                    "The conductor owns the agent key. Demo fixtures are never used for live creation."
+                                </p>
+                            </section>
+                        }.into_any()
+                    } else {
+                        ().into_any()
+                    }}
 
                     // ── Key Actions ──
                     <section class="did-section">
