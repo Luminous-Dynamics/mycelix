@@ -484,26 +484,45 @@ mod linux {
                     if instruction.jt != 0 || instruction.jf != 0 {
                         return Err(SeccompError::CompilerInvariantViolation);
                     }
+                    let valid_offset = instruction.k == SECCOMP_DATA_ARCH_OFFSET
+                        || instruction.k == SECCOMP_DATA_NR_OFFSET
+                        || (16..=60).contains(&instruction.k)
+                            && (instruction.k - 16) % 4 == 0;
+                    if !valid_offset {
+                        return Err(SeccompError::CompilerInvariantViolation);
+                    }
                 }
                 code if code == BPF_ALU | BPF_AND | BPF_K => {
                     if instruction.jt != 0 || instruction.jf != 0 {
                         return Err(SeccompError::CompilerInvariantViolation);
                     }
                 }
-                code if code == BPF_JMP | BPF_JEQ | BPF_K || code == BPF_JMP | BPF_JGE | BPF_K => {
+                code if code == BPF_JMP | BPF_JEQ | BPF_K => {
                     for offset in [instruction.jt, instruction.jf] {
                         let target = index
                             .checked_add(1)
                             .and_then(|pc| pc.checked_add(usize::from(offset)))
                             .ok_or(SeccompError::CompilerInvariantViolation)?;
-                        // The compiler intentionally emits a forward-only,
-                        // loop-free control-flow graph. Reject self/backward
-                        // edges even though the kernel can represent them;
-                        // this keeps execution structurally bounded and makes
-                        // every generated program amenable to simple auditing.
-                        if target <= index || target >= filter.len() {
+                        if target >= filter.len() {
                             return Err(SeccompError::CompilerInvariantViolation);
                         }
+                    }
+                }
+                code if code == BPF_JMP | BPF_JGE | BPF_K => {
+                    // The only JGE emitted by this compiler is the x86-64 x32
+                    // ABI guard: accumulator >= 0x4000_0000 jumps to the
+                    // fail-closed kill action.
+                    if instruction.k != 0x4000_0000
+                        || instruction.jt != 0
+                        || instruction.jf != 1
+                    {
+                        return Err(SeccompError::CompilerInvariantViolation);
+                    }
+                    let target = index
+                        .checked_add(2)
+                        .ok_or(SeccompError::CompilerInvariantViolation)?;
+                    if target >= filter.len() {
+                        return Err(SeccompError::CompilerInvariantViolation);
                     }
                 }
                 code if code == BPF_RET | BPF_K => {
