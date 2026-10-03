@@ -236,6 +236,12 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::RecoveryVote(vote) => {
                     validate_create_recovery_vote(EntryCreationAction::Create(action), vote)
                 }
+                EntryTypes::RecoveryApprovalCertificate(certificate) => {
+                    validate_create_recovery_approval_certificate(
+                        EntryCreationAction::Create(action),
+                        certificate,
+                    )
+                }
                 EntryTypes::SelfRecoveryConfig(config) => validate_create_self_recovery_config(
                     EntryCreationAction::Create(action),
                     config,
@@ -673,6 +679,119 @@ fn validate_update_recovery_config(
     if config.updated <= original.updated {
         return Ok(ValidateCallbackResult::Invalid(
             "Recovery config updated timestamp must advance".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+/// Validate a quorum certificate using only deterministic DHT dependencies.
+fn validate_create_recovery_approval_certificate(
+    action: EntryCreationAction,
+    certificate: RecoveryApprovalCertificate,
+) -> ExternResult<ValidateCallbackResult> {
+    if certificate.vote_action_hashes.is_empty() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Recovery approval certificate must cite at least one vote".into(),
+        ));
+    }
+    if certificate.threshold == 0 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Recovery approval certificate threshold must be greater than zero".into(),
+        ));
+    }
+    if certificate.issued_at.as_micros() <= 0 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Recovery approval certificate timestamp must be positive".into(),
+        ));
+    }
+
+    if *action.author() != *must_get_action(certificate.request_action_hash.clone())?.action().author() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Recovery approval certificate must be authored by the request author".into(),
+        ));
+    }
+
+    let request_record = must_get_valid_record(certificate.request_action_hash.clone())?;
+    let request: RecoveryRequest = request_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Certificate request action must reference a RecoveryRequest".into()
+        )))?;
+
+    if request.id != certificate.request_id {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Certificate request_id does not match the referenced RecoveryRequest".into(),
+        ));
+    }
+
+    let config_record = must_get_valid_record(certificate.recovery_config_action_hash.clone())?;
+    let config: RecoveryConfig = config_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Certificate config action must reference a RecoveryConfig".into()
+        )))?;
+
+    if config.did != request.did || config.owner != *action.author() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Certificate recovery config does not match the request or author".into(),
+        ));
+    }
+    if config.threshold != certificate.threshold {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Certificate threshold does not match the recovery configuration".into(),
+        ));
+    }
+
+    let mut seen_trustees = HashSet::new();
+    for vote_hash in &certificate.vote_action_hashes {
+        let vote_record = must_get_valid_record(vote_hash.clone())?;
+        let vote: RecoveryVote = vote_record
+            .entry()
+            .to_app_option()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Certificate vote action must reference a RecoveryVote".into()
+            )))?;
+
+        if vote.request_id != certificate.request_id {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Certificate contains a vote for a different request".into(),
+            ));
+        }
+        if vote.vote != VoteDecision::Approve {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Recovery approval certificates may only cite approval votes".into(),
+            ));
+        }
+        if !config.trustees.contains(&vote.trustee) {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Certificate contains a vote from a non-trustee".into(),
+            ));
+        }
+        if !seen_trustees.insert(vote.trustee.clone()) {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Recovery approval certificate contains duplicate trustees".into(),
+            ));
+        }
+
+        let trustee = did_to_agent(&vote.trustee).ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Certificate vote trustee must be a valid did:mycelix identifier".into()
+        )))?;
+        if *vote_record.action().author() != trustee {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Certificate vote must be authored by its claimed trustee".into(),
+            ));
+        }
+    }
+
+    if seen_trustees.len() < certificate.threshold as usize {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Recovery approval certificate does not reach threshold".into(),
         ));
     }
 
