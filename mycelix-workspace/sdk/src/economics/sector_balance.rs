@@ -213,6 +213,7 @@ impl SectorBalanceSheet {
         state: &EconomicState,
         assignments: &[SectorAssignment],
     ) -> Result<Self, String> {
+        state.validate()?;
         validate_sector_assignments(state, assignments)?;
         let mut actors = state.actors.clone();
         actors.sort_by(|a, b| a.actor.cmp(&b.actor));
