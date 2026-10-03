@@ -153,6 +153,28 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             }
         },
         FlatOp::CreateEntry(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::CreateRecord(OpRecord::CreateEntry { app_entry, .. }) => match app_entry {
+            EntryTypes::EmergencyPlan(plan) => validate_plan(&plan),
+            EntryTypes::EmergencyAlert(alert) => validate_alert(&alert),
+            EntryTypes::SafetyCheckIn(checkin) => validate_checkin(&checkin),
+                },
+        FlatOp::CreateRecord(OpRecord::UpdateEntry { app_entry, action, .. }) => match app_entry {
+            EntryTypes::EmergencyPlan(plan) => {
+                validate_plan(&plan)?;
+                validate_plan_immutable_fields(&plan, &action.original_action_address)
+            }
+            EntryTypes::EmergencyAlert(alert) => {
+                validate_alert(&alert)?;
+                validate_alert_immutable_fields(&alert, &action.original_action_address)
+            }
+            EntryTypes::SafetyCheckIn(_) => {
+                // INVARIANT: SafetyCheckIn immutability — check-ins are point-in-time
+                // records and cannot be modified after creation.
+                Ok(ValidateCallbackResult::Invalid(
+                    "SafetyCheckIn cannot be updated once created".into(),
+                ))
+            }
+                },
         FlatOp::Link(OpLink::CreateLink { action, .. }) => {
             if action.data.tag.0.len() > 512 {
                 return Ok(ValidateCallbackResult::Invalid(
