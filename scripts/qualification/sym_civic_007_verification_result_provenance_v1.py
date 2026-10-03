@@ -4,6 +4,7 @@ import copy
 import hashlib
 import json
 import pathlib
+import re
 from datetime import datetime, timezone
 
 ROOT=pathlib.Path(__file__).resolve().parents[2]
@@ -30,7 +31,7 @@ def verifier_ok(x):
     if not ident or known is False:
         return False
     # Research contract: materially versioned verifier identity is required.
-    return bool("/v" in ident or v.get("version"))
+    return bool(v.get("version") or re.search(r"/v[0-9]+(?:$|/)", ident))
 
 def policy_reference_ok(x):
     policies=x.get("policies")
