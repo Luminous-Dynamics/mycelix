@@ -25,7 +25,7 @@
 use leptos::prelude::*;
 use personal_leptos_types::TrustTier;
 pub use sovereign_profile::{
-    i18n::{dimension_label, DIMENSION_LABELS},
+    i18n::{DIMENSION_LABELS, dimension_label},
     weights::DimensionWeights,
     CivicTier, SovereignDimension, SovereignProfile,
 };
