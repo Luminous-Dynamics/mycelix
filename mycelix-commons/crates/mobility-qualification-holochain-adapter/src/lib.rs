@@ -24,6 +24,7 @@ pub enum HolochainDependencyAddress {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum HolochainAdapterBoundaryError {
+    SemanticInvalid { reason: String },
     BindingRejected { reason: String },
     AddressKindMismatch {
         retrieval: QualificationDependencyRetrievalKind,
@@ -36,6 +37,7 @@ pub enum HolochainAdapterBoundaryError {
 impl std::fmt::Display for HolochainAdapterBoundaryError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::SemanticInvalid { reason } => write!(f, "semantic invalidity: {reason}"),
             Self::BindingRejected { reason } => write!(f, "binding rejected: {reason}"),
             Self::AddressKindMismatch {
                 retrieval,
@@ -100,7 +102,7 @@ impl HolochainDependencyBindingSet {
             .validate()
             .map_err(|error| match error {
                 QualificationValidationError::Structural { reason } => {
-                    HolochainAdapterBoundaryError::BindingRejected { reason }
+                    HolochainAdapterBoundaryError::SemanticInvalid { reason }
                 }
             })?;
 
@@ -243,7 +245,7 @@ pub fn require_runtime_bindings<T>(
     match decision {
         QualificationDecision::Valid(value) => Ok(value),
         QualificationDecision::Invalid { reason } => {
-            Err(HolochainAdapterBoundaryError::BindingRejected { reason })
+            Err(HolochainAdapterBoundaryError::SemanticInvalid { reason })
         }
         QualificationDecision::Unresolved { missing, .. } => {
             Err(HolochainAdapterBoundaryError::LogicalDependencyNotBound { missing })
@@ -432,6 +434,34 @@ mod tests {
     }
 
     #[test]
+    fn duplicate_binding_remains_an_adapter_contract_failure() {
+        let mut bindings = HolochainDependencyBindingSet::new();
+        let identity = identity("duplicate");
+
+        bindings
+            .bind(
+                identity.clone(),
+                HolochainDependencyAddress::Action(action_hash(30)),
+                QualificationDependencyRetrievalKind::Action,
+            )
+            .unwrap();
+
+        let error = bindings
+            .bind(
+                identity,
+                HolochainDependencyAddress::Action(action_hash(31)),
+                QualificationDependencyRetrievalKind::Action,
+            )
+            .expect_err("rebinding must be rejected");
+
+        assert!(matches!(
+            error,
+            HolochainAdapterBoundaryError::BindingRejected { .. }
+        ));
+    }
+
+
+    #[test]
     fn malformed_identity_precedes_address_kind_mismatch() {
         let mut bindings = HolochainDependencyBindingSet::new();
 
@@ -445,7 +475,7 @@ mod tests {
 
         assert!(matches!(
             error,
-            HolochainAdapterBoundaryError::BindingRejected { .. }
+            HolochainAdapterBoundaryError::SemanticInvalid { .. }
         ));
         assert!(bindings.is_empty());
     }
@@ -463,7 +493,7 @@ mod tests {
 
         assert!(matches!(
             error,
-            HolochainAdapterBoundaryError::BindingRejected { .. }
+            HolochainAdapterBoundaryError::SemanticInvalid { .. }
         ));
     }
 
