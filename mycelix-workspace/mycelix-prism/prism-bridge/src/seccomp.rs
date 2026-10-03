@@ -116,6 +116,12 @@ impl SeccompSyscallPolicyV1 {
                 return Err(SeccompError::ForbiddenRendererSyscall(*syscall));
             }
         }
+        #[cfg(target_arch = "x86_64")]
+        for syscall in FORBIDDEN_X86_PROCESS_CREATION_SYSCALLS {
+            if self.allows(*syscall) {
+                return Err(SeccompError::ForbiddenRendererSyscall(*syscall));
+            }
+        }
         Ok(())
     }
 }
@@ -272,8 +278,6 @@ const FORBIDDEN_RENDERER_SYSCALLS: &[i64] = &[
     libc::SYS_kcmp,
     libc::SYS_clone,
     libc::SYS_clone3,
-    libc::SYS_fork,
-    libc::SYS_vfork,
     libc::SYS_execve,
     libc::SYS_execveat,
     libc::SYS_unshare,
@@ -283,6 +287,8 @@ const FORBIDDEN_RENDERER_SYSCALLS: &[i64] = &[
     libc::SYS_pivot_root,
     libc::SYS_chroot,
 ];
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+const FORBIDDEN_X86_PROCESS_CREATION_SYSCALLS: &[i64] = &[libc::SYS_fork, libc::SYS_vfork];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SeccompSyscallPolicyV2 {
@@ -3047,16 +3053,24 @@ mod linux {
         fn renderer_policy_rejects_process_creation_and_namespace_mutation() {
             let arch = SeccompArchitecture::current().unwrap();
 
-            for syscall in [
+            let mut process_creation_syscalls = vec![
                 libc::SYS_clone,
                 libc::SYS_clone3,
-                libc::SYS_fork,
-                libc::SYS_vfork,
-                libc::SYS_execve,
-                libc::SYS_execveat,
-                libc::SYS_unshare,
-                libc::SYS_setns,
-            ] {
+            ];
+            #[cfg(target_arch = "x86_64")]
+            {
+                process_creation_syscalls.push(libc::SYS_fork);
+                process_creation_syscalls.push(libc::SYS_vfork);
+            }
+
+            for syscall in process_creation_syscalls
+                .into_iter()
+                .chain([
+                    libc::SYS_execve,
+                    libc::SYS_execveat,
+                    libc::SYS_unshare,
+                    libc::SYS_setns,
+                ]) {
                 let policy = SeccompSyscallPolicyV1::new(
                     arch,
                     vec![libc::SYS_getpid, syscall],
