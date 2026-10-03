@@ -41,6 +41,13 @@ impl QualificationDependencyBindingProvenance {
             return Err("binding provenance authority must be distinct from the bound dependency".into());
         }
 
+        if self.witness_identity == self.authority {
+            return Err(
+                "binding provenance witness identity must be distinct from the authority identity"
+                    .into(),
+            );
+        }
+
         if self.basis.is_empty() {
             return Err("binding provenance requires at least one basis witness".into());
         }
@@ -48,6 +55,11 @@ impl QualificationDependencyBindingProvenance {
         let mut seen = std::collections::BTreeSet::new();
         for basis in &self.basis {
             basis.validate()?;
+            if *basis == self.witness_identity {
+                return Err(
+                    "binding provenance witness cannot include itself in its own basis".into(),
+                );
+            }
             if !seen.insert(basis) {
                 return Err("binding provenance basis witnesses must be unique".into());
             }
@@ -120,6 +132,20 @@ mod tests {
     fn rejects_duplicate_basis() {
         let mut provenance = valid_provenance();
         provenance.basis.push(provenance.basis[0].clone());
+        assert!(provenance.validate().is_err());
+    }
+
+    #[test]
+    fn rejects_witness_identity_equal_to_authority() {
+        let mut provenance = valid_provenance();
+        provenance.witness_identity = provenance.authority.clone();
+        assert!(provenance.validate().is_err());
+    }
+
+    #[test]
+    fn rejects_witness_identity_in_its_own_basis() {
+        let mut provenance = valid_provenance();
+        provenance.basis.push(provenance.witness_identity.clone());
         assert!(provenance.validate().is_err());
     }
 
