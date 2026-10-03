@@ -156,13 +156,13 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 validate_presence_immutable_fields(&presence, &action.original_action_address)
             }
                 },
-        FlatOp::Link(OpLink::CreateLink { action, .. }) => {
-            if action.data.tag.0.len() > 512 {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Link tag exceeds 512 bytes".into(),
-                ));
-            }
-            Ok(ValidateCallbackResult::Valid)
+        FlatOp::Link(OpLink::CreateLink { link_type, action }) => {
+            validate_create_link(
+                link_type,
+                action.data.base_address.clone(),
+                action.data.target_address.clone(),
+                action.author(),
+            )
         }
         FlatOp::Link(link @ OpLink::DeleteLink {
             action,
@@ -200,7 +200,46 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 // Validation Functions
 // ============================================================================
 
-pub fn validate_rhythm(rhythm: &Rhythm) -> ExternResult<ValidateCallbackResult> {
+pub fn validate_create_link(
+    link_type: LinkTypes,
+    base_address: AnyLinkableHash,
+    target_address: AnyLinkableHash,
+    _author: &AgentPubKey,
+) -> ExternResult<ValidateCallbackResult> {
+    match link_type {
+        LinkTypes::HearthToRhythms => {
+            let hearth = ActionHash::try_from(base_address).map_err(|_| ValidateCallbackResult::Invalid("HearthToRhythms base must be an ActionHash".into()))?;
+            let target = ActionHash::try_from(target_address).map_err(|_| ValidateCallbackResult::Invalid("HearthToRhythms target must be an ActionHash".into()))?;
+            let record = must_get_valid_record(target)?;
+            let entry: Rhythm = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("Rhythm entry missing".into())))?;
+            if entry.hearth_hash != hearth { return Ok(ValidateCallbackResult::Invalid("Rhythm belongs to a different hearth".into())); }
+        }
+        LinkTypes::RhythmToOccurrences => {
+            let rhythm = ActionHash::try_from(base_address).map_err(|_| ValidateCallbackResult::Invalid("RhythmToOccurrences base must be an ActionHash".into()))?;
+            let target = ActionHash::try_from(target_address).map_err(|_| ValidateCallbackResult::Invalid("RhythmToOccurrences target must be an ActionHash".into()))?;
+            let record = must_get_valid_record(target)?;
+            let entry: RhythmOccurrence = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("RhythmOccurrence entry missing".into())))?;
+            if entry.rhythm_hash != rhythm { return Ok(ValidateCallbackResult::Invalid("RhythmOccurrence references a different rhythm".into())); }
+        }
+        LinkTypes::HearthToPresence => {
+            let hearth = ActionHash::try_from(base_address).map_err(|_| ValidateCallbackResult::Invalid("HearthToPresence base must be an ActionHash".into()))?;
+            let target = ActionHash::try_from(target_address).map_err(|_| ValidateCallbackResult::Invalid("HearthToPresence target must be an ActionHash".into()))?;
+            let record = must_get_valid_record(target)?;
+            let entry: PresenceStatus = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("PresenceStatus entry missing".into())))?;
+            if entry.hearth_hash != hearth { return Ok(ValidateCallbackResult::Invalid("PresenceStatus belongs to a different hearth".into())); }
+        }
+        LinkTypes::AgentToPresence => {
+            let agent = AgentPubKey::try_from(base_address).map_err(|_| ValidateCallbackResult::Invalid("AgentToPresence base must be an AgentPubKey".into()))?;
+            let target = ActionHash::try_from(target_address).map_err(|_| ValidateCallbackResult::Invalid("AgentToPresence target must be an ActionHash".into()))?;
+            let record = must_get_valid_record(target)?;
+            let entry: PresenceStatus = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("PresenceStatus entry missing".into())))?;
+            if entry.agent != agent { return Ok(ValidateCallbackResult::Invalid("AgentToPresence base does not match the presence agent".into())); }
+        }
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_rhythm(rhythm: &Rhythm) -> ExternResult<ValidateCallbackResult> {
     if rhythm.name.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Rhythm name cannot be empty".into(),
