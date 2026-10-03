@@ -67,6 +67,8 @@ The runtime adapter owns:
 
 The binding MUST preserve address-kind compatibility. For example, Holochain's `must_get_valid_record` requires an `ActionHash`; an `EntryHash` or another address type must not be silently substituted. A binding that cannot satisfy the selected retrieval primitive is an adapter-boundary error, not an unresolved DHT result.
 
+`ValidRecord` has an intentionally stronger but narrower meaning than simple existence: it requests an action-addressed record that the visible validation authorities report as valid, enabling inductive validation. It must not be interpreted as proof that every later operation associated with that record is valid. `Action` and `Entry` retrieval likewise provide the referenced object without independently asserting its full validation history.
+
 The pure layer owns:
 
 1. structural validation;
