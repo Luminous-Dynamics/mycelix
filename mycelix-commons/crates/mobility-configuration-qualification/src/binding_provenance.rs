@@ -17,6 +17,8 @@ pub struct QualificationDependencyBindingProvenance {
     pub witness_identity: IdentityRef,
     pub logical_identity: IdentityRef,
     pub authority: IdentityRef,
+    pub authority_scope: IdentityRef,
+    pub authority_delegation: IdentityRef,
     pub basis: Vec<IdentityRef>,
 }
 
@@ -32,20 +34,30 @@ impl QualificationDependencyBindingProvenance {
 
         self.logical_identity.validate()?;
         self.authority.validate()?;
+        self.authority_scope.validate()?;
+        self.authority_delegation.validate()?;
 
-        if self.witness_identity == self.logical_identity {
-            return Err("binding provenance witness cannot identify the bound dependency itself".into());
+        if self.authority_scope.kind != IdentityKind::ReconciliationWitness {
+            return Err("binding provenance authority scope must be a ReconciliationWitness".into());
         }
-
-        if self.authority == self.logical_identity {
-            return Err("binding provenance authority must be distinct from the bound dependency".into());
-        }
-
-        if self.witness_identity == self.authority {
+        if self.authority_delegation.kind != IdentityKind::ReconciliationWitness {
             return Err(
-                "binding provenance witness identity must be distinct from the authority identity"
-                    .into(),
+                "binding provenance authority delegation must be a ReconciliationWitness".into(),
             );
+        }
+
+        let identities = [
+            &self.witness_identity,
+            &self.logical_identity,
+            &self.authority,
+            &self.authority_scope,
+            &self.authority_delegation,
+        ];
+        let mut distinct = std::collections::BTreeSet::new();
+        for identity in identities {
+            if !distinct.insert(identity) {
+                return Err("binding provenance identities must be distinct".into());
+            }
         }
 
         if self.basis.is_empty() {
@@ -60,15 +72,27 @@ impl QualificationDependencyBindingProvenance {
                     "binding provenance witness cannot include itself in its own basis".into(),
                 );
             }
+            if *basis == self.logical_identity {
+                return Err(
+                    "binding provenance basis cannot silently turn the bound dependency into its own justification"
+                        .into(),
+                );
+            }
             if !seen.insert(basis) {
                 return Err("binding provenance basis witnesses must be unique".into());
             }
         }
 
-        if !seen.contains(&self.authority) {
-            return Err(
-                "binding provenance basis must include the exact authority witness".into(),
-            );
+        for required in [
+            &self.authority,
+            &self.authority_scope,
+            &self.authority_delegation,
+        ] {
+            if !seen.contains(required) {
+                return Err(
+                    "binding provenance basis must include every exact authority witness".into(),
+                );
+            }
         }
 
         Ok(())
@@ -101,11 +125,20 @@ mod tests {
 
     fn valid_provenance() -> QualificationDependencyBindingProvenance {
         let authority = id("authority");
+        let authority_scope = witness("authority-scope");
+        let authority_delegation = witness("authority-delegation");
         QualificationDependencyBindingProvenance {
             witness_identity: witness("binding-witness"),
             logical_identity: id("dependency"),
             authority: authority.clone(),
-            basis: vec![authority, id("basis")],
+            authority_scope: authority_scope.clone(),
+            authority_delegation: authority_delegation.clone(),
+            basis: vec![
+                authority,
+                authority_scope,
+                authority_delegation,
+                id("basis"),
+            ],
         }
     }
 
@@ -146,6 +179,34 @@ mod tests {
     fn rejects_witness_identity_in_its_own_basis() {
         let mut provenance = valid_provenance();
         provenance.basis.push(provenance.witness_identity.clone());
+        assert!(provenance.validate().is_err());
+    }
+
+    #[test]
+    fn rejects_authority_scope_without_reconciliation_witness_kind() {
+        let mut provenance = valid_provenance();
+        provenance.authority_scope = id("scope");
+        assert!(provenance.validate().is_err());
+    }
+
+    #[test]
+    fn rejects_authority_delegation_without_reconciliation_witness_kind() {
+        let mut provenance = valid_provenance();
+        provenance.authority_delegation = id("delegation");
+        assert!(provenance.validate().is_err());
+    }
+
+    #[test]
+    fn rejects_identity_reuse_across_provenance_roles() {
+        let mut provenance = valid_provenance();
+        provenance.authority_delegation = provenance.authority_scope.clone();
+        assert!(provenance.validate().is_err());
+    }
+
+    #[test]
+    fn rejects_logical_dependency_as_its_own_basis() {
+        let mut provenance = valid_provenance();
+        provenance.basis.push(provenance.logical_identity.clone());
         assert!(provenance.validate().is_err());
     }
 
