@@ -93,7 +93,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 validate_event_author(&event, action.author())
             }
             EntryTypes::CachedCredential(cred) => validate_credential_cache(&cred),
-            EntryTypes::Notification(_) => Ok(ValidateCallbackResult::Valid),
+            EntryTypes::Notification(notification) => validate_notification_entry(&notification),
         },
         FlatOp::CreateEntry(OpEntry::UpdateEntry {
             app_entry,
@@ -112,7 +112,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 validate_event_immutable_fields(&event, &action.original_action_address)
             }
             EntryTypes::CachedCredential(cred) => validate_credential_cache(&cred),
-            EntryTypes::Notification(_) => Ok(ValidateCallbackResult::Valid),
+            EntryTypes::Notification(_) => Ok(ValidateCallbackResult::Invalid(
+                "Notifications cannot be updated once received".into(),
+            )),
         },
         FlatOp::CreateEntry(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::CreateRecord(OpRecord::CreateEntry { app_entry, action }) => match app_entry {
@@ -181,6 +183,15 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         }
         FlatOp::Update(_) => Ok(ValidateCallbackResult::Valid),
         _ => Ok(ValidateCallbackResult::Valid),
+    }
+}
+
+fn validate_notification_entry(
+    notification: &CrossClusterNotification,
+) -> ExternResult<ValidateCallbackResult> {
+    match validate_notification(notification) {
+        Ok(()) => Ok(ValidateCallbackResult::Valid),
+        Err(reason) => Ok(ValidateCallbackResult::Invalid(reason)),
     }
 }
 
