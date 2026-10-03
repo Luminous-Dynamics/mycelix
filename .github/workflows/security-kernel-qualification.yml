@@ -1,9 +1,6 @@
 name: Security Kernel Qualification
 
 on:
-  push:
-    branches:
-      - feat/security-sovereignty-model
   pull_request:
     paths:
       - 'crates/mycelix-bridge-common/**'
