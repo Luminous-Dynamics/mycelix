@@ -135,6 +135,20 @@ struct AddToCollectionInput {
     story_hash: ActionHash,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct CrossClusterNotificationInput {
+    schema_version: u8,
+    source_cluster: String,
+    source_zome: String,
+    event_type: String,
+    target_clusters: Vec<String>,
+    target_agents: Vec<String>,
+    payload: String,
+    priority: u8,
+    created_at: Timestamp,
+    expires_at: Option<Timestamp>,
+}
+
 fn hearth_dna_path() -> PathBuf {
     let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     path.pop();
@@ -254,6 +268,34 @@ async fn test_invalid_story_entry_reaches_integrity_validation() {
     assert_integrity_rejection(result, "Story title cannot be empty");
 }
 
+
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "requires Holochain conductor (nix develop)"]
+async fn test_invalid_bridge_notification_reaches_integrity_validation() {
+    let (conductor, alice) = setup_alice().await;
+
+    let result: Result<ActionHash, _> = conductor
+        .call_fallible(
+            &alice.zome("hearth_bridge"),
+            "receive_notification",
+            CrossClusterNotificationInput {
+                schema_version: 1,
+                source_cluster: String::new(),
+                source_zome: "test".into(),
+                event_type: "test_event".into(),
+                target_clusters: vec![],
+                target_agents: vec![],
+                payload: "{}".into(),
+                priority: 1,
+                created_at: Timestamp::from_micros(1),
+                expires_at: None,
+            },
+        )
+        .await;
+
+    assert_integrity_rejection(result, "source_cluster cannot be empty");
+}
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
 async fn test_cross_hearth_collection_story_link_reaches_integrity_validation() {
