@@ -47,6 +47,21 @@ jobs:
           # module-private boundary, whether it is pub(crate), pub(super), or pub(in ...).
           # Use multiline matching so a future refactor cannot evade this guard by placing
           # the visibility modifier and item name on separate lines.
+          # The qualification lane is intentionally a low-trust pull_request/push workflow;
+          # do not broaden it to a privileged pull_request_target trigger.
+          if rg -n 'pull_request_target' .github/workflows/security-kernel-qualification.yml; then
+            echo "security-workflow regression: privileged pull_request_target trigger is forbidden" >&2
+            exit 1
+          fi
+
+          # All action references must remain immutable full-length commit pins.
+          while IFS= read -r uses_line; do
+            if [[ ! $uses_line =~ @[0-9a-fA-F]{40}([[:space:]]*#.*)?$ ]]; then
+              echo "security-workflow regression: action is not pinned to a full commit SHA: $uses_line" >&2
+              exit 1
+            fi
+          done < <(rg '^[[:space:]]*-[[:space:]]+uses:' .github/workflows/security-kernel-qualification.yml)
+
           for pattern in \
             'pub([[:space:]]*\([^)]*\))?[[:space:]]+(enum|struct|const)[[:space:]]+(SignatureVerification|RevocationStatus|AuthorityResolution|AUTHORITY_FRESHNESS_[A-Z_]+)' \
             'pub([[:space:]]*\([^)]*\))?[[:space:]]+fn[[:space:]]+(authority_binding_from_freshness_digest|new_for_capability(_with_[a-z_]+)?|binding_digest|revalidate_permit)'; do
