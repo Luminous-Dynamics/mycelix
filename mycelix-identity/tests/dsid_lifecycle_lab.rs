@@ -1437,3 +1437,52 @@ async fn dsid_018_initial_mfa_factor_is_bound_to_agent_hash() {
         true,
     );
 }
+
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_019_unsupported_did_method_returns_structured_error() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let app = conductor.setup_app(
+        "dsid-method-dispatch",
+        std::slice::from_ref(&dna),
+    ).await.unwrap();
+    let cell = app.cells()[0].clone();
+    let agent = app.agent().clone();
+
+    let created: Record = conductor
+        .call(&cell.zome("did_registry"), "create_did", ())
+        .await;
+
+    let result: DidResolutionView = conductor
+        .call(
+            &cell.zome("did_registry"),
+            "resolve_did_resolution",
+            "did:key:z6Mkunsupported".to_string(),
+        )
+        .await;
+
+    assert!(result.did_document.is_none());
+    assert!(result.document_metadata.is_none());
+    let error = result
+        .resolution_metadata
+        .error
+        .expect("unsupported method must carry a structured error");
+    assert_eq!(error.type_uri, "https://www.w3.org/ns/did#METHOD_NOT_SUPPORTED");
+    assert_eq!(error.title, "DID method not supported");
+    assert!(!error.detail.is_empty());
+
+    let mut agents = BTreeMap::new();
+    agents.insert("alice", agent.to_string());
+    emit_evidence(
+        "DSID-019",
+        "unsupported-did-method-returns-structured-error",
+        &dna,
+        agents,
+        &[&created],
+        "A syntactically valid DID using an unsupported method returns METHOD_NOT_SUPPORTED rather than INVALID_DID.",
+        format!("error_type={} title={}", error.type_uri, error.title),
+        true,
+    );
+}
