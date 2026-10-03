@@ -1417,7 +1417,7 @@ async fn dsid_018_initial_mfa_factor_is_bound_to_agent_hash() {
 
     let mut hasher = Sha256::new();
     hasher.update(agent.get_raw_39());
-    let expected_factor_id = format!("sha256:{}", hex::encode(hasher.finalize()));
+    let expected_factor_id = format!("sha256:{:x}", hasher.finalize());
     assert_eq!(
         factors[0]["factor_id"],
         expected_factor_id,
