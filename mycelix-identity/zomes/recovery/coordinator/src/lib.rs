@@ -289,6 +289,41 @@ pub fn setup_recovery(input: SetupRecoveryInput) -> ExternResult<Record> {
     )))
 }
 
+/// Browser-safe social recovery configuration projection.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RecoveryConfigView {
+    pub did: String,
+    pub trustees: Vec<String>,
+    pub threshold: u32,
+    pub time_lock_secs: u64,
+    pub active: bool,
+    pub created: i64,
+}
+
+#[hdk_extern]
+pub fn get_recovery_view(did: String) -> ExternResult<Option<RecoveryConfigView>> {
+    match get_recovery_config(did)? {
+        Some(record) => {
+            let config: RecoveryConfig = record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Invalid recovery config record".into()
+                )))?;
+            Ok(Some(RecoveryConfigView {
+                did: config.did,
+                trustees: config.trustees,
+                threshold: config.threshold,
+                time_lock_secs: config.time_lock,
+                active: config.active,
+                created: config.created.as_micros(),
+            }))
+        }
+        None => Ok(None),
+    }
+}
+
 /// Input for setting up recovery
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SetupRecoveryInput {
