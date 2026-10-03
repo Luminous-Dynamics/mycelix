@@ -75,6 +75,8 @@ Resolution state is monotonic for the purposes of qualification: once a selected
 
 The executable model therefore preserves `Stale` across node dequeue/inclusion, and the final closure status remains `BlockedCurrentness` whenever any selected dependency is stale.
 
+For a `CurrentOnly` edge, currentness is established explicitly from the selected target node and the semantic environment: the node must not be marked `historical_only`, and both the node and environment must carry a frontier root with exact equality. A missing frontier on either side is not evidence of currentness. This remains a D6X policy check rather than a mutation of the upstream D6S node commitment format, preserving upstream compatibility while preventing a mutable frontier annotation from being treated as cryptographically bound merely because the node commitment matches.
+
 ## Status semantics
 
 - **Complete** — all required dependencies found and no blocking currentness/resource condition.
@@ -179,6 +181,9 @@ The reference model currently includes fixtures for:
 36. duplicate selected node commitments fail closed at the D6X constructor boundary.
 37. duplicate selected edge commitments fail closed at the D6X constructor boundary.
 38. self-consistent status substitutions that violate missing/currentness precedence fail D6X certificate validation.
+39. a selected CurrentOnly dependency with a mismatched node frontier is Stale and blocks closure.
+40. a selected CurrentOnly dependency with omitted frontier metadata is Stale and blocks closure.
+41. a selected Any dependency remains Present when its node frontier differs from the environment frontier.
 
 Before interoperability or production claims, add cross-language golden vectors, currentness/D6P fixtures, contradiction-preservation fixtures, cycle fixtures, resource-limit fixtures, and execute the Rust/WASM/Holochain conformance corpus.
 
