@@ -1386,6 +1386,206 @@ mod tests {
         }
     }
 
+    fn assert_golden_vector(
+        corpus: &GoldenCorpusV1,
+        id: &str,
+        closure: &DependencyClosureCertificateV1,
+    ) {
+        let vector = corpus
+            .vectors
+            .iter()
+            .find(|vector| vector.id == id)
+            .unwrap_or_else(|| panic!("missing D6X golden vector: {id}"));
+
+        assert_eq!(closure.status, vector.expected.status, "status: {id}");
+        assert_eq!(
+            closure.included_node_ids.iter().cloned().collect::<Vec<_>>(),
+            vector.expected.included_node_ids,
+            "included nodes: {id}"
+        );
+        assert_eq!(
+            closure.included_edges.keys().cloned().collect::<Vec<_>>(),
+            vector.expected.included_edge_ids,
+            "included edges: {id}"
+        );
+        assert_eq!(
+            closure.missing_dependency_ids.iter().cloned().collect::<Vec<_>>(),
+            vector.expected.missing_dependency_ids,
+            "missing dependencies: {id}"
+        );
+        assert_eq!(closure.cycle_detected, vector.expected.cycle_detected, "cycle: {id}");
+        assert_eq!(
+            closure.closure_identity_commitment,
+            vector.expected.closure_identity_sha256,
+            "closure identity: {id}"
+        );
+        assert_eq!(
+            closure.commitment,
+            vector.expected.certificate_sha256,
+            "certificate commitment: {id}"
+        );
+    }
+
+    #[test]
+    fn golden_vector_hashes_match_reference_model() {
+        let corpus: GoldenCorpusV1 = serde_json::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/testdata/d6x_qualified_closure_golden_vectors.json"
+        )))
+        .expect("D6X golden vector corpus must parse");
+
+        let (baseline, environment, derivation_profile) = projection(false);
+
+        assert_golden_vector(
+            &corpus,
+            "baseline-complete",
+            &compute_dependency_closure(
+                &baseline,
+                &environment,
+                &derivation_profile,
+                &profile(BTreeSet::new()),
+            )
+            .unwrap(),
+        );
+
+        let mut edge_free_profile = profile(BTreeSet::new());
+        edge_free_profile.rules = [DependencyRuleV1 {
+            edge_kind: ClaimGraphEdgeKindV1::Provenance,
+            from_kind: Some(ClaimGraphNodeKindV1::Statement),
+            to_kind: Some(ClaimGraphNodeKindV1::Evidence),
+            currentness: DependencyCurrentnessV1::Any,
+        }]
+        .into_iter()
+        .collect();
+        assert_golden_vector(
+            &corpus,
+            "edge-free-complete",
+            &compute_dependency_closure(
+                &baseline,
+                &environment,
+                &derivation_profile,
+                &edge_free_profile,
+            )
+            .unwrap(),
+        );
+
+        assert_golden_vector(
+            &corpus,
+            "missing-required-node",
+            &compute_dependency_closure(
+                &baseline,
+                &environment,
+                &derivation_profile,
+                &profile(["missing".into()].into_iter().collect()),
+            )
+            .unwrap(),
+        );
+
+        let mut cyclic = baseline.clone();
+        cyclic.edges.insert("e2".into(), QualifiedEdgeV1 {
+            edge_id: "e2".into(),
+            from_node_id: "dep".into(),
+            to_node_id: "root".into(),
+            kind: ClaimGraphEdgeKindV1::Supports,
+            edge_commitment: "edge-e2".into(),
+            claim_ceiling: D6X_CLAIM_CEILING.into(),
+        });
+        assert_golden_vector(
+            &corpus,
+            "cyclic-complete",
+            &compute_dependency_closure(
+                &cyclic,
+                &environment,
+                &derivation_profile,
+                &profile(BTreeSet::new()),
+            )
+            .unwrap(),
+        );
+
+        let mut historical = baseline.clone();
+        historical.nodes.get_mut("dep").unwrap().historical_only = true;
+        let mut current_only = profile(BTreeSet::new());
+        current_only.rules = [DependencyRuleV1 {
+            edge_kind: ClaimGraphEdgeKindV1::Supports,
+            from_kind: Some(ClaimGraphNodeKindV1::Statement),
+            to_kind: Some(ClaimGraphNodeKindV1::Evidence),
+            currentness: DependencyCurrentnessV1::CurrentOnly,
+        }]
+        .into_iter()
+        .collect();
+        assert_golden_vector(
+            &corpus,
+            "currentness-historical",
+            &compute_dependency_closure(
+                &historical,
+                &environment,
+                &derivation_profile,
+                &current_only,
+            )
+            .unwrap(),
+        );
+
+        let mut frontier_mismatch = baseline.clone();
+        frontier_mismatch.nodes.get_mut("dep").unwrap().current_frontier_root =
+            Some("frontier-old".into());
+        assert_golden_vector(
+            &corpus,
+            "currentness-frontier-mismatch",
+            &compute_dependency_closure(
+                &frontier_mismatch,
+                &environment,
+                &derivation_profile,
+                &current_only,
+            )
+            .unwrap(),
+        );
+
+        let mut frontier_omitted = baseline.clone();
+        frontier_omitted.nodes.get_mut("dep").unwrap().current_frontier_root = None;
+        assert_golden_vector(
+            &corpus,
+            "currentness-frontier-omitted",
+            &compute_dependency_closure(
+                &frontier_omitted,
+                &environment,
+                &derivation_profile,
+                &current_only,
+            )
+            .unwrap(),
+        );
+
+        let mut node_limit = profile(BTreeSet::new());
+        node_limit.max_nodes = 1;
+        node_limit.max_edges = 1;
+        assert_golden_vector(
+            &corpus,
+            "resource-node-limit",
+            &compute_dependency_closure(
+                &baseline,
+                &environment,
+                &derivation_profile,
+                &node_limit,
+            )
+            .unwrap(),
+        );
+
+        let mut edge_limited = cyclic.clone();
+        let mut edge_limit_profile = profile(BTreeSet::new());
+        edge_limit_profile.max_nodes = 8;
+        edge_limit_profile.max_edges = 1;
+        assert_golden_vector(
+            &corpus,
+            "resource-edge-limit",
+            &compute_dependency_closure(
+                &edge_limited,
+                &environment,
+                &derivation_profile,
+                &edge_limit_profile,
+            )
+            .unwrap(),
+        );
+    }
+
     #[test]
     fn source_snapshot_mutation_changes_d6x_identity() {
         let (baseline, environment, derivation_profile) = projection(false);
