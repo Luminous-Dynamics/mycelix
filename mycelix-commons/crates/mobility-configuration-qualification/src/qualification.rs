@@ -417,6 +417,43 @@ mod tests {
     }
 
     #[test]
+    fn require_missing_is_associative_over_dependency_sets() {
+        let a = id("a");
+        let b = id("b");
+        let c = id("c");
+
+        let grouped = QualificationStatus::Complete(())
+            .require_missing(vec![a.clone()])
+            .require_missing(vec![b.clone()])
+            .require_missing(vec![c.clone()]);
+        let batched = QualificationStatus::Complete(())
+            .require_missing(vec![c, a, b]);
+
+        assert_eq!(grouped.missing(), batched.missing());
+    }
+
+    #[test]
+    fn zip_has_grouping_invariant_missing_dependencies() {
+        let first = QualificationStatus::Unresolved {
+            missing: vec![id("a")],
+            partial: 1u8,
+        };
+        let second = QualificationStatus::Unresolved {
+            missing: vec![id("b")],
+            partial: 2u8,
+        };
+        let third = QualificationStatus::Unresolved {
+            missing: vec![id("c")],
+            partial: 3u8,
+        };
+
+        let left_grouped = first.clone().zip(second.clone()).zip(third.clone());
+        let right_grouped = first.zip(second.zip(third));
+
+        assert_eq!(left_grouped.missing(), right_grouped.missing());
+    }
+
+    #[test]
     fn map_preserves_resolution_state() {
         let complete = QualificationStatus::Complete(2u8).map(|value| value * 2);
         assert_eq!(complete, QualificationStatus::Complete(4u8));
