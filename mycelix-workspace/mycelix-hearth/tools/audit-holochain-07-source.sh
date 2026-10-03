@@ -424,13 +424,15 @@ check_semantic_validation_suite_wiring() {
   if [[ -f "$manifest" ]]; then
     check_present_any "Hearth semantic-validation case schema" '"schema_version"[[:space:]]*:[[:space:]]*"HEARTH-SEMANTIC-0.7-CASESET-1"'
     check_present_any "Hearth semantic-validation runtime claim ceiling" 'RuntimeQualificationPending'
-    for case_id in SEM-01 SEM-02 SEM-03; do
-      if rg -n --fixed-strings "\"case_id\": \"$case_id\"" "$manifest" >/dev/null 2>&1; then
-        echo "OK:   semantic-validation manifest contains $case_id"
-      else
-        echo "FAIL: semantic-validation manifest missing $case_id"
-        fail=1
-      fi
+    case_count="$(rg -o '"case_id"[[:space:]]*:[[:space:]]*"SEM-[0-9]+"' "$manifest" | wc -l)"
+    test_count="$(rg -o '^async fn test_[A-Za-z0-9_]+\(' "$rust_test" | wc -l)"
+    if [[ "$case_count" -eq 0 || "$case_count" -ne "$test_count" ]]; then
+      echo "FAIL: semantic manifest/test count mismatch: cases=$case_count tests=$test_count"
+      fail=1
+    else
+      echo "OK:   semantic-validation manifest covers $case_count executable tests"
+    fi
+  fi
     done
   fi
 
