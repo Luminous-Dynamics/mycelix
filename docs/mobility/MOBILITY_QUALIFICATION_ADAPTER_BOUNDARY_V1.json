@@ -73,7 +73,10 @@
         "protocol_address_type": "EntryHash",
         "host_function": "must_get_entry"
       }
-    ]
+    ],
+    "valid_record_semantics": "inductive_validity_of_the_referenced_create_record_as_reported_by_visible_validation_authorities",
+    "valid_record_does_not_prove_later_operations_valid": true,
+    "unavailable_valid_record_maps_to_protocol_unresolved": true
   },
   "determinism": {
     "retrieval_order_independent": true,
