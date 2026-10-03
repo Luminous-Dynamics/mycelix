@@ -21,7 +21,7 @@ The first deterministic authority boundary is implemented in
 
 The kernel provides:
 
-- `Capability` and `AuthorizationRequest` as explicit inputs.
+- `Capability` and `AuthorizationRequest` as explicit inputs; both wire-deserialization paths are constructor-gated so serialized input cannot bypass their constructor invariants.
 - `VerificationEvidence` as an opaque, non-serializable hand-off from an independent cryptographic/identity verifier; its trusted fields cannot be constructed or deserialized by downstream callers.
 - `VerifiedCapability` as a non-forgeable-in-module boundary object.
 - `AuthorizationDecision::Allow | Deny | Indeterminate`.
@@ -29,7 +29,7 @@ The kernel provides:
 - Explicit denial for invalid, revoked, expired, subject-mismatched, action-mismatched, stale-policy, and evidence-mismatched capabilities.
 - Explicit indeterminate handling for ambiguous authority.
 
-This directly exercises I-2, I-4, I-7, and I-8 at the shared-type boundary. The capability commitment is additionally regression-tested against every authority-relevant capability field (subject, issuer, resource, action set, validity bounds, and policy version), so omission of a field from the signed/committed semantic representation is detected deterministically. The qualification lane also guards the negative API surface: trust-construction items must remain module-private under any Rust visibility form, and the opaque evidence/linear enforcement tokens must not gain serialization implementations. These are regression guards, not provenance proof. It does **not** yet constitute cryptographic verification, a complete revocation protocol, or multi-agent evidence; those remain integration work.
+This directly exercises I-2, I-4, I-7, and I-8 at the shared-type boundary. The capability commitment is additionally regression-tested against every authority-relevant capability field (subject, issuer, resource, action set, validity bounds, and policy version), so omission of a field from the signed/committed semantic representation is detected deterministically. The qualification lane also guards the negative API surface: trust-construction items must remain module-private under any Rust visibility form, the `Capability`/`AuthorizationRequest` wire constructor gates must remain present, and the opaque evidence/linear enforcement tokens must not gain serialization implementations. These are regression guards, not provenance proof. It does **not** yet constitute cryptographic verification, a complete revocation protocol, or multi-agent evidence; those remain integration work.
 
 ## Current enforcement boundary
 
