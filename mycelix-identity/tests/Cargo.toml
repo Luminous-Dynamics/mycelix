@@ -26,6 +26,7 @@ sha2 = "0.10"
 
 # Utilities
 chrono = "0.4"
+mycelix-crypto = { path = "../crates/mycelix-crypto" }
 uuid = { version = "1.6", features = ["v4"] }
 
 # DID Registry Integration Tests
