@@ -270,29 +270,6 @@ pub struct EnforcementRequest {
     authority_binding: [u8; 32],
 }
 
-impl AuthorizationPermit {
-    pub fn request(&self) -> &AuthorizationRequest {
-        &self.request
-    }
-
-    pub fn issued_at_us(&self) -> u64 {
-        self.issued_at_us
-    }
-
-    pub fn valid_until_us(&self) -> u64 {
-        self.valid_until_us
-    }
-
-    /// Returns whether this permit is valid at the supplied timestamp.
-    ///
-    /// Permit validity uses an exclusive expiry boundary: equality with
-    /// valid_until_us is already stale. This matches the evidence lease
-    /// semantics enforced at the revalidation boundary.
-    pub fn is_valid_at(&self, now_us: u64) -> bool {
-        self.issued_at_us <= now_us && now_us < self.valid_until_us
-    }
-}
-
 impl EnforcementRequest {
     /// Construct only from a permit that is still valid and whose independent
     /// verification evidence remains authoritative.
