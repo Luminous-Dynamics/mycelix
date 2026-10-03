@@ -55,7 +55,7 @@ The Identity integrity layer additionally validates canonical \`AgentToDid\` lin
 - the target must be an action containing a valid DID document;
 - the target DID and controller must match the base agent.
 
-Substrate/provider discovery uses a separate `SubstrateRoleToAgent` link type. It is not overloaded onto `DidToService`; this lets DID service links and global provider advertisements have distinct authorization semantics.
+Substrate/provider discovery uses a separate `SubstrateRoleToAgent` link type. It is not overloaded onto `DidToService`; this lets DID service links and global provider advertisements have distinct authorization semantics. Provider resolution also re-checks the provider's canonical DID and excludes deactivated identities, so stale advertisements do not resolve as active providers.
 
 This prevents an unrelated agent from creating a namespace link that redirects resolution to another DID.
 
