@@ -67,3 +67,17 @@ A binding is therefore accepted only after both halves are independently valid:
 **provenance witness** + **typed protocol address**
 
 The resolved dependency carries the same provenance witness forward, so downstream validation does not lose the explanation for why the logical dependency was bound.
+
+
+## Optional signed attestation
+
+The adapter also supports an optional signed binding attestation. The attestation payload canonically serializes:
+
+- the schema identifier;
+- the complete pure binding-provenance witness;
+- the concrete Holochain address;
+- the retrieval kind.
+
+Holochain 0.8 provides deterministic `verify_signature` over serializable values, so the adapter can verify this payload before accepting an attested binding. A failed signature is semantic invalidity; an actual host failure from signature verification remains an `ExternResult::Err`.
+
+The signature establishes authorship of the exact binding statement by the supplied Holochain agent key. It does not by itself establish that the signer corresponds to the domain authority identity named inside the provenance witness. That relationship remains a separate provenance/authority question and must not be inferred by the adapter.
