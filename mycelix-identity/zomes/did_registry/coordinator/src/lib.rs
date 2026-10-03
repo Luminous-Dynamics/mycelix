@@ -287,8 +287,8 @@ pub struct DidDocumentView {
     pub verification_methods: Vec<DidVerificationMethodView>,
     pub key_agreements: Vec<String>,
     pub services: Vec<DidServiceView>,
-    pub created: i64,
-    pub updated: i64,
+    pub created: String,
+    pub updated: String,
     pub version: u32,
     pub active: bool,
 }
