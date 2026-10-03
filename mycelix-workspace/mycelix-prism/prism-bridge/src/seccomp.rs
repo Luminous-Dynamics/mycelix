@@ -1806,6 +1806,100 @@ mod linux {
         }
 
         #[test]
+        fn v2_dispatch_offsets_match_64bit_masked_not_equal_bodies() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let target = 0x0000_0001_0000_0001;
+
+            let single_rule = SeccompSyscallRuleV2::new(
+                libc::SYS_lseek,
+                vec![SeccompArgPredicateV1::new_with_op(
+                    1,
+                    u64::MAX,
+                    target,
+                    SeccompArgPredicateOpV1::MaskedNotEqual,
+                )
+                .unwrap()],
+            )
+            .unwrap();
+            let single_policy = SeccompSyscallPolicyV2::new(
+                arch,
+                vec![
+                    single_rule,
+                    SeccompSyscallRuleV2::new(libc::SYS_prctl, Vec::new()).unwrap(),
+                ],
+            )
+            .unwrap();
+            let single_filter = compile_filter_v2(&single_policy).unwrap();
+            let single_lseek = single_filter
+                .iter()
+                .position(|instruction| {
+                    instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                        && instruction.k == libc::SYS_lseek as u32
+                })
+                .unwrap();
+            let single_prctl = single_filter
+                .iter()
+                .position(|instruction| {
+                    instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                        && instruction.k == libc::SYS_prctl as u32
+                })
+                .unwrap();
+            assert_eq!(
+                single_filter[single_lseek].jf as usize,
+                single_prctl - single_lseek - 1,
+                "single-clause 64-bit MaskedNotEqual body length must match dispatch"
+            );
+            assert_eq!(single_filter[single_lseek].jf, 8);
+
+            let first = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new_with_op(
+                    1,
+                    u64::MAX,
+                    target,
+                    SeccompArgPredicateOpV1::MaskedNotEqual,
+                )
+                .unwrap(),
+            ])
+            .unwrap();
+            let second = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(1, u64::MAX, target).unwrap(),
+            ])
+            .unwrap();
+            let disj_rule =
+                SeccompSyscallRuleV2::new_with_clauses(libc::SYS_lseek, vec![first, second])
+                    .unwrap();
+            let disj_policy = SeccompSyscallPolicyV2::new(
+                arch,
+                vec![
+                    disj_rule,
+                    SeccompSyscallRuleV2::new(libc::SYS_prctl, Vec::new()).unwrap(),
+                ],
+            )
+            .unwrap();
+            let disj_filter = compile_filter_v2(&disj_policy).unwrap();
+            let disj_lseek = disj_filter
+                .iter()
+                .position(|instruction| {
+                    instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                        && instruction.k == libc::SYS_lseek as u32
+                })
+                .unwrap();
+            let disj_prctl = disj_filter
+                .iter()
+                .position(|instruction| {
+                    instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                        && instruction.k == libc::SYS_prctl as u32
+                })
+                .unwrap();
+            assert_eq!(
+                disj_filter[disj_lseek].jf as usize,
+                disj_prctl - disj_lseek - 1,
+                "disjunctive 64-bit MaskedNotEqual body length must match dispatch"
+            );
+            assert_eq!(disj_filter[disj_lseek].jf, 17);
+        }
+
+        #[test]
         fn v2_disjunctive_masked_not_equal_failure_reaches_later_clause() {
             let arch = SeccompArchitecture::current().unwrap();
             let not_equal = SeccompSyscallClauseV2::new(vec![
