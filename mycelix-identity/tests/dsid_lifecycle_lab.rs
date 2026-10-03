@@ -2591,7 +2591,8 @@ async fn dsid_034_canonical_did_reads_follow_latest_update_chain() {
         did,
     ).await;
     let metadata = resolved.document_metadata.expect("successful resolution must return document metadata");
-    assert_eq!(metadata.version_id.as_deref(), Some(&updated_doc.version.to_string()));
+    let expected_version_id = updated_doc.version.to_string();
+    assert_eq!(metadata.version_id.as_deref(), Some(expected_version_id.as_str()));
     assert!(metadata.updated.is_some());
 
     let mut agents = BTreeMap::new();
