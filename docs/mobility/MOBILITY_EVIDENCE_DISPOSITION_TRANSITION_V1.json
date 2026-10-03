@@ -446,6 +446,16 @@
       "id": "EDT-087",
       "case": "append_can_fill_a_previously_missing_predecessor",
       "expected": "accepted"
+    },
+    {
+      "id": "EDT-088",
+      "case": "qualification_status_composes_multiple_unresolved_dependency_paths_deterministically",
+      "expected": "unresolved_at_protocol_layer"
+    },
+    {
+      "id": "EDT-089",
+      "case": "reconciliation_coverage_rejects_known_nested_heads_even_with_unresolved_authority_chain",
+      "expected": "rejected"
     }
   ]
 }
