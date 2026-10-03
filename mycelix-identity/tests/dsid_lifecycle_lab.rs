@@ -1184,3 +1184,111 @@ async fn dsid_015_verification_method_rotation_preserves_historical_reference() 
         true,
     );
 }
+
+    
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_016_historical_versions_are_deterministically_resolvable() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let app = conductor.setup_app(
+        "dsid-version-history",
+        std::slice::from_ref(&dna),
+    ).await.unwrap();
+    let cell = app.cells()[0].clone();
+    let agent = app.agent().clone();
+
+    let created: Record = conductor
+        .call(&cell.zome("did_registry"), "create_did", ())
+        .await;
+    let initial: DidDocument = decode_entry(&created).expect("initial DID must decode");
+
+    let update_one: Record = conductor
+        .call(
+            &cell.zome("did_registry"),
+            "update_did_document",
+            serde_json::json!({
+                "verificationMethod": null,
+                "authentication": null,
+                "keyAgreement": null,
+                "service": [{
+                    "id": format!("{}#service-v2", initial.id),
+                    "type": "VersionTwoService",
+                    "serviceEndpoint": "https://identity.mycelix.net/v2"
+                }]
+            }),
+        )
+        .await;
+    let update_one_doc: DidDocument = decode_entry(&update_one).expect("version 2 must decode");
+
+    let update_two: Record = conductor
+        .call(
+            &cell.zome("did_registry"),
+            "update_did_document",
+            serde_json::json!({
+                "verificationMethod": null,
+                "authentication": null,
+                "keyAgreement": null,
+                "service": [{
+                    "id": format!("{}#service-v3", initial.id),
+                    "type": "VersionThreeService",
+                    "serviceEndpoint": "https://identity.mycelix.net/v3"
+                }]
+            }),
+        )
+        .await;
+    let update_two_doc: DidDocument = decode_entry(&update_two).expect("version 3 must decode");
+
+    assert_eq!(update_one_doc.version, 2);
+    assert_eq!(update_two_doc.version, 3);
+
+    for expected_version in [1u32, 2u32, 3u32] {
+        let historical: Option<Record> = conductor
+            .call(
+                &cell.zome("did_registry"),
+                "resolve_did_version",
+                serde_json::json!({
+                    "did": initial.id,
+                    "version": expected_version
+                }),
+            )
+            .await;
+        let historical = historical.expect("every committed version must remain resolvable");
+        let document: DidDocument = decode_entry(&historical).expect("historical DID must decode");
+        assert_eq!(document.id, initial.id);
+        assert_eq!(document.version, expected_version);
+    }
+
+    let missing: Option<Record> = conductor
+        .call(
+            &cell.zome("did_registry"),
+            "resolve_did_version",
+            serde_json::json!({
+                "did": initial.id,
+                "version": 99
+            }),
+        )
+        .await;
+    assert!(missing.is_none(), "unknown version must return not-found rather than guessing");
+
+    let current: DidDocument = decode_entry(
+        &conductor
+            .call::<Record>(&cell.zome("did_registry"), "get_my_did", ())
+            .await,
+    )
+    .expect("canonical DID must decode");
+    assert_eq!(current.version, 3);
+
+    let mut agents = BTreeMap::new();
+    agents.insert("alice", agent.to_string());
+    emit_evidence(
+        "DSID-016",
+        "historical-versions-are-deterministically-resolvable",
+        &dna,
+        agents,
+        &[&created, &update_one, &update_two],
+        "Each committed DID version remains addressable by exact version number while canonical resolution advances to the newest version.",
+        format!("current_version={} historical_versions=1,2,3 unknown_version_returns_none=true", current.version),
+        true,
+    );
+}
