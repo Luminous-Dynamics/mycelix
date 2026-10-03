@@ -112,16 +112,10 @@ impl<A> QualificationDependencyBindingSet<A> {
             return Err(missing);
         }
 
-        Ok(requested
+        Ok(self
+            .bindings
             .iter()
-            .map(|identity| {
-                (
-                    identity,
-                    self.bindings
-                        .get(identity)
-                        .expect("requested identity was proven bound"),
-                )
-            })
+            .filter(|(identity, _)| requested.contains(*identity))
             .collect())
     }
 
