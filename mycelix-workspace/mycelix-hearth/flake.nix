@@ -93,7 +93,10 @@
           zomes = pkgs.stdenv.mkDerivation {
             name = "mycelix-hearth-zomes";
             src = ./.;
-            nativeBuildInputs = [ holochainBase.rustToolchain pkgs.pkg-config ];
+            # Keep package builds on the exact Holonix 0.7 toolchain used by CI.
+            # Do not reintroduce the shared Mycelix Rust floor here: Holonix 0.7
+            # owns the compiler version required by the pinned Holochain release.
+            nativeBuildInputs = [ holochainPackages.rust pkgs.pkg-config ];
             buildInputs = [ pkgs.openssl ];
             buildPhase = ''
               export HOME=$TMPDIR
