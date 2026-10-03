@@ -154,7 +154,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 LinkTypes::SubstrateRoleToAgent => {
                     validate_substrate_role_link(&base_address, &target_address, &action)
                 }
-                LinkTypes::DidHistory => Ok(ValidateCallbackResult::Valid),
+                LinkTypes::DidHistory => {
+                    validate_agent_to_did_link(&base_address, &target_address, &action)
+                },
             }
         }
         FlatOp::RegisterDeleteLink {
@@ -452,10 +454,57 @@ fn validate_update_did_document(
         ));
     }
 
-    // Version must increment
-    if did_doc.version <= original.version {
+    // Version is a method-level monotonic sequence, so every accepted
+    // update must advance exactly one version. This prevents gaps that make
+    // `versionId` selection ambiguous.
+    if did_doc.version != original.version.saturating_add(1) {
         return Ok(ValidateCallbackResult::Invalid(
-            "DID version must increase on update".into(),
+            format!(
+                "DID version must increment exactly by 1 (expected {}, got {})",
+                original.version.saturating_add(1),
+                did_doc.version
+            ),
+        ));
+    }
+
+    // Every verification-method ID must be unique and every method must remain
+    // controlled by this DID. References in authentication/keyAgreement must
+    // resolve to an actual verification method in the new document.
+    let method_ids: std::collections::BTreeSet<&str> = did_doc
+        .verification_method
+        .iter()
+        .map(|method| method.id.as_str())
+        .collect();
+    if method_ids.len() != did_doc.verification_method.len() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "DID verification method IDs must be unique".into(),
+        ));
+    }
+    if did_doc
+        .verification_method
+        .iter()
+        .any(|method| method.controller != did_doc.id)
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "DID verification methods must be controlled by the DID".into(),
+        ));
+    }
+    if did_doc
+        .authentication
+        .iter()
+        .any(|reference| !method_ids.contains(reference.as_str()))
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "DID authentication references must resolve to verification methods".into(),
+        ));
+    }
+    if did_doc
+        .key_agreement
+        .iter()
+        .any(|reference| !method_ids.contains(reference.as_str()))
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "DID keyAgreement references must resolve to verification methods".into(),
         ));
     }
 
