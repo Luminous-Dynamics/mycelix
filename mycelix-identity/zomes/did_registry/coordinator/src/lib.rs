@@ -208,7 +208,7 @@ pub fn post_commit(committed_actions: Vec<SignedActionHashed>) {
         let payload = serde_json::json!({
             "did": document.id,
             "version": document.version,
-            "event": if matches!(action.action().data, ActionData::Create(_)) {
+            "event": if matches!(&action.action().data, ActionData::Create(_)) {
                 "did_created"
             } else {
                 "did_updated"
