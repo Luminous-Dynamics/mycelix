@@ -1762,3 +1762,153 @@ async fn dsid_022_recovery_quorum_is_derived_cross_agent_from_dht() {
         true,
     );
 }
+
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_023_orphan_recovery_votes_are_rejected() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let app = conductor.setup_app(
+        "dsid-orphan-vote",
+        std::slice::from_ref(&dna),
+    ).await.unwrap();
+    let cell = app.cells()[0].clone();
+    let agent = app.agent().clone();
+
+    let result: Result<Record, _> = conductor
+        .call_fallible(
+            &cell.zome("recovery"),
+            "vote_on_recovery",
+            serde_json::json!({
+                "request_id": "recovery:nonexistent:1",
+                "trustee_did": format!("did:mycelix:{}", agent),
+                "vote": "Approve"
+            }),
+        )
+        .await;
+
+    assert!(result.is_err(), "orphan vote must be rejected");
+
+    let mut agents = BTreeMap::new();
+    agents.insert("alice", agent.to_string());
+    emit_evidence(
+        "DSID-023",
+        "orphan-recovery-votes-are-rejected",
+        &dna,
+        agents,
+        &[],
+        "A recovery vote must reference an existing DHT-visible recovery request.",
+        format!("orphan_vote_rejected={}", result.is_err()),
+        true,
+    );
+}
+
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_024_non_trustee_recovery_votes_are_rejected() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let alice_app = conductor.setup_app(
+        "dsid-nontrustee-alice",
+        std::slice::from_ref(&dna),
+    ).await.unwrap();
+    let bob_app = conductor.setup_app(
+        "dsid-nontrustee-bob",
+        std::slice::from_ref(&dna),
+    ).await.unwrap();
+    let carol_app = conductor.setup_app(
+        "dsid-nontrustee-carol",
+        std::slice::from_ref(&dna),
+    ).await.unwrap();
+    let dave_app = conductor.setup_app(
+        "dsid-nontrustee-dave",
+        std::slice::from_ref(&dna),
+    ).await.unwrap();
+
+    let alice = alice_app.cells()[0].clone();
+    let dave = dave_app.cells()[0].clone();
+
+    let _alice_did: Record = conductor
+        .call(&alice.zome("did_registry"), "create_did", ())
+        .await;
+    let _bob_did: Record = conductor
+        .call(&bob_app.cells()[0].zome("did_registry"), "create_did", ())
+        .await;
+    let _carol_did: Record = conductor
+        .call(&carol_app.cells()[0].zome("did_registry"), "create_did", ())
+        .await;
+    let _dave_did: Record = conductor
+        .call(&dave.zome("did_registry"), "create_did", ())
+        .await;
+
+    let alice_did = format!("did:mycelix:{}", alice_app.agent());
+    let bob_did = format!("did:mycelix:{}", bob_app.agent());
+    let carol_did = format!("did:mycelix:{}", carol_app.agent());
+    let dave_did = format!("did:mycelix:{}", dave_app.agent());
+
+    let setup: Record = conductor
+        .call(
+            &alice.zome("recovery"),
+            "setup_recovery",
+            serde_json::json!({
+                "did": alice_did,
+                "trustees": [alice_did.clone(), bob_did, carol_did],
+                "threshold": 2,
+                "time_lock": 86400
+            }),
+        )
+        .await;
+
+    await_consistency(&[alice.clone(), dave.clone()])
+        .await
+        .expect("recovery config must reach DHT");
+
+    let request: Record = conductor
+        .call(
+            &alice.zome("recovery"),
+            "initiate_recovery",
+            serde_json::json!({
+                "did": alice_did,
+                "initiator_did": format!("did:mycelix:{}", alice_app.agent()),
+                "new_agent": bob_app.agent(),
+                "reason": "DSID non-trustee vote"
+            }),
+        )
+        .await;
+    let request_data: RecoveryRequestMirror =
+        request.entry().to_app_option().expect("request must decode").expect("request entry present");
+
+    await_consistency(&[alice.clone(), dave.clone()])
+        .await
+        .expect("request must reach DHT");
+
+    let forged: Result<Record, _> = conductor
+        .call_fallible(
+            &dave.zome("recovery"),
+            "vote_on_recovery",
+            serde_json::json!({
+                "request_id": request_data.id,
+                "trustee_did": dave_did,
+                "vote": "Approve"
+            }),
+        )
+        .await;
+
+    assert!(forged.is_err(), "non-trustee vote must be rejected");
+
+    let mut agents = BTreeMap::new();
+    agents.insert("alice", alice_app.agent().to_string());
+    agents.insert("dave", dave_app.agent().to_string());
+    emit_evidence(
+        "DSID-024",
+        "non-trustee-recovery-votes-are-rejected",
+        &dna,
+        agents,
+        &[&setup, &request],
+        "A caller that is not a configured trustee cannot author a recovery vote.",
+        format!("non_trustee_vote_rejected={}", forged.is_err()),
+        true,
+    );
+}
