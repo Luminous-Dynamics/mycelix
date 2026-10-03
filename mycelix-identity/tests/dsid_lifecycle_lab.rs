@@ -2549,3 +2549,66 @@ async fn dsid_033_cancel_uses_pinned_recovery_config() {
         true,
     );
 }
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_034_canonical_did_reads_follow_latest_update_chain() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let app = conductor.setup_app("dsid-did-latest", std::slice::from_ref(&dna)).await.unwrap();
+    let cell = app.cells()[0].clone();
+    let agent = app.agent().clone();
+
+    let created: Record = conductor.call(&cell.zome("did_registry"), "create_did", ()).await;
+    let initial: DidDocument = decode_entry(&created).unwrap();
+
+    let updated: Record = conductor.call(
+        &cell.zome("did_registry"),
+        "update_did_document",
+        serde_json::json!({
+            "verificationMethod": null,
+            "authentication": null,
+            "keyAgreement": null,
+            "service": [{
+                "id": format!("{}#latest", initial.id),
+                "type": "LatestStateProbe",
+                "serviceEndpoint": "https://identity.mycelix.net/latest"
+            }]
+        }),
+    ).await;
+    let updated_doc: DidDocument = decode_entry(&updated).unwrap();
+    assert_eq!(updated_doc.version, initial.version + 1);
+
+    let canonical: Record = conductor.call(&cell.zome("did_registry"), "get_my_did", ()).await;
+    let canonical_doc: DidDocument = decode_entry(&canonical).unwrap();
+    assert_eq!(canonical_doc.version, updated_doc.version);
+    assert_eq!(canonical_doc.updated, updated_doc.updated);
+
+    let did = format!("did:mycelix:{}", agent);
+    let resolved: DidResolutionView = conductor.call(
+        &cell.zome("did_registry"),
+        "resolve_did_resolution",
+        did,
+    ).await;
+    let metadata = resolved.document_metadata.expect("successful resolution must return document metadata");
+    assert_eq!(metadata.version_id.as_deref(), Some(&updated_doc.version.to_string()));
+    assert!(metadata.updated.is_some());
+
+    let mut agents = BTreeMap::new();
+    agents.insert("alice", agent.to_string());
+    emit_evidence(
+        "DSID-034",
+        "canonical-did-reads-follow-latest-update-chain",
+        &dna,
+        agents,
+        &[&created, &updated, &canonical],
+        "Canonical DID reads must follow the latest valid update chain rather than dereferencing only the original AgentToDid action.",
+        format!(
+            "canonical_version={} resolved_version_id={} latest_update_visible={}",
+            canonical_doc.version,
+            metadata.version_id.as_deref().unwrap_or("missing"),
+            canonical_doc.version == updated_doc.version
+        ),
+        true,
+    );
+}
