@@ -156,6 +156,8 @@ The current implementation includes:
 - owner-bound canonical DID links;
 - owner-bound deactivation links;
 - MFA initialization as a fail-closed creation dependency;
+- initial MFA primary-key factor identifiers derived from SHA-256 of the canonical AgentPubKey representation;
+- MFA refuses initialization when canonical DID existence cannot be verified;
 - type-specific, coordinator-authoritative MFA strength decay;
 - browser redaction of raw MFA factor identifiers and metadata;
 - progressive self-recovery state exposed through a typed projection;
@@ -217,6 +219,7 @@ The current qualification laboratory maps concrete protocol behavior to determin
 | DSID-015 | verification-method rotation preserves historical DID URL references |
 | DSID-016 | deterministic historical DID version resolution |
 | DSID-017 | structured W3C not-found resolution error |
+| DSID-018 | initial MFA factor hash binding |
 
 The qualification workflow records scenario IDs, agents, DNA hash, action hashes, entry hashes, expected and observed behavior, pass state, and commit SHA, then hashes the complete evidence capsule.
 
