@@ -621,7 +621,9 @@ pub fn vote_on_recovery(input: VoteOnRecoveryInput) -> ExternResult<Record> {
 
     let action_hash = create_entry(&EntryTypes::RecoveryVote(vote))?;
 
-    // Link to request
+    // Index the vote from the deterministic request-ID anchor. Readers and
+    // integrity validation use this same base, allowing every peer to derive
+    // the quorum from DHT-visible trustee votes.
     let request_hash = string_to_entry_hash(&input.request_id);
     create_link(
         request_hash,
