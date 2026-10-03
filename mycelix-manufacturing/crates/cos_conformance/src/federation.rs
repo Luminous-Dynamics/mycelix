@@ -1144,6 +1144,50 @@ mod tests {
     }
 
     #[test]
+    fn source_observations_track_admitted_deliveries() {
+        let mut state = nodes();
+        assert_eq!(source_observation_count(&state), 0);
+        assert_eq!(state.delivery_count(), 0);
+
+        let local = envelope();
+        assert_eq!(
+            deliver(&mut state, &local, 50, true).decision,
+            FederationDecision::AcceptedLocal
+        );
+        assert_eq!(source_observation_count(&state), 1);
+        assert_eq!(state.delivery_count(), 1);
+
+        let mut foreign = envelope();
+        foreign.envelope_id = "env-source-foreign".into();
+        foreign.logical_delivery_id = "delivery-source-foreign".into();
+        foreign.attempt_id = "attempt-source-foreign".into();
+        foreign.origin_node = "node-b".into();
+        foreign.target_node = "node-a".into();
+        assert_eq!(
+            deliver(&mut state, &foreign, 50, true).decision,
+            FederationDecision::AcceptedForeign
+        );
+        assert_eq!(source_observation_count(&state), 2);
+        assert_eq!(state.delivery_count(), 2);
+
+        let independent = ObservationRecord {
+            observation_id: "obs-non-source".into(),
+            semantic_subject_id: "subject-1".into(),
+            payload_commitment: "sha256:independent".into(),
+            origin_node: "node-a".into(),
+            origin_node_known: false,
+            recognized_by: None,
+            source_observation: false,
+        };
+        assert_eq!(
+            record_observation(&mut state, independent),
+            ObservationWriteResult::Inserted
+        );
+        assert_eq!(source_observation_count(&state), 2);
+        assert_eq!(state.observation_count(), 3);
+    }
+
+    #[test]
     fn local_authority_stays_local() {
         let mut state = nodes();
         let outcome = deliver(&mut state, &envelope(), 50, true);
