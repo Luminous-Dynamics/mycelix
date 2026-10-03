@@ -145,6 +145,11 @@
     "unknown_field_tests": [
       "authority_agent_payload_rejects_unknown_wire_fields",
       "binding_attestation_payload_rejects_unknown_wire_fields"
+    ],
+    "schema_identifier_changes_rejected_as_semantic_invalidity": true,
+    "schema_identifier_tests": [
+      "authority_agent_payload_rejects_schema_identifier_change",
+      "binding_attestation_payload_rejects_schema_identifier_change"
     ]
   },
   "authority_agent_binding": {
