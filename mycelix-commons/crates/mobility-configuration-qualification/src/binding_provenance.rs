@@ -1,0 +1,137 @@
+use crate::identity_lineage::{IdentityKind, IdentityRef};
+
+/// Structural provenance witness explaining why a logical qualification
+/// dependency is allowed to participate in a runtime binding.
+///
+/// This witness deliberately contains no protocol address. The Holochain
+/// adapter binds the same logical identity to a concrete ActionHash/EntryHash
+/// separately. The witness therefore explains provenance without becoming a
+/// second interpretation of protocol addresses.
+///
+/// This is a structural provenance statement, not a cryptographic proof,
+/// legal authority assertion, or global completeness claim.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct QualificationDependencyBindingProvenance {
+    pub witness_identity: IdentityRef,
+    pub logical_identity: IdentityRef,
+    pub authority: IdentityRef,
+    pub basis: Vec<IdentityRef>,
+}
+
+impl QualificationDependencyBindingProvenance {
+    pub fn validate(&self) -> Result<(), String> {
+        self.witness_identity.validate()?;
+        if self.witness_identity.kind != IdentityKind::ReconciliationWitness {
+            return Err(
+                "dependency binding provenance witness must use ReconciliationWitness identity kind"
+                    .into(),
+            );
+        }
+
+        self.logical_identity.validate()?;
+        self.authority.validate()?;
+
+        if self.witness_identity == self.logical_identity {
+            return Err("binding provenance witness cannot identify the bound dependency itself".into());
+        }
+
+        if self.authority == self.logical_identity {
+            return Err("binding provenance authority must be distinct from the bound dependency".into());
+        }
+
+        if self.basis.is_empty() {
+            return Err("binding provenance requires at least one basis witness".into());
+        }
+
+        let mut seen = std::collections::BTreeSet::new();
+        for basis in &self.basis {
+            basis.validate()?;
+            if !seen.insert(basis) {
+                return Err("binding provenance basis witnesses must be unique".into());
+            }
+        }
+
+        if !seen.contains(&self.authority) {
+            return Err(
+                "binding provenance basis must include the exact authority witness".into(),
+            );
+        }
+
+        Ok(())
+    }
+
+    pub fn matches_logical_identity(&self, logical_identity: &IdentityRef) -> bool {
+        &self.logical_identity == logical_identity
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn id(value: &str) -> IdentityRef {
+        IdentityRef {
+            kind: IdentityKind::EvidenceRecord,
+            namespace: "mobility".into(),
+            id: value.into(),
+        }
+    }
+
+    fn witness(value: &str) -> IdentityRef {
+        IdentityRef {
+            kind: IdentityKind::ReconciliationWitness,
+            namespace: "mobility".into(),
+            id: value.into(),
+        }
+    }
+
+    fn valid_provenance() -> QualificationDependencyBindingProvenance {
+        let authority = id("authority");
+        QualificationDependencyBindingProvenance {
+            witness_identity: witness("binding-witness"),
+            logical_identity: id("dependency"),
+            authority: authority.clone(),
+            basis: vec![authority, id("basis")],
+        }
+    }
+
+    #[test]
+    fn accepts_well_formed_binding_provenance() {
+        assert!(valid_provenance().validate().is_ok());
+    }
+
+    #[test]
+    fn rejects_wrong_witness_kind() {
+        let mut provenance = valid_provenance();
+        provenance.witness_identity = id("not-a-witness");
+        assert!(provenance.validate().is_err());
+    }
+
+    #[test]
+    fn rejects_empty_basis() {
+        let mut provenance = valid_provenance();
+        provenance.basis.clear();
+        assert!(provenance.validate().is_err());
+    }
+
+    #[test]
+    fn rejects_duplicate_basis() {
+        let mut provenance = valid_provenance();
+        provenance.basis.push(provenance.basis[0].clone());
+        assert!(provenance.validate().is_err());
+    }
+
+    #[test]
+    fn rejects_authority_omission_from_basis() {
+        let mut provenance = valid_provenance();
+        provenance.basis.retain(|basis| basis != &provenance.authority);
+        assert!(provenance.validate().is_err());
+    }
+
+    #[test]
+    fn rejects_logical_identity_mismatch_when_bound() {
+        let provenance = valid_provenance();
+        assert!(!provenance.matches_logical_identity(&id("other")));
+        assert!(provenance.matches_logical_identity(&id("dependency")));
+    }
+}
