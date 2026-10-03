@@ -112,6 +112,7 @@ pub struct DeliveryRecord {
     contract: ImmutableDeliveryContract,
     authority: AuthorityDisposition,
     attempts: BTreeSet<String>,
+    source_observation_id: String,
 }
 
 impl DeliveryRecord {
@@ -125,6 +126,10 @@ impl DeliveryRecord {
 
     pub fn attempts(&self) -> &BTreeSet<String> {
         &self.attempts
+    }
+
+    pub fn source_observation_id(&self) -> &str {
+        &self.source_observation_id
     }
 }
 
@@ -650,6 +655,7 @@ pub fn deliver(
             contract: ImmutableDeliveryContract::from(envelope),
             authority,
             attempts: BTreeSet::from([envelope.attempt_id.clone()]),
+            source_observation_id: envelope.envelope_id.clone(),
         },
     );
 
@@ -945,6 +951,30 @@ fn delivery_attempts_snapshot(
         .collect()
 }
 
+fn source_observation_matches_delivery(state: &FederationState, record: &DeliveryRecord) -> bool {
+    let Some(observation) = state.observations.get(record.source_observation_id()) else {
+        return false;
+    };
+
+    let recognized_by = match record.authority() {
+        AuthorityDisposition::RecognizedForeignEvidence
+        | AuthorityDisposition::ExplicitDelegatedAuthority => {
+            Some(record.contract().target_node.as_str())
+        }
+        AuthorityDisposition::LocalAuthority
+        | AuthorityDisposition::ForeignEvidence
+        | AuthorityDisposition::NoAuthority => None,
+    };
+
+    observation.source_observation
+        && observation.observation_id == record.source_observation_id()
+        && observation.semantic_subject_id == record.contract().semantic_subject_id
+        && observation.payload_commitment == record.contract().payload_commitment
+        && observation.origin_node == record.contract().origin_node
+        && observation.origin_node_known
+        && observation.recognized_by.as_deref() == recognized_by
+}
+
 fn delivery_identity_snapshot(
     state: &FederationState,
 ) -> BTreeMap<String, (ImmutableDeliveryContract, AuthorityDisposition)> {
@@ -1193,6 +1223,34 @@ mod tests {
         );
         assert_eq!(source_observation_count(&state), 2);
         assert_eq!(state.observation_count(), 3);
+    }
+
+    #[test]
+    fn every_admitted_delivery_binds_exactly_one_matching_source_observation() {
+        let mut state = nodes();
+
+        let local_outcome = deliver(&mut state, &envelope(), 50, true);
+        assert_eq!(local_outcome.decision(), FederationDecision::AcceptedLocal);
+
+        let mut recognized = envelope();
+        recognized.envelope_id = "env-recognized-source".into();
+        recognized.logical_delivery_id = "delivery-recognized-source".into();
+        recognized.attempt_id = "attempt-recognized-source".into();
+        recognized.origin_node = "node-b".into();
+        recognized.target_node = "node-a".into();
+        state.add_recognition(RecognitionEdge {
+            recognizing_node: "node-a".into(),
+            origin_node: "node-b".into(),
+            scope: "subject-1".into(),
+            mode: RecognitionMode::EvidenceOnly,
+        });
+        let recognized_outcome = deliver(&mut state, &recognized, 50, true);
+        assert_eq!(recognized_outcome.decision(), FederationDecision::AcceptedForeign);
+
+        assert_eq!(source_observation_count(&state), state.delivery_count());
+        for record in state.deliveries.values() {
+            assert!(source_observation_matches_delivery(&state, record));
+        }
     }
 
     #[test]
