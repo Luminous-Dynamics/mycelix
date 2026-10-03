@@ -30,6 +30,14 @@ A canonical evidence envelope should bind:
 - received_at_ms
 - authority_reference
 - verification_reference
+- verifier_id
+- verifier_version
+- cryptosuite
+- verification_report_digest
+- policy_fingerprint
+- environment_fingerprint
+- resolution_snapshot_fingerprint
+- verification_outcome
 
 The fields have distinct meanings and must not be collapsed into one generic score.
 
@@ -70,6 +78,33 @@ authority_reference identifies an external authoritative statement, such as a to
 verification_reference identifies the corresponding verification result.
 
 Mycelix can enforce that references are present and internally coherent while preserving the boundary that authoritative cryptographic verification is performed by the configured trust layer.
+
+
+
+## Concrete Symthaea verification binding
+
+The first Symthaea observation-attestation implementation already exposes structured verifier evidence beyond a bare verification reference.
+
+Where available, the Mycelix envelope should preserve:
+
+- verifier_id: the verifier identity used for the decision;
+- verifier_version: the stable report/verifier implementation version;
+- cryptosuite: the proof suite used;
+- verification_report_digest: the fingerprint of the complete verification report;
+- policy_fingerprint: the exact policy inputs used by the verifier;
+- environment_fingerprint: the verifier environment identity;
+- resolution_snapshot_fingerprint: the durable key/verification-method snapshot consulted by the verifier;
+- verification_outcome: the explicit terminal outcome.
+
+These fields are evidence references, not a second verifier implementation.
+
+This distinction is important because a bare statement such as "verified" loses the inputs that made the verification reproducible and auditable. The verifier report should therefore remain the source of detailed stage semantics, while the Mycelix envelope records stable references to that report.
+
+The evidence chain becomes:
+
+**Symthaea evidence → verification report → report fingerprint → Mycelix evidence envelope → durable provenance**
+
+A future transport can selectively disclose the detailed report while retaining the digest and provenance references needed for audit.
 
 ## Evidence kinds
 
