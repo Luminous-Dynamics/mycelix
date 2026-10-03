@@ -94,15 +94,25 @@
     "witness_identity_kind": "ReconciliationWitness",
     "logical_identity_type": "IdentityRef",
     "authority_identity_type": "IdentityRef",
+    "authority_scope_identity_type": "IdentityRef",
+    "authority_scope_identity_kind": "ReconciliationWitness",
+    "authority_delegation_identity_type": "IdentityRef",
+    "authority_delegation_identity_kind": "ReconciliationWitness",
     "basis_identity_type": "IdentityRef",
     "basis_required": true,
     "basis_unique": true,
     "basis_must_include_exact_authority": true,
+    "basis_must_include_exact_authority_scope": true,
+    "basis_must_include_exact_authority_delegation": true,
     "witness_must_name_exact_logical_identity": true,
+    "all_provenance_roles_must_be_distinct": true,
+    "basis_cannot_contain_witness_identity": true,
+    "basis_cannot_contain_logical_identity": true,
     "protocol_address_excluded_from_pure_witness": true,
     "cryptographic_proof": false,
     "global_completeness_claim": false,
     "binding_requires_provenance": true,
-    "provenance_carried_through_runtime_resolution": true
+    "provenance_carried_through_runtime_resolution": true,
+    "provenance_witness_identity_must_be_unique_per_binding": true
   }
 }
