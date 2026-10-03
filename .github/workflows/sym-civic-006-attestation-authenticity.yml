@@ -42,6 +42,8 @@ jobs:
           expected="${expected# }"
           actual="$(git diff --name-only "$EXPECTED_PARENT" HEAD | sort)"
           test "$actual" = "$expected"
+      - name: Compile qualifier
+        run: python3 -c 'from pathlib import Path; compile(Path("scripts/qualification/sym_civic_006_attestation_authenticity_v1.py").read_text(encoding="utf-8"), "sym_civic_006_attestation_authenticity_v1.py", "exec")'
       - name: Execute qualifier
         run: python3 scripts/qualification/sym_civic_006_attestation_authenticity_v1.py
       - name: Static no-runtime audit
