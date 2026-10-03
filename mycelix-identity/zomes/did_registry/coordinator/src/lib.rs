@@ -649,7 +649,7 @@ pub fn resolve_did_resolution(did: String) -> ExternResult<DidResolutionView> {
             }),
             did_document: Some(did_document_wire_view(&document)),
             resolution_metadata: DidResolutionMetadataView {
-                content_type: Some("application/did+json".into()),
+                content_type: Some("application/did".into()),
                 error: None,
             },
         }),
