@@ -374,6 +374,29 @@ impl HolochainDependencyBindingSet {
             }));
         }
 
+        if binding.payload.provenance.witness_identity
+            == authorized_credential.payload.provenance.witness_identity
+        {
+            return Ok(Err(HolochainAdapterBoundaryError::SemanticInvalid {
+                reason: "runtime binding witness identity must differ from the registered authority credential witness"
+                    .into(),
+            }));
+        }
+
+        if let Some(missing_basis) = authorized_credential
+            .payload
+            .provenance
+            .basis
+            .iter()
+            .find(|basis| !binding.payload.provenance.basis.contains(basis))
+        {
+            return Ok(Err(HolochainAdapterBoundaryError::SemanticInvalid {
+                reason: format!(
+                    "runtime binding provenance dropped authority credential basis witness: {missing_basis:?}"
+                ),
+            }));
+        }
+
         if binding.payload.provenance.authority_scope
             != authorized_credential.payload.provenance.authority_scope
         {
@@ -1350,6 +1373,153 @@ mod tests {
 
         let decision = bindings.resolve_required(vec![logical]);
         assert!(matches!(decision, QualificationDecision::Valid(_)));
+
+        let _ = set_hdi(ErrHdi);
+    }
+
+    #[test]
+    fn dependency_binding_rejects_runtime_binding_witness_reuse() {
+        let _guard = host_test_lock().lock().expect("HDI test lock is not poisoned");
+        let _previous = set_hdi(RecordingHdi {
+            calls: Arc::new(Mutex::new(Vec::new())),
+            verify_result: true,
+        });
+
+        let authority = identity("witness-reuse-authority");
+        let agent = action_agent_key(42);
+        let credential =
+            authority_credential(authority.clone(), agent.clone(), "witness-reuse");
+        let mut runtime_provenance =
+            binding_provenance_for_test(identity("witness-reuse-logical"), authority);
+        runtime_provenance.witness_identity =
+            credential.payload.provenance.witness_identity.clone();
+        runtime_provenance.authority_scope =
+            credential.payload.provenance.authority_scope.clone();
+        runtime_provenance.authority_delegation =
+            credential.payload.provenance.authority_delegation.clone();
+        runtime_provenance.basis = credential.payload.provenance.basis.clone();
+
+        let mut registry = HolochainAuthorityAgentBindingSet::new();
+        assert!(matches!(registry.bind_attested(credential), Ok(Ok(()))));
+
+        let binding = SignedHolochainBindingAttestation {
+            signer: agent,
+            signature: Signature([0u8; 64]),
+            payload: HolochainBindingAttestationPayload {
+                schema: HOLOCHAIN_BINDING_ATTESTATION_SCHEMA,
+                provenance: runtime_provenance,
+                address: HolochainDependencyAddress::Action(action_hash(42)),
+                retrieval: QualificationDependencyRetrievalKind::Action,
+            },
+        };
+
+        let mut bindings = HolochainDependencyBindingSet::new();
+        let result = bindings.bind_attested_with_authority(binding, &registry);
+        let _ = set_hdi(ErrHdi);
+
+        assert!(matches!(
+            result,
+            Ok(Err(HolochainAdapterBoundaryError::SemanticInvalid { reason }))
+                if reason == "runtime binding witness identity must differ from the registered authority credential witness"
+        ));
+        assert!(bindings.is_empty());
+    }
+
+    #[test]
+    fn dependency_binding_rejects_dropped_authority_credential_basis() {
+        let _guard = host_test_lock().lock().expect("HDI test lock is not poisoned");
+        let _previous = set_hdi(RecordingHdi {
+            calls: Arc::new(Mutex::new(Vec::new())),
+            verify_result: true,
+        });
+
+        let authority = identity("basis-drop-authority");
+        let agent = action_agent_key(43);
+        let credential =
+            authority_credential(authority.clone(), agent.clone(), "basis-drop");
+        let registered_scope = credential.payload.provenance.authority_scope.clone();
+        let registered_delegation =
+            credential.payload.provenance.authority_delegation.clone();
+
+        let mut registry = HolochainAuthorityAgentBindingSet::new();
+        assert!(matches!(registry.bind_attested(credential), Ok(Ok(()))));
+
+        let logical = identity("basis-drop-logical");
+        let mut provenance =
+            binding_provenance_for_test(logical, authority);
+        provenance.authority_scope = registered_scope;
+        provenance.authority_delegation = registered_delegation;
+        provenance.basis = vec![
+            provenance.authority.clone(),
+            provenance.authority_scope.clone(),
+            provenance.authority_delegation.clone(),
+        ];
+
+        let binding = SignedHolochainBindingAttestation {
+            signer: agent,
+            signature: Signature([0u8; 64]),
+            payload: HolochainBindingAttestationPayload {
+                schema: HOLOCHAIN_BINDING_ATTESTATION_SCHEMA,
+                provenance,
+                address: HolochainDependencyAddress::Action(action_hash(43)),
+                retrieval: QualificationDependencyRetrievalKind::Action,
+            },
+        };
+
+        let mut bindings = HolochainDependencyBindingSet::new();
+        let result = bindings.bind_attested_with_authority(binding, &registry);
+        let _ = set_hdi(ErrHdi);
+
+        assert!(matches!(
+            result,
+            Ok(Err(HolochainAdapterBoundaryError::SemanticInvalid { reason }))
+                if reason.contains("runtime binding provenance dropped authority credential basis witness")
+        ));
+        assert!(bindings.is_empty());
+    }
+
+    #[test]
+    fn dependency_binding_accepts_complete_authority_credential_basis() {
+        let _guard = host_test_lock().lock().expect("HDI test lock is not poisoned");
+        let _previous = set_hdi(RecordingHdi {
+            calls: Arc::new(Mutex::new(Vec::new())),
+            verify_result: true,
+        });
+
+        let authority = identity("basis-complete-authority");
+        let agent = action_agent_key(44);
+        let credential =
+            authority_credential(authority.clone(), agent.clone(), "basis-complete");
+        let credential_provenance = credential.payload.provenance.clone();
+
+        let mut registry = HolochainAuthorityAgentBindingSet::new();
+        assert!(matches!(registry.bind_attested(credential), Ok(Ok(()))));
+
+        let logical = identity("basis-complete-logical");
+        let mut provenance =
+            binding_provenance_for_test(logical, authority);
+        provenance.authority_scope = credential_provenance.authority_scope;
+        provenance.authority_delegation = credential_provenance.authority_delegation;
+        provenance.basis = credential_provenance.basis;
+        provenance.basis.reverse();
+
+        let binding = SignedHolochainBindingAttestation {
+            signer: agent,
+            signature: Signature([0u8; 64]),
+            payload: HolochainBindingAttestationPayload {
+                schema: HOLOCHAIN_BINDING_ATTESTATION_SCHEMA,
+                provenance,
+                address: HolochainDependencyAddress::Action(action_hash(44)),
+                retrieval: QualificationDependencyRetrievalKind::Action,
+            },
+        };
+
+        let mut bindings = HolochainDependencyBindingSet::new();
+        assert!(matches!(
+            bindings.bind_attested_with_authority(binding, &registry),
+            Ok(Ok(()))
+        ));
+        assert_eq!(bindings.len(), 1);
 
         let _ = set_hdi(ErrHdi);
     }
