@@ -2321,6 +2321,66 @@ pub fn get_mfa_summary(did: String) -> ExternResult<Option<MfaSummary>> {
 }
 
 // =============================================================================
+// Browser-safe projections
+// =============================================================================
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct MfaStateView {
+    pub did: String,
+    pub factors: Vec<MfaFactorView>,
+    pub assurance_level: AssuranceLevel,
+    pub effective_strength: f32,
+    pub category_count: u8,
+    pub updated: i64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct MfaFactorView {
+    pub factor_type: FactorType,
+    pub factor_id: String,
+    pub enrolled_at: i64,
+    pub last_verified: i64,
+    pub effective_strength: f32,
+    pub active: bool,
+    pub metadata: String,
+}
+
+/// Return a browser-safe projection of the caller's MFA state.
+///
+/// This keeps AgentPubKey, ActionHash, and Holochain Record serialization out
+/// of frontend code while preserving the canonical MFA state in the DHT.
+#[hdk_extern]
+pub fn get_mfa_view(did: String) -> ExternResult<Option<MfaStateView>> {
+    let now = sys_time()?;
+    match get_mfa_state_internal(&did) {
+        Ok((state, _)) => {
+            let (assurance_level, effective_strength, category_count) = state.calculate_assurance(now);
+            Ok(Some(MfaStateView {
+                did: state.did,
+                factors: state
+                    .factors
+                    .into_iter()
+                    .map(|factor| MfaFactorView {
+                        factor_type: factor.factor_type,
+                        factor_id: factor.factor_id,
+                        enrolled_at: factor.enrolled_at.as_micros(),
+                        last_verified: factor.last_verified.as_micros(),
+                        effective_strength: factor.effective_strength,
+                        active: factor.active,
+                        metadata: factor.metadata,
+                    })
+                    .collect(),
+                assurance_level,
+                effective_strength,
+                category_count,
+                updated: state.updated.as_micros(),
+            }))
+        }
+        Err(_) => Ok(None),
+    }
+}
+
+// =============================================================================
 // INTERNAL HELPERS
 // =============================================================================
 
