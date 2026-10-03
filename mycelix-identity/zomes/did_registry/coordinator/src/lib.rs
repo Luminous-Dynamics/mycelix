@@ -500,12 +500,18 @@ pub fn get_did_document(agent_pub_key: AgentPubKey) -> ExternResult<Option<Recor
             let action_hash = ActionHash::try_from(link.target)
                 .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid history link target".into())))?;
             if let Some(record) = get(action_hash, GetOptions::default())? {
-                if record.entry().to_app_option::<DidDocument>().ok().flatten().is_some() {
-                    candidates.push((link.timestamp, record));
+                if let Some(document) = record.entry().to_app_option::<DidDocument>().ok().flatten() {
+                    // Version is the protocol ordering primitive. Link timestamps
+                    // are only an observation-time property and must not decide
+                    // which document is canonical.
+                    candidates.push((document.version, link.timestamp, record));
                 }
             }
         }
-        if let Some((_, record)) = candidates.into_iter().max_by_key(|(timestamp, _)| *timestamp) {
+        if let Some((_, _, record)) = candidates
+            .into_iter()
+            .max_by_key(|(version, timestamp, _)| (*version, *timestamp))
+        {
             return Ok(Some(record));
         }
     }
@@ -740,6 +746,19 @@ pub fn resolve_did_resolution(did: String) -> ExternResult<DidResolutionView> {
         document_metadata: None,
     };
 
+    let internal_error = |detail: String| DidResolutionView {
+        did_document: None,
+        resolution_metadata: DidResolutionMetadataView {
+            content_type: None,
+            error: Some(DidResolutionError {
+                type_uri: "https://www.w3.org/ns/did#INTERNAL_ERROR".into(),
+                title: "DID resolution failed".into(),
+                detail,
+            }),
+        },
+        document_metadata: None,
+    };
+
     let Some(agent_str) = did.strip_prefix("did:mycelix:") else {
         return Ok(invalid_did("DID must use the did:mycelix method.".into()));
     };
@@ -758,7 +777,17 @@ pub fn resolve_did_resolution(did: String) -> ExternResult<DidResolutionView> {
         ));
     }
 
-    match resolve_did_view(did.clone())? {
+    let resolved = match resolve_did_view(did.clone()) {
+        Ok(document) => document,
+        Err(error) => {
+            return Ok(internal_error(format!(
+                "The method-specific resolver encountered an unexpected error: {}",
+                error
+            )));
+        }
+    };
+
+    match resolved {
         Some(document) => {
             let document_metadata = Some(DidDocumentMetadataView {
                 created: document.created.clone(),
