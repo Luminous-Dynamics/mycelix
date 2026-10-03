@@ -70,7 +70,8 @@ impl ToastState {
                 toasts.update(|t| {
                     t.retain(|toast| toast.id != id);
                 });
-            }).forget();
+            })
+            .forget();
         });
     }
 
