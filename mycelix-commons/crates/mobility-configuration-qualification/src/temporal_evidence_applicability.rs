@@ -5106,6 +5106,41 @@ mod tests {
     }
 
     #[test]
+    fn disposition_corpus_is_contiguous_and_machine_readable() {
+        let corpus_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../docs/mobility/MOBILITY_EVIDENCE_DISPOSITION_TRANSITION_V1.json");
+        let corpus = std::fs::read_to_string(&corpus_path)
+            .unwrap_or_else(|error| panic!("cannot read disposition corpus: {error}"));
+        let document: serde_json::Value =
+            serde_json::from_str(&corpus).expect("disposition corpus must be valid JSON");
+
+        let vectors = document
+            .get("vectors")
+            .and_then(serde_json::Value::as_array)
+            .expect("disposition corpus must contain a vectors array");
+
+        assert_eq!(vectors.len(), 90);
+
+        for (index, vector) in vectors.iter().enumerate() {
+            let expected_id = format!("EDT-{:03}", index + 1);
+            assert_eq!(
+                vector.get("id").and_then(serde_json::Value::as_str),
+                Some(expected_id.as_str())
+            );
+            assert!(
+                matches!(
+                    vector.get("expected").and_then(serde_json::Value::as_str),
+                    Some("accepted")
+                        | Some("rejected")
+                        | Some("typed_structural_error")
+                        | Some("unresolved_at_protocol_layer")
+                ),
+                "EDT vector has unsupported expected outcome: {vector:?}"
+            );
+        }
+    }
+
+    #[test]
     fn reconciliation_coverage_rejects_nested_heads() {
         let disputed = EvidenceDisposition::Disputed {
             by: id(IdentityKind::ReconciliationWitness, "w1"),
