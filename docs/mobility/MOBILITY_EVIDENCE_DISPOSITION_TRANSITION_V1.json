@@ -571,6 +571,46 @@
       "id": "EDT-112",
       "case": "one_callback_seam_maps_semantic_invalidity_and_preserves_true_adapter_errors",
       "expected": "accepted"
+    },
+    {
+      "id": "EDT-113",
+      "case": "binding_provenance_accepts_exact_logical_dependency_and_authority_basis",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-114",
+      "case": "binding_provenance_rejects_wrong_witness_identity_kind",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-115",
+      "case": "binding_provenance_rejects_duplicate_basis_witness",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-116",
+      "case": "binding_provenance_rejects_authority_omission_from_basis",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-117",
+      "case": "binding_provenance_rejects_logical_identity_mismatch_at_runtime_binding",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-118",
+      "case": "runtime_binding_requires_explicit_provenance_witness",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-119",
+      "case": "resolved_runtime_dependency_carries_exact_binding_provenance",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-120",
+      "case": "binding_provenance_contains_no_protocol_address_derivation",
+      "expected": "accepted"
     }
   ],
   "outcome_classes": [
