@@ -107,6 +107,28 @@ impl From<&FederationEnvelope> for ImmutableDeliveryContract {
 /// # use cos_conformance::federation::DeliveryRecord;
 /// let _: DeliveryRecord = from_str("{}").unwrap();
 /// ```
+/// ```compile_fail
+/// # use cos_conformance::federation::{AuthorityDisposition, DeliveryRecord, ImmutableDeliveryContract};
+/// # use std::collections::{BTreeMap, BTreeSet};
+/// let _ = DeliveryRecord {
+///     contract: ImmutableDeliveryContract {
+///         logical_delivery_id: "delivery-1".into(),
+///         origin_node: "node-a".into(),
+///         target_node: "node-a".into(),
+///         semantic_subject_id: "subject-1".into(),
+///         payload_commitment: "sha256:test".into(),
+///         schema_generation: 1,
+///         authorization_generation: 1,
+///         predecessor_delivery_id: None,
+///         expires_at: None,
+///     },
+///     authority: AuthorityDisposition::LocalAuthority,
+///     attempts: BTreeSet::from(["attempt-1".into()]),
+///     attempt_envelope_ids: BTreeMap::from([("attempt-1".into(), "env-1".into())]),
+///     source_observation_id: "env-1".into(),
+///     source_observation_recognized_by: None,
+/// };
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct DeliveryRecord {
     contract: ImmutableDeliveryContract,
@@ -138,6 +160,14 @@ impl DeliveryRecord {
 
     pub fn source_observation_id(&self) -> &str {
         &self.source_observation_id
+    }
+
+    pub fn source_observation_recognized_by(&self) -> Option<&str> {
+        self.source_observation_recognized_by.as_deref()
+    }
+
+    pub fn attempt_envelope_id(&self, attempt_id: &str) -> Option<&str> {
+        self.attempt_envelope_ids.get(attempt_id).map(String::as_str)
     }
 }
 
@@ -1382,6 +1412,17 @@ mod tests {
             .unwrap()
             .source_observation_id()
             .to_owned();
+        assert_eq!(
+            state
+                .delivery("delivery-1")
+                .unwrap()
+                .source_observation_recognized_by(),
+            None
+        );
+        assert_eq!(
+            state.delivery("delivery-1").unwrap().attempt_envelope_id("attempt-1"),
+            Some("env-1")
+        );
 
         let duplicate_record = state.delivery("delivery-1").unwrap().clone();
         state
@@ -1773,6 +1814,10 @@ mod tests {
                 "attempt-1".to_owned(),
                 "attempt-retry".to_owned()
             ])
+        );
+        assert_eq!(
+            state.delivery("delivery-1").unwrap().attempt_envelope_id("attempt-retry"),
+            Some("env-retry")
         );
     }
 
