@@ -37,7 +37,8 @@
     {"id":"VER-003","transition":"2->2","expected":"reject","reason":"version must increase exactly by one"}
   ],
   "verification_method_vectors": [
-    {"id":"VM-001","algorithm":"Ed25519","multicodec":"0xed01","multibase":"base58btc","prefix":"z","payload":"multicodec(0xed01) || raw_32_byte_ed25519_public_key","holochain_hash_type_bytes_included":false}
+    {"id":"VM-001","algorithm":"Ed25519","multicodec":"0xed01","multibase":"base58btc","prefix":"z","payload":"multicodec(0xed01) || raw_32_byte_ed25519_public_key","holochain_hash_type_bytes_included":false,"strict_did_boundary":true},
+    {"id":"VM-002","algorithm":"Ed25519","kind":"legacy-raw-32-byte","expected":"reject-at-did-integrity-boundary"}
   ],
   "recovery_vectors": [
     {"id":"REC-001","operation":"configure","authority":"did-controller","expected":"reject-cross-owner-configuration"},
