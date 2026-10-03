@@ -2277,6 +2277,21 @@ mod tests {
 
     #[test]
     fn public_state_transitions_preserve_all_registered_invariants() {
+        let mut wrapper_state = nodes();
+        assert_public_transition_preserves_invariants(
+            &mut wrapper_state,
+            "add_recognition/insert",
+            true,
+            |state| {
+                state.add_recognition(RecognitionEdge {
+                    recognizing_node: "node-a".into(),
+                    origin_node: "node-b".into(),
+                    scope: "subject-wrapper".into(),
+                    mode: RecognitionMode::EvidenceOnly,
+                });
+            },
+        );
+
         let mut state = nodes();
         assert_eq!(validate_state(&state), Ok(()));
 
