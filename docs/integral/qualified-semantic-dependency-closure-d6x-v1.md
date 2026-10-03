@@ -69,6 +69,12 @@ D6X certificates contain maps keyed by typed `SemanticDependencyReferenceV1` val
 
 The cross-layer Integral fixture also binds its source snapshot identifier to a canonical SHA-256 commitment before D6W consumption. A symbolic snapshot label is not sufficient at the stricter D6W gate.
 
+## Monotonic resolution semantics
+
+Resolution state is monotonic for the purposes of qualification: once a selected dependency has been classified `Stale` by a `CurrentOnly` rule, later traversal bookkeeping MUST NOT downgrade it to `Present`. This is particularly important when the target node is discovered through one edge and dequeued later; traversal order must not erase a stronger blocking condition.
+
+The executable model therefore preserves `Stale` across node dequeue/inclusion, and the final closure status remains `BlockedCurrentness` whenever any selected dependency is stale.
+
 ## Status semantics
 
 - **Complete** — all required dependencies found and no blocking currentness/resource condition.
@@ -77,6 +83,10 @@ The cross-layer Integral fixture also binds its source snapshot identifier to a 
 - **BlockedResourceLimit** — deterministic bounds prevent completion.
 
 Cycles are permitted at the graph level. The traversal uses a deterministic visited set, while cycle detection is recorded separately. A graph cycle is not treated as a recursive semantic derivation; recursive fixpoint evaluation remains separately qualified by D6U.
+
+## Downstream reference normalization
+
+D6W derived-layer objects are themselves qualified-consumption artifacts. Their inter-layer references are required to use the canonical 64-hex commitment representation before an object is considered valid. This prevents a self-recommitted opaque identifier from appearing structurally valid at a downstream boundary after the stronger D6X gate has already established canonical source bindings.
 
 ## Important boundary
 
