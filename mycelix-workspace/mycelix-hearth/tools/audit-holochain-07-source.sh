@@ -250,6 +250,194 @@ check_entry_type_dispatch() {
   done < <(printf '%s\n' "$enum_block" | rg --pcre2 -o '^\\s*[A-Za-z_][A-Za-z0-9_]*\\s*\\(' | sed -E 's/^\\s*([A-Za-z_][A-Za-z0-9_]*).*$/\\1/')
 }
 
+# Every declared LinkTypes variant must be explicitly represented in the
+# CreateLink validation policy. A bare FlatOp::Link(CreateLink) arm with only a
+# global tag-length check is not enough to make the link contract auditable:
+# link types encode application semantics (base/target relationship, tag schema,
+# and authorization policy). This first gate makes silent policy omission visible.
+check_link_type_dispatch() {
+  local file="$1"
+  local source enum_block variant
+  source="$(sed '/^\\#\\[cfg(test)\\]/,$d' "$file")"
+  enum_block="$(printf '%s\\n' "$source" | sed -n '/^pub enum LinkTypes[[:space:]]*{/,/^}/p')"
+  if [[ -z "$enum_block" ]]; then
+    echo "FAIL: $file has no parseable LinkTypes enum"
+    fail=1
+    return
+  fi
+  while IFS= read -r variant; do
+    [[ -z "$variant" ]] && continue
+    if printf '%s\\n' "$source" | rg -n --pcre2 "\\bLinkTypes::${variant}\\b" >/dev/null 2>&1; then
+      echo "OK:   $file LinkTypes::$variant has validation-policy dispatch coverage"
+    else
+      echo "FAIL: $file LinkTypes::$variant has no validation-policy dispatch reference"
+      fail=1
+    fi
+  done < <(printf '%s\\n' "$enum_block" | rg --pcre2 -o '^\\s*[A-Za-z_][A-Za-z0-9_]*\\s*,\\s*
+# Holochain emits CreateEntry and CreateRecord operations for entry writes; a
+# permissive CreateRecord catch-all would leave a second validation surface
+# without the application-level entry policy. Updates are checked the same way.
+check_create_record_coverage() {
+  local file="$1"
+  if ! rg -n --pcre2 'FlatOp::CreateRecord\s*\(\s*OpRecord::CreateEntry' "$file" >/dev/null 2>&1; then
+    echo "FAIL: $file has no explicit FlatOp::CreateRecord(OpRecord::CreateEntry) validation"
+    fail=1
+  else
+    echo "OK:   $file explicitly validates CreateRecord entry creation"
+  fi
+  if rg -n --pcre2 'FlatOp::CreateEntry\s*\(\s*OpEntry::UpdateEntry' "$file" >/dev/null 2>&1; then
+    if rg -n --pcre2 'FlatOp::CreateRecord\s*\(\s*OpRecord::UpdateEntry' "$file" >/dev/null 2>&1; then
+      echo "OK:   $file explicitly validates CreateRecord update data"
+    else
+      echo "FAIL: $file has UpdateEntry validation but no CreateRecord update validation"
+      fail=1
+    fi
+  fi
+  if rg -n --pcre2 'FlatOp::CreateRecord\s*\(\)\s*=>\s*Ok\s*\(\s*ValidateCallbackResult::Valid' "$file" >/dev/null 2>&1; then
+    echo "FAIL: $file has permissive CreateRecord(_) => Valid catch-all"
+    fail=1
+  fi
+}
+
+# CreateRecord dispatch must preserve the same EntryTypes policy as CreateEntry.
+# This catches a subtler regression than merely requiring the operation arm:
+# a new variant could be added to CreateEntry while silently falling through
+# the corresponding CreateRecord branch.
+check_create_record_entry_dispatch() {
+  local file="$1"
+  local source enum_block variant create_block update_block
+  source="$(sed '/^\#\[cfg(test)\]/,$d' "$file")"
+  enum_block="$(printf '%s\n' "$source" | sed -n '/^pub enum EntryTypes[[:space:]]*{/,/^}/p')"
+  create_block="$(printf '%s\n' "$source" | awk '/FlatOp::CreateRecord\\(OpRecord::CreateEntry/{in_block=1} /FlatOp::CreateRecord\\(OpRecord::UpdateEntry/{in_block=0} in_block')"
+  update_block="$(printf '%s\n' "$source" | awk '/FlatOp::CreateRecord\\(OpRecord::UpdateEntry/{in_block=1} /FlatOp::Link/{if(in_block){in_block=0}} in_block')"
+  while IFS= read -r variant; do
+    [[ -z "$variant" ]] && continue
+    if printf '%s\n' "$create_block" | rg -n --pcre2 "\\bEntryTypes::${variant}\\b" >/dev/null 2>&1; then
+      echo "OK:   $file CreateRecord create dispatch covers EntryTypes::$variant"
+    else
+      echo "FAIL: $file CreateRecord create dispatch misses EntryTypes::$variant"
+      fail=1
+    fi
+    if printf '%s\n' "$update_block" | rg -n --pcre2 "\\bEntryTypes::${variant}\\b" >/dev/null 2>&1; then
+      echo "OK:   $file CreateRecord update dispatch covers EntryTypes::$variant"
+    else
+      echo "FAIL: $file CreateRecord update dispatch misses EntryTypes::$variant"
+      fail=1
+    fi
+  done < <(printf '%s\n' "$enum_block" | rg --pcre2 -o '^\\s*[A-Za-z_][A-Za-z0-9_]*\\s*\\(' | sed -E 's/^\\s*([A-Za-z_][A-Za-z0-9_]*).*$/\\1/')
+}
+# Dangerous operation families must never be accepted solely by a terminal
+# wildcard. Delete and Link carry authorization/state semantics of their own;
+# CreateRecord is guarded above, and Update is paired with explicit action-level
+# authorization by check_update_action_coverage().
+check_dangerous_operation_catchalls() {
+  local file="$1"
+  for family in Delete Link; do
+    if rg -n --pcre2 "FlatOp::${family}\s*\(\s*_\s*\)\s*=>\s*Ok\s*\(\s*ValidateCallbackResult::Valid" "$file" >/dev/null 2>&1; then
+      echo "FAIL: $file has permissive FlatOp::$family(_) => Valid catch-all"
+      fail=1
+    else
+      echo "OK:   $file has no permissive FlatOp::$family(_) => Valid catch-all"
+    fi
+  done
+}
+# Dependency retrieval semantics: must_get_action only proves retrieval; it does not prove
+# that the referenced record passed application validation. Update/delete authorization
+# therefore uses must_get_valid_record before trusting the referenced author. Valid-record
+# consumers must also inspect the referenced entry/action rather than treating retrieval
+# itself as the invariant.
+check_dependency_semantics() {
+  local file="$1"
+  if rg -n --pcre2 'must_get_action\(action\.(?:original_action_address|deletes_address)' "$file" >/tmp/hearth07_weak_dependency.$ 2>/dev/null; then
+    echo "FAIL: $file uses must_get_action for update/delete authorization"
+    cat /tmp/hearth07_weak_dependency.$
+    fail=1
+  fi
+  if rg -n --pcre2 'must_get_valid_record\(' "$file" >/dev/null 2>&1; then
+    if rg -n --pcre2 '\.(?:entry\(\)\.to_app_option|action\(\))|try_from_action' "$file" >/dev/null 2>&1; then
+      echo "OK:   $file valid-record dependencies are semantically inspected"
+    else
+      echo "FAIL: $file retrieves a valid record without inspecting its entry/action"
+      fail=1
+    fi
+  else
+    echo "OK:   $file has no must_get_valid_record dependency sites"
+  fi
+}
+
+# Immutable-field helpers must prove the referenced CreateRecord is valid and
+# deserialize the original entry before comparing fields. This guards against a
+# future helper that retrieves a record but accidentally treats retrieval as proof.
+check_immutable_dependency_semantics() {
+  local file="$1"
+  local helper_count
+  helper_count="$(rg -n --pcre2 '^\s*(?:pub\s+)?fn\s+validate_[A-Za-z0-9_]*immutable_fields\s*\(' "$file" | wc -l)"
+  if [[ "$helper_count" -eq 0 ]]; then
+    echo "OK:   $file has no immutable-field helper sites"
+    return
+  fi
+  if ! rg -n --pcre2 'validate_[A-Za-z0-9_]*immutable_fields\s*\(' "$file" >/dev/null 2>&1; then
+    echo "FAIL: $file declares immutable-field helpers but no call site was found"
+    fail=1
+  fi
+  if ! rg -n --pcre2 'must_get_valid_record\\(' "$file" >/dev/null 2>&1; then
+    echo "FAIL: $file immutable-field helpers do not use must_get_valid_record"
+    fail=1
+  fi
+  if ! rg -n --pcre2 '\.entry\(\)\s*\.to_app_option\(\)' "$file" >/dev/null 2>&1; then
+    echo "FAIL: $file immutable-field helpers do not deserialize the original entry"
+    fail=1
+  fi
+  echo "OK:   $file immutable-field dependency semantics"
+}
+
+for file in "${integrity_files[@]}"; do
+  check_create_record_coverage "$file"
+done
+
+for file in "${integrity_files[@]}"; do
+  check_dangerous_operation_catchalls "$file"
+done
+
+for file in "${integrity_files[@]}"; do
+  check_create_record_entry_dispatch "$file"
+done
+for file in "${integrity_files[@]}"; do
+  check_dependency_semantics "$file"
+done
+
+for file in "${integrity_files[@]}"; do
+  check_update_action_coverage "$file"
+done
+
+for file in "${integrity_files[@]}"; do
+  check_entry_type_dispatch "$file"
+done
+
+for file in "${integrity_files[@]}"; do
+  check_delete_link_authorization "$file"
+done
+
+for file in "${integrity_files[@]}"; do
+  check_link_type_dispatch "$file"
+done
+
+for file in "${integrity_files[@]}"; do
+  check_immutable_dependency_semantics "$file"
+done
+
+for file in "${integrity_files[@]}"; do
+  check_validation_determinism "$file"
+done
+
+echo
+if [[ "$fail" -ne 0 ]]; then
+  echo "HEARTH-0.7 source audit: FAIL"
+  exit "$fail"
+fi
+echo "HEARTH-0.7 source audit: PASS"
+ | sed -E 's/^\\s*([A-Za-z_][A-Za-z0-9_]*).*$/\\1/')
+}
 # Every entry-bearing action must be validated on both 0.7 operation surfaces.
 # Holochain emits CreateEntry and CreateRecord operations for entry writes; a
 # permissive CreateRecord catch-all would leave a second validation surface
