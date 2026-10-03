@@ -444,7 +444,8 @@ check_semantic_validation_suite_wiring() {
     for test_name in \
       test_invalid_decision_entry_reaches_integrity_validation \
       test_invalid_resource_entry_reaches_integrity_validation \
-      test_invalid_story_entry_reaches_integrity_validation; do
+      test_invalid_story_entry_reaches_integrity_validation \
+      test_cross_hearth_collection_story_link_reaches_integrity_validation; do
       if rg -n --pcre2 "\basync[[:space:]]+fn[[:space:]]+$test_name\b" "$rust_test" >/dev/null 2>&1; then
         echo "OK:   semantic-validation test is present: $test_name"
       else
