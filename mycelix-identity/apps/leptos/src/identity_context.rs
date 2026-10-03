@@ -30,6 +30,7 @@ pub struct IdentityCtx {
     pub did_document: RwSignal<Option<DidDocumentView>>,
     pub mfa_state: RwSignal<Option<MfaStateView>>,
     pub recovery_config: RwSignal<Option<RecoveryConfigView>>,
+    pub self_recovery_config: RwSignal<Option<SelfRecoveryConfigView>>,
     pub credentials_held: RwSignal<Vec<CredentialView>>,
     pub credentials_issued: RwSignal<Vec<CredentialView>>,
     pub trust_credentials: RwSignal<Vec<TrustCredentialView>>,
@@ -57,6 +58,7 @@ pub fn provide_identity_context() {
         did_document: RwSignal::new(demo.then(mock_data::mock_did_document)),
         mfa_state: RwSignal::new(demo.then(mock_data::mock_mfa_state)),
         recovery_config: RwSignal::new(demo.then(mock_data::mock_recovery_config)),
+        self_recovery_config: RwSignal::new(None),
         credentials_held: RwSignal::new(if demo { mock_data::mock_credentials_held() } else { Vec::new() }),
         credentials_issued: RwSignal::new(if demo { mock_data::mock_credentials_issued() } else { Vec::new() }),
         trust_credentials: RwSignal::new(if demo { mock_data::mock_trust_credentials() } else { Vec::new() }),
@@ -150,8 +152,13 @@ async fn load_mfa(ctx: IdentityCtx) {
         }
     };
 
+    let mfa_did = did.clone();
+    let recovery_did = did.clone();
+    let self_recovery_did = did;
+
+    // MFA state is a browser-safe projection, not a raw Holochain Record.
     match hc.call_zome_default::<String, Option<MfaStateView>>(
-        "mfa", "get_mfa_view", &did
+        "mfa", "get_mfa_view", &mfa_did
     ).await {
         Ok(Some(mfa)) => {
             web_sys::console::log_1(
@@ -165,11 +172,9 @@ async fn load_mfa(ctx: IdentityCtx) {
         }
     }
 
-    // Social-recovery config is a separate lifecycle layer and may legitimately
-    // be absent for a new DID. Do not manufacture a config or treat absence as
-    // a transport error.
+    // Social-recovery config currently remains an optional legacy Record API.
     match hc.call_zome_default::<String, serde_json::Value>(
-        "recovery", "get_recovery_config", &did
+        "recovery", "get_recovery_config", &recovery_did
     ).await {
         Ok(record) => {
             if let Ok(config) = serde_json::from_value::<RecoveryConfigView>(record) {
@@ -179,6 +184,18 @@ async fn load_mfa(ctx: IdentityCtx) {
         Err(e) => {
             web_sys::console::warn_1(
                 &format!("[Identity] get_recovery_config failed: {e}").into()
+            );
+        }
+    }
+
+    // Progressive self-recovery is canonical from DID creation onward.
+    match hc.call_zome_default::<String, Option<SelfRecoveryConfigView>>(
+        "recovery", "get_self_recovery_view", &self_recovery_did
+    ).await {
+        Ok(config) => ctx.self_recovery_config.set(config),
+        Err(e) => {
+            web_sys::console::warn_1(
+                &format!("[Identity] get_self_recovery_view failed: {e}").into()
             );
         }
     }
