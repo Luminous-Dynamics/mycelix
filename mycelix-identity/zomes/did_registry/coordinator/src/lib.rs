@@ -754,7 +754,8 @@ pub struct DidResolutionMetadataView {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DidDocumentMetadataView {
     pub created: String,
-    pub updated: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated: Option<String>,
     pub deactivated: bool,
     #[serde(rename = "versionId")]
     pub version_id: String,
@@ -847,7 +848,7 @@ pub fn resolve_did_resolution(did: String) -> ExternResult<DidResolutionView> {
         Some(document) => {
             let document_metadata = Some(DidDocumentMetadataView {
                 created: document.created.clone(),
-                updated: document.updated.clone(),
+                updated: (document.version > 1).then(|| document.updated.clone()),
                 deactivated: !document.active,
                 version_id: document.version.to_string(),
             });
