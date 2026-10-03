@@ -12,8 +12,9 @@
 
 use hdi::prelude::*;
 use mobility_configuration_qualification::{
-    IdentityRef, QualificationDecision, QualificationDependencyBindingProvenance,
-    QualificationDependencyBindingSet, QualificationDependencyRetrievalKind,
+    IdentityRef, QualificationAuthorityAgentBindingProvenance,
+    QualificationDecision, QualificationDependencyBindingProvenance, QualificationDependencyBindingSet,
+    QualificationDependencyRetrievalKind,
     QualificationValidationError,
 };
 
@@ -26,8 +27,7 @@ pub enum HolochainDependencyAddress {
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct HolochainAuthorityAgentBindingPayload {
     pub schema: &'static str,
-    pub authority: IdentityRef,
-    pub provenance: QualificationDependencyBindingProvenance,
+    pub provenance: QualificationAuthorityAgentBindingProvenance,
     pub agent: AgentPubKey,
 }
 
@@ -66,7 +66,7 @@ impl HolochainAuthorityAgentBindingSet {
             HolochainAuthorityAgentBindingVerification::Valid => {}
         }
 
-        let authority = credential.payload.authority.clone();
+        let authority = credential.payload.provenance.authority.clone();
         let agent = credential.payload.agent.clone();
 
         if self.bindings.contains_key(&authority) {
@@ -104,16 +104,6 @@ impl HolochainAuthorityAgentBindingPayload {
         if self.schema != HOLOCHAIN_AUTHORITY_AGENT_BINDING_SCHEMA {
             return Err(HolochainAdapterBoundaryError::SemanticInvalid {
                 reason: "authority-agent binding uses an unexpected schema".into(),
-            });
-        }
-
-        self.authority
-            .validate()
-            .map_err(|reason| HolochainAdapterBoundaryError::SemanticInvalid { reason })?;
-
-        if self.provenance.logical_identity != self.authority {
-            return Err(HolochainAdapterBoundaryError::SemanticInvalid {
-                reason: "authority-agent provenance must name the exact authority identity".into(),
             });
         }
 
