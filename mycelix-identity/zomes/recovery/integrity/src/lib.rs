@@ -1496,33 +1496,27 @@ mod tests {
     }
 
     #[test]
-    fn self_recovery_request_status_machine_matches_social() {
-        // Self-recovery uses the same RecoveryStatus state machine
-        // Verify key transitions work
-        let valid = |from: &RecoveryStatus, to: &RecoveryStatus| -> bool {
-            match (from, to) {
-                (RecoveryStatus::Pending, RecoveryStatus::Approved)
-                | (RecoveryStatus::Pending, RecoveryStatus::Cancelled) => true,
-                (RecoveryStatus::Approved, RecoveryStatus::ReadyToExecute)
-                | (RecoveryStatus::Approved, RecoveryStatus::Cancelled) => true,
-                (RecoveryStatus::ReadyToExecute, RecoveryStatus::Completed)
-                | (RecoveryStatus::ReadyToExecute, RecoveryStatus::Cancelled) => true,
-                (a, b) if a == b => true,
-                _ => false,
-            }
-        };
-
-        assert!(valid(&RecoveryStatus::Pending, &RecoveryStatus::Approved));
-        assert!(valid(
+    fn self_recovery_request_status_machine_is_fail_closed() {
+        assert!(self_recovery_transition_allowed(
+            &RecoveryStatus::Pending,
+            &RecoveryStatus::Pending,
+        ));
+        assert!(self_recovery_transition_allowed(
+            &RecoveryStatus::Pending,
+            &RecoveryStatus::Cancelled,
+        ));
+        assert!(!self_recovery_transition_allowed(
+            &RecoveryStatus::Pending,
             &RecoveryStatus::Approved,
-            &RecoveryStatus::ReadyToExecute
         ));
-        assert!(valid(
+        assert!(!self_recovery_transition_allowed(
+            &RecoveryStatus::Approved,
             &RecoveryStatus::ReadyToExecute,
-            &RecoveryStatus::Completed
         ));
-        assert!(!valid(&RecoveryStatus::Pending, &RecoveryStatus::Completed)); // can't skip
-        assert!(!valid(&RecoveryStatus::Completed, &RecoveryStatus::Pending)); // terminal
+        assert!(!self_recovery_transition_allowed(
+            &RecoveryStatus::ReadyToExecute,
+            &RecoveryStatus::Completed,
+        ));
     }
 }
 
