@@ -108,7 +108,7 @@
     },
     {
       "case_id": "payload-mutation",
-      "payload_state": "mutated",
+      "payload_state": "authenticated-but-d6s-commitment-inconsistent",
       "cell_binding": "correct",
       "zome_binding": "correct",
       "function_binding": "correct",
