@@ -528,6 +528,9 @@ This gives the simulation a clean next boundary for cash-flow analysis:
 
 accrual sales/COGS -> working-capital change -> realized liquidity -> debt-service coverage
 
+
+The accounting closure now also performs an aggregate projection check: aggregate stocks and measured period flows must equal the checked sums of actor observations and the corresponding sector observations. This makes actor, sector, and aggregate reporting three mutually reconciling views over the same authoritative transition sequence rather than independently hash-bound payloads.
+
 Actor-level cash-flow decomposition is now explicit: operating liquidity change is the
 period's actor liquidity change after separately classified investing, financing, and
 other monetary-transfer changes. The decomposition is checked against the observed
