@@ -123,6 +123,31 @@ def main() -> None:
     assert canon1_manifest["expected_rejection_count"] == 9
     assert canon1_manifest["claim_ceiling"] == "ReferenceModelOnly"
 
+    runtime_evidence = manifest["runtime_evidence"]
+    assert runtime_evidence["status"] == "NotExecuted"
+    assert runtime_evidence["harness_issue"] == 3851
+    assert runtime_evidence["required_substrate"] == {
+        "holochain": "0.7.0",
+        "hdk": "0.7.0",
+        "hdi": "0.8.0",
+    }
+    assert runtime_evidence["required_fields"] == [
+        "source_commit",
+        "runtime_version",
+        "hdk_version",
+        "hdi_version",
+        "fixture_identity",
+        "call_authentication",
+        "d6s_commitment_result",
+        "invocation_binding_result",
+        "capability_result",
+        "nonce_result",
+        "expiry_result",
+        "zome_reached",
+        "semantic_result",
+        "claim_ceiling",
+    ]
+
     reference = manifest["holochain_reference"]
     assert reference["version"] == "0.7.0"
     assert reference["runtime_binding_status"] == "ReferenceMappingOnly"
