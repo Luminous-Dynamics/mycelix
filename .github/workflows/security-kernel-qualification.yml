@@ -1,0 +1,140 @@
+name: Security Kernel Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'crates/mycelix-bridge-common/**'
+      - 'docs/security-*.md'
+      - '.github/workflows/security-kernel-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-kernel-qualification-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: Bridge security kernel
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # master
+        with:
+          toolchain: 1.99.0
+          components: rustfmt, clippy
+
+      - name: Format
+        run: cargo fmt --manifest-path crates/mycelix-bridge-common/Cargo.toml -- --check
+
+      - name: Generate standalone lockfile evidence
+        run: |
+          cargo generate-lockfile --manifest-path crates/mycelix-bridge-common/Cargo.toml
+          cp crates/mycelix-bridge-common/Cargo.lock /tmp/mycelix-bridge-common-Cargo.lock
+
+      - name: Upload generated lockfile evidence
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: generated-bridge-lockfile
+          path: /tmp/mycelix-bridge-common-Cargo.lock
+          if-no-files-found: error
+
+      - name: Assert security trust surfaces remain private
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Any explicit visibility modifier on a trust-construction item broadens the
+          # module-private boundary, whether it is pub(crate), pub(super), or pub(in ...).
+          # Use multiline matching so a future refactor cannot evade this guard by placing
+          # the visibility modifier and item name on separate lines.
+          # The qualification lane is intentionally a low-trust pull_request/push workflow;
+          # do not broaden it to a privileged pull_request_target trigger.
+          if rg -n '^[[:space:]]*pull_request_target[[:space:]]*:' .github/workflows/security-kernel-qualification.yml; then
+            echo "security-workflow regression: privileged pull_request_target trigger is forbidden" >&2
+            exit 1
+          fi
+
+          # All action references must remain immutable full-length commit pins.
+          while IFS= read -r uses_line; do
+            if [[ ! $uses_line =~ @[0-9a-fA-F]{40}([[:space:]]*#.*)?$ ]]; then
+              echo "security-workflow regression: action is not pinned to a full commit SHA: $uses_line" >&2
+              exit 1
+            fi
+          done < <(rg '^[[:space:]]*-[[:space:]]+uses:' .github/workflows/security-kernel-qualification.yml)
+
+          for pattern in \
+            'pub([[:space:]]*\([^)]*\))?[[:space:]]+(enum|struct|const)[[:space:]]+(SignatureVerification|RevocationStatus|AuthorityResolution|AUTHORITY_FRESHNESS_[A-Z_]+)' \
+            'pub([[:space:]]*\([^)]*\))?[[:space:]]+fn[[:space:]]+(authority_binding_from_freshness_digest|new_for_capability(_with_[a-z_]+)?|binding_digest|revalidate_permit)'; do
+            if rg -nU "$pattern" crates/mycelix-bridge-common/src/security_kernel.rs; then
+              echo "security-kernel trust-surface regression: $pattern" >&2
+              exit 1
+            fi
+          done
+
+          # Trust-sensitive SecurityEvent fields must remain module-private under
+          # every Rust visibility form, not merely bare pub.
+          for pattern in \
+            'pub([[:space:]]*\([^)]*\))?[[:space:]]+(decision|capability_binding|authority_binding|event_id|actor_id|capability_ref|request|policy_version|timestamp_us|provenance|recovery_correlation)[[:space:]]*:'; do
+            if rg -nU "$pattern" crates/mycelix-bridge-common/src/security_events.rs; then
+              echo "security-event trust-surface regression: $pattern" >&2
+              exit 1
+            fi
+          done
+
+          for pattern in \
+            '#\[derive\([^]]*(Serialize|Deserialize)[^]]*\)\][[:space:]]*(pub[[:space:]]+)?struct (VerificationEvidence|AuthorizationPermit|EnforcementRequest)' \
+            'impl[[:space:]]+(Serialize|Deserialize)[[:space:]]+for[[:space:]]+(VerificationEvidence|AuthorizationPermit|EnforcementRequest)' \
+            '#\[derive\([^]]*(Debug|Clone|Copy|PartialEq|Eq|Serialize|Deserialize)[^]]*\)\][[:space:]]*pub struct AuthorizationPermit' \
+            '#\[derive\([^]]*(Debug|Clone|Copy|PartialEq|Eq|Serialize|Deserialize)[^]]*\)\][[:space:]]*pub struct EnforcementRequest'; do
+            if rg -nU "$pattern" crates/mycelix-bridge-common/src/security_kernel.rs; then
+              echo "security-kernel serialization/linear-token regression: $pattern" >&2
+              exit 1
+            fi
+          done
+
+      - name: Assert authorization permits remain opaque
+        shell: bash
+        run: |
+          set -euo pipefail
+          awk '
+            BEGIN { in_impl = 0; depth = 0; found = 0 }
+            {
+              if (!in_impl && $0 ~ /^[[:space:]]*impl[[:space:]]+AuthorizationPermit[[:space:]]*\{[[:space:]]*$/) {
+                in_impl = 1
+              }
+              if (in_impl) {
+                if ($0 ~ /(^|[^[:alnum:]_])pub([[:space:]]*\([^)]*\))?[[:space:]]+fn[[:space:]]/) {
+                  print NR ": public AuthorizationPermit method: " $0
+                  found = 1
+                }
+                open_count = gsub(/\{/, "{", $0)
+                close_count = gsub(/\}/, "}", $0)
+                depth += open_count - close_count
+                if (depth <= 0) {
+                  exit found ? 1 : 0
+                }
+              }
+            }
+            END { if (in_impl && found == 0) exit 0 }
+          ' crates/mycelix-bridge-common/src/security_kernel.rs
+
+      - name: Test default feature set
+        run: cargo test --locked --manifest-path crates/mycelix-bridge-common/Cargo.toml
+
+      - name: Test identity feature set
+        run: cargo test --locked --manifest-path crates/mycelix-bridge-common/Cargo.toml --features identity
+
+      - name: Clippy default feature set
+        run: cargo clippy --locked --manifest-path crates/mycelix-bridge-common/Cargo.toml --all-targets -- -D warnings
+
+      - name: Clippy identity feature set
+        run: cargo clippy --locked --manifest-path crates/mycelix-bridge-common/Cargo.toml --all-targets --features identity -- -D warnings
