@@ -81,7 +81,7 @@ jobs:
         run: |
           grep '^DSID_EVIDENCE ' dsid-lifecycle-evidence.txt | cut -d ' ' -f2- \
             > dsid-lifecycle-evidence.jsonl
-          test "$(wc -l < dsid-lifecycle-evidence.jsonl)" -eq 6
+          test "$(wc -l < dsid-lifecycle-evidence.jsonl)" -eq 8
           python3 - <<'PY'
           import json
           from pathlib import Path
@@ -91,7 +91,7 @@ jobs:
               for line in Path("dsid-lifecycle-evidence.jsonl").read_text().splitlines()
           ]
 
-          assert len(rows) == 6
+          assert len(rows) == 8
           assert {row["scenario_id"] for row in rows} == {
               "DSID-001",
               "DSID-002",
@@ -99,6 +99,8 @@ jobs:
               "DSID-004",
               "DSID-005",
               "DSID-006",
+              "DSID-007",
+              "DSID-008",
           }
           assert all(row["schema_version"] == 1 for row in rows)
           assert all(row["pass"] is True for row in rows)
@@ -109,6 +111,7 @@ jobs:
           assert all(row["agents"] for row in rows)
           assert rows[0]["action_hashes"]
           assert rows[0]["entry_hashes"]
+          assert all(row["action_hashes"] or row["scenario_id"] == "DSID-006" for row in rows)
           PY
 
           sha256sum dsid-lifecycle-evidence.jsonl > dsid-lifecycle-evidence.sha256
