@@ -71,6 +71,10 @@ jobs:
           workspaces: |
             mycelix-workspace/mycelix-hearth
 
+      - name: Syntax-check Hearth 0.7 audit
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: bash -n tools/audit-holochain-07-source.sh
+
       - name: Run Hearth 0.7 source audit
         working-directory: mycelix-workspace/mycelix-hearth
         run: |
