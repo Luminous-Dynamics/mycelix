@@ -1470,12 +1470,25 @@ pub fn get_did_deactivation(did: String) -> ExternResult<Option<DidDeactivation>
         return Ok(None);
     }
 
-    // Get the most recent deactivation record
-    let latest_link = deactivation_links.into_iter().max_by_key(|l| l.timestamp);
-    if let Some(link) = latest_link {
+    // New writes are singular at the integrity boundary. For legacy data,
+    // multiple distinct deactivation records are ambiguous and fail closed
+    // rather than trusting author-controlled link timestamps.
+    let mut target_hash: Option<ActionHash> = None;
+    for link in deactivation_links {
         let action_hash = ActionHash::try_from(link.target)
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
+        if let Some(existing) = target_hash.as_ref() {
+            if existing != &action_hash {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Ambiguous DID deactivation state: multiple distinct deactivation records exist".into(),
+                )));
+            }
+        } else {
+            target_hash = Some(action_hash);
+        }
+    }
 
+    if let Some(action_hash) = target_hash {
         if let Some(record) = get(action_hash, GetOptions::default())? {
             let deactivation: DidDeactivation = record
                 .entry()
