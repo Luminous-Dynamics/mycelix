@@ -94,9 +94,11 @@ Current metadata resolver:
 
 The metadata projection separates:
 
-- the resolved DID document;
-- resolution failure metadata;
-- document metadata including \`created\`, \`updated\`, \`deactivated\`, and \`version_id\`.
+- the resolved W3C DID Document wire representation;
+- resolution metadata including the returned document media type and errors;
+- DID document metadata including \`created\`, \`updated\`, \`deactivated\`, and \`versionId\`.
+
+Successful DID Document resolution currently advertises \`contentType = application/did\`, matching the current W3C DID Resolution binding.
 
 A missing DID is represented as a method-level \`notFound\` resolution error in the typed metadata API.
 
@@ -184,8 +186,10 @@ The current qualification laboratory maps concrete protocol behavior to determin
 | DSID-008 | canonical update |
 | DSID-009 | credential projection |
 | DSID-010 | typed cross-agent resolution |
-| DSID-011 | resolution metadata + deactivation |
-| DSID-012 | method syntax / representation conformance |
+| DSID-011 | resolution metadata + deactivation + W3C wire names |
+| DSID-012 | substrate discovery + deactivated-provider filtering |
+| DSID-013 | malformed DID identifiers fail closed |
+| DSID-014 | canonical initial Ed25519 multibase verification key |
 
 The qualification workflow records scenario IDs, agents, DNA hash, action hashes, entry hashes, expected and observed behavior, pass state, and commit SHA, then hashes the complete evidence capsule.
 
