@@ -42,7 +42,10 @@
   "dependency_retrieval": {
     "deterministic_host_function_family": "must_get_*",
     "mutable_link_collections_as_validation_dependencies": false,
-    "missing_addressable_dependency_is_semantic_invalidity": false
+    "missing_addressable_dependency_is_semantic_invalidity": false,
+    "binding_preserves_address_kind": true,
+    "valid_record_requires_action_hash": true,
+    "wrong_address_kind_is_adapter_boundary_error": true
   },
   "determinism": {
     "retrieval_order_independent": true,
