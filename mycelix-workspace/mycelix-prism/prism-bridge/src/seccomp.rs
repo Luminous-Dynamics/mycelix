@@ -815,7 +815,7 @@ mod linux {
                                         .map_err(|_| SeccompError::FilterTooLarge)?;
                                     filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base));
                                     filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, low_mask));
-                                    filter.push(jump_eq(low_value, 1, mismatch_skip));
+                                    filter.push(jump_eq(low_value, 0, mismatch_skip));
                                     filter.push(stmt(
                                         BPF_RET | BPF_K,
                                         SECCOMP_RET_ERRNO | libc::EPERM as u32,
@@ -824,7 +824,7 @@ mod linux {
                                 if high_mask != 0 {
                                     filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base + 4));
                                     filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, high_mask));
-                                    filter.push(jump_eq(high_value, 1, clause_mismatch_skip));
+                                    filter.push(jump_eq(high_value, 0, clause_mismatch_skip));
                                     filter.push(stmt(
                                         BPF_RET | BPF_K,
                                         SECCOMP_RET_ERRNO | libc::EPERM as u32,
