@@ -696,6 +696,26 @@
       "id": "EDT-137",
       "case": "signature_attestation_does_not_resolve_authority_identity_by_itself",
       "expected": "accepted"
+    },
+    {
+      "id": "EDT-138",
+      "case": "signed_binding_attestation_verification_returns_valid_when_deterministic_host_verifies_payload",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-139",
+      "case": "signed_binding_attestation_signature_mismatch_is_semantic_invalidity",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-140",
+      "case": "signed_binding_attestation_verification_host_failure_remains_extern_result_error",
+      "expected": "adapter_boundary_error"
+    },
+    {
+      "id": "EDT-141",
+      "case": "attested_binding_acceptance_occurs_only_after_signature_verification",
+      "expected": "accepted"
     }
   ],
   "outcome_classes": [
