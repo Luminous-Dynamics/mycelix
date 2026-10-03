@@ -666,19 +666,37 @@ mod linux {
         }
     }
 
+    /// A disjunctive clause has no local deny action. Predicate failure
+    /// means "try the next clause", while success continues within the
+    /// current clause. Full-width predicates therefore need only the two
+    /// loads, two ANDs, and two conditional branches.
+    fn disjunctive_predicate_instruction_count(predicate: &SeccompArgPredicateV1) -> usize {
+        let low = predicate.mask as u32 != 0;
+        let high = (predicate.mask >> 32) as u32 != 0;
+        if low && high { 6 } else { 3 }
+    }
+
     fn clause_instruction_count(clause: &SeccompSyscallClauseV2) -> usize {
         1 + clause
             .predicates
             .iter()
-            .map(predicate_instruction_count)
+            .map(disjunctive_predicate_instruction_count)
             .sum::<usize>()
     }
 
     fn rule_body_instruction_count(rule: &SeccompSyscallRuleV2) -> usize {
-        rule.clauses
-            .iter()
-            .map(clause_instruction_count)
-            .sum::<usize>()
+        if rule.is_disjunctive() {
+            rule.clauses
+                .iter()
+                .map(clause_instruction_count)
+                .sum::<usize>()
+        } else {
+            1 + rule
+                .predicates()
+                .iter()
+                .map(predicate_instruction_count)
+                .sum::<usize>()
+        }
     }
 
     fn compile_filter_v2(policy: &SeccompSyscallPolicyV2) -> Result<Vec<SockFilter>, SeccompError> {
@@ -785,16 +803,14 @@ mod linux {
                             .predicates
                             .iter()
                             .skip(predicate_index + 1)
-                            .map(predicate_instruction_count)
+                            .map(disjunctive_predicate_instruction_count)
                             .sum::<usize>();
-                        // From a predicate-failure jump, skip the
-                        // remainder of this clause only: the current
-                        // predicate's EPERM plus later predicates and this
-                        // clause's ALLOW. The next alternative clause must
-                        // remain reachable.
+                        // Predicate failure means this clause does not match.
+                        // Skip the remaining instructions in this clause,
+                        // including its ALLOW, and try the next alternative.
                         let clause_mismatch_skip = u8::try_from(
                             later_in_predicates
-                                .checked_add(2)
+                                .checked_add(1)
                                 .ok_or(SeccompError::FilterTooLarge)?,
                         )
                         .map_err(|_| SeccompError::FilterTooLarge)?;
@@ -808,69 +824,64 @@ mod linux {
                         match predicate.op {
                             SeccompArgPredicateOpV1::MaskedEqual => {
                                 if low_mask != 0 {
-                                    let high_tail = usize::from(high_mask != 0) * 4
-                                        + later_in_predicates
-                                        + 2;
-                                    let mismatch_skip = u8::try_from(high_tail)
-                                        .map_err(|_| SeccompError::FilterTooLarge)?;
+                                    let high_tail = if high_mask != 0 { 3 } else { 0 };
+                                    let mismatch_skip = u8::try_from(
+                                        high_tail
+                                            .checked_add(later_in_predicates)
+                                            .and_then(|n| n.checked_add(1))
+                                            .ok_or(SeccompError::FilterTooLarge)?,
+                                    )
+                                    .map_err(|_| SeccompError::FilterTooLarge)?;
                                     filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base));
                                     filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, low_mask));
-                                    filter.push(jump_eq(low_value, 1, mismatch_skip));
-                                    filter.push(stmt(
-                                        BPF_RET | BPF_K,
-                                        SECCOMP_RET_ERRNO | libc::EPERM as u32,
-                                    ));
+                                    // Equality succeeds and continues into the high
+                                    // half (or next predicate); mismatch skips the clause.
+                                    filter.push(jump_eq(low_value, 0, mismatch_skip));
                                 }
                                 if high_mask != 0 {
                                     filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base + 4));
                                     filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, high_mask));
-                                    filter.push(jump_eq(high_value, 1, clause_mismatch_skip));
-                                    filter.push(stmt(
-                                        BPF_RET | BPF_K,
-                                        SECCOMP_RET_ERRNO | libc::EPERM as u32,
-                                    ));
+                                    // Equality succeeds; mismatch tries the next clause.
+                                    filter.push(jump_eq(high_value, 0, clause_mismatch_skip));
                                 }
                             }
                             SeccompArgPredicateOpV1::MaskedNotEqual => {
                                 if low_mask != 0 && high_mask != 0 {
-                                    let high_body_len = usize::from(high_mask != 0) * 4;
-                                    let low_mismatch_skip = u8::try_from(high_body_len)
-                                        .map_err(|_| SeccompError::FilterTooLarge)?;
+                                    // Low-half equality fails the whole NotEqual
+                                    // predicate, so skip the remaining high-half
+                                    // body and this clause's suffix.
+                                    let low_equal_skip = u8::try_from(
+                                        3usize
+                                            .checked_add(later_in_predicates)
+                                            .and_then(|n| n.checked_add(1))
+                                            .ok_or(SeccompError::FilterTooLarge)?,
+                                    )
+                                    .map_err(|_| SeccompError::FilterTooLarge)?;
                                     filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base));
                                     filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, low_mask));
-                                    filter.push(jump_eq(low_value, 0, low_mismatch_skip));
+                                    filter.push(jump_eq(low_value, low_equal_skip, 0));
                                     filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base + 4));
                                     filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, high_mask));
-                                    // Equality makes the whole 64-bit predicate fail, so skip
-                                    // this clause's EPERM and remaining body to the
-                                    // next alternative. Inequality succeeds and
-                                    // skips only that EPERM, continuing with the next predicate.
-                                    filter.push(jump_eq(high_value, clause_mismatch_skip, 1));
-                                    filter.push(stmt(
-                                        BPF_RET | BPF_K,
-                                        SECCOMP_RET_ERRNO | libc::EPERM as u32,
-                                    ));
+                                    // High-half equality fails the predicate and skips
+                                    // the rest of this clause; inequality continues.
+                                    filter.push(jump_eq(high_value, clause_mismatch_skip, 0));
                                 } else {
                                     let (base, mask, value) = if low_mask != 0 {
                                         (base, low_mask, low_value)
                                     } else {
                                         (base + 4, high_mask, high_value)
                                     };
+                                    // Equality fails the NotEqual predicate; inequality
+                                    // continues with the next predicate.
                                     filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base));
                                     filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, mask));
-                                    // Equality fails the NotEqual predicate, so skip this clause's
-                                    // remaining body to the next alternative;
-                                    // inequality skips only that EPERM and continues.
-                                    filter.push(jump_eq(value, clause_mismatch_skip, 1));
-                                    filter.push(stmt(
-                                        BPF_RET | BPF_K,
-                                        SECCOMP_RET_ERRNO | libc::EPERM as u32,
-                                    ));
+                                    filter.push(jump_eq(value, clause_mismatch_skip, 0));
                                 }
                             }
                         }
                     }
 
+                    // Every predicate in the clause matched.
                     filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_ALLOW));
                 }
             }
@@ -1689,10 +1700,10 @@ mod linux {
                 .unwrap();
 
             // Four clauses × (four full-width MaskedNotEqual predicates,
-            // seven instructions each + one clause ALLOW) = 116 body
-            // instructions. cBPF jt/jf are u8, so this remains comfortably
-            // within the representable branch-offset domain.
-            assert_eq!(filter[dispatch].jf, 116);
+            // six instructions each + one clause ALLOW) = 100 body
+            // instructions. Predicate failure now jumps directly to the next
+            // clause, so no local EPERM instruction is left unreachable.
+            assert_eq!(filter[dispatch].jf, 100);
             assert!(filter[dispatch].jf <= u8::MAX);
         }
 
@@ -1852,7 +1863,7 @@ mod linux {
                 1 + clause
                     .predicates()
                     .iter()
-                    .map(predicate_instruction_count)
+                    .map(disjunctive_predicate_instruction_count)
                     .sum::<usize>()
             );
 
@@ -2477,7 +2488,7 @@ mod linux {
                 disj_prctl - disj_lseek - 1,
                 "disjunctive 64-bit MaskedNotEqual body length must match dispatch"
             );
-            assert_eq!(disj_filter[disj_lseek].jf, 17);
+            assert_eq!(disj_filter[disj_lseek].jf, 14);
         }
 
         #[test]
