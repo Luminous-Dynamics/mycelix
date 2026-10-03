@@ -1061,7 +1061,12 @@ fn observation_map_keys_match_records(state: &FederationState) -> bool {
 /// the validator any authority to rewrite evidence.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FederationInvariantViolation {
+    NodeMapKeyMismatch,
+    RecognitionEdgeInvalid,
+    RecognitionEdgeOrderMismatch,
     DeliveryMapKeyMismatch,
+    DeliveryNodeReferenceMismatch,
+    DeliveryPredecessorMismatch,
     ObservationMapKeyMismatch,
     SourceObservationSetMismatch,
     DeliveryMissingAttemptHistory,
@@ -1069,9 +1074,71 @@ pub enum FederationInvariantViolation {
     SourceObservationMismatch,
 }
 
+fn node_map_keys_match_profiles(state: &FederationState) -> bool {
+    state
+        .nodes
+        .iter()
+        .all(|(map_id, node)| map_id == &node.node_id && !node.node_id.is_empty())
+}
+
+fn recognition_edges_are_canonical(state: &FederationState) -> bool {
+    state.recognition_edges.windows(2).all(|pair| {
+        pair[0].cmp(&pair[1]) == std::cmp::Ordering::Less
+            && !pair[0].recognizing_node.is_empty()
+            && !pair[0].origin_node.is_empty()
+            && !pair[0].scope.is_empty()
+            && state.nodes.contains_key(&pair[0].recognizing_node)
+            && state.nodes.contains_key(&pair[0].origin_node)
+    }) && state.recognition_edges.last().is_none_or(|edge| {
+        !edge.recognizing_node.is_empty()
+            && !edge.origin_node.is_empty()
+            && !edge.scope.is_empty()
+            && state.nodes.contains_key(&edge.recognizing_node)
+            && state.nodes.contains_key(&edge.origin_node)
+    })
+}
+
+fn delivery_node_references_match(state: &FederationState) -> bool {
+    state.deliveries.values().all(|record| {
+        state.nodes.contains_key(&record.contract.origin_node)
+            && state.nodes.contains_key(&record.contract.target_node)
+            && !record.contract.logical_delivery_id.is_empty()
+            && !record.contract.semantic_subject_id.is_empty()
+            && !record.contract.payload_commitment.is_empty()
+            && !record.source_observation_id.is_empty()
+    })
+}
+
+fn delivery_predecessors_match(state: &FederationState) -> bool {
+    state.deliveries.values().all(|record| {
+        match record.contract.predecessor_delivery_id.as_deref() {
+            None => true,
+            Some(predecessor) => {
+                predecessor != record.contract.logical_delivery_id
+                    && state.deliveries.contains_key(predecessor)
+            }
+        }
+    })
+}
+
 pub fn validate_state(state: &FederationState) -> Result<(), FederationInvariantViolation> {
+    if !node_map_keys_match_profiles(state) {
+        return Err(FederationInvariantViolation::NodeMapKeyMismatch);
+    }
+    if !recognition_edges_are_canonical(state) {
+        return Err(FederationInvariantViolation::RecognitionEdgeInvalid);
+    }
+    if state.recognition_edges.windows(2).any(|pair| pair[0] >= pair[1]) {
+        return Err(FederationInvariantViolation::RecognitionEdgeOrderMismatch);
+    }
     if !delivery_map_keys_match_contracts(state) {
         return Err(FederationInvariantViolation::DeliveryMapKeyMismatch);
+    }
+    if !delivery_node_references_match(state) {
+        return Err(FederationInvariantViolation::DeliveryNodeReferenceMismatch);
+    }
+    if !delivery_predecessors_match(state) {
+        return Err(FederationInvariantViolation::DeliveryPredecessorMismatch);
     }
     if !observation_map_keys_match_records(state) {
         return Err(FederationInvariantViolation::ObservationMapKeyMismatch);
@@ -1355,6 +1422,44 @@ mod tests {
         ]);
 
         assert_eq!(result, Err(FederationNodeError::DuplicateNodeId));
+    }
+
+    #[test]
+    fn validate_state_covers_node_recognition_and_dependency_identity() {
+        let mut state = nodes();
+        assert_eq!(validate_state(&state), Ok(()));
+
+        let node = state.nodes.remove("node-a").unwrap();
+        state.nodes.insert("wrong-node-key".into(), node);
+        assert_eq!(
+            validate_state(&state),
+            Err(FederationInvariantViolation::NodeMapKeyMismatch)
+        );
+
+        let mut state = nodes();
+        state.recognition_edges.push(RecognitionEdge {
+            recognizing_node: "node-a".into(),
+            origin_node: "node-b".into(),
+            scope: "scope-1".into(),
+            mode: RecognitionMode::EvidenceOnly,
+        });
+        assert_eq!(
+            validate_state(&state),
+            Err(FederationInvariantViolation::RecognitionEdgeInvalid)
+        );
+
+        let mut state = nodes();
+        assert_eq!(
+            deliver(&mut state, &envelope(), 50, true).decision(),
+            FederationDecision::AcceptedLocal
+        );
+        let mut broken = state.delivery("delivery-1").unwrap().clone();
+        broken.contract.predecessor_delivery_id = Some("missing-parent".into());
+        state.deliveries.insert("delivery-1".into(), broken);
+        assert_eq!(
+            validate_state(&state),
+            Err(FederationInvariantViolation::DeliveryPredecessorMismatch)
+        );
     }
 
     #[test]
