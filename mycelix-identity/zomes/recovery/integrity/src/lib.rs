@@ -262,9 +262,8 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::RecoveryVote(_) => Ok(ValidateCallbackResult::Invalid(
                     "Recovery votes cannot be updated".into(),
                 )),
-                EntryTypes::SelfRecoveryConfig(_) => {
-                    // Updates allowed (adding/removing anchors, marking superseded)
-                    Ok(ValidateCallbackResult::Valid)
+                EntryTypes::SelfRecoveryConfig(config) => {
+                    validate_update_self_recovery_config(action, config)
                 }
                 EntryTypes::SelfRecoveryRequest(request) => {
                     validate_update_self_recovery_request(action, request)
@@ -1024,6 +1023,84 @@ fn validate_create_self_recovery_config(
             "Anchor threshold cannot exceed anchor count".into(),
         ));
     }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+/// Validate updates to self-recovery configuration at the integrity boundary.
+fn validate_update_self_recovery_config(
+    action: Update,
+    config: SelfRecoveryConfig,
+) -> ExternResult<ValidateCallbackResult> {
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original: SelfRecoveryConfig = original_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original self-recovery config not found".into()
+        )))?;
+
+    if config.did != original.did
+        || config.owner != original.owner
+        || config.created != original.created
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Self-recovery config identity fields cannot be changed".into(),
+        ));
+    }
+
+    if config.updated <= original.updated {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Self-recovery config updated timestamp must advance".into(),
+        ));
+    }
+
+    if config.time_lock < SELF_RECOVERY_MIN_TIME_LOCK {
+        return Ok(ValidateCallbackResult::Invalid(format!(
+            "Self-recovery time lock must be at least {} seconds",
+            SELF_RECOVERY_MIN_TIME_LOCK
+        )));
+    }
+
+    let unique_anchor_count = {
+        let mut set = HashSet::new();
+        for anchor in &config.anchors {
+            let encoded = serde_json::to_string(anchor)
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+            set.insert(encoded);
+        }
+        set.len()
+    };
+    if unique_anchor_count != config.anchors.len() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Duplicate self-recovery anchors are not allowed".into(),
+        ));
+    }
+
+    if config.anchor_threshold == 0 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Self-recovery anchor threshold must be greater than zero".into(),
+        ));
+    }
+    if !config.anchors.is_empty() && config.anchor_threshold as usize > config.anchors.len() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Self-recovery anchor threshold cannot exceed anchor count".into(),
+        ));
+    }
+
+    // Once disabled or superseded, configuration cannot silently become active
+    // again through a generic update.
+    if original.active == false && config.active {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Inactive self-recovery configuration cannot be reactivated".into(),
+        ));
+    }
+    if original.superseded_by_social && !config.superseded_by_social {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Self-recovery supersession cannot be reversed".into(),
+        ));
+    }
+
     Ok(ValidateCallbackResult::Valid)
 }
 
