@@ -46,6 +46,15 @@
       "operation_surface": ["CreateEntry", "CreateRecord"],
       "invariant": "source_cluster cannot be empty",
       "boundary": "integrity_validation"
+    },
+    {
+      "case_id": "SEM-06",
+      "test": "test_invalid_story_update_reaches_integrity_validation",
+      "zome": "hearth_stories",
+      "operation": "update_story",
+      "operation_surface": ["CreateEntry", "CreateRecord", "Update"],
+      "invariant": "Story title cannot be empty",
+      "boundary": "integrity_validation"
     }
   ]
 }
