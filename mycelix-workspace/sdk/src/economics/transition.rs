@@ -30,6 +30,75 @@ pub enum EconomicTransition {
     DebtRepayment(DebtRepayment),
 }
 
+impl EconomicTransition {
+    /// Validate transition-domain invariants independently of constructors.
+    ///
+    /// The transition enum is deserializable, so callers can construct values
+    /// without invoking the individual constructor functions. This shared
+    /// validator keeps derived projections and execution on the same domain.
+    pub fn validate(&self) -> Result<(), String> {
+        let require_positive = |amount: i128, label: &str| {
+            if amount <= 0 {
+                Err(format!("{label} amount must be positive"))
+            } else {
+                Ok(())
+            }
+        };
+
+        match self {
+            Self::MonetaryTransfer(flow) => require_positive(flow.amount, "monetary transfer"),
+            Self::IncomeTransfer(flow) => require_positive(flow.amount, "income transfer"),
+            Self::CapitalInvestment(investment) => {
+                require_positive(investment.amount, "capital investment")
+            }
+            Self::Production(production) => {
+                require_positive(production.resource_input, "production resource input")?;
+                require_positive(production.output, "production output")
+            }
+            Self::InventoryTransfer(transfer) => {
+                require_positive(transfer.quantity, "inventory transfer")
+            }
+            Self::InventoryConsumption(consumption) => {
+                require_positive(consumption.quantity, "inventory consumption")
+            }
+            Self::GoodsSale(sale) => {
+                require_positive(sale.quantity, "goods sale quantity")?;
+                require_positive(sale.consideration, "goods sale consideration")
+            }
+            Self::TradeCreditSale(sale) => {
+                require_positive(sale.quantity, "trade-credit sale quantity")?;
+                require_positive(sale.consideration, "trade-credit sale consideration")
+            }
+            Self::TradeCreditSettlement(settlement) => {
+                require_positive(settlement.amount, "trade-credit settlement")
+            }
+            Self::InventoryCostAddition(addition) => {
+                require_positive(addition.quantity, "inventory cost addition quantity")?;
+                require_positive(
+                    addition.carrying_value,
+                    "inventory cost addition carrying value",
+                )
+            }
+            Self::InventoryCostRelief(relief) => {
+                require_positive(relief.quantity, "inventory cost relief quantity")?;
+                require_positive(
+                    relief.carrying_value,
+                    "inventory cost relief carrying value",
+                )
+            }
+            Self::Depreciation(depreciation) => {
+                require_positive(depreciation.amount, "depreciation")
+            }
+            Self::CreditCreation(credit) => {
+                require_positive(credit.amount, "credit creation")
+            }
+            Self::DebtRepayment(repayment) => {
+                require_positive(repayment.amount, "debt repayment")
+            }
+        }
+    }
+}
+
 /// Stable receipt describing one successfully applied timestep.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EconomicStepReceipt {
@@ -160,6 +229,10 @@ pub fn apply_step(
     let mut next = state.clone();
 
     for transition in transitions {
+        transition
+            .validate()
+            .map_err(EconomicStepError::TransitionRejected)?;
+
         let result = match transition {
             EconomicTransition::MonetaryTransfer(flow) => next.apply_flow(flow),
             EconomicTransition::IncomeTransfer(transfer) => next.apply_income_transfer(transfer),
@@ -252,6 +325,16 @@ mod tests {
             bank,
             ActorBalanceSheet::new("household"),
         ])
+    }
+
+    #[test]
+    fn transition_validation_catches_deserialized_zero_amount() {
+        let transition = EconomicTransition::CreditCreation(CreditCreation {
+            lender: "bank".into(),
+            borrower: "household".into(),
+            amount: 0,
+        });
+        assert!(transition.validate().is_err());
     }
 
     #[test]
