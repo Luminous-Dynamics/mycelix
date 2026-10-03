@@ -1054,18 +1054,66 @@ fn observation_map_keys_match_records(state: &FederationState) -> bool {
     })
 }
 
+/// Typed diagnostics for corruption or invariant drift at the federation state boundary.
+///
+/// This validator is observational only: it never repairs, normalizes, or mutates
+/// state. Callers can therefore use it as a qualification gate without granting
+/// the validator any authority to rewrite evidence.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FederationInvariantViolation {
+    DeliveryMapKeyMismatch,
+    ObservationMapKeyMismatch,
+    SourceObservationSetMismatch,
+    DeliveryMissingAttemptHistory,
+    AttemptBindingMismatch,
+    SourceObservationMismatch,
+}
+
+pub fn validate_state(state: &FederationState) -> Result<(), FederationInvariantViolation> {
+    if !delivery_map_keys_match_contracts(state) {
+        return Err(FederationInvariantViolation::DeliveryMapKeyMismatch);
+    }
+    if !observation_map_keys_match_records(state) {
+        return Err(FederationInvariantViolation::ObservationMapKeyMismatch);
+    }
+    if !source_observation_ids_match_delivery_links(state) {
+        return Err(FederationInvariantViolation::SourceObservationSetMismatch);
+    }
+
+    for record in state.deliveries.values() {
+        if record.attempts.is_empty() {
+            return Err(FederationInvariantViolation::DeliveryMissingAttemptHistory);
+        }
+        if !attempt_history_matches_bindings(record) {
+            return Err(FederationInvariantViolation::AttemptBindingMismatch);
+        }
+        if !source_observation_matches_delivery(state, record) {
+            return Err(FederationInvariantViolation::SourceObservationMismatch);
+        }
+    }
+
+    Ok(())
+}
+
+/// Boolean compatibility wrapper for existing transition assertions.
 fn federation_state_invariants_hold(state: &FederationState) -> bool {
-    delivery_map_keys_match_contracts(state)
-        && observation_map_keys_match_records(state)
-        && source_observation_ids_match_delivery_links(state)
-        && state
-            .deliveries
-            .values()
-            .all(|record| {
-                !record.attempts.is_empty()
-                    && attempt_history_matches_bindings(record)
-                    && source_observation_matches_delivery(state, record)
-            })
+    validate_state(state).is_ok()
+}
+
+/// Canonical, order-independent representation of authoritative federation state.
+///
+/// The representation intentionally includes semantic state and provenance ledgers,
+/// while relying on BTreeMap ordering and the already-normalized recognition edge
+/// ordering to eliminate incidental container ordering from qualification evidence.
+/// It is a representation for deterministic comparison, not a cryptographic hash.
+pub fn canonical_state_fingerprint(state: &FederationState) -> Vec<u8> {
+    serde_json::to_vec(&(
+        &state.nodes,
+        &state.recognition_edges,
+        &state.deliveries,
+        &state.observations,
+    ))
+    .expect("authoritative federation state is serializable")
 }
 
 fn source_observation_ids_match_delivery_links(state: &FederationState) -> bool {
@@ -1307,6 +1355,111 @@ mod tests {
         ]);
 
         assert_eq!(result, Err(FederationNodeError::DuplicateNodeId));
+    }
+
+    #[test]
+    fn validate_state_accepts_admitted_state_and_canonical_fingerprint_is_stable() {
+        let mut state = nodes();
+        assert_eq!(validate_state(&state), Ok(()));
+        let before = canonical_state_fingerprint(&state);
+
+        assert_eq!(
+            deliver(&mut state, &envelope(), 50, true).decision(),
+            FederationDecision::AcceptedLocal
+        );
+        assert_eq!(validate_state(&state), Ok(()));
+
+        let after = canonical_state_fingerprint(&state);
+        assert_ne!(before, after);
+
+        let cloned = state.clone();
+        assert_eq!(after, canonical_state_fingerprint(&cloned));
+    }
+
+    #[test]
+    fn validate_state_reports_typed_cross_ledger_corruption() {
+        let mut state = nodes();
+        assert_eq!(
+            deliver(&mut state, &envelope(), 50, true).decision(),
+            FederationDecision::AcceptedLocal
+        );
+        assert_eq!(validate_state(&state), Ok(()));
+
+        let original_delivery = state.deliveries.remove("delivery-1").unwrap();
+        state
+            .deliveries
+            .insert("wrong-delivery-key".into(), original_delivery);
+        assert_eq!(
+            validate_state(&state),
+            Err(FederationInvariantViolation::DeliveryMapKeyMismatch)
+        );
+
+        let original_observation = state.observations.remove("env-1").unwrap();
+        state
+            .observations
+            .insert("wrong-observation-key".into(), original_observation);
+        assert_eq!(
+            validate_state(&state),
+            Err(FederationInvariantViolation::DeliveryMapKeyMismatch)
+        );
+
+        let delivery = state.deliveries.remove("wrong-delivery-key").unwrap();
+        state.deliveries.insert("delivery-1".into(), delivery);
+        assert_eq!(
+            validate_state(&state),
+            Err(FederationInvariantViolation::ObservationMapKeyMismatch)
+        );
+    }
+
+    #[test]
+    fn validate_state_reports_attempt_and_provenance_corruption() {
+        let mut state = nodes();
+        assert_eq!(
+            deliver(&mut state, &envelope(), 50, true).decision(),
+            FederationDecision::AcceptedLocal
+        );
+
+        let mut missing_attempt = state.delivery("delivery-1").unwrap().clone();
+        missing_attempt.attempts.clear();
+        state
+            .deliveries
+            .insert("delivery-1".into(), missing_attempt);
+        assert_eq!(
+            validate_state(&state),
+            Err(FederationInvariantViolation::DeliveryMissingAttemptHistory)
+        );
+
+        let mut state = nodes();
+        assert_eq!(
+            deliver(&mut state, &envelope(), 50, true).decision(),
+            FederationDecision::AcceptedLocal
+        );
+        let mut orphan_binding = state.delivery("delivery-1").unwrap().clone();
+        orphan_binding
+            .attempt_envelope_ids
+            .insert("orphan-attempt".into(), "orphan-envelope".into());
+        state
+            .deliveries
+            .insert("delivery-1".into(), orphan_binding);
+        assert_eq!(
+            validate_state(&state),
+            Err(FederationInvariantViolation::AttemptBindingMismatch)
+        );
+
+        let mut state = nodes();
+        assert_eq!(
+            deliver(&mut state, &envelope(), 50, true).decision(),
+            FederationDecision::AcceptedLocal
+        );
+        let mut broken_source = state.delivery("delivery-1").unwrap().clone();
+        broken_source.source_observation_id = "missing-source".into();
+        state
+            .deliveries
+            .insert("delivery-1".into(), broken_source);
+        assert_eq!(
+            validate_state(&state),
+            Err(FederationInvariantViolation::SourceObservationMismatch)
+        );
     }
 
     #[test]
