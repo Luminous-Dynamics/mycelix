@@ -133,6 +133,7 @@ impl SectorFinancialFlowMatrix {
 
         let mut matrix = Self::default();
         for transition in transitions {
+            transition.validate()?;
             let (from, to, category, amount) = match transition {
                 EconomicTransition::CreditCreation(credit) => (
                     sector_for(&credit.lender)?,
