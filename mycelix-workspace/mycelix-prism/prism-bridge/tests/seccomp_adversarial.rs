@@ -534,12 +534,11 @@ fn maximum_dispatch_offset_child() -> ! {
 
     // Four clauses x four full-width MaskedNotEqual predicates is the
     // compiler's maximum V2 rule-body shape: 4 * (4 * 7 + 1) = 116
-    // instructions. Make this the first syscall rule so the next dispatch
-    // must take a 116-instruction forward jump when the syscall number does
-    // not match. The following syscall rule is intentionally unconditional;
-    // a successful call to it therefore proves that the kernel accepted and
-    // executed the largest generated dispatch offset rather than merely
-    // accepting the bytecode at installation time.
+    // instructions. Make read() the first rule (its syscall number is below
+    // getpid() and exit_group() on the supported Linux architectures) so the
+    // getpid() probe must take a 116-instruction forward jump. The following
+    // rules are unconditional; clean exit is therefore also possible after
+    // the post-install assertion.
     let mut clauses = Vec::with_capacity(4);
     for clause_index in 0..4u64 {
         let mut predicates = Vec::with_capacity(4);
@@ -562,45 +561,32 @@ fn maximum_dispatch_offset_child() -> ! {
         );
     }
 
-    let getpid_nr = libc::SYS_getpid;
-    let prctl_nr = libc::SYS_prctl;
-    let (large_dispatch_syscall, allowed_syscall, allowed_is_getpid) =
-        if getpid_nr < prctl_nr {
-            (getpid_nr, prctl_nr, false)
-        } else {
-            (prctl_nr, getpid_nr, true)
-        };
+    let large_dispatch_syscall = libc::SYS_read;
+    let allowed_syscall = libc::SYS_getpid;
+    let cleanup_syscall = libc::SYS_exit_group;
+    if !(large_dispatch_syscall < allowed_syscall && allowed_syscall < cleanup_syscall) {
+        unsafe { libc::_exit(153) };
+    }
 
     let large_rule = SeccompSyscallRuleV2::new_with_clauses(large_dispatch_syscall, clauses)
-        .unwrap_or_else(|_| unsafe { libc::_exit(153) });
-    let unconditional_rule = SeccompSyscallRuleV2::new(allowed_syscall, Vec::new())
         .unwrap_or_else(|_| unsafe { libc::_exit(154) });
+    let unconditional_allowed = SeccompSyscallRuleV2::new(allowed_syscall, Vec::new())
+        .unwrap_or_else(|_| unsafe { libc::_exit(155) });
+    let unconditional_exit = SeccompSyscallRuleV2::new(cleanup_syscall, Vec::new())
+        .unwrap_or_else(|_| unsafe { libc::_exit(156) });
 
     let policy = SeccompSyscallPolicyV2::new(
         architecture,
-        vec![large_rule, unconditional_rule],
+        vec![large_rule, unconditional_allowed, unconditional_exit],
     )
-    .unwrap_or_else(|_| unsafe { libc::_exit(155) });
+    .unwrap_or_else(|_| unsafe { libc::_exit(157) });
     let profile = SandboxProfileV1::renderer_default()
         .with_syscall_policy_digest(policy.digest())
-        .unwrap_or_else(|_| unsafe { libc::_exit(156) });
+        .unwrap_or_else(|_| unsafe { libc::_exit(158) });
 
     // Pre-resolve the exact raw path used after installation. No libc helper
     // is needed on the irreversible side of the boundary.
-    if allowed_is_getpid {
-        let _ = unsafe { libc::syscall(libc::SYS_getpid) };
-    } else {
-        let _ = unsafe {
-            libc::syscall(
-                libc::SYS_prctl,
-                libc::PR_GET_NO_NEW_PRIVS,
-                0,
-                0,
-                0,
-                0,
-            )
-        };
-    }
+    let _ = unsafe { libc::syscall(libc::SYS_getpid) };
     let _ = unsafe { *libc::__errno_location() };
 
     if install_v2(
@@ -610,28 +596,15 @@ fn maximum_dispatch_offset_child() -> ! {
     )
     .is_err()
     {
-        unsafe { libc::_exit(157) };
+        unsafe { libc::_exit(159) };
     }
 
-    let allowed = if allowed_is_getpid {
-        unsafe { libc::syscall(libc::SYS_getpid) }
-    } else {
-        unsafe {
-            libc::syscall(
-                libc::SYS_prctl,
-                libc::PR_GET_NO_NEW_PRIVS,
-                0,
-                0,
-                0,
-                0,
-            )
-        }
-    };
-    let errno = unsafe { *libc::__errno_location() };
-    let success = if allowed_is_getpid { allowed > 0 } else { allowed == 1 };
-    if !success {
-        let _ = errno;
-        unsafe { libc::_exit(158) };
+    // getpid() does not match the first rule's syscall number. Reaching this
+    // successful result therefore demonstrates that the kernel followed the
+    // large rule's false branch over exactly the maximum generated body.
+    let allowed = unsafe { libc::syscall(libc::SYS_getpid) };
+    if allowed <= 0 {
+        unsafe { libc::_exit(160) };
     }
 
     unsafe { libc::_exit(0) }
