@@ -466,6 +466,11 @@
       "id": "EDT-091",
       "case": "qualification_dependency_accumulation_is_invariant_to_partitioning",
       "expected": "unresolved_at_protocol_layer"
+    },
+    {
+      "id": "EDT-092",
+      "case": "qualification_outcome_maps_to_runtime_neutral_valid_invalid_or_unresolved_decision",
+      "expected": "accepted"
     }
   ]
 }
