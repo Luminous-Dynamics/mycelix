@@ -471,6 +471,11 @@
       "id": "EDT-092",
       "case": "qualification_outcome_maps_to_runtime_neutral_valid_invalid_or_unresolved_decision",
       "expected": "accepted"
+    },
+    {
+      "id": "EDT-093",
+      "case": "qualification_decision_preserves_logical_identity_boundary_and_definitive_state",
+      "expected": "accepted"
     }
   ]
 }
