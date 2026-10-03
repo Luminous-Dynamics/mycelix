@@ -80,7 +80,7 @@ jobs:
           cd "${root}"
           cargo +1.96.0 generate-lockfile
           set +e
-          cargo +1.96.0 test --locked -p prism-bridge --test seccomp_adversarial 2>&1 | tee "${root}/seccomp-test.log"
+          RUST_TEST_THREADS=1 cargo +1.96.0 test --locked -p prism-bridge --test seccomp_adversarial 2>&1 | tee "${root}/seccomp-test.log"
           test_status=${PIPESTATUS[0]}
           set -e
           exit "${test_status}"
@@ -115,7 +115,7 @@ jobs:
             echo "runner_arch=${{ runner.arch }}"
             echo "native_target=${{ matrix.target }}"
             echo "runner_label=${{ matrix.runner }}"
-            echo "test_command=cargo +1.96.0 test --locked -p prism-bridge --test seccomp_adversarial"
+            echo "test_command=RUST_TEST_THREADS=1 cargo +1.96.0 test --locked -p prism-bridge --test seccomp_adversarial"
             echo "cargo_version=$(cargo +1.96.0 --version)"
             echo "rustc_version=$(rustc +1.96.0 --version)"
             if [[ -f "${root}/Cargo.lock" ]]; then
