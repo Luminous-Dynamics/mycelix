@@ -72,6 +72,15 @@ jobs:
             fi
           done
 
+          for pattern in \\
+            '#\\[derive\\(Debug, Clone, PartialEq, Eq\\)\\][[:space:]]*pub struct AuthorizationPermit' \\
+            '#\\[derive\\(Debug, Clone, PartialEq, Eq\\)\\][[:space:]]*pub struct EnforcementRequest'; do
+            if rg -nU \\"$pattern\\" crates/mycelix-bridge-common/src/security_kernel.rs; then
+              echo \\"security-kernel linear-token regression: $pattern\\" >&2
+              exit 1
+            fi
+          done
+
       - name: Test default feature set
         run: cargo test --locked --manifest-path crates/mycelix-bridge-common/Cargo.toml
 
