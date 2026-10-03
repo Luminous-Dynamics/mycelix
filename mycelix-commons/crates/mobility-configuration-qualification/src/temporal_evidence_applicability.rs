@@ -263,8 +263,8 @@ impl EvidenceDispositionTransition {
         combined.push(candidate.clone());
         Self::validate_graph(&combined)
     }
-
 }
+
 /// Explicitly records reconciliation of competing disposition branches.
 ///
 /// This record never selects a branch implicitly. It identifies the exact
@@ -2126,7 +2126,9 @@ mod tests {
             EvidenceDispositionTransition::validate_append(&[genesis], &successor).unwrap();
         assert_eq!(
             assessment,
-            DispositionChainAssessment::Complete { branch_points: vec![] }
+            DispositionChainAssessment::Complete {
+                branch_points: vec![],
+            }
         );
     }
 
@@ -2147,8 +2149,7 @@ mod tests {
             EvidenceDisposition::Unresolved,
         );
 
-        let error = EvidenceDispositionTransition::validate_append(&[genesis], &replacement)
-            .unwrap_err();
+        let error = EvidenceDispositionTransition::validate_append(&[genesis], &replacement).unwrap_err();
         assert_eq!(
             error,
             "cannot append disposition transition with an existing identity"
@@ -2178,7 +2179,9 @@ mod tests {
             EvidenceDispositionTransition::validate_append(&[child], &predecessor).unwrap();
         assert_eq!(
             assessment,
-            DispositionChainAssessment::Complete { branch_points: vec![] }
+            DispositionChainAssessment::Complete {
+                branch_points: vec![],
+            }
         );
     }
 
