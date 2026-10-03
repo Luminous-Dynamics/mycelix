@@ -17,19 +17,6 @@ pub enum QualificationValidationError {
 pub type QualificationOutcome<T> =
     Result<QualificationStatus<T>, QualificationValidationError>;
 
-impl QualificationStatus<()> {
-    pub fn complete() -> Self {
-        Self::Complete(())
-    }
-
-    pub fn unresolved(missing: Vec<IdentityRef>) -> Self {
-        Self::Unresolved {
-            missing,
-            partial: (),
-        }
-    }
-}
-
 impl<T> QualificationStatus<T> {
     pub fn map<U>(self, map: impl FnOnce(T) -> U) -> QualificationStatus<U> {
         match self {
@@ -52,12 +39,6 @@ impl<T> QualificationStatus<T> {
         }
     }
 
-    pub fn into_parts(self) -> (Vec<IdentityRef>, Option<T>) {
-        match self {
-            Self::Complete(value) => (Vec::new(), Some(value)),
-            Self::Unresolved { missing, partial } => (missing, Some(partial)),
-        }
-    }
 }
 
 impl QualificationValidationError {
@@ -120,7 +101,6 @@ mod tests {
 
         assert!(!status.is_complete());
         assert_eq!(status.missing(), &[missing]);
-        assert_eq!(status.into_parts(), (vec![id("missing")], Some(7u8)));
     }
 
     #[test]
