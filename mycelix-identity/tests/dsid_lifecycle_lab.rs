@@ -20,6 +20,7 @@ use holochain::prelude::*;
 use holochain::sweettest::*;
 use mycelix_crypto::{AlgorithmId, TaggedPublicKey};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
@@ -1346,7 +1347,7 @@ async fn dsid_017_not_found_resolution_uses_structured_w3c_error() {
 
 
 #[test]
-fn dsid_018_conformance_vectors_parse_as_identity_inputs() {
+fn conformance_vectors_parse_as_identity_inputs() {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("..")
         .join("..")
@@ -1384,5 +1385,55 @@ fn dsid_018_conformance_vectors_parse_as_identity_inputs() {
     assert!(
         AgentPubKey::try_from(invalid_identifier).is_err(),
         "DID-002 must fail Holochain AgentPubKey parsing"
+    );
+}
+
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_018_initial_mfa_factor_is_bound_to_agent_hash() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let app = conductor.setup_app(
+        "dsid-mfa-primary-hash",
+        std::slice::from_ref(&dna),
+    ).await.unwrap();
+    let cell = app.cells()[0].clone();
+    let agent = app.agent().clone();
+
+    let did_record: Record = conductor
+        .call(&cell.zome("did_registry"), "create_did", ())
+        .await;
+    let did: DidDocument = decode_entry(&did_record).expect("DID entry must decode");
+
+    let state: serde_json::Value = conductor
+        .call(&cell.zome("mfa"), "get_mfa_state", did.id.clone())
+        .await
+        .expect("MFA state must exist after DID creation");
+    let factors = state["state"]["factors"]
+        .as_array()
+        .expect("MFA factors must be an array");
+    assert_eq!(factors.len(), 1);
+
+    let mut hasher = Sha256::new();
+    hasher.update(agent.get_raw_39());
+    let expected_factor_id = format!("sha256:{}", hex::encode(hasher.finalize()));
+    assert_eq!(
+        factors[0]["factor_id"],
+        expected_factor_id,
+        "initial MFA factor must bind to the verifier's canonical SHA-256 contract"
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("alice", agent.to_string());
+    emit_evidence(
+        "DSID-018",
+        "initial-mfa-factor-is-bound-to-agent-hash",
+        &dna,
+        agents,
+        &[&did_record],
+        "DID creation initializes a primary MFA factor whose identifier exactly matches SHA-256 of the canonical AgentPubKey representation.",
+        format!("factor_id_matches_expected={}", factors[0]["factor_id"] == expected_factor_id),
+        true,
     );
 }
