@@ -211,7 +211,7 @@ fn validate_create_link(
     link_type: LinkTypes,
     base_address: AnyLinkableHash,
     target_address: AnyLinkableHash,
-    author: &AgentPubKey,
+    _author: &AgentPubKey,
 ) -> ExternResult<ValidateCallbackResult> {
     let action_hash = |hash: AnyLinkableHash, label: &str| -> Result<ActionHash, ValidateCallbackResult> {
         ActionHash::try_from(hash)
