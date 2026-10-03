@@ -738,6 +738,12 @@ fn check_and_update_request_status(request_id: String) -> ExternResult<()> {
 
     let total_trustees = config.trustees.len() as u32;
     if approve_count >= config.threshold {
+        let certificate_hash = create_recovery_approval_certificate(
+            &request_record,
+            &current_request,
+            &config_record,
+            &config,
+        )?;
         let now = sys_time()?;
         let expires = Timestamp::from_micros(
             now.as_micros() + (config.time_lock as i64 * 1_000_000),
@@ -745,6 +751,7 @@ fn check_and_update_request_status(request_id: String) -> ExternResult<()> {
         let approved_request = RecoveryRequest {
             status: RecoveryStatus::Approved,
             time_lock_expires: Some(expires),
+            approval_certificate: Some(certificate_hash),
             ..current_request
         };
         update_entry(
@@ -943,7 +950,12 @@ pub fn arm_recovery_time_lock(request_id: String) -> ExternResult<Record> {
         )))?;
 
     if request.status == RecoveryStatus::Approved && request.time_lock_expires.is_some() {
-        return Ok(request_record);
+        if request.approval_certificate.is_some() {
+            return Ok(request_record);
+        }
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Approved recovery is missing its quorum certificate".into()
+        )));
     }
 
     if request.status != RecoveryStatus::Pending || request.time_lock_expires.is_some() {
