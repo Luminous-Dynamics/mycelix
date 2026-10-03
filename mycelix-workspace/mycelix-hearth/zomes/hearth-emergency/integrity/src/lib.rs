@@ -153,20 +153,43 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             }
         },
         FlatOp::CreateEntry(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::Link(OpLink::CreateLink { action, .. }) => {
-            if action.data.tag.0.len() > 512 {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Link tag exceeds 512 bytes".into(),
-                ));
+        FlatOp::CreateRecord(OpRecord::CreateEntry { app_entry, .. }) => match app_entry {
+            EntryTypes::EmergencyPlan(plan) => validate_plan(&plan),
+            EntryTypes::EmergencyAlert(alert) => validate_alert(&alert),
+            EntryTypes::SafetyCheckIn(checkin) => validate_checkin(&checkin),
+                },
+        FlatOp::CreateRecord(OpRecord::UpdateEntry { app_entry, action, .. }) => match app_entry {
+            EntryTypes::EmergencyPlan(plan) => {
+                validate_plan(&plan)?;
+                validate_plan_immutable_fields(&plan, &action.original_action_address)
             }
-            Ok(ValidateCallbackResult::Valid)
+            EntryTypes::EmergencyAlert(alert) => {
+                validate_alert(&alert)?;
+                validate_alert_immutable_fields(&alert, &action.original_action_address)
+            }
+            EntryTypes::SafetyCheckIn(_) => {
+                // INVARIANT: SafetyCheckIn immutability — check-ins are point-in-time
+                // records and cannot be modified after creation.
+                Ok(ValidateCallbackResult::Invalid(
+                    "SafetyCheckIn cannot be updated once created".into(),
+                ))
+            }
+                },
+        FlatOp::Link(OpLink::CreateLink { link_type, action }) => {
+            validate_create_link(
+                link_type,
+                action.data.base_address.clone(),
+                action.data.target_address.clone(),
+                &action.data.tag,
+                action.author(),
+            )
         }
         FlatOp::Link(link @ OpLink::DeleteLink {
             action,
-            original_action,
             ..
         }) => {
-            let result = check_link_author_match(original_action.author(), action.author());
+            let original_record = must_get_valid_record(action.link_add_address.clone())?;
+            let result = check_link_author_match(original_record.action().author(), action.author());
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }
@@ -181,7 +204,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             "Emergency entries cannot be deleted once created".into(),
         )),
         FlatOp::Update(OpUpdate::Entry { action, .. }) => {
-            let original = must_get_action(action.original_action_address.clone())?;
+            let original = must_get_valid_record(action.original_action_address.clone())?;
             Ok(check_author_match(
                 original.action().author(),
                 action.author(),
@@ -197,7 +220,53 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 // Validation Functions
 // ============================================================================
 
-pub fn validate_plan(plan: &EmergencyPlan) -> ExternResult<ValidateCallbackResult> {
+pub fn validate_create_link(
+    link_type: LinkTypes,
+    base_address: AnyLinkableHash,
+    target_address: AnyLinkableHash,
+    tag: &LinkTag,
+    _author: &AgentPubKey,
+) -> ExternResult<ValidateCallbackResult> {
+    if !tag.0.is_empty() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Link tag must be empty for this LinkTypes family".into(),
+        ));
+    }
+
+    match link_type {
+        LinkTypes::HearthToPlans => {
+            let hearth = ActionHash::try_from(base_address).map_err(|_| ValidateCallbackResult::Invalid("HearthToPlans base must be an ActionHash".into()))?;
+            let target = ActionHash::try_from(target_address).map_err(|_| ValidateCallbackResult::Invalid("HearthToPlans target must be an ActionHash".into()))?;
+            let record = must_get_valid_record(target)?;
+            let entry: EmergencyPlan = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("EmergencyPlan entry missing".into())))?;
+            if entry.hearth_hash != hearth { return Ok(ValidateCallbackResult::Invalid("EmergencyPlan belongs to a different hearth".into())); }
+        }
+        LinkTypes::HearthToAlerts => {
+            let hearth = ActionHash::try_from(base_address).map_err(|_| ValidateCallbackResult::Invalid("HearthToAlerts base must be an ActionHash".into()))?;
+            let target = ActionHash::try_from(target_address).map_err(|_| ValidateCallbackResult::Invalid("HearthToAlerts target must be an ActionHash".into()))?;
+            let record = must_get_valid_record(target)?;
+            let entry: EmergencyAlert = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("EmergencyAlert entry missing".into())))?;
+            if entry.hearth_hash != hearth { return Ok(ValidateCallbackResult::Invalid("EmergencyAlert belongs to a different hearth".into())); }
+        }
+        LinkTypes::AlertToCheckIns => {
+            let alert = ActionHash::try_from(base_address).map_err(|_| ValidateCallbackResult::Invalid("AlertToCheckIns base must be an ActionHash".into()))?;
+            let target = ActionHash::try_from(target_address).map_err(|_| ValidateCallbackResult::Invalid("AlertToCheckIns target must be an ActionHash".into()))?;
+            let record = must_get_valid_record(target)?;
+            let entry: SafetyCheckIn = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("SafetyCheckIn entry missing".into())))?;
+            if entry.alert_hash != alert { return Ok(ValidateCallbackResult::Invalid("SafetyCheckIn references a different alert".into())); }
+        }
+        LinkTypes::AgentToCheckIns => {
+            let agent = AgentPubKey::try_from(base_address).map_err(|_| ValidateCallbackResult::Invalid("AgentToCheckIns base must be an AgentPubKey".into()))?;
+            let target = ActionHash::try_from(target_address).map_err(|_| ValidateCallbackResult::Invalid("AgentToCheckIns target must be an ActionHash".into()))?;
+            let record = must_get_valid_record(target)?;
+            let entry: SafetyCheckIn = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("SafetyCheckIn entry missing".into())))?;
+            if entry.member != agent { return Ok(ValidateCallbackResult::Invalid("AgentToCheckIns base does not match the check-in member".into())); }
+        }
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_plan(plan: &EmergencyPlan) -> ExternResult<ValidateCallbackResult> {
     if plan.contacts.len() > 20 {
         return Ok(ValidateCallbackResult::Invalid(
             "Emergency plan contacts must be <= 20".into(),

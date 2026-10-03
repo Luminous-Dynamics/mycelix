@@ -81,13 +81,19 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::CreateEntry(OpEntry::CreateEntry {
             app_entry,
-            action: _,
+            action,
         }) => match app_entry {
             EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-            EntryTypes::BridgeQuery(query) => validate_query(&query),
-            EntryTypes::BridgeEvent(event) => validate_event(&event),
+            EntryTypes::BridgeQuery(query) => {
+                validate_query(&query)?;
+                validate_query_author(&query, action.author())
+            }
+            EntryTypes::BridgeEvent(event) => {
+                validate_event(&event)?;
+                validate_event_author(&event, action.author())
+            }
             EntryTypes::CachedCredential(cred) => validate_credential_cache(&cred),
-            EntryTypes::Notification(_) => Ok(ValidateCallbackResult::Valid),
+            EntryTypes::Notification(notification) => validate_notification_entry(&notification),
         },
         FlatOp::CreateEntry(OpEntry::UpdateEntry {
             app_entry,
@@ -106,23 +112,54 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 validate_event_immutable_fields(&event, &action.original_action_address)
             }
             EntryTypes::CachedCredential(cred) => validate_credential_cache(&cred),
-            EntryTypes::Notification(_) => Ok(ValidateCallbackResult::Valid),
+            EntryTypes::Notification(_) => Ok(ValidateCallbackResult::Invalid(
+                "Notifications cannot be updated once received".into(),
+            )),
         },
         FlatOp::CreateEntry(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::Link(OpLink::CreateLink { action, .. }) => {
-            if action.data.tag.0.len() > 512 {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Link tag exceeds 512 bytes".into(),
-                ));
+        FlatOp::CreateRecord(OpRecord::CreateEntry { app_entry, action }) => match app_entry {
+            EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
+            EntryTypes::BridgeQuery(query) => {
+                validate_query(&query)?;
+                validate_query_author(&query, action.author())
             }
-            Ok(ValidateCallbackResult::Valid)
+            EntryTypes::BridgeEvent(event) => {
+                validate_event(&event)?;
+                validate_event_author(&event, action.author())
+            },
+            EntryTypes::CachedCredential(cred) => validate_credential_cache(&cred),
+            EntryTypes::Notification(notification) => validate_notification_entry(&notification),
+                },
+        FlatOp::CreateRecord(OpRecord::UpdateEntry { app_entry, action, .. }) => match app_entry {
+            EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Invalid(
+                "Anchor cannot be updated once created".into(),
+            )),
+            EntryTypes::BridgeQuery(query) => {
+                validate_query(&query)?;
+                validate_query_immutable_fields(&query, &action.original_action_address)
+            }
+            EntryTypes::BridgeEvent(event) => {
+                validate_event(&event)?;
+                validate_event_immutable_fields(&event, &action.original_action_address)
+            }
+            EntryTypes::CachedCredential(cred) => validate_credential_cache(&cred),
+            EntryTypes::Notification(_) => Ok(ValidateCallbackResult::Valid),
+                },
+        FlatOp::Link(OpLink::CreateLink { link_type, action }) => {
+            validate_create_link(
+                link_type,
+                action.data.base_address.clone(),
+                action.data.target_address.clone(),
+                &action.data.tag,
+                action.author(),
+            )
         }
         FlatOp::Link(link @ OpLink::DeleteLink {
             action,
-            original_action,
             ..
         }) => {
-            let result = check_link_author_match(original_action.author(), action.author());
+            let original_record = must_get_valid_record(action.link_add_address.clone())?;
+            let result = check_link_author_match(original_record.action().author(), action.author());
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }
@@ -137,7 +174,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             "Bridge entries cannot be deleted once created".into(),
         )),
         FlatOp::Update(OpUpdate::Entry { action, .. }) => {
-            let original = must_get_action(action.original_action_address.clone())?;
+            let original = must_get_valid_record(action.original_action_address.clone())?;
             Ok(check_author_match(
                 original.action().author(),
                 action.author(),
@@ -147,6 +184,213 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::Update(_) => Ok(ValidateCallbackResult::Valid),
         _ => Ok(ValidateCallbackResult::Valid),
     }
+}
+
+fn validate_notification_entry(
+    notification: &CrossClusterNotification,
+) -> ExternResult<ValidateCallbackResult> {
+    match validate_notification(notification) {
+        Ok(()) => Ok(ValidateCallbackResult::Valid),
+        Err(reason) => Ok(ValidateCallbackResult::Invalid(reason)),
+    }
+}
+
+fn load_anchor(hash: EntryHash, label: &str) -> ExternResult<Anchor> {
+    let bytes = must_get_entry(hash)?;
+    Anchor::try_from(bytes).map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to deserialize {label}: {e}"
+        )))
+    })
+}
+
+fn validate_anchor_name(
+    base_address: AnyLinkableHash,
+    expected: &str,
+    label: &str,
+) -> ExternResult<ValidateCallbackResult> {
+    let base = EntryHash::try_from(base_address).map_err(|_| {
+        ValidateCallbackResult::Invalid(format!("{label} base must be an EntryHash"))
+    })?;
+    let anchor = load_anchor(base, label)?;
+    if anchor.0 != expected {
+        return Ok(ValidateCallbackResult::Invalid(format!(
+            "{label} base anchor mismatch: expected '{expected}', got '{}'",
+            anchor.0
+        )));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_create_link(
+    link_type: LinkTypes,
+    base_address: AnyLinkableHash,
+    target_address: AnyLinkableHash,
+    tag: &LinkTag,
+    author: &AgentPubKey,
+) -> ExternResult<ValidateCallbackResult> {
+    if tag.0.len() > 512 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Link tag exceeds 512 bytes".into(),
+        ));
+    }
+    if !matches!(link_type, LinkTypes::DispatchRateLimit | LinkTypes::NotificationSubscription)
+        && !tag.0.is_empty()
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Link tag must be empty except for dispatch rate-limit links".into(),
+        ));
+    }
+
+    match link_type {
+        LinkTypes::AllQueries => {
+            let anchor_result = validate_anchor_name(base_address, "all_hearth_queries", "AllQueries")?;
+            if anchor_result != ValidateCallbackResult::Valid {
+                return Ok(anchor_result);
+            }
+            let target = ActionHash::try_from(target_address).map_err(|_| ValidateCallbackResult::Invalid("AllQueries target must be an ActionHash".into()))?;
+            let record = must_get_valid_record(target)?;
+            let _: BridgeQueryEntry = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("BridgeQuery entry missing".into())))?;
+        }
+        LinkTypes::AgentToQuery => {
+            let target = ActionHash::try_from(target_address).map_err(|_| ValidateCallbackResult::Invalid("AgentToQuery target must be an ActionHash".into()))?;
+            let record = must_get_valid_record(target)?;
+            let entry: BridgeQueryEntry = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("BridgeQuery entry missing".into())))?;
+            if &entry.requester != author {
+                return Ok(ValidateCallbackResult::Invalid("AgentToQuery link author must equal query requester".into()));
+            }
+            let anchor_result = validate_anchor_name(base_address, &format!("agent_queries:{:?}", entry.requester), "AgentToQuery")?;
+            if anchor_result != ValidateCallbackResult::Valid {
+                return Ok(anchor_result);
+            }
+        }
+        LinkTypes::DomainToQuery => {
+            let target = ActionHash::try_from(target_address).map_err(|_| ValidateCallbackResult::Invalid("DomainToQuery target must be an ActionHash".into()))?;
+            let record = must_get_valid_record(target)?;
+            let entry: BridgeQueryEntry = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("BridgeQuery entry missing".into())))?;
+            let anchor_result = validate_anchor_name(base_address, &format!("domain_queries:{}", entry.domain), "DomainToQuery")?;
+            if anchor_result != ValidateCallbackResult::Valid {
+                return Ok(anchor_result);
+            }
+        }
+        LinkTypes::AllEvents => {
+            let anchor_result = validate_anchor_name(base_address, "all_hearth_events", "AllEvents")?;
+            if anchor_result != ValidateCallbackResult::Valid {
+                return Ok(anchor_result);
+            }
+            let target = ActionHash::try_from(target_address).map_err(|_| ValidateCallbackResult::Invalid("AllEvents target must be an ActionHash".into()))?;
+            let record = must_get_valid_record(target)?;
+            let _: BridgeEventEntry = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("BridgeEvent entry missing".into())))?;
+        }
+        LinkTypes::EventTypeToEvent => {
+            let target = ActionHash::try_from(target_address).map_err(|_| ValidateCallbackResult::Invalid("EventTypeToEvent target must be an ActionHash".into()))?;
+            let record = must_get_valid_record(target)?;
+            let entry: BridgeEventEntry = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("BridgeEvent entry missing".into())))?;
+            let anchor_result = validate_anchor_name(base_address, &format!("event_type:{}:{}", entry.domain, entry.event_type), "EventTypeToEvent")?;
+            if anchor_result != ValidateCallbackResult::Valid {
+                return Ok(anchor_result);
+            }
+        }
+        LinkTypes::AgentToEvent => {
+            let target = ActionHash::try_from(target_address).map_err(|_| ValidateCallbackResult::Invalid("AgentToEvent target must be an ActionHash".into()))?;
+            let record = must_get_valid_record(target)?;
+            let entry: BridgeEventEntry = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("BridgeEvent entry missing".into())))?;
+            if &entry.source_agent != author {
+                return Ok(ValidateCallbackResult::Invalid("AgentToEvent link author must equal event source_agent".into()));
+            }
+            let anchor_result = validate_anchor_name(base_address, &format!("agent_events:{:?}", entry.source_agent), "AgentToEvent")?;
+            if anchor_result != ValidateCallbackResult::Valid {
+                return Ok(anchor_result);
+            }
+        }
+        LinkTypes::DomainToEvent => {
+            let target = ActionHash::try_from(target_address).map_err(|_| ValidateCallbackResult::Invalid("DomainToEvent target must be an ActionHash".into()))?;
+            let record = must_get_valid_record(target)?;
+            let entry: BridgeEventEntry = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("BridgeEvent entry missing".into())))?;
+            let anchor_result = validate_anchor_name(base_address, &format!("domain_events:{}", entry.domain), "DomainToEvent")?;
+            if anchor_result != ValidateCallbackResult::Valid {
+                return Ok(anchor_result);
+            }
+        }
+        LinkTypes::DispatchRateLimit => {
+            let base = AgentPubKey::try_from(base_address).map_err(|_| ValidateCallbackResult::Invalid("DispatchRateLimit base must be an AgentPubKey".into()))?;
+            if &base != author {
+                return Ok(ValidateCallbackResult::Invalid("DispatchRateLimit base must equal the link author".into()));
+            }
+            let anchor_result = validate_anchor_name(target_address, "dispatch_rate_limit", "DispatchRateLimit")?;
+            if anchor_result != ValidateCallbackResult::Valid {
+                return Ok(anchor_result);
+            }
+            let zome = std::str::from_utf8(&tag.0)
+                .map_err(|_| wasm_error!(WasmErrorInner::Guest("DispatchRateLimit tag must be UTF-8".into())))?;
+            if !ALLOWED_ZOMES.contains(&zome) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "DispatchRateLimit tag names a disallowed target zome".into(),
+                ));
+            }
+        }
+        LinkTypes::AgentToCredentialCache => {
+            let base = AgentPubKey::try_from(base_address).map_err(|_| ValidateCallbackResult::Invalid("AgentToCredentialCache base must be an AgentPubKey".into()))?;
+            if &base != author {
+                return Ok(ValidateCallbackResult::Invalid("AgentToCredentialCache base must equal the link author".into()));
+            }
+            let target = ActionHash::try_from(target_address).map_err(|_| ValidateCallbackResult::Invalid("AgentToCredentialCache target must be an ActionHash".into()))?;
+            let record = must_get_valid_record(target)?;
+            let _: CachedCredentialEntry = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("CachedCredentialEntry missing".into())))?;
+        }
+        LinkTypes::AgentToNotification => {
+            let base = EntryHash::try_from(base_address).map_err(|_| ValidateCallbackResult::Invalid("AgentToNotification base must be an EntryHash".into()))?;
+            let anchor = load_anchor(base, "AgentToNotification")?;
+            let expected = format!("notifications:{:?}", author);
+            if anchor.0 != expected {
+                return Ok(ValidateCallbackResult::Invalid("AgentToNotification base does not identify the author inbox".into()));
+            }
+            let target = ActionHash::try_from(target_address).map_err(|_| ValidateCallbackResult::Invalid("AgentToNotification target must be an ActionHash".into()))?;
+            let record = must_get_valid_record(target)?;
+            let entry: CrossClusterNotification = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("Notification entry missing".into())))?;
+            validate_notification(&entry).map_err(|e| wasm_error!(WasmErrorInner::Guest(e)))?;
+        }
+        LinkTypes::AllNotifications => {
+            let anchor_result = validate_anchor_name(base_address, "all_notifications", "AllNotifications")?;
+            if anchor_result != ValidateCallbackResult::Valid {
+                return Ok(anchor_result);
+            }
+            let target = ActionHash::try_from(target_address).map_err(|_| ValidateCallbackResult::Invalid("AllNotifications target must be an ActionHash".into()))?;
+            let record = must_get_valid_record(target)?;
+            let entry: CrossClusterNotification = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("Notification entry missing".into())))?;
+            validate_notification(&entry).map_err(|e| wasm_error!(WasmErrorInner::Guest(e)))?;
+        }
+        LinkTypes::NotificationSubscription => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "NotificationSubscription links are not yet implemented".into(),
+            ));
+        }
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_query_author(
+    query: &BridgeQueryEntry,
+    author: &AgentPubKey,
+) -> ExternResult<ValidateCallbackResult> {
+    if &query.requester != author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "BridgeQuery requester must equal the creating agent".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_event_author(
+    event: &BridgeEventEntry,
+    author: &AgentPubKey,
+) -> ExternResult<ValidateCallbackResult> {
+    if &event.source_agent != author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "BridgeEvent source_agent must equal the creating agent".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
 }
 
 const VALID_DOMAINS: &[&str] = &[

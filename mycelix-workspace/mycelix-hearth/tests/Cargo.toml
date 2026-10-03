@@ -77,3 +77,13 @@ path = "sweettest_stories.rs"
 holochain = { version = "0.7.0", default-features = false, features = ["encryption", "wasmer-sys-cranelift", "test_utils"] }
 holochain_types = "0.7.0"
 tokio = { version = "1", features = ["full", "test-util"] }
+
+[[test]]
+name = "sweettest_semantic_validation"
+path = "sweettest_semantic_validation.rs"
+
+
+# This integration-test crate is intentionally standalone even though it lives
+# beneath the parent Hearth Cargo workspace. The explicit empty workspace
+# prevents Cargo from interpreting the package as an omitted parent member.
+[workspace]

@@ -151,16 +151,48 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             }
         },
         FlatOp::CreateEntry(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::CreateRecord(OpRecord::CreateEntry { app_entry, .. }) => match app_entry {
+            EntryTypes::Decision(decision) => validate_decision(&decision),
+            EntryTypes::Vote(vote) => validate_vote(&vote),
+            EntryTypes::DecisionOutcome(outcome) => validate_outcome(&outcome),
+                },
+        FlatOp::CreateRecord(OpRecord::UpdateEntry { app_entry, action, .. }) => match app_entry {
+            EntryTypes::Decision(decision) => {
+                validate_decision(&decision)?;
+                validate_decision_update(&decision, &action.original_action_address)
+            }
+            EntryTypes::Vote(_) => {
+                // INVARIANT: Vote immutability — once a vote is cast on a decision,
+                // it cannot be modified or retracted. This ensures that tallied results
+                // remain stable and that members cannot retroactively change outcomes.
+                Ok(ValidateCallbackResult::Invalid(
+                    "Votes cannot be updated once cast".into(),
+                ))
+            }
+            EntryTypes::DecisionOutcome(_) => {
+                // INVARIANT: DecisionOutcome immutability — once a decision outcome
+                // is recorded, it cannot be modified. This preserves the integrity
+                // of the audit trail and prevents retroactive result tampering.
+                Ok(ValidateCallbackResult::Invalid(
+                    "DecisionOutcome cannot be updated once recorded".into(),
+                ))
+            }
+                },
         FlatOp::Link(OpLink::CreateLink { link_type, action }) => {
-            validate_create_link(link_type, &action.data.tag)
+            validate_create_link(
+                link_type,
+                action.data.base_address.clone(),
+                action.data.target_address.clone(),
+                &action.data.tag,
+            )
         }
         FlatOp::Link(link @ OpLink::DeleteLink {
             link_type,
             action,
-            original_action,
             ..
         }) => {
-            let result = check_link_author_match(original_action.author(), action.author());
+            let original_record = must_get_valid_record(action.link_add_address.clone())?;
+            let result = check_link_author_match(original_record.action().author(), action.author());
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }
@@ -173,6 +205,18 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 "Decision entries cannot be deleted".into(),
             ))
         }
+        // INVARIANT: action-level update authorization is validated independently
+        // of CreateEntry(UpdateEntry), so a valid Update op cannot bypass the
+        // original-author check through a terminal catch-all.
+        FlatOp::Update(OpUpdate::Entry { action, .. }) => {
+            let original = must_get_valid_record(action.original_action_address.clone())?;
+            Ok(check_author_match(
+                original.action().author(),
+                action.author(),
+                "update",
+            ))
+        }
+        FlatOp::Update(_) => Ok(ValidateCallbackResult::Valid),
         _ => Ok(ValidateCallbackResult::Valid),
     }
 }
@@ -368,18 +412,66 @@ fn link_tag_max_len(link_type: &LinkTypes) -> usize {
 }
 
 /// Validate link creation: enforce tag length limits.
-pub fn validate_create_link(
+pub pub fn validate_create_link(
     link_type: LinkTypes,
+    base_address: AnyLinkableHash,
+    target_address: AnyLinkableHash,
     tag: &LinkTag,
 ) -> ExternResult<ValidateCallbackResult> {
+    if !tag.0.is_empty() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Link tag must be empty for this LinkTypes family".into(),
+        ));
+    }
+
     let max_len = link_tag_max_len(&link_type);
     if tag.0.len() > max_len {
         return Ok(ValidateCallbackResult::Invalid(format!(
             "{:?} link tag too long (max {} bytes, got {})",
-            link_type,
-            max_len,
-            tag.0.len()
+            link_type, max_len, tag.0.len()
         )));
+    }
+    let action_hash = |hash: AnyLinkableHash, label: &str| -> Result<ActionHash, ValidateCallbackResult> {
+        ActionHash::try_from(hash)
+            .map_err(|_| ValidateCallbackResult::Invalid(format!("{label} must be an ActionHash")))
+    };
+    match link_type {
+        LinkTypes::HearthToDecisions => {
+            let base = action_hash(base_address, "HearthToDecisions base")?;
+            let target = action_hash(target_address, "HearthToDecisions target")?;
+            let record = must_get_valid_record(target)?;
+            let entry: Decision = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("Decision entry missing".into())))?;
+            if entry.hearth_hash != base {
+                return Ok(ValidateCallbackResult::Invalid("Decision belongs to a different hearth".into()));
+            }
+        }
+        LinkTypes::DecisionToVotes | LinkTypes::DecisionToVoteHistory => {
+            let base = action_hash(base_address, "Decision vote base")?;
+            let target = action_hash(target_address, "Decision vote target")?;
+            let record = must_get_valid_record(target)?;
+            let entry: Vote = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("Vote entry missing".into())))?;
+            if entry.decision_hash != base {
+                return Ok(ValidateCallbackResult::Invalid("Vote references a different decision".into()));
+            }
+        }
+        LinkTypes::AgentToVotes => {
+            let base = AgentPubKey::try_from(base_address).map_err(|_| ValidateCallbackResult::Invalid("AgentToVotes base must be an AgentPubKey".into()))?;
+            let target = action_hash(target_address, "AgentToVotes target")?;
+            let record = must_get_valid_record(target)?;
+            let entry: Vote = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("Vote entry missing".into())))?;
+            if entry.voter != base {
+                return Ok(ValidateCallbackResult::Invalid("AgentToVotes base does not match the voter".into()));
+            }
+        }
+        LinkTypes::DecisionToOutcome => {
+            let base = action_hash(base_address, "DecisionToOutcome base")?;
+            let target = action_hash(target_address, "DecisionToOutcome target")?;
+            let record = must_get_valid_record(target)?;
+            let entry: DecisionOutcome = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("DecisionOutcome entry missing".into())))?;
+            if entry.decision_hash != base {
+                return Ok(ValidateCallbackResult::Invalid("DecisionOutcome references a different decision".into()));
+            }
+        }
     }
     Ok(ValidateCallbackResult::Valid)
 }

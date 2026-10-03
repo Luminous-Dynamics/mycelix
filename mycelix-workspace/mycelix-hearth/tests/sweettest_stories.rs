@@ -124,6 +124,12 @@ pub struct UpdateStoryInput {
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct AddMediaInput {
+    pub story_hash: ActionHash,
+    pub media_hash: ActionHash,
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct CreateCollectionInput {
     pub hearth_hash: ActionHash,
     pub name: String,
@@ -292,6 +298,65 @@ async fn test_update_story() {
         updated_record.action().author() == alice.agent_pubkey(),
         "Updated story should be authored by Alice"
     );
+}
+
+/// Alice adds a media hash to a story. The coordinator must update the
+/// story's declared media_hashes before creating the StoryToMedia link.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "requires Holochain conductor (nix develop)"]
+async fn test_add_media_to_story_maintains_integrity_link() {
+    let mut conductor = SweetConductor::standard().await;
+    let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
+    let (alice,) = conductor
+        .setup_app("test-app", &[dna_file.clone()])
+        .await
+        .unwrap()
+        .into_tuple();
+
+    let hearth_record: Record = conductor
+        .call(
+            &alice.zome("hearth_kinship"),
+            "create_hearth",
+            CreateHearthInput {
+                name: "Media Integrity Hearth".to_string(),
+                description: "Testing StoryToMedia state synchronization".to_string(),
+                hearth_type: HearthType::Nuclear,
+                max_members: Some(8),
+            },
+        )
+        .await;
+    let hearth_hash = hearth_record.action_address().clone();
+
+    let story_record: Record = conductor
+        .call(
+            &alice.zome("hearth_stories"),
+            "create_story",
+            CreateStoryInput {
+                hearth_hash,
+                title: "Story With Media".to_string(),
+                content: "Media attachment integrity fixture".to_string(),
+                story_type: StoryType::Memory,
+                media_hashes: vec![],
+                tags: vec![],
+                visibility: HearthVisibility::AllMembers,
+            },
+        )
+        .await;
+
+    let media_hash = ActionHash::from_raw_36(vec![0xAB; 36]);
+
+    let result: Result<(), _> = conductor
+        .call_fallible(
+            &alice.zome("hearth_stories"),
+            "add_media_to_story",
+            AddMediaInput {
+                story_hash: story_record.action_address().clone(),
+                media_hash,
+            },
+        )
+        .await;
+
+    result.expect("same-story media link should pass integrity validation");
 }
 
 /// Alice creates a collection, creates a story, and adds the story to the

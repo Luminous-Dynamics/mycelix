@@ -1,0 +1,321 @@
+name: Hearth 0.7 Qualification
+
+on:
+  push:
+    branches:
+      - 'chore/hearth-07-*'
+    paths:
+      - "mycelix-workspace/mycelix-hearth/**"
+      - "crates/mycelix-bridge-*/**"
+      - ".github/workflows/hearth-07-qualification.yml"
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - "mycelix-workspace/mycelix-hearth/**"
+      - "crates/mycelix-bridge-*/**"
+  workflow_dispatch:
+    inputs:
+      target_sha:
+        description: "Exact 40-character commit SHA to qualify"
+        required: true
+        type: string
+
+concurrency:
+  group: hearth-07-qualification-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Hearth 0.7 Qualification
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      # Always qualify an exact source commit: PRs use the source head rather
+      # than GitHub's synthetic merge ref, pushes use the pushed commit, and
+      # manual runs require an explicit SHA.
+      QUALIFY_SHA: ${{ github.event.inputs.target_sha || github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.QUALIFY_SHA }}
+          submodules: recursive
+
+      - name: Verify immutable qualification checkout
+        run: |
+          set -euo pipefail
+          [[ "$QUALIFY_SHA" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "QUALIFY_SHA must be an exact 40-character lowercase commit SHA: $QUALIFY_SHA"
+            exit 1
+          }
+          tested_sha="$(git rev-parse HEAD)"
+          [[ "$tested_sha" == "$QUALIFY_SHA" ]] || {
+            echo "qualification checkout mismatch: expected $QUALIFY_SHA, got $tested_sha"
+            exit 1
+          }
+          echo "QUALIFY_SHA=$QUALIFY_SHA"
+          echo "Checked-out HEAD=$tested_sha"
+
+      - uses: cachix/install-nix-action@v27
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - uses: cachix/cachix-action@v15
+        with:
+          name: holochain-ci
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            mycelix-workspace/mycelix-hearth
+
+      - name: Validate pinned Hearth 0.7 flake lock
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64
+          import json
+          import re
+          from pathlib import Path
+
+          lock = json.loads(Path("flake.lock").read_text())
+          nodes = lock.get("nodes", {})
+          if not nodes:
+              raise SystemExit("flake.lock has no nodes")
+
+          sri_re = re.compile(r"^sha256-[A-Za-z0-9+/]{43}=$")
+          for name, node in nodes.items():
+              locked = node.get("locked")
+              if isinstance(locked, dict) and locked.get("type") == "github":
+                  nar_hash = locked.get("narHash")
+                  if not isinstance(nar_hash, str) or not sri_re.fullmatch(nar_hash):
+                      raise SystemExit(f"{name}: invalid GitHub narHash SRI: {nar_hash!r}")
+                  encoded = nar_hash.removeprefix("sha256-")
+                  try:
+                      raw = base64.b64decode(encoded, validate=True)
+                  except Exception as exc:
+                      raise SystemExit(f"{name}: invalid base64 in narHash: {exc}") from exc
+                  if len(raw) != 32:
+                      raise SystemExit(f"{name}: narHash decodes to {len(raw)} bytes, expected 32")
+
+          holonix = nodes.get("holonix", {}).get("locked", {})
+          expected = {
+              "owner": "holochain",
+              "repo": "holonix",
+              "rev": "ffcc7c63b4b87dde16a69247775639b49c5778b1",
+              "narHash": "sha256-WSzIFA1vBrUAbK7CHooBddBwaJcpGCudVEUBjiIik+4=",
+          }
+          for key, value in expected.items():
+              if holonix.get(key) != value:
+                  raise SystemExit(
+                      f"holonix.{key} mismatch: expected {value!r}, got {holonix.get(key)!r}"
+                  )
+
+          print("OK: all GitHub flake.lock narHashes are valid SHA-256 SRI values")
+          print("OK: holonix is pinned to the verified Holochain 0.7 lock object")
+          PY
+
+      - name: Syntax-check Hearth 0.7 audit
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: bash -n tools/audit-holochain-07-source.sh
+
+      - name: Run Hearth 0.7 source audit
+        id: source_audit
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: |
+          set -o pipefail
+          nix develop .#ci --impure --command             bash tools/audit-holochain-07-source.sh 2>&1 | tee qualification-source-audit.log
+
+      - name: Derive Hearth 0.7 operation matrix
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: |
+          set -euo pipefail
+          {
+            echo "operation_matrix_schema=HEARTH-OPERATION-MATRIX-0.7-1"
+            echo "tested_sha=$(git rev-parse HEAD)"
+            echo "operation_families=CreateEntry,CreateRecord,Update,Delete,Link.CreateLink,Link.DeleteLink,AgentActivity"
+            while IFS= read -r -d "" file; do
+              zome="$(basename "$(dirname "$(dirname "$(dirname "$file")")")")"
+              printf "zome=%s" "${zome//-/_}"
+              coordinator="mycelix-workspace/mycelix-hearth/zomes/$zome/coordinator/src/lib.rs"
+              for family in CreateEntry CreateRecord Update Delete AgentActivity; do
+                if rg -n --pcre2 "\\bFlatOp::${family}\\b" "$file" >/dev/null 2>&1; then
+                  printf " validator.%s=present" "$family"
+                else
+                  printf " validator.%s=absent" "$family"
+                fi
+              done
+              if rg -n --pcre2 'FlatOp::Link\\s*\\(\\s*OpLink::CreateLink' "$file" >/dev/null 2>&1; then
+                printf " validator.Link.CreateLink=present"
+              else
+                printf " validator.Link.CreateLink=absent"
+              fi
+              if rg -n --pcre2 'FlatOp::Link\\s*\\([^)]*OpLink::DeleteLink' "$file" >/dev/null 2>&1; then
+                printf " validator.Link.DeleteLink=present"
+              else
+                printf " validator.Link.DeleteLink=absent"
+              fi
+              for family in create_entry update_entry delete_entry create_link delete_link; do
+                if [[ -f "$coordinator" ]] && rg -n --pcre2 "\\b${family}\\s*\\(" "$coordinator" >/dev/null 2>&1; then
+                  printf " coordinator.%s=present" "$family"
+                else
+                  printf " coordinator.%s=absent" "$family"
+                fi
+              done
+              printf "\\n"
+            done < <(git ls-files -z -- "mycelix-workspace/mycelix-hearth/zomes/*/integrity/src/lib.rs")
+          } > qualification-operation-matrix.txt
+
+      - name: Check Hearth 0.7 test formatting
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: |
+          set -o pipefail
+          nix develop .#ci --impure --command             cargo fmt --manifest-path tests/Cargo.toml --check 2>&1 | tee qualification-format.log
+
+      - name: Generate exact Rust dependency locks
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: |
+          set -euo pipefail
+          nix develop .#ci --impure --command cargo generate-lockfile
+          nix develop .#ci --impure --command bash -c 'cd tests && cargo generate-lockfile'
+          test -s Cargo.lock
+          test -s tests/Cargo.lock
+          sha256sum Cargo.lock tests/Cargo.lock > qualification-cargo-lock-sha256.txt
+          {
+            echo "hearth_cargo_lock=$(sha256sum Cargo.lock | awk '{print $1}')"
+            echo "tests_cargo_lock=$(sha256sum tests/Cargo.lock | awk '{print $1}')"
+          } > qualification-cargo-lock-summary.txt
+          nix develop .#ci --impure --command cargo metadata --locked --format-version 1 > qualification-cargo-metadata.json
+          nix develop .#ci --impure --command bash -c 'cd tests && cargo metadata --locked --format-version 1' > tests/qualification-cargo-metadata.json
+
+      - name: Build Hearth 0.7 zomes
+        id: build_zomes
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: |
+          set -o pipefail
+          # Prevent a removed/renamed zome from being silently packed from a
+          # stale prior build artifact in the runner workspace.
+          rm -f target/wasm32-unknown-unknown/release/*.wasm
+          nix develop .#ci --impure --command             cargo build --locked --release --target wasm32-unknown-unknown --workspace 2>&1 | tee qualification-build.log
+
+      - name: Pack Hearth 0.7 DNA
+        id: dna_pack
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: |
+          set -o pipefail
+          nix develop .#ci --impure --command             hc dna pack dna/ 2>&1 | tee qualification-dna-pack.log
+
+      - name: Run Hearth 0.7 SweetConductor qualification
+        id: sweettest
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: |
+          set -o pipefail
+          nix develop .#ci --impure --command bash -c             'set -o pipefail; cd tests && cargo test --locked --release -- --include-ignored --test-threads=1 2>&1 | tee ../qualification-sweettest.log'
+
+      - name: Capture immutable qualification evidence
+        if: always()
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: |
+          set -euo pipefail
+          {
+            echo "tested_sha=$QUALIFY_SHA"
+            echo "checked_out_sha=$(git rev-parse HEAD)"
+            echo "qualification_source=exact_candidate_sha"
+            echo "holochain_version=$(nix develop .#ci --impure --command holochain --version 2>/dev/null || true)"
+            echo "hc_version=$(nix develop .#ci --impure --command hc --version 2>/dev/null || true)"
+            echo "rust_version=$(nix develop .#ci --impure --command rustc --version 2>/dev/null || true)"
+            echo "cargo_version=$(nix develop .#ci --impure --command cargo --version 2>/dev/null || true)"
+            echo "dna_present=$(test -s dna/mycelix_hearth.dna && echo true || echo false)"
+          } > qualification-toolchain.txt
+
+          build_conclusion="${{ steps.build_zomes.conclusion || 'unknown' }}"
+          dna_pack_conclusion="${{ steps.dna_pack.conclusion || 'unknown' }}"
+          source_audit_conclusion="${{ steps.source_audit.conclusion || 'unknown' }}"
+          sweettest_conclusion="${{ steps.sweettest.conclusion || 'unknown' }}"
+          echo "source_audit_conclusion=$source_audit_conclusion"
+          echo "build_zomes_conclusion=$build_conclusion"
+          echo "dna_pack_conclusion=$dna_pack_conclusion"
+          echo "sweettest_conclusion=$sweettest_conclusion"
+
+          : > qualification-wasm-sha256.txt
+          if [[ "$build_conclusion" == "success" ]]; then
+            while IFS= read -r wasm_path; do
+              [[ -n "$wasm_path" ]] || continue
+              wasm="dna/$wasm_path"
+              [[ -s "$wasm" ]] || { echo "build succeeded but DNA input is missing or empty: $wasm" >&2; exit 1; }
+              sha256sum "$wasm" >> qualification-wasm-sha256.txt
+            done < <(sed -n 's/^[[:space:]]*path:[[:space:]]*//p' dna/dna.yaml | sort -u)
+          else
+            echo "wasm_capture=unavailable_build_not_successful" > qualification-wasm-sha256.txt
+          fi
+
+          if [[ "$dna_pack_conclusion" == "success" ]]; then
+            [[ -s dna/mycelix_hearth.dna ]] || { echo "DNA pack succeeded but packed DNA is missing or empty" >&2; exit 1; }
+            sha256sum dna/mycelix_hearth.dna > qualification-dna-sha256.txt
+          else
+            echo "dna_capture=unavailable_pack_not_successful" > qualification-dna-sha256.txt
+          fi
+
+          # Bind the evidence to the exact source-side qualification contract as
+          # well as the candidate commit. These files are all read from the
+          # immutable checkout established at the beginning of the job.
+          sha256sum             tools/audit-holochain-07-source.sh             tests/hearth-07-semantic-validation-cases.json             tests/sweettest_semantic_validation.rs             dna/dna.yaml             flake.nix             flake.lock             Cargo.toml             tests/Cargo.toml             ../../.github/workflows/hearth-07-qualification.yml             > qualification-source-contract-sha256.txt
+          sha256sum -c qualification-source-contract-sha256.txt
+
+      - name: Capture qualification metadata
+        if: always()
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: |
+          {
+            echo "job_status=${{ job.status }}"
+            if [[ "${{ job.status }}" == "success" ]]; then
+              echo "claim_ceiling=RuntimeQualificationPassed"
+            else
+              echo "claim_ceiling=RuntimeQualificationPending"
+            fi
+            echo "tested_sha=${QUALIFY_SHA}"
+            echo "checked_out_sha=$(git rev-parse HEAD)"
+            echo "source_contract_digest=$(sha256sum qualification-source-contract-sha256.txt | awk '{print $1}')"
+            echo "pr_head_sha=${{ github.event.pull_request.head.sha || '' }}"
+            echo "pr_base_sha=${{ github.event.pull_request.base.sha || '' }}"
+            echo "ref=${GITHUB_REF_NAME}"
+            echo "event=${GITHUB_EVENT_NAME}"
+            if [[ -n "${{ github.event.inputs.target_sha || '' }}" ]]; then
+              echo "target_sha_source=workflow_dispatch_input"
+            elif [[ -n "${{ github.event.pull_request.head.sha || '' }}" ]]; then
+              echo "target_sha_source=pull_request_head"
+            else
+              echo "target_sha_source=push_sha"
+            fi
+            echo "run_id=${GITHUB_RUN_ID}"
+            echo "workflow=${GITHUB_WORKFLOW}"
+          } > qualification-metadata.txt
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hearth-07-qualification-${{ env.QUALIFY_SHA }}
+          path: |
+            mycelix-workspace/mycelix-hearth/qualification-metadata.txt
+            mycelix-workspace/mycelix-hearth/qualification-source-audit.log
+            mycelix-workspace/mycelix-hearth/qualification-operation-matrix.txt
+            mycelix-workspace/mycelix-hearth/qualification-format.log
+            mycelix-workspace/mycelix-hearth/qualification-build.log
+            mycelix-workspace/mycelix-hearth/qualification-dna-pack.log
+            mycelix-workspace/mycelix-hearth/qualification-sweettest.log
+            mycelix-workspace/mycelix-hearth/qualification-toolchain.txt
+            mycelix-workspace/mycelix-hearth/qualification-wasm-sha256.txt
+            mycelix-workspace/mycelix-hearth/qualification-dna-sha256.txt
+            mycelix-workspace/mycelix-hearth/qualification-cargo-lock-sha256.txt
+            mycelix-workspace/mycelix-hearth/qualification-cargo-lock-summary.txt
+            mycelix-workspace/mycelix-hearth/qualification-source-contract-sha256.txt
+            mycelix-workspace/mycelix-hearth/qualification-cargo-metadata.json
+            mycelix-workspace/mycelix-hearth/tests/qualification-cargo-metadata.json
+            mycelix-workspace/mycelix-hearth/Cargo.lock
+            mycelix-workspace/mycelix-hearth/tests/Cargo.lock
+          if-no-files-found: error
+          retention-days: 14

@@ -157,24 +157,51 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             _ => Ok(ValidateCallbackResult::Valid),
         },
         FlatOp::Link(OpLink::CreateLink { link_type, action }) => {
-            validate_create_link(link_type, &action.data.tag)
+            validate_create_link(
+                link_type,
+                action.data.base_address.clone(),
+                action.data.target_address.clone(),
+                &action.data.tag,
+            )
         }
         FlatOp::Link(link @ OpLink::DeleteLink {
             link_type,
             action,
-            original_action,
             ..
         }) => {
-            let result = check_link_author_match(original_action.author(), action.author());
+            let original_record = must_get_valid_record(action.link_add_address.clone())?;
+            let result = check_link_author_match(original_record.action().author(), action.author());
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }
             validate_delete_link(link_type, &link.tag())
         }
-        FlatOp::CreateRecord(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::CreateRecord(OpRecord::CreateEntry { app_entry, .. }) => match app_entry {
+                EntryTypes::FamilyStory(story) => validate_story(story),
+                EntryTypes::StoryCollection(collection) => validate_collection(collection),
+                EntryTypes::FamilyTradition(tradition) => validate_tradition(tradition),
+                EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
+                    },
+        FlatOp::CreateRecord(OpRecord::UpdateEntry { app_entry, action, .. }) => match app_entry {
+                EntryTypes::FamilyStory(story) => {
+                    validate_story_update(&story)?;
+                    validate_story_immutable_fields(&story, &action.original_action_address)
+                }
+                EntryTypes::StoryCollection(collection) => {
+                    validate_collection_update(&collection)?;
+                    validate_collection_immutable_fields(&collection, &action.original_action_address)
+                }
+                EntryTypes::FamilyTradition(tradition) => {
+                    validate_tradition_update(&tradition)?;
+                    validate_tradition_immutable_fields(&tradition, &action.original_action_address)
+                }
+                EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Anchor cannot be updated once created".into(),
+                )),
+                    },
         FlatOp::AgentActivity(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::Update(OpUpdate::Entry { action, .. }) => {
-            let original = must_get_action(action.original_action_address.clone())?;
+            let original = must_get_valid_record(action.original_action_address.clone())?;
             Ok(check_author_match(
                 original.action().author(),
                 action.author(),
@@ -183,7 +210,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         }
         FlatOp::Update(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::Delete(OpDelete { action }) => {
-            let original = must_get_action(action.deletes_address.clone())?;
+            let original = must_get_valid_record(action.deletes_address.clone())?;
             Ok(check_author_match(
                 original.action().author(),
                 action.author(),
@@ -435,6 +462,8 @@ fn validate_tradition_update(tradition: &FamilyTradition) -> ExternResult<Valida
 
 fn validate_create_link(
     link_type: LinkTypes,
+    base_address: AnyLinkableHash,
+    target_address: AnyLinkableHash,
     tag: &LinkTag,
 ) -> ExternResult<ValidateCallbackResult> {
     let max_len = link_tag_max_len(&link_type);
@@ -443,6 +472,86 @@ fn validate_create_link(
             "{:?} link tag too long (max {} bytes)",
             link_type, max_len
         )));
+    }
+    if !matches!(link_type, LinkTypes::TagToStories) && !tag.0.is_empty() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Link tag must be empty except for TagToStories".into(),
+        ));
+    }
+    let action_hash = |hash: AnyLinkableHash, label: &str| -> Result<ActionHash, ValidateCallbackResult> {
+        ActionHash::try_from(hash)
+            .map_err(|_| ValidateCallbackResult::Invalid(format!("{label} must be an ActionHash")))
+    };
+    match link_type {
+        LinkTypes::HearthToStories => {
+            let base = action_hash(base_address, "HearthToStories base")?;
+            let target = action_hash(target_address, "HearthToStories target")?;
+            let record = must_get_valid_record(target)?;
+            let entry: FamilyStory = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("FamilyStory entry missing".into())))?;
+            if entry.hearth_hash != base {
+                return Ok(ValidateCallbackResult::Invalid("FamilyStory belongs to a different hearth".into()));
+            }
+        }
+        LinkTypes::StoryToMedia => {
+            let base = action_hash(base_address, "StoryToMedia base")?;
+            let media = action_hash(target_address, "StoryToMedia target")?;
+            let record = must_get_valid_record(base)?;
+            let entry: FamilyStory = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("FamilyStory entry missing".into())))?;
+            if !entry.media_hashes.contains(&media) {
+                return Ok(ValidateCallbackResult::Invalid("StoryToMedia target is not listed by the story".into()));
+            }
+        }
+        LinkTypes::HearthToCollections => {
+            let base = action_hash(base_address, "HearthToCollections base")?;
+            let target = action_hash(target_address, "HearthToCollections target")?;
+            let record = must_get_valid_record(target)?;
+            let entry: StoryCollection = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("StoryCollection entry missing".into())))?;
+            if entry.hearth_hash != base {
+                return Ok(ValidateCallbackResult::Invalid("StoryCollection belongs to a different hearth".into()));
+            }
+        }
+        LinkTypes::CollectionToStories => {
+            let collection = action_hash(base_address, "CollectionToStories base")?;
+            let story = action_hash(target_address, "CollectionToStories target")?;
+            let collection_record = must_get_valid_record(collection)?;
+            let collection_entry: StoryCollection = collection_record.entry().to_app_option()?.ok_or(
+                wasm_error!(WasmErrorInner::Guest("StoryCollection entry missing".into()))
+            )?;
+            let story_record = must_get_valid_record(story)?;
+            let story_entry: FamilyStory = story_record.entry().to_app_option()?.ok_or(
+                wasm_error!(WasmErrorInner::Guest("FamilyStory entry missing".into()))
+            )?;
+            if story_entry.hearth_hash != collection_entry.hearth_hash {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "CollectionToStories story belongs to a different hearth".into(),
+                ));
+            }
+        }
+        LinkTypes::HearthToTraditions => {
+            let base = action_hash(base_address, "HearthToTraditions base")?;
+            let target = action_hash(target_address, "HearthToTraditions target")?;
+            let record = must_get_valid_record(target)?;
+            let entry: FamilyTradition = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("FamilyTradition entry missing".into())))?;
+            if entry.hearth_hash != base {
+                return Ok(ValidateCallbackResult::Invalid("FamilyTradition belongs to a different hearth".into()));
+            }
+        }
+        LinkTypes::TagToStories => {
+            let base = EntryHash::try_from(base_address).map_err(|_| ValidateCallbackResult::Invalid("TagToStories base must be an EntryHash".into()))?;
+            let anchor_bytes = must_get_entry(base)?;
+            let anchor: Anchor = Anchor::try_from(anchor_bytes).map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("Invalid tag anchor: {e}"))))?;
+            let tag_value = anchor.0.strip_prefix("tag:").ok_or(wasm_error!(WasmErrorInner::Guest("TagToStories anchor must use tag: prefix".into())))?;
+            let story_hash = action_hash(target_address, "TagToStories target")?;
+            let record = must_get_valid_record(story_hash)?;
+            let entry: FamilyStory = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("FamilyStory entry missing".into())))?;
+            if !entry.tags.iter().any(|story_tag| story_tag.to_lowercase() == tag_value.to_lowercase()) {
+                return Ok(ValidateCallbackResult::Invalid("TagToStories anchor tag is not present on the story".into()));
+            }
+            let link_tag = std::str::from_utf8(&tag.0).map_err(|_| wasm_error!(WasmErrorInner::Guest("TagToStories link tag must be UTF-8".into())))?;
+            if link_tag.to_lowercase() != tag_value.to_lowercase() {
+                return Ok(ValidateCallbackResult::Invalid("TagToStories link tag does not match its tag anchor".into()));
+            }
+        }
     }
     Ok(ValidateCallbackResult::Valid)
 }

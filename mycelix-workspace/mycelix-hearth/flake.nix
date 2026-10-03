@@ -47,6 +47,10 @@
             name = "hearth";
             extraBuildInputs = with pkgs; [ nodejs_24 perl ];
             extraShellHook = ''
+              # The shared Mycelix base also carries a general-purpose Rust
+              # toolchain. Put the pinned Holonix 0.7 compiler first so local
+              # development and CI observe the same compiler provenance.
+              export PATH="${holochainPackages.rust}/bin:$PATH"
               echo "Mycelix Hearth — Family/Household/Kinship Coordination"
               echo ""
               echo "Domains:"
@@ -75,11 +79,12 @@
             buildInputs = with pkgs; [
               holochainPackages.holochain
               holochainPackages.hc
-              holochainBase.rustToolchain
+              holochainPackages.rust
               pkg-config
               openssl
               openssl.dev
               perl
+              ripgrep
             ];
 
             inherit (holochainBase.envVars)
@@ -92,7 +97,10 @@
           zomes = pkgs.stdenv.mkDerivation {
             name = "mycelix-hearth-zomes";
             src = ./.;
-            nativeBuildInputs = [ holochainBase.rustToolchain pkgs.pkg-config ];
+            # Keep package builds on the exact Holonix 0.7 toolchain used by CI.
+            # Do not reintroduce the shared Mycelix Rust floor here: Holonix 0.7
+            # owns the compiler version required by the pinned Holochain release.
+            nativeBuildInputs = [ holochainPackages.rust pkgs.pkg-config ];
             buildInputs = [ pkgs.openssl ];
             buildPhase = ''
               export HOME=$TMPDIR
