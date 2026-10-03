@@ -11,6 +11,7 @@
 //! this adapter can enter the Holochain retrieval phase.
 
 use hdi::prelude::*;
+use holochain_serialized_bytes::prelude::SerializedBytes;
 use mobility_configuration_qualification::{
     IdentityRef, QualificationAuthorityAgentBindingProvenance,
     QualificationDecision, QualificationDependencyBindingProvenance, QualificationDependencyBindingSet,
@@ -24,9 +25,9 @@ pub enum HolochainDependencyAddress {
     Entry(EntryHash),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, SerializedBytes)]
 pub struct HolochainAuthorityAgentBindingPayload {
-    pub schema: &'static str,
+    pub schema: String,
     pub provenance: QualificationAuthorityAgentBindingProvenance,
     pub agent: AgentPubKey,
 }
@@ -158,9 +159,9 @@ impl SignedHolochainAuthorityAgentBinding {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, SerializedBytes)]
 pub struct HolochainBindingAttestationPayload {
-    pub schema: &'static str,
+    pub schema: String,
     pub provenance: QualificationDependencyBindingProvenance,
     pub address: HolochainDependencyAddress,
     pub retrieval: QualificationDependencyRetrievalKind,
@@ -523,8 +524,10 @@ impl HolochainDependencyBindingSet {
 }
 
 /// Verify the optional cryptographic attestation for one logical-to-protocol
-/// binding. Verification is deterministic and signs the canonical serialized
-/// payload, including the schema, provenance witness, protocol address, and
+/// binding. Verification is deterministic and signs the payload through
+/// Holochain's canonical serialization path. The payload type also derives
+/// SerializedBytes, making its byte-level round-trip an explicit interoperability
+/// contract. It includes the schema, provenance witness, protocol address, and
 /// retrieval intent.
 pub fn verify_binding_attestation(
     attestation: &SignedHolochainBindingAttestation,
@@ -1159,7 +1162,7 @@ mod tests {
             issuer: agent.clone(),
             signature: Signature([0u8; 64]),
             payload: HolochainAuthorityAgentBindingPayload {
-                schema: HOLOCHAIN_AUTHORITY_AGENT_BINDING_SCHEMA,
+                schema: HOLOCHAIN_AUTHORITY_AGENT_BINDING_SCHEMA.into(),
                 provenance: QualificationAuthorityAgentBindingProvenance {
                     witness_identity: witness,
                     authority,
@@ -1186,6 +1189,41 @@ mod tests {
                 agent,
             },
         }
+    }
+
+    #[test]
+    fn authority_agent_payload_has_explicit_canonical_serialized_bytes_roundtrip() {
+        let authority = identity("canonical-authority");
+        let credential = authority_credential(authority, action_agent_key(45), "canonical");
+        let payload = credential.payload.clone();
+
+        let encoded =
+            SerializedBytes::try_from(payload.clone()).expect("payload must have canonical bytes");
+        let decoded = HolochainAuthorityAgentBindingPayload::try_from(encoded)
+            .expect("canonical bytes must round-trip through the declared payload type");
+
+        assert_eq!(decoded, payload);
+    }
+
+    #[test]
+    fn binding_attestation_payload_has_explicit_canonical_serialized_bytes_roundtrip() {
+        let provenance = binding_provenance_for_test(
+            identity("canonical-binding"),
+            identity("canonical-binding-authority"),
+        );
+        let payload = HolochainBindingAttestationPayload {
+            schema: HOLOCHAIN_BINDING_ATTESTATION_SCHEMA.into(),
+            provenance,
+            address: HolochainDependencyAddress::Action(action_hash(46)),
+            retrieval: QualificationDependencyRetrievalKind::Action,
+        };
+
+        let encoded =
+            SerializedBytes::try_from(payload.clone()).expect("payload must have canonical bytes");
+        let decoded = HolochainBindingAttestationPayload::try_from(encoded)
+            .expect("canonical bytes must round-trip through the declared payload type");
+
+        assert_eq!(decoded, payload);
     }
 
     #[test]
@@ -1225,7 +1263,7 @@ mod tests {
             signer: action_agent_key(39),
             signature: Signature([0u8; 64]),
             payload: HolochainBindingAttestationPayload {
-                schema: HOLOCHAIN_BINDING_ATTESTATION_SCHEMA,
+                schema: HOLOCHAIN_BINDING_ATTESTATION_SCHEMA.into(),
                 provenance: binding_provenance_for_test(logical, authority.clone()),
                 address: HolochainDependencyAddress::Action(action_hash(39)),
                 retrieval: QualificationDependencyRetrievalKind::Action,
