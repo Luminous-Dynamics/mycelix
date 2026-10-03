@@ -824,7 +824,7 @@ mod linux {
                         match predicate.op {
                             SeccompArgPredicateOpV1::MaskedEqual => {
                                 if low_mask != 0 {
-                                    let high_tail = if high_mask != 0 { 3 } else { 0 };
+                                    let high_tail: usize = if high_mask != 0 { 3 } else { 0 };
                                     let mismatch_skip = u8::try_from(
                                         high_tail
                                             .checked_add(later_in_predicates)
