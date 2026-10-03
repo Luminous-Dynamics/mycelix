@@ -534,11 +534,11 @@ fn maximum_dispatch_offset_child() -> ! {
 
     // Four clauses x four full-width MaskedNotEqual predicates is the
     // compiler's maximum V2 rule-body shape: 4 * (4 * 7 + 1) = 116
-    // instructions. Make read() the first rule (its syscall number is below
-    // getpid() and exit_group() on the supported Linux architectures) so the
-    // getpid() probe must take a 116-instruction forward jump. The following
-    // rules are unconditional; clean exit is therefore also possible after
-    // the post-install assertion.
+    // instructions. Make read() the first rule and write() the following
+    // unconditional rule. read < write < exit_group on all three supported
+    // Linux architectures, so the write() probe must take a 116-instruction
+    // forward jump. The final unconditional exit_group rule keeps the child
+    // termination path explicit and fail-closed.
     let mut clauses = Vec::with_capacity(4);
     for clause_index in 0..4u64 {
         let mut predicates = Vec::with_capacity(4);
@@ -562,7 +562,7 @@ fn maximum_dispatch_offset_child() -> ! {
     }
 
     let large_dispatch_syscall = libc::SYS_read;
-    let allowed_syscall = libc::SYS_getpid;
+    let allowed_syscall = libc::SYS_write;
     let cleanup_syscall = libc::SYS_exit_group;
     if !(large_dispatch_syscall < allowed_syscall && allowed_syscall < cleanup_syscall) {
         unsafe { libc::_exit(153) };
@@ -586,7 +586,14 @@ fn maximum_dispatch_offset_child() -> ! {
 
     // Pre-resolve the exact raw path used after installation. No libc helper
     // is needed on the irreversible side of the boundary.
-    let _ = unsafe { libc::syscall(libc::SYS_getpid) };
+    let _ = unsafe {
+        libc::syscall(
+            libc::SYS_write,
+            libc::STDERR_FILENO,
+            c"kernel-dispatch-warmup\n".as_ptr(),
+            21usize,
+        )
+    };
     let _ = unsafe { *libc::__errno_location() };
 
     if install_v2(
@@ -599,11 +606,19 @@ fn maximum_dispatch_offset_child() -> ! {
         unsafe { libc::_exit(159) };
     }
 
-    // getpid() does not match the first rule's syscall number. Reaching this
-    // successful result therefore demonstrates that the kernel followed the
-    // large rule's false branch over exactly the maximum generated body.
-    let allowed = unsafe { libc::syscall(libc::SYS_getpid) };
-    if allowed <= 0 {
+    // write() does not match the first rule's syscall number. Reaching
+    // this successful result therefore demonstrates that the kernel followed
+    // the large rule's false branch over exactly the maximum generated body.
+    let payload = c"kernel-dispatch-ok\n";
+    let allowed = unsafe {
+        libc::syscall(
+            libc::SYS_write,
+            libc::STDERR_FILENO,
+            payload.as_ptr(),
+            18usize,
+        )
+    };
+    if allowed != 18 {
         unsafe { libc::_exit(160) };
     }
 
