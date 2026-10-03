@@ -565,11 +565,13 @@ fn validate_create_recovery_config(
         ));
     }
 
-    // Validate all trustees are valid DIDs
+    // Recovery trustees participate in a Mycelix-specific authority protocol;
+    // accepting arbitrary DID methods here would make the quorum semantics
+    // impossible to bind to a concrete Holochain signer.
     for trustee in &config.trustees {
-        if !trustee.starts_with("did:") {
+        if did_to_agent(trustee).is_none() {
             return Ok(ValidateCallbackResult::Invalid(format!(
-                "Invalid trustee DID: {}",
+                "Trustee must be a valid did:mycelix AgentPubKey DID: {}",
                 trustee
             )));
         }
@@ -601,6 +603,15 @@ fn validate_update_recovery_config(
         return Ok(ValidateCallbackResult::Invalid(
             "Duplicate trustees are not allowed".into(),
         ));
+    }
+
+    for trustee in &config.trustees {
+        if did_to_agent(trustee).is_none() {
+            return Ok(ValidateCallbackResult::Invalid(format!(
+                "Trustee must be a valid did:mycelix AgentPubKey DID: {}",
+                trustee
+            )));
+        }
     }
 
     // Validate threshold
