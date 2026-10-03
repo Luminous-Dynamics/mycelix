@@ -169,7 +169,25 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 original_action.author(), action.author(),
             ))
         }
-        FlatOp::CreateRecord(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::CreateRecord(OpRecord::CreateEntry { app_entry, .. }) => match app_entry {
+                EntryTypes::CareSchedule(schedule) => validate_schedule(&schedule),
+                EntryTypes::CareSwap(swap) => validate_swap(&swap),
+                EntryTypes::MealPlan(plan) => validate_meal_plan(&plan),
+                    },
+        FlatOp::CreateRecord(OpRecord::UpdateEntry { app_entry, action, .. }) => match app_entry {
+                EntryTypes::CareSchedule(schedule) => {
+                    validate_schedule_update(&schedule)?;
+                    validate_schedule_immutable_fields(&schedule, &action.original_action_address)
+                }
+                EntryTypes::CareSwap(swap) => {
+                    validate_swap_update(&swap)?;
+                    validate_swap_immutable_fields(&swap, &action.original_action_address)
+                }
+                EntryTypes::MealPlan(plan) => {
+                    validate_meal_plan_update(&plan)?;
+                    validate_meal_plan_immutable_fields(&plan, &action.original_action_address)
+                }
+                    },
         FlatOp::AgentActivity(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::Update(OpUpdate::Entry { action, .. }) => {
             let original = must_get_valid_record(action.original_action_address.clone())?;
