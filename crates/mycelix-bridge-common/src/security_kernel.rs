@@ -130,8 +130,8 @@ pub struct VerificationEvidence {
 /// so this binding remains stable across proof/lease refreshes that do not change the
 /// semantic authority domain. The protocol/profile are committed as well, preventing a
 /// digest from being interpreted under a different canonical freshness scheme.
-pub const AUTHORITY_FRESHNESS_PROTOCOL_VERSION: &str = "mycelix-authority-freshness-v0.1";
-pub const AUTHORITY_FRESHNESS_PROFILE: &str =
+pub(crate) const AUTHORITY_FRESHNESS_PROTOCOL_VERSION: &str = "mycelix-authority-freshness-v0.1";
+pub(crate) const AUTHORITY_FRESHNESS_PROFILE: &str =
     "mycelix-authority-freshness-bundle-v1-blake3-framed";
 
 /// Derive the bridge authority binding from the canonical current-freshness commitment.
@@ -140,7 +140,7 @@ pub const AUTHORITY_FRESHNESS_PROFILE: &str =
 /// by the caller. This prevents an adapter from accidentally interpreting the same digest
 /// under a different freshness identity scheme. Dynamic proof/lease metadata remains outside
 /// the binding.
-pub fn authority_binding_from_freshness_digest(freshness_digest: [u8; 32]) -> [u8; 32] {
+pub(crate) fn authority_binding_from_freshness_digest(freshness_digest: [u8; 32]) -> [u8; 32] {
     let mut hasher = blake3::Hasher::new();
     hasher.update(b"mycelix/security/authority-binding/v1");
     frame_hash_bytes(&mut hasher, AUTHORITY_FRESHNESS_PROTOCOL_VERSION.as_bytes());
