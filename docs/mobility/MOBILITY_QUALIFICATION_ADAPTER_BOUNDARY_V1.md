@@ -41,7 +41,7 @@ An adapter therefore MUST NOT:
 
 An adapter MUST establish an explicit deterministic binding from each unresolved logical identity to exactly one protocol address used for dependency retrieval. The pure layer provides `QualificationDependencyBindingSet<A>` for this purpose without fixing the runtime address type.
 
-The binding set is intentionally append-only: a logical identity cannot be rebound to a second address within the same binding set. Iteration is canonicalized by logical identity, so construction order cannot affect downstream dependency resolution. An unbound logical identity remains unresolved; it must not be converted into a negative semantic finding.
+The binding set is intentionally append-only: a logical identity cannot be rebound to a second address within the same binding set. Every binding also carries an explicit runtime-neutral retrieval intent (`ValidRecord`, `Action`, or `Entry`). The runtime adapter must map that intent to a compatible address type and host function; the pure layer does not treat protocol address kinds as interchangeable. Iteration is canonicalized by logical identity, so construction order cannot affect downstream dependency resolution. An unbound logical identity remains unresolved; it must not be converted into a negative semantic finding.
 
 ### Binding resolution contract
 
