@@ -726,19 +726,37 @@ pub fn resolve_did_resolution(did: String) -> ExternResult<DidResolutionView> {
     }
 
     match resolve_did_view(did.clone())? {
-        Some(document) => Ok(DidResolutionView {
-            document_metadata: Some(DidDocumentMetadataView {
+        Some(document) => {
+            let document_metadata = Some(DidDocumentMetadataView {
                 created: document.created.clone(),
                 updated: document.updated.clone(),
                 deactivated: !document.active,
                 version_id: document.version.to_string(),
-            }),
-            did_document: Some(did_document_wire_view(&document)),
-            resolution_metadata: DidResolutionMetadataView {
-                content_type: Some("application/did".into()),
-                error: None,
-            },
-        }),
+            });
+
+            // W3C DID Resolution requires a deactivated DID to resolve with
+            // didDocument = null and deactivated=true metadata. Historical
+            // documents remain available through explicit version resolution.
+            if !document.active {
+                Ok(DidResolutionView {
+                    did_document: None,
+                    resolution_metadata: DidResolutionMetadataView {
+                        content_type: None,
+                        error: None,
+                    },
+                    document_metadata,
+                })
+            } else {
+                Ok(DidResolutionView {
+                    document_metadata,
+                    did_document: Some(did_document_wire_view(&document)),
+                    resolution_metadata: DidResolutionMetadataView {
+                        content_type: Some("application/did".into()),
+                        error: None,
+                    },
+                })
+            }
+        }
         None => Ok(DidResolutionView {
             did_document: None,
             resolution_metadata: DidResolutionMetadataView {
