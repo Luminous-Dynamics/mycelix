@@ -1098,7 +1098,7 @@ mod tests {
         );
         assert_eq!(
             closure.closure_identity_commitment,
-            with_evidence.closure_identity_commitment,
+            with_evidence.closure_identity(),
             "audit-only retrieval evidence must not alter semantic closure identity",
         );
         assert_ne!(first, with_evidence.recompute());
