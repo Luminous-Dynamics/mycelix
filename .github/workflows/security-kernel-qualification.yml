@@ -65,7 +65,7 @@ jobs:
           for pattern in \
             'pub[[:space:]]+decision:' \
             'pub[[:space:]]+capability_binding:' \
-            'pub[[:space:]]+authority_binding:' \\
+            'pub[[:space:]]+authority_binding:' \
             'pub[[:space:]]+(event_id|actor_id|capability_ref|request|policy_version|timestamp_us|provenance|recovery_correlation):'; do
             if rg -n \"$pattern\" crates/mycelix-bridge-common/src/security_events.rs; then
               echo "security-event trust-surface regression: $pattern" >&2
@@ -73,9 +73,9 @@ jobs:
             fi
           done
 
-          for pattern in \\
-            '#\\[derive\\(Debug, Clone, PartialEq, Eq\\)\\][[:space:]]*pub struct AuthorizationPermit' \\
-            '#\\[derive\\(Debug, Clone, PartialEq, Eq\\)\\][[:space:]]*pub struct EnforcementRequest'; do
+          for pattern in \
+            '#\[derive\(Debug, Clone, PartialEq, Eq\)\][[:space:]]*pub struct AuthorizationPermit' \
+            '#\[derive\(Debug, Clone, PartialEq, Eq\)\][[:space:]]*pub struct EnforcementRequest'; do
             if rg -nU \\"$pattern\\" crates/mycelix-bridge-common/src/security_kernel.rs; then
               echo \\"security-kernel linear-token regression: $pattern\\" >&2
               exit 1
