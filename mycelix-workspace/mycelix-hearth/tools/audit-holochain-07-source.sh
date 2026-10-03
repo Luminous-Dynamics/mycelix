@@ -468,7 +468,7 @@ check_stateful_link_transition_contracts() {
   local coordinator="mycelix-workspace/mycelix-hearth/zomes/hearth-stories/coordinator/src/lib.rs"
 
   if rg -n --pcre2 'LinkTypes::StoryToMedia[[:space:][:print:]]*contains\(&media\)' "$integrity" >/dev/null 2>&1     || rg -n --pcre2 'if !entry\.media_hashes\.contains\(&media\)' "$integrity" >/dev/null 2>&1; then
-    if awk '/pub fn add_media_to_story\(/,/^}/' "$coordinator"       | rg -n --pcre2 'media_hashes\.push\(|update_entry\(' >/dev/null 2>&1; then
+    if awk '/pub fn add_media_to_story\(/,/^\/\/\/ Create a new story collection\./' "$coordinator"       | rg -n --pcre2 'media_hashes\.push\(|update_entry\(' >/dev/null 2>&1; then
       echo "OK:   Stories StoryToMedia validator is backed by coordinator state synchronization"
     else
       echo "FAIL: Stories StoryToMedia validator depends on media_hashes but coordinator does not maintain it"
