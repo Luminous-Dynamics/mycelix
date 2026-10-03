@@ -1047,9 +1047,9 @@ pub fn arm_recovery_time_lock(request_id: String) -> ExternResult<Record> {
         )));
     }
 
-    let config_record = get_latest_record(request.recovery_config_action_hash.clone())?
+    let config_record = get(request.recovery_config_action_hash.clone(), GetOptions::default())?
         .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Pinned recovery configuration not found".into()
+            "Pinned recovery configuration snapshot not found".into()
         )))?;
     let config: RecoveryConfig = config_record
         .entry()
@@ -1733,13 +1733,13 @@ pub fn execute_self_recovery(request_action_hash: ActionHash) -> ExternResult<Re
         )));
     }
 
-    // Must be Approved (time lock set)
-    if request.status != RecoveryStatus::Approved {
-        return Err(wasm_error!(WasmErrorInner::Guest(format!(
-            "Cannot execute self-recovery in {:?} status (must be Approved)",
-            request.status
-        ))));
-    }
+    // Self-recovery execution is deliberately disabled until the proof-of-control
+    // and successor-DID protocols are complete. Do not rely on the integrity
+    // callback alone: the coordinator boundary must also be fail-closed.
+    return Err(wasm_error!(WasmErrorInner::Guest(
+        "Self-recovery execution is disabled until cryptographic proof-of-control (#3874) and successor-DID/controller-transfer protocol (#3873) are implemented"
+            .into()
+    )));
 
     // Check time lock has expired
     let now = sys_time()?;
