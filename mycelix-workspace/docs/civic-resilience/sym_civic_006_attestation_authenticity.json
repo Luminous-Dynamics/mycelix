@@ -597,6 +597,38 @@
         "verification_time": "2026-10-03T01:00:00Z"
       },
       "note": "Changing predicate bytes after signing changes the authenticated statement identity."
+    },
+    {
+      "id": "A-20",
+      "family": "historical_attestation_without_verification_policy",
+      "candidate": {
+        "subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "signed_subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "attester": {
+          "id": "did:example:alice",
+          "status": "active",
+          "key_not_after": "2026-10-03T00:30:00Z"
+        },
+        "statement": {
+          "predicate_type": "https://example.org/provenance/v1"
+        },
+        "signature": {
+          "valid": true,
+          "canonical_bytes_match": true
+        },
+        "attestation_time": "2026-10-03T00:15:00Z",
+        "verification_time": "2026-10-03T01:00:00Z",
+        "policy": {
+          "historical_grace": false
+        }
+      },
+      "note": "A historically valid attestation still needs an explicit policy allowing verification after the key epoch has expired."
     }
   ],
   "nonclaims": [
