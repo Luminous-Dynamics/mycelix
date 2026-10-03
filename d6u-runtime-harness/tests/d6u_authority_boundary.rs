@@ -528,24 +528,24 @@ async fn d6u_runtime_authority_boundary() {
     assert_eq!(reached.load(Ordering::SeqCst), before);
     record_case("nonce-replay", "authorization-failed");
 
-    let stale = params(
+    let future_expiry =
+        (Timestamp::now() + std::time::Duration::from_secs(60 * 60)).expect("future expiry");
+    let future = params(
         &bob_cell,
         &bob,
         SweetInlineZomes::COORDINATOR.into(),
         "probe".into(),
         None,
         base.clone(),
-        Nonce256Bits::from([0x00; 32]),
-        holochain_nonce::fresh_nonce(Timestamp::now()).unwrap().1,
+        Nonce256Bits::from([0x61; 32]),
+        future_expiry,
     );
     let before = reached.load(Ordering::SeqCst);
     expect_unauthorized_reason(
-        call(&app_api, "d6u-bob", &conductor.keystore(), stale).await,
+        call(&app_api, "d6u-bob", &conductor.keystore(), future).await,
         "BadNonce",
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
-    record_case("nonce-stale", "authorization-failed");
-
     let expired = params(
         &alice_cell,
         &alice,
