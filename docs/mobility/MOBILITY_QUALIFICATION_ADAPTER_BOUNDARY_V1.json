@@ -177,6 +177,8 @@
     "runtime_binding_requires_exact_authority_delegation_match": true,
     "authority_credential_provenance_continuity_is_checked": true,
     "registered_credential_basis_is_minimum_runtime_basis": true,
-    "runtime_binding_witness_must_differ_from_authority_credential_witness": true
+    "runtime_binding_witness_must_differ_from_authority_credential_witness": true,
+    "provenance_witness_unique_per_registry_binding": true,
+    "duplicate_provenance_witness_in_registry": "rejected"
   }
 }
