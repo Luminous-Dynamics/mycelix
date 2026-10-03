@@ -107,3 +107,21 @@ This contract does not establish:
 - causal correctness.
 
 It defines only the deterministic boundary between logical qualification semantics and a distributed validation runtime.
+
+
+## Binding provenance boundary
+
+A protocol address must never become the sole justification for a logical qualification dependency. The concrete adapter therefore requires a separate `QualificationDependencyBindingProvenance` witness for every logical-to-protocol binding.
+
+The pure witness contains:
+
+- a distinct `ReconciliationWitness` identity;
+- the exact `IdentityRef` being bound;
+- a distinct authority `IdentityRef`;
+- a unique basis set which includes that exact authority.
+
+The witness does not contain, derive, parse, hash, or otherwise interpret the Holochain address. This keeps the provenance explanation in the pure qualification layer and the protocol address in the runtime adapter.
+
+The adapter requires the witness to name the exact logical identity being bound. Malformed provenance is semantic invalidity; duplicate binding state or a protocol address-kind mismatch is an adapter boundary failure.
+
+The witness is carried through resolved dependencies so downstream consumers retain the provenance context. This is intentionally a bounded structural provenance statement, not a cryptographic proof, legal authority determination, global DHT completeness claim, or assertion that the engineering claim itself is true.
