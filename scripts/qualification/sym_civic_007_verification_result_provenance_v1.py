@@ -190,7 +190,7 @@ def main():
     payload={"program":d["program"],"schema":d["schema"],
              "cases":[{"id":c["id"],"disposition":derived[c["id"]]} for c in cases]}
     digest=hashlib.sha256(json.dumps(payload,sort_keys=True,separators=(",",":")).encode()).hexdigest()
-    print(f"SYM-CIVIC-007 PASS: 22 verification-provenance cases; rejection=15; content-unqualified=3; verified=4; canonical receipt={digest}")
+    print(f"SYM-CIVIC-007 PASS: 23 verification-provenance cases; rejection=16; content-unqualified=3; verified=4; canonical receipt={digest}")
 
 if __name__=="__main__":
     main()
