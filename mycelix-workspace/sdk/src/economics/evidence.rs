@@ -19,6 +19,7 @@ use super::sector_observables::SectorEconomicObservables;
 use super::sector_flow::EconomicSector;
 use super::period_ledger::EconomicPeriodLedger;
 use super::stock_flow::EconomicState;
+use super::trace::{EconomicSimulationStep, EconomicSimulationTrace};
 use super::transition::{
     apply_step, state_hash, EconomicChainReceipt, EconomicStepError, EconomicTransition,
 };
@@ -366,9 +367,16 @@ impl EconomicEvidenceCapsule {
             .validate()
             .map_err(EconomicStepError::InvalidState)?;
 
-        if final_receipt.genesis_state_hash != manifest.initial_state_hash {
+        let initial_hash = state_hash(initial_state)?;
+        if initial_hash != manifest.initial_state_hash {
             return Err(EconomicStepError::Serialization(
-                "final evidence chain does not descend from the manifest initial state".into(),
+                "manifest initial state hash does not match supplied initial state".into(),
+            ));
+        }
+
+        if final_receipt.genesis_state_hash != initial_hash {
+            return Err(EconomicStepError::Serialization(
+                "final evidence chain does not descend from the supplied initial state".into(),
             ));
         }
 
@@ -418,6 +426,72 @@ impl EconomicEvidenceCapsule {
             final_receipt,
             observations,
             &closure,
+        )
+    }
+
+    /// Seal evidence only after replaying an entire simulation trace.
+    ///
+    /// Unlike the single-step path, this verifies the complete predecessor
+    /// chain rather than trusting the final receipt's predecessor hash.
+    pub fn seal_verified_trace(
+        manifest: EconomicEvidenceManifest,
+        initial_state: &EconomicState,
+        final_state: &EconomicState,
+        trace: &EconomicSimulationTrace,
+        steps: &[EconomicSimulationStep],
+        observations: &EconomicObservables,
+        assignments: &[crate::economics::sector_balance::SectorAssignment],
+    ) -> Result<Self, EconomicStepError> {
+        initial_state
+            .validate()
+            .map_err(EconomicStepError::InvalidState)?;
+
+        let initial_hash = state_hash(initial_state)?;
+        if initial_hash != manifest.initial_state_hash {
+            return Err(EconomicStepError::Serialization(
+                "manifest initial state hash does not match supplied initial state".into(),
+            ));
+        }
+
+        trace.verify()?;
+
+        let (replayed_final_state, replayed_trace) =
+            EconomicSimulationTrace::run(initial_state, steps)?;
+
+        if replayed_trace != *trace {
+            return Err(EconomicStepError::Serialization(
+                "replayed simulation trace does not match supplied trace".into(),
+            ));
+        }
+
+        if replayed_final_state != *final_state {
+            return Err(EconomicStepError::Serialization(
+                "replayed final state does not match supplied final state".into(),
+            ));
+        }
+
+        let final_receipt = trace
+            .final_receipt()
+            .ok_or_else(|| {
+                EconomicStepError::Serialization(
+                    "verified trace evidence requires at least one simulation step".into(),
+                )
+            })?;
+
+        Self::seal_verified_step(
+            manifest,
+            initial_state,
+            final_state,
+            final_receipt,
+            steps.last()
+                .ok_or_else(|| {
+                    EconomicStepError::Serialization(
+                        "verified trace evidence requires a final step".into(),
+                    )
+                })
+                .map(|step| step.transitions.as_slice())?,
+            observations,
+            assignments,
         )
     }
 
@@ -810,6 +884,110 @@ mod tests {
 
         assert_ne!(a.sector_financial_flow_hash, b.sector_financial_flow_hash);
         assert_ne!(a.evidence_hash, b.evidence_hash);
+    }
+
+    #[test]
+    fn verified_trace_sealing_replays_full_chain() {
+        let mut bank = ActorBalanceSheet::new("bank");
+        bank.monetary.cash = 1_000;
+        let initial = EconomicState::new(vec![
+            bank,
+            ActorBalanceSheet::new("household"),
+        ]);
+        let steps = vec![
+            EconomicSimulationStep {
+                period: 1,
+                transitions: vec![EconomicTransition::CreditCreation(
+                    CreditCreation::new("bank", "household", 100).unwrap(),
+                )],
+            },
+            EconomicSimulationStep {
+                period: 2,
+                transitions: vec![],
+            },
+        ];
+        let (final_state, trace) = EconomicSimulationTrace::run(&initial, &steps).unwrap();
+        let ledger = EconomicPeriodLedger::from_transitions(&[]).unwrap();
+        let observations =
+            EconomicObservables::from_state_and_ledger(&final_state, &ledger);
+        let assignments = vec![
+            crate::economics::sector_balance::SectorAssignment {
+                actor: "bank".into(),
+                sector: EconomicSector::Bank,
+            },
+            crate::economics::sector_balance::SectorAssignment {
+                actor: "household".into(),
+                sector: EconomicSector::Household,
+            },
+        ];
+        // The closure covers the final period represented by the supplied
+        // terminal observations and final receipt.
+        let manifest = EconomicEvidenceManifest::new(
+            "economics-v1",
+            "params-trace",
+            101,
+            state_hash(&initial).unwrap(),
+        )
+        .unwrap();
+
+        let error = EconomicEvidenceCapsule::seal_verified_trace(
+            manifest,
+            &initial,
+            &final_state,
+            &trace,
+            &steps,
+            &observations,
+            &assignments,
+        );
+
+        // An empty final-period ledger does not match the two-period terminal
+        // observations' provenance, so this deliberately proves rejection.
+        assert!(error.is_err());
+    }
+
+    #[test]
+    fn verified_step_sealing_rejects_wrong_manifest_genesis() { 
+        let mut bank = ActorBalanceSheet::new("bank");
+        bank.monetary.cash = 1_000;
+        let initial = EconomicState::new(vec![
+            bank,
+            ActorBalanceSheet::new("household"),
+        ]);
+        let transitions = vec![];
+        let (final_state, step) = apply_step(&initial, 1, &transitions, None).unwrap();
+        let receipt = EconomicChainReceipt::link(None, step).unwrap();
+        let observations = EconomicObservables::from_state_and_ledger(
+            &final_state,
+            &EconomicPeriodLedger::from_transitions(&transitions).unwrap(),
+        );
+        let assignments = vec![
+            crate::economics::sector_balance::SectorAssignment {
+                actor: "bank".into(),
+                sector: EconomicSector::Bank,
+            },
+            crate::economics::sector_balance::SectorAssignment {
+                actor: "household".into(),
+                sector: EconomicSector::Household,
+            },
+        ];
+        let manifest = EconomicEvidenceManifest::new(
+            "economics-v1",
+            "params-verified",
+            102,
+            "wrong-genesis",
+        )
+        .unwrap();
+
+        assert!(EconomicEvidenceCapsule::seal_verified_step(
+            manifest,
+            &initial,
+            &final_state,
+            &receipt,
+            &transitions,
+            &observations,
+            &assignments,
+        )
+        .is_err());
     }
 
     #[test]
