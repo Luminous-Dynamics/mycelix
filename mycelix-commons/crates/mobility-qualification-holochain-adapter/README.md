@@ -45,3 +45,25 @@ This separation keeps the semantic algebra in one place and the protocol mechani
 The adapter exposes one callback-facing mapping seam. Pure `Valid` becomes `ValidateCallbackResult::Valid`; pure structural `Invalid` becomes `ValidateCallbackResult::Invalid`. A malformed logical identity discovered defensively during binding is the same semantic invalidity and follows the same `Invalid` path. A pure `Unresolved` cannot be converted yet because its missing values are logical identities rather than Holochain hashes. True adapter defects such as duplicate bindings or address-kind mismatches remain boundary errors rather than becoming facts about the underlying record.
 
 This keeps semantic interpretation single-sourced: the pure qualification layer decides the meaning, while this crate only performs typed protocol binding, deterministic retrieval, and the final protocol-result mapping.
+
+
+## Binding provenance witness
+
+Every concrete runtime binding requires a `QualificationDependencyBindingProvenance` witness.
+
+The witness names:
+
+- the exact logical dependency being bound;
+- a distinct provenance-witness identity;
+- the exact authority identity supporting the binding;
+- a unique basis set containing that authority.
+
+The witness intentionally contains no Holochain address. It explains the provenance of the logical binding while the adapter separately carries the concrete `ActionHash` or `EntryHash`.
+
+This is a bounded structural provenance statement. It does not claim cryptographic proof, legal authority, global DHT completeness, or correctness of the underlying engineering claim.
+
+A binding is therefore accepted only after both halves are independently valid:
+
+**provenance witness** + **typed protocol address**
+
+The resolved dependency carries the same provenance witness forward, so downstream validation does not lose the explanation for why the logical dependency was bound.
