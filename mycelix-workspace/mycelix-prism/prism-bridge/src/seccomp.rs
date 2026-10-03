@@ -1736,14 +1736,18 @@ mod linux {
                 .unwrap()
             };
 
-            let under = (0..30)
+            let under = (0..40)
                 .map(|index| full_rule(10_000 + index * 4))
                 .collect::<Vec<_>>();
             let under_policy = SeccompSyscallPolicyV2::new(arch, under).unwrap();
             let under_filter = compile_filter_v2(&under_policy).unwrap();
             assert!(under_filter.len() <= 4096);
+            // 40 maximum-width disjunctive rules fit (x86-64: 4048
+            // instructions including the fixed prefix and terminator);
+            // adding the 41st rule crosses the kernel's 4096-instruction
+            // cBPF ceiling.
 
-            let over = (0..31)
+            let over = (0..41)
                 .map(|index| full_rule(20_000 + index * 4))
                 .collect::<Vec<_>>();
             let over_policy = SeccompSyscallPolicyV2::new(arch, over).unwrap();
