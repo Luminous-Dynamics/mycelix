@@ -44,7 +44,15 @@ jobs:
         with:
           workspaces: |
             mycelix-workspace/mycelix-hearth
-            mycelix-workspace/mycelix-hearth/tests
+
+      # Temporary CI bridge: refresh a stale Holonix lock revision before flake
+      # evaluation. The generated lock state is captured for immediate promotion
+      # into version control once verified.
+      - name: Refresh Holonix 0.7 lock input
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: |
+          nix flake lock --update-input holonix 2>&1 | tee qualification-lock-refresh.log
+          git diff -- flake.lock | tee qualification-lock-diff.log
 
       - name: Run Hearth 0.7 source audit
         working-directory: mycelix-workspace/mycelix-hearth
@@ -86,7 +94,9 @@ jobs:
             else
               echo "claim_ceiling=RuntimeQualificationPending"
             fi
-            echo "commit=${GITHUB_SHA}"
+            echo "tested_sha=${GITHUB_SHA}"
+            echo "pr_head_sha=${{ github.event.pull_request.head.sha || '' }}"
+            echo "pr_base_sha=${{ github.event.pull_request.base.sha || '' }}"
             echo "ref=${GITHUB_REF_NAME}"
             echo "event=${GITHUB_EVENT_NAME}"
             echo "run_id=${GITHUB_RUN_ID}"
@@ -100,6 +110,8 @@ jobs:
           name: hearth-07-qualification-${{ github.sha }}
           path: |
             mycelix-workspace/mycelix-hearth/qualification-metadata.txt
+            mycelix-workspace/mycelix-hearth/qualification-lock-refresh.log
+            mycelix-workspace/mycelix-hearth/qualification-lock-diff.log
             mycelix-workspace/mycelix-hearth/qualification-source-audit.log
             mycelix-workspace/mycelix-hearth/qualification-format.log
             mycelix-workspace/mycelix-hearth/qualification-build.log
