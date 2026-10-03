@@ -191,6 +191,10 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 app_entry_type: Some(UnitEntryTypes::DidDocument),
                 action,
             } => validate_did_document_chain_uniqueness(action),
+            OpActivity::CreateEntry {
+                app_entry_type: Some(UnitEntryTypes::DidDeactivation),
+                action,
+            } => validate_did_deactivation_chain_uniqueness(action),
             _ => Ok(ValidateCallbackResult::Valid),
         },
         FlatOp::RegisterUpdate(update) => {
@@ -641,6 +645,53 @@ fn validate_update_did_document(
         return Ok(ValidateCallbackResult::Invalid(
             "DID must have at least one verification method".into(),
         ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+/// Enforce one irreversible deactivation artifact per DID on the
+/// controller's source chain. This prevents conflicting deactivation reasons
+/// and timestamp selection from becoming a resolution ambiguity.
+fn validate_did_deactivation_chain_uniqueness(
+    action: Create,
+) -> ExternResult<ValidateCallbackResult> {
+    let current_entry = must_get_entry(action.entry_hash.clone())?;
+    let current: DidDeactivation = current_entry.try_into().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "DID deactivation entry could not be decoded: {e}"
+        )))
+    })?;
+
+    let activity = must_get_agent_activity(
+        action.author.clone(),
+        ChainFilter::new(action.prev_action.clone()),
+    )?;
+
+    let entry_type =
+        EntryType::App(AppEntryDef::try_from(UnitEntryTypes::DidDeactivation)?);
+
+    for prior in activity {
+        let prior_action = prior.action.action();
+        let Action::Create(prior_create) = prior_action else {
+            continue;
+        };
+        if prior_create.entry_type != entry_type {
+            continue;
+        }
+
+        let prior_entry = must_get_entry(prior_create.entry_hash.clone())?;
+        let prior: DidDeactivation = prior_entry.try_into().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "DID deactivation history entry could not be decoded: {e}"
+            )))
+        })?;
+
+        if prior.did == current.did {
+            return Ok(ValidateCallbackResult::Invalid(
+                "A DID may only have one deactivation artifact".into(),
+            ));
+        }
     }
 
     Ok(ValidateCallbackResult::Valid)
