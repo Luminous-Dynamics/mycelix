@@ -157,7 +157,7 @@ async fn create_test_hearth(conductor: &SweetConductor, alice: &SweetCell) -> Ac
     record.action_address().clone()
 }
 
-fn assert_integrity_rejection<T>(result: ExternResult<T>, expected_reason: &str) {
+fn assert_integrity_rejection<T, E: std::fmt::Debug>(result: Result<T, E>, expected_reason: &str) {
     let err = result.expect_err("invalid input must be rejected by the zome");
     let debug = format!("{err:?}");
     assert!(
