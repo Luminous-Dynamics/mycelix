@@ -2279,3 +2279,71 @@ async fn dsid_029_recovery_request_id_is_deterministically_derived() {
         true,
     );
 }
+
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_030_rejected_recovery_cannot_resurrect_in_derived_status() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let alice_app = conductor.setup_app("dsid-terminal-alice", std::slice::from_ref(&dna)).await.unwrap();
+    let bob_app = conductor.setup_app("dsid-terminal-bob", std::slice::from_ref(&dna)).await.unwrap();
+    let carol_app = conductor.setup_app("dsid-terminal-carol", std::slice::from_ref(&dna)).await.unwrap();
+    let alice = alice_app.cells()[0].clone();
+    let bob = bob_app.cells()[0].clone();
+    let carol = carol_app.cells()[0].clone();
+
+    for cell in [&alice, &bob, &carol] {
+        let _: Record = conductor.call(&cell.zome("did_registry"), "create_did", ()).await;
+    }
+
+    let alice_did = format!("did:mycelix:{}", alice_app.agent());
+    let bob_did = format!("did:mycelix:{}", bob_app.agent());
+    let carol_did = format!("did:mycelix:{}", carol_app.agent());
+
+    let _: Record = conductor.call(&alice.zome("recovery"), "setup_recovery", serde_json::json!({
+        "did": alice_did,
+        "trustees": [alice_did.clone(), bob_did.clone(), carol_did.clone()],
+        "threshold": 3,
+        "time_lock": 86400
+    })).await;
+    await_consistency(&[alice.clone(), bob.clone(), carol.clone()]).await.unwrap();
+
+    let request: Record = conductor.call(&alice.zome("recovery"), "initiate_recovery", serde_json::json!({
+        "did": alice_did,
+        "initiator_did": format!("did:mycelix:{}", alice_app.agent()),
+        "new_agent": bob_app.agent(),
+        "reason": "DSID terminal rejection"
+    })).await;
+    let req: RecoveryRequestMirror = request.entry().to_app_option().unwrap().unwrap();
+
+    let _: Record = conductor.call(&bob.zome("recovery"), "vote_on_recovery", serde_json::json!({
+        "request_id": req.id.clone(),
+        "trustee_did": bob_did,
+        "vote": "Reject"
+    })).await;
+    let _: Record = conductor.call(&carol.zome("recovery"), "vote_on_recovery", serde_json::json!({
+        "request_id": req.id.clone(),
+        "trustee_did": carol_did,
+        "vote": "Reject"
+    })).await;
+
+    await_consistency(&[alice.clone(), bob.clone(), carol.clone()]).await.unwrap();
+    let status: serde_json::Value = conductor.call(&bob.zome("recovery"), "get_recovery_status", req.id.clone()).await.unwrap();
+    assert_eq!(status["status"], "Rejected");
+
+    let mut agents = BTreeMap::new();
+    agents.insert("alice", alice_app.agent().to_string());
+    agents.insert("bob", bob_app.agent().to_string());
+    agents.insert("carol", carol_app.agent().to_string());
+    emit_evidence(
+        "DSID-030",
+        "rejected-recovery-cannot-resurrect-in-derived-status",
+        &dna,
+        agents,
+        &[&request],
+        "A rejected recovery request remains terminal in the DHT-derived quorum projection.",
+        format!("derived_status={}", status["status"]),
+        true,
+    );
+}
