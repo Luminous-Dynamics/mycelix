@@ -36,7 +36,8 @@ pub enum CapabilityAction {
     Admin = 5,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(try_from = "CapabilityWire")]
 pub struct Capability {
     subject: String,
     issuer: String,
@@ -45,6 +46,33 @@ pub struct Capability {
     not_before_us: u64,
     expires_at_us: u64,
     policy_version: u64,
+}
+
+#[derive(Debug, Deserialize)]
+struct CapabilityWire {
+    subject: String,
+    issuer: String,
+    resource: String,
+    actions: Vec<CapabilityAction>,
+    not_before_us: u64,
+    expires_at_us: u64,
+    policy_version: u64,
+}
+
+impl TryFrom<CapabilityWire> for Capability {
+    type Error = &'static str;
+
+    fn try_from(wire: CapabilityWire) -> Result<Self, Self::Error> {
+        Self::new(
+            wire.subject,
+            wire.issuer,
+            wire.resource,
+            wire.actions,
+            wire.not_before_us,
+            wire.expires_at_us,
+            wire.policy_version,
+        )
+    }
 }
 
 /// A capability together with an Ed25519 signature over its canonical semantic
@@ -782,6 +810,65 @@ mod tests {
         assert_eq!(CapabilityAction::Execute as u8, 3);
         assert_eq!(CapabilityAction::Delegate as u8, 4);
         assert_eq!(CapabilityAction::Admin as u8, 5);
+    }
+
+    #[test]
+    fn capability_deserialization_is_constructor_gated() {
+        let valid = serde_json::json!({
+            "subject": "did:mycelix:alice",
+            "issuer": "did:mycelix:issuer",
+            "resource": "resource:ledger",
+            "actions": ["Read"],
+            "not_before_us": 100,
+            "expires_at_us": 200,
+            "policy_version": 7
+        });
+        let decoded: Capability = serde_json::from_value(valid).unwrap();
+        assert_eq!(decoded, capability());
+
+        let empty_subject = serde_json::json!({
+            "subject": "",
+            "issuer": "did:mycelix:issuer",
+            "resource": "resource:ledger",
+            "actions": ["Read"],
+            "not_before_us": 100,
+            "expires_at_us": 200,
+            "policy_version": 7
+        });
+        assert!(serde_json::from_value::<Capability>(empty_subject).is_err());
+
+        let empty_actions = serde_json::json!({
+            "subject": "did:mycelix:alice",
+            "issuer": "did:mycelix:issuer",
+            "resource": "resource:ledger",
+            "actions": [],
+            "not_before_us": 100,
+            "expires_at_us": 200,
+            "policy_version": 7
+        });
+        assert!(serde_json::from_value::<Capability>(empty_actions).is_err());
+
+        let reversed_duplicate_actions = serde_json::json!({
+            "subject": "did:mycelix:alice",
+            "issuer": "did:mycelix:issuer",
+            "resource": "resource:ledger",
+            "actions": ["Read", "Read"],
+            "not_before_us": 100,
+            "expires_at_us": 200,
+            "policy_version": 7
+        });
+        assert!(serde_json::from_value::<Capability>(reversed_duplicate_actions).is_err());
+
+        let invalid_window = serde_json::json!({
+            "subject": "did:mycelix:alice",
+            "issuer": "did:mycelix:issuer",
+            "resource": "resource:ledger",
+            "actions": ["Read"],
+            "not_before_us": 200,
+            "expires_at_us": 200,
+            "policy_version": 7
+        });
+        assert!(serde_json::from_value::<Capability>(invalid_window).is_err());
     }
 
     #[test]
