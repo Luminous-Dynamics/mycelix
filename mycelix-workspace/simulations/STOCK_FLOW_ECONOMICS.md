@@ -1139,3 +1139,29 @@ The resulting projection stack is:
 Keeping the two sector matrices separate preserves the distinction between cash/liquidity
 transactions and contractual claim changes, including deferred trade credit, while both remain
 bound to the same transition evidence.
+
+
+## Observation external re-verification (implemented)
+
+The actor, sector, and aggregate observation layers now expose explicit re-verification paths.
+
+Actor observations can be re-derived from an opening state and ordered transition program;
+sector observations can be re-derived from the same inputs plus exact actor-to-sector assignments;
+and aggregate observations can be re-derived directly from the opening state and transition list.
+
+This closes the reporting-side trust boundary that remained after ledger and matrix re-verification:
+a serialized diagnostic is not accepted merely because its internal arithmetic reconciles or its hash
+is intact. The upstream economic execution remains the authoritative source, and reporting objects
+must be reproducible from it when provenance verification is requested.
+
+The full accounting provenance chain is now:
+
+`transitions -> state replay -> ledger -> actor observations -> sector observations -> aggregate observations`
+
+with sector transaction, sector financial-claim, accounting-closure, and evidence objects separately
+re-verifiable against the same upstream artifacts.
+
+This is especially valuable for non-cash changes and opening/closing stock bridges. Current IASB work
+is likewise emphasizing clearer links between changes in assets/liabilities, cash-flow reconciliations,
+and statement-of-financial-position line items, reinforcing the value of making those bridges explicit
+rather than hiding them in aggregate residuals.
