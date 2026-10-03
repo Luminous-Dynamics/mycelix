@@ -41,13 +41,10 @@ pub fn RecoveryPage() -> impl IntoView {
                 trustee_count: config.trustees.len() as u32,
                 threshold: config.threshold,
             }
-        } else if let Some(config) = self_config().filter(|config| config.active && !config.anchors.is_empty()) {
-            RecoveryTier::SelfRecovery {
-                anchor_count: config.anchors.len() as u32,
-            }
         } else {
-            // A zero-anchor self-recovery config exists from DID creation, but
-            // it is not yet actionable. Do not present it as usable protection.
+            // Enrolled anchor identifiers are currently descriptive only.
+            // Self-recovery remains pending until a cryptographic proof-of-control
+            // flow is implemented; do not present hashes/IDs as usable protection.
             RecoveryTier::Pending
         }
     };
@@ -86,7 +83,7 @@ pub fn RecoveryPage() -> impl IntoView {
                 <h2>"Self-Recovery"</h2>
                 <p style="opacity: 0.7; margin-bottom: var(--space-md);">
                     "The Identity DNA creates this configuration when your DID is created. "
-                    "Recovery anchors are stored as privacy-preserving identifiers; they are not raw phone numbers, emails, or biometrics."
+                    "Recovery anchors are stored as privacy-preserving identifiers; they are not raw phone numbers, emails, or biometrics. Matching an identifier alone is not proof of control."
                 </p>
 
                 {move || match self_config() {
@@ -120,7 +117,7 @@ pub fn RecoveryPage() -> impl IntoView {
                                         <div class="stat-card" style="opacity: 0.7;">
                                             <span>"No recovery anchors enrolled yet."</span>
                                             <br />
-                                            <span style="font-size: var(--text-xs);">"Add a passkey, device, email, phone, or biometric anchor to make self-recovery actionable."</span>
+                                            <span style="font-size: var(--text-xs);">"Anchors are enrolled for future proof-of-control. Self-recovery remains unavailable until the cryptographic proof flow is implemented."</span>
                                         </div>
                                     }.into_any()
                                 } else {
