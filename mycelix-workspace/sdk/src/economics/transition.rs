@@ -323,6 +323,7 @@ mod tests {
         bank.monetary.cash = 1_000;
         EconomicState::new(vec![
             bank,
+            ActorBalanceSheet::new("firm"),
             ActorBalanceSheet::new("household"),
         ])
     }
