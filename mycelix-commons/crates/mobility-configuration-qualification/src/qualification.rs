@@ -270,6 +270,63 @@ mod tests {
     }
 
     #[test]
+    fn adapter_boundary_contract_is_machine_readable_and_three_valued() {
+        let contract_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../docs/mobility/MOBILITY_QUALIFICATION_ADAPTER_BOUNDARY_V1.json");
+        let contract = std::fs::read_to_string(&contract_path)
+            .unwrap_or_else(|error| panic!("cannot read adapter boundary contract: {error}"));
+        let document: serde_json::Value =
+            serde_json::from_str(&contract).expect("adapter boundary contract must be valid JSON");
+
+        assert_eq!(
+            document
+                .get("schema")
+                .and_then(serde_json::Value::as_str),
+            Some("mycelix.mobility.qualification_adapter_boundary.v1")
+        );
+        assert_eq!(
+            document
+                .get("semantic_outcomes")
+                .and_then(serde_json::Value::as_array)
+                .map(std::vec::Vec::len),
+            Some(3)
+        );
+
+        let outcomes = document
+            .get("semantic_outcomes")
+            .and_then(serde_json::Value::as_array)
+            .expect("adapter contract must declare semantic outcomes");
+        let pure_names: Vec<_> = outcomes
+            .iter()
+            .filter_map(|outcome| outcome.get("pure"))
+            .filter_map(serde_json::Value::as_str)
+            .collect();
+        assert_eq!(pure_names, vec!["valid", "invalid", "unresolved"]);
+
+        let identity = document
+            .get("identity_boundary")
+            .expect("adapter contract must declare identity boundary");
+        assert_eq!(
+            identity
+                .get("logical_identity_type")
+                .and_then(serde_json::Value::as_str),
+            Some("IdentityRef")
+        );
+        assert_eq!(
+            identity
+                .get("implicit_string_to_hash_conversion")
+                .and_then(serde_json::Value::as_bool),
+            Some(false)
+        );
+        assert_eq!(
+            identity
+                .get("adapter_binding_required")
+                .and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+    }
+
+    #[test]
     fn outcome_maps_to_valid_decision() {
         let decision = QualificationDecision::from(
             Ok::<_, QualificationValidationError>(QualificationStatus::Complete(7u8)),
