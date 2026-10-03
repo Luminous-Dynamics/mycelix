@@ -3,7 +3,7 @@
   "kind": "authority-boundary-reference-manifest",
   "version": 1,
   "fixture_path": "docs/integral/d6s-canon-2-authority-boundary-fixture.json",
-  "fixture_blob_sha": "a7f21cd9273f2ca80e9e874c6d8f661c8e7f07c5",
+  "fixture_blob_sha": "1f99512289e2fbb243d6293bfd51a81039f91195",
   "expected_case_count": 17,
   "expected_case_ids": [
     "author-grant",
