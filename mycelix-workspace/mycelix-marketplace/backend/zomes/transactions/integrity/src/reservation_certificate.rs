@@ -596,6 +596,17 @@ impl InventoryFrontier {
         sequence: u64,
         previous_certificate_id: Option<String>,
     ) -> Result<ApplyOutcome, CertificateError> {
+        // Replay classification is only meaningful after the event proves the
+        // invariant identity of this frontier. Otherwise a foreign seller or
+        // listing could accidentally reuse the same sequence/revision/capacity
+        // tuple and be mislabeled as an idempotent replay.
+        if seller != self.seller {
+            return Err(CertificateError::WrongSeller);
+        }
+        if listing_hash != self.listing_hash {
+            return Err(CertificateError::WrongListing);
+        }
+
         if let Some((recorded_revision, recorded_capacity, recorded_previous)) =
             self.capacity_events.get(&sequence)
         {
@@ -609,9 +620,6 @@ impl InventoryFrontier {
         }
 
         self.check_frontier(&seller, sequence, &previous_certificate_id)?;
-        if listing_hash != self.listing_hash {
-            return Err(CertificateError::WrongListing);
-        }
 
         self.ledger
             .apply(crate::reservation::ReservationEvent::SetCapacity { capacity })
@@ -1177,6 +1185,80 @@ mod tests {
         assert_eq!(f.next_sequence(), 2);
         assert_eq!(f.active_reserved(), 1);
         assert_eq!(f.available(), 1);
+    }
+
+    #[test]
+    fn capacity_bridge_replay_with_foreign_listing_is_not_idempotent() {
+        let mut f = frontier(2);
+        assert_eq!(
+            f.apply(FrontierEvent::Reserve(certificate_with_capacity(
+                "c1", 0, None, 1, 2
+            ))),
+            Ok(ApplyOutcome::Applied)
+        );
+
+        let bridge = FrontierEvent::SetCapacity {
+            listing_hash: hash(3),
+            listing_revision: hash(7),
+            capacity: 2,
+            seller: agent(2),
+            sequence: 1,
+            previous_certificate_id: Some("c1".into()),
+        };
+        assert_eq!(f.apply(bridge), Ok(ApplyOutcome::Applied));
+
+        let foreign_listing = FrontierEvent::SetCapacity {
+            listing_hash: hash(99),
+            listing_revision: hash(7),
+            capacity: 2,
+            seller: agent(2),
+            sequence: 1,
+            previous_certificate_id: Some("c1".into()),
+        };
+        assert_eq!(
+            f.apply(foreign_listing),
+            Err(CertificateError::WrongListing)
+        );
+        assert_eq!(f.next_sequence(), 2);
+        assert_eq!(f.capacity(), 2);
+        assert_eq!(f.listing_revision(), &hash(7));
+    }
+
+    #[test]
+    fn capacity_bridge_replay_with_foreign_seller_is_not_idempotent() {
+        let mut f = frontier(2);
+        assert_eq!(
+            f.apply(FrontierEvent::Reserve(certificate_with_capacity(
+                "c1", 0, None, 1, 2
+            ))),
+            Ok(ApplyOutcome::Applied)
+        );
+
+        let bridge = FrontierEvent::SetCapacity {
+            listing_hash: hash(3),
+            listing_revision: hash(7),
+            capacity: 2,
+            seller: agent(2),
+            sequence: 1,
+            previous_certificate_id: Some("c1".into()),
+        };
+        assert_eq!(f.apply(bridge), Ok(ApplyOutcome::Applied));
+
+        let foreign_seller = FrontierEvent::SetCapacity {
+            listing_hash: hash(3),
+            listing_revision: hash(7),
+            capacity: 2,
+            seller: agent(9),
+            sequence: 1,
+            previous_certificate_id: Some("c1".into()),
+        };
+        assert_eq!(
+            f.apply(foreign_seller),
+            Err(CertificateError::WrongSeller)
+        );
+        assert_eq!(f.next_sequence(), 2);
+        assert_eq!(f.capacity(), 2);
+        assert_eq!(f.listing_revision(), &hash(7));
     }
 
     #[test]
