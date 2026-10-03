@@ -189,13 +189,12 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::Link(OpLink::CreateLink { action, .. }) => {
-            if action.data.tag.0.len() > 256 {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Link tag too long (max 256 bytes)".into(),
-                ));
-            }
-            Ok(ValidateCallbackResult::Valid)
+        FlatOp::Link(OpLink::CreateLink { link_type, action }) => {
+            validate_create_link(
+                link_type,
+                action.data.base_address.clone(),
+                action.data.target_address.clone(),
+            )
         }
         FlatOp::Link(link @ OpLink::DeleteLink {
             action,
@@ -246,6 +245,103 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             "Autonomy entries cannot be deleted once created".into(),
         )),
     }
+}
+
+fn validate_create_link(
+    link_type: LinkTypes,
+    base_address: AnyLinkableHash,
+    target_address: AnyLinkableHash,
+) -> ExternResult<ValidateCallbackResult> {
+    let action_hash = |hash: AnyLinkableHash, label: &str| -> Result<ActionHash, ValidateCallbackResult> {
+        ActionHash::try_from(hash)
+            .map_err(|_| ValidateCallbackResult::Invalid(format!("{label} must be an ActionHash")))
+    };
+    let agent_key = |hash: AnyLinkableHash, label: &str| -> Result<AgentPubKey, ValidateCallbackResult> {
+        AgentPubKey::try_from(hash)
+            .map_err(|_| ValidateCallbackResult::Invalid(format!("{label} must be an AgentPubKey")))
+    };
+
+    match link_type {
+        LinkTypes::HearthToProfiles => {
+            let hearth = action_hash(base_address, "HearthToProfiles base")?;
+            let target = action_hash(target_address, "HearthToProfiles target")?;
+            let record = must_get_valid_record(target)?;
+            let entry: AutonomyProfile = record.entry().to_app_option()?.ok_or(
+                wasm_error!(WasmErrorInner::Guest("AutonomyProfile entry missing".into()))
+            )?;
+            if entry.hearth_hash != hearth {
+                return Ok(ValidateCallbackResult::Invalid("AutonomyProfile belongs to a different hearth".into()));
+            }
+        }
+        LinkTypes::AgentToProfile => {
+            let agent = agent_key(base_address, "AgentToProfile base")?;
+            let target = action_hash(target_address, "AgentToProfile target")?;
+            let record = must_get_valid_record(target)?;
+            let entry: AutonomyProfile = record.entry().to_app_option()?.ok_or(
+                wasm_error!(WasmErrorInner::Guest("AutonomyProfile entry missing".into()))
+            )?;
+            if entry.member != agent {
+                return Ok(ValidateCallbackResult::Invalid("AgentToProfile base does not match the profile member".into()));
+            }
+        }
+        LinkTypes::HearthToRequests => {
+            let hearth = action_hash(base_address, "HearthToRequests base")?;
+            let target = action_hash(target_address, "HearthToRequests target")?;
+            let record = must_get_valid_record(target)?;
+            let entry: AutonomyRequest = record.entry().to_app_option()?.ok_or(
+                wasm_error!(WasmErrorInner::Guest("AutonomyRequest entry missing".into()))
+            )?;
+            if entry.hearth_hash != hearth {
+                return Ok(ValidateCallbackResult::Invalid("AutonomyRequest belongs to a different hearth".into()));
+            }
+        }
+        LinkTypes::AgentToRequests => {
+            let agent = agent_key(base_address, "AgentToRequests base")?;
+            let target = action_hash(target_address, "AgentToRequests target")?;
+            let record = must_get_valid_record(target)?;
+            let entry: AutonomyRequest = record.entry().to_app_option()?.ok_or(
+                wasm_error!(WasmErrorInner::Guest("AutonomyRequest entry missing".into()))
+            )?;
+            if entry.requester != agent {
+                return Ok(ValidateCallbackResult::Invalid("AgentToRequests base does not match the requester's agent".into()));
+            }
+        }
+        LinkTypes::RequestToApprovals => {
+            let request = action_hash(base_address, "RequestToApprovals base")?;
+            let target = action_hash(target_address, "RequestToApprovals target")?;
+            let record = must_get_valid_record(target)?;
+            let entry: GuardianApproval = record.entry().to_app_option()?.ok_or(
+                wasm_error!(WasmErrorInner::Guest("GuardianApproval entry missing".into()))
+            )?;
+            if entry.request_hash != request {
+                return Ok(ValidateCallbackResult::Invalid("GuardianApproval references a different request".into()));
+            }
+        }
+        LinkTypes::HearthToTransitions => {
+            let hearth = action_hash(base_address, "HearthToTransitions base")?;
+            let target = action_hash(target_address, "HearthToTransitions target")?;
+            let record = must_get_valid_record(target)?;
+            let entry: TierTransition = record.entry().to_app_option()?.ok_or(
+                wasm_error!(WasmErrorInner::Guest("TierTransition entry missing".into()))
+            )?;
+            if entry.hearth_hash != hearth {
+                return Ok(ValidateCallbackResult::Invalid("TierTransition belongs to a different hearth".into()));
+            }
+        }
+        LinkTypes::AgentToTransitions => {
+            let agent = agent_key(base_address, "AgentToTransitions base")?;
+            let target = action_hash(target_address, "AgentToTransitions target")?;
+            let record = must_get_valid_record(target)?;
+            let entry: TierTransition = record.entry().to_app_option()?.ok_or(
+                wasm_error!(WasmErrorInner::Guest("TierTransition entry missing".into()))
+            )?;
+            if entry.member != agent {
+                return Ok(ValidateCallbackResult::Invalid("AgentToTransitions base does not match the transition member".into()));
+            }
+        }
+    }
+
+    Ok(ValidateCallbackResult::Valid)
 }
 
 fn validate_profile(
