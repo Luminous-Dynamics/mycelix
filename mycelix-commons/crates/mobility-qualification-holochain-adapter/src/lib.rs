@@ -560,9 +560,14 @@ pub enum HolochainRetrievedDependency {
 /// Retrieve one already-resolved dependency using the exact host primitive
 /// selected by its immutable binding.
 ///
-/// Missing addressable data is deliberately propagated as the raw Holochain
-/// host outcome. In a validate callback Holochain turns that missing dependency
-/// into UnresolvedDependencies rather than semantic Invalid.
+/// Unavailable addressable data is deliberately propagated as the raw Holochain
+/// host outcome. In a validate callback Holochain maps an unavailable dependency
+/// to UnresolvedDependencies rather than semantic Invalid.
+///
+/// For ValidRecord retrieval, the host primitive additionally asks for a record
+/// that is reported valid by the visible validation authorities. This is an
+/// inductive-validity dependency, not a claim that every later operation related
+/// to that record is valid.
 pub fn retrieve_one(
     dependency: &ResolvedHolochainDependency,
 ) -> ExternResult<HolochainRetrievedDependency> {
