@@ -1301,29 +1301,10 @@ pub fn get_recovery_status(request_id: String) -> ExternResult<Option<RecoverySt
         )))?;
 
     // Once a quorum certificate exists, the certificate—not later mutable
-    // vote observations—is the authorization fact. This prevents a trustee
-    // from casting a later conflicting vote and causing an already-armed
-    // recovery to regress from Approved back to Pending.
-    if request.approval_certificate.is_some()
-        && matches!(
-            request.status,
-            RecoveryStatus::Approved
-                | RecoveryStatus::ReadyToExecute
-                | RecoveryStatus::Completed
-        )
-    {
-        return Ok(Some(RecoveryStatusView {
-            request_id: request.id,
-            did: request.did,
-            status: request.status,
-            approve_count: 0,
-            reject_count: 0,
-            threshold: config.threshold,
-            trustee_count: config.trustees.len() as u32,
-            time_lock_expires: request.time_lock_expires,
-        }));
-    }
-
+    // vote observations—is the authorization fact. We still compute the
+    // visible vote counts for observability, but the certified request state
+    // is not allowed to regress because a trustee later publishes a conflicting
+    // immutable vote.
     let vote_records = get_recovery_votes(request.id.clone())?;
     let mut approve_count = 0u32;
     let mut reject_count = 0u32;
@@ -1356,6 +1337,13 @@ pub fn get_recovery_status(request_id: String) -> ExternResult<Option<RecoverySt
         request.status,
         RecoveryStatus::Completed | RecoveryStatus::Rejected | RecoveryStatus::Cancelled
     ) {
+        request.status.clone()
+    } else if request.approval_certificate.is_some()
+        && matches!(
+            request.status,
+            RecoveryStatus::Approved | RecoveryStatus::ReadyToExecute
+        )
+    {
         request.status.clone()
     } else if approve_count >= config.threshold {
         RecoveryStatus::Approved
