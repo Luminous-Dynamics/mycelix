@@ -21,7 +21,7 @@
   "resolution_vectors": [
     {"id":"RES-001","state":"existing-active","expected":{"didDocument":"present","didResolutionMetadata.contentType":"application/did","didDocumentMetadata.deactivated":false,"didDocumentMetadata.versionId":"1"}},
     {"id":"RES-002","state":"existing-deactivated","expected":{"didDocument":null,"didDocumentMetadata.deactivated":true,"didResolutionMetadata.contentType":null}},
-    {"id":"RES-003","state":"not-found","expected":{"didDocument":null,"didResolutionMetadata.error":"notFound"}}
+    {"id":"RES-003","state":"not-found","expected":{"didDocument":null,"didResolutionMetadata.error.type":"https://www.w3.org/ns/did#NOT_FOUND","didResolutionMetadata.error.title":"DID not found"}}
   ],
   "wire_vectors": [
     {"id":"WIRE-001","field":"verificationMethod","wire_name":"verificationMethod"},
