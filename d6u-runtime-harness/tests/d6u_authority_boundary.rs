@@ -396,7 +396,7 @@ async fn d6u_runtime_authority_boundary() {
     assert_eq!(reached.load(Ordering::SeqCst), before + 1);
     record_case("valid-capability", "accepted");
 
-    let wrong_cap = CapSecret::try_from_random().expect("random capability secret");
+    let wrong_cap = CapSecret::from([0x5A; CAP_SECRET_BYTES]);
     let (n, exp) = holochain_nonce::fresh_nonce(Timestamp::now()).unwrap();
     let before = reached.load(Ordering::SeqCst);
     expect_unauthorized_reason(
