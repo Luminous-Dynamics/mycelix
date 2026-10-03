@@ -1,0 +1,851 @@
+{
+  "schema": "mycelix.sym-civic.bundle-completeness.v1",
+  "program": "SYM-CIVIC-008",
+  "parent_subject": "e9874e38640d5678bf22aa2e663afce71cb870b0",
+  "analysis_role": "research_only",
+  "invariants": [
+    "required_members_present",
+    "obsolete_replay_rejected",
+    "irrelevant_selection_rejected",
+    "conflict_preserved",
+    "exact_subject_membership",
+    "order_independent",
+    "unrecognized_ignored",
+    "unsupported_predicate_not_promoted",
+    "completeness_manifest_required",
+    "manifest_digest_matches",
+    "bundle_identity_tracks_metadata",
+    "stale_verification_invalidated",
+    "monotonicity_preserved",
+    "historical_manifest_exact",
+    "empty_explicit_completeness"
+  ],
+  "cases": [
+    {
+      "id": "B-01",
+      "family": "required_attestation_deleted",
+      "candidate": {
+        "required_attestations": [
+          {
+            "attestation_id": "att-a",
+            "subject_digest": "sha256:att-a",
+            "recognized": true,
+            "selected_as_evidence": true
+          }
+        ],
+        "members": [],
+        "completeness_claim": true,
+        "manifest": {
+          "declared_entries": [],
+          "declared_digest": "sha256:manifest-1",
+          "actual_digest": "sha256:manifest-1"
+        }
+      },
+      "note": "A completeness claim fails when required recognized evidence is missing."
+    },
+    {
+      "id": "B-02",
+      "family": "obsolete_attestation_replay",
+      "candidate": {
+        "required_attestations": [
+          {
+            "attestation_id": "att-a",
+            "subject_digest": "sha256:att-a",
+            "recognized": true,
+            "selected_as_evidence": true
+          }
+        ],
+        "members": [
+          {
+            "attestation_id": "att-a",
+            "subject_digest": "sha256:att-a",
+            "recognized": true,
+            "selected_as_evidence": true,
+            "obsolete": true
+          }
+        ],
+        "completeness_claim": true,
+        "manifest": {
+          "declared_entries": [
+            {
+              "attestation_id": "att-a",
+              "subject_digest": "sha256:att-a",
+              "recognized": true,
+              "selected_as_evidence": true
+            }
+          ],
+          "declared_digest": "sha256:manifest-1",
+          "actual_digest": "sha256:manifest-1"
+        }
+      },
+      "note": "Obsolete evidence cannot satisfy current required membership."
+    },
+    {
+      "id": "B-03",
+      "family": "irrelevant_injection_selected",
+      "candidate": {
+        "required_attestations": [
+          {
+            "attestation_id": "att-a",
+            "subject_digest": "sha256:att-a",
+            "recognized": true,
+            "selected_as_evidence": true
+          }
+        ],
+        "members": [
+          {
+            "attestation_id": "att-a",
+            "subject_digest": "sha256:att-a",
+            "recognized": true,
+            "selected_as_evidence": true
+          },
+          {
+            "attestation_id": "att-x",
+            "subject_digest": "sha256:att-x",
+            "recognized": true,
+            "selected_as_evidence": true,
+            "relevant": false
+          }
+        ],
+        "completeness_claim": true,
+        "manifest": {
+          "declared_entries": [
+            {
+              "attestation_id": "att-a",
+              "subject_digest": "sha256:att-a",
+              "recognized": true,
+              "selected_as_evidence": true
+            },
+            {
+              "attestation_id": "att-x",
+              "subject_digest": "sha256:att-x",
+              "recognized": true,
+              "selected_as_evidence": true,
+              "relevant": false
+            }
+          ],
+          "declared_digest": "sha256:manifest-1",
+          "actual_digest": "sha256:manifest-1"
+        }
+      },
+      "note": "An irrelevant recognized attestation cannot silently become selected evidence."
+    },
+    {
+      "id": "B-04",
+      "family": "conflicting_duplicate_identity",
+      "candidate": {
+        "required_attestations": [
+          {
+            "attestation_id": "att-a",
+            "subject_digest": "sha256:att-a",
+            "recognized": true,
+            "selected_as_evidence": true
+          }
+        ],
+        "members": [
+          {
+            "attestation_id": "att-a",
+            "subject_digest": "sha256:a",
+            "recognized": true,
+            "selected_as_evidence": true
+          },
+          {
+            "attestation_id": "att-a",
+            "subject_digest": "sha256:b",
+            "recognized": true,
+            "selected_as_evidence": true
+          }
+        ],
+        "completeness_claim": true,
+        "manifest": {
+          "declared_entries": [
+            {
+              "attestation_id": "att-a",
+              "subject_digest": "sha256:a",
+              "recognized": true,
+              "selected_as_evidence": true
+            }
+          ],
+          "declared_digest": "sha256:manifest-1",
+          "actual_digest": "sha256:manifest-1"
+        }
+      },
+      "note": "Conflicting identity reuse is a membership conflict."
+    },
+    {
+      "id": "B-05",
+      "family": "subject_rebinding",
+      "candidate": {
+        "required_attestations": [
+          {
+            "attestation_id": "att-a",
+            "subject_digest": "sha256:a",
+            "recognized": true,
+            "selected_as_evidence": true
+          }
+        ],
+        "members": [
+          {
+            "attestation_id": "att-a",
+            "subject_digest": "sha256:b",
+            "recognized": true,
+            "selected_as_evidence": true
+          }
+        ],
+        "completeness_claim": true,
+        "manifest": {
+          "declared_entries": [
+            {
+              "attestation_id": "att-a",
+              "subject_digest": "sha256:b",
+              "recognized": true,
+              "selected_as_evidence": true
+            }
+          ],
+          "declared_digest": "sha256:manifest-1",
+          "actual_digest": "sha256:manifest-1"
+        }
+      },
+      "note": "An authenticated attestation for another subject does not satisfy the required subject binding."
+    },
+    {
+      "id": "B-06",
+      "family": "order_changes_decision",
+      "candidate": {
+        "required_attestations": [
+          {
+            "attestation_id": "att-a",
+            "subject_digest": "sha256:att-a",
+            "recognized": true,
+            "selected_as_evidence": true
+          },
+          {
+            "attestation_id": "att-b",
+            "subject_digest": "sha256:att-b",
+            "recognized": true,
+            "selected_as_evidence": true
+          }
+        ],
+        "members": [
+          {
+            "attestation_id": "att-a",
+            "subject_digest": "sha256:att-a",
+            "recognized": true,
+            "selected_as_evidence": true
+          },
+          {
+            "attestation_id": "att-b",
+            "subject_digest": "sha256:att-b",
+            "recognized": true,
+            "selected_as_evidence": true
+          }
+        ],
+        "completeness_claim": true,
+        "manifest": {
+          "declared_entries": [
+            {
+              "attestation_id": "att-a",
+              "subject_digest": "sha256:att-a",
+              "recognized": true,
+              "selected_as_evidence": true
+            },
+            {
+              "attestation_id": "att-b",
+              "subject_digest": "sha256:att-b",
+              "recognized": true,
+              "selected_as_evidence": true
+            }
+          ],
+          "declared_digest": "sha256:manifest-1",
+          "actual_digest": "sha256:manifest-1"
+        },
+        "order_invariant": false,
+        "monotonic": true
+      },
+      "note": "Order-dependent processing violates declared bundle semantics."
+    },
+    {
+      "id": "B-07",
+      "family": "unrecognized_ignored",
+      "candidate": {
+        "required_attestations": [
+          {
+            "attestation_id": "att-a",
+            "subject_digest": "sha256:att-a",
+            "recognized": true,
+            "selected_as_evidence": true
+          }
+        ],
+        "members": [
+          {
+            "attestation_id": "att-a",
+            "subject_digest": "sha256:att-a",
+            "recognized": true,
+            "selected_as_evidence": true
+          }
+        ],
+        "completeness_claim": true,
+        "manifest": {
+          "declared_entries": [
+            {
+              "attestation_id": "att-a",
+              "subject_digest": "sha256:att-a",
+              "recognized": true,
+              "selected_as_evidence": true
+            }
+          ],
+          "declared_digest": "sha256:manifest-1",
+          "actual_digest": "sha256:manifest-1"
+        },
+        "unrecognized_lines": [
+          {
+            "recognized": false,
+            "ignored": true
+          }
+        ]
+      },
+      "note": "An explicitly ignored unrecognized line must not alter recognized membership semantics."
+    },
+    {
+      "id": "B-08",
+      "family": "unsupported_predicate_accepted",
+      "candidate": {
+        "required_attestations": [
+          {
+            "attestation_id": "att-a",
+            "subject_digest": "sha256:att-a",
+            "recognized": true,
+            "selected_as_evidence": true
+          }
+        ],
+        "members": [
+          {
+            "attestation_id": "att-a",
+            "subject_digest": "sha256:att-a",
+            "recognized": true,
+            "selected_as_evidence": true,
+            "predicate_supported": false
+          }
+        ],
+        "completeness_claim": true,
+        "manifest": {
+          "declared_entries": [
+            {
+              "attestation_id": "att-a",
+              "subject_digest": "sha256:att-a",
+              "recognized": true,
+              "selected_as_evidence": true
+            }
+          ],
+          "declared_digest": "sha256:manifest-1",
+          "actual_digest": "sha256:manifest-1"
+        }
+      },
+      "note": "A recognized but unsupported predicate cannot be selected as accepted evidence."
+    },
+    {
+      "id": "B-09",
+      "family": "partial_bundle_claimed_complete",
+      "candidate": {
+        "required_attestations": [
+          {
+            "attestation_id": "att-a",
+            "subject_digest": "sha256:att-a",
+            "recognized": true,
+            "selected_as_evidence": true
+          },
+          {
+            "attestation_id": "att-b",
+            "subject_digest": "sha256:att-b",
+            "recognized": true,
+            "selected_as_evidence": true
+          }
+        ],
+        "members": [
+          {
+            "attestation_id": "att-a",
+            "subject_digest": "sha256:att-a",
+            "recognized": true,
+            "selected_as_evidence": true
+          }
+        ],
+        "completeness_claim": true,
+        "manifest": {
+          "declared_entries": [
+            {
+              "attestation_id": "att-a",
+              "subject_digest": "sha256:att-a",
+              "recognized": true,
+              "selected_as_evidence": true
+            }
+          ],
+          "declared_digest": "sha256:manifest-1",
+          "actual_digest": "sha256:manifest-1"
+        }
+      },
+      "note": "A partial collection cannot truthfully claim complete membership."
+    },
+    {
+      "id": "B-10",
+      "family": "completeness_without_manifest",
+      "candidate": {
+        "required_attestations": [
+          {
+            "attestation_id": "att-a",
+            "subject_digest": "sha256:att-a",
+            "recognized": true,
+            "selected_as_evidence": true
+          }
+        ],
+        "members": [
+          {
+            "attestation_id": "att-a",
+            "subject_digest": "sha256:att-a",
+            "recognized": true,
+            "selected_as_evidence": true
+          }
+        ],
+        "completeness_claim": true,
+        "manifest": null
+      },
+      "note": "Completeness is a separate claim and requires explicit membership evidence."
+    },
+    {
+      "id": "B-11",
+      "family": "manifest_digest_mismatch",
+      "candidate": {
+        "required_attestations": [
+          {
+            "attestation_id": "att-a",
+            "subject_digest": "sha256:att-a",
+            "recognized": true,
+            "selected_as_evidence": true
+          }
+        ],
+        "members": [
+          {
+            "attestation_id": "att-a",
+            "subject_digest": "sha256:att-a",
+            "recognized": true,
+            "selected_as_evidence": true
+          }
+        ],
+        "completeness_claim": true,
+        "manifest": {
+          "declared_entries": [
+            {
+              "attestation_id": "att-a",
+              "subject_digest": "sha256:att-a",
+              "recognized": true,
+              "selected_as_evidence": true
+            }
+          ],
+          "declared_digest": "sha256:manifest-a",
+          "actual_digest": "sha256:manifest-b"
+        }
+      },
+      "note": "Manifest bytes/identity disagreement invalidates the membership claim."
+    },
+    {
+      "id": "B-12",
+      "family": "bundle_metadata_changed_same_identity",
+      "candidate": {
+        "required_attestations": [
+          {
+            "attestation_id": "att-a",
+            "subject_digest": "sha256:att-a",
+            "recognized": true,
+            "selected_as_evidence": true
+          }
+        ],
+        "members": [
+          {
+            "attestation_id": "att-a",
+            "subject_digest": "sha256:att-a",
+            "recognized": true,
+            "selected_as_evidence": true
+          }
+        ],
+        "completeness_claim": true,
+        "manifest": {
+          "declared_entries": [
+            {
+              "attestation_id": "att-a",
+              "subject_digest": "sha256:att-a",
+              "recognized": true,
+              "selected_as_evidence": true
+            }
+          ],
+          "declared_digest": "sha256:manifest-1",
+          "actual_digest": "sha256:manifest-1"
+        },
+        "bundle_id": "bundle-1",
+        "prior_bundle_id": "bundle-1",
+        "metadata_changed": true
+      },
+      "note": "Material bundle metadata changes require a new identity."
+    },
+    {
+      "id": "B-13",
+      "family": "stale_verification_survives_removal",
+      "candidate": {
+        "required_attestations": [
+          {
+            "attestation_id": "att-a",
+            "subject_digest": "sha256:att-a",
+            "recognized": true,
+            "selected_as_evidence": true
+          }
+        ],
+        "members": [],
+        "completeness_claim": true,
+        "manifest": {
+          "declared_entries": [],
+          "declared_digest": "sha256:manifest-1",
+          "actual_digest": "sha256:manifest-1"
+        },
+        "stale_verification_state": "VALID"
+      },
+      "note": "A stale downstream verification state cannot survive removal of required evidence."
+    },
+    {
+      "id": "B-14",
+      "family": "monotonicity_misclassified",
+      "candidate": {
+        "required_attestations": [
+          {
+            "attestation_id": "att-a",
+            "subject_digest": "sha256:att-a",
+            "recognized": true,
+            "selected_as_evidence": true
+          }
+        ],
+        "members": [
+          {
+            "attestation_id": "att-a",
+            "subject_digest": "sha256:att-a",
+            "recognized": true,
+            "selected_as_evidence": true
+          }
+        ],
+        "completeness_claim": true,
+        "manifest": {
+          "declared_entries": [
+            {
+              "attestation_id": "att-a",
+              "subject_digest": "sha256:att-a",
+              "recognized": true,
+              "selected_as_evidence": true
+            }
+          ],
+          "declared_digest": "sha256:manifest-1",
+          "actual_digest": "sha256:manifest-1"
+        },
+        "monotonic_property": true,
+        "deletion_changes_decision": true
+      },
+      "note": "A property declared monotonic cannot change solely because irrelevant evidence is deleted."
+    },
+    {
+      "id": "B-15",
+      "family": "conflict_collapsed",
+      "candidate": {
+        "required_attestations": [
+          {
+            "attestation_id": "att-a",
+            "subject_digest": "sha256:att-a",
+            "recognized": true,
+            "selected_as_evidence": true
+          }
+        ],
+        "members": [
+          {
+            "attestation_id": "att-a",
+            "subject_digest": "sha256:att-a",
+            "recognized": true,
+            "selected_as_evidence": true,
+            "status": "failed"
+          },
+          {
+            "attestation_id": "att-a",
+            "subject_digest": "sha256:att-a",
+            "recognized": true,
+            "selected_as_evidence": true,
+            "status": "passed"
+          }
+        ],
+        "completeness_claim": true,
+        "manifest": {
+          "declared_entries": [
+            {
+              "attestation_id": "att-a",
+              "subject_digest": "sha256:att-a",
+              "recognized": true,
+              "selected_as_evidence": true
+            }
+          ],
+          "declared_digest": "sha256:manifest-1",
+          "actual_digest": "sha256:manifest-1"
+        },
+        "conflicts_collapsed": true
+      },
+      "note": "Conflicting evidence must remain distinguishable rather than being collapsed into one identity."
+    },
+    {
+      "id": "B-16",
+      "family": "exact_manifest_order_independent",
+      "candidate": {
+        "required_attestations": [
+          {
+            "attestation_id": "att-a",
+            "subject_digest": "sha256:att-a",
+            "recognized": true,
+            "selected_as_evidence": true
+          },
+          {
+            "attestation_id": "att-b",
+            "subject_digest": "sha256:att-b",
+            "recognized": true,
+            "selected_as_evidence": true
+          }
+        ],
+        "members": [
+          {
+            "attestation_id": "att-a",
+            "subject_digest": "sha256:att-a",
+            "recognized": true,
+            "selected_as_evidence": true
+          },
+          {
+            "attestation_id": "att-b",
+            "subject_digest": "sha256:att-b",
+            "recognized": true,
+            "selected_as_evidence": true
+          }
+        ],
+        "completeness_claim": true,
+        "manifest": {
+          "declared_entries": [
+            {
+              "attestation_id": "att-a",
+              "subject_digest": "sha256:att-a",
+              "recognized": true,
+              "selected_as_evidence": true
+            },
+            {
+              "attestation_id": "att-b",
+              "subject_digest": "sha256:att-b",
+              "recognized": true,
+              "selected_as_evidence": true
+            }
+          ],
+          "declared_digest": "sha256:manifest-1",
+          "actual_digest": "sha256:manifest-1"
+        },
+        "order_invariant": true,
+        "monotonic": true
+      },
+      "note": "Exact immutable membership plus order-independent processing is admissible."
+    },
+    {
+      "id": "B-17",
+      "family": "explicit_empty_complete_bundle",
+      "candidate": {
+        "required_attestations": [],
+        "members": [],
+        "completeness_claim": true,
+        "manifest": {
+          "declared_entries": [],
+          "declared_digest": "sha256:manifest-1",
+          "actual_digest": "sha256:manifest-1"
+        },
+        "order_invariant": true,
+        "monotonic": true
+      },
+      "note": "An explicitly empty required set can form a complete bundle."
+    },
+    {
+      "id": "B-18",
+      "family": "historical_exact_manifest",
+      "candidate": {
+        "required_attestations": [
+          {
+            "attestation_id": "att-a",
+            "subject_digest": "sha256:att-a",
+            "recognized": true,
+            "selected_as_evidence": true
+          }
+        ],
+        "members": [
+          {
+            "attestation_id": "att-a",
+            "subject_digest": "sha256:att-a",
+            "recognized": true,
+            "selected_as_evidence": true
+          }
+        ],
+        "completeness_claim": true,
+        "manifest": {
+          "declared_entries": [
+            {
+              "attestation_id": "att-a",
+              "subject_digest": "sha256:att-a",
+              "recognized": true,
+              "selected_as_evidence": true
+            }
+          ],
+          "declared_digest": "sha256:manifest-1",
+          "actual_digest": "sha256:manifest-1"
+        },
+        "historical": true,
+        "historical_manifest_exact": true,
+        "order_invariant": true
+      },
+      "note": "Historical verification is admissible when the exact historical manifest is bound."
+    },
+    {
+      "id": "B-19",
+      "family": "unrecognized_selected_as_evidence",
+      "candidate": {
+        "required_attestations": [
+          {
+            "attestation_id": "att-a",
+            "subject_digest": "sha256:att-a",
+            "recognized": true,
+            "selected_as_evidence": true
+          }
+        ],
+        "members": [
+          {
+            "attestation_id": "att-a",
+            "subject_digest": "sha256:att-a",
+            "recognized": true,
+            "selected_as_evidence": true
+          }
+        ],
+        "completeness_claim": true,
+        "manifest": {
+          "declared_entries": [
+            {
+              "attestation_id": "att-a",
+              "subject_digest": "sha256:att-a",
+              "recognized": true,
+              "selected_as_evidence": true
+            }
+          ],
+          "declared_digest": "sha256:manifest-1",
+          "actual_digest": "sha256:manifest-1"
+        },
+        "unrecognized_lines": [
+          {
+            "recognized": false,
+            "ignored": false,
+            "selected_as_evidence": true
+          }
+        ]
+      },
+      "note": "An unrecognized line must not become accepted evidence."
+    },
+    {
+      "id": "B-20",
+      "family": "irrelevant_recognized_ignored",
+      "candidate": {
+        "required_attestations": [
+          {
+            "attestation_id": "att-a",
+            "subject_digest": "sha256:att-a",
+            "recognized": true,
+            "selected_as_evidence": true
+          }
+        ],
+        "members": [
+          {
+            "attestation_id": "att-a",
+            "subject_digest": "sha256:att-a",
+            "recognized": true,
+            "selected_as_evidence": true
+          },
+          {
+            "attestation_id": "att-x",
+            "subject_digest": "sha256:att-x",
+            "recognized": true,
+            "selected_as_evidence": false,
+            "relevant": false
+          }
+        ],
+        "completeness_claim": true,
+        "manifest": {
+          "declared_entries": [
+            {
+              "attestation_id": "att-a",
+              "subject_digest": "sha256:att-a",
+              "recognized": true,
+              "selected_as_evidence": true
+            }
+          ],
+          "declared_digest": "sha256:manifest-1",
+          "actual_digest": "sha256:manifest-1"
+        },
+        "order_invariant": true
+      },
+      "note": "Irrelevant recognized evidence is admissible when it remains outside the selected evidence set."
+    },
+    {
+      "id": "B-21",
+      "family": "complete_bundle_failed_property",
+      "candidate": {
+        "required_attestations": [
+          {
+            "attestation_id": "att-a",
+            "subject_digest": "sha256:att-a",
+            "recognized": true,
+            "selected_as_evidence": true
+          }
+        ],
+        "members": [
+          {
+            "attestation_id": "att-a",
+            "subject_digest": "sha256:att-a",
+            "recognized": true,
+            "selected_as_evidence": true
+          }
+        ],
+        "completeness_claim": true,
+        "manifest": {
+          "declared_entries": [
+            {
+              "attestation_id": "att-a",
+              "subject_digest": "sha256:att-a",
+              "recognized": true,
+              "selected_as_evidence": true
+            }
+          ],
+          "declared_digest": "sha256:manifest-1",
+          "actual_digest": "sha256:manifest-1"
+        },
+        "order_invariant": true,
+        "properties": [
+          {
+            "name": "CHECK/SCIENTIFIC_SUPPORT",
+            "status": "uncertain"
+          }
+        ]
+      },
+      "note": "A complete, well-bound bundle can contain an explicitly uncertain property without making bundle integrity a scientific validation."
+    }
+  ],
+  "nonclaims": [
+    "production_bundle_security",
+    "publication_channel_completeness",
+    "policy_correctness",
+    "scientific_truth",
+    "authorization_legitimacy",
+    "deployment_readiness"
+  ],
+  "prohibited_fields": [
+    "authorized_decision",
+    "civic_authorization",
+    "raw_subject_identifier",
+    "raw_payload"
+  ]
+}
