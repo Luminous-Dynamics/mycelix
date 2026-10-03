@@ -1082,7 +1082,7 @@ fn validate_update_self_recovery_request(
             "Original self-recovery request not found".into()
         )))?;
 
-    // Immutable fields
+    // Immutable request identity.
     if request.id != original.id
         || request.did != original.did
         || request.new_agent != original.new_agent
@@ -1093,22 +1093,25 @@ fn validate_update_self_recovery_request(
         ));
     }
 
-    // Same state machine as social recovery
-    let valid_transition = match (&original.status, &request.status) {
-        (RecoveryStatus::Pending, RecoveryStatus::Approved)
-        | (RecoveryStatus::Pending, RecoveryStatus::Cancelled) => true,
-        (RecoveryStatus::Approved, RecoveryStatus::ReadyToExecute)
-        | (RecoveryStatus::Approved, RecoveryStatus::Cancelled) => true,
-        (RecoveryStatus::ReadyToExecute, RecoveryStatus::Completed)
-        | (RecoveryStatus::ReadyToExecute, RecoveryStatus::Cancelled) => true,
-        (a, b) if a == b => true,
-        _ => false,
-    };
-    if !valid_transition {
+    // Until cryptographic proof-of-control exists, self-recovery is deliberately
+    // prevented from entering any executable state, even if a modified
+    // coordinator attempts to update the entry directly.
+    let allowed_transition = matches!(
+        (&original.status, &request.status),
+        (RecoveryStatus::Pending, RecoveryStatus::Pending)
+            | (RecoveryStatus::Pending, RecoveryStatus::Cancelled)
+    );
+    if !allowed_transition {
         return Ok(ValidateCallbackResult::Invalid(format!(
-            "Invalid self-recovery status transition from {:?} to {:?}",
+            "Self-recovery transition {:?} -> {:?} is disabled until cryptographic proof-of-control exists",
             original.status, request.status
         )));
+    }
+
+    if request.time_lock_expires != original.time_lock_expires {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Self-recovery time lock cannot be changed while proof-of-control is disabled".into(),
+        ));
     }
 
     Ok(ValidateCallbackResult::Valid)
