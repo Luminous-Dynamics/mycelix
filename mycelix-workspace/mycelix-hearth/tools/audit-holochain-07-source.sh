@@ -672,6 +672,10 @@ for file in "${integrity_files[@]}"; do
 done
 
 for file in "${integrity_files[@]}"; do
+  check_update_delete_authorization "$file"
+done
+
+for file in "${integrity_files[@]}"; do
   check_entry_type_dispatch "$file"
 done
 
