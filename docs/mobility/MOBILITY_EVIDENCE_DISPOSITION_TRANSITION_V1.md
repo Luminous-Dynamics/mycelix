@@ -147,3 +147,15 @@ The canonical bounded assessment is target-scoped on the transition side as well
 ### Authority validity is a separate dimension
 
 A complete delegation chain establishes structural provenance for the named authority relationship; it does not establish that the delegation is currently effective. This model deliberately does not infer current validity from local timestamps, record recency, or the mere existence of a delegation chain. Holochain's validation guidance notes that action timestamps come from an author's local clock and can be forged, and identifies signed validity/revocation evidence from a trusted authority as an appropriate pattern when a privilege may be revoked. Therefore any future validity, expiry, suspension, or revocation semantics should be represented by separate addressable witnesses with their own deterministic validation rules, rather than by interpreting this chain as a mutable "current authority" lookup.
+
+### Shared qualification-status algebra
+
+The disposition validators share a common protocol-status algebra in the standalone qualification crate:
+
+- `QualificationStatus::Complete(T)` means the supplied named dependency set was sufficient for the bounded qualification.
+- `QualificationStatus::Unresolved { missing, partial }` means qualification cannot yet finish because one or more addressable dependencies are unavailable; the deterministic partial result remains available without interpreting absence as a negative finding.
+- `QualificationValidationError::Structural { reason }` means the supplied records contain a definitive structural contradiction.
+
+Transition-graph, authority-delegation, and composed-coverage validators expose adapters into this same algebra. Their existing `Result<_, String>` entry points remain available, and the existing coverage typed-error name is retained as a compatibility alias to the shared structural-error type.
+
+This is intentionally an internal protocol algebra, not a Holochain type dependency. An eventual integrity-zome adapter can map `Complete` to `Valid`, `Structural` to `Invalid`, and `Unresolved` to `UnresolvedDependencies` at the Holochain boundary, while keeping the qualification crate dependency-free. Holochain's current validation documentation defines those three semantic outcomes and reserves `Err` for true host/runtime failures rather than semantic invalidity.
