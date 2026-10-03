@@ -194,6 +194,12 @@ impl EconomicChainReceipt {
             Some(previous) => {
                 previous.verify()?;
 
+                if step.period <= previous.step.period {
+                    return Err(EconomicStepError::Serialization(
+                        "evidence chain periods must be strictly increasing".into(),
+                    ));
+                }
+
                 if step.pre_state_hash != previous.step.post_state_hash {
                     return Err(EconomicStepError::PreStateMismatch {
                         expected: previous.step.post_state_hash.clone(),
@@ -501,6 +507,31 @@ mod tests {
 
         assert_eq!(first, second);
         assert_eq!(receipt_a, receipt_b);
+    }
+
+    #[test]
+    fn chain_link_rejects_non_monotonic_period() {
+        let state = initial_state();
+        let (_, step) = apply_step(&state, 2, &[], None).unwrap();
+        let predecessor = EconomicChainReceipt::link(None, step).unwrap();
+
+        let (_, successor_step) = apply_step(&state, 1, &[], None).unwrap();
+        assert!(matches!(
+            EconomicChainReceipt::link(Some(&predecessor), successor_step),
+            Err(EconomicStepError::Serialization(message))
+                if message.contains("strictly increasing")
+        ));
+    }
+
+    #[test]
+    fn chain_link_rejects_same_period() {
+        let state = initial_state();
+        let (_, step) = apply_step(&state, 1, &[], None).unwrap();
+        let predecessor = EconomicChainReceipt::link(None, step.clone()).unwrap();
+
+        let mut successor_step = step;
+        successor_step.pre_state_hash = predecessor.step.post_state_hash.clone();
+        assert!(EconomicChainReceipt::link(Some(&predecessor), successor_step).is_err());
     }
 
     #[test]
