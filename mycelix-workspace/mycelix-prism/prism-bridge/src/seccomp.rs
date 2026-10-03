@@ -2457,6 +2457,15 @@ mod linux {
                 validate_compiled_filter(&unexpected_jump),
                 Err(SeccompError::CompilerInvariantViolation)
             ));
+
+            if arch == SeccompArchitecture::X86_64 {
+                let mut relocated_guard = compile_filter_v2(&policy).unwrap();
+                relocated_guard[7] = jump_ge(0x4000_0000, 0, 1);
+                assert!(matches!(
+                    validate_compiled_filter(&relocated_guard),
+                    Err(SeccompError::CompilerInvariantViolation)
+                ));
+            }
         }
 
         #[test]
