@@ -334,6 +334,40 @@ fn validate_address_kind(
 }
 
 #[cfg(test)]
+impl HolochainDependencyBindingSet {
+    fn bind_for_test(
+        &mut self,
+        identity: IdentityRef,
+        address: HolochainDependencyAddress,
+        retrieval: QualificationDependencyRetrievalKind,
+    ) -> Result<(), HolochainAdapterBoundaryError> {
+        let authority = IdentityRef {
+            kind: mobility_configuration_qualification::identity_lineage::IdentityKind::EvidenceRecord,
+            namespace: "mobility".into(),
+            id: format!("authority-{}", identity.id),
+        };
+        let provenance = QualificationDependencyBindingProvenance {
+            witness_identity: IdentityRef {
+                kind: mobility_configuration_qualification::identity_lineage::IdentityKind::ReconciliationWitness,
+                namespace: "mobility".into(),
+                id: format!("binding-witness-{}", identity.id),
+            },
+            logical_identity: identity.clone(),
+            authority: authority.clone(),
+            basis: vec![
+                authority,
+                IdentityRef {
+                    kind: mobility_configuration_qualification::identity_lineage::IdentityKind::EvidenceRecord,
+                    namespace: "mobility".into(),
+                    id: format!("basis-{}", identity.id),
+                },
+            ],
+        };
+        self.bind(identity, address, retrieval, provenance)
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use hdi::hdi::{set_hdi, HdiT};
@@ -369,7 +403,7 @@ mod tests {
     fn valid_record_accepts_only_action_hash() {
         let mut bindings = HolochainDependencyBindingSet::new();
         assert!(bindings
-            .bind(
+            .bind_for_test(
                 identity("record"),
                 HolochainDependencyAddress::Action(action_hash(1)),
                 QualificationDependencyRetrievalKind::ValidRecord,
@@ -382,7 +416,7 @@ mod tests {
     fn action_accepts_only_action_hash() {
         let mut bindings = HolochainDependencyBindingSet::new();
         assert!(bindings
-            .bind(
+            .bind_for_test(
                 identity("action"),
                 HolochainDependencyAddress::Action(action_hash(2)),
                 QualificationDependencyRetrievalKind::Action,
@@ -394,7 +428,7 @@ mod tests {
     fn entry_accepts_only_entry_hash() {
         let mut bindings = HolochainDependencyBindingSet::new();
         assert!(bindings
-            .bind(
+            .bind_for_test(
                 identity("entry"),
                 HolochainDependencyAddress::Entry(entry_hash(3)),
                 QualificationDependencyRetrievalKind::Entry,
@@ -406,7 +440,7 @@ mod tests {
     fn wrong_address_kind_is_rejected_before_host_call() {
         let mut bindings = HolochainDependencyBindingSet::new();
         let error = bindings
-            .bind(
+            .bind_for_test(
                 identity("entry"),
                 HolochainDependencyAddress::Action(action_hash(4)),
                 QualificationDependencyRetrievalKind::Entry,
@@ -428,7 +462,7 @@ mod tests {
     fn wrong_address_kind_for_valid_record_is_rejected_before_host_call() {
         let mut bindings = HolochainDependencyBindingSet::new();
         let error = bindings
-            .bind(
+            .bind_for_test(
                 identity("record"),
                 HolochainDependencyAddress::Entry(entry_hash(5)),
                 QualificationDependencyRetrievalKind::ValidRecord,
@@ -452,7 +486,7 @@ mod tests {
         let id = identity("same");
 
         bindings
-            .bind(
+            .bind_for_test(
                 id.clone(),
                 HolochainDependencyAddress::Action(action_hash(6)),
                 QualificationDependencyRetrievalKind::Action,
@@ -460,7 +494,7 @@ mod tests {
             .unwrap();
 
         let error = bindings
-            .bind(
+            .bind_for_test(
                 id,
                 HolochainDependencyAddress::Action(action_hash(7)),
                 QualificationDependencyRetrievalKind::Action,
@@ -480,7 +514,7 @@ mod tests {
         let identity = identity("duplicate");
 
         bindings
-            .bind(
+            .bind_for_test(
                 identity.clone(),
                 HolochainDependencyAddress::Action(action_hash(30)),
                 QualificationDependencyRetrievalKind::Action,
@@ -488,7 +522,7 @@ mod tests {
             .unwrap();
 
         let error = bindings
-            .bind(
+            .bind_for_test(
                 identity,
                 HolochainDependencyAddress::Action(action_hash(31)),
                 QualificationDependencyRetrievalKind::Action,
@@ -507,7 +541,7 @@ mod tests {
         let mut bindings = HolochainDependencyBindingSet::new();
 
         let error = bindings
-            .bind(
+            .bind_for_test(
                 malformed_identity(),
                 HolochainDependencyAddress::Entry(entry_hash(8)),
                 QualificationDependencyRetrievalKind::ValidRecord,
@@ -525,7 +559,7 @@ mod tests {
     fn malformed_identity_remains_a_structural_binding_failure() {
         let mut bindings = HolochainDependencyBindingSet::new();
         let error = bindings
-            .bind(
+            .bind_for_test(
                 malformed_identity(),
                 HolochainDependencyAddress::Action(action_hash(8)),
                 QualificationDependencyRetrievalKind::Action,
@@ -588,7 +622,7 @@ mod tests {
         let mut bindings = HolochainDependencyBindingSet::new();
         let bound = identity("bound");
         bindings
-            .bind(
+            .bind_for_test(
                 bound.clone(),
                 HolochainDependencyAddress::Action(action_hash(9)),
                 QualificationDependencyRetrievalKind::Action,
@@ -614,7 +648,7 @@ mod tests {
         let mut bindings = HolochainDependencyBindingSet::new();
         for (index, value) in ["b", "a", "c"].into_iter().enumerate() {
             bindings
-                .bind(
+                .bind_for_test(
                     identity(value),
                     HolochainDependencyAddress::Action(action_hash(index as u8 + 10)),
                     QualificationDependencyRetrievalKind::Action,
@@ -667,7 +701,7 @@ mod tests {
 
         let mut bindings = HolochainDependencyBindingSet::new();
         bindings
-            .bind(identity("dispatch"), address, retrieval)
+            .bind_for_test(identity("dispatch"), address, retrieval)
             .unwrap();
 
         let QualificationDecision::Valid(mut resolved) =
