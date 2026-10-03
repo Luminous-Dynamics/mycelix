@@ -1163,6 +1163,86 @@ mod linux {
         }
 
         #[test]
+        fn v2_compiled_bytecode_is_canonical_for_equivalent_inputs() {
+            let arch = SeccompArchitecture::current().unwrap();
+
+            let first_rule = SeccompSyscallRuleV2::new_with_clauses(
+                libc::SYS_socket,
+                vec![
+                    SeccompSyscallClauseV2::new(vec![
+                        SeccompArgPredicateV1::new(2, u64::MAX, 3).unwrap(),
+                        SeccompArgPredicateV1::new_with_op(
+                            0,
+                            u64::MAX,
+                            0x0000_0001_0000_0001,
+                            SeccompArgPredicateOpV1::MaskedNotEqual,
+                        )
+                        .unwrap(),
+                    ])
+                    .unwrap(),
+                    SeccompSyscallClauseV2::new(vec![
+                        SeccompArgPredicateV1::new(1, 0xffff_ffff, 7).unwrap(),
+                    ])
+                    .unwrap(),
+                ],
+            )
+            .unwrap();
+
+            let second_rule = SeccompSyscallRuleV2::new(libc::SYS_prctl, Vec::new()).unwrap();
+
+            let first_policy = SeccompSyscallPolicyV2::new(
+                arch,
+                vec![first_rule.clone(), second_rule.clone()],
+            )
+            .unwrap();
+
+            let reordered_first_rule = SeccompSyscallRuleV2::new_with_clauses(
+                libc::SYS_socket,
+                vec![
+                    SeccompSyscallClauseV2::new(vec![
+                        SeccompArgPredicateV1::new_with_op(
+                            0,
+                            u64::MAX,
+                            0x0000_0001_0000_0001,
+                            SeccompArgPredicateOpV1::MaskedNotEqual,
+                        )
+                        .unwrap(),
+                        SeccompArgPredicateV1::new(2, u64::MAX, 3).unwrap(),
+                    ])
+                    .unwrap(),
+                    SeccompSyscallClauseV2::new(vec![
+                        SeccompArgPredicateV1::new(1, 0xffff_ffff, 7).unwrap(),
+                    ])
+                    .unwrap(),
+                ],
+            )
+            .unwrap();
+
+            let second_policy = SeccompSyscallPolicyV2::new(
+                arch,
+                vec![second_rule, reordered_first_rule],
+            )
+            .unwrap();
+
+            let first_filter = compile_filter_v2(&first_policy).unwrap();
+            let second_filter = compile_filter_v2(&second_policy).unwrap();
+
+            assert_eq!(first_policy.digest(), second_policy.digest());
+            assert_eq!(
+                first_filter.len(),
+                second_filter.len(),
+                "equivalent policies must have identical emitted length"
+            );
+
+            for (left, right) in first_filter.iter().zip(second_filter.iter()) {
+                assert_eq!(left.code, right.code);
+                assert_eq!(left.jt, right.jt);
+                assert_eq!(left.jf, right.jf);
+                assert_eq!(left.k, right.k);
+            }
+        }
+
+        #[test]
         fn v2_digest_is_deterministic_and_domain_separated() {
             let arch = SeccompArchitecture::current().unwrap();
             let a = SeccompSyscallRuleV2::new(
