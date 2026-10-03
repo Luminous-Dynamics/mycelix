@@ -480,21 +480,40 @@ mod linux {
 
         for (index, instruction) in filter.iter().enumerate() {
             match instruction.code {
+                code if code == BPF_LD | BPF_W | BPF_ABS => {
+                    if instruction.jt != 0 || instruction.jf != 0 {
+                        return Err(SeccompError::CompilerInvariantViolation);
+                    }
+                }
+                code if code == BPF_ALU | BPF_AND | BPF_K => {
+                    if instruction.jt != 0 || instruction.jf != 0 {
+                        return Err(SeccompError::CompilerInvariantViolation);
+                    }
+                }
                 code if code == BPF_JMP | BPF_JEQ | BPF_K || code == BPF_JMP | BPF_JGE | BPF_K => {
                     for offset in [instruction.jt, instruction.jf] {
                         let target = index
                             .checked_add(1)
                             .and_then(|pc| pc.checked_add(usize::from(offset)))
                             .ok_or(SeccompError::CompilerInvariantViolation)?;
-                        if target >= filter.len() {
+                        // The compiler intentionally emits a forward-only,
+                        // loop-free control-flow graph. Reject self/backward
+                        // edges even though the kernel can represent them;
+                        // this keeps execution structurally bounded and makes
+                        // every generated program amenable to simple auditing.
+                        if target <= index || target >= filter.len() {
                             return Err(SeccompError::CompilerInvariantViolation);
                         }
                     }
                 }
-                _ if instruction.jt != 0 || instruction.jf != 0 => {
+                code if code == BPF_RET | BPF_K => {
+                    if instruction.jt != 0 || instruction.jf != 0 {
+                        return Err(SeccompError::CompilerInvariantViolation);
+                    }
+                }
+                _ => {
                     return Err(SeccompError::CompilerInvariantViolation);
                 }
-                _ => {}
             }
         }
 
@@ -1971,6 +1990,48 @@ mod linux {
                 "disjunctive 64-bit MaskedNotEqual body length must match dispatch"
             );
             assert_eq!(disj_filter[disj_lseek].jf, 17);
+        }
+
+        #[test]
+        fn compiled_filter_rejects_backward_conditional_jump() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let policy = SeccompSyscallPolicyV2::new(
+                arch,
+                vec![SeccompSyscallRuleV2::new(libc::SYS_socket, Vec::new()).unwrap()],
+            )
+            .unwrap();
+            let mut filter = compile_filter_v2(&policy).unwrap();
+            let socket_jump = filter
+                .iter()
+                .position(|instruction| {
+                    instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                        && instruction.k == libc::SYS_socket as u32
+                })
+                .unwrap();
+
+            // A generated seccomp program has no reason to contain a loop.
+            // Reject a synthetic back-edge as a compiler invariant failure.
+            filter[socket_jump].jf = 0;
+            assert!(matches!(
+                validate_compiled_filter(&filter),
+                Err(SeccompError::CompilerInvariantViolation)
+            ));
+        }
+
+        #[test]
+        fn compiled_filter_rejects_unexpected_opcode() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let policy = SeccompSyscallPolicyV2::new(
+                arch,
+                vec![SeccompSyscallRuleV2::new(libc::SYS_socket, Vec::new()).unwrap()],
+            )
+            .unwrap();
+            let mut filter = compile_filter_v2(&policy).unwrap();
+            filter[0].code = BPF_JMP;
+            assert!(matches!(
+                validate_compiled_filter(&filter),
+                Err(SeccompError::CompilerInvariantViolation)
+            ));
         }
 
         #[test]
