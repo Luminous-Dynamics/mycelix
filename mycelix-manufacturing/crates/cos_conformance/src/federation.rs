@@ -1289,6 +1289,26 @@ mod tests {
     }
 
     #[test]
+    fn cross_ledger_provenance_invariant_detects_observation_rebinding() {
+        let mut state = nodes();
+        assert_eq!(
+            deliver(&mut state, &envelope(), 50, true).decision(),
+            FederationDecision::AcceptedLocal
+        );
+
+        let source_id = state
+            .delivery("delivery-1")
+            .unwrap()
+            .source_observation_id()
+            .to_owned();
+        let observation = state.observations.get_mut(&source_id).unwrap();
+        observation.payload_commitment = "sha256:tampered".into();
+
+        let record = state.delivery("delivery-1").unwrap();
+        assert!(!source_observation_matches_delivery(&state, record));
+    }
+
+    #[test]
     fn local_authority_stays_local() {
         let mut state = nodes();
         let outcome = deliver(&mut state, &envelope(), 50, true);
