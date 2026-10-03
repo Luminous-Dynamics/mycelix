@@ -884,6 +884,87 @@ mod tests {
     }
 
     #[test]
+    fn source_verifier_rejects_self_consistent_root_substitution() {
+        let (a, e, d) = projection(false);
+        let p = profile(BTreeSet::new());
+        let baseline = compute_dependency_closure(&a, &e, &d, &p).unwrap();
+
+        let mut forged = baseline.clone();
+        forged.root_node_ids = BTreeSet::from(["dep".to_string()]);
+        forged.closure_identity_commitment = forged.closure_identity();
+        forged.commitment = forged.recompute();
+
+        assert!(forged.valid());
+        assert!(!forged.verifies_against_sources(&a, &e, &d, &p));
+    }
+
+    #[test]
+    fn source_verifier_rejects_self_consistent_status_substitution() {
+        let (a, e, d) = projection(false);
+        let p = profile(BTreeSet::new());
+        let baseline = compute_dependency_closure(&a, &e, &d, &p).unwrap();
+
+        let mut forged = baseline.clone();
+        forged.status = DependencyClosureStatusV1::BlockedResourceLimit;
+        forged.closure_identity_commitment = forged.closure_identity();
+        forged.commitment = forged.recompute();
+
+        assert!(forged.valid());
+        assert!(!forged.verifies_against_sources(&a, &e, &d, &p));
+    }
+
+    #[test]
+    fn source_verifier_rejects_self_consistent_cycle_claim() {
+        let (a, e, d) = projection(false);
+        let p = profile(BTreeSet::new());
+        let baseline = compute_dependency_closure(&a, &e, &d, &p).unwrap();
+
+        let mut forged = baseline.clone();
+        forged.cycle_detected = true;
+        forged.closure_identity_commitment = forged.closure_identity();
+        forged.commitment = forged.recompute();
+
+        assert!(forged.valid());
+        assert!(!forged.verifies_against_sources(&a, &e, &d, &p));
+    }
+
+    #[test]
+    fn source_verifier_allows_audit_only_resolution_evidence() {
+        let (a, e, d) = projection(false);
+        let p = profile(BTreeSet::new());
+        let baseline = compute_dependency_closure(&a, &e, &d, &p).unwrap();
+        let mut evidenced = baseline.clone();
+        let dependency = SemanticDependencyReferenceV1::node(
+            "root",
+            Some(
+                a.nodes
+                    .get("root")
+                    .expect("root")
+                    .node_commitment
+                    .clone(),
+            ),
+        );
+        evidenced.resolution_evidence.insert(
+            dependency,
+            SemanticDependencyResolutionEvidenceV1 {
+                retrieval_reference: Some("runtime://resolver/source-check".into()),
+                observed_commitment: Some(
+                    a.nodes
+                        .get("root")
+                        .expect("root")
+                        .node_commitment
+                        .clone(),
+                ),
+                qualification_context_commitment: Some("qualification-source-check".into()),
+            },
+        );
+        evidenced.commitment = evidenced.recompute();
+
+        assert!(evidenced.valid());
+        assert!(evidenced.verifies_against_sources(&a, &e, &d, &p));
+    }
+
+    #[test]
     fn structured_dependency_maps_are_hashable_and_deterministic() {
         let (projection, environment, derivation_profile) = projection(false);
         let profile = profile(BTreeSet::new());
