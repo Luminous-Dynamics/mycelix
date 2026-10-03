@@ -327,7 +327,7 @@ mod tests {
         assert_eq!(CASES.len(), 16);
         for case in CASES.iter() {
             assert!(!case.formal_obligations.is_empty(), "{} has no formal mapping", case.test_id);
-            for obligation in *case.formal_obligations {
+            for &obligation in case.formal_obligations.iter() {
                 assert!(FORMAL_OBLIGATIONS.contains(obligation), "{} maps to unknown {}", case.test_id, obligation);
             }
         }
