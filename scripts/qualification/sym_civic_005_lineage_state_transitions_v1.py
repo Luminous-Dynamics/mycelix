@@ -17,7 +17,8 @@ def reject(c):
  if i=="T-07": return False
  if i=="T-08":
   evs=sorted(x["events"],key=lambda e:(e["effective_at"],e["event_id"]))
-  return evs[0]["event_type"]=="INVALIDATE" and evs[1]["event_type"]=="SUPERSEDE"
+  canonical_state="SUPERSEDED" if evs[-1]["event_type"]=="SUPERSEDE" else "INVALIDATED"
+  return x.get("arrival_derived_state")!=canonical_state or x.get("canonical_final_state")!=canonical_state
  if i=="T-09": return len(x["events"])==2 and x["events"][0]!=x["events"][1] and x["events"][0]["event_id"]==x["events"][1]["event_id"]
  if i=="T-10": return x["event_receipt"]["declared_digest"]!=x["event_receipt"]["actual_digest"]
  if i=="T-11": return x.get("history_rewrite") is True
