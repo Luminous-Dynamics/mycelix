@@ -940,6 +940,36 @@ fn validate_update_recovery_request(
         )));
     }
 
+    // Approval and execution states require an immutable quorum certificate.
+    if matches!(
+        request.status,
+        RecoveryStatus::Approved | RecoveryStatus::ReadyToExecute | RecoveryStatus::Completed
+    ) {
+        let certificate_hash = request.approval_certificate.clone().ok_or(
+            wasm_error!(WasmErrorInner::Guest(
+                "Approved recovery requires an approval certificate".into()
+            ))
+        )?;
+        let certificate_record = must_get_valid_record(certificate_hash)?;
+        let certificate: RecoveryApprovalCertificate = certificate_record
+            .entry()
+            .to_app_option()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Approval certificate reference must decode as RecoveryApprovalCertificate".into()
+            )))?;
+        if certificate.request_id != request.id {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Approval certificate request_id does not match RecoveryRequest".into(),
+            ));
+        }
+        if certificate.request_action_hash != action.original_action_address {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Approval certificate must bind to the RecoveryRequest action being approved".into(),
+            ));
+        }
+    }
+
     // Approved status must have time_lock_expires set
     if request.status == RecoveryStatus::Approved && request.time_lock_expires.is_none() {
         return Ok(ValidateCallbackResult::Invalid(
