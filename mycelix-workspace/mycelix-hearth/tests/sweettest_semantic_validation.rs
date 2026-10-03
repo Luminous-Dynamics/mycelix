@@ -196,7 +196,7 @@ async fn test_invalid_decision_entry_reaches_integrity_validation() {
                 decision_type: DecisionType::MajorityVote,
                 eligible_roles: vec![MemberRole::Founder],
                 options: vec!["Yes".into(), "No".into()],
-                deadline: Timestamp::now(),
+                deadline: Timestamp::from_micros(Timestamp::now().as_micros() + 3_600_000_000),
                 quorum_bp: Some(5000),
             },
         )
