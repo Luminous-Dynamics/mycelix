@@ -179,7 +179,12 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             }
                 },
         FlatOp::Link(OpLink::CreateLink { link_type, action }) => {
-            validate_create_link(link_type, &action.data.tag)
+            validate_create_link(
+                link_type,
+                action.data.base_address.clone(),
+                action.data.target_address.clone(),
+                &action.data.tag,
+            )
         }
         FlatOp::Link(link @ OpLink::DeleteLink {
             link_type,
@@ -407,18 +412,60 @@ fn link_tag_max_len(link_type: &LinkTypes) -> usize {
 }
 
 /// Validate link creation: enforce tag length limits.
-pub fn validate_create_link(
+pub pub fn validate_create_link(
     link_type: LinkTypes,
+    base_address: AnyLinkableHash,
+    target_address: AnyLinkableHash,
     tag: &LinkTag,
 ) -> ExternResult<ValidateCallbackResult> {
     let max_len = link_tag_max_len(&link_type);
     if tag.0.len() > max_len {
         return Ok(ValidateCallbackResult::Invalid(format!(
             "{:?} link tag too long (max {} bytes, got {})",
-            link_type,
-            max_len,
-            tag.0.len()
+            link_type, max_len, tag.0.len()
         )));
+    }
+    let action_hash = |hash: AnyLinkableHash, label: &str| -> Result<ActionHash, ValidateCallbackResult> {
+        ActionHash::try_from(hash)
+            .map_err(|_| ValidateCallbackResult::Invalid(format!("{label} must be an ActionHash")))
+    };
+    match link_type {
+        LinkTypes::HearthToDecisions => {
+            let base = action_hash(base_address, "HearthToDecisions base")?;
+            let target = action_hash(target_address, "HearthToDecisions target")?;
+            let record = must_get_valid_record(target)?;
+            let entry: Decision = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("Decision entry missing".into())))?;
+            if entry.hearth_hash != base {
+                return Ok(ValidateCallbackResult::Invalid("Decision belongs to a different hearth".into()));
+            }
+        }
+        LinkTypes::DecisionToVotes | LinkTypes::DecisionToVoteHistory => {
+            let base = action_hash(base_address, "Decision vote base")?;
+            let target = action_hash(target_address, "Decision vote target")?;
+            let record = must_get_valid_record(target)?;
+            let entry: Vote = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("Vote entry missing".into())))?;
+            if entry.decision_hash != base {
+                return Ok(ValidateCallbackResult::Invalid("Vote references a different decision".into()));
+            }
+        }
+        LinkTypes::AgentToVotes => {
+            let base = AgentPubKey::try_from(base_address).map_err(|_| ValidateCallbackResult::Invalid("AgentToVotes base must be an AgentPubKey".into()))?;
+            let target = action_hash(target_address, "AgentToVotes target")?;
+            let record = must_get_valid_record(target)?;
+            let entry: Vote = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("Vote entry missing".into())))?;
+            if entry.voter != base {
+                return Ok(ValidateCallbackResult::Invalid("AgentToVotes base does not match the voter".into()));
+            }
+        }
+        LinkTypes::DecisionToOutcome => {
+            let base = action_hash(base_address, "DecisionToOutcome base")?;
+            let target = action_hash(target_address, "DecisionToOutcome target")?;
+            let record = must_get_valid_record(target)?;
+            let entry: DecisionOutcome = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("DecisionOutcome entry missing".into())))?;
+            if entry.decision_hash != base {
+                return Ok(ValidateCallbackResult::Invalid("DecisionOutcome references a different decision".into()));
+            }
+        }
     }
     Ok(ValidateCallbackResult::Valid)
 }
