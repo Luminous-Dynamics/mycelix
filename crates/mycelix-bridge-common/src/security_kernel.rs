@@ -1351,7 +1351,8 @@ mod tests {
             AuthorizationDecision::Allow
         );
 
-        let refreshed_evidence =            VerificationEvidence::new_for_capability_with_authority_binding_and_valid_until(
+        let refreshed_evidence =
+            VerificationEvidence::new_for_capability_with_authority_binding_and_valid_until(
             &cap,
             [1; 32],
             SignatureVerification::Verified,
