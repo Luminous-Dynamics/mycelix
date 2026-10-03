@@ -347,7 +347,8 @@ jobs:
       - name: Build identity zomes
         run: |
           cd mycelix-identity
-          nix develop .#ci --impure --command             cargo build --release --target wasm32-unknown-unknown --workspace
+          nix develop .#ci --impure --command \
+            cargo build --release --target wasm32-unknown-unknown --workspace
       - name: Pack identity DNA
         run: |
           cd mycelix-identity
@@ -360,9 +361,13 @@ jobs:
           nix develop .#ci --impure --command bash -c '
             set -o pipefail
             cd tests
-            cargo test --test dsid_lifecycle_lab -- --include-ignored --nocapture --test-threads=1               | tee "$GITHUB_WORKSPACE/dsid-lifecycle-evidence.txt"
+            cargo test --test dsid_lifecycle_lab \
+              -- --include-ignored --nocapture --test-threads=1 \
+              | tee "$GITHUB_WORKSPACE/dsid-lifecycle-evidence.txt"
           '
-          grep '^DSID_EVIDENCE ' "$GITHUB_WORKSPACE/dsid-lifecycle-evidence.txt" | cut -d ' ' -f2-             > "$GITHUB_WORKSPACE/dsid-lifecycle-evidence.jsonl"
+          grep '^DSID_EVIDENCE ' "$GITHUB_WORKSPACE/dsid-lifecycle-evidence.txt" \
+            | cut -d ' ' -f2- \
+            > "$GITHUB_WORKSPACE/dsid-lifecycle-evidence.jsonl"
       - name: Validate evidence capsule
         run: |
           test -s dsid-lifecycle-evidence.jsonl
