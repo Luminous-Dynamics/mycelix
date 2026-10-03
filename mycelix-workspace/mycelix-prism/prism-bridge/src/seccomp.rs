@@ -593,24 +593,41 @@ mod linux {
         }
 
         const ARG_BASE: u32 = 16;
-        let instruction_count = 5usize
-            .saturating_add(if policy.architecture == SeccompArchitecture::X86_64 { 2 } else { 0 })
-            .saturating_add(
-                policy.rules.iter().map(|rule| {
-                    1usize
-                        + rule.clauses.iter().map(|clause| {
-                            1usize
-                                + clause.predicates.iter().map(|predicate| {
-                                    usize::from(predicate.mask as u32 != 0)
-                                        .saturating_mul(4)
-                                        .saturating_add(
-                                            usize::from((predicate.mask >> 32) as u32 != 0)
-                                                .saturating_mul(4),
-                                        )
-                                }).sum::<usize>()
-                        }).sum::<usize>()
-                }).sum::<usize>(),
-            );
+        let mut instruction_count = 5usize
+            .checked_add(if policy.architecture == SeccompArchitecture::X86_64 { 2 } else { 0 })
+            .ok_or(SeccompError::FilterTooLarge)?;
+
+        for rule in &policy.rules {
+            instruction_count = instruction_count
+                .checked_add(1)
+                .ok_or(SeccompError::FilterTooLarge)?;
+
+            for clause in &rule.clauses {
+                instruction_count = instruction_count
+                    .checked_add(1)
+                    .ok_or(SeccompError::FilterTooLarge)?;
+
+                for predicate in &clause.predicates {
+                    let low = usize::from(predicate.mask as u32 != 0)
+                        .checked_mul(4)
+                        .ok_or(SeccompError::FilterTooLarge)?;
+                    let high = usize::from((predicate.mask >> 32) as u32 != 0)
+                        .checked_mul(4)
+                        .ok_or(SeccompError::FilterTooLarge)?;
+                    let predicate_len = match predicate.op {
+                        SeccompArgPredicateOpV1::MaskedEqual => low
+                            .checked_add(high)
+                            .ok_or(SeccompError::FilterTooLarge)?,
+                        SeccompArgPredicateOpV1::MaskedNotEqual => {
+                            if low != 0 && high != 0 { 7 } else { 4 }
+                        }
+                    };
+                    instruction_count = instruction_count
+                        .checked_add(predicate_len)
+                        .ok_or(SeccompError::FilterTooLarge)?;
+                }
+            }
+        }
         if instruction_count > 4096 || instruction_count > u16::MAX as usize {
             return Err(SeccompError::FilterTooLarge);
         }
