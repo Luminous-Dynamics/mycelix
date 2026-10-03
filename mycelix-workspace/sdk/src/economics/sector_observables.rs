@@ -488,6 +488,28 @@ impl SectorEconomicObservables {
         Ok(sectors)
     }
 
+    /// Re-derive this sector observation from the supplied state, transitions, and assignments.
+    ///
+    /// The replayed sector projection must match this serialized observation exactly.
+    pub fn verify_against(
+        &self,
+        state: &EconomicState,
+        transitions: &[super::transition::EconomicTransition],
+        assignments: &[SectorAssignment],
+    ) -> Result<(), String> {
+        let expected = Self::from_state_and_transitions(state, transitions, assignments)?;
+        let expected_observation = expected
+            .get(&self.sector)
+            .ok_or_else(|| format!("sector observation {:?} is not present in replayed state", self.sector))?;
+        if self != expected_observation {
+            return Err(format!(
+                "sector observation does not match transition replay for {:?}",
+                self.sector
+            ));
+        }
+        Ok(())
+    }
+
     /// Closing monetary net working capital.
     pub fn net_working_capital(&self) -> i128 {
         self.inventory_carrying_value
@@ -738,6 +760,22 @@ mod tests {
         assert_eq!(firm.operating_surplus_after_depreciation(), 30);
         assert!(firm.liquidity_flow_reconciliation_holds());
         assert!(firm.liquidity_stock_flow_reconciliation_holds());
+    }
+
+    #[test]
+    fn sector_observation_verify_against_rejects_tampering() {
+        let state = EconomicState::new(vec![
+            ActorBalanceSheet::new("firm-a"),
+            ActorBalanceSheet::new("household-a"),
+        ]);
+        let assignments = vec![
+            SectorAssignment { actor: "firm-a".into(), sector: EconomicSector::Firm },
+            SectorAssignment { actor: "household-a".into(), sector: EconomicSector::Household },
+        ];
+        let sectors = SectorEconomicObservables::from_state_and_transitions(&state, &[], &assignments).unwrap();
+        let mut observation = sectors.get(&EconomicSector::Firm).unwrap().clone();
+        observation.closing_liquidity = 1;
+        assert!(observation.verify_against(&state, &[], &assignments).is_err());
     }
 
     #[test]
