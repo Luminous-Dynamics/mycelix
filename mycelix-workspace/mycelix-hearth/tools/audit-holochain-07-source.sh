@@ -565,8 +565,8 @@ check_semantic_case_entrypoints() {
       fail=1
     fi
 
-    if rg -n --fixed-strings ".zome(\\\"${zome}\\\")" "$rust_test" >/dev/null 2>&1 \
-      && rg -n --fixed-strings "\\\"${operation}\\\"" "$rust_test" >/dev/null 2>&1; then
+    if rg -n --fixed-strings ".zome(\"${zome}\")" "$rust_test" >/dev/null 2>&1 \
+      && rg -n --fixed-strings "\"${operation}\"" "$rust_test" >/dev/null 2>&1; then
       echo "OK:   semantic runtime witness invokes ${zome}/${operation}"
     else
       echo "FAIL: semantic runtime witness does not invoke ${zome}/${operation}"
