@@ -691,10 +691,18 @@ fn did_document_wire_view(document: &DidDocument) -> DidDocumentWireView {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DidResolutionError {
+    #[serde(rename = "type")]
+    pub type_uri: String,
+    pub title: String,
+    pub detail: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DidResolutionMetadataView {
     #[serde(rename = "contentType")]
     pub content_type: Option<String>,
-    pub error: Option<String>,
+    pub error: Option<DidResolutionError>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -719,10 +727,35 @@ pub struct DidResolutionView {
 /// Resolve a DID with explicit document and resolution metadata.
 #[hdk_extern]
 pub fn resolve_did_resolution(did: String) -> ExternResult<DidResolutionView> {
-    if !did.starts_with("did:mycelix:") {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Invalid DID format".into()
-        )));
+    let invalid_did = |detail: String| DidResolutionView {
+        did_document: None,
+        resolution_metadata: DidResolutionMetadataView {
+            content_type: None,
+            error: Some(DidResolutionError {
+                type_uri: "https://www.w3.org/ns/did#INVALID_DID".into(),
+                title: "Invalid DID".into(),
+                detail,
+            }),
+        },
+        document_metadata: None,
+    };
+
+    let Some(agent_str) = did.strip_prefix("did:mycelix:") else {
+        return Ok(invalid_did("DID must use the did:mycelix method.".into()));
+    };
+    if agent_str.is_empty()
+        || !agent_str
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
+    {
+        return Ok(invalid_did(
+            "The did:mycelix method-specific identifier contains invalid characters.".into(),
+        ));
+    }
+    if AgentPubKey::try_from(agent_str).is_err() {
+        return Ok(invalid_did(
+            "The method-specific identifier is not a valid Holochain AgentPubKey.".into(),
+        ));
     }
 
     match resolve_did_view(did.clone())? {
@@ -761,7 +794,11 @@ pub fn resolve_did_resolution(did: String) -> ExternResult<DidResolutionView> {
             did_document: None,
             resolution_metadata: DidResolutionMetadataView {
                 content_type: None,
-                error: Some("notFound".into()),
+                error: Some(DidResolutionError {
+                    type_uri: "https://www.w3.org/ns/did#NOT_FOUND".into(),
+                    title: "DID not found".into(),
+                    detail: "No canonical DID document was found for this method-specific identifier.".into(),
+                }),
             },
             document_metadata: None,
         }),
