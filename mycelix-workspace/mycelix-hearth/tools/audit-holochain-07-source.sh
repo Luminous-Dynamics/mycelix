@@ -505,66 +505,8 @@ check_immutable_dependency_semantics() {
   echo "OK:   $file immutable-field dependency semantics"
 }
 
+check_semantic_validation_suite_wiring
 
-check_standalone_tests_workspace_boundary() {
-  local manifest="mycelix-workspace/mycelix-hearth/tests/Cargo.toml"
-  if [[ -f "$manifest" ]] && rg -n --fixed-strings "[workspace]" "$manifest" >/dev/null 2>&1; then
-    echo "OK:   Hearth integration tests declare their standalone Cargo workspace boundary"
-  else
-    echo "FAIL: Hearth integration tests must declare an explicit standalone Cargo workspace boundary"
-    fail=1
-  fi
-}
-
-check_qualification_workflow_provenance() {
-  local workflow=".github/workflows/hearth-07-qualification.yml"
-  if [[ ! -f "$workflow" ]]; then
-    echo "FAIL: missing Hearth 0.7 qualification workflow"
-    fail=1
-    return
-  fi
-  if rg -n --fixed-strings 'target_sha:' "$workflow" >/dev/null 2>&1 \
-    && rg -n --fixed-strings 'ref: ${{ env.QUALIFY_SHA }}' "$workflow" >/dev/null 2>&1 \
-    && rg -n --fixed-strings 'git rev-parse HEAD' "$workflow" >/dev/null 2>&1; then
-    echo "OK:   qualification workflow binds execution to an exact candidate SHA"
-  else
-    echo "FAIL: qualification workflow does not enforce exact candidate-SHA checkout provenance"
-    fail=1
-  fi
-  if rg -n --fixed-strings 'cargo build --locked' "$workflow" >/dev/null 2>&1 \
-    && rg -n --fixed-strings 'cargo test --locked' "$workflow" >/dev/null 2>&1 \
-    && rg -n --fixed-strings 'cargo generate-lockfile' "$workflow" >/dev/null 2>&1; then
-    echo "OK:   qualification workflow generates and consumes locked Rust closures"
-  else
-    echo "FAIL: qualification workflow is missing locked Rust dependency closure enforcement"
-    fail=1
-  fi
-}
-
-check_dna_source_completeness() {
-  local dna="mycelix-workspace/mycelix-hearth/dna/dna.yaml"
-  if [[ ! -f "$dna" ]]; then
-    echo "FAIL: missing Hearth DNA manifest"
-    fail=1
-    return
-  fi
-  local expected_names=()
-  while IFS= read -r -d '' file; do
-    local dir name
-    dir="$(basename "$(dirname "$(dirname "$(dirname "$file")")")")"
-    name="${dir//-/_}_integrity"
-    expected_names+=("$name")
-  done < <(git ls-files -z 'mycelix-workspace/mycelix-hearth/zomes/*/integrity/src/lib.rs')
-  for name in "${expected_names[@]}"; do
-    if rg -n --fixed-strings -- "- name: $name" "$dna" >/dev/null 2>&1; then
-      echo "OK:   DNA packages discovered integrity zome $name"
-    else
-      echo "FAIL: DNA is missing discovered integrity zome $name"
-      fail=1
-    fi
-  done
-  local integrity_count
-  integrity_count="$(rg -n --fixed-strings -- '- name:' "$dna" | rg 'hearth_.*_integrity
 for file in "${integrity_files[@]}"; do
   check_create_record_coverage "$file"
 done
@@ -614,3 +556,9 @@ if [[ "$fail" -ne 0 ]]; then
   exit "$fail"
 fi
 echo "HEARTH-0.7 source audit: PASS"
+ | sed -E 's/^    ([A-Za-z_][A-Za-z0-9_]*),$/\1/')
+}
+# Every entry-bearing action must be validated on both 0.7 operation surfaces.
+# Holochain emits CreateEntry and CreateRecord operations for entry writes; a
+# permissive CreateRecord catch-all would leave a second validation surface
+# without the application-level entry policy. Updates are checked the same way.
