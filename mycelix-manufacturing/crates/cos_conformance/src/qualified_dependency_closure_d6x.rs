@@ -691,12 +691,6 @@ pub fn compute_dependency_closure(
             };
 
             if !matches_rule { continue; }
-            // Only selected semantic edges are required to prove their own
-            // commitment binding. Irrelevant/provenance candidates remain
-            // outside the semantic closure boundary.
-            if !edge.commitment_matches() {
-                return None;
-            }
             // Overlapping rules resolve monotonically: CurrentOnly dominates Any.
             let Some(to) = projection.nodes.get(&edge.to_node_id) else {
                 let dependency = SemanticDependencyReferenceV1::node(edge.to_node_id.clone(), None);
@@ -705,9 +699,26 @@ pub fn compute_dependency_closure(
                 missing.insert(edge.to_node_id.clone());
                 continue;
             };
+            // A selected edge cannot outlive its target node. If the node
+            // budget is already exhausted and this edge would introduce a new
+            // target, stop before selecting or validating the edge. The
+            // resource-bounded certificate then remains internally valid: every
+            // selected edge has two selected endpoints.
+            if !included_ids.contains(&edge.to_node_id)
+                && included_ids.len() as u32 >= profile.max_nodes
+            {
+                resource_blocked = true;
+                break;
+            }
             if included_edges.len() as u32 >= profile.max_edges {
                 resource_blocked = true;
                 break;
+            }
+            // Only selected semantic edges are required to prove their own
+            // commitment binding. Irrelevant/provenance candidates remain
+            // outside the semantic closure boundary.
+            if !edge.commitment_matches() {
+                return None;
             }
             included_edges.insert(edge.edge_id.clone());
             let edge_dependency = SemanticDependencyReferenceV1::edge(
@@ -1143,6 +1154,24 @@ mod tests {
         assert_eq!(c.included_node_ids, BTreeSet::from(["root".to_string()]));
         assert!(c.included_edges.is_empty());
         assert!(c.valid());
+    }
+
+    #[test]
+    fn node_budget_does_not_select_edge_to_unincluded_target() {
+        let (a, e, d) = projection(false);
+        let mut p = profile(BTreeSet::new());
+        p.max_nodes = 1;
+        p.max_edges = 1;
+
+        let c = compute_dependency_closure(&a, &e, &d, &p).unwrap();
+
+        assert_eq!(c.status, DependencyClosureStatusV1::BlockedResourceLimit);
+        assert_eq!(c.included_node_ids, BTreeSet::from(["root".to_string()]));
+        assert!(c.included_edges.is_empty());
+        assert!(c.valid());
+        assert!(c.dependencies.iter().all(|dependency| {
+            dependency.kind != SemanticDependencyKindV1::Edge
+        }));
     }
 
     #[test]
