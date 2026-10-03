@@ -36,7 +36,8 @@
     "resolution_success": "all requested logical identities bound; return canonical identity/address pairs",
     "resolution_missing": "return canonical missing logical identities and preserve unresolved semantic state",
     "duplicate_requests_deduplicated": true,
-    "address_derivation": false
+    "address_derivation": false,
+    "resolution_invalid": "malformed logical identity is definitive invalidity"
   },
   "dependency_retrieval": {
     "deterministic_host_function_family": "must_get_*",
