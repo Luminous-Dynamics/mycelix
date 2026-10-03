@@ -309,12 +309,10 @@ impl SecurityEvent {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::security_kernel::{
-        Capability, CapabilityAction, VerificationEvidence, VerifiedCapability, authorize_permit,
-    };
+    use crate::security_kernel::CapabilityAction;
 
-    fn capability() -> Capability {
-        Capability::new(
+
+        crate::security_kernel::Capability::new(
             "did:mycelix:alice",
             "did:mycelix:issuer",
             "resource:ledger",
@@ -326,15 +324,6 @@ mod tests {
         .unwrap()
     }
 
-    fn verified() -> VerifiedCapability {
-        let capability = capability();
-        crate::security_kernel::verify_capability(
-            capability.clone(),
-            VerificationEvidence::new_for_capability(&capability, true, true, true),
-            150,
-        )
-        .unwrap()
-    }
 
     #[test]
     fn provenance_ref_rejects_empty_and_oversized_ids() {
@@ -350,20 +339,7 @@ mod tests {
 
     #[test]
     fn security_event_preserves_allow_decision_and_lineage() {
-        let request = crate::security_kernel::AuthorizationRequest::new(
-            "did:mycelix:alice",
-            "resource:ledger",
-            CapabilityAction::Read,
-            7,
-        )
-        .unwrap();
-        let permit = authorize_permit(&verified(), &request, 150).unwrap();
-        let enforcement = EnforcementRequest::from_permit(
-            permit,
-            VerificationEvidence::new_for_capability(&capability(), true, true, true),
-            150,
-        )
-        .unwrap();
+        let enforcement = crate::security_kernel::test_enforcement_request();
         let source =
             ProvenanceRef::new("evidence:source-1", ProvenanceRelation::DerivedFrom).unwrap();
 
