@@ -79,8 +79,12 @@ jobs:
           done
 
           # Capability and AuthorizationRequest must remain constructor-gated when decoded from wire data.
-          if ! rg -nU '#\[serde\(try_from[[:space:]]*=[[:space:]]*"CapabilityWire"\)\][[:space:]]*pub struct Capability' crates/mycelix-bridge-common/src/security_kernel.rs; then
-            echo "security-kernel regression: Capability lost its serde constructor gate" >&2
+          if ! rg -nU '#\[derive\([^]]*Deserialize[^]]*\)\][[:space:]]*#\[serde\(try_from[[:space:]]*=[[:space:]]*"CapabilityWire"\)\][[:space:]]*pub struct Capability' crates/mycelix-bridge-common/src/security_kernel.rs; then
+            echo "security-kernel regression: Capability lost its Deserialize + serde constructor gate" >&2
+            exit 1
+          fi
+          if ! rg -nU '#\[derive\([^]]*Deserialize[^]]*\)\][[:space:]]*#\[serde\(try_from[[:space:]]*=[[:space:]]*"AuthorizationRequestWire"\)\][[:space:]]*pub struct AuthorizationRequest' crates/mycelix-bridge-common/src/security_kernel.rs; then
+            echo "security-kernel regression: AuthorizationRequest lost its Deserialize + serde constructor gate" >&2
             exit 1
           fi
 
