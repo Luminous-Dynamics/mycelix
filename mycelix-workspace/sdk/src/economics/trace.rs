@@ -82,6 +82,83 @@ impl EconomicSimulationTrace {
     pub fn final_receipt(&self) -> Option<&EconomicChainReceipt> {
         self.receipts.last()
     }
+
+    /// Verify every receipt, its chain links, and the trace hash.
+    pub fn verify(&self) -> Result<(), EconomicStepError> {
+        let mut previous_period: Option<u64> = None;
+
+        for (index, receipt) in self.receipts.iter().enumerate() {
+            receipt.verify()?;
+
+            if let Some(previous) = previous_period {
+                if receipt.step.period <= previous {
+                    return Err(EconomicStepError::Serialization(
+                        "simulation trace periods must be strictly increasing".into(),
+                    ));
+                }
+            }
+            previous_period = Some(receipt.step.period);
+
+            if index == 0 {
+                if receipt.previous_receipt_hash.is_some()
+                    || receipt.genesis_state_hash != receipt.step.pre_state_hash
+                {
+                    return Err(EconomicStepError::Serialization(
+                        "first trace receipt must be the genesis receipt".into(),
+                    ));
+                }
+                if receipt.genesis_state_hash != self.initial_state_hash {
+                    return Err(EconomicStepError::Serialization(
+                        "trace genesis hash does not match initial_state_hash".into(),
+                    ));
+                }
+            } else {
+                let previous_receipt = &self.receipts[index - 1];
+                if receipt.previous_receipt_hash.as_deref()
+                    != Some(previous_receipt.chain_hash.as_str())
+                    || receipt.step.pre_state_hash != previous_receipt.step.post_state_hash
+                {
+                    return Err(EconomicStepError::Serialization(
+                        "trace receipt chain link is inconsistent".into(),
+                    ));
+                }
+                if receipt.genesis_state_hash != self.initial_state_hash {
+                    return Err(EconomicStepError::Serialization(
+                        "trace receipt genesis hash changed within the chain".into(),
+                    ));
+                }
+            }
+        }
+
+        if self.receipts.is_empty() && self.initial_state_hash != self.final_state_hash {
+            return Err(EconomicStepError::Serialization(
+                "empty trace must preserve the initial state hash".into(),
+            ));
+        }
+
+        if let Some(final_receipt) = self.final_receipt() {
+            if final_receipt.step.post_state_hash != self.final_state_hash {
+                return Err(EconomicStepError::Serialization(
+                    "trace final state hash does not match the final receipt".into(),
+                ));
+            }
+        }
+
+        let bytes = serde_json::to_vec(&(
+            &self.initial_state_hash,
+            &self.final_state_hash,
+            &self.receipts,
+        ))
+        .map_err(|error| EconomicStepError::Serialization(error.to_string()))?;
+        let expected = blake3::hash(&bytes).to_hex().to_string();
+        if self.trace_hash != expected {
+            return Err(EconomicStepError::Serialization(
+                "simulation trace hash mismatch".into(),
+            ));
+        }
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -158,6 +235,27 @@ mod tests {
             trace_a.final_state_hash,
             trace_b.final_state_hash
         );
+    }
+
+    #[test]
+    fn trace_verification_detects_receipt_or_trace_hash_tampering() {
+        let initial = initial_state();
+        let steps = vec![EconomicSimulationStep {
+            period: 1,
+            transitions: vec![EconomicTransition::CreditCreation(
+                CreditCreation::new("bank", "household", 500).unwrap(),
+            )],
+        }];
+        let (_, trace) = EconomicSimulationTrace::run(&initial, &steps).unwrap();
+        trace.verify().unwrap();
+
+        let mut tampered = trace.clone();
+        tampered.receipts[0].step.post_state_hash = "tampered".into();
+        assert!(tampered.verify().is_err());
+
+        let mut rehashed = trace;
+        rehashed.trace_hash = "tampered".into();
+        assert!(rehashed.verify().is_err());
     }
 
     #[test]
