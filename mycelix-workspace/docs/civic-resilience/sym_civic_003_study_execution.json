@@ -1,0 +1,407 @@
+{
+  "schema": "mycelix.sym-civic.study-execution-evidence.v1",
+  "program": "SYM-CIVIC-003",
+  "parent_subject": "8b54602821d10e9b9cab46ece33d80e04045e90e",
+  "analysis_role": "research_only",
+  "receipt_role": "execution_provenance_only",
+  "required_fields": [
+    "study_id",
+    "input_snapshot",
+    "upstream_evidence_cut",
+    "estimand",
+    "model_identity",
+    "analysis_commit",
+    "environment_identity",
+    "execution_identity",
+    "configuration_digest",
+    "randomness",
+    "temporal_evidence",
+    "uncertainty",
+    "missingness_policy",
+    "identification_assumptions",
+    "diagnostics",
+    "sensitivity_analyses",
+    "spillover_displacement_checks",
+    "alternative_explanations",
+    "output_disposition",
+    "result_artifact"
+  ],
+  "invariants": [
+    "mutable_reference_rejected",
+    "provenance_axes_distinct",
+    "canonical_serialization_required",
+    "missing_provenance_explicit",
+    "determinism_mode_explicit",
+    "replication_semantics_explicit",
+    "result_digest_binding",
+    "protected_data_not_copied",
+    "output_disposition_not_authority"
+  ],
+  "cases": [
+    {
+      "id": "SE-01",
+      "family": "stale_input_substitution",
+      "reference": {
+        "allowed_input_snapshot": "sha256:input-v1"
+      },
+      "candidate": {
+        "input_snapshot": "latest",
+        "upstream_evidence_cut": "immutable:cut-v1",
+        "analysis_commit": "commit-a",
+        "model_identity": "model-a",
+        "environment_identity": "env-a",
+        "configuration_digest": "sha256:cfg-a",
+        "randomness": {
+          "mode": "deterministic",
+          "seed": 1
+        },
+        "result_artifact": {
+          "digest": "sha256:r-a"
+        }
+      },
+      "note": "Floating input reference must not establish provenance."
+    },
+    {
+      "id": "SE-02",
+      "family": "analysis_code_drift",
+      "reference": {
+        "analysis_commit": "commit-a"
+      },
+      "candidate": {
+        "input_snapshot": "immutable:input-a",
+        "upstream_evidence_cut": "immutable:cut-v1",
+        "analysis_commit": "commit-b",
+        "model_identity": "model-a",
+        "environment_identity": "env-a",
+        "configuration_digest": "sha256:cfg-a",
+        "randomness": {
+          "mode": "deterministic",
+          "seed": 1
+        },
+        "result_artifact": {
+          "digest": "sha256:r-a"
+        }
+      },
+      "note": "Receipt must bind the code actually analyzed."
+    },
+    {
+      "id": "SE-03",
+      "family": "model_version_drift",
+      "reference": {
+        "model_identity": "model-a@sha256:m-a"
+      },
+      "candidate": {
+        "input_snapshot": "immutable:input-a",
+        "upstream_evidence_cut": "immutable:cut-v1",
+        "analysis_commit": "commit-a",
+        "model_identity": "model-a@sha256:m-b",
+        "environment_identity": "env-a",
+        "configuration_digest": "sha256:cfg-a",
+        "randomness": {
+          "mode": "deterministic",
+          "seed": 1
+        },
+        "result_artifact": {
+          "digest": "sha256:r-a"
+        }
+      },
+      "note": "A changed model is a distinct execution identity."
+    },
+    {
+      "id": "SE-04",
+      "family": "environment_drift",
+      "reference": {
+        "environment_identity": "sha256:env-a"
+      },
+      "candidate": {
+        "input_snapshot": "immutable:input-a",
+        "upstream_evidence_cut": "immutable:cut-v1",
+        "analysis_commit": "commit-a",
+        "model_identity": "model-a",
+        "environment_identity": "sha256:env-b",
+        "configuration_digest": "sha256:cfg-a",
+        "randomness": {
+          "mode": "deterministic",
+          "seed": 1
+        },
+        "result_artifact": {
+          "digest": "sha256:r-a"
+        }
+      },
+      "note": "Runtime environment changes must remain visible."
+    },
+    {
+      "id": "SE-05",
+      "family": "omitted_randomness_policy",
+      "reference": {
+        "randomness_policy_required": true
+      },
+      "candidate": {
+        "input_snapshot": "immutable:input-a",
+        "upstream_evidence_cut": "immutable:cut-v1",
+        "analysis_commit": "commit-a",
+        "model_identity": "model-a",
+        "environment_identity": "env-a",
+        "configuration_digest": "sha256:cfg-a",
+        "randomness": {},
+        "result_artifact": {
+          "digest": "sha256:r-a"
+        }
+      },
+      "note": "Missing randomness information cannot silently become deterministic."
+    },
+    {
+      "id": "SE-06",
+      "family": "hidden_configuration",
+      "reference": {
+        "configuration_digest_required": true
+      },
+      "candidate": {
+        "input_snapshot": "immutable:input-a",
+        "upstream_evidence_cut": "immutable:cut-v1",
+        "analysis_commit": "commit-a",
+        "model_identity": "model-a",
+        "environment_identity": "env-a",
+        "configuration": {
+          "threshold": 0.7
+        },
+        "randomness": {
+          "mode": "deterministic",
+          "seed": 1
+        },
+        "result_artifact": {
+          "digest": "sha256:r-a"
+        }
+      },
+      "note": "Undigested execution configuration is not reproducibly bound."
+    },
+    {
+      "id": "SE-07",
+      "family": "result_artifact_digest_mismatch",
+      "reference": {
+        "result_digest": "sha256:r-a"
+      },
+      "candidate": {
+        "input_snapshot": "immutable:input-a",
+        "upstream_evidence_cut": "immutable:cut-v1",
+        "analysis_commit": "commit-a",
+        "model_identity": "model-a",
+        "environment_identity": "env-a",
+        "configuration_digest": "sha256:cfg-a",
+        "randomness": {
+          "mode": "deterministic",
+          "seed": 1
+        },
+        "result_artifact": {
+          "digest": "sha256:r-b"
+        }
+      },
+      "note": "Result identity must match the declared artifact."
+    },
+    {
+      "id": "SE-08",
+      "family": "nondeterministic_as_deterministic",
+      "reference": {
+        "randomness_mode": "stochastic"
+      },
+      "candidate": {
+        "input_snapshot": "immutable:input-a",
+        "upstream_evidence_cut": "immutable:cut-v1",
+        "analysis_commit": "commit-a",
+        "model_identity": "model-a",
+        "environment_identity": "env-a",
+        "configuration_digest": "sha256:cfg-a",
+        "randomness": {
+          "mode": "stochastic",
+          "seed": null,
+          "claim": "deterministic_replication"
+        },
+        "result_artifact": {
+          "digest": "sha256:r-a"
+        }
+      },
+      "note": "Stochastic execution cannot be mislabeled as byte-for-byte deterministic replication."
+    },
+    {
+      "id": "SE-09",
+      "family": "oracle_embedded_in_input",
+      "reference": {
+        "oracle_allowed": false
+      },
+      "candidate": {
+        "input_snapshot": "immutable:input-a",
+        "upstream_evidence_cut": "immutable:cut-v1",
+        "analysis_commit": "commit-a",
+        "model_identity": "model-a",
+        "environment_identity": "env-a",
+        "configuration_digest": "sha256:cfg-a",
+        "randomness": {
+          "mode": "deterministic",
+          "seed": 1
+        },
+        "result_artifact": {
+          "digest": "sha256:r-a",
+          "analysis_claim": "Supported"
+        }
+      },
+      "note": "Input evidence cannot smuggle the scientific answer into the execution."
+    },
+    {
+      "id": "SE-10",
+      "family": "mutable_branch_only_provenance",
+      "reference": {
+        "commit_required": true
+      },
+      "candidate": {
+        "input_snapshot": "immutable:input-a",
+        "upstream_evidence_cut": "refs/heads/research",
+        "analysis_commit": "main",
+        "model_identity": "model-a",
+        "environment_identity": "env-a",
+        "configuration_digest": "sha256:cfg-a",
+        "randomness": {
+          "mode": "deterministic",
+          "seed": 1
+        },
+        "result_artifact": {
+          "digest": "sha256:r-a"
+        }
+      },
+      "note": "Branch names are not immutable scientific provenance."
+    },
+    {
+      "id": "SE-11",
+      "family": "protected_data_leakage",
+      "reference": {
+        "raw_data_forbidden": true
+      },
+      "candidate": {
+        "input_snapshot": "immutable:input-a",
+        "upstream_evidence_cut": "immutable:cut-v1",
+        "analysis_commit": "commit-a",
+        "model_identity": "model-a",
+        "environment_identity": "env-a",
+        "configuration_digest": "sha256:cfg-a",
+        "randomness": {
+          "mode": "deterministic",
+          "seed": 1
+        },
+        "result_artifact": {
+          "digest": "sha256:r-a"
+        },
+        "protected_record": {
+          "raw_subject_identifier": "SYNTHETIC-RAW-ID",
+          "raw_payload": "synthetic-protected-payload"
+        }
+      },
+      "note": "Receipts bind approved artifacts rather than copying protected records."
+    },
+    {
+      "id": "SE-12",
+      "family": "declared_stochastic_replication",
+      "reference": {
+        "randomness_mode": "stochastic",
+        "replication_identity": "seed_and_distribution"
+      },
+      "candidate": {
+        "input_snapshot": "immutable:input-a",
+        "upstream_evidence_cut": "immutable:cut-v1",
+        "analysis_commit": "commit-a",
+        "model_identity": "model-a",
+        "environment_identity": "env-a",
+        "configuration_digest": "sha256:cfg-a",
+        "randomness": {
+          "mode": "stochastic",
+          "seed": 42,
+          "claim": "distributional_replication",
+          "distribution": "declared"
+        },
+        "result_artifact": {
+          "digest": "sha256:r-a"
+        }
+      },
+      "note": "Correctly declared stochastic replication is admissible when its semantics are explicit."
+    },
+    {
+      "id": "SE-13",
+      "family": "canonicalization_order_invariance",
+      "reference": {
+        "canonicalization": "sorted_keys_compact_utf8"
+      },
+      "candidate": {
+        "equivalent_records": [
+          {
+            "b": 2,
+            "a": 1
+          },
+          {
+            "a": 1,
+            "b": 2
+          }
+        ],
+        "canonicalization": "sorted_keys_compact_utf8"
+      },
+      "note": "Equivalent record orderings must canonicalize identically before hashing."
+    },
+    {
+      "id": "SE-14",
+      "family": "complete_deterministic_binding",
+      "reference": {
+        "valid_complete_binding": true
+      },
+      "candidate": {
+        "input_snapshot": "immutable:input-a",
+        "upstream_evidence_cut": "immutable:cut-v1",
+        "estimand": "target-effect-v1",
+        "model_identity": "model-a@sha256:m-a",
+        "analysis_commit": "commit-a",
+        "environment_identity": "sha256:env-a",
+        "execution_identity": "run-a",
+        "configuration_digest": "sha256:cfg-a",
+        "randomness": {
+          "mode": "deterministic",
+          "seed": 7,
+          "claim": "byte_deterministic"
+        },
+        "temporal_evidence": "immutable:time-a",
+        "uncertainty": "declared",
+        "missingness_policy": "declared",
+        "identification_assumptions": [
+          "assumption-a"
+        ],
+        "diagnostics": [
+          "diag-a"
+        ],
+        "sensitivity_analyses": [
+          "sens-a"
+        ],
+        "spillover_displacement_checks": [
+          "none_detected"
+        ],
+        "alternative_explanations": [
+          "alt-a"
+        ],
+        "output_disposition": "Inconclusive",
+        "result_artifact": {
+          "digest": "sha256:r-a"
+        },
+        "study_id": "study-synthetic-14"
+      },
+      "note": "Complete binding demonstrates the admissible execution-evidence shape."
+    }
+  ],
+  "nonclaims": [
+    "real_world_reproducibility",
+    "real_world_causal_effect",
+    "clinical_validity",
+    "suicide_prediction",
+    "violence_prediction",
+    "public_safety_score",
+    "municipal_authority",
+    "deployment_readiness"
+  ],
+  "prohibited_receipt_fields": [
+    "raw_subject_identifier",
+    "raw_payload"
+  ]
+}
