@@ -32,6 +32,7 @@ A canonical evidence envelope should bind:
 - verification_reference
 - authority_statement_id
 - authority_resolution_epoch
+- authority_predecessor_statement_id
 - authority_predecessor_statement_digest
 - authority_effective_from_ms
 - supersedes_reference
@@ -121,7 +122,10 @@ Where an authority resolution participates in a monotonic resolution history, th
 
 - `authority_statement_id`: stable identity of the exact authority statement;
 - `authority_resolution_epoch`: the authority decision sequence number;
+- `authority_predecessor_statement_id`: stable identity of the exact prior authority statement when this statement supersedes a previous resolution;
 - `authority_predecessor_statement_digest`: the exact prior authority statement digest when this statement supersedes a previous resolution;
+
+For resolution epochs greater than one, the predecessor statement ID and predecessor digest must agree with the same prior statement. A digest without an exact statement identity is insufficient for lifecycle continuity.
 - `authority_effective_from_ms`: the lifecycle time at which the resolved topology becomes effective.
 
 A resolution may therefore be valid before it becomes current. Consumers must not infer currentness solely from statement validity or resolution timestamp.
