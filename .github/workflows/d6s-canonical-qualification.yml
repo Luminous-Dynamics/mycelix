@@ -64,8 +64,8 @@ jobs:
       - name: Emit qualification record
         run: |
           {
-            echo "D6S CANONICAL REFERENCE QUALIFICATION"
-            echo "status=qualified"
+            echo "D6S CANONICAL REFERENCE GATE"
+            echo "status=reference-gate-passed"
             echo "commit=${QUALIFIED_SHA}"
             echo "workflow=${GITHUB_WORKFLOW}"
             echo "workflow_ref=${GITHUB_WORKFLOW_REF}"
