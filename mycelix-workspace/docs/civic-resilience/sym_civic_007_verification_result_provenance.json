@@ -774,6 +774,59 @@
         ]
       },
       "note": "Authentication can preserve a report that the property is unsupported without converting it into truth."
+    },
+    {
+      "id": "V-23",
+      "family": "multiple_policy_one_unbound",
+      "candidate": {
+        "subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "verified_subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "verifier": {
+          "id": "https://example.org/verifier/v2"
+        },
+        "policies": [
+          {
+            "uri": "https://example.org/policy/p1",
+            "digest": "sha256:p1",
+            "version": "1"
+          },
+          {
+            "uri": "https://example.org/policy/p2",
+            "digest": "sha256:p2",
+            "version": "4"
+          }
+        ],
+        "policy_evaluations": [
+          {
+            "version": "1",
+            "scope": [
+              "SCOPE_A"
+            ],
+            "digest": "sha256:p1"
+          }
+        ],
+        "policy_evaluation": {
+          "version": "1",
+          "scope": [
+            "SCOPE_A"
+          ],
+          "digest": "sha256:p1"
+        },
+        "timeCreated": "2026-10-03T01:00:00Z",
+        "properties": [
+          {
+            "name": "SCOPE_A/PASS",
+            "status": "passed"
+          }
+        ]
+      },
+      "note": "When multiple policy references are declared, every referenced policy needs an explicit evaluation binding; silently ignoring one policy makes the verification result non-reproducible."
     }
   ],
   "nonclaims": [
