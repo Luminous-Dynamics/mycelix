@@ -1,6 +1,13 @@
 name: Hearth 0.7 Qualification
 
 on:
+  push:
+    branches:
+      - 'chore/hearth-07-*'
+    paths:
+      - "mycelix-workspace/mycelix-hearth/**"
+      - "crates/mycelix-bridge-*/**"
+      - ".github/workflows/hearth-07-qualification.yml"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
     paths:
@@ -42,29 +49,56 @@ jobs:
       - name: Run Hearth 0.7 source audit
         working-directory: mycelix-workspace/mycelix-hearth
         run: |
-          nix develop .#ci --impure --command \
-            bash tools/audit-holochain-07-source.sh
+          set -o pipefail
+          nix develop .#ci --impure --command             bash tools/audit-holochain-07-source.sh 2>&1 | tee qualification-source-audit.log
 
       - name: Check Hearth 0.7 test formatting
         working-directory: mycelix-workspace/mycelix-hearth
         run: |
-          nix develop .#ci --impure --command \
-            cargo fmt --manifest-path tests/Cargo.toml --check
+          nix develop .#ci --impure --command             cargo fmt --manifest-path tests/Cargo.toml --check 2>&1 | tee qualification-format.log
 
       - name: Build Hearth 0.7 zomes
         working-directory: mycelix-workspace/mycelix-hearth
         run: |
-          nix develop .#ci --impure --command \
-            cargo build --release --target wasm32-unknown-unknown --workspace
+          set -o pipefail
+          nix develop .#ci --impure --command             cargo build --release --target wasm32-unknown-unknown --workspace 2>&1 | tee qualification-build.log
 
       - name: Pack Hearth 0.7 DNA
         working-directory: mycelix-workspace/mycelix-hearth
         run: |
-          nix develop .#ci --impure --command \
-            hc dna pack dna/
+          set -o pipefail
+          nix develop .#ci --impure --command             hc dna pack dna/ 2>&1 | tee qualification-dna-pack.log
 
       - name: Run Hearth 0.7 SweetConductor qualification
         working-directory: mycelix-workspace/mycelix-hearth
         run: |
-          nix develop .#ci --impure --command bash -c \
-            'cd tests && cargo test --release -- --include-ignored --test-threads=1'
+          set -o pipefail
+          nix develop .#ci --impure --command bash -c             'cd tests && cargo test --release -- --include-ignored --test-threads=1 2>&1 | tee ../qualification-sweettest.log'
+
+      - name: Capture qualification metadata
+        if: always()
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: |
+          {
+            echo "claim_ceiling=RuntimeQualificationPending"
+            echo "commit=${GITHUB_SHA}"
+            echo "ref=${GITHUB_REF_NAME}"
+            echo "event=${GITHUB_EVENT_NAME}"
+            echo "run_id=${GITHUB_RUN_ID}"
+            echo "workflow=${GITHUB_WORKFLOW}"
+          } > qualification-metadata.txt
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hearth-07-qualification-${{ github.sha }}
+          path: |
+            mycelix-workspace/mycelix-hearth/qualification-metadata.txt
+            mycelix-workspace/mycelix-hearth/qualification-source-audit.log
+            mycelix-workspace/mycelix-hearth/qualification-format.log
+            mycelix-workspace/mycelix-hearth/qualification-build.log
+            mycelix-workspace/mycelix-hearth/qualification-dna-pack.log
+            mycelix-workspace/mycelix-hearth/qualification-sweettest.log
+          if-no-files-found: warn
+          retention-days: 14
