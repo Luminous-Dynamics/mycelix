@@ -525,6 +525,13 @@ impl InventoryFrontier {
         previous_certificate_id: Option<String>,
         release: bool,
     ) -> Result<ApplyOutcome, CertificateError> {
+        // Replay classification must not bypass the frontier's seller authority.
+        // The seller is part of the event envelope even though the certificate ID
+        // identifies the underlying reservation.
+        if seller != self.seller {
+            return Err(CertificateError::WrongSeller);
+        }
+
         let certificate = self
             .certificates
             .get(certificate_id)
@@ -1160,6 +1167,36 @@ mod tests {
         assert_eq!(f.next_sequence(), 2);
         assert_eq!(f.capacity(), 2);
         assert_eq!(f.listing_revision(), &hash(7));
+    }
+
+    #[test]
+    fn terminal_replay_with_foreign_seller_is_not_idempotent() {
+        let mut f = frontier(2);
+        f.apply(FrontierEvent::Reserve(certificate_with_capacity(
+            "c1", 0, None, 1, 2,
+        )))
+        .unwrap();
+
+        let terminal = FrontierEvent::Release {
+            certificate_id: "c1".into(),
+            seller: agent(2),
+            sequence: 1,
+            previous_certificate_id: Some("c1".into()),
+        };
+        assert_eq!(f.apply(terminal), Ok(ApplyOutcome::Applied));
+
+        let foreign_replay = FrontierEvent::Release {
+            certificate_id: "c1".into(),
+            seller: agent(9),
+            sequence: 1,
+            previous_certificate_id: Some("c1".into()),
+        };
+        assert_eq!(
+            f.apply(foreign_replay),
+            Err(CertificateError::WrongSeller)
+        );
+        assert_eq!(f.next_sequence(), 2);
+        assert_eq!(f.active_reserved(), 0);
     }
 
     #[test]
