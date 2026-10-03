@@ -105,6 +105,50 @@ struct DidServiceView {
     endpoint: String,
 }
 
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+struct MfaFactorView {
+    factor_type: MfaFactorType,
+    factor_id: String,
+    enrolled_at: i64,
+    last_verified: i64,
+    effective_strength: f32,
+    active: bool,
+    metadata: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+struct MfaStateView {
+    did: String,
+    factors: Vec<MfaFactorView>,
+    assurance_level: MfaAssuranceLevel,
+    effective_strength: f32,
+    category_count: u8,
+    updated: i64,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+enum MfaFactorType {
+    PrimaryKeyPair,
+    HardwareKey,
+    Biometric,
+    SocialRecovery,
+    ReputationAttestation,
+    GitcoinPassport,
+    VerifiableCredential,
+    RecoveryPhrase,
+    SecurityQuestions,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+enum MfaAssuranceLevel {
+    Anonymous,
+    Basic,
+    Verified,
+    HighlyAssured,
+    ConstitutionallyCritical,
+}
+
 fn dna_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("..")
@@ -371,9 +415,13 @@ async fn dsid_005_deactivation_is_observable_and_terminal() {
     let active_after: bool = conductor
         .call(&cell.zome("did_registry"), "is_did_active", did.id.clone())
         .await;
+    let view_after: Option<DidDocumentView> = conductor
+        .call(&cell.zome("did_registry"), "get_my_did_view", ())
+        .await;
 
     assert!(active_before);
     assert!(!active_after);
+    assert_eq!(view_after.as_ref().map(|view| view.active), Some(false));
 
     let mut agents = BTreeMap::new();
     agents.insert("alice", agent.to_string());
@@ -432,6 +480,51 @@ async fn dsid_006_self_recovery_projection_matches_canonical_state() {
             view["time_lock_secs"],
             view["active"],
             view["superseded_by_social"]
+        ),
+        true,
+    );
+}
+
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_007_browser_projection_redacts_mfa_material() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let app = conductor.setup_app("dsid-mfa-redaction", std::slice::from_ref(&dna)).await.unwrap();
+    let cell = app.cells()[0].clone();
+    let agent = app.agent().clone();
+
+    let did_record: Record = conductor
+        .call(&cell.zome("did_registry"), "create_did", ())
+        .await;
+    let did: DidDocument = decode_entry(&did_record).expect("DID entry must decode");
+
+    let view: Option<MfaStateView> = conductor
+        .call(&cell.zome("mfa"), "get_mfa_view", did.id.clone())
+        .await;
+
+    let view = view.expect("MFA projection must exist after DID creation");
+    assert_eq!(view.did, did.id);
+    assert_eq!(view.factors.len(), 1);
+    assert!(view.factors[0].factor_id.contains('…'));
+    assert_ne!(view.factors[0].factor_id, format!("sha256:{}", agent));
+    assert!(view.factors[0].metadata.is_empty());
+
+    let mut agents = BTreeMap::new();
+    agents.insert("alice", agent.to_string());
+    emit_evidence(
+        "DSID-007",
+        "browser-projection-redacts-mfa-material",
+        &dna,
+        agents,
+        &[&did_record],
+        "The browser-facing MFA projection exposes only a masked identifier and no raw factor metadata.",
+        format!(
+            "factor_count={} masked_id={} metadata_empty={}",
+            view.factors.len(),
+            view.factors[0].factor_id,
+            view.factors[0].metadata.is_empty()
         ),
         true,
     );
