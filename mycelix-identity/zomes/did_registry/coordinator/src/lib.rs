@@ -534,24 +534,40 @@ pub fn get_did_document(agent_pub_key: AgentPubKey) -> ExternResult<Option<Recor
     )?;
 
     if !history_links.is_empty() {
-        let mut candidates = Vec::new();
+        let mut candidates: Vec<(u32, ActionHash, Record)> = Vec::new();
         for link in history_links {
             let action_hash = ActionHash::try_from(link.target)
                 .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid history link target".into())))?;
-            if let Some(record) = get(action_hash, GetOptions::default())? {
+            if let Some(record) = get(action_hash.clone(), GetOptions::default())? {
                 if let Some(document) = record.entry().to_app_option::<DidDocument>().ok().flatten() {
-                    // Version is the protocol ordering primitive. Link timestamps
-                    // are only an observation-time property and must not decide
-                    // which document is canonical.
-                    candidates.push((document.version, link.timestamp, record));
+                    candidates.push((document.version, action_hash, record));
                 }
             }
         }
-        if let Some((_, _, record)) = candidates
-            .into_iter()
-            .max_by_key(|(version, timestamp, _)| (*version, *timestamp))
-        {
-            return Ok(Some(record));
+
+        // Version is the protocol ordering primitive. Link timestamps are not
+        // trusted authority state. New writes enforce one document per version;
+        // legacy data with two different records at the same highest version is
+        // ambiguous and must fail closed rather than choosing DHT traversal order.
+        if let Some(max_version) = candidates.iter().map(|(version, _, _)| *version).max() {
+            let mut selected: Option<(ActionHash, Record)> = None;
+            for (version, action_hash, record) in candidates {
+                if version != max_version {
+                    continue;
+                }
+                if let Some((existing_hash, _)) = selected.as_ref() {
+                    if existing_hash != &action_hash {
+                        return Err(wasm_error!(WasmErrorInner::Guest(
+                            "Ambiguous DID history: multiple distinct records share the highest version".into(),
+                        )));
+                    }
+                } else {
+                    selected = Some((action_hash, record));
+                }
+            }
+            if let Some((_, record)) = selected {
+                return Ok(Some(record));
+            }
         }
     }
 
@@ -610,20 +626,32 @@ pub fn resolve_did_version(input: ResolveDidVersionInput) -> ExternResult<Option
         GetStrategy::default(),
     )?;
 
+    let mut matched: Option<(ActionHash, Record)> = None;
     for link in history_links {
         let action_hash = ActionHash::try_from(link.target)
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid history link target".into())))?;
-        if let Some(record) = get(action_hash, GetOptions::default())? {
+        if let Some(record) = get(action_hash.clone(), GetOptions::default())? {
             let document: Option<DidDocument> = record
                 .entry()
                 .to_app_option()
                 .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
             if let Some(document) = document {
                 if document.id == input.did && document.version == input.version {
-                    return Ok(Some(record));
+                    if let Some((existing_hash, _)) = matched.as_ref() {
+                        if existing_hash != &action_hash {
+                            return Err(wasm_error!(WasmErrorInner::Guest(
+                                "Ambiguous DID history: multiple distinct records match the requested version".into(),
+                            )));
+                        }
+                    } else {
+                        matched = Some((action_hash, record));
+                    }
                 }
             }
         }
+    }
+    if let Some((_, record)) = matched {
+        return Ok(Some(record));
     }
 
     // Backward-compatible fallback for a version-1 identity created before
