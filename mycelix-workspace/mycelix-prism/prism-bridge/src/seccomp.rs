@@ -561,7 +561,7 @@ mod linux {
                                 filter.push(jump_eq(low_value, 0, 4));
                                 filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base + 4));
                                 filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, high_mask));
-                                filter.push(jump_eq(high_value, clause_mismatch_skip, 1));
+                                filter.push(jump_eq(high_value, 0, 1));
                                 filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_ERRNO | libc::EPERM as u32));
                             } else {
                                 let (base, mask, value) = if low_mask != 0 {
@@ -639,11 +639,11 @@ mod linux {
                                     filter.push(jump_eq(low_value, 0, 4));
                                     filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base + 4));
                                     filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, high_mask));
-                                    // Equality makes the whole 64-bit predicate
-                                    // fail, so fall through to EPERM. Inequality
-                                    // succeeds and skips only that EPERM,
-                                    // continuing with the next predicate.
-                                    filter.push(jump_eq(high_value, 0, 1));
+                                    // Equality makes the whole 64-bit predicate fail, so skip
+                                    // this clause's EPERM and remaining body to the
+                                    // next alternative. Inequality succeeds and
+                                    // skips only that EPERM, continuing with the next predicate.
+                                    filter.push(jump_eq(high_value, clause_mismatch_skip, 1));
                                     filter.push(stmt(
                                         BPF_RET | BPF_K,
                                         SECCOMP_RET_ERRNO | libc::EPERM as u32,
@@ -656,9 +656,9 @@ mod linux {
                                     };
                                     filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base));
                                     filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, mask));
-                                    // Equality fails the NotEqual predicate and
-                                    // must reach EPERM; inequality skips only
-                                    // that EPERM and continues in this clause.
+                                    // Equality fails the NotEqual predicate, so skip this clause's
+                                    // remaining body to the next alternative;
+                                    // inequality skips only that EPERM and continues.
                                     filter.push(jump_eq(value, clause_mismatch_skip, 1));
                                     filter.push(stmt(
                                         BPF_RET | BPF_K,
