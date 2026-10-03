@@ -73,8 +73,24 @@ impl HolochainAuthorityAgentBindingSet {
 
         if self.bindings.contains_key(&authority) {
             return Ok(Err(HolochainAdapterBoundaryError::BindingRejected {
-                reason: "an authority identity may be bound to only one AgentPubKey in an immutable binding set"
-                    .into(),
+                reason:
+                    "an authority identity may be bound to only one AgentPubKey in an immutable binding set"
+                        .into(),
+            }));
+        }
+
+        if self
+            .bindings
+            .values()
+            .any(|existing| {
+                existing.payload.provenance.witness_identity
+                    == credential.payload.provenance.witness_identity
+            })
+        {
+            return Ok(Err(HolochainAdapterBoundaryError::BindingRejected {
+                reason:
+                    "an authority-agent provenance witness may justify only one registry binding"
+                        .into(),
             }));
         }
 
@@ -1454,6 +1470,33 @@ mod tests {
 
         assert!(matches!(result, Ok(Ok(()))));
         assert_eq!(registry.agent_for(&authority), Some(&agent));
+    }
+
+    #[test]
+    fn authority_agent_registry_rejects_duplicate_provenance_witness() {
+        let _guard = host_test_lock()
+            .lock()
+            .expect("HDI test lock is not poisoned");
+        let _previous = set_hdi(RecordingHdi {
+            calls: Arc::new(Mutex::new(Vec::new())),
+            verify_result: true,
+        });
+
+        let first_authority = identity("witness-unique-first");
+        let second_authority = identity("witness-unique-second");
+        let first = authority_credential(first_authority, action_agent_key(51), "witness-shared");
+        let mut second =
+            authority_credential(second_authority, action_agent_key(52), "witness-second");
+        second.payload.provenance.witness_identity =
+            first.payload.provenance.witness_identity.clone();
+
+        let mut registry = HolochainAuthorityAgentBindingSet::new();
+        assert!(matches!(registry.bind_attested(first), Ok(Ok(()))));
+        assert!(matches!(
+            registry.bind_attested(second),
+            Ok(Err(HolochainAdapterBoundaryError::BindingRejected { .. }))
+        ));
+        assert_eq!(registry.len(), 1);
     }
 
     #[test]
