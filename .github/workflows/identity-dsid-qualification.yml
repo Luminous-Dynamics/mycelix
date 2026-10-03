@@ -52,6 +52,7 @@ jobs:
               "resolution_vectors",
               "wire_vectors",
               "verification_method_vectors",
+              "version_vectors",
               "authority_vectors",
               "deployment_vectors",
           ):
@@ -66,6 +67,7 @@ jobs:
           assert corpus["did_vectors"][0]["input"].startswith("did:mycelix:")
           assert corpus["wire_vectors"][0]["wire_name"] == "verificationMethod"
           assert corpus["verification_method_vectors"][0]["multicodec"] == "0xed01"
+          assert corpus["version_vectors"][0]["transition"] == "1->2"
           PY
 
       - uses: dtolnay/rust-toolchain@stable
