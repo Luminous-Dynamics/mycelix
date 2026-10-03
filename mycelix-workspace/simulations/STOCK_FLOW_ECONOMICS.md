@@ -1029,14 +1029,15 @@ rather than allowing any individual reporting constructor to become a weaker tru
 ## Aggregate observable trust-boundary closure (implemented)
 
 `EconomicObservables::try_from_state_and_transitions` now provides a preferred constructor that
-takes the validated opening state and authoritative transition sequence, derives the
-`EconomicPeriodLedger` internally, and only then derives aggregate observables.
+takes the validated opening state and authoritative transition sequence, replays the
+transitions to the period-terminal state, derives the `EconomicPeriodLedger` internally, and only then
+derives aggregate observables.
 
 The existing state-plus-ledger constructor remains available for compatibility, but it now validates
 the supplied state before projecting any aggregate values. This makes the intended provenance order
 explicit:
 
-`opening state + authoritative transitions -> period ledger -> aggregate observables`
+`opening state + authoritative transitions -> replayed terminal state + period ledger -> aggregate observations`
 
 rather than allowing a reporting caller to treat a separately supplied ledger as equivalent to one
 derived from the transition program.
