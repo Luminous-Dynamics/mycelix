@@ -1025,3 +1025,23 @@ The reporting boundary is now consistent across the stack:
 `validated state + validated transitions -> actor observations -> sector observations/snapshots`
 
 rather than allowing any individual reporting constructor to become a weaker trust boundary.
+
+## Aggregate observable trust-boundary closure (implemented)
+
+`EconomicObservables::try_from_state_and_transitions` now provides a preferred constructor that
+takes the validated opening state and authoritative transition sequence, derives the
+`EconomicPeriodLedger` internally, and only then derives aggregate observables.
+
+The existing state-plus-ledger constructor remains available for compatibility, but it now validates
+the supplied state before projecting any aggregate values. This makes the intended provenance order
+explicit:
+
+`opening state + authoritative transitions -> period ledger -> aggregate observables`
+
+rather than allowing a reporting caller to treat a separately supplied ledger as equivalent to one
+derived from the transition program.
+
+The hardening pass also repaired an older test fixture that contained unmatched opening debt/claim
+stocks. The fixture now satisfies the closed-financial invariant before observing its period
+depreciation, so the stronger validation is exercised against a valid accounting base rather than
+hidden by test data.
