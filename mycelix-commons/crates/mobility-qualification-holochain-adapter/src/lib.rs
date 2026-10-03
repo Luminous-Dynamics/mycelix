@@ -208,25 +208,26 @@ impl HolochainDependencyBindingSet {
     pub fn bind_attested(
         &mut self,
         attestation: SignedHolochainBindingAttestation,
-    ) -> Result<(), HolochainAdapterBoundaryError> {
-        let verified = attestation
-            .verify()
-            .map_err(|error| HolochainAdapterBoundaryError::BindingRejected {
-                reason: format!("binding attestation verification failed: {error}"),
-            })?;
+    ) -> ExternResult<Result<(), HolochainAdapterBoundaryError>> {
+        attestation
+            .payload
+            .validate()
+            .map_err(|error| wasm_error!(WasmErrorInner::Guest(error.to_string())))?;
+
+        let verified = attestation.verify()?;
 
         if !verified {
-            return Err(HolochainAdapterBoundaryError::SemanticInvalid {
+            return Ok(Err(HolochainAdapterBoundaryError::SemanticInvalid {
                 reason: "binding attestation signature did not verify".into(),
-            });
+            }));
         }
 
-        self.bind(
+        Ok(self.bind(
             attestation.payload.provenance.logical_identity.clone(),
             attestation.payload.address,
             attestation.payload.retrieval,
             attestation.payload.provenance,
-        )
+        ))
     }
 
     /// Resolve logical identities using the pure three-outcome algebra.
