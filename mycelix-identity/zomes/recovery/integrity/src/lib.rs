@@ -304,6 +304,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::RegisterDeleteLink {
             original_action,
             action,
+            link_type,
             ..
         } => {
             if action.author != original_action.author {
@@ -311,7 +312,23 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     "Only the link creator can delete their links".into(),
                 ));
             }
-            Ok(ValidateCallbackResult::Valid)
+
+            // Recovery links are part of the security state. In particular,
+            // deleting RequestToVotes can make an immutable trustee vote
+            // disappear from DHT-derived quorum, and deleting the DID/request
+            // indexes can hide otherwise valid recovery state. New delete-link
+            // operations for this integrity zome therefore fail closed.
+            match link_type {
+                LinkTypes::DidToRecoveryConfig
+                | LinkTypes::DidToRecoveryRequest
+                | LinkTypes::RequestToVotes
+                | LinkTypes::TrusteeToConfig
+                | LinkTypes::DidToSelfRecoveryConfig
+                | LinkTypes::DidToSelfRecoveryRequest
+                | LinkTypes::RecoveryRequestIdToRequest => Ok(ValidateCallbackResult::Invalid(
+                    "Recovery security links cannot be deleted".into(),
+                )),
+            }
         }
         FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
         // RegisterAgentActivity is the chain-authority validation boundary.
