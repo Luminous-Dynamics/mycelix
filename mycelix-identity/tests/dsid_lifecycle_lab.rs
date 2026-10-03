@@ -1974,3 +1974,73 @@ async fn dsid_025_self_recovery_latest_update_is_canonical() {
         true,
     );
 }
+
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_026_resolution_json_omits_absent_optional_metadata() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let app = conductor.setup_app(
+        "dsid-resolution-json-shape",
+        std::slice::from_ref(&dna),
+    ).await.unwrap();
+    let cell = app.cells()[0].clone();
+    let agent = app.agent().clone();
+
+    let _did_record: Record = conductor
+        .call(&cell.zome("did_registry"), "create_did", ())
+        .await;
+
+    let did = format!("did:mycelix:{}", agent);
+    let result: DidResolutionView = conductor
+        .call(
+            &cell.zome("did_registry"),
+            "resolve_did_resolution",
+            did.clone(),
+        )
+        .await;
+
+    let wire = serde_json::to_value(&result).expect("resolution must serialize");
+    assert!(wire["didResolutionMetadata"].get("contentType").is_some());
+    assert!(wire["didResolutionMetadata"].get("error").is_none());
+
+    let deactivated: Record = conductor
+        .call(
+            &cell.zome("did_registry"),
+            "deactivate_did",
+            "DSID optional metadata shape".to_string(),
+        )
+        .await;
+
+    let after: DidResolutionView = conductor
+        .call(
+            &cell.zome("did_registry"),
+            "resolve_did_resolution",
+            did.clone(),
+        )
+        .await;
+    let after_wire = serde_json::to_value(&after).expect("deactivated resolution must serialize");
+    assert!(after_wire["didResolutionMetadata"].get("contentType").is_none());
+    assert!(after_wire["didResolutionMetadata"].get("error").is_none());
+    assert_eq!(after_wire["didDocument"], serde_json::Value::Null);
+    assert_eq!(after_wire["didDocumentMetadata"]["deactivated"], true);
+
+    let mut agents = BTreeMap::new();
+    agents.insert("alice", agent.to_string());
+    emit_evidence(
+        "DSID-026",
+        "resolution-json-omits-absent-optional-metadata",
+        &dna,
+        agents,
+        &[&deactivated],
+        "Optional DID resolution metadata fields are omitted when absent rather than serialized as JSON null.",
+        format!(
+            "active_error_omitted={} deactivated_content_type_omitted={} deactivated_error_omitted={}",
+            wire["didResolutionMetadata"].get("error").is_none(),
+            after_wire["didResolutionMetadata"].get("contentType").is_none(),
+            after_wire["didResolutionMetadata"].get("error").is_none()
+        ),
+        true,
+    );
+}
