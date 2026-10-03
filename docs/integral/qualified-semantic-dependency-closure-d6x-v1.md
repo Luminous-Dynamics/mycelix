@@ -82,6 +82,14 @@ The executable model therefore preserves `Stale` across node dequeue/inclusion, 
 - **BlockedCurrentness** — a selected dependency is historical where the profile requires current material.
 - **BlockedResourceLimit** — deterministic bounds prevent completion.
 
+### Resource-boundary ordering
+
+Resource limits are checked before cryptographic validation of the next candidate once the corresponding budget is exhausted.
+
+For nodes, reaching max_nodes stops dequeue processing before the next queued node is inspected. For selected edges, reaching max_edges stops edge qualification before the next selected edge's commitment is checked. A missing edge target is handled first as a missing semantic dependency because no selected target object exists to consume edge budget.
+
+This ordering is deliberate: material beyond an exhausted qualification budget is not part of the inspected closure prefix. Therefore malformed material beyond that boundary cannot transform an otherwise well-formed, deterministic BlockedResourceLimit certificate into a hard None result. The certificate never asserts validity for the uninspected candidate; it asserts only that the declared closure could not be completed within the configured budget.
+
 Cycles are permitted at the graph level. The traversal uses a deterministic visited set, while cycle detection is recorded separately. A graph cycle is not treated as a recursive semantic derivation; recursive fixpoint evaluation remains separately qualified by D6U.
 
 ## Downstream reference normalization
@@ -174,6 +182,8 @@ The reference model currently includes fixtures for:
 33. the typed runtime-resolution envelope rejects drift between its typed attempt and legacy opaque evidence representation.
 34. the D6X closure identity explicitly binds the canonicalization contract version rather than relying only on an implicit implementation dependency.
 35. the candidate-bound closure certificate commitment is mutation-tested across every semantic certificate field; only the stored commitment itself is excluded from its own preimage.
+36. an invalid candidate immediately beyond the node budget yields BlockedResourceLimit rather than being validated as though it were inside the inspected budget.
+37. an invalid candidate immediately beyond the edge budget yields BlockedResourceLimit rather than being validated as though it were inside the inspected budget.
 
 Before interoperability or production claims, add cross-language golden vectors, currentness/D6P fixtures, contradiction-preservation fixtures, cycle fixtures, resource-limit fixtures, and execute the Rust/WASM/Holochain conformance corpus.
 
