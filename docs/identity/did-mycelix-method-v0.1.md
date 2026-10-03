@@ -220,6 +220,7 @@ The current qualification laboratory maps concrete protocol behavior to determin
 | DSID-016 | deterministic historical DID version resolution |
 | DSID-017 | structured W3C not-found resolution error |
 | DSID-018 | initial MFA factor hash binding |
+| DSID-019 | structured unsupported-method resolution error |
 
 The qualification workflow records scenario IDs, agents, DNA hash, action hashes, entry hashes, expected and observed behavior, pass state, and commit SHA, then hashes the complete evidence capsule.
 
