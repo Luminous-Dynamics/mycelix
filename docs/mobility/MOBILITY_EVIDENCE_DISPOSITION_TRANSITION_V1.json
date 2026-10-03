@@ -481,6 +481,11 @@
       "id": "EDT-094",
       "case": "runtime_neutral_qualification_adapter_contract_is_machine_readable_and_three_valued",
       "expected": "accepted"
+    },
+    {
+      "id": "EDT-095",
+      "case": "independent_reference_validator_accepts_only_the_declared_adapter_boundary_contract",
+      "expected": "accepted"
     }
   ]
 }
