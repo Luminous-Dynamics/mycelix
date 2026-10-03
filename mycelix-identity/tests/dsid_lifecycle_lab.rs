@@ -671,3 +671,70 @@ async fn dsid_009_credential_projection_preserves_w3c_dates_and_revocation_state
         true,
     );
 }
+
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_010_cross_agent_resolution_projection_matches_did() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let alice_app = conductor.setup_app(
+        "dsid-alice-browser-resolver",
+        std::slice::from_ref(&dna),
+    ).await.unwrap();
+    let bob_app = conductor.setup_app(
+        "dsid-bob-browser-resolver",
+        std::slice::from_ref(&dna),
+    ).await.unwrap();
+    let alice = alice_app.cells()[0].clone();
+    let bob = bob_app.cells()[0].clone();
+
+    let alice_record: Record = conductor
+        .call(&alice.zome("did_registry"), "create_did", ())
+        .await;
+    let alice_did: DidDocumentView = conductor
+        .call(&alice.zome("did_registry"), "get_my_did_view", ())
+        .await
+        .expect("Alice DID view must exist");
+
+    let _bob_did: DidDocumentView = conductor
+        .call(&bob.zome("did_registry"), "create_did_view", ())
+        .await;
+
+    await_consistency(&[alice.clone(), bob.clone()])
+        .await
+        .expect("peers must reach consistency before cross-agent resolution");
+
+    let resolved: Option<DidDocumentView> = conductor
+        .call(
+            &bob.zome("did_registry"),
+            "resolve_did_view",
+            alice_did.id.clone(),
+        )
+        .await;
+
+    let resolved = resolved.expect("Bob must resolve Alice's typed DID view");
+    assert_eq!(resolved.id, alice_did.id);
+    assert_eq!(resolved.controller, alice_did.controller);
+    assert_eq!(resolved.version, alice_did.version);
+    assert_eq!(resolved.active, alice_did.active);
+
+    let mut agents = BTreeMap::new();
+    agents.insert("alice", alice_app.agent().to_string());
+    agents.insert("bob", bob_app.agent().to_string());
+    emit_evidence(
+        "DSID-010",
+        "cross-agent-resolution-projection-matches-did",
+        &dna,
+        agents,
+        &[],
+        "Cross-agent DID resolution exposes the same canonical state through a typed projection without requiring browser-side Holochain Record decoding.",
+        format!(
+            "resolved_did={} version={} active={}",
+            resolved.id,
+            resolved.version,
+            resolved.active
+        ),
+        true,
+    );
+}
