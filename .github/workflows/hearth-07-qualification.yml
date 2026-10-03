@@ -76,6 +76,7 @@ jobs:
         run: bash -n tools/audit-holochain-07-source.sh
 
       - name: Run Hearth 0.7 source audit
+        id: source_audit
         working-directory: mycelix-workspace/mycelix-hearth
         run: |
           set -o pipefail
@@ -136,6 +137,7 @@ jobs:
           nix develop .#ci --impure --command bash -c 'cd tests && cargo metadata --locked --format-version 1' > tests/qualification-cargo-metadata.json
 
       - name: Build Hearth 0.7 zomes
+        id: build_zomes
         working-directory: mycelix-workspace/mycelix-hearth
         run: |
           set -o pipefail
@@ -145,12 +147,14 @@ jobs:
           nix develop .#ci --impure --command             cargo build --locked --release --target wasm32-unknown-unknown --workspace 2>&1 | tee qualification-build.log
 
       - name: Pack Hearth 0.7 DNA
+        id: dna_pack
         working-directory: mycelix-workspace/mycelix-hearth
         run: |
           set -o pipefail
           nix develop .#ci --impure --command             hc dna pack dna/ 2>&1 | tee qualification-dna-pack.log
 
       - name: Run Hearth 0.7 SweetConductor qualification
+        id: sweettest
         working-directory: mycelix-workspace/mycelix-hearth
         run: |
           set -o pipefail
@@ -172,16 +176,33 @@ jobs:
             echo "dna_present=$(test -s dna/mycelix_hearth.dna && echo true || echo false)"
           } > qualification-toolchain.txt
 
-          : > qualification-wasm-sha256.txt
-          while IFS= read -r wasm_path; do
-            [[ -n "$wasm_path" ]] || continue
-            wasm="dna/$wasm_path"
-            [[ -s "$wasm" ]] || { echo "missing or empty DNA input: $wasm" >&2; exit 1; }
-            sha256sum "$wasm" >> qualification-wasm-sha256.txt
-          done < <(sed -n 's/^[[:space:]]*path:[[:space:]]*//p' dna/dna.yaml | sort -u)
+          build_conclusion="${{ steps.build_zomes.conclusion || 'unknown' }}"
+          dna_pack_conclusion="${{ steps.dna_pack.conclusion || 'unknown' }}"
+          source_audit_conclusion="${{ steps.source_audit.conclusion || 'unknown' }}"
+          sweettest_conclusion="${{ steps.sweettest.conclusion || 'unknown' }}"
+          echo "source_audit_conclusion=$source_audit_conclusion"
+          echo "build_zomes_conclusion=$build_conclusion"
+          echo "dna_pack_conclusion=$dna_pack_conclusion"
+          echo "sweettest_conclusion=$sweettest_conclusion"
 
-          [[ -s dna/mycelix_hearth.dna ]] || { echo "missing or empty packed DNA" >&2; exit 1; }
-          sha256sum dna/mycelix_hearth.dna > qualification-dna-sha256.txt
+          : > qualification-wasm-sha256.txt
+          if [[ "$build_conclusion" == "success" ]]; then
+            while IFS= read -r wasm_path; do
+              [[ -n "$wasm_path" ]] || continue
+              wasm="dna/$wasm_path"
+              [[ -s "$wasm" ]] || { echo "build succeeded but DNA input is missing or empty: $wasm" >&2; exit 1; }
+              sha256sum "$wasm" >> qualification-wasm-sha256.txt
+            done < <(sed -n 's/^[[:space:]]*path:[[:space:]]*//p' dna/dna.yaml | sort -u)
+          else
+            echo "wasm_capture=unavailable_build_not_successful" > qualification-wasm-sha256.txt
+          fi
+
+          if [[ "$dna_pack_conclusion" == "success" ]]; then
+            [[ -s dna/mycelix_hearth.dna ]] || { echo "DNA pack succeeded but packed DNA is missing or empty" >&2; exit 1; }
+            sha256sum dna/mycelix_hearth.dna > qualification-dna-sha256.txt
+          else
+            echo "dna_capture=unavailable_pack_not_successful" > qualification-dna-sha256.txt
+          fi
 
           # Bind the evidence to the exact source-side qualification contract as
           # well as the candidate commit. These files are all read from the
