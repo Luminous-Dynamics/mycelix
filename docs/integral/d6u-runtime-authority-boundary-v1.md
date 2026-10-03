@@ -4,7 +4,7 @@ Status: **ReferenceModelOnly**
 
 D6U is the live-substrate companion to D6S-CANON-2.
 
-D6S-CANON-2 provides a deterministic 17-case reference matrix. D6U binds 15 of those cases to an actual Holochain 0.7 test conductor using the same protocol primitives exposed by Holochain's 0.7 test stack:
+D6S-CANON-2 provides a deterministic 17-case reference matrix. D6U binds 16 of those cases to an actual Holochain 0.7 test conductor using the same protocol primitives exposed by Holochain's 0.7 test stack:
 
 - Sweettest conductor;
 - inline zomes;
