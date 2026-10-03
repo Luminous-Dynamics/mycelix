@@ -256,7 +256,7 @@ async fn dsid_001_create_and_load_canonical_identity() {
         .await;
 
     assert!(created.id.starts_with("did:mycelix:"));
-    assert_eq!(created.controller, agent.to_string());
+    assert_eq!(created.controller, format!("did:mycelix:{}", agent));
     assert_eq!(created.version, 1);
     assert!(created.active);
     assert_eq!(loaded, Some(created.clone()));
