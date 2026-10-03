@@ -44,6 +44,19 @@ Each immutable transition has its own typed `transition_id`. Graph validation re
 
 A missing predecessor is returned as an unresolved dependency, not a negative evidence judgment. When multiple children reference one predecessor, the graph assessment reports the branch point and retains every branch; it does not select a winning state. A separate, explicit reconciliation record is required before a consumer may treat the competing branches as reconciled. This graph check validates only the supplied dependency set; callers must retrieve the complete referenced records by address before treating the assessment as complete.
 
+### Qualification outcome classes
+
+The machine-readable disposition corpus uses distinct classes for semantic and adapter outcomes:
+
+- `accepted` — the declared structural condition is satisfied.
+- `rejected` — a definitive semantic contradiction is visible.
+- `typed_structural_error` — the pure qualification layer exposed a typed structural contract violation.
+- `unresolved_at_protocol_layer` — required addressable dependency data is unavailable.
+- `explicit_branch` and `not_silently_collapsed` — historical branch-preservation assertions used by the corpus.
+- `adapter_boundary_error` — the runtime binding cannot satisfy the selected protocol retrieval contract, such as supplying an address of the wrong kind. This is not semantic `Invalid`.
+
+The last category is deliberately outside the three semantic qualification outcomes. An adapter implementation must not convert an adapter contract defect into a semantic finding about the underlying mobility record.
+
 The canonical assessment also exposes structural failures through the typed `EvidenceDispositionCoverageValidationError::Structural` error boundary. Dependency absence is deliberately not encoded as this error: the assessment returns `Unresolved` with explicit missing identities. This keeps definitive structural contradiction separate from dependency availability and lets an eventual Holochain callback map the two outcomes directly to `Invalid` and `UnresolvedDependencies`.
 
 ## Append operation boundary
