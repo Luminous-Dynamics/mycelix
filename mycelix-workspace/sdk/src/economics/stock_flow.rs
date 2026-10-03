@@ -632,6 +632,65 @@ impl EconomicState {
         }
     }
 
+    /// Validate the domain of a complete economic state before it enters a timestep.
+    ///
+    /// Stock and cumulative-counter fields represent non-negative quantities.
+    /// Financial identities are checked separately because some valid closed
+    /// models intentionally contain issuer-backed cash outside the modeled
+    /// claim/liability set.
+    pub fn validate(&self) -> Result<(), String> {
+        let mut actor_ids = std::collections::BTreeSet::new();
+        for actor in &self.actors {
+            if !actor_ids.insert(actor.actor.as_str()) {
+                return Err(format!("duplicate economic actor id: {}", actor.actor));
+            }
+
+            let monetary = &actor.monetary;
+            for (label, value) in [
+                ("cash", monetary.cash),
+                ("deposits", monetary.deposits),
+                ("claims", monetary.claims),
+                ("trade receivables", monetary.trade_receivables),
+                ("liabilities", monetary.liabilities),
+                ("deposit liabilities", monetary.deposit_liabilities),
+                ("trade payables", monetary.trade_payables),
+            ] {
+                if value < 0 {
+                    return Err(format!(
+                        "economic state contains negative {label} for actor {}",
+                        actor.actor
+                    ));
+                }
+            }
+
+            for (label, value) in [
+                ("productive capital", actor.real.productive_capital),
+                ("inventories", actor.real.inventories),
+                ("resources", actor.real.resources),
+                ("inventory carrying value", actor.inventory_carrying_value),
+            ] {
+                if value < 0 {
+                    return Err(format!(
+                        "economic state contains negative {label} for actor {}",
+                        actor.actor
+                    ));
+                }
+            }
+        }
+
+        for (label, value) in [
+            ("monetary flow volume", self.monetary_flow_volume),
+            ("credit created", self.credit_created),
+            ("debt repaid", self.debt_repaid),
+        ] {
+            if value < 0 {
+                return Err(format!("economic state contains negative {label}"));
+            }
+        }
+
+        Ok(())
+    }
+
     fn actor_mut(&mut self, actor: &str) -> Result<&mut ActorBalanceSheet, String> {
         self.actors
             .iter_mut()
@@ -1258,6 +1317,23 @@ impl EconomicState {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn state_domain_validation_rejects_negative_stocks_and_duplicate_ids() {
+        let mut invalid = state();
+        invalid.actors[1].monetary.deposits = -1;
+        assert!(invalid.validate().is_err());
+
+        let duplicate = EconomicState::new(vec![
+            ActorBalanceSheet::new("same"),
+            ActorBalanceSheet::new("same"),
+        ]);
+        assert!(duplicate.validate().is_err());
+
+        let mut negative_counter = state();
+        negative_counter.credit_created = -1;
+        assert!(negative_counter.validate().is_err());
+    }
 
     #[test]
     fn monetary_and_balance_sheet_checked_arithmetic_fails_closed() {
