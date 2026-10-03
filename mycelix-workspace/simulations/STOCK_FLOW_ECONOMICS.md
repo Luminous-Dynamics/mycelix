@@ -1166,3 +1166,23 @@ This is especially valuable for non-cash changes and opening/closing stock bridg
 is likewise emphasizing clearer links between changes in assets/liabilities, cash-flow reconciliations,
 and statement-of-financial-position line items, reinforcing the value of making those bridges explicit
 rather than hiding them in aggregate residuals.
+
+
+## Canonical transition mutation dispatch (implemented)
+
+Transition mutation is now dispatched through one canonical `EconomicTransition::apply_to_state`
+implementation. The normal economic timestep executor and actor-observation replay both use this
+same dispatcher rather than maintaining separate enum-to-mutation match trees.
+
+This closes a maintenance-level provenance risk: adding a new transition variant or changing its
+mutation semantics can no longer silently update the executor while leaving the observation replay
+on an older mutation path. The observation layer still accumulates its own semantic measurements,
+but the state mutation itself has one implementation.
+
+The invariant is now:
+
+`validated transition -> one canonical mutation dispatcher -> shared resulting state semantics`
+
+This is deliberately an accounting-kernel refactor, not a behavioral assumption. It reduces the
+number of independent implementations that later SFC, ecological, financial-stability, or agent-based
+behavioral layers will have to trust.
