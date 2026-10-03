@@ -98,33 +98,45 @@ impl<A> QualificationDependencyBindingSet<A> {
 
     /// Resolve a required logical-dependency set in canonical identity order.
     ///
-    /// Success returns every bound logical identity alongside its opaque runtime
-    /// address. Failure returns only the canonical set of identities for which
-    /// no binding exists. Missing bindings are therefore an unresolved
-    /// dependency condition, not a semantic invalidity.
+    /// A malformed logical identity is a definitive structural invalidity.
+    /// Otherwise, success returns every bound logical identity alongside its
+    /// opaque runtime address. Missing bindings yield an unresolved result with
+    /// the canonical missing identities and any available partial bindings.
     pub fn resolve_required<I>(
         &self,
         identities: I,
-    ) -> Result<Vec<(&IdentityRef, &A)>, Vec<IdentityRef>>
+    ) -> QualificationDecision<Vec<(&IdentityRef, &A)>>
     where
         I: IntoIterator<Item = IdentityRef>,
     {
         let requested: std::collections::BTreeSet<_> = identities.into_iter().collect();
+
+        for identity in &requested {
+            if let Err(reason) = identity.validate() {
+                return QualificationDecision::Invalid { reason };
+            }
+        }
+
         let missing: Vec<_> = requested
             .iter()
             .filter(|identity| !self.bindings.contains_key(*identity))
             .cloned()
             .collect();
 
-        if !missing.is_empty() {
-            return Err(missing);
-        }
-
-        Ok(self
+        let bound: Vec<_> = self
             .bindings
             .iter()
             .filter(|(identity, _)| requested.contains(*identity))
-            .collect())
+            .collect();
+
+        if missing.is_empty() {
+            QualificationDecision::Valid(bound)
+        } else {
+            QualificationDecision::Unresolved {
+                missing,
+                partial: bound,
+            }
+        }
     }
 
     /// Iterate in canonical logical-identity order, independent of insertion order.
@@ -427,14 +439,12 @@ mod tests {
         bindings.insert(z.clone(), "address-z").unwrap();
         bindings.insert(a.clone(), "address-a").unwrap();
 
-        let resolved = bindings
-            .resolve_required(vec![z.clone(), a.clone(), a])
-            .expect("all logical dependencies are bound");
+        let resolved = bindings.resolve_required(vec![z.clone(), a.clone(), a]);
+        let QualificationDecision::Valid(resolved) = resolved else {
+            panic!("all logical dependencies are bound");
+        };
 
-        assert_eq!(
-            resolved[0].0,
-            bindings.iter().next().expect("first binding exists").0
-        );
+        assert_eq!(resolved[0].0, bindings.iter().next().expect("first binding exists").0);
         assert_eq!(resolved[0].1, &"address-a");
         assert_eq!(resolved[1].0, &z);
         assert_eq!(resolved[1].1, &"address-z");
@@ -446,8 +456,32 @@ mod tests {
         bindings.insert(id("z"), "address-z").unwrap();
 
         let result = bindings.resolve_required(vec![id("z"), id("m"), id("m"), id("a")]);
+        let QualificationDecision::Unresolved { missing, partial } = result else {
+            panic!("unbound logical dependencies must remain unresolved");
+        };
 
-        assert_eq!(result, Err(vec![id("a"), id("m")]));
+        assert_eq!(missing, vec![id("a"), id("m")]);
+        assert_eq!(partial.len(), 1);
+        assert_eq!(partial[0].0, &id("z"));
+        assert_eq!(partial[0].1, &"address-z");
+    }
+
+    #[test]
+    fn dependency_binding_resolution_rejects_malformed_requested_identity() {
+        let bindings = QualificationDependencyBindingSet::new();
+        let invalid = IdentityRef {
+            kind: IdentityKind::EvidenceRecord,
+            namespace: "holochain".into(),
+            id: "not-a-native-engineering-id".into(),
+        };
+
+        let decision = bindings.resolve_required(vec![invalid]);
+        assert_eq!(
+            decision,
+            QualificationDecision::Invalid {
+                reason: "Holochain protocol identifiers require explicit binding and cannot be native engineering identities".into(),
+            }
+        );
     }
 
     #[test]
