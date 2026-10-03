@@ -69,9 +69,17 @@ def main() -> int:
     if "one AgentPubKey in an immutable binding set" not in source:
         raise SystemExit("authority-agent registry must reject duplicate authority bindings")
     if "agent_for(&authority)" not in source:
-        raise SystemExit("runtime binding must consult the authority-agent registry")
-    if "binding.signer != *authorized_agent" not in source:
+        raise SystemExit("runtime binding must expose authority-agent lookup")
+    if "credential_for(&authority)" not in source:
+        raise SystemExit("runtime binding must consult the retained authority-agent credential")
+    if "binding.signer != authorized_credential.payload.agent" not in source:
         raise SystemExit("runtime binding signer must match the registered authority agent")
+    if "authorized_credential.payload.provenance.authority_scope" not in source:
+        raise SystemExit("runtime binding must preserve exact authority scope continuity")
+    if "authorized_credential.payload.provenance.authority_delegation" not in source:
+        raise SystemExit("runtime binding must preserve exact authority delegation continuity")
+    if "one AgentPubKey in an immutable binding set" not in source:
+        raise SystemExit("authority-agent registry must remain immutable per authority")
 
     for fragment in (
         "HolochainBindingAttestationVerification",
