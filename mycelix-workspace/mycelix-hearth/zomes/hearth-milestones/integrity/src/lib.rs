@@ -122,6 +122,20 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             }
         },
         FlatOp::CreateEntry(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::CreateRecord(OpRecord::CreateEntry { app_entry, .. }) => match app_entry {
+            EntryTypes::Milestone(milestone) => validate_milestone(&milestone),
+            EntryTypes::LifeTransition(transition) => validate_transition(&transition),
+                },
+        FlatOp::CreateRecord(OpRecord::UpdateEntry { app_entry, action, .. }) => match app_entry {
+            EntryTypes::Milestone(milestone) => {
+                validate_milestone(&milestone)?;
+                validate_milestone_immutable_fields(&milestone, &action.original_action_address)
+            }
+            EntryTypes::LifeTransition(transition) => {
+                validate_transition(&transition)?;
+                validate_transition_immutable_fields(&transition, &action.original_action_address)
+            }
+                },
         FlatOp::Link(OpLink::CreateLink { action, .. }) => {
             if action.data.tag.0.len() > 512 {
                 return Ok(ValidateCallbackResult::Invalid(
