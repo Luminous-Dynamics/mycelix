@@ -5,6 +5,7 @@ on:
     paths:
       - "mycelix-commons/crates/mobility-configuration-qualification/**"
       - "docs/mobility/MOBILITY_TEMPORAL_APPLICABILITY_ALGEBRA_V1.*"
+      - "docs/mobility/MOBILITY_QUALIFICATION_ADAPTER_BOUNDARY_V1.md"
       - "tools/mobility_temporal_applicability_reference.py"
       - ".github/workflows/mobility-temporal-applicability-qualification.yml"
 
