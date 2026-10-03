@@ -22,7 +22,7 @@
     {"id":"RES-001","state":"existing-active","expected":{"didDocument":"present","didResolutionMetadata.contentType":"application/did","didDocumentMetadata.deactivated":false,"didDocumentMetadata.versionId":"1"}},
     {"id":"RES-002","state":"existing-deactivated","expected":{"didDocument":null,"didDocumentMetadata.deactivated":true,"didResolutionMetadata.contentType":null}},
     {"id":"RES-003","state":"not-found","expected":{"didDocument":null,"didResolutionMetadata.error.type":"https://www.w3.org/ns/did#NOT_FOUND","didResolutionMetadata.error.title":"DID not found"}},
-    {"id":"RES-004","state":"unsupported-method","expected":{"didDocument":null,"didResolutionMetadata.error.type":"https://www.w3.org/ns/did#METHOD_NOT_SUPPORTED","didResolutionMetadata.error.title":"DID method not supported"}}
+    {"id":"RES-004","state":"unsupported-method","expected":{"didDocument":null,"didResolutionMetadata.error.type":"https://www.w3.org/ns/did#METHOD_NOT_SUPPORTED","didResolutionMetadata.error.title":"DID method not supported","didDocumentMetadata":null}}
   ],
   "wire_vectors": [
     {"id":"WIRE-001","field":"verificationMethod","wire_name":"verificationMethod"},
@@ -45,7 +45,8 @@
     {"id":"REC-003","operation":"quorum-state","authority":"DHT-derived","expected":"compute-from-request-and-visible-trustee-votes-without-cross-agent-request-mutation"},
     {"id":"REC-004","operation":"vote","authority":"configured-trustee","expected":"reject-votes-for-nonexistent-requests"},
     {"id":"REC-005","operation":"vote","authority":"configured-trustee","expected":"reject-votes-from-non-trustees"},
-    {"id":"REC-006","operation":"state-read","authority":"canonical-latest-record","expected":"follow-recovery-config-update-chain"}
+    {"id":"REC-006","operation":"state-read","authority":"canonical-latest-record","expected":"follow-recovery-config-update-chain"},
+    {"id":"RES-005","operation":"json-shape","expected":"omit-absent-optional-resolution-metadata-properties"}
   ],
   "authority_vectors": [
     {"id":"AUTH-001","operation":"create","authority":"committing-agent","expected":"accept-only-if-did-identifier-and-controller-equal-committer"},
