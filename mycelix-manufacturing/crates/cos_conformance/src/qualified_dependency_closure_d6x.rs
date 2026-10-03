@@ -546,6 +546,7 @@ pub fn compute_dependency_closure_from_authoritative_d6p_at_frontier(
         || !profile.structurally_valid()
         || current_frontier_root.is_some_and(|root| root.trim().is_empty())
         || (!profile.required_d6p_receipt_commitments.is_empty() && current_frontier_root.is_none())
+        || current_frontier_root.is_some_and(|root| environment.current_frontier_root.as_deref() != Some(root))
     {
         return None;
     }
@@ -832,6 +833,57 @@ mod tests {
             derivation_profile_commitment:dp.commitment(), claim_ceiling:D6S_CLAIM_CEILING.into(),
         };
         (p, env, dp)
+    }
+
+    #[test]
+    fn authoritative_d6p_rejects_frontier_mismatch_with_environment() {
+        let (mut p, mut e, d) = projection(false);
+        let receipt_commitment = "receipt-1".to_string();
+        p.d6p_current_receipt_commitments.insert(receipt_commitment.clone());
+
+        e.current_frontier_root = Some("frontier-current".into());
+
+        let mut profile = profile(BTreeSet::new());
+        profile.required_d6p_receipt_commitments.insert(receipt_commitment.clone());
+
+        let receipt = CurrentFinalityEligibilityReceiptV1 {
+            receipt_id: "receipt-id".into(),
+            effect_id: "effect".into(),
+            effect_lineage_id: "lineage".into(),
+            lifecycle_generation_id: "generation".into(),
+            route_id: "route".into(),
+            provider_id: "provider".into(),
+            provider_operation_id: "operation".into(),
+            provider_profile_root: "provider-profile".into(),
+            semantic_environment_root: "env".into(),
+            observation_set_id: "set".into(),
+            observation_set_commitment: "set-commitment".into(),
+            d6n_assessment_commitment: "assessment".into(),
+            composition_commitment: "composition".into(),
+            witness_eligibility_ids: ["eligibility".into()].into_iter().collect(),
+            observer_generation_ids: ["generation".into()].into_iter().collect(),
+            current_frontier_root: "frontier-current".into(),
+            lifecycle_profile_id: "lifecycle".into(),
+            eligible_independent_count: 1,
+            preserved_contradictory_count: 0,
+            disposition: crate::finality_eligibility_composition::FinalityEligibilityDispositionV1::EligibleCurrent,
+            qualification_transition_id: "transition".into(),
+            receipt_commitment,
+            claim_ceiling: crate::finality_eligibility_composition::FINALITY_ELIGIBILITY_COMPOSITION_CLAIM_CEILING.into(),
+        };
+
+        assert!(
+            compute_dependency_closure_from_authoritative_d6p_at_frontier(
+                &p,
+                &e,
+                &d,
+                &profile,
+                std::slice::from_ref(&receipt),
+                &[],
+                Some("frontier-other"),
+            )
+            .is_none()
+        );
     }
 
     #[test]
