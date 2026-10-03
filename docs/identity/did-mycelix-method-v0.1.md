@@ -55,6 +55,8 @@ The Identity integrity layer additionally validates canonical \`AgentToDid\` lin
 - the target must be an action containing a valid DID document;
 - the target DID and controller must match the base agent.
 
+Substrate/provider discovery uses a separate `SubstrateRoleToAgent` link type. It is not overloaded onto `DidToService`; this lets DID service links and global provider advertisements have distinct authorization semantics.
+
 This prevents an unrelated agent from creating a namespace link that redirects resolution to another DID.
 
 Deactivation links receive the corresponding author/base/DID binding.
@@ -164,7 +166,7 @@ For eventual W3C interoperability, the method must define a complete resolver co
 - DID URL dereferencing;
 - authenticity verification of resolver output.
 
-The current typed APIs are an implementation bridge toward that contract, not a claim of complete generic DID Resolution conformance.
+The current typed APIs are an implementation bridge toward that contract, not a claim of complete generic DID Resolution conformance. The initial Ed25519 verification method is encoded as `z` + base58btc(multicodec `0xed01` + the raw 32-byte agent key); the Holochain hash-type bytes are not included.
 
 ## 11. Deterministic conformance coverage
 
