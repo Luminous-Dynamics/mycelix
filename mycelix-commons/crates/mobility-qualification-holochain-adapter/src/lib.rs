@@ -12,8 +12,9 @@
 
 use hdi::prelude::*;
 use mobility_configuration_qualification::{
-    IdentityRef, QualificationDecision, QualificationDependencyBindingSet,
-    QualificationDependencyRetrievalKind, QualificationValidationError,
+    IdentityRef, QualificationDecision, QualificationDependencyBindingProvenance,
+    QualificationDependencyBindingSet, QualificationDependencyRetrievalKind,
+    QualificationValidationError,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -62,6 +63,7 @@ pub struct ResolvedHolochainDependency {
     identity: IdentityRef,
     address: HolochainDependencyAddress,
     retrieval: QualificationDependencyRetrievalKind,
+    provenance: QualificationDependencyBindingProvenance,
 }
 
 impl ResolvedHolochainDependency {
@@ -76,11 +78,16 @@ impl ResolvedHolochainDependency {
     pub fn retrieval(&self) -> QualificationDependencyRetrievalKind {
         self.retrieval
     }
+
+    pub fn provenance(&self) -> &QualificationDependencyBindingProvenance {
+        &self.provenance
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct HolochainDependencyBindingSet {
     inner: QualificationDependencyBindingSet<HolochainDependencyAddress>,
+    provenance: std::collections::BTreeMap<IdentityRef, QualificationDependencyBindingProvenance>,
 }
 
 impl HolochainDependencyBindingSet {
@@ -88,33 +95,47 @@ impl HolochainDependencyBindingSet {
         Self::default()
     }
 
-    /// Bind exactly one logical identity to one Holochain address.
+    /// Bind exactly one logical identity to one Holochain address and require
+    /// an explicit provenance witness for why that logical dependency may use
+    /// this runtime address.
     ///
-    /// Logical identity validation and rebinding prevention remain owned by the
-    /// pure qualification crate. This adapter adds only the address-kind rule.
+    /// The witness is validated entirely in the pure qualification layer and
+    /// must name this exact logical identity. The protocol address remains
+    /// runtime-specific and is never part of the pure witness.
     pub fn bind(
         &mut self,
         identity: IdentityRef,
         address: HolochainDependencyAddress,
         retrieval: QualificationDependencyRetrievalKind,
+        provenance: QualificationDependencyBindingProvenance,
     ) -> Result<(), HolochainAdapterBoundaryError> {
+        provenance
+            .validate()
+            .map_err(HolochainAdapterBoundaryError::SemanticInvalid)?;
+
+        if !provenance.matches_logical_identity(&identity) {
+            return Err(HolochainAdapterBoundaryError::SemanticInvalid {
+                reason: "binding provenance witness does not name the exact bound logical identity"
+                    .into(),
+            });
+        }
+
         identity
             .validate()
-            .map_err(|error| match error {
-                QualificationValidationError::Structural { reason } => {
-                    HolochainAdapterBoundaryError::SemanticInvalid { reason }
-                }
-            })?;
+            .map_err(|reason| HolochainAdapterBoundaryError::SemanticInvalid { reason })?;
 
         validate_address_kind(&address, retrieval)?;
 
         self.inner
-            .insert(identity, address, retrieval)
+            .insert(identity.clone(), address, retrieval)
             .map_err(|error| match error {
                 QualificationValidationError::Structural { reason } => {
                     HolochainAdapterBoundaryError::BindingRejected { reason }
                 }
-            })
+            })?;
+
+        self.provenance.insert(identity, provenance);
+        Ok(())
     }
 
     /// Resolve logical identities using the pure three-outcome algebra.
@@ -137,6 +158,11 @@ impl HolochainDependencyBindingSet {
                         identity: identity.clone(),
                         address: binding.address.clone(),
                         retrieval: binding.retrieval,
+                        provenance: self
+                            .provenance
+                            .get(identity)
+                            .expect("every binding carries explicit provenance")
+                            .clone(),
                     })
                     .collect(),
             ),
@@ -163,6 +189,13 @@ impl HolochainDependencyBindingSet {
 
     pub fn is_empty(&self) -> bool {
         self.inner.is_empty()
+    }
+
+    pub fn provenance_for(
+        &self,
+        identity: &IdentityRef,
+    ) -> Option<&QualificationDependencyBindingProvenance> {
+        self.provenance.get(identity)
     }
 }
 
