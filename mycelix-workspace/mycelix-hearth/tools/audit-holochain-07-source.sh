@@ -575,6 +575,86 @@ check_semantic_case_entrypoints() {
   done
 }
 
+# Each semantic case must point at an invariant and operation surface that
+# actually exist in the integrity implementation. This prevents a green manifest
+# from drifting away from the validator it claims to witness.
+check_semantic_case_integrity_bindings() {
+  local manifest="mycelix-workspace/mycelix-hearth/tests/hearth-07-semantic-validation-cases.json"
+  local ids tests zomes operations invariants surfaces
+  mapfile -t ids < <(sed -n 's/^[[:space:]]*"case_id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest")
+  mapfile -t tests < <(sed -n 's/^[[:space:]]*"test"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest")
+  mapfile -t zomes < <(sed -n 's/^[[:space:]]*"zome"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest")
+  mapfile -t operations < <(sed -n 's/^[[:space:]]*"operation"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest")
+  mapfile -t invariants < <(sed -n 's/^[[:space:]]*"invariant"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest")
+  mapfile -t surfaces < <(sed -n 's/^[[:space:]]*"operation_surface"[[:space:]]*:\s*\[\([^]]*\)\].*/\1/p' "$manifest")
+
+  local count="${#ids[@]}"
+  if [[ "$count" -eq 0 || "$count" -ne "${#tests[@]}" || "$count" -ne "${#zomes[@]}" || "$count" -ne "${#operations[@]}" || "$count" -ne "${#invariants[@]}" || "$count" -ne "${#surfaces[@]}" ]]; then
+    echo "FAIL: semantic manifest fields are not structurally aligned"
+    fail=1
+    return
+  fi
+
+  local i id zome operation invariant surface integrity_file
+  for i in "${!ids[@]}"; do
+    id="${ids[$i]}"
+    zome="${zomes[$i]}"
+    operation="${operations[$i]}"
+    invariant="${invariants[$i]}"
+    surface="${surfaces[$i]}"
+    integrity_file="mycelix-workspace/mycelix-hearth/zomes/${zome//_/-}/integrity/src/lib.rs"
+
+    if [[ ! -f "$integrity_file" ]]; then
+      echo "FAIL: $id references missing integrity source: $integrity_file"
+      fail=1
+      continue
+    fi
+
+    if rg -n --fixed-strings "$invariant" "$integrity_file" >/dev/null 2>&1; then
+      echo "OK:   $id invariant is present in integrity source"
+    else
+      echo "FAIL: $id invariant is absent from integrity source: $invariant"
+      fail=1
+    fi
+
+    for declared_surface in ${surface//,/ }; do
+      declared_surface="${declared_surface//\"/}"
+      declared_surface="${declared_surface//[[:space:]]/}"
+      case "$declared_surface" in
+        CreateEntry)
+          pattern='FlatOp::CreateEntry'
+          ;;
+        CreateRecord)
+          pattern='FlatOp::CreateRecord'
+          ;;
+        Update)
+          pattern='FlatOp::Update'
+          ;;
+        Delete)
+          pattern='FlatOp::Delete'
+          ;;
+        Link.CreateLink)
+          pattern='FlatOp::Link(OpLink::CreateLink'
+          ;;
+        Link.DeleteLink)
+          pattern='FlatOp::Link(link @ OpLink::DeleteLink'
+          ;;
+        *)
+          echo "FAIL: $id contains unknown operation surface: $declared_surface"
+          fail=1
+          continue
+          ;;
+      esac
+      if rg -n --fixed-strings "$pattern" "$integrity_file" >/dev/null 2>&1; then
+        echo "OK:   $id declares operation surface $declared_surface present in integrity source"
+      else
+        echo "FAIL: $id declares operation surface $declared_surface absent from integrity source"
+        fail=1
+      fi
+    done
+  done
+}
+
 # Dependency retrieval semantics: must_get_action only proves retrieval; it does not prove
 # that the referenced record passed application validation. Update/delete authorization
 # therefore uses must_get_valid_record before trusting the referenced author. Valid-record
@@ -689,6 +769,7 @@ check_qualification_workflow_provenance
 check_dna_source_completeness
 check_semantic_validation_suite_wiring
 check_semantic_case_entrypoints
+check_semantic_case_integrity_bindings
 
 for file in "${integrity_files[@]}"; do
   check_create_record_coverage "$file"
