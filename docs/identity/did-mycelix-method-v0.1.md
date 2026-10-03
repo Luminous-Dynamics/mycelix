@@ -192,7 +192,7 @@ For eventual W3C interoperability, the method must define a complete resolver co
 - DID URL dereferencing;
 - authenticity verification of resolver output.
 
-The current typed APIs are an implementation bridge toward that contract, not a claim of complete generic DID Resolution conformance. The current wire representation uses the W3C DID Resolution profile's `application/did` document representation and `https://www.w3.org/ns/did/v1.1` context. The initial Ed25519 verification method is encoded as `z` + base58btc(multicodec `0xed01` + the raw 32-byte agent key); the Holochain hash-type bytes are not included.
+The current typed APIs are an implementation bridge toward that contract, not a claim of complete generic DID Resolution conformance. The current wire representation uses the W3C DID Resolution profile's `application/did` document representation and `https://www.w3.org/ns/did/v1.1` context. The initial Ed25519 verification method is encoded as `z` + base58btc(multicodec `0xed01` + the raw 32-byte agent key); the Holochain hash-type bytes are not included. The DID integrity boundary requires this tagged form and does not accept the legacy raw-32-byte fallback exposed by the general crypto decoder.
 
 A checked-in vector corpus at `docs/identity/did-mycelix-conformance-vectors-v0.1.json` freezes the currently intended syntax, resolution, wire-property, verification-key, authority, and deployment-scope behavior.
 
@@ -228,6 +228,7 @@ The current qualification laboratory maps concrete protocol behavior to determin
 | DSID-024 | non-trustee recovery votes rejected |
 | DSID-025 | canonical latest self-recovery update resolution |
 | DSID-026 | DID resolution JSON omits absent optional metadata |
+| DSID-027 | generic update rejects legacy untagged DID key |
 
 The qualification workflow records scenario IDs, agents, DNA hash, action hashes, entry hashes, expected and observed behavior, pass state, and commit SHA, then hashes the complete evidence capsule.
 
