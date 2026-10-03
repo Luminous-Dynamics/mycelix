@@ -153,10 +153,13 @@ pub fn postings_for_step(
     assignments: &[SectorAssignment],
     transitions: &[EconomicTransition],
 ) -> Result<Vec<StockPosting>, String> {
+    SectorBalanceSheet::from_state(pre_state, assignments)?;
     let mut working = pre_state.clone();
     let mut postings = Vec::new();
 
     for transition in transitions {
+        transition.validate()?;
+
         let transition_postings = match transition {
             EconomicTransition::MonetaryTransfer(flow) => {
                 let from = sector_for(assignments, &flow.from)?;
@@ -354,10 +357,13 @@ pub fn physical_postings_for_step(
     assignments: &[SectorAssignment],
     transitions: &[EconomicTransition],
 ) -> Result<Vec<PhysicalStockPosting>, String> {
+    SectorBalanceSheet::from_state(pre_state, assignments)?;
     let mut working = pre_state.clone();
     let mut postings = Vec::new();
 
     for transition in transitions {
+        transition.validate()?;
+
         match transition {
             EconomicTransition::Production(production) => {
                 let sector = sector_for(assignments, &production.producer)?;
