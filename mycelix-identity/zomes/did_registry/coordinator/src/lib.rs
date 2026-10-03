@@ -496,6 +496,18 @@ pub fn resolve_did(did: String) -> ExternResult<Option<Record>> {
     get_did_document(agent_pub_key)
 }
 
+/// Resolve a DID into a browser-safe canonical document view.
+///
+/// This is deliberately separate from the raw Record-returning resolver so
+/// external callers do not have to understand Holochain action/entry envelopes.
+#[hdk_extern]
+pub fn resolve_did_view(did: String) -> ExternResult<Option<DidDocumentView>> {
+    match resolve_did(did)? {
+        Some(record) => Ok(Some(record_to_did_document_view(&record)?)),
+        None => Ok(None),
+    }
+}
+
 /// Update DID document (add service endpoints, rotate keys, etc.)
 #[hdk_extern]
 pub fn update_did_document(input: UpdateDidInput) -> ExternResult<Record> {
