@@ -37,6 +37,15 @@
       "operation_surface": ["Link.CreateLink"],
       "invariant": "CollectionToStories story belongs to a different hearth",
       "boundary": "integrity_validation"
+    },
+    {
+      "case_id": "SEM-05",
+      "test": "test_invalid_bridge_notification_reaches_integrity_validation",
+      "zome": "hearth_bridge",
+      "operation": "receive_notification",
+      "operation_surface": ["CreateEntry", "CreateRecord"],
+      "invariant": "source_cluster cannot be empty",
+      "boundary": "integrity_validation"
     }
   ]
 }
