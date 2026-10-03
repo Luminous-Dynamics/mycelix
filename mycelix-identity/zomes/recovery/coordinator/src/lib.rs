@@ -160,6 +160,74 @@ fn enroll_social_recovery_factor(did: &str, trustees: &[String]) -> ExternResult
 }
 
 
+/// Emit recovery lifecycle events only after the corresponding source-chain
+/// write has committed. Failures are logged and never roll back recovery state.
+#[hdk_extern(infallible)]
+pub fn post_commit(committed_actions: Vec<SignedActionHashed>) {
+    for action in committed_actions {
+        let action_hash = action.action_address().clone();
+        let Some(record) = get(action_hash, GetOptions::default()).ok().flatten() else {
+            continue;
+        };
+
+        let Ok(Some(request)) = record.entry().to_app_option::<RecoveryRequest>() else {
+            continue;
+        };
+
+        let is_create = matches!(&action.action().data, ActionData::Create(_));
+        if is_create {
+            let payload = serde_json::json!({
+                "did": request.did,
+                "initiated_by": request.initiated_by,
+                "request_id": request.id,
+                "event": "recovery_initiated",
+            }).to_string();
+            notify_bridge_event("RecoveryInitiated", &request.did, &payload);
+        } else if request.status == RecoveryStatus::Completed {
+            let payload = serde_json::json!({
+                "did": request.did,
+                "new_agent": format!("{}", request.new_agent),
+                "request_id": request.id,
+                "event": "recovery_completed",
+            }).to_string();
+            notify_bridge_event("DidRecovered", &request.did, &payload);
+        }
+    }
+}
+
+fn notify_bridge_event(event_type: &str, subject: &str, payload: &str) {
+    #[derive(Serialize, Deserialize, Debug)]
+    struct BroadcastEventInput {
+        event_type: String,
+        subject: String,
+        payload: String,
+        source_happ: String,
+    }
+
+    let input = BroadcastEventInput {
+        event_type: event_type.to_string(),
+        subject: subject.to_string(),
+        payload: payload.to_string(),
+        source_happ: "mycelix-identity".to_string(),
+    };
+
+    match call(
+        CallTargetCell::Local,
+        ZomeName::new("identity_bridge"),
+        FunctionName::new("broadcast_event"),
+        None,
+        input,
+    ) {
+        Ok(ZomeCallResponse::Ok(_)) => {}
+        Ok(_) | Err(_) => {
+            debug!(
+                "Post-commit bridge notification failed for event={} subject={}",
+                event_type, subject
+            );
+        }
+    }
+}
+
 /// Create a deterministic entry hash from a string identifier
 /// This is used for link bases when we need to link from string IDs
 fn string_to_entry_hash(s: &str) -> EntryHash {
