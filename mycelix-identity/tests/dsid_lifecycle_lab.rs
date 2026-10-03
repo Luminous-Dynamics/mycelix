@@ -1101,3 +1101,86 @@ async fn dsid_014_initial_verification_key_is_canonical_multibase() {
         true,
     );
 }
+
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_015_verification_method_rotation_preserves_historical_reference() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let app = conductor.setup_app(
+        "dsid-key-rotation",
+        std::slice::from_ref(&dna),
+    ).await.unwrap();
+    let cell = app.cells()[0].clone();
+    let agent = app.agent().clone();
+
+    let created: Record = conductor
+        .call(&cell.zome("did_registry"), "create_did", ())
+        .await;
+    let initial: DidDocument = decode_entry(&created).expect("DID entry must decode");
+    let old_key_id = initial
+        .verification_method
+        .first()
+        .expect("initial verification method must exist")
+        .id
+        .clone();
+
+    let new_public_key = TaggedPublicKey::new(AlgorithmId::Ed25519, vec![0x42; 32])
+        .expect("test Ed25519 key must be valid")
+        .to_multibase();
+    let new_key_id = format!("{}#keys-2", initial.id);
+
+    let rotated: Record = conductor
+        .call(
+            &cell.zome("did_registry"),
+            "rotate_key",
+            serde_json::json!({
+                "old_key_id": old_key_id,
+                "new_method": {
+                    "id": new_key_id,
+                    "type": "Ed25519VerificationKey2020",
+                    "controller": initial.id,
+                    "publicKeyMultibase": new_public_key,
+                    "algorithm": AlgorithmId::Ed25519.as_u16()
+                }
+            }),
+        )
+        .await;
+
+    let updated: DidDocument = decode_entry(&rotated).expect("rotated DID entry must decode");
+    assert_eq!(updated.version, initial.version + 1);
+    assert_eq!(updated.controller, agent);
+    assert!(updated
+        .verification_method
+        .iter()
+        .any(|method| method.id == initial.verification_method[0].id));
+    assert!(updated
+        .verification_method
+        .iter()
+        .any(|method| method.id == new_key_id));
+    assert!(!updated
+        .authentication
+        .iter()
+        .any(|id| id == &initial.verification_method[0].id));
+    assert!(updated.authentication.iter().any(|id| id == &new_key_id));
+
+    let mut agents = BTreeMap::new();
+    agents.insert("alice", agent.to_string());
+    emit_evidence(
+        "DSID-015",
+        "verification-method-rotation-preserves-historical-reference",
+        &dna,
+        agents,
+        &[&created, &rotated],
+        "Verification-method rotation preserves the historical DID URL identifier while moving authentication authority to the new method.",
+        format!(
+            "version={} old_id_preserved={} old_auth_removed={} new_auth_active={}",
+            updated.version,
+            updated.verification_method.iter().any(|method| method.id == initial.verification_method[0].id),
+            !updated.authentication.iter().any(|id| id == &initial.verification_method[0].id),
+            updated.authentication.iter().any(|id| id == &new_key_id)
+        ),
+        true,
+    );
+}
