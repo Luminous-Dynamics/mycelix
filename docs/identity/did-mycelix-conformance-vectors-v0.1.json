@@ -44,7 +44,8 @@
     {"id":"REC-002","operation":"self-recovery-request","authority":"replacement-agent","expected":"new-agent-must-equal-request-author"},
     {"id":"REC-003","operation":"quorum-state","authority":"DHT-derived","expected":"compute-from-request-and-visible-trustee-votes-without-cross-agent-request-mutation"},
     {"id":"REC-004","operation":"vote","authority":"configured-trustee","expected":"reject-votes-for-nonexistent-requests"},
-    {"id":"REC-005","operation":"vote","authority":"configured-trustee","expected":"reject-votes-from-non-trustees"}
+    {"id":"REC-005","operation":"vote","authority":"configured-trustee","expected":"reject-votes-from-non-trustees"},
+    {"id":"REC-006","operation":"state-read","authority":"canonical-latest-record","expected":"follow-recovery-config-update-chain"}
   ],
   "authority_vectors": [
     {"id":"AUTH-001","operation":"create","authority":"committing-agent","expected":"accept-only-if-did-identifier-and-controller-equal-committer"},
