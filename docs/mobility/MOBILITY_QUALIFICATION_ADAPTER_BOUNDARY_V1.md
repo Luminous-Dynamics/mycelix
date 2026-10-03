@@ -45,10 +45,11 @@ The binding set is intentionally append-only: a logical identity cannot be rebou
 
 ### Binding resolution contract
 
-The pure layer exposes `QualificationDependencyBindingSet::resolve_required`. Given a set of required logical identities, it has exactly two results:
+The pure layer exposes `QualificationDependencyBindingSet::resolve_required`, using the same three-outcome decision algebra as the adapter boundary:
 
-- every requested identity is bound: return the bound logical-identity/address pairs in canonical identity order;
-- one or more identities are unbound: return the canonical missing logical identities.
+- every requested identity is valid and bound: return `Valid` with bound logical-identity/address pairs in canonical identity order;
+- a requested identity is structurally malformed: return definitive `Invalid`;
+- one or more valid identities are unbound: return `Unresolved` with canonical missing logical identities and any already-bound partial bindings.
 
 Duplicate requests for the same logical identity are deduplicated during resolution. The API does not synthesize, guess, hash, or otherwise derive protocol addresses. A runtime adapter must map the returned opaque addresses to the concrete dependency retrieval API and preserve the unresolved state when a required addressable dependency is unavailable.
 
