@@ -435,6 +435,14 @@ pub fn create_did() -> ExternResult<Record> {
         (),
     )?;
 
+    // Retain an append-only history index for deterministic version resolution.
+    create_link(
+        agent_pub_key.clone(),
+        action_hash.clone(),
+        LinkTypes::DidHistory,
+        (),
+    )?;
+
     // Auto-create MFA state for the new DID (fail-closed: MFA is required)
     // This registers the primary key pair as the initial authentication factor
     auto_create_mfa_state(&did_id, &agent_pub_key)?;
@@ -809,6 +817,15 @@ pub fn update_did_document(input: UpdateDidInput) -> ExternResult<Record> {
     let action_hash = update_entry(
         current_record.action_address().clone(),
         &EntryTypes::DidDocument(updated_did),
+    )?;
+
+    // Keep an append-only history index before replacing the canonical pointer.
+    // This gives version-aware tooling a stable source of historical documents.
+    create_link(
+        agent_pub_key.clone(),
+        action_hash.clone(),
+        LinkTypes::DidHistory,
+        (),
     )?;
 
     // Delete stale AgentToDid links to prevent DHT bloat.
@@ -1406,7 +1423,6 @@ pub struct RotateKeyInput {
 /// from the `authentication` array so it can no longer be used to authenticate.
 #[hdk_extern]
 pub fn rotate_key(input: RotateKeyInput) -> ExternResult<Record> {
-    // Input validation
     if input.old_key_id.is_empty() || input.old_key_id.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Old key ID must be 1-256 characters".into()
@@ -1425,20 +1441,15 @@ pub fn rotate_key(input: RotateKeyInput) -> ExternResult<Record> {
         )));
     }
 
-    // Validate the new key format
-    if let Err(e) = validate_multibase_key(&input.new_method.public_key_multibase) {
-        return Err(wasm_error!(WasmErrorInner::Guest(format!(
-            "Invalid new key: {}",
-            e
-        ))));
-    }
+    validate_multibase_key(&input.new_method.public_key_multibase).map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!("Invalid new key: {}", e)))
+    })?;
 
     let agent_info = agent_info()?;
     let agent_pub_key = agent_info.agent_initial_pubkey;
 
     let current_record = get_did_document(agent_pub_key)?
         .ok_or(wasm_error!(WasmErrorInner::Guest("No DID found".into())))?;
-
     let current_did: DidDocument = current_record
         .entry()
         .to_app_option()
@@ -1447,31 +1458,53 @@ pub fn rotate_key(input: RotateKeyInput) -> ExternResult<Record> {
             "Invalid DID entry".into()
         )))?;
 
-    // Find the old key
-    let old_key_idx = current_did
+    if input.new_method.controller != current_did.id {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "New verification method controller must equal the DID".into()
+        )));
+    }
+
+    let old_key = current_did
         .verification_method
         .iter()
-        .position(|m| m.id == input.old_key_id)
+        .find(|method| method.id == input.old_key_id)
         .ok_or(wasm_error!(WasmErrorInner::Guest(format!(
             "Verification method '{}' not found",
             input.old_key_id
         ))))?;
 
-    // Build updated methods: deprecate old key, add new one
+    if !current_did
+        .authentication
+        .iter()
+        .any(|id| id == &input.old_key_id)
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Verification method '{}' is not an active authentication method",
+            input.old_key_id
+        ))));
+    }
+
+    if current_did
+        .verification_method
+        .iter()
+        .any(|method| method.id == input.new_method.id)
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Verification method ID '{}' already exists",
+            input.new_method.id
+        ))));
+    }
+
+    // Preserve the historical verification-method ID exactly. Removing the old
+    // method from authentication is the deprecation signal; renaming its ID
+    // would break signatures/DID URLs that reference the historical method.
+    let _old_key_id = old_key.id.clone();
     let mut methods = current_did.verification_method.clone();
-    let deprecated_id = format!(
-        "{}-deprecated-v{}",
-        methods[old_key_idx].id, current_did.version
-    );
-    methods[old_key_idx].id = deprecated_id.clone();
     methods.push(input.new_method.clone());
 
-    // Update authentication: remove old key reference, add new one
     let mut auth = current_did.authentication.clone();
-    auth.retain(|a| a != &input.old_key_id);
-    if !auth.contains(&input.new_method.id) {
-        auth.push(input.new_method.id);
-    }
+    auth.retain(|id| id != &input.old_key_id);
+    auth.push(input.new_method.id.clone());
 
     update_did_document(UpdateDidInput {
         verification_method: Some(methods),
@@ -1498,7 +1531,6 @@ pub struct RotateKeyAgreementInput {
 /// is removed from `keyAgreement` so new encryption uses the new key.
 #[hdk_extern]
 pub fn rotate_key_agreement(input: RotateKeyAgreementInput) -> ExternResult<Record> {
-    // Input validation
     if input.old_key_id.is_empty() || input.old_key_id.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Old key ID must be 1-256 characters".into()
@@ -1517,26 +1549,19 @@ pub fn rotate_key_agreement(input: RotateKeyAgreementInput) -> ExternResult<Reco
         )));
     }
 
-    // Validate the new key is a KEM algorithm
     let alg = validate_multibase_key(&input.new_method.public_key_multibase)
         .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("Invalid new KEM key: {}", e))))?;
-
-    match alg {
-        AlgorithmId::MlKem768 | AlgorithmId::MlKem1024 => {}
-        _ => {
-            return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                "Key agreement rotation requires a KEM algorithm (ML-KEM-768 or ML-KEM-1024), got {}",
-                alg.did_verification_method_type()
-            ))));
-        }
+    if !matches!(alg, AlgorithmId::MlKem768 | AlgorithmId::MlKem1024) {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Key agreement rotation requires a KEM algorithm (ML-KEM-768 or ML-KEM-1024), got {}",
+            alg.did_verification_method_type()
+        ))));
     }
 
     let agent_info = agent_info()?;
     let agent_pub_key = agent_info.agent_initial_pubkey;
-
     let current_record = get_did_document(agent_pub_key)?
         .ok_or(wasm_error!(WasmErrorInner::Guest("No DID found".into())))?;
-
     let current_did: DidDocument = current_record
         .entry()
         .to_app_option()
@@ -1545,35 +1570,45 @@ pub fn rotate_key_agreement(input: RotateKeyAgreementInput) -> ExternResult<Reco
             "Invalid DID entry".into()
         )))?;
 
-    // Find the old KEM key in verification_method
-    let old_key_idx = current_did
+    if input.new_method.controller != current_did.id {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "New KEM verification method controller must equal the DID".into()
+        )));
+    }
+
+    if !current_did
+        .key_agreement
+        .iter()
+        .any(|id| id == &input.old_key_id)
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Verification method '{}' is not an active keyAgreement method",
+            input.old_key_id
+        ))));
+    }
+
+    if current_did
         .verification_method
         .iter()
-        .position(|m| m.id == input.old_key_id)
-        .ok_or(wasm_error!(WasmErrorInner::Guest(format!(
-            "KEM verification method '{}' not found",
-            input.old_key_id
-        ))))?;
+        .any(|method| method.id == input.new_method.id)
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Verification method ID '{}' already exists",
+            input.new_method.id
+        ))));
+    }
 
-    // Build updated methods: deprecate old KEM key, add new one
+    // Preserve the old DID URL exactly for historical ciphertext/decryption.
     let mut methods = current_did.verification_method.clone();
-    let deprecated_id = format!(
-        "{}-deprecated-v{}",
-        methods[old_key_idx].id, current_did.version
-    );
-    methods[old_key_idx].id = deprecated_id.clone();
     methods.push(input.new_method.clone());
 
-    // Update key_agreement: remove old key reference, add new one
     let mut ka = current_did.key_agreement.clone();
-    ka.retain(|k| k != &input.old_key_id);
-    if !ka.contains(&input.new_method.id) {
-        ka.push(input.new_method.id);
-    }
+    ka.retain(|id| id != &input.old_key_id);
+    ka.push(input.new_method.id.clone());
 
     update_did_document(UpdateDidInput {
         verification_method: Some(methods),
-        authentication: None, // preserve existing authentication
+        authentication: None,
         key_agreement: Some(ka),
         service: None,
     })
@@ -1629,136 +1664,14 @@ pub struct ClaimRecoveredDidInput {
 /// It creates a new DID document controlled by the new agent, linked from
 /// the original agent's pubkey so that DID resolution picks up the transfer.
 #[hdk_extern]
-pub fn claim_recovered_did(input: ClaimRecoveredDidInput) -> ExternResult<Record> {
-    // Input validation
-    if input.request_id.is_empty() || input.request_id.len() > 256 {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Request ID must be 1-256 characters".into()
-        )));
-    }
-    if !input.did.starts_with("did:mycelix:") {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Invalid DID format".into()
-        )));
-    }
-
-    let my_agent_info = agent_info()?;
-    let new_agent = my_agent_info.agent_initial_pubkey;
-
-    // Verify recovery request is completed via cross-zome call to recovery zome
-    let response = call(
-        CallTargetCell::Local,
-        ZomeName::new("recovery"),
-        FunctionName::new("get_recovery_request"),
-        None,
-        input.request_id.clone(),
-    )?;
-
-    let request: RecoveryRequestMirror = match response {
-        ZomeCallResponse::Ok(result) => {
-            let record: Option<Record> = result.decode().map_err(|e| {
-                wasm_error!(WasmErrorInner::Guest(format!(
-                    "Failed to decode recovery request: {:?}",
-                    e
-                )))
-            })?;
-            let rec = record.ok_or(wasm_error!(WasmErrorInner::Guest(
-                "Recovery request not found".into()
-            )))?;
-            rec.entry()
-                .to_app_option()
-                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-                .ok_or(wasm_error!(WasmErrorInner::Guest(
-                    "Invalid recovery request entry".into()
-                )))?
-        }
-        _ => {
-            return Err(wasm_error!(WasmErrorInner::Guest(
-                "Failed to query recovery zome".into()
-            )));
-        }
-    };
-
-    // Verify request is completed
-    if request.status != RecoveryStatusMirror::Completed {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Recovery request is not completed".into()
-        )));
-    }
-
-    // Verify the caller is the designated new agent
-    if request.new_agent != new_agent {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Only the designated recovery agent can claim this DID".into()
-        )));
-    }
-
-    // Verify the DID matches
-    if request.did != input.did {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "DID does not match recovery request".into()
-        )));
-    }
-
-    // Parse original agent pubkey from DID for linking
-    let original_agent_str = input
-        .did
-        .strip_prefix("did:mycelix:")
-        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Invalid DID format".into())))?;
-    let original_agent = AgentPubKey::try_from(original_agent_str)
-        .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid agent pub key in DID".into())))?;
-
-    let now = sys_time()?;
-
-    // Create new DID document controlled by the new agent
-    let verification_method = VerificationMethod {
-        id: format!("{}#recovery-key-1", input.did),
-        type_: AlgorithmId::Ed25519
-            .did_verification_method_type()
-            .to_string(),
-        controller: input.did.clone(),
-        public_key_multibase: format!("z{}", new_agent),
-        algorithm: Some(AlgorithmId::Ed25519.as_u16()),
-    };
-
-    let did_doc = DidDocument {
-        id: input.did.clone(),
-        controller: new_agent.clone(),
-        verification_method: vec![verification_method.clone()],
-        authentication: vec![format!("{}#recovery-key-1", input.did)],
-        key_agreement: vec![],
-        service: vec![],
-        created: now,
-        updated: now,
-        version: 1, // Fresh document for new controller
-    };
-
-    let action_hash = create_entry(&EntryTypes::DidDocument(did_doc))?;
-
-    // Link from the ORIGINAL agent's pubkey to this new DID document.
-    // This ensures resolve_did() finds the recovered document, since it
-    // looks up links from the agent pubkey embedded in the DID string.
-    // The latest link (by timestamp) takes precedence.
-    create_link(
-        original_agent,
-        action_hash.clone(),
-        LinkTypes::AgentToDid,
-        (),
-    )?;
-
-    // Also link from the new agent for get_my_did() convenience
-    create_link(
-        new_agent.clone(),
-        action_hash.clone(),
-        LinkTypes::AgentToDid,
-        (),
-    )?;
-
-    // Auto-create MFA state for the new agent's control of this DID (fail-closed)
-    auto_create_mfa_state(&input.did, &new_agent)?;
-
-    get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Could not find recovered DID document".into()
+pub fn claim_recovered_did(_input: ClaimRecoveredDidInput) -> ExternResult<Record> {
+    // A social recovery approval is not, by itself, a DID controller key
+    // rotation proof. The current DID method intentionally keeps the
+    // controller (the agent-derived DID subject) immutable. Returning a clear
+    // error is safer than creating a document that violates the integrity
+    // contract and would become unresolvable.
+    Err(wasm_error!(WasmErrorInner::Guest(
+        "DID controller transfer is not implemented: completed social recovery cannot yet change the controller of an existing did:mycelix DID".into()
     )))
 }
 
@@ -1947,124 +1860,3 @@ mod tests {
             "#keys-1".to_string(),
             "#keys-1".to_string(), // duplicate
         ];
-
-        // Remove old key references
-        auth.retain(|a| a != old_key_id);
-        assert!(
-            auth.is_empty(),
-            "All references to old key should be removed"
-        );
-
-        // Add new key
-        if !auth.contains(&new_key_id.to_string()) {
-            auth.push(new_key_id.to_string());
-        }
-        assert_eq!(auth, vec!["#keys-2".to_string()]);
-    }
-
-    #[test]
-    fn test_rotate_key_methods_update_logic() {
-        // Simulate the methods update logic from rotate_key
-        let mut methods = vec![VerificationMethod {
-            id: "#keys-1".into(),
-            type_: "Ed25519VerificationKey2020".into(),
-            controller: "did:mycelix:test".into(),
-            public_key_multibase: make_test_multibase_key(0xAA),
-            algorithm: None,
-        }];
-
-        let version = 1u32;
-        let old_key_idx = 0;
-
-        // Deprecate old key
-        let deprecated_id = format!("{}-deprecated-v{}", methods[old_key_idx].id, version);
-        methods[old_key_idx].id = deprecated_id.clone();
-
-        // Add new key
-        methods.push(VerificationMethod {
-            id: "#keys-2".into(),
-            type_: "Ed25519VerificationKey2020".into(),
-            controller: "did:mycelix:test".into(),
-            public_key_multibase: make_test_multibase_key(0xBB),
-            algorithm: None,
-        });
-
-        assert_eq!(methods.len(), 2);
-        assert_eq!(methods[0].id, "#keys-1-deprecated-v1");
-        assert_eq!(methods[1].id, "#keys-2");
-        // Old key's public material is preserved for signature verification
-        assert!(!methods[0].public_key_multibase.is_empty());
-    }
-
-    // --- rotate_key_agreement tests ---
-
-    #[test]
-    fn test_rotate_key_agreement_input_validation() {
-        let input = RotateKeyAgreementInput {
-            old_key_id: String::new(),
-            new_method: VerificationMethod {
-                id: "#kem-2".into(),
-                type_: "Multikey".into(),
-                controller: "did:mycelix:test".into(),
-                public_key_multibase: make_test_multibase_key(0xAA),
-                algorithm: None,
-            },
-        };
-        assert!(input.old_key_id.is_empty());
-    }
-
-    #[test]
-    fn test_rotate_key_agreement_ka_update_logic() {
-        // Simulate the key_agreement array update logic from rotate_key_agreement
-        let old_key_id = "#kem-1";
-        let new_key_id = "#kem-2";
-        let mut ka = vec![
-            "#kem-1".to_string(),
-            "#kem-1".to_string(), // duplicate
-        ];
-
-        // Remove old key references
-        ka.retain(|k| k != old_key_id);
-        assert!(
-            ka.is_empty(),
-            "All references to old KEM key should be removed"
-        );
-
-        // Add new key
-        if !ka.contains(&new_key_id.to_string()) {
-            ka.push(new_key_id.to_string());
-        }
-        assert_eq!(ka, vec!["#kem-2".to_string()]);
-    }
-
-    #[test]
-    fn test_rotate_key_agreement_preserves_auth() {
-        // rotate_key_agreement passes authentication: None, which means
-        // update_did_document preserves the existing authentication array
-        let auth = vec!["#keys-1".to_string()];
-        let preserved = None::<Vec<String>>.unwrap_or(auth.clone());
-        assert_eq!(preserved, auth);
-    }
-
-    #[test]
-    fn test_rotate_key_agreement_deprecated_id_format() {
-        let old_id = "#kem-1";
-        let version = 2u32;
-        let deprecated = format!("{}-deprecated-v{}", old_id, version);
-        assert_eq!(deprecated, "#kem-1-deprecated-v2");
-    }
-}
-
-
-    #[test]
-    fn agent_pub_key_multibase_round_trips_raw_key_bytes() {
-        let agent = AgentPubKey::from_raw_36(vec![7u8; 36]);
-        let encoded = agent_pub_key_multibase(&agent)
-            .expect("agent public key must encode as canonical multibase");
-        let decoded = TaggedPublicKey::from_multibase(&encoded)
-            .expect("encoded agent key must decode");
-
-        assert_eq!(decoded.algorithm, AlgorithmId::Ed25519);
-        assert_eq!(decoded.key_bytes, vec![7u8; 32]);
-        assert_eq!(decoded.to_multibase(), encoded);
-    }
