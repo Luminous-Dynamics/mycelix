@@ -15,7 +15,7 @@ fn test_semantic_validation_case_manifest_is_structurally_valid() {
     let cases = manifest["cases"]
         .as_array()
         .expect("semantic validation manifest must contain a cases array");
-    assert_eq!(cases.len(), 3);
+    assert_eq!(cases.len(), 4);
 
     for case in cases {
         assert!(case["case_id"].is_string());
