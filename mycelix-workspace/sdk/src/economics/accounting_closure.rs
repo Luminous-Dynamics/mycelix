@@ -152,6 +152,30 @@ impl EconomicAccountingClosure {
         })
     }
 
+    /// Re-derive the closure from the supplied economic artifacts and require exact equality.
+    ///
+    /// This closes the distinction between a self-consistent serialized receipt and a closure
+    /// actually produced by the supplied states, assignments, and ordered transition program.
+    pub fn verify_against(
+        &self,
+        pre_state: &EconomicState,
+        post_state: &EconomicState,
+        assignments: &[SectorAssignment],
+        transitions: &[EconomicTransition],
+    ) -> Result<(), String> {
+        self.verify()?;
+        let expected = Self::validate_and_seal(
+            pre_state,
+            post_state,
+            assignments,
+            transitions,
+        )?;
+        if self != &expected {
+            return Err("accounting closure does not match supplied economic artifacts".into());
+        }
+        Ok(())
+    }
+
     /// Verify that the receipt's closure hash matches all bound material.
     pub fn verify(&self) -> Result<(), String> {
         let binding = (
@@ -501,6 +525,41 @@ mod tests {
         assert!(!a.sector_transaction_hash.is_empty());
         assert!(!a.sector_financial_flow_hash.is_empty());
         assert!(!a.sector_observations_hash.is_empty());
+    }
+
+    #[test]
+    fn closure_verify_against_rejects_rehashed_tampering() {
+        let (pre, assignments, transitions, mut post) = fixture();
+        let mut closure = EconomicAccountingClosure::validate_and_seal(
+            &pre,
+            &post,
+            &assignments,
+            &transitions,
+        )
+        .unwrap();
+        closure.post_state_hash = "rehashed-but-wrong".into();
+        let binding = (
+            &closure.pre_state_hash,
+            &closure.post_state_hash,
+            &closure.transition_hash,
+            closure.transition_count,
+            &closure.actor_observations_hash,
+            &closure.aggregate_observations_hash,
+            &closure.stock_flow_posting_hash,
+            closure.stock_flow_posting_count,
+            &closure.physical_posting_hash,
+            closure.physical_posting_count,
+            &closure.sector_transaction_hash,
+            &closure.sector_financial_flow_hash,
+            &closure.sector_observations_hash,
+        );
+        closure.closure_hash = super::hash_json(&binding).unwrap();
+
+        assert!(closure
+            .verify_against(&pre, &post, &assignments, &transitions)
+            .is_err());
+
+        post.actors[0].actor = post.actors[0].actor.clone();
     }
 
     #[test]
