@@ -1028,7 +1028,9 @@ fn source_observation_ids_match_delivery_links(state: &FederationState) -> bool 
         .map(|observation| observation.observation_id.as_str())
         .collect::<BTreeSet<_>>();
 
-    linked_ids == source_ids
+    linked_ids.len() == state.delivery_count()
+        && linked_ids == source_ids
+        && source_ids.len() == state.delivery_count()
 }
 
 fn delivery_identity_snapshot(
@@ -1335,12 +1337,6 @@ mod tests {
         );
 
         assert_eq!(source_observation_count(&state), state.delivery_count());
-        let source_ids = state
-            .deliveries
-            .values()
-            .map(DeliveryRecord::source_observation_id)
-            .collect::<BTreeSet<_>>();
-        assert_eq!(source_ids.len(), state.delivery_count());
         assert!(source_observation_ids_match_delivery_links(&state));
         for record in state.deliveries.values() {
             assert!(source_observation_matches_delivery(&state, record));
@@ -1370,6 +1366,35 @@ mod tests {
             },
         );
 
+        assert!(!source_observation_ids_match_delivery_links(&state));
+    }
+
+    #[test]
+    fn source_observation_bijection_rejects_duplicate_delivery_links() {
+        let mut state = nodes();
+        assert_eq!(
+            deliver(&mut state, &envelope(), 50, true).decision(),
+            FederationDecision::AcceptedLocal
+        );
+
+        let source_id = state
+            .delivery("delivery-1")
+            .unwrap()
+            .source_observation_id()
+            .to_owned();
+
+        let duplicate_record = state.delivery("delivery-1").unwrap().clone();
+        state
+            .deliveries
+            .insert("delivery-duplicate-link".into(), duplicate_record);
+
+        assert_eq!(
+            state
+                .delivery("delivery-duplicate-link")
+                .unwrap()
+                .source_observation_id(),
+            source_id
+        );
         assert!(!source_observation_ids_match_delivery_links(&state));
     }
 
