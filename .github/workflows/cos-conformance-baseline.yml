@@ -3,6 +3,9 @@ name: COS Conformance Baseline
 on:
   push:
     branches: [myc-int-demo-d6w-layered-commitments]
+  pull_request:
+    branches: [myc-int-demo-d6w-layered-commitments]
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
 # Baseline control run: establish whether the D6W stack itself compiles before
