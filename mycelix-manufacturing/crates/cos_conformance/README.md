@@ -157,3 +157,29 @@ See `docs/integral/canonical-encoding-profile-d6t-v1.md`.
 
 Claim ceiling: **ReferenceModelOnly**.
 
+## D6S-CANON-2 authority boundary
+
+The frozen authority matrix at docs/integral/d6s-canon-2-authority-boundary-fixture.json contains 17 cases for the boundary between:
+
+wire authentication -> D6S integrity -> invocation routing/binding -> capability authorization -> zome semantic validation.
+
+Each case carries explicit terminal_gate and authority_state fields, making the fixture usable as an authority ledger rather than a prose-only checklist.
+
+docs/integral/d6s-canon-2-manifest.json freezes:
+
+- the exact D6S-CANON-2 fixture identity;
+- the exact D6S-CANON-1 manifest/corpus identities;
+- the authority-ledger vocabulary;
+- the Holochain 0.7 reference mapping;
+- the runtime-evidence contract;
+- the ReferenceModelOnly claim ceiling.
+
+The Rust integration test consumes the same fixture and independently checks the D6S-CANON-1 corpus hash plus the full terminal-gate/authority-state matrix.
+
+The Holochain 0.7 runtime mapping is deliberately not treated as executed runtime evidence. The live conductor harness is tracked separately in Mycelix issue #3851.
+
+## Qualification semantics
+
+The D6S workflow emits reference-gate-passed, not qualified. A successful run proves only that the pinned reference corpus, independent verifier, authority fixture, and claim-bounded evidence contract passed their automated checks.
+
+Runtime authentication, capability authorization, nonce enforcement, expiry enforcement, and zome execution remain unqualified until the dedicated 0.7 harness produces observed evidence.
