@@ -1471,17 +1471,38 @@ impl EvidenceDispositionReconciliationCoverage {
             .into_qualification()
             .require_missing(missing_transitions);
 
+        // Preserve contradiction precedence: once the transition dependency
+        // cone is fully present, validate its bounded structural relationships
+        // before returning an unresolved authority dependency.
         let partial = match combined_qualification {
             QualificationStatus::Unresolved {
                 missing,
                 partial,
-            } => {
+            } if !missing.is_empty() => {
+                if !missing_transitions.is_empty() {
+                    return Ok(EvidenceDispositionCoverageAssessment::Unresolved {
+                        missing,
+                        authority_roots: partial.authority_roots,
+                    });
+                }
+
+                self.validate_against_graph(
+                    reconciliation,
+                    authority_scope,
+                    authority_delegation,
+                    boundary,
+                    &named_transitions,
+                )?;
+
                 return Ok(EvidenceDispositionCoverageAssessment::Unresolved {
                     missing,
                     authority_roots: partial.authority_roots,
                 });
             }
             QualificationStatus::Complete(partial) => partial,
+            QualificationStatus::Unresolved { .. } => {
+                unreachable!("unresolved qualification must carry at least one missing dependency")
+            }
         };
 
         self.validate_against_graph(
