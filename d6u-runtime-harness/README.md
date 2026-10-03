@@ -26,17 +26,19 @@ Observed cases targeted by the harness:
 - capability revocation;
 - provenance mismatch using a valid secret assigned to another agent;
 - nonce replay;
-- lower nonce after a higher nonce;
 - expired invocation;
 - wrong zome;
 - wrong function;
 - wrong cell.
 
-The reference matrix still contains one case deliberately outside this harness:
+The reference matrix contains two cases deliberately outside this harness:
 
-- isolated authenticated-but-not-yet-authorized state.
+- isolated authenticated-but-not-yet-authorized state;
+- distinct stale/older-nonce state.
 
 Blocked provenance is now exercised through Holochain's system-level P2P block mechanism.
+
+As a supplemental substrate check, the runtime also exercises Holochain 0.7's excessive-future-expiry rejection. This is not substituted for the canonical `nonce-stale` reference case.
 
 ## Protocol-level outcome classes
 
