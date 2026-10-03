@@ -36,7 +36,7 @@ pub enum CapabilityAction {
     Admin = 5,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(try_from = "CapabilityWire")]
 pub struct Capability {
     subject: String,
@@ -362,7 +362,7 @@ impl EnforcementRequest {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(try_from = "AuthorizationRequestWire")]
 pub struct AuthorizationRequest {
     subject: String,
