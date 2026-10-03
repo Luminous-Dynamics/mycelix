@@ -245,6 +245,7 @@ pub struct VerifiedCapability {
 /// from a bare Allow value. Ownership is intentionally linear: the permit is
 /// consumed when creating an EnforcementRequest so callers cannot replay the
 /// same in-memory permit by cloning it.
+#[must_use = "authorization permits must be consumed by EnforcementRequest::from_permit"]
 #[derive(Debug, PartialEq, Eq)]
 pub struct AuthorizationPermit {
     request: AuthorizationRequest,
@@ -266,6 +267,7 @@ impl AuthorizationPermit {
 /// enforcement request is a one-shot authority hand-off. Applications that
 /// need durable audit data should copy the contained non-authoritative fields
 /// into a SecurityEvent instead of duplicating the enforcement capability.
+#[must_use = "enforcement requests are the only effect-bound authorization hand-off"]
 #[derive(Debug, PartialEq, Eq)]
 pub struct EnforcementRequest {
     request: AuthorizationRequest,
