@@ -149,11 +149,11 @@ impl VerificationEvidence {
         )
     }
 
-    /// Construct trusted evidence with an explicit freshness lease.
+    /// Test-only convenience constructor with a synthetic canonical freshness digest.
     ///
-    /// The lease is an upper bound on authorization derived from this evidence;
-    /// The lease is exclusive: equality with the current time is already stale.
-    /// Enforcement must revalidate it before an external effect.
+    /// Production verification must use `new_for_capability_with_freshness_digest` so
+    /// authority evidence cannot be represented by a fixed placeholder binding.
+    #[cfg(test)]
     pub(crate) fn new_for_capability_with_valid_until(
         capability: &Capability,
         signature_verified: bool,
