@@ -639,19 +639,32 @@ mod tests {
     #[test] fn irrelevant_d6p_receipt_does_not_change_closure_or_input(){let(a,e,d,c1)=fixture(false);let(mut b,_,_,c2)=fixture(false);b.d6p_current_receipt_commitments.insert("irrelevant".into());let c2=compute_dependency_closure(&b,&e,&d,&{let mut p=DependencyClosureProfileV1{profile_id:"cp".into(),version:"1".into(),root_node_ids:["root".into()].into_iter().collect(),required_node_ids:BTreeSet::new(),required_d6p_receipt_commitments:BTreeSet::new(),rules:[DependencyRuleV1{edge_kind:ClaimGraphEdgeKindV1::Supports,from_kind:Some(ClaimGraphNodeKindV1::Statement),to_kind:Some(ClaimGraphNodeKindV1::Evidence),currentness:DependencyCurrentnessV1::Any}].into_iter().collect(),excluded_boundary_policy:"rule-matched semantic edges only".into(),max_nodes:16,max_edges:16,claim_ceiling:D6S_CLAIM_CEILING.into()};p}).unwrap();assert_eq!(c1.closure_identity_commitment,c2.closure_identity_commitment);assert_eq!(InputCommitmentV1::from_projection(&a,&e,&c1,&closure_profile(),&d).unwrap().commitment,InputCommitmentV1::from_projection(&b,&e,&c2,&closure_profile(),&d).unwrap().commitment);}
     #[test]
     fn strict_d6w_ignores_unselected_projection_d6p_receipts() {
-        let (mut p, e, d, c) = fixture(false);
+        let (baseline_projection, e, d, baseline_closure) = fixture(false);
+        let profile = closure_profile();
 
-        p.d6p_current_receipt_commitments
+        let baseline = InputCommitmentV1::from_projection_with_authoritative_d6p(
+            &baseline_projection,
+            &e,
+            &profile,
+            &d,
+            &[],
+            &[],
+            None,
+        )
+        .expect("baseline strict D6W input");
+
+        let mut noisy_projection = baseline_projection.clone();
+        noisy_projection
+            .d6p_current_receipt_commitments
             .insert("irrelevant-d6p-receipt".into());
 
-        let profile = closure_profile();
         assert!(
-            c.included_d6p_receipt_commitments.is_empty(),
+            baseline_closure.included_d6p_receipt_commitments.is_empty(),
             "the baseline profile does not select the extra projection receipt"
         );
 
-        let input = InputCommitmentV1::from_projection_with_authoritative_d6p(
-            &p,
+        let noisy = InputCommitmentV1::from_projection_with_authoritative_d6p(
+            &noisy_projection,
             &e,
             &profile,
             &d,
@@ -661,8 +674,13 @@ mod tests {
         )
         .expect("unselected projection D6P material must not become a D6W dependency");
 
-        assert!(input.valid());
-        assert!(input.d6p_receipts.is_empty());
+        assert!(baseline.valid());
+        assert!(noisy.valid());
+        assert_eq!(
+            baseline.commitment, noisy.commitment,
+            "unselected D6P candidate material must not perturb the D6W input identity"
+        );
+        assert!(noisy.d6p_receipts.is_empty());
     }
 
     #[test] fn required_d6p_receipt_is_bound_into_closure(){let(a,e,d,_)=fixture(false);let mut p=DependencyClosureProfileV1{profile_id:"cp".into(),version:"1".into(),root_node_ids:["root".into()].into_iter().collect(),required_node_ids:BTreeSet::new(),required_d6p_receipt_commitments:["r1".into()].into_iter().collect(),rules:[DependencyRuleV1{edge_kind:ClaimGraphEdgeKindV1::Supports,from_kind:Some(ClaimGraphNodeKindV1::Statement),to_kind:Some(ClaimGraphNodeKindV1::Evidence),currentness:DependencyCurrentnessV1::Any}].into_iter().collect(),excluded_boundary_policy:"rule-matched semantic edges only".into(),max_nodes:16,max_edges:16,claim_ceiling:D6S_CLAIM_CEILING.into()};let blocked=compute_dependency_closure(&a,&e,&d,&p).unwrap();assert_eq!(blocked.status,qualified_dependency_closure_d6x::DependencyClosureStatusV1::BlockedMissingDependency);let mut b=a.clone();b.d6p_current_receipt_commitments.insert("r1".into());let complete=compute_dependency_closure(&b,&e,&d,&p).unwrap();assert_eq!(complete.status,qualified_dependency_closure_d6x::DependencyClosureStatusV1::Complete);assert_ne!(blocked.closure_identity_commitment,complete.closure_identity_commitment);}
