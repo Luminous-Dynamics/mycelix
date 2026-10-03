@@ -88,19 +88,19 @@ impl SignedCapability {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum SignatureVerification {
+enum SignatureVerification {
     Verified,
     Invalid,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum RevocationStatus {
+enum RevocationStatus {
     Current,
     Revoked,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum AuthorityResolution {
+enum AuthorityResolution {
     Unambiguous,
     Ambiguous,
 }
@@ -130,8 +130,8 @@ pub struct VerificationEvidence {
 /// so this binding remains stable across proof/lease refreshes that do not change the
 /// semantic authority domain. The protocol/profile are committed as well, preventing a
 /// digest from being interpreted under a different canonical freshness scheme.
-pub(crate) const AUTHORITY_FRESHNESS_PROTOCOL_VERSION: &str = "mycelix-authority-freshness-v0.1";
-pub(crate) const AUTHORITY_FRESHNESS_PROFILE: &str =
+const AUTHORITY_FRESHNESS_PROTOCOL_VERSION: &str = "mycelix-authority-freshness-v0.1";
+const AUTHORITY_FRESHNESS_PROFILE: &str =
     "mycelix-authority-freshness-bundle-v1-blake3-framed";
 
 /// Derive the bridge authority binding from the canonical current-freshness commitment.
@@ -140,7 +140,7 @@ pub(crate) const AUTHORITY_FRESHNESS_PROFILE: &str =
 /// by the caller. This prevents an adapter from accidentally interpreting the same digest
 /// under a different freshness identity scheme. Dynamic proof/lease metadata remains outside
 /// the binding.
-pub(crate) fn authority_binding_from_freshness_digest(freshness_digest: [u8; 32]) -> [u8; 32] {
+fn authority_binding_from_freshness_digest(freshness_digest: [u8; 32]) -> [u8; 32] {
     let mut hasher = blake3::Hasher::new();
     hasher.update(b"mycelix/security/authority-binding/v1");
     frame_hash_bytes(&mut hasher, AUTHORITY_FRESHNESS_PROTOCOL_VERSION.as_bytes());
@@ -153,7 +153,7 @@ impl VerificationEvidence {
     /// Test-only convenience constructor for evidence without a bounded lease.
     /// Production verification paths must use the explicit freshness-lease constructor.
     #[cfg(test)]
-    pub(crate) fn new_for_capability(
+    fn new_for_capability(
         capability: &Capability,
         signature: SignatureVerification,
         revocation: RevocationStatus,
@@ -174,7 +174,7 @@ impl VerificationEvidence {
     /// Production verification must use `new_for_capability_with_freshness_digest` so
     /// authority evidence cannot be represented by a fixed placeholder binding.
     #[cfg(test)]
-    pub(crate) fn new_for_capability_with_valid_until(
+    fn new_for_capability_with_valid_until(
         capability: &Capability,
         signature: SignatureVerification,
         revocation: RevocationStatus,
@@ -195,7 +195,7 @@ impl VerificationEvidence {
     ///
     /// Production callers cannot supply an arbitrary bridge authority binding;
     /// the bridge derives that binding from the canonical freshness commitment.
-    pub(crate) fn new_for_capability_with_freshness_digest(
+    fn new_for_capability_with_freshness_digest(
         capability: &Capability,
         freshness_digest: [u8; 32],
         signature: SignatureVerification,
@@ -215,7 +215,7 @@ impl VerificationEvidence {
 
     /// Test-only constructor for exercising authority-domain mismatch paths.
     #[cfg(test)]
-    pub(crate) fn new_for_capability_with_authority_binding_and_valid_until(
+    fn new_for_capability_with_authority_binding_and_valid_until(
         capability: &Capability,
         authority_binding: [u8; 32],
         signature: SignatureVerification,
@@ -397,8 +397,7 @@ impl AdvisoryResult {
                 1.0
             },
             rationale: rationale.into(),
-            recommended_action,
-        }
+            recommended_action,        }
     }
 }
 
@@ -797,8 +796,7 @@ mod tests {
             "did:mycelix:issuer",
             "resource:ledger",
             vec![CapabilityAction::Admin],
-            100,
-            200,
+            100,            200,
             7,
         )
         .unwrap();
@@ -1197,7 +1195,6 @@ mod tests {
             AuthorizationDecision::Deny(AuthorizationDenial::AuthorityBindingMismatch)
         );
     }
-
     #[test]
     fn authority_generation_binding_is_preserved_at_enforcement() {
         let cap = capability();
