@@ -334,12 +334,29 @@ impl EnforcementRequest {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(try_from = "AuthorizationRequestWire")]
 pub struct AuthorizationRequest {
     subject: String,
     resource: String,
     action: CapabilityAction,
     policy_version: u64,
+}
+
+#[derive(Debug, Deserialize)]
+struct AuthorizationRequestWire {
+    subject: String,
+    resource: String,
+    action: CapabilityAction,
+    policy_version: u64,
+}
+
+impl TryFrom<AuthorizationRequestWire> for AuthorizationRequest {
+    type Error = &'static str;
+
+    fn try_from(wire: AuthorizationRequestWire) -> Result<Self, Self::Error> {
+        Self::new(wire.subject, wire.resource, wire.action, wire.policy_version)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -1598,6 +1615,19 @@ mod tests {
                 AuthorizationDenial::OutsideValidityWindow
             ))
         );
+    }
+
+    #[test]
+    fn deserialized_malformed_authorization_request_is_rejected() {
+        let result: Result<AuthorizationRequest, _> = serde_json::from_str(
+            r#"{
+                "subject":"",
+                "resource":"ledger",
+                "action":"Read",
+                "policy_version":7
+            }"#,
+        );
+        assert!(result.is_err());
     }
 
     #[test]
