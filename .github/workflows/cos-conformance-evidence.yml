@@ -1,0 +1,81 @@
+name: COS Conformance Evidence
+
+on:
+  pull_request:
+    branches: [main, myc-int-demo-d6w-layered-commitments]
+    paths:
+      - 'mycelix-manufacturing/crates/cos_conformance/**'
+      - 'mycelix-manufacturing/Cargo.toml'
+      - 'mycelix-manufacturing/Cargo.lock'
+      - 'docs/integral/cos-reference-node-v1.md'
+      - 'mycelix-manufacturing/tests/cos_reference_conformance.md'
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+# This workflow is deliberately non-canceling. Unlike generic CI, each completed
+# evidence run remains independently addressable for the exact source SHA that
+# produced it.
+concurrency:
+  group: cos-conformance-evidence-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  conformance:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-manufacturing
+
+      - name: Test COS conformance harness
+        run: cd mycelix-manufacturing && cargo test -p cos_conformance
+
+      - name: Generate machine-readable report
+        run: |
+          mkdir -p evidence
+          cd mycelix-manufacturing
+          cargo run -q -p cos_conformance --bin cos-report > ../evidence/cos-conformance-report.json
+
+      - name: Validate evidence report
+        run: |
+          test -s evidence/cos-conformance-report.json
+          grep -q '"corpus_id": "COS-CONF-001"' evidence/cos-conformance-report.json
+          grep -q '"case_count": 32' evidence/cos-conformance-report.json
+          grep -q '"untested_formal_obligations": \[\]' evidence/cos-conformance-report.json
+          ! grep -q 'verified_score' evidence/cos-conformance-report.json
+
+      - name: Write run envelope
+        run: |
+          cat > evidence/run-envelope.json <<'JSON'
+          {
+            "schema": "MYCELIX-COS-CONFORMANCE-EVIDENCE-V1",
+            "claim_ceiling": "ReferenceModelOnly",
+            "repository": "${{ github.repository }}",
+            "commit_sha": "${{ github.sha }}",
+            "workflow": "${{ github.workflow }}",
+            "run_id": ${{ github.run_id }},
+            "run_attempt": ${{ github.run_attempt }},
+            "event": "${{ github.event_name }}",
+            "runner_os": "${{ runner.os }}"
+          }
+          JSON
+
+      - name: Preserve immutable evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cos-conformance-evidence-${{ github.sha }}
+          path: evidence/
+          if-no-files-found: warn
+          retention-days: 30
