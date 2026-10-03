@@ -64,6 +64,7 @@ struct RecoveryRequestMirror {
     status: RecoveryStatusMirror,
     created: Timestamp,
     time_lock_expires: Option<Timestamp>,
+    approval_certificate: Option<ActionHash>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
