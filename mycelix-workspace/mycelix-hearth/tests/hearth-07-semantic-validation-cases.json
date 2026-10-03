@@ -1,0 +1,30 @@
+{
+  "schema_version": "HEARTH-SEMANTIC-0.7-CASESET-1",
+  "claim_ceiling": "RuntimeQualificationPending; cases describe intended integrity-rejection evidence and do not constitute observed runtime results until the ignored Sweettest suite executes in the pinned Holochain 0.7 environment.",
+  "cases": [
+    {
+      "case_id": "SEM-01",
+      "test": "test_invalid_decision_entry_reaches_integrity_validation",
+      "zome": "hearth_decisions",
+      "operation": "create_decision",
+      "invariant": "Decision title cannot be empty",
+      "boundary": "integrity_validation"
+    },
+    {
+      "case_id": "SEM-02",
+      "test": "test_invalid_resource_entry_reaches_integrity_validation",
+      "zome": "hearth_resources",
+      "operation": "register_resource",
+      "invariant": "Resource name cannot be empty",
+      "boundary": "integrity_validation"
+    },
+    {
+      "case_id": "SEM-03",
+      "test": "test_invalid_story_entry_reaches_integrity_validation",
+      "zome": "hearth_stories",
+      "operation": "create_story",
+      "invariant": "Story title cannot be empty",
+      "boundary": "integrity_validation"
+    }
+  ]
+}
