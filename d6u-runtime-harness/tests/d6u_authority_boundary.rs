@@ -144,7 +144,7 @@ async fn call(
     .expect("app interface request must complete")
 }
 
-fn decode_zome<T: DeserializeOwned>(response: AppResponse) -> T {
+fn decode_zome<T: DeserializeOwned + std::fmt::Debug>(response: AppResponse) -> T {
     match response {
         AppResponse::ZomeCalled(io) => io.decode().expect("zome response payload must decode"),
         other => panic!("unexpected AppResponse: {other:?}"),
