@@ -821,6 +821,21 @@
       "id": "EDT-162",
       "case": "runtime_binding_preserves_registered_authority_credential_provenance_continuity",
       "expected": "accepted"
+    },
+    {
+      "id": "EDT-163",
+      "case": "runtime_binding_rejects_dropped_authority_credential_basis",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-164",
+      "case": "runtime_binding_accepts_complete_registered_authority_credential_basis",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-165",
+      "case": "runtime_binding_rejects_authority_credential_witness_reuse",
+      "expected": "typed_structural_error"
     }
   ],
   "outcome_classes": [
