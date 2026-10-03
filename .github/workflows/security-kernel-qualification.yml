@@ -49,7 +49,7 @@ jobs:
           # the visibility modifier and item name on separate lines.
           # The qualification lane is intentionally a low-trust pull_request/push workflow;
           # do not broaden it to a privileged pull_request_target trigger.
-          if rg -n 'pull_request_target' .github/workflows/security-kernel-qualification.yml; then
+          if rg -n '^[[:space:]]*pull_request_target[[:space:]]*:' .github/workflows/security-kernel-qualification.yml; then
             echo "security-workflow regression: privileged pull_request_target trigger is forbidden" >&2
             exit 1
           fi
