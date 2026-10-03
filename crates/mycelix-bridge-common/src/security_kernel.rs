@@ -87,8 +87,10 @@ impl SignedCapability {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VerificationEvidence {
+    // Deliberately non-Copy: trusted verification evidence should not be implicitly duplicated.
+    // Reuse across independent checks must be explicit (`Clone`) so evidence flow remains visible.
     // Intentionally private: callers must obtain these propositions from an
     // in-crate verifier boundary rather than constructing trusted evidence
     // from arbitrary booleans.
