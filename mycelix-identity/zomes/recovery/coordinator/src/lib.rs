@@ -203,6 +203,84 @@ fn notify_bridge_of_recovery(did: &str, new_agent: &AgentPubKey) -> ExternResult
     }
 }
 
+/// Emit recovery lifecycle notifications only after the corresponding
+/// source-chain writes have successfully committed.
+#[hdk_extern(infallible)]
+pub fn post_commit(committed_actions: Vec<SignedActionHashed>) {
+    for action in committed_actions {
+        let is_create = matches!(action.action().data, ActionData::Create(_));
+        let Some(record) = get(action.action_address().clone(), GetOptions::default()).ok().flatten()
+        else {
+            continue;
+        };
+
+        let Ok(Some(request)) = record.entry().to_app_option::<RecoveryRequest>() else {
+            continue;
+        };
+
+        if is_create {
+            // The request now definitely exists; notify the bridge after commit.
+            let payload = serde_json::json!({
+                "did": request.did,
+                "initiated_by": request.initiated_by,
+                "request_id": request.id,
+                "event": "recovery_initiated",
+            }).to_string();
+
+            notify_bridge_event(
+                "RecoveryInitiated",
+                &request.did,
+                &payload,
+            );
+        } else if request.status == RecoveryStatus::Completed {
+            let payload = serde_json::json!({
+                "did": request.did,
+                "new_agent": format!("{}", request.new_agent),
+                "request_id": request.id,
+                "event": "recovery_completed",
+            }).to_string();
+
+            notify_bridge_event(
+                "DidRecovered",
+                &request.did,
+                &payload,
+            );
+        }
+    }
+}
+
+fn notify_bridge_event(event_type: &str, subject: &str, payload: &str) {
+    #[derive(Serialize, Deserialize, Debug)]
+    struct BroadcastEventInput {
+        event_type: String,
+        subject: String,
+        payload: String,
+        source_happ: String,
+    }
+
+    let input = BroadcastEventInput {
+        event_type: event_type.into(),
+        subject: subject.into(),
+        payload: payload.into(),
+        source_happ: "mycelix-identity".into(),
+    };
+
+    if let Ok(ZomeCallResponse::Ok(_)) = call(
+        CallTargetCell::Local,
+        ZomeName::new("identity_bridge"),
+        FunctionName::new("broadcast_event"),
+        None,
+        input,
+    ) {
+        return;
+    }
+
+    debug!(
+        "Post-commit bridge notification failed for event={} subject={}",
+        event_type, subject
+    );
+}
+
 /// Create a deterministic entry hash from a string identifier
 /// This is used for link bases when we need to link from string IDs
 fn string_to_entry_hash(s: &str) -> EntryHash {
@@ -547,44 +625,6 @@ pub fn initiate_recovery(input: InitiateRecoveryInput) -> ExternResult<Record> {
         (),
     )?;
 
-    // Broadcast RecoveryInitiated event to bridge for ecosystem-wide awareness
-    {
-        #[derive(Serialize, Deserialize, Debug)]
-        struct BroadcastEventInput {
-            event_type: String,
-            subject: String,
-            payload: String,
-            source_happ: String,
-        }
-
-        let payload = serde_json::json!({
-            "did": did_for_event,
-            "initiated_by": initiator_for_event,
-            "request_id": request_id_for_event,
-            "event": "recovery_initiated",
-        })
-        .to_string();
-
-        let event_input = BroadcastEventInput {
-            event_type: "RecoveryInitiated".to_string(),
-            subject: did_for_event.to_string(),
-            payload,
-            source_happ: "mycelix-identity".to_string(),
-        };
-
-        match call(
-            CallTargetCell::Local,
-            ZomeName::new("identity_bridge"),
-            FunctionName::new("broadcast_event"),
-            None,
-            event_input,
-        ) {
-            Ok(ZomeCallResponse::Ok(_)) => {}
-            _ => {
-                debug!("Bridge notification failed for RecoveryInitiated event - non-critical");
-            }
-        }
-    }
 
     get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
         "Could not find recovery request".into()
@@ -1104,14 +1144,8 @@ pub fn execute_recovery(request_id: String) -> ExternResult<Record> {
         &EntryTypes::RecoveryRequest(completed_request),
     )?;
 
-    // Broadcast recovery event to bridge so other hApps are informed
-    if let Err(e) = notify_bridge_of_recovery(&did_for_mfa, &new_agent_for_mfa) {
-        debug!("Failed to notify bridge of recovery execution: {:?}", e);
-    }
-
-    // DID transfer completes when the new agent calls did_registry::claim_recovered_did().
-    // This two-step pattern is required by Holochain's agent-centric architecture:
-    // only the new agent can create entries on their own source chain.
+    // The lifecycle notification is emitted from post_commit after the
+    // Completed update has been durably committed.
 
     get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
         "Could not find completed request".into()
