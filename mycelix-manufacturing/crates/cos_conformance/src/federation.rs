@@ -1253,7 +1253,31 @@ mod tests {
         let recognized_outcome = deliver(&mut state, &recognized, 50, true);
         assert_eq!(recognized_outcome.decision(), FederationDecision::AcceptedForeign);
 
+        let mut delegated = envelope();
+        delegated.envelope_id = "env-delegated-source".into();
+        delegated.logical_delivery_id = "delivery-delegated-source".into();
+        delegated.attempt_id = "attempt-delegated-source".into();
+        delegated.origin_node = "node-c".into();
+        delegated.target_node = "node-a".into();
+        state.add_recognition(RecognitionEdge {
+            recognizing_node: "node-a".into(),
+            origin_node: "node-c".into(),
+            scope: "subject-1".into(),
+            mode: RecognitionMode::DelegatedAuthority,
+        });
+        let delegated_outcome = deliver(&mut state, &delegated, 50, true);
+        assert_eq!(
+            delegated_outcome.decision(),
+            FederationDecision::AcceptedDelegatedForeign
+        );
+
         assert_eq!(source_observation_count(&state), state.delivery_count());
+        let source_ids = state
+            .deliveries
+            .values()
+            .map(DeliveryRecord::source_observation_id)
+            .collect::<BTreeSet<_>>();
+        assert_eq!(source_ids.len(), state.delivery_count());
         for record in state.deliveries.values() {
             assert!(source_observation_matches_delivery(&state, record));
         }
