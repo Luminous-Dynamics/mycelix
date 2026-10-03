@@ -566,6 +566,11 @@
       "id": "EDT-111",
       "case": "duplicate_runtime_binding_is_adapter_boundary_failure",
       "expected": "adapter_boundary_error"
+    },
+    {
+      "id": "EDT-112",
+      "case": "one_callback_seam_maps_semantic_invalidity_and_preserves_true_adapter_errors",
+      "expected": "accepted"
     }
   ],
   "outcome_classes": [
