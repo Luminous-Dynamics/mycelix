@@ -138,6 +138,9 @@ jobs:
             echo "rust_version=$(nix develop .#ci --impure --command rustc --version 2>/dev/null || true)"
             echo "cargo_version=$(nix develop .#ci --impure --command cargo --version 2>/dev/null || true)"
             echo "dna_present=$(test -s dna/mycelix_hearth.dna && echo true || echo false)"
+            if [[ -s qualification-source-contract-sha256.txt ]]; then
+              echo "source_contract_digest=$(sha256sum qualification-source-contract-sha256.txt | awk '{print $1}')"
+            fi
           } > qualification-toolchain.txt
 
           : > qualification-wasm-sha256.txt
@@ -201,6 +204,7 @@ jobs:
             mycelix-workspace/mycelix-hearth/qualification-dna-sha256.txt
             mycelix-workspace/mycelix-hearth/qualification-cargo-lock-sha256.txt
             mycelix-workspace/mycelix-hearth/qualification-cargo-lock-summary.txt
+            mycelix-workspace/mycelix-hearth/qualification-source-contract-sha256.txt
             mycelix-workspace/mycelix-hearth/qualification-cargo-metadata.json
             mycelix-workspace/mycelix-hearth/tests/qualification-cargo-metadata.json
             mycelix-workspace/mycelix-hearth/Cargo.lock
