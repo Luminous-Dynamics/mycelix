@@ -28,11 +28,11 @@
     "expired-invocation",
     "wrong-zome",
     "wrong-function",
-    "wrong-cell"
+    "wrong-cell",
+    "blocked-provenance"
   ],
   "unsupported_reference_cases": [
-    "wire-signature-valid",
-    "blocked-provenance"
+    "wire-signature-valid"
   ],
   "evidence_fields": [
     "source_commit",
@@ -84,7 +84,8 @@
     "expired-invocation": "authorization-failed",
     "wrong-zome": "routing-failed",
     "wrong-function": "authorization-failed",
-    "wrong-cell": "routing-failed"
+    "wrong-cell": "routing-failed",
+    "blocked-provenance": "authorization-failed"
   },
   "evidence_outcome_classes": [
     "accepted",
