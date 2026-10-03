@@ -2252,6 +2252,247 @@ mod tests {
         );
     }
 
+    fn assert_public_transition_preserves_invariants<F>(
+        state: &mut FederationState,
+        transition: &str,
+        expect_state_change: bool,
+        transition_fn: F,
+    ) where
+        F: FnOnce(&mut FederationState),
+    {
+        let before = canonical_state_fingerprint(state);
+        transition_fn(state);
+        assert!(
+            validate_state(state).is_ok(),
+            "public transition produced invalid state: {transition}"
+        );
+
+        let after = canonical_state_fingerprint(state);
+        assert_eq!(
+            after != before,
+            expect_state_change,
+            "unexpected state-change classification for {transition}"
+        );
+    }
+
+    #[test]
+    fn public_state_transitions_preserve_all_registered_invariants() {
+        let mut state = nodes();
+        assert_eq!(validate_state(&state), Ok(()));
+
+        assert_public_transition_preserves_invariants(
+            &mut state,
+            "try_add_recognition/insert",
+            true,
+            |state| {
+                assert_eq!(
+                    state.try_add_recognition(RecognitionEdge {
+                        recognizing_node: "node-a".into(),
+                        origin_node: "node-b".into(),
+                        scope: "subject-1".into(),
+                        mode: RecognitionMode::EvidenceOnly,
+                    }),
+                    Ok(true)
+                );
+            },
+        );
+
+        assert_public_transition_preserves_invariants(
+            &mut state,
+            "try_add_recognition/duplicate",
+            false,
+            |state| {
+                assert_eq!(
+                    state.try_add_recognition(RecognitionEdge {
+                        recognizing_node: "node-a".into(),
+                        origin_node: "node-b".into(),
+                        scope: "subject-1".into(),
+                        mode: RecognitionMode::EvidenceOnly,
+                    }),
+                    Ok(false)
+                );
+            },
+        );
+
+        assert_public_transition_preserves_invariants(
+            &mut state,
+            "try_add_recognition/unknown-node",
+            false,
+            |state| {
+                assert_eq!(
+                    state.try_add_recognition(RecognitionEdge {
+                        recognizing_node: "node-a".into(),
+                        origin_node: "unknown-node".into(),
+                        scope: "subject-1".into(),
+                        mode: RecognitionMode::EvidenceOnly,
+                    }),
+                    Err(FederationRecognitionError::UnknownOriginNode)
+                );
+            },
+        );
+
+        let independent = ObservationRecord {
+            observation_id: "obs-transition".into(),
+            semantic_subject_id: "subject-1".into(),
+            payload_commitment: "sha256:transition".into(),
+            origin_node: "node-a".into(),
+            origin_node_known: false,
+            recognized_by: None,
+            source_observation: false,
+        };
+
+        assert_public_transition_preserves_invariants(
+            &mut state,
+            "record_observation/insert",
+            true,
+            |state| {
+                assert_eq!(
+                    record_observation(state, independent.clone()),
+                    ObservationWriteResult::Inserted
+                );
+            },
+        );
+
+        assert_public_transition_preserves_invariants(
+            &mut state,
+            "record_observation/duplicate",
+            false,
+            |state| {
+                assert_eq!(
+                    record_observation(state, independent.clone()),
+                    ObservationWriteResult::Duplicate
+                );
+            },
+        );
+
+        let mut conflicting = independent.clone();
+        conflicting.payload_commitment = "sha256:transition-conflict".into();
+        assert_public_transition_preserves_invariants(
+            &mut state,
+            "record_observation/conflict",
+            false,
+            |state| {
+                assert_eq!(
+                    record_observation(state, conflicting),
+                    ObservationWriteResult::Conflict
+                );
+            },
+        );
+
+        let candidate = envelope();
+        assert_public_transition_preserves_invariants(
+            &mut state,
+            "deliver/accepted-local",
+            true,
+            |state| {
+                assert_eq!(
+                    deliver(state, &candidate, 50, true).decision(),
+                    FederationDecision::AcceptedLocal
+                );
+            },
+        );
+
+        let mut retry = candidate.clone();
+        retry.attempt_id = "attempt-2".into();
+        assert_public_transition_preserves_invariants(
+            &mut state,
+            "deliver/duplicate-new-attempt",
+            true,
+            |state| {
+                assert_eq!(
+                    deliver(state, &retry, 50, true).decision(),
+                    FederationDecision::Duplicate
+                );
+            },
+        );
+
+        let before_rejected = canonical_state_fingerprint(&state);
+        let mut attempt_rebind = retry.clone();
+        attempt_rebind.envelope_id = "env-rebound".into();
+        let outcome = deliver(&mut state, &attempt_rebind, 50, true);
+        assert_eq!(outcome.decision(), FederationDecision::AttemptConflict);
+        assert_eq!(canonical_state_fingerprint(&state), before_rejected);
+        assert_eq!(validate_state(&state), Ok(()));
+
+        let before_partition = canonical_state_fingerprint(&state);
+        let mut foreign = envelope();
+        foreign.envelope_id = "env-transition-foreign".into();
+        foreign.logical_delivery_id = "delivery-transition-foreign".into();
+        foreign.attempt_id = "attempt-transition-foreign".into();
+        foreign.origin_node = "node-b".into();
+        foreign.target_node = "node-a".into();
+        let partitioned = deliver(&mut state, &foreign, 50, false);
+        assert_eq!(partitioned.decision(), FederationDecision::PartitionUnknown);
+        assert_eq!(canonical_state_fingerprint(&state), before_partition);
+        assert_eq!(validate_state(&state), Ok(()));
+
+        let before_stale = canonical_state_fingerprint(&state);
+        let mut stale = envelope();
+        stale.envelope_id = "env-transition-stale".into();
+        stale.logical_delivery_id = "delivery-transition-stale".into();
+        stale.attempt_id = "attempt-transition-stale".into();
+        stale.schema_generation = 2;
+        assert_eq!(
+            deliver(&mut state, &stale, 50, true).decision(),
+            FederationDecision::StaleGeneration
+        );
+        assert_eq!(canonical_state_fingerprint(&state), before_stale);
+        assert_eq!(validate_state(&state), Ok(()));
+
+        let before_expiry = canonical_state_fingerprint(&state);
+        let mut expired = envelope();
+        expired.envelope_id = "env-transition-expired".into();
+        expired.logical_delivery_id = "delivery-transition-expired".into();
+        expired.attempt_id = "attempt-transition-expired".into();
+        expired.expires_at = Some(50);
+        assert_eq!(
+            deliver(&mut state, &expired, 50, true).decision(),
+            FederationDecision::ExpiredAuthorization
+        );
+        assert_eq!(canonical_state_fingerprint(&state), before_expiry);
+        assert_eq!(validate_state(&state), Ok(()));
+
+        let before_revoked = canonical_state_fingerprint(&state);
+        let mut revoked = envelope();
+        revoked.envelope_id = "env-transition-revoked".into();
+        revoked.logical_delivery_id = "delivery-transition-revoked".into();
+        revoked.attempt_id = "attempt-transition-revoked".into();
+        revoked.authorization = AuthorizationState::Revoked;
+        assert_eq!(
+            deliver(&mut state, &revoked, 50, true).decision(),
+            FederationDecision::Unauthorized
+        );
+        assert_eq!(canonical_state_fingerprint(&state), before_revoked);
+        assert_eq!(validate_state(&state), Ok(()));
+
+        let before_absent = canonical_state_fingerprint(&state);
+        let mut absent = envelope();
+        absent.envelope_id = "env-transition-absent".into();
+        absent.logical_delivery_id = "delivery-transition-absent".into();
+        absent.attempt_id = "attempt-transition-absent".into();
+        absent.authorization = AuthorizationState::Absent;
+        assert_eq!(
+            deliver(&mut state, &absent, 50, true).decision(),
+            FederationDecision::Unauthorized
+        );
+        assert_eq!(canonical_state_fingerprint(&state), before_absent);
+        assert_eq!(validate_state(&state), Ok(()));
+
+        let before_rejected_observation = canonical_state_fingerprint(&state);
+        let mut forged_source = independent;
+        forged_source.observation_id = "obs-forged-source".into();
+        forged_source.source_observation = true;
+        assert_eq!(
+            record_observation(&mut state, forged_source),
+            ObservationWriteResult::RejectedSourceClaim
+        );
+        assert_eq!(
+            canonical_state_fingerprint(&state),
+            before_rejected_observation
+        );
+        assert_eq!(validate_state(&state), Ok(()));
+    }
+
     #[test]
     fn source_observations_track_admitted_deliveries() {
         let mut state = nodes();
