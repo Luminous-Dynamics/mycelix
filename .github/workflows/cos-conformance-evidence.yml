@@ -38,6 +38,13 @@ jobs:
         with:
           workspaces: mycelix-manufacturing
 
+      - name: Capture toolchain identity
+        if: always()
+        run: |
+          mkdir -p evidence
+          rustc -Vv > evidence/rustc-version.txt
+          cargo -V > evidence/cargo-version.txt
+
       - name: Test COS conformance harness
         id: conformance_test
         run: |
