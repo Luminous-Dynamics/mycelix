@@ -161,7 +161,9 @@ impl<A> QualificationDependencyBindingSet<A> {
     }
 
     /// Iterate in canonical logical-identity order, independent of insertion order.
-    pub fn iter(&self) -> impl Iterator<Item = (&IdentityRef, &A)> {
+    pub fn iter(
+        &self,
+    ) -> impl Iterator<Item = (&IdentityRef, &QualificationDependencyBinding<A>)> {
         self.bindings.iter()
     }
 }
