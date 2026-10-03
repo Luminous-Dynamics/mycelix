@@ -1,4 +1,5 @@
 use crate::identity_lineage::{IdentityKind, IdentityRef};
+use serde::{Deserialize, Serialize};
 
 /// Structural provenance witness explaining why a logical qualification
 /// dependency is allowed to participate in a runtime binding.
@@ -10,7 +11,8 @@ use crate::identity_lineage::{IdentityKind, IdentityRef};
 ///
 /// This is a structural provenance statement, not a cryptographic proof,
 /// legal authority assertion, or global completeness claim.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct QualificationDependencyBindingProvenance {
     pub witness_identity: IdentityRef,
     pub logical_identity: IdentityRef,
@@ -126,6 +128,20 @@ mod tests {
         let mut provenance = valid_provenance();
         provenance.basis.retain(|basis| basis != &provenance.authority);
         assert!(provenance.validate().is_err());
+    }
+
+    #[test]
+    fn provenance_roundtrips_as_closed_json() {
+        let provenance = valid_provenance();
+        let encoded = serde_json::to_string(&provenance).expect("provenance must serialize");
+        let decoded: QualificationDependencyBindingProvenance =
+            serde_json::from_str(&encoded).expect("provenance must deserialize");
+        assert_eq!(decoded, provenance);
+
+        let mut object: serde_json::Value =
+            serde_json::from_str(&encoded).expect("serialized provenance must be JSON");
+        object["unexpected"] = serde_json::json!("reject");
+        assert!(serde_json::from_value::<QualificationDependencyBindingProvenance>(object).is_err());
     }
 
     #[test]
