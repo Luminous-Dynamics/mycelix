@@ -584,6 +584,40 @@ mod linux {
         Ok(())
     }
 
+    fn predicate_instruction_count(predicate: &SeccompArgPredicateV1) -> usize {
+        let low = predicate.mask as u32 != 0;
+        let high = (predicate.mask >> 32) as u32 != 0;
+        match predicate.op {
+            // MaskedEqual emits load + AND + branch + EPERM for each
+            // populated half of the 64-bit argument.
+            SeccompArgPredicateOpV1::MaskedEqual => {
+                usize::from(low) * 4 + usize::from(high) * 4
+            }
+            // MaskedNotEqual emits three instructions for the low half
+            // when both halves are populated (its successful low-half
+            // mismatch skips the high-half body), then four for the high
+            // half. A single populated half emits four instructions.
+            SeccompArgPredicateOpV1::MaskedNotEqual => {
+                if low && high { 7 } else { 4 }
+            }
+        }
+    }
+
+    fn clause_instruction_count(clause: &SeccompSyscallClauseV2) -> usize {
+        1 + clause
+            .predicates
+            .iter()
+            .map(predicate_instruction_count)
+            .sum::<usize>()
+    }
+
+    fn rule_body_instruction_count(rule: &SeccompSyscallRuleV2) -> usize {
+        rule.clauses
+            .iter()
+            .map(clause_instruction_count)
+            .sum::<usize>()
+    }
+
     fn compile_filter_v2(policy: &SeccompSyscallPolicyV2) -> Result<Vec<SockFilter>, SeccompError> {
         #[cfg(target_endian = "big")]
         return Err(SeccompError::UnsupportedEndianness);
@@ -601,37 +635,13 @@ mod linux {
             instruction_count = instruction_count
                 .checked_add(1)
                 .ok_or(SeccompError::FilterTooLarge)?;
-
-            for clause in &rule.clauses {
-                instruction_count = instruction_count
-                    .checked_add(1)
-                    .ok_or(SeccompError::FilterTooLarge)?;
-
-                for predicate in &clause.predicates {
-                    let low = usize::from(predicate.mask as u32 != 0)
-                        .checked_mul(4)
-                        .ok_or(SeccompError::FilterTooLarge)?;
-                    let high = usize::from((predicate.mask >> 32) as u32 != 0)
-                        .checked_mul(4)
-                        .ok_or(SeccompError::FilterTooLarge)?;
-                    let predicate_len = match predicate.op {
-                        SeccompArgPredicateOpV1::MaskedEqual => low
-                            .checked_add(high)
-                            .ok_or(SeccompError::FilterTooLarge)?,
-                        SeccompArgPredicateOpV1::MaskedNotEqual => {
-                            if low != 0 && high != 0 { 7 } else { 4 }
-                        }
-                    };
-                    instruction_count = instruction_count
-                        .checked_add(predicate_len)
-                        .ok_or(SeccompError::FilterTooLarge)?;
-                }
-            }
+            instruction_count = instruction_count
+                .checked_add(rule_body_instruction_count(rule))
+                .ok_or(SeccompError::FilterTooLarge)?;
         }
         if instruction_count > 4096 || instruction_count > u16::MAX as usize {
             return Err(SeccompError::FilterTooLarge);
         }
-
         let mut filter = Vec::with_capacity(instruction_count);
         filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, SECCOMP_DATA_ARCH_OFFSET));
         filter.push(jump_eq(policy.architecture as u32, 1, 0));
@@ -642,44 +652,6 @@ mod linux {
             const X32_SYSCALL_BIT: u32 = 0x4000_0000;
             filter.push(jump_ge(X32_SYSCALL_BIT, 0, 1));
             filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS));
-        }
-
-        fn predicate_instruction_count(predicate: &SeccompArgPredicateV1) -> usize {
-            let low = predicate.mask as u32 != 0;
-            let high = (predicate.mask >> 32) as u32 != 0;
-            match predicate.op {
-                // MaskedEqual emits load + AND + branch + EPERM for each
-                // populated half of the 64-bit argument.
-                SeccompArgPredicateOpV1::MaskedEqual => {
-                    usize::from(low) * 4 + usize::from(high) * 4
-                }
-                // MaskedNotEqual emits three instructions for the low half
-                // when both halves are populated (its successful low-half
-                // mismatch jumps over the high-half body), then four for the
-                // high half. A single populated half emits four instructions.
-                SeccompArgPredicateOpV1::MaskedNotEqual => {
-                    if low && high {
-                        7
-                    } else {
-                        4
-                    }
-                }
-            }
-        }
-
-        fn clause_instruction_count(clause: &SeccompSyscallClauseV2) -> usize {
-            1 + clause
-                .predicates
-                .iter()
-                .map(predicate_instruction_count)
-                .sum::<usize>()
-        }
-
-        fn rule_body_instruction_count(rule: &SeccompSyscallRuleV2) -> usize {
-            rule.clauses
-                .iter()
-                .map(clause_instruction_count)
-                .sum::<usize>()
         }
 
         for rule in &policy.rules {
