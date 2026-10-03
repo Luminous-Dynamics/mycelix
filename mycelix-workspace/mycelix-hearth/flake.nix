@@ -39,6 +39,7 @@
         holochainBase = import ../../nix/modules/holochain-base.nix {
           inherit pkgs system;
           holochainPackages = holochainPackages;
+          rustToolchainOverride = holochainPackages.rust;
         };
 
       in {
