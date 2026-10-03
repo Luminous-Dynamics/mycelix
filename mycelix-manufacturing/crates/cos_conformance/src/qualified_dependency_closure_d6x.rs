@@ -774,7 +774,12 @@ pub fn compute_dependency_closure(
     };
     out.closure_identity_commitment = out.closure_identity();
     out.commitment = out.recompute();
-    Some(out)
+    // Constructors must not return a certificate that fails its own structural
+    // invariant. In particular, selected node/edge commitment sets are
+    // cardinality-checked against their identity maps, so duplicate selected
+    // commitments are rejected at the constructor boundary rather than handed
+    // downstream as an apparently qualified artifact.
+    out.valid().then_some(out)
 }
 
 #[cfg(test)]
@@ -1160,6 +1165,31 @@ mod tests {
         assert_eq!(c.status, DependencyClosureStatusV1::BlockedResourceLimit);
         assert_eq!(c.included_edges.len(), 1);
         assert!(c.valid());
+    }
+
+    #[test]
+    fn duplicate_selected_node_commitment_fails_closed_at_constructor() {
+        let (mut a, e, d) = projection(false);
+        a.nodes.get_mut("dep").unwrap().node_commitment = "commit-root".into();
+
+        let p = profile(BTreeSet::new());
+        assert!(compute_dependency_closure(&a, &e, &d, &p).is_none());
+    }
+
+    #[test]
+    fn duplicate_selected_edge_commitment_fails_closed_at_constructor() {
+        let (mut a, e, d) = projection(false);
+        a.edges.insert("e2".into(), QualifiedEdgeV1 {
+            edge_id: "e2".into(),
+            from_node_id: "root".into(),
+            to_node_id: "dep".into(),
+            kind: ClaimGraphEdgeKindV1::Supports,
+            edge_commitment: "edge-e1".into(),
+            claim_ceiling: D6X_CLAIM_CEILING.into(),
+        });
+
+        let p = profile(BTreeSet::new());
+        assert!(compute_dependency_closure(&a, &e, &d, &p).is_none());
     }
 
     #[test]
