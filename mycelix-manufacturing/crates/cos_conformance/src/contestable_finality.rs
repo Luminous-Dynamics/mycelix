@@ -763,7 +763,8 @@ pub fn assess_observation_set(
             let left = by_id.get(&assessments[i].observation_id).expect("assessment source exists");
             let right = by_id.get(&assessments[j].observation_id).expect("assessment source exists");
             if profiles_share_dependency(&left.observer, &right.observer) {
-                for assessment in [&mut assessments[i], &mut assessments[j]] {
+                let (left_assessment, right_and_rest) = assessments.split_at_mut(j);
+                for assessment in [&mut left_assessment[i], &mut right_and_rest[0]] {
                     if matches!(
                         assessment.classification,
                         ObservationClassificationV1::CorroboratingIndependent
@@ -1549,7 +1550,7 @@ mod tests {
     }
 
     #[test]
-    fn archive_resolution_is_historical_only() {
+    fn archive_resolution_is_historical_only_preserves_boundary() {
         let r = receipt(FinalityResolutionDispositionV1::AcceptedCurrent);
         assert_eq!(
             archive_resolution_is_historical_only("effect-1", &r, "effect-1"),
