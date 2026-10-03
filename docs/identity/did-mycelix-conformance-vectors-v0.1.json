@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "method": "mycelix",
+  "profile": "did:mycelix Method — Implementation Profile v0.1",
+  "status": "implementation-profile",
+  "identifier_scope": {
+    "mode": "canonical-production-identity-dna",
+    "identifier_form": "did:mycelix:<agent_pub_key>",
+    "deployment_rule": "Only the canonical Mycelix Identity DNA deployment is authoritative for the method. Staging, test, and foreign Identity DNA deployments are not alternate authorities for the same did:mycelix namespace."
+  },
+  "did_vectors": [
+    {"id":"DID-001","input":"did:mycelix:uhCAkSELF","kind":"valid","expected":"accept"},
+    {"id":"DID-002","input":"did:mycelix:uhCAk-_0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz","kind":"valid","expected":"accept"},
+    {"id":"DID-003","input":"did:mycelix:","kind":"invalid","expected":"reject","error":"INVALID_DID"},
+    {"id":"DID-004","input":"did:mycelix:abc:def","kind":"invalid","expected":"reject","error":"INVALID_DID"},
+    {"id":"DID-005","input":"did:mycelix:abc#key-1","kind":"did-url-not-did","expected":"reject-as-resolve-input","error":"INVALID_DID"},
+    {"id":"DID-006","input":"did:mycelix:abc?versionId=1","kind":"did-url-not-did","expected":"reject-as-resolve-input","error":"INVALID_DID"},
+    {"id":"DID-007","input":"did:mycelix:abc%20def","kind":"invalid","expected":"reject","error":"INVALID_DID"},
+    {"id":"DID-008","input":"did:key:abc","kind":"wrong-method","expected":"reject","error":"INVALID_DID"}
+  ],
+  "resolution_vectors": [
+    {"id":"RES-001","state":"existing-active","expected":{"didDocument":"present","didResolutionMetadata.contentType":"application/did","didDocumentMetadata.deactivated":false,"didDocumentMetadata.versionId":"1"}},
+    {"id":"RES-002","state":"existing-deactivated","expected":{"didDocument":"present","didDocumentMetadata.deactivated":true}},
+    {"id":"RES-003","state":"not-found","expected":{"didDocument":null,"didResolutionMetadata.error":"notFound"}}
+  ],
+  "wire_vectors": [
+    {"id":"WIRE-001","field":"verificationMethod","wire_name":"verificationMethod"},
+    {"id":"WIRE-002","field":"public_key_multibase","wire_name":"publicKeyMultibase"},
+    {"id":"WIRE-003","field":"key_agreement","wire_name":"keyAgreement"},
+    {"id":"WIRE-004","field":"service_endpoint","wire_name":"serviceEndpoint"},
+    {"id":"WIRE-005","field":"version_id","wire_name":"versionId"}
+  ],
+  "verification_method_vectors": [
+    {"id":"VM-001","algorithm":"Ed25519","multicodec":"0xed01","multibase":"base58btc","prefix":"z","payload":"multicodec(0xed01) || raw_32_byte_ed25519_public_key","holochain_hash_type_bytes_included":false}
+  ],
+  "authority_vectors": [
+    {"id":"AUTH-001","operation":"create","authority":"committing-agent","expected":"accept-only-if-did-identifier-and-controller-equal-committer"},
+    {"id":"AUTH-002","operation":"update","authority":"current-controller","expected":"accept-only-if-controller-and-original-entry-author-equal-committer"},
+    {"id":"AUTH-003","operation":"deactivate","authority":"current-controller","expected":"accept-only-if-did-equals-committing-agent-did"},
+    {"id":"AUTH-004","operation":"controller-key-rotation","status":"not-yet-specified","expected":"must-not-be-inferred-from-current-update-semantics"}
+  ],
+  "deployment_vectors": [
+    {"id":"DEP-001","deployment":"canonical-production","expected":"authoritative"},
+    {"id":"DEP-002","deployment":"staging","expected":"non-authoritative"},
+    {"id":"DEP-003","deployment":"foreign-identity-dna","expected":"non-authoritative"}
+  ]
+}
