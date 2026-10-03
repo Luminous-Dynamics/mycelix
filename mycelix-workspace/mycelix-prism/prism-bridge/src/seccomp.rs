@@ -1543,6 +1543,53 @@ mod linux {
         }
 
         #[test]
+        fn v2_max_disjunctive_dispatch_offset_is_explicitly_bounded() {
+            let arch = SeccompArchitecture::current().unwrap();
+
+            let mut clauses = Vec::new();
+            for clause_index in 0..4u64 {
+                let mut predicates = Vec::new();
+                for predicate_index in 0..4u64 {
+                    predicates.push(
+                        SeccompArgPredicateV1::new_with_op(
+                            predicate_index as u8,
+                            u64::MAX,
+                            0x0100_0000_0000_0001u64
+                                .wrapping_add(clause_index << 8)
+                                .wrapping_add(predicate_index),
+                            SeccompArgPredicateOpV1::MaskedNotEqual,
+                        )
+                        .unwrap(),
+                    );
+                }
+                clauses.push(SeccompSyscallClauseV2::new(predicates).unwrap());
+            }
+
+            let rule = SeccompSyscallRuleV2::new_with_clauses(
+                libc::SYS_socket,
+                clauses,
+            )
+            .unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+            let filter = compile_filter_v2(&policy).unwrap();
+
+            let dispatch = filter
+                .iter()
+                .position(|instruction| {
+                    instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                        && instruction.k == libc::SYS_socket as u32
+                })
+                .unwrap();
+
+            // Four clauses × (four full-width MaskedNotEqual predicates,
+            // seven instructions each + one clause ALLOW) = 116 body
+            // instructions. cBPF jt/jf are u8, so this remains comfortably
+            // within the representable branch-offset domain.
+            assert_eq!(filter[dispatch].jf, 116);
+            assert!(filter[dispatch].jf <= u8::MAX);
+        }
+
+        #[test]
         fn v2_disjunctive_compiler_enforces_instruction_budget_boundary() {
             let arch = SeccompArchitecture::current().unwrap();
 
