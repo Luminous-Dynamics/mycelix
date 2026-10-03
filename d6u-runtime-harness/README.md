@@ -48,8 +48,8 @@ The runtime log binds each supported case to one expected protocol-level outcome
 - `semantic-rejected`: authorization succeeded and the probe deliberately rejected the payload semantically;
 - `d6s-commitment-mismatch`: authorization succeeded and the frozen D6S commitment check rejected the mutated payload;
 - `authentication-failed`: the app interface returned `ZomeCallAuthenticationFailed` for the invalid signature case;
-- `authorization-failed`: the app interface returned `ZomeCallUnauthorized` for capability, provenance, nonce, expiry, or function-grant failures;
-- `routing-failed`: the app interface rejected an invalid zome or missing cell before zome execution.
+- `authorization-failed`: the app interface returned `ZomeCallUnauthorized` for capability, provenance, nonce, or expiry failures;
+- `routing-failed`: the app interface rejected an invalid zome, missing function, or missing cell before zome execution.
 
 These outcome classes are verified against the frozen manifest by `scripts/integral/verify_d6u_runtime_evidence.py`.
 
