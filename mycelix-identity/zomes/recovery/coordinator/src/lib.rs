@@ -1459,13 +1459,15 @@ pub fn add_verification_anchor(input: AddVerificationAnchorInput) -> ExternResul
         GetStrategy::default(),
     )?;
 
-    let link = links.first().ok_or(wasm_error!(WasmErrorInner::Guest(
-        "No self-recovery config found for this DID".into()
-    )))?;
+    let link = links.into_iter().max_by_key(|link| link.timestamp).ok_or(
+        wasm_error!(WasmErrorInner::Guest(
+            "No self-recovery config found for this DID".into()
+        ))
+    )?;
     let original_hash = ActionHash::try_from(link.target.clone())
         .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
 
-    let record = get(original_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
+    let record = get_latest_record(original_hash.clone())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Self-recovery config record not found".into())
     ))?;
 
@@ -1537,11 +1539,11 @@ pub fn mark_self_recovery_superseded(did: String) -> ExternResult<()> {
         GetStrategy::default(),
     )?;
 
-    if let Some(link) = links.first() {
+    if let Some(link) = links.into_iter().max_by_key(|link| link.timestamp) {
         let hash = ActionHash::try_from(link.target.clone())
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
 
-        if let Some(record) = get(hash.clone(), GetOptions::default())? {
+        if let Some(record) = get_latest_record(hash.clone())? {
             let mut config: SelfRecoveryConfig = record
                 .entry()
                 .to_app_option()
