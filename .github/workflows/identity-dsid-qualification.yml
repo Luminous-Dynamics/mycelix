@@ -72,6 +72,11 @@ jobs:
           assert corpus["version_vectors"][0]["transition"] == "1->2"
           PY
 
+      - name: Hash protocol inputs
+        run: |
+          sha256sum docs/identity/did-mycelix-method-v0.1.md > did-mycelix-method-v0.1.sha256
+          sha256sum docs/identity/did-mycelix-conformance-vectors-v0.1.json > did-mycelix-conformance-v0.1.sha256
+
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
@@ -208,6 +213,8 @@ jobs:
               "dna_bundle_sha256": sha256_file("dsid-dna.sha256"),
               "evidence_sha256": sha256_file("dsid-lifecycle-evidence.sha256"),
               "scenario_set_sha256": sha256_file("dsid-scenario-set.sha256"),
+              "method_profile_sha256": sha256_file("did-mycelix-method-v0.1.sha256"),
+              "conformance_vectors_sha256": sha256_file("did-mycelix-conformance-v0.1.sha256"),
               "scenario_ids": sorted(row["scenario_id"] for row in rows),
               "evidence_schema_versions": sorted({row["schema_version"] for row in rows}),
               "dna_hashes": sorted({row["dna_hash"] for row in rows}),
@@ -240,6 +247,10 @@ jobs:
             dsid-scenario-set.txt
             dsid-scenario-set.sha256
             dsid-dna.sha256
+            did-mycelix-method-v0.1.md
+            did-mycelix-method-v0.1.sha256
+            did-mycelix-conformance-v0.1.json
+            did-mycelix-conformance-v0.1.sha256
             identity-dsid-qualification-manifest.json
             identity-dsid-qualification-manifest.sha256
             mycelix-identity/dna/mycelix_identity_dna.dna
