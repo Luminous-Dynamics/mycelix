@@ -65,6 +65,54 @@ impl<T> QualificationStatus<T> {
         }
     }
 
+    /// Combines two independent qualification paths without collapsing an
+    /// unresolved dependency state.
+    ///
+    /// Both partial qualification values are retained even when either path
+    /// is unresolved. Missing dependency identities are unioned and
+    /// canonicalized, making this a deterministic product operation for
+    /// independently qualified evidence paths.
+    pub fn zip<U>(self, other: QualificationStatus<U>) -> QualificationStatus<(T, U)> {
+        match (self, other) {
+            (Self::Complete(left), Self::Complete(right)) => {
+                QualificationStatus::Complete((left, right))
+            }
+            (
+                Self::Unresolved {
+                    missing,
+                    partial: left,
+                },
+                Self::Complete(right),
+            )
+            | (
+                Self::Complete(left),
+                Self::Unresolved {
+                    missing,
+                    partial: right,
+                },
+            ) => QualificationStatus::Unresolved {
+                missing: canonicalize_missing(missing),
+                partial: (left, right),
+            },
+            (
+                Self::Unresolved {
+                    mut missing,
+                    partial: left,
+                },
+                Self::Unresolved {
+                    missing: right_missing,
+                    partial: right,
+                },
+            ) => {
+                missing.extend(right_missing);
+                QualificationStatus::Unresolved {
+                    missing: canonicalize_missing(missing),
+                    partial: (left, right),
+                }
+            }
+        }
+    }
+
     pub fn normalize_missing(&mut self) {
         if let Self::Unresolved { missing, .. } = self {
             *missing = canonicalize_missing(std::mem::take(missing));
@@ -281,6 +329,92 @@ mod tests {
             .require_missing(vec![second, first]);
 
         assert_eq!(left, right);
+    }
+
+    #[test]
+    fn zip_preserves_both_complete_partials() {
+        let status = QualificationStatus::Complete(1u8).zip(QualificationStatus::Complete(2u8));
+        assert_eq!(status, QualificationStatus::Complete((1u8, 2u8)));
+    }
+
+    #[test]
+    fn zip_accumulates_one_unresolved_dependency_set() {
+        let status = QualificationStatus::Complete(1u8).zip(QualificationStatus::Unresolved {
+            missing: vec![id("b"), id("a"), id("b")],
+            partial: 2u8,
+        });
+
+        assert_eq!(
+            status,
+            QualificationStatus::Unresolved {
+                missing: vec![id("a"), id("b")],
+                partial: (1u8, 2u8),
+            }
+        );
+    }
+
+    #[test]
+    fn zip_unions_two_unresolved_dependency_sets() {
+        let status = QualificationStatus::Unresolved {
+            missing: vec![id("z"), id("a")],
+            partial: 1u8,
+        }
+        .zip(QualificationStatus::Unresolved {
+            missing: vec![id("m"), id("a")],
+            partial: 2u8,
+        });
+
+        assert_eq!(
+            status,
+            QualificationStatus::Unresolved {
+                missing: vec![id("a"), id("m"), id("z")],
+                partial: (1u8, 2u8),
+            }
+        );
+    }
+
+    #[test]
+    fn zip_is_order_independent_for_missing_dependencies() {
+        let left = QualificationStatus::Unresolved {
+            missing: vec![id("b"), id("a")],
+            partial: 1u8,
+        }
+        .zip(QualificationStatus::Unresolved {
+            missing: vec![id("c")],
+            partial: 2u8,
+        });
+
+        let right = QualificationStatus::Unresolved {
+            missing: vec![id("c")],
+            partial: 2u8,
+        }
+        .zip(QualificationStatus::Unresolved {
+            missing: vec![id("a"), id("b")],
+            partial: 1u8,
+        });
+
+        assert_eq!(left.missing(), right.missing());
+    }
+
+    #[test]
+    fn zip_preserves_partial_payloads_even_when_unresolved() {
+        let status = QualificationStatus::Unresolved {
+            missing: vec![id("left-missing")],
+            partial: 11u8,
+        }
+        .zip(QualificationStatus::Unresolved {
+            missing: vec![id("right-missing")],
+            partial: 22u8,
+        });
+
+        assert_eq!(status.missing().len(), 2);
+        assert_eq!(
+            status,
+            QualificationStatus::Unresolved {
+                missing: vec![id("left-missing"), id("right-missing")],
+                partial: (11u8, 22u8),
+            }
+        );
     }
 
     #[test]
