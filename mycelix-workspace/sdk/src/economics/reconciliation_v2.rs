@@ -634,6 +634,30 @@ mod tests {
     }
 
     #[test]
+    fn direct_posting_projections_reject_invalid_inputs() {
+        let (mut pre, assignments) = setup();
+        pre.actors[1].monetary.deposits = -1;
+
+        assert!(postings_for_step(&pre, &assignments, &[]).is_err());
+        assert!(physical_postings_for_step(&pre, &assignments, &[]).is_err());
+    }
+
+    #[test]
+    fn direct_posting_projections_reject_invalid_transition() {
+        let (pre, assignments) = setup();
+        let invalid = EconomicTransition::CreditCreation(
+            CreditCreation {
+                lender: "bank".into(),
+                borrower: "household".into(),
+                amount: 0,
+            },
+        );
+
+        assert!(postings_for_step(&pre, &assignments, &[invalid.clone()]).is_err());
+        assert!(physical_postings_for_step(&pre, &assignments, &[invalid]).is_err());
+    }
+
+    #[test]
     fn reconciliation_deltas_fail_closed_on_arithmetic_overflow() {
         let mut pre = SectorBalanceSheet::default();
         pre.entries.push(BalanceSheetEntry {
