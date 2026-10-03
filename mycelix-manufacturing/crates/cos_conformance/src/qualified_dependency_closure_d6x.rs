@@ -426,6 +426,55 @@ impl DependencyClosureCertificateV1 {
         unsigned.commitment.clear();
         canonical_sha256("d6x-dependency-closure", &unsigned.canonical_hash_material())
     }
+
+    /// Verify this certificate against the exact source inputs that are claimed
+    /// to produce it. valid() checks internal consistency; this stronger gate
+    /// re-executes the D6X policy and compares the complete semantic result.
+    ///
+    /// Resolution evidence and the final certificate commitment are intentionally
+    /// excluded from the semantic comparison: resolution evidence is audit-only
+    /// metadata, and the commitment legitimately changes when that evidence is
+    /// carried.
+    pub fn verifies_against_sources(
+        &self,
+        projection: &QualifiedProjectionV1,
+        environment: &SemanticEnvironmentV1,
+        derivation_profile: &DerivationProfileV1,
+        profile: &DependencyClosureProfileV1,
+    ) -> bool {
+        if !self.valid() {
+            return false;
+        }
+
+        let Some(expected) =
+            compute_dependency_closure(projection, environment, derivation_profile, profile)
+        else {
+            return false;
+        };
+
+        self.schema_version == expected.schema_version
+            && self.algorithm_version == expected.algorithm_version
+            && self.closure_profile_commitment == expected.closure_profile_commitment
+            && self.source_dkg_snapshot_commitment == expected.source_dkg_snapshot_commitment
+            && self.projection_commitment == expected.projection_commitment
+            && self.closure_identity_commitment == expected.closure_identity_commitment
+            && self.semantic_environment_commitment == expected.semantic_environment_commitment
+            && self.derivation_profile_commitment == expected.derivation_profile_commitment
+            && self.root_node_ids == expected.root_node_ids
+            && self.included_node_commitments == expected.included_node_commitments
+            && self.included_node_ids == expected.included_node_ids
+            && self.included_nodes == expected.included_nodes
+            && self.included_d6p_receipt_commitments == expected.included_d6p_receipt_commitments
+            && self.included_edge_commitments == expected.included_edge_commitments
+            && self.included_edges == expected.included_edges
+            && self.missing_dependency_ids == expected.missing_dependency_ids
+            && self.missing_dependencies == expected.missing_dependencies
+            && self.dependencies == expected.dependencies
+            && self.dependency_resolutions == expected.dependency_resolutions
+            && self.status == expected.status
+            && self.cycle_detected == expected.cycle_detected
+            && self.claim_ceiling == expected.claim_ceiling
+    }
 }
 
 fn cycle_exists(nodes: &BTreeSet<String>, edges: &[(String, String)]) -> bool {
