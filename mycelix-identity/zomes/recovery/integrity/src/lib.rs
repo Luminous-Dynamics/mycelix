@@ -761,6 +761,26 @@ fn validate_create_recovery_approval_certificate(
         ));
     }
 
+    if let Some(expires) = request.time_lock_expires {
+        let duration_micros = (config.time_lock as i64)
+            .checked_mul(1_000_000)
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Recovery time-lock duration overflow".into()
+            )))?;
+        let expected_expiry = certificate
+            .issued_at
+            .as_micros()
+            .checked_add(duration_micros)
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Recovery time-lock expiry overflow".into()
+            )))?;
+        if expires.as_micros() != expected_expiry {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Recovery time-lock expiry must equal certificate issuance plus the pinned policy duration".into(),
+            ));
+        }
+    }
+
     if certificate.issued_at < request.created {
         return Ok(ValidateCallbackResult::Invalid(
             "Recovery approval certificate cannot predate the request".into(),
