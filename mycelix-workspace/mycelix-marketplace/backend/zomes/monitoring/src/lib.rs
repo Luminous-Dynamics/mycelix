@@ -472,10 +472,12 @@ pub fn get_active_alerts() -> Vec<Alert> {
 mod tests {
     use super::*;
 
-    const TEST_TIMESTAMP: Timestamp = Timestamp::from_micros(1_000_000);
+    fn test_timestamp() -> Timestamp {
+        Timestamp::from_micros(1_000_000)
+    }
 
     fn event(metric_type: MetricType, value: f64) -> MetricEvent {
-        MetricEvent::new_at(metric_type, value, None, None, TEST_TIMESTAMP).unwrap()
+        MetricEvent::new_at(metric_type, value, None, None, test_timestamp()).unwrap()
     }
 
     #[test]
@@ -485,13 +487,13 @@ mod tests {
             1.0,
             None,
             Some("test".to_string()),
-            TEST_TIMESTAMP,
+            test_timestamp(),
         )
         .unwrap();
 
         assert_eq!(event.metric_type, MetricType::TransactionCreated);
         assert_eq!(event.value, 1.0);
-        assert_eq!(event.timestamp, TEST_TIMESTAMP);
+        assert_eq!(event.timestamp, test_timestamp());
     }
 
     #[test]
@@ -556,29 +558,29 @@ mod tests {
 
     #[test]
     fn test_byzantine_spike_alert() {
-        let alert = Alert::byzantine_spike_at(150, TEST_TIMESTAMP).unwrap();
+        let alert = Alert::byzantine_spike_at(150, test_timestamp()).unwrap();
 
         assert_eq!(alert.severity, AlertSeverity::Critical);
         assert!(alert.message.contains("150"));
-        assert_eq!(alert.timestamp, TEST_TIMESTAMP);
+        assert_eq!(alert.timestamp, test_timestamp());
     }
 
     #[test]
     fn test_high_dispute_rate_alert() {
-        let alert = Alert::high_dispute_rate_at(0.15, TEST_TIMESTAMP).unwrap();
+        let alert = Alert::high_dispute_rate_at(0.15, test_timestamp()).unwrap();
 
         assert_eq!(alert.severity, AlertSeverity::Warning);
         assert!(alert.message.contains("15"));
-        assert_eq!(alert.timestamp, TEST_TIMESTAMP);
+        assert_eq!(alert.timestamp, test_timestamp());
     }
 
     #[test]
     fn test_network_compromised_alert() {
-        let alert = Alert::network_compromised_at(0.3, TEST_TIMESTAMP).unwrap();
+        let alert = Alert::network_compromised_at(0.3, test_timestamp()).unwrap();
 
         assert_eq!(alert.severity, AlertSeverity::Critical);
         assert!(alert.message.contains("0.30"));
-        assert_eq!(alert.timestamp, TEST_TIMESTAMP);
+        assert_eq!(alert.timestamp, test_timestamp());
     }
 
     #[test]
@@ -598,7 +600,7 @@ mod tests {
                 .iter()
                 .any(|alert| alert.severity == AlertSeverity::Critical)
         );
-        assert_eq!(metrics.active_alerts[0].timestamp, TEST_TIMESTAMP);
+        assert_eq!(metrics.active_alerts[0].timestamp, test_timestamp());
     }
 
     #[test]
