@@ -304,6 +304,36 @@ check_link_type_policy() {
   done < <(printf '%s\n' "$enum_block" | grep -E '^    [A-Za-z_][A-Za-z0-9_]*,$' | sed -E 's/^    ([A-Za-z_][A-Za-z0-9_]*),$/\1/')
 }
 
+# Link tags are application data. Hearth coordinators use empty tags for ordinary
+# relationship/index links; only explicitly payload-bearing link types are allowed
+# to opt out. This keeps arbitrary tag data from becoming an unvalidated shadow
+# channel while preserving the two intentional tagged-link designs.
+check_link_tag_contract() {
+  local file="$1"
+  if [[ "$file" == *"/hearth-bridge/"* ]]; then
+    if rg -n --pcre2 '!matches!\(link_type,\s*LinkTypes::DispatchRateLimit\s*\|\s*LinkTypes::NotificationSubscription\)' "$file" >/dev/null 2>&1; then
+      echo "OK:   $file constrains Bridge link tags except intentional dispatch-rate-limit/subscription cases"
+    else
+      echo "FAIL: $file missing Bridge empty-tag contract"
+      fail=1
+    fi
+  elif [[ "$file" == *"/hearth-stories/"* ]]; then
+    if rg -n --pcre2 '!matches!\(link_type,\s*LinkTypes::TagToStories\)' "$file" >/dev/null 2>&1; then
+      echo "OK:   $file constrains Stories link tags except TagToStories"
+    else
+      echo "FAIL: $file missing Stories empty-tag contract"
+      fail=1
+    fi
+  else
+    if rg -n --pcre2 'if !tag\.0\.is_empty\(\)' "$file" >/dev/null 2>&1; then
+      echo "OK:   $file constrains ordinary LinkTypes to empty tags"
+    else
+      echo "FAIL: $file missing ordinary empty-tag contract"
+      fail=1
+    fi
+  fi
+}
+
 # Holochain emits CreateEntry and CreateRecord operations for entry writes; a
 
 # permissive CreateRecord catch-all would leave a second validation surface
@@ -451,6 +481,10 @@ done
 
 for file in "${integrity_files[@]}"; do
   check_link_type_policy "$file"
+done
+
+for file in "${integrity_files[@]}"; do
+  check_link_tag_contract "$file"
 done
 
 for file in "${integrity_files[@]}"; do
