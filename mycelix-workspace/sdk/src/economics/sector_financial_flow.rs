@@ -244,6 +244,19 @@ impl SectorFinancialFlowMatrix {
         })
     }
 
+    /// Re-derive this matrix from the supplied transition sequence and require exact equality.
+    ///
+    /// This is stronger than checking only that the matrix clears: every serialized financial
+    /// claim-flow entry must be reproducible from the authoritative transitions.
+    pub fn verify_against(
+        &self,
+        state: &super::stock_flow::EconomicState,
+        assignments: &[SectorAssignment],
+        transitions: &[EconomicTransition],
+    ) -> Result<(), String> {
+        self.validate_against(state, assignments, transitions)
+    }
+
     /// Validate exact agreement with the authoritative transition log and
     /// exact-one sector assignment coverage.
     pub fn validate_against(
@@ -452,6 +465,24 @@ mod tests {
             ),
             -40
         );
+    }
+
+    #[test]
+    fn verify_against_rejects_rehashed_but_wrong_projection() {
+        let pre = EconomicState::new(vec![
+            ActorBalanceSheet::new("bank"),
+            ActorBalanceSheet::new("firm"),
+        ]);
+        let assignments = vec![
+            SectorAssignment { actor: "bank".into(), sector: EconomicSector::Bank },
+            SectorAssignment { actor: "firm".into(), sector: EconomicSector::Firm },
+        ];
+        let transitions = vec![EconomicTransition::CreditCreation(
+            CreditCreation::new("bank", "firm", 50).unwrap(),
+        )];
+        let mut matrix = SectorFinancialFlowMatrix::from_transitions(&transitions, &assignments).unwrap();
+        matrix.flows[0].amount = 51;
+        assert!(matrix.verify_against(&pre, &assignments, &transitions).is_err());
     }
 
     #[test]
