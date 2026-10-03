@@ -96,7 +96,7 @@ jobs:
             qualified="true"
           fi
           {
-            echo "schema=PRISM-SECCOMP-KERNEL-QUALIFICATION-EVIDENCE-V1"
+            echo "schema=PRISM-SECCOMP-KERNEL-QUALIFICATION-EVIDENCE-V2"
             echo "qualification=PRISM-SECCOMP-KERNEL"
             echo "qualified=${qualified}"
             echo "job_status=${job_status}"
@@ -108,6 +108,9 @@ jobs:
             echo "rust=1.96.0"
             echo "kernel=$(uname -srvm)"
             echo "machine=$(uname -m)"
+            echo "runner_arch=${{ runner.arch }}"
+            echo "native_target=${{ matrix.target }}"
+            echo "runner_label=${{ matrix.runner }}"
             echo "test_command=cargo +1.96.0 test --locked -p prism-bridge --test seccomp_adversarial"
             if [[ -f "${root}/Cargo.lock" ]]; then
               echo -n "workspace_lock_sha256="
