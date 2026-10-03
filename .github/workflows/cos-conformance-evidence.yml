@@ -16,7 +16,7 @@ on:
 # evidence run remains independently addressable for the exact source SHA that
 # produced it.
 concurrency:
-  group: cos-conformance-evidence-${{ github.event.pull_request.number || github.ref }}
+  group: cos-conformance-evidence-${{ github.sha }}
   cancel-in-progress: false
 
 permissions:
