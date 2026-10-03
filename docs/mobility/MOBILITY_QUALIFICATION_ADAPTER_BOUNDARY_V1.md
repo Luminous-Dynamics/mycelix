@@ -158,4 +158,6 @@ A runtime dependency binding is accepted only when its signer matches the regist
 
 The runtime binding must also carry the exact same authority_scope and authority_delegation identities named by the retained authority-agent credential. Matching only the authority identity is insufficient because it would allow a valid agent key to be detached from the particular provenance scope and delegation chain that justified its admission. These continuity checks are structural; they do not independently prove legal authority, institutional entitlement, or real-world identity.
 
+The retained credential's entire `basis` is also a minimum provenance set for the runtime binding: the runtime binding may add basis witnesses, but it may not silently drop one carried by the authority credential. The runtime binding uses a distinct provenance witness identity from the authority credential, preventing one witness record from being reused as evidence for two separate claims. `EDT-163`–`EDT-165` pin basis-loss rejection, complete-basis acceptance, and witness-role separation.
+
 This establishes a protocol-level identity binding, not a claim about a real-world person's or institution's legal identity. The semantic authority determination remains in the pure provenance graph.
