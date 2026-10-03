@@ -217,6 +217,19 @@ impl SectorTransactionMatrix {
         Ok(matrix)
     }
 
+    /// Re-derive this matrix from the supplied transition sequence and require exact equality.
+    ///
+    /// This distinguishes a structurally clearing serialized matrix from one that was actually
+    /// produced by the supplied transition program.
+    pub fn verify_against(
+        &self,
+        state: &EconomicState,
+        actors: &[(ActorId, EconomicSector)],
+        transitions: &[super::transition::EconomicTransition],
+    ) -> Result<(), String> {
+        self.validate_against(state, actors, transitions)
+    }
+
     /// Validate that this matrix is an exact projection of the authoritative
     /// transition log and that all sectoral external flows clear.
     pub fn validate_against(
@@ -325,6 +338,25 @@ mod tests {
         let mut tampered = matrix.clone();
         tampered.flows[0].amount = 99;
         assert!(tampered.validate_against(&state, &actors, &transitions).is_err());
+    }
+
+    #[test]
+    fn verify_against_rejects_rehashed_but_wrong_projection() {
+        use super::super::stock_flow::ActorBalanceSheet;
+        let actors = vec![
+            ("firm".to_string(), EconomicSector::Firm),
+            ("household".to_string(), EconomicSector::Household),
+        ];
+        let state = EconomicState::new(vec![
+            ActorBalanceSheet::new("firm"),
+            ActorBalanceSheet::new("household"),
+        ]);
+        let transitions = vec![EconomicTransition::GoodsSale(
+            GoodsSale::new("firm", "household", 2, 40).unwrap(),
+        )];
+        let mut matrix = SectorTransactionMatrix::from_transitions(&transitions, &actors).unwrap();
+        matrix.flows[0].amount = 41;
+        assert!(matrix.verify_against(&state, &actors, &transitions).is_err());
     }
 
     #[test]
