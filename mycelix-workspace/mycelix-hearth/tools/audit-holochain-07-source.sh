@@ -191,7 +191,7 @@ check_validation_determinism() {
 # link deletion without this authorization invariant.
 check_delete_link_authorization() {
   local file="$1"
-  if ! rg -n --pcre2 'FlatOp::Link\s*\(\s*OpLink::DeleteLink' "$file" >/dev/null 2>&1; then
+  if ! rg -n --pcre2 'FlatOp::Link\s*\([^)]*OpLink::DeleteLink' "$file" >/dev/null 2>&1; then
     echo "FAIL: $file has no explicit FlatOp::Link(OpLink::DeleteLink) coverage"
     fail=1
     return
