@@ -624,6 +624,14 @@ impl EconomicState {
         }
     }
 
+    fn require_positive(amount: i128, label: &str) -> Result<(), String> {
+        if amount <= 0 {
+            Err(format!("{label} amount must be positive"))
+        } else {
+            Ok(())
+        }
+    }
+
     fn actor_mut(&mut self, actor: &str) -> Result<&mut ActorBalanceSheet, String> {
         self.actors
             .iter_mut()
@@ -662,6 +670,8 @@ impl EconomicState {
 
     /// Apply a monetary transfer while preserving aggregate monetary assets.
     pub fn apply_flow(&mut self, flow: &MonetaryFlow) -> Result<(), String> {
+        Self::require_positive(flow.amount, "monetary flow")?;
+
         let next_flow_volume = self
             .monetary_flow_volume
             .checked_add(flow.amount)
@@ -709,6 +719,8 @@ impl EconomicState {
     /// derived balance-sheet equity residual; there is intentionally no mutable
     /// equity field to update separately, preventing double counting.
     pub fn apply_income_transfer(&mut self, transfer: &IncomeTransfer) -> Result<(), String> {
+        Self::require_positive(transfer.amount, "income transfer")?;
+
         let next_flow_volume = self
             .monetary_flow_volume
             .checked_add(transfer.amount)
@@ -737,6 +749,8 @@ impl EconomicState {
         &mut self,
         investment: &CapitalInvestment,
     ) -> Result<(), String> {
+        Self::require_positive(investment.amount, "capital investment")?;
+
         let next_flow_volume = self
             .monetary_flow_volume
             .checked_add(investment.amount)
@@ -767,6 +781,9 @@ impl EconomicState {
 
     /// Apply production as an explicit real-stock transformation.
     pub fn apply_production(&mut self, production: &ProductionEvent) -> Result<(), String> {
+        Self::require_positive(production.resource_input, "production resource input")?;
+        Self::require_positive(production.output, "production output")?;
+
         let producer = self.actor_mut(&production.producer)?;
         if producer.real.resources < production.resource_input {
             return Err(format!(
@@ -790,6 +807,8 @@ impl EconomicState {
         &mut self,
         transfer: &InventoryTransfer,
     ) -> Result<(), String> {
+        Self::require_positive(transfer.quantity, "inventory transfer")?;
+
         let (sender, receiver) = self.actor_pair_mut(&transfer.from, &transfer.to)?;
         if sender.real.inventories < transfer.quantity {
             return Err(format!(
@@ -813,6 +832,8 @@ impl EconomicState {
         &mut self,
         consumption: &InventoryConsumption,
     ) -> Result<(), String> {
+        Self::require_positive(consumption.quantity, "inventory consumption")?;
+
         let consumer = self.actor_mut(&consumption.consumer)?;
         if consumer.real.inventories < consumption.quantity {
             return Err(format!(
@@ -828,6 +849,9 @@ impl EconomicState {
     /// move monetarily. Inventory carrying value is unchanged; explicit
     /// cost-relief and buyer-side cost-addition transitions carry the accounting.
     pub fn apply_goods_sale(&mut self, sale: &GoodsSale) -> Result<(), String> {
+        Self::require_positive(sale.quantity, "goods sale quantity")?;
+        Self::require_positive(sale.consideration, "goods sale consideration")?;
+
         let next_flow_volume = self
             .monetary_flow_volume
             .checked_add(sale.consideration)
@@ -868,6 +892,9 @@ impl EconomicState {
         &mut self,
         addition: &InventoryCostAddition,
     ) -> Result<(), String> {
+        Self::require_positive(addition.quantity, "inventory cost addition quantity")?;
+        Self::require_positive(addition.carrying_value, "inventory cost addition carrying value")?;
+
         let actor = self.actor_mut(&addition.actor)?;
         if actor.real.inventories < addition.quantity {
             return Err(format!(
@@ -891,6 +918,9 @@ impl EconomicState {
         &mut self,
         relief: &InventoryCostRelief,
     ) -> Result<(), String> {
+        Self::require_positive(relief.quantity, "inventory cost relief quantity")?;
+        Self::require_positive(relief.carrying_value, "inventory cost relief carrying value")?;
+
         let actor = self.actor_mut(&relief.actor)?;
         if actor.real.inventories < relief.quantity {
             return Err(format!(
@@ -910,6 +940,8 @@ impl EconomicState {
 
     /// Recognize an explicit depreciation charge against productive capital.
     pub fn apply_depreciation(&mut self, depreciation: &Depreciation) -> Result<(), String> {
+        Self::require_positive(depreciation.amount, "depreciation")?;
+
         let actor = self.actor_mut(&depreciation.actor)?;
         if actor.real.productive_capital < depreciation.amount {
             return Err(format!(
@@ -925,6 +957,9 @@ impl EconomicState {
     /// the seller records a receivable and the buyer a matching payable.
     /// No deposit transfer occurs and no inventory carrying value is inferred.
     pub fn apply_trade_credit_sale(&mut self, sale: &TradeCreditSale) -> Result<(), String> {
+        Self::require_positive(sale.quantity, "trade-credit sale quantity")?;
+        Self::require_positive(sale.consideration, "trade-credit sale consideration")?;
+
         let (seller, buyer) = self.actor_pair_mut(&sale.seller, &sale.buyer)?;
         if seller.real.inventories < sale.quantity {
             return Err(format!(
@@ -960,6 +995,8 @@ impl EconomicState {
         &mut self,
         settlement: &TradeCreditSettlement,
     ) -> Result<(), String> {
+        Self::require_positive(settlement.amount, "trade-credit settlement")?;
+
         let next_flow_volume = self
             .monetary_flow_volume
             .checked_add(settlement.amount)
@@ -995,6 +1032,8 @@ impl EconomicState {
     /// borrower records the deposit asset and the matching debt liability.
     /// This is the minimal private-money representation of loan creation.
     pub fn create_credit(&mut self, credit: &CreditCreation) -> Result<(), String> {
+        Self::require_positive(credit.amount, "credit creation")?;
+
         let next_credit_created = self
             .credit_created
             .checked_add(credit.amount)
@@ -1030,6 +1069,8 @@ impl EconomicState {
 
     /// Retire a debt claim after receiving repayment.
     pub fn repay_debt(&mut self, repayment: &DebtRepayment) -> Result<(), String> {
+        Self::require_positive(repayment.amount, "debt repayment")?;
+
         let next_debt_repaid = self
             .debt_repaid
             .checked_add(repayment.amount)
@@ -1462,6 +1503,35 @@ mod tests {
         assert_eq!(s.aggregate_assets(), 1_000);
         assert_eq!(s.actors[0].monetary.cash, 750);
         assert_eq!(s.actors[1].monetary.cash, 250);
+    }
+
+    #[test]
+    fn malformed_public_transitions_are_rejected_without_mutation() {
+        let mut s = state();
+        s.actors.iter_mut().find(|a| a.actor == "bank").unwrap().monetary.cash = 10;
+        let before = s.clone();
+
+        assert!(s.apply_flow(&MonetaryFlow {
+            from: "bank".into(),
+            to: "household".into(),
+            amount: -1,
+            instrument: MonetaryInstrument::Cash,
+        }).is_err());
+        assert_eq!(s, before);
+
+        assert!(s.create_credit(&CreditCreation {
+            lender: "bank".into(),
+            borrower: "household".into(),
+            amount: 0,
+        }).is_err());
+        assert_eq!(s, before);
+
+        assert!(s.repay_debt(&DebtRepayment {
+            lender: "bank".into(),
+            borrower: "household".into(),
+            amount: -5,
+        }).is_err());
+        assert_eq!(s, before);
     }
 
     #[test]
