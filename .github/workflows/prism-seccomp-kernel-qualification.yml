@@ -100,7 +100,7 @@ jobs:
             qualified="true"
           fi
           {
-            echo "schema=PRISM-SECCOMP-KERNEL-QUALIFICATION-EVIDENCE-V2"
+            echo "schema=PRISM-SECCOMP-KERNEL-QUALIFICATION-EVIDENCE-V3"
             echo "qualification=PRISM-SECCOMP-KERNEL"
             echo "qualified=${qualified}"
             echo "job_status=${job_status}"
