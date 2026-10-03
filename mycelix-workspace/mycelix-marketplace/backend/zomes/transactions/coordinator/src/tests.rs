@@ -17,18 +17,18 @@ mod tests {
         ListingOutputForPurchase {
             listing_hash: ActionHash::from_raw_36(vec![3u8; 36]),
             seller_agent_id: AgentPubKey::from_raw_36(vec![2u8; 36]),
-            listing: listings_integrity::Listing {
+            listing: listings_types::Listing {
                 title: "Mechanical keyboard".to_string(),
                 description: "Test listing".to_string(),
                 price_cents: 1999,
-                category: listings_integrity::ListingCategory::Electronics,
+                category: listings_types::ListingCategory::Electronics,
                 photos_ipfs_cids: vec![],
                 quantity_available: 10,
-                status: listings_integrity::ListingStatus::Active,
-                epistemic: listings_integrity::EpistemicClassification {
-                    empirical: listings_integrity::EmpiricalLevel::E1Testimonial,
-                    normative: listings_integrity::NormativeLevel::N0Personal,
-                    materiality: listings_integrity::MaterialityLevel::M1Temporal,
+                status: listings_types::ListingStatus::Active,
+                epistemic: listings_types::EpistemicClassification {
+                    empirical: listings_types::EmpiricalLevel::E1Testimonial,
+                    normative: listings_types::NormativeLevel::N0Personal,
+                    materiality: listings_types::MaterialityLevel::M1Temporal,
                 },
                 created_at: Timestamp::from_micros(1_000_000),
                 updated_at: Timestamp::from_micros(1_000_000),
@@ -556,7 +556,7 @@ mod tests {
     fn test_purchase_rejects_inactive_listing() {
         let input = valid_purchase_input();
         let mut listing = mock_listing_output();
-        listing.listing.status = listings_integrity::ListingStatus::Inactive;
+        listing.listing.status = listings_types::ListingStatus::Inactive;
         let buyer = AgentPubKey::from_raw_36(vec![1u8; 36]);
 
         let error = validate_purchase_terms(&input, &listing, &buyer).unwrap_err();
