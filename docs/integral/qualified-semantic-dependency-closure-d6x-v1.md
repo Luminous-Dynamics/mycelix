@@ -82,6 +82,8 @@ The executable model therefore preserves `Stale` across node dequeue/inclusion, 
 - **BlockedCurrentness** — a selected dependency is historical where the profile requires current material.
 - **BlockedResourceLimit** — deterministic bounds prevent completion.
 
+Status precedence is deterministic: BlockedMissingDependency dominates BlockedCurrentness, which dominates BlockedResourceLimit. A self-consistent certificate cannot relabel a closure with a stronger blocker as a weaker status; source-bound verification additionally re-executes the policy to confirm the complete result.
+
 Cycles are permitted at the graph level. The traversal uses a deterministic visited set, while cycle detection is recorded separately. A graph cycle is not treated as a recursive semantic derivation; recursive fixpoint evaluation remains separately qualified by D6U.
 
 ## Downstream reference normalization
@@ -176,6 +178,7 @@ The reference model currently includes fixtures for:
 35. the candidate-bound closure certificate commitment is mutation-tested across every semantic certificate field; only the stored commitment itself is excluded from its own preimage.
 36. duplicate selected node commitments fail closed at the D6X constructor boundary.
 37. duplicate selected edge commitments fail closed at the D6X constructor boundary.
+38. self-consistent status substitutions that violate missing/currentness precedence fail D6X certificate validation.
 
 Before interoperability or production claims, add cross-language golden vectors, currentness/D6P fixtures, contradiction-preservation fixtures, cycle fixtures, resource-limit fixtures, and execute the Rust/WASM/Holochain conformance corpus.
 
