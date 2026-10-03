@@ -88,19 +88,19 @@ impl SignedCapability {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SignatureVerification {
+pub(crate) enum SignatureVerification {
     Verified,
     Invalid,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum RevocationStatus {
+pub(crate) enum RevocationStatus {
     Current,
     Revoked,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum AuthorityResolution {
+pub(crate) enum AuthorityResolution {
     Unambiguous,
     Ambiguous,
 }
@@ -553,17 +553,17 @@ pub fn verify_capability(
             AuthorizationDenial::VerificationEvidenceMismatch,
         ));
     }
-    if !evidence.signature_verified {
+    if evidence.signature != SignatureVerification::Verified {
         return Err(AuthorizationDecision::Deny(
             AuthorizationDenial::InvalidCapability,
         ));
     }
-    if !evidence.not_revoked {
+    if evidence.revocation != RevocationStatus::Current {
         return Err(AuthorizationDecision::Deny(
             AuthorizationDenial::RevokedCapability,
         ));
     }
-    if !evidence.authority_unambiguous {
+    if evidence.authority != AuthorityResolution::Unambiguous {
         return Err(AuthorizationDecision::Indeterminate(
             AuthorizationIndeterminacy::AmbiguousAuthority,
         ));
@@ -600,7 +600,7 @@ pub(crate) fn revalidate_permit(
     evidence: VerificationEvidence,
     now_us: u64,
 ) -> AuthorizationDecision {
-    if !evidence.signature_verified {
+    if evidence.signature != SignatureVerification::Verified {
         return AuthorizationDecision::Deny(AuthorizationDenial::InvalidCapability);
     }
     if evidence.capability_binding != permit.capability_binding {
@@ -614,10 +614,10 @@ pub(crate) fn revalidate_permit(
     if evidence.authority_binding != permit.authority_binding {
         return AuthorizationDecision::Deny(AuthorizationDenial::AuthorityBindingMismatch);
     }
-    if !evidence.not_revoked {
+    if evidence.revocation != RevocationStatus::Current {
         return AuthorizationDecision::Deny(AuthorizationDenial::RevokedCapability);
     }
-    if !evidence.authority_unambiguous {
+    if evidence.authority != AuthorityResolution::Unambiguous {
         return AuthorizationDecision::Indeterminate(
             AuthorizationIndeterminacy::AmbiguousAuthority,
         );
