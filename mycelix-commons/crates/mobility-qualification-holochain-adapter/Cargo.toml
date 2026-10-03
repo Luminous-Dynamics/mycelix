@@ -7,6 +7,7 @@ description = "Concrete Holochain 0.7 adapter for the runtime-neutral mobility q
 
 [dependencies]
 hdi = "=0.8.0"
+holochain_serialized_bytes = "=0.0.57"
 serde = { version = "1", features = ["derive"] }
 mobility-configuration-qualification = { path = "../mobility-configuration-qualification" }
 
