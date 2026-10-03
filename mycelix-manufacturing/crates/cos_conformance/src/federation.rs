@@ -2054,6 +2054,7 @@ mod tests {
             .iter()
             .map(|spec| spec.id)
             .collect::<Vec<_>>();
+        let mut fingerprints = BTreeSet::new();
 
         for mutation in FederationInvariantMutation::ALL {
             let mut state = mutation.seed_state();
@@ -2074,6 +2075,20 @@ mod tests {
                 mutation
             );
 
+            let first_failure = expected.first().map(|(_, violation)| *violation);
+            assert_eq!(
+                validate_state(&state).err(),
+                first_failure,
+                "legacy first-failure gate must agree with the complete audit for {:?}",
+                mutation
+            );
+
+            assert!(
+                fingerprints.insert(canonical_state_fingerprint(&state)),
+                "single-fault mutation {:?} must produce a unique canonical state fingerprint",
+                mutation
+            );
+
             let audit = audit_state(&state);
             assert_eq!(audit.len(), registry_ids.len());
             let audited_violations = audit
@@ -2091,6 +2106,12 @@ mod tests {
             let actual_ids = actual.iter().map(|(id, _)| *id).collect::<BTreeSet<_>>();
             assert_eq!(actual_ids, expected_ids);
         }
+
+        assert_eq!(
+            fingerprints.len(),
+            FederationInvariantMutation::ALL.len(),
+            "single-fault fingerprint corpus must be unique and complete"
+        );
     }
 
     #[test]
