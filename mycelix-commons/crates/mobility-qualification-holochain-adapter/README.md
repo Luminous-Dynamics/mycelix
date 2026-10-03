@@ -1,0 +1,40 @@
+# Mobility Qualification Holochain Adapter
+
+This crate is the concrete runtime boundary for Mobility qualification under the currently recommended Holochain 0.7 line.
+
+It pins hdi 0.8.0 and remains an isolated Cargo workspace so the existing Holochain-0.6-compatible mycelix-commons workspace is not silently upgraded.
+
+The adapter adds no semantic qualification rules. It only:
+
+1. binds a validated logical IdentityRef to an explicit Holochain ActionHash or EntryHash;
+2. rejects an address-kind mismatch before any host call;
+3. preserves the pure QualificationDecision algebra;
+4. dispatches ValidRecord to must_get_valid_record(ActionHash);
+5. dispatches Action to must_get_action(ActionHash);
+6. dispatches Entry to must_get_entry(EntryHash);
+7. propagates host retrieval failures unchanged so a real validate callback can retain Holochain UnresolvedDependencies behavior.
+
+The two-phase rule is intentional.
+
+Preflight: logical identities must first become explicit runtime bindings. An unbound logical identity is still the pure layer's Unresolved state and has no protocol address to place into a Holochain unresolved-dependency set.
+
+Validation: once bindings are concrete, the adapter invokes only the matching deterministic must_get_* primitive. A missing addressable dependency is then handled by Holochain itself as UnresolvedDependencies.
+
+The crate contains no identity-string parsing, hashing, address derivation, link enumeration, wall-clock use, or peer-specific behavior.
+
+## Intended validation integration
+
+An integrity-zome validate callback should:
+
+- perform the pure qualification first;
+- obtain the exact logical dependency set produced by that qualification;
+- build or look up the immutable binding set for the supplied records;
+- require the preflight decision to be QualificationDecision::Valid(...);
+- call retrieve_resolved(...);
+- feed retrieved records back into the pure qualification layer;
+- return the pure result as Valid or Invalid;
+- allow must_get_* failures to propagate without translating them into semantic Invalid.
+
+The adapter deliberately does not turn an unbound IdentityRef into ValidateCallbackResult::UnresolvedDependencies. No correct Holochain unresolved-dependency value can be built until the logical identity has an addressable protocol binding.
+
+This separation keeps the semantic algebra in one place and the protocol mechanics in one place, rather than creating a second semantic interpretation layer.
