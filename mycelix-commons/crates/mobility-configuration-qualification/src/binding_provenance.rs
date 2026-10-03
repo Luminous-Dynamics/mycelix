@@ -179,6 +179,98 @@ impl QualificationAuthorityAgentBindingProvenance {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn authority_agent_provenance_rejects_identity_role_reuse() {
+        let authority = IdentityRef {
+            kind: IdentityKind::EvidenceRecord,
+            namespace: "mobility".into(),
+            id: "authority-role-reuse".into(),
+        };
+        let scope = IdentityRef {
+            kind: IdentityKind::ReconciliationWitness,
+            namespace: "mobility".into(),
+            id: "authority-role-scope".into(),
+        };
+        let delegation = IdentityRef {
+            kind: IdentityKind::ReconciliationWitness,
+            namespace: "mobility".into(),
+            id: "authority-role-delegation".into(),
+        };
+        let provenance = QualificationAuthorityAgentBindingProvenance {
+            witness_identity: scope.clone(),
+            authority,
+            authority_scope: scope,
+            authority_delegation: delegation.clone(),
+            basis: vec![delegation],
+        };
+        assert!(provenance.validate().is_err());
+    }
+
+    #[test]
+    fn authority_agent_provenance_requires_exact_scope_and_delegation_basis() {
+        let authority = IdentityRef {
+            kind: IdentityKind::EvidenceRecord,
+            namespace: "mobility".into(),
+            id: "authority-basis-requirement".into(),
+        };
+        let scope = IdentityRef {
+            kind: IdentityKind::ReconciliationWitness,
+            namespace: "mobility".into(),
+            id: "basis-scope".into(),
+        };
+        let delegation = IdentityRef {
+            kind: IdentityKind::ReconciliationWitness,
+            namespace: "mobility".into(),
+            id: "basis-delegation".into(),
+        };
+        let provenance = QualificationAuthorityAgentBindingProvenance {
+            witness_identity: IdentityRef {
+                kind: IdentityKind::ReconciliationWitness,
+                namespace: "mobility".into(),
+                id: "basis-witness".into(),
+            },
+            authority,
+            authority_scope: scope,
+            authority_delegation: delegation.clone(),
+            basis: vec![delegation],
+        };
+        assert!(provenance.validate().is_err());
+    }
+
+    #[test]
+    fn authority_agent_provenance_roundtrips_as_closed_json() {
+        let authority = IdentityRef {
+            kind: IdentityKind::EvidenceRecord,
+            namespace: "mobility".into(),
+            id: "authority-roundtrip".into(),
+        };
+        let scope = IdentityRef {
+            kind: IdentityKind::ReconciliationWitness,
+            namespace: "mobility".into(),
+            id: "roundtrip-scope".into(),
+        };
+        let delegation = IdentityRef {
+            kind: IdentityKind::ReconciliationWitness,
+            namespace: "mobility".into(),
+            id: "roundtrip-delegation".into(),
+        };
+        let provenance = QualificationAuthorityAgentBindingProvenance {
+            witness_identity: IdentityRef {
+                kind: IdentityKind::ReconciliationWitness,
+                namespace: "mobility".into(),
+                id: "roundtrip-witness".into(),
+            },
+            authority,
+            authority_scope: scope.clone(),
+            authority_delegation: delegation.clone(),
+            basis: vec![scope, delegation],
+        };
+        let encoded = serde_json::to_string(&provenance).expect("provenance must serialize");
+        let decoded: QualificationAuthorityAgentBindingProvenance =
+            serde_json::from_str(&encoded).expect("provenance must deserialize");
+        assert_eq!(decoded, provenance);
+    }
+
     use super::*;
 
     fn id(value: &str) -> IdentityRef {
