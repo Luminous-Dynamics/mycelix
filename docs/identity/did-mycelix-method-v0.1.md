@@ -71,9 +71,19 @@ This prevents an unrelated agent from creating a namespace link that redirects r
 
 Deactivation links receive the corresponding author/base/DID binding.
 
-### Key rotation
+### Controller versus verification-method rotation
 
-Verification-method updates exist in the current DID implementation, but a complete method-level authority transition from one controller key to another is not yet specified here. This is a required part of the final method contract.
+The DID controller is the Holochain agent public key embedded in the method-specific identifier and is immutable for the lifetime of the current DID.
+
+The implementation supports **verification-method rotation**, not controller rotation:
+
+- the current controller must authorize the update through its Holochain action;
+- the old verification method remains in the DID Document under its original DID URL;
+- the old method is removed from the active `authentication` relationship;
+- the new method is added with a distinct DID URL and becomes active;
+- preserving the old DID URL allows historical signatures to continue to identify the method that existed when they were produced.
+
+A completed social-recovery request currently does **not** transfer an existing DID to a new Holochain controller. The `claim_recovered_did` entry point fails closed until a dedicated, cryptographically verifiable controller-transfer protocol is specified. This avoids accepting an update that would contradict the immutable controller invariant.
 
 ## 5. Update
 
@@ -86,7 +96,7 @@ The current DID update path:
 - updates mutable verification-method, key-agreement, and service state;
 - replaces the canonical agent-to-DID discovery link so the latest state becomes resolvable.
 
-The deterministic DSID laboratory verifies that an ordinary update results in version 2 and that the updated service state is returned by canonical resolution.
+The deterministic DSID laboratory verifies that an ordinary update results in version 2 and that the updated service state is returned by canonical resolution. Every accepted DID update increments the version by exactly one.
 
 ## 6. Read and resolution
 
@@ -202,6 +212,7 @@ The current qualification laboratory maps concrete protocol behavior to determin
 | DSID-012 | substrate discovery + deactivated-provider filtering |
 | DSID-013 | malformed DID identifiers fail closed |
 | DSID-014 | canonical initial Ed25519 multibase verification key |
+| DSID-015 | verification-method rotation preserves historical DID URL references |
 
 The qualification workflow records scenario IDs, agents, DNA hash, action hashes, entry hashes, expected and observed behavior, pass state, and commit SHA, then hashes the complete evidence capsule.
 
