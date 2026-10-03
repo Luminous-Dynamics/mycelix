@@ -1072,6 +1072,7 @@ mod tests {
         observation.observation_commitment = observation.recomputed_commitment();
         ExternalObservedEvidenceV1 {
             observation,
+            observer_id: observer.observer_id.clone(),
             observer,
         }
     }
