@@ -556,6 +556,16 @@
       "id": "EDT-109",
       "case": "pure_unresolved_decision_cannot_be_mapped_until_runtime_address_binding_exists",
       "expected": "adapter_boundary_error"
+    },
+    {
+      "id": "EDT-110",
+      "case": "malformed_logical_identity_is_semantic_invalid_before_runtime_binding_validation",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-111",
+      "case": "duplicate_runtime_binding_is_adapter_boundary_failure",
+      "expected": "adapter_boundary_error"
     }
   ],
   "outcome_classes": [
