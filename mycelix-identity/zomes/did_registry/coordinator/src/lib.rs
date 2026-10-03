@@ -11,6 +11,7 @@ use hdk::prelude::HdkPathExt;
 use hdk::prelude::*;
 use mycelix_crypto::{AlgorithmId, CryptoError, TaggedPublicKey};
 use mycelix_zome_helpers::anchor_hash;
+use sha2::{Digest, Sha256};
 
 /// Get-or-create a deterministic Path anchor for a string key. Used as a
 /// link base for discovery indexes (e.g. substrate role -> providers).
@@ -136,9 +137,12 @@ fn auto_create_self_recovery(did: &str) -> ExternResult<()> {
 }
 
 fn auto_create_mfa_state(did: &str, agent_pub_key: &AgentPubKey) -> ExternResult<()> {
-    // Create primary key hash from agent pub key
-    // Using the agent's public key as the initial factor
-    let primary_key_hash = format!("sha256:{}", agent_pub_key);
+    // MFA's primary-key verifier derives the factor identifier from the
+    // canonical 39-byte HoloHash representation. Keep creation and verification
+    // on exactly the same digest contract.
+    let mut hasher = Sha256::new();
+    hasher.update(agent_pub_key.get_raw_39());
+    let primary_key_hash = format!("sha256:{:x}", hasher.finalize());
 
     let input = CreateMfaStateInput {
         did: did.to_string(),
