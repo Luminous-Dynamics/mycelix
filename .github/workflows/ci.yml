@@ -366,15 +366,15 @@ jobs:
       - name: Validate evidence capsule
         run: |
           test -s dsid-lifecycle-evidence.jsonl
-          test "$(wc -l < dsid-lifecycle-evidence.jsonl)" -eq 10
+          test "$(wc -l < dsid-lifecycle-evidence.jsonl)" -eq 11
           python3 - <<'PY'
           import json
           from pathlib import Path
           rows = [json.loads(line) for line in Path("dsid-lifecycle-evidence.jsonl").read_text().splitlines()]
-          assert len(rows) == 10
+          assert len(rows) == 11
           assert all(row["schema_version"] == 1 for row in rows)
           assert all(row["pass"] is True for row in rows)
-          assert len({row["scenario_id"] for row in rows}) == 10
+          assert len({row["scenario_id"] for row in rows}) == 11
           assert all(row["dna_hash"] for row in rows)
           assert len({row["dna_hash"] for row in rows}) == 1
           assert all(row["commit_sha"] for row in rows)
