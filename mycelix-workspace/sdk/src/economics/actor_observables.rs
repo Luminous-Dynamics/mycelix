@@ -317,7 +317,6 @@ impl ActorEconomicObservables {
 
         working.validate()?;
 
-
         for (actor, observation) in observations.iter_mut() {
             let final_actor = working
                 .actors
