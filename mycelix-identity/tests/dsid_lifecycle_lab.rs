@@ -1571,64 +1571,50 @@ async fn dsid_020_recovery_configuration_cannot_be_created_for_another_did() {
 async fn dsid_021_self_recovery_anchor_updates_are_replacement_agent_bound() {
     let mut conductor = SweetConductor::from_standard_config().await;
     let dna = load_dna().await;
-    let alice_app = conductor.setup_app(
-        "dsid-self-recovery-alice",
-        std::slice::from_ref(&dna),
-    ).await.unwrap();
-    let bob_app = conductor.setup_app(
-        "dsid-self-recovery-bob",
-        std::slice::from_ref(&dna),
-    ).await.unwrap();
-    let carol_app = conductor.setup_app(
-        "dsid-self-recovery-carol",
-        std::slice::from_ref(&dna),
-    ).await.unwrap();
+    let alice_app = conductor.setup_app("dsid-self-recovery-alice", std::slice::from_ref(&dna)).await.unwrap();
+    let bob_app = conductor.setup_app("dsid-self-recovery-bob", std::slice::from_ref(&dna)).await.unwrap();
+    let carol_app = conductor.setup_app("dsid-self-recovery-carol", std::slice::from_ref(&dna)).await.unwrap();
 
     let alice = alice_app.cells()[0].clone();
     let bob = bob_app.cells()[0].clone();
     let carol = carol_app.cells()[0].clone();
 
-    let _did_record: Record = conductor
-        .call(&alice.zome("did_registry"), "create_did", ())
-        .await;
+    let _: Record = conductor.call(&alice.zome("did_registry"), "create_did", ()).await;
     let alice_did = format!("did:mycelix:{}", alice_app.agent());
 
-    let _anchor_update: Record = conductor
-        .call(
-            &alice.zome("recovery"),
-            "add_verification_anchor",
-            serde_json::json!({
-                "did": alice_did,
-                "anchor": { "EmailHash": "sha256:deterministic-anchor" }
-            }),
-        )
-        .await;
+    let _: Record = conductor.call(
+        &alice.zome("recovery"),
+        "add_verification_anchor",
+        serde_json::json!({
+            "did": alice_did,
+            "anchor": { "EmailHash": "sha256:deterministic-anchor" }
+        }),
+    ).await;
 
-    let request: Record = conductor
-        .call(
-            &bob.zome("recovery"),
-            "initiate_self_recovery",
-            serde_json::json!({
-                "did": alice_did,
-                "new_agent": bob_app.agent(),
-                "reason": "DSID replacement-agent binding",
-                "initial_anchor": { "EmailHash": "sha256:deterministic-anchor" }
-            }),
-        )
-        .await;
+    let bob_attempt: Result<Record, _> = conductor.call_fallible(
+        &bob.zome("recovery"),
+        "initiate_self_recovery",
+        serde_json::json!({
+            "did": alice_did.clone(),
+            "new_agent": bob_app.agent(),
+            "reason": "DSID replacement-agent binding",
+            "initial_anchor": { "EmailHash": "sha256:deterministic-anchor" }
+        }),
+    ).await;
 
-    let forged_update: Result<Record, _> = conductor
-        .call_fallible(
-            &carol.zome("recovery"),
-            "verify_self_recovery_anchor",
-            serde_json::json!({
-                "request_action_hash": request.action_address(),
-                "anchor": { "EmailHash": "sha256:deterministic-anchor" }
-            }),
-        )
-        .await;
+    let carol_attempt: Result<Record, _> = conductor.call_fallible(
+        &carol.zome("recovery"),
+        "initiate_self_recovery",
+        serde_json::json!({
+            "did": alice_did,
+            "new_agent": carol_app.agent(),
+            "reason": "DSID proof-of-control gate",
+            "initial_anchor": { "EmailHash": "sha256:deterministic-anchor" }
+        }),
+    ).await;
 
-    assert!(forged_update.is_err(), "only the designated replacement agent may update a self-recovery request");
+    assert!(bob_attempt.is_err());
+    assert!(carol_attempt.is_err());
 
     let mut agents = BTreeMap::new();
     agents.insert("alice", alice_app.agent().to_string());
@@ -1639,13 +1625,16 @@ async fn dsid_021_self_recovery_anchor_updates_are_replacement_agent_bound() {
         "self-recovery-anchor-updates-are-replacement-agent-bound",
         &dna,
         agents,
-        &[&request],
-        "A self-recovery request is controlled by its designated replacement agent; an unrelated agent cannot accumulate recovery proofs on that request.",
-        format!("unauthorized_anchor_update_rejected={}", forged_update.is_err()),
+        &[],
+        "Self-recovery must not create or advance an executable request from identifier/hash equality alone; proof-of-control is required.",
+        format!(
+            "designated_replacement_blocked={} unrelated_replacement_blocked={}",
+            bob_attempt.is_err(),
+            carol_attempt.is_err()
+        ),
         true,
     );
 }
-
 
 #[tokio::test(flavor = "multi_thread")]
 #[ignore]
