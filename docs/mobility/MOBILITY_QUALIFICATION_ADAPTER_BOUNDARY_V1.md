@@ -141,6 +141,8 @@ The boundary is deliberately split:
 
 The signed layer is optional because applications may have an independent authoritative mechanism for establishing the logical-to-protocol binding. It must never become an excuse to infer authority from a bare protocol signature.
 
+The signed payload types also derive Holochain's `SerializedBytes` representation using `holochain_serialized_bytes = 0.0.57`. Their schema identifiers are owned strings rather than borrowed static references, allowing explicit `SerializedBytes` round-trip tests to define the wire representation. This does not introduce a second signing mechanism: `verify_signature` remains the single cryptographic verification path. Holochain's serialization project specifically recommends `SerializedBytes` when canonical bytes are part of an interoperability contract. citeturn797434search2turn797434search3
+
 
 ## Authority-agent identity boundary
 
