@@ -245,6 +245,40 @@ pub fn setup_recovery(input: SetupRecoveryInput) -> ExternResult<Record> {
         )));
     }
     let agent_info = agent_info()?;
+    let agent_did = format!("did:mycelix:{}", agent_info.agent_initial_pubkey);
+    if input.did != agent_did {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only the controller can configure recovery for their own DID".into()
+        )));
+    }
+
+    // Recovery configuration is security state. Refuse to create it unless
+    // the canonical DID registry confirms that this DID actually exists.
+    let response = call(
+        CallTargetCell::Local,
+        ZomeName::new("did_registry"),
+        FunctionName::new("resolve_did"),
+        None,
+        input.did.clone(),
+    )?;
+    match response {
+        ZomeCallResponse::Ok(io) => {
+            let record: Option<Record> = io.decode().map_err(|e| {
+                wasm_error!(WasmErrorInner::Serialize(e))
+            })?;
+            if record.is_none() {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Cannot configure recovery for a DID that does not exist".into()
+                )));
+            }
+        }
+        _ => {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "DID registry verification failed; refusing recovery configuration".into()
+            )));
+        }
+    }
+
     let now = sys_time()?;
 
     let config = RecoveryConfig {
@@ -278,11 +312,10 @@ pub fn setup_recovery(input: SetupRecoveryInput) -> ExternResult<Record> {
         )?;
     }
 
-    // Enroll SocialRecovery factor in MFA state
-    // This allows social recovery to contribute to the identity's assurance level
-    if let Err(e) = enroll_social_recovery_factor(&input.did, &config.trustees) {
-        debug!("Failed to enroll SocialRecovery factor in MFA: {:?}", e);
-    }
+    // Recovery setup is incomplete without its MFA binding. Fail closed
+    // rather than advertising recovery protection that the MFA state does not
+    // actually contain.
+    enroll_social_recovery_factor(&input.did, &config.trustees)?;
 
     get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
         "Could not find recovery config".into()
