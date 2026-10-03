@@ -314,10 +314,16 @@ fn validate_create_recovery_config(
         ));
     }
 
-    // Validate owner is author
+    // Recovery configuration belongs to the DID's controller.
     if config.owner != *action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Owner must be the author".into(),
+        ));
+    }
+    let expected_did = format!("did:mycelix:{}", action.author());
+    if config.did != expected_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Recovery configuration DID must match the author's canonical DID".into(),
         ));
     }
 
@@ -620,6 +626,12 @@ fn validate_create_self_recovery_config(
             "Owner must be the author".into(),
         ));
     }
+    let expected_did = format!("did:mycelix:{}", action.author());
+    if config.did != expected_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Self-recovery configuration DID must match the author's canonical DID".into(),
+        ));
+    }
     // Time lock minimum: 72 hours for self-recovery (stronger than social's 24h)
     if config.time_lock < SELF_RECOVERY_MIN_TIME_LOCK {
         return Ok(ValidateCallbackResult::Invalid(format!(
@@ -657,9 +669,18 @@ fn validate_create_self_recovery_config(
 /// proof-of-possession gap, architecturally different from the
 /// author-identity forgeries fixed elsewhere this pass (same class as the
 /// report_reputation forgery gap documented in the bridge zome).
+    // The recovery requester must be the designated replacement agent.
+    // Otherwise an attacker can create a request naming an unrelated new_agent
+    // and later advance the request using leaked/guessed anchors.
+    // The request may still be for a DID whose original controller is offline.
 fn validate_create_self_recovery_request(
     request: SelfRecoveryRequest,
 ) -> ExternResult<ValidateCallbackResult> {
+    if request.new_agent == AgentPubKey::from_raw_36(vec![0u8; 36]) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Self-recovery new_agent must be a real agent key".into(),
+        ));
+    }
     if !request.did.starts_with("did:mycelix:") {
         return Ok(ValidateCallbackResult::Invalid(
             "DID must start with 'did:mycelix:'".into(),
