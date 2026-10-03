@@ -9,6 +9,7 @@
       "operation": "create_decision",
       "operation_surface": ["CreateEntry", "CreateRecord"],
       "invariant": "Decision title cannot be empty",
+      "expected_result": "Invalid",
       "boundary": "integrity_validation"
     },
     {
@@ -18,6 +19,7 @@
       "operation": "register_resource",
       "operation_surface": ["CreateEntry", "CreateRecord"],
       "invariant": "Resource name cannot be empty",
+      "expected_result": "Invalid",
       "boundary": "integrity_validation"
     },
     {
@@ -27,6 +29,7 @@
       "operation": "create_story",
       "operation_surface": ["CreateEntry", "CreateRecord"],
       "invariant": "Story title cannot be empty",
+      "expected_result": "Invalid",
       "boundary": "integrity_validation"
     },
     {
@@ -36,6 +39,7 @@
       "operation": "add_to_collection",
       "operation_surface": ["Link.CreateLink"],
       "invariant": "CollectionToStories story belongs to a different hearth",
+      "expected_result": "Invalid",
       "boundary": "integrity_validation"
     },
     {
@@ -45,6 +49,7 @@
       "operation": "receive_notification",
       "operation_surface": ["CreateEntry", "CreateRecord"],
       "invariant": "source_cluster cannot be empty",
+      "expected_result": "Invalid",
       "boundary": "integrity_validation"
     },
     {
@@ -54,6 +59,7 @@
       "operation": "update_story",
       "operation_surface": ["CreateEntry", "CreateRecord", "Update"],
       "invariant": "Story title cannot be empty",
+      "expected_result": "Invalid",
       "boundary": "integrity_validation"
     }
   ]
