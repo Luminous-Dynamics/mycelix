@@ -32,16 +32,30 @@ impl EconomicSimulationTrace {
         initial_state: &EconomicState,
         steps: &[EconomicSimulationStep],
     ) -> Result<(EconomicState, Self), EconomicStepError> {
+        initial_state
+            .validate()
+            .map_err(EconomicStepError::InvalidState)?;
+
         let initial_state_hash = state_hash(initial_state)?;
         let mut state = initial_state.clone();
         let mut previous_receipt: Option<EconomicChainReceipt> = None;
+        let mut previous_period: Option<u64> = None;
         let mut receipts = Vec::with_capacity(steps.len());
 
         for step in steps {
+            if let Some(previous) = previous_period {
+                if step.period <= previous {
+                    return Err(EconomicStepError::Serialization(
+                        "simulation trace periods must be strictly increasing".into(),
+                    ));
+                }
+            }
+
             let (next_state, receipt) = apply_step(&state, step.period, &step.transitions, None)?;
             let chained = EconomicChainReceipt::link(previous_receipt.as_ref(), receipt)?;
             receipts.push(chained.clone());
             previous_receipt = Some(chained);
+            previous_period = Some(step.period);
             state = next_state;
         }
 
@@ -155,6 +169,38 @@ mod tests {
         assert!(trace.receipts.is_empty());
         assert_eq!(trace.final_state_hash, trace.initial_state_hash);
         assert_eq!(trace.final_receipt(), None);
+    }
+
+    #[test]
+    fn empty_trace_rejects_invalid_initial_state() {
+        let mut initial = initial_state();
+        initial.actors[1].monetary.deposits = -1;
+
+        assert!(matches!(
+            EconomicSimulationTrace::run(&initial, &[]),
+            Err(EconomicStepError::InvalidState(_))
+        ));
+    }
+
+    #[test]
+    fn trace_rejects_non_monotonic_periods() {
+        let initial = initial_state();
+        let steps = vec![
+            EconomicSimulationStep {
+                period: 2,
+                transitions: vec![],
+            },
+            EconomicSimulationStep {
+                period: 1,
+                transitions: vec![],
+            },
+        ];
+
+        assert!(matches!(
+            EconomicSimulationTrace::run(&initial, &steps),
+            Err(EconomicStepError::Serialization(message))
+                if message.contains("strictly increasing")
+        ));
     }
 
     #[test]
