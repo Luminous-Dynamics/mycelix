@@ -293,6 +293,12 @@ fn validate_create_link(
     target_address: AnyLinkableHash,
     tag: &LinkTag,
 ) -> ExternResult<ValidateCallbackResult> {
+    if !tag.0.is_empty() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Link tag must be empty for this LinkTypes family".into(),
+        ));
+    }
+
     let max_len = link_tag_max_len(&link_type);
     if tag.0.len() > max_len {
         return Ok(ValidateCallbackResult::Invalid(format!(
