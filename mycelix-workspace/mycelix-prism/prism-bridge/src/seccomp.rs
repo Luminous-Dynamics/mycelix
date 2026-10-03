@@ -847,23 +847,21 @@ mod linux {
                             }
                             SeccompArgPredicateOpV1::MaskedNotEqual => {
                                 if low_mask != 0 && high_mask != 0 {
-                                    // Low-half equality fails the whole NotEqual
-                                    // predicate, so skip the remaining high-half
-                                    // body and this clause's suffix.
-                                    let low_equal_skip = u8::try_from(
-                                        3usize
-                                            .checked_add(later_in_predicates)
-                                            .and_then(|n| n.checked_add(1))
-                                            .ok_or(SeccompError::FilterTooLarge)?,
-                                    )
-                                    .map_err(|_| SeccompError::FilterTooLarge)?;
+                                    // A low-half mismatch already proves the
+                                    // whole 64-bit NotEqual predicate. Skip only
+                                    // the high-half comparison; later predicates in
+                                    // this clause still need to run.
+                                    let high_body_len = 3usize;
+                                    let low_mismatch_skip = u8::try_from(high_body_len)
+                                        .map_err(|_| SeccompError::FilterTooLarge)?;
                                     filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base));
                                     filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, low_mask));
-                                    filter.push(jump_eq(low_value, low_equal_skip, 0));
+                                    filter.push(jump_eq(low_value, 0, low_mismatch_skip));
                                     filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base + 4));
                                     filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, high_mask));
-                                    // High-half equality fails the predicate and skips
-                                    // the rest of this clause; inequality continues.
+                                    // High-half equality means both halves matched,
+                                    // so this NotEqual predicate fails and the whole
+                                    // clause must fall through to the next alternative.
                                     filter.push(jump_eq(high_value, clause_mismatch_skip, 0));
                                 } else {
                                     let (base, mask, value) = if low_mask != 0 {
@@ -2365,6 +2363,58 @@ mod linux {
                     );
                 }
             }
+        }
+
+        #[test]
+        fn v2_disjunctive_64bit_masked_not_equal_accepts_either_half_mismatch() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let target = 0x0000_0001_0000_0001u64;
+
+            let first = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new_with_op(
+                    0,
+                    u64::MAX,
+                    target,
+                    SeccompArgPredicateOpV1::MaskedNotEqual,
+                ).unwrap(),
+            ]).unwrap();
+            let second = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(
+                    0,
+                    u64::MAX,
+                    target,
+                ).unwrap(),
+            ]).unwrap();
+            let policy = SeccompSyscallPolicyV2::new(
+                arch,
+                vec![SeccompSyscallRuleV2::new_with_clauses(
+                    libc::SYS_socket,
+                    vec![first, second],
+                ).unwrap()],
+            ).unwrap();
+            let filter = compile_filter_v2(&policy).unwrap();
+
+            let low_mismatch = [0x0000_0001_0000_0002, 0, 0, 0, 0, 0];
+            assert!(policy.allows(libc::SYS_socket, &low_mismatch));
+            assert_eq!(
+                interpret_v2_filter(&filter, arch, libc::SYS_socket, low_mismatch),
+                SECCOMP_RET_ALLOW
+            );
+
+            let high_mismatch = [0x0000_0002_0000_0001, 0, 0, 0, 0, 0];
+            assert!(policy.allows(libc::SYS_socket, &high_mismatch));
+            assert_eq!(
+                interpret_v2_filter(&filter, arch, libc::SYS_socket, high_mismatch),
+                SECCOMP_RET_ALLOW
+            );
+
+            let exact = [target, 0, 0, 0, 0, 0];
+            assert!(policy.allows(libc::SYS_socket, &exact));
+            assert_eq!(
+                interpret_v2_filter(&filter, arch, libc::SYS_socket, exact),
+                SECCOMP_RET_ALLOW,
+                "exact first-clause match must still reach the following equality clause"
+            );
         }
 
         #[test]
