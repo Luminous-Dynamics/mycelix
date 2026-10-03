@@ -745,6 +745,31 @@ pub fn get_recovery_votes(request_id: String) -> ExternResult<Vec<Record>> {
 }
 
 /// Check threshold and update request status
+/// Select exactly one vote per trustee using a deterministic first-vote-wins rule.
+///
+/// DHT link traversal order is not an authorization primitive. If a trustee
+/// somehow publishes multiple immutable votes for the same request, quorum
+/// must not depend on peer-local record ordering. The earliest vote timestamp
+/// wins; the action-hash string is the deterministic tie-breaker.
+fn canonical_trustee_votes(
+    votes: Vec<(String, Timestamp, ActionHash, VoteDecision)>,
+) -> std::collections::BTreeMap<String, (Timestamp, ActionHash, VoteDecision)> {
+    let mut canonical = std::collections::BTreeMap::new();
+    for (trustee, voted_at, action_hash, decision) in votes {
+        let replace = match canonical.get(&trustee) {
+            None => true,
+            Some((existing_time, existing_hash, _)) => {
+                (voted_at.as_micros(), action_hash.to_string())
+                    < (existing_time.as_micros(), existing_hash.to_string())
+            }
+        };
+        if replace {
+            canonical.insert(trustee, (voted_at, action_hash, decision));
+        }
+    }
+    canonical
+}
+
 fn check_and_update_request_status(request_id: String) -> ExternResult<()> {
     // This compatibility helper only mutates the request when invoked by its
     // original author. Cross-agent quorum state is exposed by get_recovery_status.
@@ -782,10 +807,7 @@ fn check_and_update_request_status(request_id: String) -> ExternResult<()> {
             "Invalid pinned recovery config".into()
         )))?;
 
-    let mut approve_count = 0u32;
-    let mut reject_count = 0u32;
-    let mut seen_trustees = std::collections::BTreeSet::new();
-
+    let mut candidate_votes = Vec::new();
     for record in vote_records {
         let Some(vote) = record
             .entry()
@@ -794,13 +816,21 @@ fn check_and_update_request_status(request_id: String) -> ExternResult<()> {
         else {
             continue;
         };
-        if vote.request_id != request_id
-            || !config.trustees.contains(&vote.trustee)
-            || !seen_trustees.insert(vote.trustee.clone())
-        {
-            continue;
+        if vote.request_id == request_id && config.trustees.contains(&vote.trustee) {
+            candidate_votes.push((
+                vote.trustee,
+                vote.voted_at,
+                record.action_address().clone(),
+                vote.vote,
+            ));
         }
-        match vote.vote {
+    }
+
+    let canonical_votes = canonical_trustee_votes(candidate_votes);
+    let mut approve_count = 0u32;
+    let mut reject_count = 0u32;
+    for (_, (_, _, vote)) in canonical_votes {
+        match vote {
             VoteDecision::Approve => approve_count += 1,
             VoteDecision::Reject => reject_count += 1,
             VoteDecision::Abstain => {}
@@ -937,8 +967,7 @@ fn create_recovery_approval_certificate(
     config: &RecoveryConfig,
 ) -> ExternResult<ActionHash> {
     let vote_records = get_recovery_votes(request.id.clone())?;
-    let mut approvals: Vec<(String, ActionHash)> = Vec::new();
-
+    let mut candidate_votes = Vec::new();
     for record in vote_records {
         let Some(vote) = record
             .entry()
@@ -948,19 +977,24 @@ fn create_recovery_approval_certificate(
             continue;
         };
 
-        if vote.request_id != request.id
-            || vote.vote != VoteDecision::Approve
-            || !config.trustees.contains(&vote.trustee)
-        {
-            continue;
+        if vote.request_id == request.id && config.trustees.contains(&vote.trustee) {
+            candidate_votes.push((
+                vote.trustee,
+                vote.voted_at,
+                record.action_address().clone(),
+                vote.vote,
+            ));
         }
-
-        let trustee = vote.trustee.clone();
-        approvals.push((trustee, record.action_address().clone()));
     }
 
+    let canonical_votes = canonical_trustee_votes(candidate_votes);
+    let mut approvals: Vec<(String, ActionHash)> = canonical_votes
+        .into_iter()
+        .filter_map(|(trustee, (_, action_hash, vote))| {
+            (vote == VoteDecision::Approve).then_some((trustee, action_hash))
+        })
+        .collect();
     approvals.sort_by(|a, b| a.0.cmp(&b.0));
-    approvals.dedup_by(|a, b| a.0 == b.0);
 
     if approvals.len() < config.threshold as usize {
         return Err(wasm_error!(WasmErrorInner::Guest(
