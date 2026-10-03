@@ -104,6 +104,7 @@ impl SectorPhysicalStock {
         state: &EconomicState,
         assignments: &[SectorAssignment],
     ) -> Result<Self, String> {
+        state.validate()?;
         validate_sector_assignments(state, assignments)?;
         let mut actors = state.actors.clone();
         actors.sort_by(|a, b| a.actor.cmp(&b.actor));
@@ -462,6 +463,19 @@ mod tests {
         let state = EconomicState::new(vec![ActorBalanceSheet::new("household")]);
         let error = SectorBalanceSheet::from_state(&state, &[]).unwrap_err();
         assert!(error.contains("missing sector assignment"));
+    }
+
+    #[test]
+    fn sector_projection_rejects_invalid_state() {
+        let mut state = EconomicState::new(vec![ActorBalanceSheet::new("household")]);
+        state.actors[0].monetary.deposits = -1;
+        let assignments = vec![SectorAssignment {
+            actor: "household".into(),
+            sector: EconomicSector::Household,
+        }];
+
+        assert!(SectorBalanceSheet::from_state(&state, &assignments).is_err());
+        assert!(SectorPhysicalStock::from_state(&state, &assignments).is_err());
     }
 
     #[test]
