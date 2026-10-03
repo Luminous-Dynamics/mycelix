@@ -472,6 +472,12 @@ pub fn get_active_alerts() -> Vec<Alert> {
 mod tests {
     use super::*;
 
+    const TEST_TIMESTAMP: Timestamp = Timestamp::from_micros(1_000_000);
+
+    fn event(metric_type: MetricType, value: f64) -> MetricEvent {
+        MetricEvent::new_at(metric_type, value, None, None, TEST_TIMESTAMP).unwrap()
+    }
+
     #[test]
     fn test_metric_event_creation() {
         let event = MetricEvent::new_at(
@@ -479,32 +485,25 @@ mod tests {
             1.0,
             None,
             Some("test".to_string()),
-            Timestamp::from_micros(1_000_000),
+            TEST_TIMESTAMP,
         )
         .unwrap();
 
         assert_eq!(event.metric_type, MetricType::TransactionCreated);
         assert_eq!(event.value, 1.0);
+        assert_eq!(event.timestamp, TEST_TIMESTAMP);
     }
 
     #[test]
     fn test_metrics_recording() {
         let mut metrics = MarketplaceMetrics::default();
 
-        let event1 = MetricEvent::new_at(MetricType::TransactionCreated, 1.0, None,
-                None,
-                Timestamp::from_micros(1_000_000),
-            , Timestamp::from_micros(1_000_000)).unwrap();
-        metrics.record_event(event1, Timestamp::from_micros(1_000_000)).unwrap();
-
+        metrics.record_event(event(MetricType::TransactionCreated, 1.0)).unwrap();
         assert_eq!(metrics.total_transactions, 1);
 
-        let event2 = MetricEvent::new_at(MetricType::TransactionCompleted, 1.0, None,
-                None,
-                Timestamp::from_micros(1_000_000),
-            , Timestamp::from_micros(1_000_000)).unwrap();
-        metrics.record_event(event2, Timestamp::from_micros(1_000_000)).unwrap();
-
+        metrics
+            .record_event(event(MetricType::TransactionCompleted, 1.0))
+            .unwrap();
         assert_eq!(metrics.completed_transactions, 1);
     }
 
@@ -512,22 +511,14 @@ mod tests {
     fn test_success_rate_calculation() {
         let mut metrics = MarketplaceMetrics::default();
 
-        // 7 out of 10 completed
         for _ in 0..10 {
-            let event = MetricEvent::new_at(MetricType::TransactionCreated, 1.0, None,
-                None,
-                Timestamp::from_micros(1_000_000),
-            , Timestamp::from_micros(1_000_000)).unwrap();
-            metrics.record_event(event, Timestamp::from_micros(1_000_000)).unwrap();
+            metrics.record_event(event(MetricType::TransactionCreated, 1.0)).unwrap();
         }
 
         for _ in 0..7 {
-            let event =
-                MetricEvent::new_at(MetricType::TransactionCompleted, 1.0, None,
-                None,
-                Timestamp::from_micros(1_000_000),
-            , Timestamp::from_micros(1_000_000)).unwrap();
-            metrics.record_event(event, Timestamp::from_micros(1_000_000)).unwrap();
+            metrics
+                .record_event(event(MetricType::TransactionCompleted, 1.0))
+                .unwrap();
         }
 
         assert_eq!(metrics.success_rate(), 0.7);
@@ -537,21 +528,14 @@ mod tests {
     fn test_dispute_rate_calculation() {
         let mut metrics = MarketplaceMetrics::default();
 
-        // 2 out of 10 disputed
         for _ in 0..10 {
-            let event = MetricEvent::new_at(MetricType::TransactionCreated, 1.0, None,
-                None,
-                Timestamp::from_micros(1_000_000),
-            , Timestamp::from_micros(1_000_000)).unwrap();
-            metrics.record_event(event, Timestamp::from_micros(1_000_000)).unwrap();
+            metrics.record_event(event(MetricType::TransactionCreated, 1.0)).unwrap();
         }
 
         for _ in 0..2 {
-            let event = MetricEvent::new_at(MetricType::TransactionDisputed, 1.0, None,
-                None,
-                Timestamp::from_micros(1_000_000),
-            , Timestamp::from_micros(1_000_000)).unwrap();
-            metrics.record_event(event, Timestamp::from_micros(1_000_000)).unwrap();
+            metrics
+                .record_event(event(MetricType::TransactionDisputed, 1.0))
+                .unwrap();
         }
 
         assert_eq!(metrics.dispute_rate(), 0.2);
@@ -561,79 +545,70 @@ mod tests {
     fn test_matl_average_calculation() {
         let mut metrics = MarketplaceMetrics::default();
 
-        let scores = vec![0.8, 0.7, 0.9, 0.6];
-
-        for score in scores {
-            let event = MetricEvent::new_at(MetricType::MatlScoreUpdated, score, None,
-                None,
-                Timestamp::from_micros(1_000_000),
-            , Timestamp::from_micros(1_000_000)).unwrap();
-            metrics.record_event(event, Timestamp::from_micros(1_000_000)).unwrap();
+        for score in [0.8, 0.7, 0.9, 0.6] {
+            metrics
+                .record_event(event(MetricType::MatlScoreUpdated, score))
+                .unwrap();
         }
 
-        // Average should be (0.8 + 0.7 + 0.9 + 0.6) / 4 = 0.75
         assert!((metrics.average_matl_score - 0.75).abs() < 0.01);
     }
 
     #[test]
     fn test_byzantine_spike_alert() {
-        let count = 150;
-        let alert = Alert::byzantine_spike_at(count, Timestamp::from_micros(1_000_000)).unwrap();
+        let alert = Alert::byzantine_spike_at(150, TEST_TIMESTAMP).unwrap();
 
         assert_eq!(alert.severity, AlertSeverity::Critical);
         assert!(alert.message.contains("150"));
+        assert_eq!(alert.timestamp, TEST_TIMESTAMP);
     }
 
     #[test]
     fn test_high_dispute_rate_alert() {
-        let alert = Alert::high_dispute_rate_at(0.15, Timestamp::from_micros(1_000_000)).unwrap();
+        let alert = Alert::high_dispute_rate_at(0.15, TEST_TIMESTAMP).unwrap();
 
         assert_eq!(alert.severity, AlertSeverity::Warning);
         assert!(alert.message.contains("15"));
+        assert_eq!(alert.timestamp, TEST_TIMESTAMP);
     }
 
     #[test]
     fn test_network_compromised_alert() {
-        let alert = Alert::network_compromised_at(0.3, Timestamp::from_micros(1_000_000)).unwrap();
+        let alert = Alert::network_compromised_at(0.3, TEST_TIMESTAMP).unwrap();
 
         assert_eq!(alert.severity, AlertSeverity::Critical);
         assert!(alert.message.contains("0.30"));
+        assert_eq!(alert.timestamp, TEST_TIMESTAMP);
     }
 
     #[test]
     fn test_anomaly_detection() {
         let mut metrics = MarketplaceMetrics::default();
 
-        // Simulate Byzantine attack spike
         for _ in 0..150 {
-            let event = MetricEvent::new_at(MetricType::ByzantineAttempt, 1.0, None,
-                None,
-                Timestamp::from_micros(1_000_000),
-            , Timestamp::from_micros(1_000_000)).unwrap();
-            metrics.record_event(event, Timestamp::from_micros(1_000_000)).unwrap();
+            metrics
+                .record_event(event(MetricType::ByzantineAttempt, 1.0))
+                .unwrap();
         }
 
-        // Should generate alert
-        assert!(metrics.active_alerts.len() > 0);
+        assert!(!metrics.active_alerts.is_empty());
         assert!(
             metrics
                 .active_alerts
                 .iter()
-                .any(|a| a.severity == AlertSeverity::Critical)
+                .any(|alert| alert.severity == AlertSeverity::Critical)
         );
+        assert_eq!(metrics.active_alerts[0].timestamp, TEST_TIMESTAMP);
     }
 
     #[test]
     fn test_dashboard_generation() {
         let mut metrics = MarketplaceMetrics::default();
 
-        // Add some data
         for _ in 0..10 {
-            let event = MetricEvent::new_at(MetricType::TransactionCreated, 1.0, None,
-                None,
-                Timestamp::from_micros(1_000_000),
-            , Timestamp::from_micros(1_000_000)).unwrap();
-            metrics.record_event(event, Timestamp::from_micros(1_000_000)).unwrap();
+            metrics
+                .record_event(event(MetricType::TransactionCreated, 1.0))
+                .unwrap();
         }
 
         let dashboard = metrics.get_dashboard();
@@ -658,18 +633,16 @@ mod tests {
 
     #[test]
     fn test_recent_events_size_limit() {
-        let mut metrics = MarketplaceMetrics::new(10); // Max 10 events
+        let mut metrics = MarketplaceMetrics::new(10);
 
-        // Add 20 events
         for i in 0..20 {
-            let event = MetricEvent::new_at(MetricType::ListingCreated, i as f64, None,
-                None,
-                Timestamp::from_micros(1_000_000),
-            , Timestamp::from_micros(1_000_000)).unwrap();
-            metrics.record_event(event, Timestamp::from_micros(1_000_000)).unwrap();
+            metrics
+                .record_event(event(MetricType::ListingCreated, i as f64))
+                .unwrap();
         }
 
-        // Should only keep last 10
         assert_eq!(metrics.recent_events.len(), 10);
+        assert_eq!(metrics.recent_events.front().unwrap().value, 10.0);
+        assert_eq!(metrics.recent_events.back().unwrap().value, 19.0);
     }
 }
