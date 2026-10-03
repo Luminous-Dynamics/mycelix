@@ -398,7 +398,6 @@ impl AdvisoryResult {
             },
             rationale: rationale.into(),
             recommended_action,        }    }}
-
 impl Capability {
     fn validate(&self) -> Result<(), &'static str> {
         if self.subject.is_empty() || self.issuer.is_empty() || self.resource.is_empty() {
@@ -520,6 +519,14 @@ impl AuthorizationRequest {
             policy_version,
         })
     }
+}
+
+/// Convert the authority freshness lease from milliseconds to microseconds.
+///
+/// The authority stack uses milliseconds while the bridge kernel uses microseconds.
+/// Overflow is invalid and must be handled by the caller as missing/invalid evidence.
+fn authority_lease_until_us(lease_until_ms: u64) -> Option<u64> {
+    lease_until_ms.checked_mul(1_000)
 }
 
 fn frame_hash_bytes(hasher: &mut blake3::Hasher, value: &[u8]) {
@@ -759,6 +766,17 @@ mod tests {
     }
 
     #[test]
+    fn authority_freshness_lease_conversion_is_checked() {
+        assert_eq!(authority_lease_until_us(42), Some(42_000));
+        let boundary = u64::MAX / 1_000;
+        assert_eq!(
+            authority_lease_until_us(boundary),
+            Some(boundary * 1_000)
+        );
+        assert_eq!(authority_lease_until_us(boundary + 1), None);
+    }
+
+    #[test]
     fn capability_binding_commits_every_authority_relevant_field() {
         let baseline = capability();
         let baseline_digest = baseline.binding_digest();
@@ -797,8 +815,7 @@ mod tests {
             {
                 let mut candidate = baseline.clone();
                 candidate.policy_version = 8;
-                candidate
-            },
+                candidate            },
         ];
 
         for candidate in mutations {
@@ -1197,8 +1214,7 @@ mod tests {
             AuthorizationDecision::Allow
         );
 
-        let refreshed_evidence =
-            VerificationEvidence::new_for_capability_with_authority_binding_and_valid_until(
+        let refreshed_evidence =            VerificationEvidence::new_for_capability_with_authority_binding_and_valid_until(
                 &cap, [1; 32], SignatureVerification::Verified, RevocationStatus::Current, AuthorityResolution::Unambiguous, 190,
             );
         assert_eq!(
