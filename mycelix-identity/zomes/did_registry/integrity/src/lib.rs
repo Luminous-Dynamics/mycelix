@@ -125,19 +125,30 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink { link_type, tag, .. } => {
+        FlatOp::RegisterCreateLink {
+            base_address,
+            target_address,
+            link_type,
+            tag,
+            action,
+        } => {
             // Validate tag length to prevent spam/DoS
             if tag.0.len() > 1024 {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Link tag exceeds maximum length of 1024 bytes".into(),
                 ));
             }
+
             match link_type {
-                LinkTypes::AgentToDid => Ok(ValidateCallbackResult::Valid),
+                LinkTypes::AgentToDid => {
+                    validate_agent_to_did_link(&base_address, &target_address, &action)
+                }
+                LinkTypes::DidToDeactivation => {
+                    validate_did_to_deactivation_link(&base_address, &target_address, &action)
+                }
                 LinkTypes::DidToVerificationMethod => Ok(ValidateCallbackResult::Valid),
                 LinkTypes::DidToService => Ok(ValidateCallbackResult::Valid),
                 LinkTypes::DidHistory => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::DidToDeactivation => Ok(ValidateCallbackResult::Valid),
             }
         }
         FlatOp::RegisterDeleteLink {
@@ -181,6 +192,105 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             Ok(ValidateCallbackResult::Valid)
         }
     }
+}
+
+fn validate_agent_to_did_link(
+    base_address: &AnyLinkableHash,
+    target_address: &AnyLinkableHash,
+    action: &CreateLink,
+) -> ExternResult<ValidateCallbackResult> {
+    let base_agent = match base_address.clone().into_agent_pub_key() {
+        Some(agent) => agent,
+        None => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "AgentToDid base must be an AgentPubKey".into(),
+            ));
+        }
+    };
+
+    // Only the owner of an agent namespace may create its canonical DID link.
+    // Without this, an arbitrary agent could create a link from a victim's
+    // AgentPubKey to another valid DID record and hijack resolution.
+    if action.author != base_agent {
+        return Ok(ValidateCallbackResult::Invalid(
+            "AgentToDid link must be authored by the base agent".into(),
+        ));
+    }
+
+    let target_action = match target_address.clone().into_action_hash() {
+        Some(action_hash) => action_hash,
+        None => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "AgentToDid target must be an ActionHash".into(),
+            ));
+        }
+    };
+
+    let record = must_get_valid_record(target_action)?;
+    let did_doc: DidDocument = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "AgentToDid target must contain a DID document".into(),
+        )))?;
+
+    let expected_did = format!("did:mycelix:{}", base_agent);
+    if did_doc.controller != base_agent || did_doc.id != expected_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "AgentToDid target must be the canonical DID for its base agent".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_did_to_deactivation_link(
+    base_address: &AnyLinkableHash,
+    target_address: &AnyLinkableHash,
+    action: &CreateLink,
+) -> ExternResult<ValidateCallbackResult> {
+    let base_agent = match base_address.clone().into_agent_pub_key() {
+        Some(agent) => agent,
+        None => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "DidToDeactivation base must be an AgentPubKey".into(),
+            ));
+        }
+    };
+
+    if action.author != base_agent {
+        return Ok(ValidateCallbackResult::Invalid(
+            "DidToDeactivation link must be authored by the DID owner".into(),
+        ));
+    }
+
+    let target_action = match target_address.clone().into_action_hash() {
+        Some(action_hash) => action_hash,
+        None => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "DidToDeactivation target must be an ActionHash".into(),
+            ));
+        }
+    };
+
+    let record = must_get_valid_record(target_action)?;
+    let deactivation: DidDeactivation = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "DidToDeactivation target must contain a deactivation record".into(),
+        )))?;
+
+    let expected_did = format!("did:mycelix:{}", base_agent);
+    if deactivation.did != expected_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "DidToDeactivation target must name the base agent's DID".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
 }
 
 /// Validate DID document creation
