@@ -558,15 +558,34 @@ pub fn compute_dependency_closure_from_authoritative_d6p_at_frontier(
         if !projection.d6p_current_receipt_commitments.contains(commitment) {
             return None;
         }
-        let receipt = d6p_receipts.iter().find(|r| r.receipt_commitment == *commitment)?;
+        let matching_receipts = d6p_receipts
+            .iter()
+            .filter(|receipt| receipt.receipt_commitment == *commitment)
+            .collect::<Vec<_>>();
+        // Receipt identity is single-valued at the qualified boundary.
+        // Multiple candidates for the same commitment are ambiguous input,
+        // even when a first matching entry could otherwise be selected.
+        let receipt = match matching_receipts.as_slice() {
+            [receipt] => *receipt,
+            [] => return None,
+            _ => return None,
+        };
         if let Some(expected_frontier) = current_frontier_root {
             if receipt.current_frontier_root != expected_frontier {
                 return None;
             }
         }
-        let composition = d6p_compositions
+        let matching_compositions = d6p_compositions
             .iter()
-            .find(|c| c.composition_commitment == receipt.composition_commitment)?;
+            .filter(|composition| composition.composition_commitment == receipt.composition_commitment)
+            .collect::<Vec<_>>();
+        // Composition identity is likewise single-valued: do not let input
+        // order choose which provenance object supplies the receipt projection.
+        let composition = match matching_compositions.as_slice() {
+            [composition] => *composition,
+            [] => return None,
+            _ => return None,
+        };
         if !verify_current_receipt_provenance_from_composition(receipt, composition) {
             return None;
         }
