@@ -977,9 +977,9 @@ mod tests {
             AuthorityResolution::Unambiguous,
         );
 
-        assert!(verify_capability(cap.clone(), evidence, cap.expires_at_us - 1).is_ok());
+        assert!(verify_capability(cap.clone(), evidence.clone(), cap.expires_at_us - 1).is_ok());
         assert_eq!(
-            verify_capability(cap.clone(), evidence, cap.expires_at_us),
+            verify_capability(cap.clone(), evidence.clone(), cap.expires_at_us),
             Err(AuthorizationDecision::Deny(
                 AuthorizationDenial::OutsideValidityWindow,
             ))
