@@ -244,11 +244,11 @@ pub struct FactorView {
 }
 
 impl FactorView {
-    /// Strength decays over time. Returns visual percentage (0-100).
-    pub fn visual_strength(&self, now_secs: i64) -> f32 {
-        let age_days = (now_secs - self.last_verified) as f32 / 86400.0;
-        let decay = (-age_days / 90.0).exp(); // 90-day half-life
-        (self.effective_strength * decay * 100.0).clamp(0.0, 100.0)
+    /// The coordinator supplies the current strength after applying the
+    /// canonical factor-specific decay policy. This method only formats that
+    /// authoritative value for display.
+    pub fn visual_strength(&self) -> f32 {
+        (self.effective_strength * 100.0).clamp(0.0, 100.0)
     }
 }
 
@@ -542,12 +542,8 @@ mod tests {
             active: true,
             metadata: String::new(),
         };
-        // Verified just now
-        let fresh = factor.visual_strength(1_000_000);
-        assert!(fresh > 85.0);
-        // Verified 180 days ago
-        let stale = factor.visual_strength(1_000_000 + 180 * 86400);
-        assert!(stale < 20.0);
+        assert_eq!(factor.visual_strength(), 90.0);
+
     }
 
     #[test]
