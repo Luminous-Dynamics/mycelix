@@ -89,7 +89,7 @@ jobs:
             echo "d6s2_authority_ledger_schema=v1"
             echo "d6s1_corpus_sha256=$(sha256sum ../docs/integral/d6s-canon-1-golden-vectors.json | cut -d' ' -f1)"
             echo "test_log_sha256=$(sha256sum d6u-runtime-test.log | cut -d' ' -f1)"
-            echo "case_coverage=16-of-16"
+            echo "case_coverage=15-of-15"
             echo "case_outcome_classes=accepted,semantic-rejected,d6s-commitment-mismatch,authentication-failed,authorization-failed,routing-failed"
             echo "runtime=holochain-0.7.0"
             echo "hdk=0.7.0"
@@ -99,8 +99,8 @@ jobs:
             echo "cargo=$(cargo --version)"
             echo "cargo_lock_sha256=$(sha256sum Cargo.lock | cut -d' ' -f1)"
             echo "test=d6u_authority_boundary:passed"
-            echo "supported_cases=16"
-            echo "unsupported_cases=wire-signature-valid"
+            echo "supported_cases=15"
+            echo "unsupported_cases=wire-signature-valid,nonce-stale"
             echo "claim_ceiling=ReferenceModelOnly"
           } | tee d6u-runtime-evidence.txt
 
