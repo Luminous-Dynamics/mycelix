@@ -129,16 +129,19 @@ fn params<P: Serialize>(
 
 async fn call(
     api: &AppInterfaceApi,
-    _installed_app_id: &str,
+    installed_app_id: &str,
     keystore: &MetaLairClient,
     params: ZomeCallParams,
 ) -> AppResponse {
     let signed = ZomeCallParamsSigned::try_from_params(keystore, params)
         .await
         .expect("test keystore must sign invocation");
-    api.handle_request("".to_string(), Ok(AppRequest::CallZome(Box::new(signed))))
-        .await
-        .expect("app interface request must complete")
+    api.handle_request(
+        installed_app_id.to_string(),
+        Ok(AppRequest::CallZome(Box::new(signed))),
+    )
+    .await
+    .expect("app interface request must complete")
 }
 
 fn decode(response: AppResponse) -> ZomeCallResponse {
