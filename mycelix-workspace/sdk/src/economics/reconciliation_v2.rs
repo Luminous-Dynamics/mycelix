@@ -667,7 +667,7 @@ mod tests {
             ),
             PhysicalStockPosting::new(
                 EconomicSector::Firm,
-                PhysicalStockInstrument::Inventory,
+                PhysicalStockInstrument::Inventories,
                 1,
             ),
         ];
