@@ -1,0 +1,23 @@
+[package]
+name = "d6u-runtime-harness"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+description = "Holochain 0.7 runtime authority-boundary harness for Mycelix D6S-CANON-2"
+
+[dependencies]
+hdk = "=0.7.0"
+holochain = { version = "=0.7.0", features = ["sweettest"] }
+holochain_keystore = "=0.7.0"
+holochain_nonce = "=0.7.0"
+holochain_serialized_bytes = "=0.0.57"
+holochain_types = "=0.7.0"
+serde = { version = "1", features = ["derive"] }
+sha2 = "0.10"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+
+[[test]]
+name = "d6u_authority_boundary"
+path = "tests/d6u_authority_boundary.rs"

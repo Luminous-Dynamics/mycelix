@@ -1,0 +1,97 @@
+{
+  "profile": "D6U-RUNTIME-1",
+  "kind": "holochain-0.7-authority-boundary-runtime-manifest",
+  "version": 1,
+  "substrate": {
+    "holochain": "0.7.0",
+    "hdk": "0.7.0",
+    "hdi": "0.8.0",
+    "rust": "1.96.1",
+    "holochain_serialized_bytes": "0.0.57"
+  },
+  "harness_path": "d6u-runtime-harness",
+  "test_path": "d6u-runtime-harness/tests/d6u_authority_boundary.rs",
+  "qualification_workflow": ".github/workflows/d6u-runtime-qualification.yml",
+  "evidence_verifier_path": "scripts/integral/verify_d6u_runtime_evidence.py",
+  "supported_reference_cases": [
+    "canonical-payload-accepted",
+    "authorized-semantic-rejection",
+    "payload-mutation",
+    "wire-signature-invalid",
+    "author-grant",
+    "valid-capability",
+    "wrong-capability",
+    "revoked-capability",
+    "provenance-mismatch",
+    "nonce-replay",
+    "nonce-stale",
+    "expired-invocation",
+    "wrong-zome",
+    "wrong-function",
+    "wrong-cell"
+  ],
+  "unsupported_reference_cases": [
+    "wire-signature-valid",
+    "blocked-provenance"
+  ],
+  "evidence_fields": [
+    "source_commit",
+    "runtime_version",
+    "hdk_version",
+    "hdi_version",
+    "fixture_identity",
+    "call_authentication",
+    "d6s_commitment_result",
+    "invocation_binding_result",
+    "capability_result",
+    "nonce_result",
+    "expiry_result",
+    "zome_reached",
+    "semantic_result",
+    "claim_ceiling",
+    "case_outcome"
+  ],
+  "evidence_status": "NotExecuted",
+  "claim_ceiling": "ReferenceModelOnly",
+  "dependencies": {
+    "d6s_canon_2_manifest_path": "docs/integral/d6s-canon-2-manifest.json",
+    "d6s_canon_2_manifest_blob_sha": "4353b9aed545c7762d6f8f73bc551e4c008271a9",
+    "d6s_canon_2_fixture_path": "docs/integral/d6s-canon-2-authority-boundary-fixture.json",
+    "d6s_canon_2_fixture_blob_sha": "0b4c5b924bc3b807c556ef92cc869d66f7cc97a1",
+    "d6s_canon_1_corpus_sha256": "9d61cdb2e625c13c5813fffb7cceea4af2f93ed60d7d64c068dc6d3f6f6b614d"
+  },
+  "lockfile_policy": {
+    "mode": "generated-on-run-and-captured",
+    "rationale": "Holochain 0.7.0 dependencies include caret-ranged transitive packages; the exact resolved graph is preserved with each runtime evidence artifact."
+  },
+  "evidence_artifact_files": [
+    "d6u-runtime-evidence.txt",
+    "d6u-runtime-test.log",
+    "Cargo.lock"
+  ],
+  "case_outcomes": {
+    "canonical-payload-accepted": "accepted",
+    "authorized-semantic-rejection": "semantic-rejected",
+    "payload-mutation": "d6s-commitment-mismatch",
+    "wire-signature-invalid": "authentication-failed",
+    "author-grant": "accepted",
+    "valid-capability": "accepted",
+    "wrong-capability": "authorization-failed",
+    "revoked-capability": "authorization-failed",
+    "provenance-mismatch": "authorization-failed",
+    "nonce-replay": "authorization-failed",
+    "nonce-stale": "authorization-failed",
+    "expired-invocation": "authorization-failed",
+    "wrong-zome": "routing-failed",
+    "wrong-function": "authorization-failed",
+    "wrong-cell": "routing-failed"
+  },
+  "evidence_outcome_classes": [
+    "accepted",
+    "semantic-rejected",
+    "d6s-commitment-mismatch",
+    "authentication-failed",
+    "authorization-failed",
+    "routing-failed"
+  ]
+}
