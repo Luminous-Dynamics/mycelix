@@ -50,6 +50,7 @@
     {"id":"REC-007","operation":"time-lock-arming","authority":"original-request-author","expected":"arm-only-after-DHT-derived-quorum-approval"},
     {"id":"REC-008","operation":"self-recovery-approval","authority":"cryptographic-proof-required","expected":"identifier-or-hash-equality-alone-must-not-approve"},
     {"id":"REC-009","operation":"recovery-request-id","authority":"protocol-derived","expected":"recovery:<did>:<creation-timestamp>"},
+    {"id":"REC-010","operation":"terminal-rejection","authority":"DHT-derived-state","expected":"Rejected-is-terminal-and-cannot-resurrect"},
     {"id":"RES-005","operation":"json-shape","expected":"omit-absent-optional-resolution-metadata-properties"}
   ],
   "authority_vectors": [
