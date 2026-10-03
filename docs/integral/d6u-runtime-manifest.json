@@ -82,7 +82,7 @@
     "nonce-replay": "authorization-failed",
     "expired-invocation": "authorization-failed",
     "wrong-zome": "routing-failed",
-    "wrong-function": "authorization-failed",
+    "wrong-function": "routing-failed",
     "wrong-cell": "routing-failed",
     "blocked-provenance": "authorization-failed"
   },
