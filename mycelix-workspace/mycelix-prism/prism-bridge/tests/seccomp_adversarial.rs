@@ -561,12 +561,19 @@ fn maximum_dispatch_offset_child() -> ! {
         );
     }
 
-    let large_dispatch_syscall = libc::SYS_read;
-    let allowed_syscall = libc::SYS_write;
-    let cleanup_syscall = libc::SYS_exit_group;
-    if !(large_dispatch_syscall < allowed_syscall && allowed_syscall < cleanup_syscall) {
+    let mut dispatch_chain = vec![
+        (libc::SYS_read, "read"),
+        (libc::SYS_write, "write"),
+        (libc::SYS_exit_group, "exit_group"),
+    ];
+    dispatch_chain.sort_unstable_by_key(|(syscall, _)| *syscall);
+    let [
+        (large_dispatch_syscall, _large_name),
+        (allowed_syscall, _allowed_name),
+        (cleanup_syscall, _cleanup_name),
+    ] = dispatch_chain else {
         unsafe { libc::_exit(153) };
-    }
+    };
 
     let large_rule = SeccompSyscallRuleV2::new_with_clauses(large_dispatch_syscall, clauses)
         .unwrap_or_else(|_| unsafe { libc::_exit(154) });
