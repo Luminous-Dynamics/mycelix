@@ -619,7 +619,7 @@ fn maximum_dispatch_offset_child() -> ! {
             expected_len,
         )
     };
-    if allowed != expected_len {
+    if allowed != expected_len as i64 {
         unsafe { libc::_exit(160) };
     }
 
