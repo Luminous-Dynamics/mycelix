@@ -38,7 +38,8 @@ pub enum QualificationDecision<T> {
 ///
 /// These are runtime-neutral retrieval semantics. A concrete adapter maps them
 /// to its own address type and host-function API.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum QualificationDependencyRetrievalKind {
     ValidRecord,
     Action,
