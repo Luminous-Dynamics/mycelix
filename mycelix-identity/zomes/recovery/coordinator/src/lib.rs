@@ -1589,75 +1589,9 @@ pub fn initiate_self_recovery(input: InitiateSelfRecoveryInput) -> ExternResult<
         )));
     }
 
-    if !input.did.starts_with("did:mycelix:") {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Invalid canonical Mycelix DID".into()
-        )));
-    }
-
-    // Fetch self-recovery config
-    let config_record = get_self_recovery_config(input.did.clone())?.ok_or(wasm_error!(
-        WasmErrorInner::Guest("No self-recovery config found".into())
-    ))?;
-
-    let config: SelfRecoveryConfig = config_record
-        .entry()
-        .to_app_option()
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-        .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Failed to decode config".into()
-        )))?;
-
-    if !config.active {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Self-recovery is not active for this DID".into()
-        )));
-    }
-
-    if config.anchors.is_empty() {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Cannot initiate self-recovery without enrolled verification anchors".into()
-        )));
-    }
-
-    // Identifier/hash equality is not proof-of-control. Until the explicit
-    // cryptographic proof envelope described in issue #3874 exists, do not
-    // create a self-recovery request that could ever become executable.
-    return Err(wasm_error!(WasmErrorInner::Guest(
-        "Self-recovery is temporarily disabled until cryptographic anchor proof-of-control is implemented (see #3874)".into()
-    )));
-    
-    // Unreachable legacy matching path retained below for protocol migration.
-
-    let now = sys_time()?;
-    let request_id = format!(
-        "self-recovery-{}-{}",
-        input.did.chars().skip(12).take(8).collect::<String>(),
-        now.as_micros()
-    );
-
-    let request = SelfRecoveryRequest {
-        id: request_id,
-        did: input.did.clone(),
-        new_agent: input.new_agent,
-        verified_anchors: vec![input.initial_anchor],
-        status: RecoveryStatus::Pending,
-        created: now,
-        time_lock_expires: None, // Set when anchor threshold met
-        reason: input.reason,
-    };
-
-    let action_hash = create_entry(&EntryTypes::SelfRecoveryRequest(request))?;
-    let did_hash = string_to_entry_hash(&input.did);
-    create_link(
-        did_hash,
-        action_hash.clone(),
-        LinkTypes::DidToSelfRecoveryRequest,
-        LinkTag::new("self_recovery_request"),
-    )?;
-
-    get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Failed to get created self-recovery request".into()
+    Err(wasm_error!(WasmErrorInner::Guest(
+        "Self-recovery is disabled until cryptographic anchor proof-of-control is implemented (see #3874)"
+            .into()
     )))
 }
 
@@ -1673,71 +1607,19 @@ pub struct VerifySelfRecoveryAnchorInput {
 /// When the anchor threshold is met, the request transitions to Approved
 /// and the time lock countdown begins.
 #[hdk_extern]
-pub fn verify_self_recovery_anchor(input: VerifySelfRecoveryAnchorInput) -> ExternResult<Record> {
-    let record =
-        get(input.request_action_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
-            WasmErrorInner::Guest("Self-recovery request not found".into())
-        ))?;
-
-    let mut request: SelfRecoveryRequest = record
-        .entry()
-        .to_app_option()
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-        .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Failed to decode request".into()
-        )))?;
-
+pub fn verify_self_recovery_anchor(
+    input: VerifySelfRecoveryAnchorInput,
+) -> ExternResult<Record> {
     let caller = agent_info()?.agent_initial_pubkey;
-    if request.new_agent != caller {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Only the designated replacement agent can verify recovery anchors".into()
-        )));
-    }
 
-    if request.status != RecoveryStatus::Pending {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Can only verify anchors on pending requests".into()
-        )));
-    }
+    // Do not treat an enrolled identifier/hash as proof-of-control. The proof
+    // envelope in #3874 must bind the request, anchor, challenge, and verifier
+    // before this path becomes executable.
+    let _ = (caller, input);
 
-    // Get the config to check threshold
-    let config_record = get_self_recovery_config(request.did.clone())?.ok_or(wasm_error!(
-        WasmErrorInner::Guest("Self-recovery config not found".into())
-    ))?;
-    let config: SelfRecoveryConfig = config_record
-        .entry()
-        .to_app_option()
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-        .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Failed to decode config".into()
-        )))?;
-
-    // Matching an enrolled identifier is not proof-of-control. Never let
-    // this path advance a recovery request until a cryptographic proof is
-    // attached and verified by the protocol defined in #3874.
-    return Err(wasm_error!(WasmErrorInner::Guest(
-        "Self-recovery anchor verification is disabled until cryptographic proof-of-control is implemented (see #3874)".into()
-    )));
-    
-    // Unreachable legacy matching path retained below for migration.
-
-    // Don't double-count
-    if !request.verified_anchors.contains(&input.anchor) {
-        request.verified_anchors.push(input.anchor);
-    }
-
-    // Check if threshold met → transition to Approved
-    if request.verified_anchors.len() as u32 >= config.anchor_threshold {
-        request.status = RecoveryStatus::Approved;
-        let now = sys_time()?;
-        let expires =
-            Timestamp::from_micros(now.as_micros() + (config.time_lock as i64 * 1_000_000));
-        request.time_lock_expires = Some(expires);
-    }
-
-    let new_hash = update_entry(input.request_action_hash, &request)?;
-    get(new_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Failed to get updated request".into()
+    Err(wasm_error!(WasmErrorInner::Guest(
+        "Self-recovery anchor verification is disabled until cryptographic proof-of-control is implemented (see #3874)"
+            .into()
     )))
 }
 
