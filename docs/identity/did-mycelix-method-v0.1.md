@@ -94,7 +94,9 @@ The current DID update path:
 - preserves the DID identifier;
 - preserves the controller binding;
 - updates mutable verification-method, key-agreement, and service state;
-- replaces the canonical agent-to-DID discovery link so the latest state becomes resolvable.
+- retains an append-only DID history index for every committed version;
+- replaces the canonical agent-to-DID discovery link so the latest state becomes resolvable;
+- exposes exact historical versions through `resolve_did_version`.
 
 The deterministic DSID laboratory verifies that an ordinary update results in version 2 and that the updated service state is returned by canonical resolution. Every accepted DID update increments the version by exactly one.
 
@@ -213,6 +215,7 @@ The current qualification laboratory maps concrete protocol behavior to determin
 | DSID-013 | malformed DID identifiers fail closed |
 | DSID-014 | canonical initial Ed25519 multibase verification key |
 | DSID-015 | verification-method rotation preserves historical DID URL references |
+| DSID-016 | deterministic historical DID version resolution |
 
 The qualification workflow records scenario IDs, agents, DNA hash, action hashes, entry hashes, expected and observed behavior, pass state, and commit SHA, then hashes the complete evidence capsule.
 
