@@ -10,7 +10,7 @@
   },
   "did_vectors": [
     {"id":"DID-001","input":"did:mycelix:uhCAk29vb29vb29vb29vb29vb29vb29vb29vb29vb29uTp5Iv","kind":"valid","expected":"accept"},
-    {"id":"DID-002","input":"did:mycelix:uhCAkZBguduqvDVaKHA-SpVnP_TT6JZIk4-3Vfq0iPdubq8JPSInp","kind":"valid","expected":"accept"},
+    {"id":"DID-002","input":"did:mycelix:AgentKey-with-valid-alphabet-but-invalid-checksum","kind":"invalid","expected":"reject","error":"INVALID_DID"},
     {"id":"DID-003","input":"did:mycelix:","kind":"invalid","expected":"reject","error":"INVALID_DID"},
     {"id":"DID-004","input":"did:mycelix:abc:def","kind":"invalid","expected":"reject","error":"INVALID_DID"},
     {"id":"DID-005","input":"did:mycelix:abc#key-1","kind":"did-url-not-did","expected":"reject-as-resolve-input","error":"INVALID_DID"},
