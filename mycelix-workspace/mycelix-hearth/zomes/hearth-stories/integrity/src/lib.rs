@@ -171,7 +171,29 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             }
             validate_delete_link(link_type, &link.tag())
         }
-        FlatOp::CreateRecord(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::CreateRecord(OpRecord::CreateEntry { app_entry, .. }) => match app_entry {
+                EntryTypes::FamilyStory(story) => validate_story(story),
+                EntryTypes::StoryCollection(collection) => validate_collection(collection),
+                EntryTypes::FamilyTradition(tradition) => validate_tradition(tradition),
+                EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
+                    },
+        FlatOp::CreateRecord(OpRecord::UpdateEntry { app_entry, action, .. }) => match app_entry {
+                EntryTypes::FamilyStory(story) => {
+                    validate_story_update(&story)?;
+                    validate_story_immutable_fields(&story, &action.original_action_address)
+                }
+                EntryTypes::StoryCollection(collection) => {
+                    validate_collection_update(&collection)?;
+                    validate_collection_immutable_fields(&collection, &action.original_action_address)
+                }
+                EntryTypes::FamilyTradition(tradition) => {
+                    validate_tradition_update(&tradition)?;
+                    validate_tradition_immutable_fields(&tradition, &action.original_action_address)
+                }
+                EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Anchor cannot be updated once created".into(),
+                )),
+                    },
         FlatOp::AgentActivity(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::Update(OpUpdate::Entry { action, .. }) => {
             let original = must_get_valid_record(action.original_action_address.clone())?;
