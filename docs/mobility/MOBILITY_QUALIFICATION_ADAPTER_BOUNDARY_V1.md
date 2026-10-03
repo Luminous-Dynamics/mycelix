@@ -140,3 +140,20 @@ The boundary is deliberately split:
 - a valid signature does not implicitly resolve the relationship between the Holochain signer key and the domain authority identity named by the provenance witness.
 
 The signed layer is optional because applications may have an independent authoritative mechanism for establishing the logical-to-protocol binding. It must never become an excuse to infer authority from a bare protocol signature.
+
+
+## Authority-agent identity boundary
+
+The protocol signer is not treated as the domain authority merely because a valid signature exists.
+
+The adapter therefore uses an explicit `HolochainAuthorityAgentBindingSet`. Each accepted credential binds one domain `IdentityRef` to exactly one `AgentPubKey`. The credential:
+
+- uses `QualificationAuthorityAgentBindingProvenance` to preserve the domain authority chain;
+- is signed by the exact agent key it names;
+- is admitted into an immutable authority→agent registry;
+- cannot be duplicated for the same authority identity;
+- must be present before a signed runtime dependency binding can be accepted.
+
+A runtime dependency binding is accepted only when its signer matches the registered agent for the provenance authority.
+
+This establishes a protocol-level identity binding, not a claim about a real-world person's or institution's legal identity. The semantic authority determination remains in the pure provenance graph.
