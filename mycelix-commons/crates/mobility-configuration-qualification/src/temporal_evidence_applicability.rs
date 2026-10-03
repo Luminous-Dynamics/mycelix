@@ -482,6 +482,14 @@ impl EvidenceDispositionAuthorityDelegation {
             .map(AuthorityDelegationChainAssessment::into_qualification)
     }
 
+    pub fn validate_graph_qualified(
+        delegations: &[EvidenceDispositionAuthorityDelegation],
+    ) -> QualificationOutcome<AuthorityDelegationChainQualification> {
+        Self::validate_graph(delegations)
+            .map_err(QualificationValidationError::from)
+            .map(AuthorityDelegationChainAssessment::into_qualification)
+    }
+
     pub fn validate_graph(
         delegations: &[EvidenceDispositionAuthorityDelegation],
     ) -> Result<AuthorityDelegationChainAssessment, String> {
