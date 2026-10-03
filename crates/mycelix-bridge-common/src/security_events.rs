@@ -9,7 +9,7 @@
 //! Provenance records origin and transformation context without asserting that
 //! the underlying claim is true.
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::security_kernel::{AuthorizationDecision, AuthorizationRequest, EnforcementRequest};
 
@@ -54,28 +54,96 @@ impl ProvenanceRef {
 /// This is evidence for reconstruction and audit. It is intentionally not an
 /// authority primitive and must not be used as a substitute for a fresh
 /// authorization decision.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct SecurityEvent {
     pub event_id: String,
     pub actor_id: String,
     pub capability_ref: String,
     pub request: AuthorizationRequest,
-    pub decision: AuthorizationDecision,
+    decision: AuthorizationDecision,
     pub policy_version: u64,
     pub timestamp_us: u64,
     /// Kernel-derived commitment of the exact capability used for a successful
     /// enforcement request. Directly constructed events may leave this absent.
     #[serde(default)]
-    pub capability_binding: Option<[u8; 32]>,
+    capability_binding: Option<[u8; 32]>,
     /// Opaque commitment for the exact authority generation/freshness state
     /// that qualified a successful enforcement request.
     #[serde(default)]
-    pub authority_binding: Option<[u8; 32]>,
+    authority_binding: Option<[u8; 32]>,
     pub provenance: Vec<ProvenanceRef>,
     pub recovery_correlation: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+struct SecurityEventWire {
+    event_id: String,
+    actor_id: String,
+    capability_ref: String,
+    request: AuthorizationRequest,
+    decision: AuthorizationDecision,
+    policy_version: u64,
+    timestamp_us: u64,
+    #[serde(default)]
+    capability_binding: Option<[u8; 32]>,
+    #[serde(default)]
+    authority_binding: Option<[u8; 32]>,
+    provenance: Vec<ProvenanceRef>,
+    recovery_correlation: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for SecurityEvent {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let wire = SecurityEventWire::deserialize(deserializer)?;
+        let mut event = Self::new_internal(
+            wire.event_id,
+            wire.actor_id,
+            wire.capability_ref,
+            wire.request,
+            wire.decision.clone(),
+            wire.policy_version,
+            wire.timestamp_us,
+        )
+        .map_err(D::Error::custom)?;
+
+        if matches!(&wire.decision, AuthorizationDecision::Allow) {
+            if wire.capability_binding.is_none() || wire.authority_binding.is_none() {
+                return Err(D::Error::custom(
+                    "allow security events require kernel capability and authority bindings",
+                ));
+            }
+            if event.actor_id != event.request.subject() {
+                return Err(D::Error::custom(
+                    "allow security events require actor to match request subject",
+                ));
+            }
+        }
+
+        event.capability_binding = wire.capability_binding;
+        event.authority_binding = wire.authority_binding;
+        event.provenance = wire.provenance;
+        event.recovery_correlation = wire.recovery_correlation;
+        Ok(event)
+    }
+}
+
 impl SecurityEvent {
+
+    pub fn decision(&self) -> &AuthorizationDecision {
+        &self.decision
+    }
+
+    pub fn capability_binding(&self) -> Option<[u8; 32]> {
+        self.capability_binding
+    }
+
+    pub fn authority_binding(&self) -> Option<[u8; 32]> {
+        self.authority_binding
+    }
+
     fn new_internal(
         event_id: impl Into<String>,
         actor_id: impl Into<String>,
@@ -272,16 +340,16 @@ mod tests {
         .with_recovery_correlation("recovery:1")
         .unwrap();
 
-        assert_eq!(event.decision, AuthorizationDecision::Allow);
+        assert_eq!(event.decision(), &AuthorizationDecision::Allow);
         assert_eq!(event.request, *enforcement.request());
         assert_eq!(event.provenance.len(), 1);
         assert_eq!(event.recovery_correlation.as_deref(), Some("recovery:1"));
         assert_eq!(
-            event.capability_binding,
+            event.capability_binding(),
             Some(enforcement.capability_binding())
         );
         assert_eq!(
-            event.authority_binding,
+            event.authority_binding(),
             Some(enforcement.authority_binding())
         );
     }
@@ -318,11 +386,34 @@ mod tests {
     }
 
     #[test]
-    fn legacy_security_event_without_binding_deserializes() {
+    fn legacy_security_event_without_binding_deserializes_as_deny() {
         let json = r#"{
             "event_id":"event:legacy",
             "actor_id":"did:mycelix:alice",
             "capability_ref":"capability:legacy",
+            "request":{
+                "subject":"did:mycelix:alice",
+                "resource":"resource:ledger",
+                "action":"Read",
+                "policy_version":7
+            },
+            "decision":"Deny",
+            "policy_version":7,
+            "timestamp_us":151,
+            "provenance":[],
+            "recovery_correlation":null
+        }"#;
+        let event: SecurityEvent = serde_json::from_str(json).unwrap();
+        assert_eq!(event.decision(), &AuthorizationDecision::Deny(crate::security_kernel::AuthorizationDenial::ActionNotGranted));
+        assert_eq!(event.capability_binding(), None);
+    }
+
+    #[test]
+    fn deserialization_rejects_unbound_allow() {
+        let json = r#"{
+            "event_id":"event:forged-allow",
+            "actor_id":"did:mycelix:alice",
+            "capability_ref":"capability:forged",
             "request":{
                 "subject":"did:mycelix:alice",
                 "resource":"resource:ledger",
@@ -335,8 +426,43 @@ mod tests {
             "provenance":[],
             "recovery_correlation":null
         }"#;
-        let event: SecurityEvent = serde_json::from_str(json).unwrap();
-        assert_eq!(event.capability_binding, None);
+
+        assert!(serde_json::from_str::<SecurityEvent>(json).is_err());
+    }
+
+    #[test]
+    fn serialized_enforcement_event_round_trips() {
+        let request = crate::security_kernel::AuthorizationRequest::new(
+            "did:mycelix:alice",
+            "resource:ledger",
+            CapabilityAction::Read,
+            7,
+        )
+        .unwrap();
+        let permit = authorize_permit(&verified(), &request, 150).unwrap();
+        let enforcement = EnforcementRequest::from_permit(
+            permit,
+            VerificationEvidence::new_for_capability(&capability(), true, true, true),
+            150,
+        )
+        .unwrap();
+        let event = SecurityEvent::from_enforcement_request(
+            "event:round-trip",
+            "did:mycelix:alice",
+            "capability:1",
+            &enforcement,
+            7,
+            150,
+        )
+        .unwrap();
+
+        let encoded = serde_json::to_string(&event).unwrap();
+        let decoded: SecurityEvent = serde_json::from_str(&encoded).unwrap();
+
+        assert_eq!(decoded, event);
+        assert_eq!(decoded.decision(), &AuthorizationDecision::Allow);
+        assert!(decoded.capability_binding().is_some());
+        assert!(decoded.authority_binding().is_some());
     }
 
     #[test]
