@@ -666,6 +666,36 @@
       "id": "EDT-131",
       "case": "provenance_witness_identity_is_unique_per_runtime_binding",
       "expected": "adapter_boundary_error"
+    },
+    {
+      "id": "EDT-132",
+      "case": "signed_binding_attestation_payload_binds_schema_provenance_address_and_retrieval_kind",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-133",
+      "case": "signed_binding_attestation_uses_deterministic_canonical_signature_verification",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-134",
+      "case": "unverified_binding_attestation_is_semantic_invalidity",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-135",
+      "case": "signature_verification_host_failure_remains_runtime_error",
+      "expected": "adapter_boundary_error"
+    },
+    {
+      "id": "EDT-136",
+      "case": "attested_runtime_binding_requires_verified_signature",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-137",
+      "case": "signature_attestation_does_not_resolve_authority_identity_by_itself",
+      "expected": "accepted"
     }
   ],
   "outcome_classes": [
