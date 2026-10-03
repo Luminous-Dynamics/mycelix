@@ -1064,3 +1064,20 @@ The resulting rule is uniform:
 
 The v2 layer additionally retains its physical-stock reconciliation, while the legacy layer preserves
 its narrower financial-stock semantics for compatibility.
+
+## Legacy reconciliation arithmetic hardening (implemented)
+
+The legacy financial reconciliation path now matches the newer v2 layer's fail-closed numerical
+behavior.
+
+Balance-sheet delta aggregation no longer uses unchecked integer summation or subtraction, and
+posting aggregation now propagates overflow as an explicit error. This prevents build-mode-dependent
+behavior where an extreme `i128` fixture could panic in debug builds or wrap in release builds.
+
+Together with the input validation added above, the legacy surface now has the same fundamental
+numeric boundary:
+
+`validated state + validated transitions -> checked projection -> checked reconciliation`
+
+The legacy API remains narrower than v2 because it does not introduce the physical-stock dimension,
+but it no longer has a weaker state/transition/arithmetic trust boundary.
