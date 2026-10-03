@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           submodules: recursive
@@ -108,7 +108,7 @@ jobs:
       - name: Preserve immutable evidence
         if: always()
         id: evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: cos-conformance-evidence-${{ github.event.pull_request.head.sha || github.sha }}
           path: evidence/
