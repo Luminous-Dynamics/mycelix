@@ -147,6 +147,8 @@
     "audit_credential_accessor": "HolochainAuthorityAgentBindingSet::credential_for",
     "runtime_binding_requires_exact_authority_scope_match": true,
     "runtime_binding_requires_exact_authority_delegation_match": true,
-    "authority_credential_provenance_continuity_is_checked": true
+    "authority_credential_provenance_continuity_is_checked": true,
+    "registered_credential_basis_is_minimum_runtime_basis": true,
+    "runtime_binding_witness_must_differ_from_authority_credential_witness": true
   }
 }
