@@ -529,3 +529,62 @@ async fn dsid_007_browser_projection_redacts_mfa_material() {
         true,
     );
 }
+
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_008_updated_did_remains_canonical() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let app = conductor.setup_app("dsid-update", std::slice::from_ref(&dna)).await.unwrap();
+    let cell = app.cells()[0].clone();
+    let agent = app.agent().clone();
+
+    let created: DidDocumentView = conductor
+        .call(&cell.zome("did_registry"), "create_did_view", ())
+        .await;
+
+    let update_input = serde_json::json!({
+        "verificationMethod": null,
+        "authentication": null,
+        "keyAgreement": null,
+        "service": [{
+            "id": format!("{}#service-1", created.id),
+            "type": "DiagnosticsService",
+            "serviceEndpoint": "https://identity.mycelix.net/diagnostics"
+        }]
+    });
+
+    let _updated: Record = conductor
+        .call(&cell.zome("did_registry"), "update_did_document", update_input)
+        .await;
+
+    let loaded: Option<DidDocumentView> = conductor
+        .call(&cell.zome("did_registry"), "get_my_did_view", ())
+        .await;
+
+    let loaded = loaded.expect("updated DID must remain resolvable");
+    assert_eq!(loaded.id, created.id);
+    assert_eq!(loaded.controller, agent.to_string());
+    assert_eq!(loaded.version, 2);
+    assert_eq!(loaded.services.len(), 1);
+    assert_eq!(loaded.services[0].endpoint, "https://identity.mycelix.net/diagnostics");
+
+    let mut agents = BTreeMap::new();
+    agents.insert("alice", agent.to_string());
+    emit_evidence(
+        "DSID-008",
+        "updated-did-remains-canonical",
+        &dna,
+        agents,
+        &[],
+        "A legitimate controller update replaces the canonical AgentToDid link and remains the resolved DID state.",
+        format!(
+            "did={} version={} services={}",
+            loaded.id,
+            loaded.version,
+            loaded.services.len()
+        ),
+        true,
+    );
+}
