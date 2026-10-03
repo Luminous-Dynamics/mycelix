@@ -56,6 +56,17 @@ def main() -> int:
         raise SystemExit("adapter must preserve the pure valid decision")
     if "QualificationDependencyBindingProvenance" not in source:
         raise SystemExit("adapter must require a pure provenance witness for each runtime binding")
+    if "HolochainAuthorityAgentBindingSet" not in source:
+        raise SystemExit("adapter must provide an immutable authority-agent registry")
+    if "issuer != self.payload.agent" not in source:
+        raise SystemExit("authority-agent credential issuer must equal the bound agent")
+    if "one AgentPubKey in an immutable binding set" not in source:
+        raise SystemExit("authority-agent registry must reject duplicate authority bindings")
+    if "agent_for(&authority)" not in source:
+        raise SystemExit("runtime binding must consult the authority-agent registry")
+    if "binding.signer != *authorized_agent" not in source:
+        raise SystemExit("runtime binding signer must match the registered authority agent")
+
     for fragment in (
         "HolochainBindingAttestationVerification",
         "verify_binding_attestation",
