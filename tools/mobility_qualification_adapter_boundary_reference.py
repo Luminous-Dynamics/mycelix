@@ -66,7 +66,7 @@ def main() -> int:
     require_exact_keys(
         document,
         {"schema", "version", "semantic_outcomes", "error_boundary", "identity_boundary",
-         "binding_provenance", "cryptographic_attestation", "dependency_retrieval", "determinism", "compatibility"},
+         "binding_provenance", "cryptographic_attestation", "authority_agent_binding", "dependency_retrieval", "determinism", "compatibility"},
         "top-level contract",
     )
     if document.get("schema") != EXPECTED_SCHEMA:
@@ -261,6 +261,46 @@ def main() -> int:
     }
     if crypto != expected_crypto:
         raise SystemExit("cryptographic attestation contract drifted")
+
+    authority_binding = document.get("authority_agent_binding")
+    if not isinstance(authority_binding, dict):
+        raise SystemExit("missing authority-agent binding boundary")
+    require_exact_keys(
+        authority_binding,
+        {
+            "registry_type",
+            "authority_identity_type",
+            "agent_identity_type",
+            "credential_type",
+            "credential_schema",
+            "issuer_must_equal_agent",
+            "credential_signature_required",
+            "authority_must_be_present_before_runtime_binding",
+            "one_agent_per_authority",
+            "duplicate_authority_binding",
+            "signer_must_match_registered_agent",
+            "signature_does_not_resolve_domain_authority_identity",
+            "domain_provenance_remains_required",
+        },
+        "authority-agent binding",
+    )
+    expected_authority_binding = {
+        "registry_type":"HolochainAuthorityAgentBindingSet",
+        "authority_identity_type":"IdentityRef",
+        "agent_identity_type":"AgentPubKey",
+        "credential_type":"SignedHolochainAuthorityAgentBinding",
+        "credential_schema":"mycelix.mobility.holochain_authority_agent_binding.v1",
+        "issuer_must_equal_agent":True,
+        "credential_signature_required":True,
+        "authority_must_be_present_before_runtime_binding":True,
+        "one_agent_per_authority":True,
+        "duplicate_authority_binding":"rejected",
+        "signer_must_match_registered_agent":True,
+        "signature_does_not_resolve_domain_authority_identity":True,
+        "domain_provenance_remains_required":True,
+    }
+    if authority_binding != expected_authority_binding:
+        raise SystemExit("authority-agent binding contract drifted")
 
     dependencies = document.get("dependency_retrieval")
     if not isinstance(dependencies, dict):
