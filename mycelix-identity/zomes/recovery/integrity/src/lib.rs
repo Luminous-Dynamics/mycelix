@@ -43,6 +43,8 @@ pub struct RecoveryRequest {
     pub new_agent: AgentPubKey,
     /// Initiating trustee's DID
     pub initiated_by: String,
+    /// Exact recovery configuration snapshot governing this request.
+    pub recovery_config_action_hash: ActionHash,
     /// Reason for recovery
     pub reason: String,
     /// Current status
@@ -830,6 +832,23 @@ fn validate_create_recovery_request(
         ));
     }
 
+    let config_record = must_get_valid_record(request.recovery_config_action_hash.clone())?;
+    let config: RecoveryConfig = config_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Recovery request config snapshot must reference a RecoveryConfig".into()
+        )))?;
+    if config.did != request.did
+        || config.owner != *action.author()
+        || !config.trustees.contains(&request.initiated_by)
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Recovery request config snapshot does not authorize its DID and initiator".into(),
+        ));
+    }
+
     // Bind request identity to immutable request fields. This prevents a
     // modified coordinator from choosing arbitrary identifiers that could make
     // two logically distinct requests share a quorum namespace.
@@ -906,6 +925,11 @@ fn validate_update_recovery_request(
     if request.id != original.id {
         return Ok(ValidateCallbackResult::Invalid(
             "Recovery request ID cannot be changed".into(),
+        ));
+    }
+    if request.recovery_config_action_hash != original.recovery_config_action_hash {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Recovery request recovery-config snapshot cannot be changed".into(),
         ));
     }
     if request.did != original.did {
