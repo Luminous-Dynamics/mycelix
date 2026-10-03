@@ -150,13 +150,17 @@ def main() -> int:
     require_exact_keys(
         dependencies,
         {"deterministic_host_function_family", "mutable_link_collections_as_validation_dependencies",
-         "missing_addressable_dependency_is_semantic_invalidity"},
+         "missing_addressable_dependency_is_semantic_invalidity", "binding_preserves_address_kind",
+         "valid_record_requires_action_hash", "wrong_address_kind_is_adapter_boundary_error"},
         "dependency retrieval",
     )
     if dependencies.get("deterministic_host_function_family") != "must_get_*":
         raise SystemExit("dependency retrieval must use must_get_*")
     require_bool(dependencies, "mutable_link_collections_as_validation_dependencies", False)
     require_bool(dependencies, "missing_addressable_dependency_is_semantic_invalidity", False)
+    require_bool(dependencies, "binding_preserves_address_kind", True)
+    require_bool(dependencies, "valid_record_requires_action_hash", True)
+    require_bool(dependencies, "wrong_address_kind_is_adapter_boundary_error", True)
 
     determinism = document.get("determinism")
     if not isinstance(determinism, dict):
