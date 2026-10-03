@@ -52,6 +52,8 @@
     {"id":"REC-009","operation":"recovery-request-id","authority":"protocol-derived","expected":"recovery:<did>:<creation-timestamp>"},
     {"id":"REC-010","operation":"terminal-rejection","authority":"DHT-derived-state","expected":"Rejected-is-terminal-and-cannot-resurrect"},
     {"id":"REC-011","operation":"request-config-binding","authority":"immutable-request","expected":"pin-exact-recovery-config-action-at-request-creation"},
+    {"id":"REC-012","operation":"request-read","authority":"canonical-latest-record","expected":"follow-recovery-request-update-chain"},
+    {"id":"REC-013","operation":"request-cancel","authority":"pinned-config-owner","expected":"authorize-against-exact-config-snapshot"},
     {"id":"RES-005","operation":"json-shape","expected":"omit-absent-optional-resolution-metadata-properties"}
   ],
   "authority_vectors": [
