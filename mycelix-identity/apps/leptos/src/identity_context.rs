@@ -141,8 +141,17 @@ async fn load_mfa(ctx: IdentityCtx) {
     let hc = use_holochain();
     if hc.is_mock() { return; }
 
+    let did = match hc.connected_agent_did() {
+        Some(did) => did,
+        None => {
+            let message = "Connected conductor did not expose an agent identity".to_string();
+            ctx.last_error.set(Some(message));
+            return;
+        }
+    };
+
     match hc.call_zome_default::<String, serde_json::Value>(
-        "mfa", "get_mfa_state", &"self".to_string()
+        "mfa", "get_mfa_state", &did
     ).await {
         Ok(record) => {
             match serde_json::from_value::<MfaStateView>(record) {
@@ -164,19 +173,23 @@ async fn load_mfa(ctx: IdentityCtx) {
         }
     }
 
-    // Also load recovery config (same spawn — minimal latency)
+    // Query recovery using the same canonical DID derived from the conductor
+    // agent key. "self" is not a valid DID input to the recovery zome.
     match hc.call_zome_default::<String, serde_json::Value>(
-        "recovery", "get_recovery_config", &"self".to_string()
+        "recovery", "get_recovery_config", &did
     ).await {
         Ok(record) => {
             if let Ok(config) = serde_json::from_value::<RecoveryConfigView>(record) {
                 ctx.recovery_config.set(Some(config));
             }
         }
-        Err(_) => {}
+        Err(e) => {
+            web_sys::console::warn_1(
+                &format!("[Identity] get_recovery_config failed: {e}").into()
+            );
+        }
     }
 }
-
 async fn load_credentials(ctx: IdentityCtx) {
     let hc = use_holochain();
     if hc.is_mock() { return; }
