@@ -952,6 +952,16 @@ mod tests {
     }
 
     #[test]
+    fn reconciliation_rejects_malformed_pre_state_before_projection() {
+        let (mut pre, assignments) = setup();
+        pre.actors[0].monetary.deposit_liabilities = 1;
+        let post = pre.clone();
+
+        let error = reconcile_step(&pre, &post, &assignments, &[]).unwrap_err();
+        assert!(error.contains("financial claims/liabilities do not reconcile"));
+    }
+
+    #[test]
     fn tampered_post_state_is_rejected() {
         let (pre, assignments) = setup();
         let transitions = vec![EconomicTransition::CreditCreation(CreditCreation::new("bank", "household", 500).unwrap())];
