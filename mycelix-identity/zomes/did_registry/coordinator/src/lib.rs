@@ -737,46 +737,58 @@ pub struct DidResolutionView {
 /// Resolve a DID with explicit document and resolution metadata.
 #[hdk_extern]
 pub fn resolve_did_resolution(did: String) -> ExternResult<DidResolutionView> {
-    let invalid_did = |detail: String| DidResolutionView {
+    let error_result = |type_uri: &str, title: &str, detail: String| DidResolutionView {
         did_document: None,
         resolution_metadata: DidResolutionMetadataView {
             content_type: None,
             error: Some(DidResolutionError {
-                type_uri: "https://www.w3.org/ns/did#INVALID_DID".into(),
-                title: "Invalid DID".into(),
+                type_uri: type_uri.into(),
+                title: title.into(),
                 detail,
             }),
         },
         document_metadata: None,
     };
 
-    let internal_error = |detail: String| DidResolutionView {
-        did_document: None,
-        resolution_metadata: DidResolutionMetadataView {
-            content_type: None,
-            error: Some(DidResolutionError {
-                type_uri: "https://www.w3.org/ns/did#INTERNAL_ERROR".into(),
-                title: "DID resolution failed".into(),
-                detail,
-            }),
-        },
-        document_metadata: None,
+    let Some(rest) = did.strip_prefix("did:") else {
+        return Ok(error_result(
+            "https://www.w3.org/ns/did#INVALID_DID",
+            "Invalid DID",
+            "DID must use the `did:<method>:<method-specific-id>` form.".into(),
+        ));
     };
 
-    let Some(agent_str) = did.strip_prefix("did:mycelix:") else {
-        return Ok(invalid_did("DID must use the did:mycelix method.".into()));
+    let Some((method, agent_str)) = rest.split_once(':') else {
+        return Ok(error_result(
+            "https://www.w3.org/ns/did#INVALID_DID",
+            "Invalid DID",
+            "DID is missing its method-specific identifier.".into(),
+        ));
     };
+
+    if method != "mycelix" {
+        return Ok(error_result(
+            "https://www.w3.org/ns/did#METHOD_NOT_SUPPORTED",
+            "DID method not supported",
+            format!("The resolver does not support the DID method '{}'.", method),
+        ));
+    }
+
     if agent_str.is_empty()
         || !agent_str
             .bytes()
             .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
     {
-        return Ok(invalid_did(
+        return Ok(error_result(
+            "https://www.w3.org/ns/did#INVALID_DID",
+            "Invalid DID",
             "The did:mycelix method-specific identifier contains invalid characters.".into(),
         ));
     }
     if AgentPubKey::try_from(agent_str).is_err() {
-        return Ok(invalid_did(
+        return Ok(error_result(
+            "https://www.w3.org/ns/did#INVALID_DID",
+            "Invalid DID",
             "The method-specific identifier is not a valid Holochain AgentPubKey.".into(),
         ));
     }
@@ -784,10 +796,14 @@ pub fn resolve_did_resolution(did: String) -> ExternResult<DidResolutionView> {
     let resolved = match resolve_did_view(did.clone()) {
         Ok(document) => document,
         Err(error) => {
-            return Ok(internal_error(format!(
-                "The method-specific resolver encountered an unexpected error: {}",
-                error
-            )));
+            return Ok(error_result(
+                "https://www.w3.org/ns/did#INTERNAL_ERROR",
+                "DID resolution failed",
+                format!(
+                    "The method-specific resolver encountered an unexpected error: {}",
+                    error
+                ),
+            ));
         }
     };
 
