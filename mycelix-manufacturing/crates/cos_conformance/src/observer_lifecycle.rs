@@ -2212,23 +2212,23 @@ mod tests {
     #[test]
     fn canonical_d6o_commitments_bind_authoritative_lifecycle_objects() {
         let base_generation = generation("observer-A-g1", 1, None);
-        let mut canonical_generation = generation.clone();
+        let mut canonical_generation = base_generation.clone();
         canonical_generation.generation_commitment = canonical_generation.recomputed_commitment();
         assert!(canonical_generation.commitment_matches());
         canonical_generation.evidence_root = "evidence-substituted".into();
         assert!(!canonical_generation.commitment_matches());
 
-        let mut transition = transition(
+        let mut suspend_transition = transition(
             &base_generation,
             "suspend-canonical",
             ObserverStatusV1::Suspended,
             2,
             None,
         );
-        transition.transition_commitment = transition.recomputed_commitment();
-        assert!(transition.commitment_matches());
-        transition.reason = "forged-reason".into();
-        assert!(!transition.commitment_matches());
+        suspend_transition.transition_commitment = transition.recomputed_commitment();
+        assert!(suspend_transition.commitment_matches());
+        suspend_transition.reason = "forged-reason".into();
+        assert!(!suspend_transition.commitment_matches());
 
         let mut snapshot = snapshot(
             "snapshot-canonical",
@@ -2236,7 +2236,7 @@ mod tests {
             1,
             None,
             &base_generation.evidence_root,
-            &generation.custody_root,
+            &base_generation.custody_root,
             ObservationIndependenceV1::DeclaredIndependent,
         );
         snapshot.snapshot_commitment = snapshot.recomputed_commitment();
@@ -2244,7 +2244,7 @@ mod tests {
         snapshot.custody_root = "custody-substituted".into();
         assert!(!snapshot.commitment_matches());
 
-        let mut successor = generation("observer-A-g2", 2, Some(&generation.generation_id));
+        let mut successor = generation("observer-A-g2", 2, Some(&base_generation.generation_id));
         let mut rotation_transition = transition(
             &generation,
             "rotate-canonical",
