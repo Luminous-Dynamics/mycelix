@@ -107,7 +107,7 @@ struct DidServiceView {
 }
 
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 struct MfaFactorView {
     factor_type: MfaFactorType,
     factor_id: String,
@@ -118,7 +118,7 @@ struct MfaFactorView {
     metadata: String,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 struct MfaStateView {
     did: String,
     factors: Vec<MfaFactorView>,
