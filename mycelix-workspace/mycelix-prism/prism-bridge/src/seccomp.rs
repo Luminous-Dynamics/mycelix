@@ -815,7 +815,7 @@ mod linux {
                                         .map_err(|_| SeccompError::FilterTooLarge)?;
                                     filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base));
                                     filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, low_mask));
-                                    filter.push(jump_eq(low_value, 0, mismatch_skip));
+                                    filter.push(jump_eq(low_value, 1, mismatch_skip));
                                     filter.push(stmt(
                                         BPF_RET | BPF_K,
                                         SECCOMP_RET_ERRNO | libc::EPERM as u32,
@@ -824,7 +824,7 @@ mod linux {
                                 if high_mask != 0 {
                                     filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base + 4));
                                     filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, high_mask));
-                                    filter.push(jump_eq(high_value, 0, clause_mismatch_skip));
+                                    filter.push(jump_eq(high_value, 1, clause_mismatch_skip));
                                     filter.push(stmt(
                                         BPF_RET | BPF_K,
                                         SECCOMP_RET_ERRNO | libc::EPERM as u32,
@@ -1572,6 +1572,36 @@ mod linux {
             .unwrap();
             let third = SeccompSyscallPolicyV2::new(arch, vec![disjunctive]).unwrap();
             assert_ne!(second.digest(), third.digest());
+        }
+
+        #[test]
+        fn v2_disjunctive_masked_equal_branch_polarity_is_explicit() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let first_clause = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_UNIX as u64).unwrap(),
+            ]).unwrap();
+            let second_clause = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_NETLINK as u64).unwrap(),
+            ]).unwrap();
+            let rule = SeccompSyscallRuleV2::new_with_clauses(
+                libc::SYS_socket,
+                vec![first_clause, second_clause],
+            ).unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+            let filter = compile_filter_v2(&policy).unwrap();
+
+            let dispatch = filter.iter().position(|instruction| {
+                instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                    && instruction.k == libc::SYS_socket as u32
+            }).unwrap();
+            let first_predicate_jump = &filter[dispatch + 3];
+
+            // MaskedEqual: equality skips only the local EPERM and continues
+            // toward this clause's ALLOW; inequality skips the remainder of
+            // this clause to the next alternative.
+            assert_eq!(first_predicate_jump.jt, 1);
+            assert_eq!(first_predicate_jump.jf, 2);
+            assert_eq!(filter[dispatch + 5].k, SECCOMP_RET_ALLOW);
         }
 
         #[test]
