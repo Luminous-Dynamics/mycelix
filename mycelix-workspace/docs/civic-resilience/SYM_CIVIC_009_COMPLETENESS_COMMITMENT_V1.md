@@ -28,7 +28,7 @@ A completeness commitment is accepted only when:
 - the commitment envelope has valid authenticated bytes and matches the canonical statement being verified;
 - the commitment timestamp is consistent with the bundle's declared creation/update window;
 - a membership change creates a new commitment identity;
-- the commitment scope exactly matches the bundle scope it claims to cover;
+- both the bundle and commitment declare explicit scopes, and those scopes match exactly;
 - historical commitments bind to the exact historical manifest version;
 - conflicting commitments remain distinct instead of being collapsed;
 - authentication of the commitment is not interpreted as proof that an external publication channel is exhaustive.
