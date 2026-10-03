@@ -103,6 +103,80 @@ impl QualificationDependencyBindingProvenance {
     }
 }
 
+/// Structural provenance witness explaining why a domain authority identity
+/// is eligible to be associated with a protocol AgentPubKey.
+///
+/// This deliberately differs from QualificationDependencyBindingProvenance:
+/// the authority is the subject of this credential rather than the supporting
+/// authority for another dependency.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct QualificationAuthorityAgentBindingProvenance {
+    pub witness_identity: IdentityRef,
+    pub authority: IdentityRef,
+    pub authority_scope: IdentityRef,
+    pub authority_delegation: IdentityRef,
+    pub basis: Vec<IdentityRef>,
+}
+
+impl QualificationAuthorityAgentBindingProvenance {
+    pub fn validate(&self) -> Result<(), String> {
+        self.witness_identity.validate()?;
+        self.authority.validate()?;
+        self.authority_scope.validate()?;
+        self.authority_delegation.validate()?;
+
+        if self.witness_identity.kind != IdentityKind::ReconciliationWitness {
+            return Err("authority-agent provenance witness must use ReconciliationWitness identity kind".into());
+        }
+        if self.authority_scope.kind != IdentityKind::ReconciliationWitness {
+            return Err("authority-agent provenance scope must use ReconciliationWitness identity kind".into());
+        }
+        if self.authority_delegation.kind != IdentityKind::ReconciliationWitness {
+            return Err("authority-agent provenance delegation must use ReconciliationWitness identity kind".into());
+        }
+
+        let identities = [
+            &self.witness_identity,
+            &self.authority,
+            &self.authority_scope,
+            &self.authority_delegation,
+        ];
+        let mut distinct = std::collections::BTreeSet::new();
+        for identity in identities {
+            if !distinct.insert(identity) {
+                return Err("authority-agent provenance identities must be distinct".into());
+            }
+        }
+
+        if self.basis.is_empty() {
+            return Err("authority-agent provenance requires at least one basis witness".into());
+        }
+
+        let mut seen = std::collections::BTreeSet::new();
+        for basis in &self.basis {
+            basis.validate()?;
+            if *basis == self.witness_identity {
+                return Err("authority-agent provenance witness cannot include itself in basis".into());
+            }
+            if *basis == self.authority {
+                return Err("authority-agent provenance cannot use the authority identity as its own basis".into());
+            }
+            if !seen.insert(basis) {
+                return Err("authority-agent provenance basis witnesses must be unique".into());
+            }
+        }
+
+        for required in [&self.authority_scope, &self.authority_delegation] {
+            if !seen.contains(required) {
+                return Err("authority-agent provenance basis must include exact scope and delegation witnesses".into());
+            }
+        }
+
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
