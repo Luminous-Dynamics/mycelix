@@ -1997,6 +1997,7 @@ mod tests {
         }
     }
 
+    #[rustfmt::skip]
     impl HdiT for RecordingHdi {
         fn verify_signature(&self, _: VerifySignature) -> ExternResult<bool> {
             self.calls.lock().unwrap().push("verify_signature");
