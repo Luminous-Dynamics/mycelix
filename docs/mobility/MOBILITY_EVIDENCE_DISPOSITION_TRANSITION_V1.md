@@ -210,3 +210,7 @@ The logical-to-protocol binding is now itself required to carry a bounded proven
 The pure witness deliberately contains no Holochain address. The concrete adapter combines the witness with the explicit `ActionHash` or `EntryHash` binding only after both sides are structurally valid. A witness must name the exact logical identity being bound, cannot self-reference through its own basis, and cannot reuse the same witness identity for another runtime binding.
 
 This preserves a single semantic interpretation layer: the witness explains provenance, the adapter supplies the protocol address, and Holochain supplies deterministic dependency retrieval. The witness is not a cryptographic proof, legal-authority determination, or global completeness assertion. Corpus vectors `EDT-113`–`EDT-125` pin acceptance, rejection, uniqueness, serialization, one-to-one witness use, and preservation through unresolved partial resolution.
+
+### Authority-agent credential continuity
+
+The concrete authority-agent registry retains the full verified signed credential rather than reducing it to an `AgentPubKey`. This keeps the exact signed authority provenance auditable after admission. A runtime binding must also carry the exact `authority_scope` and `authority_delegation` identities named by the registered credential; authority-key control is therefore not detached from the provenance chain that justified the mapping. `EDT-159`–`EDT-162` pin credential retention, exact scope/delegation continuity, and the accepted continuous path.
