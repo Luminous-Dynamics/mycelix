@@ -64,7 +64,7 @@ C-18 invalid commitment signature
 
 The qualifier derives dispositions from semantic predicates; fixture files contain no expected verdicts.
 
-The current corpus census is expected to be 14 provenance rejections, 1 content-unqualified commitment, and 4 accepted commitments.
+The current corpus census is expected to be 13 provenance rejections, 1 content-unqualified commitment, and 4 accepted commitments.
 
 ## Qualification ceiling
 
