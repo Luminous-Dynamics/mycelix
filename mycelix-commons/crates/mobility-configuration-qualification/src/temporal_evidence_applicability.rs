@@ -1127,10 +1127,10 @@ impl DispositionChainAssessment {
             Self::Unresolved {
                 missing,
                 branch_points,
-            } => QualificationStatus::Unresolved {
+            } => QualificationStatus::unresolved(
                 missing,
-                partial: DispositionChainQualification { branch_points },
-            },
+                DispositionChainQualification { branch_points },
+            ),
         }
     }
 }
@@ -1143,10 +1143,10 @@ impl AuthorityDelegationChainAssessment {
             Self::Complete { roots } => {
                 QualificationStatus::Complete(AuthorityDelegationChainQualification { roots })
             }
-            Self::Unresolved { missing, roots } => QualificationStatus::Unresolved {
+            Self::Unresolved { missing, roots } => QualificationStatus::unresolved(
                 missing,
-                partial: AuthorityDelegationChainQualification { roots },
-            },
+                AuthorityDelegationChainQualification { roots },
+            ),
         }
     }
 }
@@ -1162,10 +1162,10 @@ impl EvidenceDispositionCoverageAssessment {
             Self::Unresolved {
                 missing,
                 authority_roots,
-            } => QualificationStatus::Unresolved {
+            } => QualificationStatus::unresolved(
                 missing,
-                partial: EvidenceDispositionCoverageQualification { authority_roots },
-            },
+                EvidenceDispositionCoverageQualification { authority_roots },
+            ),
         }
     }
 }
