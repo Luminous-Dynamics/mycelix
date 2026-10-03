@@ -566,7 +566,7 @@ pub fn get_did_document(agent_pub_key: AgentPubKey) -> ExternResult<Option<Recor
     if let Some(link) = latest_link {
         let action_hash = ActionHash::try_from(link.target)
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        get(action_hash, GetOptions::default())
+        get_latest_record(action_hash)
     } else {
         Ok(None)
     }
