@@ -148,7 +148,21 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             }
             validate_delete_link(link_type, &link.tag())
         }
-        FlatOp::CreateRecord(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::CreateRecord(OpRecord::CreateEntry { app_entry, .. }) => match app_entry {
+                EntryTypes::GratitudeExpression(expr) => validate_gratitude(expr),
+                EntryTypes::AppreciationCircle(circle) => validate_circle(circle),
+                EntryTypes::GratitudeAnchor(anchor) => validate_anchor(anchor),
+                    },
+        FlatOp::CreateRecord(OpRecord::UpdateEntry { app_entry, action, .. }) => match app_entry {
+                EntryTypes::GratitudeExpression(_) => {
+                    // Gratitude expressions are immutable once created.
+                    Ok(ValidateCallbackResult::Invalid(
+                        "Gratitude expressions cannot be updated".into(),
+                    ))
+                }
+                EntryTypes::AppreciationCircle(circle) => validate_circle_update(circle),
+                EntryTypes::GratitudeAnchor(anchor) => validate_anchor_update(anchor),
+                    },
         FlatOp::AgentActivity(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::Update(OpUpdate::Entry { action, .. }) => {
             let original = must_get_valid_record(action.original_action_address.clone())?;
