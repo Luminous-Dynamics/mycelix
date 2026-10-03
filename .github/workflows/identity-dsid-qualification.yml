@@ -116,6 +116,11 @@ jobs:
           nix develop .#ci --impure --command \
             cargo build --release --target wasm32-unknown-unknown --workspace
 
+      - name: Test Identity integrity invariants
+        run: |
+          cd mycelix-identity
+          cargo test -p did_registry_integrity --lib
+
       - name: Pack Identity DNA
         run: |
           cd mycelix-identity
