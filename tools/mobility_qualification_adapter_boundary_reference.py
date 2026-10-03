@@ -66,7 +66,7 @@ def main() -> int:
     require_exact_keys(
         document,
         {"schema", "version", "semantic_outcomes", "error_boundary", "identity_boundary",
-         "dependency_retrieval", "determinism", "compatibility"},
+         "binding_provenance", "dependency_retrieval", "determinism", "compatibility"},
         "top-level contract",
     )
     if document.get("schema") != EXPECTED_SCHEMA:
@@ -163,6 +163,50 @@ def main() -> int:
     require_bool(identity, "retrieval_kind_required", True)
     require_bool(identity, "retrieval_kind_mapping_runtime_owned", True)
     require_bool(identity, "retrieval_kind_mismatch_is_adapter_boundary_error", True)
+
+    provenance = document.get("binding_provenance")
+    if not isinstance(provenance, dict):
+        raise SystemExit("missing binding provenance boundary")
+    require_exact_keys(
+        provenance,
+        {
+            "witness_type",
+            "witness_identity_type",
+            "witness_identity_kind",
+            "logical_identity_type",
+            "authority_identity_type",
+            "basis_identity_type",
+            "basis_required",
+            "basis_unique",
+            "basis_must_include_exact_authority",
+            "witness_must_name_exact_logical_identity",
+            "protocol_address_excluded_from_pure_witness",
+            "cryptographic_proof",
+            "global_completeness_claim",
+            "binding_requires_provenance",
+            "provenance_carried_through_runtime_resolution",
+        },
+        "binding provenance",
+    )
+    expected_provenance = {
+        "witness_type": "QualificationDependencyBindingProvenance",
+        "witness_identity_type": "IdentityRef",
+        "witness_identity_kind": "ReconciliationWitness",
+        "logical_identity_type": "IdentityRef",
+        "authority_identity_type": "IdentityRef",
+        "basis_identity_type": "IdentityRef",
+        "basis_required": True,
+        "basis_unique": True,
+        "basis_must_include_exact_authority": True,
+        "witness_must_name_exact_logical_identity": True,
+        "protocol_address_excluded_from_pure_witness": True,
+        "cryptographic_proof": False,
+        "global_completeness_claim": False,
+        "binding_requires_provenance": True,
+        "provenance_carried_through_runtime_resolution": True,
+    }
+    if provenance != expected_provenance:
+        raise SystemExit("binding provenance contract drifted")
 
     dependencies = document.get("dependency_retrieval")
     if not isinstance(dependencies, dict):
