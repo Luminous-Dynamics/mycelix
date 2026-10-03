@@ -128,7 +128,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 validate_event_author(&event, action.author())
             },
             EntryTypes::CachedCredential(cred) => validate_credential_cache(&cred),
-            EntryTypes::Notification(_) => Ok(ValidateCallbackResult::Valid),
+            EntryTypes::Notification(notification) => validate_notification_entry(&notification),
                 },
         FlatOp::CreateRecord(OpRecord::UpdateEntry { app_entry, action, .. }) => match app_entry {
             EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Invalid(
