@@ -877,7 +877,11 @@ mod tests {
         )];
         let (final_state, step) = apply_step(&initial, 1, &transitions, None).unwrap();
         let receipt = EconomicChainReceipt::link(None, step).unwrap();
-        let unrelated = EconomicObservables::default();
+        let unrelated =
+            EconomicObservables::from_state_and_ledger(
+                &initial,
+                &EconomicPeriodLedger::from_transitions(&[]).unwrap(),
+            );
         let assignments = vec![
             crate::economics::sector_balance::SectorAssignment {
                 actor: "bank".into(),
