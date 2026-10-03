@@ -69,8 +69,12 @@ pub fn reconcile_step(
 
     let pre = SectorBalanceSheet::from_state(pre_state, assignments)?;
     let post = SectorBalanceSheet::from_state(post_state, assignments)?;
-    let expected = aggregate_postings(postings_for_step(pre_state, assignments, transitions)?);
-    let actual = balance_sheet_delta(&pre, &post);
+    let expected = aggregate_postings(postings_for_step(
+        pre_state,
+        assignments,
+        transitions,
+    )?)?;
+    let actual = balance_sheet_delta(&pre, &post)?;
 
     let mut mismatches = Vec::new();
     for key in union_keys(&actual, &expected) {
@@ -260,7 +264,7 @@ fn sector_for(
 fn balance_sheet_delta(
     pre: &SectorBalanceSheet,
     post: &SectorBalanceSheet,
-) -> BTreeMap<(EconomicSector, BalanceSheetInstrument), i128> {
+) -> Result<BTreeMap<(EconomicSector, BalanceSheetInstrument), i128>, String> {
     let keys = pre
         .entries
         .iter()
@@ -274,29 +278,39 @@ fn balance_sheet_delta(
                 .entries
                 .iter()
                 .filter(|e| (e.sector, e.instrument) == key)
-                .map(|e| e.amount)
-                .sum::<i128>();
+                .try_fold(0i128, |sum, entry| {
+                    sum.checked_add(entry.amount)
+                        .ok_or_else(|| "pre-state balance-sheet delta overflow".to_string())
+                })?;
             let after = post
                 .entries
                 .iter()
                 .filter(|e| (e.sector, e.instrument) == key)
-                .map(|e| e.amount)
-                .sum::<i128>();
-            (key, after - before)
+                .try_fold(0i128, |sum, entry| {
+                    sum.checked_add(entry.amount)
+                        .ok_or_else(|| "post-state balance-sheet delta overflow".to_string())
+                })?;
+            let delta = after
+                .checked_sub(before)
+                .ok_or_else(|| "balance-sheet delta overflow".to_string())?;
+            Ok((key, delta))
         })
         .collect()
 }
 
 fn aggregate_postings(
     postings: Vec<StockPosting>,
-) -> BTreeMap<(EconomicSector, BalanceSheetInstrument), i128> {
+) -> Result<BTreeMap<(EconomicSector, BalanceSheetInstrument), i128>, String> {
     let mut result = BTreeMap::new();
     for posting in postings {
-        *result
+        let entry = result
             .entry((posting.sector, posting.instrument))
-            .or_insert(0) += posting.delta;
+            .or_insert(0);
+        *entry = entry
+            .checked_add(posting.delta)
+            .ok_or_else(|| "stock-posting aggregation overflow".to_string())?;
     }
-    result
+    Ok(result)
 }
 
 fn union_keys(
@@ -341,6 +355,44 @@ mod tests {
                 },
             ],
         )
+    }
+
+    #[test]
+    fn legacy_posting_aggregation_fails_closed_on_overflow() {
+        let postings = vec![
+            StockPosting::new(
+                EconomicSector::Firm,
+                BalanceSheetInstrument::Equity,
+                i128::MAX,
+            ),
+            StockPosting::new(
+                EconomicSector::Firm,
+                BalanceSheetInstrument::Equity,
+                1,
+            ),
+        ];
+        assert!(aggregate_postings(postings).is_err());
+    }
+
+    #[test]
+    fn legacy_balance_sheet_delta_fails_closed_on_overflow() {
+        let pre = SectorBalanceSheet {
+            entries: vec![
+                BalanceSheetEntry::new(
+                    EconomicSector::Firm,
+                    BalanceSheetInstrument::Equity,
+                    i128::MAX,
+                ),
+                BalanceSheetEntry::new(
+                    EconomicSector::Firm,
+                    BalanceSheetInstrument::Equity,
+                    1,
+                ),
+            ],
+        };
+        let post = SectorBalanceSheet::default();
+
+        assert!(balance_sheet_delta(&pre, &post).is_err());
     }
 
     #[test]
