@@ -163,33 +163,67 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::RegisterDeleteLink {
             original_action,
             action,
+            link_type,
             ..
         } => {
-            // Only the original link creator can delete their links
+            // Only the original link creator can delete their links.
             if action.author != original_action.author {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Only the link creator can delete their links".into(),
                 ));
             }
-            Ok(ValidateCallbackResult::Valid)
+
+            // DID history and deactivation are security state. History is
+            // append-only and deactivation is irreversible; neither may be
+            // hidden by deleting its index link.
+            match link_type {
+                LinkTypes::DidHistory | LinkTypes::DidToDeactivation => {
+                    Ok(ValidateCallbackResult::Invalid(
+                        "DID history and deactivation links cannot be deleted".into(),
+                    ))
+                }
+                _ => Ok(ValidateCallbackResult::Valid),
+            }
         }
         FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::RegisterAgentActivity(activity) => match activity {
+            OpActivity::CreateEntry {
+                app_entry_type: Some(UnitEntryTypes::DidDocument),
+                action,
+            } => validate_did_document_chain_uniqueness(action),
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
         FlatOp::RegisterUpdate(update) => {
-            let action = match &update {
-                OpUpdate::Entry { action, .. }
-                | OpUpdate::PrivateEntry { action, .. }
+            match update {
+                OpUpdate::Entry { app_entry, action, .. } => {
+                    let original = must_get_action(action.original_action_address.clone())?;
+                    if *original.action().author() != action.author {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Only the original entry author can update their entries".into(),
+                        ));
+                    }
+                    match app_entry {
+                        EntryTypes::DidDocument(did_doc) => {
+                            validate_update_did_document(action, did_doc)
+                        }
+                        EntryTypes::DidDeactivation(_) => Ok(ValidateCallbackResult::Invalid(
+                            "DID deactivation records cannot be updated".into(),
+                        )),
+                    }
+                }
+                OpUpdate::PrivateEntry { action, .. }
                 | OpUpdate::Agent { action, .. }
                 | OpUpdate::CapClaim { action, .. }
-                | OpUpdate::CapGrant { action, .. } => action,
-            };
-            let original = must_get_action(action.original_action_address.clone())?;
-            if *original.action().author() != action.author {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Only the original entry author can update their entries".into(),
-                ));
+                | OpUpdate::CapGrant { action, .. } => {
+                    let original = must_get_action(action.original_action_address.clone())?;
+                    if *original.action().author() != action.author {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Only the original entry author can update their entries".into(),
+                        ));
+                    }
+                    Ok(ValidateCallbackResult::Valid)
+                }
             }
-            Ok(ValidateCallbackResult::Valid)
         }
         FlatOp::RegisterDelete(OpDelete { action }) => {
             let original = must_get_action(action.deletes_address.clone())?;
@@ -198,7 +232,18 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     "Only the original entry author can delete their entries".into(),
                 ));
             }
-            Ok(ValidateCallbackResult::Valid)
+
+            match original.action().entry_type() {
+                Some(EntryType::App(entry_def))
+                    if *entry_def == UnitEntryTypes::DidDocument.into()
+                        || *entry_def == UnitEntryTypes::DidDeactivation.into() =>
+                {
+                    Ok(ValidateCallbackResult::Invalid(
+                        "DID security entries cannot be deleted".into(),
+                    ))
+                }
+                _ => Ok(ValidateCallbackResult::Valid),
+            }
         }
     }
 }
@@ -417,6 +462,56 @@ fn validate_verification_method_set(did_doc: &DidDocument) -> Result<(), String>
     }
     Ok(())
 }
+/// Enforce one canonical DID document creation per controller.
+///
+/// The canonical DID is derived directly from the committing agent. A second
+/// version-1 document would create an ambiguous genesis state for fallback and
+/// historical resolution, so duplicate creation is rejected on the author's
+/// source chain.
+fn validate_did_document_chain_uniqueness(
+    action: Create,
+) -> ExternResult<ValidateCallbackResult> {
+    let current_entry = must_get_entry(action.entry_hash.clone())?;
+    let current_doc: DidDocument = current_entry.try_into().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "DID document entry could not be decoded: {e}"
+        )))
+    })?;
+
+    let activity = must_get_agent_activity(
+        action.author.clone(),
+        ChainFilter::new(action.prev_action.clone()),
+    )?;
+
+    let entry_type =
+        EntryType::App(AppEntryDef::try_from(UnitEntryTypes::DidDocument)?);
+
+    for prior in activity {
+        let prior_action = prior.action.action();
+        let Action::Create(prior_create) = prior_action else {
+            continue;
+        };
+        if prior_create.entry_type != entry_type {
+            continue;
+        }
+
+        let prior_entry = must_get_entry(prior_create.entry_hash.clone())?;
+        let prior_doc: DidDocument = prior_entry.try_into().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "DID document history entry could not be decoded: {e}"
+            )))
+        })?;
+
+        if prior_doc.id == current_doc.id {
+            return Ok(ValidateCallbackResult::Invalid(
+                "A canonical did:mycelix DID may only have one document creation".into(),
+            ));
+        }
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
 /// Validate DID document creation
 /// Enforce that a DID document's identifier is derived from the committing
 /// agent's key. Pure so it can be unit-tested without a full Create action.
