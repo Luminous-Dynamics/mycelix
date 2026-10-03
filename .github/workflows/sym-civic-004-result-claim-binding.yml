@@ -1,0 +1,58 @@
+name: SYM-CIVIC-004 Result Claim Binding
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'mycelix-workspace/docs/civic-resilience/sym_civic_004_result_claim_binding.json'
+      - 'mycelix-workspace/docs/civic-resilience/SYM_CIVIC_004_RESULT_CLAIM_BINDING_V1.md'
+      - 'scripts/qualification/sym_civic_004_result_claim_binding_v1.py'
+      - '.github/workflows/sym-civic-004-result-claim-binding.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  qualify:
+    name: Result artifact / scientific claim boundary
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Exact parent and clean subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='f6df4a700b236fe3fb982a8be5e14fd83d01fbac'
+          test "$(git merge-base HEAD "$EXPECTED_PARENT")" = "$EXPECTED_PARENT"
+          test -z "$(git status --short)"
+      - name: Exact result-claim tranche
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='f6df4a700b236fe3fb982a8be5e14fd83d01fbac'
+          test -n "$(git rev-list "$EXPECTED_PARENT"..HEAD)"
+          git diff --check "$EXPECTED_PARENT" HEAD
+          expected=' .github/workflows/sym-civic-004-result-claim-binding.yml
+          mycelix-workspace/docs/civic-resilience/SYM_CIVIC_004_RESULT_CLAIM_BINDING_V1.md
+          mycelix-workspace/docs/civic-resilience/sym_civic_004_result_claim_binding.json
+          scripts/qualification/sym_civic_004_result_claim_binding_v1.py'
+          expected="${expected# }"
+          actual="$(git diff --name-only "$EXPECTED_PARENT" HEAD | sort)"
+          test "$actual" = "$expected"
+      - name: Execute qualifier
+        run: python3 scripts/qualification/sym_civic_004_result_claim_binding_v1.py
+      - name: Static no-runtime audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='f6df4a700b236fe3fb982a8be5e14fd83d01fbac'
+          changed="$(git diff --name-only "$EXPECTED_PARENT" HEAD)"
+          if printf '%s' "$changed" | grep -E '[.]rs$|[.]toml$|[.]lock$'; then
+            echo 'SYM-CIVIC-004 is research provenance only' >&2
+            exit 1
+          fi
+      - name: Immutable checkout postflight
+        run: test -z "$(git status --short)"
