@@ -81,7 +81,7 @@ jobs:
         run: |
           grep '^DSID_EVIDENCE ' dsid-lifecycle-evidence.txt | cut -d ' ' -f2- \
             > dsid-lifecycle-evidence.jsonl
-          test "$(wc -l < dsid-lifecycle-evidence.jsonl)" -eq 10
+          test "$(wc -l < dsid-lifecycle-evidence.jsonl)" -eq 11
           python3 - <<'PY'
           import json
           from pathlib import Path
@@ -91,7 +91,7 @@ jobs:
               for line in Path("dsid-lifecycle-evidence.jsonl").read_text().splitlines()
           ]
 
-          assert len(rows) == 10
+          assert len(rows) == 11
           assert {row["scenario_id"] for row in rows} == {
               "DSID-001",
               "DSID-002",
@@ -103,6 +103,7 @@ jobs:
               "DSID-008",
               "DSID-009",
               "DSID-010",
+              "DSID-011",
           }
           assert all(row["schema_version"] == 1 for row in rows)
           assert all(row["pass"] is True for row in rows)
