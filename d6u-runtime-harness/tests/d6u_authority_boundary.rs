@@ -621,7 +621,10 @@ async fn d6u_runtime_authority_boundary() {
     let before = reached.load(Ordering::SeqCst);
 let wrong_function_response =
         call(&app_api, "d6u-alice", &conductor.keystore(), wrong_function).await;
-    expect_internal_error_contains(wrong_function_response, "doesn't exist");
+    expect_internal_error_contains(
+        wrong_function_response,
+        "Attempted to call a zome function that doesn't exist: Zome: coordinator Fn no_such_function",
+    );
     assert_eq!(reached.load(Ordering::SeqCst), before);
     record_case("wrong-function", "routing-failed");
 
