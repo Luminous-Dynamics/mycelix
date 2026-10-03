@@ -1971,3 +1971,17 @@ mod tests {
         assert_eq!(deprecated, "#kem-1-deprecated-v2");
     }
 }
+
+
+    #[test]
+    fn agent_pub_key_multibase_round_trips_raw_key_bytes() {
+        let agent = AgentPubKey::from_raw_36(vec![7u8; 36]);
+        let encoded = agent_pub_key_multibase(&agent)
+            .expect("agent public key must encode as canonical multibase");
+        let decoded = TaggedPublicKey::from_multibase(&encoded)
+            .expect("encoded agent key must decode");
+
+        assert_eq!(decoded.algorithm, AlgorithmId::Ed25519);
+        assert_eq!(decoded.key_bytes, vec![7u8; 32]);
+        assert_eq!(decoded.to_multibase(), encoded);
+    }
