@@ -270,6 +270,33 @@ check_create_record_coverage() {
   fi
 }
 
+# CreateRecord dispatch must preserve the same EntryTypes policy as CreateEntry.
+# This catches a subtler regression than merely requiring the operation arm:
+# a new variant could be added to CreateEntry while silently falling through
+# the corresponding CreateRecord branch.
+check_create_record_entry_dispatch() {
+  local file="$1"
+  local source enum_block variant create_block update_block
+  source="$(sed '/^\#\[cfg(test)\]/,$d' "$file")"
+  enum_block="$(printf '%s\n' "$source" | sed -n '/^pub enum EntryTypes[[:space:]]*{/,/^}/p')"
+  create_block="$(printf '%s\n' "$source" | awk '/FlatOp::CreateRecord\\(OpRecord::CreateEntry/{in_block=1} /FlatOp::CreateRecord\\(OpRecord::UpdateEntry/{in_block=0} in_block')"
+  update_block="$(printf '%s\n' "$source" | awk '/FlatOp::CreateRecord\\(OpRecord::UpdateEntry/{in_block=1} /FlatOp::Link/{if(in_block){in_block=0}} in_block')"
+  while IFS= read -r variant; do
+    [[ -z "$variant" ]] && continue
+    if printf '%s\n' "$create_block" | rg -n --pcre2 "\\bEntryTypes::${variant}\\b" >/dev/null 2>&1; then
+      echo "OK:   $file CreateRecord create dispatch covers EntryTypes::$variant"
+    else
+      echo "FAIL: $file CreateRecord create dispatch misses EntryTypes::$variant"
+      fail=1
+    fi
+    if printf '%s\n' "$update_block" | rg -n --pcre2 "\\bEntryTypes::${variant}\\b" >/dev/null 2>&1; then
+      echo "OK:   $file CreateRecord update dispatch covers EntryTypes::$variant"
+    else
+      echo "FAIL: $file CreateRecord update dispatch misses EntryTypes::$variant"
+      fail=1
+    fi
+  done < <(printf '%s\n' "$enum_block" | rg --pcre2 -o '^\\s*[A-Za-z_][A-Za-z0-9_]*\\s*\\(' | sed -E 's/^\\s*([A-Za-z_][A-Za-z0-9_]*).*$/\\1/')
+}
 # Dangerous operation families must never be accepted solely by a terminal
 # wildcard. Delete and Link carry authorization/state semantics of their own;
 # CreateRecord is guarded above, and Update is paired with explicit action-level
@@ -341,6 +368,10 @@ done
 
 for file in "${integrity_files[@]}"; do
   check_dangerous_operation_catchalls "$file"
+done
+
+for file in "${integrity_files[@]}"; do
+  check_create_record_entry_dispatch "$file"
 done
 for file in "${integrity_files[@]}"; do
   check_dependency_semantics "$file"
