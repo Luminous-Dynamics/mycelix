@@ -59,6 +59,7 @@ jobs:
               "wire_vectors",
               "verification_method_vectors",
               "version_vectors",
+              "recovery_vectors",
               "authority_vectors",
               "deployment_vectors",
           ):
@@ -76,6 +77,7 @@ jobs:
           assert corpus["wire_vectors"][0]["wire_name"] == "verificationMethod"
           assert corpus["verification_method_vectors"][0]["multicodec"] == "0xed01"
           assert corpus["version_vectors"][0]["transition"] == "1->2"
+          assert corpus["recovery_vectors"][2]["authority"] == "DHT-derived"
           PY
 
       - name: Hash protocol inputs
