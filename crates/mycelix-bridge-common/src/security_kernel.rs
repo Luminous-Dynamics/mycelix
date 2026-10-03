@@ -266,9 +266,11 @@ impl AuthorizationPermit {
 /// The only request type accepted by an enforcement adapter.
 ///
 /// This type is intentionally not Clone: a successfully revalidated
-/// enforcement request is a one-shot authority hand-off. Applications that
-/// need durable audit data should copy the contained non-authoritative fields
-/// into a SecurityEvent instead of duplicating the enforcement capability.
+/// enforcement request is a non-duplicable authorization hand-off. Applications
+/// that need durable audit data should copy the contained non-authoritative fields
+/// into a SecurityEvent instead of duplicating the enforcement capability. Whether
+/// the underlying effect is idempotent or single-use remains an enforcement-layer
+/// property.
 #[must_use = "enforcement requests are the only effect-bound authorization hand-off"]
 #[derive(Debug, PartialEq, Eq)]
 pub struct EnforcementRequest {
