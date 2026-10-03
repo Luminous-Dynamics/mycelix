@@ -2004,9 +2004,8 @@ mod tests {
             }
         }
 
-        fn seed_state(self) -> FederationState {
-            let mut state = nodes();
-            if matches!(
+        fn requires_delivery(self) -> bool {
+            matches!(
                 self,
                 Self::DeliveryMapIdentity
                     | Self::DeliveryNodeReferences
@@ -2015,7 +2014,26 @@ mod tests {
                     | Self::AttemptEnvelopeBindings
                     | Self::DeliverySourceObservationProvenance
                     | Self::SourceObservationBijection
-            ) {
+            )
+        }
+
+        fn seed_state(self) -> FederationState {
+            let mut state = nodes();
+            if self.requires_delivery() {
+                assert_eq!(
+                    deliver(&mut state, &envelope(), 50, true).decision(),
+                    FederationDecision::AcceptedLocal
+                );
+            }
+            state
+        }
+
+        fn pair_seed(
+            first: FederationInvariantMutation,
+            second: FederationInvariantMutation,
+        ) -> FederationState {
+            let mut state = nodes();
+            if first.requires_delivery() || second.requires_delivery() {
                 assert_eq!(
                     deliver(&mut state, &envelope(), 50, true).decision(),
                     FederationDecision::AcceptedLocal
@@ -2090,20 +2108,6 @@ mod tests {
         assert_eq!(exercised, registry_ids);
     }
 
-    fn pair_audit_surface(
-        first: FederationInvariantMutation,
-        second: FederationInvariantMutation,
-    ) -> Vec<FederationInvariantAuditEntry> {
-        let mut state = first.seed_state();
-        if matches!(second, FederationInvariantMutation::DeliveryMapIdentity) {
-            second.mutate(&mut state);
-        } else {
-            second.mutate(&mut state);
-        }
-        first.mutate(&mut state);
-        audit_state(&state)
-    }
-
     #[test]
     fn invariant_mutation_pair_matrix_is_deterministic_and_order_aware() {
         let mutations = FederationInvariantMutation::ALL;
@@ -2111,21 +2115,21 @@ mod tests {
         for (first_index, first) in mutations.iter().enumerate() {
             for second in mutations.iter().skip(first_index + 1) {
                 // Build both semantic compositions from the same clean seed.
-                let mut forward = first.seed_state();
-                second.mutate(&mut forward);
+                let mut forward = FederationInvariantMutation::pair_seed(*first, *second);
                 first.mutate(&mut forward);
+                second.mutate(&mut forward);
                 let forward_audit = audit_state(&forward);
 
-                let mut reverse = first.seed_state();
-                first.mutate(&mut reverse);
+                let mut reverse = FederationInvariantMutation::pair_seed(*first, *second);
                 second.mutate(&mut reverse);
+                first.mutate(&mut reverse);
                 let reverse_audit = audit_state(&reverse);
 
                 // Re-running the same composition must produce byte-for-byte
                 // equivalent structured diagnostics.
-                let mut repeated = first.seed_state();
-                second.mutate(&mut repeated);
+                let mut repeated = FederationInvariantMutation::pair_seed(*first, *second);
                 first.mutate(&mut repeated);
+                second.mutate(&mut repeated);
                 assert_eq!(
                     forward_audit,
                     audit_state(&repeated),
