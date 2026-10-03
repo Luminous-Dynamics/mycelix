@@ -461,6 +461,24 @@ check_semantic_validation_suite_wiring() {
   fi
 }
 
+# Stateful link validators that depend on denormalized entry fields must have
+# a coordinator transition that maintains those fields before link creation.
+check_stateful_link_transition_contracts() {
+  local integrity="mycelix-workspace/mycelix-hearth/zomes/hearth-stories/integrity/src/lib.rs"
+  local coordinator="mycelix-workspace/mycelix-hearth/zomes/hearth-stories/coordinator/src/lib.rs"
+
+  if rg -n --pcre2 'LinkTypes::StoryToMedia[[:space:][:print:]]*contains\(&media\)' "$integrity" >/dev/null 2>&1     || rg -n --pcre2 'if !entry\.media_hashes\.contains\(&media\)' "$integrity" >/dev/null 2>&1; then
+    if awk '/pub fn add_media_to_story\(/,/^}/' "$coordinator"       | rg -n --pcre2 'media_hashes\.push\(|update_entry\(' >/dev/null 2>&1; then
+      echo "OK:   Stories StoryToMedia validator is backed by coordinator state synchronization"
+    else
+      echo "FAIL: Stories StoryToMedia validator depends on media_hashes but coordinator does not maintain it"
+      fail=1
+    fi
+  else
+    echo "OK:   Stories StoryToMedia has no denormalized media-list dependency"
+  fi
+}
+
 # Dependency retrieval semantics: must_get_action only proves retrieval; it does not prove
 # that the referenced record passed application validation. Update/delete authorization
 # therefore uses must_get_valid_record before trusting the referenced author. Valid-record
@@ -512,6 +530,7 @@ check_immutable_dependency_semantics() {
 }
 
 check_semantic_validation_suite_wiring
+check_stateful_link_transition_contracts
 
 for file in "${integrity_files[@]}"; do
   check_create_record_coverage "$file"
