@@ -420,8 +420,16 @@ pub struct CredentialView {
     pub issuer_did: String,
     pub credential_type: Vec<String>,
     pub claims: serde_json::Value,
+    /// Unix seconds from the Mycelix creation timestamp. Kept for stable
+    /// sorting/counting and legacy UI consumers.
     pub issued_at: i64,
+    /// Parsed expiry when a consumer has one; W3C expiry remains authoritative
+    /// in valid_until.
     pub expires_at: Option<i64>,
+    /// Canonical W3C validFrom representation.
+    pub valid_from: String,
+    /// Canonical W3C validUntil representation.
+    pub valid_until: Option<String>,
     pub revoked: bool,
     pub schema_id: Option<String>,
 }
