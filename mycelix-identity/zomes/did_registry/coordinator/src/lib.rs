@@ -544,6 +544,8 @@ pub fn resolve_did_view(did: String) -> ExternResult<Option<DidDocumentView>> {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DidResolutionMetadataView {
+    #[serde(rename = "contentType")]
+    pub content_type: Option<String>,
     pub error: Option<String>,
 }
 
@@ -552,13 +554,17 @@ pub struct DidDocumentMetadataView {
     pub created: String,
     pub updated: String,
     pub deactivated: bool,
+    #[serde(rename = "versionId")]
     pub version_id: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DidResolutionView {
+    #[serde(rename = "didDocument")]
     pub did_document: Option<DidDocumentView>,
+    #[serde(rename = "didResolutionMetadata")]
     pub resolution_metadata: DidResolutionMetadataView,
+    #[serde(rename = "didDocumentMetadata")]
     pub document_metadata: Option<DidDocumentMetadataView>,
 }
 
@@ -580,11 +586,15 @@ pub fn resolve_did_resolution(did: String) -> ExternResult<DidResolutionView> {
                 version_id: document.version.to_string(),
             }),
             did_document: Some(document),
-            resolution_metadata: DidResolutionMetadataView { error: None },
+            resolution_metadata: DidResolutionMetadataView {
+                content_type: Some("application/did+json".into()),
+                error: None,
+            },
         }),
         None => Ok(DidResolutionView {
             did_document: None,
             resolution_metadata: DidResolutionMetadataView {
+                content_type: None,
                 error: Some("notFound".into()),
             },
             document_metadata: None,
