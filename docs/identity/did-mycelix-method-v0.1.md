@@ -237,17 +237,17 @@ The qualification workflow records scenario IDs, agents, DNA hash, action hashes
 
 The following are intentionally not implied to be complete:
 
-1. Final method-specific syntax, normalization, and uniqueness specification.
-2. Deployment/network scoping for globally unique \`did:mycelix\` identifiers.
-3. Portable resolver authenticity proof/verification semantics.
-4. Complete DID URL dereferencing semantics.
-5. Generic DID Resolution input/output compatibility.
-6. Formal version selection and historical-version resolution.
-7. Complete controller-key rotation and recovery authority semantics.
+1. Final method-specific syntax, normalization, and global uniqueness specification.
+2. Operational deployment trust-root and production authority documentation for the canonical Identity DNA.
+3. Portable resolver authenticity proof / verifiable resolution output.
+4. Complete DID URL dereferencing, relationship filtering, and service selection semantics.
+5. Full generic DID Resolution option handling, including media-type negotiation.
+6. Version-parameter semantics (versionId / versionTime) and next-version metadata for the external resolver profile; exact historical lookup is implemented internally.
+7. Controller transfer, successor-DID semantics, and cryptographically verifiable recovery authority.
 8. Cryptographic proof-of-control for progressive self-recovery anchors (tracked in issue #3874).
-8. DID Method registration and interoperability test vectors.
-9. Production network-infrastructure guarantees and availability characteristics.
-10. Migration of the Identity implementation from the current Holochain 0.6 generation to the current 0.7 generation.
+9. DID Method registration and interoperability test-suite completion.
+10. Production bootstrap/relay infrastructure and availability guarantees.
+11. Migration of the Identity implementation from the current Holochain 0.6 generation to Holochain 0.7.
 
 ## 13. Recovery authority model
 
