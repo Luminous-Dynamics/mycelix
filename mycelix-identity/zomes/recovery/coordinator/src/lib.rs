@@ -1446,6 +1446,19 @@ pub struct InitiateSelfRecoveryInput {
 /// The request enters a time-locked waiting period before it can execute.
 #[hdk_extern]
 pub fn initiate_self_recovery(input: InitiateSelfRecoveryInput) -> ExternResult<Record> {
+    let caller = agent_info()?.agent_initial_pubkey;
+    if input.new_agent != caller {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Self-recovery must be initiated by the designated replacement agent".into()
+        )));
+    }
+
+    if !input.did.starts_with("did:mycelix:") {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Invalid canonical Mycelix DID".into()
+        )));
+    }
+
     // Fetch self-recovery config
     let config_record = get_self_recovery_config(input.did.clone())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("No self-recovery config found".into())
@@ -1536,6 +1549,13 @@ pub fn verify_self_recovery_anchor(input: VerifySelfRecoveryAnchorInput) -> Exte
             "Failed to decode request".into()
         )))?;
 
+    let caller = agent_info()?.agent_initial_pubkey;
+    if request.new_agent != caller {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only the designated replacement agent can verify recovery anchors".into()
+        )));
+    }
+
     if request.status != RecoveryStatus::Pending {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Can only verify anchors on pending requests".into()
@@ -1597,6 +1617,13 @@ pub fn execute_self_recovery(request_action_hash: ActionHash) -> ExternResult<Re
         .ok_or(wasm_error!(WasmErrorInner::Guest(
             "Failed to decode request".into()
         )))?;
+
+    let caller = agent_info()?.agent_initial_pubkey;
+    if request.new_agent != caller {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only the designated replacement agent can execute self-recovery".into()
+        )));
+    }
 
     // Must be Approved (time lock set)
     if request.status != RecoveryStatus::Approved {
