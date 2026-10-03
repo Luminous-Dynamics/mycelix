@@ -36,16 +36,18 @@ pub fn RecoveryPage() -> impl IntoView {
     let self_config = move || ctx.self_recovery_config.get();
 
     let recovery_tier = move || {
-        if let Some(config) = social_config() {
+        if let Some(config) = social_config().filter(|config| config.active) {
             RecoveryTier::SocialRecovery {
                 trustee_count: config.trustees.len() as u32,
                 threshold: config.threshold,
             }
-        } else if let Some(config) = self_config() {
+        } else if let Some(config) = self_config().filter(|config| config.active && !config.anchors.is_empty()) {
             RecoveryTier::SelfRecovery {
                 anchor_count: config.anchors.len() as u32,
             }
         } else {
+            // A zero-anchor self-recovery config exists from DID creation, but
+            // it is not yet actionable. Do not present it as usable protection.
             RecoveryTier::Pending
         }
     };
