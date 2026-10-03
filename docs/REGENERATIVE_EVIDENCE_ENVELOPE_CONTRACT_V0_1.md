@@ -45,6 +45,7 @@ A canonical evidence envelope should bind:
 - policy_fingerprint
 - environment_fingerprint
 - resolution_snapshot_fingerprint
+- resolution_verifier_report_digest
 - verification_outcome
 
 The fields have distinct meanings and must not be collapsed into one generic score.
@@ -102,7 +103,10 @@ Where available, the Mycelix envelope should preserve:
 - policy_fingerprint: the exact policy inputs used by the verifier;
 - environment_fingerprint: the verifier environment identity;
 - resolution_snapshot_fingerprint: the durable key/verification-method snapshot consulted by the verifier;
+- resolution_verifier_report_digest: the immutable fingerprint of the complete verifier report used to support a topology lifecycle resolution;
 - verification_outcome: the explicit terminal outcome.
+
+For topology resolution evidence, `resolution_verifier_report_digest` should match the verifier-report provenance surfaced by Symthaea's topology-authority decision.
 
 These fields are evidence references, not a second verifier implementation.
 
@@ -124,9 +128,9 @@ Where an authority resolution participates in a monotonic resolution history, th
 - `authority_resolution_epoch`: the authority decision sequence number;
 - `authority_predecessor_statement_id`: stable identity of the exact prior authority statement when this statement supersedes a previous resolution;
 - `authority_predecessor_statement_digest`: the exact prior authority statement digest when this statement supersedes a previous resolution;
+- `authority_effective_from_ms`: the lifecycle time at which the resolved topology becomes effective.
 
 For resolution epochs greater than one, the predecessor statement ID and predecessor digest must agree with the same prior statement. A digest without an exact statement identity is insufficient for lifecycle continuity.
-- `authority_effective_from_ms`: the lifecycle time at which the resolved topology becomes effective.
 
 A resolution may therefore be valid before it becomes current. Consumers must not infer currentness solely from statement validity or resolution timestamp.
 
