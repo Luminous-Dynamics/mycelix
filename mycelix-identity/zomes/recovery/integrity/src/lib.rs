@@ -787,7 +787,17 @@ fn validate_create_recovery_approval_certificate(
         ));
     }
 
+    // Certificates are canonical: exactly threshold approvals, ordered by
+    // trustee DID. This matches coordinator-side certificate construction and
+    // prevents two different serializations from representing the same quorum.
+    if certificate.vote_action_hashes.len() != certificate.threshold as usize {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Recovery approval certificate must cite exactly threshold approval votes".into(),
+        ));
+    }
+
     let mut seen_trustees = HashSet::new();
+    let mut previous_trustee: Option<String> = None;
     for vote_hash in &certificate.vote_action_hashes {
         let vote_record = must_get_valid_record(vote_hash.clone())?;
         let vote: RecoveryVote = vote_record
@@ -818,6 +828,20 @@ fn validate_create_recovery_approval_certificate(
                 "Recovery approval certificate contains duplicate trustees".into(),
             ));
         }
+        if let Some(previous) = previous_trustee.as_ref() {
+            if vote.trustee <= *previous {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Recovery approval certificate vote hashes must be ordered by trustee DID".into(),
+                ));
+            }
+        }
+        previous_trustee = Some(vote.trustee.clone());
+
+        if vote.voted_at != vote_record.action().timestamp() {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Recovery vote timestamp must equal its signed action timestamp".into(),
+            ));
+        }
 
         if vote.voted_at > certificate.issued_at {
             return Ok(ValidateCallbackResult::Invalid(
@@ -833,12 +857,6 @@ fn validate_create_recovery_approval_certificate(
                 "Certificate vote must be authored by its claimed trustee".into(),
             ));
         }
-    }
-
-    if seen_trustees.len() < certificate.threshold as usize {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Recovery approval certificate does not reach threshold".into(),
-        ));
     }
 
     Ok(ValidateCallbackResult::Valid)
@@ -1574,6 +1592,16 @@ fn validate_create_recovery_vote(
         ));
     }
 
+    // Bind the application-level timestamp to the signed source-chain
+    // action timestamp. Otherwise a modified coordinator could choose an
+    // arbitrary `voted_at` value and influence the deterministic
+    // duplicate-vote ordering rule without changing the signed action.
+    if vote.voted_at != action.timestamp {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Recovery vote timestamp must equal the signed action timestamp".into(),
+        ));
+    }
+
     Ok(ValidateCallbackResult::Valid)
 }
 
@@ -1745,6 +1773,18 @@ mod author_binding_tests {
             vote,
         )
         .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn create_vote_rejects_timestamp_not_bound_to_action() {
+        let mut vote = valid_vote(format!("did:mycelix:{}", me()));
+        vote.voted_at = Timestamp::from_micros(1);
+        let action = test_action(me());
+
+        let result =
+            validate_create_recovery_vote(EntryCreationAction::Create(action), vote).unwrap();
+
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 }
