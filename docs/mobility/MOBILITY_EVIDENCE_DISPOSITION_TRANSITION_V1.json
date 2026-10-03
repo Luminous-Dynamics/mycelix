@@ -866,6 +866,16 @@
       "id": "EDT-171",
       "case": "signed_payload_breaking_changes_require_new_schema_identifier",
       "expected": "accepted"
+    },
+    {
+      "id": "EDT-172",
+      "case": "authority_agent_payload_rejects_schema_identifier_change",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-173",
+      "case": "binding_attestation_payload_rejects_schema_identifier_change",
+      "expected": "typed_structural_error"
     }
   ],
   "outcome_classes": [
