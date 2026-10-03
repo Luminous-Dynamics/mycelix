@@ -2161,6 +2161,63 @@ mod linux {
         }
 
         #[test]
+        fn v2_exhaustive_16bit_halves_match_the_policy_model() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let target = 0x0000_1234_0000_5678u64;
+            let mask = 0x0000_ffff_0000_ffffu64;
+
+            let first = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new_with_op(
+                    0,
+                    mask,
+                    target,
+                    SeccompArgPredicateOpV1::MaskedNotEqual,
+                )
+                .unwrap(),
+            ])
+            .unwrap();
+            let second = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(
+                    0,
+                    mask,
+                    target,
+                )
+                .unwrap(),
+            ])
+            .unwrap();
+            let rule = SeccompSyscallRuleV2::new_with_clauses(
+                libc::SYS_lseek,
+                vec![first, second],
+            )
+            .unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+            let filter = compile_filter_v2(&policy).unwrap();
+
+            for high in 0u64..=0xffff {
+                for low in 0u64..=0xffff {
+                    let argument = (high << 32) | low;
+                    let arguments = [argument, 0, 0, 0, 0, 0];
+                    let modeled_allow = policy.allows(libc::SYS_lseek, &arguments);
+                    let compiled = interpret_v2_filter(
+                        &filter,
+                        arch,
+                        libc::SYS_lseek,
+                        arguments,
+                    );
+                    assert_eq!(
+                        compiled,
+                        if modeled_allow {
+                            SECCOMP_RET_ALLOW
+                        } else {
+                            SECCOMP_RET_ERRNO | libc::EPERM as u32
+                        },
+                        "exhaustive split-word mismatch high={high:#06x} low={low:#06x}"
+                    );
+                }
+            }
+        }
+
+        #[test]
         fn v2_disjunctive_64bit_equality_failures_reach_later_clause() {
             let arch = SeccompArchitecture::current().unwrap();
 
