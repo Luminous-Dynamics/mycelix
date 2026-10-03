@@ -319,9 +319,11 @@
           "execution_ref": "execution-a",
           "state": "VALID",
           "history_digest": "sha256:claim-hist-a"
-        }
+        },
+        "arrival_derived_state": "INVALIDATED",
+        "canonical_final_state": "SUPERSEDED"
       },
-      "note": "Logical event time, not arrival order, governs; stale events cannot roll back terminal state."
+      "note": "Arrival-order processing would leave the wrong terminal state; canonical effective-time ordering yields SUPERSEDED."
     },
     {
       "id": "T-09",
