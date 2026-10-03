@@ -902,6 +902,24 @@ async fn dsid_012_substrate_discovery_is_cross_agent_and_author_bound() {
 
     assert!(providers.contains(alice_app.agent()));
 
+    let _deactivated: Record = conductor
+        .call(
+            &alice.zome("did_registry"),
+            "deactivate_did",
+            "DSID substrate provider deactivation test".to_string(),
+        )
+        .await;
+
+    await_consistency(&[alice.clone(), bob.clone()])
+        .await
+        .expect("deactivation must synchronize before provider re-resolution");
+
+    let providers_after: Vec<AgentPubKey> = conductor
+        .call(&bob.zome("did_registry"), "resolve_substrate", role.to_string())
+        .await;
+
+    assert!(!providers_after.contains(alice_app.agent()));
+
     let mut agents = BTreeMap::new();
     agents.insert("alice", alice_app.agent().to_string());
     agents.insert("bob", bob_app.agent().to_string());
@@ -911,8 +929,11 @@ async fn dsid_012_substrate_discovery_is_cross_agent_and_author_bound() {
         &dna,
         agents,
         &[&alice_did, &registration],
-        "A substrate role advertisement is published under its dedicated discovery link type, resolves across agents, and is authored by the advertised agent.",
-        format!("role={} providers={:?}", role, providers),
+        "A substrate role advertisement resolves cross-agent while the DID is active and is excluded after that DID is deactivated.",
+        format!(
+            "role={} active_providers={:?} providers_after_deactivation={:?}",
+            role, providers, providers_after
+        ),
         true,
     );
 }
