@@ -543,7 +543,7 @@ fn maximum_dispatch_offset_child() -> ! {
     let mut clauses = Vec::with_capacity(4);
     for clause_index in 0..4u64 {
         let mut predicates = Vec::with_capacity(4);
-        for arg_index in 0..4u32 {
+        for arg_index in 0..4u8 {
             let value = 0x0100_0000_0000_0000u64
                 | (clause_index << 12)
                 | u64::from(arg_index);
