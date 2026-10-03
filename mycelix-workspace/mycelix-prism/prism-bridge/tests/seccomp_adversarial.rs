@@ -624,7 +624,7 @@ fn maximum_dispatch_offset_child() -> ! {
     }
 
     // A different, unlisted syscall must continue through the unconditional
-    // getpid()/exit_group rules and still reach the compiler's global EPERM
+    // write()/exit_group rules and still reach the compiler's global EPERM
     // terminator. This catches a dispatch offset that lands inside the
     // following rule chain instead of at its exact boundary.
     let denied = unsafe { libc::syscall(libc::SYS_getppid) };
