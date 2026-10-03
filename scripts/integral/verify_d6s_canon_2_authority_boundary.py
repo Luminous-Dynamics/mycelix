@@ -14,6 +14,8 @@ from pathlib import Path
 ROOT = Path(__file__).parents[2]
 FIXTURE = ROOT / "docs/integral/d6s-canon-2-authority-boundary-fixture.json"
 MANIFEST = ROOT / "docs/integral/d6s-canon-2-manifest.json"
+CANON1_MANIFEST = ROOT / "docs/integral/d6s-canon-1-manifest.json"
+CANON1_CORPUS = ROOT / "docs/integral/d6s-canon-1-golden-vectors.json"
 
 EXPECTED = {
     "author-grant",
@@ -62,9 +64,14 @@ def git_blob_sha(path: Path) -> str:
     ).stdout.strip()
 
 
+def file_sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
 def main() -> None:
     fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    canon1_manifest = json.loads(CANON1_MANIFEST.read_text(encoding="utf-8"))
 
     assert fixture["profile"] == "D6S-CANON-2"
     assert fixture["kind"] == "authority-boundary-reference-fixture"
@@ -80,6 +87,21 @@ def main() -> None:
     assert manifest["expected_case_count"] == len(EXPECTED)
     assert set(manifest["expected_case_ids"]) == EXPECTED
     assert manifest["claim_ceiling"] == "ReferenceModelOnly"
+
+    deps = manifest["dependencies"]
+    assert deps["d6s_canon_1_manifest_path"] == "docs/integral/d6s-canon-1-manifest.json"
+    assert deps["d6s_canon_1_manifest_blob_sha"] == git_blob_sha(CANON1_MANIFEST)
+    assert deps["d6s_canon_1_corpus_path"] == "docs/integral/d6s-canon-1-golden-vectors.json"
+    assert deps["d6s_canon_1_corpus_blob_sha"] == git_blob_sha(CANON1_CORPUS)
+    assert deps["d6s_canon_1_corpus_sha256"] == file_sha256(CANON1_CORPUS)
+
+    assert canon1_manifest["profile"] == "D6S-CANON-1"
+    assert canon1_manifest["canonicalization_version"] == "D6S-CANON-1"
+    assert canon1_manifest["corpus_path"] == "docs/integral/d6s-canon-1-golden-vectors.json"
+    assert canon1_manifest["corpus_sha256"] == file_sha256(CANON1_CORPUS)
+    assert canon1_manifest["expected_vector_count"] == 8
+    assert canon1_manifest["expected_rejection_count"] == 9
+    assert canon1_manifest["claim_ceiling"] == "ReferenceModelOnly"
 
     reference = manifest["holochain_reference"]
     assert reference["version"] == "0.7.0"
@@ -148,6 +170,9 @@ def main() -> None:
 
     print(f"verified {len(cases)} D6S-CANON-2 authority-boundary cases")
     print("fixture_blob_sha=" + git_blob_sha(FIXTURE))
+    print("canon1_manifest_blob_sha=" + git_blob_sha(CANON1_MANIFEST))
+    print("canon1_corpus_blob_sha=" + git_blob_sha(CANON1_CORPUS))
+    print("canon1_corpus_sha256=" + file_sha256(CANON1_CORPUS))
     print("holochain_reference=0.7.0")
     print("runtime_binding_status=ReferenceMappingOnly")
     print("zome_reached_cases=" + ",".join(sorted(authorized)))
