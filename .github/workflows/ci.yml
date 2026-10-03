@@ -491,6 +491,7 @@ jobs:
       - test-commons
       - test-civic
       - test-hearth
+      - test-hearth-07
       - test-finance
       - test-finance-integration
       - test-governance
