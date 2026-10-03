@@ -572,19 +572,32 @@ pub fn get_did_document(agent_pub_key: AgentPubKey) -> ExternResult<Option<Recor
     }
 
     // Backward-compatible fallback for identities created before the history
-    // index existed.
+    // index existed. AgentToDid is a mutable convenience pointer; legacy data
+    // with multiple distinct targets is ambiguous and must fail closed rather
+    // than trusting author-controlled link timestamps.
     let links = get_links(
         LinkQuery::try_new(agent_pub_key, LinkTypes::AgentToDid)?,
         GetStrategy::default(),
     )?;
 
-    let latest_link = links.into_iter().max_by_key(|l| l.timestamp);
-    if let Some(link) = latest_link {
+    let mut target_hash: Option<ActionHash> = None;
+    for link in links {
         let action_hash = ActionHash::try_from(link.target)
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        get_latest_record(action_hash)
-    } else {
-        Ok(None)
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid DID link target".into())))?;
+        if let Some(existing) = target_hash.as_ref() {
+            if existing != &action_hash {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Ambiguous legacy DID state: multiple distinct AgentToDid targets exist".into(),
+                )));
+            }
+        } else {
+            target_hash = Some(action_hash);
+        }
+    }
+
+    match target_hash {
+        Some(action_hash) => get_latest_record(action_hash),
+        None => Ok(None),
     }
 }
 
