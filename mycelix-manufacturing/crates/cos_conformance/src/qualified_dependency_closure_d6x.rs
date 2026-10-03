@@ -1295,6 +1295,7 @@ mod tests {
     }
 
     #[derive(Debug, Deserialize)]
+    #[serde(deny_unknown_fields)]
     struct GoldenCorpusV1 {
         schema_version: String,
         d6x_schema_version: String,
@@ -1306,15 +1307,59 @@ mod tests {
         claim_ceiling: String,
         generation_note: String,
         vectors: Vec<GoldenVectorV1>,
+        recipe_contract: GoldenRecipeContractV1,
     }
 
     #[derive(Debug, Deserialize)]
+    #[serde(deny_unknown_fields)]
     struct GoldenVectorV1 {
         id: String,
         description: String,
         profile_variant: String,
         projection_variant: String,
         expected: GoldenExpectedV1,
+        recipe: GoldenRecipeV1,
+    }
+
+    #[derive(Debug, Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct GoldenRecipeContractV1 {
+        baseline_projection: String,
+        mutation_semantics: String,
+        cross_runtime_rule: String,
+    }
+
+    #[derive(Debug, Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct GoldenRecipeV1 {
+        root_node_ids: Vec<String>,
+        required_node_ids: Vec<String>,
+        rule: GoldenRuleV1,
+        max_nodes: u32,
+        max_edges: u32,
+        projection_mutations: Vec<GoldenProjectionMutationV1>,
+    }
+
+    #[derive(Debug, Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct GoldenRuleV1 {
+        edge_kind: ClaimGraphEdgeKindV1,
+        from_kind: Option<ClaimGraphNodeKindV1>,
+        to_kind: Option<ClaimGraphNodeKindV1>,
+        currentness: DependencyCurrentnessV1,
+    }
+
+    #[derive(Debug, Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct GoldenProjectionMutationV1 {
+        op: String,
+        edge_id: Option<String>,
+        from_node_id: Option<String>,
+        to_node_id: Option<String>,
+        kind: Option<ClaimGraphEdgeKindV1>,
+        edge_commitment: Option<String>,
+        node_id: Option<String>,
+        fields: Option<BTreeMap<String, serde_json::Value>>,
     }
 
     #[derive(Debug, Deserialize)]
@@ -1348,6 +1393,9 @@ mod tests {
         assert_eq!(corpus.certificate_domain, "d6x-dependency-closure");
         assert_eq!(corpus.claim_ceiling, D6X_CLAIM_CEILING);
         assert!(!corpus.generation_note.is_empty());
+        assert!(!corpus.recipe_contract.baseline_projection.is_empty());
+        assert!(!corpus.recipe_contract.mutation_semantics.is_empty());
+        assert!(!corpus.recipe_contract.cross_runtime_rule.is_empty());
 
         let ids = corpus
             .vectors
@@ -1360,6 +1408,18 @@ mod tests {
             assert!(!vector.description.is_empty());
             assert!(!vector.profile_variant.is_empty());
             assert!(!vector.projection_variant.is_empty());
+            assert!(!vector.recipe.root_node_ids.is_empty());
+            assert!(vector.recipe.root_node_ids.iter().all(|id| !id.is_empty()));
+            assert!(vector.recipe.required_node_ids.iter().all(|id| !id.is_empty()));
+            assert!(vector.recipe.max_nodes > 0);
+            assert!(vector.recipe.max_edges > 0);
+            assert!(vector.recipe.rule.from_kind.is_some() || vector.recipe.rule.to_kind.is_some()
+                || vector.recipe.rule.edge_kind.is_support_semantic());
+            assert!(vector
+                .recipe
+                .projection_mutations
+                .iter()
+                .all(|mutation| !mutation.op.is_empty()));
             assert!(!vector.expected.included_node_ids.iter().any(String::is_empty));
             assert!(!vector.expected.included_edge_ids.iter().any(String::is_empty));
             assert!(!vector.expected.missing_dependency_ids.iter().any(String::is_empty));
