@@ -85,8 +85,8 @@ struct DidDocumentView {
     verification_methods: Vec<DidVerificationMethodView>,
     key_agreements: Vec<String>,
     services: Vec<DidServiceView>,
-    created: i64,
-    updated: i64,
+    created: String,
+    updated: String,
     version: u32,
     active: bool,
 }
