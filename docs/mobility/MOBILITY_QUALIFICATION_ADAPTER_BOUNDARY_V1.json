@@ -87,5 +87,22 @@
     "current_workspace_line": "Holochain 0.6-compatible",
     "recommended_runtime_line": "Holochain 0.7",
     "migration_isolation": "runtime adapter only"
+  },
+  "binding_provenance": {
+    "witness_type": "QualificationDependencyBindingProvenance",
+    "witness_identity_type": "IdentityRef",
+    "witness_identity_kind": "ReconciliationWitness",
+    "logical_identity_type": "IdentityRef",
+    "authority_identity_type": "IdentityRef",
+    "basis_identity_type": "IdentityRef",
+    "basis_required": true,
+    "basis_unique": true,
+    "basis_must_include_exact_authority": true,
+    "witness_must_name_exact_logical_identity": true,
+    "protocol_address_excluded_from_pure_witness": true,
+    "cryptographic_proof": false,
+    "global_completeness_claim": false,
+    "binding_requires_provenance": true,
+    "provenance_carried_through_runtime_resolution": true
   }
 }
