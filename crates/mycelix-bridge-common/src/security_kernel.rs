@@ -254,6 +254,12 @@ pub struct AuthorizationPermit {
     authority_binding: [u8; 32],
 }
 
+impl AuthorizationPermit {
+    fn is_valid_at(&self, now_us: u64) -> bool {
+        self.issued_at_us <= now_us && now_us < self.valid_until_us
+    }
+}
+
 /// The only request type accepted by an enforcement adapter.
 ///
 /// This type is intentionally not Clone: a successfully revalidated
@@ -1014,7 +1020,7 @@ mod tests {
         )
         .unwrap();
         let permit = authorize_permit(&verified, &request(CapabilityAction::Read), 150).unwrap();
-        assert_eq!(permit.valid_until_us(), 175);
+        assert_eq!(permit.valid_until_us, 175);
         assert!(!permit.is_valid_at(176));
     }
 
@@ -1044,18 +1050,18 @@ mod tests {
     fn permit_expiry_boundary_is_exclusive() {
         let verified = verified();
         let permit = authorize_permit(&verified, &request(CapabilityAction::Read), 150).unwrap();
-        assert!(permit.valid_until_us() > 150);
-        assert!(permit.is_valid_at(permit.valid_until_us() - 1));
-        assert!(!permit.is_valid_at(permit.valid_until_us()));
+        assert!(permit.valid_until_us > 150);
+        assert!(permit.is_valid_at(permit.valid_until_us - 1));
+        assert!(!permit.is_valid_at(permit.valid_until_us));
 
         let evidence =
             VerificationEvidence::new_for_capability_with_authority_binding_and_valid_until(
                 &capability(),
                 [0xA5; 32],
                 SignatureVerification::Verified, RevocationStatus::Current, AuthorityResolution::Unambiguous,
-                permit.valid_until_us(),
+                permit.valid_until_us,
             );
-        let permit_valid_until_us = permit.valid_until_us();
+        let permit_valid_until_us = permit.valid_until_us;
         assert_eq!(
             EnforcementRequest::from_permit(permit, evidence, permit_valid_until_us),
             Err(AuthorizationDecision::Deny(
@@ -1089,7 +1095,7 @@ mod tests {
         .unwrap();
         let permit = authorize_permit(&verified, &request(CapabilityAction::Read), 150).unwrap();
         assert_eq!(
-            permit.valid_until_us(),
+            permit.valid_until_us,
             150 + MAX_AUTHORIZATION_PERMIT_LIFETIME_US
         );
         assert!(!permit.is_valid_at(150 + MAX_AUTHORIZATION_PERMIT_LIFETIME_US + 1));
@@ -1286,7 +1292,7 @@ mod tests {
             );
         let verified = verify_capability(cap.clone(), initial_evidence, 150).unwrap();
         let permit = authorize_permit(&verified, &request(CapabilityAction::Read), 150).unwrap();
-        assert_eq!(permit.valid_until_us(), 175);
+        assert_eq!(permit.valid_until_us, 175);
         assert_eq!(
             revalidate_permit(
                 &permit,
@@ -1316,8 +1322,8 @@ mod tests {
         .unwrap();
         let replacement_permit =
             authorize_permit(&refreshed_verified, &request(CapabilityAction::Read), 175).unwrap();
-        assert_eq!(replacement_permit.issued_at_us(), 175);
-        assert_eq!(replacement_permit.valid_until_us(), 190);
+        assert_eq!(replacement_permit.issued_at_us, 175);
+        assert_eq!(replacement_permit.valid_until_us, 190);
     }
 
     #[test]
