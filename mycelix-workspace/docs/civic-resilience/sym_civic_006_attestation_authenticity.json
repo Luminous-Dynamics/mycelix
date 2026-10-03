@@ -526,14 +526,14 @@
           "valid": true,
           "canonical_bytes_match": true
         },
-        "attestation_time": "2026-10-03T00:15:00Z",
+        "attestation_time": "2026-10-03T00:45:00Z",
         "verification_time": "2026-10-03T01:00:00Z",
         "policy": {
           "historical_grace": true,
           "grace_reason": "historical-verification"
         }
       },
-      "note": "Historical policy may explicitly preserve verification of an attestation created before key expiry."
+      "note": "Explicit historical grace policy permits verification of a statement created after the credential's nominal expiry only within the declared synthetic policy."
     },
     {
       "id": "A-18",
