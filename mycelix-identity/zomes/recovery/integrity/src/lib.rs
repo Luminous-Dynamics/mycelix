@@ -922,16 +922,15 @@ fn validate_recovery_vote_is_first_for_request(
             continue;
         }
 
-        let prior_record = must_get_valid_record(prior.action.action_address().clone())?;
-        let Some(prior_vote) = prior_record
-            .entry()
-            .to_app_option::<RecoveryVote>()
-            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-        else {
-            return Ok(ValidateCallbackResult::Invalid(
-                "RecoveryVote history action did not contain a RecoveryVote entry".into(),
-            ));
-        };
+        // The action itself is already cryptographically authenticated by
+        // must_get_agent_activity. Read only the referenced entry here so this
+        // check does not recursively revalidate the same chain rule.
+        let prior_entry = must_get_entry(prior_create.entry_hash.clone())?;
+        let prior_vote: RecoveryVote = prior_entry.try_into().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "RecoveryVote history entry could not be decoded: {e}"
+            )))
+        })?;
 
         if prior_vote.request_id == vote.request_id {
             return Ok(ValidateCallbackResult::Invalid(
@@ -1662,16 +1661,15 @@ fn validate_recovery_vote_chain_uniqueness(action: Create) -> ExternResult<Valid
             continue;
         }
 
-        let prior_record = must_get_valid_record(prior.action.action_address().clone())?;
-        let Some(prior_vote) = prior_record
-            .entry()
-            .to_app_option::<RecoveryVote>()
-            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-        else {
-            return Ok(ValidateCallbackResult::Invalid(
-                "RecoveryVote chain history action did not contain a RecoveryVote entry".into(),
-            ));
-        };
+        // The action itself is already cryptographically authenticated by
+        // must_get_agent_activity. Read only the referenced entry here so this
+        // check does not recursively revalidate the same chain rule.
+        let prior_entry = must_get_entry(create.entry_hash.clone())?;
+        let prior_vote: RecoveryVote = prior_entry.try_into().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "RecoveryVote history entry could not be decoded: {e}"
+            )))
+        })?;
 
         if prior_vote.request_id == current_vote.request_id {
             return Ok(ValidateCallbackResult::Invalid(
