@@ -116,3 +116,32 @@ mod tests {
         assert!(observation.service_shortfall().is_err());
     }
 }
+    #[test]
+    fn commitment_boundaries_are_exact_and_non_predictive() {
+        let exact_interest = FinancialCommitmentObservation::new(100, 100, 50).unwrap();
+        assert_eq!(exact_interest.regime().unwrap(), FinancingRegime::Speculative);
+        assert!(exact_interest.covers_interest());
+        assert!(!exact_interest.covers_total_service().unwrap());
+
+        let exact_total = FinancialCommitmentObservation::new(150, 100, 50).unwrap();
+        assert_eq!(exact_total.regime().unwrap(), FinancingRegime::Hedge);
+        assert!(exact_total.covers_total_service().unwrap());
+
+        let below_interest = FinancialCommitmentObservation::new(99, 100, 50).unwrap();
+        assert_eq!(below_interest.regime().unwrap(), FinancingRegime::Ponzi);
+
+        let zero_commitment = FinancialCommitmentObservation::new(0, 0, 0).unwrap();
+        assert_eq!(zero_commitment.regime().unwrap(), FinancingRegime::Hedge);
+        assert!(zero_commitment.covers_total_service().unwrap());
+        assert_eq!(zero_commitment.service_shortfall().unwrap(), 0);
+    }
+
+    #[test]
+    fn commitment_observation_preserves_negative_available_cash_flow_as_input() {
+        let observation = FinancialCommitmentObservation::new(-10, 5, 5).unwrap();
+        assert_eq!(observation.cash_flow_available, -10);
+        assert!(!observation.covers_interest());
+        assert_eq!(observation.service_shortfall().unwrap(), 20);
+        assert_eq!(observation.regime().unwrap(), FinancingRegime::Ponzi);
+    }
+
