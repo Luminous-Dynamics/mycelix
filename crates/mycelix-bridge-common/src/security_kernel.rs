@@ -397,8 +397,7 @@ impl AdvisoryResult {
                 1.0
             },
             rationale: rationale.into(),
-            recommended_action,        }
-    }
+            recommended_action,        }    }
 }
 
 impl Capability {
@@ -452,7 +451,7 @@ impl Capability {
 
     /// Stable commitment used to bind verification evidence and permits to this
     /// exact capability semantics.
-    pub(crate) fn binding_digest(&self) -> [u8; 32] {
+    fn binding_digest(&self) -> [u8; 32] {
         *blake3::hash(&self.signing_bytes()).as_bytes()
     }
 
@@ -594,7 +593,7 @@ pub fn verify_capability(
 /// this kernel: revocation or authority ambiguity discovered after issuance
 /// must prevent enforcement. The independent verifier remains responsible for
 /// supplying trustworthy evidence.
-pub(crate) fn revalidate_permit(
+fn revalidate_permit(
     permit: &AuthorizationPermit,
     evidence: VerificationEvidence,
     now_us: u64,
@@ -797,8 +796,7 @@ mod tests {
             "resource:ledger",
             vec![CapabilityAction::Admin],
             100,            200,
-            7,
-        )
+            7,        )
         .unwrap();
         assert!(!tampered.verify_signature());
     }
@@ -1197,8 +1195,7 @@ mod tests {
     }
     #[test]
     fn authority_generation_binding_is_preserved_at_enforcement() {
-        let cap = capability();
-        let freshness_digest = [9; 32];
+        let cap = capability();        let freshness_digest = [9; 32];
         let expected_binding = authority_binding_from_freshness_digest(freshness_digest);
         let evidence = VerificationEvidence::new_for_capability_with_freshness_digest(
             &cap,
