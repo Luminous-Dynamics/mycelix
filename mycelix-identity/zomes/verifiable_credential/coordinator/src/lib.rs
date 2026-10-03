@@ -1688,7 +1688,14 @@ fn records_to_credential_views(records: Vec<Record>) -> ExternResult<Vec<Credent
         return Ok(Vec::new());
     }
 
-    let statuses = batch_check_credential_revocation_status(&ids)?;
+    // The revocation zome caps a single batch at 100 IDs. Chunk here so a
+    // legitimate identity with more than 100 credentials remains readable
+    // without weakening the fail-closed revocation rule.
+    let mut statuses = Vec::with_capacity(ids.len());
+    for chunk in ids.chunks(100) {
+        statuses.extend(batch_check_credential_revocation_status(chunk)?);
+    }
+
     if statuses.len() != records.len() {
         return Err(wasm_error!(WasmErrorInner::Guest(format!(
             "Revocation batch returned {} results for {} credentials",
