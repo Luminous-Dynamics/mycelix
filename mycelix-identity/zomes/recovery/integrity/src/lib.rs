@@ -1027,6 +1027,60 @@ mod author_binding_tests {
         }
     }
 
+
+    #[test]
+    fn recovery_config_must_name_author_did() {
+        let author = me();
+        let config = RecoveryConfig {
+            did: "did:mycelix:other".into(),
+            owner: author,
+            trustees: vec![
+                "did:mycelix:t1".into(),
+                "did:mycelix:t2".into(),
+                "did:mycelix:t3".into(),
+            ],
+            threshold: 2,
+            time_lock: 7 * 24 * 3600,
+            active: true,
+            created: Timestamp::from_micros(0),
+            updated: Timestamp::from_micros(1),
+        };
+        let result = validate_create_recovery_config(
+            EntryCreationAction::Create(test_action(author)),
+            config,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn self_recovery_request_must_target_committing_replacement_agent() {
+        let mut request = SelfRecoveryRequest {
+            id: "req-1".into(),
+            did: "did:mycelix:owner".into(),
+            new_agent: other_agent(),
+            verified_anchors: vec![],
+            status: RecoveryStatus::Pending,
+            created: Timestamp::from_micros(0),
+            time_lock_expires: None,
+            reason: "lost device".into(),
+        };
+        let result = validate_create_self_recovery_request(
+            EntryCreationAction::Create(test_action(me())),
+            request.clone(),
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+
+        request.new_agent = me();
+        let result = validate_create_self_recovery_request(
+            EntryCreationAction::Create(test_action(me())),
+            request,
+        )
+        .unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
     #[test]
     fn create_request_valid_when_initiator_matches_committer() {
         let req = valid_request(format!("did:mycelix:{}", me()));
