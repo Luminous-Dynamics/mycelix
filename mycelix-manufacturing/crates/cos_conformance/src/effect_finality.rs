@@ -8,7 +8,7 @@
 //! refund, remediation, and correction are new semantic effects linked to the
 //! original effect; they never rewrite its identity or history.
 
-use crate::archive_continuity::ArchiveRecoveryBindingV1;
+use crate::substitution_continuity::ArchiveRecoveryBindingV1;
 use crate::no_resurrection::SemanticTombstone;
 use crate::substitution_continuity::{
     EffectConservationStateV1, ProviderOutcomeKindV1, ProviderOutcomeV1, ProviderRouteV1,
@@ -136,7 +136,7 @@ impl ExternalEffectObservationV1 {
     /// as cross-language canonical until independent golden-vector
     /// reproduction exists.
     pub fn recomputed_commitment(&self) -> String {
-        let payload = serde_json::to_vec(&(
+        let payload = serde_json::to_vec(&serde_json::json!([
             &self.observation_id,
             &self.effect_id,
             &self.effect_lineage_id,
@@ -1200,7 +1200,7 @@ mod tests {
             retired_generation_id: effect.generation_id.clone(),
             retired_creation_event_id: "creation-1".into(),
             causal_frontier_root: "frontier-0".into(),
-            reason: "Revoked".into(),
+            reason: crate::no_resurrection::TombstoneReason::Revoked,
             provenance_root: "provenance-1".into(),
         }
     }
@@ -2052,7 +2052,7 @@ mod tests {
         assert_field_bound!(idempotency_key, "idem-mutated".into());
         assert_field_bound!(semantic_environment_root, "environment-mutated".into());
         assert_field_bound!(observed_frontier_root, "frontier-mutated".into());
-        assert_field_bound!(observed_state, ExternalObservedStateV1::Failed);
+        assert_field_bound!(observed_state, ExternalObservedStateV1::Contested);
         assert_field_bound!(source, ExternalObservationSourceV1::ProviderReported);
         assert_field_bound!(evidence_root, "evidence-mutated".into());
         assert_field_bound!(claim_ceiling, "claim-ceiling-mutated".into());
