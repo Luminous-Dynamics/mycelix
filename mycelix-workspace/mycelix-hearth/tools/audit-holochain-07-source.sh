@@ -422,18 +422,48 @@ check_semantic_validation_suite_wiring() {
   done
 
   if [[ -f "$manifest" ]]; then
-    check_present_any "Hearth semantic-validation case schema" '"schema_version"[[:space:]]*:[[:space:]]*"HEARTH-SEMANTIC-0.7-CASESET-1"'
-    check_present_any "Hearth semantic-validation runtime claim ceiling" 'RuntimeQualificationPending'
-    case_count="$(rg -o '"case_id"[[:space:]]*:[[:space:]]*"SEM-[0-9]+"' "$manifest" | wc -l)"
-    test_count="$(rg -o '^async fn test_[A-Za-z0-9_]+\(' "$rust_test" | wc -l)"
-    if [[ "$case_count" -eq 0 || "$case_count" -ne "$test_count" ]]; then
-      echo "FAIL: semantic manifest/test count mismatch: cases=$case_count tests=$test_count"
+    if rg -n --pcre2 '"schema_version"[[:space:]]*:[[:space:]]*"HEARTH-SEMANTIC-0.7-CASESET-1"' "$manifest" >/dev/null 2>&1; then
+      echo "OK:   Hearth semantic-validation case schema is pinned"
+    else
+      echo "FAIL: Hearth semantic-validation case schema is missing or changed"
+      fail=1
+    fi
+    if rg -n --pcre2 'RuntimeQualificationPending' "$manifest" >/dev/null 2>&1; then
+      echo "OK:   Hearth semantic-validation runtime claim ceiling remains pending"
+    else
+      echo "FAIL: Hearth semantic-validation manifest must retain RuntimeQualificationPending ceiling"
+      fail=1
+    fi
+
+    manifest_tests="$(sed -n 's/^[[:space:]]*"test"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest" | sort -u)"
+    executable_tests="$(sed -n 's/^async fn \(test_[A-Za-z0-9_]*\)[[:space:]]*(.*/\1/p' "$rust_test" | sort -u)"
+
+    manifest_case_count="$(printf '%s\n' "$manifest_tests" | sed '/^$/d' | wc -l)"
+    executable_test_count="$(printf '%s\n' "$executable_tests" | sed '/^$/d' | wc -l)"
+    ignored_test_count="$(rg -n '^#\[ignore' "$rust_test" | wc -l)"
+
+    if [[ "$manifest_case_count" -eq 0 || "$manifest_case_count" -ne "$executable_test_count" ]]; then
+      echo "FAIL: semantic manifest/test count mismatch: cases=$manifest_case_count tests=$executable_test_count"
+      echo "--- manifest tests"
+      printf '%s\n' "$manifest_tests"
+      echo "--- executable tests"
+      printf '%s\n' "$executable_tests"
+      fail=1
+    elif [[ "$manifest_tests" != "$executable_tests" ]]; then
+      echo "FAIL: semantic manifest/test names do not match exactly"
+      echo "--- manifest-only / executable-only diff"
+      diff -u <(printf '%s\n' "$manifest_tests") <(printf '%s\n' "$executable_tests") || true
       fail=1
     else
-      echo "OK:   semantic-validation manifest covers $case_count executable tests"
+      echo "OK:   semantic-validation manifest exactly maps to $manifest_case_count executable tests"
     fi
-  fi
-    done
+
+    if [[ "$ignored_test_count" -ne "$executable_test_count" ]]; then
+      echo "FAIL: semantic-validation executable/ignored test mismatch: executable=$executable_test_count ignored=$ignored_test_count"
+      fail=1
+    else
+      echo "OK:   all semantic-validation executable tests remain ignored until pinned runtime qualification"
+    fi
   fi
 
   if [[ -f "$cargo_manifest" ]]; then
