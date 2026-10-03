@@ -54,6 +54,14 @@ def main() -> int:
 
     if "QualificationDecision::Valid" not in source:
         raise SystemExit("adapter must preserve the pure valid decision")
+    if "map_definitive_decision" not in source:
+        raise SystemExit("adapter must expose one definitive callback mapping seam")
+    if "ValidateCallbackResult::Valid" not in source:
+        raise SystemExit("adapter must map pure Valid directly")
+    if "ValidateCallbackResult::Invalid" not in source:
+        raise SystemExit("adapter must map pure Invalid directly")
+    if "LogicalDependencyNotBound" not in source:
+        raise SystemExit("adapter must refuse to synthesize unresolved hashes from unbound logical identities")
     if "QualificationDecision::Invalid" not in source:
         raise SystemExit("adapter must preserve the pure invalid decision")
     if "QualificationDecision::Unresolved" not in source:
@@ -63,6 +71,12 @@ def main() -> int:
         not in source
     ):
         raise SystemExit("host retrieval must be unreachable after binding-time type validation")
+    bind_start = source.index("pub fn bind(")
+    bind_body = source[bind_start:source.index("\n    }", bind_start) + 6]
+    if bind_body.find("identity\n            .validate()") == -1:
+        raise SystemExit("logical identity validation must occur at the adapter binding boundary")
+    if bind_body.find("validate_address_kind") < bind_body.find("identity\n            .validate()"):
+        raise SystemExit("structural identity validation must precede address-kind validation")
 
     print("mobility Holochain adapter independent reference qualification: PASS")
     return 0
