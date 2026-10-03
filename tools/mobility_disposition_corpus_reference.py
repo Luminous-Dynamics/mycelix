@@ -14,6 +14,8 @@ ALLOWED_OUTCOMES = {
     "typed_structural_error",
     "adapter_boundary_error",
     "unresolved_at_protocol_layer",
+    "explicit_branch",
+    "not_silently_collapsed",
 }
 EXPECTED_BINDING_VECTORS = [
     (
