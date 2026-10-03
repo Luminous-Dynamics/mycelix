@@ -25,6 +25,14 @@
       "operation": "create_story",
       "invariant": "Story title cannot be empty",
       "boundary": "integrity_validation"
+    },
+    {
+      "case_id": "SEM-04",
+      "test": "test_cross_hearth_collection_story_link_reaches_integrity_validation",
+      "zome": "hearth_stories",
+      "operation": "add_to_collection",
+      "invariant": "CollectionToStories story belongs to a different hearth",
+      "boundary": "integrity_validation"
     }
   ]
 }
