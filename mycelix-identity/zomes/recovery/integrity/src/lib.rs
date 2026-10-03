@@ -331,20 +331,48 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             _ => Ok(ValidateCallbackResult::Valid),
         },
         FlatOp::RegisterUpdate(update) => {
-            let action = match &update {
-                OpUpdate::Entry { action, .. }
-                | OpUpdate::PrivateEntry { action, .. }
+            match update {
+                OpUpdate::Entry { app_entry, action, .. } => {
+                    let original = must_get_action(action.original_action_address.clone())?;
+                    if *original.action().author() != action.author {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Only the original entry author can update their entries".into(),
+                        ));
+                    }
+
+                    match app_entry {
+                        EntryTypes::RecoveryConfig(config) => {
+                            validate_update_recovery_config(action, config)
+                        }
+                        EntryTypes::RecoveryRequest(request) => {
+                            validate_update_recovery_request(action, request)
+                        }
+                        EntryTypes::RecoveryVote(_) | EntryTypes::RecoveryApprovalCertificate(_) => {
+                            Ok(ValidateCallbackResult::Invalid(
+                                "Recovery votes and approval certificates are immutable".into(),
+                            ))
+                        }
+                        EntryTypes::SelfRecoveryConfig(config) => {
+                            validate_update_self_recovery_config(action, config)
+                        }
+                        EntryTypes::SelfRecoveryRequest(request) => {
+                            validate_update_self_recovery_request(action, request)
+                        }
+                    }
+                }
+                OpUpdate::PrivateEntry { action, .. }
                 | OpUpdate::Agent { action, .. }
                 | OpUpdate::CapClaim { action, .. }
-                | OpUpdate::CapGrant { action, .. } => action,
-            };
-            let original = must_get_action(action.original_action_address.clone())?;
-            if *original.action().author() != action.author {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Only the original entry author can update their entries".into(),
-                ));
+                | OpUpdate::CapGrant { action, .. } => {
+                    let original = must_get_action(action.original_action_address.clone())?;
+                    if *original.action().author() != action.author {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Only the original entry author can update their entries".into(),
+                        ));
+                    }
+                    Ok(ValidateCallbackResult::Valid)
+                }
             }
-            Ok(ValidateCallbackResult::Valid)
         }
         FlatOp::RegisterDelete(OpDelete { action }) => {
             let original = must_get_action(action.deletes_address.clone())?;
@@ -353,7 +381,22 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     "Only the original entry author can delete their entries".into(),
                 ));
             }
-            Ok(ValidateCallbackResult::Valid)
+
+            match original.action().entry_type() {
+                Some(EntryType::App(entry_def))
+                    if *entry_def == UnitEntryTypes::RecoveryConfig.into()
+                        || *entry_def == UnitEntryTypes::RecoveryRequest.into()
+                        || *entry_def == UnitEntryTypes::RecoveryVote.into()
+                        || *entry_def == UnitEntryTypes::RecoveryApprovalCertificate.into()
+                        || *entry_def == UnitEntryTypes::SelfRecoveryConfig.into()
+                        || *entry_def == UnitEntryTypes::SelfRecoveryRequest.into() =>
+                {
+                    Ok(ValidateCallbackResult::Invalid(
+                        "Recovery security entries cannot be deleted".into(),
+                    ))
+                }
+                _ => Ok(ValidateCallbackResult::Valid),
+            }
         }
     }
 }
