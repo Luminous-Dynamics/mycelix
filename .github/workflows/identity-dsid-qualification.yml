@@ -28,6 +28,8 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
+  DSID_QUALIFIED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  DSID_QUALIFIED_HEAD_REF: ${{ github.event.pull_request.head.ref || github.ref_name }}
 
 jobs:
   qualify:
@@ -213,8 +215,10 @@ jobs:
           manifest = {
               "schema_version": 1,
               "qualification": "identity-dsid",
-              "source_commit": os.environ["GITHUB_SHA"],
-              "source_ref": os.environ["GITHUB_REF"],
+              "execution_commit": os.environ["GITHUB_SHA"],
+              "execution_ref": os.environ["GITHUB_REF"],
+              "qualified_head_commit": os.environ["DSID_QUALIFIED_HEAD_SHA"],
+              "qualified_head_ref": os.environ["DSID_QUALIFIED_HEAD_REF"],
               "event": os.environ["GITHUB_EVENT_NAME"],
               "dna_bundle_sha256": sha256_file("dsid-dna.sha256"),
               "evidence_sha256": sha256_file("dsid-lifecycle-evidence.sha256"),
@@ -227,12 +231,13 @@ jobs:
               "evidence_commit_shas": sorted({row["commit_sha"] for row in rows}),
           }
 
-          assert manifest["source_commit"]
+          assert manifest["execution_commit"]
+          assert manifest["qualified_head_commit"]
           assert len(manifest["scenario_ids"]) == 19
           assert manifest["evidence_schema_versions"] == [1]
           assert len(manifest["dna_hashes"]) == 1
           assert len(manifest["evidence_commit_shas"]) == 1
-          assert manifest["evidence_commit_shas"] == [manifest["source_commit"]]
+          assert manifest["evidence_commit_shas"] == [manifest["execution_commit"]]
 
           Path("identity-dsid-qualification-manifest.json").write_text(
               json.dumps(manifest, indent=2, sort_keys=True) + "\n"
@@ -244,7 +249,7 @@ jobs:
       - name: Upload qualification evidence
         uses: actions/upload-artifact@v4
         with:
-          name: identity-dsid-qualification-${{ github.sha }}
+          name: identity-dsid-qualification-${{ github.event.pull_request.head.sha || github.sha }}
           if-no-files-found: error
           path: |
             dsid-lifecycle-evidence.txt
