@@ -980,7 +980,12 @@ fn source_observation_matches_delivery(state: &FederationState, record: &Deliver
 
 fn delivery_identity_snapshot(
     state: &FederationState,
-) -> BTreeMap<String, (ImmutableDeliveryContract, AuthorityDisposition, String)> {
+) -> BTreeMap<String, (
+        ImmutableDeliveryContract,
+        AuthorityDisposition,
+        String,
+        Option<String>,
+    )> {
     state
         .deliveries
         .iter()
@@ -991,6 +996,7 @@ fn delivery_identity_snapshot(
                     record.contract.clone(),
                     record.authority,
                     record.source_observation_id.clone(),
+                    record.source_observation_recognized_by.clone(),
                 ),
             )
         })
@@ -1515,6 +1521,13 @@ mod tests {
         let mut retry = foreign.clone();
         retry.attempt_id = "attempt-recognition-drift".into();
         let replayed = deliver(&mut state, &retry, 50, true);
+        assert_eq!(
+            source_observation_matches_delivery(
+                &state,
+                state.delivery("delivery-recognition-drift").unwrap()
+            ),
+            true
+        );
         assert_eq!(replayed.decision, FederationDecision::Duplicate);
         assert_eq!(replayed.authority, AuthorityDisposition::ForeignEvidence);
         assert_eq!(
@@ -1532,6 +1545,13 @@ mod tests {
         let mut second_retry = retry;
         second_retry.attempt_id = "attempt-recognition-conflict".into();
         let replayed_again = deliver(&mut state, &second_retry, 50, true);
+        assert_eq!(
+            source_observation_matches_delivery(
+                &state,
+                state.delivery("delivery-recognition-drift").unwrap()
+            ),
+            true
+        );
         assert_eq!(replayed_again.decision, FederationDecision::Duplicate);
         assert_eq!(replayed_again.authority, AuthorityDisposition::ForeignEvidence);
         assert_eq!(state.observation_count(), 1);
