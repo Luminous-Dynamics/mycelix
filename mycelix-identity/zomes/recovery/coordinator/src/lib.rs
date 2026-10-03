@@ -1327,9 +1327,10 @@ pub fn get_recovery_status(request_id: String) -> ExternResult<Option<RecoverySt
         }
     }
 
-    let derived_status = if request.status == RecoveryStatus::Completed
-        || request.status == RecoveryStatus::Cancelled
-    {
+    let derived_status = if matches!(
+        request.status,
+        RecoveryStatus::Completed | RecoveryStatus::Rejected | RecoveryStatus::Cancelled
+    ) {
         request.status.clone()
     } else if approve_count >= config.threshold {
         RecoveryStatus::Approved
