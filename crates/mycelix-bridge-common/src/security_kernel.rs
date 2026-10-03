@@ -397,8 +397,7 @@ impl AdvisoryResult {
                 1.0
             },
             rationale: rationale.into(),
-            recommended_action,        }    }
-}
+            recommended_action,        }    }}
 
 impl Capability {
     fn validate(&self) -> Result<(), &'static str> {
@@ -759,6 +758,54 @@ mod tests {
         );
     }
 
+    #[test]
+    fn capability_binding_commits_every_authority_relevant_field() {
+        let baseline = capability();
+        let baseline_digest = baseline.binding_digest();
+
+        let mutations = [
+            {
+                let mut candidate = baseline.clone();
+                candidate.subject.push_str(":changed");
+                candidate
+            },
+            {
+                let mut candidate = baseline.clone();
+                candidate.issuer.push_str(":changed");
+                candidate
+            },
+            {
+                let mut candidate = baseline.clone();
+                candidate.resource.push_str(":changed");
+                candidate
+            },
+            {
+                let mut candidate = baseline.clone();
+                candidate.actions = vec![CapabilityAction::Write];
+                candidate
+            },
+            {
+                let mut candidate = baseline.clone();
+                candidate.not_before_us = 101;
+                candidate
+            },
+            {
+                let mut candidate = baseline.clone();
+                candidate.expires_at_us = 199;
+                candidate
+            },
+            {
+                let mut candidate = baseline.clone();
+                candidate.policy_version = 8;
+                candidate
+            },
+        ];
+
+        for candidate in mutations {
+            assert_ne!(candidate.binding_digest(), baseline_digest);
+        }
+    }
+
     #[cfg(feature = "identity")]
     #[test]
     fn signed_capability_requires_expected_issuer_key() {
@@ -797,8 +844,7 @@ mod tests {
             vec![CapabilityAction::Admin],
             100,            200,
             7,        )
-        .unwrap();
-        assert!(!tampered.verify_signature());
+        .unwrap();        assert!(!tampered.verify_signature());
     }
 
     #[test]
@@ -1197,8 +1243,7 @@ mod tests {
     fn authority_generation_binding_is_preserved_at_enforcement() {
         let cap = capability();        let freshness_digest = [9; 32];
         let expected_binding = authority_binding_from_freshness_digest(freshness_digest);
-        let evidence = VerificationEvidence::new_for_capability_with_freshness_digest(
-            &cap,
+        let evidence = VerificationEvidence::new_for_capability_with_freshness_digest(            &cap,
             freshness_digest,
             SignatureVerification::Verified, RevocationStatus::Current, AuthorityResolution::Unambiguous,
             200,
