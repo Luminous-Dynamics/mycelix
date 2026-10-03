@@ -331,6 +331,7 @@ fn disjunctive_stage(tag: &[u8]) {
     };
 }
 
+#[cfg(target_os = "linux")]
 fn disjunctive_socket_child() -> ! {
     use prism_bridge::process::{RendererProcessAssignmentId, SandboxProfileV1};
     use prism_bridge::seccomp::{
