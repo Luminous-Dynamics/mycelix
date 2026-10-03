@@ -955,20 +955,10 @@ fn validate_create_recovery_request(
 /// crate's `FlatOp::RegisterUpdate` arm in `validate()`: only the SAME agent
 /// who created the RecoveryRequest can commit an Update to it.
 ///
-/// KNOWN GAP found while reviewing this path (2026-07-08, out of scope to
-/// fix in this pass): the coordinator's `check_and_update_request_status`
-/// (called after every `vote_on_recovery`) locates the RecoveryRequest via
-/// `query()`, which only searches the CALLING agent's own local source
-/// chain -- not the DHT. Since the request entry only lives on whichever
-/// agent originally called `initiate_recovery`, this lookup returns `None`
-/// (and silently no-ops) for every trustee except that original initiator.
-/// In a real multi-agent deployment this likely means threshold-reached
-/// auto-approval never actually fires except in the degenerate case where
-/// the initiator is also the vote that crosses the threshold. This is a
-/// functional/availability bug in vote tallying, not a security-binding
-/// gap -- flagging for a dedicated follow-up (would need
-/// `check_and_update_request_status` to look up the request via its DHT
-/// link, the same way `get_recovery_votes` does, rather than local `query()`).
+/// Recovery-request quorum evaluation is intentionally DHT-derived in the
+/// coordinator. The request lookup now resolves through the request-ID index
+/// before falling back to the caller's legacy local chain, so cross-agent
+/// threshold observation does not depend on the trustee who authored the vote.
 fn validate_update_recovery_request(
     action: Update,
     request: RecoveryRequest,
