@@ -1189,6 +1189,22 @@ fn validate_update_recovery_request(
         )));
     }
 
+    // Terminal recovery states are immutable projections. In particular,
+    // Rejected and Cancelled requests must not be able to acquire an approval
+    // certificate or time-lock through a same-status update.
+    if matches!(
+        original.status,
+        RecoveryStatus::Rejected | RecoveryStatus::Cancelled | RecoveryStatus::Completed
+    ) {
+        if request.approval_certificate != original.approval_certificate
+            || request.time_lock_expires != original.time_lock_expires
+        {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Terminal recovery security artifacts cannot be changed".into(),
+            ));
+        }
+    }
+
     // Once a request has a quorum certificate or time lock, those
     // authorization artifacts are immutable for the remainder of the request.
     if original.approval_certificate.is_some()
