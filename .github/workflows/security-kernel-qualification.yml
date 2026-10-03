@@ -36,18 +36,6 @@ jobs:
       - name: Format
         run: cargo fmt --manifest-path crates/mycelix-bridge-common/Cargo.toml -- --check
 
-      - name: Generate standalone lockfile evidence
-        run: |
-          cargo generate-lockfile --manifest-path crates/mycelix-bridge-common/Cargo.toml
-          cp crates/mycelix-bridge-common/Cargo.lock /tmp/mycelix-bridge-common-Cargo.lock
-
-      - name: Upload generated lockfile evidence
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: generated-bridge-lockfile
-          path: /tmp/mycelix-bridge-common-Cargo.lock
-          if-no-files-found: error
-
       - name: Assert security trust surfaces remain private
         shell: bash
         run: |
