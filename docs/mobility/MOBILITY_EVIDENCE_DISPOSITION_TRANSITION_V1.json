@@ -611,6 +611,31 @@
       "id": "EDT-120",
       "case": "binding_provenance_contains_no_protocol_address_derivation",
       "expected": "accepted"
+    },
+    {
+      "id": "EDT-121",
+      "case": "duplicate_provenance_witness_cannot_justify_multiple_runtime_bindings",
+      "expected": "adapter_boundary_error"
+    },
+    {
+      "id": "EDT-122",
+      "case": "binding_provenance_rejects_witness_identity_equal_to_authority",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-123",
+      "case": "binding_provenance_rejects_self_referential_basis",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-124",
+      "case": "binding_provenance_is_serializable_as_a_closed_schema",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-125",
+      "case": "unresolved_partial_runtime_binding_preserves_exact_provenance_witness",
+      "expected": "accepted"
     }
   ],
   "outcome_classes": [
