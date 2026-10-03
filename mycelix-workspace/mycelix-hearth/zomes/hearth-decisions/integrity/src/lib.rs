@@ -151,6 +151,33 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             }
         },
         FlatOp::CreateEntry(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::CreateRecord(OpRecord::CreateEntry { app_entry, .. }) => match app_entry {
+            EntryTypes::Decision(decision) => validate_decision(&decision),
+            EntryTypes::Vote(vote) => validate_vote(&vote),
+            EntryTypes::DecisionOutcome(outcome) => validate_outcome(&outcome),
+                },
+        FlatOp::CreateRecord(OpRecord::UpdateEntry { app_entry, action, .. }) => match app_entry {
+            EntryTypes::Decision(decision) => {
+                validate_decision(&decision)?;
+                validate_decision_update(&decision, &action.original_action_address)
+            }
+            EntryTypes::Vote(_) => {
+                // INVARIANT: Vote immutability — once a vote is cast on a decision,
+                // it cannot be modified or retracted. This ensures that tallied results
+                // remain stable and that members cannot retroactively change outcomes.
+                Ok(ValidateCallbackResult::Invalid(
+                    "Votes cannot be updated once cast".into(),
+                ))
+            }
+            EntryTypes::DecisionOutcome(_) => {
+                // INVARIANT: DecisionOutcome immutability — once a decision outcome
+                // is recorded, it cannot be modified. This preserves the integrity
+                // of the audit trail and prevents retroactive result tampering.
+                Ok(ValidateCallbackResult::Invalid(
+                    "DecisionOutcome cannot be updated once recorded".into(),
+                ))
+            }
+                },
         FlatOp::Link(OpLink::CreateLink { link_type, action }) => {
             validate_create_link(link_type, &action.data.tag)
         }
