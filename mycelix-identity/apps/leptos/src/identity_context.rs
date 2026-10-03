@@ -4,8 +4,8 @@
 //! Identity context — provides reactive identity data via Leptos signals.
 //!
 //! Each data domain loads independently via its own `spawn_local` (no waterfall).
-//! Mock data renders immediately; conductor data replaces it asynchronously.
-//! Version signals enable resource invalidation after mutations.
+//! Demo mode may render fixtures; live mode remains empty until canonical conductor
+//! state is successfully loaded. Version signals enable resource invalidation after mutations.
 
 use leptos::prelude::*;
 use wasm_bindgen_futures::spawn_local;
@@ -115,19 +115,19 @@ async fn load_did(ctx: IdentityCtx) {
     let hc = use_holochain();
     if hc.is_mock() { return; }
 
-    match hc.call_zome_default::<(), serde_json::Value>("did_registry", "get_my_did", &()).await {
-        Ok(record) => {
-            match serde_json::from_value::<DidDocumentView>(record) {
-                Ok(did) => {
-                    web_sys::console::log_1(&"[Identity] Loaded DID from conductor".into());
-                    ctx.did_document.set(Some(did));
-                }
-                Err(e) => {
-                    web_sys::console::warn_1(
-                        &format!("[Identity] Failed to parse DID record: {e}").into()
-                    );
-                }
-            }
+    match hc.call_zome_default::<(), Option<DidDocumentView>>(
+        "did_registry",
+        "get_my_did_view",
+        &(),
+    ).await {
+        Ok(Some(did)) => {
+            web_sys::console::log_1(&"[Identity] Loaded canonical DID view from conductor".into());
+            ctx.did_document.set(Some(did));
+        }
+        Ok(None) => {
+            // No DID is a valid first-run state, not a transport failure.
+            ctx.did_document.set(None);
+            web_sys::console::log_1(&"[Identity] No DID exists for this agent yet".into());
         }
         Err(e) => {
             let message = format!("DID load failed: {e}");
@@ -245,7 +245,7 @@ pub async fn create_my_did(ctx: IdentityCtx, hc: HolochainCtx) -> Result<(), Str
         return Err("Holochain identity runtime is not connected".into());
     }
 
-    hc.call_zome_default::<(), serde_json::Value>("did_registry", "create_did", &())
+    hc.call_zome_default::<(), DidDocumentView>("did_registry", "create_did_view", &())
         .await?;
     load_did(ctx).await;
     Ok(())
