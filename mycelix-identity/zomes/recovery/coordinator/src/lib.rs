@@ -559,7 +559,7 @@ pub fn vote_on_recovery(input: VoteOnRecoveryInput) -> ExternResult<Record> {
         )));
     }
 
-    let config_record = get_latest_record(request.recovery_config_action_hash.clone())?
+    let config_record = get(request.recovery_config_action_hash.clone(), GetOptions::default())?
         .ok_or(wasm_error!(WasmErrorInner::Guest(
             "Pinned recovery configuration not found".into()
         )))?;
@@ -702,7 +702,7 @@ fn check_and_update_request_status(request_id: String) -> ExternResult<()> {
     }
 
     let vote_records = get_recovery_votes(request_id.clone())?;
-    let config_record = get_latest_record(current_request.recovery_config_action_hash.clone())?
+    let config_record = get(current_request.recovery_config_action_hash.clone(), GetOptions::default())?
         .ok_or(wasm_error!(WasmErrorInner::Guest(
             "Pinned recovery config snapshot not found".into()
         )))?;
