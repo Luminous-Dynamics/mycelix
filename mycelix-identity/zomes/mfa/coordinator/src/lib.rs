@@ -296,17 +296,35 @@ pub fn create_mfa_state(input: CreateMfaStateInput) -> ExternResult<MfaStateOutp
         )));
     }
 
-    // Verify DID exists in did_registry (cross-zome call)
-    // Note: This may fail if did_registry is not available, which is acceptable
-    // for standalone testing. In production, both zomes will be present.
-    if let Ok(exists) = verify_did_exists(&input.did) {
-        if !exists {
+    // Verify DID exists in did_registry (cross-zome call). This is a
+    // security prerequisite: inability to verify the canonical DID must not
+    // silently turn into an orphaned MFA namespace.
+    match verify_did_exists(&input.did) {
+        Ok(true) => {}
+        Ok(false) => {
             return Err(wasm_error!(WasmErrorInner::Guest(
                 "DID does not exist in registry. Create DID first.".into()
             )));
         }
+        Err(error) => {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "DID existence verification failed; refusing MFA initialization: {}",
+                error
+            ))));
+        }
     }
-    // If cross-zome call fails, we proceed (for testing without did_registry)
+
+    // Bind the initial factor identifier to the caller's canonical Holochain
+    // AgentPubKey representation. This prevents callers from inventing an
+    // arbitrary sha256 identifier and labeling it as the primary key.
+    let mut hasher = Sha256::new();
+    hasher.update(agent_info.agent_initial_pubkey.get_raw_39());
+    let expected_key_hash = format!("sha256:{}", hex_encode(&hasher.finalize()));
+    if !bool::from(input.primary_key_hash.as_bytes().ct_eq(expected_key_hash.as_bytes())) {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Primary key factor ID does not match the caller's AgentPubKey".into()
+        )));
+    }
 
     // Create initial factor (primary key pair)
     let primary_factor = EnrolledFactor {
