@@ -54,16 +54,6 @@ impl HolochainBindingAttestationPayload {
             .validate()
             .map_err(HolochainAdapterBoundaryError::SemanticInvalid)?;
 
-        if !self
-            .provenance
-            .matches_logical_identity(&self.provenance.logical_identity)
-        {
-            return Err(HolochainAdapterBoundaryError::SemanticInvalid {
-                reason: "binding attestation provenance does not identify its logical dependency"
-                    .into(),
-            });
-        }
-
         validate_address_kind(&self.address, self.retrieval)?;
         Ok(())
     }
@@ -219,10 +209,6 @@ impl HolochainDependencyBindingSet {
         &mut self,
         attestation: SignedHolochainBindingAttestation,
     ) -> Result<(), HolochainAdapterBoundaryError> {
-        attestation
-            .payload
-            .validate()?;
-
         let verified = attestation
             .verify()
             .map_err(|error| HolochainAdapterBoundaryError::BindingRejected {
@@ -508,6 +494,11 @@ mod tests {
     use mobility_configuration_qualification::identity_lineage::IdentityKind;
     use std::panic::{catch_unwind, AssertUnwindSafe};
     use std::sync::{Arc, Mutex, OnceLock};
+
+    fn host_test_lock() -> &'static Mutex<()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(()))
+    }
 
     fn identity(value: &str) -> IdentityRef {
         IdentityRef {
@@ -884,6 +875,65 @@ mod tests {
     }
 
     #[test]
+    fn signed_binding_attestation_dispatches_to_verify_signature() {
+        let provenance = QualificationDependencyBindingProvenance {
+            witness_identity: IdentityRef {
+                kind: IdentityKind::ReconciliationWitness,
+                namespace: "mobility".into(),
+                id: "signed-binding-witness".into(),
+            },
+            logical_identity: identity("signed"),
+            authority: identity("signed-authority"),
+            authority_scope: IdentityRef {
+                kind: IdentityKind::ReconciliationWitness,
+                namespace: "mobility".into(),
+                id: "signed-authority-scope".into(),
+            },
+            authority_delegation: IdentityRef {
+                kind: IdentityKind::ReconciliationWitness,
+                namespace: "mobility".into(),
+                id: "signed-authority-delegation".into(),
+            },
+            basis: vec![
+                identity("signed-authority"),
+                IdentityRef {
+                    kind: IdentityKind::ReconciliationWitness,
+                    namespace: "mobility".into(),
+                    id: "signed-authority-scope".into(),
+                },
+                IdentityRef {
+                    kind: IdentityKind::ReconciliationWitness,
+                    namespace: "mobility".into(),
+                    id: "signed-authority-delegation".into(),
+                },
+                identity("signed-basis"),
+            ],
+        };
+
+        let attestation = SignedHolochainBindingAttestation {
+            signer: AgentPubKey::from_raw_36(vec![23u8; 36]),
+            signature: Signature([0u8; 64]),
+            payload: HolochainBindingAttestationPayload {
+                schema: HOLOCHAIN_BINDING_ATTESTATION_SCHEMA,
+                provenance,
+                address: HolochainDependencyAddress::Action(action_hash(23)),
+                retrieval: QualificationDependencyRetrievalKind::Action,
+            },
+        };
+
+        let _guard = host_test_lock().lock().expect("HDI test lock is not poisoned");
+        let calls = Arc::new(Mutex::new(Vec::new()));
+        let _previous = set_hdi(RecordingHdi {
+            calls: Arc::clone(&calls),
+        });
+        let result = verify_binding_attestation(&attestation);
+        let _ = set_hdi(ErrHdi);
+
+        assert!(result.expect("mock signature verification should succeed"));
+        assert_eq!(calls.lock().unwrap().as_slice(), ["verify_signature"]);
+    }
+
+    #[test]
     fn valid_record_dispatches_to_must_get_valid_record() {
         assert_host_dispatch(
             QualificationDependencyRetrievalKind::ValidRecord,
@@ -915,9 +965,7 @@ mod tests {
         address: HolochainDependencyAddress,
         expected_call: &'static str,
     ) {
-        static HOST_TEST_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-        let _guard = HOST_TEST_LOCK
-            .get_or_init(|| Mutex::new(()))
+        let _guard = host_test_lock()
             .lock()
             .expect("HDI test lock is not poisoned");
 
@@ -958,7 +1006,9 @@ mod tests {
     }
 
     impl HdiT for RecordingHdi {
-        fn verify_signature(&self, _: VerifySignature) -> ExternResult<bool> { unimplemented!() }
+        fn verify_signature(&self, _: VerifySignature) -> ExternResult<bool> {
+            self.record("verify_signature");
+        }
         fn must_get_entry(&self, _: MustGetEntryInput) -> ExternResult<EntryHashed> {
             self.record("must_get_entry");
         }
