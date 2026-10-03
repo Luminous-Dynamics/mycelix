@@ -1,0 +1,122 @@
+name: Identity DSID Qualification
+
+on:
+  push:
+    branches:
+      - feat/sovereign-identity-live-bootstrap
+    paths:
+      - 'mycelix-identity/**'
+      - 'crates/mycelix-leptos-core/**'
+      - 'crates/mycelix-leptos-client/**'
+      - '.github/workflows/identity-dsid-qualification.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: identity-dsid-\${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    name: DSID deterministic qualification
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - uses: cachix/install-nix-action@v27
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - uses: cachix/cachix-action@v15
+        with:
+          name: holochain-ci
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            mycelix-identity
+            mycelix-identity/tests
+            mycelix-identity/apps/leptos
+            crates/mycelix-leptos-core
+            crates/mycelix-leptos-client
+
+      - name: Check Identity UI
+        run: |
+          cargo check \
+            --manifest-path mycelix-identity/apps/leptos/Cargo.toml \
+            --target wasm32-unknown-unknown
+
+      - name: Build Identity zomes
+        run: |
+          cd mycelix-identity
+          nix develop .#ci --impure --command \
+            cargo build --release --target wasm32-unknown-unknown --workspace
+
+      - name: Pack Identity DNA
+        run: |
+          cd mycelix-identity
+          nix develop .#ci --impure --command hc dna pack dna/
+          test -s dna/mycelix_identity_dna.dna
+          sha256sum dna/mycelix_identity_dna.dna
+
+      - name: Run deterministic DSID laboratory
+        run: |
+          set -o pipefail
+          cd mycelix-identity/tests
+          nix develop ../.#ci --impure --command \
+            cargo test --test dsid_lifecycle_lab \
+              -- --include-ignored --nocapture --test-threads=1 \
+            | tee "$GITHUB_WORKSPACE/dsid-lifecycle-evidence.txt"
+
+      - name: Extract and validate evidence
+        run: |
+          grep '^DSID_EVIDENCE ' dsid-lifecycle-evidence.txt | cut -d ' ' -f2- \
+            > dsid-lifecycle-evidence.jsonl
+          test "$(wc -l < dsid-lifecycle-evidence.jsonl)" -eq 6
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          rows = [
+              json.loads(line)
+              for line in Path("dsid-lifecycle-evidence.jsonl").read_text().splitlines()
+          ]
+
+          assert len(rows) == 6
+          assert [row["scenario_id"] for row in rows] == [
+              "DSID-001",
+              "DSID-002",
+              "DSID-003",
+              "DSID-004",
+              "DSID-005",
+              "DSID-006",
+          ]
+          assert all(row["schema_version"] == 1 for row in rows)
+          assert all(row["pass"] is True for row in rows)
+          assert all(row["dna_hash"] for row in rows)
+          assert all(row["commit_sha"] for row in rows)
+          assert all(row["agents"] for row in rows)
+          assert rows[0]["action_hashes"]
+          assert rows[0]["entry_hashes"]
+          PY
+
+          sha256sum dsid-lifecycle-evidence.jsonl > dsid-lifecycle-evidence.sha256
+
+      - name: Upload qualification evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: identity-dsid-qualification-\${{ github.sha }}
+          path: |
+            dsid-lifecycle-evidence.txt
+            dsid-lifecycle-evidence.jsonl
+            dsid-lifecycle-evidence.sha256
+            mycelix-identity/dna/mycelix_identity_dna.dna
