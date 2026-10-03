@@ -733,21 +733,9 @@ mod tests {
                 &assignments,
             )
             .unwrap();
-        observations.insert(
-            EconomicSector::Bank,
-            SectorEconomicObservables {
-                sector: EconomicSector::Bank,
-                ..observation(
-                    EconomicSector::Bank,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                )
-            },
-        );
+        let mut unexpected = observations[&EconomicSector::Household].clone();
+        unexpected.sector = EconomicSector::Bank;
+        observations.insert(EconomicSector::Bank, unexpected);
 
         assert!(SectorEconomicObservables::verify_map_against(
             &observations,
