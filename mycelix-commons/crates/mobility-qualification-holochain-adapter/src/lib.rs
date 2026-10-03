@@ -944,7 +944,10 @@ mod tests {
         let result = verify_binding_attestation(&attestation);
         let _ = set_hdi(ErrHdi);
 
-        assert!(result.expect("mock signature verification should succeed"));
+        assert_eq!(
+            result.expect("mock signature verification should succeed"),
+            HolochainBindingAttestationVerification::Valid
+        );
         assert_eq!(calls.lock().unwrap().as_slice(), ["verify_signature"]);
     }
 
@@ -1001,7 +1004,7 @@ mod tests {
         });
 
         let mut bindings = HolochainDependencyBindingSet::new();
-        let result = bind_attested(&mut bindings, attestation);
+        let result = bindings.bind_attested(attestation);
         let _ = set_hdi(ErrHdi);
 
         assert!(matches!(
@@ -1010,6 +1013,60 @@ mod tests {
                 if reason == "binding attestation signature did not verify"
         ));
         assert!(bindings.is_empty());
+    }
+
+    #[test]
+    fn signature_host_failure_remains_an_extern_error() {
+        let provenance = QualificationDependencyBindingProvenance {
+            witness_identity: IdentityRef {
+                kind: IdentityKind::ReconciliationWitness,
+                namespace: "mobility".into(),
+                id: "host-error-binding-witness".into(),
+            },
+            logical_identity: identity("host-error"),
+            authority: identity("host-error-authority"),
+            authority_scope: IdentityRef {
+                kind: IdentityKind::ReconciliationWitness,
+                namespace: "mobility".into(),
+                id: "host-error-authority-scope".into(),
+            },
+            authority_delegation: IdentityRef {
+                kind: IdentityKind::ReconciliationWitness,
+                namespace: "mobility".into(),
+                id: "host-error-authority-delegation".into(),
+            },
+            basis: vec![
+                identity("host-error-authority"),
+                IdentityRef {
+                    kind: IdentityKind::ReconciliationWitness,
+                    namespace: "mobility".into(),
+                    id: "host-error-authority-scope".into(),
+                },
+                IdentityRef {
+                    kind: IdentityKind::ReconciliationWitness,
+                    namespace: "mobility".into(),
+                    id: "host-error-authority-delegation".into(),
+                },
+            ],
+        };
+
+        let attestation = SignedHolochainBindingAttestation {
+            signer: AgentPubKey::from_raw_36(vec![26u8; 36]),
+            signature: Signature([0u8; 64]),
+            payload: HolochainBindingAttestationPayload {
+                schema: HOLOCHAIN_BINDING_ATTESTATION_SCHEMA,
+                provenance,
+                address: HolochainDependencyAddress::Action(action_hash(26)),
+                retrieval: QualificationDependencyRetrievalKind::Action,
+            },
+        };
+
+        let _guard = host_test_lock().lock().expect("HDI test lock is not poisoned");
+        let _previous = set_hdi(ErrHdi);
+        let result = verify_binding_attestation(&attestation);
+        let _ = set_hdi(ErrHdi);
+
+        assert!(result.is_err(), "host signature verification failure must remain an ExternResult error");
     }
 
     #[test]
