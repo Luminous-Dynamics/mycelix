@@ -296,7 +296,21 @@ mod tests {
 
         assert!(matches!(
             apply_step(&state, 1, &[], None),
-            Err(EconomicStepError::AccountingArithmetic(_))
+            Err(EconomicStepError::InvalidState(_))
+        ));
+    }
+
+    #[test]
+    fn step_rejects_unmatched_pre_state_financial_claims() {
+        let mut state = initial_state();
+        state.actors[0].monetary.deposit_liabilities = 10;
+        let transitions = vec![EconomicTransition::CreditCreation(
+            CreditCreation::new("bank", "household", 10).unwrap(),
+        )];
+
+        assert!(matches!(
+            apply_step(&state, 1, &transitions, None),
+            Err(EconomicStepError::InvalidState(_))
         ));
     }
 
