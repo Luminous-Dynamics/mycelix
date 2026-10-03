@@ -7,7 +7,7 @@
   "closure_identity_domain": "d6x-closure-identity",
   "certificate_domain": "d6x-dependency-closure",
   "claim_ceiling": "ReferenceModelOnly; canonical derivation integrity semantics only; no truth, causality, authority, or actuation claim.",
-  "generation_note": "Independent canonical-encoding reconstruction cross-checked against the repository D6S-CANON-1 golden vectors; Rust reference-model execution remains pending.",
+  "generation_note": "Hash values independently reconstructed from the exact D6X-CANON-1 reference encoding and cross-checked against the repository D6S-CANON-1 vectors; Rust reference-model execution remains pending.",
   "vectors": [
     {
       "id": "baseline-complete",
@@ -27,12 +27,27 @@
         "cycle_detected": false,
         "closure_identity_sha256": "bba479cc6561cbb6eb4e4e60b234d15084bebf09741f80698fe0a292edb9697c",
         "certificate_sha256": "753cd27457ee36c2fbfcc0eb300c46caab20246ab7039eece70dca624a31d9a1"
+      },
+      "recipe": {
+        "root_node_ids": [
+          "root"
+        ],
+        "required_node_ids": [],
+        "rule": {
+          "edge_kind": "Supports",
+          "from_kind": "Statement",
+          "to_kind": "Evidence",
+          "currentness": "Any"
+        },
+        "max_nodes": 16,
+        "max_edges": 16,
+        "projection_mutations": []
       }
     },
     {
       "id": "edge-free-complete",
       "description": "No rule matches the candidate edge; root remains a complete closure.",
-      "profile_variant": "edge-free",
+      "profile_variant": "provenance-rule-no-match",
       "projection_variant": "baseline",
       "expected": {
         "status": "Complete",
@@ -42,8 +57,23 @@
         "included_edge_ids": [],
         "missing_dependency_ids": [],
         "cycle_detected": false,
-        "closure_identity_sha256": "83328e0792b5e0be3317b4ae3c1519a6a877a42733d080e180b80a5044298ad9",
-        "certificate_sha256": "6741fc214808f348a7622b5e88ce1c4d1ed315c6982e937d4b0ddbb6b39edabb"
+        "closure_identity_sha256": "db762c0c578e36e833f02ea12c28610f14479c37fa5bb10708d425305af339cb",
+        "certificate_sha256": "073ec7ebf215d6206d86b31d6588e784e2932852a05bf06ce91cbfb7869c851d"
+      },
+      "recipe": {
+        "root_node_ids": [
+          "root"
+        ],
+        "required_node_ids": [],
+        "rule": {
+          "edge_kind": "Provenance",
+          "from_kind": "Statement",
+          "to_kind": "Evidence",
+          "currentness": "Any"
+        },
+        "max_nodes": 16,
+        "max_edges": 16,
+        "projection_mutations": []
       }
     },
     {
@@ -66,6 +96,23 @@
         "cycle_detected": false,
         "closure_identity_sha256": "2030b55539c894d7f6cec135edef8f3709c2484fd5f68da73bdae24048faab90",
         "certificate_sha256": "8e47bdbbdeca409e2c25b0898aba0262271703b33630f4ef4ee6279ea62b177"
+      },
+      "recipe": {
+        "root_node_ids": [
+          "root"
+        ],
+        "required_node_ids": [
+          "missing"
+        ],
+        "rule": {
+          "edge_kind": "Supports",
+          "from_kind": "Statement",
+          "to_kind": "Evidence",
+          "currentness": "Any"
+        },
+        "max_nodes": 16,
+        "max_edges": 16,
+        "projection_mutations": []
       }
     },
     {
@@ -87,6 +134,30 @@
         "cycle_detected": true,
         "closure_identity_sha256": "eaeb5a59136f87c1a54113d49c4ca765b19ddc5291382720d74280da78945335",
         "certificate_sha256": "9ff103909320cd1235d2240864a7867316277de3305193e414327f43a5077139"
+      },
+      "recipe": {
+        "root_node_ids": [
+          "root"
+        ],
+        "required_node_ids": [],
+        "rule": {
+          "edge_kind": "Supports",
+          "from_kind": "Statement",
+          "to_kind": "Evidence",
+          "currentness": "Any"
+        },
+        "max_nodes": 16,
+        "max_edges": 16,
+        "projection_mutations": [
+          {
+            "op": "add_edge",
+            "edge_id": "e2",
+            "from_node_id": "dep",
+            "to_node_id": "root",
+            "kind": "Supports",
+            "edge_commitment": "edge-e2"
+          }
+        ]
       }
     },
     {
@@ -107,6 +178,29 @@
         "cycle_detected": false,
         "closure_identity_sha256": "96a65d0a00ca6ce6c07fcfaf6d28ed97708573ebe7b6315aee0a6afbebc66c6d",
         "certificate_sha256": "81aeaedff58238170c78df1aca86afb45807456fa1725f893fb5a094cac42cfa"
+      },
+      "recipe": {
+        "root_node_ids": [
+          "root"
+        ],
+        "required_node_ids": [],
+        "rule": {
+          "edge_kind": "Supports",
+          "from_kind": "Statement",
+          "to_kind": "Evidence",
+          "currentness": "CurrentOnly"
+        },
+        "max_nodes": 16,
+        "max_edges": 16,
+        "projection_mutations": [
+          {
+            "op": "set_node",
+            "node_id": "dep",
+            "fields": {
+              "historical_only": true
+            }
+          }
+        ]
       }
     },
     {
@@ -127,6 +221,29 @@
         "cycle_detected": false,
         "closure_identity_sha256": "96a65d0a00ca6ce6c07fcfaf6d28ed97708573ebe7b6315aee0a6afbebc66c6d",
         "certificate_sha256": "7568c5746e3c121aeda9e90210237b2758f9ff1c4a052e687360414b89ef6fc8"
+      },
+      "recipe": {
+        "root_node_ids": [
+          "root"
+        ],
+        "required_node_ids": [],
+        "rule": {
+          "edge_kind": "Supports",
+          "from_kind": "Statement",
+          "to_kind": "Evidence",
+          "currentness": "CurrentOnly"
+        },
+        "max_nodes": 16,
+        "max_edges": 16,
+        "projection_mutations": [
+          {
+            "op": "set_node",
+            "node_id": "dep",
+            "fields": {
+              "current_frontier_root": "frontier-old"
+            }
+          }
+        ]
       }
     },
     {
@@ -147,6 +264,29 @@
         "cycle_detected": false,
         "closure_identity_sha256": "96a65d0a00ca6ce6c07fcfaf6d28ed97708573ebe7b6315aee0a6afbebc66c6d",
         "certificate_sha256": "60167f53318920b573fd44340ed2325eba289fa7de389b8adfa1428c351429c7"
+      },
+      "recipe": {
+        "root_node_ids": [
+          "root"
+        ],
+        "required_node_ids": [],
+        "rule": {
+          "edge_kind": "Supports",
+          "from_kind": "Statement",
+          "to_kind": "Evidence",
+          "currentness": "CurrentOnly"
+        },
+        "max_nodes": 16,
+        "max_edges": 16,
+        "projection_mutations": [
+          {
+            "op": "set_node",
+            "node_id": "dep",
+            "fields": {
+              "current_frontier_root": null
+            }
+          }
+        ]
       }
     },
     {
@@ -162,8 +302,23 @@
         "included_edge_ids": [],
         "missing_dependency_ids": [],
         "cycle_detected": false,
-        "closure_identity_sha256": "43f6c363d7451c938cc255cbded9dfba4bdd27d49d8195927ccde6aae76e9ed8",
-        "certificate_sha256": "1aebdd4e5d2992c9d61ba6b0be32d41740fde78312696ec5a0e05453093e2b94"
+        "closure_identity_sha256": "d39bab33276ce622781d3976dccba03a9ad1443679789baf5b93c46914c2fc93",
+        "certificate_sha256": "de806374e0805aa74a1c2211fe6c57e0e1b22ff6d82b3e9bb854640383b23f36"
+      },
+      "recipe": {
+        "root_node_ids": [
+          "root"
+        ],
+        "required_node_ids": [],
+        "rule": {
+          "edge_kind": "Supports",
+          "from_kind": "Statement",
+          "to_kind": "Evidence",
+          "currentness": "Any"
+        },
+        "max_nodes": 1,
+        "max_edges": 1,
+        "projection_mutations": []
       }
     },
     {
@@ -182,9 +337,38 @@
         ],
         "missing_dependency_ids": [],
         "cycle_detected": false,
-        "closure_identity_sha256": "0c1d292a5eab393fdb862c916e8e15c3262e767337768113369057d102c75ede",
-        "certificate_sha256": "c8927a6b59dc4d3d511a72d153265b1bbb353ba208a6e8b0eed6195b54fa0cac"
+        "closure_identity_sha256": "a9353fc7876360b8434ea025c1ffd803ed4dc2ced6f4dc7b3b92ac83c8f267aa",
+        "certificate_sha256": "0f94300671b986935a00864f1ca4ffbd63955ec8a9dc4365b4a08fe305d4321b"
+      },
+      "recipe": {
+        "root_node_ids": [
+          "root"
+        ],
+        "required_node_ids": [],
+        "rule": {
+          "edge_kind": "Supports",
+          "from_kind": "Statement",
+          "to_kind": "Evidence",
+          "currentness": "Any"
+        },
+        "max_nodes": 8,
+        "max_edges": 1,
+        "projection_mutations": [
+          {
+            "op": "add_edge",
+            "edge_id": "e2",
+            "from_node_id": "dep",
+            "to_node_id": "root",
+            "kind": "Supports",
+            "edge_commitment": "edge-e2"
+          }
+        ]
       }
     }
-  ]
+  ],
+  "recipe_contract": {
+    "baseline_projection": "the projection() fixture in qualified_dependency_closure_d6x.rs: root Statement + dep Evidence + e1 Supports; symbolic legacy commitments; frontier 'frontier'; source snapshot 'snapshot'.",
+    "mutation_semantics": "Apply each recipe mutation to that baseline fixture before evaluating D6X. Commitment strings in this corpus are frozen expected outputs, not authority claims.",
+    "cross_runtime_rule": "The recipe is intentionally declarative: another implementation may construct equivalent typed objects rather than depending on Rust test-helper names."
+  }
 }
