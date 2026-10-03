@@ -344,7 +344,7 @@ pub fn postings_for_step(
             }
         };
 
-        apply_transition(&mut working, transition)?;
+        transition.apply_to_state(&mut working)?;
         postings.extend(transition_postings);
     }
 
@@ -432,30 +432,10 @@ pub fn physical_postings_for_step(
             _ => {}
         }
 
-        apply_transition(&mut working, transition)?;
+        transition.apply_to_state(&mut working)?;
     }
 
     Ok(postings)
-}
-
-fn apply_transition(state: &mut EconomicState, transition: &EconomicTransition) -> Result<(), String> {
-    match transition {
-        EconomicTransition::MonetaryTransfer(flow) => state.apply_flow(flow),
-        EconomicTransition::IncomeTransfer(transfer) => state.apply_income_transfer(transfer),
-        EconomicTransition::CapitalInvestment(investment) => state.apply_capital_investment(investment),
-        EconomicTransition::Production(production) => state.apply_production(production),
-        EconomicTransition::InventoryTransfer(transfer) => state.apply_inventory_transfer(transfer),
-        EconomicTransition::InventoryConsumption(consumption) => state.apply_inventory_consumption(consumption),
-        EconomicTransition::GoodsSale(sale) => state.apply_goods_sale(sale),
-        EconomicTransition::TradeCreditSale(sale) => state.apply_trade_credit_sale(sale),
-        EconomicTransition::TradeCreditSettlement(settlement) => {
-            state.apply_trade_credit_settlement(settlement)
-        }
-        EconomicTransition::InventoryCostAddition(addition) => state.apply_inventory_cost_addition(addition),
-        EconomicTransition::InventoryCostRelief(relief) => state.apply_inventory_cost_relief(relief),
-        EconomicTransition::CreditCreation(credit) => state.create_credit(credit),
-        EconomicTransition::DebtRepayment(repayment) => state.repay_debt(repayment),
-    }
 }
 
 fn sector_for(assignments: &[SectorAssignment], actor: &str) -> Result<EconomicSector, String> {
