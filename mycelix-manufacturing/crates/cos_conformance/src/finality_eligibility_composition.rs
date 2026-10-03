@@ -1124,7 +1124,7 @@ pub fn compose_finality_eligibility(
         FinalityEligibilityDispositionV1::InsufficientEligibleWitnesses
     };
 
-    FinalityEligibilityCompositionV1 {
+    let mut composition = FinalityEligibilityCompositionV1 {
         composition_id: format!("composition:{}", set.set_id),
         effect_id: set.effect_id.clone(),
         effect_lineage_id: set.effect_lineage_id.clone(),
@@ -1155,7 +1155,6 @@ pub fn compose_finality_eligibility(
         composition_commitment: String::new(),
         claim_ceiling: FINALITY_ELIGIBILITY_COMPOSITION_CLAIM_CEILING.to_owned(),
     };
-    let mut composition = composition;
     composition.composition_commitment = composition.recomputed_commitment();
     composition
 }
@@ -1359,7 +1358,7 @@ pub fn compose_finality_eligibility_from_authoritative_d6o(
     let composition = compose_finality_eligibility(
         set,
         assessment,
-        evidence_by_id.values().cloned().collect::<Vec<_>>().as_slice(),
+        evidence_by_id.values().map(|item| (*item).clone()).collect::<Vec<_>>().as_slice(),
         &authoritative_receipts,
         lifecycle_profile.profile_id.as_str(),
         current_frontier_root,
@@ -1444,6 +1443,7 @@ mod tests {
             observation_set_id: "set-1".into(),
             observation_set_commitment: "set-commitment-1".into(),
             d6n_assessment_commitment: "assessment-1".into(),
+            composition_commitment: "composition-1".into(),
             witness_eligibility_ids: ["witness-1".into()].into_iter().collect(),
             observer_generation_ids: ["generation-1".into()].into_iter().collect(),
             current_frontier_root: "frontier-1".into(),
@@ -1881,7 +1881,7 @@ mod tests {
         observer: &ObserverGenerationV1,
         state: ExternalObservedStateV1,
     ) -> ExternalObservedEvidenceV1 {
-        let mut observation = crate::contestable_finality::ExternalEffectObservationV1 {
+        let mut observation = ExternalEffectObservationV1 {
             observation_id: id.into(),
             effect_id: "effect-1".into(),
             effect_lineage_id: "lineage-1".into(),
@@ -2081,7 +2081,7 @@ mod tests {
                 ObservationClassificationV1::CorroboratingIndependent,
             )],
         );
-        let valid = compose_finality_eligibility_from_authoritative_d6n_d6o(
+        let valid = compose_finality_eligibility_from_authoritative_d6o(
             &set,
             &assessment,
             std::slice::from_ref(&evidence),
@@ -2125,7 +2125,7 @@ mod tests {
         let g = generation("observer-A");
         let evidence = observation("observation-1", &g, ExternalObservedStateV1::Applied);
         let set = set(&["observation-1"]);
-        let (_, receipt) = ledger_and_receipt(&evidence);
+        let (_, receipt) = ledger_and_receipt(&g, &evidence);
         let mut assessment = d6n_assessment(
             &set,
             &[(
@@ -2673,7 +2673,7 @@ mod tests {
         );
         let (_, r) = ledger_and_receipt(&g, &e);
         let mut conflicting = r.clone();
-        conflicting.provider_operation_id = "operation-conflict".into();
+        conflicting.observer_generation_id = "observer-A-conflict".into();
 
         let result = compose_finality_eligibility(
             &s, &a, &[e], &[r, conflicting], "life-profile-1", "frontier-1", 1
@@ -2761,7 +2761,7 @@ mod tests {
         let (_, r1) = ledger_and_receipt(&g1, &e1);
         let (_, r2) = ledger_and_receipt(&g2, &e2);
         let baseline = compose_finality_eligibility(
-            &s, &a, &[e1, e2], &[r1, r2], "life-profile-1", "frontier-1", 1
+            &s, &a, &[e1, e2], &[r1.clone(), r2.clone()], "life-profile-1", "frontier-1", 1
         );
 
         assert!(baseline.semantically_valid());
