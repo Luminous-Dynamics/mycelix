@@ -31,8 +31,8 @@ pub fn mock_did_document() -> DidDocumentView {
                 endpoint: "ws://localhost:8888".into(),
             },
         ],
-        created: 1711900000,
-        updated: 1774934400,
+        created: "2024-03-31T15:46:40.000Z".into(),
+        updated: "2026-03-31T05:20:00.000Z".into(),
         version: 3,
         active: true,
     }
