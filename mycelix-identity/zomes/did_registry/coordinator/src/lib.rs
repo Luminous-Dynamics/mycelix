@@ -543,6 +543,68 @@ pub fn resolve_did_view(did: String) -> ExternResult<Option<DidDocumentView>> {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DidVerificationMethodWireView {
+    pub id: String,
+    #[serde(rename = "type")]
+    pub type_name: String,
+    pub controller: String,
+    #[serde(rename = "publicKeyMultibase")]
+    pub public_key_multibase: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DidServiceWireView {
+    pub id: String,
+    #[serde(rename = "type")]
+    pub type_name: String,
+    #[serde(rename = "serviceEndpoint")]
+    pub endpoint: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DidDocumentWireView {
+    #[serde(rename = "@context")]
+    pub context: Vec<String>,
+    pub id: String,
+    pub controller: String,
+    #[serde(rename = "verificationMethod")]
+    pub verification_methods: Vec<DidVerificationMethodWireView>,
+    pub authentication: Vec<String>,
+    #[serde(rename = "keyAgreement", skip_serializing_if = "Vec::is_empty")]
+    pub key_agreement: Vec<String>,
+    pub service: Vec<DidServiceWireView>,
+}
+
+fn did_document_wire_view(document: &DidDocument) -> DidDocumentWireView {
+    DidDocumentWireView {
+        context: vec!["https://www.w3.org/ns/did/v1.1".into()],
+        id: document.id.clone(),
+        controller: format!("did:mycelix:{}", document.controller),
+        verification_methods: document
+            .verification_method
+            .iter()
+            .map(|method| DidVerificationMethodWireView {
+                id: method.id.clone(),
+                type_name: method.type_.clone(),
+                controller: method.controller.clone(),
+                public_key_multibase: method.public_key_multibase.clone(),
+            })
+            .collect(),
+        authentication: document.authentication.clone(),
+        key_agreement: document.key_agreement.clone(),
+        service: document
+            .service
+            .iter()
+            .map(|service| DidServiceWireView {
+                id: service.id.clone(),
+                type_name: service.type_.clone(),
+                endpoint: service.service_endpoint.clone(),
+            })
+            .collect(),
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DidResolutionMetadataView {
     #[serde(rename = "contentType")]
     pub content_type: Option<String>,
@@ -561,7 +623,7 @@ pub struct DidDocumentMetadataView {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DidResolutionView {
     #[serde(rename = "didDocument")]
-    pub did_document: Option<DidDocumentView>,
+    pub did_document: Option<DidDocumentWireView>,
     #[serde(rename = "didResolutionMetadata")]
     pub resolution_metadata: DidResolutionMetadataView,
     #[serde(rename = "didDocumentMetadata")]
@@ -585,7 +647,7 @@ pub fn resolve_did_resolution(did: String) -> ExternResult<DidResolutionView> {
                 deactivated: !document.active,
                 version_id: document.version.to_string(),
             }),
-            did_document: Some(document),
+            did_document: Some(did_document_wire_view(&document)),
             resolution_metadata: DidResolutionMetadataView {
                 content_type: Some("application/did+json".into()),
                 error: None,
