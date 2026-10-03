@@ -569,7 +569,8 @@ pub fn initiate_recovery(input: InitiateRecoveryInput) -> ExternResult<Record> {
         trustee: input.initiator_did,
         vote: VoteDecision::Approve,
         comment: Some("Initiated recovery".to_string()),
-        voted_at: now,
+        // RecoveryVote integrity binds voted_at to the signed vote action.
+        voted_at: sys_time()?,
     };
 
     let vote_hash = create_entry(&EntryTypes::RecoveryVote(vote))?;
