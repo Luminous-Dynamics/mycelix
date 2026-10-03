@@ -109,6 +109,28 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             EntryTypes::Notification(_) => Ok(ValidateCallbackResult::Valid),
         },
         FlatOp::CreateEntry(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::CreateRecord(OpRecord::CreateEntry { app_entry, .. }) => match app_entry {
+            EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
+            EntryTypes::BridgeQuery(query) => validate_query(&query),
+            EntryTypes::BridgeEvent(event) => validate_event(&event),
+            EntryTypes::CachedCredential(cred) => validate_credential_cache(&cred),
+            EntryTypes::Notification(_) => Ok(ValidateCallbackResult::Valid),
+                },
+        FlatOp::CreateRecord(OpRecord::UpdateEntry { app_entry, action, .. }) => match app_entry {
+            EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Invalid(
+                "Anchor cannot be updated once created".into(),
+            )),
+            EntryTypes::BridgeQuery(query) => {
+                validate_query(&query)?;
+                validate_query_immutable_fields(&query, &action.original_action_address)
+            }
+            EntryTypes::BridgeEvent(event) => {
+                validate_event(&event)?;
+                validate_event_immutable_fields(&event, &action.original_action_address)
+            }
+            EntryTypes::CachedCredential(cred) => validate_credential_cache(&cred),
+            EntryTypes::Notification(_) => Ok(ValidateCallbackResult::Valid),
+                },
         FlatOp::Link(OpLink::CreateLink { action, .. }) => {
             if action.data.tag.0.len() > 512 {
                 return Ok(ValidateCallbackResult::Invalid(
