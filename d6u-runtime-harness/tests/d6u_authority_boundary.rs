@@ -1,13 +1,12 @@
 use hdk::prelude::*;
 use holochain::conductor::api::{
-    error::ExternalApiWireError, AppInterfaceApi, AppRequest, AppResponse, ZomeCallParams,
-    ZomeCallParamsSigned,
+    error::ExternalApiWireError, AppInterfaceApi, AppRequest, AppResponse, ZomeCallParamsSigned,
 };
 use holochain::sweettest::{SweetAgents, SweetConductor, SweetDnaFile, SweetInlineZomes};
 use holochain_keystore::MetaLairClient;
 use holochain_nonce::Nonce256Bits;
 use holochain_serialized_bytes::prelude::SerializedBytes;
-use holochain_types::prelude::{CellId, ExternIO, ZomeCallResponse};
+use holochain_types::prelude::{CellId, ExternIO, ZomeCallParams, ZomeCallResponse};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashSet;
@@ -83,7 +82,7 @@ fn authority_probe_zome(reached: Arc<AtomicUsize>) -> SweetInlineZomes {
             }
         })
         .function("grant_probe", move |api, agent: AgentPubKey| {
-            let secret = CapSecret::try_from_random()?;
+            let secret = CapSecret::from([0xA5; 64]);
             let mut functions = HashSet::new();
             functions.insert((SweetInlineZomes::COORDINATOR.into(), "probe".into()));
             let action_hash = api.create(CreateInput::new(
@@ -106,13 +105,13 @@ fn authority_probe_zome(reached: Arc<AtomicUsize>) -> SweetInlineZomes {
         })
 }
 
-fn params(
+fn params<P: Serialize>(
     cell_id: &CellId,
     provenance: &AgentPubKey,
     zome_name: ZomeName,
     fn_name: FunctionName,
     cap_secret: Option<CapSecret>,
-    input: ProbeInput,
+    input: P,
     nonce: Nonce256Bits,
     expires_at: Timestamp,
 ) -> ZomeCallParams {
