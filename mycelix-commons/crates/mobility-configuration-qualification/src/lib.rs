@@ -13,7 +13,9 @@ pub mod temporal_reconciliation;
 pub mod temporal_reconciliation_witness;
 pub mod witness_revision;
 
-pub use qualification::{QualificationOutcome, QualificationStatus, QualificationValidationError};
+pub use qualification::{
+    QualificationDecision, QualificationOutcome, QualificationStatus, QualificationValidationError,
+};
 
 const EXPECTED_COUNT: usize = 20;
 const EXPECTED_PREFIX: &str = "MC-CONFIG-";
