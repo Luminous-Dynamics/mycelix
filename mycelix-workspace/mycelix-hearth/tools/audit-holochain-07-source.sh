@@ -421,7 +421,7 @@ check_semantic_validation_suite_wiring() {
   if [[ -f "$manifest" ]]; then
     check_present_any "Hearth semantic-validation case schema" '"schema_version"[[:space:]]*:[[:space:]]*"HEARTH-SEMANTIC-0.7-CASESET-1"'
     check_present_any "Hearth semantic-validation runtime claim ceiling" 'RuntimeQualificationPending'
-    for case_id in SEM-01 SEM-02 SEM-03; do
+    for case_id in SEM-01 SEM-02 SEM-03 SEM-04; do
       if rg -n --fixed-strings "\"case_id\": \"$case_id\"" "$manifest" >/dev/null 2>&1; then
         echo "OK:   semantic-validation manifest contains $case_id"
       else
@@ -440,23 +440,17 @@ check_semantic_validation_suite_wiring() {
     fi
   fi
 
-  if [[ -f "$rust_test" ]]; then
-    for test_name in \
-      test_invalid_decision_entry_reaches_integrity_validation \
-      test_invalid_resource_entry_reaches_integrity_validation \
-      test_invalid_story_entry_reaches_integrity_validation \
-      test_cross_hearth_collection_story_link_reaches_integrity_validation; do
-    if [[ -f "mycelix-workspace/mycelix-hearth/zomes/hearth-stories/integrity/src/lib.rs" ]]; then
-      if awk '/LinkTypes::CollectionToStories =>/{in_case=1} in_case && /LinkTypes::HearthToTraditions =>/{exit} in_case' \
-        mycelix-workspace/mycelix-hearth/zomes/hearth-stories/integrity/src/lib.rs \
-        | rg -n 'story_entry\.hearth_hash|collection_entry\.hearth_hash' >/dev/null 2>&1; then
-        echo "OK:   Stories CollectionToStories validates collection/story hearth ownership"
-      else
-        echo "FAIL: Stories CollectionToStories lacks explicit cross-hearth ownership validation"
-        fail=1
-      fi
+  if [[ -f "mycelix-workspace/mycelix-hearth/zomes/hearth-stories/integrity/src/lib.rs" ]]; then
+    if awk '/LinkTypes::CollectionToStories =>/{in_case=1} in_case && /LinkTypes::HearthToTraditions =>/{exit} in_case'       mycelix-workspace/mycelix-hearth/zomes/hearth-stories/integrity/src/lib.rs       | rg -n 'story_entry.hearth_hash|collection_entry.hearth_hash' >/dev/null 2>&1; then
+      echo "OK:   Stories CollectionToStories validates collection/story hearth ownership"
+    else
+      echo "FAIL: Stories CollectionToStories lacks explicit cross-hearth ownership validation"
+      fail=1
     fi
+  fi
 
+  if [[ -f "$rust_test" ]]; then
+    for test_name in       test_invalid_decision_entry_reaches_integrity_validation       test_invalid_resource_entry_reaches_integrity_validation       test_invalid_story_entry_reaches_integrity_validation       test_cross_hearth_collection_story_link_reaches_integrity_validation; do
       if rg -n --pcre2 "\basync[[:space:]]+fn[[:space:]]+$test_name\b" "$rust_test" >/dev/null 2>&1; then
         echo "OK:   semantic-validation test is present: $test_name"
       else
