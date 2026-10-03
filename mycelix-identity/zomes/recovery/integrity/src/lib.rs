@@ -868,6 +868,67 @@ fn validate_create_recovery_approval_certificate(
                 "Certificate vote must be authored by its claimed trustee".into(),
             ));
         }
+
+        match validate_recovery_vote_is_first_for_request(&vote_record, &vote)? {
+            ValidateCallbackResult::Valid => {}
+            invalid => return Ok(invalid),
+        }
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+/// Reject certificates that cite a later duplicate vote while ignoring an
+/// earlier request-specific vote from the same trustee.
+///
+/// This closes the legacy-data escape hatch left by coordinator-side
+/// canonicalization: authorization cannot be recovered by simply selecting
+/// a later approval if the trustee's source chain already contains a vote
+/// for the same request.
+fn validate_recovery_vote_is_first_for_request(
+    vote_record: &Record,
+    vote: &RecoveryVote,
+) -> ExternResult<ValidateCallbackResult> {
+    let Action::Create(vote_create) = vote_record.action().action() else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Certificate vote must reference a create action".into(),
+        ));
+    };
+
+    let activity = must_get_agent_activity(
+        vote_create.author.clone(),
+        ChainFilter::new(vote_create.prev_action.clone()),
+    )?;
+
+    let recovery_vote_entry_type =
+        EntryType::App(AppEntryDef::try_from(UnitEntryTypes::RecoveryVote)?);
+
+    for prior in activity {
+        let prior_action = prior.action.action();
+        let Action::Create(prior_create) = prior_action else {
+            continue;
+        };
+
+        if prior_create.entry_type != recovery_vote_entry_type {
+            continue;
+        }
+
+        let prior_record = must_get_valid_record(prior.action.action_address().clone())?;
+        let Some(prior_vote) = prior_record
+            .entry()
+            .to_app_option::<RecoveryVote>()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        else {
+            return Ok(ValidateCallbackResult::Invalid(
+                "RecoveryVote history action did not contain a RecoveryVote entry".into(),
+            ));
+        };
+
+        if prior_vote.request_id == vote.request_id {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Recovery approval certificate must cite the first vote cast by each trustee for the request".into(),
+            ));
+        }
     }
 
     Ok(ValidateCallbackResult::Valid)
