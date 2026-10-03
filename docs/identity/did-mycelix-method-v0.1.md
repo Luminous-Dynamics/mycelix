@@ -227,6 +227,7 @@ The current qualification laboratory maps concrete protocol behavior to determin
 | DSID-023 | orphan recovery votes rejected |
 | DSID-024 | non-trustee recovery votes rejected |
 | DSID-025 | canonical latest self-recovery update resolution |
+| DSID-026 | DID resolution JSON omits absent optional metadata |
 
 The qualification workflow records scenario IDs, agents, DNA hash, action hashes, entry hashes, expected and observed behavior, pass state, and commit SHA, then hashes the complete evidence capsule.
 
