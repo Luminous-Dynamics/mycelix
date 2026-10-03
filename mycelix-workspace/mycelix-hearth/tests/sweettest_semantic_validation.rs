@@ -479,6 +479,9 @@ fn test_semantic_case_manifest_is_structurally_valid() {
         let invariant = case["invariant"]
             .as_str()
             .expect("every semantic case needs an invariant");
+        let expected_result = case["expected_result"]
+            .as_str()
+            .expect("every semantic case needs expected_result");
         let boundary = case["boundary"]
             .as_str()
             .expect("every semantic case needs a boundary");
@@ -492,6 +495,10 @@ fn test_semantic_case_manifest_is_structurally_valid() {
         assert!(!zome.is_empty(), "semantic case zome must not be empty");
         assert!(!operation.is_empty(), "semantic case operation must not be empty");
         assert!(!invariant.is_empty(), "semantic case invariant must not be empty");
+        assert_eq!(
+            expected_result, "Invalid",
+            "{case_id} must declare the Invalid validation result"
+        );
         assert_eq!(
             boundary, "integrity_validation",
             "{case_id} must target the integrity validation boundary"
