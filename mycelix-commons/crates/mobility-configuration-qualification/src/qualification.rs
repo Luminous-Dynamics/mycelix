@@ -303,6 +303,86 @@ mod tests {
             .collect();
         assert_eq!(pure_names, vec!["valid", "invalid", "unresolved"]);
 
+        assert_eq!(
+            outcomes[0]
+                .get("holochain")
+                .and_then(serde_json::Value::as_str),
+            Some("ValidateCallbackResult::Valid")
+        );
+        assert_eq!(
+            outcomes[1]
+                .get("holochain")
+                .and_then(serde_json::Value::as_str),
+            Some("ValidateCallbackResult::Invalid(String)")
+        );
+        assert_eq!(
+            outcomes[2]
+                .get("holochain")
+                .and_then(serde_json::Value::as_str),
+            Some("ValidateCallbackResult::UnresolvedDependencies(UnresolvedDependencies)")
+        );
+
+        let errors = document
+            .get("error_boundary")
+            .expect("adapter contract must declare error boundary");
+        assert_eq!(
+            errors
+                .get("semantic_invalidity")
+                .and_then(serde_json::Value::as_str),
+            Some("must be returned as a validation result, not ExternResult::Err")
+        );
+        assert_eq!(
+            errors
+                .get("runtime_failure")
+                .and_then(serde_json::Value::as_str),
+            Some("may remain an ExternResult::Err")
+        );
+        assert_eq!(
+            errors
+                .get("dependency_absence")
+                .and_then(serde_json::Value::as_str),
+            Some("must remain unresolved until the required addressable dependency is available")
+        );
+
+        let dependencies = document
+            .get("dependency_retrieval")
+            .expect("adapter contract must declare dependency retrieval");
+        assert_eq!(
+            dependencies
+                .get("deterministic_host_function_family")
+                .and_then(serde_json::Value::as_str),
+            Some("must_get_*")
+        );
+        assert_eq!(
+            dependencies
+                .get("mutable_link_collections_as_validation_dependencies")
+                .and_then(serde_json::Value::as_bool),
+            Some(false)
+        );
+        assert_eq!(
+            dependencies
+                .get("missing_addressable_dependency_is_semantic_invalidity")
+                .and_then(serde_json::Value::as_bool),
+            Some(false)
+        );
+
+        let determinism = document
+            .get("determinism")
+            .expect("adapter contract must declare determinism");
+        for key in [
+            "retrieval_order_independent",
+            "serialization_order_independent",
+            "batching_partition_independent",
+            "wall_clock_independent",
+            "peer_identity_independent",
+        ] {
+            assert_eq!(
+                determinism.get(key).and_then(serde_json::Value::as_bool),
+                Some(true),
+                "determinism invariant must be enabled: {key}"
+            );
+        }
+
         let identity = document
             .get("identity_boundary")
             .expect("adapter contract must declare identity boundary");
