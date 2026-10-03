@@ -176,6 +176,11 @@ impl HolochainDependencyBindingSet {
                             identity: identity.clone(),
                             address: binding.address.clone(),
                             retrieval: binding.retrieval,
+                            provenance: self
+                                .provenance
+                                .get(identity)
+                                .expect("every binding carries explicit provenance")
+                                .clone(),
                         })
                         .collect(),
                 }
@@ -641,6 +646,29 @@ mod tests {
             bindings.resolve_required(vec![malformed_identity()]),
             QualificationDecision::Invalid { .. }
         ));
+    }
+
+    #[test]
+    fn unresolved_partial_bindings_preserve_provenance() {
+        let mut bindings = HolochainDependencyBindingSet::new();
+        let bound = identity("bound-partial");
+        bindings
+            .bind_for_test(
+                bound.clone(),
+                HolochainDependencyAddress::Action(action_hash(12)),
+                QualificationDependencyRetrievalKind::Action,
+            )
+            .unwrap();
+
+        let QualificationDecision::Unresolved { partial, .. } =
+            bindings.resolve_required(vec![bound.clone(), identity("missing-partial")])
+        else {
+            panic!("one missing dependency should preserve the bound partial");
+        };
+
+        assert_eq!(partial.len(), 1);
+        assert_eq!(partial[0].identity(), &bound);
+        assert_eq!(partial[0].provenance().logical_identity, bound);
     }
 
     #[test]
