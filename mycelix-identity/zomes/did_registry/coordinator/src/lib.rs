@@ -280,6 +280,77 @@ pub fn resolve_substrate(role: String) -> ExternResult<Vec<AgentPubKey>> {
         .collect())
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DidDocumentView {
+    pub id: String,
+    pub controller: String,
+    pub verification_methods: Vec<DidVerificationMethodView>,
+    pub key_agreements: Vec<String>,
+    pub services: Vec<DidServiceView>,
+    pub created: i64,
+    pub updated: i64,
+    pub version: u32,
+    pub active: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DidVerificationMethodView {
+    pub id: String,
+    pub type_name: String,
+    pub controller: String,
+    pub public_key_multibase: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DidServiceView {
+    pub id: String,
+    pub type_name: String,
+    pub endpoint: String,
+}
+
+fn did_document_view(document: DidDocument) -> ExternResult<DidDocumentView> {
+    let active = is_did_active(document.id.clone())?;
+    Ok(DidDocumentView {
+        id: document.id,
+        controller: document.controller.to_string(),
+        verification_methods: document
+            .verification_method
+            .into_iter()
+            .map(|method| DidVerificationMethodView {
+                id: method.id,
+                type_name: method.type_,
+                controller: method.controller,
+                public_key_multibase: method.public_key_multibase,
+            })
+            .collect(),
+        key_agreements: document.key_agreement,
+        services: document
+            .service
+            .into_iter()
+            .map(|service| DidServiceView {
+                id: service.id,
+                type_name: service.type_,
+                endpoint: service.service_endpoint,
+            })
+            .collect(),
+        created: document.created.as_micros(),
+        updated: document.updated.as_micros(),
+        version: document.version,
+        active,
+    })
+}
+
+fn record_to_did_document_view(record: &Record) -> ExternResult<DidDocumentView> {
+    let document: DidDocument = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Invalid DID document record".into()
+        )))?;
+    did_document_view(document)
+}
+
 /// Create a new DID document for the calling agent
 #[hdk_extern]
 pub fn create_did() -> ExternResult<Record> {
@@ -361,6 +432,15 @@ pub fn create_did() -> ExternResult<Record> {
     Ok(record)
 }
 
+/// Create a frontend-safe view of a new DID document.
+///
+/// This keeps Holochain Record/action/hash serialization out of browser code.
+#[hdk_extern]
+pub fn create_did_view(_: ()) -> ExternResult<DidDocumentView> {
+    let record = create_did()?;
+    record_to_did_document_view(&record)
+}
+
 /// Get DID document for an agent
 #[hdk_extern]
 pub fn get_did_document(agent_pub_key: AgentPubKey) -> ExternResult<Option<Record>> {
@@ -381,6 +461,18 @@ pub fn get_did_document(agent_pub_key: AgentPubKey) -> ExternResult<Option<Recor
         get(action_hash, GetOptions::default())
     } else {
         Ok(None)
+    }
+}
+
+/// Get the calling agent's DID in a browser-safe representation.
+///
+/// The browser must not decode Holochain's Record envelope or hash types just
+/// to render the canonical identity state.
+#[hdk_extern]
+pub fn get_my_did_view(_: ()) -> ExternResult<Option<DidDocumentView>> {
+    match get_my_did(())? {
+        Some(record) => Ok(Some(record_to_did_document_view(&record)?)),
+        None => Ok(None),
     }
 }
 
