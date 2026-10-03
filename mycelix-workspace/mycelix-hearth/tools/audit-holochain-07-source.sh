@@ -103,6 +103,16 @@ check_present "Hearth dev shell provides Perl" '\bperl\b'
 check_present "Hearth flake uses Holonix main-0.7" 'holonix.*ref=main-0\.7'
 check_present "Hearth package builds use Holonix Rust" 'nativeBuildInputs[[:space:]]*=[[:space:]]*\[[[:space:]]*holochainPackages\.rust[[:space:]]'
 
+
+check_standalone_tests_workspace_boundary() {
+  local manifest="mycelix-workspace/mycelix-hearth/tests/Cargo.toml"
+  if [[ -f "$manifest" ]] && rg -n --fixed-strings "[workspace]" "$manifest" >/dev/null 2>&1; then
+    echo "OK:   Hearth integration tests declare their standalone Cargo workspace boundary"
+  else
+    echo "FAIL: Hearth integration tests must declare an explicit standalone Cargo workspace boundary"
+    fail=1
+  fi
+}
 check_qualification_workflow_provenance() {
   local workflow=".github/workflows/hearth-07-qualification.yml"
   if [[ ! -f "$workflow" ]]; then
@@ -572,6 +582,7 @@ check_immutable_dependency_semantics() {
 
 check_semantic_validation_suite_wiring
 check_qualification_workflow_provenance
+check_standalone_tests_workspace_boundary
 check_lock_repository_identity
 check_stateful_link_transition_contracts
 
