@@ -225,8 +225,13 @@ async fn load_reputation(ctx: IdentityCtx) {
     let hc = use_holochain();
     if hc.is_mock() { return; }
 
+    let agent_b64 = match hc.connected_agent_pub_key_b64() {
+        Some(agent) => agent,
+        None => return,
+    };
+
     match hc.call_zome_default::<String, serde_json::Value>(
-        "reputation_aggregator", "get_composite_reputation", &"self".to_string()
+        "reputation_aggregator", "get_composite_reputation", &agent_b64
     ).await {
         Ok(record) => {
             if let Ok(rep) = serde_json::from_value::<ReputationView>(record) {
