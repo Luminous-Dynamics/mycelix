@@ -1867,11 +1867,28 @@ mod linux {
                     .sum::<usize>()
             );
 
-            let rule =
+            let second_clause = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(2, u64::MAX, 9).unwrap(),
+            ]).unwrap();
+            let disjunctive_rule = SeccompSyscallRuleV2::new_with_clauses(
+                libc::SYS_socket,
+                vec![clause.clone(), second_clause.clone()],
+            ).unwrap();
+            assert_eq!(
+                rule_body_instruction_count(&disjunctive_rule),
+                clause_instruction_count(&clause)
+                    + clause_instruction_count(&second_clause)
+            );
+
+            let single_rule =
                 SeccompSyscallRuleV2::new(libc::SYS_socket, clause.predicates().to_vec()).unwrap();
             assert_eq!(
-                rule_body_instruction_count(&rule),
-                clause_instruction_count(&rule.clauses()[0])
+                rule_body_instruction_count(&single_rule),
+                1 + clause
+                    .predicates()
+                    .iter()
+                    .map(predicate_instruction_count)
+                    .sum::<usize>()
             );
         }
 
