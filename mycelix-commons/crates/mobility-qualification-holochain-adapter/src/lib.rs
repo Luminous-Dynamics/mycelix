@@ -24,6 +24,86 @@ pub enum HolochainDependencyAddress {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct HolochainAuthorityAgentBindingPayload {
+    pub schema: &'static str,
+    pub authority: IdentityRef,
+    pub provenance: QualificationDependencyBindingProvenance,
+    pub agent: AgentPubKey,
+}
+
+pub const HOLOCHAIN_AUTHORITY_AGENT_BINDING_SCHEMA: &str =
+    "mycelix.mobility.holochain_authority_agent_binding.v1";
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SignedHolochainAuthorityAgentBinding {
+    pub issuer: AgentPubKey,
+    pub signature: Signature,
+    pub payload: HolochainAuthorityAgentBindingPayload,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum HolochainAuthorityAgentBindingVerification {
+    Valid,
+    Invalid { reason: String },
+}
+
+impl HolochainAuthorityAgentBindingPayload {
+    pub fn validate(&self) -> Result<(), HolochainAdapterBoundaryError> {
+        if self.schema != HOLOCHAIN_AUTHORITY_AGENT_BINDING_SCHEMA {
+            return Err(HolochainAdapterBoundaryError::SemanticInvalid {
+                reason: "authority-agent binding uses an unexpected schema".into(),
+            });
+        }
+
+        self.authority
+            .validate()
+            .map_err(|reason| HolochainAdapterBoundaryError::SemanticInvalid { reason })?;
+
+        if self.provenance.logical_identity != self.authority {
+            return Err(HolochainAdapterBoundaryError::SemanticInvalid {
+                reason: "authority-agent provenance must name the exact authority identity".into(),
+            });
+        }
+
+        self.provenance
+            .validate()
+            .map_err(HolochainAdapterBoundaryError::SemanticInvalid)?;
+
+        Ok(())
+    }
+}
+
+impl SignedHolochainAuthorityAgentBinding {
+    pub fn verify(&self) -> ExternResult<HolochainAuthorityAgentBindingVerification> {
+        if let Err(error) = self.payload.validate() {
+            return Ok(HolochainAuthorityAgentBindingVerification::Invalid {
+                reason: error.to_string(),
+            });
+        }
+
+        if self.issuer != self.payload.agent {
+            return Ok(HolochainAuthorityAgentBindingVerification::Invalid {
+                reason: "authority-agent binding issuer must equal the bound agent key".into(),
+            });
+        }
+
+        let verified = hdi::ed25519::verify_signature(
+            self.issuer.clone(),
+            self.signature.clone(),
+            &self.payload,
+        )?;
+
+        if verified {
+            Ok(HolochainAuthorityAgentBindingVerification::Valid)
+        } else {
+            Ok(HolochainAuthorityAgentBindingVerification::Invalid {
+                reason: "authority-agent binding signature did not verify".into(),
+            })
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct HolochainBindingAttestationPayload {
     pub schema: &'static str,
     pub provenance: QualificationDependencyBindingProvenance,
@@ -212,6 +292,53 @@ impl HolochainDependencyBindingSet {
 
         self.provenance.insert(identity, provenance);
         Ok(())
+    }
+
+    /// Bind an attested runtime dependency only when the authority identity
+    /// has an explicit protocol-agent binding credential.
+    ///
+    /// The credential is deliberately self-authored by the bound agent key:
+    /// this proves control of the key for the exact authority statement, while
+    /// the pure provenance witness remains responsible for domain semantics.
+    pub fn bind_attested_with_authority(
+        &mut self,
+        binding: SignedHolochainBindingAttestation,
+        authority_binding: SignedHolochainAuthorityAgentBinding,
+    ) -> ExternResult<Result<(), HolochainAdapterBoundaryError>> {
+        match authority_binding.verify()? {
+            HolochainAuthorityAgentBindingVerification::Invalid { reason } => {
+                return Ok(Err(HolochainAdapterBoundaryError::SemanticInvalid { reason }));
+            }
+            HolochainAuthorityAgentBindingVerification::Valid => {}
+        }
+
+        if binding.signer != authority_binding.payload.agent {
+            return Ok(Err(HolochainAdapterBoundaryError::SemanticInvalid {
+                reason: "runtime binding signer does not match the authorized authority agent key"
+                    .into(),
+            }));
+        }
+
+        if binding.payload.provenance.authority != authority_binding.payload.authority {
+            return Ok(Err(HolochainAdapterBoundaryError::SemanticInvalid {
+                reason: "runtime binding provenance authority does not match authority-agent binding"
+                    .into(),
+            }));
+        }
+
+        match binding.verify()? {
+            HolochainBindingAttestationVerification::Invalid { reason } => {
+                return Ok(Err(HolochainAdapterBoundaryError::SemanticInvalid { reason }));
+            }
+            HolochainBindingAttestationVerification::Valid => {}
+        }
+
+        Ok(self.bind(
+            binding.payload.provenance.logical_identity.clone(),
+            binding.payload.address,
+            binding.payload.retrieval,
+            binding.payload.provenance,
+        ))
     }
 
     /// Bind from a cryptographically attested payload.
