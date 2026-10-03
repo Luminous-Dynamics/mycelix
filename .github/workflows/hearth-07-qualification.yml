@@ -71,6 +71,53 @@ jobs:
           workspaces: |
             mycelix-workspace/mycelix-hearth
 
+      - name: Validate pinned Hearth 0.7 flake lock
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64
+          import json
+          import re
+          from pathlib import Path
+
+          lock = json.loads(Path("flake.lock").read_text())
+          nodes = lock.get("nodes", {})
+          if not nodes:
+              raise SystemExit("flake.lock has no nodes")
+
+          sri_re = re.compile(r"^sha256-[A-Za-z0-9+/]{43}=$")
+          for name, node in nodes.items():
+              locked = node.get("locked")
+              if isinstance(locked, dict) and locked.get("type") == "github":
+                  nar_hash = locked.get("narHash")
+                  if not isinstance(nar_hash, str) or not sri_re.fullmatch(nar_hash):
+                      raise SystemExit(f"{name}: invalid GitHub narHash SRI: {nar_hash!r}")
+                  encoded = nar_hash.removeprefix("sha256-")
+                  try:
+                      raw = base64.b64decode(encoded, validate=True)
+                  except Exception as exc:
+                      raise SystemExit(f"{name}: invalid base64 in narHash: {exc}") from exc
+                  if len(raw) != 32:
+                      raise SystemExit(f"{name}: narHash decodes to {len(raw)} bytes, expected 32")
+
+          holonix = nodes.get("holonix", {}).get("locked", {})
+          expected = {
+              "owner": "holochain",
+              "repo": "holonix",
+              "rev": "ffcc7c63b4b87dde16a69247775639b49c5778b1",
+              "narHash": "sha256-WSzIFA1vBrUAbK7CHooBddBwaJcpGCudVEUBjiIik+4=",
+          }
+          for key, value in expected.items():
+              if holonix.get(key) != value:
+                  raise SystemExit(
+                      f"holonix.{key} mismatch: expected {value!r}, got {holonix.get(key)!r}"
+                  )
+
+          print("OK: all GitHub flake.lock narHashes are valid SHA-256 SRI values")
+          print("OK: holonix is pinned to the verified Holochain 0.7 lock object")
+          PY
+
       - name: Syntax-check Hearth 0.7 audit
         working-directory: mycelix-workspace/mycelix-hearth
         run: bash -n tools/audit-holochain-07-source.sh
