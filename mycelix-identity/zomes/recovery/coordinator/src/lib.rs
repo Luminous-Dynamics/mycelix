@@ -394,7 +394,7 @@ pub fn get_recovery_config(did: String) -> ExternResult<Option<Record>> {
     if let Some(link) = latest_link {
         let action_hash = ActionHash::try_from(link.target)
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        return get(action_hash, GetOptions::default());
+        return get_latest_record(action_hash);
     }
 
     Ok(None)
@@ -1316,7 +1316,7 @@ pub fn get_trustee_responsibilities(trustee_did: String) -> ExternResult<Vec<Rec
     for link in links {
         let action_hash = ActionHash::try_from(link.target)
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        if let Some(record) = get(action_hash, GetOptions::default())? {
+        if let Some(record) = get_latest_record(action_hash)? {
             configs.push(record);
         }
     }
@@ -1544,11 +1544,11 @@ pub fn get_self_recovery_config(did: String) -> ExternResult<Option<Record>> {
         GetStrategy::default(),
     )?;
 
-    match links.first() {
+    match links.into_iter().max_by_key(|link| link.timestamp) {
         Some(link) => {
             let hash = ActionHash::try_from(link.target.clone())
                 .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-            get(hash, GetOptions::default())
+            get_latest_record(hash)
         }
         None => Ok(None),
     }
