@@ -261,7 +261,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 | LinkTypes::DidToSelfRecoveryConfig
                 | LinkTypes::DidToSelfRecoveryRequest
                 | LinkTypes::RecoveryRequestIdToRequest => {
-                    validate_recovery_link(link_type, &base_address, &target_address)
+                    validate_recovery_link(link_type, &base_address, &target_address, &action)
                 },
             }
         }
@@ -315,10 +315,16 @@ fn string_to_entry_hash(value: &str) -> EntryHash {
     EntryHash::from_raw_36(bytes)
 }
 
+fn did_to_agent(did: &str) -> Option<AgentPubKey> {
+    did.strip_prefix("did:mycelix:")
+        .and_then(|value| AgentPubKey::try_from(value).ok())
+}
+
 fn validate_recovery_link(
     link_type: LinkTypes,
     base_address: &AnyLinkableHash,
     target_address: &AnyLinkableHash,
+    action: &CreateLink,
 ) -> ExternResult<ValidateCallbackResult> {
     let base = match base_address.clone().into_entry_hash() {
         Some(base) => base,
@@ -353,6 +359,11 @@ fn validate_recovery_link(
                     "DidToRecoveryConfig base does not match target DID".into(),
                 ));
             }
+            if action.author != config.owner {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "DidToRecoveryConfig link must be authored by the recovery owner".into(),
+                ));
+            }
         }
         LinkTypes::DidToRecoveryRequest => {
             let request: RecoveryRequest = record
@@ -365,6 +376,14 @@ fn validate_recovery_link(
             if string_to_entry_hash(&request.did) != base {
                 return Ok(ValidateCallbackResult::Invalid(
                     "DidToRecoveryRequest base does not match target DID".into(),
+                ));
+            }
+            let initiator = did_to_agent(&request.initiated_by).ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Recovery request initiator must be a valid did:mycelix identifier".into()
+            )))?;
+            if action.author != initiator {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "DidToRecoveryRequest link must be authored by the request initiator".into(),
                 ));
             }
         }
@@ -381,6 +400,14 @@ fn validate_recovery_link(
                     "Recovery request index base does not match target request ID".into(),
                 ));
             }
+            let initiator = did_to_agent(&request.initiated_by).ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Recovery request initiator must be a valid did:mycelix identifier".into()
+            )))?;
+            if action.author != initiator {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Recovery request index link must be authored by the request initiator".into(),
+                ));
+            }
         }
         LinkTypes::RequestToVotes => {
             let vote: RecoveryVote = record
@@ -393,6 +420,14 @@ fn validate_recovery_link(
             if string_to_entry_hash(&vote.request_id) != base {
                 return Ok(ValidateCallbackResult::Invalid(
                     "RequestToVotes base does not match target request ID".into(),
+                ));
+            }
+            let trustee = did_to_agent(&vote.trustee).ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Recovery vote trustee must be a valid did:mycelix identifier".into()
+            )))?;
+            if action.author != trustee {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "RequestToVotes link must be authored by the voting trustee".into(),
                 ));
             }
         }
@@ -413,6 +448,11 @@ fn validate_recovery_link(
                     "TrusteeToConfig base does not match a configured trustee".into(),
                 ));
             }
+            if action.author != config.owner {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "TrusteeToConfig link must be authored by the recovery config owner".into(),
+                ));
+            }
         }
         LinkTypes::DidToSelfRecoveryConfig => {
             let config: SelfRecoveryConfig = record
@@ -427,6 +467,11 @@ fn validate_recovery_link(
                     "DidToSelfRecoveryConfig base does not match target DID".into(),
                 ));
             }
+            if action.author != config.owner {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "DidToSelfRecoveryConfig link must be authored by the self-recovery owner".into(),
+                ));
+            }
         }
         LinkTypes::DidToSelfRecoveryRequest => {
             let request: SelfRecoveryRequest = record
@@ -439,6 +484,11 @@ fn validate_recovery_link(
             if string_to_entry_hash(&request.did) != base {
                 return Ok(ValidateCallbackResult::Invalid(
                     "DidToSelfRecoveryRequest base does not match target DID".into(),
+                ));
+            }
+            if action.author != request.new_agent {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "DidToSelfRecoveryRequest link must be authored by the replacement agent".into(),
                 ));
             }
         }
