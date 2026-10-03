@@ -22,23 +22,23 @@
 The validator deliberately mirrors the reference model's canonicalization boundary: recognition edges are checked in their normalized order, while semantic state is checked for key/relationship consistency. This follows the same broad separation seen in provenance validation, where uniqueness, ordering, and impossibility constraints are checked independently from normalization/equivalence.
 
 
-The executable invariant layer is exposed as a typed, observational qualification boundary. The Rust implementation maintains one canonical `FEDERATION_INVARIANT_REGISTRY` containing the invariant identifier, human-readable name, description, executable predicate, and typed diagnostic. `validate_state` iterates that registry directly, so the invariant inventory and executable qualification path cannot silently diverge.
+The executable invariant layer is exposed as a typed, observational qualification boundary. The Rust implementation maintains one canonical `FEDERATION_INVARIANT_REGISTRY` containing the invariant identifier, human-readable name, description, semantic dependencies, executable predicate, and typed diagnostic. `validate_state` iterates that registry directly, so the invariant inventory and executable qualification path cannot silently diverge. The registry is also required to be a topological ordering of its dependency graph: derived checks must appear after the checks whose validity they rely on.
 
-| Registry ID | Boundary covered | Typed failure |
-| --- | --- | --- |
-| `NodeMapIdentity` | node-map keys and non-empty node identities | `NodeMapKeyMismatch` |
-| `RecognitionEdgeValidity` | recognition identities and known-node references | `RecognitionEdgeInvalid` |
-| `RecognitionEdgeCanonicalOrder` | canonical recognition tuple ordering | `RecognitionEdgeOrderMismatch` |
-| `DeliveryMapIdentity` | logical-delivery map keys | `DeliveryMapKeyMismatch` |
-| `DeliveryNodeReferences` | delivery origin/target and required identities | `DeliveryNodeReferenceMismatch` |
-| `DeliveryPredecessorReferences` | existing, non-self predecessor references | `DeliveryPredecessorMismatch` |
-| `ObservationMapIdentity` | observation-map keys | `ObservationMapKeyMismatch` |
-| `SourceObservationBijection` | admitted-delivery/source-observation one-to-one set | `SourceObservationSetMismatch` |
-| `DeliveryAttemptHistory` | non-empty admitted attempt history | `DeliveryMissingAttemptHistory` |
-| `AttemptEnvelopeBindings` | attempt-to-envelope one-to-one bindings | `AttemptBindingMismatch` |
-| `DeliverySourceObservationProvenance` | immutable delivery ↔ source-observation provenance | `SourceObservationMismatch` |
+| Registry ID | Boundary covered | Semantic dependencies | Typed failure |
+| --- | --- | --- | --- |
+| `NodeMapIdentity` | node-map keys and non-empty node identities | — | `NodeMapKeyMismatch` |
+| `RecognitionEdgeValidity` | recognition identities and known-node references | — | `RecognitionEdgeInvalid` |
+| `RecognitionEdgeCanonicalOrder` | canonical recognition tuple ordering | `RecognitionEdgeValidity` | `RecognitionEdgeOrderMismatch` |
+| `DeliveryMapIdentity` | logical-delivery map keys | — | `DeliveryMapKeyMismatch` |
+| `DeliveryNodeReferences` | delivery origin/target and required identities | — | `DeliveryNodeReferenceMismatch` |
+| `DeliveryPredecessorReferences` | existing, non-self predecessor references | `DeliveryMapIdentity` | `DeliveryPredecessorMismatch` |
+| `ObservationMapIdentity` | observation-map keys | — | `ObservationMapKeyMismatch` |
+| `SourceObservationBijection` | admitted-delivery/source-observation one-to-one set | `DeliveryMapIdentity`, `ObservationMapIdentity` | `SourceObservationSetMismatch` |
+| `DeliveryAttemptHistory` | non-empty admitted attempt history | — | `DeliveryMissingAttemptHistory` |
+| `AttemptEnvelopeBindings` | attempt-to-envelope one-to-one bindings | — | `AttemptBindingMismatch` |
+| `DeliverySourceObservationProvenance` | immutable delivery ↔ source-observation provenance | `DeliveryMapIdentity`, `ObservationMapIdentity`, `SourceObservationBijection` | `SourceObservationMismatch` |
 
-The executable invariant layer is exposed as a typed, observational qualification boundary. `validate_state` rejects the first detected invariant violation without mutating state, allowing callers to distinguish a valid admitted state from specific classes of cross-ledger corruption. `validate_state_all` provides the corresponding audit form: it returns every violated invariant in deterministic registry order, so qualification tooling can inspect the complete corruption surface instead of being forced to stop at the first failure. `canonical_state_fingerprint` provides a deterministic comparison representation over the authoritative node, recognition, delivery, and observation ledgers; it intentionally does not claim cryptographic properties.
+The executable invariant layer is exposed as a typed, observational qualification boundary. `validate_state` rejects the first detected invariant violation without mutating state, allowing callers to distinguish a valid admitted state from specific classes of cross-ledger corruption. `validate_state_all` provides the corresponding audit form: it still evaluates every predicate and returns every violated invariant in deterministic registry order. Dependency metadata therefore documents and regression-tests semantic ordering without suppressing derived diagnostics; this preserves the useful distinction between independent corruption and corruption that cascades into a derived check. `canonical_state_fingerprint` provides a deterministic comparison representation over the authoritative node, recognition, delivery, and observation ledgers; it intentionally does not claim cryptographic properties.
 
 ## Cockpit seam\n\n`CockpitProjection` is intentionally a projection DTO rather than a source of truth. It exposes enough information for a Leptos cockpit to distinguish:\n\n- local authority;\n- foreign evidence;\n- explicitly delegated foreign authority;\n- origin;\n- logical delivery identity;\n- transport attempt identity;\n- semantic decision;\n- the reason for the decision.\n\nA future UI adapter must render these distinctions without collapsing them into a single status, trust score, or authority indicator.\n\n## Qualification boundary\n\nThe tests prove only the deterministic behavior of this reference model for the encoded fixtures. They do not prove:\n\n- transport reliability;\n- Holochain correctness;\n- production federation safety;\n- privacy compliance;\n- real-world authority;\n- economic, ecological, safety, or human outcomes;\n- Integral governance validity.\n\nThe model is an executable semantic oracle that runtime adapters can be tested against. It is not a ratification mechanism.\n
 
