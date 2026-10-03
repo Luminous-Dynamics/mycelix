@@ -45,6 +45,28 @@ struct Evidence {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+enum RecoveryStatusMirror {
+    Pending,
+    Approved,
+    ReadyToExecute,
+    Completed,
+    Rejected,
+    Cancelled,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+struct RecoveryRequestMirror {
+    id: String,
+    did: String,
+    new_agent: AgentPubKey,
+    initiated_by: String,
+    reason: String,
+    status: RecoveryStatusMirror,
+    created: Timestamp,
+    time_lock_expires: Option<Timestamp>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 struct DidDocument {
     id: String,
     controller: AgentPubKey,
