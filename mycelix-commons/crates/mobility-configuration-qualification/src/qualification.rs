@@ -1,4 +1,5 @@
 use crate::identity_lineage::IdentityRef;
+use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum QualificationStatus<T> {
@@ -31,6 +32,66 @@ pub enum QualificationDecision<T> {
         missing: Vec<IdentityRef>,
         partial: T,
     },
+}
+
+/// Explicit runtime-owned binding from a logical qualification dependency
+/// to one opaque protocol address.
+///
+/// The address type is intentionally generic: the pure layer never learns
+/// whether the runtime uses a Holochain hash, a database key, or another
+/// addressable representation. Binding is explicit and deterministic.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct QualificationDependencyBindingSet<A> {
+    bindings: BTreeMap<IdentityRef, A>,
+}
+
+impl<A> QualificationDependencyBindingSet<A> {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Add a logical identity binding exactly once.
+    ///
+    /// Rebinding an existing logical identity is rejected instead of silently
+    /// replacing the protocol address. A retry or address migration must build
+    /// a new binding set rather than mutate the meaning of an existing one.
+    pub fn insert(
+        &mut self,
+        identity: IdentityRef,
+        address: A,
+    ) -> Result<(), QualificationValidationError> {
+        identity
+            .validate()
+            .map_err(QualificationValidationError::structural)?;
+        if self.bindings.contains_key(&identity) {
+            return Err(QualificationValidationError::structural(
+                "logical qualification dependency cannot be bound to multiple protocol addresses",
+            ));
+        }
+        self.bindings.insert(identity, address);
+        Ok(())
+    }
+
+    pub fn get(&self, identity: &IdentityRef) -> Option<&A> {
+        self.bindings.get(identity)
+    }
+
+    pub fn contains(&self, identity: &IdentityRef) -> bool {
+        self.bindings.contains_key(identity)
+    }
+
+    pub fn len(&self) -> usize {
+        self.bindings.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.bindings.is_empty()
+    }
+
+    /// Iterate in canonical logical-identity order, independent of insertion order.
+    pub fn iter(&self) -> impl Iterator<Item = (&IdentityRef, &A)> {
+        self.bindings.iter()
+    }
 }
 
 impl<T> From<QualificationOutcome<T>> for QualificationDecision<T> {
@@ -267,6 +328,65 @@ mod tests {
             namespace: "mobility".into(),
             id: value.into(),
         }
+    }
+
+    #[test]
+    fn dependency_binding_set_rejects_logical_identity_rebinding() {
+        let mut bindings = QualificationDependencyBindingSet::new();
+        let identity = id("logical-1");
+
+        assert!(bindings.insert(identity.clone(), "address-a").is_ok());
+        let error = bindings
+            .insert(identity, "address-b")
+            .expect_err("a logical identity may not be rebound silently");
+
+        assert_eq!(
+            error.to_string(),
+            "logical qualification dependency cannot be bound to multiple protocol addresses"
+        );
+        assert_eq!(bindings.len(), 1);
+        assert_eq!(bindings.get(&id("logical-1")), Some(&"address-a"));
+    }
+
+    #[test]
+    fn dependency_binding_set_rejects_invalid_logical_identity() {
+        let mut bindings = QualificationDependencyBindingSet::new();
+        let invalid = IdentityRef {
+            kind: IdentityKind::EvidenceRecord,
+            namespace: "holochain".into(),
+            id: "not-a-native-engineering-id".into(),
+        };
+
+        assert!(bindings.insert(invalid, "address").is_err());
+        assert!(bindings.is_empty());
+    }
+
+    #[test]
+    fn dependency_binding_iteration_is_invariant_to_insertion_order() {
+        let a = id("a");
+        let b = id("b");
+
+        let mut first = QualificationDependencyBindingSet::new();
+        first.insert(b.clone(), "address-b").unwrap();
+        first.insert(a.clone(), "address-a").unwrap();
+
+        let mut second = QualificationDependencyBindingSet::new();
+        second.insert(a.clone(), "address-a").unwrap();
+        second.insert(b.clone(), "address-b").unwrap();
+
+        assert_eq!(
+            first.iter().collect::<Vec<_>>(),
+            second.iter().collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn dependency_binding_set_never_derives_an_address_from_identity_text() {
+        let mut bindings = QualificationDependencyBindingSet::new();
+        let identity = id("logical-with-hash-shaped-text");
+
+        bindings.insert(identity.clone(), 42u64).unwrap();
+        assert_eq!(bindings.get(&identity), Some(&42u64));
     }
 
     #[test]
