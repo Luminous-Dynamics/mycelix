@@ -135,6 +135,34 @@ def main():
         "AUTHENTICATED":4,
     }:
         fail("disposition census")
+
+    # Deterministic metamorphic probes mutate known-good semantics and require
+    # the disposition to cross the corresponding contract boundary.
+    import copy
+    seed = next(c["candidate"] for c in cases if c["id"]=="A-13")
+    probes=[]
+    m=copy.deepcopy(seed)
+    m["signed_subject"]["digest"]="sha256:mutated"
+    probes.append(("subject_digest_mutation",disposition({"candidate":m}),"REJECT_AUTHENTICATION"))
+    m=copy.deepcopy(seed)
+    m["signature"]["canonical_bytes_match"]=False
+    probes.append(("signature_bytes_mutation",disposition({"candidate":m}),"REJECT_AUTHENTICATION"))
+    m=copy.deepcopy(seed)
+    m["statement"]["scientific_proposition_status"]="false"
+    probes.append(("scientific_content_status_mutation",disposition({"candidate":m}),"AUTHENTICATED_CONTENT_UNQUALIFIED"))
+    seed_delegate = next(c["candidate"] for c in cases if c["id"]=="A-14")
+    m=copy.deepcopy(seed_delegate)
+    m["attester"]["requested_scope"]="study:999"
+    probes.append(("delegation_scope_mutation",disposition({"candidate":m}),"REJECT_AUTHENTICATION"))
+    seed_history = next(c["candidate"] for c in cases if c["id"]=="A-17")
+    m=copy.deepcopy(seed_history)
+    m["policy"]["historical_grace"]=False
+    probes.append(("historical_policy_removal",disposition({"candidate":m}),"REJECT_AUTHENTICATION"))
+    if any(actual != expected for _,actual,expected in probes):
+        fail("metamorphic probe")
+    print("SYM-CIVIC-006 METAMORPHIC="+json.dumps(
+        [{"probe":n,"disposition":a} for n,a,_ in probes],separators=(",",":")
+    ))
     payload={
         "program":d["program"],
         "schema":d["schema"],
