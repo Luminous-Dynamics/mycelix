@@ -16,7 +16,7 @@
     {"id":"DID-005","input":"did:mycelix:abc#key-1","kind":"did-url-not-did","expected":"reject-as-resolve-input","error":"INVALID_DID"},
     {"id":"DID-006","input":"did:mycelix:abc?versionId=1","kind":"did-url-not-did","expected":"reject-as-resolve-input","error":"INVALID_DID"},
     {"id":"DID-007","input":"did:mycelix:abc%20def","kind":"invalid","expected":"reject","error":"INVALID_DID"},
-    {"id":"DID-008","input":"did:key:abc","kind":"wrong-method","expected":"reject","error":"INVALID_DID"}
+    {"id":"DID-008","input":"did:key:abc","kind":"valid-other-method","expected":"method-not-supported-by-mycelix-resolver","error":"METHOD_NOT_SUPPORTED"}
   ],
   "resolution_vectors": [
     {"id":"RES-001","state":"existing-active","expected":{"didDocument":"present","didResolutionMetadata.contentType":"application/did","didDocumentMetadata.deactivated":false,"didDocumentMetadata.versionId":"1"}},
