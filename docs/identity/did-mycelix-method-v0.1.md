@@ -221,6 +221,9 @@ The current qualification laboratory maps concrete protocol behavior to determin
 | DSID-017 | structured W3C not-found resolution error |
 | DSID-018 | initial MFA factor hash binding |
 | DSID-019 | structured unsupported-method resolution error |
+| DSID-020 | recovery configuration owner binding |
+| DSID-021 | self-recovery request actor binding |
+| DSID-022 | cross-agent DHT-derived recovery quorum |
 
 The qualification workflow records scenario IDs, agents, DNA hash, action hashes, entry hashes, expected and observed behavior, pass state, and commit SHA, then hashes the complete evidence capsule.
 
@@ -238,6 +241,14 @@ The following are intentionally not implied to be complete:
 8. DID Method registration and interoperability test vectors.
 9. Production network-infrastructure guarantees and availability characteristics.
 10. Migration of the Identity implementation from the current Holochain 0.6 generation to the current 0.7 generation.
+
+## 13. Recovery authority model
+
+Social recovery configuration is controller-owned and cannot be attached to another controller's DID. Self-recovery requests are authored by the designated replacement agent; this permits recovery when the original controller is unavailable without letting an unrelated agent create the request.
+
+Trustee votes remain immutable records authored by individual trustees. Their quorum is therefore derived from DHT-visible vote records rather than requiring one trustee to mutate a request entry authored by another trustee. The `get_recovery_status` projection exposes the derived approval/rejection state across agents.
+
+The remaining recovery transition is deliberately separate: a completed recovery currently does not mutate the original DID controller. The safe protocol shape is a successor DID plus explicit recovery linkage, or another method-level transfer construction that preserves the identifier/controller binding. That transition remains a protocol design gate rather than being inferred from the existing recovery votes.
 
 ## References
 
