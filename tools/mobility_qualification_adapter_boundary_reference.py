@@ -22,7 +22,7 @@ EXPECTED_OUTCOMES = [
     (
         "unresolved",
         "qualification cannot complete because required logical dependencies are unavailable",
-        "ValidateCallbackResult::UnresolvedDependencies(UnresolvedDependencies)",
+        "ValidateCallbackResult::UnresolvedDependencies(...) after explicit address binding; an unbound logical identity remains pure Unresolved",
     ),
 ]
 
