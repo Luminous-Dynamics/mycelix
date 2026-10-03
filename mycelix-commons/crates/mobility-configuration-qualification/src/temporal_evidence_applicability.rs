@@ -2326,6 +2326,19 @@ mod tests {
     }
 
     #[test]
+    fn authority_graph_exposes_shared_qualification_status() {
+        let root = authority_delegation("shared-graph-authority");
+
+        assert_eq!(
+            EvidenceDispositionAuthorityDelegation::validate_graph_qualified(&[root.clone()])
+                .unwrap(),
+            QualificationStatus::Complete(AuthorityDelegationChainQualification {
+                roots: vec![root.delegation_id],
+            })
+        );
+    }
+
+    #[test]
     fn coverage_assessment_exposes_shared_qualification_status() {
         let missing = id(
             IdentityKind::ReconciliationWitness,
@@ -4968,6 +4981,22 @@ mod tests {
             Ok(EvidenceDispositionCoverageAssessment::Complete {
                 authority_roots: vec![delegation.delegation_id],
             })
+        );
+
+        assert_eq!(
+            coverage.validate_against_graph_and_authority_chain_qualified(
+                &reconciliation,
+                &scope,
+                &delegation,
+                &[delegation.clone()],
+                &boundary,
+                &[root, left, right, additional],
+            ),
+            Ok(QualificationStatus::Complete(
+                EvidenceDispositionCoverageQualification {
+                    authority_roots: vec![delegation.delegation_id],
+                },
+            ))
         );
     }
 
