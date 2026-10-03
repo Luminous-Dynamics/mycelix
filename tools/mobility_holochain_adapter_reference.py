@@ -54,8 +54,8 @@ def main() -> int:
 
     if "QualificationDecision::Valid" not in source:
         raise SystemExit("adapter must preserve the pure valid decision")
-    if "map_definitive_decision" not in source:
-        raise SystemExit("adapter must expose one definitive callback mapping seam")
+    if "finalize_callback" not in source:
+        raise SystemExit("adapter must expose one callback-facing semantic mapping seam")
     if "ValidateCallbackResult::Valid" not in source:
         raise SystemExit("adapter must map pure Valid directly")
     if "ValidateCallbackResult::Invalid" not in source:
