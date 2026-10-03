@@ -187,6 +187,48 @@ fn auto_create_mfa_state(did: &str, agent_pub_key: &AgentPubKey) -> ExternResult
     }
 }
 
+/// Emit identity lifecycle notifications only after the corresponding
+/// DID source-chain write has committed.
+#[hdk_extern(infallible)]
+pub fn post_commit(committed_actions: Vec<SignedActionHashed>) {
+    for action in committed_actions {
+        let action_hash = action.action_address().clone();
+        let Some(record) = get(action_hash.clone(), GetOptions::default()).ok().flatten()
+        else {
+            continue;
+        };
+
+        let Ok(Some(document)) = record
+            .entry()
+            .to_app_option::<DidDocument>()
+        else {
+            continue;
+        };
+
+        let payload = serde_json::json!({
+            "did": document.id,
+            "version": document.version,
+            "event": if matches!(action.action().data, ActionData::Create(_)) {
+                "did_created"
+            } else {
+                "did_updated"
+            },
+        }).to_string();
+
+        let event_type = if matches!(action.action().data, ActionData::Create(_)) {
+            "DidCreated"
+        } else {
+            "DidUpdated"
+        };
+
+        notify_bridge_of_did_event(
+            &document.id,
+            event_type,
+            &payload,
+        );
+    }
+}
+
 /// Notify bridge of DID creation for ecosystem-wide awareness
 fn notify_bridge_of_did_event(did: &str, event_type: &str, payload: &str) -> ExternResult<()> {
     #[derive(Serialize, Deserialize, Debug)]
@@ -461,16 +503,9 @@ pub fn create_did() -> ExternResult<Record> {
         );
     }
 
-    // Broadcast DidCreated event to bridge for ecosystem-wide awareness
-    let payload = serde_json::json!({
-        "did": did_id,
-        "event": "did_created",
-    })
-    .to_string();
-    if let Err(e) = notify_bridge_of_did_event(&did_id, "DidCreated", &payload) {
-        debug!("Failed to notify bridge of DID creation: {:?}", e);
-    }
-
+    // Ecosystem notification is emitted from post_commit so observers can
+    // never receive a DidCreated event for a DID whose source-chain commit
+    // later rolled back.
     let record = get(action_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Could not find created DID".into())
     ))?;
