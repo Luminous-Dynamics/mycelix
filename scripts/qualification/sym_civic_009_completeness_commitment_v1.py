@@ -8,7 +8,8 @@ from datetime import datetime, timezone
 
 ROOT=pathlib.Path(__file__).resolve().parents[2]
 MAN=ROOT/"mycelix-workspace/docs/civic-resilience/sym_civic_009_completeness_commitment.json"
-IDS=[f"C-{i:02d}" for i in range(1,19)]
+KNOWN_ATTESTERS={"did:example:alice"}
+IDS=[f"C-{i:02d}" for i in range(1,21)]
 
 def fail(m):
     raise SystemExit("SYM-CIVIC-009 FAIL: "+m)
@@ -22,6 +23,7 @@ def attester_ok(c):
     sig=k.get("signature",{})
     return (
         a.get("status")=="active"
+        and a.get("id") in KNOWN_ATTESTERS
         and sig.get("valid") is True
         and sig.get("canonical_bytes_match") is True
     )
@@ -36,6 +38,8 @@ def manifest_ok(c):
         return False
     if c.get("historical"):
         if k.get("manifest_digest") != c.get("historical_manifest_digest"):
+            return False
+        if c.get("historical_manifest_actual_digest") != c.get("historical_manifest_digest"):
             return False
     elif k.get("manifest_digest")!=m.get("digest"):
         return False
@@ -139,7 +143,7 @@ def main():
         "REJECT_COMPLETENESS_COMMITMENT","COMMITMENT_CONTENT_UNQUALIFIED","COMMITMENT_ACCEPTED"
     )}
     expected={
-        "REJECT_COMPLETENESS_COMMITMENT":13,
+        "REJECT_COMPLETENESS_COMMITMENT":15,
         "COMMITMENT_CONTENT_UNQUALIFIED":1,
         "COMMITMENT_ACCEPTED":4
     }
@@ -155,11 +159,16 @@ def main():
     probes.append(("manifest_digest_mutation",disposition({"candidate":m}),"REJECT_COMPLETENESS_COMMITMENT"))
     m=copy.deepcopy(seed); m["commitment"]["attester"]["status"]="unknown"
     probes.append(("attester_mutation",disposition({"candidate":m}),"REJECT_COMPLETENESS_COMMITMENT"))
+    m=copy.deepcopy(seed); m["commitment"]["attester"]["id"]="did:example:mallory"
+    probes.append(("attester_identity_mutation",disposition({"candidate":m}),"REJECT_COMPLETENESS_COMMITMENT"))
     m=copy.deepcopy(seed); m["commitment"]["scope"]=["bundle:other"]
     probes.append(("scope_mutation",disposition({"candidate":m}),"REJECT_COMPLETENESS_COMMITMENT"))
     seed_sig=next(c["candidate"] for c in cases if c["id"]=="C-14")
     m=copy.deepcopy(seed_sig); m["commitment"]["signature"]["valid"]=False
     probes.append(("signature_mutation",disposition({"candidate":m}),"REJECT_COMPLETENESS_COMMITMENT"))
+    hist=next(c["candidate"] for c in cases if c["id"]=="C-15")
+    m=copy.deepcopy(hist); m["historical_manifest_actual_digest"]="sha256:mutated"
+    probes.append(("historical_manifest_bytes_mutation",disposition({"candidate":m}),"REJECT_COMPLETENESS_COMMITMENT"))
     seed_unc=next(c["candidate"] for c in cases if c["id"]=="C-13")
     m=copy.deepcopy(seed_unc); m["completeness_status"]="unsupported"
     probes.append(("content_status_mutation",disposition({"candidate":m}),"COMMITMENT_CONTENT_UNQUALIFIED"))
@@ -172,7 +181,7 @@ def main():
     payload={"program":d["program"],"schema":d["schema"],
              "cases":[{"id":c["id"],"disposition":derived[c["id"]]} for c in cases]}
     digest=hashlib.sha256(json.dumps(payload,sort_keys=True,separators=(",",":")).encode()).hexdigest()
-    print(f"SYM-CIVIC-009 PASS: 18 completeness-commitment cases; rejection=13; content-unqualified=1; accepted=4; canonical receipt={digest}")
+    print(f"SYM-CIVIC-009 PASS: 18 completeness-commitment cases; rejection=15; content-unqualified=1; accepted=4; canonical receipt={digest}")
 
 if __name__=="__main__":
     main()
