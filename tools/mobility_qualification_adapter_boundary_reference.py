@@ -181,6 +181,14 @@ def main() -> int:
     require_bool(dependencies, "binding_preserves_address_kind", True)
     require_bool(dependencies, "valid_record_requires_action_hash", True)
     require_bool(dependencies, "wrong_address_kind_is_adapter_boundary_error", True)
+    mappings = dependencies.get("retrieval_kind_mappings")
+    expected_mappings = [
+        {"pure": "ValidRecord", "protocol_address_type": "ActionHash", "host_function": "must_get_valid_record"},
+        {"pure": "Action", "protocol_address_type": "ActionHash", "host_function": "must_get_action"},
+        {"pure": "Entry", "protocol_address_type": "EntryHash", "host_function": "must_get_entry"},
+    ]
+    if mappings != expected_mappings:
+        raise SystemExit("retrieval-kind host-function mapping contract changed")
     require_bool(dependencies, "binding_preserves_address_kind", True)
     require_bool(dependencies, "valid_record_requires_action_hash", True)
     require_bool(dependencies, "wrong_address_kind_is_adapter_boundary_error", True)
