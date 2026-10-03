@@ -85,6 +85,12 @@ impl EconomicSimulationTrace {
 
     /// Verify every receipt, its chain links, and the trace hash.
     pub fn verify(&self) -> Result<(), EconomicStepError> {
+        if self.initial_state_hash.is_empty() || self.final_state_hash.is_empty() || self.trace_hash.is_empty() {
+            return Err(EconomicStepError::Serialization(
+                "simulation trace requires non-empty initial, final, and trace hashes".into(),
+            ));
+        }
+
         let mut previous_period: Option<u64> = None;
 
         for (index, receipt) in self.receipts.iter().enumerate() {
@@ -235,6 +241,27 @@ mod tests {
             trace_a.final_state_hash,
             trace_b.final_state_hash
         );
+    }
+
+    #[test]
+    fn trace_verification_rejects_empty_identity_hashes() {
+        let initial = initial_state();
+        let steps = vec![EconomicSimulationStep {
+            period: 1,
+            transitions: vec![],
+        }];
+        let (_, mut trace) = EconomicSimulationTrace::run(&initial, &steps).unwrap();
+
+        trace.initial_state_hash.clear();
+        assert!(trace.verify().is_err());
+
+        let (_, mut trace) = EconomicSimulationTrace::run(&initial, &steps).unwrap();
+        trace.final_state_hash.clear();
+        assert!(trace.verify().is_err());
+
+        let (_, mut trace) = EconomicSimulationTrace::run(&initial, &steps).unwrap();
+        trace.trace_hash.clear();
+        assert!(trace.verify().is_err());
     }
 
     #[test]
