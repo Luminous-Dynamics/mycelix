@@ -17,7 +17,14 @@ def instant(v):
     return datetime.fromisoformat(v.replace("Z","+00:00")).astimezone(timezone.utc)
 
 def attester_ok(c):
-    return c.get("commitment",{}).get("attester",{}).get("status")=="active"
+    k=c.get("commitment",{})
+    a=k.get("attester",{})
+    sig=k.get("signature",{})
+    return (
+        a.get("status")=="active"
+        and sig.get("valid") is True
+        and sig.get("canonical_bytes_match") is True
+    )
 
 def bundle_binding_ok(c):
     b=c.get("bundle",{}); k=c.get("commitment",{})
@@ -131,7 +138,7 @@ def main():
         "REJECT_COMPLETENESS_COMMITMENT","COMMITMENT_CONTENT_UNQUALIFIED","COMMITMENT_ACCEPTED"
     )}
     expected={
-        "REJECT_COMPLETENESS_COMMITMENT":12,
+        "REJECT_COMPLETENESS_COMMITMENT":13,
         "COMMITMENT_CONTENT_UNQUALIFIED":1,
         "COMMITMENT_ACCEPTED":4
     }
@@ -149,6 +156,9 @@ def main():
     probes.append(("attester_mutation",disposition({"candidate":m}),"REJECT_COMPLETENESS_COMMITMENT"))
     m=copy.deepcopy(seed); m["commitment"]["scope"]=["bundle:other"]
     probes.append(("scope_mutation",disposition({"candidate":m}),"REJECT_COMPLETENESS_COMMITMENT"))
+    seed_sig=next(c["candidate"] for c in cases if c["id"]=="C-14")
+    m=copy.deepcopy(seed_sig); m["commitment"]["signature"]["valid"]=False
+    probes.append(("signature_mutation",disposition({"candidate":m}),"REJECT_COMPLETENESS_COMMITMENT"))
     seed_unc=next(c["candidate"] for c in cases if c["id"]=="C-13")
     m=copy.deepcopy(seed_unc); m["completeness_status"]="unsupported"
     probes.append(("content_status_mutation",disposition({"candidate":m}),"COMMITMENT_CONTENT_UNQUALIFIED"))
@@ -161,7 +171,7 @@ def main():
     payload={"program":d["program"],"schema":d["schema"],
              "cases":[{"id":c["id"],"disposition":derived[c["id"]]} for c in cases]}
     digest=hashlib.sha256(json.dumps(payload,sort_keys=True,separators=(",",":")).encode()).hexdigest()
-    print(f"SYM-CIVIC-009 PASS: 17 completeness-commitment cases; rejection=12; content-unqualified=1; accepted=4; canonical receipt={digest}")
+    print(f"SYM-CIVIC-009 PASS: 18 completeness-commitment cases; rejection=13; content-unqualified=1; accepted=4; canonical receipt={digest}")
 
 if __name__=="__main__":
     main()
