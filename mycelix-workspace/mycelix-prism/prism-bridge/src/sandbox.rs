@@ -10,8 +10,10 @@
 //! not represented as "enforced" by this adapter until a policy-specific,
 //! architecture-qualified filter is installed.
 
-use crate::process::{SandboxAdapterKind, SandboxEnforcementReceipt, SandboxInstallationId,
-    SandboxProfileV1, RendererProcessAssignmentId, ProcessContractError, SandboxEnforcementLayer, SandboxEnforcementSet};
+use crate::process::{
+    SandboxAdapterKind, SandboxEnforcementReceipt, SandboxInstallationId, SandboxProfileV1,
+    RendererProcessAssignmentId, SandboxEnforcementLayer,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SandboxEnforcementError {
@@ -19,7 +21,10 @@ pub enum SandboxEnforcementError {
     KernelInterfaceUnavailable,
     InvalidRuleset,
     EnforcementFailed(i32),
+    LandlockAbiTooOld(u32),
     IdentityGenerationFailed,
+    InvalidAssignmentId,
+    EvidenceIdentityFailed(i32),
 }
 
 impl core::fmt::Display for SandboxEnforcementError {
@@ -29,7 +34,10 @@ impl core::fmt::Display for SandboxEnforcementError {
             Self::KernelInterfaceUnavailable => f.write_str("required Linux sandbox interface unavailable"),
             Self::InvalidRuleset => f.write_str("invalid Landlock ruleset"),
             Self::EnforcementFailed(errno) => write!(f, "renderer sandbox enforcement failed: errno {errno}"),
+            Self::LandlockAbiTooOld(abi) => write!(f, "Landlock ABI {abi} lacks renderer thread-synchronization support"),
             Self::IdentityGenerationFailed => f.write_str("sandbox installation identity generation failed"),
+            Self::InvalidAssignmentId => f.write_str("renderer process assignment id must be non-zero"),
+            Self::EvidenceIdentityFailed(errno) => write!(f, "sandbox evidence identity lookup failed: errno {errno}"),
         }
     }
 }
@@ -40,10 +48,14 @@ impl std::error::Error for SandboxEnforcementError {}
 mod linux {
     use super::*;
     use std::mem::size_of;
-    use std::os::fd::{AsRawFd, RawFd};
+    use std::ffi::CString;
+    use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
+    use std::os::unix::ffi::OsStrExt;
 
     const LANDLOCK_CREATE_RULESET_VERSION: u32 = 1 << 0;
-    const LANDLOCK_CREATE_RULESET_ERRATA: u32 = 1 << 1;
+    const LANDLOCK_MIN_ABI_FOR_TSYNC: u32 = 8;
+    const LANDLOCK_RESTRICT_SELF_TSYNC: u32 = 1 << 3;
+    const LANDLOCK_RESTRICT_SELF_NO_NEW_PRIVS: u32 = 1 << 4;
     const LANDLOCK_RULE_PATH_BENEATH: u16 = 1;
     const LANDLOCK_ACCESS_FS_EXECUTE: u64 = 1 << 0;
     const LANDLOCK_ACCESS_FS_WRITE_FILE: u64 = 1 << 1;
@@ -68,14 +80,41 @@ mod linux {
         _reserved: u64,
     }
 
-    fn landlock_create_ruleset(attr: *const RulesetAttr, flags: u32) -> Result<RawFd, SandboxEnforcementError> {
-        let rc = unsafe { libc::syscall(libc::SYS_landlock_create_ruleset, attr, size_of::<RulesetAttr>(), flags) };
+    fn landlock_create_ruleset(
+        attr: *const RulesetAttr,
+        flags: u32,
+    ) -> Result<OwnedFd, SandboxEnforcementError> {
+        let rc = unsafe {
+            libc::syscall(
+                libc::SYS_landlock_create_ruleset,
+                attr,
+                size_of::<RulesetAttr>(),
+                flags,
+            )
+        };
         if rc < 0 {
             return Err(SandboxEnforcementError::EnforcementFailed(
                 std::io::Error::last_os_error().raw_os_error().unwrap_or(libc::ENOSYS),
             ));
         }
-        Ok(rc as RawFd)
+        Ok(unsafe { OwnedFd::from_raw_fd(rc as RawFd) })
+    }
+
+    fn landlock_abi_version() -> Result<u32, SandboxEnforcementError> {
+        let rc = unsafe {
+            libc::syscall(
+                libc::SYS_landlock_create_ruleset,
+                std::ptr::null::<RulesetAttr>(),
+                0usize,
+                LANDLOCK_CREATE_RULESET_VERSION,
+            )
+        };
+        if rc < 0 {
+            return Err(SandboxEnforcementError::EnforcementFailed(
+                std::io::Error::last_os_error().raw_os_error().unwrap_or(libc::ENOSYS),
+            ));
+        }
+        Ok(rc as u32)
     }
 
     fn set_no_new_privs() -> Result<(), SandboxEnforcementError> {
@@ -88,15 +127,59 @@ mod linux {
         Ok(())
     }
 
-    fn restrict_self(fd: RawFd) -> Result<(), SandboxEnforcementError> {
-        const LANDLOCK_RESTRICT_SELF_NO_NEW_PRIVS: u32 = 1 << 2;
-        let rc = unsafe { libc::syscall(libc::SYS_landlock_restrict_self, fd, LANDLOCK_RESTRICT_SELF_NO_NEW_PRIVS) };
+    fn restrict_self(fd: RawFd, abi: u32) -> Result<(), SandboxEnforcementError> {
+        let mut flags = LANDLOCK_RESTRICT_SELF_TSYNC;
+        if abi >= 11 {
+            // ABI 11+ can make no_new_privs conditional on successful
+            // enforcement, avoiding an irreversible privilege-state change
+            // when the ruleset application itself fails.
+            flags |= LANDLOCK_RESTRICT_SELF_NO_NEW_PRIVS;
+        } else {
+            set_no_new_privs()?;
+        }
+
+        let rc = unsafe {
+            libc::syscall(
+                libc::SYS_landlock_restrict_self,
+                fd,
+                flags,
+            )
+        };
         if rc != 0 {
             return Err(SandboxEnforcementError::EnforcementFailed(
                 std::io::Error::last_os_error().raw_os_error().unwrap_or(libc::EPERM),
             ));
         }
         Ok(())
+    }
+
+    fn filesystem_evidence_digest(
+        abi: u32,
+        handled_access_fs: u64,
+        root_fd: RawFd,
+    ) -> Result<[u8; 32], SandboxEnforcementError> {
+        // Bind evidence to the object actually opened for PATH_BENEATH rather
+        // than to the caller-supplied pathname. This prevents a pathname
+        // resolution change between open() and receipt construction from
+        // producing evidence for a different object than the enforced rule.
+        let mut metadata: libc::stat = unsafe { std::mem::zeroed() };
+        let rc = unsafe { libc::fstat(root_fd, &mut metadata) };
+        if rc != 0 {
+            return Err(SandboxEnforcementError::EvidenceIdentityFailed(
+                std::io::Error::last_os_error()
+                    .raw_os_error()
+                    .unwrap_or(libc::EIO),
+            ));
+        }
+
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(b"PRISM-LANDLOCK-FILESYSTEM-EVIDENCE-V3");
+        hasher.update(&abi.to_le_bytes());
+        hasher.update(&handled_access_fs.to_le_bytes());
+        hasher.update(&(metadata.st_dev as u64).to_le_bytes());
+        hasher.update(&(metadata.st_ino as u64).to_le_bytes());
+        hasher.update(&(metadata.st_mode as u64).to_le_bytes());
+        Ok(*hasher.finalize().as_bytes())
     }
 
     /// Install the first real OS-enforced filesystem boundary.
@@ -115,9 +198,28 @@ mod linux {
         profile: SandboxProfileV1,
         allowed_root: &std::path::Path,
     ) -> Result<SandboxEnforcementReceipt, SandboxEnforcementError> {
+        if assignment_id.0 == 0 {
+            return Err(SandboxEnforcementError::InvalidAssignmentId);
+        }
         if !allowed_root.is_absolute() {
             return Err(SandboxEnforcementError::InvalidRuleset);
         }
+
+        let abi = landlock_abi_version()?;
+        if abi < LANDLOCK_MIN_ABI_FOR_TSYNC {
+            return Err(SandboxEnforcementError::LandlockAbiTooOld(abi));
+        }
+
+        // Mint the installation identity before irreversible restriction.
+        // The filesystem policy may be followed by stricter layers that deny
+        // runtime services such as getrandom(2); evidence construction must
+        // never fail after enforcement has already become irreversible.
+        let mut installation_bytes = [0u8; 16];
+        getrandom::fill(&mut installation_bytes)
+            .map_err(|_| SandboxEnforcementError::IdentityGenerationFailed)?;
+        let installation_id = SandboxInstallationId::new(
+            u128::from_be_bytes(installation_bytes)
+        ).map_err(|_| SandboxEnforcementError::IdentityGenerationFailed)?;
 
         let handled = LANDLOCK_ACCESS_FS_EXECUTE
             | LANDLOCK_ACCESS_FS_WRITE_FILE
@@ -137,56 +239,98 @@ mod linux {
             | LANDLOCK_ACCESS_FS_IOCTL_DEV;
 
         let attr = RulesetAttr { handled_access_fs: handled, _reserved: 0 };
-        let fd = landlock_create_ruleset(&attr, 0)?;
-        let root_fd = std::fs::File::open(allowed_root)
-            .map_err(|e| SandboxEnforcementError::EnforcementFailed(e.raw_os_error().unwrap_or(libc::EACCES)))?;
+        let ruleset_fd = landlock_create_ruleset(&attr, 0)?;
+        // Landlock identifies PATH_BENEATH roots by file descriptor. Use
+        // O_PATH|O_CLOEXEC as recommended by the kernel interface so the
+        // qualification root is identified without requiring read access and
+        // without leaking the descriptor across exec.
+        let root_path = CString::new(allowed_root.as_os_str().as_bytes())
+            .map_err(|_| SandboxEnforcementError::InvalidRuleset)?;
+        let root_fd_raw = unsafe {
+            libc::open(
+                root_path.as_ptr(),
+                libc::O_PATH | libc::O_CLOEXEC,
+            )
+        };
+        if root_fd_raw < 0 {
+            return Err(SandboxEnforcementError::EnforcementFailed(
+                std::io::Error::last_os_error().raw_os_error().unwrap_or(libc::EACCES),
+            ));
+        }
+        let root_fd = unsafe { std::fs::File::from_raw_fd(root_fd_raw) };
 
-        #[repr(C)]
+        #[repr(C, packed)]
         struct PathBeneathAttr {
             allowed_access: u64,
-            parent_fd: u64,
+            parent_fd: i32,
         }
         let rule = PathBeneathAttr {
             allowed_access: handled,
-            parent_fd: root_fd.as_raw_fd() as u64,
+            parent_fd: root_fd.as_raw_fd(),
         };
 
         let rc = unsafe {
             libc::syscall(
                 libc::SYS_landlock_add_rule,
-                fd,
-                LANDLOCK_RULE_PATH_BENEATH,
+                ruleset_fd.as_raw_fd(),
+                LANDLOCK_RULE_PATH_BENEATH as libc::c_uint,
                 &rule,
                 0,
             )
         };
         if rc != 0 {
             let errno = std::io::Error::last_os_error().raw_os_error().unwrap_or(libc::EACCES);
-            unsafe { libc::close(fd); }
             return Err(SandboxEnforcementError::EnforcementFailed(errno));
         }
 
-        set_no_new_privs()?;
-        restrict_self(fd)?;
-        unsafe { libc::close(fd); }
+        // Complete every fallible evidence-construction step before the
+        // irreversible sandbox transition. A successful restriction must
+        // never be followed by a receipt-construction failure.
+        let evidence_digest =
+            filesystem_evidence_digest(abi, handled, root_fd.as_raw_fd())?;
+
+        restrict_self(ruleset_fd.as_raw_fd(), abi)?;
 
         // We only report actual enforcement after restrict_self() succeeds.
-        let installation_id = SandboxInstallationId::new(
-            u128::from_be_bytes({
-                let mut bytes = [0u8; 16];
-                getrandom::fill(&mut bytes).map_err(|_| SandboxEnforcementError::IdentityGenerationFailed)?;
-                bytes
-            })
-        ).map_err(|_| SandboxEnforcementError::IdentityGenerationFailed)?;
-
-        Ok(SandboxEnforcementReceipt {
+        SandboxEnforcementReceipt::from_adapter(
             assignment_id,
             installation_id,
-            adapter: SandboxAdapterKind::LinuxLandlockFilesystemV1,
-            policy_digest: profile.policy_digest(),
-            enforced_layers: SandboxEnforcementSet::from_layer(SandboxEnforcementLayer::Filesystem),
-            enforced: true,
-        })
+            SandboxAdapterKind::LinuxLandlockFilesystemV1,
+            profile.policy_digest(),
+            evidence_digest,
+            SandboxEnforcementLayer::Filesystem,
+        ).map_err(|_| SandboxEnforcementError::InvalidRuleset)
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn abi_11_uses_atomic_no_new_privs_enforcement() {
+            let abi = 11u32;
+            let mut flags = LANDLOCK_RESTRICT_SELF_TSYNC;
+            if abi >= 11 {
+                flags |= LANDLOCK_RESTRICT_SELF_NO_NEW_PRIVS;
+            }
+            assert_eq!(
+                flags,
+                LANDLOCK_RESTRICT_SELF_TSYNC | LANDLOCK_RESTRICT_SELF_NO_NEW_PRIVS
+            );
+        }
+
+        #[test]
+        fn zero_assignment_rejects_landlock_before_enforcement() {
+            let profile = SandboxProfileV1::renderer_default();
+            assert!(matches!(
+                install(
+                    RendererProcessAssignmentId(0),
+                    profile,
+                    std::path::Path::new("/"),
+                ),
+                Err(SandboxEnforcementError::InvalidAssignmentId)
+            ));
+        }
     }
 }
 

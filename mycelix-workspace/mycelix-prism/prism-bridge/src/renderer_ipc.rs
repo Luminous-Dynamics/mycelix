@@ -148,15 +148,15 @@ impl RendererCapabilityConnection {
         stream: UnixStream,
         controller: Arc<Mutex<RendererSecurityController>>,
     ) -> Result<Self, RendererIpcError> {
-        {
+        let session_id = {
             let mut guard = controller.lock().map_err(|_| RendererIpcError::SecurityController(
                 RendererSecurityError::NoActiveBinding,
             ))?;
-            let session_id = guard
+            guard
                 .establish_renderer_session(&stream)
-                .map_err(RendererIpcError::SecurityController)?;
-            return Ok(Self { stream, controller, session_id });
-        }
+                .map_err(RendererIpcError::SecurityController)?
+        };
+        Ok(Self { stream, controller, session_id })
     }
 
     pub fn authoritative(&self) -> Result<RendererBinding, RendererIpcError> {
@@ -196,6 +196,7 @@ impl RendererCapabilityConnection {
             .admit_envelope(
                 &self.stream,
                 authoritative.generation,
+                &authoritative,
                 self.session_id,
                 envelope.request_id,
                 &envelope.payload,
@@ -262,17 +263,6 @@ mod tests {
     use crate::identity::{AgentClusterId, RendererProcessId, SiteIdentity};
     use tokio::io::AsyncWriteExt;
     use tokio::net::UnixStream;
-
-    fn binding(process: RendererProcessId, generation: u64) -> RendererBinding {
-        RendererBinding {
-            process,
-            site: SiteIdentity::new("https://example.com").unwrap(),
-            origin: OriginBinding::new("https://example.com").unwrap(),
-            agent_cluster: AgentClusterId::new(1).unwrap(),
-            generation,
-        }
-    }
-
 
     fn controller(process: RendererProcessId, generation: u64) -> Arc<Mutex<RendererSecurityController>> {
         let mut controller = RendererSecurityController::new();
@@ -407,7 +397,7 @@ mod tests {
         writer.write_all(&envelope).await.unwrap();
 
         let mut connection =
-            RendererCapabilityConnection::from_stream(reader, controller(process, 2)).unwrap();
+            RendererCapabilityConnection::from_stream(reader, controller(process, 1)).unwrap();
         connection.close();
 
         assert!(matches!(

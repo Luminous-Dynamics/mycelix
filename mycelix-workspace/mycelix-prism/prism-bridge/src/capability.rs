@@ -246,7 +246,7 @@ impl std::error::Error for CapabilityError {}
 ///
 /// This is intentionally small and deterministic. It does not replace
 /// transport authentication or authorization.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct RequestSequence {
     last: Option<RequestId>,
 }

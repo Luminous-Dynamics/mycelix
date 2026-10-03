@@ -5,19 +5,23 @@ on:
     paths:
       - "mycelix-workspace/mycelix-prism/prism-bridge/**"
       - "mycelix-workspace/mycelix-prism/prism-common/**"
-      - "mycelix-workspace/mycelix-prism/Cargo.toml"
-      - "mycelix-workspace/mycelix-prism/Cargo.lock"
+      - "mycelix-workspace/Cargo.toml"
+      - "mycelix-workspace/Cargo.lock"
+      - "mycelix-workspace/mycelix-prism/**"
       - ".github/workflows/prism-bridge-qualification.yml"
   push:
     branches:
       - main
-      - "security/prism-*"
     paths:
       - "mycelix-workspace/mycelix-prism/prism-bridge/**"
       - "mycelix-workspace/mycelix-prism/prism-common/**"
       - "mycelix-workspace/mycelix-prism/Cargo.toml"
       - "mycelix-workspace/mycelix-prism/Cargo.lock"
       - ".github/workflows/prism-bridge-qualification.yml"
+
+concurrency:
+  group: prism-bridge-qualification-${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -27,8 +31,54 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: mycelix-workspace/mycelix-prism
+        working-directory: mycelix-workspace
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - run: cargo test -p prism-bridge --locked
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d
+        with:
+          toolchain: 1.96.0
+      - run: cargo +1.96.0 test -p prism-bridge --locked
+
+      - name: Emit qualification identity
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="${RUNNER_TEMP}/prism-bridge-qualification-evidence.txt"
+          expected_head="${{ github.event.pull_request.head.sha || github.sha }}"
+          checked_out_head="$(git rev-parse HEAD)"
+          job_status="${{ job.status }}"
+          qualified="false"
+          if [[ "${job_status}" == "success" && "${checked_out_head}" == "${expected_head}" ]]; then
+            qualified="true"
+          fi
+
+          {
+            echo "schema=PRISM-BRIDGE-QUALIFICATION-EVIDENCE-V1"
+            echo "qualification=PRISM-BRIDGE-CANONICAL"
+            echo "qualified=${qualified}"
+            echo "job_status=${job_status}"
+            echo "workflow=${GITHUB_WORKFLOW}"
+            echo "run_id=${GITHUB_RUN_ID}"
+            echo "run_attempt=${GITHUB_RUN_ATTEMPT}"
+            echo "tested_head=${expected_head}"
+            echo "checked_out_head=${checked_out_head}"
+            echo "event_sha=${GITHUB_SHA}"
+            echo "rust=1.96.0"
+          } | tee "${evidence}"
+
+          if [[ "${checked_out_head}" != "${expected_head}" ]]; then
+            echo "ERROR: checkout provenance mismatch" | tee -a "${evidence}" >&2
+            exit 1
+          fi
+
+      - name: Upload qualification evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: prism-bridge-qualification-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/prism-bridge-qualification-evidence.txt
+          if-no-files-found: error
+          retention-days: 90

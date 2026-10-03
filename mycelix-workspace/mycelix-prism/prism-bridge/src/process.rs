@@ -32,6 +32,7 @@ pub struct SandboxProfileV1 {
     pub filesystem: FilesystemPolicy,
     pub devices: DevicePolicy,
     pub child_processes: ChildProcessPolicy,
+    syscall_policy_digest: [u8; 32],
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -57,13 +58,15 @@ pub enum ChildProcessPolicy {
 impl SandboxProfileV1 {
     /// Stable commitment to the requested policy; this is not proof of OS enforcement.
     pub fn policy_digest(&self) -> [u8; 32] {
-        let bytes = [
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(&[
             match self.network { NetworkPolicy::BrokerOnly => 1 },
             match self.filesystem { FilesystemPolicy::NoAmbientAccess => 1 },
             match self.devices { DevicePolicy::None => 1 },
             match self.child_processes { ChildProcessPolicy::Deny => 1 },
-        ];
-        *blake3::hash(&bytes).as_bytes()
+        ]);
+        hasher.update(&self.syscall_policy_digest);
+        *hasher.finalize().as_bytes()
     }
 
     pub const fn renderer_default() -> Self {
@@ -72,7 +75,23 @@ impl SandboxProfileV1 {
             filesystem: FilesystemPolicy::NoAmbientAccess,
             devices: DevicePolicy::None,
             child_processes: ChildProcessPolicy::Deny,
+            syscall_policy_digest: [0u8; 32],
         }
+    }
+
+    /// Bind a qualified renderer syscall policy commitment to this profile.
+    /// The zero digest is intentionally rejected so an uncommitted profile
+    /// can never be mistaken for one with an approved syscall policy.
+    pub fn with_syscall_policy_digest(mut self, digest: [u8; 32]) -> Result<Self, ProcessContractError> {
+        if digest == [0u8; 32] {
+            return Err(ProcessContractError::InvalidSyscallPolicyCommitment);
+        }
+        self.syscall_policy_digest = digest;
+        Ok(self)
+    }
+
+    pub fn syscall_policy_digest(&self) -> [u8; 32] {
+        self.syscall_policy_digest
     }
 }
 
@@ -90,6 +109,8 @@ impl SandboxInstallationId {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SandboxAdapterKind {
     LinuxLandlockFilesystemV1,
+    LinuxSeccompSyscallV1,
+    LinuxSeccompSyscallV2,
     UnsupportedPlatform,
 }
 
@@ -102,6 +123,7 @@ pub enum SandboxEnforcementLayer {
     Network = 1,
     Device = 2,
     ChildProcess = 3,
+    Syscall = 4,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -123,20 +145,108 @@ impl SandboxProfileV1 {
             .union(SandboxEnforcementSet::from_layer(SandboxEnforcementLayer::Network))
             .union(SandboxEnforcementSet::from_layer(SandboxEnforcementLayer::Device))
             .union(SandboxEnforcementSet::from_layer(SandboxEnforcementLayer::ChildProcess))
+            .union(SandboxEnforcementSet::from_layer(SandboxEnforcementLayer::Syscall))
     }
 }
 
-/// Non-secret evidence from an OS sandbox adapter. The policy digest commits to
-/// the requested profile; enforced_layers records what this adapter actually
-/// enforced. A digest alone is never proof of enforcement.
+/// Non-secret evidence from exactly one OS sandbox adapter/layer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SandboxEnforcementReceipt {
-    pub assignment_id: RendererProcessAssignmentId,
-    pub installation_id: SandboxInstallationId,
-    pub adapter: SandboxAdapterKind,
-    pub policy_digest: [u8; 32],
-    pub enforced_layers: SandboxEnforcementSet,
-    pub enforced: bool,
+    assignment_id: RendererProcessAssignmentId,
+    installation_id: SandboxInstallationId,
+    adapter: SandboxAdapterKind,
+    profile_digest: [u8; 32],
+    evidence_digest: [u8; 32],
+    layer: SandboxEnforcementLayer,
+}
+
+impl SandboxEnforcementReceipt {
+    /// Broker-internal constructor. The adapter/layer mapping is checked here
+    /// so one adapter cannot manufacture evidence for an unrelated layer.
+    pub(crate) fn from_adapter(
+        assignment_id: RendererProcessAssignmentId,
+        installation_id: SandboxInstallationId,
+        adapter: SandboxAdapterKind,
+        profile_digest: [u8; 32],
+        evidence_digest: [u8; 32],
+        layer: SandboxEnforcementLayer,
+    ) -> Result<Self, ProcessContractError> {
+        let valid = matches!(
+            (adapter, layer),
+            (SandboxAdapterKind::LinuxLandlockFilesystemV1, SandboxEnforcementLayer::Filesystem)
+                | (SandboxAdapterKind::LinuxSeccompSyscallV1, SandboxEnforcementLayer::Syscall)
+                | (SandboxAdapterKind::LinuxSeccompSyscallV2, SandboxEnforcementLayer::Syscall)
+        );
+        if !valid
+            || assignment_id.0 == 0
+            || installation_id.0 == 0
+            || profile_digest == [0u8; 32]
+            || evidence_digest == [0u8; 32]
+            || profile_digest == evidence_digest
+        {
+            return Err(ProcessContractError::InvalidSandboxEvidence);
+        }
+        Ok(Self { assignment_id, installation_id, adapter, profile_digest, evidence_digest, layer })
+    }
+
+    pub fn assignment_id(&self) -> RendererProcessAssignmentId { self.assignment_id }
+    pub fn installation_id(&self) -> SandboxInstallationId { self.installation_id }
+    pub fn adapter(&self) -> SandboxAdapterKind { self.adapter }
+    pub fn profile_digest(&self) -> [u8; 32] { self.profile_digest }
+    pub fn evidence_digest(&self) -> [u8; 32] { self.evidence_digest }
+    pub fn layer(&self) -> SandboxEnforcementLayer { self.layer }
+}
+
+/// Independently evidenced sandbox layers for one renderer assignment.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SandboxEvidenceBundle {
+    assignment_id: RendererProcessAssignmentId,
+    policy_digest: [u8; 32],
+    enforced_layers: SandboxEnforcementSet,
+    receipts: [Option<SandboxEnforcementReceipt>; 5],
+}
+
+impl SandboxEvidenceBundle {
+    pub fn new(
+        assignment_id: RendererProcessAssignmentId,
+        policy_digest: [u8; 32],
+    ) -> Self {
+        Self {
+            assignment_id,
+            policy_digest,
+            enforced_layers: SandboxEnforcementSet::EMPTY,
+            receipts: [None; 5],
+        }
+    }
+
+    pub fn record(
+        &mut self,
+        receipt: SandboxEnforcementReceipt,
+    ) -> Result<(), ProcessContractError> {
+        if receipt.assignment_id != self.assignment_id
+            || receipt.profile_digest != self.policy_digest
+            || receipt.installation_id.0 == 0
+        {
+            return Err(ProcessContractError::SandboxEvidenceMismatch);
+        }
+        let index = receipt.layer as usize;
+        if self.enforced_layers.contains(receipt.layer) || self.receipts[index].is_some() {
+            return Err(ProcessContractError::DuplicateSandboxEvidence);
+        }
+        self.enforced_layers = self.enforced_layers.union(
+            SandboxEnforcementSet::from_layer(receipt.layer)
+        );
+        self.receipts[index] = Some(receipt);
+        Ok(())
+    }
+
+    pub fn assignment_id(&self) -> RendererProcessAssignmentId { self.assignment_id }
+    pub fn policy_digest(&self) -> [u8; 32] { self.policy_digest }
+    pub fn enforced_layers(&self) -> SandboxEnforcementSet { self.enforced_layers }
+
+    pub fn receipt(&self, layer: SandboxEnforcementLayer) -> Option<SandboxEnforcementReceipt> {
+        self.receipts[layer as usize]
+    }
 }
 
 /// Kernel-observed process identity. PID alone is deliberately insufficient.
@@ -159,17 +269,29 @@ impl ProcessIdentity {
 /// process observation, generation, and the sandbox policy that was required.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RendererLaunchReceipt {
-    pub assignment_id: RendererProcessAssignmentId,
-    pub renderer_process: RendererProcessId,
-    pub process: ProcessIdentity,
-    pub generation: u64,
-    pub sandbox: SandboxProfileV1,
+    assignment_id: RendererProcessAssignmentId,
+    renderer_process: RendererProcessId,
+    process: ProcessIdentity,
+    generation: u64,
+    sandbox: SandboxProfileV1,
+}
+
+impl RendererLaunchReceipt {
+    pub fn assignment_id(&self) -> RendererProcessAssignmentId { self.assignment_id }
+    pub fn renderer_process(&self) -> RendererProcessId { self.renderer_process }
+    pub fn process(&self) -> ProcessIdentity { self.process }
+    pub fn generation(&self) -> u64 { self.generation }
+    pub fn sandbox(&self) -> SandboxProfileV1 { self.sandbox }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProcessContractError {
     InvalidAssignmentId,
     InvalidSandboxInstallationId,
+    InvalidSandboxEvidence,
+    InvalidSyscallPolicyCommitment,
+    SandboxEvidenceMismatch,
+    DuplicateSandboxEvidence,
     InvalidProcessIdentity,
     ProcessAlreadyAssigned,
     NoActiveAssignment,
@@ -183,6 +305,10 @@ impl fmt::Display for ProcessContractError {
         match self {
             Self::InvalidAssignmentId => f.write_str("renderer process assignment id must be non-zero"),
             Self::InvalidSandboxInstallationId => f.write_str("sandbox installation id must be non-zero"),
+            Self::InvalidSandboxEvidence => f.write_str("sandbox adapter cannot attest to the requested enforcement layer"),
+            Self::InvalidSyscallPolicyCommitment => f.write_str("renderer syscall policy commitment must be non-zero"),
+            Self::SandboxEvidenceMismatch => f.write_str("sandbox evidence does not match the renderer assignment or policy"),
+            Self::DuplicateSandboxEvidence => f.write_str("sandbox enforcement layer was already evidenced"),
             Self::InvalidProcessIdentity => f.write_str("renderer process identity is invalid"),
             Self::ProcessAlreadyAssigned => f.write_str("a renderer process assignment is already active"),
             Self::NoActiveAssignment => f.write_str("no renderer process assignment is active"),
@@ -329,6 +455,87 @@ mod tests {
         assert_ne!(a, b);
         assert_ne!(a.0, 0);
         assert_ne!(b.0, 0);
+    }
+
+
+    #[test]
+    fn sandbox_receipt_rejects_policy_evidence_digest_aliasing() {
+        let assignment_id = RendererProcessAssignmentId::new(1).unwrap();
+        let installation_id = SandboxInstallationId::new(2).unwrap();
+        let digest = [0x44; 32];
+
+        let receipt = SandboxEnforcementReceipt::from_adapter(
+            assignment_id,
+            installation_id,
+            SandboxAdapterKind::LinuxLandlockFilesystemV1,
+            digest,
+            digest,
+            SandboxEnforcementLayer::Filesystem,
+        );
+
+        assert!(matches!(
+            receipt,
+            Err(ProcessContractError::InvalidSandboxEvidence)
+        ));
+    }
+
+    #[test]
+    fn sandbox_receipt_preserves_v2_seccomp_adapter_identity() {
+        let assignment_id = RendererProcessAssignmentId::new(1).unwrap();
+        let installation_id = SandboxInstallationId::new(2).unwrap();
+        let profile_digest = [0x11; 32];
+        let evidence_digest = [0x22; 32];
+
+        let receipt = SandboxEnforcementReceipt::from_adapter(
+            assignment_id,
+            installation_id,
+            SandboxAdapterKind::LinuxSeccompSyscallV2,
+            profile_digest,
+            evidence_digest,
+            SandboxEnforcementLayer::Syscall,
+        ).unwrap();
+
+        assert_eq!(receipt.adapter(), SandboxAdapterKind::LinuxSeccompSyscallV2);
+        assert_eq!(receipt.layer(), SandboxEnforcementLayer::Syscall);
+    }
+
+    #[test]
+    fn evidence_bundle_retains_independent_layer_receipts() {
+        let assignment_id = RendererProcessAssignmentId::new(1).unwrap();
+        let installation_id = SandboxInstallationId::new(2).unwrap();
+        let profile_digest = SandboxProfileV1::renderer_default().policy_digest();
+        let receipt = SandboxEnforcementReceipt::from_adapter(
+            assignment_id,
+            installation_id,
+            SandboxAdapterKind::LinuxLandlockFilesystemV1,
+            profile_digest,
+            [0x33; 32],
+            SandboxEnforcementLayer::Filesystem,
+        ).unwrap();
+
+        let mut bundle = SandboxEvidenceBundle::new(assignment_id, profile_digest);
+        bundle.record(receipt).unwrap();
+
+        assert_eq!(bundle.receipt(SandboxEnforcementLayer::Filesystem), Some(receipt));
+        assert!(bundle.receipt(SandboxEnforcementLayer::Syscall).is_none());
+    }
+
+    #[test]
+    fn sandbox_receipt_rejects_empty_evidence() {
+        let assignment_id = RendererProcessAssignmentId::new(1).unwrap();
+        let installation_id = SandboxInstallationId::new(2).unwrap();
+        let receipt = SandboxEnforcementReceipt::from_adapter(
+            assignment_id,
+            installation_id,
+            SandboxAdapterKind::LinuxSeccompSyscallV1,
+            [0x11; 32],
+            [0u8; 32],
+            SandboxEnforcementLayer::Syscall,
+        );
+        assert!(matches!(
+            receipt,
+            Err(ProcessContractError::InvalidSandboxEvidence)
+        ));
     }
 
     #[test]
