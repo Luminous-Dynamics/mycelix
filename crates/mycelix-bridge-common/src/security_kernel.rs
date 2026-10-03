@@ -545,7 +545,7 @@ pub(crate) fn test_enforcement_request() -> EnforcementRequest {
         &capability,
         SignatureVerification::Verified,
         RevocationStatus::Current,
-        AuthorityResolution::Unambiguous
+        AuthorityResolution::Unambiguous,
     );
     let verified = verify_capability(capability.clone(), evidence, 150).unwrap();
     let request = AuthorizationRequest::new(
@@ -560,7 +560,7 @@ pub(crate) fn test_enforcement_request() -> EnforcementRequest {
         &capability,
         SignatureVerification::Verified,
         RevocationStatus::Current,
-        AuthorityResolution::Unambiguous
+        AuthorityResolution::Unambiguous,
     );
     EnforcementRequest::from_permit(permit, enforcement_evidence, 150).unwrap()
 }
@@ -749,7 +749,7 @@ mod tests {
                 &capability(),
                 SignatureVerification::Verified,
                 RevocationStatus::Current,
-                AuthorityResolution::Unambiguous
+                AuthorityResolution::Unambiguous,
             ),
             150,
         )
@@ -925,7 +925,7 @@ mod tests {
                 &other,
                 SignatureVerification::Verified,
                 RevocationStatus::Current,
-                AuthorityResolution::Unambiguous
+                AuthorityResolution::Unambiguous,
             ),
             150,
         );
@@ -951,7 +951,7 @@ mod tests {
                 &capability(),
                 SignatureVerification::Verified,
                 RevocationStatus::Current,
-                AuthorityResolution::Unambiguous
+                AuthorityResolution::Unambiguous,
             ),
             150,
         )
@@ -974,7 +974,7 @@ mod tests {
                     SignatureVerification::Verified,
                     RevocationStatus::Current,
                     AuthorityResolution::Unambiguous,
-                    175
+                    175,
                 ),
                 175,
             )
@@ -990,7 +990,7 @@ mod tests {
             &cap,
             SignatureVerification::Verified,
             RevocationStatus::Current,
-            AuthorityResolution::Unambiguous
+            AuthorityResolution::Unambiguous,
         );
 
         assert!(verify_capability(cap.clone(), evidence.clone(), cap.expires_at_us - 1).is_ok());
@@ -1024,7 +1024,7 @@ mod tests {
                 SignatureVerification::Verified,
                 RevocationStatus::Current,
                 AuthorityResolution::Unambiguous,
-                175
+                175,
             ),
             150,
         )
@@ -1050,7 +1050,7 @@ mod tests {
             &cap,
             SignatureVerification::Verified,
             RevocationStatus::Current,
-            AuthorityResolution::Unambiguous
+            AuthorityResolution::Unambiguous,
         );
         let verified = verify_capability(cap, evidence, u64::MAX - 1).unwrap();
         assert_eq!(
@@ -1076,7 +1076,7 @@ mod tests {
                 SignatureVerification::Verified,
                 RevocationStatus::Current,
                 AuthorityResolution::Unambiguous,
-                permit.valid_until_us
+                permit.valid_until_us,
             );
         let permit_valid_until_us = permit.valid_until_us;
         assert_eq!(
@@ -1105,7 +1105,7 @@ mod tests {
                 &long_lived,
                 SignatureVerification::Verified,
                 RevocationStatus::Current,
-                AuthorityResolution::Unambiguous
+                AuthorityResolution::Unambiguous,
             ),
             150,
         )
@@ -1128,7 +1128,7 @@ mod tests {
                 &capability(),
                 SignatureVerification::Verified,
                 RevocationStatus::Current,
-                AuthorityResolution::Unambiguous
+                AuthorityResolution::Unambiguous,
             ),
             149,
         );
@@ -1150,7 +1150,7 @@ mod tests {
                 &capability(),
                 SignatureVerification::Invalid,
                 RevocationStatus::Current,
-                AuthorityResolution::Unambiguous
+                AuthorityResolution::Unambiguous,
             ),
             151,
         );
@@ -1181,7 +1181,7 @@ mod tests {
                 &other,
                 SignatureVerification::Verified,
                 RevocationStatus::Current,
-                AuthorityResolution::Unambiguous
+                AuthorityResolution::Unambiguous,
             ),
             151,
         );
@@ -1203,7 +1203,7 @@ mod tests {
                 SignatureVerification::Verified,
                 RevocationStatus::Current,
                 AuthorityResolution::Unambiguous,
-                175
+                175,
             ),
             150,
         )
@@ -1216,7 +1216,7 @@ mod tests {
                 SignatureVerification::Verified,
                 RevocationStatus::Current,
                 AuthorityResolution::Unambiguous,
-                175
+                175,
             ),
             175,
         );
@@ -1238,7 +1238,7 @@ mod tests {
                 SignatureVerification::Verified,
                 RevocationStatus::Current,
                 AuthorityResolution::Unambiguous,
-                175
+                175,
             );
         let verified = verify_capability(cap, evidence, 150).unwrap();
         assert_eq!(
@@ -1259,7 +1259,7 @@ mod tests {
                 SignatureVerification::Verified,
                 RevocationStatus::Current,
                 AuthorityResolution::Unambiguous,
-                200
+                200,
             );
         assert_eq!(
             verify_capability(cap, evidence, 150).unwrap_err(),
@@ -1277,7 +1277,7 @@ mod tests {
                 SignatureVerification::Verified,
                 RevocationStatus::Current,
                 AuthorityResolution::Unambiguous,
-                200
+                200,
             );
         let verified = verify_capability(cap.clone(), valid_evidence, 150).unwrap();
         let permit = authorize_permit(&verified, &request(CapabilityAction::Read), 150).unwrap();
@@ -1288,7 +1288,7 @@ mod tests {
                 SignatureVerification::Verified,
                 RevocationStatus::Current,
                 AuthorityResolution::Unambiguous,
-                200
+                200,
             );
         assert_eq!(
             revalidate_permit(&permit, missing_evidence, 151),
@@ -1330,7 +1330,7 @@ mod tests {
                 SignatureVerification::Verified,
                 RevocationStatus::Current,
                 AuthorityResolution::Unambiguous,
-                175
+                175,
             );
         let verified = verify_capability(cap.clone(), initial_evidence, 150).unwrap();
         let permit = authorize_permit(&verified, &request(CapabilityAction::Read), 150).unwrap();
@@ -1344,7 +1344,7 @@ mod tests {
                     SignatureVerification::Verified,
                     RevocationStatus::Current,
                     AuthorityResolution::Unambiguous,
-                    190
+                    190,
                 ),
                 174,
             ),
@@ -1358,7 +1358,7 @@ mod tests {
             SignatureVerification::Verified,
             RevocationStatus::Current,
             AuthorityResolution::Unambiguous,
-            190
+            190,
         );
         assert_eq!(
             revalidate_permit(&permit, refreshed_evidence, 175),
@@ -1373,7 +1373,7 @@ mod tests {
                 SignatureVerification::Verified,
                 RevocationStatus::Current,
                 AuthorityResolution::Unambiguous,
-                190
+                190,
             ),
             175,
         )
@@ -1394,7 +1394,7 @@ mod tests {
                 SignatureVerification::Verified,
                 RevocationStatus::Current,
                 AuthorityResolution::Unambiguous,
-                200
+                200,
             );
         let verified = verify_capability(cap.clone(), evidence_a, 150).unwrap();
         let permit = authorize_permit(&verified, &request(CapabilityAction::Read), 150).unwrap();
@@ -1406,7 +1406,7 @@ mod tests {
                 SignatureVerification::Verified,
                 RevocationStatus::Current,
                 AuthorityResolution::Unambiguous,
-                200
+                200,
             );
         assert_eq!(
             revalidate_permit(&permit, evidence_b, 151),
@@ -1424,7 +1424,7 @@ mod tests {
             SignatureVerification::Verified,
             RevocationStatus::Current,
             AuthorityResolution::Unambiguous,
-            200
+            200,
         );
         let verified = verify_capability(cap.clone(), evidence, 150).unwrap();
         let permit = authorize_permit(&verified, &request(CapabilityAction::Read), 150).unwrap();
@@ -1436,7 +1436,7 @@ mod tests {
                 SignatureVerification::Verified,
                 RevocationStatus::Current,
                 AuthorityResolution::Unambiguous,
-                200
+                200,
             ),
             151,
         )
@@ -1453,7 +1453,7 @@ mod tests {
                 &capability(),
                 SignatureVerification::Verified,
                 RevocationStatus::Revoked,
-                AuthorityResolution::Unambiguous
+                AuthorityResolution::Unambiguous,
             ),
             151,
         );
@@ -1496,7 +1496,7 @@ mod tests {
                 &capability(),
                 SignatureVerification::Invalid,
                 RevocationStatus::Current,
-                AuthorityResolution::Unambiguous
+                AuthorityResolution::Unambiguous,
             ),
             150,
         );
@@ -1516,7 +1516,7 @@ mod tests {
                 &capability(),
                 SignatureVerification::Verified,
                 RevocationStatus::Revoked,
-                AuthorityResolution::Unambiguous
+                AuthorityResolution::Unambiguous,
             ),
             150,
         );
@@ -1536,7 +1536,7 @@ mod tests {
                 &capability(),
                 SignatureVerification::Verified,
                 RevocationStatus::Current,
-                AuthorityResolution::Ambiguous
+                AuthorityResolution::Ambiguous,
             ),
             150,
         );
@@ -1620,7 +1620,7 @@ mod tests {
             &malformed,
             SignatureVerification::Verified,
             RevocationStatus::Current,
-            AuthorityResolution::Unambiguous
+            AuthorityResolution::Unambiguous,
         );
         assert_eq!(
             verify_capability(malformed, evidence, 1),
