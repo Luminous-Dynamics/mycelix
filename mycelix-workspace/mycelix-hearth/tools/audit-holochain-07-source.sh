@@ -222,6 +222,28 @@ check_update_action_coverage() {
   fi
 }
 
+# Every declared EntryTypes variant must have at least one explicit validation dispatch reference.
+check_entry_type_dispatch() {
+  local file="$1"
+  local source enum_block variant
+  source="$(sed '/^\#\[cfg(test)\]/,$d' "$file")"
+  enum_block="$(printf '%s\n' "$source" | sed -n '/^pub enum EntryTypes[[:space:]]*{/,/^}/p')"
+  if [[ -z "$enum_block" ]]; then
+    echo "FAIL: $file has no parseable EntryTypes enum"
+    fail=1
+    return
+  fi
+  while IFS= read -r variant; do
+    [[ -z "$variant" ]] && continue
+    if printf '%s\n' "$source" | rg -n --pcre2 "\\bEntryTypes::${variant}\\b" >/dev/null 2>&1; then
+      echo "OK:   $file EntryTypes::$variant has validation dispatch coverage"
+    else
+      echo "FAIL: $file EntryTypes::$variant has no validation dispatch reference"
+      fail=1
+    fi
+  done < <(printf '%s\n' "$enum_block" | rg --pcre2 -o '^\\s*[A-Za-z_][A-Za-z0-9_]*\\s*\\(' | sed -E 's/^\\s*([A-Za-z_][A-Za-z0-9_]*).*$/\\1/')
+}
+
 # Dependency retrieval semantics: must_get_action only proves retrieval; it does not prove
 # that the referenced record passed application validation. Update/delete authorization
 # therefore uses must_get_valid_record before trusting the referenced author. Valid-record
@@ -278,6 +300,10 @@ done
 
 for file in "${integrity_files[@]}"; do
   check_update_action_coverage "$file"
+done
+
+for file in "${integrity_files[@]}"; do
+  check_entry_type_dispatch "$file"
 done
 
 for file in "${integrity_files[@]}"; do
