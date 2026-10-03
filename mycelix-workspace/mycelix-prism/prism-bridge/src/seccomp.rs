@@ -704,9 +704,12 @@ mod linux {
                             }
                             SeccompArgPredicateOpV1::MaskedNotEqual => {
                                 if low_mask != 0 && high_mask != 0 {
+                                    let high_body_len = usize::from(high_mask != 0) * 4;
+                                    let low_mismatch_skip = u8::try_from(high_body_len)
+                                        .map_err(|_| SeccompError::FilterTooLarge)?;
                                     filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base));
                                     filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, low_mask));
-                                    filter.push(jump_eq(low_value, 0, 4));
+                                    filter.push(jump_eq(low_value, 0, low_mismatch_skip));
                                     filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base + 4));
                                     filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, high_mask));
                                     // Equality makes the whole 64-bit predicate fail, so skip
