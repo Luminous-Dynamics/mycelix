@@ -113,7 +113,8 @@ def main() -> int:
          "adapter_binding_required", "exactly_one_address_per_logical_identity",
          "duplicate_logical_identity_binding", "unbound_logical_identity_is_semantic_invalidity",
          "binding_order_independent", "resolution_operation", "resolution_success",
-         "resolution_missing", "duplicate_requests_deduplicated", "address_derivation"},
+         "resolution_invalid", "resolution_missing", "duplicate_requests_deduplicated",
+         "address_derivation"},
         "identity boundary",
     )
     if identity.get("logical_identity_type") != "IdentityRef":
