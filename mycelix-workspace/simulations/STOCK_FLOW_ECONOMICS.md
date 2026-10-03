@@ -1096,3 +1096,26 @@ authoritative transitions -> derive ledger -> serialize -> verify_against_transi
 A tampered derived field is rejected even when the transition hash itself is left unchanged, while a reordered transition sequence is rejected because the exact ordered transition evidence is bound.
 
 This is an accounting-provenance hardening rather than a behavioral model change. It keeps the SFC accounting substrate aligned with the broader requirement that stocks and flows be traceable to the same underlying transaction structure. Current SFC literature likewise treats the balance-sheet and transaction-flow structures as the accounting backbone and emphasizes consistency across stocks, flows, and asset/liability counterparts.
+
+
+## External evidence re-verification (implemented)
+
+The evidence layer now distinguishes internal integrity from externally reproduced provenance.
+
+`EconomicAccountingClosure::verify_against` re-derives a closure from the supplied opening state,
+terminal state, sector assignments, and ordered transitions, then requires exact equality with the
+serialized closure. A closure therefore cannot become trustworthy merely by recomputing its own hash.
+
+`EconomicEvidenceCapsule::verify_against_step` performs the corresponding end-to-end check for one
+period: it validates the capsule, replays the transition program, reconstructs the accounting closure,
+and requires the serialized capsule to equal the independently reconstructed evidence. The trace form,
+`verify_against_trace`, replays the complete multi-period program and reconstructs the final-period
+closure from the actual final-period opening state.
+
+The evidence hierarchy is consequently explicit:
+
+`internal hash integrity -> artifact re-derivation -> complete execution provenance`
+
+This follows the SFC accounting discipline in which every payment has a corresponding receipt and each
+asset has a counterpart liability, while preserving the separation between accounting validation and
+behavioral assumptions. 
