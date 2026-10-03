@@ -1229,6 +1229,55 @@ mod tests {
     }
 
     #[test]
+    fn authority_agent_payload_rejects_schema_identifier_change() {
+        let authority = identity("schema-version-authority");
+        let mut credential = authority_credential(
+            authority,
+            action_agent_key(49),
+            "schema-version",
+        );
+        credential.payload.schema = "mycelix.mobility.holochain_authority_agent_binding.v2".into();
+
+        let verified = credential
+            .verify()
+            .expect("schema rejection must not require host I/O");
+
+        assert!(
+            matches!(
+                verified,
+                HolochainAuthorityAgentBindingVerification::Invalid { .. }
+            ),
+            "a v1 authority credential must reject a changed schema identifier"
+        );
+    }
+
+    #[test]
+    fn binding_attestation_payload_rejects_schema_identifier_change() {
+        let mut payload = HolochainBindingAttestationPayload {
+            schema: "mycelix.mobility.holochain_binding_attestation.v2".into(),
+            provenance: binding_provenance_for_test(
+                identity("schema-version-binding"),
+                identity("schema-version-binding-authority"),
+            ),
+            address: HolochainDependencyAddress::Action(action_hash(50)),
+            retrieval: QualificationDependencyRetrievalKind::Action,
+        };
+
+        let verified = payload.validate();
+
+        assert!(
+            matches!(
+                verified,
+                Err(HolochainAdapterBoundaryError::SemanticInvalid { .. })
+            ),
+            "a v1 binding attestation must reject a changed schema identifier"
+        );
+
+        payload.schema = HOLOCHAIN_BINDING_ATTESTATION_SCHEMA.into();
+        assert!(payload.validate().is_ok());
+    }
+
+    #[test]
     fn authority_agent_payload_rejects_unknown_wire_fields() {
         #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, SerializedBytes)]
         struct AuthorityPayloadWithExtraField {
