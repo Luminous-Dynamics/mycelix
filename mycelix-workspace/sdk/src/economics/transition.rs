@@ -104,6 +104,7 @@ pub enum EconomicStepError {
     PreStateMismatch { expected: String, actual: String },
     TransitionRejected(String),
     AccountingInvariant { claims: i128, liabilities: i128 },
+    AccountingArithmetic(String),
     Serialization(String),
 }
 
@@ -118,6 +119,9 @@ impl std::fmt::Display for EconomicStepError {
                 f,
                 "financial claim/liability invariant failed: claims={claims}, liabilities={liabilities}"
             ),
+            Self::AccountingArithmetic(message) => {
+                write!(f, "accounting arithmetic failed: {message}")
+            }
             Self::Serialization(message) => write!(f, "serialization failed: {message}"),
         }
     }
@@ -174,8 +178,12 @@ pub fn apply_step(
         }
     }
 
-    let claims = aggregate_claims(&next);
-    let liabilities = next.aggregate_liabilities();
+    let claims = next
+        .try_aggregate_claims()
+        .map_err(EconomicStepError::AccountingArithmetic)?;
+    let liabilities = next
+        .try_aggregate_liabilities()
+        .map_err(EconomicStepError::AccountingArithmetic)?;
     if claims != liabilities {
         return Err(EconomicStepError::AccountingInvariant {
             claims,
@@ -222,10 +230,6 @@ pub fn transition_hash(
     Ok(blake3::hash(&bytes).to_hex().to_string())
 }
 
-fn aggregate_claims(state: &EconomicState) -> i128 {
-    state.aggregate_claims()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -238,6 +242,35 @@ mod tests {
             bank,
             ActorBalanceSheet::new("household"),
         ])
+    }
+
+    #[test]
+    fn step_rejects_aggregate_arithmetic_overflow_without_panicking() {
+        let state = EconomicState::new(vec![
+            ActorBalanceSheet {
+                actor: "a".into(),
+                monetary: crate::economics::stock_flow::MonetaryStock {
+                    deposits: i128::MAX,
+                    ..Default::default()
+                },
+                real: Default::default(),
+                inventory_carrying_value: 0,
+            },
+            ActorBalanceSheet {
+                actor: "b".into(),
+                monetary: crate::economics::stock_flow::MonetaryStock {
+                    deposits: 1,
+                    ..Default::default()
+                },
+                real: Default::default(),
+                inventory_carrying_value: 0,
+            },
+        ]);
+
+        assert!(matches!(
+            apply_step(&state, 1, &[], None),
+            Err(EconomicStepError::AccountingArithmetic(_))
+        ));
     }
 
     #[test]
