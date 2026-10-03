@@ -17,7 +17,6 @@ use mobility_configuration_qualification::{
     QualificationValidationError,
 };
 
-#[derive(Debug, Clone, PartialEq, Eq)]
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum HolochainDependencyAddress {
     Action(ActionHash),
@@ -59,17 +58,33 @@ impl HolochainBindingAttestationPayload {
     }
 }
 
-impl SignedHolochainBindingAttestation {
-    pub fn verify(&self) -> ExternResult<bool> {
-        self.payload
-            .validate()
-            .map_err(|error| wasm_error!(WasmErrorInner::Guest(error.to_string())))?;
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum HolochainBindingAttestationVerification {
+    Valid,
+    Invalid { reason: String },
+}
 
-        hdi::ed25519::verify_signature(
+impl SignedHolochainBindingAttestation {
+    pub fn verify(&self) -> ExternResult<HolochainBindingAttestationVerification> {
+        if let Err(error) = self.payload.validate() {
+            return Ok(HolochainBindingAttestationVerification::Invalid {
+                reason: error.to_string(),
+            });
+        }
+
+        let verified = hdi::ed25519::verify_signature(
             self.signer.clone(),
             self.signature.clone(),
             &self.payload,
-        )
+        )?;
+
+        if verified {
+            Ok(HolochainBindingAttestationVerification::Valid)
+        } else {
+            Ok(HolochainBindingAttestationVerification::Invalid {
+                reason: "binding attestation signature did not verify".into(),
+            })
+        }
     }
 }
 
@@ -213,12 +228,11 @@ impl HolochainDependencyBindingSet {
             return Ok(Err(HolochainAdapterBoundaryError::SemanticInvalid { reason: reason.to_string() }));
         }
 
-        let verified = attestation.verify()?;
-
-        if !verified {
-            return Ok(Err(HolochainAdapterBoundaryError::SemanticInvalid {
-                reason: "binding attestation signature did not verify".into(),
-            }));
+        match attestation.verify()? {
+            HolochainBindingAttestationVerification::Invalid { reason } => {
+                return Ok(Err(HolochainAdapterBoundaryError::SemanticInvalid { reason }));
+            }
+            HolochainBindingAttestationVerification::Valid => {}
         }
 
         Ok(self.bind(
@@ -301,7 +315,7 @@ impl HolochainDependencyBindingSet {
 /// retrieval intent.
 pub fn verify_binding_attestation(
     attestation: &SignedHolochainBindingAttestation,
-) -> ExternResult<bool> {
+) -> ExternResult<HolochainBindingAttestationVerification> {
     attestation.verify()
 }
 
