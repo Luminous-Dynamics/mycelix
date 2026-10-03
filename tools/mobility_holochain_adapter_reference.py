@@ -54,6 +54,14 @@ def main() -> int:
 
     if "QualificationDecision::Valid" not in source:
         raise SystemExit("adapter must preserve the pure valid decision")
+    if "QualificationDependencyBindingProvenance" not in source:
+        raise SystemExit("adapter must require a pure provenance witness for each runtime binding")
+    if "provenance: QualificationDependencyBindingProvenance" not in source:
+        raise SystemExit("resolved dependencies must carry their provenance witness")
+    if "provenance.validate()" not in source:
+        raise SystemExit("binding must structurally validate provenance before accepting the address")
+    if "matches_logical_identity(&identity)" not in source:
+        raise SystemExit("binding provenance must name the exact logical identity")
     if "finalize_callback" not in source:
         raise SystemExit("adapter must expose one callback-facing semantic mapping seam")
     if "ValidateCallbackResult::Valid" not in source:
