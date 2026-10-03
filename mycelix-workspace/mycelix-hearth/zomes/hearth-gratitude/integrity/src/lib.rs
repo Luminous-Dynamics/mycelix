@@ -139,10 +139,10 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::Link(link @ OpLink::DeleteLink {
             link_type,
             action,
-            original_action,
             ..
         }) => {
-            let result = check_link_author_match(original_action.author(), action.author());
+            let original_record = must_get_valid_record(action.link_add_address.clone())?;
+            let result = check_link_author_match(original_record.action().author(), action.author());
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }
