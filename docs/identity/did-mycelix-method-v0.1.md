@@ -224,6 +224,8 @@ The current qualification laboratory maps concrete protocol behavior to determin
 | DSID-020 | recovery configuration owner binding |
 | DSID-021 | self-recovery request actor binding |
 | DSID-022 | cross-agent DHT-derived recovery quorum |
+| DSID-023 | orphan recovery votes rejected |
+| DSID-024 | non-trustee recovery votes rejected |
 
 The qualification workflow records scenario IDs, agents, DNA hash, action hashes, entry hashes, expected and observed behavior, pass state, and commit SHA, then hashes the complete evidence capsule.
 
