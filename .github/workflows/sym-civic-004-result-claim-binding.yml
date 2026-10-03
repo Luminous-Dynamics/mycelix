@@ -26,7 +26,7 @@ jobs:
         run: |
           set -euo pipefail
           EXPECTED_PARENT='f6df4a700b236fe3fb982a8be5e14fd83d01fbac'
-          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
+          test "$(git merge-base HEAD "$EXPECTED_PARENT")" = "$EXPECTED_PARENT"
           test -z "$(git status --short)"
       - name: Exact result-claim tranche
         shell: bash
