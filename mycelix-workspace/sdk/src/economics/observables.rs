@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use super::period_ledger::EconomicPeriodLedger;
 use super::stock_flow::{EconomicFlowCategory, EconomicState};
+use super::transition::{EconomicStepError, EconomicTransition};
 
 /// Exact non-floating-point ratio observation.
 ///
@@ -52,11 +53,30 @@ pub struct EconomicObservables {
 }
 
 impl EconomicObservables {
+    /// Derive aggregate observations directly from a validated opening
+    /// state and the authoritative transition sequence.
+    ///
+    /// This is the preferred trust-boundary constructor because the period
+    /// ledger is derived inside the method rather than supplied independently.
+    pub fn try_from_state_and_transitions(
+        state: &EconomicState,
+        transitions: &[EconomicTransition],
+    ) -> Result<Self, EconomicStepError> {
+        state
+            .validate()
+            .map_err(EconomicStepError::InvalidState)?;
+        let ledger = EconomicPeriodLedger::from_transitions(transitions)?;
+        Self::try_from_state_and_ledger(state, &ledger)
+            .map_err(EconomicStepError::Serialization)
+    }
+
     /// Checked derivation of aggregate measurements.
     pub fn try_from_state_and_ledger(
         state: &EconomicState,
         ledger: &EconomicPeriodLedger,
     ) -> Result<Self, String> {
+        state.validate()?;
+
         let mut aggregate_cash = 0i128;
         let mut aggregate_deposits = 0i128;
         let mut aggregate_loans = 0i128;
@@ -218,6 +238,62 @@ mod tests {
     use super::*;
     use crate::economics::stock_flow::{ActorBalanceSheet, CreditCreation, Depreciation};
     use crate::economics::transition::EconomicTransition;
+
+    #[test]
+    fn aggregate_observations_reject_invalid_state() {
+        let mut state = EconomicState::new(vec![
+            ActorBalanceSheet::new("household"),
+        ]);
+        state.actors[0].monetary.deposits = -1;
+
+        let result =
+            EconomicObservables::try_from_state_and_transitions(&state, &[]);
+
+        assert!(matches!(
+            result,
+            Err(EconomicStepError::InvalidState(_))
+        ));
+    }
+
+    #[test]
+    fn aggregate_observations_derive_ledger_from_transitions() {
+        let state = EconomicState::new(vec![
+            ActorBalanceSheet::new("bank"),
+            ActorBalanceSheet::new("household"),
+        ]);
+        let transitions = vec![EconomicTransition::CreditCreation(
+            CreditCreation::new("bank", "household", 25).unwrap(),
+        )];
+
+        let observations =
+            EconomicObservables::try_from_state_and_transitions(&state, &transitions)
+                .unwrap();
+
+        assert_eq!(observations.credit_created, 25);
+        assert_eq!(observations.aggregate_loans, 25);
+        assert_eq!(observations.aggregate_debt, 25);
+    }
+
+    #[test]
+    fn aggregate_observations_reject_deserialized_invalid_transition() {
+        let state = EconomicState::new(vec![
+            ActorBalanceSheet::new("bank"),
+            ActorBalanceSheet::new("household"),
+        ]);
+        let transition = EconomicTransition::CreditCreation(
+            CreditCreation {
+                lender: "bank".into(),
+                borrower: "household".into(),
+                amount: 0,
+            },
+        );
+
+        assert!(EconomicObservables::try_from_state_and_transitions(
+            &state,
+            &[transition],
+        )
+        .is_err());
+    }
 
     #[test]
     fn observables_project_reconciled_stocks_and_period_totals() {
