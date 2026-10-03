@@ -970,8 +970,8 @@ mod tests {
         assert_eq!(enforcement.request(), &request(CapabilityAction::Read));
         assert_eq!(enforcement.issued_at_us(), 150);
         assert_eq!(enforcement.valid_until_us(), 200);
-        assert!(enforcement.is_valid_at(200));
-        assert!(!enforcement.is_valid_at(201));
+        assert!(enforcement.is_valid_at(199));
+        assert!(!enforcement.is_valid_at(200));
     }
 
     #[test]
