@@ -69,7 +69,9 @@ pub struct RecoveryVote {
     pub vote: VoteDecision,
     /// Optional comment
     pub comment: Option<String>,
-    /// Vote timestamp
+    /// Informational application timestamp; never authoritative for quorum
+    /// ordering or security decisions. Signed source-chain action metadata is
+    /// authoritative for ordering and certificate timing.
     pub voted_at: Timestamp,
 }
 
@@ -86,6 +88,8 @@ pub struct RecoveryApprovalCertificate {
     pub recovery_config_action_hash: ActionHash,
     pub vote_action_hashes: Vec<ActionHash>,
     pub threshold: u32,
+    /// Informational issue timestamp. Authorization timing uses the signed
+    /// certificate action timestamp.
     pub issued_at: Timestamp,
 }
 
