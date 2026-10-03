@@ -30,7 +30,7 @@ def verifier_ok(x):
     if not ident or known is False:
         return False
     # Research contract: materially versioned verifier identity is required.
-    return bool("/v" in ident or v.get("version") or v.get("logic_digest"))
+    return bool("/v" in ident or v.get("version"))
 
 def policy_reference_ok(x):
     policies=x.get("policies")
