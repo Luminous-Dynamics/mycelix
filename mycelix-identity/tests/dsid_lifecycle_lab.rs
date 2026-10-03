@@ -167,6 +167,8 @@ struct CredentialView {
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 struct DidResolutionMetadataView {
+    #[serde(rename = "contentType")]
+    content_type: Option<String>,
     error: Option<String>,
 }
 
@@ -175,13 +177,17 @@ struct DidDocumentMetadataView {
     created: String,
     updated: String,
     deactivated: bool,
+    #[serde(rename = "versionId")]
     version_id: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 struct DidResolutionView {
+    #[serde(rename = "didDocument")]
     did_document: Option<DidDocumentView>,
+    #[serde(rename = "didResolutionMetadata")]
     resolution_metadata: DidResolutionMetadataView,
+    #[serde(rename = "didDocumentMetadata")]
     document_metadata: Option<DidDocumentMetadataView>,
 }
 
@@ -792,6 +798,17 @@ async fn dsid_011_resolution_metadata_tracks_deactivation() {
 
     assert!(before.did_document.is_some());
     assert_eq!(before.resolution_metadata.error, None);
+    assert_eq!(
+        before.resolution_metadata.content_type.as_deref(),
+        Some("application/did+json")
+    );
+
+    let wire = serde_json::to_value(&before).expect("DID resolution result must serialize");
+    assert!(wire.get("didDocument").is_some());
+    assert!(wire.get("didResolutionMetadata").is_some());
+    assert!(wire.get("didDocumentMetadata").is_some());
+    assert!(wire["didDocumentMetadata"].get("versionId").is_some());
+    assert!(wire["didDocumentMetadata"].get("version_id").is_none());
     assert_eq!(
         before.document_metadata.as_ref().map(|m| m.deactivated),
         Some(false)
