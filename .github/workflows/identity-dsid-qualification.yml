@@ -106,12 +106,6 @@ jobs:
             crates/mycelix-leptos-core
             crates/mycelix-leptos-client
 
-      - name: Check Identity UI
-        run: |
-          cargo check \
-            --manifest-path mycelix-identity/apps/leptos/Cargo.toml \
-            --target wasm32-unknown-unknown
-
       - name: Build Identity zomes
         run: |
           cd mycelix-identity
@@ -288,3 +282,9 @@ jobs:
             identity-dsid-qualification-manifest.json
             identity-dsid-qualification-manifest.sha256
             mycelix-identity/dna/mycelix_identity_dna.dna
+      - name: Check Identity UI
+        run: |
+          cargo check \
+            --manifest-path mycelix-identity/apps/leptos/Cargo.toml \
+            --target wasm32-unknown-unknown
+
