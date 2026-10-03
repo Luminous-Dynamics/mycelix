@@ -578,7 +578,7 @@ pub fn build_canonical_receipt_with_authoritative_d6p(
     environment: &SemanticEnvironmentV1,
     profile: &DerivationProfileV1,
     current_receipts: &[CurrentFinalityEligibilityReceiptV1],
-    d6p_compositions: &[CurrentFinalityEligibilityCompositionV1],
+    d6p_compositions: &[FinalityEligibilityCompositionV1],
     result_status: DerivationResultStatusV1,
     result_commitment: String,
     contradiction_preserved: bool,
