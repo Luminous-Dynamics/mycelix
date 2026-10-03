@@ -529,7 +529,7 @@ mod tests {
 
     #[test]
     fn closure_verify_against_rejects_rehashed_tampering() {
-        let (pre, assignments, transitions, mut post) = fixture();
+        let (pre, assignments, transitions, post) = fixture();
         let mut closure = EconomicAccountingClosure::validate_and_seal(
             &pre,
             &post,
@@ -558,8 +558,7 @@ mod tests {
         assert!(closure
             .verify_against(&pre, &post, &assignments, &transitions)
             .is_err());
-
-        post.actors[0].actor = post.actors[0].actor.clone();
+ 
     }
 
     #[test]
