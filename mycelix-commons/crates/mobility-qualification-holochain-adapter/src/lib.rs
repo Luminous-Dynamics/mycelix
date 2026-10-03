@@ -217,22 +217,30 @@ pub fn retrieve_resolved(
     dependencies.iter().map(retrieve_one).collect()
 }
 
-/// Map a definitive pure decision into Holochain's callback result.
+/// Map the pure decision or an adapter-side semantic-invalidity finding into
+/// one Holochain callback result.
 ///
-/// The pure Unresolved state cannot be mapped yet because its missing values are
-/// logical identities, not protocol hashes. Callers must first establish the
-/// explicit runtime bindings; once concrete addresses exist, a matching
-/// must_get_* call lets Holochain produce UnresolvedDependencies when data is
-/// unavailable.
-pub fn map_definitive_decision<T>(
-    decision: QualificationDecision<T>,
+/// There is intentionally one callback-facing semantic seam:
+/// - pure Valid -> Holochain Valid;
+/// - pure Invalid -> Holochain Invalid;
+/// - an adapter-discovered malformed logical identity -> Holochain Invalid;
+/// - pure Unresolved -> preflight boundary error until every logical dependency
+///   has a concrete protocol binding.
+/// True adapter contract defects remain errors instead of becoming semantic
+/// findings.
+pub fn finalize_callback<T>(
+    result: Result<QualificationDecision<T>, HolochainAdapterBoundaryError>,
 ) -> Result<ValidateCallbackResult, HolochainAdapterBoundaryError> {
-    match decision {
-        QualificationDecision::Valid(_) => Ok(ValidateCallbackResult::Valid),
-        QualificationDecision::Invalid { reason } => Ok(ValidateCallbackResult::Invalid(reason)),
-        QualificationDecision::Unresolved { missing, .. } => {
+    match result {
+        Ok(QualificationDecision::Valid(_)) => Ok(ValidateCallbackResult::Valid),
+        Ok(QualificationDecision::Invalid { reason })
+        | Err(HolochainAdapterBoundaryError::SemanticInvalid { reason }) => {
+            Ok(ValidateCallbackResult::Invalid(reason))
+        }
+        Ok(QualificationDecision::Unresolved { missing, .. }) => {
             Err(HolochainAdapterBoundaryError::LogicalDependencyNotBound { missing })
         }
+        Err(error) => Err(error),
     }
 }
 
@@ -498,30 +506,49 @@ mod tests {
     }
 
     #[test]
-    fn definitive_pure_decisions_map_without_reinterpreting_semantics() {
+    fn one_callback_seam_preserves_semantic_and_adapter_error_classes() {
         assert_eq!(
-            map_definitive_decision(QualificationDecision::<()>::Valid(()))
+            finalize_callback(Ok(QualificationDecision::<()>::Valid(())))
                 .expect("valid maps directly"),
             ValidateCallbackResult::Valid
         );
+
         assert_eq!(
-            map_definitive_decision(QualificationDecision::<()>::Invalid {
+            finalize_callback(Ok(QualificationDecision::<()>::Invalid {
                 reason: "structural contradiction".into(),
-            })
+            }))
             .expect("invalid maps directly"),
             ValidateCallbackResult::Invalid("structural contradiction".into())
         );
 
         let missing = identity("missing");
         assert!(matches!(
-            map_definitive_decision(QualificationDecision::<()>::Unresolved {
+            finalize_callback(Ok(QualificationDecision::<()>::Unresolved {
                 missing: vec![missing.clone()],
                 partial: (),
-            }),
+            })),
             Err(HolochainAdapterBoundaryError::LogicalDependencyNotBound { missing: found })
                 if found == vec![missing]
         ));
+
+        assert_eq!(
+            finalize_callback::<()>(Err(HolochainAdapterBoundaryError::SemanticInvalid {
+                reason: "malformed identity".into(),
+            }))
+            .expect("semantic invalidity discovered during binding maps to Invalid"),
+            ValidateCallbackResult::Invalid("malformed identity".into())
+        );
+
+        let boundary = HolochainAdapterBoundaryError::BindingRejected {
+            reason: "duplicate binding".into(),
+        };
+        assert_eq!(
+            finalize_callback::<()>(Err(boundary.clone())),
+            Err(boundary),
+            "adapter contract defects remain errors"
+        );
     }
+
 
     #[test]
     fn resolve_preserves_the_pure_three_outcome_algebra() {
