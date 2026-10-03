@@ -23,13 +23,25 @@ def attester_ok(x):
     return x.get("attester",{}).get("status")=="active"
 
 def time_policy_ok(x):
-    a=x.get("attester",{}); p=x.get("policy",{}); at=instant(x["attestation_time"])
+    a=x.get("attester",{}); p=x.get("policy",{})
+    has_time=bool(x.get("attestation_time"))
+    at=instant(x["attestation_time"]) if has_time else None
     verification=instant(x["verification_time"]) if x.get("verification_time") else None
-    if a.get("key_not_before") and at < instant(a["key_not_before"]):
+
+    temporal_fields=(
+        a.get("key_not_before"),
+        a.get("key_not_after"),
+        a.get("rotation"),
+        a.get("key_history"),
+    )
+    if any(temporal_fields) and at is None:
         return False
-    if a.get("key_not_after") and at > instant(a["key_not_after"]) and not p.get("historical_grace",False):
+
+    if at is not None and a.get("key_not_before") and at < instant(a["key_not_before"]):
         return False
-    if a.get("key_not_after") and verification and verification > instant(a["key_not_after"]) and not (
+    if at is not None and a.get("key_not_after") and at > instant(a["key_not_after"]) and not p.get("historical_grace",False):
+        return False
+    if verification and a.get("key_not_after") and verification > instant(a["key_not_after"]) and not (
         p.get("historical_grace",False) or p.get("historical_key_lookup",False)
     ):
         return False
@@ -57,8 +69,9 @@ def time_policy_ok(x):
             return False
         if epoch.get("valid_until") and at >= instant(epoch["valid_until"]):
             return False
-        if verification and verification > at and not p.get("historical_key_lookup"):
-            return False
+        if verification and not p.get("historical_key_lookup"):
+            if verification > at:
+                return False
     return True
 
 def predicate_ok(x):
