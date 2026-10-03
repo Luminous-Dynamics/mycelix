@@ -317,6 +317,14 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         // link order or self-reported timestamps.
         FlatOp::RegisterAgentActivity(activity) => match activity {
             OpActivity::CreateEntry {
+                app_entry_type: Some(UnitEntryTypes::RecoveryConfig),
+                action,
+            } => validate_recovery_config_chain_uniqueness(action),
+            OpActivity::CreateEntry {
+                app_entry_type: Some(UnitEntryTypes::RecoveryRequest),
+                action,
+            } => validate_recovery_request_chain_uniqueness(action),
+            OpActivity::CreateEntry {
                 app_entry_type: Some(UnitEntryTypes::RecoveryVote),
                 action,
             } => validate_recovery_vote_chain_uniqueness(action),
@@ -1629,6 +1637,104 @@ mod tests {
 }
 
 /// Validate recovery vote creation
+/// Enforce one RecoveryConfig creation per DID on the owner's source chain.
+///
+/// Coordinator-side existence checks are useful for availability, but a
+/// modified coordinator can bypass them. The integrity rule makes duplicate
+/// recovery configurations invalid immutable evidence.
+fn validate_recovery_config_chain_uniqueness(
+    action: Create,
+) -> ExternResult<ValidateCallbackResult> {
+    let current_entry = must_get_entry(action.entry_hash.clone())?;
+    let current_config: RecoveryConfig = current_entry.try_into().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "RecoveryConfig entry could not be decoded: {e}"
+        )))
+    })?;
+
+    let activity = must_get_agent_activity(
+        action.author.clone(),
+        ChainFilter::new(action.prev_action.clone()),
+    )?;
+
+    let entry_type =
+        EntryType::App(AppEntryDef::try_from(UnitEntryTypes::RecoveryConfig)?);
+
+    for prior in activity {
+        let prior_action = prior.action.action();
+        let Action::Create(prior_create) = prior_action else {
+            continue;
+        };
+        if prior_create.entry_type != entry_type {
+            continue;
+        }
+
+        let prior_entry = must_get_entry(prior_create.entry_hash.clone())?;
+        let prior_config: RecoveryConfig = prior_entry.try_into().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "RecoveryConfig history entry could not be decoded: {e}"
+            )))
+        })?;
+
+        if prior_config.did == current_config.did {
+            return Ok(ValidateCallbackResult::Invalid(
+                "A controller may create at most one recovery configuration for a DID".into(),
+            ));
+        }
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+/// Enforce one RecoveryRequest identity per request author.
+///
+/// The request ID is derived from DID + creation timestamp, so a timestamp
+/// collision must not produce two independent quorum namespaces under the same
+/// identifier.
+fn validate_recovery_request_chain_uniqueness(
+    action: Create,
+) -> ExternResult<ValidateCallbackResult> {
+    let current_entry = must_get_entry(action.entry_hash.clone())?;
+    let current_request: RecoveryRequest = current_entry.try_into().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "RecoveryRequest entry could not be decoded: {e}"
+        )))
+    })?;
+
+    let activity = must_get_agent_activity(
+        action.author.clone(),
+        ChainFilter::new(action.prev_action.clone()),
+    )?;
+
+    let entry_type =
+        EntryType::App(AppEntryDef::try_from(UnitEntryTypes::RecoveryRequest)?);
+
+    for prior in activity {
+        let prior_action = prior.action.action();
+        let Action::Create(prior_create) = prior_action else {
+            continue;
+        };
+        if prior_create.entry_type != entry_type {
+            continue;
+        }
+
+        let prior_entry = must_get_entry(prior_create.entry_hash.clone())?;
+        let prior_request: RecoveryRequest = prior_entry.try_into().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "RecoveryRequest history entry could not be decoded: {e}"
+            )))
+        })?;
+
+        if prior_request.id == current_request.id {
+            return Ok(ValidateCallbackResult::Invalid(
+                "A recovery request ID may only be created once by an initiator".into(),
+            ));
+        }
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
 /// Enforce the one-vote-per-trustee-per-request invariant at the
 /// chain-authority boundary.
 ///
