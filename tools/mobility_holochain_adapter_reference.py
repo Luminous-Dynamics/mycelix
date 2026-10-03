@@ -56,6 +56,19 @@ def main() -> int:
         raise SystemExit("adapter must preserve the pure valid decision")
     if "QualificationDependencyBindingProvenance" not in source:
         raise SystemExit("adapter must require a pure provenance witness for each runtime binding")
+    for fragment in (
+        "HolochainBindingAttestationVerification",
+        "verify_binding_attestation",
+        "bind_attested",
+        "extern",
+    ):
+        if fragment.lower() not in source.lower():
+            raise SystemExit(f"adapter missing signed attestation fragment: {fragment}")
+    if "ExternResult<Result<(), HolochainAdapterBoundaryError>>" not in source:
+        raise SystemExit("attested bind must preserve host errors outside semantic invalidity")
+    if "hdi::ed25519::verify_signature" not in source:
+        raise SystemExit("signed binding attestation must use deterministic Holochain signature verification")
+
     if "provenance: QualificationDependencyBindingProvenance" not in source:
         raise SystemExit("resolved dependencies must carry their provenance witness")
     if "provenance.validate()" not in source:
