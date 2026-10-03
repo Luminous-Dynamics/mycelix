@@ -1293,3 +1293,51 @@ async fn dsid_016_historical_versions_are_deterministically_resolvable() {
         true,
     );
 }
+
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_017_not_found_resolution_uses_structured_w3c_error() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let app = conductor.setup_app(
+        "dsid-resolution-error",
+        std::slice::from_ref(&dna),
+    ).await.unwrap();
+    let cell = app.cells()[0].clone();
+    let agent = app.agent().clone();
+
+    let missing_agent = AgentPubKey::from_raw_36(vec![7u8; 36]);
+    let missing_did = format!("did:mycelix:{}", missing_agent);
+
+    let result: DidResolutionView = conductor
+        .call(
+            &cell.zome("did_registry"),
+            "resolve_did_resolution",
+            missing_did.clone(),
+        )
+        .await;
+
+    assert!(result.did_document.is_none());
+    assert!(result.document_metadata.is_none());
+    let error = result.resolution_metadata.error.expect("not-found must carry an error object");
+    assert_eq!(error.type_uri, "https://www.w3.org/ns/did#NOT_FOUND");
+    assert_eq!(error.title, "DID not found");
+    assert!(!error.detail.is_empty());
+
+    let mut agents = BTreeMap::new();
+    agents.insert("alice", agent.to_string());
+    emit_evidence(
+        "DSID-017",
+        "not-found-resolution-uses-structured-w3c-error",
+        &dna,
+        agents,
+        &[],
+        "A syntactically valid but unregistered DID returns a structured W3C resolution error with didDocument=null.",
+        format!(
+            "did={} error_type={} title={}",
+            missing_did, error.type_uri, error.title
+        ),
+        true,
+    );
+}
