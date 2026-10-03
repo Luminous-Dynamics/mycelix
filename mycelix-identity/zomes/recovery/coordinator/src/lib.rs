@@ -458,6 +458,7 @@ pub fn initiate_recovery(input: InitiateRecoveryInput) -> ExternResult<Record> {
         status: RecoveryStatus::Pending,
         created: now,
         time_lock_expires: None,
+        approval_certificate: None,
     };
 
     let action_hash = create_entry(&EntryTypes::RecoveryRequest(request))?;
@@ -1005,6 +1006,7 @@ pub fn execute_recovery(request_id: String) -> ExternResult<Record> {
         status: RecoveryStatus::Completed,
         created: current_request.created,
         time_lock_expires: current_request.time_lock_expires,
+        approval_certificate: current_request.approval_certificate,
     };
 
     let action_hash = update_entry(
