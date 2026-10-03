@@ -447,7 +447,10 @@
       "candidate": {
         "bundle": {
           "id": "bundle-a",
-          "digest": "sha256:bundle-a"
+          "digest": "sha256:bundle-a",
+          "scope": [
+            "bundle:all"
+          ]
         },
         "manifest": {
           "digest": "sha256:m-a",
@@ -480,7 +483,10 @@
       "candidate": {
         "bundle": {
           "id": "bundle-a",
-          "digest": "sha256:bundle-a"
+          "digest": "sha256:bundle-a",
+          "scope": [
+            "bundle:all"
+          ]
         },
         "manifest": {
           "digest": "sha256:m-a",
@@ -517,7 +523,10 @@
       "candidate": {
         "bundle": {
           "id": "bundle-a",
-          "digest": "sha256:bundle-a"
+          "digest": "sha256:bundle-a",
+          "scope": [
+            "bundle:all"
+          ]
         },
         "manifest": {
           "digest": "sha256:m-current",
@@ -591,7 +600,10 @@
       "candidate": {
         "bundle": {
           "id": "bundle-a",
-          "digest": "sha256:bundle-a"
+          "digest": "sha256:bundle-a",
+          "scope": [
+            "bundle:all"
+          ]
         },
         "manifest": {
           "digest": "sha256:m-a",
