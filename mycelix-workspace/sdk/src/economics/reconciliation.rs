@@ -64,6 +64,9 @@ pub fn reconcile_step(
     assignments: &[SectorAssignment],
     transitions: &[EconomicTransition],
 ) -> Result<StockFlowReconciliation, String> {
+    pre_state.validate()?;
+    post_state.validate()?;
+
     let pre = SectorBalanceSheet::from_state(pre_state, assignments)?;
     let post = SectorBalanceSheet::from_state(post_state, assignments)?;
     let expected = aggregate_postings(postings_for_step(pre_state, assignments, transitions)?);
@@ -111,6 +114,8 @@ pub fn postings_for_step(
     let mut postings = Vec::new();
 
     for transition in transitions {
+        transition.validate()?;
+
         let transition_postings = match transition {
             EconomicTransition::MonetaryTransfer(flow) => {
                 let from = sector_for(assignments, &flow.from)?;
@@ -384,6 +389,28 @@ mod tests {
         )];
         let (post, _) = apply_step(&pre, 1, &transitions, None).unwrap();
         reconcile_step(&pre, &post, &assignments, &transitions).unwrap();
+    }
+
+    #[test]
+    fn legacy_reconciliation_rejects_invalid_state() {
+        let (mut pre, assignments) = setup();
+        pre.actors[1].monetary.deposits = -1;
+
+        assert!(reconcile_step(&pre, &pre, &assignments, &[]).is_err());
+    }
+
+    #[test]
+    fn legacy_reconciliation_rejects_deserialized_invalid_transition() {
+        let (pre, assignments) = setup();
+        let invalid = EconomicTransition::CreditCreation(
+            crate::economics::stock_flow::CreditCreation {
+                lender: "bank".into(),
+                borrower: "household".into(),
+                amount: 0,
+            },
+        );
+
+        assert!(reconcile_step(&pre, &pre, &assignments, &[invalid]).is_err());
     }
 
     #[test]
