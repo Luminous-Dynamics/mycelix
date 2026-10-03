@@ -34,7 +34,6 @@ SUPPORTED = {
 
 UNSUPPORTED = {
     "wire-signature-valid",
-    "blocked-provenance",
 }
 
 
@@ -75,8 +74,8 @@ def main() -> None:
     unsupported = set(manifest["unsupported_reference_cases"])
     assert supported == SUPPORTED
     assert unsupported == UNSUPPORTED
-    assert len(supported) == 15
-    assert len(unsupported) == 2
+    assert len(supported) == 16
+    assert len(unsupported) == 1
     assert supported.isdisjoint(unsupported)
 
     deps = manifest["dependencies"]
@@ -95,8 +94,8 @@ def main() -> None:
     print("holochain=0.7.0")
     print("hdk=0.7.0")
     print("hdi=0.8.0")
-    print("supported_cases=15")
-    print("unsupported_cases=2")
+    print("supported_cases=16")
+    print("unsupported_cases=1")
     print("claim_ceiling=ReferenceModelOnly")
 
 
