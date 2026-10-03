@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 
 EXPECTED_SCHEMA = "mycelix.mobility.evidence_disposition_transition.v1"
-EXPECTED_COUNT = 141
+EXPECTED_COUNT = 149
 EXPECTED_OUTCOME_CLASSES = [
     "accepted",
     "rejected",
@@ -25,7 +25,7 @@ EXPECTED_BINDING_VECTORS = [
     ("EDT-099", "logical_dependency_resolution_is_invariant_to_request_order", "accepted"),
     ("EDT-100", "malformed_requested_logical_dependency_is_definitive_structural_error", "typed_structural_error"),
     ("EDT-101", "bound_protocol_address_wrong_for_selected_retrieval_primitive_is_adapter_error", "adapter_boundary_error"),
-    ("EDT-102", "valid_record_binding_dispatches_only_to_must_get_valid_record", "accepted"),
+    ("EDT-102", "valid_record_binding_dispatches_only_to-must_get_valid_record", "accepted"),
     ("EDT-103", "action_binding_dispatches_only_to_must_get_action", "accepted"),
     ("EDT-104", "entry_binding_dispatches_only_to_must_get_entry", "accepted"),
     ("EDT-105", "adapter_retrieval_never_derives_protocol_hash_from_logical_identity_text", "accepted"),
@@ -46,7 +46,7 @@ EXPECTED_BINDING_VECTORS = [
     ("EDT-120", "binding_provenance_contains_no_protocol_address_derivation", "accepted"),
     ("EDT-121", "duplicate_provenance_witness_cannot_justify_multiple_runtime_bindings", "adapter_boundary_error"),
     ("EDT-122", "binding_provenance_rejects_witness_identity_equal_to_authority", "typed_structural_error"),
-    ("EDT-123", "binding_provenance_rejects_self_referential_basis", "typed_structural_error"),
+    ("EDT-123", "binding_provenance_rejects_self-referential_basis", "typed_structural_error"),
     ("EDT-124", "binding_provenance_is_serializable_as_a_closed_schema", "accepted"),
     ("EDT-125", "unresolved_partial_runtime_binding_preserves_exact_provenance_witness", "accepted"),
     ("EDT-126", "binding_provenance_requires_exact_authority_scope_reference", "accepted"),
@@ -65,6 +65,14 @@ EXPECTED_BINDING_VECTORS = [
     ("EDT-139", "signed_binding_attestation_signature_mismatch_is_semantic_invalidity", "typed_structural_error"),
     ("EDT-140", "signed_binding_attestation_verification_host_failure_remains_extern_result_error", "adapter_boundary_error"),
     ("EDT-141", "attested_binding_acceptance_occurs_only_after_signature_verification", "accepted"),
+    ("EDT-142", "authority_agent_credential_binds_exact_domain_authority_to_agent_pub_key", "accepted"),
+    ("EDT-143", "authority_agent_credential_requires_issuer_to_equal_bound_agent", "typed_structural_error"),
+    ("EDT-144", "authority_agent_registry_rejects_duplicate_authority_binding", "adapter_boundary_error"),
+    ("EDT-145", "runtime_binding_requires_authority_agent_binding_before_signer_acceptance", "unresolved_at_protocol_layer"),
+    ("EDT-146", "runtime_binding_signer_must_match_registered_authority_agent", "typed_structural_error"),
+    ("EDT-147", "authority_agent_binding_retains_domain_provenance_requirement", "accepted"),
+    ("EDT-148", "authority_agent_signature_does_not_infer_domain_authority_identity", "accepted"),
+    ("EDT-149", "authority_agent_binding_is_order_independent_and_immutable", "accepted"),
 ]
 
 
@@ -106,7 +114,7 @@ def main() -> int:
                 f"{expected_id} has unsupported outcome {vector.get('expected')!r}"
             )
 
-    for expected, actual in zip(EXPECTED_BINDING_VECTORS, vectors[-46:], strict=True):
+    for expected, actual in zip(EXPECTED_BINDING_VECTORS, vectors[-54:], strict=True):
         if (
             actual.get("id"),
             actual.get("case"),
