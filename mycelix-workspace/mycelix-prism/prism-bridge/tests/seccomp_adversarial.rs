@@ -491,6 +491,7 @@ fn seccomp_disjunctive_argument_clauses_are_enforced() {
         .arg("--exact")
         .arg("seccomp_disjunctive_argument_clauses_are_enforced")
         .arg("--nocapture")
+        .env("RUST_TEST_THREADS", "1")
         .env("PRISM_SECCOMP_DISJUNCTIVE_CHILD", "1")
         .status()
         .expect("failed to launch seccomp disjunctive child");
@@ -548,11 +549,14 @@ fn thread_sync_child() -> ! {
         .with_syscall_policy_digest(policy.digest())
         .unwrap_or_else(|_| unsafe { libc::_exit(102) });
 
-    // Spawn the sibling before installing the filter. After installation both
-    // threads must be constrained by the same filter tree.
+    // Establish a pre-install rendezvous so the sibling is definitely alive
+    // and executing before TSYNC is attempted. This keeps scheduling latency
+    // after installation from being mistaken for a synchronization failure.
+    let ready = Arc::new(std::sync::Barrier::new(2));
     let release = Arc::new(AtomicBool::new(false));
     let observed = Arc::new(AtomicI64::new(i64::MIN));
     let observed_errno = Arc::new(std::sync::atomic::AtomicI32::new(i32::MIN));
+    let thread_ready = Arc::clone(&ready);
     let thread_release = Arc::clone(&release);
     let thread_observed = Arc::clone(&observed);
     let thread_errno = Arc::clone(&observed_errno);
@@ -564,6 +568,7 @@ fn thread_sync_child() -> ! {
         // process crash.
         let _ = unsafe { libc::syscall(libc::SYS_getppid) };
         let _ = unsafe { *libc::__errno_location() };
+        thread_ready.wait();
 
         while !thread_release.load(Ordering::Acquire) {
             std::hint::spin_loop();
@@ -580,6 +585,9 @@ fn thread_sync_child() -> ! {
         }
     });
 
+    // Both threads have reached the pre-install rendezvous.
+    ready.wait();
+
     if install(
         RendererProcessAssignmentId::new(2).unwrap(),
         profile,
@@ -592,7 +600,7 @@ fn thread_sync_child() -> ! {
 
     release.store(true, Ordering::Release);
 
-    for _ in 0..10_000_000 {
+    for _ in 0..100_000_000 {
         if observed.load(Ordering::Acquire) != i64::MIN {
             break;
         }
