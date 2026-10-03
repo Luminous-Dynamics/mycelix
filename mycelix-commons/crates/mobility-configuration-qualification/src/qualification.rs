@@ -90,6 +90,20 @@ impl<T> QualificationStatus<T> {
     }
 }
 
+impl<T> QualificationOutcome<T> {
+    /// Adds unavailable dependencies to a successful qualification result.
+    ///
+    /// Structural validation errors are preserved unchanged; only the
+    /// Complete/Unresolved status is enriched with additional missing
+    /// addressable dependencies.
+    pub fn require_missing(
+        self,
+        additional: impl IntoIterator<Item = IdentityRef>,
+    ) -> Self {
+        self.map(|status| status.require_missing(additional))
+    }
+}
+
 impl QualificationValidationError {
     pub fn structural(reason: impl Into<String>) -> Self {
         Self::Structural {
@@ -254,6 +268,29 @@ mod tests {
                 missing: vec![id("missing")],
                 partial: 6u8,
             }
+        );
+    }
+
+    #[test]
+    fn outcome_require_missing_preserves_structural_errors() {
+        let error = QualificationValidationError::structural("contradiction");
+        let result: QualificationOutcome<u8> = Err(error.clone())
+            .require_missing(vec![id("ignored")]);
+
+        assert_eq!(result, Err(error));
+    }
+
+    #[test]
+    fn outcome_require_missing_promotes_success_to_unresolved() {
+        let result: QualificationOutcome<u8> = Ok(QualificationStatus::Complete(7))
+            .require_missing(vec![id("missing")]);
+
+        assert_eq!(
+            result,
+            Ok(QualificationStatus::Unresolved {
+                missing: vec![id("missing")],
+                partial: 7,
+            })
         );
     }
 
