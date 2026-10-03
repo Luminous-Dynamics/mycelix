@@ -1736,6 +1736,47 @@ mod tests {
     }
 
     #[test]
+    fn new_attempt_can_change_envelope_without_minting_a_second_source_observation() {
+        let mut state = nodes();
+        let original = envelope();
+
+        assert_eq!(
+            deliver(&mut state, &original, 50, true).decision(),
+            FederationDecision::AcceptedLocal
+        );
+        let source_id = state
+            .delivery("delivery-1")
+            .unwrap()
+            .source_observation_id()
+            .to_owned();
+
+        let mut retry = original.clone();
+        retry.envelope_id = "env-retry".into();
+        retry.attempt_id = "attempt-retry".into();
+
+        assert_eq!(
+            deliver(&mut state, &retry, 50, true).decision(),
+            FederationDecision::Duplicate
+        );
+        assert_eq!(
+            state.delivery("delivery-1").unwrap().source_observation_id(),
+            source_id
+        );
+        assert_eq!(state.observation_count(), 1);
+        assert_eq!(source_observation_count(&state), 1);
+        assert!(attempt_history_matches_bindings(
+            state.delivery("delivery-1").unwrap()
+        ));
+        assert_eq!(
+            state.delivery("delivery-1").unwrap().attempts(),
+            &BTreeSet::from([
+                "attempt-1".to_owned(),
+                "attempt-retry".to_owned()
+            ])
+        );
+    }
+
+    #[test]
     fn attempt_identity_cannot_rebind_to_a_different_envelope() {
         let mut state = nodes();
         let original = envelope();
