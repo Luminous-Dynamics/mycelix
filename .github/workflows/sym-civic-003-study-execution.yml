@@ -1,0 +1,61 @@
+name: SYM-CIVIC-003 Study Execution Evidence
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'mycelix-workspace/docs/civic-resilience/sym_civic_003_study_execution.json'
+      - 'mycelix-workspace/docs/civic-resilience/SYM_CIVIC_003_STUDY_EXECUTION_V1.md'
+      - 'scripts/qualification/sym_civic_003_study_execution_v1.py'
+      - '.github/workflows/sym-civic-003-study-execution.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Immutable study-execution evidence semantics
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Exact parent and clean subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='8b54602821d10e9b9cab46ece33d80e04045e90e'
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
+          test -z "$(git status --short)"
+      - name: Exact execution-evidence tranche
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='8b54602821d10e9b9cab46ece33d80e04045e90e'
+          test "$(git rev-list --count "$EXPECTED_PARENT"..HEAD)" = '1'
+          git diff --check "$EXPECTED_PARENT" HEAD
+          expected=' .github/workflows/sym-civic-003-study-execution.yml
+          mycelix-workspace/docs/civic-resilience/SYM_CIVIC_003_STUDY_EXECUTION_V1.md
+          mycelix-workspace/docs/civic-resilience/sym_civic_003_study_execution.json
+          scripts/qualification/sym_civic_003_study_execution_v1.py'
+          expected="${expected# }"
+          actual="$(git diff --name-only "$EXPECTED_PARENT" HEAD | sort)"
+          test "$actual" = "$expected"
+      - name: Execute qualifier
+        run: python3 scripts/qualification/sym_civic_003_study_execution_v1.py
+      - name: Static no-runtime audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='8b54602821d10e9b9cab46ece33d80e04045e90e'
+          changed="$(git diff --name-only "$EXPECTED_PARENT" HEAD)"
+          if printf '%s' "$changed" | grep -E '[.]rs$|[.]toml$|[.]lock$'; then
+            echo 'SYM-CIVIC-003 is research provenance only' >&2
+            exit 1
+          fi
+      - name: Immutable checkout postflight
+        run: test -z "$(git status --short)"
