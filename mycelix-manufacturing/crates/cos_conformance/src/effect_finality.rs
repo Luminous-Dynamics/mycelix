@@ -8,15 +8,23 @@
 //! refund, remediation, and correction are new semantic effects linked to the
 //! original effect; they never rewrite its identity or history.
 
-use crate::archive_continuity::ArchiveRecoveryBindingV1;
+use crate::substitution_continuity::ArchiveRecoveryBindingV1;
 use crate::no_resurrection::SemanticTombstone;
 use crate::substitution_continuity::{
     EffectConservationStateV1, ProviderOutcomeKindV1, ProviderOutcomeV1, ProviderRouteV1,
     SemanticEffectV1, SemanticSubstitutionProfileV1,
 };
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
+pub const D6M_OBSERVATION_COMMITMENT_DOMAIN: &[u8] = b"MYCELIX-INTEGRAL-D6M-OBSERVATION-V1\0";
+/// Reference-model serialization contract for D6M observation commitments.
+/// This is deterministic within the Rust/Serde reference implementation, but
+/// is not itself a cross-language canonicalization specification.
+pub const D6M_OBSERVATION_COMMITMENT_SERIALIZATION: &str = "serde-json-array-v1";
+pub const D6M_FINALITY_RECEIPT_COMMITMENT_DOMAIN: &[u8] = b"MYCELIX-INTEGRAL-D6M-FINALITY-RECEIPT-V1\0";
+pub const D6M_FINALITY_RECEIPT_COMMITMENT_SERIALIZATION: &str = "serde-json-struct-v1";
 pub const EXTERNAL_FINALITY_CLAIM_CEILING: &str =
     "External-effect finality evidence only; no provider truth, legal settlement, or actuation authorization claim.";
 pub const COMPENSATION_CLAIM_CEILING: &str =
@@ -97,6 +105,7 @@ pub struct ExternalEffectObservationV1 {
     pub observed_state: ExternalObservedStateV1,
     pub source: ExternalObservationSourceV1,
     pub evidence_root: String,
+    pub observation_commitment: String,
     pub claim_ceiling: String,
 }
 
@@ -116,7 +125,46 @@ impl ExternalEffectObservationV1 {
             && non_empty(&self.semantic_environment_root)
             && non_empty(&self.observed_frontier_root)
             && non_empty(&self.evidence_root)
+            && non_empty(&self.observation_commitment)
             && self.claim_ceiling == EXTERNAL_FINALITY_CLAIM_CEILING
+    }
+
+    /// Recompute the reference-model observation commitment from the complete
+    /// observation payload, excluding the commitment field itself. The byte
+    /// preimage is defined by `D6M_OBSERVATION_COMMITMENT_SERIALIZATION` and
+    /// `D6M_OBSERVATION_COMMITMENT_DOMAIN`; it is intentionally not described
+    /// as cross-language canonical until independent golden-vector
+    /// reproduction exists.
+    pub fn recomputed_commitment(&self) -> String {
+        let payload = serde_json::to_vec(&serde_json::json!([
+            &self.observation_id,
+            &self.effect_id,
+            &self.effect_lineage_id,
+            &self.lifecycle_generation_id,
+            &self.route_id,
+            &self.provider_id,
+            &self.provider_operation_id,
+            &self.provider_profile_root,
+            &self.provider_outcome_id,
+            &self.request_commitment,
+            &self.idempotency_key,
+            &self.semantic_environment_root,
+            &self.observed_frontier_root,
+            &self.observed_state,
+            &self.source,
+            &self.evidence_root,
+            &self.claim_ceiling,
+        ]))
+        .expect("D6M observation reference model must be serializable");
+        let mut input = Vec::with_capacity(D6M_OBSERVATION_COMMITMENT_DOMAIN.len() + payload.len());
+        input.extend_from_slice(D6M_OBSERVATION_COMMITMENT_DOMAIN);
+        input.extend_from_slice(&payload);
+        let digest = Sha256::digest(&input);
+        digest.iter().map(|byte| format!("{byte:02x}")).collect()
+    }
+
+    pub fn commitment_matches(&self) -> bool {
+        self.structurally_valid() && self.observation_commitment == self.recomputed_commitment()
     }
 }
 
@@ -256,6 +304,28 @@ impl ExternalFinalityReceiptV1 {
             && non_empty(&self.finality_commitment)
             && self.claim_ceiling == EXTERNAL_FINALITY_CLAIM_CEILING
     }
+
+    /// Recompute the D6M finality-receipt commitment from the complete receipt
+    /// payload, excluding the commitment field itself. This is a deterministic
+    /// Rust/Serde reference-model contract, not a cross-language canonicalization
+    /// specification.
+    pub fn recomputed_commitment(&self) -> String {
+        let mut unsigned = self.clone();
+        unsigned.finality_commitment.clear();
+        let payload = serde_json::to_vec(&unsigned)
+            .expect("D6M finality receipt reference model must be serializable");
+        let mut input = Vec::with_capacity(
+            D6M_FINALITY_RECEIPT_COMMITMENT_DOMAIN.len() + payload.len(),
+        );
+        input.extend_from_slice(D6M_FINALITY_RECEIPT_COMMITMENT_DOMAIN);
+        input.extend_from_slice(&payload);
+        let digest = Sha256::digest(&input);
+        digest.iter().map(|byte| format!("{byte:02x}")).collect()
+    }
+
+    pub fn commitment_matches(&self) -> bool {
+        self.structurally_valid() && self.finality_commitment == self.recomputed_commitment()
+    }
 }
 
 fn finality_receipt_matches(
@@ -279,6 +349,8 @@ fn finality_receipt_matches(
         && receipt.finality_profile_id == profile.profile_id
         && receipt.semantic_environment_root == effect.semantic_environment_root
         && receipt.finality_state == profile.required_finality_state
+        && receipt.evidence_root == observation.evidence_root
+        && receipt.commitment_matches()
 }
 
 fn outcome_is_compatible_with_finality(
@@ -343,6 +415,7 @@ pub fn assess_external_finality(
 
     if !route_matches_effect(route, effect, substitution_profile)
         || !outcome_matches_route(outcome, route)
+        || !observation.commitment_matches()
         || !observation_matches(observation, effect, route, outcome)
         || !finality_receipt_matches(
             receipt,
@@ -789,7 +862,7 @@ impl ExternalEffectLedgerV1 {
         &mut self,
         receipt: ExternalFinalityReceiptV1,
     ) -> ExternalEffectLedgerDispositionV1 {
-        if !receipt.structurally_valid() {
+        if !receipt.commitment_matches() {
             return ExternalEffectLedgerDispositionV1::InsufficientEvidence;
         }
         if self.finality_receipts.contains_key(&receipt.receipt_id) {
@@ -1042,7 +1115,7 @@ mod tests {
         state: ExternalObservedStateV1,
         frontier: &str,
     ) -> ExternalEffectObservationV1 {
-        ExternalEffectObservationV1 {
+        let mut observation = ExternalEffectObservationV1 {
             observation_id: format!("observation-{}", route.route_id),
             effect_id: effect.effect_id.clone(),
             effect_lineage_id: effect.lineage_id.clone(),
@@ -1059,8 +1132,11 @@ mod tests {
             observed_state: state,
             source,
             evidence_root: "independent-evidence-1".into(),
+            observation_commitment: String::new(),
             claim_ceiling: EXTERNAL_FINALITY_CLAIM_CEILING.into(),
-        }
+        };
+        observation.observation_commitment = observation.recomputed_commitment();
+        observation
     }
 
     fn finality_profile(
@@ -1094,7 +1170,7 @@ mod tests {
         observation: &ExternalEffectObservationV1,
         profile: &ExternalFinalityProfileV1,
     ) -> ExternalFinalityReceiptV1 {
-        ExternalFinalityReceiptV1 {
+        let mut receipt = ExternalFinalityReceiptV1 {
             receipt_id: "finality-1".into(),
             effect_id: effect.effect_id.clone(),
             effect_lineage_id: effect.lineage_id.clone(),
@@ -1109,10 +1185,12 @@ mod tests {
             finality_profile_id: profile.profile_id.clone(),
             semantic_environment_root: effect.semantic_environment_root.clone(),
             finality_state: profile.required_finality_state,
-            evidence_root: "finality-evidence-1".into(),
-            finality_commitment: "finality-commitment-1".into(),
+            evidence_root: observation.evidence_root.clone(),
+            finality_commitment: String::new(),
             claim_ceiling: EXTERNAL_FINALITY_CLAIM_CEILING.into(),
-        }
+        };
+        receipt.finality_commitment = receipt.recomputed_commitment();
+        receipt
     }
 
     fn tombstone(effect: &SemanticEffectV1) -> SemanticTombstone {
@@ -1122,7 +1200,7 @@ mod tests {
             retired_generation_id: effect.generation_id.clone(),
             retired_creation_event_id: "creation-1".into(),
             causal_frontier_root: "frontier-0".into(),
-            reason: "Revoked".into(),
+            reason: crate::no_resurrection::TombstoneReason::Revoked,
             provenance_root: "provenance-1".into(),
         }
     }
@@ -1912,6 +1990,215 @@ mod tests {
             ledger.record_finality(conflicting),
             ExternalEffectLedgerDispositionV1::Conflict
         );
+    }
+
+    #[test]
+    fn observation_commitment_rejects_semantic_mutation() {
+        let effect = effect("effect-1", "lineage-1", "generation-1");
+        let route = route(&effect, "provider-a", "profile-a", "route-a", "operation-a");
+        let outcome = outcome(&route, ProviderOutcomeKindV1::Succeeded);
+        let mut observation = observation(
+            &effect,
+            &route,
+            &outcome,
+            ExternalObservationSourceV1::IndependentObserver,
+            ExternalObservedStateV1::Applied,
+            "frontier-1",
+        );
+
+        assert!(observation.commitment_matches());
+        observation.idempotency_key = "forged-idempotency".into();
+        assert!(!observation.commitment_matches());
+    }
+
+    #[test]
+    fn observation_commitment_covers_every_semantic_field() {
+        let effect = effect("effect-1", "lineage-1", "generation-1");
+        let route = route(&effect, "provider-a", "profile-a", "route-a", "operation-a");
+        let outcome = outcome(&route, ProviderOutcomeKindV1::Succeeded);
+        let observation = observation(
+            &effect,
+            &route,
+            &outcome,
+            ExternalObservationSourceV1::IndependentObserver,
+            ExternalObservedStateV1::Applied,
+            "frontier-1",
+        );
+        assert!(observation.commitment_matches());
+
+        macro_rules! assert_field_bound {
+            ($field:ident, $value:expr) => {{
+                let mut candidate = observation.clone();
+                candidate.$field = $value;
+                assert_ne!(
+                    candidate.observation_commitment,
+                    candidate.recomputed_commitment(),
+                    "field {} was not commitment-bound",
+                    stringify!($field)
+                );
+            }};
+        }
+
+        assert_field_bound!(observation_id, "observation-mutated".into());
+        assert_field_bound!(effect_id, "effect-mutated".into());
+        assert_field_bound!(effect_lineage_id, "lineage-mutated".into());
+        assert_field_bound!(lifecycle_generation_id, "generation-mutated".into());
+        assert_field_bound!(route_id, "route-mutated".into());
+        assert_field_bound!(provider_id, "provider-mutated".into());
+        assert_field_bound!(provider_operation_id, "operation-mutated".into());
+        assert_field_bound!(provider_profile_root, "profile-mutated".into());
+        assert_field_bound!(provider_outcome_id, "outcome-mutated".into());
+        assert_field_bound!(request_commitment, "request-mutated".into());
+        assert_field_bound!(idempotency_key, "idem-mutated".into());
+        assert_field_bound!(semantic_environment_root, "environment-mutated".into());
+        assert_field_bound!(observed_frontier_root, "frontier-mutated".into());
+        assert_field_bound!(observed_state, ExternalObservedStateV1::Contested);
+        assert_field_bound!(source, ExternalObservationSourceV1::ProviderReported);
+        assert_field_bound!(evidence_root, "evidence-mutated".into());
+        assert_field_bound!(claim_ceiling, "claim-ceiling-mutated".into());
+    }
+
+    #[test]
+    fn self_recommitted_observation_cannot_escape_effect_binding() {
+        let effect = effect("effect-1", "lineage-1", "generation-1");
+        let route = route(&effect, "provider-a", "profile-a", "route-a", "operation-a");
+        let outcome = outcome(&route, ProviderOutcomeKindV1::Succeeded);
+        let mut observation = observation(
+            &effect,
+            &route,
+            &outcome,
+            ExternalObservationSourceV1::IndependentObserver,
+            ExternalObservedStateV1::Applied,
+            "frontier-1",
+        );
+        observation.request_commitment = "forged-request".into();
+        observation.observation_commitment = observation.recomputed_commitment();
+
+        let profile = finality_profile(&effect, ExternalFinalityStateV1::Applied, true);
+        let receipt = finality_receipt(&effect, &route, &outcome, &observation, &profile);
+
+        assert!(observation.commitment_matches());
+        assert_eq!(
+            assess_external_finality(
+                &effect,
+                &substitution_profile(),
+                &profile,
+                &route,
+                &outcome,
+                &observation,
+                &receipt,
+                "frontier-1",
+                FinalityUsePurposeV1::CurrentFinality,
+                None,
+            ),
+            FinalityDispositionV1::BlockedReceiptMismatch
+        );
+    }
+
+    #[test]
+    fn finality_receipt_commitment_rejects_semantic_mutation() {
+        let effect = effect("effect-1", "lineage-1", "generation-1");
+        let substitution = substitution_profile(&effect);
+        let route = route(&effect, "provider-a", "profile-a", "route-1", "operation-1");
+        let outcome = outcome(&route, ProviderOutcomeKindV1::Succeeded);
+        let observation = observation(
+            &effect,
+            &route,
+            &outcome,
+            ExternalObservationSourceV1::IndependentObserver,
+            ExternalObservedStateV1::Applied,
+            "frontier-1",
+        );
+        let profile = finality_profile(&effect, ExternalFinalityStateV1::Applied, true);
+        let receipt = finality_receipt(&effect, &route, &outcome, &observation, &profile);
+        assert!(receipt.commitment_matches());
+
+        let mut changed = receipt.clone();
+        changed.evidence_root = "forged-evidence-root".into();
+        changed.finality_commitment = changed.recomputed_commitment();
+        assert!(changed.commitment_matches());
+        assert_ne!(changed.evidence_root, observation.evidence_root);
+        assert_eq!(
+            assess_external_finality(
+                &effect,
+                &substitution,
+                &profile,
+                &route,
+                &outcome,
+                &observation,
+                &changed,
+                "frontier-1",
+                FinalityUsePurposeV1::CurrentFinality,
+                None,
+            ),
+            FinalityDispositionV1::BlockedReceiptMismatch
+        );
+
+        let mut tampered = receipt;
+        tampered.finality_state = ExternalFinalityStateV1::NotApplied;
+        assert!(!tampered.commitment_matches());
+
+        let mut ledger = ExternalEffectLedgerV1 {
+            observations: BTreeMap::new(),
+            finality_receipts: BTreeMap::new(),
+            finality_by_effect: BTreeMap::new(),
+            compensation_links: BTreeMap::new(),
+        };
+        assert_eq!(
+            ledger.record_finality(tampered),
+            ExternalEffectLedgerDispositionV1::InsufficientEvidence
+        );
+    }
+
+    #[test]
+    fn finality_receipt_commitment_covers_every_semantic_field() {
+        let effect = effect("effect-1", "lineage-1", "generation-1");
+        let route = route(&effect, "provider-a", "profile-a", "route-1", "operation-1");
+        let outcome = outcome(&route, ProviderOutcomeKindV1::Succeeded);
+        let observation = observation(
+            &effect,
+            &route,
+            &outcome,
+            ExternalObservationSourceV1::IndependentObserver,
+            ExternalObservedStateV1::Applied,
+            "frontier-1",
+        );
+        let profile = finality_profile(&effect, ExternalFinalityStateV1::Applied, true);
+        let baseline = finality_receipt(&effect, &route, &outcome, &observation, &profile);
+        let expected = baseline.recomputed_commitment();
+
+        macro_rules! assert_field_bound {
+            ($field:ident, $value:expr) => {{
+                let mut changed = baseline.clone();
+                changed.$field = $value;
+                assert_ne!(
+                    changed.recomputed_commitment(),
+                    expected,
+                    concat!("D6M receipt commitment does not cover ", stringify!($field))
+                );
+            }};
+        }
+
+        assert_field_bound!(receipt_id, "finality-2".into());
+        assert_field_bound!(effect_id, "effect-2".into());
+        assert_field_bound!(effect_lineage_id, "lineage-2".into());
+        assert_field_bound!(lifecycle_generation_id, "generation-2".into());
+        assert_field_bound!(route_id, "route-2".into());
+        assert_field_bound!(provider_id, "provider-b".into());
+        assert_field_bound!(provider_operation_id, "operation-2".into());
+        assert_field_bound!(provider_profile_root, "profile-b".into());
+        assert_field_bound!(provider_outcome_id, "outcome-route-2".into());
+        assert_field_bound!(observation_id, "observation-route-2".into());
+        assert_field_bound!(observation_frontier_root, "frontier-2".into());
+        assert_field_bound!(finality_profile_id, "finality-profile-2".into());
+        assert_field_bound!(semantic_environment_root, "env-2".into());
+        assert_field_bound!(finality_state, ExternalFinalityStateV1::NotApplied);
+        assert_field_bound!(evidence_root, "evidence-2".into());
+        assert_field_bound!(claim_ceiling, "changed-claim-ceiling".into());
+
+        let mut changed_commitment = baseline.clone();
+        changed_commitment.finality_commitment = "00".repeat(32);
+        assert_eq!(changed_commitment.recomputed_commitment(), expected);
     }
 
     #[test]

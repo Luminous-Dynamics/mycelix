@@ -218,7 +218,7 @@ pub fn classify_branches(
     }
 
     for (claim_id, authority_a) in &branch_a.authority_claims {
-        if let Some(authority_b) = branch_b.authority_claims.get(claim_id) {
+        if let Some(authority_b) = branch_b.authority_claims.get(*claim_id) {
             if authority_a != authority_b {
                 conflicts.push(ReconciliationConflict {
                     kind: ConflictKind::AuthorityConflict,

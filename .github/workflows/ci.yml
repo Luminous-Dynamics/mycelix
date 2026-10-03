@@ -133,6 +133,14 @@ jobs:
         run: cd mycelix-manufacturing && cargo run -q -p cos_conformance --bin cos-report > cos-conformance-report.json
       - name: Validate report
         run: test -s mycelix-manufacturing/cos-conformance-report.json && grep -q 'COS-CONF-001' mycelix-manufacturing/cos-conformance-report.json
+      - name: Preserve conformance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cos-conformance-report-${{ github.sha }}
+          path: mycelix-manufacturing/cos-conformance-report.json
+          if-no-files-found: warn
+          retention-days: 30
 
   test-commons:
     needs: changes

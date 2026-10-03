@@ -17,13 +17,42 @@ use crate::contestable_finality::{
     ObservationIndependenceV1,
 };
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
 pub const OBSERVER_LIFECYCLE_CLAIM_CEILING: &str =
     "Observer/evidence lifecycle reference semantics only; no real-world trust, revocation infrastructure, or authority claim.";
 
+pub const D6O_ELIGIBILITY_RECEIPT_COMMITMENT_DOMAIN: &[u8] =
+    b"MYCELIX-INTEGRAL-D6O-ELIGIBILITY-RECEIPT-V1\0";
+pub const D6O_GENERATION_COMMITMENT_DOMAIN: &[u8] =
+    b"MYCELIX-INTEGRAL-D6O-GENERATION-V1\0";
+pub const D6O_TRANSITION_COMMITMENT_DOMAIN: &[u8] =
+    b"MYCELIX-INTEGRAL-D6O-TRANSITION-V1\0";
+pub const D6O_SNAPSHOT_COMMITMENT_DOMAIN: &[u8] =
+    b"MYCELIX-INTEGRAL-D6O-SNAPSHOT-V1\0";
+pub const D6O_ROTATION_COMMITMENT_DOMAIN: &[u8] =
+    b"MYCELIX-INTEGRAL-D6O-ROTATION-V1\0";
+pub const D6O_CONTINUITY_ROOT_DOMAIN: &[u8] =
+    b"MYCELIX-INTEGRAL-D6O-CONTINUITY-ROOT-V1\0";
+pub const D6O_PROFILE_COMMITMENT_DOMAIN: &[u8] =
+    b"MYCELIX-INTEGRAL-D6O-PROFILE-V1\0";
+
+
 fn non_empty(value: &str) -> bool {
     !value.trim().is_empty()
+}
+
+fn recompute_domain_commitment<T: Serialize>(domain: &[u8], value: &T) -> String {
+    let payload = serde_json::to_vec(value).expect("lifecycle commitment serialization must succeed");
+    let mut hasher = Sha256::new();
+    hasher.update(domain);
+    hasher.update(payload);
+    format!("{:x}", hasher.finalize())
+}
+
+fn is_canonical_sha256_commitment(value: &str) -> bool {
+    value.len() == 64 && value.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -106,6 +135,18 @@ pub struct ObserverLifecycleProfileV1 {
 }
 
 impl ObserverLifecycleProfileV1 {
+    pub fn recomputed_commitment(&self) -> String {
+        let mut unsigned = self.clone();
+        unsigned.profile_commitment.clear();
+        recompute_domain_commitment(D6O_PROFILE_COMMITMENT_DOMAIN, &unsigned)
+    }
+
+    pub fn commitment_matches(&self) -> bool {
+        self.structurally_valid()
+            && (!is_canonical_sha256_commitment(&self.profile_commitment)
+                || self.profile_commitment == self.recomputed_commitment())
+    }
+
     pub fn structurally_valid(&self) -> bool {
         non_empty(&self.profile_id)
             && non_empty(&self.semantic_environment_root)
@@ -139,6 +180,18 @@ pub struct ObserverGenerationV1 {
 }
 
 impl ObserverGenerationV1 {
+    pub fn recomputed_commitment(&self) -> String {
+        let mut unsigned = self.clone();
+        unsigned.generation_commitment.clear();
+        recompute_domain_commitment(D6O_GENERATION_COMMITMENT_DOMAIN, &unsigned)
+    }
+
+    pub fn commitment_matches(&self) -> bool {
+        self.structurally_valid()
+            && (!is_canonical_sha256_commitment(&self.generation_commitment)
+                || self.generation_commitment == self.recomputed_commitment())
+    }
+
     pub fn structurally_valid(&self) -> bool {
         non_empty(&self.generation_id)
             && non_empty(&self.observer_id)
@@ -183,6 +236,18 @@ pub struct ObserverStatusTransitionV1 {
 }
 
 impl ObserverStatusTransitionV1 {
+    pub fn recomputed_commitment(&self) -> String {
+        let mut unsigned = self.clone();
+        unsigned.transition_commitment.clear();
+        recompute_domain_commitment(D6O_TRANSITION_COMMITMENT_DOMAIN, &unsigned)
+    }
+
+    pub fn commitment_matches(&self) -> bool {
+        self.structurally_valid()
+            && (!is_canonical_sha256_commitment(&self.transition_commitment)
+                || self.transition_commitment == self.recomputed_commitment())
+    }
+
     pub fn structurally_valid(&self) -> bool {
         non_empty(&self.transition_id)
             && non_empty(&self.observer_id)
@@ -223,6 +288,18 @@ pub struct EvidenceDependencySnapshotV1 {
 }
 
 impl EvidenceDependencySnapshotV1 {
+    pub fn recomputed_commitment(&self) -> String {
+        let mut unsigned = self.clone();
+        unsigned.snapshot_commitment.clear();
+        recompute_domain_commitment(D6O_SNAPSHOT_COMMITMENT_DOMAIN, &unsigned)
+    }
+
+    pub fn commitment_matches(&self) -> bool {
+        self.structurally_valid()
+            && (!is_canonical_sha256_commitment(&self.snapshot_commitment)
+                || self.snapshot_commitment == self.recomputed_commitment())
+    }
+
     pub fn structurally_valid(&self) -> bool {
         non_empty(&self.snapshot_id)
             && non_empty(&self.observer_generation_id)
@@ -260,6 +337,31 @@ pub struct ObserverRotationCertificateV1 {
 }
 
 impl ObserverRotationCertificateV1 {
+    pub fn recomputed_continuity_root(&self) -> String {
+        let mut unsigned = self.clone();
+        unsigned.continuity_root.clear();
+        unsigned.certificate_commitment.clear();
+        recompute_domain_commitment(D6O_CONTINUITY_ROOT_DOMAIN, &unsigned)
+    }
+
+    pub fn continuity_root_matches(&self) -> bool {
+        non_empty(&self.continuity_root)
+            && (!is_canonical_sha256_commitment(&self.continuity_root)
+                || self.continuity_root == self.recomputed_continuity_root())
+    }
+
+    pub fn recomputed_commitment(&self) -> String {
+        let mut unsigned = self.clone();
+        unsigned.certificate_commitment.clear();
+        recompute_domain_commitment(D6O_ROTATION_COMMITMENT_DOMAIN, &unsigned)
+    }
+
+    pub fn commitment_matches(&self) -> bool {
+        self.structurally_valid()
+            && (!is_canonical_sha256_commitment(&self.certificate_commitment)
+                || self.certificate_commitment == self.recomputed_commitment())
+    }
+
     pub fn structurally_valid(&self) -> bool {
         non_empty(&self.certificate_id)
             && non_empty(&self.observer_id)
@@ -306,6 +408,20 @@ pub struct EvidenceEligibilityReceiptV1 {
 }
 
 impl EvidenceEligibilityReceiptV1 {
+    pub fn recomputed_commitment(&self) -> String {
+        let mut unsigned = self.clone();
+        unsigned.eligibility_commitment.clear();
+        let payload = serde_json::to_vec(&unsigned).expect("receipt serialization must succeed");
+        let mut hasher = Sha256::new();
+        hasher.update(D6O_ELIGIBILITY_RECEIPT_COMMITMENT_DOMAIN);
+        hasher.update(payload);
+        format!("{:x}", hasher.finalize())
+    }
+
+    pub fn commitment_matches(&self) -> bool {
+        self.structurally_valid() && self.eligibility_commitment == self.recomputed_commitment()
+    }
+
     pub fn structurally_valid(&self) -> bool {
         non_empty(&self.eligibility_id)
             && non_empty(&self.observation_id)
@@ -383,7 +499,7 @@ impl ObserverLifecycleLedgerV1 {
         &mut self,
         generation: ObserverGenerationV1,
     ) -> LifecycleRecordDispositionV1 {
-        if !generation.structurally_valid() {
+        if !generation.commitment_matches() {
             return LifecycleRecordDispositionV1::InsufficientEvidence;
         }
 
@@ -543,7 +659,7 @@ impl ObserverLifecycleLedgerV1 {
         &mut self,
         transition: ObserverStatusTransitionV1,
     ) -> LifecycleRecordDispositionV1 {
-        if !transition.structurally_valid()
+        if !transition.commitment_matches()
             || !Self::transition_step_is_possible(transition.from_status, transition.to_status)
         {
             return LifecycleRecordDispositionV1::InsufficientEvidence;
@@ -629,7 +745,7 @@ impl ObserverLifecycleLedgerV1 {
         &mut self,
         snapshot: EvidenceDependencySnapshotV1,
     ) -> LifecycleRecordDispositionV1 {
-        if !snapshot.structurally_valid() {
+        if !snapshot.commitment_matches() {
             return LifecycleRecordDispositionV1::InsufficientEvidence;
         }
 
@@ -724,14 +840,13 @@ impl ObserverLifecycleLedgerV1 {
         )
         .into_iter()
         .last()
-        .copied()
     }
 
     pub fn record_rotation(
         &mut self,
         certificate: ObserverRotationCertificateV1,
     ) -> ObserverRotationDispositionV1 {
-        if !certificate.structurally_valid() {
+        if !certificate.commitment_matches() || !certificate.continuity_root_matches() {
             return ObserverRotationDispositionV1::InsufficientEvidence;
         }
 
@@ -843,7 +958,7 @@ impl ObserverLifecycleLedgerV1 {
         &mut self,
         receipt: EvidenceEligibilityReceiptV1,
     ) -> LifecycleRecordDispositionV1 {
-        if !receipt.structurally_valid() {
+        if !receipt.commitment_matches() {
             return LifecycleRecordDispositionV1::InsufficientEvidence;
         }
         match self.eligibility_receipts.get(&receipt.eligibility_id) {
@@ -864,10 +979,11 @@ pub fn assess_observer_rotation(
     transition: &ObserverStatusTransitionV1,
     certificate: &ObserverRotationCertificateV1,
 ) -> ObserverRotationDispositionV1 {
-    if !predecessor.structurally_valid()
-        || !successor.structurally_valid()
-        || !transition.structurally_valid()
-        || !certificate.structurally_valid()
+    if !predecessor.commitment_matches()
+        || !successor.commitment_matches()
+        || !transition.commitment_matches()
+        || !certificate.commitment_matches()
+        || !certificate.continuity_root_matches()
     {
         return ObserverRotationDispositionV1::InsufficientEvidence;
     }
@@ -990,9 +1106,10 @@ pub fn assess_evidence_eligibility(
     }
 
     if !evidence.structurally_valid()
+        || !evidence.observation.commitment_matches()
         || !generation.structurally_valid()
         || !snapshot.structurally_valid()
-        || !profile.structurally_valid()
+        || !profile.commitment_matches()
         || observation_frontier_sequence == 0
         || current_frontier_sequence == 0
         || !non_empty(observation_frontier_root)
@@ -1132,17 +1249,106 @@ pub fn eligibility_receipt_matches(
 ) -> bool {
     receipt.structurally_valid()
         && evidence.structurally_valid()
+        && evidence.observation.commitment_matches()
         && generation.structurally_valid()
         && snapshot.structurally_valid()
-        && profile.structurally_valid()
+        && profile.commitment_matches()
         && receipt.observation_id == evidence.observation.observation_id
         && receipt.observer_id == evidence.observer_id
+        && receipt.observer_id == generation.observer_id
+        && evidence.observer_id == generation.observer_id
         && receipt.observer_generation_id == generation.generation_id
+        && snapshot.observer_generation_id == generation.generation_id
         && receipt.observation_profile_id == generation.observation_profile_id
+        && snapshot.observation_profile_id == generation.observation_profile_id
         && receipt.semantic_environment_root == generation.semantic_environment_root
+        && snapshot.semantic_environment_root == generation.semantic_environment_root
         && receipt.dependency_snapshot_id == snapshot.snapshot_id
         && receipt.observation_frontier_root == evidence.observation.observed_frontier_root
         && receipt.qualification_profile_id == profile.profile_id
+}
+
+fn expected_eligibility_transition_ids(
+    generation_id: &str,
+    current_frontier_sequence: u64,
+    ledger: &ObserverLifecycleLedgerV1,
+) -> BTreeSet<String> {
+    ledger
+        .transitions
+        .values()
+        .filter(|transition| {
+            transition.predecessor_generation_id == generation_id
+                && transition.effective_frontier_sequence <= current_frontier_sequence
+        })
+        .map(|transition| transition.transition_id.clone())
+        .collect()
+}
+
+/// Reconstruct the D6O qualified boundary from the authoritative lifecycle ledger.
+///
+/// This verifies the receipt against the same eligibility procedure that produced it,
+/// rather than treating receipt fields as authority. The caller supplies the authoritative
+/// generation, dependency snapshot, profile, ledger, and observed evidence.
+pub fn verify_eligibility_receipt_provenance(
+    receipt: &EvidenceEligibilityReceiptV1,
+    evidence: &ExternalObservedEvidenceV1,
+    generation: &ObserverGenerationV1,
+    snapshot: &EvidenceDependencySnapshotV1,
+    profile: &ObserverLifecycleProfileV1,
+    ledger: &ObserverLifecycleLedgerV1,
+) -> bool {
+    if !receipt.commitment_matches() {
+        return false;
+    }
+    if !eligibility_receipt_matches(receipt, evidence, generation, snapshot, profile) {
+        return false;
+    }
+    if receipt.current_generation_id.as_deref() != Some(generation.generation_id.as_str()) {
+        return false;
+    }
+    if !generation.commitment_matches() || !snapshot.commitment_matches() || !profile.commitment_matches() {
+        return false;
+    }
+    if !ledger.transitions.values().all(ObserverStatusTransitionV1::commitment_matches) {
+        return false;
+    }
+    if receipt.lifecycle_transition_ids
+        != expected_eligibility_transition_ids(
+            &generation.generation_id,
+            receipt.current_frontier_sequence,
+            ledger,
+        )
+    {
+        return false;
+    }
+
+    let expected = assess_evidence_eligibility(
+        evidence,
+        generation,
+        snapshot,
+        profile,
+        ledger,
+        receipt.classification,
+        receipt.provenance,
+        receipt.observation_frontier_root.as_str(),
+        receipt.observation_frontier_sequence,
+        receipt.current_frontier_root.as_str(),
+        receipt.current_frontier_sequence,
+        ObserverLifecycleUsePurposeV1::CurrentFinalityEligibility,
+    );
+
+    receipt.disposition == expected
+        && receipt.disposition == EvidenceEligibilityDispositionV1::EligibleCurrent
+        && ledger.current_continuous_generation_id(
+            &generation.observer_id,
+            receipt.current_frontier_sequence,
+        ) == receipt.current_generation_id
+        && ledger
+            .dependency_snapshot_at(
+                &generation.generation_id,
+                receipt.current_frontier_sequence,
+            )
+            .is_some_and(|current| current.snapshot_id == snapshot.snapshot_id)
 }
 
 pub fn lifecycle_proposal_is_authoritative(
@@ -1169,7 +1375,7 @@ pub fn lifecycle_transition_can_mint_authority_capacity_or_consent(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::contestable_finality::{
+    use crate::effect_finality::{
         ExternalEffectObservationV1, ExternalObservedStateV1,
         ExternalObservationSourceV1,
     };
@@ -1250,26 +1456,30 @@ mod tests {
         frontier_root: &str,
         state: ExternalObservedStateV1,
     ) -> ExternalObservedEvidenceV1 {
+        let mut observation = ExternalEffectObservationV1 {
+            observation_id: id.into(),
+            effect_id: "effect-1".into(),
+            effect_lineage_id: "lineage-1".into(),
+            lifecycle_generation_id: "generation-1".into(),
+            route_id: "route-1".into(),
+            provider_id: "provider-1".into(),
+            provider_operation_id: "operation-1".into(),
+            provider_profile_root: "provider-profile-1".into(),
+            provider_outcome_id: format!("outcome-{id}"),
+            request_commitment: "request-1".into(),
+            idempotency_key: "idem-1".into(),
+            semantic_environment_root: "env-1".into(),
+            observed_frontier_root: frontier_root.into(),
+            observed_state: state,
+            source: ExternalObservationSourceV1::IndependentObserver,
+            evidence_root: generation.evidence_root.clone(),
+            observation_commitment: String::new(),
+            claim_ceiling: crate::effect_finality::EXTERNAL_FINALITY_CLAIM_CEILING.into(),
+        };
+        observation.observation_commitment = observation.recomputed_commitment();
+
         ExternalObservedEvidenceV1 {
-            observation: ExternalEffectObservationV1 {
-                observation_id: id.into(),
-                effect_id: "effect-1".into(),
-                effect_lineage_id: "lineage-1".into(),
-                lifecycle_generation_id: "generation-1".into(),
-                route_id: "route-1".into(),
-                provider_id: "provider-1".into(),
-                provider_operation_id: "operation-1".into(),
-                provider_profile_root: "provider-profile-1".into(),
-                provider_outcome_id: format!("outcome-{id}"),
-                request_commitment: "request-1".into(),
-                idempotency_key: "idem-1".into(),
-                semantic_environment_root: "env-1".into(),
-                observed_frontier_root: frontier_root.into(),
-                observed_state: state,
-                source: ExternalObservationSourceV1::IndependentObserver,
-                evidence_root: generation.evidence_root.clone(),
-                claim_ceiling: crate::effect_finality::EXTERNAL_FINALITY_CLAIM_CEILING.into(),
-            },
+            observation,
             observer_id: generation.observer_id.clone(),
             observer: crate::contestable_finality::ExternalObserverProfileV1 {
                 observer_id: generation.observer_id.clone(),
@@ -1391,6 +1601,36 @@ mod tests {
             certificate_commitment: "rotation-commitment-1".into(),
             claim_ceiling: OBSERVER_LIFECYCLE_CLAIM_CEILING.into(),
         }
+    }
+
+    #[test]
+    fn stale_d6m_observation_commitment_is_rejected_at_d6o_boundary() {
+        let (ledger, generation, snapshot) = active_ledger();
+        let valid = evidence(
+            "obs-d6m-integrity",
+            &generation,
+            "frontier-1",
+            ExternalObservedStateV1::Applied,
+        );
+        assert!(valid.observation.commitment_matches());
+
+        let mut stale = valid.clone();
+        stale.observation.observed_state = ExternalObservedStateV1::Reversed;
+        assert!(!stale.observation.commitment_matches());
+
+        assert_eq!(
+            eligibility(
+                &ledger,
+                &stale,
+                &generation,
+                &snapshot,
+                ObserverLifecycleUsePurposeV1::CurrentFinalityEligibility,
+                ObservationClassificationV1::CorroboratingIndependent,
+                1,
+                1,
+            ),
+            EvidenceEligibilityDispositionV1::InsufficientEvidence
+        );
     }
 
     #[test]
@@ -1601,7 +1841,7 @@ mod tests {
 
     #[test]
     fn dependency_root_change_downgrades_future_independence() {
-        let (mut ledger, generation, snapshot) = active_ledger();
+        let (mut ledger, generation, base_snapshot) = active_ledger();
         let changed = snapshot(
             "snapshot-2",
             &generation.generation_id,
@@ -1621,7 +1861,7 @@ mod tests {
                 &ledger,
                 &e,
                 &generation,
-                &snapshot,
+                &base_snapshot,
                 ObserverLifecycleUsePurposeV1::CurrentFinalityEligibility,
                 ObservationClassificationV1::CorroboratingIndependent,
                 1,
@@ -1791,6 +2031,247 @@ mod tests {
     }
 
     #[test]
+    fn eligibility_receipt_commitment_binds_semantic_fields() {
+        let (_ledger, generation, snapshot) = active_ledger();
+        let mut receipt = EvidenceEligibilityReceiptV1 {
+            eligibility_id: "eligibility-1".into(),
+            observation_id: "obs-1".into(),
+            observer_id: generation.observer_id.clone(),
+            observer_generation_id: generation.generation_id.clone(),
+            observation_profile_id: generation.observation_profile_id.clone(),
+            semantic_environment_root: generation.semantic_environment_root.clone(),
+            dependency_snapshot_id: snapshot.snapshot_id.clone(),
+            observation_frontier_root: "frontier-1".into(),
+            observation_frontier_sequence: 1,
+            current_frontier_root: "frontier-1".into(),
+            current_frontier_sequence: 1,
+            current_generation_id: Some(generation.generation_id.clone()),
+            qualification_profile_id: profile().profile_id.clone(),
+            provenance: ObserverEvidenceProvenanceV1::Live,
+            classification: ObservationClassificationV1::CorroboratingIndependent,
+            disposition: EvidenceEligibilityDispositionV1::EligibleCurrent,
+            lifecycle_transition_ids: BTreeSet::new(),
+            eligibility_commitment: String::new(),
+            claim_ceiling: OBSERVER_LIFECYCLE_CLAIM_CEILING.into(),
+        };
+        receipt.eligibility_commitment = receipt.recomputed_commitment();
+        assert!(receipt.commitment_matches());
+
+        let mut forged = receipt.clone();
+        forged.current_frontier_root = "frontier-2".into();
+        assert!(!forged.commitment_matches());
+
+        let mut forged = receipt.clone();
+        forged.lifecycle_transition_ids.insert("transition-forged".into());
+        assert!(!forged.commitment_matches());
+
+        let mut forged = receipt.clone();
+        forged.classification = ObservationClassificationV1::ContradictoryIndependent;
+        assert!(!forged.commitment_matches());
+    }
+
+    #[test]
+    fn eligibility_receipt_recording_requires_canonical_commitment() {
+        let (mut ledger, generation, snapshot) = active_ledger();
+        let e = evidence("obs-1", &generation, "frontier-1", ExternalObservedStateV1::Applied);
+        let mut receipt = EvidenceEligibilityReceiptV1 {
+            eligibility_id: "eligibility-record-1".into(),
+            observation_id: e.observation.observation_id.clone(),
+            observer_id: generation.observer_id.clone(),
+            observer_generation_id: generation.generation_id.clone(),
+            observation_profile_id: generation.observation_profile_id.clone(),
+            semantic_environment_root: generation.semantic_environment_root.clone(),
+            dependency_snapshot_id: snapshot.snapshot_id.clone(),
+            observation_frontier_root: "frontier-1".into(),
+            observation_frontier_sequence: 1,
+            current_frontier_root: "frontier-1".into(),
+            current_frontier_sequence: 1,
+            current_generation_id: Some(generation.generation_id.clone()),
+            qualification_profile_id: profile().profile_id,
+            provenance: ObserverEvidenceProvenanceV1::Live,
+            classification: ObservationClassificationV1::CorroboratingIndependent,
+            disposition: EvidenceEligibilityDispositionV1::EligibleCurrent,
+            lifecycle_transition_ids: BTreeSet::new(),
+            eligibility_commitment: String::new(),
+            claim_ceiling: OBSERVER_LIFECYCLE_CLAIM_CEILING.into(),
+        };
+
+        assert_eq!(
+            ledger.record_eligibility_receipt(receipt.clone()),
+            LifecycleRecordDispositionV1::InsufficientEvidence
+        );
+
+        receipt.eligibility_commitment = receipt.recomputed_commitment();
+        assert_eq!(
+            ledger.record_eligibility_receipt(receipt),
+            LifecycleRecordDispositionV1::Recorded
+        );
+    }
+
+    #[test]
+    fn authoritative_receipt_reconstruction_rejects_recomputed_transition_provenance_substitution() {
+        let (mut ledger, generation, snapshot) = active_ledger();
+        let e = evidence("obs-1", &generation, "frontier-1", ExternalObservedStateV1::Applied);
+        let mut receipt = EvidenceEligibilityReceiptV1 {
+            eligibility_id: "eligibility-transition-1".into(),
+            observation_id: e.observation.observation_id.clone(),
+            observer_id: generation.observer_id.clone(),
+            observer_generation_id: generation.generation_id.clone(),
+            observation_profile_id: generation.observation_profile_id.clone(),
+            semantic_environment_root: generation.semantic_environment_root.clone(),
+            dependency_snapshot_id: snapshot.snapshot_id.clone(),
+            observation_frontier_root: "frontier-1".into(),
+            observation_frontier_sequence: 1,
+            current_frontier_root: "frontier-1".into(),
+            current_frontier_sequence: 1,
+            current_generation_id: Some(generation.generation_id.clone()),
+            qualification_profile_id: profile().profile_id,
+            provenance: ObserverEvidenceProvenanceV1::Live,
+            classification: ObservationClassificationV1::CorroboratingIndependent,
+            disposition: EvidenceEligibilityDispositionV1::EligibleCurrent,
+            lifecycle_transition_ids: BTreeSet::new(),
+            eligibility_commitment: String::new(),
+            claim_ceiling: OBSERVER_LIFECYCLE_CLAIM_CEILING.into(),
+        };
+        receipt.eligibility_commitment = receipt.recomputed_commitment();
+
+        let mut forged = receipt.clone();
+        forged.lifecycle_transition_ids.insert("forged-transition".into());
+        forged.eligibility_commitment = forged.recomputed_commitment();
+
+        assert!(!verify_eligibility_receipt_provenance(
+            &forged, &e, &generation, &snapshot, &profile(), &ledger
+        ));
+
+        let transition = transition(&generation, "post-receipt-suspend", ObserverStatusV1::Suspended, 2, None);
+        assert_eq!(
+            ledger.record_transition(transition),
+            LifecycleRecordDispositionV1::Recorded
+        );
+        assert!(!verify_eligibility_receipt_provenance(
+            &receipt, &e, &generation, &snapshot, &profile(), &ledger
+        ));
+    }
+
+    #[test]
+    fn canonical_transition_commitment_is_required_at_ledger_boundary() {
+        let generation = generation("observer-A-g1", 1, None);
+        let mut transition = transition(
+            &generation,
+            "transition-ledger-canonical",
+            ObserverStatusV1::Suspended,
+            2,
+            None,
+        );
+        transition.transition_commitment = transition.recomputed_commitment();
+
+        let mut ledger = ObserverLifecycleLedgerV1::default();
+        assert_eq!(
+            ledger.record_generation(generation.clone()),
+            LifecycleRecordDispositionV1::Recorded
+        );
+        assert_eq!(
+            ledger.record_transition(transition.clone()),
+            LifecycleRecordDispositionV1::Recorded
+        );
+
+        transition.reason = "forged-after-signing".into();
+        assert_eq!(
+            ledger.record_transition(transition),
+            LifecycleRecordDispositionV1::Conflict
+        );
+    }
+
+    #[test]
+    fn canonical_profile_commitment_binds_semantic_policy() {
+        let mut canonical = profile();
+        canonical.profile_commitment = canonical.recomputed_commitment();
+        assert!(canonical.commitment_matches());
+        canonical.allowed_roles.remove(&ExternalObserverRoleV1::SettlementAuthority);
+        assert!(!canonical.commitment_matches());
+    }
+
+    #[test]
+    fn canonical_continuity_root_binds_rotation_semantics() {
+        let predecessor = generation("observer-A-g1", 1, None);
+        let successor = generation("observer-A-g2", 2, Some(&predecessor.generation_id));
+        let transition = transition(
+            &predecessor,
+            "rotate-continuity-canonical",
+            ObserverStatusV1::Superseded,
+            2,
+            Some(&successor.generation_id),
+        );
+        let mut certificate = rotation_certificate(&predecessor, &successor, &transition);
+        certificate.continuity_root = certificate.recomputed_continuity_root();
+        assert!(certificate.continuity_root_matches());
+        certificate.successor_profile_id = "profile-substituted".into();
+        assert!(!certificate.continuity_root_matches());
+    }
+
+    #[test]
+    fn canonical_d6o_commitments_bind_authoritative_lifecycle_objects() {
+        let base_generation = generation("observer-A-g1", 1, None);
+        let mut canonical_generation = base_generation.clone();
+        canonical_generation.generation_commitment = canonical_generation.recomputed_commitment();
+        assert!(canonical_generation.commitment_matches());
+        canonical_generation.evidence_root = "evidence-substituted".into();
+        assert!(!canonical_generation.commitment_matches());
+
+        let mut suspend_transition = transition(
+            &base_generation,
+            "suspend-canonical",
+            ObserverStatusV1::Suspended,
+            2,
+            None,
+        );
+        suspend_transition.transition_commitment = transition.recomputed_commitment();
+        assert!(suspend_transition.commitment_matches());
+        suspend_transition.reason = "forged-reason".into();
+        assert!(!suspend_transition.commitment_matches());
+
+        let mut snapshot = snapshot(
+            "snapshot-canonical",
+            &base_generation.generation_id,
+            1,
+            None,
+            &base_generation.evidence_root,
+            &base_generation.custody_root,
+            ObservationIndependenceV1::DeclaredIndependent,
+        );
+        snapshot.snapshot_commitment = snapshot.recomputed_commitment();
+        assert!(snapshot.commitment_matches());
+        snapshot.custody_root = "custody-substituted".into();
+        assert!(!snapshot.commitment_matches());
+
+        let mut successor = generation("observer-A-g2", 2, Some(&base_generation.generation_id));
+        let mut rotation_transition = transition(
+            &generation,
+            "rotate-canonical",
+            ObserverStatusV1::Superseded,
+            2,
+            Some(&successor.generation_id),
+        );
+        rotation_transition.transition_commitment = rotation_transition.recomputed_commitment();
+        let mut certificate = rotation_certificate(&base_generation, &successor, &rotation_transition);
+        certificate.certificate_commitment = certificate.recomputed_commitment();
+        assert!(certificate.commitment_matches());
+        certificate.successor_environment_root = "env-substituted".into();
+        assert!(!certificate.commitment_matches());
+
+        successor.generation_commitment = successor.recomputed_commitment();
+    }
+
+    #[test]
+    fn eligibility_receipt_commitment_domain_is_versioned_and_nul_terminated() {
+        assert!(D6O_ELIGIBILITY_RECEIPT_COMMITMENT_DOMAIN.ends_with(&[0]));
+        assert_eq!(
+            D6O_ELIGIBILITY_RECEIPT_COMMITMENT_DOMAIN,
+            b"MYCELIX-INTEGRAL-D6O-ELIGIBILITY-RECEIPT-V1\0"
+        );
+    }
+
+    #[test]
     fn eligibility_receipt_binds_exact_observer_generation() {
         let (ledger, generation, snapshot) = active_ledger();
         let e = evidence("obs-1", &generation, "frontier-1", ExternalObservedStateV1::Applied);
@@ -1822,6 +2303,26 @@ mod tests {
             &snapshot,
             &profile()
         ));
+        let mut forged_observer = receipt.clone();
+        forged_observer.observer_id = "observer-B".into();
+        assert!(!eligibility_receipt_matches(
+            &forged_observer,
+            &e,
+            &generation,
+            &snapshot,
+            &profile()
+        ));
+
+        let mut forged_snapshot_generation = snapshot.clone();
+        forged_snapshot_generation.observer_generation_id = "observer-A-g2".into();
+        assert!(!eligibility_receipt_matches(
+            &receipt,
+            &e,
+            &generation,
+            &forged_snapshot_generation,
+            &profile()
+        ));
+
         let mut forged = receipt.clone();
         forged.observer_generation_id = "observer-A-g2".into();
         assert!(!eligibility_receipt_matches(
@@ -2047,6 +2548,57 @@ mod tests {
             reversed.dependency_snapshot_at(&generation.generation_id, 2),
             ordered.dependency_snapshot_at(&generation.generation_id, 2)
         );
+    }
+
+    #[test]
+    fn authoritative_receipt_reconstruction_rejects_source_substitution() {
+        let (ledger, generation, snapshot) = active_ledger();
+        let e = evidence("obs-1", &generation, "frontier-1", ExternalObservedStateV1::Applied);
+        let receipt = EvidenceEligibilityReceiptV1 {
+            eligibility_id: "eligibility-1".into(),
+            observation_id: "obs-1".into(),
+            observer_id: generation.observer_id.clone(),
+            observer_generation_id: generation.generation_id.clone(),
+            observation_profile_id: generation.observation_profile_id.clone(),
+            semantic_environment_root: generation.semantic_environment_root.clone(),
+            dependency_snapshot_id: snapshot.snapshot_id.clone(),
+            observation_frontier_root: e.observation.observed_frontier_root.clone(),
+            observation_frontier_sequence: 1,
+            current_frontier_root: "frontier-1".into(),
+            current_frontier_sequence: 1,
+            current_generation_id: Some(generation.generation_id.clone()),
+            qualification_profile_id: profile().profile_id.clone(),
+            provenance: ObserverEvidenceProvenanceV1::Live,
+            classification: ObservationClassificationV1::CorroboratingIndependent,
+            disposition: EvidenceEligibilityDispositionV1::EligibleCurrent,
+            lifecycle_transition_ids: BTreeSet::new(),
+            eligibility_commitment: String::new(),
+            claim_ceiling: OBSERVER_LIFECYCLE_CLAIM_CEILING.into(),
+        };
+        let mut receipt = receipt;
+        receipt.eligibility_commitment = receipt.recomputed_commitment();
+
+        assert!(verify_eligibility_receipt_provenance(
+            &receipt, &e, &generation, &snapshot, &profile(), &ledger
+        ));
+
+        let mut forged_snapshot = receipt.clone();
+        forged_snapshot.dependency_snapshot_id = "snapshot-substituted".into();
+        assert!(!verify_eligibility_receipt_provenance(
+            &forged_snapshot, &e, &generation, &snapshot, &profile(), &ledger
+        ));
+
+        let mut forged_generation = receipt.clone();
+        forged_generation.observer_generation_id = "observer-A-g2".into();
+        assert!(!verify_eligibility_receipt_provenance(
+            &forged_generation, &e, &generation, &snapshot, &profile(), &ledger
+        ));
+
+        let mut changed_evidence = e.clone();
+        changed_evidence.observer.custody_root = "custody-substituted".into();
+        assert!(!verify_eligibility_receipt_provenance(
+            &receipt, &changed_evidence, &generation, &snapshot, &profile(), &ledger
+        ));
     }
 
     #[test]

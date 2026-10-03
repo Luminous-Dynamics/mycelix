@@ -14,8 +14,11 @@ use crate::effect_finality::{
 use crate::no_resurrection::SemanticTombstone;
 use crate::substitution_continuity::{ProviderRouteV1, SemanticEffectV1};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
+pub const D6N_ASSESSMENT_COMMITMENT_DOMAIN: &[u8] = b"MYCELIX-INTEGRAL-D6N-ASSESSMENT-V1\0";
+pub const D6N_ASSESSMENT_COMMITMENT_SERIALIZATION: &str = "serde-json-struct-v1";
 pub const CONTESTABLE_FINALITY_CLAIM_CEILING: &str =
     "Contestable external-finality reference evidence only; no physical truth, settlement, or actuation authorization claim.";
 
@@ -209,6 +212,7 @@ pub struct ObservationAssessmentV1 {
     pub classification: ObservationClassificationV1,
     pub evidence_root: String,
     pub custody_root: String,
+    pub observation_commitment: String,
     pub assessment_commitment: String,
     pub claim_ceiling: String,
 }
@@ -219,8 +223,28 @@ impl ObservationAssessmentV1 {
             && non_empty(&self.observer_id)
             && non_empty(&self.evidence_root)
             && non_empty(&self.custody_root)
+            && non_empty(&self.observation_commitment)
             && non_empty(&self.assessment_commitment)
             && self.claim_ceiling == CONTESTABLE_FINALITY_CLAIM_CEILING
+    }
+
+    /// Recompute the D6N assessment identity from every assessment field,
+    /// including the exact canonical D6M observation identity it evaluates.
+    pub fn recomputed_commitment(&self) -> String {
+        let mut unsigned = self.clone();
+        unsigned.assessment_commitment.clear();
+        let payload = serde_json::to_vec(&unsigned)
+            .expect("D6N assessment reference model must be serializable");
+        let mut input =
+            Vec::with_capacity(D6N_ASSESSMENT_COMMITMENT_DOMAIN.len() + payload.len());
+        input.extend_from_slice(D6N_ASSESSMENT_COMMITMENT_DOMAIN);
+        input.extend_from_slice(&payload);
+        let digest = Sha256::digest(&input);
+        digest.iter().map(|byte| format!("{byte:02x}")).collect()
+    }
+
+    pub fn commitment_matches(&self) -> bool {
+        self.structurally_valid() && self.assessment_commitment == self.recomputed_commitment()
     }
 }
 
@@ -454,7 +478,8 @@ fn observation_matches(
 }
 
 fn profiles_share_dependency(a: &ExternalObserverProfileV1, b: &ExternalObserverProfileV1) -> bool {
-    a.evidence_root == b.evidence_root
+    a.observer_id == b.observer_id
+        || a.evidence_root == b.evidence_root
         || a.custody_root == b.custody_root
         || a.upstream_observer_ids.contains(&b.observer_id)
         || b.upstream_observer_ids.contains(&a.observer_id)
@@ -482,6 +507,111 @@ fn independent_candidate(
                 | ExternalObserverRoleV1::SettlementAuthority
                 | ExternalObserverRoleV1::Provider
         )
+}
+
+/// Reconstruct the D6N observation-set assessment from authoritative inputs.
+///
+/// This deliberately compares the complete deterministic result rather than
+/// trusting the assessment's self-reported counts, classifications, or
+/// commitment. A caller therefore cannot substitute a forged-but-self-consistent
+/// assessment without changing the authoritative derivation inputs.
+pub fn verify_observation_set_assessment_provenance(
+    assessment: &ObservationSetAssessmentV1,
+    effect: &SemanticEffectV1,
+    route: &ProviderRouteV1,
+    profile: &FinalityQualificationProfileV1,
+    set: &ExternalObservationSetV1,
+    evidence: &[ExternalObservedEvidenceV1],
+    current_frontier_root: &str,
+    live_generation_id: &str,
+) -> bool {
+    if !verify_observation_set_provenance(
+        set,
+        effect,
+        route,
+        profile,
+        evidence,
+        current_frontier_root,
+        live_generation_id,
+    ) {
+        return false;
+    }
+
+    let expected = assess_observation_set(
+        effect,
+        route,
+        profile,
+        set,
+        evidence,
+        current_frontier_root,
+        live_generation_id,
+    );
+    assessment.structurally_valid() && assessment == &expected
+}
+
+/// Reconstruct the authoritative D6N observation-set binding from the effect,
+/// route, qualification profile, live lifecycle generation, current frontier, and
+/// supplied evidence. The set commitment is deliberately not treated as proof:
+/// an attacker who changes semantic fields can recompute a superficial commitment,
+/// so the consumer must reconstruct the semantic binding itself.
+pub fn verify_observation_set_provenance(
+    set: &ExternalObservationSetV1,
+    effect: &SemanticEffectV1,
+    route: &ProviderRouteV1,
+    profile: &FinalityQualificationProfileV1,
+    evidence: &[ExternalObservedEvidenceV1],
+    current_frontier_root: &str,
+    live_generation_id: &str,
+) -> bool {
+    if !set.structurally_valid()
+        || !effect.structurally_valid()
+        || !route.structurally_valid()
+        || !profile.structurally_valid()
+        || !effect_matches(effect, set)
+        || !route_matches(route, set)
+        || set.qualification_profile_id != profile.profile_id
+        || set.semantic_environment_root != effect.semantic_environment_root
+        || set.lifecycle_generation_id != live_generation_id
+        || (profile.current_frontier_required
+            && set.observation_frontier_root != current_frontier_root)
+    {
+        return false;
+    }
+
+    let mut supplied_ids = BTreeSet::new();
+    for item in evidence {
+        if item.structurally_valid()
+            && item.observation.commitment_matches()
+            && set.observation_ids.contains(&item.observation.observation_id)
+            && !supplied_ids.insert(item.observation.observation_id.clone())
+        {
+            return false;
+        }
+    }
+
+    let mut observed_ids = BTreeSet::new();
+    let mut matching_evidence_count = 0usize;
+    let mut has_target_support = false;
+    for item in evidence {
+        if !item.structurally_valid()
+            || !set.observation_ids.contains(&item.observation.observation_id)
+            || !observation_matches(item, set)
+        {
+            continue;
+        }
+        matching_evidence_count += 1;
+        observed_ids.insert(item.observation.observation_id.clone());
+        has_target_support |= matches!(
+            (set.target_state, item.observation.observed_state),
+            (ExternalFinalityStateV1::Applied, crate::effect_finality::ExternalObservedStateV1::Applied)
+                | (ExternalFinalityStateV1::NotApplied, crate::effect_finality::ExternalObservedStateV1::NotApplied)
+                | (ExternalFinalityStateV1::NotApplied, crate::effect_finality::ExternalObservedStateV1::Reversed)
+        );
+    }
+
+    matching_evidence_count == set.observation_ids.len()
+        && observed_ids == set.observation_ids
+        && has_target_support
 }
 
 pub fn assess_observation_set(
@@ -530,9 +660,22 @@ pub fn assess_observation_set(
     let mut by_id = BTreeMap::new();
     for item in evidence {
         if item.structurally_valid()
+            && item.observation.commitment_matches()
             && set.observation_ids.contains(&item.observation.observation_id)
         {
-            by_id.insert(item.observation.observation_id.clone(), item);
+            let id = item.observation.observation_id.clone();
+            if by_id.insert(id, item).is_some() {
+                return ObservationSetAssessmentV1 {
+                    set_id: set.set_id.clone(),
+                    disposition: ObservationSetDispositionV1::InsufficientEvidence,
+                    independent_count: 0,
+                    contradictory_independent_count: 0,
+                    dependent_count: 0,
+                    assessments: Vec::new(),
+                    assessment_commitment: "duplicate-observation".to_owned(),
+                    claim_ceiling: CONTESTABLE_FINALITY_CLAIM_CEILING.to_owned(),
+                };
+            }
         }
     }
 
@@ -600,19 +743,19 @@ pub fn assess_observation_set(
             }
         }
 
-        assessments.push(ObservationAssessmentV1 {
+        let mut assessment = ObservationAssessmentV1 {
             observation_id: o.observation_id.clone(),
             observer_id: item.observer_id.clone(),
             independence: item.observer.independence,
             classification,
             evidence_root: item.observer.evidence_root.clone(),
             custody_root: item.observer.custody_root.clone(),
-            assessment_commitment: format!(
-                "{}:{}:{}",
-                o.observation_id, item.observer.evidence_root, item.observer.custody_root
-            ),
+            observation_commitment: o.observation_commitment.clone(),
+            assessment_commitment: String::new(),
             claim_ceiling: CONTESTABLE_FINALITY_CLAIM_CEILING.to_owned(),
-        });
+        };
+        assessment.assessment_commitment = assessment.recomputed_commitment();
+        assessments.push(assessment);
     }
 
     for i in 0..assessments.len() {
@@ -620,7 +763,8 @@ pub fn assess_observation_set(
             let left = by_id.get(&assessments[i].observation_id).expect("assessment source exists");
             let right = by_id.get(&assessments[j].observation_id).expect("assessment source exists");
             if profiles_share_dependency(&left.observer, &right.observer) {
-                for assessment in [&mut assessments[i], &mut assessments[j]] {
+                let (left_assessment, right_and_rest) = assessments.split_at_mut(j);
+                for assessment in [&mut left_assessment[i], &mut right_and_rest[0]] {
                     if matches!(
                         assessment.classification,
                         ObservationClassificationV1::CorroboratingIndependent
@@ -905,26 +1049,30 @@ mod tests {
         observer: ExternalObserverProfileV1,
         state: ExternalObservedStateV1,
     ) -> ExternalObservedEvidenceV1 {
+        let mut observation = ExternalEffectObservationV1 {
+            observation_id: id.into(),
+            effect_id: "effect-1".into(),
+            effect_lineage_id: "lineage-1".into(),
+            lifecycle_generation_id: "generation-1".into(),
+            route_id: "route-1".into(),
+            provider_id: "provider-1".into(),
+            provider_operation_id: "operation-1".into(),
+            provider_profile_root: "provider-profile-1".into(),
+            provider_outcome_id: format!("outcome-{id}"),
+            request_commitment: "request-1".into(),
+            idempotency_key: "idem-1".into(),
+            semantic_environment_root: "env-1".into(),
+            observed_frontier_root: "frontier-1".into(),
+            observed_state: state,
+            source: ExternalObservationSourceV1::IndependentObserver,
+            evidence_root: observer.evidence_root.clone(),
+            observation_commitment: String::new(),
+            claim_ceiling: crate::effect_finality::EXTERNAL_FINALITY_CLAIM_CEILING.into(),
+        };
+        observation.observation_commitment = observation.recomputed_commitment();
         ExternalObservedEvidenceV1 {
-            observation: ExternalEffectObservationV1 {
-                observation_id: id.into(),
-                effect_id: "effect-1".into(),
-                effect_lineage_id: "lineage-1".into(),
-                lifecycle_generation_id: "generation-1".into(),
-                route_id: "route-1".into(),
-                provider_id: "provider-1".into(),
-                provider_operation_id: "operation-1".into(),
-                provider_profile_root: "provider-profile-1".into(),
-                provider_outcome_id: format!("outcome-{id}"),
-                request_commitment: "request-1".into(),
-                idempotency_key: "idem-1".into(),
-                semantic_environment_root: "env-1".into(),
-                observed_frontier_root: "frontier-1".into(),
-                observed_state: state,
-                source: ExternalObservationSourceV1::IndependentObserver,
-                evidence_root: observer.evidence_root.clone(),
-                claim_ceiling: crate::effect_finality::EXTERNAL_FINALITY_CLAIM_CEILING.into(),
-            },
+            observation,
+            observer_id: observer.observer_id.clone(),
             observer,
         }
     }
@@ -975,6 +1123,207 @@ mod tests {
     }
 
     #[test]
+    fn authoritative_set_provenance_rejects_semantic_substitution_even_with_new_commitment() {
+        let e1 = evidence("obs-1", observer("obs-1", "evidence-1", "custody-1"), ExternalObservedStateV1::Applied);
+        let e2 = evidence("obs-2", observer("obs-2", "evidence-2", "custody-2"), ExternalObservedStateV1::Applied);
+        let evidence = vec![e1, e2];
+        let mut forged = set(&["obs-1", "obs-2"]);
+        forged.target_state = ExternalFinalityStateV1::NotApplied;
+        forged.set_commitment = "attacker-recomputed-set-commitment".into();
+        assert!(!verify_observation_set_provenance(
+            &forged,
+            &effect(),
+            &route(),
+            &profile(),
+            &evidence,
+            "frontier-1",
+            "generation-1",
+        ));
+    }
+
+    #[test]
+    fn authoritative_set_provenance_rejects_duplicate_observation_ids() {
+        let e1 = evidence("obs-1", observer("obs-1", "evidence-1", "custody-1"), ExternalObservedStateV1::Applied);
+        let e2 = evidence("obs-2", observer("obs-2", "evidence-2", "custody-2"), ExternalObservedStateV1::Applied);
+        let evidence = vec![e1.clone(), e1, e2];
+        assert!(!verify_observation_set_provenance(
+            &set(&["obs-1", "obs-2"]),
+            &effect(),
+            &route(),
+            &profile(),
+            &evidence,
+            "frontier-1",
+            "generation-1",
+        ));
+    }
+
+    #[test]
+    fn same_observer_cannot_supply_multiple_independent_witnesses() {
+        let observer_profile = observer("observer-A", "evidence-1", "custody-1");
+        let e1 = evidence(
+            "obs-1",
+            observer_profile.clone(),
+            ExternalObservedStateV1::Applied,
+        );
+        let mut e2_profile = observer_profile;
+        e2_profile.evidence_root = "evidence-2".into();
+        e2_profile.custody_root = "custody-2".into();
+        e2_profile.independence_commitment = "independence-observer-A-2".into();
+        let e2 = evidence("obs-2", e2_profile, ExternalObservedStateV1::Applied);
+
+        let s = set(&["obs-1", "obs-2"]);
+        let result = assess_observation_set(
+            &effect(),
+            &route(),
+            &profile(),
+            &s,
+            &[e1, e2],
+            "frontier-1",
+            "generation-1",
+        );
+
+        assert_eq!(result.independent_count, 0);
+        assert_eq!(result.disposition, ObservationSetDispositionV1::InsufficientEvidence);
+        assert!(result.assessments.iter().all(|assessment| {
+            matches!(
+                assessment.classification,
+                ObservationClassificationV1::CorroboratingDependent
+            )
+        }));
+    }
+
+    #[test]
+    fn authoritative_set_provenance_rejects_conflicting_duplicate_observation_ids() {
+        let matching = evidence(
+            "obs-1",
+            observer("obs-1", "evidence-1", "custody-1"),
+            ExternalObservedStateV1::Applied,
+        );
+        let mut conflicting = matching.clone();
+        conflicting.observation.observed_state = ExternalObservedStateV1::NotApplied;
+        conflicting.observation.observation_commitment =
+            conflicting.observation.recomputed_commitment();
+
+        assert!(!verify_observation_set_provenance(
+            &set(&["obs-1"]),
+            &effect(),
+            &route(),
+            &profile(),
+            &[matching, conflicting],
+            "frontier-1",
+            "generation-1",
+        ));
+    }
+
+    #[test]
+    fn assessment_commitment_covers_every_semantic_field() {
+        let e1 = evidence(
+            "obs-1",
+            observer("obs-1", "evidence-1", "custody-1"),
+            ExternalObservedStateV1::Applied,
+        );
+        let s = set(&["obs-1"]);
+        let mut assessment = assess_observation_set(
+            &effect(),
+            &route(),
+            &profile(),
+            &s,
+            &[e1],
+            "frontier-1",
+            "generation-1",
+        )
+        .assessments
+        .remove(0);
+        assert!(assessment.commitment_matches());
+
+        macro_rules! assert_field_bound {
+            ($field:ident, $value:expr) => {{
+                let mut candidate = assessment.clone();
+                candidate.$field = $value;
+                assert_ne!(
+                    candidate.assessment_commitment,
+                    candidate.recomputed_commitment(),
+                    "field {} was not commitment-bound",
+                    stringify!($field)
+                );
+            }};
+        }
+
+        assert_field_bound!(observation_id, "obs-mutated".into());
+        assert_field_bound!(observer_id, "observer-mutated".into());
+        assert_field_bound!(independence, ObservationIndependenceV1::Unknown);
+        assert_field_bound!(
+            classification,
+            ObservationClassificationV1::ContradictoryIndependent
+        );
+        assert_field_bound!(evidence_root, "evidence-mutated".into());
+        assert_field_bound!(custody_root, "custody-mutated".into());
+        assert_field_bound!(
+            observation_commitment,
+            "observation-commitment-mutated".into()
+        );
+        assert_field_bound!(
+            claim_ceiling,
+            "claim-ceiling-mutated".into()
+        );
+    }
+
+    #[test]
+    fn assessment_commitment_binds_classification_and_observation_identity() {
+        let e1 = evidence("obs-1", observer("obs-1", "evidence-1", "custody-1"), ExternalObservedStateV1::Applied);
+        let s = set(&["obs-1"]);
+        let expected = assess_observation_set(
+            &effect(),
+            &route(),
+            &profile(),
+            &s,
+            &[e1.clone()],
+            "frontier-1",
+            "generation-1",
+        );
+        assert!(expected.assessments[0].commitment_matches());
+
+        let mut forged = expected.clone();
+        forged.assessments[0].classification =
+            ObservationClassificationV1::ContradictoryIndependent;
+        forged.assessments[0].assessment_commitment =
+            forged.assessments[0].recomputed_commitment();
+
+        assert!(!verify_observation_set_assessment_provenance(
+            &forged,
+            &effect(),
+            &route(),
+            &profile(),
+            &s,
+            &[e1],
+            "frontier-1",
+            "generation-1",
+        ));
+    }
+
+    #[test]
+    fn self_recommitted_observation_cannot_become_authoritative_d6n_evidence() {
+        let mut item = evidence(
+            "obs-1",
+            observer("obs-1", "evidence-1", "custody-1"),
+            ExternalObservedStateV1::Applied,
+        );
+        item.observation.request_commitment = "forged-request".into();
+        item.observation.observation_commitment = item.observation.recomputed_commitment();
+
+        assert!(item.observation.commitment_matches());
+        assert!(!verify_observation_set_provenance(
+            &set(&["obs-1"]),
+            &effect(),
+            &route(),
+            &profile(),
+            &[item],
+            "frontier-1",
+            "generation-1",
+        ));
+    }
+
+    #[test]
     fn observation_and_observer_identity_are_distinct() {
         let observer_profile = observer("observer-A", "evidence-1", "custody-1");
         let mut item = evidence(
@@ -997,6 +1346,30 @@ mod tests {
         );
         assert_eq!(result.disposition, ObservationSetDispositionV1::QualifiedEvidence);
         assert_eq!(result.independent_count, 2);
+    }
+
+    #[test]
+    fn authoritative_assessment_rejects_self_consistent_semantic_substitution() {
+        let e1 = evidence("obs-1", observer("obs-1", "evidence-1", "custody-1"), ExternalObservedStateV1::Applied);
+        let e2 = evidence("obs-2", observer("obs-2", "evidence-2", "custody-2"), ExternalObservedStateV1::Applied);
+        let s = set(&["obs-1", "obs-2"]);
+        let expected = assess_observation_set(
+            &effect(), &route(), &profile(), &s, &[e1.clone(), e2.clone()],
+            "frontier-1", "generation-1",
+        );
+        assert!(verify_observation_set_assessment_provenance(
+            &expected, &effect(), &route(), &profile(), &s,
+            &[e1.clone(), e2.clone()], "frontier-1", "generation-1",
+        ));
+
+        let mut forged = expected.clone();
+        forged.assessments[0].classification =
+            ObservationClassificationV1::ContradictoryIndependent;
+        forged.assessment_commitment = expected.assessment_commitment.clone();
+        assert!(!verify_observation_set_assessment_provenance(
+            &forged, &effect(), &route(), &profile(), &s,
+            &[e1, e2], "frontier-1", "generation-1",
+        ));
     }
 
     #[test]
@@ -1178,7 +1551,7 @@ mod tests {
     }
 
     #[test]
-    fn archive_resolution_is_historical_only() {
+    fn archive_resolution_is_historical_only_preserves_boundary() {
         let r = receipt(FinalityResolutionDispositionV1::AcceptedCurrent);
         assert_eq!(
             archive_resolution_is_historical_only("effect-1", &r, "effect-1"),

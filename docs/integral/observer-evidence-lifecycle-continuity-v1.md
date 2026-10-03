@@ -213,6 +213,8 @@ It binds:
 - eligibility disposition;
 - commitment.
 
+The receipt join is exact, not merely identifier-based. Receipt observer identity must agree with both the observed evidence and the selected generation; the dependency snapshot must name that same generation and match its profile/environment namespace. This prevents a syntactically valid receipt from crossing an observer-generation boundary through field substitution.
+
 Eligibility is evaluated against the lifecycle ledger rather than accepting a caller-supplied current flag.
 
 The reference model distinguishes:

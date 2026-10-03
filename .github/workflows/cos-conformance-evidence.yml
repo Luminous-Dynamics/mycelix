@@ -1,0 +1,128 @@
+name: COS Conformance Evidence
+
+on:
+  pull_request:
+    branches: [main, myc-int-demo-d6w-layered-commitments]
+    paths:
+      - 'mycelix-manufacturing/crates/cos_conformance/**'
+      - 'mycelix-manufacturing/Cargo.toml'
+      - 'mycelix-manufacturing/Cargo.lock'
+      - 'docs/integral/cos-reference-node-v1.md'
+      - 'mycelix-manufacturing/tests/cos_reference_conformance.md'
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+# This workflow is deliberately non-canceling. Unlike generic CI, each completed
+# evidence run remains independently addressable for the exact source SHA that
+# produced it.
+concurrency:
+  group: cos-conformance-evidence-${{ github.sha }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  conformance:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          submodules: recursive
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-manufacturing
+
+      - name: Capture tested revision
+        if: always()
+        run: |
+          mkdir -p evidence
+          git rev-parse HEAD > evidence/tested-commit-sha.txt
+
+      - name: Capture toolchain identity
+        if: always()
+        run: |
+          mkdir -p evidence
+          rustc -Vv > evidence/rustc-version.txt
+          cargo -V > evidence/cargo-version.txt
+
+      - name: Test COS conformance harness
+        id: conformance_test
+        run: |
+          mkdir -p evidence
+          set +e
+          cd mycelix-manufacturing
+          cargo test -p cos_conformance 2>&1 | tee ../evidence/cargo-test.log
+          status=${PIPESTATUS[0]}
+          printf '%s\n' "${status}" > ../evidence/cargo-test.exit-code
+          exit "${status}"
+
+      - name: Generate machine-readable report
+        run: |
+          mkdir -p evidence
+          cd mycelix-manufacturing
+          cargo run -q -p cos_conformance --bin cos-report > ../evidence/cos-conformance-report.json
+
+      - name: Validate evidence report
+        run: |
+          test -s evidence/cos-conformance-report.json
+          grep -q '"corpus_id": "COS-CONF-001"' evidence/cos-conformance-report.json
+          grep -q '"case_count": 32' evidence/cos-conformance-report.json
+          grep -q '"untested_formal_obligations": \[\]' evidence/cos-conformance-report.json
+          ! grep -q 'verified_score' evidence/cos-conformance-report.json
+
+      - name: Write run envelope
+        if: always()
+        run: |
+          test_exit_code="null"
+          if [[ -f evidence/cargo-test.exit-code ]]; then
+            test_exit_code="$(cat evidence/cargo-test.exit-code)"
+          fi
+          tested_commit_sha="null"
+          if [[ -f evidence/tested-commit-sha.txt ]]; then
+            tested_commit_sha="$(cat evidence/tested-commit-sha.txt)"
+          fi
+          cat > evidence/run-envelope.json <<JSON
+          {
+            "schema": "MYCELIX-COS-CONFORMANCE-EVIDENCE-V1",
+            "claim_ceiling": "ReferenceModelOnly",
+            "repository": "${{ github.repository }}",
+            "trigger_sha": "${{ github.sha }}",
+            "tested_commit_sha": "$tested_commit_sha",
+            "workflow": "${{ github.workflow }}",
+            "run_id": ${{ github.run_id }},
+            "run_attempt": ${{ github.run_attempt }},
+            "event": "${{ github.event_name }}",
+            "runner_os": "${{ runner.os }}",
+            "conformance_test_outcome": "${{ steps.conformance_test.outcome }}",
+            "conformance_test_exit_code": $test_exit_code
+          }
+          JSON
+
+      - name: Preserve immutable evidence
+        if: always()
+        id: evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: cos-conformance-evidence-${{ github.event.pull_request.head.sha || github.sha }}
+          path: evidence/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Publish artifact integrity record
+        if: always() && steps.evidence.outputs.artifact-digest != ''
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          ## COS evidence artifact
+
+          - artifact-id: ${{ steps.evidence.outputs.artifact-id }}
+          - artifact-digest: ${{ steps.evidence.outputs.artifact-digest }}
+          - artifact-url: ${{ steps.evidence.outputs.artifact-url }}
+          - tested-commit-sha: $(cat evidence/tested-commit-sha.txt 2>/dev/null || printf '%s' 'null')
+          EOF
