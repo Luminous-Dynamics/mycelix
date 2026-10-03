@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 ADAPTER_DIR = (
@@ -22,6 +23,11 @@ EXPECTED_DISPATCH = (
 def main() -> int:
     cargo = CARGO.read_text(encoding="utf-8")
     source = LIB.read_text(encoding="utf-8")
+    contract_path = Path(__file__).resolve().parent.parent / "docs/mobility/MOBILITY_QUALIFICATION_ADAPTER_BOUNDARY_V1.json"
+    try:
+        contract = json.loads(contract_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise SystemExit(f"cannot read adapter boundary contract: {exc}") from exc
 
     for fragment in (
         'hdi = "=0.8.0"',
@@ -68,6 +74,23 @@ def main() -> int:
         raise SystemExit("authority-agent credential issuer must equal the bound agent")
     if "one AgentPubKey in an immutable binding set" not in source:
         raise SystemExit("authority-agent registry must reject duplicate authority bindings")
+
+    authority_contract = contract.get("authority_agent_binding")
+    if not isinstance(authority_contract, dict):
+        raise SystemExit("machine contract missing authority_agent_binding object")
+    expected_contract = {
+        "registry_retains_verified_credential": True,
+        "audit_credential_accessor": "HolochainAuthorityAgentBindingSet::credential_for",
+        "runtime_binding_requires_exact_authority_scope_match": True,
+        "runtime_binding_requires_exact_authority_delegation_match": True,
+        "authority_credential_provenance_continuity_is_checked": True,
+        "registered_credential_basis_is_minimum_runtime_basis": True,
+        "runtime_binding_witness_must_differ_from_authority_credential_witness": True,
+    }
+    for key, expected in expected_contract.items():
+        if authority_contract.get(key) != expected:
+            raise SystemExit(f"machine contract drift for {key}: expected {expected!r}")
+
     if "agent_for(&authority)" not in source:
         raise SystemExit("runtime binding must expose authority-agent lookup")
     if "credential_for(&authority)" not in source:
