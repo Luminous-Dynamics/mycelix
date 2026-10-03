@@ -596,13 +596,12 @@ fn maximum_dispatch_offset_child() -> ! {
     };
     let _ = unsafe { *libc::__errno_location() };
 
-    if install_v2(
+    if let Err(error) = install_v2(
         RendererProcessAssignmentId::new(6).unwrap(),
         profile,
         &policy,
-    )
-    .is_err()
-    {
+    ) {
+        eprintln!("maximum-dispatch install_v2 error: {error:?}");
         unsafe { libc::_exit(159) };
     }
 
