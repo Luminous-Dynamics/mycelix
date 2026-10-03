@@ -241,13 +241,19 @@ fn validate_create_link(
             if &entry.requester != author {
                 return Ok(ValidateCallbackResult::Invalid("AgentToQuery link author must equal query requester".into()));
             }
-            return validate_anchor_name(base_address, &format!("agent_queries:{:?}", entry.requester), "AgentToQuery");
+            let anchor_result = validate_anchor_name(base_address, &format!("agent_queries:{:?}", entry.requester), "AgentToQuery")?;
+            if anchor_result != ValidateCallbackResult::Valid {
+                return Ok(anchor_result);
+            }
         }
         LinkTypes::DomainToQuery => {
             let target = ActionHash::try_from(target_address).map_err(|_| ValidateCallbackResult::Invalid("DomainToQuery target must be an ActionHash".into()))?;
             let record = must_get_valid_record(target)?;
             let entry: BridgeQueryEntry = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("BridgeQuery entry missing".into())))?;
-            return validate_anchor_name(base_address, &format!("domain_queries:{}", entry.domain), "DomainToQuery");
+            let anchor_result = validate_anchor_name(base_address, &format!("domain_queries:{}", entry.domain), "DomainToQuery")?;
+            if anchor_result != ValidateCallbackResult::Valid {
+                return Ok(anchor_result);
+            }
         }
         LinkTypes::AllEvents => {
             let anchor_result = validate_anchor_name(base_address, "all_hearth_events", "AllEvents")?;
@@ -262,7 +268,10 @@ fn validate_create_link(
             let target = ActionHash::try_from(target_address).map_err(|_| ValidateCallbackResult::Invalid("EventTypeToEvent target must be an ActionHash".into()))?;
             let record = must_get_valid_record(target)?;
             let entry: BridgeEventEntry = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("BridgeEvent entry missing".into())))?;
-            return validate_anchor_name(base_address, &format!("event_type:{}:{}", entry.domain, entry.event_type), "EventTypeToEvent");
+            let anchor_result = validate_anchor_name(base_address, &format!("event_type:{}:{}", entry.domain, entry.event_type), "EventTypeToEvent")?;
+            if anchor_result != ValidateCallbackResult::Valid {
+                return Ok(anchor_result);
+            }
         }
         LinkTypes::AgentToEvent => {
             let target = ActionHash::try_from(target_address).map_err(|_| ValidateCallbackResult::Invalid("AgentToEvent target must be an ActionHash".into()))?;
@@ -271,13 +280,19 @@ fn validate_create_link(
             if &entry.source_agent != author {
                 return Ok(ValidateCallbackResult::Invalid("AgentToEvent link author must equal event source_agent".into()));
             }
-            return validate_anchor_name(base_address, &format!("agent_events:{:?}", entry.source_agent), "AgentToEvent");
+            let anchor_result = validate_anchor_name(base_address, &format!("agent_events:{:?}", entry.source_agent), "AgentToEvent")?;
+            if anchor_result != ValidateCallbackResult::Valid {
+                return Ok(anchor_result);
+            }
         }
         LinkTypes::DomainToEvent => {
             let target = ActionHash::try_from(target_address).map_err(|_| ValidateCallbackResult::Invalid("DomainToEvent target must be an ActionHash".into()))?;
             let record = must_get_valid_record(target)?;
             let entry: BridgeEventEntry = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("BridgeEvent entry missing".into())))?;
-            return validate_anchor_name(base_address, &format!("domain_events:{}", entry.domain), "DomainToEvent");
+            let anchor_result = validate_anchor_name(base_address, &format!("domain_events:{}", entry.domain), "DomainToEvent")?;
+            if anchor_result != ValidateCallbackResult::Valid {
+                return Ok(anchor_result);
+            }
         }
         LinkTypes::DispatchRateLimit => {
             let base = AgentPubKey::try_from(base_address).map_err(|_| ValidateCallbackResult::Invalid("DispatchRateLimit base must be an AgentPubKey".into()))?;
