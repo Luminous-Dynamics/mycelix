@@ -25,7 +25,6 @@ SUPPORTED = {
     "revoked-capability",
     "provenance-mismatch",
     "nonce-replay",
-    "nonce-stale",
     "expired-invocation",
     "wrong-zome",
     "wrong-function",
@@ -35,6 +34,12 @@ SUPPORTED = {
 
 UNSUPPORTED = {
     "wire-signature-valid",
+    "nonce-stale",
+}
+
+UNSUPPORTED_REASONS = {
+    "wire-signature-valid": "The isolated authenticated-but-not-yet-authorized intermediate state is not exposed as a standalone Holochain 0.7 app-interface result.",
+    "nonce-stale": "Holochain 0.7 uses random 256-bit nonces and witnesses Fresh, Duplicate, Expired, or Future; the D6S stale/older-nonce state is not independently reproducible on this substrate.",
 }
 
 
@@ -57,7 +62,7 @@ def main() -> None:
 
     assert manifest["profile"] == "D6U-RUNTIME-1"
     assert manifest["kind"] == "holochain-0.7-authority-boundary-runtime-manifest"
-    assert manifest["version"] == 1
+    assert manifest["version"] == 2
     assert manifest["claim_ceiling"] == "ReferenceModelOnly"
     assert manifest["evidence_verifier_path"] == "scripts/integral/verify_d6u_runtime_evidence.py"
     assert manifest["evidence_status"] == "NotExecuted"
@@ -75,8 +80,9 @@ def main() -> None:
     unsupported = set(manifest["unsupported_reference_cases"])
     assert supported == SUPPORTED
     assert unsupported == UNSUPPORTED
-    assert len(supported) == 16
-    assert len(unsupported) == 1
+    assert manifest["unsupported_reference_case_reasons"] == UNSUPPORTED_REASONS
+    assert len(supported) == 15
+    assert len(unsupported) == 2
     assert supported.isdisjoint(unsupported)
 
     deps = manifest["dependencies"]
@@ -95,8 +101,8 @@ def main() -> None:
     print("holochain=0.7.0")
     print("hdk=0.7.0")
     print("hdi=0.8.0")
-    print("supported_cases=16")
-    print("unsupported_cases=1")
+    print("supported_cases=15")
+    print("unsupported_cases=2")
     print("claim_ceiling=ReferenceModelOnly")
 
 
