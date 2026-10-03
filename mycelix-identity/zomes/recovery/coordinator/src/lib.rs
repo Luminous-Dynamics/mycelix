@@ -1764,12 +1764,23 @@ pub fn get_self_recovery_config(did: String) -> ExternResult<Option<Record>> {
         GetStrategy::default(),
     )?;
 
-    match links.into_iter().max_by_key(|link| link.timestamp) {
-        Some(link) => {
-            let hash = ActionHash::try_from(link.target.clone())
-                .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-            get_latest_record(hash)
+    let mut config_target: Option<ActionHash> = None;
+    for link in links {
+        let hash = ActionHash::try_from(link.target.clone())
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
+        if let Some(existing) = config_target.as_ref() {
+            if existing != &hash {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Ambiguous self-recovery configuration: multiple distinct config records exist for this DID".into(),
+                )));
+            }
+        } else {
+            config_target = Some(hash);
         }
+    }
+
+    match config_target {
+        Some(hash) => get_latest_record(hash),
         None => Ok(None),
     }
 }
@@ -1786,10 +1797,22 @@ pub fn mark_self_recovery_superseded(did: String) -> ExternResult<()> {
         GetStrategy::default(),
     )?;
 
-    if let Some(link) = links.into_iter().max_by_key(|link| link.timestamp) {
+    let mut config_target: Option<ActionHash> = None;
+    for link in links {
         let hash = ActionHash::try_from(link.target.clone())
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
+        if let Some(existing) = config_target.as_ref() {
+            if existing != &hash {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Ambiguous self-recovery configuration: multiple distinct config records exist for this DID".into(),
+                )));
+            }
+        } else {
+            config_target = Some(hash);
+        }
+    }
 
+    if let Some(hash) = config_target {
         if let Some(record) = get_latest_record(hash.clone())? {
             let mut config: SelfRecoveryConfig = record
                 .entry()
