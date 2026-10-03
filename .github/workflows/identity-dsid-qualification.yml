@@ -6,6 +6,8 @@ on:
       - feat/sovereign-identity-live-bootstrap
     paths:
       - 'mycelix-identity/**'
+      - 'docs/identity/did-mycelix-*.json'
+      - 'docs/identity/did-mycelix-*.md'
       - 'crates/mycelix-leptos-core/**'
       - 'crates/mycelix-leptos-client/**'
       - '.github/workflows/identity-dsid-qualification.yml'
@@ -163,8 +165,15 @@ jobs:
           assert all(row["commit_sha"] for row in rows)
           assert len({row["commit_sha"] for row in rows}) == 1
           assert all(row["agents"] for row in rows)
-          assert all(row["action_hashes"] for row in rows)
-          assert all(row["entry_hashes"] for row in rows)
+          assert all(row["evidence_scope"] in {"record-bound", "absence-bound"} for row in rows)
+
+          for row in rows:
+              if row["evidence_scope"] == "record-bound":
+                  assert row["action_hashes"], f"record-bound scenario missing action hashes: {row['scenario_id']}"
+                  assert row["entry_hashes"], f"record-bound scenario missing entry hashes: {row['scenario_id']}"
+              else:
+                  assert not row["action_hashes"], f"absence-bound scenario has action hashes: {row['scenario_id']}"
+                  assert not row["entry_hashes"], f"absence-bound scenario has entry hashes: {row['scenario_id']}"
 
           # Evidence order is deliberately irrelevant; the canonical scenario
           # set is the sorted set of IDs, which is recorded in the manifest.
