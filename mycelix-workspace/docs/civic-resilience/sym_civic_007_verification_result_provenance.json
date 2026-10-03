@@ -1,0 +1,794 @@
+{
+  "schema": "mycelix.sym-civic.verification-result-provenance.v1",
+  "program": "SYM-CIVIC-007",
+  "parent_subject": "00156dc7b7f4d2709e6563db0e7b84d31c4a4f8a",
+  "analysis_role": "research_only",
+  "invariants": [
+    "exact_subject_digest_binding",
+    "verifier_identity_versioned",
+    "policy_reference_immutable",
+    "evaluated_policy_digest_matches_reference",
+    "policy_version_matches_evaluation",
+    "policy_temporal_validity",
+    "property_scope_enforced",
+    "verification_time_explicit",
+    "no_cross_subject_replay",
+    "reproducibility_policy_explicit",
+    "policy_change_new_result_identity",
+    "historical_policy_version_explicit",
+    "authentication_not_scientific_truth",
+    "verification_not_authorization",
+    "multi_subject_set_preserved"
+  ],
+  "cases": [
+    {
+      "id": "V-01",
+      "family": "verification_subject_digest_mismatch",
+      "candidate": {
+        "subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "verified_subject": {
+          "name": "result-a",
+          "digest": "sha256:r-b"
+        },
+        "verifier": {
+          "id": "https://example.org/verifier/v2"
+        },
+        "policies": [
+          {
+            "uri": "https://example.org/policy/p1",
+            "digest": "sha256:p1",
+            "version": "1"
+          }
+        ],
+        "policy_evaluation": {
+          "version": "1",
+          "scope": [
+            "SCOPE_A"
+          ],
+          "digest": "sha256:p1"
+        },
+        "timeCreated": "2026-10-03T01:00:00Z",
+        "execution_finished_at": "2026-10-03T00:59:00Z",
+        "properties": [
+          {
+            "name": "SCOPE_A/PASS",
+            "status": "passed"
+          }
+        ]
+      },
+      "note": "A verification result for one digest cannot be presented as verification of another digest."
+    },
+    {
+      "id": "V-02",
+      "family": "unknown_verifier",
+      "candidate": {
+        "subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "verified_subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "verifier": {
+          "id": "https://example.org/verifier/unknown",
+          "known": false
+        },
+        "policies": [],
+        "timeCreated": "2026-10-03T01:00:00Z",
+        "properties": [
+          {
+            "name": "NO_POLICY/CHECK",
+            "status": "passed"
+          }
+        ]
+      },
+      "note": "A result must identify an accepted verifier; an arbitrary identifier is not enough."
+    },
+    {
+      "id": "V-03",
+      "family": "verifier_version_omitted",
+      "candidate": {
+        "subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "verified_subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "verifier": {
+          "id": "https://example.org/verifier"
+        },
+        "verifier_logic_digest": "sha256:logic-a",
+        "policies": [],
+        "timeCreated": "2026-10-03T01:00:00Z",
+        "properties": [
+          {
+            "name": "NO_POLICY/CHECK",
+            "status": "passed"
+          }
+        ]
+      },
+      "note": "Materially changing verification logic without a versioned verifier identity makes results ambiguous."
+    },
+    {
+      "id": "V-04",
+      "family": "mutable_latest_policy_locator",
+      "candidate": {
+        "subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "verified_subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "verifier": {
+          "id": "https://example.org/verifier/v2"
+        },
+        "policies": [
+          {
+            "uri": "https://example.org/policies/latest",
+            "digest": null,
+            "version": null
+          }
+        ],
+        "policy_evaluation": {
+          "version": "latest",
+          "scope": [
+            "SCOPE_A"
+          ],
+          "digest": null
+        },
+        "timeCreated": "2026-10-03T01:00:00Z",
+        "properties": [
+          {
+            "name": "SCOPE_A/PASS",
+            "status": "passed"
+          }
+        ]
+      },
+      "note": "Mutable latest policy references do not establish which policy bytes were evaluated."
+    },
+    {
+      "id": "V-05",
+      "family": "policy_digest_mismatch",
+      "candidate": {
+        "subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "verified_subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "verifier": {
+          "id": "https://example.org/verifier/v2"
+        },
+        "policies": [
+          {
+            "uri": "https://example.org/policy/p1",
+            "digest": "sha256:p1"
+          }
+        ],
+        "policy_evaluation": {
+          "version": "1",
+          "scope": [
+            "SCOPE_A"
+          ],
+          "digest": "sha256:p2"
+        },
+        "timeCreated": "2026-10-03T01:00:00Z",
+        "properties": [
+          {
+            "name": "SCOPE_A/PASS",
+            "status": "passed"
+          }
+        ]
+      },
+      "note": "The digest of the evaluated policy must match the policy reference bound into the result."
+    },
+    {
+      "id": "V-06",
+      "family": "evaluated_policy_version_mismatch",
+      "candidate": {
+        "subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "verified_subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "verifier": {
+          "id": "https://example.org/verifier/v2"
+        },
+        "policies": [
+          {
+            "uri": "https://example.org/policy/p1",
+            "digest": "sha256:p1",
+            "version": "1"
+          }
+        ],
+        "policy_evaluation": {
+          "version": "2",
+          "scope": [
+            "SCOPE_A"
+          ],
+          "digest": "sha256:p1"
+        },
+        "timeCreated": "2026-10-03T01:00:00Z",
+        "properties": [
+          {
+            "name": "SCOPE_A/PASS",
+            "status": "passed"
+          }
+        ]
+      },
+      "note": "A result cannot claim evaluation under a policy version different from the referenced policy."
+    },
+    {
+      "id": "V-07",
+      "family": "policy_invalid_at_verification_time",
+      "candidate": {
+        "subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "verified_subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "verifier": {
+          "id": "https://example.org/verifier/v2"
+        },
+        "policies": [
+          {
+            "uri": "https://example.org/policy/p1",
+            "digest": "sha256:p1",
+            "version": "1",
+            "valid_from": "2026-10-02T00:00:00Z",
+            "valid_until": "2026-10-03T00:30:00Z"
+          }
+        ],
+        "policy_evaluation": {
+          "version": "1",
+          "scope": [
+            "SCOPE_A"
+          ],
+          "digest": "sha256:p1"
+        },
+        "timeCreated": "2026-10-03T01:00:00Z",
+        "properties": [
+          {
+            "name": "SCOPE_A/PASS",
+            "status": "passed"
+          }
+        ]
+      },
+      "note": "The policy must be valid at the verification time unless an explicit historical rule applies."
+    },
+    {
+      "id": "V-08",
+      "family": "property_outside_policy_scope",
+      "candidate": {
+        "subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "verified_subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "verifier": {
+          "id": "https://example.org/verifier/v2"
+        },
+        "policies": [
+          {
+            "uri": "https://example.org/policy/p1",
+            "digest": "sha256:p1",
+            "version": "1"
+          }
+        ],
+        "policy_evaluation": {
+          "version": "1",
+          "scope": [
+            "SCOPE_A"
+          ],
+          "digest": "sha256:p1"
+        },
+        "timeCreated": "2026-10-03T01:00:00Z",
+        "properties": [
+          {
+            "name": "SCOPE_B/PASS",
+            "status": "passed"
+          }
+        ]
+      },
+      "note": "Verification claims outside the policy's declared scope are provenance-invalid."
+    },
+    {
+      "id": "V-09",
+      "family": "verification_replay_different_subject",
+      "candidate": {
+        "subject": {
+          "name": "result-b",
+          "digest": "sha256:r-b"
+        },
+        "verified_subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "verifier": {
+          "id": "https://example.org/verifier/v2"
+        },
+        "policies": [],
+        "timeCreated": "2026-10-03T01:00:00Z",
+        "properties": [
+          {
+            "name": "NO_POLICY/CHECK",
+            "status": "passed"
+          }
+        ]
+      },
+      "note": "An authentic verification result cannot be replayed for a different subject digest."
+    },
+    {
+      "id": "V-10",
+      "family": "verification_timestamp_backdated",
+      "candidate": {
+        "subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "verified_subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "verifier": {
+          "id": "https://example.org/verifier/v2"
+        },
+        "policies": [],
+        "timeCreated": "2026-10-03T00:30:00Z",
+        "execution_started_at": "2026-10-03T00:40:00Z",
+        "execution_finished_at": "2026-10-03T00:50:00Z",
+        "properties": [
+          {
+            "name": "NO_POLICY/CHECK",
+            "status": "passed"
+          }
+        ]
+      },
+      "note": "A verification timestamp before the verifier execution window is temporally inconsistent."
+    },
+    {
+      "id": "V-11",
+      "family": "policy_bundle_omitted_reproducibility_claim",
+      "candidate": {
+        "subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "verified_subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "verifier": {
+          "id": "https://example.org/verifier/v2"
+        },
+        "policies": null,
+        "reproducibility_claim": true,
+        "timeCreated": "2026-10-03T01:00:00Z",
+        "properties": [
+          {
+            "name": "SCOPE_A/PASS",
+            "status": "passed"
+          }
+        ]
+      },
+      "note": "A reproducibility claim cannot omit policy provenance."
+    },
+    {
+      "id": "V-12",
+      "family": "policy_changed_without_new_result_identity",
+      "candidate": {
+        "result_id": "vr-1",
+        "subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "verified_subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "verifier": {
+          "id": "https://example.org/verifier/v2"
+        },
+        "policies": [
+          {
+            "uri": "https://example.org/policy/p1",
+            "digest": "sha256:p2",
+            "version": "2"
+          }
+        ],
+        "policy_evaluation": {
+          "version": "2",
+          "scope": [
+            "SCOPE_A"
+          ],
+          "digest": "sha256:p2"
+        },
+        "prior_policy_digest": "sha256:p1",
+        "same_result_identity": true,
+        "timeCreated": "2026-10-03T01:00:00Z",
+        "properties": [
+          {
+            "name": "SCOPE_A/PASS",
+            "status": "passed"
+          }
+        ]
+      },
+      "note": "Changing the policy dependency requires a new immutable verification-result identity."
+    },
+    {
+      "id": "V-13",
+      "family": "authenticated_uncertain_property",
+      "candidate": {
+        "subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "verified_subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "verifier": {
+          "id": "https://example.org/verifier/v2"
+        },
+        "policies": [],
+        "timeCreated": "2026-10-03T01:00:00Z",
+        "properties": [
+          {
+            "name": "CHECK/CAUSAL_SUPPORT",
+            "status": "uncertain"
+          }
+        ]
+      },
+      "note": "An authenticated verification result may report an explicitly uncertain property without establishing scientific truth."
+    },
+    {
+      "id": "V-14",
+      "family": "authenticated_failed_property_no_authorization",
+      "candidate": {
+        "subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "verified_subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "verifier": {
+          "id": "https://example.org/verifier/v2"
+        },
+        "policies": [],
+        "timeCreated": "2026-10-03T01:00:00Z",
+        "properties": [
+          {
+            "name": "CHECK/SAFETY",
+            "status": "failed"
+          }
+        ],
+        "authorization_decision": null
+      },
+      "note": "A failed verification property remains a reported result; it does not become an authorization decision."
+    },
+    {
+      "id": "V-15",
+      "family": "exact_binding",
+      "candidate": {
+        "subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "verified_subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "verifier": {
+          "id": "https://example.org/verifier/v2"
+        },
+        "policies": [
+          {
+            "uri": "https://example.org/policy/p1",
+            "digest": "sha256:p1",
+            "version": "1"
+          }
+        ],
+        "policy_evaluation": {
+          "version": "1",
+          "scope": [
+            "SCOPE_A"
+          ],
+          "digest": "sha256:p1"
+        },
+        "timeCreated": "2026-10-03T01:00:00Z",
+        "properties": [
+          {
+            "name": "SCOPE_A/PASS",
+            "status": "passed"
+          }
+        ]
+      },
+      "note": "Exact immutable subject, verifier, policy, time, and scoped property binding is admissible."
+    },
+    {
+      "id": "V-16",
+      "family": "explicit_empty_policy_set",
+      "candidate": {
+        "subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "verified_subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "verifier": {
+          "id": "https://example.org/verifier/v2"
+        },
+        "policies": [],
+        "timeCreated": "2026-10-03T01:00:00Z",
+        "properties": [
+          {
+            "name": "FRAMEWORK/IDENTITY_CHECK",
+            "status": "passed"
+          }
+        ]
+      },
+      "note": "An explicit empty policy set is distinct from omitting policy provenance."
+    },
+    {
+      "id": "V-17",
+      "family": "historical_policy_version",
+      "candidate": {
+        "subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "verified_subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "verifier": {
+          "id": "https://example.org/verifier/v2"
+        },
+        "policies": [
+          {
+            "uri": "https://example.org/policy/p1",
+            "digest": "sha256:p1",
+            "version": "1",
+            "valid_from": "2026-10-01T00:00:00Z",
+            "valid_until": "2026-10-02T00:30:00Z"
+          }
+        ],
+        "policy_evaluation": {
+          "version": "1",
+          "scope": [
+            "SCOPE_A"
+          ],
+          "digest": "sha256:p1"
+        },
+        "timeCreated": "2026-10-02T00:15:00Z",
+        "verification_policy_history": true,
+        "properties": [
+          {
+            "name": "SCOPE_A/PASS",
+            "status": "passed"
+          }
+        ]
+      },
+      "note": "Historical verification is admissible when the exact historical policy version is identified and valid at the recorded time."
+    },
+    {
+      "id": "V-18",
+      "family": "scoped_exact_policy",
+      "candidate": {
+        "subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "verified_subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "verifier": {
+          "id": "https://example.org/verifier/v2"
+        },
+        "policies": [
+          {
+            "uri": "https://example.org/policy/p2",
+            "digest": "sha256:p2",
+            "version": "7"
+          }
+        ],
+        "policy_evaluation": {
+          "version": "7",
+          "scope": [
+            "SCOPE_RELEASE"
+          ],
+          "digest": "sha256:p2"
+        },
+        "timeCreated": "2026-10-03T01:00:00Z",
+        "properties": [
+          {
+            "name": "SCOPE_RELEASE/READY",
+            "status": "passed"
+          }
+        ]
+      },
+      "note": "A property that lies within the exact policy scope is admissible as verification provenance."
+    },
+    {
+      "id": "V-19",
+      "family": "mutable_policy_uri_with_digest_mismatch",
+      "candidate": {
+        "subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "verified_subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "verifier": {
+          "id": "https://example.org/verifier/v2"
+        },
+        "policies": [
+          {
+            "uri": "https://example.org/policy/latest",
+            "digest": "sha256:p1",
+            "version": "1"
+          }
+        ],
+        "retrieved_policy_digest": "sha256:p2",
+        "policy_evaluation": {
+          "version": "1",
+          "scope": [
+            "SCOPE_A"
+          ],
+          "digest": "sha256:p2"
+        },
+        "timeCreated": "2026-10-03T01:00:00Z",
+        "properties": [
+          {
+            "name": "SCOPE_A/PASS",
+            "status": "passed"
+          }
+        ]
+      },
+      "note": "A mutable locator plus digest disagreement does not establish the evaluated policy identity."
+    },
+    {
+      "id": "V-20",
+      "family": "multi_subject_truncation",
+      "candidate": {
+        "subjects": [
+          {
+            "name": "result-a",
+            "digest": "sha256:r-a"
+          }
+        ],
+        "verified_subjects": [
+          {
+            "name": "result-a",
+            "digest": "sha256:r-a"
+          },
+          {
+            "name": "result-b",
+            "digest": "sha256:r-b"
+          }
+        ],
+        "verifier": {
+          "id": "https://example.org/verifier/v2"
+        },
+        "policies": [],
+        "timeCreated": "2026-10-03T01:00:00Z",
+        "properties": [
+          {
+            "name": "FRAMEWORK/IDENTITY_CHECK",
+            "status": "passed"
+          }
+        ]
+      },
+      "note": "A verifier cannot silently narrow a multi-subject result to one subject."
+    },
+    {
+      "id": "V-21",
+      "family": "result_identity_policy_change",
+      "candidate": {
+        "result_id": "vr-1",
+        "prior_result_id": "vr-1",
+        "subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "verified_subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "verifier": {
+          "id": "https://example.org/verifier/v2"
+        },
+        "policies": [
+          {
+            "uri": "https://example.org/policy/p1",
+            "digest": "sha256:p1",
+            "version": "1"
+          }
+        ],
+        "policy_evaluation": {
+          "version": "1",
+          "scope": [
+            "SCOPE_A"
+          ],
+          "digest": "sha256:p1"
+        },
+        "timeCreated": "2026-10-03T01:00:00Z",
+        "identity_changed": false,
+        "properties": [
+          {
+            "name": "SCOPE_A/PASS",
+            "status": "passed"
+          }
+        ]
+      },
+      "note": "A policy/subject provenance change must be reflected in a new result identity; otherwise history is ambiguous."
+    },
+    {
+      "id": "V-22",
+      "family": "authenticated_unsupported_property",
+      "candidate": {
+        "subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "verified_subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "verifier": {
+          "id": "https://example.org/verifier/v2"
+        },
+        "policies": [],
+        "timeCreated": "2026-10-03T01:00:00Z",
+        "properties": [
+          {
+            "name": "CHECK/SCIENTIFIC_SUPPORT",
+            "status": "unsupported"
+          }
+        ]
+      },
+      "note": "Authentication can preserve a report that the property is unsupported without converting it into truth."
+    }
+  ],
+  "nonclaims": [
+    "policy_correctness",
+    "verifier_competence",
+    "production_cryptographic_security",
+    "scientific_truth",
+    "civic_legitimacy",
+    "authorization",
+    "deployment_readiness"
+  ],
+  "prohibited_fields": [
+    "authorized_decision",
+    "civic_authorization",
+    "raw_subject_identifier",
+    "raw_payload"
+  ]
+}
