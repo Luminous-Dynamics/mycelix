@@ -16,7 +16,6 @@ D6S-CANON-2 provides a deterministic 17-case reference matrix. D6U binds 15 of t
 The two remaining D6S-CANON-2 cases stay outside this harness:
 
 - isolated authenticated-but-not-yet-authorized state;
-- blocked provenance.
 
 They require lower-level or system-policy instrumentation not needed by the ordinary application-call path, so the harness records them as unsupported rather than fabricating an observation.
 
