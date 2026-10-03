@@ -1467,20 +1467,22 @@ impl EvidenceDispositionReconciliationCoverage {
                 delegations,
             )?;
 
-        let authority_qualification = authority_assessment.into_qualification();
-        let combined_qualification =
-            authority_qualification.require_missing(missing_transitions);
+        let combined_qualification = authority_assessment
+            .into_qualification()
+            .require_missing(missing_transitions);
 
-        if let QualificationStatus::Unresolved {
-            missing,
-            partial,
-        } = combined_qualification
-        {
-            return Ok(EvidenceDispositionCoverageAssessment::Unresolved {
+        let partial = match combined_qualification {
+            QualificationStatus::Unresolved {
                 missing,
-                authority_roots: partial.authority_roots,
-            });
-        }
+                partial,
+            } => {
+                return Ok(EvidenceDispositionCoverageAssessment::Unresolved {
+                    missing,
+                    authority_roots: partial.authority_roots,
+                });
+            }
+            QualificationStatus::Complete(partial) => partial,
+        };
 
         self.validate_against_graph(
             reconciliation,
@@ -1490,16 +1492,9 @@ impl EvidenceDispositionReconciliationCoverage {
             &named_transitions,
         )?;
 
-        match combined_qualification {
-            QualificationStatus::Complete(partial) => {
-                Ok(EvidenceDispositionCoverageAssessment::Complete {
-                    authority_roots: partial.authority_roots,
-                })
-            }
-            QualificationStatus::Unresolved { .. } => unreachable!(
-                "unresolved coverage dependencies return before structural graph validation"
-            ),
-        }
+        Ok(EvidenceDispositionCoverageAssessment::Complete {
+            authority_roots: partial.authority_roots,
+        })
     }
 
     /// Validate bounded coverage and the exact authority delegation chain it relies on.
