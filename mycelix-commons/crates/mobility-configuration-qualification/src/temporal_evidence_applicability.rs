@@ -276,6 +276,15 @@ impl EvidenceDispositionTransition {
         combined.push(candidate.clone());
         Self::validate_graph(&combined)
     }
+
+    pub fn validate_append_qualified(
+        existing: &[EvidenceDispositionTransition],
+        candidate: &EvidenceDispositionTransition,
+    ) -> QualificationOutcome<DispositionChainQualification> {
+        Self::validate_append(existing, candidate)
+            .map_err(QualificationValidationError::from)
+            .map(DispositionChainAssessment::into_qualification)
+    }
 }
 
 /// Explicitly records reconciliation of competing disposition branches.
@@ -386,6 +395,15 @@ impl EvidenceDispositionAuthorityDelegation {
         };
 
         Self::validate_chain_with_target(target, delegations)
+    }
+
+    pub fn validate_chain_qualified(
+        delegation_id: &IdentityRef,
+        delegations: &[EvidenceDispositionAuthorityDelegation],
+    ) -> QualificationOutcome<AuthorityDelegationChainQualification> {
+        Self::validate_chain(delegation_id, delegations)
+            .map_err(QualificationValidationError::from)
+            .map(AuthorityDelegationChainAssessment::into_qualification)
     }
 
     /// Validate a named delegation chain when the target delegation record is
@@ -2186,6 +2204,68 @@ mod tests {
         value.disposition = EvidenceDisposition::Unresolved;
         assert!(value.validate().is_ok());
         assert_eq!(value.effectivity_interval.start, 120);
+    }
+
+    #[test]
+    fn append_qualified_preserves_unresolved_status() {
+        let candidate = graph_transition(
+            "qualified-successor",
+            Some("qualified-missing"),
+            EvidenceDisposition::Active,
+            EvidenceDisposition::Unresolved,
+        );
+
+        assert_eq!(
+            EvidenceDispositionTransition::validate_append_qualified(&[], &candidate).unwrap(),
+            QualificationStatus::Unresolved {
+                missing: vec![id(
+                    IdentityKind::ReconciliationWitness,
+                    "qualified-missing",
+                )],
+                partial: DispositionChainQualification {
+                    branch_points: vec![],
+                },
+            }
+        );
+    }
+
+    #[test]
+    fn append_qualified_surfaces_identity_reuse_as_structural() {
+        let genesis = graph_transition(
+            "qualified-reuse",
+            None,
+            EvidenceDisposition::Active,
+            EvidenceDisposition::Disputed {
+                by: id(IdentityKind::ReconciliationWitness, "dispute"),
+            },
+        );
+
+        let error =
+            EvidenceDispositionTransition::validate_append_qualified(&[genesis.clone()], &genesis)
+                .unwrap_err();
+
+        assert_eq!(
+            error,
+            QualificationValidationError::Structural {
+                reason: "cannot append disposition transition with an existing identity".into(),
+            }
+        );
+    }
+
+    #[test]
+    fn authority_target_qualified_preserves_missing_target_as_unresolved() {
+        let target = id(
+            IdentityKind::ReconciliationWitness,
+            "qualified-missing-authority",
+        );
+
+        assert_eq!(
+            EvidenceDispositionAuthorityDelegation::validate_chain_qualified(&target, &[]).unwrap(),
+            QualificationStatus::Unresolved {
+                missing: vec![target],
+                partial: AuthorityDelegationChainQualification { roots: vec![] },
+            }
+        );
     }
 
     #[test]
