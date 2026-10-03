@@ -43,6 +43,15 @@ An adapter MUST establish an explicit deterministic binding from each unresolved
 
 The binding set is intentionally append-only: a logical identity cannot be rebound to a second address within the same binding set. Iteration is canonicalized by logical identity, so construction order cannot affect downstream dependency resolution. An unbound logical identity remains unresolved; it must not be converted into a negative semantic finding.
 
+### Binding resolution contract
+
+The pure layer exposes `QualificationDependencyBindingSet::resolve_required`. Given a set of required logical identities, it has exactly two results:
+
+- every requested identity is bound: return the bound logical-identity/address pairs in canonical identity order;
+- one or more identities are unbound: return the canonical missing logical identities.
+
+Duplicate requests for the same logical identity are deduplicated during resolution. The API does not synthesize, guess, hash, or otherwise derive protocol addresses. A runtime adapter must map the returned opaque addresses to the concrete dependency retrieval API and preserve the unresolved state when a required addressable dependency is unavailable.
+
 ## Dependency retrieval boundary
 
 For Holochain, dependency retrieval SHOULD use the deterministic `must_get_*` host-function model.
