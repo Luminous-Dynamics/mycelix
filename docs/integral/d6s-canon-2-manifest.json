@@ -80,5 +80,31 @@
       "not-authorized",
       "authorized"
     ]
+  },
+  "runtime_evidence": {
+    "status": "NotExecuted",
+    "harness_issue": 3851,
+    "required_substrate": {
+      "holochain": "0.7.0",
+      "hdk": "0.7.0",
+      "hdi": "0.8.0"
+    },
+    "required_fields": [
+      "source_commit",
+      "runtime_version",
+      "hdk_version",
+      "hdi_version",
+      "fixture_identity",
+      "call_authentication",
+      "d6s_commitment_result",
+      "invocation_binding_result",
+      "capability_result",
+      "nonce_result",
+      "expiry_result",
+      "zome_reached",
+      "semantic_result",
+      "claim_ceiling"
+    ],
+    "required_state_rule": "Runtime evidence may only report observed conductor results; ReferenceModelOnly cases must not be upgraded by template presence."
   }
 }
