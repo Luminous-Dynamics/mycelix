@@ -853,3 +853,65 @@ async fn dsid_011_resolution_metadata_tracks_deactivation() {
         true,
     );
 }
+
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_012_substrate_discovery_is_cross_agent_and_author_bound() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let alice_app = conductor.setup_app(
+        "dsid-alice-substrate",
+        std::slice::from_ref(&dna),
+    ).await.unwrap();
+    let bob_app = conductor.setup_app(
+        "dsid-bob-substrate",
+        std::slice::from_ref(&dna),
+    ).await.unwrap();
+    let alice = alice_app.cells()[0].clone();
+    let bob = bob_app.cells()[0].clone();
+    let role = "identity-resolver";
+    let metadata = serde_json::json!({
+        "metadata": {
+            "role": role,
+            "api_version": 1,
+            "capabilities": ["resolve_did_view", "resolve_did_resolution"]
+        }
+    });
+
+    let alice_did: Record = conductor
+        .call(&alice.zome("did_registry"), "create_did", ())
+        .await;
+
+    let registration: Record = conductor
+        .call(
+            &alice.zome("did_registry"),
+            "register_substrate",
+            metadata,
+        )
+        .await;
+
+    await_consistency(&[alice.clone(), bob.clone()])
+        .await
+        .expect("substrate discovery must synchronize before cross-agent lookup");
+
+    let providers: Vec<AgentPubKey> = conductor
+        .call(&bob.zome("did_registry"), "resolve_substrate", role.to_string())
+        .await;
+
+    assert!(providers.contains(alice_app.agent()));
+
+    let mut agents = BTreeMap::new();
+    agents.insert("alice", alice_app.agent().to_string());
+    agents.insert("bob", bob_app.agent().to_string());
+    emit_evidence(
+        "DSID-012",
+        "substrate-discovery-cross-agent-and-author-bound",
+        &dna,
+        agents,
+        &[&alice_did, &registration],
+        "A substrate role advertisement is published under its dedicated discovery link type, resolves across agents, and is authored by the advertised agent.",
+        format!("role={} providers={:?}", role, providers),
+        true,
+    );
+}
