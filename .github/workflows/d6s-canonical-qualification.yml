@@ -39,6 +39,12 @@ jobs:
         uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # master @ 2025-08-23
         with:
           toolchain: 1.96.0
+          components: rustfmt
+
+      - name: Assert Rust toolchain identity
+        run: |
+          test "$(rustc +1.96.0 --version)" = "rustc 1.96.0 (ac68faa20 2026-05-25)"
+          rustfmt +1.96.0 --version
 
       - name: Check D6S formatting
         run: cargo fmt --manifest-path mycelix-manufacturing/Cargo.toml --all -- --check
@@ -71,10 +77,13 @@ jobs:
             echo "runner_image=${ImageOS:-unknown}"
             echo "rust_action_sha=e97e2d8cc328f1b50210efc529dca0028893a2d9"
             echo "rust_action_toolchain=1.96.0"
+            echo "rust_expected_version=rustc 1.96.0 (ac68faa20 2026-05-25)"
             echo "checkout_action_sha=11bd71901bbe5b1630ceea73d27597364c9af683"
             echo "upload_artifact_action_sha=ea165f8d65b6e75b540449e92b4886f43607fa02"
             echo "rust=$(rustc --version)"
+            echo "rust_verbose_commit=$(rustc --version --verbose | sed -n 's/^commit-hash: //p')"
             echo "cargo=$(cargo --version)"
+            echo "rustfmt=$(rustfmt --version)"
             echo "python=$(python3 --version)"
             echo "cargo_lock_sha256=$(sha256sum mycelix-manufacturing/Cargo.lock | cut -d' ' -f1)"
             echo "canon1_corpus_sha256=$(sha256sum docs/integral/d6s-canon-1-golden-vectors.json | cut -d' ' -f1)"
