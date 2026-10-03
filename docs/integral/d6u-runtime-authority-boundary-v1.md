@@ -4,7 +4,7 @@ Status: **ReferenceModelOnly**
 
 D6U is the live-substrate companion to D6S-CANON-2.
 
-D6S-CANON-2 provides a deterministic 17-case reference matrix. D6U binds 16 of those cases to an actual Holochain 0.7 test conductor using the same protocol primitives exposed by Holochain's 0.7 test stack:
+D6S-CANON-2 provides a deterministic 17-case reference matrix. D6U binds 15 of those cases to an actual Holochain 0.7 test conductor using the same protocol primitives exposed by Holochain's 0.7 test stack:
 
 - Sweettest conductor;
 - inline zomes;
@@ -16,6 +16,7 @@ D6S-CANON-2 provides a deterministic 17-case reference matrix. D6U binds 16 of t
 The two remaining D6S-CANON-2 cases stay outside this harness:
 
 - isolated authenticated-but-not-yet-authorized state;
+- distinct stale/older-nonce state.
 
 They require lower-level or system-policy instrumentation not needed by the ordinary application-call path, so the harness records them as unsupported rather than fabricating an observation.
 
@@ -33,7 +34,7 @@ The harness distinguishes:
 
 A pre-zome failure is never represented as a semantic zome rejection.
 
-Holochain 0.7's application interface may return AppResponse::ZomeCalled even when authorization fails. The returned serialized ZomeCallResponse must therefore be inspected to distinguish a zome-level result from an authorization or other pre-zome failure.
+Holochain 0.7's application interface may return AppResponse::ZomeCalled even when authorization fails. A successful `AppResponse::ZomeCalled` contains the zome payload directly; authorization failures remain `AppResponse::Error` values. The harness inspects these separately.
 
 ## Capability lifecycle
 
@@ -43,7 +44,7 @@ The same-agent author-grant path is tested independently and does not rely on an
 
 ## Nonce and expiry
 
-Replay is exercised by sending exactly the same signed call twice with one nonce. A higher nonce is accepted first, followed by a lower nonce to exercise stale/older rejection. An invocation with an already expired timestamp is rejected before the probe zome is reached.
+Replay is exercised by sending exactly the same signed call twice with one nonce. The D6S stale/older-nonce case is not independently executable on Holochain 0.7 because nonces are random 256-bit values and the witness state distinguishes fresh, duplicate, expired, and excessively-future expiry conditions. The harness instead exercises a supplemental future-expiry rejection, while the canonical `nonce-stale` case remains explicitly unsupported. An invocation with an already expired timestamp is rejected before the probe zome is reached.
 
 These cases are observations of the pinned runtime behavior, not reimplementations of the authorization algorithm.
 
