@@ -636,6 +636,36 @@
       "id": "EDT-125",
       "case": "unresolved_partial_runtime_binding_preserves_exact_provenance_witness",
       "expected": "accepted"
+    },
+    {
+      "id": "EDT-126",
+      "case": "binding_provenance_requires_exact_authority_scope_reference",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-127",
+      "case": "binding_provenance_requires_exact_authority_delegation_reference",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-128",
+      "case": "binding_provenance_allows_no_identity_reuse_across_provenance_roles",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-129",
+      "case": "binding_provenance_basis_cannot_contain_its_own_witness_identity",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-130",
+      "case": "binding_provenance_basis_cannot_use_bound_dependency_as_its_own_justification",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-131",
+      "case": "provenance_witness_identity_is_unique_per_runtime_binding",
+      "expected": "adapter_boundary_error"
     }
   ],
   "outcome_classes": [
