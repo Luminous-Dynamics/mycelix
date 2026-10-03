@@ -50,6 +50,7 @@ A canonical evidence envelope should bind:
 - freshness_source_id
 - freshness_epoch
 - freshness_marker_digest
+- freshness_policy_fingerprint
 - verification_outcome
 
 The fields have distinct meanings and must not be collapsed into one generic score.
@@ -112,7 +113,7 @@ Where available, the Mycelix envelope should preserve:
 
 For topology resolution evidence, `resolution_verifier_report_digest` should match the verifier-report provenance surfaced by Symthaea's topology-authority decision.
 
-Where a freshness handle is used, the envelope should preserve the exact freshness scheme, source, epoch/counter, and marker digest. The receiving policy remains responsible for maintaining its accepted epoch state. A freshness marker is a freshness input, not proof of physical truth.
+Where a freshness handle is used, the envelope should preserve the exact freshness scheme, source, epoch/counter, and marker digest. The receiving policy remains responsible for maintaining its accepted epoch state and pinning the acceptable marker scheme/source. The verifier's `freshness_policy_fingerprint`, when available, identifies the exact freshness acceptance policy used for the decision. A freshness marker is a freshness input, not proof of physical truth.
 
 These fields are evidence references, not a second verifier implementation.
 
