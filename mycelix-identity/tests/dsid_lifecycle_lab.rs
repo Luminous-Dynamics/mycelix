@@ -1273,7 +1273,7 @@ async fn dsid_016_historical_versions_are_deterministically_resolvable() {
 
     let current: DidDocument = decode_entry(
         &conductor
-            .call::<Record>(&cell.zome("did_registry"), "get_my_did", ())
+            .call(&cell.zome("did_registry"), "get_my_did", ())
             .await,
     )
     .expect("canonical DID must decode");
