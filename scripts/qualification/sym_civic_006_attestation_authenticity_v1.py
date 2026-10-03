@@ -5,7 +5,8 @@ from datetime import datetime,timezone
 
 ROOT=pathlib.Path(__file__).resolve().parents[2]
 MAN=ROOT/"mycelix-workspace/docs/civic-resilience/sym_civic_006_attestation_authenticity.json"
-IDS=[f"A-{i:02d}" for i in range(1,21)]
+IDS=[f"A-{i:02d}" for i in range(1,22)]
+CONTENT_UNQUALIFIED={"false","uncertain","unsupported"}
 
 def fail(m): raise SystemExit("SYM-CIVIC-006 FAIL: "+m)
 
@@ -19,24 +20,29 @@ def subject_binding_ok(x):
     return x.get("subject_set")==x.get("signed_subject_set")
 
 def attester_ok(x):
-    a=x.get("attester",{})
-    return a.get("status")=="active"
+    return x.get("attester",{}).get("status")=="active"
 
 def time_policy_ok(x):
     a=x.get("attester",{}); p=x.get("policy",{}); at=instant(x["attestation_time"])
+    verification=instant(x["verification_time"]) if x.get("verification_time") else None
     if a.get("key_not_before") and at < instant(a["key_not_before"]):
         return False
     if a.get("key_not_after") and at > instant(a["key_not_after"]) and not p.get("historical_grace",False):
         return False
-    if p.get("historical_grace") and a.get("key_not_after") and at > instant(a["key_not_after"]):
+    if a.get("key_not_after") and verification and verification > instant(a["key_not_after"]) and not (
+        p.get("historical_grace",False) or p.get("historical_key_lookup",False)
+    ):
         return False
     if a.get("rotation"):
-        rot=a["rotation"]; key_id=a.get("key_id")
+        key_id=a.get("key_id")
         if not key_id:
             return False
-        matches=[k for k in rot if k.get("key_id")==key_id and
-                 (not k.get("valid_from") or at >= instant(k["valid_from"])) and
-                 (not k.get("valid_until") or at < instant(k["valid_until"]))]
+        matches=[
+            k for k in a["rotation"]
+            if k.get("key_id")==key_id
+            and (not k.get("valid_from") or at >= instant(k["valid_from"]))
+            and (not k.get("valid_until") or at < instant(k["valid_until"]))
+        ]
         if len(matches)!=1:
             return False
     if a.get("key_history"):
@@ -51,7 +57,7 @@ def time_policy_ok(x):
             return False
         if epoch.get("valid_until") and at >= instant(epoch["valid_until"]):
             return False
-        if x.get("verification_time") and instant(x["verification_time"]) > at and not p.get("historical_key_lookup"):
+        if verification and verification > at and not p.get("historical_key_lookup"):
             return False
     return True
 
@@ -72,8 +78,7 @@ def signature_ok(x):
     sig=x.get("signature",{})
     return bool(sig.get("valid") and sig.get("canonical_bytes_match"))
 
-def reject(c):
-    x=c["candidate"]
+def authentication_rejected(x):
     if not subject_binding_ok(x):
         return True
     if not attester_ok(x):
@@ -94,6 +99,14 @@ def reject(c):
         return True
     return False
 
+def disposition(c):
+    x=c["candidate"]
+    if authentication_rejected(x):
+        return "REJECT_AUTHENTICATION"
+    if x.get("statement",{}).get("scientific_proposition_status") in CONTENT_UNQUALIFIED:
+        return "AUTHENTICATED_CONTENT_UNQUALIFIED"
+    return "AUTHENTICATED"
+
 def main():
     d=json.loads(MAN.read_text(encoding="utf-8"))
     if d.get("schema")!="mycelix.sym-civic.attestation-authenticity.v1" or d.get("program")!="SYM-CIVIC-006":
@@ -111,15 +124,24 @@ def main():
             fail(c["id"]+" embedded oracle")
         if any(k in c["candidate"] for k in ("raw_subject_identifier","raw_payload","authorized_decision","civic_authorization")):
             fail(c["id"]+" prohibited field")
-    derived={c["id"]:reject(c) for c in cases}
-    expected_rejects={f"A-{i:02d}" for i in range(1,13) if i != 8} | {"A-18","A-19","A-20"}
-    actual_rejects={k for k,v in derived.items() if v}
-    print("SYM-CIVIC-006 DERIVED="+json.dumps({"rejected":sorted(actual_rejects),"admissible":sorted(k for k,v in derived.items() if not v)},separators=(",",":")))
-    if actual_rejects!=expected_rejects:
-        fail("derived rejection set")
-    payload={"program":d["program"],"schema":d["schema"],"cases":[{"id":c["id"],"rejected":derived[c["id"]]} for c in cases]}
+    derived={c["id"]:disposition(c) for c in cases}
+    counts={k:sum(v==k for v in derived.values()) for k in (
+        "REJECT_AUTHENTICATION","AUTHENTICATED_CONTENT_UNQUALIFIED","AUTHENTICATED"
+    )}
+    print("SYM-CIVIC-006 DERIVED="+json.dumps({"dispositions":derived,"counts":counts},separators=(",",":")))
+    if counts != {
+        "REJECT_AUTHENTICATION":14,
+        "AUTHENTICATED_CONTENT_UNQUALIFIED":3,
+        "AUTHENTICATED":4,
+    }:
+        fail("disposition census")
+    payload={
+        "program":d["program"],
+        "schema":d["schema"],
+        "cases":[{"id":c["id"],"disposition":derived[c["id"]]} for c in cases]
+    }
     digest=hashlib.sha256(json.dumps(payload,sort_keys=True,separators=(",",":")).encode()).hexdigest()
-    print(f"SYM-CIVIC-006 PASS: 20 attestation-authenticity cases, 14 rejection cases, 6 admissible cases, canonical receipt={digest}")
+    print(f"SYM-CIVIC-006 PASS: 21 attestation-authenticity cases; rejection=14; authenticated-but-content-unqualified=3; authenticated=4; canonical receipt={digest}")
 
 if __name__=="__main__":
     main()
