@@ -536,6 +536,16 @@
       "id": "EDT-105",
       "case": "adapter_retrieval_never_derives_protocol_hash_from_logical_identity_text",
       "expected": "accepted"
+    },
+    {
+      "id": "EDT-106",
+      "case": "unbound_logical_identity_has_no_protocol_hash_until_explicit_runtime_binding_exists",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-107",
+      "case": "bound_missing_dependency_is_delegated_to_the_matching_must_get_unresolved_path",
+      "expected": "accepted"
     }
   ],
   "outcome_classes": [
