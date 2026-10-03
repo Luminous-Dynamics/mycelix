@@ -233,6 +233,8 @@ The current qualification laboratory maps concrete protocol behavior to determin
 | DSID-029 | deterministic recovery request identity |
 | DSID-030 | rejected recovery remains terminal in derived status |
 | DSID-031 | recovery request pins exact config snapshot |
+| DSID-032 | recovery request reader follows latest update chain |
+| DSID-033 | cancellation uses pinned recovery config |
 
 The qualification workflow records scenario IDs, agents, DNA hash, action hashes, entry hashes, expected and observed behavior, pass state, and commit SHA, then hashes the complete evidence capsule.
 
