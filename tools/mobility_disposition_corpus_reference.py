@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 
 EXPECTED_SCHEMA = "mycelix.mobility.evidence_disposition_transition.v1"
-EXPECTED_COUNT = 125
+EXPECTED_COUNT = 131
 EXPECTED_OUTCOME_CLASSES = [
     "accepted",
     "rejected",
@@ -49,6 +49,12 @@ EXPECTED_BINDING_VECTORS = [
     ("EDT-123", "binding_provenance_rejects_self_referential_basis", "typed_structural_error"),
     ("EDT-124", "binding_provenance_is_serializable_as_a_closed_schema", "accepted"),
     ("EDT-125", "unresolved_partial_runtime_binding_preserves_exact_provenance_witness", "accepted"),
+    ("EDT-126", "binding_provenance_requires_exact_authority_scope_reference", "accepted"),
+    ("EDT-127", "binding_provenance_requires_exact_authority_delegation_reference", "accepted"),
+    ("EDT-128", "binding_provenance_allows_no_identity_reuse_across_provenance_roles", "typed_structural_error"),
+    ("EDT-129", "binding_provenance_basis_cannot_contain_its_own_witness_identity", "typed_structural_error"),
+    ("EDT-130", "binding_provenance_basis_cannot_use_bound_dependency_as_its_own_justification", "typed_structural_error"),
+    ("EDT-131", "provenance_witness_identity_is_unique_per_runtime_binding", "adapter_boundary_error"),
 ]
 
 
@@ -90,7 +96,7 @@ def main() -> int:
                 f"{expected_id} has unsupported outcome {vector.get('expected')!r}"
             )
 
-    for expected, actual in zip(EXPECTED_BINDING_VECTORS, vectors[-30:], strict=True):
+    for expected, actual in zip(EXPECTED_BINDING_VECTORS, vectors[-36:], strict=True):
         if (
             actual.get("id"),
             actual.get("case"),
