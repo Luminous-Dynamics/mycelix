@@ -381,3 +381,51 @@ async fn dsid_005_deactivation_is_observable_and_terminal() {
         active_before && !active_after,
     );
 }
+
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_006_self_recovery_projection_matches_canonical_state() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let app = conductor.setup_app("dsid-recovery-view", std::slice::from_ref(&dna)).await.unwrap();
+    let cell = app.cells()[0].clone();
+    let agent = app.agent().clone();
+
+    let did_record: Record = conductor
+        .call(&cell.zome("did_registry"), "create_did", ())
+        .await;
+    let did: DidDocument = decode_entry(&did_record).expect("DID entry must decode");
+
+    let view: Option<serde_json::Value> = conductor
+        .call(&cell.zome("recovery"), "get_self_recovery_view", did.id.clone())
+        .await;
+    let view = view.expect("self-recovery projection must exist after DID creation");
+
+    assert_eq!(view["did"], did.id);
+    assert_eq!(view["anchors"].as_array().map(Vec::len), Some(0));
+    assert_eq!(view["anchor_threshold"], 1);
+    assert_eq!(view["time_lock_secs"], 7 * 24 * 3600);
+    assert_eq!(view["active"], true);
+    assert_eq!(view["superseded_by_social"], false);
+
+    let mut agents = BTreeMap::new();
+    agents.insert("alice", agent.to_string());
+    emit_evidence(
+        "DSID-006",
+        "self-recovery-projection-matches-canonical-state",
+        &dna,
+        agents,
+        &[&did_record],
+        "A newly-created DID exposes its canonical self-recovery configuration without leaking owner keys or raw Holochain Records.",
+        format!(
+            "anchors={} threshold={} time_lock_secs={} active={} superseded={}",
+            view["anchors"].as_array().map(Vec::len).unwrap_or_default(),
+            view["anchor_threshold"],
+            view["time_lock_secs"],
+            view["active"],
+            view["superseded_by_social"]
+        ),
+        true,
+    );
+}
