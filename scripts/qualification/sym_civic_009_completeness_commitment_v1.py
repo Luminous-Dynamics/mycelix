@@ -48,9 +48,7 @@ def manifest_ok(c):
 def scope_ok(c):
     b=set(c.get("bundle",{}).get("scope",[]))
     s=set(c.get("commitment",{}).get("scope",[]))
-    if not b:
-        return bool(s)
-    return b==s
+    return bool(b) and bool(s) and b==s
 
 def time_ok(c):
     k=c.get("commitment",{})
