@@ -10,13 +10,23 @@ This document records the behavior currently implemented by the Mycelix Identity
 - Current DID form: \`did:mycelix:<method-specific-id>\`
 - Current method-specific identifier: the calling Holochain agent public key rendered in its canonical Holochain string form.
 - Current construction: \`did:mycelix:{agent_pub_key}\`.
-- The identifier is treated as an opaque, case-sensitive value by the current resolver. Percent-decoding, case folding, aliases, and alternate textual normalizations are not currently specified.
+- The method-specific identifier is the canonical Holochain `AgentPubKey` textual form.
+- The integrity layer rejects empty identifiers, URI delimiters, whitespace, non-ASCII characters, and other characters outside the canonical AgentPubKey textual alphabet before accepting a DID document.
+- DID URLs containing query, path, or fragment components are not accepted by the current DID-only resolver; DID URL dereferencing remains a separate protocol feature.
 - The current Identity DNA declares network seed \`mycelix-identity-v1\`.
 
-### Important scope question
+### Deployment scope decision
 
-A Holochain \`AgentPubKey\` is not inherently bound to one DNA. The current DID string does not contain the Identity DNA hash or another registry deployment identifier. Therefore the final DID Method specification must explicitly define the uniqueness scope of a \`did:mycelix\` identifier and how different Mycelix Identity deployments are distinguished.
+A Holochain `AgentPubKey` is not inherently bound to one DNA. The current DID string therefore does **not** claim that every independent Identity DNA deployment is an authority for the same global namespace.
 
+The implementation profile adopts this scope rule:
+
+- `did:mycelix:<agent_pub_key>` belongs to the canonical Mycelix Identity deployment;
+- staging, test, and foreign Identity DNA deployments are non-authoritative for the `did:mycelix` namespace;
+- those deployments must not be presented as independent production DID authorities;
+- deployment identity remains infrastructure metadata rather than being silently appended to the DID string.
+
+This avoids changing the already-deployed identifier shape while making the namespace boundary explicit. The production deployment identity and bootstrap/relay configuration therefore become part of the operational trust root, not part of the DID subject identifier.
 ## 2. Internal canonical model versus external DID representation
 
 The internal Holochain entry stores \`controller\` as an \`AgentPubKey\` because that is the canonical authorization primitive for this implementation.
@@ -102,7 +112,7 @@ Successful DID Document resolution currently advertises \`contentType = applicat
 
 A missing DID is represented as a method-level \`notFound\` resolution error in the typed metadata API.
 
-The current resolver obtains the DID's controller agent key from the method-specific identifier and resolves the canonical DHT state through the agent-to-DID index.
+The current resolver obtains the DID's controller agent key from the method-specific identifier and resolves the canonical DHT state through the agent-to-DID index. The coordinator additionally parses the identifier as a Holochain `AgentPubKey`, so syntactically plausible but non-key identifiers cannot reach DHT resolution.
 
 ### Authenticity boundary
 
@@ -168,7 +178,9 @@ For eventual W3C interoperability, the method must define a complete resolver co
 - DID URL dereferencing;
 - authenticity verification of resolver output.
 
-The current typed APIs are an implementation bridge toward that contract, not a claim of complete generic DID Resolution conformance. The initial Ed25519 verification method is encoded as `z` + base58btc(multicodec `0xed01` + the raw 32-byte agent key); the Holochain hash-type bytes are not included.
+The current typed APIs are an implementation bridge toward that contract, not a claim of complete generic DID Resolution conformance. The current wire representation uses the W3C DID Resolution profile's `application/did` document representation and `https://www.w3.org/ns/did/v1.1` context. The initial Ed25519 verification method is encoded as `z` + base58btc(multicodec `0xed01` + the raw 32-byte agent key); the Holochain hash-type bytes are not included.
+
+A checked-in vector corpus at `docs/identity/did-mycelix-conformance-vectors-v0.1.json` freezes the currently intended syntax, resolution, wire-property, verification-key, authority, and deployment-scope behavior.
 
 ## 11. Deterministic conformance coverage
 
