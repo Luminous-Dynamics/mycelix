@@ -133,13 +133,14 @@ def main() -> int:
         raise SystemExit("runtime binding must consult the retained authority-agent credential")
     if "binding.signer != authorized_credential.payload.agent" not in source:
         raise SystemExit("runtime binding signer must match the registered authority agent")
-    if "authorized_credential.payload.provenance.authority_scope" not in source:
+    compact_source = "".join(source.split())
+    if "authorized_credential.payload.provenance.authority_scope" not in compact_source:
         raise SystemExit("runtime binding must preserve exact authority scope continuity")
-    if "authorized_credential.payload.provenance.authority_delegation" not in source:
+    if "authorized_credential.payload.provenance.authority_delegation" not in compact_source:
         raise SystemExit("runtime binding must preserve exact authority delegation continuity")
-    if "authorized_credential.payload.provenance.basis" not in source:
+    if "authorized_credential.payload.provenance.basis" not in compact_source:
         raise SystemExit("runtime binding must preserve the registered authority credential basis")
-    if "runtime binding witness identity must differ from the registered authority credential witness" not in source:
+    if "runtime binding witness identity must differ from the registered authority credential witness" not in compact_source:
         raise SystemExit("runtime binding must use a distinct witness identity")
     if ".find(|basis| !binding.payload.provenance.basis.contains(basis))" not in source:
         raise SystemExit("runtime binding must reject dropped authority credential basis witnesses")
