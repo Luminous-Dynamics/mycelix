@@ -37,6 +37,8 @@ def main() -> None:
     expected_supplemental = set(manifest.get("supplemental_substrate_checks", []))
     supplemental_reasons = {
         "future-expiry-rejection": "Future",
+        "wrong-zome-routing": "Zome not found witness",
+        "wrong-function-routing": "missing-function witness",
     }
     assert expected_supplemental == set(supplemental_reasons)
     supplemental_observed = {}
