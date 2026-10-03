@@ -32,12 +32,11 @@ Observed cases targeted by the harness:
 - wrong function;
 - wrong cell.
 
-The reference matrix still contains two cases deliberately outside this harness:
+The reference matrix still contains one case deliberately outside this harness:
 
-- isolated authenticated-but-not-yet-authorized state;
-- blocked provenance.
+- isolated authenticated-but-not-yet-authorized state.
 
-Those require lower-level or system-policy fixtures and are not fabricated here.
+Blocked provenance is now exercised through Holochain's system-level P2P block mechanism.
 
 ## Protocol-level outcome classes
 
