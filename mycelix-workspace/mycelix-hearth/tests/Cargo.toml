@@ -77,3 +77,7 @@ path = "sweettest_stories.rs"
 holochain = { version = "0.7.0", default-features = false, features = ["encryption", "wasmer-sys-cranelift", "test_utils"] }
 holochain_types = "0.7.0"
 tokio = { version = "1", features = ["full", "test-util"] }
+
+[[test]]
+name = "sweettest_semantic_validation"
+path = "sweettest_semantic_validation.rs"
