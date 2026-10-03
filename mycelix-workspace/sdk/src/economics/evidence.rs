@@ -470,6 +470,21 @@ impl EconomicEvidenceCapsule {
             ));
         }
 
+        let (final_pre_state, final_step) = if steps.len() == 1 {
+            (initial_state.clone(), &steps[0])
+        } else {
+            let prefix = &steps[..steps.len() - 1];
+            let (prefix_state, _) = EconomicSimulationTrace::run(initial_state, prefix)?;
+            (
+                prefix_state,
+                steps.last().ok_or_else(|| {
+                    EconomicStepError::Serialization(
+                        "verified trace evidence requires a final step".into(),
+                    )
+                })?,
+            )
+        };
+
         let final_receipt = trace
             .final_receipt()
             .ok_or_else(|| {
@@ -478,20 +493,34 @@ impl EconomicEvidenceCapsule {
                 )
             })?;
 
-        Self::seal_verified_step(
-            manifest,
-            initial_state,
+        if final_receipt.step.period != final_step.period
+            || final_receipt.step.transition_count != final_step.transitions.len() as u64
+        {
+            return Err(EconomicStepError::Serialization(
+                "final trace receipt does not match final simulation step".into(),
+            ));
+        }
+
+        let closure = EconomicAccountingClosure::validate_and_seal(
+            &final_pre_state,
             final_state,
-            final_receipt,
-            steps.last()
-                .ok_or_else(|| {
-                    EconomicStepError::Serialization(
-                        "verified trace evidence requires a final step".into(),
-                    )
-                })
-                .map(|step| step.transitions.as_slice())?,
-            observations,
             assignments,
+            &final_step.transitions,
+        )
+        .map_err(EconomicStepError::Serialization)?;
+
+        let expected_observations_hash = hash_observations(observations)?;
+        if expected_observations_hash != closure.aggregate_observations_hash {
+            return Err(EconomicStepError::Serialization(
+                "aggregate observations do not match replayed accounting closure".into(),
+            ));
+        }
+
+        Self::seal_with_accounting_closure(
+            manifest,
+            final_receipt,
+            observations,
+            &closure,
         )
     }
 
@@ -903,11 +932,19 @@ mod tests {
             },
             EconomicSimulationStep {
                 period: 2,
-                transitions: vec![],
+                transitions: vec![EconomicTransition::DebtRepayment(
+                    crate::economics::stock_flow::DebtRepayment::new(
+                        "bank", "household", 40,
+                    )
+                    .unwrap(),
+                )],
             },
         ];
         let (final_state, trace) = EconomicSimulationTrace::run(&initial, &steps).unwrap();
-        let ledger = EconomicPeriodLedger::from_transitions(&[]).unwrap();
+        let prefix_steps = &steps[..1];
+        let (final_pre_state, _) =
+            EconomicSimulationTrace::run(&initial, prefix_steps).unwrap();
+        let ledger = EconomicPeriodLedger::from_transitions(&steps[1].transitions).unwrap();
         let observations =
             EconomicObservables::from_state_and_ledger(&final_state, &ledger);
         let assignments = vec![
@@ -920,8 +957,6 @@ mod tests {
                 sector: EconomicSector::Household,
             },
         ];
-        // The closure covers the final period represented by the supplied
-        // terminal observations and final receipt.
         let manifest = EconomicEvidenceManifest::new(
             "economics-v1",
             "params-trace",
@@ -930,7 +965,7 @@ mod tests {
         )
         .unwrap();
 
-        let error = EconomicEvidenceCapsule::seal_verified_trace(
+        let capsule = EconomicEvidenceCapsule::seal_verified_trace(
             manifest,
             &initial,
             &final_state,
@@ -938,11 +973,114 @@ mod tests {
             &steps,
             &observations,
             &assignments,
+        )
+        .unwrap();
+
+        assert_eq!(
+            capsule.final_chain_hash,
+            trace.final_receipt().unwrap().chain_hash
         );
 
-        // An empty final-period ledger does not match the two-period terminal
-        // observations' provenance, so this deliberately proves rejection.
-        assert!(error.is_err());
+        let closure =
+            EconomicAccountingClosure::validate_and_seal(
+                &final_pre_state,
+                &final_state,
+                &assignments,
+                &steps[1].transitions,
+            )
+            .unwrap();
+        assert_eq!(
+            capsule.accounting_closure_hash.as_deref(),
+            Some(closure.closure_hash.as_str())
+        );
+    }
+
+    #[test]
+    fn verified_trace_sealing_rejects_rehashed_tampered_receipt() {
+        let mut bank = ActorBalanceSheet::new("bank");
+        bank.monetary.cash = 1_000;
+        let initial = EconomicState::new(vec![
+            bank,
+            ActorBalanceSheet::new("household"),
+        ]);
+        let steps = vec![
+            EconomicSimulationStep {
+                period: 1,
+                transitions: vec![EconomicTransition::CreditCreation(
+                    CreditCreation::new("bank", "household", 100).unwrap(),
+                )],
+            },
+            EconomicSimulationStep {
+                period: 2,
+                transitions: vec![],
+            },
+        ];
+        let (final_state, mut trace) =
+            EconomicSimulationTrace::run(&initial, &steps).unwrap();
+
+        trace.receipts[0].step.transition_hash = "tampered-transition".into();
+        trace.receipts[0].chain_hash = {
+            let bytes = serde_json::to_vec(&(
+                &trace.receipts[0].genesis_state_hash,
+                &trace.receipts[0].previous_receipt_hash,
+                &trace.receipts[0].step,
+            ))
+            .unwrap();
+            blake3::hash(&bytes).to_hex().to_string()
+        };
+        trace.receipts[1].previous_receipt_hash =
+            Some(trace.receipts[0].chain_hash.clone());
+        trace.receipts[1].chain_hash = {
+            let bytes = serde_json::to_vec(&(
+                &trace.receipts[1].genesis_state_hash,
+                &trace.receipts[1].previous_receipt_hash,
+                &trace.receipts[1].step,
+            ))
+            .unwrap();
+            blake3::hash(&bytes).to_hex().to_string()
+        };
+        trace.trace_hash = {
+            let bytes = serde_json::to_vec(&(
+                &trace.initial_state_hash,
+                &trace.final_state_hash,
+                &trace.receipts,
+            ))
+            .unwrap();
+            blake3::hash(&bytes).to_hex().to_string()
+        };
+
+        let ledger =
+            EconomicPeriodLedger::from_transitions(&steps[1].transitions).unwrap();
+        let observations =
+            EconomicObservables::from_state_and_ledger(&final_state, &ledger);
+        let assignments = vec![
+            crate::economics::sector_balance::SectorAssignment {
+                actor: "bank".into(),
+                sector: EconomicSector::Bank,
+            },
+            crate::economics::sector_balance::SectorAssignment {
+                actor: "household".into(),
+                sector: EconomicSector::Household,
+            },
+        ];
+        let manifest = EconomicEvidenceManifest::new(
+            "economics-v1",
+            "params-trace",
+            102,
+            state_hash(&initial).unwrap(),
+        )
+        .unwrap();
+
+        assert!(EconomicEvidenceCapsule::seal_verified_trace(
+            manifest,
+            &initial,
+            &final_state,
+            &trace,
+            &steps,
+            &observations,
+            &assignments,
+        )
+        .is_err());
     }
 
     #[test]
