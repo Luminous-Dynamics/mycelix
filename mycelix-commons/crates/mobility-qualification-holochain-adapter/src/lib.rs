@@ -41,6 +41,58 @@ pub struct SignedHolochainAuthorityAgentBinding {
     pub payload: HolochainAuthorityAgentBindingPayload,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct HolochainAuthorityAgentBindingSet {
+    bindings: std::collections::BTreeMap<IdentityRef, AgentPubKey>,
+}
+
+impl HolochainAuthorityAgentBindingSet {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Accept exactly one verified protocol agent for each domain authority.
+    ///
+    /// The credential is validated and signature-checked before the immutable
+    /// authority→AgentPubKey relation is stored.
+    pub fn bind_attested(
+        &mut self,
+        credential: SignedHolochainAuthorityAgentBinding,
+    ) -> ExternResult<Result<(), HolochainAdapterBoundaryError>> {
+        match credential.verify()? {
+            HolochainAuthorityAgentBindingVerification::Invalid { reason } => {
+                return Ok(Err(HolochainAdapterBoundaryError::SemanticInvalid { reason }));
+            }
+            HolochainAuthorityAgentBindingVerification::Valid => {}
+        }
+
+        let authority = credential.payload.authority.clone();
+        let agent = credential.payload.agent.clone();
+
+        if self.bindings.contains_key(&authority) {
+            return Ok(Err(HolochainAdapterBoundaryError::BindingRejected {
+                reason: "an authority identity may be bound to only one AgentPubKey in an immutable binding set"
+                    .into(),
+            }));
+        }
+
+        self.bindings.insert(authority, agent);
+        Ok(Ok(()))
+    }
+
+    pub fn agent_for(&self, authority: &IdentityRef) -> Option<&AgentPubKey> {
+        self.bindings.get(authority)
+    }
+
+    pub fn len(&self) -> usize {
+        self.bindings.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.bindings.is_empty()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum HolochainAuthorityAgentBindingVerification {
     Valid,
@@ -303,25 +355,18 @@ impl HolochainDependencyBindingSet {
     pub fn bind_attested_with_authority(
         &mut self,
         binding: SignedHolochainBindingAttestation,
-        authority_binding: SignedHolochainAuthorityAgentBinding,
+        authority_bindings: &HolochainAuthorityAgentBindingSet,
     ) -> ExternResult<Result<(), HolochainAdapterBoundaryError>> {
-        match authority_binding.verify()? {
-            HolochainAuthorityAgentBindingVerification::Invalid { reason } => {
-                return Ok(Err(HolochainAdapterBoundaryError::SemanticInvalid { reason }));
-            }
-            HolochainAuthorityAgentBindingVerification::Valid => {}
-        }
-
-        if binding.signer != authority_binding.payload.agent {
-            return Ok(Err(HolochainAdapterBoundaryError::SemanticInvalid {
-                reason: "runtime binding signer does not match the authorized authority agent key"
-                    .into(),
+        let authority = binding.payload.provenance.authority.clone();
+        let Some(authorized_agent) = authority_bindings.agent_for(&authority) else {
+            return Ok(Err(HolochainAdapterBoundaryError::LogicalDependencyNotBound {
+                missing: vec![authority],
             }));
-        }
+        };
 
-        if binding.payload.provenance.authority != authority_binding.payload.authority {
+        if binding.signer != *authorized_agent {
             return Ok(Err(HolochainAdapterBoundaryError::SemanticInvalid {
-                reason: "runtime binding provenance authority does not match authority-agent binding"
+                reason: "runtime binding signer does not match the registered authority agent key"
                     .into(),
             }));
         }
@@ -340,6 +385,7 @@ impl HolochainDependencyBindingSet {
             binding.payload.provenance,
         ))
     }
+
 
     /// Bind from a cryptographically attested payload.
     ///
