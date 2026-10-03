@@ -506,6 +506,11 @@
       "id": "EDT-099",
       "case": "logical_dependency_resolution_is_invariant_to_request_order",
       "expected": "accepted"
+    },
+    {
+      "id": "EDT-100",
+      "case": "malformed_requested_logical_dependency_is_definitive_structural_error",
+      "expected": "typed_structural_error"
     }
   ]
 }
