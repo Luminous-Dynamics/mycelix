@@ -367,8 +367,72 @@
     }
   ],
   "recipe_contract": {
-    "baseline_projection": "the projection() fixture in qualified_dependency_closure_d6x.rs: root Statement + dep Evidence + e1 Supports; symbolic legacy commitments; frontier 'frontier'; source snapshot 'snapshot'.",
     "mutation_semantics": "Apply each recipe mutation to that baseline fixture before evaluating D6X. Commitment strings in this corpus are frozen expected outputs, not authority claims.",
-    "cross_runtime_rule": "The recipe is intentionally declarative: another implementation may construct equivalent typed objects rather than depending on Rust test-helper names."
+    "cross_runtime_rule": "The recipe is intentionally declarative: another implementation may construct equivalent typed objects rather than depending on Rust test-helper names.",
+    "baseline_projection": "Use fixtures.baseline_projection, fixtures.semantic_environment, and fixtures.derivation_profile as the exact canonical baseline inputs.",
+    "semantic_derivation": "Derived commitments are computed with D6S-CANON-1 and the D6X domains declared above. Apply each vector recipe to the baseline projection/profile, then evaluate D6X."
+  },
+  "fixtures": {
+    "baseline_projection": {
+      "projection_id": "projection",
+      "projection_version": "1",
+      "canonicalization_version": "D6S-CANON-1",
+      "source_dkg_snapshot_commitment": "snapshot",
+      "nodes": {
+        "dep": {
+          "node_id": "dep",
+          "kind": "Evidence",
+          "content_commitment": "content-dep",
+          "node_commitment": "commit-dep",
+          "historical_only": false,
+          "current_frontier_root": "frontier",
+          "claim_ceiling": "ReferenceModelOnly; canonical derivation integrity semantics only; no truth, causality, authority, or actuation claim."
+        },
+        "root": {
+          "node_id": "root",
+          "kind": "Statement",
+          "content_commitment": "content-root",
+          "node_commitment": "commit-root",
+          "historical_only": false,
+          "current_frontier_root": "frontier",
+          "claim_ceiling": "ReferenceModelOnly; canonical derivation integrity semantics only; no truth, causality, authority, or actuation claim."
+        }
+      },
+      "edges": {
+        "e1": {
+          "edge_id": "e1",
+          "from_node_id": "root",
+          "to_node_id": "dep",
+          "kind": "Supports",
+          "edge_commitment": "edge-e1",
+          "claim_ceiling": "ReferenceModelOnly; canonical derivation integrity semantics only; no truth, causality, authority, or actuation claim."
+        }
+      },
+      "d6p_current_receipt_commitments": [],
+      "d6n_context_commitment": null,
+      "d6o_context_commitment": null
+    },
+    "semantic_environment": {
+      "semantic_profile_id": "sem",
+      "semantic_profile_version": "1",
+      "current_frontier_root": "frontier",
+      "d6p_eligibility_context_root": null,
+      "d6n_observer_context_root": null,
+      "d6o_lifecycle_context_root": null,
+      "membership_authority_scope_root": null,
+      "dependency_snapshot_root": "snapshot",
+      "historical_cutoff": null,
+      "policy_version": "policy-1",
+      "claim_ceiling": "ReferenceModelOnly; canonical derivation integrity semantics only; no truth, causality, authority, or actuation claim."
+    },
+    "derivation_profile": {
+      "profile_id": "derivation",
+      "version": "1",
+      "rule_ids": [
+        "rule"
+      ],
+      "permits_recursive_fixpoint": false,
+      "claim_ceiling": "ReferenceModelOnly; canonical derivation integrity semantics only; no truth, causality, authority, or actuation claim."
+    }
   }
 }
