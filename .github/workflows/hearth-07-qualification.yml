@@ -54,6 +54,7 @@ jobs:
       - name: Check Hearth 0.7 test formatting
         working-directory: mycelix-workspace/mycelix-hearth
         run: |
+          set -o pipefail
           nix develop .#ci --impure --command             cargo fmt --manifest-path tests/Cargo.toml --check 2>&1 | tee qualification-format.log
 
       - name: Build Hearth 0.7 zomes
