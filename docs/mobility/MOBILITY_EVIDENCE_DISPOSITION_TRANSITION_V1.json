@@ -881,6 +881,11 @@
       "id": "EDT-174",
       "case": "valid_record_retrieval_is_explicitly_inductive_and_does_not_prove_later_operations",
       "expected": "accepted"
+    },
+    {
+      "id": "EDT-175",
+      "case": "authority_agent_registry_rejects_reuse_of_the_same_provenance_witness",
+      "expected": "adapter_boundary_error"
     }
   ],
   "outcome_classes": [
