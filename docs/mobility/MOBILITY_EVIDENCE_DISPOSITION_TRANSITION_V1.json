@@ -546,6 +546,16 @@
       "id": "EDT-107",
       "case": "bound_missing_dependency_is_delegated_to_the_matching_must_get_unresolved_path",
       "expected": "accepted"
+    },
+    {
+      "id": "EDT-108",
+      "case": "definitive_valid_and_invalid_decisions_map_directly_to_holochain_results",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-109",
+      "case": "pure_unresolved_decision_cannot_be_mapped_until_runtime_address_binding_exists",
+      "expected": "adapter_boundary_error"
     }
   ],
   "outcome_classes": [
