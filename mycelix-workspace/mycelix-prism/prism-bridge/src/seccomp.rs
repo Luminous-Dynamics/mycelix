@@ -1873,6 +1873,100 @@ mod linux {
         }
 
         #[test]
+        fn v2_compiled_filter_deterministic_differential_matrix() {
+            let arch = SeccompArchitecture::current().unwrap();
+
+            fn make_predicate(
+                arg_index: u8,
+                shape: u8,
+                seed: u64,
+            ) -> SeccompArgPredicateV1 {
+                let (mask, value, op) = match shape {
+                    0 => (0x0000_0000_0000_00ff, seed & 0xff, SeccompArgPredicateOpV1::MaskedEqual),
+                    1 => (0x0000_0000_ff00_0000, seed & 0x0000_0000_ff00_0000, SeccompArgPredicateOpV1::MaskedEqual),
+                    2 => (0xffff_ffff_0000_0000, seed & 0xffff_ffff_0000_0000, SeccompArgPredicateOpV1::MaskedEqual),
+                    3 => (u64::MAX, seed, SeccompArgPredicateOpV1::MaskedEqual),
+                    4 => (0x0000_0000_0000_00ff, seed & 0xff, SeccompArgPredicateOpV1::MaskedNotEqual),
+                    5 => (0x0000_0000_ff00_0000, seed & 0x0000_0000_ff00_0000, SeccompArgPredicateOpV1::MaskedNotEqual),
+                    6 => (0xffff_ffff_0000_0000, seed & 0xffff_ffff_0000_0000, SeccompArgPredicateOpV1::MaskedNotEqual),
+                    7 => (u64::MAX, seed, SeccompArgPredicateOpV1::MaskedNotEqual),
+                    _ => unreachable!(),
+                };
+                SeccompArgPredicateV1::new_with_op(arg_index, mask, value, op).unwrap()
+            }
+
+            let mut rules = Vec::new();
+            for rule_index in 0..12u64 {
+                let clause_count = (rule_index % 4) + 1;
+                let mut clauses = Vec::new();
+                for clause_index in 0..clause_count {
+                    let predicate_count = ((rule_index + clause_index) % 4) + 1;
+                    let mut predicates = Vec::new();
+                    for predicate_index in 0..predicate_count {
+                        let shape = ((rule_index * 3 + clause_index * 5 + predicate_index * 7) % 8) as u8;
+                        let arg_index = ((rule_index + clause_index + predicate_index) % 6) as u8;
+                        let seed = 0x1111_0000_0000_0001u64
+                            .wrapping_add(rule_index * 0x0101_0001)
+                            .wrapping_add(clause_index * 0x0011_0101)
+                            .wrapping_add(predicate_index * 0x0001_0011)
+                            ^ ((shape as u64) << 40);
+                        predicates.push(make_predicate(arg_index, shape, seed));
+                    }
+                    clauses.push(SeccompSyscallClauseV2::new(predicates).unwrap());
+                }
+
+                let syscall = 40_000 + rule_index as i64;
+                rules.push(
+                    SeccompSyscallRuleV2::new_with_clauses(syscall, clauses).unwrap(),
+                );
+            }
+
+            let policy = SeccompSyscallPolicyV2::new(arch, rules).unwrap();
+            let filter = compile_filter_v2(&policy).unwrap();
+            validate_compiled_filter(&filter).unwrap();
+
+            let mut state = 0x9e37_79b9_7f4a_7c15u64;
+            for case_index in 0..4_096u32 {
+                state ^= state << 7;
+                state ^= state >> 9;
+                state ^= state << 8;
+
+                let arguments = [
+                    state,
+                    state.rotate_left(11),
+                    state.rotate_right(17),
+                    state.wrapping_mul(0x9e37_79b9),
+                    !state,
+                    state ^ 0xa5a5_a5a5_a5a5_a5a5,
+                ];
+
+                // Exercise every compiled rule plus an unlisted syscall for
+                // every generated argument vector. This compares the bytecode
+                // interpreter with the declarative model rather than merely
+                // checking hand-selected examples.
+                for syscall in 40_000..40_012 {
+                    let modeled_allow = policy.allows(syscall, &arguments);
+                    let compiled = interpret_v2_filter(&filter, arch, syscall, arguments);
+                    assert_eq!(
+                        compiled,
+                        if modeled_allow {
+                            SECCOMP_RET_ALLOW
+                        } else {
+                            SECCOMP_RET_ERRNO | libc::EPERM as u32
+                        },
+                        "differential mismatch at case={case_index} syscall={syscall} args={arguments:?}"
+                    );
+                }
+
+                let unlisted = 50_000;
+                assert_eq!(
+                    interpret_v2_filter(&filter, arch, unlisted, arguments),
+                    SECCOMP_RET_ERRNO | libc::EPERM as u32
+                );
+            }
+        }
+
+        #[test]
         fn v2_disjunctive_64bit_equality_failures_reach_later_clause() {
             let arch = SeccompArchitecture::current().unwrap();
 
