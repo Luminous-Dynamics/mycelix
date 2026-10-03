@@ -720,62 +720,30 @@ pub fn get_recovery_votes(request_id: String) -> ExternResult<Vec<Record>> {
 
 /// Check threshold and update request status
 fn check_and_update_request_status(request_id: String) -> ExternResult<()> {
-    // Recovery votes are cross-agent. Only the request author can legally
-    // update the RecoveryRequest entry; all other agents rely on
-    // get_recovery_status() for the DHT-derived quorum state.
+    // This compatibility helper only mutates the request when invoked by its
+    // original author. Cross-agent quorum state is exposed by get_recovery_status.
     let request_record = match get_recovery_request(request_id.clone())? {
         Some(record) => record,
         None => return Ok(()),
     };
     let caller = agent_info()?.agent_initial_pubkey;
-    let author = request_record.action().author().clone();
-    if author != caller {
+    if request_record.action().author() != &caller {
         return Ok(());
     }
 
-    // Get all votes for this request
-    let vote_records = get_recovery_votes(request_id.clone())?;
-
-    let mut approve_count = 0u32;
-    let mut reject_count = 0u32;
-
-    for record in vote_records {
-        if let Some(vote) = record
-            .entry()
-            .to_app_option::<RecoveryVote>()
-            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-        {
-            match vote.vote {
-                VoteDecision::Approve => approve_count += 1,
-                VoteDecision::Reject => reject_count += 1,
-                VoteDecision::Abstain => {}
-            }
-        }
-    }
-
-    // The request record has already been resolved from the DHT above.
-    let request_record = Some(request_record);
-
-    let mut request_data: Option<RecoveryRequest> = None;
-    let current_record = request_record
-        .take()
-        .expect("request record checked above");
-    request_data = current_record
+    let current_request: RecoveryRequest = request_record
         .entry()
         .to_app_option()
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Invalid recovery request".into()
+        )))?;
 
-    let (current_record, current_request) = match (request_record, request_data) {
-        (Some(r), Some(d)) => (r, d),
-        _ => return Ok(()), // Request not found on this agent's chain
-    };
-
-    // Only process pending requests
     if current_request.status != RecoveryStatus::Pending {
         return Ok(());
     }
 
-    // Get the recovery config to check threshold
+    let vote_records = get_recovery_votes(request_id.clone())?;
     let config_record = get_recovery_config(current_request.did.clone())?;
     let config: RecoveryConfig = match config_record {
         Some(rec) => rec
@@ -785,47 +753,57 @@ fn check_and_update_request_status(request_id: String) -> ExternResult<()> {
             .ok_or(wasm_error!(WasmErrorInner::Guest(
                 "Invalid recovery config".into()
             )))?,
-        None => return Ok(()), // No config found
+        None => return Ok(()),
     };
 
-    let total_trustees = config.trustees.len() as u32;
+    let mut approve_count = 0u32;
+    let mut reject_count = 0u32;
+    let mut seen_trustees = std::collections::BTreeSet::new();
 
-    if approve_count >= config.threshold {
-        // Threshold reached — approve and set time lock
-        let now = sys_time()?;
-        let time_lock_expires =
-            Timestamp::from_micros(now.as_micros() as i64 + (config.time_lock as i64 * 1_000_000));
-
-        let approved_request = RecoveryRequest {
-            id: current_request.id,
-            did: current_request.did,
-            new_agent: current_request.new_agent,
-            initiated_by: current_request.initiated_by,
-            reason: current_request.reason,
-            status: RecoveryStatus::Approved,
-            created: current_request.created,
-            time_lock_expires: Some(time_lock_expires),
+    for record in vote_records {
+        let Some(vote) = record
+            .entry()
+            .to_app_option::<RecoveryVote>()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        else {
+            continue;
         };
+        if vote.request_id != request_id
+            || !config.trustees.contains(&vote.trustee)
+            || !seen_trustees.insert(vote.trustee.clone())
+        {
+            continue;
+        }
+        match vote.vote {
+            VoteDecision::Approve => approve_count += 1,
+            VoteDecision::Reject => reject_count += 1,
+            VoteDecision::Abstain => {}
+        }
+    }
 
+    let total_trustees = config.trustees.len() as u32;
+    if approve_count >= config.threshold {
+        let now = sys_time()?;
+        let expires = Timestamp::from_micros(
+            now.as_micros() + (config.time_lock as i64 * 1_000_000),
+        );
+        let approved_request = RecoveryRequest {
+            status: RecoveryStatus::Approved,
+            time_lock_expires: Some(expires),
+            ..current_request
+        };
         update_entry(
-            current_record.action_address().clone(),
+            request_record.action_address().clone(),
             &EntryTypes::RecoveryRequest(approved_request),
         )?;
-    } else if reject_count > total_trustees - config.threshold {
-        // Impossible to reach threshold — reject
+    } else if reject_count > total_trustees.saturating_sub(config.threshold) {
         let rejected_request = RecoveryRequest {
-            id: current_request.id,
-            did: current_request.did,
-            new_agent: current_request.new_agent,
-            initiated_by: current_request.initiated_by,
-            reason: current_request.reason,
             status: RecoveryStatus::Rejected,
-            created: current_request.created,
             time_lock_expires: None,
+            ..current_request
         };
-
         update_entry(
-            current_record.action_address().clone(),
+            request_record.action_address().clone(),
             &EntryTypes::RecoveryRequest(rejected_request),
         )?;
     }
