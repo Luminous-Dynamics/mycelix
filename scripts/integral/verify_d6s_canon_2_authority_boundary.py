@@ -1,28 +1,38 @@
 #!/usr/bin/env python3
 """Structural verifier for the D6S-CANON-2 authority-boundary reference fixture.
 
-This is a reference-model gate only. It does not emulate or replace Holochain
-authorization and must not be interpreted as runtime qualification.
+This gate checks fixture identity, matrix completeness, and the explicit mapping
+to Holochain 0.7 invocation/authorization concepts. It is ReferenceModelOnly:
+it does not execute Holochain authorization and must not be interpreted as
+runtime qualification.
 """
 
 import json
+import subprocess
 from pathlib import Path
 
+ROOT = Path(__file__).parents[2]
+FIXTURE = ROOT / "docs/integral/d6s-canon-2-authority-boundary-fixture.json"
+MANIFEST = ROOT / "docs/integral/d6s-canon-2-manifest.json"
+
 EXPECTED = {
-    "canonical-payload-accepted",
-    "payload-mutation",
-    "wrong-cell",
-    "wrong-zome",
-    "wrong-function",
-    "valid-capability",
-    "wrong-capability",
-    "revoked-capability",
-    "provenance-mismatch",
+    "author-grant",
+    "authorized-semantic-rejection",
     "blocked-provenance",
+    "canonical-payload-accepted",
+    "expired-invocation",
     "nonce-replay",
     "nonce-stale",
-    "expired-invocation",
-    "authorized-semantic-rejection",
+    "payload-mutation",
+    "provenance-mismatch",
+    "revoked-capability",
+    "valid-capability",
+    "wire-signature-invalid",
+    "wire-signature-valid",
+    "wrong-capability",
+    "wrong-cell",
+    "wrong-function",
+    "wrong-zome",
 }
 
 PRE_ZOME_RESULTS = {
@@ -32,18 +42,70 @@ PRE_ZOME_RESULTS = {
     "holochain-authorization-rejection",
     "holochain-nonce-rejection",
     "holochain-expiry-rejection",
+    "holochain-signature-authentication-rejection",
 }
 
-ROOT = Path(__file__).parents[2]
-FIXTURE = ROOT / "docs/integral/d6s-canon-2-authority-boundary-fixture.json"
+AUTHORIZED = {
+    "author-grant",
+    "authorized-semantic-rejection",
+    "canonical-payload-accepted",
+    "valid-capability",
+}
 
 
-def main():
+def git_blob_sha(path: Path) -> str:
+    return subprocess.run(
+        ["git", "hash-object", str(path)],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+
+def main() -> None:
     fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
+    manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+
     assert fixture["profile"] == "D6S-CANON-2"
     assert fixture["kind"] == "authority-boundary-reference-fixture"
+    assert fixture["version"] == 1
     assert fixture["depends_on"]["canonicalization_profile"] == "D6S-CANON-1"
     assert fixture["depends_on"]["claim_ceiling"] == "ReferenceModelOnly"
+
+    assert manifest["profile"] == "D6S-CANON-2"
+    assert manifest["kind"] == "authority-boundary-reference-manifest"
+    assert manifest["version"] == 1
+    assert manifest["fixture_path"] == "docs/integral/d6s-canon-2-authority-boundary-fixture.json"
+    assert manifest["fixture_blob_sha"] == git_blob_sha(FIXTURE)
+    assert manifest["expected_case_count"] == len(EXPECTED)
+    assert set(manifest["expected_case_ids"]) == EXPECTED
+    assert manifest["claim_ceiling"] == "ReferenceModelOnly"
+
+    reference = manifest["holochain_reference"]
+    assert reference["version"] == "0.7.0"
+    assert reference["runtime_binding_status"] == "ReferenceMappingOnly"
+    assert reference["invocation_type"] == "ZomeCallInvocation"
+    assert reference["invocation_fields"] == [
+        "cell_id",
+        "zome",
+        "cap_secret",
+        "fn_name",
+        "payload",
+        "provenance",
+        "nonce",
+        "expires_at",
+    ]
+    assert reference["authorization_methods"] == [
+        "verify_nonce",
+        "verify_grant",
+        "verify_blocked_provenance",
+        "is_authorized",
+    ]
+    assert reference["authorization_order"] == [
+        "verify_nonce",
+        "verify_grant",
+        "verify_blocked_provenance",
+    ]
 
     cases = fixture["boundary"]
     assert len(cases) == len(EXPECTED), (len(cases), len(EXPECTED))
@@ -59,6 +121,11 @@ def main():
             assert reached is False, case["case_id"]
             assert semantic == "not-reached", case["case_id"]
 
+        if case["case_id"] == "wire-signature-valid":
+            assert result == "authenticated"
+            assert reached is False
+            assert semantic == "authorization-not-yet-evaluated"
+
         if reached:
             assert result == "authorized", case["case_id"]
             assert semantic in {
@@ -67,16 +134,26 @@ def main():
             }, case["case_id"]
 
     authorized = {case["case_id"] for case in cases if case["zome_reached"]}
-    assert authorized == {
-        "canonical-payload-accepted",
-        "valid-capability",
-        "authorized-semantic-rejection",
-    }
+    assert authorized == AUTHORIZED
+
+    invalid_signature = next(
+        case for case in cases if case["case_id"] == "wire-signature-invalid"
+    )
+    assert invalid_signature["boundary_result"] == "holochain-signature-authentication-rejection"
+    assert invalid_signature["zome_reached"] is False
+
+    author_grant = next(case for case in cases if case["case_id"] == "author-grant")
+    assert author_grant["capability_state"] == "author-grant"
+    assert author_grant["provenance_state"] == "current-author"
 
     print(f"verified {len(cases)} D6S-CANON-2 authority-boundary cases")
+    print("fixture_blob_sha=" + git_blob_sha(FIXTURE))
+    print("holochain_reference=0.7.0")
+    print("runtime_binding_status=ReferenceMappingOnly")
     print("zome_reached_cases=" + ",".join(sorted(authorized)))
     print("claim_ceiling=ReferenceModelOnly")
 
 
 if __name__ == "__main__":
     main()
+
