@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import hashlib,json,pathlib,re
+import hashlib,json,pathlib
+from datetime import datetime,timezone
 
 ROOT=pathlib.Path(__file__).resolve().parents[2]
 MAN=ROOT/"mycelix-workspace/docs/civic-resilience/sym_civic_006_attestation_authenticity.json"
@@ -8,75 +9,90 @@ IDS=[f"A-{i:02d}" for i in range(1,20)]
 
 def fail(m): raise SystemExit("SYM-CIVIC-006 FAIL: "+m)
 
-def reject(c):
-    x=c["candidate"]; i=c["id"]
-    if i=="A-01":
-        return x["subject"].get("digest") != x["signed_subject"].get("digest")
-    if i=="A-02":
-        return x["attester"].get("status") != "active"
-    if i=="A-03":
-        return x["attester"].get("status")=="revoked" and x["attestation_time"] >= x["attester"]["revoked_at"]
-    if i=="A-04":
-        return x["attestation_time"] > x["attester"]["key_not_after"] and not x["policy"].get("historical_grace",False)
-    if i=="A-05":
-        rotation=x["attester"].get("rotation",[])
-        return x["attester"].get("key_id") is None and len(rotation) > 1 and rotation[0]["valid_until"] == rotation[1]["valid_from"]
-    if i=="A-06":
-        return x["attester"].get("requested_scope") not in x["attester"].get("delegation_scope",[])
-    if i=="A-07":
-        return x["statement"]["predicate_type_signed"] != x["statement"]["predicate_type_required"]
-    if i=="A-08":
+def instant(v):
+    return datetime.fromisoformat(v.replace("Z","+00:00")).astimezone(timezone.utc)
+
+def subject_binding_ok(x):
+    if "subject" in x or "signed_subject" in x:
+        s=x.get("subject",{}); ss=x.get("signed_subject",{})
+        return bool(s.get("digest") and ss.get("digest") and s.get("digest")==ss.get("digest"))
+    return x.get("subject_set")==x.get("signed_subject_set")
+
+def attester_ok(x):
+    a=x.get("attester",{})
+    return a.get("status")=="active"
+
+def time_policy_ok(x):
+    a=x.get("attester",{}); p=x.get("policy",{}); at=instant(x["attestation_time"])
+    if a.get("key_not_before") and at < instant(a["key_not_before"]):
         return False
-    if i=="A-09":
-        return "digest" not in x["subject"] or "digest" not in x["signed_subject"]
-    if i=="A-10":
-        return not (x["signature"].get("valid") and x["signature"].get("canonical_bytes_match"))
-    if i=="A-11":
-        return x["attestation_time"] < x["attester"]["key_not_before"]
-    if i=="A-12":
-        return x["subject"].get("digest") != x["signed_subject"].get("digest")
-    if i=="A-13":
-        return not (
-            x["subject"].get("digest")==x["signed_subject"].get("digest")
-            and x["attester"].get("status")=="active"
-            and x["signature"].get("valid")
-            and x["signature"].get("canonical_bytes_match")
-        )
-    if i=="A-14":
-        return not (
-            x["subject"].get("digest")==x["signed_subject"].get("digest")
-            and x["attester"].get("status")=="active"
-            and x["attester"].get("requested_scope") in x["attester"].get("delegation_scope",[])
-            and x["signature"].get("valid")
-            and x["signature"].get("canonical_bytes_match")
-        )
-    if i=="A-15":
-        return not (
-            x["policy"].get("historical_key_lookup")
-            and x["attester"].get("key_id")=="k1"
-            and x["attestation_time"] < "2026-10-03T00:30:00Z"
-            and x["signature"].get("valid")
-            and x["signature"].get("canonical_bytes_match")
-        )
-    if i=="A-16":
-        return not (
-            x["statement"].get("scientific_proposition_status")=="uncertain"
-            and x["attester"].get("status")=="active"
-            and x["signature"].get("valid")
-            and x["signature"].get("canonical_bytes_match")
-        )
-    if i=="A-17":
-        return not (
-            x["policy"].get("historical_grace")
-            and x["attestation_time"] <= x["attester"]["key_not_after"]
-            and x["signature"].get("valid")
-            and x["signature"].get("canonical_bytes_match")
-        )
-    if i=="A-18":
-        return x["subject_set"] != x["signed_subject_set"]
-    if i=="A-19":
-        return x["statement"]["signed_predicate_digest"] != x["statement"]["current_predicate_digest"]
+    if a.get("key_not_after") and at > instant(a["key_not_after"]) and not p.get("historical_grace",False):
+        return False
+    if p.get("historical_grace") and a.get("key_not_after") and at > instant(a["key_not_after"]):
+        return False
+    if a.get("rotation"):
+        rot=a["rotation"]; key_id=a.get("key_id")
+        if not key_id:
+            return False
+        matches=[k for k in rot if k.get("key_id")==key_id and
+                 (not k.get("valid_from") or at >= instant(k["valid_from"])) and
+                 (not k.get("valid_until") or at < instant(k["valid_until"]))]
+        if len(matches)!=1:
+            return False
+    if a.get("key_history"):
+        key_id=a.get("key_id")
+        if not key_id:
+            return False
+        matches=[k for k in a["key_history"] if k.get("key_id")==key_id]
+        if len(matches)!=1:
+            return False
+        epoch=matches[0]
+        if epoch.get("valid_from") and at < instant(epoch["valid_from"]):
+            return False
+        if epoch.get("valid_until") and at >= instant(epoch["valid_until"]):
+            return False
+        if x.get("verification_time") and instant(x["verification_time"]) > at and not p.get("historical_key_lookup"):
+            return False
     return True
+
+def predicate_ok(x):
+    s=x.get("statement",{})
+    if "predicate_type_signed" in s or "predicate_type_required" in s:
+        return s.get("predicate_type_signed")==s.get("predicate_type_required")
+    return bool(s.get("predicate_type"))
+
+def delegation_ok(x):
+    a=x.get("attester",{})
+    scope=a.get("delegation_scope")
+    if scope is None:
+        return True
+    return a.get("requested_scope") in scope
+
+def signature_ok(x):
+    sig=x.get("signature",{})
+    return bool(sig.get("valid") and sig.get("canonical_bytes_match"))
+
+def reject(c):
+    x=c["candidate"]
+    if not subject_binding_ok(x):
+        return True
+    if not attester_ok(x):
+        return True
+    if not time_policy_ok(x):
+        return True
+    if not delegation_ok(x):
+        return True
+    if not predicate_ok(x):
+        return True
+    if not signature_ok(x):
+        return True
+    stmt=x.get("statement",{})
+    if stmt.get("signed_predicate_digest") and stmt.get("current_predicate_digest"):
+        if stmt["signed_predicate_digest"] != stmt["current_predicate_digest"]:
+            return True
+    if "subject_set" in x and "signed_subject_set" in x and x["subject_set"] != x["signed_subject_set"]:
+        return True
+    return False
 
 def main():
     d=json.loads(MAN.read_text(encoding="utf-8"))
