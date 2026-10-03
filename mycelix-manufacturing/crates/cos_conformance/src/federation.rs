@@ -1585,6 +1585,57 @@ mod tests {
     }
 
     #[test]
+    fn invariant_registry_is_unique_documented_and_covers_valid_state() {
+        let mut ids = BTreeSet::new();
+        assert_eq!(FEDERATION_INVARIANT_REGISTRY.len(), 11);
+
+        for spec in FEDERATION_INVARIANT_REGISTRY {
+            assert!(ids.insert(spec.id), "duplicate invariant id: {:?}", spec.id);
+            assert!(!spec.name.is_empty());
+            assert!(!spec.description.is_empty());
+        }
+
+        let state = nodes();
+        assert_eq!(validate_state(&state), Ok(()));
+        assert!(FEDERATION_INVARIANT_REGISTRY
+            .iter()
+            .all(|spec| (spec.check)(&state)));
+    }
+
+    #[test]
+    fn invariant_registry_maps_each_corruption_to_a_single_typed_diagnostic() {
+        let mut state = nodes();
+        let node = state.nodes.remove("node-a").unwrap();
+        state.nodes.insert("wrong-node-key".into(), node);
+        assert_eq!(
+            validate_state(&state),
+            Err(FederationInvariantViolation::NodeMapKeyMismatch)
+        );
+
+        let mut state = nodes();
+        state.recognition_edges.push(RecognitionEdge {
+            recognizing_node: "node-a".into(),
+            origin_node: "node-b".into(),
+            scope: "scope-1".into(),
+            mode: RecognitionMode::EvidenceOnly,
+        });
+        assert_eq!(
+            validate_state(&state),
+            Err(FederationInvariantViolation::RecognitionEdgeOrderMismatch)
+        );
+
+        let mut state = nodes();
+        assert_eq!(deliver(&mut state, &envelope(), 50, true).decision(), FederationDecision::AcceptedLocal);
+        let mut broken = state.delivery("delivery-1").unwrap().clone();
+        broken.attempts.clear();
+        state.deliveries.insert("delivery-1".into(), broken);
+        assert_eq!(
+            validate_state(&state),
+            Err(FederationInvariantViolation::DeliveryMissingAttemptHistory)
+        );
+    }
+
+    #[test]
     fn source_observations_track_admitted_deliveries() {
         let mut state = nodes();
         assert_eq!(source_observation_count(&state), 0);
