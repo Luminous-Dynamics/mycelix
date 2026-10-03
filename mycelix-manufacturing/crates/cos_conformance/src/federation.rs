@@ -1876,6 +1876,28 @@ mod tests {
             }
         }
 
+        fn direct_id(self) -> FederationInvariantId {
+            match self {
+                Self::NodeMapIdentity => FederationInvariantId::NodeMapIdentity,
+                Self::RecognitionEdgeValidity => FederationInvariantId::RecognitionEdgeValidity,
+                Self::RecognitionEdgeCanonicalOrder => {
+                    FederationInvariantId::RecognitionEdgeCanonicalOrder
+                }
+                Self::DeliveryMapIdentity => FederationInvariantId::DeliveryMapIdentity,
+                Self::DeliveryNodeReferences => FederationInvariantId::DeliveryNodeReferences,
+                Self::DeliveryPredecessorReferences => {
+                    FederationInvariantId::DeliveryPredecessorReferences
+                }
+                Self::ObservationMapIdentity => FederationInvariantId::ObservationMapIdentity,
+                Self::SourceObservationBijection => FederationInvariantId::SourceObservationBijection,
+                Self::DeliveryAttemptHistory => FederationInvariantId::DeliveryAttemptHistory,
+                Self::AttemptEnvelopeBindings => FederationInvariantId::AttemptEnvelopeBindings,
+                Self::DeliverySourceObservationProvenance => {
+                    FederationInvariantId::DeliverySourceObservationProvenance
+                }
+            }
+        }
+
         fn mutate(self, state: &mut FederationState) {
             match self {
                 Self::NodeMapIdentity => {
@@ -1911,7 +1933,8 @@ mod tests {
                 Self::DeliveryNodeReferences => {
                     state
                         .deliveries
-                        .get_mut("delivery-1")
+                        .values_mut()
+                        .next()
                         .unwrap()
                         .contract
                         .target_node = "unknown-target".into();
@@ -1919,7 +1942,8 @@ mod tests {
                 Self::DeliveryPredecessorReferences => {
                     state
                         .deliveries
-                        .get_mut("delivery-1")
+                        .values_mut()
+                        .next()
                         .unwrap()
                         .contract
                         .predecessor_delivery_id = Some("missing-predecessor".into());
@@ -1953,21 +1977,24 @@ mod tests {
                     );
                 }
                 Self::DeliveryAttemptHistory => {
-                    let record = state.deliveries.get_mut("delivery-1").unwrap();
+                    let record = state.deliveries.values_mut().next().unwrap();
                     record.attempts.clear();
                     record.attempt_envelope_ids.clear();
                 }
                 Self::AttemptEnvelopeBindings => {
                     state
                         .deliveries
-                        .get_mut("delivery-1")
+                        .values_mut()
+                        .next()
                         .unwrap()
                         .attempt_envelope_ids
                         .insert("orphan-attempt".into(), "orphan-envelope".into());
                 }
                 Self::DeliverySourceObservationProvenance => {
                     let source_id = state
-                        .delivery("delivery-1")
+                        .deliveries
+                        .values()
+                        .next()
                         .unwrap()
                         .source_observation_id()
                         .to_owned();
@@ -2061,6 +2088,129 @@ mod tests {
 
         assert_eq!(exercised.len(), registry_ids.len());
         assert_eq!(exercised, registry_ids);
+    }
+
+    fn pair_audit_surface(
+        first: FederationInvariantMutation,
+        second: FederationInvariantMutation,
+    ) -> Vec<FederationInvariantAuditEntry> {
+        let mut state = first.seed_state();
+        if matches!(second, FederationInvariantMutation::DeliveryMapIdentity) {
+            second.mutate(&mut state);
+        } else {
+            second.mutate(&mut state);
+        }
+        first.mutate(&mut state);
+        audit_state(&state)
+    }
+
+    #[test]
+    fn invariant_mutation_pair_matrix_is_deterministic_and_order_aware() {
+        let mutations = FederationInvariantMutation::ALL;
+
+        for (first_index, first) in mutations.iter().enumerate() {
+            for second in mutations.iter().skip(first_index + 1) {
+                // Build both semantic compositions from the same clean seed.
+                let mut forward = first.seed_state();
+                second.mutate(&mut forward);
+                first.mutate(&mut forward);
+                let forward_audit = audit_state(&forward);
+
+                let mut reverse = first.seed_state();
+                first.mutate(&mut reverse);
+                second.mutate(&mut reverse);
+                let reverse_audit = audit_state(&reverse);
+
+                // Re-running the same composition must produce byte-for-byte
+                // equivalent structured diagnostics.
+                let mut repeated = first.seed_state();
+                second.mutate(&mut repeated);
+                first.mutate(&mut repeated);
+                assert_eq!(
+                    forward_audit,
+                    audit_state(&repeated),
+                    "pair ({:?}, {:?}) is not deterministic",
+                    first,
+                    second
+                );
+
+                let forward_violations = forward_audit
+                    .iter()
+                    .filter_map(|entry| match entry.status {
+                        FederationInvariantAuditStatus::Passed => None,
+                        FederationInvariantAuditStatus::Violated(violation) => {
+                            Some((entry.id, violation))
+                        }
+                    })
+                    .collect::<Vec<_>>();
+                let reverse_violations = reverse_audit
+                    .iter()
+                    .filter_map(|entry| match entry.status {
+                        FederationInvariantAuditStatus::Passed => None,
+                        FederationInvariantAuditStatus::Violated(violation) => {
+                            Some((entry.id, violation))
+                        }
+                    })
+                    .collect::<Vec<_>>();
+
+                let forward_ids = forward_violations
+                    .iter()
+                    .map(|(id, _)| *id)
+                    .collect::<BTreeSet<_>>();
+                let reverse_ids = reverse_violations
+                    .iter()
+                    .map(|(id, _)| *id)
+                    .collect::<BTreeSet<_>>();
+
+                assert!(
+                    forward_ids.contains(&first.direct_id())
+                        || reverse_ids.contains(&first.direct_id()),
+                    "pair ({:?}, {:?}) masked first mutation in both orders",
+                    first,
+                    second
+                );
+                assert!(
+                    forward_ids.contains(&second.direct_id())
+                        || reverse_ids.contains(&second.direct_id()),
+                    "pair ({:?}, {:?}) masked second mutation in both orders",
+                    first,
+                    second
+                );
+
+                if *first == FederationInvariantMutation::DeliveryAttemptHistory
+                    && *second == FederationInvariantMutation::AttemptEnvelopeBindings
+                {
+                    assert_eq!(
+                        forward_violations,
+                        vec![
+                            (
+                                FederationInvariantId::DeliveryAttemptHistory,
+                                FederationInvariantViolation::DeliveryMissingAttemptHistory,
+                            ),
+                            (
+                                FederationInvariantId::AttemptEnvelopeBindings,
+                                FederationInvariantViolation::AttemptBindingMismatch,
+                            ),
+                        ]
+                    );
+                    assert_eq!(
+                        reverse_violations,
+                        vec![(
+                            FederationInvariantId::DeliveryAttemptHistory,
+                            FederationInvariantViolation::DeliveryMissingAttemptHistory,
+                        )]
+                    );
+                } else {
+                    assert_eq!(
+                        forward_violations,
+                        reverse_violations,
+                        "pair ({:?}, {:?}) unexpectedly depends on mutation order",
+                        first,
+                        second
+                    );
+                }
+            }
+        }
     }
 
     #[test]
