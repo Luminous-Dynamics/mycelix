@@ -840,7 +840,6 @@ impl ObserverLifecycleLedgerV1 {
         )
         .into_iter()
         .last()
-        .copied()
     }
 
     pub fn record_rotation(
