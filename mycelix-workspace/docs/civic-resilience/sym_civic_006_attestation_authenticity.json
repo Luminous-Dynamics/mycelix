@@ -17,7 +17,8 @@
     "multi_subject_set_preserved",
     "predicate_bytes_immutable",
     "authentication_not_truth",
-    "authentication_not_civic_authority"
+    "authentication_not_civic_authority",
+    "authentication_disposition_distinct_from_scientific_content_status"
   ],
   "cases": [
     {
@@ -629,6 +630,34 @@
         }
       },
       "note": "A historically valid attestation still needs an explicit policy allowing verification after the key epoch has expired."
+    },
+    {
+      "id": "A-21",
+      "family": "authenticated_unsupported_scientific_proposition",
+      "candidate": {
+        "subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "signed_subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "attester": {
+          "id": "did:example:alice",
+          "status": "active"
+        },
+        "statement": {
+          "predicate_type": "https://example.org/provenance/v1",
+          "scientific_proposition_status": "unsupported"
+        },
+        "signature": {
+          "valid": true,
+          "canonical_bytes_match": true
+        },
+        "verification_time": "2026-10-03T01:00:00Z"
+      },
+      "note": "Authentication may establish provenance without establishing that the scientific proposition is supported."
     }
   ],
   "nonclaims": [
