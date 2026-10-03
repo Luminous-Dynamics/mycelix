@@ -136,6 +136,14 @@ struct AddToCollectionInput {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+struct UpdateStoryInput {
+    story_hash: ActionHash,
+    title: String,
+    content: String,
+    tags: Vec<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 struct CrossClusterNotificationInput {
     schema_version: u8,
     source_cluster: String,
@@ -269,6 +277,44 @@ async fn test_invalid_story_entry_reaches_integrity_validation() {
 }
 
 
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "requires Holochain conductor (nix develop)"]
+async fn test_invalid_story_update_reaches_integrity_validation() {
+    let (conductor, alice) = setup_alice().await;
+    let hearth_hash = create_test_hearth(&conductor, &alice).await;
+
+    let story: Record = conductor
+        .call(
+            &alice.zome("hearth_stories"),
+            "create_story",
+            CreateStoryInput {
+                hearth_hash,
+                title: "Valid story".into(),
+                content: "Valid content before adversarial update.".into(),
+                story_type: StoryType::Memory,
+                media_hashes: vec![],
+                tags: vec![],
+                visibility: HearthVisibility::AllMembers,
+            },
+        )
+        .await;
+
+    let result: Result<Record, _> = conductor
+        .call_fallible(
+            &alice.zome("hearth_stories"),
+            "update_story",
+            UpdateStoryInput {
+                story_hash: story.action_address().clone(),
+                title: String::new(),
+                content: "The empty title is the boundary under test.".into(),
+                tags: vec![],
+            },
+        )
+        .await;
+
+    assert_integrity_rejection(result, "Story title cannot be empty");
+}
 
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
