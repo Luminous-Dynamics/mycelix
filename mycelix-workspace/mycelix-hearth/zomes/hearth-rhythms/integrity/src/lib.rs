@@ -134,6 +134,28 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             }
         },
         FlatOp::CreateEntry(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::CreateRecord(OpRecord::CreateEntry { app_entry, .. }) => match app_entry {
+            EntryTypes::Rhythm(rhythm) => validate_rhythm(&rhythm),
+            EntryTypes::RhythmOccurrence(occurrence) => validate_occurrence(&occurrence),
+            EntryTypes::PresenceStatus(presence) => validate_presence(&presence),
+                },
+        FlatOp::CreateRecord(OpRecord::UpdateEntry { app_entry, action, .. }) => match app_entry {
+            EntryTypes::Rhythm(rhythm) => {
+                validate_rhythm(&rhythm)?;
+                validate_rhythm_immutable_fields(&rhythm, &action.original_action_address)
+            }
+            EntryTypes::RhythmOccurrence(_) => {
+                // INVARIANT: RhythmOccurrence immutability — occurrences are event
+                // records and cannot be modified after creation.
+                Ok(ValidateCallbackResult::Invalid(
+                    "RhythmOccurrence cannot be updated once created".into(),
+                ))
+            }
+            EntryTypes::PresenceStatus(presence) => {
+                validate_presence(&presence)?;
+                validate_presence_immutable_fields(&presence, &action.original_action_address)
+            }
+                },
         FlatOp::Link(OpLink::CreateLink { action, .. }) => {
             if action.data.tag.0.len() > 512 {
                 return Ok(ValidateCallbackResult::Invalid(
