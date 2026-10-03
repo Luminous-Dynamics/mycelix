@@ -63,3 +63,27 @@ Each mutation must be rejected. These are negative controls: a green workflow me
 A passing evaluator means only that the machine-readable corpus satisfies the declared semantic/structural rules. It is not an engineering analysis or certification decision.
 
 The Holochain layer, where later integrated, may validate protocol-level structure and authorship. It must not be treated as an authority that establishes physical truth or regulatory approval.
+
+## Cargo isolation
+
+This harness is a standalone Cargo workspace even though its directory is nested under
+`mycelix-commons`. The local `[workspace]` boundary is intentional: it prevents
+Cargo from inheriting the enclosing workspace when this manifest is addressed directly.
+
+From the repository root, use an explicit manifest path:
+
+```sh
+cargo fmt --check --manifest-path mycelix-commons/crates/mobility-configuration-qualification/Cargo.toml
+cargo test --manifest-path mycelix-commons/crates/mobility-configuration-qualification/Cargo.toml
+```
+
+Or run the commands from the harness directory without a manifest path:
+
+```sh
+cd mycelix-commons/crates/mobility-configuration-qualification
+cargo fmt --check
+cargo test
+```
+
+Do not combine the harness working directory with a repository-root-relative
+`--manifest-path`; that resolves the path relative to the harness directory.

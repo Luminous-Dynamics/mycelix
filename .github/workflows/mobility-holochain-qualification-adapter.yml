@@ -1,0 +1,48 @@
+name: Mobility Holochain Qualification Adapter
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-commons/crates/mobility-qualification-holochain-adapter/**"
+      - "mycelix-commons/crates/mobility-configuration-qualification/**"
+      - "docs/mobility/MOBILITY_QUALIFICATION_ADAPTER_BOUNDARY_V1.*"
+      - "tools/mobility_holochain_adapter_reference.py"
+      - "docs/mobility/MOBILITY_EVIDENCE_DISPOSITION_TRANSITION_V1.json"
+      - "tools/mobility_disposition_corpus_reference.py"
+      - ".github/workflows/mobility-holochain-qualification-adapter.yml"
+  push:
+    branches:
+      - "mobility-commons-disposition-transition-chain"
+    paths:
+      - "mycelix-commons/crates/mobility-qualification-holochain-adapter/**"
+      - "mycelix-commons/crates/mobility-configuration-qualification/**"
+      - "tools/mobility_holochain_adapter_reference.py"
+      - "docs/mobility/MOBILITY_EVIDENCE_DISPOSITION_TRANSITION_V1.json"
+      - "tools/mobility_disposition_corpus_reference.py"
+      - ".github/workflows/mobility-holochain-qualification-adapter.yml"
+
+jobs:
+  reference:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - run: python tools/mobility_holochain_adapter_reference.py
+      - run: python tools/mobility_disposition_corpus_reference.py
+
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --check
+        working-directory: mycelix-commons/crates/mobility-qualification-holochain-adapter
+      - run: cargo test
+        working-directory: mycelix-commons/crates/mobility-qualification-holochain-adapter
+      - run: rustup target add wasm32-unknown-unknown
+      - run: cargo check --target wasm32-unknown-unknown
+        working-directory: mycelix-commons/crates/mobility-qualification-holochain-adapter

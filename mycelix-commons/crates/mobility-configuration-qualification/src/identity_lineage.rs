@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 /// Domain-neutral identity kinds. These are engineering semantics, not
 /// Holochain action types.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum IdentityKind {
     Requirement,
@@ -26,7 +26,7 @@ pub enum IdentityKind {
 /// The namespace prevents foreign identifiers from silently becoming native
 /// engineering identities. A Holochain hash is protocol metadata and is not a
 /// valid engineering identifier merely because it is unique.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct IdentityRef {
     pub kind: IdentityKind,
@@ -43,7 +43,9 @@ impl IdentityRef {
             return Err("Holochain protocol identifiers require explicit binding and cannot be native engineering identities".into());
         }
         if self.id.starts_with("uhC0") || self.id.starts_with("uhCE") {
-            return Err("Holochain action/entry hashes cannot be used as engineering identity".into());
+            return Err(
+                "Holochain action/entry hashes cannot be used as engineering identity".into(),
+            );
         }
         Ok(())
     }
@@ -87,30 +89,54 @@ impl LineageEdge {
             LineageRelation::Instantiates => matches!(
                 (self.source.kind, self.target.kind),
                 (IdentityKind::PhysicalArtifact, IdentityKind::DesignRevision)
-                    | (IdentityKind::ComponentInstance, IdentityKind::DesignRevision)
+                    | (
+                        IdentityKind::ComponentInstance,
+                        IdentityKind::DesignRevision
+                    )
             ),
             LineageRelation::Configures => matches!(
                 (self.source.kind, self.target.kind),
-                (IdentityKind::ConfigurationRevision, IdentityKind::DesignRevision)
-                    | (IdentityKind::ConfigurationRevision, IdentityKind::ComponentInstance)
+                (
+                    IdentityKind::ConfigurationRevision,
+                    IdentityKind::DesignRevision
+                ) | (
+                    IdentityKind::ConfigurationRevision,
+                    IdentityKind::ComponentInstance
+                )
             ),
             LineageRelation::AppliesTo => matches!(
                 (self.source.kind, self.target.kind),
-                (IdentityKind::ConfigurationRevision, IdentityKind::PhysicalArtifact)
+                (
+                    IdentityKind::ConfigurationRevision,
+                    IdentityKind::PhysicalArtifact
+                )
             ),
             LineageRelation::ComponentOf => matches!(
                 (self.source.kind, self.target.kind),
-                (IdentityKind::ComponentInstance, IdentityKind::PhysicalArtifact)
-                    | (IdentityKind::PhysicalArtifact, IdentityKind::PhysicalArtifact)
+                (
+                    IdentityKind::ComponentInstance,
+                    IdentityKind::PhysicalArtifact
+                ) | (
+                    IdentityKind::PhysicalArtifact,
+                    IdentityKind::PhysicalArtifact
+                )
             ),
             LineageRelation::ManufacturedFrom => matches!(
                 (self.source.kind, self.target.kind),
-                (IdentityKind::ManufacturingEvent, IdentityKind::DesignRevision)
-                    | (IdentityKind::ManufacturingEvent, IdentityKind::ConfigurationRevision)
+                (
+                    IdentityKind::ManufacturingEvent,
+                    IdentityKind::DesignRevision
+                ) | (
+                    IdentityKind::ManufacturingEvent,
+                    IdentityKind::ConfigurationRevision
+                )
             ),
             LineageRelation::InspectedAs => matches!(
                 (self.source.kind, self.target.kind),
-                (IdentityKind::InspectionRecord, IdentityKind::PhysicalArtifact)
+                (
+                    IdentityKind::InspectionRecord,
+                    IdentityKind::PhysicalArtifact
+                )
             ),
             LineageRelation::TestedAs => matches!(
                 (self.source.kind, self.target.kind),
@@ -118,27 +144,47 @@ impl LineageEdge {
             ),
             LineageRelation::ObservedAs => matches!(
                 (self.source.kind, self.target.kind),
-                (IdentityKind::OperationalObservation, IdentityKind::PhysicalArtifact)
+                (
+                    IdentityKind::OperationalObservation,
+                    IdentityKind::PhysicalArtifact
+                )
             ),
             LineageRelation::MaintainedAs | LineageRelation::RepairedAs => matches!(
                 (self.source.kind, self.target.kind),
-                (IdentityKind::MaintenanceEvent, IdentityKind::PhysicalArtifact)
+                (
+                    IdentityKind::MaintenanceEvent,
+                    IdentityKind::PhysicalArtifact
+                )
             ),
             LineageRelation::ReplacedBy => matches!(
                 (self.source.kind, self.target.kind),
-                (IdentityKind::ComponentInstance, IdentityKind::ComponentInstance)
-                    | (IdentityKind::PhysicalArtifact, IdentityKind::PhysicalArtifact)
+                (
+                    IdentityKind::ComponentInstance,
+                    IdentityKind::ComponentInstance
+                ) | (
+                    IdentityKind::PhysicalArtifact,
+                    IdentityKind::PhysicalArtifact
+                )
             ),
             LineageRelation::Retires | LineageRelation::Reactivates => matches!(
                 (self.source.kind, self.target.kind),
-                (IdentityKind::ArtifactLifecycleEvent, IdentityKind::PhysicalArtifact)
+                (
+                    IdentityKind::ArtifactLifecycleEvent,
+                    IdentityKind::PhysicalArtifact
+                )
             ),
             LineageRelation::Supersedes => matches!(
                 (self.source.kind, self.target.kind),
                 (IdentityKind::DesignRevision, IdentityKind::DesignRevision)
-                    | (IdentityKind::ConfigurationRevision, IdentityKind::ConfigurationRevision)
+                    | (
+                        IdentityKind::ConfigurationRevision,
+                        IdentityKind::ConfigurationRevision
+                    )
                     | (IdentityKind::EvidenceRecord, IdentityKind::EvidenceRecord)
-                    | (IdentityKind::ReconciliationWitness, IdentityKind::ReconciliationWitness)
+                    | (
+                        IdentityKind::ReconciliationWitness,
+                        IdentityKind::ReconciliationWitness
+                    )
             ),
         };
 
@@ -152,7 +198,6 @@ impl LineageEdge {
         }
     }
 }
-
 
 /// Explicit lifecycle transition for configuration applicability.
 ///
@@ -194,7 +239,9 @@ impl ApplicabilityTransition {
             }
         }
         if self.predecessor == self.successor {
-            return Err("configuration applicability transition requires distinct revisions".into());
+            return Err(
+                "configuration applicability transition requires distinct revisions".into(),
+            );
         }
 
         if self.supersession.relation != LineageRelation::Supersedes
@@ -209,7 +256,10 @@ impl ApplicabilityTransition {
             || self.predecessor_applicability.source != self.predecessor
             || self.predecessor_applicability.target != self.predecessor_artifact
         {
-            return Err("predecessor applicability must exactly bind predecessor configuration to artifact".into());
+            return Err(
+                "predecessor applicability must exactly bind predecessor configuration to artifact"
+                    .into(),
+            );
         }
         self.predecessor_applicability.validate()?;
 
@@ -218,7 +268,10 @@ impl ApplicabilityTransition {
                 || successor.source != self.successor
                 || Some(successor.target.clone()) != self.successor_artifact
             {
-                return Err("successor applicability must exactly bind successor configuration to artifact".into());
+                return Err(
+                    "successor applicability must exactly bind successor configuration to artifact"
+                        .into(),
+                );
             }
             successor.validate()?;
         }
@@ -226,7 +279,6 @@ impl ApplicabilityTransition {
         Ok(())
     }
 }
-
 
 /// Explicit lifecycle transition for a physical artifact.
 ///
@@ -308,7 +360,9 @@ impl ArtifactLifecycleTransition {
                     || self.transition_event.source.kind != IdentityKind::MaintenanceEvent
                     || self.transition_event.target != self.artifact
                 {
-                    return Err("repair requires MaintenanceEvent RepairedAs transitioned artifact".into());
+                    return Err(
+                        "repair requires MaintenanceEvent RepairedAs transitioned artifact".into(),
+                    );
                 }
             }
             ArtifactLifecycleTransitionKind::Replacement => {
@@ -330,13 +384,18 @@ impl ArtifactLifecycleTransition {
             }
             ArtifactLifecycleTransitionKind::Retirement => {
                 if self.successor_artifact.is_some() || self.successor_applicability.is_some() {
-                    return Err("retirement does not create a successor artifact or applicability claim".into());
+                    return Err(
+                        "retirement does not create a successor artifact or applicability claim"
+                            .into(),
+                    );
                 }
                 if self.transition_event.relation != LineageRelation::Retires
                     || self.transition_event.source.kind != IdentityKind::ArtifactLifecycleEvent
                     || self.transition_event.target != self.artifact
                 {
-                    return Err("retirement requires ArtifactLifecycleEvent Retires artifact".into());
+                    return Err(
+                        "retirement requires ArtifactLifecycleEvent Retires artifact".into(),
+                    );
                 }
             }
             ArtifactLifecycleTransitionKind::Reactivation => {
@@ -347,7 +406,9 @@ impl ArtifactLifecycleTransition {
                     || self.transition_event.source.kind != IdentityKind::ArtifactLifecycleEvent
                     || self.transition_event.target != self.artifact
                 {
-                    return Err("reactivation requires ArtifactLifecycleEvent Reactivates artifact".into());
+                    return Err(
+                        "reactivation requires ArtifactLifecycleEvent Reactivates artifact".into(),
+                    );
                 }
                 let retirement = self.retirement_event.as_ref().ok_or_else(|| {
                     "reactivation requires an explicit prior retirement event".to_string()
@@ -367,8 +428,6 @@ impl ArtifactLifecycleTransition {
     }
 }
 
-
- 
 /// A deterministic half-open interval used to qualify when a configuration
 /// applicability assertion is in force. This is temporal scope, not proof of
 /// safety, conformance, certification, or measurement truth.
@@ -429,7 +488,10 @@ impl TemporalConfigurationApplicability {
             || self.applicability.source != self.configuration
             || self.applicability.target != self.artifact
         {
-            return Err("temporal applicability requires an exact configuration-to-artifact AppliesTo edge".into());
+            return Err(
+                "temporal applicability requires an exact configuration-to-artifact AppliesTo edge"
+                    .into(),
+            );
         }
         self.applicability.validate()?;
         Ok(())
@@ -448,21 +510,36 @@ mod tests {
         }
     }
 
-
-
     #[test]
     fn temporal_applicability_rejects_zero_length_interval() {
-        assert!(ApplicabilityInterval { start: 10, end: Some(10) }.validate().is_err());
+        assert!(
+            ApplicabilityInterval {
+                start: 10,
+                end: Some(10)
+            }
+            .validate()
+            .is_err()
+        );
     }
 
     #[test]
     fn temporal_applicability_rejects_reversed_interval() {
-        assert!(ApplicabilityInterval { start: 20, end: Some(10) }.validate().is_err());
+        assert!(
+            ApplicabilityInterval {
+                start: 20,
+                end: Some(10)
+            }
+            .validate()
+            .is_err()
+        );
     }
 
     #[test]
     fn temporal_applicability_uses_half_open_bounds() {
-        let interval = ApplicabilityInterval { start: 10, end: Some(20) };
+        let interval = ApplicabilityInterval {
+            start: 10,
+            end: Some(20),
+        };
         assert!(interval.contains(10));
         assert!(interval.contains(19));
         assert!(!interval.contains(20));
@@ -470,22 +547,40 @@ mod tests {
 
     #[test]
     fn adjacent_intervals_do_not_overlap() {
-        let left = ApplicabilityInterval { start: 0, end: Some(10) };
-        let right = ApplicabilityInterval { start: 10, end: Some(20) };
+        let left = ApplicabilityInterval {
+            start: 0,
+            end: Some(10),
+        };
+        let right = ApplicabilityInterval {
+            start: 10,
+            end: Some(20),
+        };
         assert!(!left.overlaps(&right));
     }
 
     #[test]
     fn overlapping_intervals_are_detected() {
-        let left = ApplicabilityInterval { start: 0, end: Some(10) };
-        let right = ApplicabilityInterval { start: 9, end: Some(20) };
+        let left = ApplicabilityInterval {
+            start: 0,
+            end: Some(10),
+        };
+        let right = ApplicabilityInterval {
+            start: 9,
+            end: Some(20),
+        };
         assert!(left.overlaps(&right));
     }
 
     #[test]
     fn open_ended_interval_overlaps_later_interval() {
-        let open = ApplicabilityInterval { start: 10, end: None };
-        let later = ApplicabilityInterval { start: 100, end: Some(200) };
+        let open = ApplicabilityInterval {
+            start: 10,
+            end: None,
+        };
+        let later = ApplicabilityInterval {
+            start: 100,
+            end: Some(200),
+        };
         assert!(open.overlaps(&later));
     }
 
@@ -501,7 +596,10 @@ mod tests {
                 source: configuration,
                 target: id(IdentityKind::PhysicalArtifact, "artifact-b"),
             },
-            interval: ApplicabilityInterval { start: 0, end: Some(10) },
+            interval: ApplicabilityInterval {
+                start: 0,
+                end: Some(10),
+            },
         };
         assert!(t.validate().is_err());
     }
@@ -522,7 +620,10 @@ mod tests {
                 source: configuration,
                 target: artifact,
             },
-            interval: ApplicabilityInterval { start: 0, end: Some(10) },
+            interval: ApplicabilityInterval {
+                start: 0,
+                end: Some(10),
+            },
         };
         assert!(t.validate().is_err());
     }
@@ -643,7 +744,6 @@ mod tests {
         };
         assert!(t.validate().is_err());
     }
-
 
     #[test]
     fn replacement_requires_distinct_artifact_and_never_inherits_applicability() {
@@ -805,20 +905,24 @@ mod tests {
         let b = id(IdentityKind::PhysicalArtifact, "artifact-b");
 
         assert_ne!(a, b);
-        assert!(LineageEdge {
-            relation: LineageRelation::Instantiates,
-            source: a,
-            target: design.clone(),
-        }
-        .validate()
-        .is_ok());
-        assert!(LineageEdge {
-            relation: LineageRelation::Instantiates,
-            source: b,
-            target: design,
-        }
-        .validate()
-        .is_ok());
+        assert!(
+            LineageEdge {
+                relation: LineageRelation::Instantiates,
+                source: a,
+                target: design.clone(),
+            }
+            .validate()
+            .is_ok()
+        );
+        assert!(
+            LineageEdge {
+                relation: LineageRelation::Instantiates,
+                source: b,
+                target: design,
+            }
+            .validate()
+            .is_ok()
+        );
     }
 
     #[test]
@@ -828,17 +932,19 @@ mod tests {
         let config_b = id(IdentityKind::ConfigurationRevision, "config-r2");
 
         assert_ne!(config_a, config_b);
-        assert!(LineageEdge {
-            relation: LineageRelation::Configures,
-            source: config_a,
-            target: IdentityRef {
-                kind: IdentityKind::DesignRevision,
-                namespace: "mobility".into(),
-                id: "design-r1".into(),
-            },
-        }
-        .validate()
-        .is_ok());
+        assert!(
+            LineageEdge {
+                relation: LineageRelation::Configures,
+                source: config_a,
+                target: IdentityRef {
+                    kind: IdentityKind::DesignRevision,
+                    namespace: "mobility".into(),
+                    id: "design-r1".into(),
+                },
+            }
+            .validate()
+            .is_ok()
+        );
         assert_eq!(artifact.kind, IdentityKind::PhysicalArtifact);
     }
 
@@ -846,13 +952,15 @@ mod tests {
     fn repair_preserves_artifact_identity() {
         let artifact = id(IdentityKind::PhysicalArtifact, "artifact-a");
         let repair = id(IdentityKind::MaintenanceEvent, "repair-1");
-        assert!(LineageEdge {
-            relation: LineageRelation::RepairedAs,
-            source: repair,
-            target: artifact.clone(),
-        }
-        .validate()
-        .is_ok());
+        assert!(
+            LineageEdge {
+                relation: LineageRelation::RepairedAs,
+                source: repair,
+                target: artifact.clone(),
+            }
+            .validate()
+            .is_ok()
+        );
         assert_eq!(artifact.id, "artifact-a");
     }
 
@@ -861,13 +969,15 @@ mod tests {
         let old = id(IdentityKind::ComponentInstance, "component-old");
         let new = id(IdentityKind::ComponentInstance, "component-new");
         assert_ne!(old, new);
-        assert!(LineageEdge {
-            relation: LineageRelation::ReplacedBy,
-            source: old,
-            target: new,
-        }
-        .validate()
-        .is_ok());
+        assert!(
+            LineageEdge {
+                relation: LineageRelation::ReplacedBy,
+                source: old,
+                target: new,
+            }
+            .validate()
+            .is_ok()
+        );
     }
 
     #[test]
@@ -911,13 +1021,15 @@ mod tests {
     fn witness_supersession_preserves_witness_identity_history() {
         let old = id(IdentityKind::ReconciliationWitness, "witness-r1");
         let new = id(IdentityKind::ReconciliationWitness, "witness-r2");
-        assert!(LineageEdge {
-            relation: LineageRelation::Supersedes,
-            source: new,
-            target: old,
-        }
-        .validate()
-        .is_ok());
+        assert!(
+            LineageEdge {
+                relation: LineageRelation::Supersedes,
+                source: new,
+                target: old,
+            }
+            .validate()
+            .is_ok()
+        );
     }
 
     #[test]
@@ -932,12 +1044,14 @@ mod tests {
     fn supersession_is_identity_lineage_not_physical_replacement() {
         let old = id(IdentityKind::ConfigurationRevision, "config-r1");
         let new = id(IdentityKind::ConfigurationRevision, "config-r2");
-        assert!(LineageEdge {
-            relation: LineageRelation::Supersedes,
-            source: new,
-            target: old,
-        }
-        .validate()
-        .is_ok());
+        assert!(
+            LineageEdge {
+                relation: LineageRelation::Supersedes,
+                source: new,
+                target: old,
+            }
+            .validate()
+            .is_ok()
+        );
     }
 }

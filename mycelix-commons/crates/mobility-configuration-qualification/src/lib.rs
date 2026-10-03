@@ -3,14 +3,26 @@ use std::collections::BTreeSet;
 use std::fs;
 
 /// Typed identity/lineage semantics for the mobility evidence substrate.
+pub mod binding_provenance;
 pub mod identity_lineage;
+pub mod qualification;
+pub mod reconciliation_evidence_projection;
+pub mod target_bound_projection;
 pub mod temporal_applicability;
 pub mod temporal_evidence_applicability;
 pub mod temporal_reconciliation;
 pub mod temporal_reconciliation_witness;
-pub mod reconciliation_evidence_projection;
-pub mod target_bound_projection;
 pub mod witness_revision;
+
+pub use binding_provenance::{
+    QualificationAuthorityAgentBindingProvenance, QualificationDependencyBindingProvenance,
+};
+
+pub use qualification::{
+    QualificationDecision, QualificationDependencyBinding, QualificationDependencyBindingSet,
+    QualificationDependencyRetrievalKind, QualificationOutcome,
+    QualificationStatus, QualificationValidationError,
+};
 
 const EXPECTED_COUNT: usize = 20;
 const EXPECTED_PREFIX: &str = "MC-CONFIG-";
@@ -176,65 +188,120 @@ impl EvidenceRelationship {
         let valid = match self.relation {
             EvidenceRelation::DerivedFrom => matches!(
                 (self.source_kind, self.target_kind),
-                (EvidenceNodeKind::DesignArtifact, EvidenceNodeKind::Requirement)
-                    | (EvidenceNodeKind::EvidenceRecord, EvidenceNodeKind::DesignArtifact)
-                    | (EvidenceNodeKind::ChangeSet, EvidenceNodeKind::EvidenceRecord)
+                (
+                    EvidenceNodeKind::DesignArtifact,
+                    EvidenceNodeKind::Requirement
+                ) | (
+                    EvidenceNodeKind::EvidenceRecord,
+                    EvidenceNodeKind::DesignArtifact
+                ) | (
+                    EvidenceNodeKind::ChangeSet,
+                    EvidenceNodeKind::EvidenceRecord
+                )
             ),
             EvidenceRelation::ManufacturedAs => matches!(
                 (self.source_kind, self.target_kind),
-                (EvidenceNodeKind::ManufacturingEvent, EvidenceNodeKind::PhysicalArtifact)
+                (
+                    EvidenceNodeKind::ManufacturingEvent,
+                    EvidenceNodeKind::PhysicalArtifact
+                )
             ),
             EvidenceRelation::InspectedAs => matches!(
                 (self.source_kind, self.target_kind),
-                (EvidenceNodeKind::InspectionRecord, EvidenceNodeKind::PhysicalArtifact)
+                (
+                    EvidenceNodeKind::InspectionRecord,
+                    EvidenceNodeKind::PhysicalArtifact
+                )
             ),
             EvidenceRelation::TestedAs => matches!(
                 (self.source_kind, self.target_kind),
-                (EvidenceNodeKind::TestRecord, EvidenceNodeKind::PhysicalArtifact)
+                (
+                    EvidenceNodeKind::TestRecord,
+                    EvidenceNodeKind::PhysicalArtifact
+                )
             ),
             EvidenceRelation::ObservedAs => matches!(
                 (self.source_kind, self.target_kind),
-                (EvidenceNodeKind::OperationalObservation, EvidenceNodeKind::PhysicalArtifact)
+                (
+                    EvidenceNodeKind::OperationalObservation,
+                    EvidenceNodeKind::PhysicalArtifact
+                )
             ),
             EvidenceRelation::Interprets => matches!(
                 (self.source_kind, self.target_kind),
-                (EvidenceNodeKind::EvidenceRecord, EvidenceNodeKind::InspectionRecord)
-                    | (EvidenceNodeKind::EvidenceRecord, EvidenceNodeKind::TestRecord)
-                    | (EvidenceNodeKind::EvidenceRecord, EvidenceNodeKind::OperationalObservation)
+                (
+                    EvidenceNodeKind::EvidenceRecord,
+                    EvidenceNodeKind::InspectionRecord
+                ) | (
+                    EvidenceNodeKind::EvidenceRecord,
+                    EvidenceNodeKind::TestRecord
+                ) | (
+                    EvidenceNodeKind::EvidenceRecord,
+                    EvidenceNodeKind::OperationalObservation
+                )
             ),
             EvidenceRelation::Supersedes => matches!(
                 (self.source_kind, self.target_kind),
-                (EvidenceNodeKind::DesignArtifact, EvidenceNodeKind::DesignArtifact)
-                    | (EvidenceNodeKind::EvidenceRecord, EvidenceNodeKind::EvidenceRecord)
-                    | (EvidenceNodeKind::ChangeSet, EvidenceNodeKind::ChangeSet)
+                (
+                    EvidenceNodeKind::DesignArtifact,
+                    EvidenceNodeKind::DesignArtifact
+                ) | (
+                    EvidenceNodeKind::EvidenceRecord,
+                    EvidenceNodeKind::EvidenceRecord
+                ) | (EvidenceNodeKind::ChangeSet, EvidenceNodeKind::ChangeSet)
             ),
             EvidenceRelation::Changes => matches!(
                 (self.source_kind, self.target_kind),
-                (EvidenceNodeKind::ChangeSet, EvidenceNodeKind::DesignArtifact)
-                    | (EvidenceNodeKind::ChangeSet, EvidenceNodeKind::PhysicalArtifact)
-                    | (EvidenceNodeKind::ChangeSet, EvidenceNodeKind::EvidenceRecord)
+                (
+                    EvidenceNodeKind::ChangeSet,
+                    EvidenceNodeKind::DesignArtifact
+                ) | (
+                    EvidenceNodeKind::ChangeSet,
+                    EvidenceNodeKind::PhysicalArtifact
+                ) | (
+                    EvidenceNodeKind::ChangeSet,
+                    EvidenceNodeKind::EvidenceRecord
+                )
             ),
             EvidenceRelation::RequiresRevalidation => matches!(
                 (self.source_kind, self.target_kind),
-                (EvidenceNodeKind::ImpactAssessment, EvidenceNodeKind::RevalidationObligation)
-                    | (EvidenceNodeKind::ChangeSet, EvidenceNodeKind::RevalidationObligation)
+                (
+                    EvidenceNodeKind::ImpactAssessment,
+                    EvidenceNodeKind::RevalidationObligation
+                ) | (
+                    EvidenceNodeKind::ChangeSet,
+                    EvidenceNodeKind::RevalidationObligation
+                )
             ),
             EvidenceRelation::Disputes => matches!(
                 (self.source_kind, self.target_kind),
-                (EvidenceNodeKind::EvidenceRecord, EvidenceNodeKind::EvidenceRecord)
+                (
+                    EvidenceNodeKind::EvidenceRecord,
+                    EvidenceNodeKind::EvidenceRecord
+                )
             ),
             EvidenceRelation::Authorizes => matches!(
                 (self.source_kind, self.target_kind),
-                (EvidenceNodeKind::ExternalAuthorityReference, EvidenceNodeKind::EvidenceRecord)
-                    | (EvidenceNodeKind::ExternalAuthorityReference, EvidenceNodeKind::PhysicalArtifact)
+                (
+                    EvidenceNodeKind::ExternalAuthorityReference,
+                    EvidenceNodeKind::EvidenceRecord
+                ) | (
+                    EvidenceNodeKind::ExternalAuthorityReference,
+                    EvidenceNodeKind::PhysicalArtifact
+                )
             ),
         };
         let scope_valid = match self.relation {
             EvidenceRelation::Supersedes | EvidenceRelation::Changes => true,
             _ => same_scope,
         };
-        if valid && scope_valid { Ok(()) } else {
-            Err(format!("invalid source/target kinds for {:?}", self.relation))
+        if valid && scope_valid {
+            Ok(())
+        } else {
+            Err(format!(
+                "invalid source/target kinds for {:?}",
+                self.relation
+            ))
         }
     }
 }
@@ -354,8 +421,10 @@ mod tests {
     use super::*;
 
     fn corpus() -> Corpus {
-        parse_corpus(include_str!("../../../../docs/mobility/MOBILITY_CONFIGURATION_CONTRACT_V1.json"))
-            .expect("bundled corpus must parse")
+        parse_corpus(include_str!(
+            "../../../../docs/mobility/MOBILITY_CONFIGURATION_CONTRACT_V1.json"
+        ))
+        .expect("bundled corpus must parse")
     }
 
     fn valid_state() -> EvidenceState {
@@ -398,18 +467,22 @@ mod tests {
 
     #[test]
     fn every_vector_preserves_a_forbidden_inference_boundary() {
-        assert!(corpus()
-            .vectors
-            .iter()
-            .all(|v| !v.forbidden_inference.trim().is_empty()));
+        assert!(
+            corpus()
+                .vectors
+                .iter()
+                .all(|v| !v.forbidden_inference.trim().is_empty())
+        );
     }
 
     #[test]
     fn every_vector_has_a_qualified_outcome_rule() {
-        assert!(corpus()
-            .vectors
-            .iter()
-            .all(|v| EXPECTED_OUTCOMES.contains(&v.expected_outcome.as_str())));
+        assert!(
+            corpus()
+                .vectors
+                .iter()
+                .all(|v| EXPECTED_OUTCOMES.contains(&v.expected_outcome.as_str()))
+        );
     }
 
     #[test]
@@ -435,11 +508,10 @@ mod tests {
 
     #[test]
     fn unknown_fields_are_rejected() {
-        let mut value: serde_json::Value =
-            serde_json::from_str(include_str!(
-                "../../../../docs/mobility/MOBILITY_CONFIGURATION_CONTRACT_V1.json"
-            ))
-            .expect("corpus must parse as JSON");
+        let mut value: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../../docs/mobility/MOBILITY_CONFIGURATION_CONTRACT_V1.json"
+        ))
+        .expect("corpus must parse as JSON");
         value["unexpected"] = serde_json::json!("must-fail");
         assert!(parse_corpus(&value.to_string()).is_err());
     }
@@ -453,14 +525,26 @@ mod tests {
 
     #[test]
     fn outcome_algebra_has_explicit_unresolved_state() {
-        assert_ne!(EvidenceOutcomeState::Unresolved, EvidenceOutcomeState::Contradicted);
-        assert_eq!(EvidenceOutcomeState::Unresolved, EvidenceOutcomeState::Unresolved);
+        assert_ne!(
+            EvidenceOutcomeState::Unresolved,
+            EvidenceOutcomeState::Contradicted
+        );
+        assert_eq!(
+            EvidenceOutcomeState::Unresolved,
+            EvidenceOutcomeState::Unresolved
+        );
     }
 
     #[test]
     fn outcome_algebra_preserves_historical_and_disputed_states() {
-        assert_ne!(EvidenceOutcomeState::Superseded, EvidenceOutcomeState::Supported);
-        assert_ne!(EvidenceOutcomeState::Disputed, EvidenceOutcomeState::Supported);
+        assert_ne!(
+            EvidenceOutcomeState::Superseded,
+            EvidenceOutcomeState::Supported
+        );
+        assert_ne!(
+            EvidenceOutcomeState::Disputed,
+            EvidenceOutcomeState::Supported
+        );
     }
 
     #[test]
@@ -484,7 +568,10 @@ mod tests {
 
         state.unresolved_dependency_reference = Some("dep-1".into());
         assert!(state.validate().is_ok());
-        assert_ne!(EpistemicDisposition::Unresolved, EpistemicDisposition::Contradicted);
+        assert_ne!(
+            EpistemicDisposition::Unresolved,
+            EpistemicDisposition::Contradicted
+        );
     }
 
     #[test]
@@ -596,7 +683,6 @@ mod tests {
         };
         assert!(commons.validate().is_err());
     }
-
 
     #[test]
     fn ordinary_relationships_cannot_cross_configuration_scope() {
