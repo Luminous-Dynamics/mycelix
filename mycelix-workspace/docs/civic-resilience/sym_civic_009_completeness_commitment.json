@@ -551,7 +551,8 @@
         },
         "historical": true,
         "historical_manifest_digest": "sha256:m-old",
-        "historical_manifest_exact": true
+        "historical_manifest_exact": true,
+        "historical_manifest_actual_digest": "sha256:m-old"
       },
       "note": "A historical commitment is admissible when the historical manifest identity is explicit and exact."
     },
@@ -666,6 +667,84 @@
         }
       },
       "note": "An active known attester does not authenticate a completeness commitment when its authenticated bytes fail verification."
+    },
+    {
+      "id": "C-19",
+      "family": "active_unallowlisted_attester",
+      "candidate": {
+        "bundle": {
+          "id": "bundle-a",
+          "digest": "sha256:bundle-a",
+          "scope": [
+            "bundle:all"
+          ]
+        },
+        "manifest": {
+          "digest": "sha256:m-a",
+          "actual_digest": "sha256:m-a"
+        },
+        "commitment": {
+          "id": "cc-m",
+          "bundle_digest": "sha256:bundle-a",
+          "manifest_digest": "sha256:m-a",
+          "attester": {
+            "id": "did:example:mallory",
+            "status": "active"
+          },
+          "scope": [
+            "bundle:all"
+          ],
+          "time": "2026-10-03T01:00:00Z",
+          "signature": {
+            "valid": true,
+            "canonical_bytes_match": true
+          }
+        },
+        "bundle_window": {
+          "created": "2026-10-03T00:00:00Z",
+          "updated": "2026-10-03T02:00:00Z"
+        }
+      },
+      "note": "Active status alone does not establish membership in the synthetic trusted-attester set."
+    },
+    {
+      "id": "C-20",
+      "family": "historical_manifest_bytes_mismatch",
+      "candidate": {
+        "bundle": {
+          "id": "bundle-a",
+          "digest": "sha256:bundle-a",
+          "scope": [
+            "bundle:all"
+          ]
+        },
+        "manifest": {
+          "digest": "sha256:m-current",
+          "actual_digest": "sha256:m-current"
+        },
+        "commitment": {
+          "id": "cc-h2",
+          "bundle_digest": "sha256:bundle-a",
+          "manifest_digest": "sha256:m-old",
+          "attester": {
+            "id": "did:example:alice",
+            "status": "active"
+          },
+          "scope": [
+            "bundle:all"
+          ],
+          "time": "2026-10-01T01:00:00Z",
+          "signature": {
+            "valid": true,
+            "canonical_bytes_match": true
+          }
+        },
+        "historical": true,
+        "historical_manifest_digest": "sha256:m-old",
+        "historical_manifest_actual_digest": "sha256:m-other",
+        "historical_manifest_exact": true
+      },
+      "note": "Historical digest identity is insufficient when the historical bytes do not match the bound digest."
     }
   ],
   "nonclaims": [
