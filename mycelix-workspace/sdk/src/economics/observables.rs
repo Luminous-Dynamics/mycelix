@@ -70,6 +70,24 @@ impl EconomicObservables {
             .map_err(EconomicStepError::Serialization)
     }
 
+    /// Re-derive these aggregate observations from the supplied state and transitions.
+    ///
+    /// This is stronger than checking only the serialized observation hash: all derived
+    /// values must be reproduced by the authoritative transition projection.
+    pub fn verify_against_transitions(
+        &self,
+        state: &EconomicState,
+        transitions: &[EconomicTransition],
+    ) -> Result<(), EconomicStepError> {
+        let expected = Self::try_from_state_and_transitions(state, transitions)?;
+        if self != &expected {
+            return Err(EconomicStepError::Serialization(
+                "aggregate observations do not match transition-derived projection".into(),
+            ));
+        }
+        Ok(())
+    }
+
     /// Checked derivation of aggregate measurements.
     pub fn try_from_state_and_ledger(
         state: &EconomicState,
@@ -272,6 +290,20 @@ mod tests {
         assert_eq!(observations.credit_created, 25);
         assert_eq!(observations.aggregate_loans, 25);
         assert_eq!(observations.aggregate_debt, 25);
+    }
+
+    #[test]
+    fn aggregate_observations_verify_against_transitions_rejects_tampering() {
+        let state = EconomicState::new(vec![
+            ActorBalanceSheet::new("bank"),
+            ActorBalanceSheet::new("household"),
+        ]);
+        let transitions = vec![EconomicTransition::CreditCreation(
+            CreditCreation::new("bank", "household", 25).unwrap(),
+        )];
+        let mut observations = EconomicObservables::try_from_state_and_transitions(&state, &transitions).unwrap();
+        observations.credit_created = 24;
+        assert!(observations.verify_against_transitions(&state, &transitions).is_err());
     }
 
     #[test]
