@@ -14,7 +14,8 @@ pub mod temporal_reconciliation_witness;
 pub mod witness_revision;
 
 pub use qualification::{
-    QualificationDecision, QualificationOutcome, QualificationStatus, QualificationValidationError,
+    QualificationDecision, QualificationDependencyBindingSet, QualificationOutcome,
+    QualificationStatus, QualificationValidationError,
 };
 
 const EXPECTED_COUNT: usize = 20;
