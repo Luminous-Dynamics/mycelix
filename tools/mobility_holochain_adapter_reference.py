@@ -144,9 +144,24 @@ def main() -> int:
     if "hdi::ed25519::verify_signature" not in source:
         raise SystemExit("signed binding attestation must use deterministic Holochain signature verification")
 
-    for payload in ("HolochainAuthorityAgentBindingPayload", "HolochainBindingAttestationPayload"):
-        if "serde::Deserialize" not in source:
-            raise SystemExit(f"{payload} must be deserializable for canonical wire round-trip")
+    payload_markers = (
+        ("HolochainAuthorityAgentBindingPayload", "serde::Serialize, serde::Deserialize, SerializedBytes"),
+        ("HolochainBindingAttestationPayload", "serde::Serialize, serde::Deserialize, SerializedBytes"),
+    )
+    for payload, derive_fragment in payload_markers:
+        payload_start = source.find(f"pub struct {payload}")
+        if payload_start < 0:
+            raise SystemExit(f"{payload} definition missing")
+        if derive_fragment not in source[:payload_start]:
+            raise SystemExit(
+                f"{payload} must derive serde Serialize/Deserialize and SerializedBytes"
+            )
+        payload_end = source.find("\n}", payload_start)
+        if payload_end < 0:
+            raise SystemExit(f"{payload} definition is unterminated")
+        payload_body = source[payload_start:payload_end + 2]
+        if "pub schema: String" not in payload_body:
+            raise SystemExit(f"{payload} schema identifier must remain an owned String")
     if "SerializedBytes" not in source:
         raise SystemExit("signed payloads must expose canonical SerializedBytes round-trips")
     if "SerializedBytes::try_from(payload.clone())" not in source:
