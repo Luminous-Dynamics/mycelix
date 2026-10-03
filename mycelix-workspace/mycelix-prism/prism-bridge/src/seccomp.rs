@@ -474,7 +474,11 @@ mod linux {
     /// non-branch records must have zero jump metadata, and the program must
     /// retain its global fail-closed terminator.
     fn validate_compiled_filter(filter: &[SockFilter]) -> Result<(), SeccompError> {
-        if filter.len() < 5 {
+        const MAX_FILTER_INSTRUCTIONS: usize = 4096;
+        if filter.len() < 5
+            || filter.len() > MAX_FILTER_INSTRUCTIONS
+            || filter.len() > u16::MAX as usize
+        {
             return Err(SeccompError::CompilerInvariantViolation);
         }
 
@@ -900,8 +904,15 @@ mod linux {
             0usize
         };
         let instruction_count = 5usize
-            .saturating_add(abi_guard_instructions)
-            .saturating_add(policy.allowed_syscalls.len().saturating_mul(2));
+            .checked_add(abi_guard_instructions)
+            .and_then(|count| {
+                policy
+                    .allowed_syscalls
+                    .len()
+                    .checked_mul(2)
+                    .and_then(|body| count.checked_add(body))
+            })
+            .ok_or(SeccompError::FilterTooLarge)?;
         if instruction_count > 4096 || instruction_count > u16::MAX as usize {
             return Err(SeccompError::FilterTooLarge);
         }
@@ -2447,6 +2458,13 @@ mod linux {
             unexpected_load[0].k = 8; // instruction-pointer field is outside the compiler contract
             assert!(matches!(
                 validate_compiled_filter(&unexpected_load),
+                Err(SeccompError::CompilerInvariantViolation)
+            ));
+
+            let mut unexpected_metadata = compile_filter_v2(&policy).unwrap();
+            unexpected_metadata[3].jt = 1; // non-branch instructions may not carry jump metadata
+            assert!(matches!(
+                validate_compiled_filter(&unexpected_metadata),
                 Err(SeccompError::CompilerInvariantViolation)
             ));
 
