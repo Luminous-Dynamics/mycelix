@@ -5135,6 +5135,8 @@ mod tests {
                         | Some("typed_structural_error")
                         | Some("adapter_boundary_error")
                         | Some("unresolved_at_protocol_layer")
+                        | Some("explicit_branch")
+                        | Some("not_silently_collapsed")
                 ),
                 "EDT vector has unsupported expected outcome: {vector:?}"
             );
