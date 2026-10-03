@@ -124,6 +124,17 @@ impl HolochainDependencyBindingSet {
             .validate()
             .map_err(|reason| HolochainAdapterBoundaryError::SemanticInvalid { reason })?;
 
+        if self
+            .provenance
+            .values()
+            .any(|existing| existing.witness_identity == provenance.witness_identity)
+        {
+            return Err(HolochainAdapterBoundaryError::BindingRejected {
+                reason: "a provenance witness identity may justify only one runtime binding"
+                    .into(),
+            });
+        }
+
         validate_address_kind(&address, retrieval)?;
 
         self.inner
@@ -540,6 +551,54 @@ mod tests {
         ));
     }
 
+
+    #[test]
+    fn duplicate_provenance_witness_is_an_adapter_contract_failure() {
+        let mut bindings = HolochainDependencyBindingSet::new();
+        let first = identity("first");
+        let second = identity("second");
+        let authority = identity("shared-authority");
+        let provenance = QualificationDependencyBindingProvenance {
+            witness_identity: IdentityRef {
+                kind: IdentityKind::ReconciliationWitness,
+                namespace: "mobility".into(),
+                id: "shared-binding-witness".into(),
+            },
+            logical_identity: first.clone(),
+            authority: authority.clone(),
+            basis: vec![authority.clone(), identity("basis-first")],
+        };
+
+        bindings
+            .bind(
+                first,
+                HolochainDependencyAddress::Action(action_hash(13)),
+                QualificationDependencyRetrievalKind::Action,
+                provenance.clone(),
+            )
+            .unwrap();
+
+        let second_provenance = QualificationDependencyBindingProvenance {
+            logical_identity: second.clone(),
+            authority,
+            basis: vec![identity("shared-authority"), identity("basis-second")],
+            ..provenance
+        };
+
+        let error = bindings
+            .bind(
+                second,
+                HolochainDependencyAddress::Action(action_hash(14)),
+                QualificationDependencyRetrievalKind::Action,
+                second_provenance,
+            )
+            .expect_err("one provenance witness must not justify two bindings");
+
+        assert!(matches!(
+            error,
+            HolochainAdapterBoundaryError::BindingRejected { .. }
+        ));
+    }
 
     #[test]
     fn malformed_identity_precedes_address_kind_mismatch() {
