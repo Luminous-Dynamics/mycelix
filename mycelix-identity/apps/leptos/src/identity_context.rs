@@ -173,17 +173,13 @@ async fn load_mfa(ctx: IdentityCtx) {
     }
 
     // Social-recovery config currently remains an optional legacy Record API.
-    match hc.call_zome_default::<String, serde_json::Value>(
-        "recovery", "get_recovery_config", &recovery_did
+    match hc.call_zome_default::<String, Option<RecoveryConfigView>>(
+        "recovery", "get_recovery_view", &recovery_did
     ).await {
-        Ok(record) => {
-            if let Ok(config) = serde_json::from_value::<RecoveryConfigView>(record) {
-                ctx.recovery_config.set(Some(config));
-            }
-        }
+        Ok(config) => ctx.recovery_config.set(config),
         Err(e) => {
             web_sys::console::warn_1(
-                &format!("[Identity] get_recovery_config failed: {e}").into()
+                &format!("[Identity] get_recovery_view failed: {e}").into()
             );
         }
     }
