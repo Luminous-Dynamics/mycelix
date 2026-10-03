@@ -186,16 +186,6 @@ fn expect_unauthorized_reason(response: AppResponse, reason: &str) {
     }
 }
 
-fn expect_ribosome_error(response: AppResponse) {
-    assert!(
-        matches!(
-            response,
-            AppResponse::Error(ExternalApiWireError::RibosomeError(_))
-        ),
-        "expected ribosome routing error, got {response:?}"
-    );
-}
-
 fn expect_internal_error(response: AppResponse) {
     assert!(
         matches!(
@@ -353,6 +343,29 @@ async fn d6u_runtime_authority_boundary() {
     assert_eq!(reached.load(Ordering::SeqCst), before);
     record_case("wire-signature-invalid", "authentication-failed");
 
+    let (n, exp) = holochain_nonce::fresh_nonce(Timestamp::now()).unwrap();
+    expect_probe_result(
+        call(
+            &app_api,
+            "d6u-alice",
+            &conductor.keystore(),
+            params(
+                &alice_cell,
+                &alice,
+                SweetInlineZomes::COORDINATOR.into(),
+                "probe".into(),
+                None,
+                base.clone(),
+                n,
+                exp,
+            ),
+        )
+        .await,
+        ProbeResult::Accepted,
+    );
+    assert_eq!(reached.load(Ordering::SeqCst), before + 1);
+    record_case("author-grant", "accepted");
+
     let grant_response = call(
         &app_api,
         "d6u-alice",
@@ -371,8 +384,8 @@ async fn d6u_runtime_authority_boundary() {
     .await;
 
     let grant_material: GrantMaterial = decode_zome(grant_response);
-    record_case("author-grant", "accepted");
 
+    let before = reached.load(Ordering::SeqCst);
     let (n, exp) = holochain_nonce::fresh_nonce(Timestamp::now()).unwrap();
     expect_probe_result(
         call(
@@ -575,7 +588,7 @@ async fn d6u_runtime_authority_boundary() {
         holochain_nonce::fresh_nonce(Timestamp::now()).unwrap().1,
     );
     let before = reached.load(Ordering::SeqCst);
-    expect_ribosome_error(call(&app_api, "d6u-alice", &conductor.keystore(), wrong_zome).await);
+    expect_internal_error(call(&app_api, "d6u-alice", &conductor.keystore(), wrong_zome).await);
     assert_eq!(reached.load(Ordering::SeqCst), before);
     record_case("wrong-zome", "routing-failed");
 
