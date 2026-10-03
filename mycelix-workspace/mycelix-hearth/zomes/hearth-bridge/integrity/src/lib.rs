@@ -81,11 +81,17 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::CreateEntry(OpEntry::CreateEntry {
             app_entry,
-            action: _,
+            action,
         }) => match app_entry {
             EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-            EntryTypes::BridgeQuery(query) => validate_query(&query),
-            EntryTypes::BridgeEvent(event) => validate_event(&event),
+            EntryTypes::BridgeQuery(query) => {
+                validate_query(&query)?;
+                validate_query_author(&query, action.author())
+            }
+            EntryTypes::BridgeEvent(event) => {
+                validate_event(&event)?;
+                validate_event_author(&event, action.author())
+            }
             EntryTypes::CachedCredential(cred) => validate_credential_cache(&cred),
             EntryTypes::Notification(_) => Ok(ValidateCallbackResult::Valid),
         },
@@ -109,10 +115,16 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             EntryTypes::Notification(_) => Ok(ValidateCallbackResult::Valid),
         },
         FlatOp::CreateEntry(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::CreateRecord(OpRecord::CreateEntry { app_entry, .. }) => match app_entry {
+        FlatOp::CreateRecord(OpRecord::CreateEntry { app_entry, action }) => match app_entry {
             EntryTypes::Anchor(_) => Ok(ValidateCallbackResult::Valid),
-            EntryTypes::BridgeQuery(query) => validate_query(&query),
-            EntryTypes::BridgeEvent(event) => validate_event(&event),
+            EntryTypes::BridgeQuery(query) => {
+                validate_query(&query)?;
+                validate_query_author(&query, action.author())
+            }
+            EntryTypes::BridgeEvent(event) => {
+                validate_event(&event)?;
+                validate_event_author(&event, action.author())
+            },
             EntryTypes::CachedCredential(cred) => validate_credential_cache(&cred),
             EntryTypes::Notification(_) => Ok(ValidateCallbackResult::Valid),
                 },
@@ -220,14 +232,13 @@ fn validate_create_link(
             let _: BridgeQueryEntry = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("BridgeQuery entry missing".into())))?;
         }
         LinkTypes::AgentToQuery => {
-            let base = AgentPubKey::try_from(base_address).map_err(|_| ValidateCallbackResult::Invalid("AgentToQuery base must be an AgentPubKey".into()))?;
-            if &base != author {
-                return Ok(ValidateCallbackResult::Invalid("AgentToQuery base must equal the link author".into()));
-            }
             let target = ActionHash::try_from(target_address).map_err(|_| ValidateCallbackResult::Invalid("AgentToQuery target must be an ActionHash".into()))?;
             let record = must_get_valid_record(target)?;
             let entry: BridgeQueryEntry = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("BridgeQuery entry missing".into())))?;
-            validate_anchor_name_from_entry(base, &entry, "AgentToQuery")?;
+            if &entry.requester != author {
+                return Ok(ValidateCallbackResult::Invalid("AgentToQuery link author must equal query requester".into()));
+            }
+            validate_anchor_name(base_address, &format!("agent_queries:{:?}", entry.requester), "AgentToQuery")?;
         }
         LinkTypes::DomainToQuery => {
             let target = ActionHash::try_from(target_address).map_err(|_| ValidateCallbackResult::Invalid("DomainToQuery target must be an ActionHash".into()))?;
@@ -248,17 +259,13 @@ fn validate_create_link(
             validate_anchor_name(base_address, &format!("event_type:{}:{}", entry.domain, entry.event_type), "EventTypeToEvent")?;
         }
         LinkTypes::AgentToEvent => {
-            let base = AgentPubKey::try_from(base_address).map_err(|_| ValidateCallbackResult::Invalid("AgentToEvent base must be an AgentPubKey".into()))?;
-            if &base != author {
-                return Ok(ValidateCallbackResult::Invalid("AgentToEvent base must equal the link author".into()));
-            }
             let target = ActionHash::try_from(target_address).map_err(|_| ValidateCallbackResult::Invalid("AgentToEvent target must be an ActionHash".into()))?;
             let record = must_get_valid_record(target)?;
             let entry: BridgeEventEntry = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("BridgeEvent entry missing".into())))?;
-            if entry.source_agent != base {
-                return Ok(ValidateCallbackResult::Invalid("AgentToEvent base does not match event source_agent".into()));
+            if &entry.source_agent != author {
+                return Ok(ValidateCallbackResult::Invalid("AgentToEvent link author must equal event source_agent".into()));
             }
-            validate_anchor_name(base_address.clone(), &format!("agent_events:{}", base), "AgentToEvent")?;
+            validate_anchor_name(base_address, &format!("agent_events:{:?}", entry.source_agent), "AgentToEvent")?;
         }
         LinkTypes::DomainToEvent => {
             let target = ActionHash::try_from(target_address).map_err(|_| ValidateCallbackResult::Invalid("DomainToEvent target must be an ActionHash".into()))?;
@@ -272,6 +279,13 @@ fn validate_create_link(
                 return Ok(ValidateCallbackResult::Invalid("DispatchRateLimit base must equal the link author".into()));
             }
             validate_anchor_name(target_address, "dispatch_rate_limit", "DispatchRateLimit")?;
+            let zome = std::str::from_utf8(&tag.0)
+                .map_err(|_| wasm_error!(WasmErrorInner::Guest("DispatchRateLimit tag must be UTF-8".into())))?;
+            if !ALLOWED_ZOMES.contains(&zome) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "DispatchRateLimit tag names a disallowed target zome".into(),
+                ));
+            }
         }
         LinkTypes::AgentToCredentialCache => {
             let base = AgentPubKey::try_from(base_address).map_err(|_| ValidateCallbackResult::Invalid("AgentToCredentialCache base must be an AgentPubKey".into()))?;
@@ -310,13 +324,27 @@ fn validate_create_link(
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_anchor_name_from_entry(
-    base_agent: AgentPubKey,
-    _entry: &BridgeQueryEntry,
-    label: &str,
+fn validate_query_author(
+    query: &BridgeQueryEntry,
+    author: &AgentPubKey,
 ) -> ExternResult<ValidateCallbackResult> {
-    let _ = base_agent;
-    let _ = label;
+    if &query.requester != author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "BridgeQuery requester must equal the creating agent".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_event_author(
+    event: &BridgeEventEntry,
+    author: &AgentPubKey,
+) -> ExternResult<ValidateCallbackResult> {
+    if &event.source_agent != author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "BridgeEvent source_agent must equal the creating agent".into(),
+        ));
+    }
     Ok(ValidateCallbackResult::Valid)
 }
 
