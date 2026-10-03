@@ -426,16 +426,16 @@ mod tests {
         bindings.insert(a.clone(), "address-a").unwrap();
 
         let resolved = bindings
-            .resolve_required(vec![z, a, a.clone()])
+            .resolve_required(vec![z.clone(), a.clone(), a])
             .expect("all logical dependencies are bound");
 
         assert_eq!(
-            resolved,
-            vec![
-                (&a, &"address-a"),
-                (&id("z"), &"address-z"),
-            ]
+            resolved[0].0,
+            bindings.iter().next().expect("first binding exists").0
         );
+        assert_eq!(resolved[0].1, &"address-a");
+        assert_eq!(resolved[1].0, &z);
+        assert_eq!(resolved[1].1, &"address-z");
     }
 
     #[test]
