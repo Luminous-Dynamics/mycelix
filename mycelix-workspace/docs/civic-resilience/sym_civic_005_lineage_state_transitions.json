@@ -1,0 +1,636 @@
+{
+  "schema": "mycelix.sym-civic.lineage-state-transitions.v1",
+  "program": "SYM-CIVIC-005",
+  "parent_subject": "dc847acae5c52383c797266e676f901db8b17e71",
+  "analysis_role": "research_only",
+  "required_states": [
+    "VALID",
+    "INVALIDATED",
+    "SUPERSEDED"
+  ],
+  "terminal_states": [
+    "INVALIDATED",
+    "SUPERSEDED"
+  ],
+  "invariants": [
+    "invalidation_propagates",
+    "terminal_state_no_resurrection",
+    "replacement_new_identity",
+    "replacement_requires_derivation",
+    "claim_rebind_required",
+    "mutable_latest_rejected",
+    "idempotent_exact_replay",
+    "conflicting_event_reuse_rejected",
+    "canonical_temporal_order",
+    "append_only_history",
+    "cache_cannot_override_lineage"
+  ],
+  "cases": [
+    {
+      "id": "T-01",
+      "family": "source_invalidated_after_claim",
+      "candidate": {
+        "entity_id": "execution-a",
+        "entity_digest": "sha256:exec-a",
+        "state": "VALID",
+        "events": [
+          {
+            "event_id": "e-1",
+            "event_type": "INVALIDATE",
+            "entity_id": "execution-a",
+            "effective_at": "2026-10-03T01:00:00Z",
+            "reason": "source-error"
+          }
+        ],
+        "upstream": {
+          "entity_id": "execution-a",
+          "digest": "sha256:exec-a",
+          "state": "VALID"
+        },
+        "result": {
+          "entity_id": "result-a",
+          "bound_digest": "sha256:r-a",
+          "current_digest": "sha256:r-a",
+          "state": "VALID"
+        },
+        "claim": {
+          "entity_id": "claim-a",
+          "result_ref": "result-a",
+          "execution_ref": "execution-a",
+          "state": "VALID",
+          "history_digest": "sha256:claim-hist-a"
+        }
+      },
+      "note": "Invalidation must propagate to the downstream claim."
+    },
+    {
+      "id": "T-02",
+      "family": "result_mutation_after_claim",
+      "candidate": {
+        "entity_id": "execution-a",
+        "entity_digest": "sha256:exec-a",
+        "state": "VALID",
+        "events": [],
+        "upstream": {
+          "entity_id": "execution-a",
+          "digest": "sha256:exec-a",
+          "state": "VALID"
+        },
+        "result": {
+          "entity_id": "result-a",
+          "bound_digest": "sha256:r-a",
+          "current_digest": "sha256:r-b",
+          "state": "VALID"
+        },
+        "claim": {
+          "entity_id": "claim-a",
+          "result_ref": "result-a",
+          "execution_ref": "execution-a",
+          "state": "VALID",
+          "history_digest": "sha256:claim-hist-a"
+        }
+      },
+      "note": "Changed bound artifact invalidates the existing result identity."
+    },
+    {
+      "id": "T-03",
+      "family": "supersession_without_new_binding",
+      "candidate": {
+        "entity_id": "execution-a",
+        "entity_digest": "sha256:exec-a",
+        "state": "VALID",
+        "events": [],
+        "upstream": {
+          "entity_id": "execution-a",
+          "digest": "sha256:exec-a",
+          "state": "VALID"
+        },
+        "result": {
+          "entity_id": "result-a",
+          "bound_digest": "sha256:r-a",
+          "current_digest": "sha256:r-a",
+          "state": "SUPERSEDED"
+        },
+        "claim": {
+          "entity_id": "claim-a",
+          "result_ref": "result-a",
+          "execution_ref": "execution-a",
+          "state": "VALID",
+          "history_digest": "sha256:claim-hist-a"
+        }
+      },
+      "note": "Superseding an old result without a replacement claim cannot preserve validity."
+    },
+    {
+      "id": "T-04",
+      "family": "restoration_after_invalidation",
+      "candidate": {
+        "entity_id": "execution-a",
+        "entity_digest": "sha256:exec-a",
+        "state": "VALID",
+        "events": [
+          {
+            "event_id": "e-1",
+            "event_type": "INVALIDATE",
+            "entity_id": "execution-a",
+            "effective_at": "2026-10-03T01:00:00Z",
+            "reason": "source-error"
+          },
+          {
+            "event_id": "e-2",
+            "event_type": "RESTORE",
+            "entity_id": "execution-a",
+            "effective_at": "2026-10-03T02:00:00Z",
+            "reason": "source-restored"
+          }
+        ],
+        "upstream": {
+          "entity_id": "execution-a",
+          "digest": "sha256:exec-a",
+          "state": "VALID"
+        },
+        "result": {
+          "entity_id": "result-a",
+          "bound_digest": "sha256:r-a",
+          "current_digest": "sha256:r-a",
+          "state": "VALID"
+        },
+        "claim": {
+          "entity_id": "claim-a",
+          "result_ref": "result-a",
+          "execution_ref": "execution-a",
+          "state": "VALID",
+          "history_digest": "sha256:claim-hist-a"
+        }
+      },
+      "note": "Restoration is not resurrection of an invalidated identity."
+    },
+    {
+      "id": "T-05",
+      "family": "mutable_latest_rebind",
+      "candidate": {
+        "entity_id": "execution-a",
+        "entity_digest": "sha256:exec-a",
+        "state": "VALID",
+        "events": [
+          {
+            "event_id": "e-1",
+            "event_type": "INVALIDATE",
+            "entity_id": "execution-a",
+            "effective_at": "2026-10-03T01:00:00Z",
+            "reason": "source-error"
+          }
+        ],
+        "upstream": {
+          "entity_id": "execution-a",
+          "digest": "sha256:exec-a",
+          "state": "VALID"
+        },
+        "result": {
+          "entity_id": "result-a",
+          "bound_digest": "sha256:r-a",
+          "current_digest": "sha256:r-a",
+          "state": "VALID"
+        },
+        "claim": {
+          "entity_id": "claim-a",
+          "result_ref": "result-a",
+          "execution_ref": "execution-a",
+          "state": "VALID",
+          "history_digest": "sha256:claim-hist-a"
+        },
+        "latest_pointer": "result-b"
+      },
+      "note": "Mutable latest pointers cannot repair historical provenance."
+    },
+    {
+      "id": "T-06",
+      "family": "replacement_without_derivation",
+      "candidate": {
+        "entity_id": "execution-a",
+        "entity_digest": "sha256:exec-a",
+        "state": "VALID",
+        "events": [],
+        "upstream": {
+          "entity_id": "execution-a",
+          "digest": "sha256:exec-a",
+          "state": "VALID"
+        },
+        "result": {
+          "entity_id": "result-a",
+          "bound_digest": "sha256:r-a",
+          "current_digest": "sha256:r-a",
+          "state": "SUPERSEDED"
+        },
+        "claim": {
+          "entity_id": "claim-a",
+          "result_ref": "result-a",
+          "execution_ref": "execution-a",
+          "state": "VALID",
+          "history_digest": "sha256:claim-hist-a"
+        },
+        "replacement": {
+          "entity_id": "result-b",
+          "digest": "sha256:r-b",
+          "derivation_refs": []
+        }
+      },
+      "note": "A replacement must disclose how it derives from or replaces the prior entity."
+    },
+    {
+      "id": "T-07",
+      "family": "valid_replacement_with_derivation",
+      "candidate": {
+        "entity_id": "execution-a",
+        "entity_digest": "sha256:exec-a",
+        "state": "VALID",
+        "events": [],
+        "upstream": {
+          "entity_id": "execution-a",
+          "digest": "sha256:exec-a",
+          "state": "VALID"
+        },
+        "result": {
+          "entity_id": "result-a",
+          "bound_digest": "sha256:r-a",
+          "current_digest": "sha256:r-a",
+          "state": "SUPERSEDED"
+        },
+        "claim": {
+          "entity_id": "claim-a",
+          "result_ref": "result-a",
+          "execution_ref": "execution-a",
+          "state": "VALID",
+          "history_digest": "sha256:claim-hist-a"
+        },
+        "replacement": {
+          "entity_id": "result-b",
+          "digest": "sha256:r-b",
+          "derivation_refs": [
+            "derive-r-a-to-r-b"
+          ]
+        },
+        "replacement_claim": {
+          "entity_id": "claim-b",
+          "result_ref": "result-b",
+          "execution_ref": "execution-a",
+          "state": "VALID"
+        }
+      },
+      "note": "A new identity plus explicit derivation and a new claim binding is admissible."
+    },
+    {
+      "id": "T-08",
+      "family": "out_of_order_stale_event",
+      "candidate": {
+        "entity_id": "execution-a",
+        "entity_digest": "sha256:exec-a",
+        "state": "VALID",
+        "events": [
+          {
+            "event_id": "e-2",
+            "event_type": "SUPERSEDE",
+            "entity_id": "execution-a",
+            "effective_at": "2026-10-03T02:00:00Z",
+            "reason": "superseded"
+          },
+          {
+            "event_id": "e-1",
+            "event_type": "INVALIDATE",
+            "entity_id": "execution-a",
+            "effective_at": "2026-10-03T01:00:00Z",
+            "reason": "late-stale"
+          }
+        ],
+        "upstream": {
+          "entity_id": "execution-a",
+          "digest": "sha256:exec-a",
+          "state": "VALID"
+        },
+        "result": {
+          "entity_id": "result-a",
+          "bound_digest": "sha256:r-a",
+          "current_digest": "sha256:r-a",
+          "state": "VALID"
+        },
+        "claim": {
+          "entity_id": "claim-a",
+          "result_ref": "result-a",
+          "execution_ref": "execution-a",
+          "state": "VALID",
+          "history_digest": "sha256:claim-hist-a"
+        }
+      },
+      "note": "Logical event time, not arrival order, governs; stale events cannot roll back terminal state."
+    },
+    {
+      "id": "T-09",
+      "family": "conflicting_duplicate_event",
+      "candidate": {
+        "entity_id": "execution-a",
+        "entity_digest": "sha256:exec-a",
+        "state": "VALID",
+        "events": [
+          {
+            "event_id": "e-1",
+            "event_type": "INVALIDATE",
+            "entity_id": "execution-a",
+            "effective_at": "2026-10-03T01:00:00Z",
+            "reason": "source-error"
+          },
+          {
+            "event_id": "e-1",
+            "event_type": "INVALIDATE",
+            "entity_id": "execution-a",
+            "effective_at": "2026-10-03T01:00:00Z",
+            "reason": "different-reason"
+          }
+        ],
+        "upstream": {
+          "entity_id": "execution-a",
+          "digest": "sha256:exec-a",
+          "state": "VALID"
+        },
+        "result": {
+          "entity_id": "result-a",
+          "bound_digest": "sha256:r-a",
+          "current_digest": "sha256:r-a",
+          "state": "VALID"
+        },
+        "claim": {
+          "entity_id": "claim-a",
+          "result_ref": "result-a",
+          "execution_ref": "execution-a",
+          "state": "VALID",
+          "history_digest": "sha256:claim-hist-a"
+        }
+      },
+      "note": "Reusing an event identity with different content is a provenance conflict."
+    },
+    {
+      "id": "T-10",
+      "family": "mutated_invalidation_receipt",
+      "candidate": {
+        "entity_id": "execution-a",
+        "entity_digest": "sha256:exec-a",
+        "state": "VALID",
+        "events": [
+          {
+            "event_id": "e-1",
+            "event_type": "INVALIDATE",
+            "entity_id": "execution-a",
+            "effective_at": "2026-10-03T01:00:00Z",
+            "reason": "source-error"
+          }
+        ],
+        "upstream": {
+          "entity_id": "execution-a",
+          "digest": "sha256:exec-a",
+          "state": "VALID"
+        },
+        "result": {
+          "entity_id": "result-a",
+          "bound_digest": "sha256:r-a",
+          "current_digest": "sha256:r-a",
+          "state": "VALID"
+        },
+        "claim": {
+          "entity_id": "claim-a",
+          "result_ref": "result-a",
+          "execution_ref": "execution-a",
+          "state": "VALID",
+          "history_digest": "sha256:claim-hist-a"
+        },
+        "event_receipt": {
+          "event_id": "e-1",
+          "declared_digest": "sha256:event-a",
+          "actual_digest": "sha256:event-b"
+        }
+      },
+      "note": "An invalidation receipt whose bytes changed cannot retain its original identity."
+    },
+    {
+      "id": "T-11",
+      "family": "historical_claim_rewrite",
+      "candidate": {
+        "entity_id": "execution-a",
+        "entity_digest": "sha256:exec-a",
+        "state": "VALID",
+        "events": [],
+        "upstream": {
+          "entity_id": "execution-a",
+          "digest": "sha256:exec-a",
+          "state": "VALID"
+        },
+        "result": {
+          "entity_id": "result-a",
+          "bound_digest": "sha256:r-a",
+          "current_digest": "sha256:r-a",
+          "state": "VALID"
+        },
+        "claim": {
+          "entity_id": "claim-a",
+          "result_ref": "result-a",
+          "execution_ref": "execution-a",
+          "state": "VALID",
+          "history_digest": "sha256:claim-hist-b"
+        },
+        "history_rewrite": true
+      },
+      "note": "Historical claim receipts are append-only; rewriting bytes in place is invalid."
+    },
+    {
+      "id": "T-12",
+      "family": "stale_downstream_cache",
+      "candidate": {
+        "entity_id": "execution-a",
+        "entity_digest": "sha256:exec-a",
+        "state": "VALID",
+        "events": [
+          {
+            "event_id": "e-1",
+            "event_type": "INVALIDATE",
+            "entity_id": "execution-a",
+            "effective_at": "2026-10-03T01:00:00Z",
+            "reason": "source-error"
+          }
+        ],
+        "upstream": {
+          "entity_id": "execution-a",
+          "digest": "sha256:exec-a",
+          "state": "VALID"
+        },
+        "result": {
+          "entity_id": "result-a",
+          "bound_digest": "sha256:r-a",
+          "current_digest": "sha256:r-a",
+          "state": "VALID"
+        },
+        "claim": {
+          "entity_id": "claim-a",
+          "result_ref": "result-a",
+          "execution_ref": "execution-a",
+          "state": "VALID",
+          "history_digest": "sha256:claim-hist-a"
+        },
+        "cached_claim_state": "VALID"
+      },
+      "note": "Cached PASS/VALID state must not override current lineage validity."
+    },
+    {
+      "id": "T-13",
+      "family": "exact_replay_idempotent",
+      "candidate": {
+        "entity_id": "execution-a",
+        "entity_digest": "sha256:exec-a",
+        "state": "VALID",
+        "events": [
+          {
+            "event_id": "e-1",
+            "event_type": "INVALIDATE",
+            "entity_id": "execution-a",
+            "effective_at": "2026-10-03T01:00:00Z",
+            "reason": "source-error"
+          },
+          {
+            "event_id": "e-1",
+            "event_type": "INVALIDATE",
+            "entity_id": "execution-a",
+            "effective_at": "2026-10-03T01:00:00Z",
+            "reason": "source-error"
+          }
+        ],
+        "upstream": {
+          "entity_id": "execution-a",
+          "digest": "sha256:exec-a",
+          "state": "VALID"
+        },
+        "result": {
+          "entity_id": "result-a",
+          "bound_digest": "sha256:r-a",
+          "current_digest": "sha256:r-a",
+          "state": "VALID"
+        },
+        "claim": {
+          "entity_id": "claim-a",
+          "result_ref": "result-a",
+          "execution_ref": "execution-a",
+          "state": "VALID",
+          "history_digest": "sha256:claim-hist-a"
+        }
+      },
+      "note": "Byte-equivalent replay of the same immutable event is idempotent."
+    },
+    {
+      "id": "T-14",
+      "family": "canonical_arrival_order_invariance",
+      "candidate": {
+        "entity_id": "execution-a",
+        "entity_digest": "sha256:exec-a",
+        "state": "VALID",
+        "events": [],
+        "upstream": {
+          "entity_id": "execution-a",
+          "digest": "sha256:exec-a",
+          "state": "VALID"
+        },
+        "result": {
+          "entity_id": "result-a",
+          "bound_digest": "sha256:r-a",
+          "current_digest": "sha256:r-a",
+          "state": "VALID"
+        },
+        "claim": {
+          "entity_id": "claim-a",
+          "result_ref": "result-a",
+          "execution_ref": "execution-a",
+          "state": "VALID",
+          "history_digest": "sha256:claim-hist-a"
+        },
+        "equivalent_event_orders": [
+          [
+            "e-1",
+            "e-2"
+          ],
+          [
+            "e-2",
+            "e-1"
+          ]
+        ],
+        "ordered_events": [
+          {
+            "event_id": "e-1",
+            "event_type": "INVALIDATE",
+            "entity_id": "execution-a",
+            "effective_at": "2026-10-03T01:00:00Z",
+            "reason": "source-error"
+          },
+          {
+            "event_id": "e-2",
+            "event_type": "SUPERSEDE",
+            "entity_id": "execution-a",
+            "effective_at": "2026-10-03T02:00:00Z",
+            "reason": "superseded"
+          }
+        ]
+      },
+      "note": "Equivalent arrival orders produce the same canonical logical order."
+    },
+    {
+      "id": "T-15",
+      "family": "valid_append_only_replacement_history",
+      "candidate": {
+        "entity_id": "execution-a",
+        "entity_digest": "sha256:exec-a",
+        "state": "VALID",
+        "events": [],
+        "upstream": {
+          "entity_id": "execution-a",
+          "digest": "sha256:exec-a",
+          "state": "VALID"
+        },
+        "result": {
+          "entity_id": "result-a",
+          "bound_digest": "sha256:r-a",
+          "current_digest": "sha256:r-a",
+          "state": "SUPERSEDED"
+        },
+        "claim": {
+          "entity_id": "claim-a",
+          "result_ref": "result-a",
+          "execution_ref": "execution-a",
+          "state": "VALID",
+          "history_digest": "sha256:claim-hist-a"
+        },
+        "replacement": {
+          "entity_id": "result-b",
+          "digest": "sha256:r-b",
+          "derivation_refs": [
+            "derive-r-a-to-r-b"
+          ]
+        },
+        "replacement_claim": {
+          "entity_id": "claim-b",
+          "result_ref": "result-b",
+          "execution_ref": "execution-a",
+          "state": "VALID"
+        },
+        "append_only": true
+      },
+      "note": "Old receipt remains immutable while replacement/new claim are separately bound."
+    }
+  ],
+  "nonclaims": [
+    "real_world_scientific_truth",
+    "real_world_causal_effect",
+    "public_safety",
+    "clinical_validity",
+    "civic_legitimacy",
+    "deployment_readiness"
+  ],
+  "prohibited_fields": [
+    "authorized_decision",
+    "raw_subject_identifier",
+    "raw_payload"
+  ]
+}
