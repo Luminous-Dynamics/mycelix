@@ -53,5 +53,12 @@
     "expiry_field": "expires_at",
     "author_grant_exception": "same caller/callee key may be authorized without explicit capability grant"
   },
-  "claim_ceiling": "ReferenceModelOnly"
+  "claim_ceiling": "ReferenceModelOnly",
+  "dependencies": {
+    "d6s_canon_1_manifest_path": "docs/integral/d6s-canon-1-manifest.json",
+    "d6s_canon_1_manifest_blob_sha": "53d88a67c48c8adbf783d1df290b3c591cd15566",
+    "d6s_canon_1_corpus_path": "docs/integral/d6s-canon-1-golden-vectors.json",
+    "d6s_canon_1_corpus_blob_sha": "5e359549623101fe5997d0cfe8c7acb9c50cd57b",
+    "d6s_canon_1_corpus_sha256": "9d61cdb2e625c13c5813fffb7cceea4af2f93ed60d7d64c068dc6d3f6f6b614d"
+  }
 }
