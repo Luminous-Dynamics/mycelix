@@ -1139,6 +1139,64 @@ mod tests {
     }
 
     #[test]
+    fn authority_agent_credential_rejects_issuer_not_equal_to_agent() {
+        let _guard = host_test_lock().lock().expect("HDI test lock is not poisoned");
+        let _previous = set_hdi(RecordingHdi {
+            calls: Arc::new(Mutex::new(Vec::new())),
+            verify_result: true,
+        });
+
+        let authority = identity("issuer-mismatch-authority");
+        let agent = action_agent_key(37);
+        let mut credential = authority_credential(authority, agent.clone(), "issuer-mismatch");
+        credential.issuer = action_agent_key(38);
+
+        let result = credential.verify();
+        let _ = set_hdi(ErrHdi);
+
+        assert!(matches!(
+            result,
+            Ok(HolochainAuthorityAgentBindingVerification::Invalid { reason })
+                if reason == "authority-agent binding issuer must equal the bound agent key"
+        ));
+    }
+
+    #[test]
+    fn dependency_binding_without_authority_agent_mapping_is_unresolved() {
+        let _guard = host_test_lock().lock().expect("HDI test lock is not poisoned");
+        let _previous = set_hdi(RecordingHdi {
+            calls: Arc::new(Mutex::new(Vec::new())),
+            verify_result: true,
+        });
+
+        let authority = identity("unmapped-authority");
+        let logical = identity("unmapped-logical");
+        let binding = SignedHolochainBindingAttestation {
+            signer: action_agent_key(39),
+            signature: Signature([0u8; 64]),
+            payload: HolochainBindingAttestationPayload {
+                schema: HOLOCHAIN_BINDING_ATTESTATION_SCHEMA,
+                provenance: binding_provenance_for_test(logical, authority.clone()),
+                address: HolochainDependencyAddress::Action(action_hash(39)),
+                retrieval: QualificationDependencyRetrievalKind::Action,
+            },
+        };
+
+        let registry = HolochainAuthorityAgentBindingSet::new();
+        let mut bindings = HolochainDependencyBindingSet::new();
+        let result = bindings.bind_attested_with_authority(binding, &registry);
+
+        let _ = set_hdi(ErrHdi);
+
+        assert!(matches!(
+            result,
+            Ok(Err(HolochainAdapterBoundaryError::LogicalDependencyNotBound { missing }))
+                if missing == vec![authority]
+        ));
+        assert!(bindings.is_empty());
+    }
+
+    #[test]
     fn authority_agent_registry_accepts_verified_credential() {
         let _guard = host_test_lock().lock().expect("HDI test lock is not poisoned");
         let _previous = set_hdi(RecordingHdi {
