@@ -789,6 +789,49 @@
         "order_invariant": true
       },
       "note": "Irrelevant recognized evidence is admissible when it remains outside the selected evidence set."
+    },
+    {
+      "id": "B-21",
+      "family": "complete_bundle_failed_property",
+      "candidate": {
+        "required_attestations": [
+          {
+            "attestation_id": "att-a",
+            "subject_digest": "sha256:att-a",
+            "recognized": true,
+            "selected_as_evidence": true
+          }
+        ],
+        "members": [
+          {
+            "attestation_id": "att-a",
+            "subject_digest": "sha256:att-a",
+            "recognized": true,
+            "selected_as_evidence": true
+          }
+        ],
+        "completeness_claim": true,
+        "manifest": {
+          "declared_entries": [
+            {
+              "attestation_id": "att-a",
+              "subject_digest": "sha256:att-a",
+              "recognized": true,
+              "selected_as_evidence": true
+            }
+          ],
+          "declared_digest": "sha256:manifest-1",
+          "actual_digest": "sha256:manifest-1"
+        },
+        "order_invariant": true,
+        "properties": [
+          {
+            "name": "CHECK/SCIENTIFIC_SUPPORT",
+            "status": "uncertain"
+          }
+        ]
+      },
+      "note": "A complete, well-bound bundle can contain an explicitly uncertain property without making bundle integrity a scientific validation."
     }
   ],
   "nonclaims": [
