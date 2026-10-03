@@ -8,6 +8,7 @@ on:
       - "docs/mobility/MOBILITY_QUALIFICATION_ADAPTER_BOUNDARY_V1.md"
       - "docs/mobility/MOBILITY_QUALIFICATION_ADAPTER_BOUNDARY_V1.json"
       - "tools/mobility_qualification_adapter_boundary_reference.py"
+      - "tools/mobility_disposition_corpus_reference.py"
       - "tools/mobility_temporal_applicability_reference.py"
       - ".github/workflows/mobility-temporal-applicability-qualification.yml"
 
@@ -28,4 +29,5 @@ jobs:
         with:
           python-version: "3.x"
       - run: python tools/mobility_qualification_adapter_boundary_reference.py
+      - run: python tools/mobility_disposition_corpus_reference.py
       - run: python tools/mobility_temporal_applicability_reference.py
