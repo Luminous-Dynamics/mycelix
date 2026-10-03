@@ -71,11 +71,19 @@ jobs:
 
       - name: Validate evidence report
         run: |
-          test -s evidence/cos-conformance-report.json
-          grep -q '"corpus_id": "COS-CONF-001"' evidence/cos-conformance-report.json
-          grep -q '"case_count": 32' evidence/cos-conformance-report.json
-          grep -q '"untested_formal_obligations": \[\]' evidence/cos-conformance-report.json
-          ! grep -q 'verified_score' evidence/cos-conformance-report.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("evidence/cos-conformance-report.json")
+          assert path.is_file() and path.stat().st_size > 0
+          report = json.loads(path.read_text())
+          assert report["corpus_id"] == "COS-CONF-001"
+          assert report["case_count"] == 32
+          assert report["untested_formal_obligations"] == []
+          assert report["claim_ceiling"] == "ReferenceModelOnly"
+          assert "verified_score" not in json.dumps(report, sort_keys=True)
+          PY
 
       - name: Write run envelope
         if: always()
@@ -94,7 +102,9 @@ jobs:
             "claim_ceiling": "ReferenceModelOnly",
             "repository": "${{ github.repository }}",
             "trigger_sha": "${{ github.sha }}",
+            "requested_head_sha": "${{ github.event.pull_request.head.sha || github.sha }}",
             "tested_commit_sha": "$tested_commit_sha",
+            "head_repository": "${{ github.event.pull_request.head.repo.full_name || github.repository }}",
             "workflow": "${{ github.workflow }}",
             "run_id": ${{ github.run_id }},
             "run_attempt": ${{ github.run_attempt }},
@@ -104,6 +114,33 @@ jobs:
             "conformance_test_exit_code": $test_exit_code
           }
           JSON
+
+      - name: Validate and seal run envelope
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          path = Path("evidence/run-envelope.json")
+          envelope = json.loads(path.read_text())
+          sha_re = re.compile(r"^[0-9a-f]{40}$")
+
+          assert envelope["schema"] == "MYCELIX-COS-CONFORMANCE-EVIDENCE-V1"
+          assert envelope["claim_ceiling"] == "ReferenceModelOnly"
+          assert sha_re.fullmatch(envelope["requested_head_sha"])
+          assert sha_re.fullmatch(envelope["tested_commit_sha"])
+          assert envelope["requested_head_sha"] == envelope["tested_commit_sha"]
+          assert envelope["conformance_test_exit_code"] is None or isinstance(
+              envelope["conformance_test_exit_code"], int
+          )
+          PY
+
+          (
+            cd evidence
+            LC_ALL=C find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum
+          ) > evidence/SHA256SUMS
 
       - name: Preserve immutable evidence
         if: always()
