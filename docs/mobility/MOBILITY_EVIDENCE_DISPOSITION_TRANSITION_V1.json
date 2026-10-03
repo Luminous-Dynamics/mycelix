@@ -456,6 +456,11 @@
       "id": "EDT-089",
       "case": "reconciliation_coverage_rejects_known_nested_heads_even_with_unresolved_authority_chain",
       "expected": "rejected"
+    },
+    {
+      "id": "EDT-090",
+      "case": "qualification_status_zips_independent_paths_and_unions_missing_dependencies",
+      "expected": "unresolved_at_protocol_layer"
     }
   ]
 }
