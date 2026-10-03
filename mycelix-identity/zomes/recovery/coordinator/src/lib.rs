@@ -1620,12 +1620,14 @@ pub fn initiate_self_recovery(input: InitiateSelfRecoveryInput) -> ExternResult<
         )));
     }
 
-    // Verify the initial anchor matches one in the config
-    if !config.anchors.contains(&input.initial_anchor) {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Verification anchor does not match any enrolled anchor".into()
-        )));
-    }
+    // Identifier/hash equality is not proof-of-control. Until the explicit
+    // cryptographic proof envelope described in issue #3874 exists, do not
+    // create a self-recovery request that could ever become executable.
+    return Err(wasm_error!(WasmErrorInner::Guest(
+        "Self-recovery is temporarily disabled until cryptographic anchor proof-of-control is implemented (see #3874)".into()
+    )));
+    
+    // Unreachable legacy matching path retained below for protocol migration.
 
     let now = sys_time()?;
     let request_id = format!(
@@ -1710,12 +1712,14 @@ pub fn verify_self_recovery_anchor(input: VerifySelfRecoveryAnchorInput) -> Exte
             "Failed to decode config".into()
         )))?;
 
-    // Verify anchor matches config
-    if !config.anchors.contains(&input.anchor) {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Anchor does not match any enrolled anchor".into()
-        )));
-    }
+    // Matching an enrolled identifier is not proof-of-control. Never let
+    // this path advance a recovery request until a cryptographic proof is
+    // attached and verified by the protocol defined in #3874.
+    return Err(wasm_error!(WasmErrorInner::Guest(
+        "Self-recovery anchor verification is disabled until cryptographic proof-of-control is implemented (see #3874)".into()
+    )));
+    
+    // Unreachable legacy matching path retained below for migration.
 
     // Don't double-count
     if !request.verified_anchors.contains(&input.anchor) {
