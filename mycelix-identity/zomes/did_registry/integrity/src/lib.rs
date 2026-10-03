@@ -91,6 +91,9 @@ pub enum LinkTypes {
     AgentToDid,
     DidToVerificationMethod,
     DidToService,
+    /// Global substrate role advertisements. Separate from a DID document's
+    /// service links because the base is a role anchor rather than the DID.
+    SubstrateRoleToAgent,
     DidHistory,
     DidToDeactivation,
 }
@@ -148,6 +151,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 }
                 LinkTypes::DidToVerificationMethod => Ok(ValidateCallbackResult::Valid),
                 LinkTypes::DidToService => Ok(ValidateCallbackResult::Valid),
+                LinkTypes::SubstrateRoleToAgent => {
+                    validate_substrate_role_link(&base_address, &target_address, &action)
+                }
                 LinkTypes::DidHistory => Ok(ValidateCallbackResult::Valid),
             }
         }
@@ -192,6 +198,35 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             Ok(ValidateCallbackResult::Valid)
         }
     }
+}
+
+fn validate_substrate_role_link(
+    base_address: &AnyLinkableHash,
+    target_address: &AnyLinkableHash,
+    action: &CreateLink,
+) -> ExternResult<ValidateCallbackResult> {
+    let target_agent = match target_address.clone().into_agent_pub_key() {
+        Some(agent) => agent,
+        None => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "SubstrateRoleToAgent target must be an AgentPubKey".into(),
+            ));
+        }
+    };
+
+    if action.author != target_agent {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SubstrateRoleToAgent link must be authored by the advertised agent".into(),
+        ));
+    }
+
+    if !matches!(base_address, AnyLinkableHash::Entry(_)) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SubstrateRoleToAgent base must be an EntryHash role anchor".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
 }
 
 fn validate_agent_to_did_link(
