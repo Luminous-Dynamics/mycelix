@@ -13,10 +13,9 @@
 use hdi::prelude::*;
 use holochain_serialized_bytes::prelude::SerializedBytes;
 use mobility_configuration_qualification::{
-    IdentityRef, QualificationAuthorityAgentBindingProvenance,
-    QualificationDecision, QualificationDependencyBindingProvenance, QualificationDependencyBindingSet,
-    QualificationDependencyRetrievalKind,
-    QualificationValidationError,
+    IdentityRef, QualificationAuthorityAgentBindingProvenance, QualificationDecision,
+    QualificationDependencyBindingProvenance, QualificationDependencyBindingSet,
+    QualificationDependencyRetrievalKind, QualificationValidationError,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -63,7 +62,9 @@ impl HolochainAuthorityAgentBindingSet {
     ) -> ExternResult<Result<(), HolochainAdapterBoundaryError>> {
         match credential.verify()? {
             HolochainAuthorityAgentBindingVerification::Invalid { reason } => {
-                return Ok(Err(HolochainAdapterBoundaryError::SemanticInvalid { reason }));
+                return Ok(Err(HolochainAdapterBoundaryError::SemanticInvalid {
+                    reason,
+                }));
             }
             HolochainAuthorityAgentBindingVerification::Valid => {}
         }
@@ -228,14 +229,20 @@ impl SignedHolochainBindingAttestation {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum HolochainAdapterBoundaryError {
-    SemanticInvalid { reason: String },
-    BindingRejected { reason: String },
+    SemanticInvalid {
+        reason: String,
+    },
+    BindingRejected {
+        reason: String,
+    },
     AddressKindMismatch {
         retrieval: QualificationDependencyRetrievalKind,
         expected: &'static str,
         actual: &'static str,
     },
-    LogicalDependencyNotBound { missing: Vec<IdentityRef> },
+    LogicalDependencyNotBound {
+        missing: Vec<IdentityRef>,
+    },
 }
 
 impl std::fmt::Display for HolochainAdapterBoundaryError {
@@ -333,8 +340,7 @@ impl HolochainDependencyBindingSet {
             .any(|existing| existing.witness_identity == provenance.witness_identity)
         {
             return Err(HolochainAdapterBoundaryError::BindingRejected {
-                reason: "a provenance witness identity may justify only one runtime binding"
-                    .into(),
+                reason: "a provenance witness identity may justify only one runtime binding".into(),
             });
         }
 
@@ -365,9 +371,11 @@ impl HolochainDependencyBindingSet {
     ) -> ExternResult<Result<(), HolochainAdapterBoundaryError>> {
         let authority = binding.payload.provenance.authority.clone();
         let Some(authorized_credential) = authority_bindings.credential_for(&authority) else {
-            return Ok(Err(HolochainAdapterBoundaryError::LogicalDependencyNotBound {
-                missing: vec![authority],
-            }));
+            return Ok(Err(
+                HolochainAdapterBoundaryError::LogicalDependencyNotBound {
+                    missing: vec![authority],
+                },
+            ));
         };
 
         if binding.signer != authorized_credential.payload.agent {
@@ -410,7 +418,10 @@ impl HolochainDependencyBindingSet {
         }
 
         if binding.payload.provenance.authority_delegation
-            != authorized_credential.payload.provenance.authority_delegation
+            != authorized_credential
+                .payload
+                .provenance
+                .authority_delegation
         {
             return Ok(Err(HolochainAdapterBoundaryError::SemanticInvalid {
                 reason: "runtime binding authority delegation does not match the registered authority credential delegation"
@@ -420,7 +431,9 @@ impl HolochainDependencyBindingSet {
 
         match binding.verify()? {
             HolochainBindingAttestationVerification::Invalid { reason } => {
-                return Ok(Err(HolochainAdapterBoundaryError::SemanticInvalid { reason }));
+                return Ok(Err(HolochainAdapterBoundaryError::SemanticInvalid {
+                    reason,
+                }));
             }
             HolochainBindingAttestationVerification::Valid => {}
         }
@@ -432,7 +445,6 @@ impl HolochainDependencyBindingSet {
             binding.payload.provenance,
         ))
     }
-
 
     /// Bind from a cryptographically attested payload.
     ///
@@ -564,15 +576,15 @@ pub fn retrieve_one(
         (
             HolochainDependencyAddress::Action(action_hash),
             QualificationDependencyRetrievalKind::Action,
-        ) => Ok(HolochainRetrievedDependency::Action(
-            must_get_action(action_hash.clone())?,
-        )),
+        ) => Ok(HolochainRetrievedDependency::Action(must_get_action(
+            action_hash.clone(),
+        )?)),
         (
             HolochainDependencyAddress::Entry(entry_hash),
             QualificationDependencyRetrievalKind::Entry,
-        ) => Ok(HolochainRetrievedDependency::Entry(
-            must_get_entry(entry_hash.clone())?,
-        )),
+        ) => Ok(HolochainRetrievedDependency::Entry(must_get_entry(
+            entry_hash.clone(),
+        )?)),
         _ => unreachable!("HolochainDependencyBindingSet prevents address-kind mismatch"),
     }
 }
@@ -720,6 +732,7 @@ impl HolochainDependencyBindingSet {
 }
 
 #[cfg(test)]
+#[rustfmt::skip]
 mod tests {
     use super::*;
     use hdi::hdi::{set_hdi, HdiT};
@@ -2110,7 +2123,6 @@ mod tests {
         }
     }
 
-    #[rustfmt::skip]
     impl HdiT for RecordingHdi {
         fn verify_signature(&self, _: VerifySignature) -> ExternResult<bool> {
             self.calls.lock().unwrap().push("verify_signature");
