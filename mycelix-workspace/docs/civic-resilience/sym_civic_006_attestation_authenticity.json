@@ -1,0 +1,616 @@
+{
+  "schema": "mycelix.sym-civic.attestation-authenticity.v1",
+  "program": "SYM-CIVIC-006",
+  "parent_subject": "78bfaaed4bd709306b3c49f6ecf644838152eb46",
+  "analysis_role": "research_only",
+  "invariants": [
+    "exact_subject_digest_binding",
+    "known_attester_required",
+    "revocation_time_evaluated",
+    "expiration_requires_policy_basis",
+    "key_rotation_unambiguous",
+    "delegation_scope_enforced",
+    "predicate_type_bound",
+    "canonical_signature_bytes_bound",
+    "no_timestamp_backdating",
+    "no_cross_identity_replay",
+    "multi_subject_set_preserved",
+    "predicate_bytes_immutable",
+    "authentication_not_truth",
+    "authentication_not_civic_authority"
+  ],
+  "cases": [
+    {
+      "id": "A-01",
+      "family": "subject_digest_mismatch",
+      "candidate": {
+        "subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "signed_subject": {
+          "name": "result-a",
+          "digest": "sha256:r-b"
+        },
+        "attester": {
+          "id": "did:example:alice",
+          "status": "active"
+        },
+        "statement": {
+          "predicate_type": "https://example.org/provenance/v1"
+        },
+        "signature": {
+          "valid": true,
+          "canonical_bytes_match": true
+        },
+        "verification_time": "2026-10-03T01:00:00Z"
+      },
+      "note": "A valid signature over a different immutable digest is not an attestation for the reviewed subject."
+    },
+    {
+      "id": "A-02",
+      "family": "unknown_attester",
+      "candidate": {
+        "subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "signed_subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "attester": {
+          "id": "did:example:forged",
+          "status": "unknown"
+        },
+        "statement": {
+          "predicate_type": "https://example.org/provenance/v1"
+        },
+        "signature": {
+          "valid": true,
+          "canonical_bytes_match": true
+        },
+        "verification_time": "2026-10-03T01:00:00Z"
+      },
+      "note": "Signature validity alone does not establish an accepted attester identity."
+    },
+    {
+      "id": "A-03",
+      "family": "revoked_attester_after_revocation",
+      "candidate": {
+        "subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "signed_subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "attester": {
+          "id": "did:example:alice",
+          "status": "revoked",
+          "revoked_at": "2026-10-03T00:30:00Z"
+        },
+        "statement": {
+          "predicate_type": "https://example.org/provenance/v1"
+        },
+        "signature": {
+          "valid": true,
+          "canonical_bytes_match": true
+        },
+        "attestation_time": "2026-10-03T00:45:00Z",
+        "verification_time": "2026-10-03T01:00:00Z"
+      },
+      "note": "A credential revoked before the attestation time cannot be silently accepted as current authority."
+    },
+    {
+      "id": "A-04",
+      "family": "expired_key_without_policy",
+      "candidate": {
+        "subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "signed_subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "attester": {
+          "id": "did:example:alice",
+          "status": "active",
+          "key_not_after": "2026-10-03T00:30:00Z"
+        },
+        "statement": {
+          "predicate_type": "https://example.org/provenance/v1"
+        },
+        "signature": {
+          "valid": true,
+          "canonical_bytes_match": true
+        },
+        "attestation_time": "2026-10-03T00:45:00Z",
+        "policy": {
+          "historical_grace": false
+        },
+        "verification_time": "2026-10-03T01:00:00Z"
+      },
+      "note": "Expired-key acceptance requires an explicit policy basis rather than an implicit exception."
+    },
+    {
+      "id": "A-05",
+      "family": "ambiguous_key_rotation",
+      "candidate": {
+        "subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "signed_subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "attester": {
+          "id": "did:example:alice",
+          "status": "active",
+          "key_id": null,
+          "rotation": [
+            {
+              "key_id": "k1",
+              "valid_until": "2026-10-03T00:30:00Z"
+            },
+            {
+              "key_id": "k2",
+              "valid_from": "2026-10-03T00:30:00Z"
+            }
+          ]
+        },
+        "statement": {
+          "predicate_type": "https://example.org/provenance/v1"
+        },
+        "signature": {
+          "valid": true,
+          "canonical_bytes_match": true
+        },
+        "attestation_time": "2026-10-03T00:30:00Z",
+        "verification_time": "2026-10-03T01:00:00Z"
+      },
+      "note": "Rotation at a boundary must resolve to an unambiguous historical key identity."
+    },
+    {
+      "id": "A-06",
+      "family": "delegation_scope_exceeded",
+      "candidate": {
+        "subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "signed_subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "attester": {
+          "id": "did:example:bob",
+          "status": "active",
+          "delegated_by": "did:example:alice",
+          "delegation_scope": [
+            "study:123"
+          ],
+          "requested_scope": "study:999"
+        },
+        "statement": {
+          "predicate_type": "https://example.org/provenance/v1"
+        },
+        "signature": {
+          "valid": true,
+          "canonical_bytes_match": true
+        },
+        "verification_time": "2026-10-03T01:00:00Z"
+      },
+      "note": "A delegated attester may not extend its authority beyond its explicit scope."
+    },
+    {
+      "id": "A-07",
+      "family": "wrong_predicate_type",
+      "candidate": {
+        "subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "signed_subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "attester": {
+          "id": "did:example:alice",
+          "status": "active"
+        },
+        "statement": {
+          "predicate_type_signed": "https://example.org/provenance/v2",
+          "predicate_type_required": "https://example.org/provenance/v1"
+        },
+        "signature": {
+          "valid": true,
+          "canonical_bytes_match": true
+        },
+        "verification_time": "2026-10-03T01:00:00Z"
+      },
+      "note": "A signature over one predicate type does not authenticate a different predicate type."
+    },
+    {
+      "id": "A-08",
+      "family": "authenticated_false_scientific_proposition",
+      "candidate": {
+        "subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "signed_subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "attester": {
+          "id": "did:example:alice",
+          "status": "active"
+        },
+        "statement": {
+          "predicate_type": "https://example.org/provenance/v1",
+          "scientific_proposition_status": "false"
+        },
+        "signature": {
+          "valid": true,
+          "canonical_bytes_match": true
+        },
+        "verification_time": "2026-10-03T01:00:00Z"
+      },
+      "note": "False scientific content does not become true merely because its provenance statement is authenticated; this case is admissible for authentication."
+    },
+    {
+      "id": "A-09",
+      "family": "mutable_locator_substitution",
+      "candidate": {
+        "subject": {
+          "name": "result-a",
+          "locator": "https://example.org/latest/result-a"
+        },
+        "signed_subject": {
+          "name": "result-a",
+          "locator": "https://example.org/latest/result-a"
+        },
+        "attester": {
+          "id": "did:example:alice",
+          "status": "active"
+        },
+        "statement": {
+          "predicate_type": "https://example.org/provenance/v1"
+        },
+        "signature": {
+          "valid": true,
+          "canonical_bytes_match": true
+        },
+        "verification_time": "2026-10-03T01:00:00Z"
+      },
+      "note": "A mutable latest locator is not a substitute for immutable subject identity."
+    },
+    {
+      "id": "A-10",
+      "family": "canonicalization_mismatch",
+      "candidate": {
+        "subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "signed_subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "attester": {
+          "id": "did:example:alice",
+          "status": "active"
+        },
+        "statement": {
+          "predicate_type": "https://example.org/provenance/v1"
+        },
+        "signature": {
+          "valid": false,
+          "canonical_bytes_match": false
+        },
+        "verification_time": "2026-10-03T01:00:00Z"
+      },
+      "note": "A serialization mismatch breaks the binding between the authenticated bytes and the canonical statement."
+    },
+    {
+      "id": "A-11",
+      "family": "timestamp_backdating",
+      "candidate": {
+        "subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "signed_subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "attester": {
+          "id": "did:example:alice",
+          "status": "active",
+          "key_not_before": "2026-10-03T00:30:00Z"
+        },
+        "statement": {
+          "predicate_type": "https://example.org/provenance/v1"
+        },
+        "signature": {
+          "valid": true,
+          "canonical_bytes_match": true
+        },
+        "attestation_time": "2026-10-03T00:00:00Z",
+        "verification_time": "2026-10-03T01:00:00Z"
+      },
+      "note": "An attestation timestamp before key activation cannot be used to bypass credential validity."
+    },
+    {
+      "id": "A-12",
+      "family": "replay_against_different_identity",
+      "candidate": {
+        "subject": {
+          "name": "study-b/result-b",
+          "digest": "sha256:r-b"
+        },
+        "signed_subject": {
+          "name": "study-a/result-a",
+          "digest": "sha256:r-a"
+        },
+        "attester": {
+          "id": "did:example:alice",
+          "status": "active"
+        },
+        "statement": {
+          "predicate_type": "https://example.org/provenance/v1"
+        },
+        "signature": {
+          "valid": true,
+          "canonical_bytes_match": true
+        },
+        "verification_time": "2026-10-03T01:00:00Z"
+      },
+      "note": "An authentic attestation for one study/result cannot be replayed as an attestation for another identity."
+    },
+    {
+      "id": "A-13",
+      "family": "valid_exact_immutable_subject",
+      "candidate": {
+        "subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "signed_subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "attester": {
+          "id": "did:example:alice",
+          "status": "active"
+        },
+        "statement": {
+          "predicate_type": "https://example.org/provenance/v1"
+        },
+        "signature": {
+          "valid": true,
+          "canonical_bytes_match": true
+        },
+        "verification_time": "2026-10-03T01:00:00Z"
+      },
+      "note": "Exact immutable subject binding with an active accepted attester is admissible."
+    },
+    {
+      "id": "A-14",
+      "family": "valid_scoped_delegation",
+      "candidate": {
+        "subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "signed_subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "attester": {
+          "id": "did:example:bob",
+          "status": "active",
+          "delegated_by": "did:example:alice",
+          "delegation_scope": [
+            "study:123"
+          ],
+          "requested_scope": "study:123"
+        },
+        "statement": {
+          "predicate_type": "https://example.org/provenance/v1"
+        },
+        "signature": {
+          "valid": true,
+          "canonical_bytes_match": true
+        },
+        "verification_time": "2026-10-03T01:00:00Z"
+      },
+      "note": "A delegated attester acting within explicit scope is admissible."
+    },
+    {
+      "id": "A-15",
+      "family": "historical_attestation_after_rotation",
+      "candidate": {
+        "subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "signed_subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "attester": {
+          "id": "did:example:alice",
+          "status": "active",
+          "key_id": "k1",
+          "key_history": [
+            {
+              "key_id": "k1",
+              "valid_until": "2026-10-03T00:30:00Z"
+            },
+            {
+              "key_id": "k2",
+              "valid_from": "2026-10-03T00:30:00Z"
+            }
+          ]
+        },
+        "statement": {
+          "predicate_type": "https://example.org/provenance/v1"
+        },
+        "signature": {
+          "valid": true,
+          "canonical_bytes_match": true
+        },
+        "attestation_time": "2026-10-03T00:15:00Z",
+        "verification_time": "2026-10-03T01:00:00Z",
+        "policy": {
+          "historical_key_lookup": true
+        }
+      },
+      "note": "A historical attestation remains verifiable when the historical key epoch is explicit."
+    },
+    {
+      "id": "A-16",
+      "family": "authenticated_uncertain_science",
+      "candidate": {
+        "subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "signed_subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "attester": {
+          "id": "did:example:alice",
+          "status": "active"
+        },
+        "statement": {
+          "predicate_type": "https://example.org/provenance/v1",
+          "scientific_proposition_status": "uncertain"
+        },
+        "signature": {
+          "valid": true,
+          "canonical_bytes_match": true
+        },
+        "verification_time": "2026-10-03T01:00:00Z"
+      },
+      "note": "Authentication can be admissible while the scientific proposition remains explicitly uncertain."
+    },
+    {
+      "id": "A-17",
+      "family": "expired_key_with_historical_grace_policy",
+      "candidate": {
+        "subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "signed_subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "attester": {
+          "id": "did:example:alice",
+          "status": "active",
+          "key_not_after": "2026-10-03T00:30:00Z"
+        },
+        "statement": {
+          "predicate_type": "https://example.org/provenance/v1"
+        },
+        "signature": {
+          "valid": true,
+          "canonical_bytes_match": true
+        },
+        "attestation_time": "2026-10-03T00:15:00Z",
+        "verification_time": "2026-10-03T01:00:00Z",
+        "policy": {
+          "historical_grace": true,
+          "grace_reason": "historical-verification"
+        }
+      },
+      "note": "Historical policy may explicitly preserve verification of an attestation created before key expiry."
+    },
+    {
+      "id": "A-18",
+      "family": "multi_subject_truncation",
+      "candidate": {
+        "subject_set": [
+          {
+            "name": "result-a",
+            "digest": "sha256:r-a"
+          }
+        ],
+        "signed_subject_set": [
+          {
+            "name": "result-a",
+            "digest": "sha256:r-a"
+          },
+          {
+            "name": "result-b",
+            "digest": "sha256:r-b"
+          }
+        ],
+        "attester": {
+          "id": "did:example:alice",
+          "status": "active"
+        },
+        "statement": {
+          "predicate_type": "https://example.org/provenance/v1"
+        },
+        "signature": {
+          "valid": true,
+          "canonical_bytes_match": true
+        },
+        "verification_time": "2026-10-03T01:00:00Z"
+      },
+      "note": "A verifier cannot silently narrow a signed multi-subject statement to a single subject."
+    },
+    {
+      "id": "A-19",
+      "family": "predicate_mutation_after_signature",
+      "candidate": {
+        "subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "signed_subject": {
+          "name": "result-a",
+          "digest": "sha256:r-a"
+        },
+        "attester": {
+          "id": "did:example:alice",
+          "status": "active"
+        },
+        "statement": {
+          "predicate_type": "https://example.org/provenance/v1",
+          "signed_predicate_digest": "sha256:p-a",
+          "current_predicate_digest": "sha256:p-b"
+        },
+        "signature": {
+          "valid": true,
+          "canonical_bytes_match": true
+        },
+        "verification_time": "2026-10-03T01:00:00Z"
+      },
+      "note": "Changing predicate bytes after signing changes the authenticated statement identity."
+    }
+  ],
+  "nonclaims": [
+    "production_cryptographic_security",
+    "scientific_truth",
+    "causal_validity",
+    "civic_legitimacy",
+    "authorization",
+    "deployment_readiness"
+  ],
+  "prohibited_fields": [
+    "authorized_decision",
+    "civic_authorization",
+    "raw_subject_identifier",
+    "raw_payload"
+  ]
+}
