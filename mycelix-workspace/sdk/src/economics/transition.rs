@@ -103,6 +103,7 @@ impl EconomicChainReceipt {
 pub enum EconomicStepError {
     PreStateMismatch { expected: String, actual: String },
     TransitionRejected(String),
+    InvalidState(String),
     AccountingInvariant { claims: i128, liabilities: i128 },
     AccountingArithmetic(String),
     Serialization(String),
@@ -115,6 +116,7 @@ impl std::fmt::Display for EconomicStepError {
                 write!(f, "pre-state hash mismatch: expected {expected}, got {actual}")
             }
             Self::TransitionRejected(message) => write!(f, "transition rejected: {message}"),
+            Self::InvalidState(message) => write!(f, "invalid economic state: {message}"),
             Self::AccountingInvariant { claims, liabilities } => write!(
                 f,
                 "financial claim/liability invariant failed: claims={claims}, liabilities={liabilities}"
@@ -140,6 +142,10 @@ pub fn apply_step(
     transitions: &[EconomicTransition],
     expected_pre_state_hash: Option<&str>,
 ) -> Result<(EconomicState, EconomicStepReceipt), EconomicStepError> {
+    state
+        .validate()
+        .map_err(EconomicStepError::InvalidState)?;
+
     let actual_pre_state_hash = state_hash(state)?;
     if let Some(expected) = expected_pre_state_hash {
         if expected != actual_pre_state_hash {
@@ -177,6 +183,10 @@ pub fn apply_step(
             return Err(EconomicStepError::TransitionRejected(error));
         }
     }
+
+    next
+        .validate()
+        .map_err(EconomicStepError::InvalidState)?;
 
     let claims = next
         .try_aggregate_claims()
@@ -242,6 +252,23 @@ mod tests {
             bank,
             ActorBalanceSheet::new("household"),
         ])
+    }
+
+    #[test]
+    fn step_rejects_invalid_pre_state_before_applying_transitions() {
+        let mut state = initial_state();
+        state.actors[1].monetary.deposits = -1;
+        let before = state.clone();
+
+        let transitions = vec![EconomicTransition::CreditCreation(
+            CreditCreation::new("bank", "household", 10).unwrap(),
+        )];
+
+        assert!(matches!(
+            apply_step(&state, 1, &transitions, None),
+            Err(EconomicStepError::InvalidState(_))
+        ));
+        assert_eq!(state, before);
     }
 
     #[test]
