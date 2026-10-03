@@ -517,6 +517,15 @@ pub fn initiate_recovery(input: InitiateRecoveryInput) -> ExternResult<Record> {
         (),
     )?;
 
+    // Index by request ID so every peer can retrieve the originating request
+    // from the DHT without scanning the request author's source chain.
+    create_link(
+        string_to_entry_hash(&request_id.clone()),
+        action_hash.clone(),
+        LinkTypes::RecoveryRequestIdToRequest,
+        (),
+    )?;
+
     // Save request_id for bridge event before it's moved
     let request_id_for_event = request_id.clone();
 
@@ -711,6 +720,19 @@ pub fn get_recovery_votes(request_id: String) -> ExternResult<Vec<Record>> {
 
 /// Check threshold and update request status
 fn check_and_update_request_status(request_id: String) -> ExternResult<()> {
+    // Recovery votes are cross-agent. Only the request author can legally
+    // update the RecoveryRequest entry; all other agents rely on
+    // get_recovery_status() for the DHT-derived quorum state.
+    let request_record = match get_recovery_request(request_id.clone())? {
+        Some(record) => record,
+        None => return Ok(()),
+    };
+    let caller = agent_info()?.agent_initial_pubkey;
+    let author = request_record.action().author().clone();
+    if author != caller {
+        return Ok(());
+    }
+
     // Get all votes for this request
     let vote_records = get_recovery_votes(request_id.clone())?;
 
@@ -731,30 +753,17 @@ fn check_and_update_request_status(request_id: String) -> ExternResult<()> {
         }
     }
 
-    // Find the recovery request to get the DID
-    let filter = ChainQueryFilter::new()
-        .entry_type(EntryType::App(AppEntryDef::try_from(
-            UnitEntryTypes::RecoveryRequest,
-        )?))
-        .include_entries(true);
+    // The request record has already been resolved from the DHT above.
+    let request_record = Some(request_record);
 
-    let records = query(filter)?;
-
-    let mut request_record: Option<Record> = None;
     let mut request_data: Option<RecoveryRequest> = None;
-    for record in records {
-        if let Some(req) = record
-            .entry()
-            .to_app_option::<RecoveryRequest>()
-            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-        {
-            if req.id == request_id {
-                // Keep iterating — update_entry appends newer versions later in the chain
-                request_data = Some(req);
-                request_record = Some(record);
-            }
-        }
-    }
+    let current_record = request_record
+        .take()
+        .expect("request record checked above");
+    request_data = current_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
 
     let (current_record, current_request) = match (request_record, request_data) {
         (Some(r), Some(d)) => (r, d),
@@ -1119,17 +1128,47 @@ pub fn cancel_recovery(request_id: String) -> ExternResult<Record> {
 pub fn get_recovery_request(request_id: String) -> ExternResult<Option<Record>> {
     if request_id.is_empty() || request_id.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
-            "Request ID must be 1-256 characters".into(),
+            "Request ID must be 1-256 characters".into()
         )));
     }
 
+    let links = get_links(
+        LinkQuery::try_new(
+            string_to_entry_hash(&request_id),
+            LinkTypes::RecoveryRequestIdToRequest,
+        )?,
+        GetStrategy::default(),
+    )?;
+
+    let mut found: Option<Record> = None;
+    for link in links {
+        let action_hash = ActionHash::try_from(link.target)
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid request link target".into())))?;
+        if let Some(record) = get(action_hash, GetOptions::default())? {
+            if let Some(request) = record
+                .entry()
+                .to_app_option::<RecoveryRequest>()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            {
+                if request.id == request_id {
+                    found = Some(record);
+                }
+            }
+        }
+    }
+
+    if found.is_some() {
+        return Ok(found);
+    }
+
+    // Backward-compatible fallback for requests created before the request-ID
+    // index existed.
     let filter = ChainQueryFilter::new()
         .entry_type(EntryType::App(AppEntryDef::try_from(
             UnitEntryTypes::RecoveryRequest,
         )?))
         .include_entries(true);
 
-    let mut found: Option<Record> = None;
     for record in query(filter)? {
         if let Some(req) = record
             .entry()
@@ -1137,13 +1176,106 @@ pub fn get_recovery_request(request_id: String) -> ExternResult<Option<Record>> 
             .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
         {
             if req.id == request_id {
-                // Keep iterating — update_entry appends newer versions later in the chain
                 found = Some(record);
             }
         }
     }
 
     Ok(found)
+}
+
+/// A DHT-derived recovery status snapshot.
+///
+/// Unlike RecoveryRequest.status, this value is computed from the request's
+/// immutable configuration plus the complete vote set visible through the DHT.
+/// It therefore works across trustee source chains.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RecoveryStatusView {
+    pub request_id: String,
+    pub did: String,
+    pub status: RecoveryStatus,
+    pub approve_count: u32,
+    pub reject_count: u32,
+    pub threshold: u32,
+    pub trustee_count: u32,
+    pub time_lock_expires: Option<Timestamp>,
+}
+
+#[hdk_extern]
+pub fn get_recovery_status(request_id: String) -> ExternResult<Option<RecoveryStatusView>> {
+    let request_record = match get_recovery_request(request_id.clone())? {
+        Some(record) => record,
+        None => return Ok(None),
+    };
+
+    let request: RecoveryRequest = request_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Invalid recovery request record".into()
+        )))?;
+
+    let config_record = get_recovery_config(request.did.clone())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest("Recovery config not found".into())))?;
+    let config: RecoveryConfig = config_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Invalid recovery config record".into()
+        )))?;
+
+    let vote_records = get_recovery_votes(request.id.clone())?;
+    let mut approve_count = 0u32;
+    let mut reject_count = 0u32;
+    let mut seen_trustees = std::collections::BTreeSet::new();
+
+    for record in vote_records {
+        let Some(vote) = record
+            .entry()
+            .to_app_option::<RecoveryVote>()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        else {
+            continue;
+        };
+
+        if vote.request_id != request.id
+            || !config.trustees.contains(&vote.trustee)
+            || !seen_trustees.insert(vote.trustee.clone())
+        {
+            continue;
+        }
+
+        match vote.vote {
+            VoteDecision::Approve => approve_count += 1,
+            VoteDecision::Reject => reject_count += 1,
+            VoteDecision::Abstain => {}
+        }
+    }
+
+    let derived_status = if request.status == RecoveryStatus::Completed
+        || request.status == RecoveryStatus::Cancelled
+    {
+        request.status.clone()
+    } else if approve_count >= config.threshold {
+        RecoveryStatus::Approved
+    } else if reject_count > (config.trustees.len() as u32).saturating_sub(config.threshold) {
+        RecoveryStatus::Rejected
+    } else {
+        RecoveryStatus::Pending
+    };
+
+    Ok(Some(RecoveryStatusView {
+        request_id: request.id,
+        did: request.did,
+        status: derived_status,
+        approve_count,
+        reject_count,
+        threshold: config.threshold,
+        trustee_count: config.trustees.len() as u32,
+        time_lock_expires: request.time_lock_expires,
+    }))
 }
 
 /// Get pending recovery requests for a trustee
