@@ -25,7 +25,7 @@ EXPECTED_BINDING_VECTORS = [
     ("EDT-099", "logical_dependency_resolution_is_invariant_to_request_order", "accepted"),
     ("EDT-100", "malformed_requested_logical_dependency_is_definitive_structural_error", "typed_structural_error"),
     ("EDT-101", "bound_protocol_address_wrong_for_selected_retrieval_primitive_is_adapter_error", "adapter_boundary_error"),
-    ("EDT-102", "valid_record_binding_dispatches_only_to-must_get_valid_record", "accepted"),
+    ("EDT-102", "valid_record_binding_dispatches_only_to_must_get_valid_record", "accepted"),
     ("EDT-103", "action_binding_dispatches_only_to_must_get_action", "accepted"),
     ("EDT-104", "entry_binding_dispatches_only_to_must_get_entry", "accepted"),
     ("EDT-105", "adapter_retrieval_never_derives_protocol_hash_from_logical_identity_text", "accepted"),
