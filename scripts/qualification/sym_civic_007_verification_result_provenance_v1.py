@@ -176,8 +176,8 @@ def main():
     m=copy.deepcopy(seed); m["properties"][0]["status"]="uncertain"
     probes.append(("content_status_mutation",disposition({"candidate":m}),"VERIFIED_CONTENT_UNQUALIFIED"))
     seed_hist=next(c["candidate"] for c in cases if c["id"]=="V-17")
-    m=copy.deepcopy(seed_hist); m["verification_policy_history"]=False
-    probes.append(("historical_policy_flag_removal",disposition({"candidate":m}),"REJECT_VERIFICATION_PROVENANCE"))
+    m=copy.deepcopy(seed_hist); m["policy_evaluation"]["digest"]="sha256:mutated"
+    probes.append(("historical_policy_digest_mutation",disposition({"candidate":m}),"REJECT_VERIFICATION_PROVENANCE"))
     if any(a!=e for _,a,e in probes):
         fail("metamorphic probe")
     print("SYM-CIVIC-007 METAMORPHIC="+json.dumps(
