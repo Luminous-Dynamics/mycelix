@@ -25,6 +25,7 @@ A completeness commitment is accepted only when:
 - the commitment's signed manifest digest matches the evaluated manifest digest;
 - mutable `latest` manifest locators are not treated as immutable identity;
 - the commitment attester is explicitly known and active under this synthetic policy;
+- the commitment envelope has valid authenticated bytes and matches the canonical statement being verified;
 - the commitment timestamp is consistent with the bundle's declared creation/update window;
 - a membership change creates a new commitment identity;
 - the commitment scope exactly matches the bundle scope it claims to cover;
@@ -36,7 +37,7 @@ A commitment may truthfully authenticate a snapshot while explicitly stating tha
 
 ## Typed dispositions
 
-- `REJECT_COMPLETENESS_COMMITMENT`: subject, manifest, attester, scope, time, history, identity, or interpretation binding fails.
+- `REJECT_COMPLETENESS_COMMITMENT`: subject, manifest, attester, authenticated bytes, scope, time, history, identity, or interpretation binding fails.
 - `COMMITMENT_CONTENT_UNQUALIFIED`: the commitment is authenticated but its stated completeness property is explicitly uncertain.
 - `COMMITMENT_ACCEPTED`: the exact commitment is authenticated and properly scoped, without inferring external exhaustiveness, scientific truth, or civic authority.
 
