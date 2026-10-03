@@ -1183,22 +1183,32 @@ mod tests {
     #[test]
     fn authority_generation_binding_is_preserved_at_enforcement() {
         let cap = capability();
-        let authority = [9; 32];
-        let evidence =
-            VerificationEvidence::new_for_capability_with_authority_binding_and_valid_until(
-                &cap, authority, true, true, true, 200,
-            );
+        let freshness_digest = [9; 32];
+        let expected_binding = authority_binding_from_freshness_digest(freshness_digest);
+        let evidence = VerificationEvidence::new_for_capability_with_freshness_digest(
+            &cap,
+            freshness_digest,
+            true,
+            true,
+            true,
+            200,
+        );
         let verified = verify_capability(cap.clone(), evidence, 150).unwrap();
         let permit = authorize_permit(&verified, &request(CapabilityAction::Read), 150).unwrap();
         let enforcement = EnforcementRequest::from_permit(
             permit,
-            VerificationEvidence::new_for_capability_with_authority_binding_and_valid_until(
-                &cap, authority, true, true, true, 200,
+            VerificationEvidence::new_for_capability_with_freshness_digest(
+                &cap,
+                freshness_digest,
+                true,
+                true,
+                true,
+                200,
             ),
             151,
         )
         .unwrap();
-        assert_eq!(enforcement.authority_binding(), authority);
+        assert_eq!(enforcement.authority_binding(), expected_binding);
     }
 
     #[test]
