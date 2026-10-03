@@ -1010,3 +1010,18 @@ The resulting input discipline is now consistent across execution and reporting:
 This follows the core SFC requirement that stocks and flows be treated as one accounting system
 rather than allowing independently constructed reporting data to float free of the underlying
 accounts.
+
+## Sector snapshot domain closure (implemented)
+
+The sector monetary balance-sheet and physical-stock snapshot constructors now validate the
+incoming `EconomicState` before projecting it, in addition to requiring exact actor-to-sector
+coverage.
+
+This prevents a standalone reporting caller from turning a malformed state into a structurally
+well-formed sector snapshot simply because its assignments were valid.
+
+The reporting boundary is now consistent across the stack:
+
+`validated state + validated transitions -> actor observations -> sector observations/snapshots`
+
+rather than allowing any individual reporting constructor to become a weaker trust boundary.
