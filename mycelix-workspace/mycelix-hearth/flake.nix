@@ -80,6 +80,7 @@
               openssl
               openssl.dev
               perl
+              ripgrep
             ];
 
             inherit (holochainBase.envVars)
