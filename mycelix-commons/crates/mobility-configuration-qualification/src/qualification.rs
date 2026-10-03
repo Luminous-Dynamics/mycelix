@@ -18,6 +18,24 @@ pub type QualificationOutcome<T> =
     Result<QualificationStatus<T>, QualificationValidationError>;
 
 impl<T> QualificationStatus<T> {
+    pub fn unresolved(mut missing: Vec<IdentityRef>, partial: T) -> Self {
+        missing.sort_by(|left, right| {
+            (&left.namespace, &left.kind, &left.id).cmp(&(&right.namespace, &right.kind, &right.id))
+        });
+        missing.dedup();
+        Self::Unresolved { missing, partial }
+    }
+
+    pub fn normalize_missing(&mut self) {
+        if let Self::Unresolved { missing, .. } = self {
+            missing.sort_by(|left, right| {
+                (&left.namespace, &left.kind, &left.id)
+                    .cmp(&(&right.namespace, &right.kind, &right.id))
+            });
+            missing.dedup();
+        }
+    }
+
     pub fn map<U>(self, map: impl FnOnce(T) -> U) -> QualificationStatus<U> {
         match self {
             Self::Complete(value) => QualificationStatus::Complete(map(value)),
@@ -101,6 +119,24 @@ mod tests {
 
         assert!(!status.is_complete());
         assert_eq!(status.missing(), &[missing]);
+    }
+
+    #[test]
+    fn unresolved_normalizes_missing_dependency_set() {
+        let first = id("z");
+        let second = id("a");
+        let status = QualificationStatus::unresolved(
+            vec![first.clone(), second.clone(), first.clone()],
+            7u8,
+        );
+
+        assert_eq!(
+            status,
+            QualificationStatus::Unresolved {
+                missing: vec![second, first],
+                partial: 7u8,
+            }
+        );
     }
 
     #[test]
