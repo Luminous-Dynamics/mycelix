@@ -129,6 +129,25 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             }
         },
         FlatOp::CreateEntry(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::CreateRecord(OpRecord::CreateEntry { app_entry, .. }) => match app_entry {
+            EntryTypes::SharedResource(resource) => validate_resource(&resource),
+            EntryTypes::ResourceLoan(loan) => validate_loan_create(&loan),
+            EntryTypes::BudgetCategory(budget) => validate_budget(&budget),
+                },
+        FlatOp::CreateRecord(OpRecord::UpdateEntry { app_entry, action, .. }) => match app_entry {
+            EntryTypes::SharedResource(resource) => {
+                validate_resource(&resource)?;
+                validate_resource_immutable_fields(&resource, &action.original_action_address)
+            }
+            EntryTypes::ResourceLoan(loan) => {
+                validate_loan_fields(&loan)?;
+                validate_loan_immutable_fields(&loan, &action.original_action_address)
+            }
+            EntryTypes::BudgetCategory(budget) => {
+                validate_budget(&budget)?;
+                validate_budget_immutable_fields(&budget, &action.original_action_address)
+            }
+                },
         FlatOp::Link(OpLink::CreateLink { action, .. }) => {
             if action.data.tag.0.len() > 512 {
                 return Ok(ValidateCallbackResult::Invalid(
