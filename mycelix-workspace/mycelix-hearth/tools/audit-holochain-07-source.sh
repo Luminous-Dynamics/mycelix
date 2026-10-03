@@ -196,10 +196,16 @@ check_delete_link_authorization() {
     fail=1
     return
   fi
-  if rg -n --pcre2 '(check_link_author_match|original_action\.author\(\)|original_action\\(\\).*author)' "$file" >/dev/null 2>&1; then
+  if rg -n --pcre2 '(check_link_author_match|original_record\.action\(\)\.author\(\)|original_action\.author\(\)|original_action\\(\\).*author)' "$file" >/dev/null 2>&1; then
     echo "OK:   $file DeleteLink authorization compares original and deleting authors"
   else
     echo "FAIL: $file DeleteLink path lacks an explicit original/deleting author comparison"
+    fail=1
+  fi
+  if rg -n --pcre2 'FlatOp::Link\s*\(\s*link\s*@\s*OpLink::DeleteLink[\s\S]{0,1400}must_get_valid_record\s*\(\s*action\.link_add_address' "$file" >/dev/null 2>&1; then
+    echo "OK:   $file DeleteLink retrieves the original CreateLink through must_get_valid_record"
+  else
+    echo "FAIL: $file DeleteLink path does not establish original CreateLink validity with must_get_valid_record"
     fail=1
   fi
 }
