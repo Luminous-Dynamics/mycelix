@@ -156,6 +156,7 @@ The disposition validators share a common protocol-status algebra in the standal
 - `QualificationStatus::Unresolved { missing, partial }` means qualification cannot yet finish because one or more addressable dependencies are unavailable; the deterministic partial result remains available without interpreting absence as a negative finding.
 - `QualificationStatus::require_missing(...)` composes additional unavailable dependency paths into the same status, preserving the partial result and canonicalizing the union of missing identities.
 - `QualificationOutcome::require_missing(...)` provides the same composition at the `Result` boundary while preserving structural errors unchanged; this keeps future protocol adapters from accidentally converting semantic invalidity into unresolved state.
+- `QualificationStatus::zip(...)` composes independent qualification paths as a deterministic product: both partial payloads are retained, while missing dependencies are unioned and canonicalized.
 - `QualificationValidationError::Structural { reason }` means the supplied records contain a definitive structural contradiction.
 
 Transition-graph, authority-delegation, and composed-coverage validators expose adapters into this same algebra. Their existing `Result<_, String>` entry points remain available, and the existing coverage typed-error name is retained as a compatibility alias to the shared structural-error type.
