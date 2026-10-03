@@ -372,20 +372,7 @@ mod tests {
 
     #[test]
     fn enforcement_event_rejects_actor_mismatch() {
-        let request = crate::security_kernel::AuthorizationRequest::new(
-            "did:mycelix:alice",
-            "resource:ledger",
-            CapabilityAction::Read,
-            7,
-        )
-        .unwrap();
-        let permit = authorize_permit(&verified(), &request, 150).unwrap();
-        let enforcement = EnforcementRequest::from_permit(
-            permit,
-            VerificationEvidence::new_for_capability(&capability(), true, true, true),
-            150,
-        )
-        .unwrap();
+        let enforcement = crate::security_kernel::test_enforcement_request();
 
         assert_eq!(
             SecurityEvent::from_enforcement_request(
