@@ -161,7 +161,7 @@ impl VerificationEvidence {
         authority_unambiguous: bool,
         valid_until_us: u64,
     ) -> Self {
-        Self::new_for_capability_with_authority_binding_and_valid_until(
+        Self::new_for_capability_with_freshness_digest(
             capability,
             [0xA5; 32],
             signature_verified,
@@ -171,10 +171,30 @@ impl VerificationEvidence {
         )
     }
 
-    /// Construct trusted evidence with an explicit capability binding and an
-    /// opaque authority-freshness commitment supplied by the authority adapter.
+    /// Construct trusted evidence from the canonical current-freshness digest.
     ///
-    /// The commitment must track the authoritative freshness domain.
+    /// Production callers cannot supply an arbitrary bridge authority binding;
+    /// the bridge derives that binding from the canonical freshness commitment.
+    pub(crate) fn new_for_capability_with_freshness_digest(
+        capability: &Capability,
+        freshness_digest: [u8; 32],
+        signature_verified: bool,
+        not_revoked: bool,
+        authority_unambiguous: bool,
+        valid_until_us: u64,
+    ) -> Self {
+        Self {
+            signature_verified,
+            not_revoked,
+            authority_unambiguous,
+            valid_until_us,
+            capability_binding: capability.binding_digest(),
+            authority_binding: authority_binding_from_freshness_digest(freshness_digest),
+        }
+    }
+
+    /// Test-only constructor for exercising authority-domain mismatch paths.
+    #[cfg(test)]
     pub(crate) fn new_for_capability_with_authority_binding_and_valid_until(
         capability: &Capability,
         authority_binding: [u8; 32],
