@@ -51,6 +51,8 @@ pub struct RecoveryRequest {
     pub created: Timestamp,
     /// When time lock expires (if approved)
     pub time_lock_expires: Option<Timestamp>,
+    /// Deterministic certificate proving which trustee votes authorized approval.
+    pub approval_certificate: Option<ActionHash>,
 }
 
 /// Trustee vote on a recovery request
@@ -67,6 +69,22 @@ pub struct RecoveryVote {
     pub comment: Option<String>,
     /// Vote timestamp
     pub voted_at: Timestamp,
+}
+
+/// Deterministic quorum certificate for a social recovery approval.
+///
+/// Every referenced vote is an immutable DHT record. The certificate itself is
+/// authored by the recovery-request author so the eventual RecoveryRequest
+/// update can remain within Holochain's source-chain authorship model.
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct RecoveryApprovalCertificate {
+    pub request_id: String,
+    pub request_action_hash: ActionHash,
+    pub recovery_config_action_hash: ActionHash,
+    pub vote_action_hashes: Vec<ActionHash>,
+    pub threshold: u32,
+    pub issued_at: Timestamp,
 }
 
 /// Status of a recovery request
@@ -174,6 +192,7 @@ pub enum EntryTypes {
     RecoveryConfig(RecoveryConfig),
     RecoveryRequest(RecoveryRequest),
     RecoveryVote(RecoveryVote),
+    RecoveryApprovalCertificate(RecoveryApprovalCertificate),
     SelfRecoveryConfig(SelfRecoveryConfig),
     SelfRecoveryRequest(SelfRecoveryRequest),
 }
