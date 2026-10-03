@@ -115,6 +115,9 @@ pub struct DeliveryRecord {
     /// Identifier of the source observation minted by the admitting transition.
     /// This provenance link is not part of the immutable logical delivery contract.
     source_observation_id: String,
+    /// Recognition provenance captured at admission; later recognition changes
+    /// do not rewrite the admitted delivery's provenance.
+    source_observation_recognized_by: Option<String>,
 }
 
 impl DeliveryRecord {
@@ -658,6 +661,11 @@ pub fn deliver(
             authority,
             attempts: BTreeSet::from([envelope.attempt_id.clone()]),
             source_observation_id: envelope.envelope_id.clone(),
+            source_observation_recognized_by: if foreign && recognition.is_some() {
+                Some(envelope.target_node.clone())
+            } else {
+                None
+            },
         },
     );
 
@@ -959,27 +967,15 @@ fn source_observation_matches_delivery(state: &FederationState, record: &Deliver
     };
 
     let contract = record.contract();
-    let recognized_by = if contract.origin_node != contract.target_node {
-        match state.recognition_mode(
-            &contract.target_node,
-            &contract.origin_node,
-            &contract.semantic_subject_id,
-        ) {
-            Ok(Some(_)) => Some(contract.target_node.as_str()),
-            Ok(None) => None,
-            Err(()) => return false,
-        }
-    } else {
-        None
-    };
 
     observation.source_observation
         && observation.observation_id == record.source_observation_id()
-        && observation.semantic_subject_id == record.contract().semantic_subject_id
-        && observation.payload_commitment == record.contract().payload_commitment
-        && observation.origin_node == record.contract().origin_node
+        && observation.semantic_subject_id == contract.semantic_subject_id
+        && observation.payload_commitment == contract.payload_commitment
+        && observation.origin_node == contract.origin_node
         && observation.origin_node_known
-        && observation.recognized_by.as_deref() == recognized_by
+        && observation.recognized_by.as_deref()
+            == record.source_observation_recognized_by.as_deref()
 }
 
 fn delivery_identity_snapshot(
