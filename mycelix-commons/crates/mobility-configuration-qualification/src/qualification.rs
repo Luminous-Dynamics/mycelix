@@ -17,14 +17,21 @@ pub enum QualificationValidationError {
 pub type QualificationOutcome<T> =
     Result<QualificationStatus<T>, QualificationValidationError>;
 
+fn canonicalize_missing(mut missing: Vec<IdentityRef>) -> Vec<IdentityRef> {
+    missing.sort_by(|left, right| {
+        (&left.namespace, &left.kind, &left.id)
+            .cmp(&(&right.namespace, &right.kind, &right.id))
+    });
+    missing.dedup();
+    missing
+}
+
 impl<T> QualificationStatus<T> {
-    pub fn unresolved(mut missing: Vec<IdentityRef>, partial: T) -> Self {
-        missing.sort_by(|left, right| {
-            (&left.namespace, &left.kind, &left.id)
-                .cmp(&(&right.namespace, &right.kind, &right.id))
-        });
-        missing.dedup();
-        Self::Unresolved { missing, partial }
+    pub fn unresolved(missing: Vec<IdentityRef>, partial: T) -> Self {
+        Self::Unresolved {
+            missing: canonicalize_missing(missing),
+            partial,
+        }
     }
 
     /// Adds unavailable dependencies without discarding the partial
@@ -60,11 +67,7 @@ impl<T> QualificationStatus<T> {
 
     pub fn normalize_missing(&mut self) {
         if let Self::Unresolved { missing, .. } = self {
-            missing.sort_by(|left, right| {
-                (&left.namespace, &left.kind, &left.id)
-                    .cmp(&(&right.namespace, &right.kind, &right.id))
-            });
-            missing.dedup();
+            *missing = canonicalize_missing(std::mem::take(missing));
         }
     }
 
@@ -179,6 +182,34 @@ mod tests {
             status,
             QualificationStatus::Unresolved {
                 missing: vec![second, first],
+                partial: 7u8,
+            }
+        );
+    }
+
+    #[test]
+    fn unresolved_orders_missing_by_namespace_kind_and_id() {
+        let mut first = id("z");
+        first.namespace = "zeta".into();
+        first.kind = IdentityKind::EvidenceRecord;
+
+        let mut second = id("a");
+        second.namespace = "alpha".into();
+        second.kind = IdentityKind::ReconciliationWitness;
+
+        let mut third = id("b");
+        third.namespace = "alpha".into();
+        third.kind = IdentityKind::EvidenceRecord;
+
+        let status = QualificationStatus::unresolved(
+            vec![first.clone(), second.clone(), third.clone()],
+            7u8,
+        );
+
+        assert_eq!(
+            status,
+            QualificationStatus::Unresolved {
+                missing: vec![third, second, first],
                 partial: 7u8,
             }
         );
