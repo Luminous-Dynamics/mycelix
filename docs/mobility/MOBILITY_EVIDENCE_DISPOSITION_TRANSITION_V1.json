@@ -476,6 +476,11 @@
       "id": "EDT-093",
       "case": "qualification_decision_preserves_logical_identity_boundary_and_definitive_state",
       "expected": "accepted"
+    },
+    {
+      "id": "EDT-094",
+      "case": "runtime_neutral_qualification_adapter_contract_is_machine_readable_and_three_valued",
+      "expected": "accepted"
     }
   ]
 }
