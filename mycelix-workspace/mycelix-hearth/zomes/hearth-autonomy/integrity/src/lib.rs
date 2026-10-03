@@ -194,6 +194,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 link_type,
                 action.data.base_address.clone(),
                 action.data.target_address.clone(),
+                &action.data.tag,
             )
         }
         FlatOp::Link(link @ OpLink::DeleteLink {
@@ -251,7 +252,14 @@ fn validate_create_link(
     link_type: LinkTypes,
     base_address: AnyLinkableHash,
     target_address: AnyLinkableHash,
+    tag: &LinkTag,
 ) -> ExternResult<ValidateCallbackResult> {
+    if !tag.0.is_empty() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Link tag must be empty for this LinkTypes family".into(),
+        ));
+    }
+
     let action_hash = |hash: AnyLinkableHash, label: &str| -> Result<ActionHash, ValidateCallbackResult> {
         ActionHash::try_from(hash)
             .map_err(|_| ValidateCallbackResult::Invalid(format!("{label} must be an ActionHash")))
