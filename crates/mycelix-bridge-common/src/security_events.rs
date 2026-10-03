@@ -9,7 +9,7 @@
 //! Provenance records origin and transformation context without asserting that
 //! the underlying claim is true.
 
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{de::Error as _, Deserialize, Deserializer, Serialize};
 
 use crate::security_kernel::{AuthorizationDecision, AuthorizationRequest, EnforcementRequest};
 
@@ -131,7 +131,6 @@ impl<'de> serde::Deserialize<'de> for SecurityEvent {
 }
 
 impl SecurityEvent {
-
     pub fn decision(&self) -> &AuthorizationDecision {
         &self.decision
     }
@@ -404,7 +403,12 @@ mod tests {
             "recovery_correlation":null
         }"#;
         let event: SecurityEvent = serde_json::from_str(json).unwrap();
-        assert_eq!(event.decision(), &AuthorizationDecision::Deny(crate::security_kernel::AuthorizationDenial::ActionNotGranted));
+        assert_eq!(
+            event.decision(),
+            &AuthorizationDecision::Deny(
+                crate::security_kernel::AuthorizationDenial::ActionNotGranted
+            )
+        );
         assert_eq!(event.capability_binding(), None);
     }
 
