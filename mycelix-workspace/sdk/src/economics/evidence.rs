@@ -118,6 +118,7 @@ impl EconomicEvidenceCapsule {
         observations: &EconomicObservables,
         actor_observations: Option<&BTreeMap<String, ActorEconomicObservables>>,
     ) -> Result<Self, EconomicStepError> {
+        final_receipt.verify()?;
         let manifest_hash = manifest.hash()?;
         if final_receipt.genesis_state_hash != manifest.initial_state_hash {
             return Err(EconomicStepError::Serialization(
@@ -179,6 +180,7 @@ impl EconomicEvidenceCapsule {
         actor_observations: Option<&BTreeMap<String, ActorEconomicObservables>>,
         sector_observations: Option<&BTreeMap<EconomicSector, SectorEconomicObservables>>,
     ) -> Result<Self, EconomicStepError> {
+        final_receipt.verify()?;
         let manifest_hash = manifest.hash()?;
         if final_receipt.genesis_state_hash != manifest.initial_state_hash {
             return Err(EconomicStepError::Serialization(
@@ -260,6 +262,7 @@ impl EconomicEvidenceCapsule {
         sector_observations: Option<&BTreeMap<EconomicSector, SectorEconomicObservables>>,
         sector_financial_flows: Option<&crate::economics::sector_financial_flow::SectorFinancialFlowMatrix>,
     ) -> Result<Self, EconomicStepError> {
+        final_receipt.verify()?;
         let manifest_hash = manifest.hash()?;
         if final_receipt.genesis_state_hash != manifest.initial_state_hash {
             return Err(EconomicStepError::Serialization(
@@ -347,6 +350,7 @@ impl EconomicEvidenceCapsule {
         observations: &EconomicObservables,
         closure: &EconomicAccountingClosure,
     ) -> Result<Self, EconomicStepError> {
+        final_receipt.verify()?;
         closure
             .verify()
             .map_err(EconomicStepError::Serialization)?;
@@ -516,6 +520,48 @@ mod tests {
         let b = EconomicEvidenceCapsule::seal(manifest, &chain, &observations).unwrap();
         assert_eq!(a, b);
         assert_eq!(a.manifest_hash, a.manifest.hash().unwrap());
+    }
+
+    #[test]
+    fn evidence_capsule_rejects_tampered_final_receipt_hash() {
+        let (manifest, chain, observations) = fixture();
+        let mut tampered = chain;
+        tampered.step.post_state_hash = "tampered".into();
+
+        assert!(EconomicEvidenceCapsule::seal(
+            manifest,
+            &tampered,
+            &observations,
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn evidence_capsule_rejects_tampered_final_chain_hash() {
+        let (manifest, chain, observations) = fixture();
+        let mut tampered = chain;
+        tampered.chain_hash = "tampered".into();
+
+        assert!(EconomicEvidenceCapsule::seal(
+            manifest,
+            &tampered,
+            &observations,
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn evidence_capsule_rejects_empty_final_receipt_hash_fields() {
+        let (manifest, chain, observations) = fixture();
+        let mut tampered = chain;
+        tampered.step.transition_hash.clear();
+
+        assert!(EconomicEvidenceCapsule::seal(
+            manifest,
+            &tampered,
+            &observations,
+        )
+        .is_err());
     }
 
     #[test]
