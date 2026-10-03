@@ -634,6 +634,40 @@ mod tests {
             Some("must remain unresolved until the required addressable dependency is available")
         );
 
+        let provenance = document
+            .get("binding_provenance")
+            .expect("adapter contract must declare binding provenance");
+        assert_eq!(
+            provenance
+                .get("witness_type")
+                .and_then(serde_json::Value::as_str),
+            Some("QualificationDependencyBindingProvenance")
+        );
+        assert_eq!(
+            provenance
+                .get("basis_must_include_exact_authority")
+                .and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(
+            provenance
+                .get("protocol_address_excluded_from_pure_witness")
+                .and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(
+            provenance
+                .get("binding_requires_provenance")
+                .and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(
+            provenance
+                .get("provenance_carried_through_runtime_resolution")
+                .and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+
         let dependencies = document
             .get("dependency_retrieval")
             .expect("adapter contract must declare dependency retrieval");
