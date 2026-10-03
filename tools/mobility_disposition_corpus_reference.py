@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 
 EXPECTED_SCHEMA = "mycelix.mobility.evidence_disposition_transition.v1"
-EXPECTED_COUNT = 112
+EXPECTED_COUNT = 120
 EXPECTED_OUTCOME_CLASSES = [
     "accepted",
     "rejected",
@@ -36,6 +36,14 @@ EXPECTED_BINDING_VECTORS = [
     ("EDT-110", "malformed_logical_identity_is_semantic_invalid_before_runtime_binding_validation", "typed_structural_error"),
     ("EDT-111", "duplicate_runtime_binding_is_adapter_boundary_failure", "adapter_boundary_error"),
     ("EDT-112", "one_callback_seam_maps_semantic_invalidity_and_preserves_true_adapter_errors", "accepted"),
+    ("EDT-113", "binding_provenance_accepts_exact_logical_dependency_and_authority_basis", "accepted"),
+    ("EDT-114", "binding_provenance_rejects_wrong_witness_identity_kind", "typed_structural_error"),
+    ("EDT-115", "binding_provenance_rejects_duplicate_basis_witness", "typed_structural_error"),
+    ("EDT-116", "binding_provenance_rejects_authority_omission_from_basis", "typed_structural_error"),
+    ("EDT-117", "binding_provenance_rejects_logical_identity_mismatch_at_runtime_binding", "typed_structural_error"),
+    ("EDT-118", "runtime_binding_requires_explicit_provenance_witness", "accepted"),
+    ("EDT-119", "resolved_runtime_dependency_carries_exact_binding_provenance", "accepted"),
+    ("EDT-120", "binding_provenance_contains_no_protocol_address_derivation", "accepted"),
 ]
 
 
@@ -77,7 +85,7 @@ def main() -> int:
                 f"{expected_id} has unsupported outcome {vector.get('expected')!r}"
             )
 
-    for expected, actual in zip(EXPECTED_BINDING_VECTORS, vectors[-17:], strict=True):
+    for expected, actual in zip(EXPECTED_BINDING_VECTORS, vectors[-25:], strict=True):
         if (
             actual.get("id"),
             actual.get("case"),
