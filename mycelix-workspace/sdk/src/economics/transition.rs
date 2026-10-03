@@ -181,8 +181,19 @@ impl EconomicChainReceipt {
         previous: Option<&EconomicChainReceipt>,
         step: EconomicStepReceipt,
     ) -> Result<Self, EconomicStepError> {
+        if step.pre_state_hash.is_empty()
+            || step.transition_hash.is_empty()
+            || step.post_state_hash.is_empty()
+        {
+            return Err(EconomicStepError::Serialization(
+                "evidence chain step requires non-empty state and transition hashes".into(),
+            ));
+        }
+
         let (genesis_state_hash, previous_receipt_hash) = match previous {
             Some(previous) => {
+                previous.verify()?;
+
                 if step.pre_state_hash != previous.step.post_state_hash {
                     return Err(EconomicStepError::PreStateMismatch {
                         expected: previous.step.post_state_hash.clone(),
@@ -490,6 +501,44 @@ mod tests {
 
         assert_eq!(first, second);
         assert_eq!(receipt_a, receipt_b);
+    }
+
+    #[test]
+    fn chain_link_rejects_tampered_predecessor() {
+        let state = initial_state();
+        let transitions = vec![EconomicTransition::CreditCreation(
+            CreditCreation::new("bank", "household", 500).unwrap(),
+        )];
+        let (_, step) = apply_step(&state, 1, &transitions, None).unwrap();
+        let mut predecessor = EconomicChainReceipt::link(None, step).unwrap();
+        predecessor.chain_hash = "tampered".into();
+
+        let (_, successor_step) = apply_step(
+            &state,
+            2,
+            &[],
+            None,
+        )
+        .unwrap();
+
+        assert!(EconomicChainReceipt::link(
+            Some(&predecessor),
+            successor_step,
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn chain_link_rejects_empty_step_hashes() {
+        let step = EconomicStepReceipt {
+            period: 1,
+            pre_state_hash: "pre".into(),
+            transition_hash: String::new(),
+            post_state_hash: "post".into(),
+            transition_count: 0,
+        };
+
+        assert!(EconomicChainReceipt::link(None, step).is_err());
     }
 
     #[test]
