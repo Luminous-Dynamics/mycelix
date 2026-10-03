@@ -127,7 +127,7 @@
     "verification_failure_host_error_remains_runtime_error": true,
     "signature_does_not_resolve_authority_identity": true
   },
-    "signed_payload_serialization": {
+  "signed_payload_serialization": {
       "library": "holochain_serialized_bytes",
       "version": "0.0.57",
       "representation": "SerializedBytes",
@@ -138,8 +138,7 @@
       "schema_fields_are_owned_strings": true,
       "explicit_try_from_roundtrip_tested": true,
       "verify_signature_remains_single_crypto_verifier": true
-    }
-,
+  },
   "authority_agent_binding": {
     "registry_type": "HolochainAuthorityAgentBindingSet",
     "authority_identity_type": "IdentityRef",
@@ -162,6 +161,6 @@
     "runtime_binding_requires_exact_authority_delegation_match": true,
     "authority_credential_provenance_continuity_is_checked": true,
     "registered_credential_basis_is_minimum_runtime_basis": true,
-    "runtime_binding_witness_must_differ_from_authority_credential_witness": true,
+    "runtime_binding_witness_must_differ_from_authority_credential_witness": true
   }
 }
