@@ -122,10 +122,9 @@ impl<T> QualificationStatus<T> {
     pub fn map<U>(self, map: impl FnOnce(T) -> U) -> QualificationStatus<U> {
         match self {
             Self::Complete(value) => QualificationStatus::Complete(map(value)),
-            Self::Unresolved { missing, partial } => QualificationStatus::Unresolved {
-                missing,
-                partial: map(partial),
-            },
+            Self::Unresolved { missing, partial } => {
+                QualificationStatus::unresolved(missing, map(partial))
+            }
         }
     }
 
@@ -456,6 +455,23 @@ mod tests {
                 missing: vec![id("missing")],
                 partial: 7,
             })
+        );
+    }
+
+    #[test]
+    fn map_recanonicalizes_unresolved_dependencies() {
+        let status = QualificationStatus::Unresolved {
+            missing: vec![id("z"), id("a"), id("z")],
+            partial: 3u8,
+        }
+        .map(|value| value * 2);
+
+        assert_eq!(
+            status,
+            QualificationStatus::Unresolved {
+                missing: vec![id("a"), id("z")],
+                partial: 6u8,
+            }
         );
     }
 
