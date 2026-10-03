@@ -105,7 +105,7 @@ fn authority_probe_zome(reached: Arc<AtomicUsize>) -> SweetInlineZomes {
         })
 }
 
-fn params<P: Serialize>(
+fn params<P: Serialize + std::fmt::Debug>(
     cell_id: &CellId,
     provenance: &AgentPubKey,
     zome_name: ZomeName,
