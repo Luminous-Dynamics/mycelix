@@ -2044,3 +2044,72 @@ async fn dsid_026_resolution_json_omits_absent_optional_metadata() {
         true,
     );
 }
+
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_027_generic_update_rejects_legacy_untagged_did_key() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let app = conductor.setup_app(
+        "dsid-strict-did-key",
+        std::slice::from_ref(&dna),
+    ).await.unwrap();
+    let cell = app.cells()[0].clone();
+    let agent = app.agent().clone();
+
+    let _created: Record = conductor
+        .call(&cell.zome("did_registry"), "create_did", ())
+        .await;
+    let current: DidDocumentView = conductor
+        .call(&cell.zome("did_registry"), "get_my_did_view", ())
+        .await
+        .expect("canonical DID must exist");
+
+    let raw = bs58::encode([0x42u8; 32])
+        .with_alphabet(bs58::Alphabet::BITCOIN)
+        .into_string();
+    let legacy_multibase = format!("z{}", raw);
+
+    let mut methods = current.verification_methods
+        .iter()
+        .map(|method| serde_json::json!({
+            "id": method.id,
+            "type": method.type_name,
+            "controller": method.controller,
+            "publicKeyMultibase": method.public_key_multibase
+        }))
+        .collect::<Vec<_>>();
+    methods[0]["publicKeyMultibase"] = serde_json::Value::String(legacy_multibase);
+
+    let result: Result<Record, _> = conductor
+        .call_fallible(
+            &cell.zome("did_registry"),
+            "update_did_document",
+            serde_json::json!({
+                "verificationMethod": methods,
+                "authentication": current.verification_methods
+                    .iter()
+                    .map(|method| method.id.clone())
+                    .collect::<Vec<_>>(),
+                "keyAgreement": null,
+                "service": []
+            }),
+        )
+        .await;
+
+    assert!(result.is_err(), "generic DID update must reject legacy untagged verification keys");
+
+    let mut agents = BTreeMap::new();
+    agents.insert("alice", agent.to_string());
+    emit_evidence(
+        "DSID-027",
+        "generic-update-rejects-legacy-untagged-did-key",
+        &dna,
+        agents,
+        &[],
+        "The DID integrity boundary must reject legacy raw-key encoding even when the generic coordinator update path is used.",
+        format!("legacy_key_update_rejected={}", result.is_err()),
+        true,
+    );
+}
