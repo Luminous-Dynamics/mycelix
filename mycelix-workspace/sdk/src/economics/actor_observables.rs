@@ -100,6 +100,8 @@ impl ActorEconomicObservables {
         state: &EconomicState,
         transitions: &[EconomicTransition],
     ) -> Result<BTreeMap<ActorId, Self>, String> {
+        state.validate()?;
+
         let mut observations = BTreeMap::new();
 
         for actor in &state.actors {
@@ -148,6 +150,8 @@ impl ActorEconomicObservables {
         let mut working = state.clone();
 
         for transition in transitions {
+            transition.validate()?;
+
             let affected = affected_actors(transition);
             for actor in &affected {
                 ensure_actor(actor)?;
@@ -639,6 +643,39 @@ mod tests {
         ActorBalanceSheet, CreditCreation, DebtRepayment, EconomicState, IncomeTransfer,
         GoodsSale, EconomicFlowCategory,
     };
+
+    #[test]
+    fn actor_observations_reject_invalid_initial_state() {
+        let mut state = EconomicState::new(vec![ActorBalanceSheet::new("household")]);
+        state.actors[0].monetary.deposits = -1;
+
+        assert!(ActorEconomicObservables::from_state_and_transitions(
+            &state,
+            &[],
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn actor_observations_reject_deserialized_invalid_transition() {
+        let state = EconomicState::new(vec![
+            ActorBalanceSheet::new("bank"),
+            ActorBalanceSheet::new("household"),
+        ]);
+        let transition = EconomicTransition::CreditCreation(
+            crate::economics::stock_flow::CreditCreation {
+                lender: "bank".into(),
+                borrower: "household".into(),
+                amount: 0,
+            },
+        );
+
+        assert!(ActorEconomicObservables::from_state_and_transitions(
+            &state,
+            &[transition],
+        )
+        .is_err());
+    }
 
     #[test]
     fn actor_observables_are_deterministic_and_semantic() {
