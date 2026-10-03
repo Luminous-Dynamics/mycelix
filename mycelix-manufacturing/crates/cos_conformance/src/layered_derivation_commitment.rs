@@ -1,9 +1,10 @@
 //! D6W diagnostic decomposition of D6S commitments. Integrity only; no authority.
 use crate::canonical_derivation_receipt::{
-    canonical_sha256, is_canonical_sha256_commitment, CanonicalDerivationReceiptV1, CurrentFinalityEligibilityReceiptV1, DerivationProfileV1,
-    DerivationResultStatusV1, QualifiedProjectionV1, SemanticEnvironmentV1, D6S_CLAIM_CEILING,
+    canonical_sha256, is_canonical_sha256_commitment, CanonicalDerivationReceiptV1, DerivationProfileV1,
+    DerivationResultStatusV1, QualifiedEdgeV1, QualifiedNodeV1, QualifiedProjectionV1, SemanticEnvironmentV1, D6S_CLAIM_CEILING,
 };
 use crate::finality_eligibility_composition::{
+    CurrentFinalityEligibilityReceiptV1,
     verify_current_receipt_provenance_from_composition, FinalityEligibilityCompositionV1,
 };
 use serde::{Deserialize, Serialize};
@@ -307,7 +308,7 @@ impl LayeredReceiptV1 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::BTreeSet;
+    use std::collections::{BTreeMap, BTreeSet};
     use crate::canonical_derivation_receipt::{QualifiedEdgeV1,QualifiedNodeV1};
     use crate::evidence_claim_graph::{ClaimGraphEdgeKindV1,ClaimGraphNodeKindV1};
     use qualified_dependency_closure_d6x::{compute_dependency_closure,DependencyClosureProfileV1,DependencyRuleV1,DependencyCurrentnessV1};
