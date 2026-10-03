@@ -1013,6 +1013,12 @@ mod linux {
         }) {
             return Err(SeccompError::ForbiddenRendererSyscall(rule.syscall));
         }
+        #[cfg(target_arch = "x86_64")]
+        if let Some(rule) = policy.rules.iter().find(|rule| {
+            FORBIDDEN_X86_PROCESS_CREATION_SYSCALLS.contains(&rule.syscall)
+        }) {
+            return Err(SeccompError::ForbiddenRendererSyscall(rule.syscall));
+        }
         Ok(())
     }
 
