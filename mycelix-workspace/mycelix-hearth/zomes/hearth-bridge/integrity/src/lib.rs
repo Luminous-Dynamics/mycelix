@@ -223,6 +223,13 @@ fn validate_create_link(
             "Link tag exceeds 512 bytes".into(),
         ));
     }
+    if !matches!(link_type, LinkTypes::DispatchRateLimit | LinkTypes::NotificationSubscription)
+        && !tag.0.is_empty()
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Link tag must be empty except for dispatch rate-limit links".into(),
+        ));
+    }
 
     match link_type {
         LinkTypes::AllQueries => {
