@@ -1222,6 +1222,32 @@ mod author_binding_tests {
     }
 
 
+
+    #[test]
+    fn recovery_config_rejects_foreign_did_method_trustee() {
+        let author = me();
+        let config = RecoveryConfig {
+            did: format!("did:mycelix:{}", author),
+            owner: author,
+            trustees: vec![
+                format!("did:mycelix:{}", me()),
+                "did:key:z6Mkforeign".into(),
+                format!("did:mycelix:{}", other_agent()),
+            ],
+            threshold: 2,
+            time_lock: 7 * 24 * 3600,
+            active: true,
+            created: Timestamp::from_micros(0),
+            updated: Timestamp::from_micros(1),
+        };
+        let result = validate_create_recovery_config(
+            EntryCreationAction::Create(test_action(me())),
+            config,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
     #[test]
     fn recovery_config_must_name_author_did() {
         let author = me();
