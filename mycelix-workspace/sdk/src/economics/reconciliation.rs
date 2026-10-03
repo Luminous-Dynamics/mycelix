@@ -110,6 +110,7 @@ pub fn postings_for_step(
     assignments: &[SectorAssignment],
     transitions: &[EconomicTransition],
 ) -> Result<Vec<StockPosting>, String> {
+    SectorBalanceSheet::from_state(pre_state, assignments)?;
     let mut working = pre_state.clone();
     let mut postings = Vec::new();
 
