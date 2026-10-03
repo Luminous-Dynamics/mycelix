@@ -158,6 +158,10 @@ def main() -> int:
         raise SystemExit("runtime binding must reject dropped authority credential basis witnesses")
     if "one AgentPubKey in an immutable binding set" not in source:
         raise SystemExit("authority-agent registry must remain immutable per authority")
+    if "an authority-agent provenance witness may justify only one registry binding" not in source:
+        raise SystemExit("authority-agent registry must reject provenance witness reuse")
+    if ".values().any(|existing|" not in compact_source:
+        raise SystemExit("authority-agent registry must inspect existing credentials for witness reuse")
 
     for fragment in (
         "HolochainBindingAttestationVerification",
