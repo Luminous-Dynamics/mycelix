@@ -1,0 +1,572 @@
+{
+  "schema": "mycelix.sym-civic.completeness-commitment.v1",
+  "program": "SYM-CIVIC-009",
+  "parent_subject": "e162ffb107d711e63002d414242d310507aaa4ca",
+  "analysis_role": "research_only",
+  "invariants": [
+    "exact_bundle_binding",
+    "immutable_manifest_identity",
+    "manifest_bytes_match_digest",
+    "signed_manifest_equals_evaluated_manifest",
+    "known_attester_required",
+    "commitment_time_consistent",
+    "membership_change_new_identity",
+    "metadata_change_new_identity",
+    "authentication_not_external_exhaustiveness",
+    "scope_exactness",
+    "historical_manifest_exact",
+    "conflicts_preserved",
+    "authentication_not_truth",
+    "nonexhaustive_scope_explicit"
+  ],
+  "cases": [
+    {
+      "id": "C-01",
+      "family": "bundle_digest_mismatch",
+      "candidate": {
+        "bundle": {
+          "id": "bundle-a",
+          "digest": "sha256:bundle-a"
+        },
+        "manifest": {
+          "digest": "sha256:m-a",
+          "actual_digest": "sha256:m-a"
+        },
+        "commitment": {
+          "id": "cc-1",
+          "bundle_digest": "sha256:bundle-b",
+          "manifest_digest": "sha256:m-a",
+          "attester": {
+            "id": "did:example:alice",
+            "status": "active"
+          },
+          "scope": [
+            "bundle:all"
+          ],
+          "time": "2026-10-03T01:00:00Z"
+        },
+        "bundle_window": {
+          "created": "2026-10-03T00:00:00Z",
+          "updated": "2026-10-03T02:00:00Z"
+        }
+      },
+      "note": "The commitment must authenticate the exact bundle identity being evaluated."
+    },
+    {
+      "id": "C-02",
+      "family": "unknown_attester",
+      "candidate": {
+        "bundle": {
+          "id": "bundle-a",
+          "digest": "sha256:bundle-a"
+        },
+        "manifest": {
+          "digest": "sha256:m-a",
+          "actual_digest": "sha256:m-a"
+        },
+        "commitment": {
+          "id": "cc-1",
+          "bundle_digest": "sha256:bundle-a",
+          "manifest_digest": "sha256:m-a",
+          "attester": {
+            "id": "did:example:unknown",
+            "status": "unknown"
+          },
+          "scope": [
+            "bundle:all"
+          ],
+          "time": "2026-10-03T01:00:00Z"
+        },
+        "bundle_window": {
+          "created": "2026-10-03T00:00:00Z",
+          "updated": "2026-10-03T02:00:00Z"
+        }
+      },
+      "note": "An arbitrary signer identity does not make a completeness commitment trusted."
+    },
+    {
+      "id": "C-03",
+      "family": "mutable_latest_manifest",
+      "candidate": {
+        "bundle": {
+          "id": "bundle-a",
+          "digest": "sha256:bundle-a"
+        },
+        "manifest": {
+          "uri": "https://example.org/manifests/latest",
+          "digest": "sha256:m-a",
+          "actual_digest": "sha256:m-a",
+          "version": null
+        },
+        "commitment": {
+          "id": "cc-1",
+          "bundle_digest": "sha256:bundle-a",
+          "manifest_digest": "sha256:m-a",
+          "attester": {
+            "id": "did:example:alice",
+            "status": "active"
+          },
+          "scope": [
+            "bundle:all"
+          ],
+          "time": "2026-10-03T01:00:00Z"
+        },
+        "bundle_window": {
+          "created": "2026-10-03T00:00:00Z",
+          "updated": "2026-10-03T02:00:00Z"
+        }
+      },
+      "note": "A mutable latest locator is not an immutable manifest identity."
+    },
+    {
+      "id": "C-04",
+      "family": "manifest_digest_mismatch",
+      "candidate": {
+        "bundle": {
+          "id": "bundle-a",
+          "digest": "sha256:bundle-a"
+        },
+        "manifest": {
+          "digest": "sha256:m-a",
+          "actual_digest": "sha256:m-b"
+        },
+        "commitment": {
+          "id": "cc-1",
+          "bundle_digest": "sha256:bundle-a",
+          "manifest_digest": "sha256:m-a",
+          "attester": {
+            "id": "did:example:alice",
+            "status": "active"
+          },
+          "scope": [
+            "bundle:all"
+          ],
+          "time": "2026-10-03T01:00:00Z"
+        },
+        "bundle_window": {
+          "created": "2026-10-03T00:00:00Z",
+          "updated": "2026-10-03T02:00:00Z"
+        }
+      },
+      "note": "Manifest byte identity and declared digest must agree."
+    },
+    {
+      "id": "C-05",
+      "family": "signed_vs_evaluated_manifest_mismatch",
+      "candidate": {
+        "bundle": {
+          "id": "bundle-a",
+          "digest": "sha256:bundle-a"
+        },
+        "manifest": {
+          "digest": "sha256:m-a",
+          "actual_digest": "sha256:m-a"
+        },
+        "commitment": {
+          "id": "cc-1",
+          "bundle_digest": "sha256:bundle-a",
+          "manifest_digest": "sha256:m-a",
+          "signed_manifest_digest": "sha256:m-a",
+          "evaluated_manifest_digest": "sha256:m-b",
+          "attester": {
+            "id": "did:example:alice",
+            "status": "active"
+          },
+          "scope": [
+            "bundle:all"
+          ],
+          "time": "2026-10-03T01:00:00Z"
+        },
+        "bundle_window": {
+          "created": "2026-10-03T00:00:00Z",
+          "updated": "2026-10-03T02:00:00Z"
+        }
+      },
+      "note": "The commitment must bind the manifest actually evaluated."
+    },
+    {
+      "id": "C-06",
+      "family": "commitment_time_outside_bundle_window",
+      "candidate": {
+        "bundle": {
+          "id": "bundle-a",
+          "digest": "sha256:bundle-a"
+        },
+        "manifest": {
+          "digest": "sha256:m-a",
+          "actual_digest": "sha256:m-a"
+        },
+        "commitment": {
+          "id": "cc-1",
+          "bundle_digest": "sha256:bundle-a",
+          "manifest_digest": "sha256:m-a",
+          "attester": {
+            "id": "did:example:alice",
+            "status": "active"
+          },
+          "scope": [
+            "bundle:all"
+          ],
+          "time": "2026-10-03T03:00:00Z"
+        },
+        "bundle_window": {
+          "created": "2026-10-03T00:00:00Z",
+          "updated": "2026-10-03T02:00:00Z"
+        }
+      },
+      "note": "A commitment timestamp outside the declared bundle update window is temporally inconsistent."
+    },
+    {
+      "id": "C-07",
+      "family": "stale_commitment_after_membership_change",
+      "candidate": {
+        "bundle": {
+          "id": "bundle-a",
+          "digest": "sha256:bundle-a"
+        },
+        "manifest": {
+          "digest": "sha256:m-b",
+          "actual_digest": "sha256:m-b"
+        },
+        "membership_changed": true,
+        "commitment": {
+          "id": "cc-1",
+          "bundle_digest": "sha256:bundle-a",
+          "manifest_digest": "sha256:m-b",
+          "attester": {
+            "id": "did:example:alice",
+            "status": "active"
+          },
+          "scope": [
+            "bundle:all"
+          ],
+          "time": "2026-10-03T01:00:00Z"
+        },
+        "prior_commitment_id": "cc-1"
+      },
+      "note": "A changed membership snapshot requires a new commitment identity."
+    },
+    {
+      "id": "C-08",
+      "family": "metadata_change_same_commitment",
+      "candidate": {
+        "bundle": {
+          "id": "bundle-a",
+          "digest": "sha256:bundle-a",
+          "metadata_digest": "sha256:meta-b"
+        },
+        "manifest": {
+          "digest": "sha256:m-a",
+          "actual_digest": "sha256:m-a"
+        },
+        "metadata_changed": true,
+        "commitment": {
+          "id": "cc-1",
+          "bundle_digest": "sha256:bundle-a",
+          "manifest_digest": "sha256:m-a",
+          "attester": {
+            "id": "did:example:alice",
+            "status": "active"
+          },
+          "scope": [
+            "bundle:all"
+          ],
+          "time": "2026-10-03T01:00:00Z"
+        },
+        "prior_commitment_id": "cc-1"
+      },
+      "note": "Material bundle metadata changes cannot silently retain the old commitment identity."
+    },
+    {
+      "id": "C-09",
+      "family": "auth_as_external_exhaustiveness",
+      "candidate": {
+        "bundle": {
+          "id": "bundle-a",
+          "digest": "sha256:bundle-a"
+        },
+        "manifest": {
+          "digest": "sha256:m-a",
+          "actual_digest": "sha256:m-a"
+        },
+        "commitment": {
+          "id": "cc-1",
+          "bundle_digest": "sha256:bundle-a",
+          "manifest_digest": "sha256:m-a",
+          "attester": {
+            "id": "did:example:alice",
+            "status": "active"
+          },
+          "scope": [
+            "bundle:all"
+          ],
+          "time": "2026-10-03T01:00:00Z"
+        },
+        "external_exhaustiveness_evidence": false,
+        "consumer_interpretation": "authenticated_commitment_proves_exhaustive"
+      },
+      "note": "Authentication of a snapshot does not prove that an external publication contains no omitted material."
+    },
+    {
+      "id": "C-10",
+      "family": "scope_narrower_than_claim",
+      "candidate": {
+        "bundle": {
+          "id": "bundle-a",
+          "digest": "sha256:bundle-a",
+          "scope": [
+            "bundle:all",
+            "bundle:history"
+          ]
+        },
+        "manifest": {
+          "digest": "sha256:m-a",
+          "actual_digest": "sha256:m-a"
+        },
+        "commitment": {
+          "id": "cc-1",
+          "bundle_digest": "sha256:bundle-a",
+          "manifest_digest": "sha256:m-a",
+          "attester": {
+            "id": "did:example:alice",
+            "status": "active"
+          },
+          "scope": [
+            "bundle:all"
+          ],
+          "time": "2026-10-03T01:00:00Z"
+        }
+      },
+      "note": "A commitment must not be interpreted beyond its explicit scope."
+    },
+    {
+      "id": "C-11",
+      "family": "historical_wrong_manifest",
+      "candidate": {
+        "bundle": {
+          "id": "bundle-a",
+          "digest": "sha256:bundle-a"
+        },
+        "manifest": {
+          "digest": "sha256:m-current",
+          "actual_digest": "sha256:m-current"
+        },
+        "commitment": {
+          "id": "cc-h",
+          "bundle_digest": "sha256:bundle-a",
+          "manifest_digest": "sha256:m-current",
+          "attester": {
+            "id": "did:example:alice",
+            "status": "active"
+          },
+          "scope": [
+            "bundle:all"
+          ],
+          "time": "2026-10-01T01:00:00Z"
+        },
+        "historical": true,
+        "historical_manifest_digest": "sha256:m-old",
+        "historical_manifest_exact": false
+      },
+      "note": "Historical verification must bind the exact historical manifest version."
+    },
+    {
+      "id": "C-12",
+      "family": "conflicting_commitments_collapsed",
+      "candidate": {
+        "bundle": {
+          "id": "bundle-a",
+          "digest": "sha256:bundle-a"
+        },
+        "manifest": {
+          "digest": "sha256:m-a",
+          "actual_digest": "sha256:m-a"
+        },
+        "commitments": [
+          {
+            "id": "cc-1",
+            "manifest_digest": "sha256:m-a"
+          },
+          {
+            "id": "cc-2",
+            "manifest_digest": "sha256:m-b"
+          }
+        ],
+        "commitments_collapsed": true
+      },
+      "note": "Conflicting completeness commitments remain distinct evidence rather than one merged identity."
+    },
+    {
+      "id": "C-13",
+      "family": "authenticated_uncertain_completeness",
+      "candidate": {
+        "bundle": {
+          "id": "bundle-a",
+          "digest": "sha256:bundle-a"
+        },
+        "manifest": {
+          "digest": "sha256:m-a",
+          "actual_digest": "sha256:m-a"
+        },
+        "commitment": {
+          "id": "cc-1",
+          "bundle_digest": "sha256:bundle-a",
+          "manifest_digest": "sha256:m-a",
+          "attester": {
+            "id": "did:example:alice",
+            "status": "active"
+          },
+          "scope": [
+            "bundle:all"
+          ],
+          "time": "2026-10-03T01:00:00Z"
+        },
+        "completeness_status": "uncertain"
+      },
+      "note": "Authentication can preserve an explicitly uncertain completeness statement without making it true."
+    },
+    {
+      "id": "C-14",
+      "family": "exact_binding",
+      "candidate": {
+        "bundle": {
+          "id": "bundle-a",
+          "digest": "sha256:bundle-a"
+        },
+        "manifest": {
+          "digest": "sha256:m-a",
+          "actual_digest": "sha256:m-a"
+        },
+        "commitment": {
+          "id": "cc-1",
+          "bundle_digest": "sha256:bundle-a",
+          "manifest_digest": "sha256:m-a",
+          "attester": {
+            "id": "did:example:alice",
+            "status": "active"
+          },
+          "scope": [
+            "bundle:all"
+          ],
+          "time": "2026-10-03T01:00:00Z"
+        },
+        "bundle_window": {
+          "created": "2026-10-03T00:00:00Z",
+          "updated": "2026-10-03T02:00:00Z"
+        },
+        "declares_exhaustive": false
+      },
+      "note": "Exact bundle, manifest, attester, scope, and time binding is admissible without an exhaustiveness claim."
+    },
+    {
+      "id": "C-15",
+      "family": "valid_historical_commitment",
+      "candidate": {
+        "bundle": {
+          "id": "bundle-a",
+          "digest": "sha256:bundle-a"
+        },
+        "manifest": {
+          "digest": "sha256:m-current",
+          "actual_digest": "sha256:m-current"
+        },
+        "commitment": {
+          "id": "cc-h",
+          "bundle_digest": "sha256:bundle-a",
+          "manifest_digest": "sha256:m-old",
+          "attester": {
+            "id": "did:example:alice",
+            "status": "active"
+          },
+          "scope": [
+            "bundle:all"
+          ],
+          "time": "2026-10-01T01:00:00Z"
+        },
+        "historical": true,
+        "historical_manifest_digest": "sha256:m-old",
+        "historical_manifest_exact": true
+      },
+      "note": "A historical commitment is admissible when the historical manifest identity is explicit and exact."
+    },
+    {
+      "id": "C-16",
+      "family": "valid_scoped_commitment",
+      "candidate": {
+        "bundle": {
+          "id": "bundle-a",
+          "digest": "sha256:bundle-a",
+          "scope": [
+            "bundle:security"
+          ]
+        },
+        "manifest": {
+          "digest": "sha256:m-a",
+          "actual_digest": "sha256:m-a"
+        },
+        "commitment": {
+          "id": "cc-1",
+          "bundle_digest": "sha256:bundle-a",
+          "manifest_digest": "sha256:m-a",
+          "attester": {
+            "id": "did:example:alice",
+            "status": "active"
+          },
+          "scope": [
+            "bundle:security"
+          ],
+          "time": "2026-10-03T01:00:00Z"
+        },
+        "bundle_window": {
+          "created": "2026-10-03T00:00:00Z",
+          "updated": "2026-10-03T02:00:00Z"
+        }
+      },
+      "note": "A commitment whose explicit scope exactly matches the bundle scope is admissible."
+    },
+    {
+      "id": "C-17",
+      "family": "authenticated_snapshot_not_exhaustive",
+      "candidate": {
+        "bundle": {
+          "id": "bundle-a",
+          "digest": "sha256:bundle-a"
+        },
+        "manifest": {
+          "digest": "sha256:m-a",
+          "actual_digest": "sha256:m-a"
+        },
+        "commitment": {
+          "id": "cc-1",
+          "bundle_digest": "sha256:bundle-a",
+          "manifest_digest": "sha256:m-a",
+          "attester": {
+            "id": "did:example:alice",
+            "status": "active"
+          },
+          "scope": [
+            "bundle:all"
+          ],
+          "time": "2026-10-03T01:00:00Z"
+        },
+        "external_exhaustiveness_evidence": false,
+        "declares_exhaustive": false
+      },
+      "note": "An authenticated membership snapshot can explicitly make no claim about exhaustiveness outside the authenticated snapshot."
+    }
+  ],
+  "nonclaims": [
+    "whole_bundle_cryptographic_authentication",
+    "external_publication_completeness",
+    "policy_correctness",
+    "scientific_truth",
+    "authorization_legitimacy",
+    "deployment_readiness"
+  ],
+  "prohibited_fields": [
+    "authorized_decision",
+    "civic_authorization",
+    "raw_subject_identifier",
+    "raw_payload"
+  ]
+}
