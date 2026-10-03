@@ -971,6 +971,19 @@ mod linux {
 
         let mut filter = compile_filter_v2(policy)?;
 
+        // Construct the receipt before any irreversible state transition.
+        // Nothing after seccomp installation may turn a successful filter
+        // installation into an error, because the caller would already be
+        // sandboxed while observing `Err`.
+        let receipt = SandboxEnforcementReceipt::from_adapter(
+            assignment_id,
+            installation_id,
+            SandboxAdapterKind::LinuxSeccompSyscallV2,
+            profile.policy_digest(),
+            seccomp_evidence_digest_v2(policy, &filter),
+            SandboxEnforcementLayer::Syscall,
+        ).map_err(|_| SeccompError::CompilerInvariantViolation)?;
+
         let rc = unsafe { libc::prctl(libc::PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) };
         if rc != 0 {
             return Err(SeccompError::InstallationFailed(
@@ -999,14 +1012,7 @@ mod linux {
             return Err(SeccompError::InstallationFailed(libc::ESRCH));
         }
 
-        SandboxEnforcementReceipt::from_adapter(
-            assignment_id,
-            installation_id,
-            SandboxAdapterKind::LinuxSeccompSyscallV2,
-            profile.policy_digest(),
-            seccomp_evidence_digest_v2(policy, &filter),
-            SandboxEnforcementLayer::Syscall,
-        ).map_err(|_| SeccompError::InvalidPolicy)
+        Ok(receipt)
     }
 
     /// Install an explicit architecture-qualified syscall allowlist into the
@@ -1043,6 +1049,19 @@ mod linux {
             .map_err(|_| SeccompError::IdentityGenerationFailed)?;
 
         let mut filter = compile_filter(policy)?;
+
+        // Construct the receipt before any irreversible state transition.
+        // Nothing after seccomp installation may turn a successful filter
+        // installation into an error, because the caller would already be
+        // sandboxed while observing `Err`.
+        let receipt = SandboxEnforcementReceipt::from_adapter(
+            assignment_id,
+            installation_id,
+            SandboxAdapterKind::LinuxSeccompSyscallV1,
+            profile.policy_digest(),
+            seccomp_evidence_digest(policy, &filter),
+            SandboxEnforcementLayer::Syscall,
+        ).map_err(|_| SeccompError::CompilerInvariantViolation)?;
 
         let rc = unsafe { libc::prctl(libc::PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) };
         if rc != 0 {
@@ -1082,14 +1101,7 @@ mod linux {
             return Err(SeccompError::InstallationFailed(libc::ESRCH));
         }
 
-        SandboxEnforcementReceipt::from_adapter(
-            assignment_id,
-            installation_id,
-            SandboxAdapterKind::LinuxSeccompSyscallV1,
-            profile.policy_digest(),
-            seccomp_evidence_digest(policy, &filter),
-            SandboxEnforcementLayer::Syscall,
-        ).map_err(|_| SeccompError::InvalidPolicy)
+        Ok(receipt)
     }
 
     #[cfg(test)]
