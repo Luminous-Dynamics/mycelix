@@ -5168,6 +5168,27 @@ mod tests {
                     &authority_scope(&reconciliation.reconciliation_id.id),
                     &authority_delegation(&reconciliation.reconciliation_id.id),
                     &coverage_boundary(),
+                    &[root.clone(), first.clone(), second.clone()]
+                )
+                .is_err()
+        );
+
+        let mut unresolved_delegation = authority_delegation(&reconciliation.reconciliation_id.id);
+        unresolved_delegation.predecessor = Some(id(
+            IdentityKind::ReconciliationWitness,
+            "missing-authority-predecessor-nested",
+        ));
+        let mut boundary = coverage_boundary();
+        boundary.reconciliation = reconciliation.reconciliation_id.clone();
+
+        assert!(
+            coverage
+                .validate_against_graph_and_authority_chain_qualified(
+                    &reconciliation,
+                    &authority_scope(&reconciliation.reconciliation_id.id),
+                    &unresolved_delegation,
+                    &[unresolved_delegation],
+                    &boundary,
                     &[root, first, second]
                 )
                 .is_err()
