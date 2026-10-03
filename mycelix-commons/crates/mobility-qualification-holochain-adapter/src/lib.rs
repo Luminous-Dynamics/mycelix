@@ -67,7 +67,6 @@ impl HolochainAuthorityAgentBindingSet {
         }
 
         let authority = credential.payload.provenance.authority.clone();
-        let agent = credential.payload.agent.clone();
 
         if self.bindings.contains_key(&authority) {
             return Ok(Err(HolochainAdapterBoundaryError::BindingRejected {
