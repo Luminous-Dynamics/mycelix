@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: identity-dsid-\${{ github.ref }}
+  group: identity-dsid-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -124,7 +124,7 @@ jobs:
       - name: Upload qualification evidence
         uses: actions/upload-artifact@v4
         with:
-          name: identity-dsid-qualification-\${{ github.sha }}
+          name: identity-dsid-qualification-${{ github.sha }}
           path: |
             dsid-lifecycle-evidence.txt
             dsid-lifecycle-evidence.jsonl
