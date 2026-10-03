@@ -233,6 +233,39 @@ impl DidDocumentView {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DidVerificationMethodWireView {
+    pub id: String,
+    #[serde(rename = "type")]
+    pub type_name: String,
+    pub controller: String,
+    #[serde(rename = "publicKeyMultibase")]
+    pub public_key_multibase: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DidServiceWireView {
+    pub id: String,
+    #[serde(rename = "type")]
+    pub type_name: String,
+    #[serde(rename = "serviceEndpoint")]
+    pub endpoint: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DidDocumentWireView {
+    #[serde(rename = "@context")]
+    pub context: Vec<String>,
+    pub id: String,
+    pub controller: String,
+    #[serde(rename = "verificationMethod")]
+    pub verification_methods: Vec<DidVerificationMethodWireView>,
+    pub authentication: Vec<String>,
+    #[serde(rename = "keyAgreement", skip_serializing_if = "Vec::is_empty")]
+    pub key_agreement: Vec<String>,
+    pub service: Vec<DidServiceWireView>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DidResolutionMetadataView {
     /// Media type of the returned DID Document representation.
     #[serde(rename = "contentType")]
@@ -253,7 +286,7 @@ pub struct DidDocumentMetadataView {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DidResolutionView {
     #[serde(rename = "didDocument")]
-    pub did_document: Option<DidDocumentView>,
+    pub did_document: Option<DidDocumentWireView>,
     #[serde(rename = "didResolutionMetadata")]
     pub resolution_metadata: DidResolutionMetadataView,
     #[serde(rename = "didDocumentMetadata")]
