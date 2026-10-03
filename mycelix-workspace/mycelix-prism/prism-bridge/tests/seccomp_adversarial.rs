@@ -42,6 +42,7 @@ fn child() -> ! {
     // Exercise the kernel syscall directly rather than the libc getppid()
     // wrapper: getppid() is specified as always-successful, so its wrapper
     // behavior is not the right boundary for proving a seccomp errno action.
+    disjunctive_stage(b"G-netlink-ok\n");
     let denied = unsafe { libc::syscall(libc::SYS_getppid) };
     let errno = std::io::Error::last_os_error().raw_os_error();
     if denied != -1 || errno != Some(libc::EPERM) {
@@ -105,6 +106,7 @@ fn child() -> ! {
         unsafe { libc::_exit(96) };
     }
 
+    disjunctive_stage(b"I-getpid-denied-ok\n");
     unsafe { libc::_exit(0) }
 }
 
@@ -201,6 +203,7 @@ fn parameter_predicate_child() -> ! {
     };
     let _ = unsafe { *libc::__errno_location() };
 
+    disjunctive_stage(b"B-pre-install\n");
     if install_v2(
         RendererProcessAssignmentId::new(4).unwrap(),
         profile,
@@ -320,6 +323,17 @@ fn seccomp_parameter_predicate_is_positive_and_negative() {
 }
 
 #[cfg(target_os = "linux")]
+fn disjunctive_stage(tag: &[u8]) {
+    let _ = unsafe {
+        libc::syscall(
+            libc::SYS_write,
+            libc::STDERR_FILENO,
+            tag.as_ptr(),
+            tag.len(),
+        )
+    };
+}
+
 fn disjunctive_socket_child() -> ! {
     use prism_bridge::process::{RendererProcessAssignmentId, SandboxProfileV1};
     use prism_bridge::seccomp::{
@@ -377,6 +391,7 @@ fn disjunctive_socket_child() -> ! {
     // harmless; the important observation after installation is whether the
     // syscall reaches the kernel (any non-EPERM result) or is denied by the
     // seccomp filter itself.
+    disjunctive_stage(b"A-pre-open\n");
     let seek_fd = unsafe {
         libc::open(
             c"/dev/null".as_ptr(),
@@ -420,6 +435,7 @@ fn disjunctive_socket_child() -> ! {
         unsafe { libc::_exit(143) };
     }
 
+    disjunctive_stage(b"C-post-install\n");
     let high_mismatch = unsafe {
         libc::syscall(
             libc::SYS_lseek,
@@ -433,6 +449,7 @@ fn disjunctive_socket_child() -> ! {
         unsafe { libc::_exit(144) };
     }
 
+    disjunctive_stage(b"D-high-mismatch-ok\n");
     let exact_match = unsafe {
         libc::syscall(
             libc::SYS_lseek,
@@ -446,12 +463,14 @@ fn disjunctive_socket_child() -> ! {
         unsafe { libc::_exit(145) };
     }
 
+    disjunctive_stage(b"E-exact-match-ok\n");
     let unix_socket =
         unsafe { libc::syscall(libc::SYS_socket, libc::AF_UNIX, libc::SOCK_STREAM, 0) };
     if unix_socket < 0 {
         unsafe { libc::_exit(140) };
     }
 
+    disjunctive_stage(b"F-unix-ok\n");
     let netlink_socket =
         unsafe { libc::syscall(libc::SYS_socket, libc::AF_NETLINK, libc::SOCK_DGRAM, 0) };
     if netlink_socket < 0 {
@@ -471,6 +490,7 @@ fn disjunctive_socket_child() -> ! {
         unsafe { libc::_exit(142) };
     }
 
+    disjunctive_stage(b"H-inet-denied-ok\n");
     let unlisted = unsafe { libc::syscall(libc::SYS_getpid) };
     let unlisted_errno = unsafe { *libc::__errno_location() };
     if unlisted != -1 || unlisted_errno != libc::EPERM {
