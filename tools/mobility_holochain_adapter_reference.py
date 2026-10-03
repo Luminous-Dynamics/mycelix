@@ -102,6 +102,10 @@ def main() -> int:
         "schema_fields_are_owned_strings": True,
         "explicit_try_from_roundtrip_tested": True,
         "verify_signature_remains_single_crypto_verifier": True,
+        "unknown_fields_rejected_by_v1": True,
+        "schema_identifier_is_signed": True,
+        "breaking_changes_require_new_schema_identifier": True,
+        "version_policy": "strict_v1",
     }
     for key, expected in expected_serialization_contract.items():
         if serialization_contract.get(key) != expected:
@@ -111,6 +115,11 @@ def main() -> int:
         "HolochainBindingAttestationPayload",
     ]:
         raise SystemExit("machine serialization contract payload list drifted")
+    if serialization_contract.get("unknown_field_tests") != [
+        "authority_agent_payload_rejects_unknown_wire_fields",
+        "binding_attestation_payload_rejects_unknown_wire_fields",
+    ]:
+        raise SystemExit("machine serialization contract unknown-field test list drifted")
 
     if "agent_for(&authority)" not in source:
         raise SystemExit("runtime binding must expose authority-agent lookup")
@@ -170,6 +179,8 @@ def main() -> int:
         raise SystemExit("canonical payload bytes must be decoded through the declared payload type")
     if "pub schema: String" not in source:
         raise SystemExit("signed payload schema identifiers must be owned Strings")
+    if source.count("#[serde(deny_unknown_fields)]") != 2:
+        raise SystemExit("both signed payload types must reject unknown wire fields")
 
     if "provenance: QualificationDependencyBindingProvenance" not in source:
         raise SystemExit("resolved dependencies must carry their provenance witness")
