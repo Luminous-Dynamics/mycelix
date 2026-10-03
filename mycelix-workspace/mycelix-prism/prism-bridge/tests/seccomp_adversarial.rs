@@ -533,12 +533,12 @@ fn maximum_dispatch_offset_child() -> ! {
         SeccompArchitecture::current().unwrap_or_else(|| unsafe { libc::_exit(150) });
 
     // Four clauses x four full-width MaskedNotEqual predicates is the
-    // compiler's maximum V2 rule-body shape: 4 * (4 * 7 + 1) = 116
-    // instructions. Make read() the first rule and write() the following
-    // unconditional rule. read < write < exit_group on all three supported
-    // Linux architectures, so the write() probe must take a 116-instruction
-    // forward jump. The final unconditional exit_group rule keeps the child
-    // termination path explicit and fail-closed.
+    // compiler's maximum V2 disjunctive rule-body shape:
+    // 4 * (4 * 6 + 1) = 100 instructions. Make read() the first rule and
+    // write() the following unconditional rule. read < write < exit_group
+    // on all three supported Linux architectures, so the write() probe must
+    // take a 100-instruction forward jump. The final unconditional
+    // exit_group rule keeps the child termination path explicit and fail-closed.
     let mut clauses = Vec::with_capacity(4);
     for clause_index in 0..4u64 {
         let mut predicates = Vec::with_capacity(4);
