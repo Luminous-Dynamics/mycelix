@@ -443,6 +443,7 @@ mod tests {
             &e,
             &d,
             &closure_profile,
+            &closure,
             &[],
             None,
         ));
@@ -455,6 +456,7 @@ mod tests {
             &e,
             &d,
             &wrong_profile,
+            &closure,
             &[],
             None,
         ));
