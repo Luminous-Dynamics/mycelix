@@ -24,6 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: myc-int-demo-d6w-layered-commitments
           submodules: recursive
 
       - uses: dtolnay/rust-toolchain@stable
@@ -38,6 +39,12 @@ jobs:
           mkdir -p evidence
           rustc -Vv > evidence/rustc-version.txt
           cargo -V > evidence/cargo-version.txt
+
+      - name: Capture tested baseline revision
+        if: always()
+        run: |
+          mkdir -p evidence
+          git rev-parse HEAD > evidence/tested-baseline-sha.txt
 
       - name: Test COS conformance baseline
         id: baseline_test
@@ -62,7 +69,9 @@ jobs:
             "schema": "MYCELIX-COS-CONFORMANCE-BASELINE-V1",
             "claim_ceiling": "ReferenceModelOnly",
             "repository": "${{ github.repository }}",
-            "commit_sha": "${{ github.sha }}",
+            "trigger_commit_sha": "${{ github.sha }}",
+            "tested_ref": "myc-int-demo-d6w-layered-commitments",
+            "tested_baseline_sha": "$(cat evidence/tested-baseline-sha.txt)",
             "workflow": "${{ github.workflow }}",
             "run_id": ${{ github.run_id }},
             "run_attempt": ${{ github.run_attempt }},
