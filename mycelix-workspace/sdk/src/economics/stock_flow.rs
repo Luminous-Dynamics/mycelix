@@ -662,6 +662,10 @@ impl EconomicState {
 
     /// Apply a monetary transfer while preserving aggregate monetary assets.
     pub fn apply_flow(&mut self, flow: &MonetaryFlow) -> Result<(), String> {
+        let next_flow_volume = self
+            .monetary_flow_volume
+            .checked_add(flow.amount)
+            .ok_or_else(|| "monetary flow counter overflow".to_string())?;
         let (sender, receiver) = self.actor_pair_mut(&flow.from, &flow.to)?;
         match flow.instrument {
             MonetaryInstrument::Cash => {
@@ -671,12 +675,13 @@ impl EconomicState {
                         sender.actor, sender.monetary.cash, flow.amount
                     ));
                 }
-                sender.monetary.cash -= flow.amount;
-                receiver.monetary.cash = receiver
+                let receiver_cash = receiver
                     .monetary
                     .cash
                     .checked_add(flow.amount)
                     .ok_or_else(|| "receiver cash overflow".to_string())?;
+                sender.monetary.cash -= flow.amount;
+                receiver.monetary.cash = receiver_cash;
             }
             MonetaryInstrument::Deposit => {
                 if sender.monetary.deposits < flow.amount {
@@ -685,18 +690,16 @@ impl EconomicState {
                         sender.actor, sender.monetary.deposits, flow.amount
                     ));
                 }
-                sender.monetary.deposits -= flow.amount;
-                receiver.monetary.deposits = receiver
+                let receiver_deposits = receiver
                     .monetary
                     .deposits
                     .checked_add(flow.amount)
                     .ok_or_else(|| "receiver deposit overflow".to_string())?;
+                sender.monetary.deposits -= flow.amount;
+                receiver.monetary.deposits = receiver_deposits;
             }
         }
-        self.monetary_flow_volume = self
-            .monetary_flow_volume
-            .checked_add(flow.amount)
-            .ok_or_else(|| "monetary flow counter overflow".to_string())?;
+        self.monetary_flow_volume = next_flow_volume;
         Ok(())
     }
 
@@ -938,6 +941,10 @@ impl EconomicState {
         &mut self,
         settlement: &TradeCreditSettlement,
     ) -> Result<(), String> {
+        let next_flow_volume = self
+            .monetary_flow_volume
+            .checked_add(settlement.amount)
+            .ok_or_else(|| "monetary flow counter overflow".to_string())?;
         let (seller, buyer) = self.actor_pair_mut(&settlement.seller, &settlement.buyer)?;
         if seller.monetary.trade_receivables < settlement.amount
             || buyer.monetary.trade_payables < settlement.amount
@@ -950,18 +957,16 @@ impl EconomicState {
                 buyer.actor, settlement.amount, buyer.monetary.deposits
             ));
         }
-        buyer.monetary.deposits -= settlement.amount;
-        seller.monetary.deposits = seller
+        let seller_deposits = seller
             .monetary
             .deposits
             .checked_add(settlement.amount)
             .ok_or_else(|| "seller deposit overflow".to_string())?;
+        buyer.monetary.deposits -= settlement.amount;
+        seller.monetary.deposits = seller_deposits;
         seller.monetary.trade_receivables -= settlement.amount;
         buyer.monetary.trade_payables -= settlement.amount;
-        self.monetary_flow_volume = self
-            .monetary_flow_volume
-            .checked_add(settlement.amount)
-            .ok_or_else(|| "monetary flow counter overflow".to_string())?;
+        self.monetary_flow_volume = next_flow_volume;
         Ok(())
     }
 
@@ -971,72 +976,83 @@ impl EconomicState {
     /// borrower records the deposit asset and the matching debt liability.
     /// This is the minimal private-money representation of loan creation.
     pub fn create_credit(&mut self, credit: &CreditCreation) -> Result<(), String> {
+        let next_credit_created = self
+            .credit_created
+            .checked_add(credit.amount)
+            .ok_or_else(|| "credit counter overflow".to_string())?;
         let (lender, borrower) = self.actor_pair_mut(&credit.lender, &credit.borrower)?;
-        lender.monetary.claims = lender
+        let lender_claims = lender
             .monetary
             .claims
             .checked_add(credit.amount)
             .ok_or_else(|| "lender claim overflow".to_string())?;
-        lender.monetary.deposit_liabilities = lender
+        let lender_deposit_liabilities = lender
             .monetary
             .deposit_liabilities
             .checked_add(credit.amount)
             .ok_or_else(|| "deposit liability overflow".to_string())?;
-        borrower.monetary.deposits = borrower
+        let borrower_deposits = borrower
             .monetary
             .deposits
             .checked_add(credit.amount)
             .ok_or_else(|| "borrower deposit overflow".to_string())?;
-        borrower.monetary.liabilities = borrower
+        let borrower_liabilities = borrower
             .monetary
             .liabilities
             .checked_add(credit.amount)
             .ok_or_else(|| "borrower liability overflow".to_string())?;
-        self.credit_created = self
-            .credit_created
-            .checked_add(credit.amount)
-            .ok_or_else(|| "credit counter overflow".to_string())?;
+        lender.monetary.claims = lender_claims;
+        lender.monetary.deposit_liabilities = lender_deposit_liabilities;
+        borrower.monetary.deposits = borrower_deposits;
+        borrower.monetary.liabilities = borrower_liabilities;
+        self.credit_created = next_credit_created;
         Ok(())
     }
 
     /// Retire a debt claim after receiving repayment.
     pub fn repay_debt(&mut self, repayment: &DebtRepayment) -> Result<(), String> {
+        let next_debt_repaid = self
+            .debt_repaid
+            .checked_add(repayment.amount)
+            .ok_or_else(|| "repayment counter overflow".to_string())?;
         let (lender, borrower) =
             self.actor_pair_mut(&repayment.lender, &repayment.borrower)?;
-
         if borrower.monetary.liabilities < repayment.amount
             || lender.monetary.claims < repayment.amount
         {
             return Err("repayment exceeds outstanding debt claim".into());
         }
 
-        if borrower.monetary.deposits >= repayment.amount {
+        let lender_cash = if borrower.monetary.deposits >= repayment.amount {
             if lender.monetary.deposit_liabilities < repayment.amount {
                 return Err("deposit repayment requires a matching lender deposit liability".into());
             }
-            borrower.monetary.deposits -= repayment.amount;
-            lender.monetary.deposit_liabilities -= repayment.amount;
+            None
         } else if borrower.monetary.cash >= repayment.amount {
-            borrower.monetary.cash -= repayment.amount;
-            lender.monetary.cash = lender
-                .monetary
-                .cash
-                .checked_add(repayment.amount)
-                .ok_or_else(|| "lender cash overflow".to_string())?;
+            Some(
+                lender
+                    .monetary
+                    .cash
+                    .checked_add(repayment.amount)
+                    .ok_or_else(|| "lender cash overflow".to_string())?,
+            )
         } else {
             return Err(format!(
                 "borrower {} cannot repay {} with deposits={} and cash={}",
                 borrower.actor, repayment.amount, borrower.monetary.deposits, borrower.monetary.cash
             ));
-        }
+        };
 
+        if lender_cash.is_none() {
+            borrower.monetary.deposits -= repayment.amount;
+            lender.monetary.deposit_liabilities -= repayment.amount;
+        } else {
+            borrower.monetary.cash -= repayment.amount;
+            lender.monetary.cash = lender_cash.unwrap();
+        }
         borrower.monetary.liabilities -= repayment.amount;
         lender.monetary.claims -= repayment.amount;
-
-        self.debt_repaid = self
-            .debt_repaid
-            .checked_add(repayment.amount)
-            .ok_or_else(|| "repayment counter overflow".to_string())?;
+        self.debt_repaid = next_debt_repaid;
         Ok(())
     }
 
@@ -1427,6 +1443,49 @@ mod tests {
         assert_eq!(s.aggregate_assets(), 1_000);
         assert_eq!(s.actors[0].monetary.cash, 750);
         assert_eq!(s.actors[1].monetary.cash, 250);
+    }
+
+    #[test]
+    fn financial_flow_overflow_is_atomic() {
+        let mut s = state();
+        s.actors.iter_mut().find(|a| a.actor == "household").unwrap().monetary.cash = i128::MAX;
+        s.actors.iter_mut().find(|a| a.actor == "bank").unwrap().monetary.cash = 1;
+        let before = s.clone();
+        assert!(s.apply_flow(&MonetaryFlow::new("bank", "household", 1).unwrap()).is_err());
+        assert_eq!(s, before);
+    }
+
+    #[test]
+    fn credit_creation_overflow_is_atomic() {
+        let mut s = state();
+        let lender = s.actors.iter_mut().find(|a| a.actor == "bank").unwrap();
+        lender.monetary.claims = i128::MAX - 1;
+        lender.monetary.deposit_liabilities = i128::MAX;
+        let before = s.clone();
+        assert!(s.create_credit(&CreditCreation::new("bank", "firm", 1).unwrap()).is_err());
+        assert_eq!(s, before);
+    }
+
+    #[test]
+    fn debt_repayment_counter_overflow_is_atomic() {
+        let mut s = state();
+        s.create_credit(&CreditCreation::new("bank", "household", 10).unwrap()).unwrap();
+        s.debt_repaid = i128::MAX;
+        let before = s.clone();
+        assert!(s.repay_debt(&DebtRepayment::new("bank", "household", 1).unwrap()).is_err());
+        assert_eq!(s, before);
+    }
+
+    #[test]
+    fn trade_credit_settlement_overflow_is_atomic() {
+        let mut s = state();
+        s.actors.iter_mut().find(|a| a.actor == "firm").unwrap().monetary.deposits = i128::MAX;
+        s.actors.iter_mut().find(|a| a.actor == "firm").unwrap().monetary.trade_receivables = 1;
+        s.actors.iter_mut().find(|a| a.actor == "household").unwrap().monetary.deposits = 1;
+        s.actors.iter_mut().find(|a| a.actor == "household").unwrap().monetary.trade_payables = 1;
+        let before = s.clone();
+        assert!(s.apply_trade_credit_settlement(&TradeCreditSettlement::new("firm", "household", 1).unwrap()).is_err());
+        assert_eq!(s, before);
     }
 
     #[test]
