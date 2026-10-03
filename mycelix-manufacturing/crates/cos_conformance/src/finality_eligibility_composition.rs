@@ -21,7 +21,7 @@
 use crate::contestable_finality::{
     verify_observation_set_assessment_provenance, verify_observation_set_provenance, ExternalObservedEvidenceV1,
     ExternalObservationSetV1, FinalityQualificationProfileV1, ObservationClassificationV1,
-    ObservationSetAssessmentV1, CONTESTABLE_FINALITY_CLAIM_CEILING,
+    ObservationSetAssessmentV1, ObservationSetDispositionV1, CONTESTABLE_FINALITY_CLAIM_CEILING,
 };
 use crate::observer_lifecycle::{
     verify_eligibility_receipt_provenance,
@@ -809,7 +809,7 @@ fn witness_from(
     lifecycle_profile_id: &str,
     current_frontier_root: &str,
 ) -> FinalityWitnessEligibilityV1 {
-    FinalityWitnessEligibilityV1 {
+    let mut witness = FinalityWitnessEligibilityV1 {
         observation_id: assessment.observation_id.clone(),
         observer_id: assessment.observer_id.clone(),
         observer_generation_id: receipt.map(|r| r.observer_generation_id.clone()),
@@ -863,14 +863,14 @@ pub fn verify_witness_join_binding(
     if witness.observation_id != assessment.observation_id
         || witness.observation_id != observation.observation_id
         || witness.observer_id != assessment.observer_id
-        || witness.observer_id != observation.observer_id
+        || witness.observer_id != evidence.observer.observer_id
         || witness.d6n_observation_set_id != set.set_id
         || witness.d6n_observation_set_commitment != set.set_commitment
         || witness.d6n_assessment_item_commitment != assessment.assessment_commitment
         || witness.d6n_classification != assessment.classification
         || assessment.observation_commitment != observation.observation_commitment
-        || assessment.evidence_root != observation.observer.evidence_root
-        || assessment.custody_root != observation.observer.custody_root
+        || assessment.evidence_root != evidence.observer.evidence_root
+        || assessment.custody_root != evidence.observer.custody_root
         || !observation_matches_set(evidence, set)
         || witness.observation_frontier_root != set.observation_frontier_root
         || witness.current_frontier_root != current_frontier_root
@@ -891,7 +891,7 @@ pub fn verify_witness_join_binding(
                 && receipt.observation_id == observation.observation_id
                 && receipt.observer_id == observation.observer_id
                 && receipt.classification == assessment.classification
-                && receipt.observation_profile_id == observation.observer.observation_profile_id
+                && receipt.observation_profile_id == evidence.observer.observation_profile_id
                 && receipt.semantic_environment_root == set.semantic_environment_root
                 && receipt.observation_frontier_root == set.observation_frontier_root
                 && receipt.current_frontier_root == current_frontier_root
@@ -1359,7 +1359,7 @@ pub fn compose_finality_eligibility_from_authoritative_d6o(
     let composition = compose_finality_eligibility(
         set,
         assessment,
-        evidence_by_id.values().copied().collect::<Vec<_>>().as_slice(),
+        evidence_by_id.values().cloned().collect::<Vec<_>>().as_slice(),
         &authoritative_receipts,
         lifecycle_profile.profile_id.as_str(),
         current_frontier_root,
@@ -1607,7 +1607,7 @@ mod tests {
     #[test]
     fn ledger_witness_registry_rejects_cross_frontier_replacement() {
         let composition = matching_composition();
-        let witness = composition.witnesses[0].clone();
+        let mut witness = composition.witnesses[0].clone();
         let mut replay = witness.clone();
         replay.current_frontier_root = "frontier-replayed".into();
         replay.observation_frontier_root = "frontier-replayed".into();
@@ -1827,8 +1827,10 @@ mod tests {
         assert!(!mutated.commitment_matches());
     }
     use crate::contestable_finality::{
-        ExternalObserverProfileV1, ExternalObservedStateV1, ExternalObservationSourceV1,
-        ExternalObserverRoleV1, ObservationAssessmentV1, ObservationSetDispositionV1,
+        ExternalObserverProfileV1, ExternalObserverRoleV1, ObservationAssessmentV1, ObservationSetDispositionV1,
+    };
+    use crate::effect_finality::{
+        ExternalEffectObservationV1, ExternalObservedStateV1, ExternalObservationSourceV1,
     };
     use crate::observer_lifecycle::{
         EvidenceDependencySnapshotV1, ObserverGenerationV1, ObserverLifecycleLedgerV1,
@@ -3766,7 +3768,7 @@ mod tests {
 
     #[test]
     fn lifecycle_evidence_alone_cannot_establish_finality() {
-        let witness = FinalityWitnessEligibilityV1 {
+        let mut witness = FinalityWitnessEligibilityV1 {
             observation_id: "obs-1".into(),
             observer_id: "observer-A".into(),
             observer_generation_id: Some("generation-1".into()),
