@@ -939,6 +939,94 @@ mod tests {
     }
 }
 
+/// Arm the recovery time lock after a DHT-derived quorum reaches threshold.
+///
+/// Only the original recovery-request author can mutate the RecoveryRequest.
+/// This explicit step bridges the cross-agent quorum observation with
+/// Holochain's source-chain authorship model. The final protocol is expected
+/// to replace this mutable request update with an immutable readiness record.
+#[hdk_extern]
+pub fn arm_recovery_time_lock(request_id: String) -> ExternResult<Record> {
+    if request_id.is_empty() || request_id.len() > 256 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Request ID must be 1-256 characters".into()
+        )));
+    }
+
+    let request_record = get_recovery_request(request_id.clone())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Recovery request not found".into()
+        )))?;
+    let caller = agent_info()?.agent_initial_pubkey;
+    if request_record.action().author() != &caller {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only the original recovery-request author can arm the time lock".into()
+        )));
+    }
+
+    let request: RecoveryRequest = request_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Invalid recovery request record".into()
+        )))?;
+
+    if request.status == RecoveryStatus::Approved && request.time_lock_expires.is_some() {
+        return Ok(request_record);
+    }
+
+    if request.status != RecoveryStatus::Pending || request.time_lock_expires.is_some() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Recovery request is not in an armable pending state".into()
+        )));
+    }
+
+    let status = get_recovery_status(request_id.clone())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Recovery quorum state not found".into()
+        )))?;
+
+    if status.status != RecoveryStatus::Approved {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Recovery quorum is not approved (current derived status: {:?})",
+            status.status
+        )));
+    }
+
+    let config_record = get_recovery_config(request.did.clone())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Recovery configuration not found".into()
+        )))?;
+    let config: RecoveryConfig = config_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Invalid recovery configuration".into()
+        )))?;
+
+    let now = sys_time()?;
+    let expires = Timestamp::from_micros(
+        now.as_micros() + (config.time_lock as i64 * 1_000_000),
+    );
+
+    let approved = RecoveryRequest {
+        status: RecoveryStatus::Approved,
+        time_lock_expires: Some(expires),
+        ..request
+    };
+
+    let action_hash = update_entry(
+        request_record.action_address().clone(),
+        &EntryTypes::RecoveryRequest(approved),
+    )?;
+
+    get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Could not find armed recovery request".into()
+    )))
+}
+
 /// Execute recovery (after time lock)
 #[hdk_extern]
 pub fn execute_recovery(request_id: String) -> ExternResult<Record> {
@@ -947,32 +1035,13 @@ pub fn execute_recovery(request_id: String) -> ExternResult<Record> {
             "Request ID must be 1-256 characters".into()
         )));
     }
-    // Find the request
-    let filter = ChainQueryFilter::new()
-        .entry_type(EntryType::App(AppEntryDef::try_from(
-            UnitEntryTypes::RecoveryRequest,
-        )?))
-        .include_entries(true);
 
-    let records = query(filter)?;
-
-    let mut request_record: Option<Record> = None;
-    for record in records {
-        if let Some(req) = record
-            .entry()
-            .to_app_option::<RecoveryRequest>()
-            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-        {
-            if req.id == request_id {
-                // Keep iterating — update_entry appends newer versions later in the chain
-                request_record = Some(record);
-            }
-        }
-    }
-
-    let current_record = request_record.ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Recovery request not found".into()
-    )))?;
+    // Resolve through the DHT request index so the designated replacement
+    // agent can execute a recovery that originated on another agent's chain.
+    let current_record = get_recovery_request(request_id.clone())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Recovery request not found".into()
+        )))?;
 
     let current_request: RecoveryRequest = current_record
         .entry()
