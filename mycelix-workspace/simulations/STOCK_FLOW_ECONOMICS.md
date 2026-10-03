@@ -980,6 +980,26 @@ This establishes a useful invariant for transported evidence:
 A recomputed hash is therefore not sufficient to make malformed evidence acceptable at the chain
 boundary; the structure must also satisfy the same identity rules used by normal construction.
 
+## Canonical mutation coverage and legacy boundary closure (implemented)
+
+The accounting replay layer now has one transition-to-state mutation dispatcher across the execution
+and reconciliation surfaces. The v2 physical-aware reconciliation path and the legacy financial
+reconciliation path both delegate state replay to EconomicTransition::apply_to_state rather than
+maintaining private mutation match trees.
+
+The legacy reconciliation API remains intentionally narrower: it only certifies its explicitly
+modeled monetary transitions (monetary transfer, credit creation, and debt repayment). All other
+transition variants are now rejected at that boundary instead of being accepted with an incomplete
+posting projection. This is especially important as the transition enum grows: adding a new
+transition cannot silently produce a plausible-looking but under-specified legacy reconciliation.
+
+The resulting rule is:
+
+transition domain validation -> explicit reconciliation-scope check -> canonical mutation dispatch -> posting comparison
+
+This closes a compile-time/maintenance seam and a semantic under-posting seam at the same time,
+while preserving the legacy API's compatibility boundary.
+
 ## Static compile seam closure (implemented)
 
 The hardening pass also surfaced and corrected a syntactic defect in the sector transaction
