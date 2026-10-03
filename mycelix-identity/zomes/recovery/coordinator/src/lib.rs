@@ -1155,10 +1155,17 @@ pub struct SelfRecoveryConfigView {
 }
 
 fn mask_anchor(value: &str) -> String {
-    if value.len() <= 12 {
-        return format!("{}…", &value[..value.len().min(4)]);
+    let chars: Vec<char> = value.chars().collect();
+    if chars.len() <= 12 {
+        let prefix: String = chars.iter().take(4).collect();
+        return format!("{prefix}…");
     }
-    format!("{}…{}", &value[..8], &value[value.len() - 4..])
+    let prefix: String = chars.iter().take(8).collect();
+    let suffix: String = chars.iter().rev().take(4).collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect();
+    format!("{prefix}…{suffix}")
 }
 
 fn self_recovery_anchor_view(anchor: VerificationAnchor) -> SelfRecoveryAnchorView {
