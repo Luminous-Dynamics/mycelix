@@ -330,7 +330,7 @@ impl DependencyClosureCertificateV1 {
         }
     }
 
-    fn expected_dependencies(&self) -> BTreeSet<SemanticDependencyReferenceV1> {
+    pub(crate) fn expected_dependencies(&self) -> BTreeSet<SemanticDependencyReferenceV1> {
         let mut expected = BTreeSet::new();
         expected.extend(
             self.included_nodes
