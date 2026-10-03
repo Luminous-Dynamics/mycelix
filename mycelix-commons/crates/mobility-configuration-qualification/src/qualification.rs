@@ -692,6 +692,46 @@ mod tests {
             Some(true)
         );
 
+        let authority_binding = document
+            .get("authority_agent_binding")
+            .expect("adapter contract must declare authority-agent binding");
+        assert_eq!(
+            authority_binding
+                .get("registry_type")
+                .and_then(serde_json::Value::as_str),
+            Some("HolochainAuthorityAgentBindingSet")
+        );
+        assert_eq!(
+            authority_binding
+                .get("issuer_must_equal_agent")
+                .and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(
+            authority_binding
+                .get("authority_must_be_present_before_runtime_binding")
+                .and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(
+            authority_binding
+                .get("one_agent_per_authority")
+                .and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(
+            authority_binding
+                .get("signer_must_match_registered_agent")
+                .and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(
+            authority_binding
+                .get("domain_provenance_remains_required")
+                .and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+
         let cryptographic = document
             .get("cryptographic_attestation")
             .expect("adapter contract must declare cryptographic attestation");
