@@ -623,9 +623,12 @@ mod linux {
                         }
                         SeccompArgPredicateOpV1::MaskedNotEqual => {
                             if low_mask != 0 && high_mask != 0 {
+                                let high_body_len = usize::from(high_mask != 0) * 4;
+                                let low_mismatch_skip = u8::try_from(high_body_len)
+                                    .map_err(|_| SeccompError::FilterTooLarge)?;
                                 filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base));
                                 filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, low_mask));
-                                filter.push(jump_eq(low_value, 0, 4));
+                                filter.push(jump_eq(low_value, 0, low_mismatch_skip));
                                 filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, base + 4));
                                 filter.push(stmt(BPF_ALU | BPF_AND | BPF_K, high_mask));
                                 filter.push(jump_eq(high_value, 0, 1));
@@ -2000,22 +2003,60 @@ mod linux {
         #[test]
         fn compiled_filter_requires_exact_forecasted_length() {
             let arch = SeccompArchitecture::current().unwrap();
-            let predicate = SeccompArgPredicateV1::new_with_op(
-                0,
-                u64::MAX,
-                0x0000_0001_0000_0001,
-                SeccompArgPredicateOpV1::MaskedNotEqual,
-            )
-            .unwrap();
-            let rule = SeccompSyscallRuleV2::new(libc::SYS_socket, vec![predicate]).unwrap();
-            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
-            let filter = compile_filter_v2(&policy).unwrap();
-            validate_compiled_filter(&filter).unwrap();
+            let cases = [
+                (
+                    0x0000_0000_0000_00ff,
+                    0x0000_0000_0000_0001,
+                    SeccompArgPredicateOpV1::MaskedEqual,
+                    4usize,
+                ),
+                (
+                    0xffff_ffff_0000_0000,
+                    0x0000_0001_0000_0000,
+                    SeccompArgPredicateOpV1::MaskedEqual,
+                    4usize,
+                ),
+                (
+                    u64::MAX,
+                    0x0000_0001_0000_0001,
+                    SeccompArgPredicateOpV1::MaskedEqual,
+                    8usize,
+                ),
+                (
+                    0x0000_0000_0000_00ff,
+                    0x0000_0000_0000_0001,
+                    SeccompArgPredicateOpV1::MaskedNotEqual,
+                    4usize,
+                ),
+                (
+                    0xffff_ffff_0000_0000,
+                    0x0000_0001_0000_0000,
+                    SeccompArgPredicateOpV1::MaskedNotEqual,
+                    4usize,
+                ),
+                (
+                    u64::MAX,
+                    0x0000_0001_0000_0001,
+                    SeccompArgPredicateOpV1::MaskedNotEqual,
+                    7usize,
+                ),
+            ];
 
-            // The full-width MaskedNotEqual path is intentionally seven
-            // instructions (low body 3 + high body 4), not eight. The emitted
-            // program and accounting forecast must remain identical.
-            assert_eq!(filter.len(), if arch == SeccompArchitecture::X86_64 { 16 } else { 14 });
+            for (mask, value, op, predicate_len) in cases {
+                let predicate =
+                    SeccompArgPredicateV1::new_with_op(0, mask, value, op).unwrap();
+                let rule = SeccompSyscallRuleV2::new(libc::SYS_socket, vec![predicate]).unwrap();
+                let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+                let filter = compile_filter_v2(&policy).unwrap();
+                validate_compiled_filter(&filter).unwrap();
+
+                let expected = if arch == SeccompArchitecture::X86_64 {
+                    9 + predicate_len
+                } else {
+                    7 + predicate_len
+                };
+                assert_eq!(filter.len(), expected);
+            }
         }
 
         #[test]
