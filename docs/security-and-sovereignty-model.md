@@ -106,7 +106,7 @@ The bridge kernel now has an optional Ed25519 path behind the existing identity 
 
 - Capability signing bytes use explicit domain separation and length framing rather than JSON serialization.
 - Capability actions are canonicalized as a set at construction; duplicate actions are rejected.
-- Deserialized capabilities are structurally revalidated at the verification boundary, so serialization/deserialization cannot bypass constructor invariants.
+- Capability wire decoding is constructor-gated through Serde `try_from`, so invalid capabilities cannot exist merely because they came from serialized input; verification still revalidates the structural invariants at the trust boundary.
 - `AuthorizationRequest` likewise uses a Serde `try_from` boundary, so deserialized requests must satisfy the same non-empty and size-bounded constructor invariants as programmatically created requests.
 - SignedCapability provides signing and signature verification when the identity feature is enabled.
 - The verifier can additionally bind the signature to an expected issuer public key; this is key binding, not institutional authorization. The authority layer must still prove that the expected key is authorized for the issuer and that the authority grant remains current.
