@@ -1822,6 +1822,54 @@ mod tests {
     }
 
     #[test]
+    fn attempt_identity_is_scoped_to_its_logical_delivery() {
+        let mut state = nodes();
+
+        let first = envelope();
+        assert_eq!(
+            deliver(&mut state, &first, 50, true).decision(),
+            FederationDecision::AcceptedLocal
+        );
+
+        let mut second = envelope();
+        second.envelope_id = "env-second-attempt-scope".into();
+        second.logical_delivery_id = "delivery-second-attempt-scope".into();
+        // Deliberately reuse the attempt ID across distinct logical deliveries.
+        second.attempt_id = first.attempt_id.clone();
+
+        assert_eq!(
+            deliver(&mut state, &second, 50, true).decision(),
+            FederationDecision::AcceptedLocal
+        );
+        assert_eq!(state.delivery_count(), 2);
+        assert_eq!(state.observation_count(), 2);
+        assert!(attempt_history_matches_bindings(
+            state.delivery("delivery-1").unwrap()
+        ));
+        assert!(attempt_history_matches_bindings(
+            state.delivery("delivery-second-attempt-scope").unwrap()
+        ));
+        assert_eq!(
+            state
+                .delivery("delivery-1")
+                .unwrap()
+                .attempt_envelope_ids
+                .get(&first.attempt_id)
+                .map(String::as_str),
+            Some(first.envelope_id.as_str())
+        );
+        assert_eq!(
+            state
+                .delivery("delivery-second-attempt-scope")
+                .unwrap()
+                .attempt_envelope_ids
+                .get(&second.attempt_id)
+                .map(String::as_str),
+            Some(second.envelope_id.as_str())
+        );
+    }
+
+    #[test]
     fn attempt_identity_cannot_rebind_to_a_different_envelope() {
         let mut state = nodes();
         let original = envelope();
