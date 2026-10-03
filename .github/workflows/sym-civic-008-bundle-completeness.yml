@@ -1,0 +1,60 @@
+name: SYM-CIVIC-008 Bundle Completeness
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'mycelix-workspace/docs/civic-resilience/sym_civic_008_bundle_completeness.json'
+      - 'mycelix-workspace/docs/civic-resilience/SYM_CIVIC_008_BUNDLE_COMPLETENESS_V1.md'
+      - 'scripts/qualification/sym_civic_008_bundle_completeness_v1.py'
+      - '.github/workflows/sym-civic-008-bundle-completeness.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  qualify:
+    name: Bundle completeness and monotonicity boundary
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Exact ancestry and clean subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='e9874e38640d5678bf22aa2e663afce71cb870b0'
+          test "$(git merge-base HEAD "$EXPECTED_PARENT")" = "$EXPECTED_PARENT"
+          printf 'HEAD=%s\nPARENT=%s\nMERGE_BASE=%s\n' "$(git rev-parse HEAD)" "$EXPECTED_PARENT" "$(git merge-base HEAD "$EXPECTED_PARENT")"
+          test -z "$(git status --short)"
+      - name: Exact bundle tranche
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='e9874e38640d5678bf22aa2e663afce71cb870b0'
+          git diff --check "$EXPECTED_PARENT" HEAD
+          expected=' .github/workflows/sym-civic-008-bundle-completeness.yml
+          mycelix-workspace/docs/civic-resilience/SYM_CIVIC_008_BUNDLE_COMPLETENESS_V1.md
+          mycelix-workspace/docs/civic-resilience/sym_civic_008_bundle_completeness.json
+          scripts/qualification/sym_civic_008_bundle_completeness_v1.py'
+          expected="${expected# }"
+          actual="$(git diff --name-only "$EXPECTED_PARENT" HEAD | sort)"
+          test "$actual" = "$expected"
+      - name: Compile qualifier
+        run: python3 -c 'from pathlib import Path; compile(Path("scripts/qualification/sym_civic_008_bundle_completeness_v1.py").read_text(encoding="utf-8"), "sym_civic_008_bundle_completeness_v1.py", "exec")'
+      - name: Execute qualifier
+        run: python3 scripts/qualification/sym_civic_008_bundle_completeness_v1.py
+      - name: Static no-runtime audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='e9874e38640d5678bf22aa2e663afce71cb870b0'
+          changed="$(git diff --name-only "$EXPECTED_PARENT" HEAD)"
+          if printf '%s' "$changed" | grep -E '[.]rs$|[.]toml$|[.]lock$'; then
+            echo 'SYM-CIVIC-008 is research provenance only' >&2
+            exit 1
+          fi
+      - name: Immutable checkout postflight
+        run: test -z "$(git status --short)"
