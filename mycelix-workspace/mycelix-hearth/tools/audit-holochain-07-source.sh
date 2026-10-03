@@ -402,6 +402,59 @@ check_dangerous_operation_catchalls() {
     fi
   done
 }
+# Runtime semantic-validation qualification must remain wired into the test crate.
+# This is a structural gate only: the ignored Sweettests still provide the actual
+# runtime evidence once executed in the pinned conductor environment.
+check_semantic_validation_suite_wiring() {
+  local tests_root="mycelix-workspace/mycelix-hearth/tests"
+  local manifest="$tests_root/hearth-07-semantic-validation-cases.json"
+  local rust_test="$tests_root/sweettest_semantic_validation.rs"
+  local cargo_manifest="$tests_root/Cargo.toml"
+
+  for required in "$manifest" "$rust_test" "$cargo_manifest"; do
+    if [[ ! -f "$required" ]]; then
+      echo "FAIL: missing Hearth semantic-validation qualification file: $required"
+      fail=1
+    fi
+  done
+
+  if [[ -f "$manifest" ]]; then
+    check_present_any "Hearth semantic-validation case schema" '"schema_version"[[:space:]]*:[[:space:]]*"HEARTH-SEMANTIC-0.7-CASESET-1"'
+    check_present_any "Hearth semantic-validation runtime claim ceiling" 'RuntimeQualificationPending'
+    for case_id in SEM-01 SEM-02 SEM-03; do
+      if rg -n --fixed-strings "\"case_id\": \"$case_id\"" "$manifest" >/dev/null 2>&1; then
+        echo "OK:   semantic-validation manifest contains $case_id"
+      else
+        echo "FAIL: semantic-validation manifest missing $case_id"
+        fail=1
+      fi
+    done
+  fi
+
+  if [[ -f "$cargo_manifest" ]]; then
+    if rg -n --pcre2 'name[[:space:]]*=[[:space:]]*"sweettest_semantic_validation"' "$cargo_manifest" >/dev/null 2>&1; then
+      echo "OK:   semantic-validation Sweettest is registered in tests/Cargo.toml"
+    else
+      echo "FAIL: semantic-validation Sweettest is not registered in tests/Cargo.toml"
+      fail=1
+    fi
+  fi
+
+  if [[ -f "$rust_test" ]]; then
+    for test_name in \
+      test_invalid_decision_entry_reaches_integrity_validation \
+      test_invalid_resource_entry_reaches_integrity_validation \
+      test_invalid_story_entry_reaches_integrity_validation; do
+      if rg -n --pcre2 "\basync[[:space:]]+fn[[:space:]]+$test_name\b" "$rust_test" >/dev/null 2>&1; then
+        echo "OK:   semantic-validation test is present: $test_name"
+      else
+        echo "FAIL: semantic-validation test is missing: $test_name"
+        fail=1
+      fi
+    done
+  fi
+}
+
 # Dependency retrieval semantics: must_get_action only proves retrieval; it does not prove
 # that the referenced record passed application validation. Update/delete authorization
 # therefore uses must_get_valid_record before trusting the referenced author. Valid-record
@@ -451,6 +504,8 @@ check_immutable_dependency_semantics() {
   fi
   echo "OK:   $file immutable-field dependency semantics"
 }
+
+check_semantic_validation_suite_wiring
 
 for file in "${integrity_files[@]}"; do
   check_create_record_coverage "$file"
