@@ -1307,6 +1307,7 @@ mod tests {
         claim_ceiling: String,
         generation_note: String,
         vectors: Vec<GoldenVectorV1>,
+        fixtures: GoldenFixturesV1,
         recipe_contract: GoldenRecipeContractV1,
     }
 
@@ -1327,6 +1328,15 @@ mod tests {
         baseline_projection: String,
         mutation_semantics: String,
         cross_runtime_rule: String,
+        semantic_derivation: String,
+    }
+
+    #[derive(Debug, Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct GoldenFixturesV1 {
+        baseline_projection: serde_json::Value,
+        semantic_environment: serde_json::Value,
+        derivation_profile: serde_json::Value,
     }
 
     #[derive(Debug, Deserialize)]
@@ -1393,9 +1403,16 @@ mod tests {
         assert_eq!(corpus.certificate_domain, "d6x-dependency-closure");
         assert_eq!(corpus.claim_ceiling, D6X_CLAIM_CEILING);
         assert!(!corpus.generation_note.is_empty());
+        assert!(corpus
+            .fixtures
+            .baseline_projection
+            .is_object());
+        assert!(corpus.fixtures.semantic_environment.is_object());
+        assert!(corpus.fixtures.derivation_profile.is_object());
         assert!(!corpus.recipe_contract.baseline_projection.is_empty());
         assert!(!corpus.recipe_contract.mutation_semantics.is_empty());
         assert!(!corpus.recipe_contract.cross_runtime_rule.is_empty());
+        assert!(!corpus.recipe_contract.semantic_derivation.is_empty());
 
         let ids = corpus
             .vectors
