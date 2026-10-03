@@ -5114,6 +5114,27 @@ mod tests {
         let document: serde_json::Value =
             serde_json::from_str(&corpus).expect("disposition corpus must be valid JSON");
 
+        let outcome_classes = document
+            .get("outcome_classes")
+            .and_then(serde_json::Value::as_array)
+            .expect("disposition corpus must declare outcome classes");
+        let actual_outcomes: Vec<_> = outcome_classes
+            .iter()
+            .filter_map(serde_json::Value::as_str)
+            .collect();
+        assert_eq!(
+            actual_outcomes,
+            vec![
+                "accepted",
+                "rejected",
+                "typed_structural_error",
+                "unresolved_at_protocol_layer",
+                "explicit_branch",
+                "not_silently_collapsed",
+                "adapter_boundary_error",
+            ]
+        );
+
         let vectors = document
             .get("vectors")
             .and_then(serde_json::Value::as_array)
