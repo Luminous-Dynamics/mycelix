@@ -589,9 +589,14 @@ mod linux {
         }
 
         for rule in &policy.rules {
+            // The forecast is retained for budgeting, but the security-critical
+            // dispatch offset is derived from the bytes actually emitted. This
+            // prevents an instruction-accounting drift from redirecting control
+            // flow even if a future emitter change forgets to update the forecast.
             let body_len = rule_body_instruction_count(rule);
-            let body_jump = u8::try_from(body_len).map_err(|_| SeccompError::FilterTooLarge)?;
-            filter.push(jump_eq(rule.syscall as u32, 0, body_jump));
+            let dispatch_index = filter.len();
+            filter.push(jump_eq(rule.syscall as u32, 0, 0));
+            let body_start = filter.len();
 
             if !rule.is_disjunctive() {
                 for predicate in rule.predicates() {
@@ -734,6 +739,17 @@ mod linux {
                     filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_ALLOW));
                 }
             }
+
+            let actual_body_len = filter
+                .len()
+                .checked_sub(body_start)
+                .ok_or(SeccompError::CompilerInvariantViolation)?;
+            if actual_body_len != body_len {
+                return Err(SeccompError::CompilerInvariantViolation);
+            }
+            let body_jump = u8::try_from(actual_body_len)
+                .map_err(|_| SeccompError::FilterTooLarge)?;
+            filter[dispatch_index].jf = body_jump;
         }
         filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_ERRNO | libc::EPERM as u32));
         if filter.len() != instruction_count {
