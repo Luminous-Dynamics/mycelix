@@ -100,6 +100,8 @@ jobs:
             echo "hearth_cargo_lock=$(sha256sum Cargo.lock | awk '{print $1}')"
             echo "tests_cargo_lock=$(sha256sum tests/Cargo.lock | awk '{print $1}')"
           } > qualification-cargo-lock-summary.txt
+          nix develop .#ci --impure --command cargo metadata --locked --format-version 1 > qualification-cargo-metadata.json
+          nix develop .#ci --impure --command bash -c 'cd tests && cargo metadata --locked --format-version 1' > tests/qualification-cargo-metadata.json
 
       - name: Build Hearth 0.7 zomes
         working-directory: mycelix-workspace/mycelix-hearth
@@ -130,6 +132,7 @@ jobs:
           {
             echo "tested_sha=$QUALIFY_SHA"
             echo "checked_out_sha=$(git rev-parse HEAD)"
+            echo "qualification_source=exact_candidate_sha"
             echo "holochain_version=$(nix develop .#ci --impure --command holochain --version 2>/dev/null || true)"
             echo "hc_version=$(nix develop .#ci --impure --command hc --version 2>/dev/null || true)"
             echo "rust_version=$(nix develop .#ci --impure --command rustc --version 2>/dev/null || true)"
@@ -165,7 +168,13 @@ jobs:
             echo "pr_base_sha=${{ github.event.pull_request.base.sha || '' }}"
             echo "ref=${GITHUB_REF_NAME}"
             echo "event=${GITHUB_EVENT_NAME}"
-            echo "target_sha_source=${GITHUB_EVENT_NAME}"
+            if [[ -n "${{ github.event.inputs.target_sha || '' }}" ]]; then
+              echo "target_sha_source=workflow_dispatch_input"
+            elif [[ -n "${{ github.event.pull_request.head.sha || '' }}" ]]; then
+              echo "target_sha_source=pull_request_head"
+            else
+              echo "target_sha_source=push_sha"
+            fi
             echo "run_id=${GITHUB_RUN_ID}"
             echo "workflow=${GITHUB_WORKFLOW}"
           } > qualification-metadata.txt
@@ -174,7 +183,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: hearth-07-qualification-${{ github.sha }}
+          name: hearth-07-qualification-${{ env.QUALIFY_SHA }}
           path: |
             mycelix-workspace/mycelix-hearth/qualification-metadata.txt
             mycelix-workspace/mycelix-hearth/qualification-source-audit.log
@@ -187,7 +196,9 @@ jobs:
             mycelix-workspace/mycelix-hearth/qualification-dna-sha256.txt
             mycelix-workspace/mycelix-hearth/qualification-cargo-lock-sha256.txt
             mycelix-workspace/mycelix-hearth/qualification-cargo-lock-summary.txt
+            mycelix-workspace/mycelix-hearth/qualification-cargo-metadata.json
+            mycelix-workspace/mycelix-hearth/tests/qualification-cargo-metadata.json
             mycelix-workspace/mycelix-hearth/Cargo.lock
             mycelix-workspace/mycelix-hearth/tests/Cargo.lock
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 14
