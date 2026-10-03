@@ -586,12 +586,13 @@ fn maximum_dispatch_offset_child() -> ! {
 
     // Pre-resolve the exact raw path used after installation. No libc helper
     // is needed on the irreversible side of the boundary.
+    let warmup = c"kernel-dispatch-warmup\n";
     let _ = unsafe {
         libc::syscall(
             libc::SYS_write,
             libc::STDERR_FILENO,
-            c"kernel-dispatch-warmup\n".as_ptr(),
-            21usize,
+            warmup.as_ptr(),
+            warmup.to_bytes().len(),
         )
     };
     let _ = unsafe { *libc::__errno_location() };
@@ -610,15 +611,16 @@ fn maximum_dispatch_offset_child() -> ! {
     // this successful result therefore demonstrates that the kernel followed
     // the large rule's false branch over exactly the maximum generated body.
     let payload = c"kernel-dispatch-ok\n";
+    let expected_len = payload.to_bytes().len();
     let allowed = unsafe {
         libc::syscall(
             libc::SYS_write,
             libc::STDERR_FILENO,
             payload.as_ptr(),
-            18usize,
+            expected_len,
         )
     };
-    if allowed != 18 {
+    if allowed != expected_len {
         unsafe { libc::_exit(160) };
     }
 
