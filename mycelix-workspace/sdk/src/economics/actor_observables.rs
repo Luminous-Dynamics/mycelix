@@ -315,6 +315,9 @@ impl ActorEconomicObservables {
             }
         }
 
+        working.validate()?;
+
+
         for (actor, observation) in observations.iter_mut() {
             let final_actor = working
                 .actors
@@ -625,6 +628,14 @@ mod tests {
         ActorBalanceSheet, CreditCreation, DebtRepayment, EconomicState, IncomeTransfer,
         GoodsSale, EconomicFlowCategory,
     };
+
+    #[test]
+    fn actor_replay_final_state_is_accounting_validated() {
+        let mut state = EconomicState::new(vec![ActorBalanceSheet::new("household")]);
+        state.actors[0].monetary.liabilities = 1;
+        state.actors[0].monetary.claims = 0;
+        assert!(ActorEconomicObservables::from_state_and_transitions(&state, &[]).is_err());
+    }
 
     #[test]
     fn actor_observation_verify_against_rejects_tampering() {
