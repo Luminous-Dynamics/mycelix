@@ -6,8 +6,8 @@ use holochain::sweettest::{SweetAgents, SweetConductor, SweetDnaFile, SweetInlin
 use holochain_keystore::MetaLairClient;
 use holochain_nonce::Nonce256Bits;
 use holochain_serialized_bytes::prelude::SerializedBytes;
-use holochain_types::prelude::{CellId, ExternIO, ZomeCallParams, ZomeCallResponse};
-use serde::{Deserialize, Serialize};
+use holochain_types::prelude::{CellId, ExternIO, ZomeCallParams};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -144,26 +144,21 @@ async fn call(
     .expect("app interface request must complete")
 }
 
-fn decode(response: AppResponse) -> ZomeCallResponse {
+fn decode_zome<T: DeserializeOwned>(response: AppResponse) -> T {
     match response {
-        AppResponse::ZomeCalled(io) => io.decode().expect("zome response must decode"),
+        AppResponse::ZomeCalled(io) => io.decode().expect("zome response payload must decode"),
         other => panic!("unexpected AppResponse: {other:?}"),
     }
 }
 
 fn expect_probe_result(response: AppResponse, expected: ProbeResult) {
-    match decode(response) {
-        ZomeCallResponse::Ok(io) => {
-            let actual: ProbeResult = io.decode().expect("probe result must decode");
-            assert_eq!(actual, expected);
-        }
-        other => panic!("expected successful probe response, got {other:?}"),
-    }
+    let actual: ProbeResult = decode_zome(response);
+    assert_eq!(actual, expected);
 }
 
 fn expect_ok(response: AppResponse) {
-    match decode(response) {
-        ZomeCallResponse::Ok(_) => {}
+    match response {
+        AppResponse::ZomeCalled(_) => {}
         other => panic!("expected successful zome response, got {other:?}"),
     }
 }
@@ -375,10 +370,7 @@ async fn d6u_runtime_authority_boundary() {
     )
     .await;
 
-    let grant_material: GrantMaterial = match decode(grant_response) {
-        ZomeCallResponse::Ok(io) => io.decode().expect("grant material must decode"),
-        other => panic!("grant creation failed: {other:?}"),
-    };
+    let grant_material: GrantMaterial = decode_zome(grant_response);
     record_case("author-grant", "accepted");
 
     let (n, exp) = holochain_nonce::fresh_nonce(Timestamp::now()).unwrap();
