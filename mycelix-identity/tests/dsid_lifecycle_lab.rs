@@ -915,3 +915,57 @@ async fn dsid_012_substrate_discovery_is_cross_agent_and_author_bound() {
         true,
     );
 }
+
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_013_malformed_did_identifiers_fail_closed() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let app = conductor.setup_app(
+        "dsid-invalid-did",
+        std::slice::from_ref(&dna),
+    ).await.unwrap();
+    let cell = app.cells()[0].clone();
+    let agent = app.agent().clone();
+
+    let created: Record = conductor
+        .call(&cell.zome("did_registry"), "create_did", ())
+        .await;
+
+    let wrong_method: Result<Option<DidDocumentView>, _> = conductor
+        .call_fallible(
+            &cell.zome("did_registry"),
+            "resolve_did_view",
+            "did:other:not-mycelix".to_string(),
+        )
+        .await;
+
+    let malformed_agent: Result<Option<DidDocumentView>, _> = conductor
+        .call_fallible(
+            &cell.zome("did_registry"),
+            "resolve_did_view",
+            "did:mycelix:not-a-valid-agent-key".to_string(),
+        )
+        .await;
+
+    assert!(wrong_method.is_err());
+    assert!(malformed_agent.is_err());
+
+    let mut agents = BTreeMap::new();
+    agents.insert("alice", agent.to_string());
+    emit_evidence(
+        "DSID-013",
+        "malformed-did-identifiers-fail-closed",
+        &dna,
+        agents,
+        &[&created],
+        "Malformed or foreign DID method identifiers must not resolve through the Mycelix DID resolver.",
+        format!(
+            "wrong_method_rejected={} malformed_agent_rejected={}",
+            wrong_method.is_err(),
+            malformed_agent.is_err()
+        ),
+        true,
+    );
+}
