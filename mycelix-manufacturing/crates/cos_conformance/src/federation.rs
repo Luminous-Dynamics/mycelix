@@ -1059,54 +1059,91 @@ fn observation_map_keys_match_records(state: &FederationState) -> bool {
 /// This validator is observational only: it never repairs, normalizes, or mutates
 /// state. Callers can therefore use it as a qualification gate without granting
 /// the validator any authority to rewrite evidence.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FederationInvariantViolation {
-    NodeMapKeyMismatch,
-    RecognitionEdgeInvalid,
-    RecognitionEdgeOrderMismatch,
-    DeliveryMapKeyMismatch,
-    DeliveryNodeReferenceMismatch,
-    DeliveryPredecessorMismatch,
-    ObservationMapKeyMismatch,
-    SourceObservationSetMismatch,
-    DeliveryMissingAttemptHistory,
-    AttemptBindingMismatch,
-    SourceObservationMismatch,
+    NodeMapKeyMismatch, RecognitionEdgeInvalid, RecognitionEdgeOrderMismatch,
+    DeliveryMapKeyMismatch, DeliveryNodeReferenceMismatch, DeliveryPredecessorMismatch,
+    ObservationMapKeyMismatch, SourceObservationSetMismatch, DeliveryMissingAttemptHistory,
+    AttemptBindingMismatch, SourceObservationMismatch,
 }
+
+/// Stable identifiers for the authoritative federation invariant registry.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FederationInvariantId {
+    NodeMapIdentity, RecognitionEdgeValidity, RecognitionEdgeCanonicalOrder,
+    DeliveryMapIdentity, DeliveryNodeReferences, DeliveryPredecessorReferences,
+    ObservationMapIdentity, SourceObservationBijection, DeliveryAttemptHistory,
+    AttemptEnvelopeBindings, DeliverySourceObservationProvenance,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FederationInvariantSpec {
+    pub id: FederationInvariantId,
+    pub name: &'static str,
+    pub description: &'static str,
+    check: fn(&FederationState) -> bool,
+    violation: FederationInvariantViolation,
+}
+
+impl FederationInvariantSpec {
+    pub const fn new(id: FederationInvariantId, name: &'static str, description: &'static str,
+        check: fn(&FederationState) -> bool, violation: FederationInvariantViolation) -> Self {
+        Self { id, name, description, check, violation }
+    }
+}
+
+/// Canonical executable inventory of the federation state-boundary invariants.
+pub const FEDERATION_INVARIANT_REGISTRY: &[FederationInvariantSpec] = &[
+    FederationInvariantSpec::new(FederationInvariantId::NodeMapIdentity, "node-map-identity",
+        "Every node map key equals its NodeProfile node_id and node IDs are non-empty.",
+        node_map_keys_match_profiles, FederationInvariantViolation::NodeMapKeyMismatch),
+    FederationInvariantSpec::new(FederationInvariantId::RecognitionEdgeValidity, "recognition-edge-validity",
+        "Recognition edges have non-empty identities and reference known nodes.",
+        recognition_edges_are_valid, FederationInvariantViolation::RecognitionEdgeInvalid),
+    FederationInvariantSpec::new(FederationInvariantId::RecognitionEdgeCanonicalOrder, "recognition-edge-canonical-order",
+        "Recognition edges are strictly ordered by the canonical identity tuple.",
+        recognition_edges_are_canonically_ordered, FederationInvariantViolation::RecognitionEdgeOrderMismatch),
+    FederationInvariantSpec::new(FederationInvariantId::DeliveryMapIdentity, "delivery-map-identity",
+        "Every delivery map key equals its immutable logical delivery identity.",
+        delivery_map_keys_match_contracts, FederationInvariantViolation::DeliveryMapKeyMismatch),
+    FederationInvariantSpec::new(FederationInvariantId::DeliveryNodeReferences, "delivery-node-references",
+        "Admitted deliveries reference known origin and target nodes and required identities are non-empty.",
+        delivery_node_references_match, FederationInvariantViolation::DeliveryNodeReferenceMismatch),
+    FederationInvariantSpec::new(FederationInvariantId::DeliveryPredecessorReferences, "delivery-predecessor-references",
+        "Every predecessor reference exists and no delivery points to itself.",
+        delivery_predecessors_match, FederationInvariantViolation::DeliveryPredecessorMismatch),
+    FederationInvariantSpec::new(FederationInvariantId::ObservationMapIdentity, "observation-map-identity",
+        "Every observation map key equals its observation identity.",
+        observation_map_keys_match_records, FederationInvariantViolation::ObservationMapKeyMismatch),
+    FederationInvariantSpec::new(FederationInvariantId::SourceObservationBijection, "source-observation-bijection",
+        "Admitted deliveries and source observations form a one-to-one identity set.",
+        source_observation_ids_match_delivery_links, FederationInvariantViolation::SourceObservationSetMismatch),
+    FederationInvariantSpec::new(FederationInvariantId::DeliveryAttemptHistory, "delivery-attempt-history",
+        "Every admitted delivery retains at least one transport-attempt identity.",
+        deliveries_have_attempt_history, FederationInvariantViolation::DeliveryMissingAttemptHistory),
+    FederationInvariantSpec::new(FederationInvariantId::AttemptEnvelopeBindings, "attempt-envelope-bindings",
+        "Each attempt identity has exactly one bound envelope identity and vice versa.",
+        delivery_attempt_bindings_match, FederationInvariantViolation::AttemptBindingMismatch),
+    FederationInvariantSpec::new(FederationInvariantId::DeliverySourceObservationProvenance, "delivery-source-observation-provenance",
+        "Each admitted delivery matches its immutable source observation and captured recognition provenance.",
+        delivery_source_observation_provenance_matches, FederationInvariantViolation::SourceObservationMismatch),
+];
 
 fn node_map_keys_match_profiles(state: &FederationState) -> bool {
-    state
-        .nodes
-        .iter()
-        .all(|(map_id, node)| map_id == &node.node_id && !node.node_id.is_empty())
+    state.nodes.iter().all(|(map_id, node)| map_id == &node.node_id && !node.node_id.is_empty())
 }
 
-fn recognition_edges_are_canonical(state: &FederationState) -> bool {
+fn recognition_edges_are_valid(state: &FederationState) -> bool {
+    state.recognition_edges.iter().all(|edge| {
+        !edge.recognizing_node.is_empty() && !edge.origin_node.is_empty() && !edge.scope.is_empty()
+            && state.nodes.contains_key(&edge.recognizing_node) && state.nodes.contains_key(&edge.origin_node)
+    })
+}
+
+fn recognition_edges_are_canonically_ordered(state: &FederationState) -> bool {
     state.recognition_edges.windows(2).all(|pair| {
-        let left = (
-            &pair[0].recognizing_node,
-            &pair[0].origin_node,
-            &pair[0].scope,
-            pair[0].mode,
-        );
-        let right = (
-            &pair[1].recognizing_node,
-            &pair[1].origin_node,
-            &pair[1].scope,
-            pair[1].mode,
-        );
-        left < right
-            && !pair[0].recognizing_node.is_empty()
-            && !pair[0].origin_node.is_empty()
-            && !pair[0].scope.is_empty()
-            && state.nodes.contains_key(&pair[0].recognizing_node)
-            && state.nodes.contains_key(&pair[0].origin_node)
-    }) && state.recognition_edges.last().is_none_or(|edge| {
-        !edge.recognizing_node.is_empty()
-            && !edge.origin_node.is_empty()
-            && !edge.scope.is_empty()
-            && state.nodes.contains_key(&edge.recognizing_node)
-            && state.nodes.contains_key(&edge.origin_node)
+        (&pair[0].recognizing_node, &pair[0].origin_node, &pair[0].scope, pair[0].mode)
+            < (&pair[1].recognizing_node, &pair[1].origin_node, &pair[1].scope, pair[1].mode)
     })
 }
 
@@ -1122,62 +1159,33 @@ fn delivery_node_references_match(state: &FederationState) -> bool {
 }
 
 fn delivery_predecessors_match(state: &FederationState) -> bool {
-    state.deliveries.values().all(|record| {
-        match record.contract.predecessor_delivery_id.as_deref() {
-            None => true,
-            Some(predecessor) => {
-                predecessor != record.contract.logical_delivery_id
-                    && state.deliveries.contains_key(predecessor)
-            }
-        }
+    state.deliveries.values().all(|record| match record.contract.predecessor_delivery_id.as_deref() {
+        None => true,
+        Some(predecessor) => predecessor != record.contract.logical_delivery_id && state.deliveries.contains_key(predecessor),
     })
 }
 
+fn deliveries_have_attempt_history(state: &FederationState) -> bool {
+    state.deliveries.values().all(|record| !record.attempts.is_empty())
+}
+
+fn delivery_attempt_bindings_match(state: &FederationState) -> bool {
+    state.deliveries.values().all(attempt_history_matches_bindings)
+}
+
+fn delivery_source_observation_provenance_matches(state: &FederationState) -> bool {
+    state.deliveries.values().all(|record| source_observation_matches_delivery(state, record))
+}
+
 pub fn validate_state(state: &FederationState) -> Result<(), FederationInvariantViolation> {
-    if !node_map_keys_match_profiles(state) {
-        return Err(FederationInvariantViolation::NodeMapKeyMismatch);
+    for spec in FEDERATION_INVARIANT_REGISTRY {
+        if !(spec.check)(state) { return Err(spec.violation); }
     }
-    if !recognition_edges_are_canonical(state) {
-        return Err(FederationInvariantViolation::RecognitionEdgeInvalid);
-    }
-    if state.recognition_edges.windows(2).any(|pair| pair[0] >= pair[1]) {
-        return Err(FederationInvariantViolation::RecognitionEdgeOrderMismatch);
-    }
-    if !delivery_map_keys_match_contracts(state) {
-        return Err(FederationInvariantViolation::DeliveryMapKeyMismatch);
-    }
-    if !delivery_node_references_match(state) {
-        return Err(FederationInvariantViolation::DeliveryNodeReferenceMismatch);
-    }
-    if !delivery_predecessors_match(state) {
-        return Err(FederationInvariantViolation::DeliveryPredecessorMismatch);
-    }
-    if !observation_map_keys_match_records(state) {
-        return Err(FederationInvariantViolation::ObservationMapKeyMismatch);
-    }
-    if !source_observation_ids_match_delivery_links(state) {
-        return Err(FederationInvariantViolation::SourceObservationSetMismatch);
-    }
-
-    for record in state.deliveries.values() {
-        if record.attempts.is_empty() {
-            return Err(FederationInvariantViolation::DeliveryMissingAttemptHistory);
-        }
-        if !attempt_history_matches_bindings(record) {
-            return Err(FederationInvariantViolation::AttemptBindingMismatch);
-        }
-        if !source_observation_matches_delivery(state, record) {
-            return Err(FederationInvariantViolation::SourceObservationMismatch);
-        }
-    }
-
     Ok(())
 }
 
 /// Boolean compatibility wrapper for existing transition assertions.
-fn federation_state_invariants_hold(state: &FederationState) -> bool {
-    validate_state(state).is_ok()
-}
+fn federation_state_invariants_hold(state: &FederationState) -> bool { validate_state(state).is_ok() }
 
 /// Canonical, order-independent representation of authoritative federation state.
 ///
