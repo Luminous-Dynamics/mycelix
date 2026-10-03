@@ -516,6 +516,26 @@
       "id": "EDT-101",
       "case": "bound_protocol_address_wrong_for_selected_retrieval_primitive_is_adapter_error",
       "expected": "adapter_boundary_error"
+    },
+    {
+      "id": "EDT-102",
+      "case": "valid_record_binding_dispatches_only_to_must_get_valid_record",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-103",
+      "case": "action_binding_dispatches_only_to_must_get_action",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-104",
+      "case": "entry_binding_dispatches_only_to_must_get_entry",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-105",
+      "case": "adapter_retrieval_never_derives_protocol_hash_from_logical_identity_text",
+      "expected": "accepted"
     }
   ],
   "outcome_classes": [
