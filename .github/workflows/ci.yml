@@ -362,15 +362,15 @@ jobs:
             cd tests
             cargo test --test dsid_lifecycle_lab -- --include-ignored --nocapture --test-threads=1               | tee "$GITHUB_WORKSPACE/dsid-lifecycle-evidence.txt"
           '
-          grep '^DSID_EVIDENCE ' dsid-lifecycle-evidence.txt | cut -d ' ' -f2-             > dsid-lifecycle-evidence.jsonl
+          grep '^DSID_EVIDENCE ' "$GITHUB_WORKSPACE/dsid-lifecycle-evidence.txt" | cut -d ' ' -f2-             > "$GITHUB_WORKSPACE/dsid-lifecycle-evidence.jsonl"
       - name: Validate evidence capsule
         run: |
-          test -s mycelix-identity/tests/dsid-lifecycle-evidence.jsonl
-          test "$(wc -l < mycelix-identity/tests/dsid-lifecycle-evidence.jsonl)" -eq 5
+          test -s dsid-lifecycle-evidence.jsonl
+          test "$(wc -l < dsid-lifecycle-evidence.jsonl)" -eq 5
           python3 - <<'PY'
           import json
           from pathlib import Path
-          rows = [json.loads(line) for line in Path("mycelix-identity/tests/dsid-lifecycle-evidence.jsonl").read_text().splitlines()]
+          rows = [json.loads(line) for line in Path("dsid-lifecycle-evidence.jsonl").read_text().splitlines()]
           assert len(rows) == 5
           assert all(row["schema_version"] == 1 for row in rows)
           assert all(row["pass"] is True for row in rows)
@@ -384,7 +384,7 @@ jobs:
           name: dsid-lifecycle-evidence
           path: |
             dsid-lifecycle-evidence.txt
-            mycelix-identity/tests/dsid-lifecycle-evidence.jsonl
+            dsid-lifecycle-evidence.jsonl
 
   test-personal:
     needs: changes
