@@ -167,9 +167,12 @@ impl SectorTransactionMatrix {
                     FlowCategory::TradeCreditSettlement,
                     settlement.amount,
                 ),
-                super::transition::EconomicTransition::GoodsSale(sale) => {
-                    (sale.seller.clone(), sale.buyer.clone(), FlowCategory::Other, sale.consideration)
-                }
+                super::transition::EconomicTransition::GoodsSale(sale) => (
+                    sector_for(&sale.seller)?,
+                    sector_for(&sale.buyer)?,
+                    FlowCategory::Other,
+                    sale.consideration,
+                )
                 super::transition::EconomicTransition::MonetaryTransfer(flow) => (
                     sector_for(&flow.from)?,
                     sector_for(&flow.to)?,
@@ -321,6 +324,35 @@ mod tests {
         let mut tampered = matrix.clone();
         tampered.flows[0].amount = 99;
         assert!(tampered.validate_against(&state, &actors, &transitions).is_err());
+    }
+
+    #[test]
+    fn goods_sale_projection_resolves_actor_ids_to_sectors() {
+        use super::super::stock_flow::{ActorBalanceSheet, GoodsSale};
+        use super::super::transition::EconomicTransition;
+
+        let actors = vec![
+            ("firm".to_string(), EconomicSector::Firm),
+            ("household".to_string(), EconomicSector::Household),
+        ];
+        let transitions = vec![EconomicTransition::GoodsSale(
+            GoodsSale::new("firm", "household", 2, 40).unwrap(),
+        )];
+
+        let matrix = SectorTransactionMatrix::from_transitions(&transitions, &actors).unwrap();
+        assert_eq!(matrix.flows.len(), 1);
+        assert_eq!(matrix.flows[0].from, EconomicSector::Firm);
+        assert_eq!(matrix.flows[0].to, EconomicSector::Household);
+        assert_eq!(matrix.flows[0].category, FlowCategory::Other);
+        assert_eq!(matrix.flows[0].amount, 40);
+
+        let state = EconomicState::new(vec![
+            ActorBalanceSheet::new("firm"),
+            ActorBalanceSheet::new("household"),
+        ]);
+        matrix
+            .validate_against(&state, &actors, &transitions)
+            .unwrap();
     }
 
     #[test]
