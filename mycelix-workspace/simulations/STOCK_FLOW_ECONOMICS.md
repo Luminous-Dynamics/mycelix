@@ -844,3 +844,27 @@ The resulting provenance chain is:
 and that aggregate observation hash is bound alongside the actor, sector, financial-claim, physical-posting, and sector-transaction projections.
 
 This is consistent with the SFC emphasis on integrating opening stocks, period flows, and closing stocks rather than treating reporting aggregates as an independent source of truth. It also keeps the behavioral boundary intact: no credit-demand, collection, refinancing, or policy rule is introduced by this change.
+
+
+## Input-domain and mutation hardening (implemented)
+
+The accounting boundary now treats deserialization as an explicit trust boundary rather than assuming every public transition was constructed through its convenience constructor.
+
+EconomicTransition::validate is the canonical domain check for transition amounts and is consumed by timestep execution, the period ledger, and both sector-flow projections. The underlying EconomicState mutators retain their own checks as defense in depth.
+
+EconomicState::validate now enforces:
+
+- unique, non-empty actor identifiers;
+- non-negative monetary and physical stock quantities;
+- non-negative period counters;
+- aggregate modeled financial claims equal aggregate modeled liabilities.
+
+apply_step validates both the incoming state and resulting state, while core mutators preflight checked arithmetic before changing either side of a transaction. This prevents malformed starting ledgers, malformed deserialized transitions, and overflow paths from being converted into partially mutated economic states.
+
+The reconciliation layer also validates both terminal states before certifying a stock-flow receipt. A reconciliation therefore cannot become an evidence artifact merely because a malformed state happens to be unchanged across an empty transition set.
+
+The resulting trust boundary is:
+
+deserialized input -> domain validation -> atomic transition -> state validation -> stock/flow reconciliation -> evidence binding
+
+This is aligned with the wider accounting objective of making stock changes, cash flows, and non-cash changes explicitly traceable rather than relying on implicit balancing adjustments.
