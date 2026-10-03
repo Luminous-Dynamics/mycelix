@@ -173,7 +173,7 @@ impl SectorTransactionMatrix {
                     sector_for(&sale.buyer)?,
                     FlowCategory::Other,
                     sale.consideration,
-                )
+                ),
                 super::transition::EconomicTransition::MonetaryTransfer(flow) => (
                     sector_for(&flow.from)?,
                     sector_for(&flow.to)?,
