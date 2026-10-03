@@ -511,6 +511,11 @@
       "id": "EDT-100",
       "case": "malformed_requested_logical_dependency_is_definitive_structural_error",
       "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-101",
+      "case": "bound_protocol_address_wrong_for_selected_retrieval_primitive_is_adapter_error",
+      "expected": "typed_structural_error"
     }
   ]
 }
