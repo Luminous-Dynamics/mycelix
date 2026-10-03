@@ -606,6 +606,7 @@ async fn d6u_runtime_authority_boundary() {
         "Zome not found",
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
+    println!("D6U_SUBSTRATE_CHECK\twrong-zome-routing\tZome not found witness\tPASS");
     record_case("wrong-zome", "routing-failed");
 
     let wrong_function = params(
@@ -626,6 +627,7 @@ let wrong_function_response =
         "Attempted to call a zome function that doesn't exist: Zome: coordinator Fn no_such_function",
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
+    println!("D6U_SUBSTRATE_CHECK\twrong-function-routing\tmissing-function witness\tPASS");
     record_case("wrong-function", "routing-failed");
 
     let missing_cell = CellId::new(alice_cell.dna_hash().clone(), charlie.clone());
