@@ -1201,6 +1201,39 @@ pub fn validate_state_all(
         .collect()
 }
 
+/// Classification emitted by the structured audit path.
+///
+/// Violated means the predicate itself failed. The current audit evaluates
+/// every predicate so derived corruption remains observable.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FederationInvariantAuditStatus {
+    Passed,
+    Violated(FederationInvariantViolation),
+}
+
+/// One deterministic audit result for an invariant registry entry.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FederationInvariantAuditEntry {
+    pub id: FederationInvariantId,
+    pub status: FederationInvariantAuditStatus,
+}
+
+/// Evaluates every registered invariant and preserves registry order in a
+/// structured audit result without mutating authoritative state.
+pub fn audit_state(state: &FederationState) -> Vec<FederationInvariantAuditEntry> {
+    FEDERATION_INVARIANT_REGISTRY
+        .iter()
+        .map(|spec| FederationInvariantAuditEntry {
+            id: spec.id,
+            status: if (spec.check)(state) {
+                FederationInvariantAuditStatus::Passed
+            } else {
+                FederationInvariantAuditStatus::Violated(spec.violation)
+            },
+        })
+        .collect()
+}
+
 /// Returns the first violated invariant in canonical registry order.
 pub fn validate_state(state: &FederationState) -> Result<(), FederationInvariantViolation> {
     validate_state_all(state)
@@ -1620,6 +1653,48 @@ mod tests {
             validate_state(&state),
             Err(FederationInvariantViolation::SourceObservationMismatch)
         );
+    }
+
+    #[test]
+    fn audit_state_reports_complete_deterministic_status_vector() {
+        let mut state = nodes();
+
+        let node = state.nodes.remove("node-a").unwrap();
+        state.nodes.insert("wrong-node-key".into(), node);
+
+        state.recognition_edges.push(RecognitionEdge {
+            recognizing_node: "node-a".into(),
+            origin_node: "unknown-node".into(),
+            scope: "scope-1".into(),
+            mode: RecognitionMode::EvidenceOnly,
+        });
+
+        let audit = audit_state(&state);
+        assert_eq!(audit.len(), FEDERATION_INVARIANT_REGISTRY.len());
+        assert_eq!(audit[0].id, FederationInvariantId::NodeMapIdentity);
+        assert_eq!(
+            audit[0].status,
+            FederationInvariantAuditStatus::Violated(
+                FederationInvariantViolation::NodeMapKeyMismatch
+            )
+        );
+        assert_eq!(
+            audit[1].status,
+            FederationInvariantAuditStatus::Violated(
+                FederationInvariantViolation::RecognitionEdgeInvalid
+            )
+        );
+        assert_eq!(
+            audit[2].status,
+            FederationInvariantAuditStatus::Violated(
+                FederationInvariantViolation::RecognitionEdgeOrderMismatch
+            )
+        );
+        assert!(audit[3..]
+            .iter()
+            .all(|entry| entry.status == FederationInvariantAuditStatus::Passed));
+
+        assert_eq!(audit, audit_state(&state));
     }
 
     #[test]
