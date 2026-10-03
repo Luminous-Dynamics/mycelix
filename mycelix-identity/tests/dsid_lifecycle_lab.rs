@@ -18,6 +18,7 @@
 
 use holochain::prelude::*;
 use holochain::sweettest::*;
+use mycelix_crypto::{AlgorithmId, TaggedPublicKey};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -965,6 +966,59 @@ async fn dsid_013_malformed_did_identifiers_fail_closed() {
             "wrong_method_rejected={} malformed_agent_rejected={}",
             wrong_method.is_err(),
             malformed_agent.is_err()
+        ),
+        true,
+    );
+}
+
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_014_initial_verification_key_is_canonical_multibase() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let app = conductor.setup_app(
+        "dsid-key-encoding",
+        std::slice::from_ref(&dna),
+    ).await.unwrap();
+    let cell = app.cells()[0].clone();
+    let agent = app.agent().clone();
+
+    let _record: Record = conductor
+        .call(&cell.zome("did_registry"), "create_did", ())
+        .await;
+
+    let did: DidDocumentView = conductor
+        .call(&cell.zome("did_registry"), "get_my_did_view", ())
+        .await
+        .expect("DID view must exist");
+
+    assert_eq!(did.verification_methods.len(), 1);
+    let method = &did.verification_methods[0];
+    let decoded = TaggedPublicKey::from_multibase(&method.public_key_multibase)
+        .expect("initial verification method must be canonical multibase");
+
+    assert_eq!(decoded.algorithm, AlgorithmId::Ed25519);
+    assert_eq!(decoded.key_bytes.len(), 32);
+    assert_eq!(decoded.to_multibase(), method.public_key_multibase);
+
+    let raw_agent = agent.get_raw_36();
+    assert_eq!(&raw_agent[4..], decoded.key_bytes.as_slice());
+
+    let mut agents = BTreeMap::new();
+    agents.insert("alice", agent.to_string());
+    emit_evidence(
+        "DSID-014",
+        "initial-verification-key-is-canonical-multibase",
+        &dna,
+        agents,
+        &[],
+        "The initial DID verification method encodes the exact Holochain Ed25519 agent key as multicodec-prefixed base58btc multibase.",
+        format!(
+            "algorithm={:?} raw_key_bytes={} round_trip={}",
+            decoded.algorithm,
+            decoded.key_bytes.len(),
+            decoded.to_multibase() == method.public_key_multibase
         ),
         true,
     );
