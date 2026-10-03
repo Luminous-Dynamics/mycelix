@@ -1059,8 +1059,8 @@ pub fn compose_finality_eligibility(
 
         if !observation_matches_set(observation, set)
             || item.observer_id != observation.observer.observer_id
-            || item.evidence_root != evidence.observer.evidence_root
-            || item.custody_root != evidence.observer.custody_root
+            || item.evidence_root != observation.observer.evidence_root
+            || item.custody_root != observation.observer.custody_root
             || item.assessment_commitment.is_empty()
         {
             return empty(FinalityEligibilityDispositionV1::BlockedBinding);
