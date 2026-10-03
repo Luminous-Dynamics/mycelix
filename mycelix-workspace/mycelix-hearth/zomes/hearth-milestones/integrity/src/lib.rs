@@ -141,6 +141,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 link_type,
                 action.data.base_address.clone(),
                 action.data.target_address.clone(),
+                &action.data.tag,
                 action.author(),
             )
         }
@@ -189,8 +190,15 @@ pub fn validate_create_link(
     link_type: LinkTypes,
     base_address: AnyLinkableHash,
     target_address: AnyLinkableHash,
+    tag: &LinkTag,
     _author: &AgentPubKey,
 ) -> ExternResult<ValidateCallbackResult> {
+    if !tag.0.is_empty() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Link tag must be empty for this LinkTypes family".into(),
+        ));
+    }
+
     match link_type {
         LinkTypes::HearthToMilestones => {
             let base = ActionHash::try_from(base_address).map_err(|_| ValidateCallbackResult::Invalid("HearthToMilestones base must be an ActionHash".into()))?;
