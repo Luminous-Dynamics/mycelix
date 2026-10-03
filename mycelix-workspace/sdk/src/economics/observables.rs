@@ -65,8 +65,9 @@ impl EconomicObservables {
         state
             .validate()
             .map_err(EconomicStepError::InvalidState)?;
+        let (post_state, _) = super::transition::apply_step(state, 0, transitions, None)?;
         let ledger = EconomicPeriodLedger::from_transitions(transitions)?;
-        Self::try_from_state_and_ledger(state, &ledger)
+        Self::try_from_state_and_ledger(&post_state, &ledger)
             .map_err(EconomicStepError::Serialization)
     }
 
@@ -304,6 +305,22 @@ mod tests {
         let mut observations = EconomicObservables::try_from_state_and_transitions(&state, &transitions).unwrap();
         observations.credit_created = 24;
         assert!(observations.verify_against_transitions(&state, &transitions).is_err());
+    }
+
+    #[test]
+    fn aggregate_observations_track_post_transition_stocks() {
+        let state = EconomicState::new(vec![
+            ActorBalanceSheet::new("bank"),
+            ActorBalanceSheet::new("household"),
+        ]);
+        let transitions = vec![EconomicTransition::CreditCreation(
+            CreditCreation::new("bank", "household", 25).unwrap(),
+        )];
+        let observations = EconomicObservables::try_from_state_and_transitions(&state, &transitions).unwrap();
++
+        assert_eq!(observations.aggregate_loans, 25);
+        assert_eq!(observations.aggregate_debt, 25);
+        assert_eq!(observations.aggregate_deposits, 25);
     }
 
     #[test]
