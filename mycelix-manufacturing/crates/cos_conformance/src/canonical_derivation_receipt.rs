@@ -1148,7 +1148,7 @@ mod tests {
 
     #[test]
     fn d6p_binding_is_exact_and_non_authorizing() {
-        let r = CurrentFinalityEligibilityReceiptV1 {
+        let mut r = CurrentFinalityEligibilityReceiptV1 {
             receipt_id: "r".into(), effect_id: "effect".into(), effect_lineage_id: "lineage".into(),
             lifecycle_generation_id: "generation".into(), route_id: "route".into(), provider_id: "provider".into(),
             provider_operation_id: "operation".into(), provider_profile_root: "provider-profile".into(),
