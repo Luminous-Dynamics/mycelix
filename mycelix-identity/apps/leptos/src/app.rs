@@ -26,7 +26,7 @@ pub fn App() -> impl IntoView {
         app_id: "mycelix-unified".into(),
         default_role: Some("identity".into()),
         log_prefix: "[Identity]",
-        connect_strategy: ConnectStrategy::WebSocket,
+        connect_strategy: ConnectStrategy::WebSocketRequired,
         status_labels: None,
     };
     view! {
