@@ -1119,3 +1119,23 @@ The evidence hierarchy is consequently explicit:
 This follows the SFC accounting discipline in which every payment has a corresponding receipt and each
 asset has a counterpart liability, while preserving the separation between accounting validation and
 behavioral assumptions. 
+
+
+## Sector projection external re-verification (implemented)
+
+The sector transaction-flow and sector financial-claim projections now expose `verify_against`
+entry points that re-run their existing state/assignment/transition validation and require the
+serialized projection to equal the transition-derived projection.
+
+This closes another important distinction: a matrix can be internally well formed and clearing,
+yet still be unrelated to the transition program that it claims to summarize. External
+re-verification makes the authoritative relationship explicit for both the monetary transaction
+matrix and the separate financial-claim matrix.
+
+The resulting projection stack is:
+
+`ordered transitions -> actor/state mutation -> sector transaction projection + financial-claim projection -> external re-verification`
+
+Keeping the two sector matrices separate preserves the distinction between cash/liquidity
+transactions and contractual claim changes, including deferred trade credit, while both remain
+bound to the same transition evidence.
