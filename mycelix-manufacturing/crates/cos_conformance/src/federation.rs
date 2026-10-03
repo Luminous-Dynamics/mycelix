@@ -1081,14 +1081,22 @@ pub struct FederationInvariantSpec {
     pub id: FederationInvariantId,
     pub name: &'static str,
     pub description: &'static str,
+    /// Invariants that semantically precede this check.
+    pub dependencies: &'static [FederationInvariantId],
     check: fn(&FederationState) -> bool,
     violation: FederationInvariantViolation,
 }
 
 impl FederationInvariantSpec {
-    pub const fn new(id: FederationInvariantId, name: &'static str, description: &'static str,
-        check: fn(&FederationState) -> bool, violation: FederationInvariantViolation) -> Self {
-        Self { id, name, description, check, violation }
+    pub const fn new(
+        id: FederationInvariantId,
+        name: &'static str,
+        description: &'static str,
+        dependencies: &'static [FederationInvariantId],
+        check: fn(&FederationState) -> bool,
+        violation: FederationInvariantViolation,
+    ) -> Self {
+        Self { id, name, description, dependencies, check, violation }
     }
 }
 
@@ -1096,37 +1104,37 @@ impl FederationInvariantSpec {
 pub const FEDERATION_INVARIANT_REGISTRY: &[FederationInvariantSpec] = &[
     FederationInvariantSpec::new(FederationInvariantId::NodeMapIdentity, "node-map-identity",
         "Every node map key equals its NodeProfile node_id and node IDs are non-empty.",
-        node_map_keys_match_profiles, FederationInvariantViolation::NodeMapKeyMismatch),
+        &[], node_map_keys_match_profiles, FederationInvariantViolation::NodeMapKeyMismatch),
     FederationInvariantSpec::new(FederationInvariantId::RecognitionEdgeValidity, "recognition-edge-validity",
         "Recognition edges have non-empty identities and reference known nodes.",
-        recognition_edges_are_valid, FederationInvariantViolation::RecognitionEdgeInvalid),
+        &[], recognition_edges_are_valid, FederationInvariantViolation::RecognitionEdgeInvalid),
     FederationInvariantSpec::new(FederationInvariantId::RecognitionEdgeCanonicalOrder, "recognition-edge-canonical-order",
         "Recognition edges are strictly ordered by the canonical identity tuple.",
-        recognition_edges_are_canonically_ordered, FederationInvariantViolation::RecognitionEdgeOrderMismatch),
+        &[FederationInvariantId::RecognitionEdgeValidity], recognition_edges_are_canonically_ordered, FederationInvariantViolation::RecognitionEdgeOrderMismatch),
     FederationInvariantSpec::new(FederationInvariantId::DeliveryMapIdentity, "delivery-map-identity",
         "Every delivery map key equals its immutable logical delivery identity.",
-        delivery_map_keys_match_contracts, FederationInvariantViolation::DeliveryMapKeyMismatch),
+        &[], delivery_map_keys_match_contracts, FederationInvariantViolation::DeliveryMapKeyMismatch),
     FederationInvariantSpec::new(FederationInvariantId::DeliveryNodeReferences, "delivery-node-references",
         "Admitted deliveries reference known origin and target nodes and required identities are non-empty.",
-        delivery_node_references_match, FederationInvariantViolation::DeliveryNodeReferenceMismatch),
+        &[], delivery_node_references_match, FederationInvariantViolation::DeliveryNodeReferenceMismatch),
     FederationInvariantSpec::new(FederationInvariantId::DeliveryPredecessorReferences, "delivery-predecessor-references",
         "Every predecessor reference exists and no delivery points to itself.",
-        delivery_predecessors_match, FederationInvariantViolation::DeliveryPredecessorMismatch),
+        &[FederationInvariantId::DeliveryMapIdentity], delivery_predecessors_match, FederationInvariantViolation::DeliveryPredecessorMismatch),
     FederationInvariantSpec::new(FederationInvariantId::ObservationMapIdentity, "observation-map-identity",
         "Every observation map key equals its observation identity.",
-        observation_map_keys_match_records, FederationInvariantViolation::ObservationMapKeyMismatch),
+        &[], observation_map_keys_match_records, FederationInvariantViolation::ObservationMapKeyMismatch),
     FederationInvariantSpec::new(FederationInvariantId::SourceObservationBijection, "source-observation-bijection",
         "Admitted deliveries and source observations form a one-to-one identity set.",
-        source_observation_ids_match_delivery_links, FederationInvariantViolation::SourceObservationSetMismatch),
+        &[FederationInvariantId::DeliveryMapIdentity, FederationInvariantId::ObservationMapIdentity], source_observation_ids_match_delivery_links, FederationInvariantViolation::SourceObservationSetMismatch),
     FederationInvariantSpec::new(FederationInvariantId::DeliveryAttemptHistory, "delivery-attempt-history",
         "Every admitted delivery retains at least one transport-attempt identity.",
-        deliveries_have_attempt_history, FederationInvariantViolation::DeliveryMissingAttemptHistory),
+        &[], deliveries_have_attempt_history, FederationInvariantViolation::DeliveryMissingAttemptHistory),
     FederationInvariantSpec::new(FederationInvariantId::AttemptEnvelopeBindings, "attempt-envelope-bindings",
         "Each attempt identity has exactly one bound envelope identity and vice versa.",
-        delivery_attempt_bindings_match, FederationInvariantViolation::AttemptBindingMismatch),
+        &[], delivery_attempt_bindings_match, FederationInvariantViolation::AttemptBindingMismatch),
     FederationInvariantSpec::new(FederationInvariantId::DeliverySourceObservationProvenance, "delivery-source-observation-provenance",
         "Each admitted delivery matches its immutable source observation and captured recognition provenance.",
-        delivery_source_observation_provenance_matches, FederationInvariantViolation::SourceObservationMismatch),
+        &[FederationInvariantId::DeliveryMapIdentity, FederationInvariantId::ObservationMapIdentity, FederationInvariantId::SourceObservationBijection], delivery_source_observation_provenance_matches, FederationInvariantViolation::SourceObservationMismatch),
 ];
 
 fn node_map_keys_match_profiles(state: &FederationState) -> bool {
@@ -1193,11 +1201,25 @@ pub fn validate_state_all(
         .collect()
 }
 
+/// Returns the first violated invariant in canonical registry order.
 pub fn validate_state(state: &FederationState) -> Result<(), FederationInvariantViolation> {
     validate_state_all(state)
         .into_iter()
         .next()
         .map_or(Ok(()), |(_, violation)| Err(violation))
+}
+
+/// Checks that every declared invariant dependency appears earlier in the
+/// canonical registry. This makes registry order a semantic topological-order
+/// contract rather than an incidental presentation choice.
+pub fn invariant_registry_dependencies_are_ordered() -> bool {
+    FEDERATION_INVARIANT_REGISTRY.iter().enumerate().all(|(index, spec)| {
+        spec.dependencies.iter().all(|dependency| {
+            FEDERATION_INVARIANT_REGISTRY[..index]
+                .iter()
+                .any(|prior| prior.id == *dependency)
+        })
+    })
 }
 
 /// Boolean compatibility wrapper for existing transition assertions.
@@ -1643,7 +1665,14 @@ mod tests {
             assert!(ids.insert(spec.id), "duplicate invariant id: {:?}", spec.id);
             assert!(!spec.name.is_empty());
             assert!(!spec.description.is_empty());
+            assert!(
+                spec.dependencies.iter().all(|dependency| *dependency != spec.id),
+                "invariant cannot depend on itself: {:?}",
+                spec.id
+            );
         }
+
+        assert!(invariant_registry_dependencies_are_ordered());
 
         let state = nodes();
         assert_eq!(validate_state(&state), Ok(()));
