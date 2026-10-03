@@ -362,6 +362,16 @@ impl HolochainDependencyBindingSet {
             namespace: "mobility".into(),
             id: format!("authority-{}", identity.id),
         };
+        let authority_scope = IdentityRef {
+            kind: mobility_configuration_qualification::identity_lineage::IdentityKind::ReconciliationWitness,
+            namespace: "mobility".into(),
+            id: format!("authority-scope-{}", identity.id),
+        };
+        let authority_delegation = IdentityRef {
+            kind: mobility_configuration_qualification::identity_lineage::IdentityKind::ReconciliationWitness,
+            namespace: "mobility".into(),
+            id: format!("authority-delegation-{}", identity.id),
+        };
         let provenance = QualificationDependencyBindingProvenance {
             witness_identity: IdentityRef {
                 kind: mobility_configuration_qualification::identity_lineage::IdentityKind::ReconciliationWitness,
@@ -370,8 +380,12 @@ impl HolochainDependencyBindingSet {
             },
             logical_identity: identity.clone(),
             authority: authority.clone(),
+            authority_scope: authority_scope.clone(),
+            authority_delegation: authority_delegation.clone(),
             basis: vec![
                 authority,
+                authority_scope,
+                authority_delegation,
                 IdentityRef {
                     kind: mobility_configuration_qualification::identity_lineage::IdentityKind::EvidenceRecord,
                     namespace: "mobility".into(),
@@ -558,6 +572,16 @@ mod tests {
         let first = identity("first");
         let second = identity("second");
         let authority = identity("shared-authority");
+        let authority_scope = IdentityRef {
+            kind: IdentityKind::ReconciliationWitness,
+            namespace: "mobility".into(),
+            id: "shared-authority-scope".into(),
+        };
+        let authority_delegation = IdentityRef {
+            kind: IdentityKind::ReconciliationWitness,
+            namespace: "mobility".into(),
+            id: "shared-authority-delegation".into(),
+        };
         let provenance = QualificationDependencyBindingProvenance {
             witness_identity: IdentityRef {
                 kind: IdentityKind::ReconciliationWitness,
@@ -566,7 +590,14 @@ mod tests {
             },
             logical_identity: first.clone(),
             authority: authority.clone(),
-            basis: vec![authority.clone(), identity("basis-first")],
+            authority_scope: authority_scope.clone(),
+            authority_delegation: authority_delegation.clone(),
+            basis: vec![
+                authority.clone(),
+                authority_scope,
+                authority_delegation,
+                identity("basis-first"),
+            ],
         };
 
         bindings
