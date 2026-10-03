@@ -927,6 +927,14 @@ fn scenario_steps() -> Vec<FederationScenarioStep> {
         .collect()
 }
 
+fn source_observation_count(state: &FederationState) -> usize {
+    state
+        .observations
+        .values()
+        .filter(|observation| observation.source_observation)
+        .count()
+}
+
 fn delivery_attempts_snapshot(
     state: &FederationState,
 ) -> BTreeMap<String, BTreeSet<String>> {
