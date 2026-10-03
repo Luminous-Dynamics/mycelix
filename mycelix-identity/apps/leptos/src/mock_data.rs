@@ -8,7 +8,7 @@ use identity_leptos_types::*;
 pub fn mock_did_document() -> DidDocumentView {
     DidDocumentView {
         id: "did:mycelix:uhCAk4YSfRTHgq0P0LfxR9ip-DPO4FcD-7dNYBuu2Uj17j4Q5h0eF".into(),
-        controller: "uhCAk4YSfRTHgq0P0LfxR9ip-DPO4FcD-7dNYBuu2Uj17j4Q5h0eF".into(),
+        controller: "did:mycelix:uhCAk4YSfRTHgq0P0LfxR9ip-DPO4FcD-7dNYBuu2Uj17j4Q5h0eF".into(),
         verification_methods: vec![
             VerificationMethodView {
                 id: "did:mycelix:uhCAk...#keys-1".into(),
