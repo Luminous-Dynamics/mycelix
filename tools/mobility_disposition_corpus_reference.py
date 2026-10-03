@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 
 EXPECTED_SCHEMA = "mycelix.mobility.evidence_disposition_transition.v1"
-EXPECTED_COUNT = 120
+EXPECTED_COUNT = 125
 EXPECTED_OUTCOME_CLASSES = [
     "accepted",
     "rejected",
@@ -44,6 +44,11 @@ EXPECTED_BINDING_VECTORS = [
     ("EDT-118", "runtime_binding_requires_explicit_provenance_witness", "accepted"),
     ("EDT-119", "resolved_runtime_dependency_carries_exact_binding_provenance", "accepted"),
     ("EDT-120", "binding_provenance_contains_no_protocol_address_derivation", "accepted"),
+    ("EDT-121", "duplicate_provenance_witness_cannot_justify_multiple_runtime_bindings", "adapter_boundary_error"),
+    ("EDT-122", "binding_provenance_rejects_witness_identity_equal_to_authority", "typed_structural_error"),
+    ("EDT-123", "binding_provenance_rejects_self_referential_basis", "typed_structural_error"),
+    ("EDT-124", "binding_provenance_is_serializable_as_a_closed_schema", "accepted"),
+    ("EDT-125", "unresolved_partial_runtime_binding_preserves_exact_provenance_witness", "accepted"),
 ]
 
 
@@ -85,7 +90,7 @@ def main() -> int:
                 f"{expected_id} has unsupported outcome {vector.get('expected')!r}"
             )
 
-    for expected, actual in zip(EXPECTED_BINDING_VECTORS, vectors[-25:], strict=True):
+    for expected, actual in zip(EXPECTED_BINDING_VECTORS, vectors[-30:], strict=True):
         if (
             actual.get("id"),
             actual.get("case"),
