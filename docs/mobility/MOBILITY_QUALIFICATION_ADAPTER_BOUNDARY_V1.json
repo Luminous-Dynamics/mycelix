@@ -15,7 +15,7 @@
     {
       "pure": "unresolved",
       "meaning": "qualification cannot complete because required logical dependencies are unavailable",
-      "holochain": "ValidateCallbackResult::UnresolvedDependencies(UnresolvedDependencies)"
+      "holochain": "ValidateCallbackResult::UnresolvedDependencies(...) after explicit address binding; an unbound logical identity remains pure Unresolved"
     }
   ],
   "error_boundary": {
