@@ -2415,3 +2415,122 @@ async fn dsid_031_recovery_request_pins_config_snapshot() {
         true,
     );
 }
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_032_recovery_request_reader_follows_latest_update() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let alice_app = conductor.setup_app("dsid-request-latest-alice", std::slice::from_ref(&dna)).await.unwrap();
+    let bob_app = conductor.setup_app("dsid-request-latest-bob", std::slice::from_ref(&dna)).await.unwrap();
+    let carol_app = conductor.setup_app("dsid-request-latest-carol", std::slice::from_ref(&dna)).await.unwrap();
+    let alice = alice_app.cells()[0].clone();
+    let bob = bob_app.cells()[0].clone();
+    let carol = carol_app.cells()[0].clone();
+
+    for cell in [&alice, &bob, &carol] {
+        let _: Record = conductor.call(&cell.zome("did_registry"), "create_did", ()).await;
+    }
+
+    let alice_did = format!("did:mycelix:{}", alice_app.agent());
+    let bob_did = format!("did:mycelix:{}", bob_app.agent());
+    let carol_did = format!("did:mycelix:{}", carol_app.agent());
+
+    let _: Record = conductor.call(&alice.zome("recovery"), "setup_recovery", serde_json::json!({
+        "did": alice_did.clone(),
+        "trustees": [alice_did.clone(), bob_did.clone(), carol_did.clone()],
+        "threshold": 3,
+        "time_lock": 86400
+    })).await;
+    await_consistency(&[alice.clone(), bob.clone(), carol.clone()]).await.unwrap();
+
+    let request: Record = conductor.call(&alice.zome("recovery"), "initiate_recovery", serde_json::json!({
+        "did": alice_did.clone(),
+        "initiator_did": alice_did.clone(),
+        "new_agent": bob_app.agent(),
+        "reason": "DSID latest request reader"
+    })).await;
+    let req: RecoveryRequestMirror = request.entry().to_app_option().unwrap().unwrap();
+
+    let cancelled: Record = conductor.call(&alice.zome("recovery"), "cancel_recovery", req.id.clone()).await;
+    let cancelled_req: RecoveryRequestMirror = cancelled.entry().to_app_option().unwrap().unwrap();
+    assert_eq!(cancelled_req.status, RecoveryStatusMirror::Cancelled);
+
+    await_consistency(&[alice.clone(), bob.clone(), carol.clone()]).await.unwrap();
+
+    let observed: Option<Record> = conductor.call(&bob.zome("recovery"), "get_recovery_request", req.id).await;
+    let observed_req: RecoveryRequestMirror = observed.unwrap().entry().to_app_option().unwrap().unwrap();
+    assert_eq!(observed_req.status, RecoveryStatusMirror::Cancelled);
+
+    let mut agents = BTreeMap::new();
+    agents.insert("alice", alice_app.agent().to_string());
+    agents.insert("bob", bob_app.agent().to_string());
+    agents.insert("carol", carol_app.agent().to_string());
+    emit_evidence(
+        "DSID-032",
+        "recovery-request-reader-follows-latest-update",
+        &dna,
+        agents,
+        &[&request, &cancelled],
+        "The DHT request-ID reader must follow the RecoveryRequest update chain and expose the latest canonical request state.",
+        format!("observed_latest_status={:?}", observed_req.status),
+        true,
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_033_cancel_uses_pinned_recovery_config() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let alice_app = conductor.setup_app("dsid-cancel-pin-alice", std::slice::from_ref(&dna)).await.unwrap();
+    let bob_app = conductor.setup_app("dsid-cancel-pin-bob", std::slice::from_ref(&dna)).await.unwrap();
+    let carol_app = conductor.setup_app("dsid-cancel-pin-carol", std::slice::from_ref(&dna)).await.unwrap();
+    let alice = alice_app.cells()[0].clone();
+    let bob = bob_app.cells()[0].clone();
+    let carol = carol_app.cells()[0].clone();
+
+    for cell in [&alice, &bob, &carol] {
+        let _: Record = conductor.call(&cell.zome("did_registry"), "create_did", ()).await;
+    }
+
+    let alice_did = format!("did:mycelix:{}", alice_app.agent());
+    let bob_did = format!("did:mycelix:{}", bob_app.agent());
+    let carol_did = format!("did:mycelix:{}", carol_app.agent());
+
+    let config: Record = conductor.call(&alice.zome("recovery"), "setup_recovery", serde_json::json!({
+        "did": alice_did.clone(),
+        "trustees": [alice_did.clone(), bob_did.clone(), carol_did.clone()],
+        "threshold": 2,
+        "time_lock": 86400
+    })).await;
+    await_consistency(&[alice.clone(), bob.clone(), carol.clone()]).await.unwrap();
+
+    let request: Record = conductor.call(&alice.zome("recovery"), "initiate_recovery", serde_json::json!({
+        "did": alice_did.clone(),
+        "initiator_did": alice_did,
+        "new_agent": bob_app.agent(),
+        "reason": "DSID cancel pinned config"
+    })).await;
+    let req: RecoveryRequestMirror = request.entry().to_app_option().unwrap().unwrap();
+    assert_eq!(req.recovery_config_action_hash, config.action_address());
+
+    let cancelled: Record = conductor.call(&alice.zome("recovery"), "cancel_recovery", req.id).await;
+    let cancelled_req: RecoveryRequestMirror = cancelled.entry().to_app_option().unwrap().unwrap();
+    assert_eq!(cancelled_req.status, RecoveryStatusMirror::Cancelled);
+
+    let mut agents = BTreeMap::new();
+    agents.insert("alice", alice_app.agent().to_string());
+    agents.insert("bob", bob_app.agent().to_string());
+    agents.insert("carol", carol_app.agent().to_string());
+    emit_evidence(
+        "DSID-033",
+        "cancel-uses-pinned-recovery-config",
+        &dna,
+        agents,
+        &[&config, &request, &cancelled],
+        "Cancellation must authorize against the exact recovery configuration snapshot pinned to the request.",
+        format!("pinned_config_matches={}", cancelled_req.recovery_config_action_hash == config.action_address()),
+        true,
+    );
+}
