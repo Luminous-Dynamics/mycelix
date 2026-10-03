@@ -1394,17 +1394,14 @@ mod tests {
             Err(FederationInvariantViolation::DeliveryMapKeyMismatch)
         );
 
+        let delivery = state.deliveries.remove("wrong-delivery-key").unwrap();
+        state.deliveries.insert("delivery-1".into(), delivery);
+        assert_eq!(validate_state(&state), Ok(()));
+
         let original_observation = state.observations.remove("env-1").unwrap();
         state
             .observations
             .insert("wrong-observation-key".into(), original_observation);
-        assert_eq!(
-            validate_state(&state),
-            Err(FederationInvariantViolation::DeliveryMapKeyMismatch)
-        );
-
-        let delivery = state.deliveries.remove("wrong-delivery-key").unwrap();
-        state.deliveries.insert("delivery-1".into(), delivery);
         assert_eq!(
             validate_state(&state),
             Err(FederationInvariantViolation::ObservationMapKeyMismatch)
