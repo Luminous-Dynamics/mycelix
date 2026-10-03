@@ -3036,8 +3036,25 @@ mod tests {
                 &[left, right],
             ),
             Ok(EvidenceDispositionCoverageAssessment::Unresolved {
-                missing: expected_missing,
+                missing: expected_missing.clone(),
                 authority_roots: vec![],
+            })
+        );
+
+        assert_eq!(
+            coverage.validate_against_graph_and_authority_chain_qualified(
+                &reconciliation,
+                &scope,
+                &delegation,
+                &[],
+                &boundary,
+                &[left, right],
+            ),
+            Ok(QualificationStatus::Unresolved {
+                missing: expected_missing,
+                partial: EvidenceDispositionCoverageQualification {
+                    authority_roots: vec![],
+                },
             })
         );
     }
