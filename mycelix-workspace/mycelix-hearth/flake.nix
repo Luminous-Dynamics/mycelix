@@ -47,6 +47,10 @@
             name = "hearth";
             extraBuildInputs = with pkgs; [ nodejs_24 perl ];
             extraShellHook = ''
+              # The shared Mycelix base also carries a general-purpose Rust
+              # toolchain. Put the pinned Holonix 0.7 compiler first so local
+              # development and CI observe the same compiler provenance.
+              export PATH="${holochainPackages.rust}/bin:$PATH"
               echo "Mycelix Hearth — Family/Household/Kinship Coordination"
               echo ""
               echo "Domains:"
