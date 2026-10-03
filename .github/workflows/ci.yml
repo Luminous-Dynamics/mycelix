@@ -4,7 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    # Keep stacked Integral PRs executable as well as PRs targeting main.
+    branches: [main, myc-int-demo-d6w-layered-commitments]
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
   workflow_dispatch:
 
