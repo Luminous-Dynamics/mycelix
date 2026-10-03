@@ -94,7 +94,9 @@ It verifies that every required D6P receipt:
 - matches the supplied receipt commitment exactly;
 - matches its supplied D6P composition exactly;
 - satisfies the composition's semantic validation;
-- and, when requested, is bound to the caller-supplied current frontier.
+- and, when requested, is bound to the caller-supplied current frontier, which must equal the semantic environment's declared current frontier.
+
+A strict frontier argument therefore cannot introduce a second notion of "current": the environment and the D6P receipt must agree on the same frontier root before the receipt enters the D6X closure.
 
 This prevents an opaque or historical receipt from silently crossing into D6X, but it does not prove how the supplied composition was originally produced. Authoritative D6N/D6O reconstruction therefore remains an upstream qualification step. D6X must not be described as creating that authority merely because the D6P objects are internally consistent.
 
