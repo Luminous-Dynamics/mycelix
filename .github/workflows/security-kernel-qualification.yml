@@ -78,10 +78,12 @@ jobs:
           done
 
           for pattern in \
-            '#\[derive\(Debug, Clone, PartialEq, Eq\)\][[:space:]]*pub struct AuthorizationPermit' \
-            '#\[derive\(Debug, Clone, PartialEq, Eq\)\][[:space:]]*pub struct EnforcementRequest'; do
+            '#\\[derive\\([^]]*(Serialize|Deserialize)[^]]*\\)\\][[:space:]]*(pub[[:space:]]+)?struct (VerificationEvidence|AuthorizationPermit|EnforcementRequest)' \
+            'impl[[:space:]]+(Serialize|Deserialize)[[:space:]]+for[[:space:]]+(VerificationEvidence|AuthorizationPermit|EnforcementRequest)' \
+            '#\\[derive\\(Debug, Clone, PartialEq, Eq\\)\\][[:space:]]*pub struct AuthorizationPermit' \
+            '#\\[derive\\(Debug, Clone, PartialEq, Eq\\)\\][[:space:]]*pub struct EnforcementRequest'; do
             if rg -nU "$pattern" crates/mycelix-bridge-common/src/security_kernel.rs; then
-              echo "security-kernel linear-token regression: $pattern" >&2
+              echo "security-kernel serialization/linear-token regression: $pattern" >&2
               exit 1
             fi
           done
