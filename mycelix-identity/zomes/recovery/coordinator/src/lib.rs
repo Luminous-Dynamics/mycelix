@@ -1023,20 +1023,19 @@ pub fn arm_recovery_time_lock(request_id: String) -> ExternResult<Record> {
 /// Execute recovery (after time lock)
 #[hdk_extern]
 pub fn execute_recovery(request_id: String) -> ExternResult<Record> {
+    let caller = agent_info()?.agent_initial_pubkey;
     if request_id.is_empty() || request_id.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Request ID must be 1-256 characters".into()
         )));
     }
 
-    // Resolve through the DHT request index so the designated replacement
-    // agent can execute a recovery that originated on another agent's chain.
-    let current_record = get_recovery_request(request_id.clone())?
+    let request = get_recovery_request(request_id)?
         .ok_or(wasm_error!(WasmErrorInner::Guest(
             "Recovery request not found".into()
         )))?;
 
-    let current_request: RecoveryRequest = current_record
+    let current_request: RecoveryRequest = request
         .entry()
         .to_app_option()
         .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
@@ -1044,63 +1043,22 @@ pub fn execute_recovery(request_id: String) -> ExternResult<Record> {
             "Invalid recovery request".into()
         )))?;
 
-    // Verify caller is the designated new agent or the recovery initiator
-    let caller = agent_info()?.agent_initial_pubkey;
-    let caller_did = format!("did:mycelix:{}", caller);
-    if caller != current_request.new_agent && caller_did != current_request.initiated_by {
+    if caller != current_request.new_agent {
         return Err(wasm_error!(WasmErrorInner::Guest(
-            "Only the designated new agent or recovery initiator can execute recovery".into()
+            "Only the designated replacement agent may execute recovery".into()
         )));
     }
 
-    // Verify status allows execution
-    if current_request.status != RecoveryStatus::Approved
-        && current_request.status != RecoveryStatus::ReadyToExecute
-    {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Recovery request is not approved".into()
-        )));
-    }
-
-    // Verify time lock has expired
-    let now = sys_time()?;
-    if let Some(expires) = current_request.time_lock_expires {
-        if now < expires {
-            return Err(wasm_error!(WasmErrorInner::Guest(
-                "Time lock has not expired".into()
-            )));
-        }
-    } else {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Time lock not set".into()
-        )));
-    }
-
-    // Update request to completed
-    let completed_request = RecoveryRequest {
-        id: current_request.id,
-        did: current_request.did,
-        new_agent: current_request.new_agent,
-        initiated_by: current_request.initiated_by,
-        reason: current_request.reason,
-        status: RecoveryStatus::Completed,
-        created: current_request.created,
-        time_lock_expires: current_request.time_lock_expires,
-        approval_certificate: current_request.approval_certificate,
-    };
-
-    let action_hash = update_entry(
-        current_record.action_address().clone(),
-        &EntryTypes::RecoveryRequest(completed_request),
-    )?;
-
-    // The lifecycle notification is emitted from post_commit after the
-    // Completed update has been durably committed.
-
-    get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Could not find completed request".into()
+    // Do not report a recovery as completed until the method-specific
+    // successor-DID/controller-transfer protocol exists. Marking the request
+    // Completed without changing the identity would create false security
+    // semantics for callers and downstream hApps.
+    Err(wasm_error!(WasmErrorInner::Guest(
+        "Recovery execution is disabled until successor-DID/controller-transfer protocol #3873 is implemented"
+            .into()
     )))
 }
+
 
 /// Cancel a recovery request (owner only, before execution)
 #[hdk_extern]
