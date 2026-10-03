@@ -548,10 +548,14 @@ mod linux {
                     }
                 }
                 code if code == BPF_JMP | BPF_JGE | BPF_K => {
-                    // The only JGE emitted by this compiler is the x86-64 x32
-                    // ABI guard: accumulator >= 0x4000_0000 jumps to the
-                    // fail-closed kill action.
-                    if instruction.k != 0x4000_0000
+                    // The only JGE emitted by this compiler is the canonical
+                    // x86-64 x32 ABI guard at instruction 4. Reject the same
+                    // opcode/operand shape anywhere else so validator success
+                    // cannot be obtained by relocating the guard into a rule
+                    // body.
+                    if SeccompArchitecture::current() != Some(SeccompArchitecture::X86_64)
+                        || index != 4
+                        || instruction.k != 0x4000_0000
                         || instruction.jt != 0
                         || instruction.jf != 1
                     {
