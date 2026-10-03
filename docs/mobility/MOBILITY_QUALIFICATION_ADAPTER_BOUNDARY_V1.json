@@ -39,7 +39,16 @@
     "resolution_missing": "return canonical missing logical identities and preserve unresolved semantic state",
     "duplicate_requests_deduplicated": true,
     "address_derivation": false,
-    "resolution_invalid": "malformed logical identity is definitive invalidity"
+    "resolution_invalid": "malformed logical identity is definitive invalidity",
+    "retrieval_kind_type": "QualificationDependencyRetrievalKind",
+    "allowed_retrieval_kinds": [
+      "ValidRecord",
+      "Action",
+      "Entry"
+    ],
+    "retrieval_kind_required": true,
+    "retrieval_kind_mapping_runtime_owned": true,
+    "retrieval_kind_mismatch_is_adapter_boundary_error": true
   },
   "dependency_retrieval": {
     "deterministic_host_function_family": "must_get_*",
@@ -47,7 +56,8 @@
     "missing_addressable_dependency_is_semantic_invalidity": false,
     "binding_preserves_address_kind": true,
     "valid_record_requires_action_hash": true,
-    "wrong_address_kind_is_adapter_boundary_error": true
+    "wrong_address_kind_is_adapter_boundary_error": true,
+    "valid_record_retrieval_requires_action_hash": true
   },
   "determinism": {
     "retrieval_order_independent": true,
