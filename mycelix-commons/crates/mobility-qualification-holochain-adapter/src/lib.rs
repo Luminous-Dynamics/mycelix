@@ -215,6 +215,25 @@ pub fn retrieve_resolved(
     dependencies.iter().map(retrieve_one).collect()
 }
 
+/// Map a definitive pure decision into Holochain's callback result.
+///
+/// The pure Unresolved state cannot be mapped yet because its missing values are
+/// logical identities, not protocol hashes. Callers must first establish the
+/// explicit runtime bindings; once concrete addresses exist, a matching
+/// must_get_* call lets Holochain produce UnresolvedDependencies when data is
+/// unavailable.
+pub fn map_definitive_decision<T>(
+    decision: QualificationDecision<T>,
+) -> Result<ValidateCallbackResult, HolochainAdapterBoundaryError> {
+    match decision {
+        QualificationDecision::Valid(_) => Ok(ValidateCallbackResult::Valid),
+        QualificationDecision::Invalid { reason } => Ok(ValidateCallbackResult::Invalid(reason)),
+        QualificationDecision::Unresolved { missing, .. } => {
+            Err(HolochainAdapterBoundaryError::LogicalDependencyNotBound { missing })
+        }
+    }
+}
+
 /// Require the binding preflight to be complete without introducing another
 /// semantic algebra. This is a preparation boundary, not a Holochain callback
 /// result conversion.
@@ -445,6 +464,32 @@ mod tests {
         assert!(matches!(
             error,
             HolochainAdapterBoundaryError::BindingRejected { .. }
+        ));
+    }
+
+    #[test]
+    fn definitive_pure_decisions_map_without_reinterpreting_semantics() {
+        assert_eq!(
+            map_definitive_decision(QualificationDecision::<()>::Valid(()))
+                .expect("valid maps directly"),
+            ValidateCallbackResult::Valid
+        );
+        assert_eq!(
+            map_definitive_decision(QualificationDecision::<()>::Invalid {
+                reason: "structural contradiction".into(),
+            })
+            .expect("invalid maps directly"),
+            ValidateCallbackResult::Invalid("structural contradiction".into())
+        );
+
+        let missing = identity("missing");
+        assert!(matches!(
+            map_definitive_decision(QualificationDecision::<()>::Unresolved {
+                missing: vec![missing.clone()],
+                partial: (),
+            }),
+            Err(HolochainAdapterBoundaryError::LogicalDependencyNotBound { missing: found })
+                if found == vec![missing]
         ));
     }
 
