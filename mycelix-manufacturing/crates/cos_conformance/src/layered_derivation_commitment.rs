@@ -81,6 +81,10 @@ impl InputCommitmentV1 {
                         && is_canonical_sha256_commitment(&edge.edge_commitment)
                 })
             })
+            || closure
+                .included_d6p_receipt_commitments
+                .iter()
+                .any(|commitment| !is_canonical_sha256_commitment(commitment))
         {
             return None;
         }
@@ -681,6 +685,28 @@ mod tests {
             "unselected D6P candidate material must not perturb the D6W input identity"
         );
         assert!(noisy.d6p_receipts.is_empty());
+    }
+
+    #[test]
+    fn d6w_constructor_rejects_opaque_selected_d6p_commitment() {
+        let (mut p, e, d, _) = fixture(false);
+        let profile = DependencyClosureProfileV1 {
+            required_d6p_receipt_commitments: BTreeSet::from(["legacy-d6p-receipt".into()]),
+            ..closure_profile()
+        };
+        p.d6p_current_receipt_commitments = profile.required_d6p_receipt_commitments.clone();
+
+        let closure = compute_dependency_closure(&p, &e, &d, &profile).unwrap();
+        assert_eq!(
+            closure.status,
+            qualified_dependency_closure_d6x::DependencyClosureStatusV1::Complete
+        );
+        assert!(closure.valid());
+
+        assert!(
+            InputCommitmentV1::from_projection(&p, &e, &closure, &profile, &d).is_none(),
+            "D6W constructor must fail closed instead of returning an invalid input object"
+        );
     }
 
     #[test] fn required_d6p_receipt_is_bound_into_closure(){let(a,e,d,_)=fixture(false);let mut p=DependencyClosureProfileV1{profile_id:"cp".into(),version:"1".into(),root_node_ids:["root".into()].into_iter().collect(),required_node_ids:BTreeSet::new(),required_d6p_receipt_commitments:["r1".into()].into_iter().collect(),rules:[DependencyRuleV1{edge_kind:ClaimGraphEdgeKindV1::Supports,from_kind:Some(ClaimGraphNodeKindV1::Statement),to_kind:Some(ClaimGraphNodeKindV1::Evidence),currentness:DependencyCurrentnessV1::Any}].into_iter().collect(),excluded_boundary_policy:"rule-matched semantic edges only".into(),max_nodes:16,max_edges:16,claim_ceiling:D6S_CLAIM_CEILING.into()};let blocked=compute_dependency_closure(&a,&e,&d,&p).unwrap();assert_eq!(blocked.status,qualified_dependency_closure_d6x::DependencyClosureStatusV1::BlockedMissingDependency);let mut b=a.clone();b.d6p_current_receipt_commitments.insert("r1".into());let complete=compute_dependency_closure(&b,&e,&d,&p).unwrap();assert_eq!(complete.status,qualified_dependency_closure_d6x::DependencyClosureStatusV1::Complete);assert_ne!(blocked.closure_identity_commitment,complete.closure_identity_commitment);}
