@@ -92,7 +92,12 @@ def main() -> int:
     errors = document.get("error_boundary")
     if not isinstance(errors, dict):
         raise SystemExit("missing error boundary")
-    require_exact_keys(errors, {"semantic_invalidity", "runtime_failure", "dependency_absence"}, "error boundary")
+    require_exact_keys(
+        errors,
+        {"semantic_invalidity", "runtime_failure", "dependency_absence",
+         "adapter_boundary_error", "adapter_boundary_error_is_semantic_invalidity"},
+        "error boundary",
+    )
     if errors.get("semantic_invalidity") != (
         "must be returned as a validation result, not ExternResult::Err"
     ):
