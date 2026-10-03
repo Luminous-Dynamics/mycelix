@@ -1260,6 +1260,44 @@ fn validate_update_recovery_request(
             ));
         }
 
+        let config_record = must_get_valid_record(request.recovery_config_action_hash.clone())?;
+        let config: RecoveryConfig = config_record
+            .entry()
+            .to_app_option()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Pinned recovery config must decode as RecoveryConfig".into(),
+            )))?;
+
+        if request.status == RecoveryStatus::Approved
+            || request.status == RecoveryStatus::ReadyToExecute
+            || request.status == RecoveryStatus::Completed
+        {
+            let duration_micros = (config.time_lock as i64)
+                .checked_mul(1_000_000)
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Recovery time-lock duration overflow".into()
+                )))?;
+            let expected_expiry = certificate_record
+                .action()
+                .timestamp()
+                .as_micros()
+                .checked_add(duration_micros)
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Recovery time-lock expiry overflow".into()
+                )))?;
+            let expires = request.time_lock_expires.ok_or(wasm_error!(
+                WasmErrorInner::Guest(
+                    "Approved recovery must carry a time-lock expiry"
+                )
+            ))?;
+            if expires.as_micros() != expected_expiry {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Recovery time-lock expiry must equal certificate action time plus pinned policy duration".into(),
+                ));
+            }
+        }
+
         // The certificate binds to the immutable request's creation action.
         // Later state-machine transitions may validly update the request again
         // while retaining the same approval certificate.
