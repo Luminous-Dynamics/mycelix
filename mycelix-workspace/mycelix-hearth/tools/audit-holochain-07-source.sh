@@ -753,6 +753,40 @@ check_qualification_workflow_provenance() {
 # complete while the coordinator silently uses an operation family that the integrity
 # zome does not model explicitly. Tie the application write surface to its validator
 # counterpart without assuming every zome must expose every operation family.
+# Coordinator symbol parity: coordinator code may only construct entry/link types
+# that the paired integrity zome actually declares. This catches stale coordinator
+# references after entry/link migrations or renames.
+check_coordinator_symbol_parity() {
+  local coordinator file zome enum_block variant
+  while IFS= read -r -d "" coordinator; do
+    zome="$(basename "$(dirname "$(dirname "$(dirname "$coordinator")")")")"
+    file="mycelix-workspace/mycelix-hearth/zomes/$zome/integrity/src/lib.rs"
+    [[ -f "$file" ]] || continue
+
+    enum_block="$(sed '/^\#\[cfg(test)\]/,$d' "$file" | sed -n '/^pub enum EntryTypes[[:space:]]*{/,/^}/p')"
+    while IFS= read -r variant; do
+      [[ -z "$variant" ]] && continue
+      if printf '%s\n' "$enum_block" | grep -Eq "^[[:space:]]*$variant\("; then
+        echo "OK:   $zome coordinator EntryTypes::$variant matches integrity declaration"
+      else
+        echo "FAIL: $zome coordinator references undeclared EntryTypes::$variant"
+        fail=1
+      fi
+    done < <(rg -o --pcre2 'EntryTypes::[A-Za-z_][A-Za-z0-9_]*' "$coordinator" | sed 's/.*EntryTypes:://' | sort -u)
+
+    enum_block="$(sed '/^\#\[cfg(test)\]/,$d' "$file" | sed -n '/^pub enum LinkTypes[[:space:]]*{/,/^}/p')"
+    while IFS= read -r variant; do
+      [[ -z "$variant" ]] && continue
+      if printf '%s\n' "$enum_block" | grep -Eq "^[[:space:]]*$variant,$"; then
+        echo "OK:   $zome coordinator LinkTypes::$variant matches integrity declaration"
+      else
+        echo "FAIL: $zome coordinator references undeclared LinkTypes::$variant"
+        fail=1
+      fi
+    done < <(rg -o --pcre2 'LinkTypes::[A-Za-z_][A-Za-z0-9_]*' "$coordinator" | sed 's/.*LinkTypes:://' | sort -u)
+  done < <(git ls-files -z -- "mycelix-workspace/mycelix-hearth/zomes/*/coordinator/src/lib.rs")
+}
+
 check_coordinator_operation_bindings() {
   local coordinator file zome
   while IFS= read -r -d "" coordinator; do
@@ -846,6 +880,7 @@ check_dna_source_completeness() {
 check_standalone_tests_workspace_boundary
 check_qualification_workflow_provenance
 check_coordinator_operation_bindings
+check_coordinator_symbol_parity
 check_dna_source_completeness
 check_semantic_validation_suite_wiring
 check_semantic_case_entrypoints
