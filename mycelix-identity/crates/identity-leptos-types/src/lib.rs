@@ -533,7 +533,9 @@ mod tests {
             verification_methods: vec![],
             key_agreements: vec![],
             services: vec![],
-            created: 0, updated: 0, version: 1, active: true,
+            created: "1970-01-01T00:00:00.000Z".into(),
+            updated: "1970-01-01T00:00:00.000Z".into(),
+            version: 1, active: true,
         };
         assert!(did.short_id().len() < did.id.len());
         assert!(did.short_id().contains("..."));
