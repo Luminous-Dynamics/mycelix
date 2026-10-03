@@ -317,7 +317,6 @@ mod tests {
             CreditCreation::new("bank", "household", 25).unwrap(),
         )];
         let observations = EconomicObservables::try_from_state_and_transitions(&state, &transitions).unwrap();
-+
         assert_eq!(observations.aggregate_loans, 25);
         assert_eq!(observations.aggregate_debt, 25);
         assert_eq!(observations.aggregate_deposits, 25);
