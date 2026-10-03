@@ -1882,9 +1882,9 @@ mod tests {
 
     #[test]
     fn archive_with_wrong_effect_is_not_reusable_for_finality() {
-        let effect = effect("effect-1", "lineage-1", "generation-1");
+        let primary_effect = effect("effect-1", "lineage-1", "generation-1");
         let other = effect("effect-2", "lineage-2", "generation-2");
-        let binding = archive_binding(&effect);
+        let binding = archive_binding(&primary_effect);
 
         assert_eq!(
             assess_archive_finality_boundary(
@@ -2081,7 +2081,7 @@ mod tests {
         assert_eq!(
             assess_external_finality(
                 &effect,
-                &substitution_profile(),
+                &substitution_profile(&effect),
                 &profile,
                 &route,
                 &outcome,
