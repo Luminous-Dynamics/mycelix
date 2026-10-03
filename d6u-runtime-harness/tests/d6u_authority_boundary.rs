@@ -82,7 +82,7 @@ fn authority_probe_zome(reached: Arc<AtomicUsize>) -> SweetInlineZomes {
             }
         })
         .function("grant_probe", move |api, agent: AgentPubKey| {
-            let secret = CapSecret::from([0xA5; 64]);
+            let secret = CapSecret::from([0xA5; CAP_SECRET_BYTES]);
             let mut functions = HashSet::new();
             functions.insert((SweetInlineZomes::COORDINATOR.into(), "probe".into()));
             let action_hash = api.create(CreateInput::new(
