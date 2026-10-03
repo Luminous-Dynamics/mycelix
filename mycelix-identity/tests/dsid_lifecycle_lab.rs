@@ -1912,3 +1912,65 @@ async fn dsid_024_non_trustee_recovery_votes_are_rejected() {
         true,
     );
 }
+
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_025_self_recovery_latest_update_is_canonical() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let app = conductor.setup_app(
+        "dsid-self-recovery-latest",
+        std::slice::from_ref(&dna),
+    ).await.unwrap();
+    let cell = app.cells()[0].clone();
+    let agent = app.agent().clone();
+
+    let _did_record: Record = conductor
+        .call(&cell.zome("did_registry"), "create_did", ())
+        .await;
+    let did = format!("did:mycelix:{}", agent);
+
+    let anchor = serde_json::json!({
+        "EmailHash": "sha256:canonical-latest-regression"
+    });
+    let updated: Record = conductor
+        .call(
+            &cell.zome("recovery"),
+            "add_verification_anchor",
+            serde_json::json!({
+                "did": did,
+                "anchor": anchor
+            }),
+        )
+        .await;
+
+    let view: Option<SelfRecoveryConfigView> = conductor
+        .call(&cell.zome("recovery"), "get_self_recovery_view", did.clone())
+        .await;
+    let view = view.expect("self-recovery config must remain readable after update");
+
+    assert_eq!(view.did, did);
+    assert_eq!(view.anchors.len(), 1);
+    assert_eq!(view.anchor_threshold, 1);
+    assert_eq!(view.time_lock_secs, 14 * 24 * 3600);
+    assert!(view.active);
+
+    let mut agents = BTreeMap::new();
+    agents.insert("alice", agent.to_string());
+    emit_evidence(
+        "DSID-025",
+        "self-recovery-latest-update-is-canonical",
+        &dna,
+        agents,
+        &[&updated],
+        "The canonical self-recovery read path must follow the update chain and expose the newly enrolled anchor rather than the original zero-anchor configuration.",
+        format!(
+            "anchors={} threshold={} timelock_secs={}",
+            view.anchors.len(),
+            view.anchor_threshold,
+            view.time_lock_secs
+        ),
+        true,
+    );
+}
