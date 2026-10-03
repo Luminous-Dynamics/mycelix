@@ -878,8 +878,9 @@ async fn dsid_011_resolution_metadata_tracks_deactivation() {
         )
         .await;
 
-    assert!(after.did_document.is_some());
+    assert!(after.did_document.is_none());
     assert_eq!(after.resolution_metadata.error, None);
+    assert_eq!(after.resolution_metadata.content_type, None);
     assert_eq!(
         after.document_metadata.as_ref().map(|m| m.deactivated),
         Some(true)
@@ -897,7 +898,7 @@ async fn dsid_011_resolution_metadata_tracks_deactivation() {
         &dna,
         agents,
         &[&created, &deactivated],
-        "DID resolution returns explicit document metadata and marks a deactivated DID as deactivated without discarding the resolved document.",
+        "DID resolution returns explicit deactivation metadata and withholds the deactivated DID document from the current resolution result; historical state remains separately addressable.",
         format!(
             "did={} before_deactivated={} after_deactivated={} version_id={}",
             did_view.id,
