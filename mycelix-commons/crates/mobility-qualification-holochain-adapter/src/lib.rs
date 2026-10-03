@@ -18,9 +18,69 @@ use mobility_configuration_qualification::{
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum HolochainDependencyAddress {
     Action(ActionHash),
     Entry(EntryHash),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct HolochainBindingAttestationPayload {
+    pub schema: &'static str,
+    pub provenance: QualificationDependencyBindingProvenance,
+    pub address: HolochainDependencyAddress,
+    pub retrieval: QualificationDependencyRetrievalKind,
+}
+
+pub const HOLOCHAIN_BINDING_ATTESTATION_SCHEMA: &str =
+    "mycelix.mobility.holochain_binding_attestation.v1";
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SignedHolochainBindingAttestation {
+    pub signer: AgentPubKey,
+    pub signature: Signature,
+    pub payload: HolochainBindingAttestationPayload,
+}
+
+impl HolochainBindingAttestationPayload {
+    pub fn validate(&self) -> Result<(), HolochainAdapterBoundaryError> {
+        if self.schema != HOLOCHAIN_BINDING_ATTESTATION_SCHEMA {
+            return Err(HolochainAdapterBoundaryError::SemanticInvalid {
+                reason: "binding attestation uses an unexpected schema".into(),
+            });
+        }
+
+        self.provenance
+            .validate()
+            .map_err(HolochainAdapterBoundaryError::SemanticInvalid)?;
+
+        if !self
+            .provenance
+            .matches_logical_identity(&self.provenance.logical_identity)
+        {
+            return Err(HolochainAdapterBoundaryError::SemanticInvalid {
+                reason: "binding attestation provenance does not identify its logical dependency"
+                    .into(),
+            });
+        }
+
+        validate_address_kind(&self.address, self.retrieval)?;
+        Ok(())
+    }
+}
+
+impl SignedHolochainBindingAttestation {
+    pub fn verify(&self) -> ExternResult<bool> {
+        self.payload
+            .validate()
+            .map_err(|error| wasm_error!(WasmErrorInner::Guest(error.to_string())))?;
+
+        hdi::ed25519::verify_signature(
+            self.signer.clone(),
+            self.signature.clone(),
+            &self.payload,
+        )
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -149,6 +209,40 @@ impl HolochainDependencyBindingSet {
         Ok(())
     }
 
+    /// Bind from a cryptographically attested payload.
+    ///
+    /// The signature is verified over the canonical payload before the binding
+    /// enters the immutable set. A valid signature proves that the payload was
+    /// signed by the supplied Holochain agent key; it does not, by itself,
+    /// prove that the signer is the real-world authority named in the provenance.
+    pub fn bind_attested(
+        &mut self,
+        attestation: SignedHolochainBindingAttestation,
+    ) -> Result<(), HolochainAdapterBoundaryError> {
+        attestation
+            .payload
+            .validate()?;
+
+        let verified = attestation
+            .verify()
+            .map_err(|error| HolochainAdapterBoundaryError::BindingRejected {
+                reason: format!("binding attestation verification failed: {error}"),
+            })?;
+
+        if !verified {
+            return Err(HolochainAdapterBoundaryError::SemanticInvalid {
+                reason: "binding attestation signature did not verify".into(),
+            });
+        }
+
+        self.bind(
+            attestation.payload.provenance.logical_identity.clone(),
+            attestation.payload.address,
+            attestation.payload.retrieval,
+            attestation.payload.provenance,
+        )
+    }
+
     /// Resolve logical identities using the pure three-outcome algebra.
     ///
     /// No Holochain retrieval occurs here. An Unresolved result means that a
@@ -213,6 +307,16 @@ impl HolochainDependencyBindingSet {
     ) -> Option<&QualificationDependencyBindingProvenance> {
         self.provenance.get(identity)
     }
+}
+
+/// Verify the optional cryptographic attestation for one logical-to-protocol
+/// binding. Verification is deterministic and signs the canonical serialized
+/// payload, including the schema, provenance witness, protocol address, and
+/// retrieval intent.
+pub fn verify_binding_attestation(
+    attestation: &SignedHolochainBindingAttestation,
+) -> ExternResult<bool> {
+    attestation.verify()
 }
 
 /// Retrieved value returned by the concrete Holochain host primitive.
