@@ -896,6 +896,58 @@ mod tests {
     use super::*;
 
     #[test]
+    fn duplicate_trustee_votes_use_earliest_vote() {
+        let trustee = "did:mycelix:trustee".to_string();
+        let first_hash = ActionHash::from_raw_36(vec![1u8; 36]);
+        let later_hash = ActionHash::from_raw_36(vec![0u8; 36]);
+
+        let canonical = canonical_trustee_votes(vec![
+            (
+                trustee.clone(),
+                Timestamp::from_micros(20),
+                later_hash,
+                VoteDecision::Approve,
+            ),
+            (
+                trustee.clone(),
+                Timestamp::from_micros(10),
+                first_hash.clone(),
+                VoteDecision::Reject,
+            ),
+        ]);
+
+        let (_, selected_hash, selected_vote) = canonical.get(&trustee).unwrap();
+        assert_eq!(*selected_hash, first_hash);
+        assert_eq!(*selected_vote, VoteDecision::Reject);
+    }
+
+    #[test]
+    fn duplicate_same_timestamp_votes_use_action_hash_tiebreaker() {
+        let trustee = "did:mycelix:trustee".to_string();
+        let low_hash = ActionHash::from_raw_36(vec![0u8; 36]);
+        let high_hash = ActionHash::from_raw_36(vec![1u8; 36]);
+
+        let canonical = canonical_trustee_votes(vec![
+            (
+                trustee.clone(),
+                Timestamp::from_micros(10),
+                high_hash,
+                VoteDecision::Approve,
+            ),
+            (
+                trustee.clone(),
+                Timestamp::from_micros(10),
+                low_hash.clone(),
+                VoteDecision::Reject,
+            ),
+        ]);
+
+        let (_, selected_hash, selected_vote) = canonical.get(&trustee).unwrap();
+        assert_eq!(*selected_hash, low_hash);
+        assert_eq!(*selected_vote, VoteDecision::Reject);
+    }
+
+    #[test]
     fn test_approved_exact_threshold() {
         assert_eq!(evaluate_threshold(3, 0, 5, 3), Some(true));
     }
