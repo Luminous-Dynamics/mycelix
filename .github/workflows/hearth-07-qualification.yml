@@ -140,23 +140,31 @@ jobs:
             while IFS= read -r -d "" file; do
               zome="$(basename "$(dirname "$(dirname "$(dirname "$file")")")")"
               printf "zome=%s" "${zome//-/_}"
+              coordinator="mycelix-workspace/mycelix-hearth/zomes/$zome/coordinator/src/lib.rs"
               for family in CreateEntry CreateRecord Update Delete AgentActivity; do
                 if rg -n --pcre2 "\\bFlatOp::${family}\\b" "$file" >/dev/null 2>&1; then
-                  printf " %s=present" "$family"
+                  printf " validator.%s=present" "$family"
                 else
-                  printf " %s=absent" "$family"
+                  printf " validator.%s=absent" "$family"
                 fi
               done
               if rg -n --pcre2 'FlatOp::Link\\s*\\(\\s*OpLink::CreateLink' "$file" >/dev/null 2>&1; then
-                printf " Link.CreateLink=present"
+                printf " validator.Link.CreateLink=present"
               else
-                printf " Link.CreateLink=absent"
+                printf " validator.Link.CreateLink=absent"
               fi
               if rg -n --pcre2 'FlatOp::Link\\s*\\([^)]*OpLink::DeleteLink' "$file" >/dev/null 2>&1; then
-                printf " Link.DeleteLink=present"
+                printf " validator.Link.DeleteLink=present"
               else
-                printf " Link.DeleteLink=absent"
+                printf " validator.Link.DeleteLink=absent"
               fi
+              for family in create_entry update_entry delete_entry create_link delete_link; do
+                if [[ -f "$coordinator" ]] && rg -n --pcre2 "\\b${family}\\s*\\(" "$coordinator" >/dev/null 2>&1; then
+                  printf " coordinator.%s=present" "$family"
+                else
+                  printf " coordinator.%s=absent" "$family"
+                fi
+              done
               printf "\\n"
             done < <(git ls-files -z -- "mycelix-workspace/mycelix-hearth/zomes/*/integrity/src/lib.rs")
           } > qualification-operation-matrix.txt
