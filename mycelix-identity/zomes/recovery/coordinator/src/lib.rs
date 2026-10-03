@@ -621,6 +621,48 @@ pub fn vote_on_recovery(input: VoteOnRecoveryInput) -> ExternResult<Record> {
         }
     }
 
+    // The referenced request must exist in the DHT before a vote can be
+    // authored. This prevents orphaned vote spam and makes the vote's scope
+    // explicit before it enters the shared DHT.
+    let request_record = get_recovery_request(input.request_id.clone())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Recovery request not found".into()
+        )))?;
+    let request: RecoveryRequest = request_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Invalid recovery request record".into()
+        )))?;
+
+    if matches!(
+        request.status,
+        RecoveryStatus::Completed | RecoveryStatus::Rejected | RecoveryStatus::Cancelled
+    ) {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Cannot vote on a terminal recovery request".into()
+        )));
+    }
+
+    let config_record = get_recovery_config(request.did.clone())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Recovery configuration not found".into()
+        )))?;
+    let config: RecoveryConfig = config_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Invalid recovery configuration".into()
+        )))?;
+
+    if !config.trustees.contains(&input.trustee_did) {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Caller is not a trustee for this recovery request".into()
+        )));
+    }
+
     // Verify caller is the claimed trustee
     let caller = agent_info()?.agent_initial_pubkey;
     let caller_did = format!("did:mycelix:{}", caller);
