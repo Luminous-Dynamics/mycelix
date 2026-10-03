@@ -102,6 +102,31 @@ check_present "Hearth dev shell provides Node.js 24" 'nodejs_24'
 check_present "Hearth dev shell provides Perl" '\bperl\b'
 check_present "Hearth flake uses Holonix main-0.7" 'holonix.*ref=main-0\.7'
 check_present "Hearth package builds use Holonix Rust" 'nativeBuildInputs[[:space:]]*=[[:space:]]*\[[[:space:]]*holochainPackages\.rust[[:space:]]'
+
+check_qualification_workflow_provenance() {
+  local workflow=".github/workflows/hearth-07-qualification.yml"
+  if [[ ! -f "$workflow" ]]; then
+    echo "FAIL: missing Hearth 0.7 qualification workflow"
+    fail=1
+    return
+  fi
+  if rg -n --fixed-strings 'target_sha:' "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings 'ref: ${{ env.QUALIFY_SHA }}' "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings 'git rev-parse HEAD' "$workflow" >/dev/null 2>&1; then
+    echo "OK:   qualification workflow binds execution to an exact candidate SHA"
+  else
+    echo "FAIL: qualification workflow does not enforce exact candidate-SHA checkout provenance"
+    fail=1
+  fi
+  if rg -n --fixed-strings 'cargo build --locked' "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings 'cargo test --locked' "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings 'cargo generate-lockfile' "$workflow" >/dev/null 2>&1; then
+    echo "OK:   qualification workflow generates and consumes locked Rust closures"
+  else
+    echo "FAIL: qualification workflow is missing locked Rust dependency closure enforcement"
+    fail=1
+  fi
+}
 check_absent "Hearth package builds do not use shared Rust toolchain" 'holochainBase\.rustToolchain'
 check_lock_present "flake.lock pins Holochain 0.7.0" '"original"[[:space:]]*:[[:space:]]*\{[[:space:]]*"owner"[[:space:]]*:[[:space:]]*"holochain"[[:space:]]*,[[:space:]]*"ref"[[:space:]]*:[[:space:]]*"holochain-0\.7\.0"'
 check_lock_present "flake.lock pins Kitsune2 0.5.0" '"original"[[:space:]]*:[[:space:]]*\{[[:space:]]*"owner"[[:space:]]*:[[:space:]]*"holochain"[[:space:]]*,[[:space:]]*"ref"[[:space:]]*:[[:space:]]*"v0\.5\.0"'
@@ -546,6 +571,7 @@ check_immutable_dependency_semantics() {
 }
 
 check_semantic_validation_suite_wiring
+check_qualification_workflow_provenance
 check_lock_repository_identity
 check_stateful_link_transition_contracts
 
