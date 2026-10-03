@@ -618,9 +618,3 @@ if [[ "$fail" -ne 0 ]]; then
   exit "$fail"
 fi
 echo "HEARTH-0.7 source audit: PASS"
- | sed -E 's/^    ([A-Za-z_][A-Za-z0-9_]*),$/\1/')
-}
-# Every entry-bearing action must be validated on both 0.7 operation surfaces.
-# Holochain emits CreateEntry and CreateRecord operations for entry writes; a
-# permissive CreateRecord catch-all would leave a second validation surface
-# without the application-level entry policy. Updates are checked the same way.
