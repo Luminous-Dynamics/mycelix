@@ -763,3 +763,4 @@ mod tests {
             FinancingRegime::Speculative
         );
     }
+
