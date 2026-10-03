@@ -1014,6 +1014,23 @@ fn source_observation_matches_delivery(state: &FederationState, record: &Deliver
             == record.source_observation_recognized_by.as_deref()
 }
 
+fn source_observation_ids_match_delivery_links(state: &FederationState) -> bool {
+    let linked_ids = state
+        .deliveries
+        .values()
+        .map(DeliveryRecord::source_observation_id)
+        .collect::<BTreeSet<_>>();
+
+    let source_ids = state
+        .observations
+        .values()
+        .filter(|observation| observation.source_observation)
+        .map(|observation| observation.observation_id.as_str())
+        .collect::<BTreeSet<_>>();
+
+    linked_ids == source_ids
+}
+
 fn delivery_identity_snapshot(
     state: &FederationState,
 ) -> BTreeMap<String, (
@@ -1324,10 +1341,36 @@ mod tests {
             .map(DeliveryRecord::source_observation_id)
             .collect::<BTreeSet<_>>();
         assert_eq!(source_ids.len(), state.delivery_count());
+        assert!(source_observation_ids_match_delivery_links(&state));
         for record in state.deliveries.values() {
             assert!(source_observation_matches_delivery(&state, record));
             assert!(attempt_history_matches_bindings(record));
         }
+    }
+
+    #[test]
+    fn source_observation_bijection_detects_orphaned_source_records() {
+        let mut state = nodes();
+        assert_eq!(
+            deliver(&mut state, &envelope(), 50, true).decision(),
+            FederationDecision::AcceptedLocal
+        );
+        assert!(source_observation_ids_match_delivery_links(&state));
+
+        state.observations.insert(
+            "orphan-source".into(),
+            ObservationRecord {
+                observation_id: "orphan-source".into(),
+                semantic_subject_id: "subject-1".into(),
+                payload_commitment: "sha256:orphan".into(),
+                origin_node: "node-a".into(),
+                origin_node_known: true,
+                recognized_by: None,
+                source_observation: true,
+            },
+        );
+
+        assert!(!source_observation_ids_match_delivery_links(&state));
     }
 
     #[test]
