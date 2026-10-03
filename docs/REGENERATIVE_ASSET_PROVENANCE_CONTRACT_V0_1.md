@@ -102,3 +102,17 @@ The test matrix should include:
 - compromised peer attempting to promote an unverified repair.
 
 The protocol should preserve the conservative state under all ambiguous cases.
+
+
+## Cross-system evidence envelope
+
+Symthaea evidence should enter the durable provenance layer through the companion **Regenerative Evidence Envelope Contract v0.1**.
+
+The envelope binds producer identity/commit, asset/component identity, evidence identity/digest, configuration, topology lifecycle state, deterministic qualification context, and authoritative references without duplicating Symthaea's inference semantics.
+
+This gives the architecture a clean division:
+
+**Symthaea:** produce and qualify evidence  
+**Mycelix:** identify, preserve, synchronize, authorize, and reference evidence
+
+The envelope is specifically designed for append-only lifecycle history and offline reconciliation. It should preserve competing topology branches and authority resolutions instead of collapsing them into mutable current-state fields.
