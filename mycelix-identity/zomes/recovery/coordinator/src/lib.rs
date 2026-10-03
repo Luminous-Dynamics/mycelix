@@ -159,127 +159,6 @@ fn enroll_social_recovery_factor(did: &str, trustees: &[String]) -> ExternResult
     }
 }
 
-/// Notify bridge of successful recovery execution so other hApps are informed
-fn notify_bridge_of_recovery(did: &str, new_agent: &AgentPubKey) -> ExternResult<()> {
-    #[derive(Serialize, Deserialize, Debug)]
-    struct BroadcastEventInput {
-        event_type: String,
-        subject: String,
-        payload: String,
-        source_happ: String,
-    }
-
-    let payload = serde_json::json!({
-        "did": did,
-        "new_agent": format!("{}", new_agent),
-        "event": "recovery_completed",
-    })
-    .to_string();
-
-    let input = BroadcastEventInput {
-        event_type: "DidRecovered".to_string(),
-        subject: did.to_string(),
-        payload,
-        source_happ: "mycelix-identity".to_string(),
-    };
-
-    let response = call(
-        CallTargetCell::Local,
-        ZomeName::new("identity_bridge"),
-        FunctionName::new("broadcast_event"),
-        None,
-        input,
-    )?;
-
-    match response {
-        ZomeCallResponse::Ok(_) => Ok(()),
-        _ => {
-            debug!(
-                "Bridge notification failed for recovery of {} - non-critical",
-                did
-            );
-            Ok(())
-        }
-    }
-}
-
-/// Emit recovery lifecycle notifications only after the corresponding
-/// source-chain writes have successfully committed.
-#[hdk_extern(infallible)]
-pub fn post_commit(committed_actions: Vec<SignedActionHashed>) {
-    for action in committed_actions {
-        let is_create = matches!(action.action().data, ActionData::Create(_));
-        let Some(record) = get(action.action_address().clone(), GetOptions::default()).ok().flatten()
-        else {
-            continue;
-        };
-
-        let Ok(Some(request)) = record.entry().to_app_option::<RecoveryRequest>() else {
-            continue;
-        };
-
-        if is_create {
-            // The request now definitely exists; notify the bridge after commit.
-            let payload = serde_json::json!({
-                "did": request.did,
-                "initiated_by": request.initiated_by,
-                "request_id": request.id,
-                "event": "recovery_initiated",
-            }).to_string();
-
-            notify_bridge_event(
-                "RecoveryInitiated",
-                &request.did,
-                &payload,
-            );
-        } else if request.status == RecoveryStatus::Completed {
-            let payload = serde_json::json!({
-                "did": request.did,
-                "new_agent": format!("{}", request.new_agent),
-                "request_id": request.id,
-                "event": "recovery_completed",
-            }).to_string();
-
-            notify_bridge_event(
-                "DidRecovered",
-                &request.did,
-                &payload,
-            );
-        }
-    }
-}
-
-fn notify_bridge_event(event_type: &str, subject: &str, payload: &str) {
-    #[derive(Serialize, Deserialize, Debug)]
-    struct BroadcastEventInput {
-        event_type: String,
-        subject: String,
-        payload: String,
-        source_happ: String,
-    }
-
-    let input = BroadcastEventInput {
-        event_type: event_type.into(),
-        subject: subject.into(),
-        payload: payload.into(),
-        source_happ: "mycelix-identity".into(),
-    };
-
-    if let Ok(ZomeCallResponse::Ok(_)) = call(
-        CallTargetCell::Local,
-        ZomeName::new("identity_bridge"),
-        FunctionName::new("broadcast_event"),
-        None,
-        input,
-    ) {
-        return;
-    }
-
-    debug!(
-        "Post-commit bridge notification failed for event={} subject={}",
-        event_type, subject
-    );
-}
 
 /// Create a deterministic entry hash from a string identifier
 /// This is used for link bases when we need to link from string IDs
@@ -1122,10 +1001,6 @@ pub fn execute_recovery(request_id: String) -> ExternResult<Record> {
             "Time lock not set".into()
         )));
     }
-
-    // Save values for MFA notification before moving
-    let did_for_mfa = current_request.did.clone();
-    let new_agent_for_mfa = current_request.new_agent.clone();
 
     // Update request to completed
     let completed_request = RecoveryRequest {
