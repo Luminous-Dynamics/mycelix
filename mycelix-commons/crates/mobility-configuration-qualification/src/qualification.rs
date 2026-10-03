@@ -353,6 +353,23 @@ mod tests {
     }
 
     #[test]
+    fn zip_accumulates_unresolved_dependency_when_it_is_the_left_path() {
+        let status = QualificationStatus::Unresolved {
+            missing: vec![id("left")],
+            partial: 1u8,
+        }
+        .zip(QualificationStatus::Complete(2u8));
+
+        assert_eq!(
+            status,
+            QualificationStatus::Unresolved {
+                missing: vec![id("left")],
+                partial: (1u8, 2u8),
+            }
+        );
+    }
+
+    #[test]
     fn zip_unions_two_unresolved_dependency_sets() {
         let status = QualificationStatus::Unresolved {
             missing: vec![id("z"), id("a")],
