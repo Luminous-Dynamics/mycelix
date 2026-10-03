@@ -4,7 +4,7 @@ Fractal CivOS — decentralized civic infrastructure on Holochain. **Pre-alpha r
 
 ## What can I actually run today?
 
-The one cluster with a **live, canonical, user-facing application** is **[Pulse](https://mail.mycelix.net)** (decentralized email, `mycelix-workspace/mycelix-pulse/`) — install docs there. **[Praxis](https://praxis.mycelix.net)** (K-to-PhD curriculum platform) is also live. Everything else in this repo is a Holochain hApp with tests but no deployed frontend, a component-showcase scaffold, or research-stage code — check the matrix below, don't assume a cluster is deployment-ready because it "builds" or has tests.
+The one cluster historically documented with a **live, canonical, user-facing application** is **Pulse** (decentralized email, `mycelix-workspace/mycelix-pulse/`). Its new canonical web origin is **https://pulse.luminousdynamics.io** and requires domain cutover. **Praxis** is likewise being migrated to **https://praxis.luminousdynamics.io**; do not treat the lost `mycelix.net` hostnames as trusted. Everything else in this repo is a Holochain hApp with tests but no deployed frontend, a component-showcase scaffold, or research-stage code — check the matrix below, don't assume a cluster is deployment-ready because it "builds" or has tests.
 
 The integration-test story is still being built out: the Tryorama harness and a dedicated integration-test guide are tracked as open work, not finished infrastructure — see open issues in `mycelix-workspace/`.
 
@@ -32,8 +32,8 @@ Honest per-cluster status, current as of this repo's own internal tracking (not 
 
 | Cluster | Builds | Unit tests | Multi-agent test | UI | Deployment status |
 |---|---|---|---|---|---|
-| **Pulse** (`mycelix-workspace/mycelix-pulse/`) | Yes | Yes | Yes (Sweettest, real ML-DSA sigs, restart-recovery included) | **Live** — mail.mycelix.net | Research alpha, real users possible |
-| **Praxis** | Yes | Yes | Partial | **Live** — praxis.mycelix.net, Leptos CSR | Live, but flagship *source* does not currently compile at HEAD — the live site is served from a pinned IPFS snapshot restored around a broken build, not the latest commit |
+| **Pulse** (`mycelix-workspace/mycelix-pulse/`) | Yes | Yes | Yes (Sweettest, real ML-DSA sigs, restart-recovery included) | **Migration target** — pulse.luminousdynamics.io | Research alpha; production cutover requires DNS/mail verification |
+| **Praxis** | Yes | Yes | Partial | **Migration target** — praxis.luminousdynamics.io | Historically live via the lost mycelix.net hostname; source/deployment status requires current verification |
 | **Craft** | Yes | Yes (42) | Not verified this pass | Built (Leptos CSR), not deployed | Built, not live |
 | **Music** | Yes | Yes | Not verified this pass | Built, WASM verified | Built, hApp packed, not confirmed live |
 | **Governance** | Yes | Yes (44+) | Partial (156+ sweettest) | Built (paired with Finance UI at governance.luminousdynamics.io) | Experimental |
