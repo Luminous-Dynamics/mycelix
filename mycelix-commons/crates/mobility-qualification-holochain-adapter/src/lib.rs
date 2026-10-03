@@ -1385,7 +1385,7 @@ mod tests {
             signer: agent,
             signature: Signature([0u8; 64]),
             payload: HolochainBindingAttestationPayload {
-                schema: HOLOCHAIN_BINDING_ATTESTATION_SCHEMA,
+                schema: HOLOCHAIN_BINDING_ATTESTATION_SCHEMA.into(),
                 provenance: {
                     let mut provenance =
                         binding_provenance_for_test(logical.clone(), authority);
@@ -1441,7 +1441,7 @@ mod tests {
             signer: agent,
             signature: Signature([0u8; 64]),
             payload: HolochainBindingAttestationPayload {
-                schema: HOLOCHAIN_BINDING_ATTESTATION_SCHEMA,
+                schema: HOLOCHAIN_BINDING_ATTESTATION_SCHEMA.into(),
                 provenance: runtime_provenance,
                 address: HolochainDependencyAddress::Action(action_hash(42)),
                 retrieval: QualificationDependencyRetrievalKind::Action,
@@ -1494,7 +1494,7 @@ mod tests {
             signer: agent,
             signature: Signature([0u8; 64]),
             payload: HolochainBindingAttestationPayload {
-                schema: HOLOCHAIN_BINDING_ATTESTATION_SCHEMA,
+                schema: HOLOCHAIN_BINDING_ATTESTATION_SCHEMA.into(),
                 provenance,
                 address: HolochainDependencyAddress::Action(action_hash(43)),
                 retrieval: QualificationDependencyRetrievalKind::Action,
@@ -1543,7 +1543,7 @@ mod tests {
             signer: agent,
             signature: Signature([0u8; 64]),
             payload: HolochainBindingAttestationPayload {
-                schema: HOLOCHAIN_BINDING_ATTESTATION_SCHEMA,
+                schema: HOLOCHAIN_BINDING_ATTESTATION_SCHEMA.into(),
                 provenance,
                 address: HolochainDependencyAddress::Action(action_hash(44)),
                 retrieval: QualificationDependencyRetrievalKind::Action,
@@ -1593,7 +1593,7 @@ mod tests {
             signer: agent,
             signature: Signature([0u8; 64]),
             payload: HolochainBindingAttestationPayload {
-                schema: HOLOCHAIN_BINDING_ATTESTATION_SCHEMA,
+                schema: HOLOCHAIN_BINDING_ATTESTATION_SCHEMA.into(),
                 provenance,
                 address: HolochainDependencyAddress::Action(action_hash(40)),
                 retrieval: QualificationDependencyRetrievalKind::Action,
@@ -1645,7 +1645,7 @@ mod tests {
             signer: agent,
             signature: Signature([0u8; 64]),
             payload: HolochainBindingAttestationPayload {
-                schema: HOLOCHAIN_BINDING_ATTESTATION_SCHEMA,
+                schema: HOLOCHAIN_BINDING_ATTESTATION_SCHEMA.into(),
                 provenance,
                 address: HolochainDependencyAddress::Action(action_hash(41)),
                 retrieval: QualificationDependencyRetrievalKind::Action,
@@ -1692,7 +1692,7 @@ mod tests {
             signer: wrong_agent,
             signature: Signature([0u8; 64]),
             payload: HolochainBindingAttestationPayload {
-                schema: HOLOCHAIN_BINDING_ATTESTATION_SCHEMA,
+                schema: HOLOCHAIN_BINDING_ATTESTATION_SCHEMA.into(),
                 provenance: QualificationDependencyBindingProvenance {
                     witness_identity: IdentityRef {
                         kind: IdentityKind::ReconciliationWitness,
@@ -1782,7 +1782,7 @@ mod tests {
             signer: AgentPubKey::from_raw_36(vec![23u8; 36]),
             signature: Signature([0u8; 64]),
             payload: HolochainBindingAttestationPayload {
-                schema: HOLOCHAIN_BINDING_ATTESTATION_SCHEMA,
+                schema: HOLOCHAIN_BINDING_ATTESTATION_SCHEMA.into(),
                 provenance,
                 address: HolochainDependencyAddress::Action(action_hash(23)),
                 retrieval: QualificationDependencyRetrievalKind::Action,
@@ -1844,7 +1844,7 @@ mod tests {
             signer: AgentPubKey::from_raw_36(vec![25u8; 36]),
             signature: Signature([0u8; 64]),
             payload: HolochainBindingAttestationPayload {
-                schema: HOLOCHAIN_BINDING_ATTESTATION_SCHEMA,
+                schema: HOLOCHAIN_BINDING_ATTESTATION_SCHEMA.into(),
                 provenance,
                 address: HolochainDependencyAddress::Action(action_hash(25)),
                 retrieval: QualificationDependencyRetrievalKind::Action,
@@ -1908,7 +1908,7 @@ mod tests {
             signer: AgentPubKey::from_raw_36(vec![26u8; 36]),
             signature: Signature([0u8; 64]),
             payload: HolochainBindingAttestationPayload {
-                schema: HOLOCHAIN_BINDING_ATTESTATION_SCHEMA,
+                schema: HOLOCHAIN_BINDING_ATTESTATION_SCHEMA.into(),
                 provenance,
                 address: HolochainDependencyAddress::Action(action_hash(26)),
                 retrieval: QualificationDependencyRetrievalKind::Action,
