@@ -1702,6 +1702,51 @@ mod linux {
         }
 
         #[test]
+        fn predicate_and_clause_size_helpers_cover_all_encoding_shapes() {
+            let shapes = [
+                (0x0000_0000_0000_00ffu64, SeccompArgPredicateOpV1::MaskedEqual, 4usize),
+                (0xffff_ffff_0000_0000u64, SeccompArgPredicateOpV1::MaskedEqual, 4),
+                (u64::MAX, SeccompArgPredicateOpV1::MaskedEqual, 8),
+                (0x0000_0000_0000_00ffu64, SeccompArgPredicateOpV1::MaskedNotEqual, 4),
+                (0xffff_ffff_0000_0000u64, SeccompArgPredicateOpV1::MaskedNotEqual, 4),
+                (u64::MAX, SeccompArgPredicateOpV1::MaskedNotEqual, 7),
+            ];
+
+            for (mask, op, expected) in shapes {
+                let predicate = SeccompArgPredicateV1::new_with_op(0, mask, mask, op).unwrap();
+                assert_eq!(predicate_instruction_count(&predicate), expected);
+            }
+
+            let clause = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new_with_op(
+                    0,
+                    u64::MAX,
+                    0x0100_0000_0000_0001,
+                    SeccompArgPredicateOpV1::MaskedNotEqual,
+                )
+                .unwrap(),
+                SeccompArgPredicateV1::new(1, 0xff, 7).unwrap(),
+            ])
+            .unwrap();
+
+            assert_eq!(
+                clause_instruction_count(&clause),
+                1 + clause
+                    .predicates()
+                    .iter()
+                    .map(predicate_instruction_count)
+                    .sum::<usize>()
+            );
+
+            let rule =
+                SeccompSyscallRuleV2::new(libc::SYS_socket, clause.predicates().to_vec()).unwrap();
+            assert_eq!(
+                rule_body_instruction_count(&rule),
+                clause_instruction_count(&rule.clauses()[0])
+            );
+        }
+
+        #[test]
         fn v2_compiler_preserves_predicate_branch_polarity() {
             let arch = SeccompArchitecture::current().unwrap();
             let equal = SeccompSyscallRuleV2::new(
