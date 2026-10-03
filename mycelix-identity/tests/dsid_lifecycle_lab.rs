@@ -164,6 +164,26 @@ struct CredentialView {
     schema_id: Option<String>,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+struct DidResolutionMetadataView {
+    error: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+struct DidDocumentMetadataView {
+    created: String,
+    updated: String,
+    deactivated: bool,
+    version_id: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+struct DidResolutionView {
+    did_document: Option<DidDocumentView>,
+    resolution_metadata: DidResolutionMetadataView,
+    document_metadata: Option<DidDocumentMetadataView>,
+}
+
 fn dna_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("..")
@@ -735,6 +755,100 @@ async fn dsid_010_cross_agent_resolution_projection_matches_did() {
             resolved.id,
             resolved.version,
             resolved.active
+        ),
+        true,
+    );
+}
+
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_011_resolution_metadata_tracks_deactivation() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let app = conductor.setup_app(
+        "dsid-resolution-metadata",
+        std::slice::from_ref(&dna),
+    ).await.unwrap();
+    let cell = app.cells()[0].clone();
+    let agent = app.agent().clone();
+
+    let created: Record = conductor
+        .call(&cell.zome("did_registry"), "create_did", ())
+        .await;
+    let did_view: DidDocumentView = conductor
+        .call(&cell.zome("did_registry"), "get_my_did_view", ())
+        .await
+        .expect("DID view must exist");
+
+    let before: DidResolutionView = conductor
+        .call(
+            &cell.zome("did_registry"),
+            "resolve_did_resolution",
+            did_view.id.clone(),
+        )
+        .await;
+
+    assert!(before.did_document.is_some());
+    assert_eq!(before.resolution_metadata.error, None);
+    assert_eq!(
+        before.document_metadata.as_ref().map(|m| m.deactivated),
+        Some(false)
+    );
+    assert_eq!(
+        before.document_metadata.as_ref().map(|m| m.version_id.as_str()),
+        Some("1")
+    );
+    assert_eq!(
+        before.document_metadata.as_ref().map(|m| m.created.as_str()),
+        Some(did_view.created.as_str())
+    );
+
+    let deactivated: Record = conductor
+        .call(
+            &cell.zome("did_registry"),
+            "deactivate_did",
+            "DSID resolution metadata test".to_string(),
+        )
+        .await;
+
+    let after: DidResolutionView = conductor
+        .call(
+            &cell.zome("did_registry"),
+            "resolve_did_resolution",
+            did_view.id.clone(),
+        )
+        .await;
+
+    assert!(after.did_document.is_some());
+    assert_eq!(after.resolution_metadata.error, None);
+    assert_eq!(
+        after.document_metadata.as_ref().map(|m| m.deactivated),
+        Some(true)
+    );
+    assert_eq!(
+        after.document_metadata.as_ref().map(|m| m.version_id.as_str()),
+        Some("1")
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("alice", agent.to_string());
+    emit_evidence(
+        "DSID-011",
+        "resolution-metadata-tracks-deactivation",
+        &dna,
+        agents,
+        &[&created, &deactivated],
+        "DID resolution returns explicit document metadata and marks a deactivated DID as deactivated without discarding the resolved document.",
+        format!(
+            "did={} before_deactivated={} after_deactivated={} version_id={}",
+            did_view.id,
+            before.document_metadata.as_ref().map(|m| m.deactivated).unwrap_or(false),
+            after.document_metadata.as_ref().map(|m| m.deactivated).unwrap_or(false),
+            after.document_metadata
+                .as_ref()
+                .map(|m| m.version_id.as_str())
+                .unwrap_or("")
         ),
         true,
     );
