@@ -641,6 +641,9 @@ impl EconomicState {
     pub fn validate(&self) -> Result<(), String> {
         let mut actor_ids = std::collections::BTreeSet::new();
         for actor in &self.actors {
+            if actor.actor.is_empty() {
+                return Err("economic state contains an empty actor id".into());
+            }
             if !actor_ids.insert(actor.actor.as_str()) {
                 return Err(format!("duplicate economic actor id: {}", actor.actor));
             }
@@ -686,6 +689,20 @@ impl EconomicState {
             if value < 0 {
                 return Err(format!("economic state contains negative {label}"));
             }
+        }
+
+        let claims = self
+            .try_aggregate_claims()
+            .map_err(|error| format!("economic state claim aggregation failed: {error}"))?;
+        let liabilities = self
+            .try_aggregate_liabilities()
+            .map_err(|error| {
+                format!("economic state liability aggregation failed: {error}")
+            })?;
+        if claims != liabilities {
+            return Err(format!(
+                "economic state financial claims/liabilities do not reconcile: claims={claims}, liabilities={liabilities}"
+            ));
         }
 
         Ok(())
@@ -1323,6 +1340,16 @@ impl EconomicState {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn state_domain_validation_rejects_unmatched_financial_claims_and_empty_ids() {
+        let mut invalid = state();
+        invalid.actors[0].monetary.deposit_liabilities = 10;
+        assert!(invalid.validate().is_err());
+
+        let empty_id = EconomicState::new(vec![ActorBalanceSheet::new("")]);
+        assert!(empty_id.validate().is_err());
+    }
 
     #[test]
     fn state_domain_validation_rejects_negative_stocks_and_duplicate_ids() {
