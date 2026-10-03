@@ -84,13 +84,17 @@ jobs:
           if [[ -f evidence/cargo-test.exit-code ]]; then
             test_exit_code="$(cat evidence/cargo-test.exit-code)"
           fi
+          tested_commit_sha="null"
+          if [[ -f evidence/tested-commit-sha.txt ]]; then
+            tested_commit_sha="$(cat evidence/tested-commit-sha.txt)"
+          fi
           cat > evidence/run-envelope.json <<JSON
           {
             "schema": "MYCELIX-COS-CONFORMANCE-EVIDENCE-V1",
             "claim_ceiling": "ReferenceModelOnly",
             "repository": "${{ github.repository }}",
             "trigger_sha": "${{ github.sha }}",
-            "tested_commit_sha": "$(cat evidence/tested-commit-sha.txt)",
+            "tested_commit_sha": "$tested_commit_sha",
             "workflow": "${{ github.workflow }}",
             "run_id": ${{ github.run_id }},
             "run_attempt": ${{ github.run_attempt }},
