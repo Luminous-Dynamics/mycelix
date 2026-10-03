@@ -976,6 +976,13 @@ pub fn arm_recovery_time_lock(request_id: String) -> ExternResult<Record> {
             "Invalid recovery configuration".into()
         )))?;
 
+    let certificate_hash = create_recovery_approval_certificate(
+        &request_record,
+        &request,
+        &config_record,
+        &config,
+    )?;
+
     let now = sys_time()?;
     let expires = Timestamp::from_micros(
         now.as_micros() + (config.time_lock as i64 * 1_000_000),
@@ -984,6 +991,7 @@ pub fn arm_recovery_time_lock(request_id: String) -> ExternResult<Record> {
     let approved = RecoveryRequest {
         status: RecoveryStatus::Approved,
         time_lock_expires: Some(expires),
+        approval_certificate: Some(certificate_hash),
         ..request
     };
 
