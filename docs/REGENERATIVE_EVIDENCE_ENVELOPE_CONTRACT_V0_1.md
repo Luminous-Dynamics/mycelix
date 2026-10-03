@@ -33,6 +33,7 @@ A canonical evidence envelope should bind:
 - authority_statement_id
 - authority_resolution_epoch
 - authority_predecessor_statement_digest
+- authority_effective_from_ms
 - supersedes_reference
 - revokes_reference
 - transparency_receipt_reference
@@ -120,7 +121,10 @@ Where an authority resolution participates in a monotonic resolution history, th
 
 - `authority_statement_id`: stable identity of the exact authority statement;
 - `authority_resolution_epoch`: the authority decision sequence number;
-- `authority_predecessor_statement_digest`: the exact prior authority statement digest when this statement supersedes a previous resolution.
+- `authority_predecessor_statement_digest`: the exact prior authority statement digest when this statement supersedes a previous resolution;
+- `authority_effective_from_ms`: the lifecycle time at which the resolved topology becomes effective.
+
+A resolution may therefore be valid before it becomes current. Consumers must not infer currentness solely from statement validity or resolution timestamp.
 
 Lifecycle relationships are explicit:
 
@@ -176,6 +180,7 @@ A consumer should reject or quarantine an envelope when:
 - the topology epoch is older than the admitted current epoch;
 - a topology digest does not belong to the referenced epoch;
 - a claimed authority resolution is from an older resolution epoch;
+- a claimed authority resolution has not yet reached its declared effective time;
 - a supersession or revocation reference does not match the exact targeted authority statement;
 - the evidence timestamp is outside the permitted freshness window;
 - required authority or verification references are missing;
