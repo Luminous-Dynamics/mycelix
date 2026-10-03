@@ -9,10 +9,19 @@ from pathlib import Path
 
 EXPECTED_SCHEMA = "mycelix.mobility.qualification_adapter_boundary.v1"
 EXPECTED_OUTCOMES = [
-    ("valid", "ValidateCallbackResult::Valid"),
-    ("invalid", "ValidateCallbackResult::Invalid(String)"),
+    (
+        "valid",
+        "qualification completed for the supplied dependency set",
+        "ValidateCallbackResult::Valid",
+    ),
+    (
+        "invalid",
+        "supplied records contain a definitive structural contradiction",
+        "ValidateCallbackResult::Invalid(String)",
+    ),
     (
         "unresolved",
+        "qualification cannot complete because required logical dependencies are unavailable",
         "ValidateCallbackResult::UnresolvedDependencies(UnresolvedDependencies)",
     ),
 ]
@@ -69,12 +78,16 @@ def main() -> int:
     if not isinstance(outcomes, list) or len(outcomes) != len(EXPECTED_OUTCOMES):
         raise SystemExit("adapter boundary must define exactly three semantic outcomes")
 
-    for actual, (pure, holochain) in zip(outcomes, EXPECTED_OUTCOMES, strict=True):
+    for actual, (pure, meaning, holochain) in zip(outcomes, EXPECTED_OUTCOMES, strict=True):
         if not isinstance(actual, dict):
             raise SystemExit("each semantic outcome must be an object")
         require_exact_keys(actual, {"pure", "meaning", "holochain"}, f"semantic outcome {pure}")
-        if actual.get("pure") != pure or actual.get("holochain") != holochain:
-            raise SystemExit(f"incorrect mapping for {pure}")
+        if (
+            actual.get("pure") != pure
+            or actual.get("meaning") != meaning
+            or actual.get("holochain") != holochain
+        ):
+            raise SystemExit(f"incorrect semantic outcome contract for {pure}")
 
     errors = document.get("error_boundary")
     if not isinstance(errors, dict):
@@ -104,6 +117,8 @@ def main() -> int:
     )
     if identity.get("logical_identity_type") != "IdentityRef":
         raise SystemExit("logical identity must be IdentityRef")
+    if identity.get("protocol_address_type") != "Holochain hash or other runtime-specific addressable dependency":
+        raise SystemExit("protocol address type must remain runtime-specific and addressable")
     require_bool(identity, "implicit_string_to_hash_conversion", False)
     require_bool(identity, "adapter_binding_required", True)
     require_bool(identity, "exactly_one_address_per_logical_identity", True)
