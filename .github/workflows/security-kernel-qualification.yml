@@ -65,7 +65,8 @@ jobs:
           for pattern in \
             'pub[[:space:]]+decision:' \
             'pub[[:space:]]+capability_binding:' \
-            'pub[[:space:]]+authority_binding:'; do
+            'pub[[:space:]]+authority_binding:' \\
+            'pub[[:space:]]+(event_id|actor_id|capability_ref|request|policy_version|timestamp_us|provenance|recovery_correlation):'; do
             if rg -n \"$pattern\" crates/mycelix-bridge-common/src/security_events.rs; then
               echo "security-event trust-surface regression: $pattern" >&2
               exit 1
