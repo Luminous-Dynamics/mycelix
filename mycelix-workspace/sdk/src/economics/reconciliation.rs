@@ -230,24 +230,18 @@ pub fn postings_for_step(
                     ));
                 }
             }
+            _ => {
+                return Err(
+                    "transition is outside the legacy financial reconciliation scope".into(),
+                );
+            }
         };
 
-        apply_transition(&mut working, transition)?;
+        transition.apply_to_state(&mut working)?;
         postings.extend(transition_postings);
     }
 
     Ok(postings)
-}
-
-fn apply_transition(
-    state: &mut EconomicState,
-    transition: &EconomicTransition,
-) -> Result<(), String> {
-    match transition {
-        EconomicTransition::MonetaryTransfer(flow) => state.apply_flow(flow),
-        EconomicTransition::CreditCreation(credit) => state.create_credit(credit),
-        EconomicTransition::DebtRepayment(repayment) => state.repay_debt(repayment),
-    }
 }
 
 fn sector_for(
@@ -410,6 +404,18 @@ mod tests {
             },
         );
         assert!(postings_for_step(&pre, &assignments, &[invalid]).is_err());
+    }
+
+
+    #[test]
+    fn legacy_reconciliation_rejects_out_of_scope_transition() {
+        let (pre, assignments) = setup();
+        let transition = EconomicTransition::IncomeTransfer(
+            crate::economics::stock_flow::IncomeTransfer::new("household", "bank", 10).unwrap(),
+        );
+
+        let error = postings_for_step(&pre, &assignments, &[transition]).unwrap_err();
+        assert!(error.contains("outside the legacy financial reconciliation scope"));
     }
 
     #[test]
