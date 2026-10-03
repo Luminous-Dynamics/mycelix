@@ -81,6 +81,38 @@ jobs:
           set -o pipefail
           nix develop .#ci --impure --command             bash tools/audit-holochain-07-source.sh 2>&1 | tee qualification-source-audit.log
 
+      - name: Derive Hearth 0.7 operation matrix
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: |
+          set -euo pipefail
+          {
+            echo "operation_matrix_schema=HEARTH-OPERATION-MATRIX-0.7-1"
+            echo "tested_sha=$(git rev-parse HEAD)"
+            echo "operation_families=CreateEntry,CreateRecord,Update,Delete,Link.CreateLink,Link.DeleteLink,AgentActivity"
+            while IFS= read -r -d "" file; do
+              zome="$(basename "$(dirname "$(dirname "$(dirname "$file")")")")"
+              printf "zome=%s" "${zome//-/_}"
+              for family in CreateEntry CreateRecord Update Delete AgentActivity; do
+                if rg -n --pcre2 "\\bFlatOp::${family}\\b" "$file" >/dev/null 2>&1; then
+                  printf " %s=present" "$family"
+                else
+                  printf " %s=absent" "$family"
+                fi
+              done
+              if rg -n --pcre2 'FlatOp::Link\\s*\\(\\s*OpLink::CreateLink' "$file" >/dev/null 2>&1; then
+                printf " Link.CreateLink=present"
+              else
+                printf " Link.CreateLink=absent"
+              fi
+              if rg -n --pcre2 'FlatOp::Link\\s*\\([^)]*OpLink::DeleteLink' "$file" >/dev/null 2>&1; then
+                printf " Link.DeleteLink=present"
+              else
+                printf " Link.DeleteLink=absent"
+              fi
+              printf "\\n"
+            done < <(git ls-files -z -- "mycelix-workspace/mycelix-hearth/zomes/*/integrity/src/lib.rs")
+          } > qualification-operation-matrix.txt
+
       - name: Check Hearth 0.7 test formatting
         working-directory: mycelix-workspace/mycelix-hearth
         run: |
@@ -194,6 +226,7 @@ jobs:
           path: |
             mycelix-workspace/mycelix-hearth/qualification-metadata.txt
             mycelix-workspace/mycelix-hearth/qualification-source-audit.log
+            mycelix-workspace/mycelix-hearth/qualification-operation-matrix.txt
             mycelix-workspace/mycelix-hearth/qualification-format.log
             mycelix-workspace/mycelix-hearth/qualification-build.log
             mycelix-workspace/mycelix-hearth/qualification-dna-pack.log
