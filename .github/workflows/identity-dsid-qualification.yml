@@ -36,6 +36,38 @@ jobs:
           submodules: recursive
           fetch-depth: 1
 
+      - name: Validate DID conformance vectors
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("docs/identity/did-mycelix-conformance-vectors-v0.1.json")
+          corpus = json.loads(path.read_text())
+          assert corpus["schema_version"] == 1
+          assert corpus["method"] == "mycelix"
+
+          for section in (
+              "did_vectors",
+              "resolution_vectors",
+              "wire_vectors",
+              "verification_method_vectors",
+              "authority_vectors",
+              "deployment_vectors",
+          ):
+              rows = corpus[section]
+              assert rows, section
+              ids = [row["id"] for row in rows]
+              assert len(ids) == len(set(ids)), f"duplicate vector id in {section}"
+              assert all(row["id"] for row in rows)
+
+          assert corpus["identifier_scope"]["mode"] == "canonical-production-identity-dna"
+          assert corpus["did_vectors"][0]["expected"] == "accept"
+          assert corpus["did_vectors"][0]["input"].startswith("did:mycelix:")
+          assert corpus["wire_vectors"][0]["wire_name"] == "verificationMethod"
+          assert corpus["verification_method_vectors"][0]["multicodec"] == "0xed01"
+          PY
+
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
