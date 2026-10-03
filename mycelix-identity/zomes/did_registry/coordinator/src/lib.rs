@@ -470,7 +470,8 @@ pub fn get_did_document(agent_pub_key: AgentPubKey) -> ExternResult<Option<Recor
 /// to render the canonical identity state.
 #[hdk_extern]
 pub fn get_my_did_view(_: ()) -> ExternResult<Option<DidDocumentView>> {
-    match get_my_did(())? {
+    let agent = agent_info()?.agent_initial_pubkey;
+    match get_did_document(agent)? {
         Some(record) => Ok(Some(record_to_did_document_view(&record)?)),
         None => Ok(None),
     }
