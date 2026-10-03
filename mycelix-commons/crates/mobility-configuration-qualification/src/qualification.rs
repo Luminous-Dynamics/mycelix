@@ -34,15 +34,32 @@ pub enum QualificationDecision<T> {
     },
 }
 
+/// Semantic retrieval intent attached to a logical qualification dependency.
+///
+/// These are runtime-neutral retrieval semantics. A concrete adapter maps them
+/// to its own address type and host-function API.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum QualificationDependencyRetrievalKind {
+    ValidRecord,
+    Action,
+    Entry,
+}
+
 /// Explicit runtime-owned binding from a logical qualification dependency
-/// to one opaque protocol address.
+/// to one opaque protocol address and its required retrieval intent.
 ///
 /// The address type is intentionally generic: the pure layer never learns
 /// whether the runtime uses a Holochain hash, a database key, or another
 /// addressable representation. Binding is explicit and deterministic.
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct QualificationDependencyBinding<A> {
+    pub address: A,
+    pub retrieval: QualificationDependencyRetrievalKind,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct QualificationDependencyBindingSet<A> {
-    bindings: BTreeMap<IdentityRef, A>,
+    bindings: BTreeMap<IdentityRef, QualificationDependencyBinding<A>>,
 }
 
 impl<A> Default for QualificationDependencyBindingSet<A> {
@@ -67,6 +84,7 @@ impl<A> QualificationDependencyBindingSet<A> {
         &mut self,
         identity: IdentityRef,
         address: A,
+        retrieval: QualificationDependencyRetrievalKind,
     ) -> Result<(), QualificationValidationError> {
         identity
             .validate()
@@ -76,11 +94,14 @@ impl<A> QualificationDependencyBindingSet<A> {
                 "logical qualification dependency cannot be bound to multiple protocol addresses",
             ));
         }
-        self.bindings.insert(identity, address);
+        self.bindings.insert(
+            identity,
+            QualificationDependencyBinding { address, retrieval },
+        );
         Ok(())
     }
 
-    pub fn get(&self, identity: &IdentityRef) -> Option<&A> {
+    pub fn get(&self, identity: &IdentityRef) -> Option<&QualificationDependencyBinding<A>> {
         self.bindings.get(identity)
     }
 
@@ -105,7 +126,7 @@ impl<A> QualificationDependencyBindingSet<A> {
     pub fn resolve_required<I>(
         &self,
         identities: I,
-    ) -> QualificationDecision<Vec<(&IdentityRef, &A)>>
+    ) -> QualificationDecision<Vec<(&IdentityRef, &QualificationDependencyBinding<A>)>>
     where
         I: IntoIterator<Item = IdentityRef>,
     {
@@ -386,9 +407,9 @@ mod tests {
         let mut bindings = QualificationDependencyBindingSet::new();
         let identity = id("logical-1");
 
-        assert!(bindings.insert(identity.clone(), "address-a").is_ok());
+        assert!(bindings.insert(identity.clone(), "address-a", QualificationDependencyRetrievalKind::ValidRecord).is_ok());
         let error = bindings
-            .insert(identity, "address-b")
+            .insert(identity, "address-b", QualificationDependencyRetrievalKind::ValidRecord)
             .expect_err("a logical identity may not be rebound silently");
 
         assert_eq!(
@@ -396,7 +417,16 @@ mod tests {
             "logical qualification dependency cannot be bound to multiple protocol addresses"
         );
         assert_eq!(bindings.len(), 1);
-        assert_eq!(bindings.get(&id("logical-1")), Some(&"address-a"));
+        assert_eq!(
+            bindings.get(&id("logical-1")).map(|binding| &binding.address),
+            Some(&"address-a")
+        );
+        assert_eq!(
+            bindings
+                .get(&id("logical-1"))
+                .map(|binding| binding.retrieval),
+            Some(QualificationDependencyRetrievalKind::ValidRecord)
+        );
     }
 
     #[test]
@@ -408,7 +438,7 @@ mod tests {
             id: "not-a-native-engineering-id".into(),
         };
 
-        assert!(bindings.insert(invalid, "address").is_err());
+        assert!(bindings.insert(invalid, "address", QualificationDependencyRetrievalKind::ValidRecord).is_err());
         assert!(bindings.is_empty());
     }
 
@@ -418,12 +448,12 @@ mod tests {
         let b = id("b");
 
         let mut first = QualificationDependencyBindingSet::new();
-        first.insert(b.clone(), "address-b").unwrap();
-        first.insert(a.clone(), "address-a").unwrap();
+        first.insert(b.clone(), "address-b", QualificationDependencyRetrievalKind::ValidRecord).unwrap();
+        first.insert(a.clone(), "address-a", QualificationDependencyRetrievalKind::ValidRecord).unwrap();
 
         let mut second = QualificationDependencyBindingSet::new();
-        second.insert(a.clone(), "address-a").unwrap();
-        second.insert(b.clone(), "address-b").unwrap();
+        second.insert(a.clone(), "address-a", QualificationDependencyRetrievalKind::ValidRecord).unwrap();
+        second.insert(b.clone(), "address-b", QualificationDependencyRetrievalKind::ValidRecord).unwrap();
 
         assert_eq!(
             first.iter().collect::<Vec<_>>(),
@@ -436,8 +466,8 @@ mod tests {
         let mut bindings = QualificationDependencyBindingSet::new();
         let z = id("z");
         let a = id("a");
-        bindings.insert(z.clone(), "address-z").unwrap();
-        bindings.insert(a.clone(), "address-a").unwrap();
+        bindings.insert(z.clone(), "address-z", QualificationDependencyRetrievalKind::ValidRecord).unwrap();
+        bindings.insert(a.clone(), "address-a", QualificationDependencyRetrievalKind::ValidRecord).unwrap();
 
         let resolved = bindings.resolve_required(vec![z.clone(), a.clone(), a]);
         let QualificationDecision::Valid(resolved) = resolved else {
@@ -445,15 +475,16 @@ mod tests {
         };
 
         assert_eq!(resolved[0].0, bindings.iter().next().expect("first binding exists").0);
-        assert_eq!(resolved[0].1, &"address-a");
+        assert_eq!(resolved[0].1.address, "address-a");
+        assert_eq!(resolved[0].1.retrieval, QualificationDependencyRetrievalKind::ValidRecord);
         assert_eq!(resolved[1].0, &z);
-        assert_eq!(resolved[1].1, &"address-z");
+        assert_eq!(resolved[1].1.address, "address-z");
     }
 
     #[test]
     fn dependency_binding_resolution_reports_only_unbound_logical_identities() {
         let mut bindings = QualificationDependencyBindingSet::new();
-        bindings.insert(id("z"), "address-z").unwrap();
+        bindings.insert(id("z"), "address-z", QualificationDependencyRetrievalKind::ValidRecord).unwrap();
 
         let result = bindings.resolve_required(vec![id("z"), id("m"), id("m"), id("a")]);
         let QualificationDecision::Unresolved { missing, partial } = result else {
@@ -463,7 +494,7 @@ mod tests {
         assert_eq!(missing, vec![id("a"), id("m")]);
         assert_eq!(partial.len(), 1);
         assert_eq!(partial[0].0, &id("z"));
-        assert_eq!(partial[0].1, &"address-z");
+        assert_eq!(partial[0].1.address, "address-z");
     }
 
     #[test]
@@ -487,9 +518,9 @@ mod tests {
     #[test]
     fn dependency_binding_resolution_is_independent_of_request_order() {
         let mut bindings = QualificationDependencyBindingSet::new();
-        bindings.insert(id("a"), "address-a").unwrap();
-        bindings.insert(id("b"), "address-b").unwrap();
-        bindings.insert(id("c"), "address-c").unwrap();
+        bindings.insert(id("a"), "address-a", QualificationDependencyRetrievalKind::ValidRecord).unwrap();
+        bindings.insert(id("b"), "address-b", QualificationDependencyRetrievalKind::Action).unwrap();
+        bindings.insert(id("c"), "address-c", QualificationDependencyRetrievalKind::Entry).unwrap();
 
         let forward = bindings
             .resolve_required(vec![id("c"), id("a"), id("b")])
@@ -506,8 +537,11 @@ mod tests {
         let mut bindings = QualificationDependencyBindingSet::new();
         let identity = id("logical-with-hash-shaped-text");
 
-        bindings.insert(identity.clone(), 42u64).unwrap();
-        assert_eq!(bindings.get(&identity), Some(&42u64));
+        bindings.insert(identity.clone(), 42u64, QualificationDependencyRetrievalKind::ValidRecord).unwrap();
+        assert_eq!(
+            bindings.get(&identity).map(|binding| &binding.address),
+            Some(&42u64)
+        );
     }
 
     #[test]
