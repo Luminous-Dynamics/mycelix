@@ -926,12 +926,77 @@ mod tests {
         let calls = Arc::new(Mutex::new(Vec::new()));
         let _previous = set_hdi(RecordingHdi {
             calls: Arc::clone(&calls),
+            verify_result: true,
         });
         let result = verify_binding_attestation(&attestation);
         let _ = set_hdi(ErrHdi);
 
         assert!(result.expect("mock signature verification should succeed"));
         assert_eq!(calls.lock().unwrap().as_slice(), ["verify_signature"]);
+    }
+
+    #[test]
+    fn bind_attested_rejects_an_unverified_signature() {
+        let provenance = QualificationDependencyBindingProvenance {
+            witness_identity: IdentityRef {
+                kind: IdentityKind::ReconciliationWitness,
+                namespace: "mobility".into(),
+                id: "unverified-binding-witness".into(),
+            },
+            logical_identity: identity("unverified"),
+            authority: identity("unverified-authority"),
+            authority_scope: IdentityRef {
+                kind: IdentityKind::ReconciliationWitness,
+                namespace: "mobility".into(),
+                id: "unverified-authority-scope".into(),
+            },
+            authority_delegation: IdentityRef {
+                kind: IdentityKind::ReconciliationWitness,
+                namespace: "mobility".into(),
+                id: "unverified-authority-delegation".into(),
+            },
+            basis: vec![
+                identity("unverified-authority"),
+                IdentityRef {
+                    kind: IdentityKind::ReconciliationWitness,
+                    namespace: "mobility".into(),
+                    id: "unverified-authority-scope".into(),
+                },
+                IdentityRef {
+                    kind: IdentityKind::ReconciliationWitness,
+                    namespace: "mobility".into(),
+                    id: "unverified-authority-delegation".into(),
+                },
+                identity("unverified-basis"),
+            ],
+        };
+        let attestation = SignedHolochainBindingAttestation {
+            signer: AgentPubKey::from_raw_36(vec![25u8; 36]),
+            signature: Signature([0u8; 64]),
+            payload: HolochainBindingAttestationPayload {
+                schema: HOLOCHAIN_BINDING_ATTESTATION_SCHEMA,
+                provenance,
+                address: HolochainDependencyAddress::Action(action_hash(25)),
+                retrieval: QualificationDependencyRetrievalKind::Action,
+            },
+        };
+
+        let _guard = host_test_lock().lock().expect("HDI test lock is not poisoned");
+        let _previous = set_hdi(RecordingHdi {
+            calls: Arc::new(Mutex::new(Vec::new())),
+            verify_result: false,
+        });
+
+        let mut bindings = HolochainDependencyBindingSet::new();
+        let result = bind_attested(&mut bindings, attestation);
+        let _ = set_hdi(ErrHdi);
+
+        assert!(matches!(
+            result,
+            Ok(Err(HolochainAdapterBoundaryError::SemanticInvalid { reason }))
+                if reason == "binding attestation signature did not verify"
+        ));
+        assert!(bindings.is_empty());
     }
 
     #[test]
@@ -984,6 +1049,7 @@ mod tests {
         let calls = Arc::new(Mutex::new(Vec::new()));
         let _ = set_hdi(RecordingHdi {
             calls: Arc::clone(&calls),
+            verify_result: true,
         });
 
         let result =
@@ -997,6 +1063,7 @@ mod tests {
 
     struct RecordingHdi {
         calls: Arc<Mutex<Vec<&'static str>>>,
+        verify_result: bool,
     }
 
     impl RecordingHdi {
@@ -1008,7 +1075,8 @@ mod tests {
 
     impl HdiT for RecordingHdi {
         fn verify_signature(&self, _: VerifySignature) -> ExternResult<bool> {
-            self.record("verify_signature");
+            self.calls.lock().unwrap().push("verify_signature");
+            Ok(self.verify_result)
         }
         fn must_get_entry(&self, _: MustGetEntryInput) -> ExternResult<EntryHashed> {
             self.record("must_get_entry");
