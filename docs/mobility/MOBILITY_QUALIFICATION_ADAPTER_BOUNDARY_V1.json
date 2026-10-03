@@ -57,7 +57,6 @@
     "binding_preserves_address_kind": true,
     "valid_record_requires_action_hash": true,
     "wrong_address_kind_is_adapter_boundary_error": true,
-    "valid_record_retrieval_requires_action_hash": true,
     "retrieval_kind_mappings": [
       {
         "pure": "ValidRecord",
