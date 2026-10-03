@@ -1,0 +1,1729 @@
+{
+  "schema": "mycelix.sym-civic.verification-composition.v1",
+  "program": "SYM-CIVIC-010",
+  "parent_subject": "21b98a116a34088539dc782a1dfc886e5f4dc35b",
+  "analysis_role": "research_only",
+  "research_extensions": [
+    "property_assertions"
+  ],
+  "invariants": [
+    "individual_result_authentication",
+    "subject_binding",
+    "verifier_and_policy_identity_preserved",
+    "freshness_explicit",
+    "scope_compatibility",
+    "conflicting_identity_rejected",
+    "exact_replay_idempotent",
+    "agreement_provenance_preserved",
+    "conflicts_explicit",
+    "negative_assertions_preserved",
+    "order_independent_composition",
+    "incomparable_policy_and_scope_preserved",
+    "quorum_not_authorization",
+    "scientific_interpretation_not_fact"
+  ],
+  "cases": [
+    {
+      "id": "M-01",
+      "family": "exact_agreement",
+      "candidate": {
+        "subject_digest": "sha256:subject-a",
+        "evaluation_time": "2026-10-03T01:00:00Z",
+        "required_scope": [
+          "security"
+        ],
+        "composition_mode": "order_independent",
+        "conflict_handling": "preserve",
+        "results": [
+          {
+            "id": "vr-01",
+            "subject_digest": "sha256:subject-a",
+            "verifier": {
+              "id": "https://example.org/verifier/v1",
+              "version": "1.0",
+              "status": "active"
+            },
+            "policy": {
+              "id": "https://example.org/policy/security",
+              "version": "2026-10",
+              "digest": "sha256:policy-a"
+            },
+            "time_created": "2026-10-03T00:30:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "scope": [
+              "security"
+            ],
+            "properties": [
+              {
+                "scope": "security"
+              }
+            ],
+            "assertions": [
+              {
+                "type": "property",
+                "property": "security.checked",
+                "value": "pass",
+                "polarity": "positive"
+              }
+            ],
+            "signature": {
+              "valid": true,
+              "canonical_bytes_match": true
+            }
+          },
+          {
+            "id": "vr-02",
+            "subject_digest": "sha256:subject-a",
+            "verifier": {
+              "id": "https://example.org/verifier/v1",
+              "version": "1.0",
+              "status": "active"
+            },
+            "policy": {
+              "id": "https://example.org/policy/security",
+              "version": "2026-10",
+              "digest": "sha256:policy-a"
+            },
+            "time_created": "2026-10-03T00:30:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "scope": [
+              "security"
+            ],
+            "properties": [
+              {
+                "scope": "security"
+              }
+            ],
+            "assertions": [
+              {
+                "type": "property",
+                "property": "security.checked",
+                "value": "pass",
+                "polarity": "positive"
+              }
+            ],
+            "signature": {
+              "valid": true,
+              "canonical_bytes_match": true
+            }
+          }
+        ]
+      },
+      "note": "Two current authenticated results assert the same property and preserve both identities."
+    },
+    {
+      "id": "M-02",
+      "family": "contradictory_properties",
+      "candidate": {
+        "subject_digest": "sha256:subject-a",
+        "evaluation_time": "2026-10-03T01:00:00Z",
+        "required_scope": [
+          "security"
+        ],
+        "composition_mode": "order_independent",
+        "conflict_handling": "preserve",
+        "results": [
+          {
+            "id": "vr-03",
+            "subject_digest": "sha256:subject-a",
+            "verifier": {
+              "id": "https://example.org/verifier/v1",
+              "version": "1.0",
+              "status": "active"
+            },
+            "policy": {
+              "id": "https://example.org/policy/security",
+              "version": "2026-10",
+              "digest": "sha256:policy-a"
+            },
+            "time_created": "2026-10-03T00:30:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "scope": [
+              "security"
+            ],
+            "properties": [
+              {
+                "scope": "security"
+              }
+            ],
+            "assertions": [
+              {
+                "type": "property",
+                "property": "security.checked",
+                "value": "pass",
+                "polarity": "positive"
+              }
+            ],
+            "signature": {
+              "valid": true,
+              "canonical_bytes_match": true
+            }
+          },
+          {
+            "id": "vr-04",
+            "subject_digest": "sha256:subject-a",
+            "verifier": {
+              "id": "https://example.org/verifier/v1",
+              "version": "1.0",
+              "status": "active"
+            },
+            "policy": {
+              "id": "https://example.org/policy/security",
+              "version": "2026-10",
+              "digest": "sha256:policy-a"
+            },
+            "time_created": "2026-10-03T00:30:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "scope": [
+              "security"
+            ],
+            "properties": [
+              {
+                "scope": "security"
+              }
+            ],
+            "assertions": [
+              {
+                "type": "property",
+                "property": "security.checked",
+                "value": "fail",
+                "polarity": "positive"
+              }
+            ],
+            "signature": {
+              "valid": true,
+              "canonical_bytes_match": true
+            }
+          }
+        ]
+      },
+      "note": "Two current authenticated results assert incompatible values for the same property; conflict must remain explicit."
+    },
+    {
+      "id": "M-03",
+      "family": "same_verifier_different_policy_versions",
+      "candidate": {
+        "subject_digest": "sha256:subject-a",
+        "evaluation_time": "2026-10-03T01:00:00Z",
+        "required_scope": [
+          "security"
+        ],
+        "composition_mode": "order_independent",
+        "conflict_handling": "preserve",
+        "results": [
+          {
+            "id": "vr-05",
+            "subject_digest": "sha256:subject-a",
+            "verifier": {
+              "id": "https://example.org/verifier/v1",
+              "version": "1.0",
+              "status": "active"
+            },
+            "policy": {
+              "id": "https://example.org/policy/security",
+              "version": "2026-09",
+              "digest": "sha256:policy-old"
+            },
+            "time_created": "2026-10-03T00:30:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "scope": [
+              "security"
+            ],
+            "properties": [
+              {
+                "scope": "security"
+              }
+            ],
+            "assertions": [
+              {
+                "type": "property",
+                "property": "security.checked",
+                "value": "pass",
+                "polarity": "positive"
+              }
+            ],
+            "signature": {
+              "valid": true,
+              "canonical_bytes_match": true
+            },
+            "policy_relation": "incomparable"
+          },
+          {
+            "id": "vr-06",
+            "subject_digest": "sha256:subject-a",
+            "verifier": {
+              "id": "https://example.org/verifier/v1",
+              "version": "1.0",
+              "status": "active"
+            },
+            "policy": {
+              "id": "https://example.org/policy/security",
+              "version": "2026-10",
+              "digest": "sha256:policy-a"
+            },
+            "time_created": "2026-10-03T00:30:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "scope": [
+              "security"
+            ],
+            "properties": [
+              {
+                "scope": "security"
+              }
+            ],
+            "assertions": [
+              {
+                "type": "property",
+                "property": "security.checked",
+                "value": "pass",
+                "polarity": "positive"
+              }
+            ],
+            "signature": {
+              "valid": true,
+              "canonical_bytes_match": true
+            },
+            "policy_relation": "incomparable"
+          }
+        ]
+      },
+      "note": "Different policy versions have no implicit ordering merely because verifier identity matches."
+    },
+    {
+      "id": "M-04",
+      "family": "different_verifiers_overlapping_scope",
+      "candidate": {
+        "subject_digest": "sha256:subject-a",
+        "evaluation_time": "2026-10-03T01:00:00Z",
+        "required_scope": [
+          "security"
+        ],
+        "composition_mode": "order_independent",
+        "conflict_handling": "preserve",
+        "results": [
+          {
+            "id": "vr-07",
+            "subject_digest": "sha256:subject-a",
+            "verifier": {
+              "id": "https://example.org/verifier/v1",
+              "version": "1.0",
+              "status": "active"
+            },
+            "policy": {
+              "id": "https://example.org/policy/security",
+              "version": "2026-10",
+              "digest": "sha256:policy-a"
+            },
+            "time_created": "2026-10-03T00:30:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "scope": [
+              "security"
+            ],
+            "properties": [
+              {
+                "scope": "security"
+              }
+            ],
+            "assertions": [
+              {
+                "type": "property",
+                "property": "security.checked",
+                "value": "pass",
+                "polarity": "positive"
+              }
+            ],
+            "signature": {
+              "valid": true,
+              "canonical_bytes_match": true
+            }
+          },
+          {
+            "id": "vr-08",
+            "subject_digest": "sha256:subject-a",
+            "verifier": {
+              "id": "https://example.org/verifier/v1",
+              "version": "1.0",
+              "status": "active"
+            },
+            "policy": {
+              "id": "https://example.org/policy/security",
+              "version": "2026-10",
+              "digest": "sha256:policy-a"
+            },
+            "time_created": "2026-10-03T00:30:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "scope": [
+              "security"
+            ],
+            "properties": [
+              {
+                "scope": "security"
+              }
+            ],
+            "assertions": [
+              {
+                "type": "property",
+                "property": "security.checked",
+                "value": "pass",
+                "polarity": "positive"
+              }
+            ],
+            "signature": {
+              "valid": true,
+              "canonical_bytes_match": true
+            }
+          }
+        ]
+      },
+      "note": "Different trusted verifiers may provide compatible evidence over the same requested scope."
+    },
+    {
+      "id": "M-05",
+      "family": "expired_plus_current",
+      "candidate": {
+        "subject_digest": "sha256:subject-a",
+        "evaluation_time": "2026-10-03T01:00:00Z",
+        "required_scope": [
+          "security"
+        ],
+        "composition_mode": "order_independent",
+        "conflict_handling": "preserve",
+        "results": [
+          {
+            "id": "vr-09",
+            "subject_digest": "sha256:subject-a",
+            "verifier": {
+              "id": "https://example.org/verifier/v1",
+              "version": "1.0",
+              "status": "active"
+            },
+            "policy": {
+              "id": "https://example.org/policy/security",
+              "version": "2026-10",
+              "digest": "sha256:policy-a"
+            },
+            "time_created": "2026-10-03T00:30:00Z",
+            "valid_until": "2026-10-03T00:30:00Z",
+            "scope": [
+              "security"
+            ],
+            "properties": [
+              {
+                "scope": "security"
+              }
+            ],
+            "assertions": [
+              {
+                "type": "property",
+                "property": "security.checked",
+                "value": "pass",
+                "polarity": "positive"
+              }
+            ],
+            "signature": {
+              "valid": true,
+              "canonical_bytes_match": true
+            }
+          },
+          {
+            "id": "vr-10",
+            "subject_digest": "sha256:subject-a",
+            "verifier": {
+              "id": "https://example.org/verifier/v1",
+              "version": "1.0",
+              "status": "active"
+            },
+            "policy": {
+              "id": "https://example.org/policy/security",
+              "version": "2026-10",
+              "digest": "sha256:policy-a"
+            },
+            "time_created": "2026-10-03T00:45:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "scope": [
+              "security"
+            ],
+            "properties": [
+              {
+                "scope": "security"
+              }
+            ],
+            "assertions": [
+              {
+                "type": "property",
+                "property": "security.checked",
+                "value": "pass",
+                "polarity": "positive"
+              }
+            ],
+            "signature": {
+              "valid": true,
+              "canonical_bytes_match": true
+            }
+          }
+        ]
+      },
+      "note": "Expired evidence remains provenance-bearing historical evidence but does not contribute current assertions."
+    },
+    {
+      "id": "M-06",
+      "family": "stale_dominates_current",
+      "candidate": {
+        "subject_digest": "sha256:subject-a",
+        "evaluation_time": "2026-10-03T01:00:00Z",
+        "required_scope": [
+          "security"
+        ],
+        "composition_mode": "order_independent",
+        "conflict_handling": "preserve",
+        "stale_selection": "stale_wins",
+        "results": [
+          {
+            "id": "vr-11",
+            "subject_digest": "sha256:subject-a",
+            "verifier": {
+              "id": "https://example.org/verifier/v1",
+              "version": "1.0",
+              "status": "active"
+            },
+            "policy": {
+              "id": "https://example.org/policy/security",
+              "version": "2026-10",
+              "digest": "sha256:policy-a"
+            },
+            "time_created": "2026-10-03T00:30:00Z",
+            "valid_until": "2026-10-03T00:30:00Z",
+            "scope": [
+              "security"
+            ],
+            "properties": [
+              {
+                "scope": "security"
+              }
+            ],
+            "assertions": [
+              {
+                "type": "property",
+                "property": "security.checked",
+                "value": "pass",
+                "polarity": "positive"
+              }
+            ],
+            "signature": {
+              "valid": true,
+              "canonical_bytes_match": true
+            }
+          },
+          {
+            "id": "vr-12",
+            "subject_digest": "sha256:subject-a",
+            "verifier": {
+              "id": "https://example.org/verifier/v1",
+              "version": "1.0",
+              "status": "active"
+            },
+            "policy": {
+              "id": "https://example.org/policy/security",
+              "version": "2026-10",
+              "digest": "sha256:policy-a"
+            },
+            "time_created": "2026-10-03T00:45:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "scope": [
+              "security"
+            ],
+            "properties": [
+              {
+                "scope": "security"
+              }
+            ],
+            "assertions": [
+              {
+                "type": "property",
+                "property": "security.checked",
+                "value": "pass",
+                "polarity": "positive"
+              }
+            ],
+            "signature": {
+              "valid": true,
+              "canonical_bytes_match": true
+            }
+          }
+        ]
+      },
+      "note": "Selecting expired evidence as dominant current evidence is rejected."
+    },
+    {
+      "id": "M-07",
+      "family": "conflicting_results_collapsed",
+      "candidate": {
+        "subject_digest": "sha256:subject-a",
+        "evaluation_time": "2026-10-03T01:00:00Z",
+        "required_scope": [
+          "security"
+        ],
+        "composition_mode": "order_independent",
+        "conflict_handling": "collapse",
+        "results": [
+          {
+            "id": "vr-13",
+            "subject_digest": "sha256:subject-a",
+            "verifier": {
+              "id": "https://example.org/verifier/v1",
+              "version": "1.0",
+              "status": "active"
+            },
+            "policy": {
+              "id": "https://example.org/policy/security",
+              "version": "2026-10",
+              "digest": "sha256:policy-a"
+            },
+            "time_created": "2026-10-03T00:30:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "scope": [
+              "security"
+            ],
+            "properties": [
+              {
+                "scope": "security"
+              }
+            ],
+            "assertions": [
+              {
+                "type": "property",
+                "property": "security.checked",
+                "value": "pass",
+                "polarity": "positive"
+              }
+            ],
+            "signature": {
+              "valid": true,
+              "canonical_bytes_match": true
+            }
+          },
+          {
+            "id": "vr-14",
+            "subject_digest": "sha256:subject-a",
+            "verifier": {
+              "id": "https://example.org/verifier/v1",
+              "version": "1.0",
+              "status": "active"
+            },
+            "policy": {
+              "id": "https://example.org/policy/security",
+              "version": "2026-10",
+              "digest": "sha256:policy-a"
+            },
+            "time_created": "2026-10-03T00:30:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "scope": [
+              "security"
+            ],
+            "properties": [
+              {
+                "scope": "security"
+              }
+            ],
+            "assertions": [
+              {
+                "type": "property",
+                "property": "security.checked",
+                "value": "fail",
+                "polarity": "positive"
+              }
+            ],
+            "signature": {
+              "valid": true,
+              "canonical_bytes_match": true
+            }
+          }
+        ]
+      },
+      "note": "Contradictory authenticated results cannot be collapsed into one value."
+    },
+    {
+      "id": "M-08",
+      "family": "order_dependent_composition",
+      "candidate": {
+        "subject_digest": "sha256:subject-a",
+        "evaluation_time": "2026-10-03T01:00:00Z",
+        "required_scope": [
+          "security"
+        ],
+        "composition_mode": "first_wins",
+        "conflict_handling": "preserve",
+        "results": [
+          {
+            "id": "vr-15",
+            "subject_digest": "sha256:subject-a",
+            "verifier": {
+              "id": "https://example.org/verifier/v1",
+              "version": "1.0",
+              "status": "active"
+            },
+            "policy": {
+              "id": "https://example.org/policy/security",
+              "version": "2026-10",
+              "digest": "sha256:policy-a"
+            },
+            "time_created": "2026-10-03T00:30:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "scope": [
+              "security"
+            ],
+            "properties": [
+              {
+                "scope": "security"
+              }
+            ],
+            "assertions": [
+              {
+                "type": "property",
+                "property": "security.checked",
+                "value": "pass",
+                "polarity": "positive"
+              }
+            ],
+            "signature": {
+              "valid": true,
+              "canonical_bytes_match": true
+            }
+          },
+          {
+            "id": "vr-16",
+            "subject_digest": "sha256:subject-a",
+            "verifier": {
+              "id": "https://example.org/verifier/v1",
+              "version": "1.0",
+              "status": "active"
+            },
+            "policy": {
+              "id": "https://example.org/policy/security",
+              "version": "2026-10",
+              "digest": "sha256:policy-a"
+            },
+            "time_created": "2026-10-03T00:30:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "scope": [
+              "security"
+            ],
+            "properties": [
+              {
+                "scope": "security"
+              }
+            ],
+            "assertions": [
+              {
+                "type": "property",
+                "property": "security.checked",
+                "value": "pass",
+                "polarity": "positive"
+              }
+            ],
+            "signature": {
+              "valid": true,
+              "canonical_bytes_match": true
+            }
+          }
+        ]
+      },
+      "note": "Composition whose outcome depends on arrival order violates the order-independent boundary."
+    },
+    {
+      "id": "M-09",
+      "family": "negative_assertion_discarded",
+      "candidate": {
+        "subject_digest": "sha256:subject-a",
+        "evaluation_time": "2026-10-03T01:00:00Z",
+        "required_scope": [
+          "security"
+        ],
+        "composition_mode": "order_independent",
+        "conflict_handling": "preserve",
+        "negative_assertion_retention": "discard",
+        "results": [
+          {
+            "id": "vr-17",
+            "subject_digest": "sha256:subject-a",
+            "verifier": {
+              "id": "https://example.org/verifier/v1",
+              "version": "1.0",
+              "status": "active"
+            },
+            "policy": {
+              "id": "https://example.org/policy/security",
+              "version": "2026-10",
+              "digest": "sha256:policy-a"
+            },
+            "time_created": "2026-10-03T00:30:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "scope": [
+              "security"
+            ],
+            "properties": [
+              {
+                "scope": "security"
+              }
+            ],
+            "assertions": [
+              {
+                "type": "property",
+                "property": "security.checked",
+                "value": "not-verified",
+                "polarity": "negative"
+              }
+            ],
+            "signature": {
+              "valid": true,
+              "canonical_bytes_match": true
+            }
+          }
+        ]
+      },
+      "note": "Research-only negative assertions are retained as evidence and cannot silently disappear."
+    },
+    {
+      "id": "M-10",
+      "family": "out_of_scope_verifier",
+      "candidate": {
+        "subject_digest": "sha256:subject-a",
+        "evaluation_time": "2026-10-03T01:00:00Z",
+        "required_scope": [
+          "security"
+        ],
+        "composition_mode": "order_independent",
+        "conflict_handling": "preserve",
+        "results": [
+          {
+            "id": "vr-18",
+            "subject_digest": "sha256:subject-a",
+            "verifier": {
+              "id": "https://example.org/verifier/v1",
+              "version": "1.0",
+              "status": "active"
+            },
+            "policy": {
+              "id": "https://example.org/policy/security",
+              "version": "2026-10",
+              "digest": "sha256:policy-a"
+            },
+            "time_created": "2026-10-03T00:30:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "scope": [
+              "quality"
+            ],
+            "properties": [
+              {
+                "scope": "quality"
+              }
+            ],
+            "assertions": [
+              {
+                "type": "property",
+                "property": "security.checked",
+                "value": "pass",
+                "polarity": "positive"
+              }
+            ],
+            "signature": {
+              "valid": true,
+              "canonical_bytes_match": true
+            }
+          }
+        ]
+      },
+      "note": "Evidence outside the required scope cannot satisfy a broader requested scope."
+    },
+    {
+      "id": "M-11",
+      "family": "duplicate_identity_conflict",
+      "candidate": {
+        "subject_digest": "sha256:subject-a",
+        "evaluation_time": "2026-10-03T01:00:00Z",
+        "required_scope": [
+          "security"
+        ],
+        "composition_mode": "order_independent",
+        "conflict_handling": "preserve",
+        "results": [
+          {
+            "id": "vr-19",
+            "subject_digest": "sha256:subject-a",
+            "verifier": {
+              "id": "https://example.org/verifier/v1",
+              "version": "1.0",
+              "status": "active"
+            },
+            "policy": {
+              "id": "https://example.org/policy/security",
+              "version": "2026-10",
+              "digest": "sha256:policy-a"
+            },
+            "time_created": "2026-10-03T00:30:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "scope": [
+              "security"
+            ],
+            "properties": [
+              {
+                "scope": "security"
+              }
+            ],
+            "assertions": [
+              {
+                "type": "property",
+                "property": "security.checked",
+                "value": "pass",
+                "polarity": "positive"
+              }
+            ],
+            "signature": {
+              "valid": true,
+              "canonical_bytes_match": true
+            }
+          },
+          {
+            "id": "vr-19",
+            "subject_digest": "sha256:subject-a",
+            "verifier": {
+              "id": "https://example.org/verifier/v1",
+              "version": "1.0",
+              "status": "active"
+            },
+            "policy": {
+              "id": "https://example.org/policy/security",
+              "version": "2026-10",
+              "digest": "sha256:policy-a"
+            },
+            "time_created": "2026-10-03T00:30:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "scope": [
+              "security"
+            ],
+            "properties": [
+              {
+                "scope": "security"
+              }
+            ],
+            "assertions": [
+              {
+                "type": "property",
+                "property": "security.checked",
+                "value": "fail",
+                "polarity": "positive"
+              }
+            ],
+            "signature": {
+              "valid": true,
+              "canonical_bytes_match": true
+            }
+          }
+        ]
+      },
+      "note": "One result identity cannot name two different signed semantic contents."
+    },
+    {
+      "id": "M-12",
+      "family": "historical_reused_as_current",
+      "candidate": {
+        "subject_digest": "sha256:subject-a",
+        "evaluation_time": "2026-10-03T01:00:00Z",
+        "required_scope": [
+          "security"
+        ],
+        "composition_mode": "order_independent",
+        "conflict_handling": "preserve",
+        "historical_reused_as_current": true,
+        "results": [
+          {
+            "id": "vr-20",
+            "subject_digest": "sha256:subject-a",
+            "verifier": {
+              "id": "https://example.org/verifier/v1",
+              "version": "1.0",
+              "status": "active"
+            },
+            "policy": {
+              "id": "https://example.org/policy/security",
+              "version": "2026-10",
+              "digest": "sha256:policy-a"
+            },
+            "time_created": "2026-10-03T00:30:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "scope": [
+              "security"
+            ],
+            "properties": [
+              {
+                "scope": "security"
+              }
+            ],
+            "assertions": [
+              {
+                "type": "property",
+                "property": "security.checked",
+                "value": "pass",
+                "polarity": "positive"
+              }
+            ],
+            "signature": {
+              "valid": true,
+              "canonical_bytes_match": true
+            }
+          }
+        ]
+      },
+      "note": "Historical evidence needs an explicit historical identity and cannot silently re-enter the current evidence cut."
+    },
+    {
+      "id": "M-13",
+      "family": "quorum_as_authorization",
+      "candidate": {
+        "subject_digest": "sha256:subject-a",
+        "evaluation_time": "2026-10-03T01:00:00Z",
+        "required_scope": [
+          "security"
+        ],
+        "composition_mode": "order_independent",
+        "conflict_handling": "preserve",
+        "quorum": {
+          "required": 2,
+          "observed": 3
+        },
+        "authorization_mapping": "quorum_to_authorization",
+        "results": [
+          {
+            "id": "vr-21",
+            "subject_digest": "sha256:subject-a",
+            "verifier": {
+              "id": "https://example.org/verifier/v1",
+              "version": "1.0",
+              "status": "active"
+            },
+            "policy": {
+              "id": "https://example.org/policy/security",
+              "version": "2026-10",
+              "digest": "sha256:policy-a"
+            },
+            "time_created": "2026-10-03T00:30:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "scope": [
+              "security"
+            ],
+            "properties": [
+              {
+                "scope": "security"
+              }
+            ],
+            "assertions": [
+              {
+                "type": "property",
+                "property": "security.checked",
+                "value": "pass",
+                "polarity": "positive"
+              }
+            ],
+            "signature": {
+              "valid": true,
+              "canonical_bytes_match": true
+            }
+          },
+          {
+            "id": "vr-22",
+            "subject_digest": "sha256:subject-a",
+            "verifier": {
+              "id": "https://example.org/verifier/v1",
+              "version": "1.0",
+              "status": "active"
+            },
+            "policy": {
+              "id": "https://example.org/policy/security",
+              "version": "2026-10",
+              "digest": "sha256:policy-a"
+            },
+            "time_created": "2026-10-03T00:30:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "scope": [
+              "security"
+            ],
+            "properties": [
+              {
+                "scope": "security"
+              }
+            ],
+            "assertions": [
+              {
+                "type": "property",
+                "property": "security.checked",
+                "value": "pass",
+                "polarity": "positive"
+              }
+            ],
+            "signature": {
+              "valid": true,
+              "canonical_bytes_match": true
+            }
+          },
+          {
+            "id": "vr-23",
+            "subject_digest": "sha256:subject-a",
+            "verifier": {
+              "id": "https://example.org/verifier/v1",
+              "version": "1.0",
+              "status": "active"
+            },
+            "policy": {
+              "id": "https://example.org/policy/security",
+              "version": "2026-10",
+              "digest": "sha256:policy-a"
+            },
+            "time_created": "2026-10-03T00:30:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "scope": [
+              "security"
+            ],
+            "properties": [
+              {
+                "scope": "security"
+              }
+            ],
+            "assertions": [
+              {
+                "type": "property",
+                "property": "security.checked",
+                "value": "pass",
+                "polarity": "positive"
+              }
+            ],
+            "signature": {
+              "valid": true,
+              "canonical_bytes_match": true
+            }
+          }
+        ]
+      },
+      "note": "A count threshold remains aggregation metadata and is not an authorization grant."
+    },
+    {
+      "id": "M-14",
+      "family": "scientific_conflict_as_fact",
+      "candidate": {
+        "subject_digest": "sha256:subject-a",
+        "evaluation_time": "2026-10-03T01:00:00Z",
+        "required_scope": [
+          "security"
+        ],
+        "composition_mode": "order_independent",
+        "conflict_handling": "preserve",
+        "scientific_resolution": "resolved_fact",
+        "results": [
+          {
+            "id": "vr-24",
+            "subject_digest": "sha256:subject-a",
+            "verifier": {
+              "id": "https://example.org/verifier/v1",
+              "version": "1.0",
+              "status": "active"
+            },
+            "policy": {
+              "id": "https://example.org/policy/security",
+              "version": "2026-10",
+              "digest": "sha256:policy-a"
+            },
+            "time_created": "2026-10-03T00:30:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "scope": [
+              "security"
+            ],
+            "properties": [
+              {
+                "scope": "security"
+              }
+            ],
+            "assertions": [
+              {
+                "type": "interpretation",
+                "property": "causal-effect",
+                "value": "supports_effect",
+                "polarity": "positive"
+              }
+            ],
+            "signature": {
+              "valid": true,
+              "canonical_bytes_match": true
+            }
+          },
+          {
+            "id": "vr-25",
+            "subject_digest": "sha256:subject-a",
+            "verifier": {
+              "id": "https://example.org/verifier/v1",
+              "version": "1.0",
+              "status": "active"
+            },
+            "policy": {
+              "id": "https://example.org/policy/security",
+              "version": "2026-10",
+              "digest": "sha256:policy-a"
+            },
+            "time_created": "2026-10-03T00:30:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "scope": [
+              "security"
+            ],
+            "properties": [
+              {
+                "scope": "security"
+              }
+            ],
+            "assertions": [
+              {
+                "type": "interpretation",
+                "property": "causal-effect",
+                "value": "does_not_support_effect",
+                "polarity": "positive"
+              }
+            ],
+            "signature": {
+              "valid": true,
+              "canonical_bytes_match": true
+            }
+          }
+        ]
+      },
+      "note": "Conflicting scientific interpretations must not be promoted into resolved fact by the composition layer."
+    },
+    {
+      "id": "M-15",
+      "family": "agreement_preserves_provenance",
+      "candidate": {
+        "subject_digest": "sha256:subject-a",
+        "evaluation_time": "2026-10-03T01:00:00Z",
+        "required_scope": [
+          "security"
+        ],
+        "composition_mode": "order_independent",
+        "conflict_handling": "preserve",
+        "results": [
+          {
+            "id": "vr-26",
+            "subject_digest": "sha256:subject-a",
+            "verifier": {
+              "id": "https://example.org/verifier/v1",
+              "version": "1.0",
+              "status": "active"
+            },
+            "policy": {
+              "id": "https://example.org/policy/security",
+              "version": "2026-10",
+              "digest": "sha256:policy-a"
+            },
+            "time_created": "2026-10-03T00:30:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "scope": [
+              "security"
+            ],
+            "properties": [
+              {
+                "scope": "security"
+              }
+            ],
+            "assertions": [
+              {
+                "type": "property",
+                "property": "security.checked",
+                "value": "pass",
+                "polarity": "positive"
+              }
+            ],
+            "signature": {
+              "valid": true,
+              "canonical_bytes_match": true
+            }
+          },
+          {
+            "id": "vr-27",
+            "subject_digest": "sha256:subject-a",
+            "verifier": {
+              "id": "https://example.org/verifier/v1",
+              "version": "1.0",
+              "status": "active"
+            },
+            "policy": {
+              "id": "https://example.org/policy/security",
+              "version": "2026-10",
+              "digest": "sha256:policy-a"
+            },
+            "time_created": "2026-10-03T00:30:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "scope": [
+              "security"
+            ],
+            "properties": [
+              {
+                "scope": "security"
+              }
+            ],
+            "assertions": [
+              {
+                "type": "property",
+                "property": "security.checked",
+                "value": "pass",
+                "polarity": "positive"
+              }
+            ],
+            "signature": {
+              "valid": true,
+              "canonical_bytes_match": true
+            }
+          }
+        ]
+      },
+      "note": "Agreement is admissible while preserving both independent result identities."
+    },
+    {
+      "id": "M-16",
+      "family": "explicit_conflict_state",
+      "candidate": {
+        "subject_digest": "sha256:subject-a",
+        "evaluation_time": "2026-10-03T01:00:00Z",
+        "required_scope": [
+          "security"
+        ],
+        "composition_mode": "order_independent",
+        "conflict_handling": "preserve",
+        "results": [
+          {
+            "id": "vr-28",
+            "subject_digest": "sha256:subject-a",
+            "verifier": {
+              "id": "https://example.org/verifier/v1",
+              "version": "1.0",
+              "status": "active"
+            },
+            "policy": {
+              "id": "https://example.org/policy/security",
+              "version": "2026-10",
+              "digest": "sha256:policy-a"
+            },
+            "time_created": "2026-10-03T00:30:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "scope": [
+              "security"
+            ],
+            "properties": [
+              {
+                "scope": "security"
+              }
+            ],
+            "assertions": [
+              {
+                "type": "property",
+                "property": "security.checked",
+                "value": "pass",
+                "polarity": "positive"
+              }
+            ],
+            "signature": {
+              "valid": true,
+              "canonical_bytes_match": true
+            }
+          },
+          {
+            "id": "vr-29",
+            "subject_digest": "sha256:subject-a",
+            "verifier": {
+              "id": "https://example.org/verifier/v1",
+              "version": "1.0",
+              "status": "active"
+            },
+            "policy": {
+              "id": "https://example.org/policy/security",
+              "version": "2026-10",
+              "digest": "sha256:policy-a"
+            },
+            "time_created": "2026-10-03T00:30:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "scope": [
+              "security"
+            ],
+            "properties": [
+              {
+                "scope": "security"
+              }
+            ],
+            "assertions": [
+              {
+                "type": "property",
+                "property": "security.checked",
+                "value": "fail",
+                "polarity": "positive"
+              }
+            ],
+            "signature": {
+              "valid": true,
+              "canonical_bytes_match": true
+            }
+          }
+        ]
+      },
+      "note": "An explicit conflict state is admissible when both valid result identities remain visible."
+    },
+    {
+      "id": "M-17",
+      "family": "monotonic_positive_composition",
+      "candidate": {
+        "subject_digest": "sha256:subject-a",
+        "evaluation_time": "2026-10-03T01:00:00Z",
+        "required_scope": [
+          "security"
+        ],
+        "composition_mode": "order_independent",
+        "conflict_handling": "preserve",
+        "monotonicity_probe": "deletion_turns_allow_into_deny",
+        "results": [
+          {
+            "id": "vr-30",
+            "subject_digest": "sha256:subject-a",
+            "verifier": {
+              "id": "https://example.org/verifier/v1",
+              "version": "1.0",
+              "status": "active"
+            },
+            "policy": {
+              "id": "https://example.org/policy/security",
+              "version": "2026-10",
+              "digest": "sha256:policy-a"
+            },
+            "time_created": "2026-10-03T00:30:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "scope": [
+              "security"
+            ],
+            "properties": [
+              {
+                "scope": "security"
+              }
+            ],
+            "assertions": [
+              {
+                "type": "property",
+                "property": "security.checked",
+                "value": "pass",
+                "polarity": "positive"
+              }
+            ],
+            "signature": {
+              "valid": true,
+              "canonical_bytes_match": true
+            }
+          },
+          {
+            "id": "vr-31",
+            "subject_digest": "sha256:subject-a",
+            "verifier": {
+              "id": "https://example.org/verifier/v1",
+              "version": "1.0",
+              "status": "active"
+            },
+            "policy": {
+              "id": "https://example.org/policy/security",
+              "version": "2026-10",
+              "digest": "sha256:policy-a"
+            },
+            "time_created": "2026-10-03T00:30:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "scope": [
+              "security"
+            ],
+            "properties": [
+              {
+                "scope": "security"
+              }
+            ],
+            "assertions": [
+              {
+                "type": "property",
+                "property": "security.checked",
+                "value": "pass",
+                "polarity": "positive"
+              }
+            ],
+            "signature": {
+              "valid": true,
+              "canonical_bytes_match": true
+            }
+          }
+        ]
+      },
+      "note": "Deleting supporting evidence may remove an allow condition but must not create an allow from a deny."
+    },
+    {
+      "id": "M-18",
+      "family": "incomparable_policy_result",
+      "candidate": {
+        "subject_digest": "sha256:subject-a",
+        "evaluation_time": "2026-10-03T01:00:00Z",
+        "required_scope": [
+          "security"
+        ],
+        "composition_mode": "order_independent",
+        "conflict_handling": "preserve",
+        "results": [
+          {
+            "id": "vr-32",
+            "subject_digest": "sha256:subject-a",
+            "verifier": {
+              "id": "https://example.org/verifier/v1",
+              "version": "1.0",
+              "status": "active"
+            },
+            "policy": {
+              "id": "https://example.org/policy/security",
+              "version": "2026-A",
+              "digest": "sha256:policy-a"
+            },
+            "time_created": "2026-10-03T00:30:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "scope": [
+              "security"
+            ],
+            "properties": [
+              {
+                "scope": "security"
+              }
+            ],
+            "assertions": [
+              {
+                "type": "property",
+                "property": "security.checked",
+                "value": "pass",
+                "polarity": "positive"
+              }
+            ],
+            "signature": {
+              "valid": true,
+              "canonical_bytes_match": true
+            },
+            "policy_relation": "incomparable"
+          },
+          {
+            "id": "vr-33",
+            "subject_digest": "sha256:subject-a",
+            "verifier": {
+              "id": "https://example.org/verifier/v1",
+              "version": "1.0",
+              "status": "active"
+            },
+            "policy": {
+              "id": "https://example.org/policy/security",
+              "version": "2026-B",
+              "digest": "sha256:policy-b"
+            },
+            "time_created": "2026-10-03T00:30:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "scope": [
+              "security"
+            ],
+            "properties": [
+              {
+                "scope": "security"
+              }
+            ],
+            "assertions": [
+              {
+                "type": "property",
+                "property": "security.checked",
+                "value": "pass",
+                "polarity": "positive"
+              }
+            ],
+            "signature": {
+              "valid": true,
+              "canonical_bytes_match": true
+            },
+            "policy_relation": "incomparable"
+          }
+        ]
+      },
+      "note": "Incomparable policy evaluations remain separately represented rather than ordered by recency or verifier name."
+    },
+    {
+      "id": "M-19",
+      "family": "exact_duplicate_replay",
+      "candidate": {
+        "subject_digest": "sha256:subject-a",
+        "evaluation_time": "2026-10-03T01:00:00Z",
+        "required_scope": [
+          "security"
+        ],
+        "composition_mode": "order_independent",
+        "conflict_handling": "preserve",
+        "results": [
+          {
+            "id": "vr-34",
+            "subject_digest": "sha256:subject-a",
+            "verifier": {
+              "id": "https://example.org/verifier/v1",
+              "version": "1.0",
+              "status": "active"
+            },
+            "policy": {
+              "id": "https://example.org/policy/security",
+              "version": "2026-10",
+              "digest": "sha256:policy-a"
+            },
+            "time_created": "2026-10-03T00:30:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "scope": [
+              "security"
+            ],
+            "properties": [
+              {
+                "scope": "security"
+              }
+            ],
+            "assertions": [
+              {
+                "type": "property",
+                "property": "security.checked",
+                "value": "pass",
+                "polarity": "positive"
+              }
+            ],
+            "signature": {
+              "valid": true,
+              "canonical_bytes_match": true
+            }
+          },
+          {
+            "id": "vr-34",
+            "subject_digest": "sha256:subject-a",
+            "verifier": {
+              "id": "https://example.org/verifier/v1",
+              "version": "1.0",
+              "status": "active"
+            },
+            "policy": {
+              "id": "https://example.org/policy/security",
+              "version": "2026-10",
+              "digest": "sha256:policy-a"
+            },
+            "time_created": "2026-10-03T00:30:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "scope": [
+              "security"
+            ],
+            "properties": [
+              {
+                "scope": "security"
+              }
+            ],
+            "assertions": [
+              {
+                "type": "property",
+                "property": "security.checked",
+                "value": "pass",
+                "polarity": "positive"
+              }
+            ],
+            "signature": {
+              "valid": true,
+              "canonical_bytes_match": true
+            }
+          }
+        ]
+      },
+      "note": "Exact replay of the same result identity and bytes is idempotent in semantic composition."
+    },
+    {
+      "id": "M-20",
+      "family": "incompatible_scope_incomparable",
+      "candidate": {
+        "subject_digest": "sha256:subject-a",
+        "evaluation_time": "2026-10-03T01:00:00Z",
+        "required_scope": [],
+        "composition_mode": "order_independent",
+        "conflict_handling": "preserve",
+        "results": [
+          {
+            "id": "vr-35",
+            "subject_digest": "sha256:subject-a",
+            "verifier": {
+              "id": "https://example.org/verifier/v1",
+              "version": "1.0",
+              "status": "active"
+            },
+            "policy": {
+              "id": "https://example.org/policy/security",
+              "version": "2026-10",
+              "digest": "sha256:policy-a"
+            },
+            "time_created": "2026-10-03T00:30:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "scope": [
+              "security"
+            ],
+            "properties": [
+              {
+                "scope": "security"
+              }
+            ],
+            "assertions": [
+              {
+                "type": "property",
+                "property": "security.checked",
+                "value": "pass",
+                "polarity": "positive"
+              }
+            ],
+            "signature": {
+              "valid": true,
+              "canonical_bytes_match": true
+            },
+            "scope_relation": "incomparable"
+          },
+          {
+            "id": "vr-36",
+            "subject_digest": "sha256:subject-a",
+            "verifier": {
+              "id": "https://example.org/verifier/v1",
+              "version": "1.0",
+              "status": "active"
+            },
+            "policy": {
+              "id": "https://example.org/policy/security",
+              "version": "2026-10",
+              "digest": "sha256:policy-a"
+            },
+            "time_created": "2026-10-03T00:30:00Z",
+            "valid_until": "2026-10-04T00:00:00Z",
+            "scope": [
+              "quality"
+            ],
+            "properties": [
+              {
+                "scope": "quality"
+              }
+            ],
+            "assertions": [
+              {
+                "type": "property",
+                "property": "security.checked",
+                "value": "pass",
+                "polarity": "positive"
+              }
+            ],
+            "signature": {
+              "valid": true,
+              "canonical_bytes_match": true
+            },
+            "scope_relation": "incomparable"
+          }
+        ]
+      },
+      "note": "Incompatible scopes are preserved as incomparable evidence rather than choosing a scope winner."
+    }
+  ]
+}
