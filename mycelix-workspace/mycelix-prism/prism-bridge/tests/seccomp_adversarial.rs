@@ -384,8 +384,10 @@ fn disjunctive_socket_child() -> ! {
     )
     .unwrap_or_else(|_| unsafe { libc::_exit(140) });
 
-    let exit_group = SeccompSyscallRuleV2::new(libc::SYS_exit_group, Vec::new())
+    let write = SeccompSyscallRuleV2::new(libc::SYS_write, Vec::new())
         .unwrap_or_else(|_| unsafe { libc::_exit(141) });
+    let exit_group = SeccompSyscallRuleV2::new(libc::SYS_exit_group, Vec::new())
+        .unwrap_or_else(|_| unsafe { libc::_exit(142) });
 
     // Open a stable fd before the filter is installed. /dev/null lseek is
     // harmless; the important observation after installation is whether the
@@ -404,7 +406,7 @@ fn disjunctive_socket_child() -> ! {
 
     let policy = SeccompSyscallPolicyV2::new(
         architecture,
-        vec![socket, lseek, exit_group],
+        vec![socket, lseek, write, exit_group],
     )
         .unwrap_or_else(|_| unsafe { libc::_exit(137) });
     let profile = SandboxProfileV1::renderer_default()
