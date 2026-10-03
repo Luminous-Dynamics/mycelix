@@ -333,8 +333,8 @@ fn did_document_view(document: DidDocument) -> ExternResult<DidDocumentView> {
                 endpoint: service.service_endpoint,
             })
             .collect(),
-        created: document.created.as_micros(),
-        updated: document.updated.as_micros(),
+        created: document.created.to_string(),
+        updated: document.updated.to_string(),
         version: document.version,
         active,
     })
