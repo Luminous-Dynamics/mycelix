@@ -299,6 +299,7 @@ mod tests {
     fn observables_project_reconciled_stocks_and_period_totals() {
         let mut bank = ActorBalanceSheet::new("bank");
         bank.monetary.cash = 1_000;
+        bank.monetary.claims = 200;
         let mut firm = ActorBalanceSheet::new("firm");
         firm.monetary.deposits = 500;
         firm.monetary.liabilities = 200;
