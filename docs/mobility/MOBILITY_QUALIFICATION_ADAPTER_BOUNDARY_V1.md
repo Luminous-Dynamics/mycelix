@@ -154,6 +154,8 @@ The adapter therefore uses an explicit `HolochainAuthorityAgentBindingSet`. Each
 - cannot be duplicated for the same authority identity;
 - must be present before a signed runtime dependency binding can be accepted.
 
-A runtime dependency binding is accepted only when its signer matches the registered agent for the provenance authority.
+A runtime dependency binding is accepted only when its signer matches the registered agent for the provenance authority. The registry retains the full verified authority-agent credential, not just the AgentPubKey, so downstream consumers can audit the exact signed provenance statement that established the mapping.
+
+The runtime binding must also carry the exact same authority_scope and authority_delegation identities named by the retained authority-agent credential. Matching only the authority identity is insufficient because it would allow a valid agent key to be detached from the particular provenance scope and delegation chain that justified its admission. These continuity checks are structural; they do not independently prove legal authority, institutional entitlement, or real-world identity.
 
 This establishes a protocol-level identity binding, not a claim about a real-world person's or institution's legal identity. The semantic authority determination remains in the pure provenance graph.
