@@ -225,19 +225,30 @@ struct DidDocumentWireView {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+struct DidResolutionErrorView {
+    #[serde(rename = "type")]
+    type_uri: String,
+    title: String,
+    detail: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 struct DidResolutionMetadataView {
     #[serde(rename = "contentType")]
     content_type: Option<String>,
-    error: Option<String>,
+    error: Option<DidResolutionErrorView>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 struct DidDocumentMetadataView {
-    created: String,
-    updated: String,
-    deactivated: bool,
-    #[serde(rename = "versionId")]
-    version_id: String,
+    #[serde(default)]
+    created: Option<String>,
+    #[serde(default)]
+    updated: Option<String>,
+    #[serde(default)]
+    deactivated: Option<bool>,
+    #[serde(rename = "versionId", default)]
+    version_id: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -1346,7 +1357,11 @@ async fn dsid_017_not_found_resolution_uses_structured_w3c_error() {
         .await;
 
     assert!(result.did_document.is_none());
-    assert!(result.document_metadata.is_none());
+    let metadata = result.document_metadata.expect("not-found must return an empty document metadata object");
+    assert!(metadata.created.is_none());
+    assert!(metadata.updated.is_none());
+    assert!(metadata.deactivated.is_none());
+    assert!(metadata.version_id.is_none());
     let error = result.resolution_metadata.error.expect("not-found must carry an error object");
     assert_eq!(error.type_uri, "https://www.w3.org/ns/did#NOT_FOUND");
     assert_eq!(error.title, "DID not found");
