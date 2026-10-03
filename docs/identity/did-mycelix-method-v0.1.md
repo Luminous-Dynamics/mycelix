@@ -229,6 +229,7 @@ The current qualification laboratory maps concrete protocol behavior to determin
 | DSID-025 | canonical latest self-recovery update resolution |
 | DSID-026 | DID resolution JSON omits absent optional metadata |
 | DSID-027 | generic update rejects legacy untagged DID key |
+| DSID-028 | cross-agent recovery time-lock arming |
 
 The qualification workflow records scenario IDs, agents, DNA hash, action hashes, entry hashes, expected and observed behavior, pass state, and commit SHA, then hashes the complete evidence capsule.
 
@@ -251,7 +252,7 @@ The following are intentionally not implied to be complete:
 
 Social recovery configuration is controller-owned and cannot be attached to another controller's DID. Self-recovery requests are authored by the designated replacement agent; this permits recovery when the original controller is unavailable without letting an unrelated agent create the request.
 
-Trustee votes remain immutable records authored by individual trustees. Their quorum is therefore derived from DHT-visible vote records rather than requiring one trustee to mutate a request entry authored by another trustee. The `get_recovery_status` projection exposes the derived approval/rejection state across agents.
+Trustee votes remain immutable records authored by individual trustees. Their quorum is therefore derived from DHT-visible vote records rather than requiring one trustee to mutate a request entry authored by another trustee. The `get_recovery_status` projection exposes the derived approval/rejection state across agents. The original request author may explicitly arm the time lock once the derived quorum reaches approval; this compatibility step preserves Holochain source-chain authorship while the final protocol work evolves toward an immutable readiness certificate.
 
 The remaining recovery transition is deliberately separate: a completed recovery currently does not mutate the original DID controller. The safe protocol shape is a successor DID plus explicit recovery linkage, or another method-level transfer construction that preserves the identifier/controller binding. That transition remains a protocol design gate rather than being inferred from the existing recovery votes.
 
