@@ -474,7 +474,46 @@ mod linux {
     /// non-branch records must have zero jump metadata, and the program must
     /// retain its global fail-closed terminator.
     fn validate_compiled_filter(filter: &[SockFilter]) -> Result<(), SeccompError> {
-        if filter.is_empty() {
+        if filter.len() < 5 {
+            return Err(SeccompError::CompilerInvariantViolation);
+        }
+
+        // Canonical safety prefix:
+        //   load arch -> check exact arch -> KILL on mismatch -> load nr
+        //   -> [x86-64 only] x32 guard -> KILL on x32
+        if filter[0].code != BPF_LD | BPF_W | BPF_ABS
+            || filter[0].k != SECCOMP_DATA_ARCH_OFFSET
+            || filter[1].code != BPF_JMP | BPF_JEQ | BPF_K
+            || filter[1].k != SeccompArchitecture::current().ok_or(SeccompError::CompilerInvariantViolation)? as u32
+            || filter[1].jt != 1
+            || filter[1].jf != 0
+            || filter[2].code != BPF_RET | BPF_K
+            || filter[2].k != SECCOMP_RET_KILL_PROCESS
+            || filter[3].code != BPF_LD | BPF_W | BPF_ABS
+            || filter[3].k != SECCOMP_DATA_NR_OFFSET
+        {
+            return Err(SeccompError::CompilerInvariantViolation);
+        }
+
+        let first_rule_index = if SeccompArchitecture::current()
+            == Some(SeccompArchitecture::X86_64)
+        {
+            if filter.len() < 7
+                || filter[4].code != BPF_JMP | BPF_JGE | BPF_K
+                || filter[4].k != 0x4000_0000
+                || filter[4].jt != 0
+                || filter[4].jf != 1
+                || filter[5].code != BPF_RET | BPF_K
+                || filter[5].k != SECCOMP_RET_KILL_PROCESS
+            {
+                return Err(SeccompError::CompilerInvariantViolation);
+            }
+            6
+        } else {
+            4
+        };
+
+        if filter[first_rule_index].code != BPF_JMP | BPF_JEQ | BPF_K {
             return Err(SeccompError::CompilerInvariantViolation);
         }
 
@@ -529,10 +568,20 @@ mod linux {
                     if instruction.jt != 0 || instruction.jf != 0 {
                         return Err(SeccompError::CompilerInvariantViolation);
                     }
-                    let allowed_action = instruction.k == SECCOMP_RET_ALLOW
+                    let is_expected_action = instruction.k == SECCOMP_RET_ALLOW
                         || instruction.k == SECCOMP_RET_ERRNO | libc::EPERM as u32
                         || instruction.k == SECCOMP_RET_KILL_PROCESS;
-                    if !allowed_action {
+                    if !is_expected_action {
+                        return Err(SeccompError::CompilerInvariantViolation);
+                    }
+                    // KILL_PROCESS is reserved for the validated architecture
+                    // guards above; ordinary rule bodies may only ALLOW or
+                    // return EPERM.
+                    if instruction.k == SECCOMP_RET_KILL_PROCESS
+                        && index != 2
+                        && !(SeccompArchitecture::current() == Some(SeccompArchitecture::X86_64)
+                            && index == 5)
+                    {
                         return Err(SeccompError::CompilerInvariantViolation);
                     }
                 }
@@ -2441,6 +2490,31 @@ mod linux {
                 .unwrap()
                 .saturating_add(2);
             filter[socket_jump].jf = u8::try_from(skip).unwrap();
+            assert!(matches!(
+                validate_compiled_filter(&filter),
+                Err(SeccompError::CompilerInvariantViolation)
+            ));
+        }
+
+        #[test]
+        fn compiled_filter_rejects_kill_action_inside_rule_body() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let policy = SeccompSyscallPolicyV2::new(
+                arch,
+                vec![SeccompSyscallRuleV2::new(libc::SYS_socket, Vec::new()).unwrap()],
+            )
+            .unwrap();
+            let mut filter = compile_filter_v2(&policy).unwrap();
+
+            let allow_index = filter
+                .iter()
+                .position(|instruction| {
+                    instruction.code == BPF_RET | BPF_K
+                        && instruction.k == SECCOMP_RET_ALLOW
+                })
+                .unwrap();
+            filter[allow_index].k = SECCOMP_RET_KILL_PROCESS;
+
             assert!(matches!(
                 validate_compiled_filter(&filter),
                 Err(SeccompError::CompilerInvariantViolation)
