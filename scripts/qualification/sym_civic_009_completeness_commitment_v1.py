@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 
 ROOT=pathlib.Path(__file__).resolve().parents[2]
 MAN=ROOT/"mycelix-workspace/docs/civic-resilience/sym_civic_009_completeness_commitment.json"
-IDS=[f"C-{i:02d}" for i in range(1,18)]
+IDS=[f"C-{i:02d}" for i in range(1,19)]
 
 def fail(m):
     raise SystemExit("SYM-CIVIC-009 FAIL: "+m)
@@ -141,7 +141,7 @@ def main():
         "REJECT_COMPLETENESS_COMMITMENT","COMMITMENT_CONTENT_UNQUALIFIED","COMMITMENT_ACCEPTED"
     )}
     expected={
-        "REJECT_COMPLETENESS_COMMITMENT":13,
+        "REJECT_COMPLETENESS_COMMITMENT":14,
         "COMMITMENT_CONTENT_UNQUALIFIED":1,
         "COMMITMENT_ACCEPTED":4
     }
