@@ -30,6 +30,14 @@ A canonical evidence envelope should bind:
 - received_at_ms
 - authority_reference
 - verification_reference
+- authority_statement_id
+- authority_resolution_epoch
+- authority_predecessor_statement_id
+- authority_predecessor_statement_digest
+- authority_effective_from_ms
+- supersedes_reference
+- revokes_reference
+- transparency_receipt_reference
 - verifier_id
 - verifier_version
 - cryptosuite
@@ -37,6 +45,12 @@ A canonical evidence envelope should bind:
 - policy_fingerprint
 - environment_fingerprint
 - resolution_snapshot_fingerprint
+- resolution_verifier_report_digest
+- freshness_scheme
+- freshness_source_id
+- freshness_epoch
+- freshness_marker_digest
+- freshness_policy_fingerprint
 - verification_outcome
 
 The fields have distinct meanings and must not be collapsed into one generic score.
@@ -94,7 +108,12 @@ Where available, the Mycelix envelope should preserve:
 - policy_fingerprint: the exact policy inputs used by the verifier;
 - environment_fingerprint: the verifier environment identity;
 - resolution_snapshot_fingerprint: the durable key/verification-method snapshot consulted by the verifier;
+- resolution_verifier_report_digest: the immutable fingerprint of the complete verifier report used to support a topology lifecycle resolution;
 - verification_outcome: the explicit terminal outcome.
+
+For topology resolution evidence, `resolution_verifier_report_digest` should match the verifier-report provenance surfaced by Symthaea's topology-authority decision.
+
+Where a freshness handle is used, the envelope should preserve the exact freshness scheme, source, epoch/counter, and marker digest. The receiving policy remains responsible for maintaining its accepted epoch state and pinning the acceptable marker scheme/source. The verifier's `freshness_policy_fingerprint`, when available, identifies the exact freshness acceptance policy used for the decision. A freshness marker is a freshness input, not proof of physical truth.
 
 These fields are evidence references, not a second verifier implementation.
 
@@ -106,6 +125,35 @@ The evidence chain becomes:
 
 A future transport can selectively disclose the detailed report while retaining the digest and provenance references needed for audit.
 
+## Lifecycle authority binding
+
+The envelope must preserve the relationship between an evidence record and the authoritative lifecycle statement it relies upon.
+
+Where an authority resolution participates in a monotonic resolution history, the envelope should retain:
+
+- `authority_statement_id`: stable identity of the exact authority statement;
+- `authority_resolution_epoch`: the authority decision sequence number;
+- `authority_predecessor_statement_id`: stable identity of the exact prior authority statement when this statement supersedes a previous resolution;
+- `authority_predecessor_statement_digest`: the exact prior authority statement digest when this statement supersedes a previous resolution;
+- `authority_effective_from_ms`: the lifecycle time at which the resolved topology becomes effective.
+
+For resolution epochs greater than one, the predecessor statement ID and predecessor digest must agree with the same prior statement. A digest without an exact statement identity is insufficient for lifecycle continuity.
+
+A resolution may therefore be valid before it becomes current. Consumers must not infer currentness solely from statement validity or resolution timestamp.
+
+Lifecycle relationships are explicit:
+
+- `supersedes_reference`: points to the exact prior resolution being replaced by a later authoritative decision;
+- `revokes_reference`: points to the exact resolution being invalidated by an authority revocation.
+
+A revocation is not a topology replacement. A superseding resolution is not a revocation. Consumers must preserve both records and evaluate the relationship rather than collapsing them into a mutable current-state field.
+
+`transparency_receipt_reference` is optional for offline operation and identifies a receipt proving registration of the relevant signed statement in a configured transparency service. Its presence does not itself establish that the issuer's claim is physically true.
+
+This keeps the chain explicit:
+
+**evidence → verifier result → authority statement → lifecycle relation → transparency evidence**
+
 ## Evidence kinds
 
 The initial vocabulary should remain small and composable:
@@ -115,6 +163,7 @@ The initial vocabulary should remain small and composable:
 - PhysicsConsistency
 - TopologyAttestation
 - TopologyResolution
+- TopologyRevocation
 - Intervention
 - RecoveryVerification
 
@@ -146,6 +195,9 @@ A consumer should reject or quarantine an envelope when:
 - the topology epoch is older than the admitted current epoch;
 - a topology digest does not belong to the referenced epoch;
 - a claimed authority resolution is from an older resolution epoch;
+- a claimed authority resolution has not yet reached its declared effective time;
+- a required freshness handle is missing, from an unexpected source, or below the receiver's accepted freshness epoch;
+- a supersession or revocation reference does not match the exact targeted authority statement;
 - the evidence timestamp is outside the permitted freshness window;
 - required authority or verification references are missing;
 - a resolution selects a successor not present in the preserved branch set.
@@ -161,6 +213,13 @@ Mycelix remains responsible for durable identity, provenance, authorization, syn
 Neither layer by itself establishes regulated operational permission.
 
 ## Transparency compatibility
+
+The envelope is designed to map naturally onto append-only transparency systems.
+
+RFC 9943 SCITT defines an append-only statement history with non-equivocation and replayability requirements, with receipts proving registration of signed statements in a verifiable data structure. The explicit authority statement, lifecycle relation, and optional receipt references above allow Mycelix to preserve that evidence chain without turning a mutable “current state” record into the source of truth. citeturn612028search0
+
+A future Mycelix transport can bind envelopes to signed statements and transparency receipts without changing the core distinction between evidence, verification, authority, and physical truth.
+
 
 The envelope is designed to map naturally onto append-only transparency systems.
 
