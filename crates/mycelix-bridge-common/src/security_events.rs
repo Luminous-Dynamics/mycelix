@@ -115,11 +115,20 @@ impl<'de> serde::Deserialize<'de> for SecurityEvent {
                     "allow security events require kernel capability and authority bindings",
                 ));
             }
+            if wire.capability_binding == Some([0; 32]) || wire.authority_binding == Some([0; 32]) {
+                return Err(D::Error::custom(
+                    "allow security event bindings must be non-zero",
+                ));
+            }
             if event.actor_id != event.request.subject() {
                 return Err(D::Error::custom(
                     "allow security events require actor to match request subject",
                 ));
             }
+        } else if wire.capability_binding.is_some() || wire.authority_binding.is_some() {
+            return Err(D::Error::custom(
+                "non-Allow security events cannot carry enforcement bindings",
+            ));
         }
 
         event.capability_binding = wire.capability_binding;
@@ -459,6 +468,56 @@ mod tests {
             "decision":"Allow",
             "policy_version":7,
             "timestamp_us":151,
+            "provenance":[],
+            "recovery_correlation":null
+        }"#;
+
+        assert!(serde_json::from_str::<SecurityEvent>(json).is_err());
+    }
+
+    #[test]
+    fn deserialization_rejects_non_allow_bindings() {
+        let json = r#"{
+            "event_id":"event:forged-deny-binding",
+            "actor_id":"did:mycelix:alice",
+            "capability_ref":"capability:forged",
+            "request":{
+                "subject":"did:mycelix:alice",
+                "resource":"resource:ledger",
+                "action":"Read",
+                "policy_version":7
+            },
+            "decision":{
+                "Deny":"ActionNotGranted"
+            },
+            "policy_version":7,
+            "timestamp_us":151,
+            "capability_binding":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            "authority_binding":[2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2],
+            "provenance":[],
+            "recovery_correlation":null
+        }"#;
+
+        assert!(serde_json::from_str::<SecurityEvent>(json).is_err());
+    }
+
+    #[test]
+    fn deserialization_rejects_zero_allow_bindings() {
+        let json = r#"{
+            "event_id":"event:zero-allow-binding",
+            "actor_id":"did:mycelix:alice",
+            "capability_ref":"capability:zero",
+            "request":{
+                "subject":"did:mycelix:alice",
+                "resource":"resource:ledger",
+                "action":"Read",
+                "policy_version":7
+            },
+            "decision":"Allow",
+            "policy_version":7,
+            "timestamp_us":151,
+            "capability_binding":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            "authority_binding":[3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3],
             "provenance":[],
             "recovery_correlation":null
         }"#;
