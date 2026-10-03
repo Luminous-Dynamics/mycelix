@@ -619,12 +619,29 @@ async fn d6u_runtime_authority_boundary() {
         holochain_nonce::fresh_nonce(Timestamp::now()).unwrap().1,
     );
     let before = reached.load(Ordering::SeqCst);
-    expect_unauthorized_reason(
+    expect_internal_error_contains(
         call(&app_api, "d6u-alice", &conductor.keystore(), wrong_function).await,
-        "BadCapGrant",
+        "doesn't exist",
     );
+    let wrong_function_probe = call(
+        &app_api,
+        "d6u-alice",
+        &conductor.keystore(),
+        params(
+            &alice_cell,
+            &alice,
+            SweetInlineZomes::COORDINATOR.into(),
+            "no_such_function".into(),
+            None,
+            base.clone(),
+            Nonce256Bits::from([0x75; 32]),
+            holochain_nonce::fresh_nonce(Timestamp::now()).unwrap().1,
+        ),
+    )
+    .await;
+    expect_internal_error_contains(wrong_function_probe, "no_such_function");
     assert_eq!(reached.load(Ordering::SeqCst), before);
-    record_case("wrong-function", "authorization-failed");
+    record_case("wrong-function", "routing-failed");
 
     let missing_cell = CellId::new(alice_cell.dna_hash().clone(), charlie.clone());
     let wrong_cell = params(
