@@ -5,7 +5,7 @@ from datetime import datetime,timezone
 
 ROOT=pathlib.Path(__file__).resolve().parents[2]
 MAN=ROOT/"mycelix-workspace/docs/civic-resilience/sym_civic_006_attestation_authenticity.json"
-IDS=[f"A-{i:02d}" for i in range(1,20)]
+IDS=[f"A-{i:02d}" for i in range(1,21)]
 
 def fail(m): raise SystemExit("SYM-CIVIC-006 FAIL: "+m)
 
@@ -112,14 +112,14 @@ def main():
         if any(k in c["candidate"] for k in ("raw_subject_identifier","raw_payload","authorized_decision","civic_authorization")):
             fail(c["id"]+" prohibited field")
     derived={c["id"]:reject(c) for c in cases}
-    expected_rejects={f"A-{i:02d}" for i in range(1,13) if i != 8} | {"A-18","A-19"}
+    expected_rejects={f"A-{i:02d}" for i in range(1,13) if i != 8} | {"A-18","A-19","A-20"}
     actual_rejects={k for k,v in derived.items() if v}
     print("SYM-CIVIC-006 DERIVED="+json.dumps({"rejected":sorted(actual_rejects),"admissible":sorted(k for k,v in derived.items() if not v)},separators=(",",":")))
     if actual_rejects!=expected_rejects:
         fail("derived rejection set")
     payload={"program":d["program"],"schema":d["schema"],"cases":[{"id":c["id"],"rejected":derived[c["id"]]} for c in cases]}
     digest=hashlib.sha256(json.dumps(payload,sort_keys=True,separators=(",",":")).encode()).hexdigest()
-    print(f"SYM-CIVIC-006 PASS: 19 attestation-authenticity cases, 13 rejection cases, 6 admissible cases, canonical receipt={digest}")
+    print(f"SYM-CIVIC-006 PASS: 20 attestation-authenticity cases, 14 rejection cases, 6 admissible cases, canonical receipt={digest}")
 
 if __name__=="__main__":
     main()
