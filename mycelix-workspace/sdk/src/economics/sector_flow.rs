@@ -342,7 +342,8 @@ mod tests {
 
     #[test]
     fn verify_against_rejects_rehashed_but_wrong_projection() {
-        use super::super::stock_flow::ActorBalanceSheet;
+        use super::super::stock_flow::{ActorBalanceSheet, GoodsSale};
+        use super::super::transition::EconomicTransition;
         let actors = vec![
             ("firm".to_string(), EconomicSector::Firm),
             ("household".to_string(), EconomicSector::Household),
