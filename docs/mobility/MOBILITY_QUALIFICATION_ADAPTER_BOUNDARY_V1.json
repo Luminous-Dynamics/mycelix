@@ -142,6 +142,11 @@
     "signer_must_match_registered_agent": true,
     "signature_does_not_resolve_domain_authority_identity": true,
     "domain_provenance_remains_required": true,
-    "missing_authority_agent_binding": "unresolved"
+    "missing_authority_agent_binding": "unresolved",
+    "registry_retains_verified_credential": true,
+    "audit_credential_accessor": "HolochainAuthorityAgentBindingSet::credential_for",
+    "runtime_binding_requires_exact_authority_scope_match": true,
+    "runtime_binding_requires_exact_authority_delegation_match": true,
+    "authority_credential_provenance_continuity_is_checked": true
   }
 }
