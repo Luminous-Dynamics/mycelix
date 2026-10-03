@@ -425,8 +425,6 @@ async fn d6u_runtime_authority_boundary() {
         )
         .await,
         "BadCapGrant",
-        "BadCapGrant",,
-        "BadCapGrant",
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
     record_case("wrong-capability", "authorization-failed");
@@ -450,9 +448,6 @@ async fn d6u_runtime_authority_boundary() {
             ),
         )
         .await,
-    ,
-        "BadCapGrant"
-        "BadCapGrant",,
         "BadCapGrant",
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
@@ -496,9 +491,6 @@ async fn d6u_runtime_authority_boundary() {
             ),
         )
         .await,
-    ,
-        "BadCapGrant"
-        "BadCapGrant",,
         "BadCapGrant",
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
@@ -540,9 +532,6 @@ async fn d6u_runtime_authority_boundary() {
             )
             .await
             .unwrap(),
-    ,
-        "BadCapGrant"
-        "BadNonce",,
         "BadNonce",
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
@@ -561,9 +550,6 @@ async fn d6u_runtime_authority_boundary() {
     let before = reached.load(Ordering::SeqCst);
     expect_unauthorized_reason(
         call(&app_api, "d6u-bob", &conductor.keystore(), stale).await,
-    ,
-        "BadNonce"
-        "BadNonce",,
         "BadNonce",
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
@@ -588,9 +574,6 @@ async fn d6u_runtime_authority_boundary() {
             expired,
         )
         .await,
-    ,
-        "BadNonce"
-        "BadNonce",,
         "BadNonce",
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
@@ -614,7 +597,7 @@ async fn d6u_runtime_authority_boundary() {
             &conductor.keystore(),
             wrong_zome,
         )
-        .await,,
+        .await,
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
     record_case("wrong-zome", "routing-failed");
@@ -638,7 +621,6 @@ async fn d6u_runtime_authority_boundary() {
             wrong_function,
         )
         .await,
-        "BadCapGrant",,
         "BadCapGrant",
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
@@ -663,7 +645,7 @@ async fn d6u_runtime_authority_boundary() {
             &conductor.keystore(),
             wrong_cell,
         )
-        .await,,
+        .await,
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
     record_case("wrong-cell", "routing-failed");
