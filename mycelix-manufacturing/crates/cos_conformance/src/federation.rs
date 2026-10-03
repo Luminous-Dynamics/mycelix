@@ -1795,6 +1795,274 @@ mod tests {
         );
     }
 
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    enum FederationInvariantMutation {
+        NodeMapIdentity,
+        RecognitionEdgeValidity,
+        RecognitionEdgeCanonicalOrder,
+        DeliveryMapIdentity,
+        DeliveryNodeReferences,
+        DeliveryPredecessorReferences,
+        ObservationMapIdentity,
+        SourceObservationBijection,
+        DeliveryAttemptHistory,
+        AttemptEnvelopeBindings,
+        DeliverySourceObservationProvenance,
+    }
+
+    impl FederationInvariantMutation {
+        const ALL: &[Self] = &[
+            Self::NodeMapIdentity,
+            Self::RecognitionEdgeValidity,
+            Self::RecognitionEdgeCanonicalOrder,
+            Self::DeliveryMapIdentity,
+            Self::DeliveryNodeReferences,
+            Self::DeliveryPredecessorReferences,
+            Self::ObservationMapIdentity,
+            Self::SourceObservationBijection,
+            Self::DeliveryAttemptHistory,
+            Self::AttemptEnvelopeBindings,
+            Self::DeliverySourceObservationProvenance,
+        ];
+
+        fn expected_violations(
+            self,
+        ) -> &'static [(FederationInvariantId, FederationInvariantViolation)] {
+            match self {
+                Self::NodeMapIdentity => &[(
+                    FederationInvariantId::NodeMapIdentity,
+                    FederationInvariantViolation::NodeMapKeyMismatch,
+                )],
+                Self::RecognitionEdgeValidity => &[(
+                    FederationInvariantId::RecognitionEdgeValidity,
+                    FederationInvariantViolation::RecognitionEdgeInvalid,
+                )],
+                Self::RecognitionEdgeCanonicalOrder => &[(
+                    FederationInvariantId::RecognitionEdgeCanonicalOrder,
+                    FederationInvariantViolation::RecognitionEdgeOrderMismatch,
+                )],
+                Self::DeliveryMapIdentity => &[(
+                    FederationInvariantId::DeliveryMapIdentity,
+                    FederationInvariantViolation::DeliveryMapKeyMismatch,
+                )],
+                Self::DeliveryNodeReferences => &[(
+                    FederationInvariantId::DeliveryNodeReferences,
+                    FederationInvariantViolation::DeliveryNodeReferenceMismatch,
+                )],
+                Self::DeliveryPredecessorReferences => &[(
+                    FederationInvariantId::DeliveryPredecessorReferences,
+                    FederationInvariantViolation::DeliveryPredecessorMismatch,
+                )],
+                Self::ObservationMapIdentity => &[(
+                    FederationInvariantId::ObservationMapIdentity,
+                    FederationInvariantViolation::ObservationMapKeyMismatch,
+                )],
+                Self::SourceObservationBijection => &[(
+                    FederationInvariantId::SourceObservationBijection,
+                    FederationInvariantViolation::SourceObservationSetMismatch,
+                )],
+                Self::DeliveryAttemptHistory => &[(
+                    FederationInvariantId::DeliveryAttemptHistory,
+                    FederationInvariantViolation::DeliveryMissingAttemptHistory,
+                )],
+                Self::AttemptEnvelopeBindings => &[(
+                    FederationInvariantId::AttemptEnvelopeBindings,
+                    FederationInvariantViolation::AttemptBindingMismatch,
+                )],
+                Self::DeliverySourceObservationProvenance => &[(
+                    FederationInvariantId::DeliverySourceObservationProvenance,
+                    FederationInvariantViolation::SourceObservationMismatch,
+                )],
+            }
+        }
+
+        fn mutate(self, state: &mut FederationState) {
+            match self {
+                Self::NodeMapIdentity => {
+                    let node = state.nodes.remove("node-a").unwrap();
+                    state.nodes.insert("wrong-node-key".into(), node);
+                }
+                Self::RecognitionEdgeValidity => {
+                    state.recognition_edges.push(RecognitionEdge {
+                        recognizing_node: "node-a".into(),
+                        origin_node: "node-b".into(),
+                        scope: String::new(),
+                        mode: RecognitionMode::EvidenceOnly,
+                    });
+                }
+                Self::RecognitionEdgeCanonicalOrder => {
+                    state.recognition_edges.push(RecognitionEdge {
+                        recognizing_node: "node-a".into(),
+                        origin_node: "node-b".into(),
+                        scope: "scope-z".into(),
+                        mode: RecognitionMode::EvidenceOnly,
+                    });
+                    state.recognition_edges.push(RecognitionEdge {
+                        recognizing_node: "node-a".into(),
+                        origin_node: "node-b".into(),
+                        scope: "scope-a".into(),
+                        mode: RecognitionMode::EvidenceOnly,
+                    });
+                }
+                Self::DeliveryMapIdentity => {
+                    let record = state.deliveries.remove("delivery-1").unwrap();
+                    state.deliveries.insert("wrong-delivery-key".into(), record);
+                }
+                Self::DeliveryNodeReferences => {
+                    state
+                        .deliveries
+                        .get_mut("delivery-1")
+                        .unwrap()
+                        .contract
+                        .target_node = "unknown-target".into();
+                }
+                Self::DeliveryPredecessorReferences => {
+                    state
+                        .deliveries
+                        .get_mut("delivery-1")
+                        .unwrap()
+                        .contract
+                        .predecessor_delivery_id = Some("missing-predecessor".into());
+                }
+                Self::ObservationMapIdentity => {
+                    state.observations.insert(
+                        "wrong-observation-key".into(),
+                        ObservationRecord {
+                            observation_id: "ordinary-observation".into(),
+                            semantic_subject_id: "subject-1".into(),
+                            payload_commitment: "sha256:ordinary".into(),
+                            origin_node: "node-a".into(),
+                            origin_node_known: false,
+                            recognized_by: None,
+                            source_observation: false,
+                        },
+                    );
+                }
+                Self::SourceObservationBijection => {
+                    state.observations.insert(
+                        "orphan-source".into(),
+                        ObservationRecord {
+                            observation_id: "orphan-source".into(),
+                            semantic_subject_id: "subject-1".into(),
+                            payload_commitment: "sha256:orphan".into(),
+                            origin_node: "node-a".into(),
+                            origin_node_known: true,
+                            recognized_by: None,
+                            source_observation: true,
+                        },
+                    );
+                }
+                Self::DeliveryAttemptHistory => {
+                    let record = state.deliveries.get_mut("delivery-1").unwrap();
+                    record.attempts.clear();
+                    record.attempt_envelope_ids.clear();
+                }
+                Self::AttemptEnvelopeBindings => {
+                    state
+                        .deliveries
+                        .get_mut("delivery-1")
+                        .unwrap()
+                        .attempt_envelope_ids
+                        .insert("orphan-attempt".into(), "orphan-envelope".into());
+                }
+                Self::DeliverySourceObservationProvenance => {
+                    let source_id = state
+                        .delivery("delivery-1")
+                        .unwrap()
+                        .source_observation_id()
+                        .to_owned();
+                    state.observations.get_mut(&source_id).unwrap().payload_commitment =
+                        "sha256:tampered".into();
+                }
+            }
+        }
+
+        fn seed_state(self) -> FederationState {
+            let mut state = nodes();
+            if matches!(
+                self,
+                Self::DeliveryMapIdentity
+                    | Self::DeliveryNodeReferences
+                    | Self::DeliveryPredecessorReferences
+                    | Self::DeliveryAttemptHistory
+                    | Self::AttemptEnvelopeBindings
+                    | Self::DeliverySourceObservationProvenance
+                    | Self::SourceObservationBijection
+            ) {
+                assert_eq!(
+                    deliver(&mut state, &envelope(), 50, true).decision(),
+                    FederationDecision::AcceptedLocal
+                );
+            }
+            state
+        }
+    }
+
+    #[test]
+    fn invariant_mutation_matrix_isolated_failure_surface_is_complete() {
+        assert_eq!(
+            FederationInvariantMutation::ALL.len(),
+            FEDERATION_INVARIANT_REGISTRY.len()
+        );
+
+        let registry_ids = FEDERATION_INVARIANT_REGISTRY
+            .iter()
+            .map(|spec| spec.id)
+            .collect::<Vec<_>>();
+
+        for mutation in FederationInvariantMutation::ALL {
+            let mut state = mutation.seed_state();
+            assert_eq!(
+                validate_state(&state),
+                Ok(()),
+                "mutation seed must satisfy every invariant: {:?}",
+                mutation
+            );
+
+            mutation.mutate(&mut state);
+
+            let expected = mutation.expected_violations();
+            let actual = validate_state_all(&state);
+            assert_eq!(
+                actual, expected,
+                "mutation {:?} must have a distinguishable failure surface",
+                mutation
+            );
+
+            let audit = audit_state(&state);
+            assert_eq!(audit.len(), registry_ids.len());
+            let audited_violations = audit
+                .iter()
+                .filter_map(|entry| match entry.status {
+                    FederationInvariantAuditStatus::Passed => None,
+                    FederationInvariantAuditStatus::Violated(violation) => {
+                        Some((entry.id, violation))
+                    }
+                })
+                .collect::<Vec<_>>();
+            assert_eq!(audited_violations, expected);
+
+            let expected_ids = expected.iter().map(|(id, _)| *id).collect::<BTreeSet<_>>();
+            let actual_ids = actual.iter().map(|(id, _)| *id).collect::<BTreeSet<_>>();
+            assert_eq!(actual_ids, expected_ids);
+        }
+    }
+
+    #[test]
+    fn invariant_mutation_matrix_covers_each_registered_invariant_exactly_once() {
+        let exercised = FederationInvariantMutation::ALL
+            .iter()
+            .flat_map(|mutation| mutation.expected_violations().iter().map(|(id, _)| *id))
+            .collect::<Vec<_>>();
+        let registry_ids = FEDERATION_INVARIANT_REGISTRY
+            .iter()
+            .map(|spec| spec.id)
+            .collect::<Vec<_>>();
+
+        assert_eq!(exercised.len(), registry_ids.len());
+        assert_eq!(exercised, registry_ids);
+    }
+
     #[test]
     fn source_observations_track_admitted_deliveries() {
         let mut state = nodes();
