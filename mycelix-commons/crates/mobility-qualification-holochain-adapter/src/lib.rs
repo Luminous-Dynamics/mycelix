@@ -209,10 +209,9 @@ impl HolochainDependencyBindingSet {
         &mut self,
         attestation: SignedHolochainBindingAttestation,
     ) -> ExternResult<Result<(), HolochainAdapterBoundaryError>> {
-        attestation
-            .payload
-            .validate()
-            .map_err(|error| wasm_error!(WasmErrorInner::Guest(error.to_string())))?;
+        if let Err(reason) = attestation.payload.validate() {
+            return Ok(Err(HolochainAdapterBoundaryError::SemanticInvalid { reason: reason.to_string() }));
+        }
 
         let verified = attestation.verify()?;
 
