@@ -735,6 +735,12 @@ fn validate_create_recovery_approval_certificate(
         ));
     }
 
+    let config_action = must_get_action(certificate.recovery_config_action_hash.clone())?;
+    if !matches!(config_action.action().data, ActionData::Create(_)) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Recovery approval certificate must reference the original RecoveryConfig creation action".into(),
+        ));
+    }
     let config_record = must_get_valid_record(certificate.recovery_config_action_hash.clone())?;
     let config: RecoveryConfig = config_record
         .entry()
@@ -752,6 +758,12 @@ fn validate_create_recovery_approval_certificate(
     if config.threshold != certificate.threshold {
         return Ok(ValidateCallbackResult::Invalid(
             "Certificate threshold does not match the recovery configuration".into(),
+        ));
+    }
+
+    if certificate.issued_at < request.created {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Recovery approval certificate cannot predate the request".into(),
         ));
     }
 
@@ -784,6 +796,12 @@ fn validate_create_recovery_approval_certificate(
         if !seen_trustees.insert(vote.trustee.clone()) {
             return Ok(ValidateCallbackResult::Invalid(
                 "Recovery approval certificate contains duplicate trustees".into(),
+            ));
+        }
+
+        if vote.voted_at > certificate.issued_at {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Recovery approval certificate cannot predate a cited approval vote".into(),
             ));
         }
 
@@ -839,6 +857,12 @@ fn validate_create_recovery_request(
         ));
     }
 
+    let config_action = must_get_action(request.recovery_config_action_hash.clone())?;
+    if !matches!(config_action.action().data, ActionData::Create(_)) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Recovery request must pin the original RecoveryConfig creation action".into(),
+        ));
+    }
     let config_record = must_get_valid_record(request.recovery_config_action_hash.clone())?;
     let config: RecoveryConfig = config_record
         .entry()
@@ -954,6 +978,11 @@ fn validate_update_recovery_request(
             "Recovery request initiator cannot be changed".into(),
         ));
     }
+    if request.reason != original.reason {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Recovery request reason cannot be changed".into(),
+        ));
+    }
     if request.created != original.created {
         return Ok(ValidateCallbackResult::Invalid(
             "Recovery request created timestamp cannot be changed".into(),
@@ -984,6 +1013,23 @@ fn validate_update_recovery_request(
         )));
     }
 
+    // Once a request has a quorum certificate or time lock, those
+    // authorization artifacts are immutable for the remainder of the request.
+    if original.approval_certificate.is_some()
+        && request.approval_certificate != original.approval_certificate
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Recovery approval certificate cannot be changed after approval".into(),
+        ));
+    }
+    if original.time_lock_expires.is_some()
+        && request.time_lock_expires != original.time_lock_expires
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Recovery time lock expiry cannot be changed after it is armed".into(),
+        ));
+    }
+
     // Approval and execution states require an immutable quorum certificate.
     if matches!(
         request.status,
@@ -1010,6 +1056,14 @@ fn validate_update_recovery_request(
         // The certificate binds to the immutable request's creation action.
         // Later state-machine transitions may validly update the request again
         // while retaining the same approval certificate.
+    }
+
+    if request.status == RecoveryStatus::Pending
+        && (request.approval_certificate.is_some() || request.time_lock_expires.is_some())
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Pending recovery cannot carry approval or time-lock artifacts".into(),
+        ));
     }
 
     // Approved status must have time_lock_expires set
