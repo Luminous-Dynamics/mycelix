@@ -26,6 +26,34 @@ impl<T> QualificationStatus<T> {
         Self::Unresolved { missing, partial }
     }
 
+    /// Adds unavailable dependencies without discarding the partial
+    /// qualification payload. This is the compositional boundary for
+    /// independently qualified dependency paths.
+    ///
+    /// A complete status becomes unresolved when any additional dependency
+    /// is unavailable. Existing unresolved dependencies and newly added
+    /// dependencies are canonicalized into one deterministic set.
+    pub fn require_missing(
+        self,
+        additional: impl IntoIterator<Item = IdentityRef>,
+    ) -> Self {
+        let additional: Vec<_> = additional.into_iter().collect();
+        if additional.is_empty() {
+            return self;
+        }
+
+        match self {
+            Self::Complete(partial) => Self::unresolved(additional, partial),
+            Self::Unresolved {
+                mut missing,
+                partial,
+            } => {
+                missing.extend(additional);
+                Self::unresolved(missing, partial)
+            }
+        }
+    }
+
     pub fn normalize_missing(&mut self) {
         if let Self::Unresolved { missing, .. } = self {
             missing.sort_by(|left, right| {
@@ -56,7 +84,6 @@ impl<T> QualificationStatus<T> {
             Self::Unresolved { missing, .. } => missing,
         }
     }
-
 }
 
 impl QualificationValidationError {
@@ -137,6 +164,43 @@ mod tests {
                 partial: 7u8,
             }
         );
+    }
+
+    #[test]
+    fn require_missing_promotes_complete_and_preserves_partial() {
+        let status = QualificationStatus::Complete(7u8)
+            .require_missing(vec![id("b"), id("a"), id("b")]);
+
+        assert_eq!(
+            status,
+            QualificationStatus::Unresolved {
+                missing: vec![id("a"), id("b")],
+                partial: 7u8,
+            }
+        );
+    }
+
+    #[test]
+    fn require_missing_unions_existing_and_new_dependencies() {
+        let status = QualificationStatus::Unresolved {
+            missing: vec![id("z")],
+            partial: 9u8,
+        }
+        .require_missing(vec![id("a"), id("z"), id("m")]);
+
+        assert_eq!(
+            status,
+            QualificationStatus::Unresolved {
+                missing: vec![id("a"), id("m"), id("z")],
+                partial: 9u8,
+            }
+        );
+    }
+
+    #[test]
+    fn require_missing_empty_is_noop() {
+        let status = QualificationStatus::Complete(7u8).require_missing(Vec::new());
+        assert_eq!(status, QualificationStatus::Complete(7u8));
     }
 
     #[test]
