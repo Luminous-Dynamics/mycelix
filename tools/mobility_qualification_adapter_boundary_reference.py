@@ -66,7 +66,7 @@ def main() -> int:
     require_exact_keys(
         document,
         {"schema", "version", "semantic_outcomes", "error_boundary", "identity_boundary",
-         "binding_provenance", "dependency_retrieval", "determinism", "compatibility"},
+         "binding_provenance", "cryptographic_attestation", "dependency_retrieval", "determinism", "compatibility"},
         "top-level contract",
     )
     if document.get("schema") != EXPECTED_SCHEMA:
@@ -227,6 +227,40 @@ def main() -> int:
     }
     if provenance != expected_provenance:
         raise SystemExit("binding provenance contract drifted")
+
+    crypto = document.get("cryptographic_attestation")
+    if not isinstance(crypto, dict):
+        raise SystemExit("missing cryptographic attestation boundary")
+    require_exact_keys(
+        crypto,
+        {
+            "supported",
+            "required",
+            "algorithm",
+            "verification_host_function",
+            "payload_canonically_serialized",
+            "payload_binds_schema_provenance_address_and_retrieval_kind",
+            "verified_signature_required_for_attested_bind",
+            "invalid_signature_is_semantic_invalidity",
+            "verification_failure_host_error_remains_runtime_error",
+            "signature_does_not_resolve_authority_identity",
+        },
+        "cryptographic attestation",
+    )
+    expected_crypto = {
+        "supported": True,
+        "required": False,
+        "algorithm": "Ed25519",
+        "verification_host_function": "verify_signature",
+        "payload_canonically_serialized": True,
+        "payload_binds_schema_provenance_address_and_retrieval_kind": True,
+        "verified_signature_required_for_attested_bind": True,
+        "invalid_signature_is_semantic_invalidity": True,
+        "verification_failure_host_error_remains_runtime_error": True,
+        "signature_does_not_resolve_authority_identity": True,
+    }
+    if crypto != expected_crypto:
+        raise SystemExit("cryptographic attestation contract drifted")
 
     dependencies = document.get("dependency_retrieval")
     if not isinstance(dependencies, dict):
