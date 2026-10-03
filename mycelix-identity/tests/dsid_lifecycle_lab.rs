@@ -2113,3 +2113,79 @@ async fn dsid_027_generic_update_rejects_legacy_untagged_did_key() {
         true,
     );
 }
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_028_recovery_time_lock_arming_is_cross_agent_safe() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let alice_app = conductor.setup_app("dsid-arm-alice", std::slice::from_ref(&dna)).await.unwrap();
+    let bob_app = conductor.setup_app("dsid-arm-bob", std::slice::from_ref(&dna)).await.unwrap();
+    let carol_app = conductor.setup_app("dsid-arm-carol", std::slice::from_ref(&dna)).await.unwrap();
+    let alice = alice_app.cells()[0].clone();
+    let bob = bob_app.cells()[0].clone();
+    let carol = carol_app.cells()[0].clone();
+
+    for cell in [&alice, &bob, &carol] {
+        let _: Record = conductor.call(&cell.zome("did_registry"), "create_did", ()).await;
+    }
+
+    let alice_did = format!("did:mycelix:{}", alice_app.agent());
+    let bob_did = format!("did:mycelix:{}", bob_app.agent());
+    let carol_did = format!("did:mycelix:{}", carol_app.agent());
+
+    let setup: Record = conductor.call(&alice.zome("recovery"), "setup_recovery", serde_json::json!({
+        "did": alice_did,
+        "trustees": [alice_did.clone(), bob_did.clone(), carol_did.clone()],
+        "threshold": 2,
+        "time_lock": 86400
+    })).await;
+
+    await_consistency(&[alice.clone(), bob.clone(), carol.clone()]).await.unwrap();
+
+    let request: Record = conductor.call(&alice.zome("recovery"), "initiate_recovery", serde_json::json!({
+        "did": alice_did,
+        "initiator_did": alice_did.clone(),
+        "new_agent": bob_app.agent(),
+        "reason": "DSID time-lock arming"
+    })).await;
+    let req: RecoveryRequestMirror = request.entry().to_app_option().unwrap().unwrap();
+
+    for (cell, trustee) in [(&bob, bob_did), (&carol, carol_did)] {
+        let _: Record = conductor.call(&cell.zome("recovery"), "vote_on_recovery", serde_json::json!({
+            "request_id": req.id.clone(),
+            "trustee_did": trustee,
+            "vote": "Approve"
+        })).await;
+    }
+
+    await_consistency(&[alice.clone(), bob.clone(), carol.clone()]).await.unwrap();
+
+    let armed: Record = conductor.call(&alice.zome("recovery"), "arm_recovery_time_lock", req.id.clone()).await;
+    let armed_req: RecoveryRequestMirror = armed.entry().to_app_option().unwrap().unwrap();
+    assert_eq!(armed_req.status, RecoveryStatusMirror::Approved);
+    assert!(armed_req.time_lock_expires.is_some());
+
+    let observed: Option<Record> = conductor.call(&bob.zome("recovery"), "get_recovery_request", req.id.clone()).await;
+    let observed_req: RecoveryRequestMirror = observed.unwrap().entry().to_app_option().unwrap().unwrap();
+    assert_eq!(observed_req.status, RecoveryStatusMirror::Approved);
+    assert!(observed_req.time_lock_expires.is_some());
+
+    let early: Result<Record, _> = conductor.call_fallible(&bob.zome("recovery"), "execute_recovery", req.id).await;
+    assert!(early.is_err());
+
+    let mut agents = BTreeMap::new();
+    agents.insert("alice", alice_app.agent().to_string());
+    agents.insert("bob", bob_app.agent().to_string());
+    agents.insert("carol", carol_app.agent().to_string());
+    emit_evidence(
+        "DSID-028",
+        "recovery-time-lock-arming-is-cross-agent-safe",
+        &dna,
+        agents,
+        &[&setup, &request, &armed],
+        "The original request author can arm a DHT-derived approved quorum, and the replacement agent can read the armed request without being able to execute before the lock expires.",
+        format!("armed_status={:?} timelock_present={} early_execute_rejected={}", observed_req.status, observed_req.time_lock_expires.is_some(), early.is_err()),
+        true,
+    );
+}
