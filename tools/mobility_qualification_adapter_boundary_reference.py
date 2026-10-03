@@ -28,7 +28,17 @@ def load_contract(path: Path) -> dict:
         raise SystemExit("adapter boundary contract must be a JSON object")
     return document
 
-\n\ndef require_exact_keys(mapping: dict, expected: set[str], label: str) -> None:\n    actual = set(mapping)\n    if actual != expected:\n        missing = sorted(expected - actual)\n        unexpected = sorted(actual - expected)\n        raise SystemExit(\n            f"{label} keys mismatch; missing={missing}, unexpected={unexpected}"\n        )\n
+
+
+def require_exact_keys(mapping: dict, expected: set[str], label: str) -> None:
+    actual = set(mapping)
+    if actual != expected:
+        missing = sorted(expected - actual)
+        unexpected = sorted(actual - expected)
+        raise SystemExit(
+            f"{label} keys mismatch; missing={missing}, unexpected={unexpected}"
+        )
+
 
 def require_bool(mapping: dict, key: str, expected: bool) -> None:
     value = mapping.get(key)
