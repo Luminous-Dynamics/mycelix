@@ -8,7 +8,16 @@ from pathlib import Path
 
 EXPECTED_SCHEMA = "mycelix.mobility.evidence_disposition_transition.v1"
 EXPECTED_COUNT = 101
-ALLOWED_OUTCOMES = {
+EXPECTED_OUTCOME_CLASSES = [
+    "accepted",
+    "rejected",
+    "typed_structural_error",
+    "unresolved_at_protocol_layer",
+    "explicit_branch",
+    "not_silently_collapsed",
+    "adapter_boundary_error",
+]
+ALLOWED_OUTCOMES = set(EXPECTED_OUTCOME_CLASSES)
     "accepted",
     "rejected",
     "typed_structural_error",
@@ -68,7 +77,8 @@ def main() -> int:
 
     if document.get("schema") != EXPECTED_SCHEMA:
         raise SystemExit("unexpected disposition corpus schema")
-
+    if document.get("outcome_classes") != EXPECTED_OUTCOME_CLASSES:
+        raise SystemExit("disposition corpus outcome vocabulary drifted")
     vectors = document.get("vectors")
     if not isinstance(vectors, list) or len(vectors) != EXPECTED_COUNT:
         raise SystemExit(f"expected {EXPECTED_COUNT} disposition vectors")
