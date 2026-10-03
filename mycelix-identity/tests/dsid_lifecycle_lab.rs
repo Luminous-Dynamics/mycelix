@@ -984,7 +984,7 @@ async fn dsid_014_initial_verification_key_is_canonical_multibase() {
     let cell = app.cells()[0].clone();
     let agent = app.agent().clone();
 
-    let _record: Record = conductor
+    let record: Record = conductor
         .call(&cell.zome("did_registry"), "create_did", ())
         .await;
 
