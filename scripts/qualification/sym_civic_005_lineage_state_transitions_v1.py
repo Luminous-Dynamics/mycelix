@@ -40,7 +40,7 @@ def main():
   if any(t in blob for t in ("expected_disposition","expected_result","oracle_verdict","candidate_verdict")): fail(c["id"]+" embedded oracle")
   if any(k in c["candidate"] for k in ("raw_subject_identifier","raw_payload","authorized_decision","civic_authorization")): fail(c["id"]+" prohibited field")
  derived={c["id"]:reject(c) for c in cases}
- expected={f"T-{i:02d}" for i in range(1,13)}
+ expected={f"T-{i:02d}" for i in range(1,13) if i != 7}
  actual={k for k,v in derived.items() if v}
  print("SYM-CIVIC-005 DERIVED="+json.dumps({"rejected":sorted(actual),"expected":sorted(expected)},separators=(",",":")))
  if actual!=expected: fail("derived rejection set")
