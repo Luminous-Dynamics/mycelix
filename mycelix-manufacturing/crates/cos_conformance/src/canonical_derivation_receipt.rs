@@ -614,7 +614,7 @@ pub fn verify_canonical_receipt_with_authoritative_d6p(
     environment: &SemanticEnvironmentV1,
     profile: &DerivationProfileV1,
     current_receipts: &[CurrentFinalityEligibilityReceiptV1],
-    d6p_compositions: &[CurrentFinalityEligibilityCompositionV1],
+    d6p_compositions: &[FinalityEligibilityCompositionV1],
 ) -> bool {
     if !receipt.commitment_matches() {
         return false;
@@ -678,7 +678,7 @@ pub fn current_receipt_is_bound(
 mod tests {
     use super::*;
 
-    fn env() -> SemanticEnvironmentV1 {
+    pub(super) fn env() -> SemanticEnvironmentV1 {
         SemanticEnvironmentV1 {
             semantic_profile_id: "integral".into(),
             semantic_profile_version: "1".into(),
@@ -706,7 +706,7 @@ mod tests {
         }
     }
 
-    fn d6p_receipt() -> CurrentFinalityEligibilityReceiptV1 {
+    pub(super) fn d6p_receipt() -> CurrentFinalityEligibilityReceiptV1 {
         let mut receipt = CurrentFinalityEligibilityReceiptV1 {
             receipt_id: "d6p-1".into(), effect_id: "effect".into(), effect_lineage_id: "lineage".into(),
             lifecycle_generation_id: "generation".into(), route_id: "route".into(), provider_id: "provider".into(),
@@ -1179,7 +1179,8 @@ impl ProjectionCanonicalTestBytes for QualifiedProjectionV1 {
 
 #[cfg(test)]
 mod canonical_commitment_representation_tests {
-    use super::is_canonical_sha256_commitment;
+    use super::{current_receipt_is_bound, is_canonical_sha256_commitment};
+    use super::tests::{d6p_receipt, env};
 
     #[test]
     fn self_consistent_but_incoherent_d6p_receipt_is_not_current() {
