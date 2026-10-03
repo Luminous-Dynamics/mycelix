@@ -137,7 +137,7 @@ Current authority status belongs in the runtime/application authority provider. 
 
 `VerificationEvidence` remains opaque and non-serializable outside the bridge crate.
 
-The integration must therefore create trusted evidence only inside the bridge's verifier boundary. Public callers must not receive a constructor that accepts arbitrary booleans such as `verified: true`.
+The integration must therefore create trusted evidence only inside the bridge's verifier boundary. Public callers must not receive a constructor that accepts arbitrary booleans such as `verified: true`. Production bridge evidence construction derives its opaque authority binding from the canonical freshness digest; the raw authority-binding constructor is test-only and exists solely to exercise mismatch/fail-closed paths.
 
 The resulting evidence must also be bound to the exact capability and authority-freshness state it verifies. The bridge kernel derives a stable capability commitment from the canonical capability semantics and records that commitment in the opaque evidence and any issued permit. The adapter must also supply the existing current-freshness semantic digest as the opaque bridge authority binding. It must change when the authoritative freshness domain changes, including an authority generation/state change, while remaining stable across proof/lease refreshes that do not change that semantic domain. The permit carries that commitment through enforcement, so evidence for a newer authority generation cannot silently revalidate a permit issued under an older generation. Evidence for one capability therefore cannot be replayed to qualify or revalidate a different capability.
 
