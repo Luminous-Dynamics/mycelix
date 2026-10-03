@@ -369,7 +369,7 @@ fn validate_verification_method(method: &VerificationMethod, did_id: &str) -> Re
     if method.public_key_multibase.is_empty() || method.public_key_multibase.len() > 4096 {
         return Err("Public key multibase must be 1-4096 characters".into());
     }
-    let tagged = TaggedPublicKey::from_multibase(&method.public_key_multibase)
+    let tagged = TaggedPublicKey::from_multibase_strict(&method.public_key_multibase)
         .map_err(|error| format!("Invalid verification method key: {error}"))?;
     if let Some(declared_code) = method.algorithm {
         let declared = AlgorithmId::from_u16(declared_code)
