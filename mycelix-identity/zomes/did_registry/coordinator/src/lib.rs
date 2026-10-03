@@ -486,16 +486,37 @@ pub fn create_did_view(_: ()) -> ExternResult<DidDocumentView> {
 /// Get DID document for an agent
 #[hdk_extern]
 pub fn get_did_document(agent_pub_key: AgentPubKey) -> ExternResult<Option<Record>> {
+    // Prefer the append-only history index. Canonical AgentToDid is a mutable
+    // convenience pointer and may temporarily contain stale links during DHT
+    // convergence; history gives us deterministic version-aware state.
+    let history_links = get_links(
+        LinkQuery::try_new(agent_pub_key.clone(), LinkTypes::DidHistory)?,
+        GetStrategy::default(),
+    )?;
+
+    if !history_links.is_empty() {
+        let mut candidates = Vec::new();
+        for link in history_links {
+            let action_hash = ActionHash::try_from(link.target)
+                .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid history link target".into())))?;
+            if let Some(record) = get(action_hash, GetOptions::default())? {
+                if record.entry().to_app_option::<DidDocument>().ok().flatten().is_some() {
+                    candidates.push((link.timestamp, record));
+                }
+            }
+        }
+        if let Some((_, record)) = candidates.into_iter().max_by_key(|(timestamp, _)| *timestamp) {
+            return Ok(Some(record));
+        }
+    }
+
+    // Backward-compatible fallback for identities created before the history
+    // index existed.
     let links = get_links(
         LinkQuery::try_new(agent_pub_key, LinkTypes::AgentToDid)?,
         GetStrategy::default(),
     )?;
 
-    if links.is_empty() {
-        return Ok(None);
-    }
-
-    // Get the latest DID document
     let latest_link = links.into_iter().max_by_key(|l| l.timestamp);
     if let Some(link) = latest_link {
         let action_hash = ActionHash::try_from(link.target)
@@ -519,6 +540,63 @@ pub fn get_my_did_view(_: ()) -> ExternResult<Option<DidDocumentView>> {
     }
 }
 
+/// Input for deterministic historical DID resolution.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct ResolveDidVersionInput {
+    pub did: String,
+    pub version: u32,
+}
+
+/// Resolve an exact historical DID document version.
+#[hdk_extern]
+pub fn resolve_did_version(input: ResolveDidVersionInput) -> ExternResult<Option<Record>> {
+    let agent_str = input
+        .did
+        .strip_prefix("did:mycelix:")
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Invalid DID format".into())))?;
+    if agent_str.is_empty() || !agent_str.bytes().all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_') {
+        return Err(wasm_error!(WasmErrorInner::Guest("Invalid DID identifier".into())));
+    }
+
+    let agent_pub_key = AgentPubKey::try_from(agent_str)
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid agent pub key in DID".into())))?;
+    let history_links = get_links(
+        LinkQuery::try_new(agent_pub_key.clone(), LinkTypes::DidHistory)?,
+        GetStrategy::default(),
+    )?;
+
+    for link in history_links {
+        let action_hash = ActionHash::try_from(link.target)
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid history link target".into())))?;
+        if let Some(record) = get(action_hash, GetOptions::default())? {
+            let document: Option<DidDocument> = record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+            if let Some(document) = document {
+                if document.id == input.did && document.version == input.version {
+                    return Ok(Some(record));
+                }
+            }
+        }
+    }
+
+    // Backward-compatible fallback for a version-1 identity created before
+    // the DidHistory index existed.
+    if input.version == 1 {
+        if let Some(record) = get_did_document(agent_pub_key)? {
+            let document: Option<DidDocument> = record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+            if document.as_ref().is_some_and(|d| d.id == input.did && d.version == 1) {
+                return Ok(Some(record));
+            }
+        }
+    }
+
+    Ok(None)
+}
 /// Resolve a DID to its document
 #[hdk_extern]
 pub fn resolve_did(did: String) -> ExternResult<Option<Record>> {
