@@ -2282,6 +2282,65 @@ mod tests {
         );
     }
 
+    #[test]
+    fn transition_graph_exposes_shared_qualification_status() {
+        let genesis = graph_transition(
+            "shared-transition",
+            None,
+            EvidenceDisposition::Active,
+            EvidenceDisposition::Disputed {
+                by: id(IdentityKind::ReconciliationWitness, "dispute"),
+            },
+        );
+
+        assert_eq!(
+            EvidenceDispositionTransition::validate_graph_qualified(&[genesis]).unwrap(),
+            QualificationStatus::Complete(DispositionChainQualification {
+                branch_points: vec![],
+            })
+        );
+    }
+
+    #[test]
+    fn authority_chain_exposes_shared_qualification_status() {
+        let root = authority_delegation("shared-authority");
+
+        assert_eq!(
+            EvidenceDispositionAuthorityDelegation::validate_chain_with_target_qualified(
+                &root,
+                &[root.clone()],
+            )
+            .unwrap(),
+            QualificationStatus::Complete(AuthorityDelegationChainQualification {
+                roots: vec![root.delegation_id],
+            })
+        );
+    }
+
+    #[test]
+    fn coverage_assessment_exposes_shared_qualification_status() {
+        let missing = id(
+            IdentityKind::ReconciliationWitness,
+            "shared-coverage-missing",
+        );
+
+        let status = EvidenceDispositionCoverageAssessment::Unresolved {
+            missing: vec![missing.clone()],
+            authority_roots: vec![],
+        }
+        .into_qualification();
+
+        assert_eq!(
+            status,
+            QualificationStatus::Unresolved {
+                missing: vec![missing],
+                partial: EvidenceDispositionCoverageQualification {
+                    authority_roots: vec![],
+                },
+            }
+        );
+    }
+
     fn graph_transition(
         transition_id: &str,
         predecessor: Option<&str>,
