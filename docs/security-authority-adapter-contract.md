@@ -114,7 +114,7 @@ Ambiguity is not an Allow.
 
 ## Race closure
 
-Authorization is intentionally two-stage:
+Authorization is intentionally bounded in two layers:
 
 1. obtain and verify current authority;
 2. mint a short-lived permit;
