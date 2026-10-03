@@ -107,9 +107,22 @@ jobs:
 
       - name: Preserve immutable evidence
         if: always()
+        id: evidence
         uses: actions/upload-artifact@v4
         with:
           name: cos-conformance-evidence-${{ github.event.pull_request.head.sha || github.sha }}
           path: evidence/
           if-no-files-found: warn
           retention-days: 30
+
+      - name: Publish artifact integrity record
+        if: always() && steps.evidence.outputs.artifact-digest != ''
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          ## COS evidence artifact
+
+          - artifact-id: ${{ steps.evidence.outputs.artifact-id }}
+          - artifact-digest: ${{ steps.evidence.outputs.artifact-digest }}
+          - artifact-url: ${{ steps.evidence.outputs.artifact-url }}
+          - tested-commit-sha: $(cat evidence/tested-commit-sha.txt 2>/dev/null || printf '%s' 'null')
+          EOF
