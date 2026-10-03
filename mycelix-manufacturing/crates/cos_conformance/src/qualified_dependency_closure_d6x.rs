@@ -725,8 +725,15 @@ pub fn compute_dependency_closure(
             // historical state and the node's declared frontier to the semantic
             // environment explicitly.
             let target_is_current = !to.historical_only
-                && to.current_frontier_root.as_deref()
-                    == environment.current_frontier_root.as_deref();
+                && match (
+                    environment.current_frontier_root.as_deref(),
+                    to.current_frontier_root.as_deref(),
+                ) {
+                    (Some(expected), Some(actual)) => expected == actual,
+                    // CurrentOnly cannot be established from omitted frontier
+                    // metadata. Absence of either side is therefore fail-closed.
+                    _ => false,
+                };
             if requires_current && !target_is_current {
                 blocked_currentness = true;
                 let target_dependency = SemanticDependencyReferenceV1::node(
@@ -1613,6 +1620,32 @@ mod tests {
     fn frontier_mismatch_marks_selected_dependency_stale() {
         let (mut a, e, d) = projection(false);
         a.nodes.get_mut("dep").unwrap().current_frontier_root = Some("frontier-old".into());
+
+        let mut p = profile(BTreeSet::new());
+        p.rules = [DependencyRuleV1 {
+            edge_kind: ClaimGraphEdgeKindV1::Supports,
+            from_kind: Some(ClaimGraphNodeKindV1::Statement),
+            to_kind: Some(ClaimGraphNodeKindV1::Evidence),
+            currentness: DependencyCurrentnessV1::CurrentOnly,
+        }]
+        .into_iter()
+        .collect();
+
+        let c = compute_dependency_closure(&a, &e, &d, &p).unwrap();
+        let dep = SemanticDependencyReferenceV1::node("dep", Some("commit-dep".into()));
+
+        assert_eq!(
+            c.dependency_resolutions.get(&dep),
+            Some(&SemanticDependencyResolutionV1::Stale)
+        );
+        assert_eq!(c.status, DependencyClosureStatusV1::BlockedCurrentness);
+        assert!(c.valid());
+    }
+
+    #[test]
+    fn missing_frontier_metadata_blocks_current_only_qualification() {
+        let (mut a, e, d) = projection(false);
+        a.nodes.get_mut("dep").unwrap().current_frontier_root = None;
 
         let mut p = profile(BTreeSet::new());
         p.rules = [DependencyRuleV1 {
