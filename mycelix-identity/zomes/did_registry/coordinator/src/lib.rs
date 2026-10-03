@@ -258,7 +258,7 @@ pub fn register_substrate(input: RegisterSubstrateInput) -> ExternResult<Record>
     create_link(
         anchor,
         agent,
-        LinkTypes::DidToService,
+        LinkTypes::SubstrateRoleToAgent,
         input.metadata.role.as_bytes().to_vec(),
     )?;
 
@@ -270,7 +270,7 @@ pub fn register_substrate(input: RegisterSubstrateInput) -> ExternResult<Record>
 pub fn resolve_substrate(role: String) -> ExternResult<Vec<AgentPubKey>> {
     let anchor = anchor_hash(&format!("substrate:{}", role))?;
     let links = get_links(
-        LinkQuery::try_new(anchor, LinkTypes::DidToService)?,
+        LinkQuery::try_new(anchor, LinkTypes::SubstrateRoleToAgent)?,
         GetStrategy::default(),
     )?;
 
