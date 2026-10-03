@@ -87,6 +87,9 @@ def main() -> int:
         "authority_credential_provenance_continuity_is_checked": True,
         "registered_credential_basis_is_minimum_runtime_basis": True,
         "runtime_binding_witness_must_differ_from_authority_credential_witness": True,
+        "provenance_witness_unique_per_registry_binding": True,
+        "preflight_missing_is_not_protocol_unresolved": True,
+        "missing_binding_stops_before_host_calls": True,
     }
     for key, expected in expected_authority_contract.items():
         if authority_contract.get(key) != expected:
@@ -143,6 +146,10 @@ def main() -> int:
         raise SystemExit("runtime binding must expose authority-agent lookup")
     if "credential_for(&authority)" not in source:
         raise SystemExit("runtime binding must consult the retained authority-agent credential")
+    if "authority_agent_registry_rejects_duplicate_provenance_witness" not in source:
+        raise SystemExit("registry witness reuse must have a regression test")
+    if "missing authority-agent registration must stop before host calls" not in source:
+        raise SystemExit("missing authority-agent registration must stop before host calls")
     if "binding.signer != authorized_credential.payload.agent" not in source:
         raise SystemExit("runtime binding signer must match the registered authority agent")
     compact_source = "".join(source.split())
