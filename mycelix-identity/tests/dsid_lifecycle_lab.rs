@@ -716,6 +716,7 @@ async fn dsid_010_cross_agent_resolution_projection_matches_did() {
     let resolved = resolved.expect("Bob must resolve Alice's typed DID view");
     assert_eq!(resolved.id, alice_did.id);
     assert_eq!(resolved.controller, alice_did.controller);
+    assert_eq!(resolved.controller, format!("did:mycelix:{}", alice_app.agent()));
     assert_eq!(resolved.version, alice_did.version);
     assert_eq!(resolved.active, alice_did.active);
 
