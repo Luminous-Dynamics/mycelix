@@ -56,7 +56,7 @@ EXPECTED_BINDING_VECTORS = [
     ),
     (
         "EDT-103",
-        "action_binding_dispatches_only_to-must_get_action",
+        "action_binding_dispatches_only_to_must_get_action",
         "accepted",
     ),
     (
