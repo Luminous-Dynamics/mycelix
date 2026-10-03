@@ -1177,11 +1177,27 @@ fn delivery_source_observation_provenance_matches(state: &FederationState) -> bo
     state.deliveries.values().all(|record| source_observation_matches_delivery(state, record))
 }
 
+/// Returns every invariant violated by the supplied authoritative state, in
+/// deterministic registry order.
+///
+/// This is the audit form of qualification: unlike `validate_state`, it does
+/// not stop at the first failure. It is still observational and never mutates
+/// or repairs the supplied state.
+pub fn validate_state_all(
+    state: &FederationState,
+) -> Vec<(FederationInvariantId, FederationInvariantViolation)> {
+    FEDERATION_INVARIANT_REGISTRY
+        .iter()
+        .filter(|spec| !(spec.check)(state))
+        .map(|spec| (spec.id, spec.violation))
+        .collect()
+}
+
 pub fn validate_state(state: &FederationState) -> Result<(), FederationInvariantViolation> {
-    for spec in FEDERATION_INVARIANT_REGISTRY {
-        if !(spec.check)(state) { return Err(spec.violation); }
-    }
-    Ok(())
+    validate_state_all(state)
+        .into_iter()
+        .next()
+        .map_or(Ok(()), |(_, violation)| Err(violation))
 }
 
 /// Boolean compatibility wrapper for existing transition assertions.
@@ -1581,6 +1597,40 @@ mod tests {
         assert_eq!(
             validate_state(&state),
             Err(FederationInvariantViolation::SourceObservationMismatch)
+        );
+    }
+
+    #[test]
+    fn validate_state_all_reports_multiple_corruptions_in_registry_order() {
+        let mut state = nodes();
+
+        let node = state.nodes.remove("node-a").unwrap();
+        state.nodes.insert("wrong-node-key".into(), node);
+
+        state.recognition_edges.push(RecognitionEdge {
+            recognizing_node: "node-a".into(),
+            origin_node: "unknown-node".into(),
+            scope: "scope-1".into(),
+            mode: RecognitionMode::EvidenceOnly,
+        });
+
+        let violations = validate_state_all(&state);
+        assert_eq!(
+            violations,
+            vec![
+                (
+                    FederationInvariantId::NodeMapIdentity,
+                    FederationInvariantViolation::NodeMapKeyMismatch
+                ),
+                (
+                    FederationInvariantId::RecognitionEdgeValidity,
+                    FederationInvariantViolation::RecognitionEdgeInvalid
+                ),
+                (
+                    FederationInvariantId::RecognitionEdgeCanonicalOrder,
+                    FederationInvariantViolation::RecognitionEdgeOrderMismatch
+                ),
+            ]
         );
     }
 
