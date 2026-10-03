@@ -1619,7 +1619,7 @@ mod tests {
 
     #[test]
     fn deserialized_malformed_authorization_request_is_rejected() {
-        let result: Result<AuthorizationRequest, _> = serde_json::from_str(
+        let empty_subject: Result<AuthorizationRequest, _> = serde_json::from_str(
             r#"{
                 "subject":"",
                 "resource":"ledger",
@@ -1627,7 +1627,13 @@ mod tests {
                 "policy_version":7
             }"#,
         );
-        assert!(result.is_err());
+        assert!(empty_subject.is_err());
+
+        let oversized_subject: Result<AuthorizationRequest, _> = serde_json::from_str(&format!(
+            r#"{{"subject":"{}","resource":"ledger","action":"Read","policy_version":7}}"#,
+            "x".repeat(MAX_SECURITY_IDENTIFIER_BYTES + 1)
+        ));
+        assert!(oversized_subject.is_err());
     }
 
     #[test]
