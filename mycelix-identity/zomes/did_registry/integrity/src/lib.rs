@@ -220,7 +220,7 @@ fn validate_substrate_role_link(
         ));
     }
 
-    if !matches!(base_address, AnyLinkableHash::Entry(_)) {
+    if base_address.clone().into_entry_hash().is_none() {
         return Ok(ValidateCallbackResult::Invalid(
             "SubstrateRoleToAgent base must be an EntryHash role anchor".into(),
         ));
