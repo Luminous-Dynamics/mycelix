@@ -346,6 +346,10 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 action,
             } => validate_recovery_request_chain_uniqueness(action),
             OpActivity::CreateEntry {
+                app_entry_type: Some(UnitEntryTypes::SelfRecoveryConfig),
+                action,
+            } => validate_self_recovery_config_chain_uniqueness(action),
+            OpActivity::CreateEntry {
                 app_entry_type: Some(UnitEntryTypes::RecoveryVote),
                 action,
             } => validate_recovery_vote_chain_uniqueness(action),
@@ -1755,6 +1759,54 @@ fn validate_recovery_config_chain_uniqueness(
         if prior_config.did == current_config.did {
             return Ok(ValidateCallbackResult::Invalid(
                 "A controller may create at most one recovery configuration for a DID".into(),
+            ));
+        }
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+/// Enforce one SelfRecoveryConfig creation per DID on the owner's
+/// source chain. Self-recovery is currently execution-disabled, but preserving
+/// a unique configuration invariant prevents ambiguity from becoming part of
+/// the future cryptographic proof-of-control protocol.
+fn validate_self_recovery_config_chain_uniqueness(
+    action: Create,
+) -> ExternResult<ValidateCallbackResult> {
+    let current_entry = must_get_entry(action.entry_hash.clone())?;
+    let current_config: SelfRecoveryConfig = current_entry.try_into().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "SelfRecoveryConfig entry could not be decoded: {e}"
+        )))
+    })?;
+
+    let activity = must_get_agent_activity(
+        action.author.clone(),
+        ChainFilter::new(action.prev_action.clone()),
+    )?;
+
+    let entry_type =
+        EntryType::App(AppEntryDef::try_from(UnitEntryTypes::SelfRecoveryConfig)?);
+
+    for prior in activity {
+        let prior_action = prior.action.action();
+        let Action::Create(prior_create) = prior_action else {
+            continue;
+        };
+        if prior_create.entry_type != entry_type {
+            continue;
+        }
+
+        let prior_entry = must_get_entry(prior_create.entry_hash.clone())?;
+        let prior_config: SelfRecoveryConfig = prior_entry.try_into().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "SelfRecoveryConfig history entry could not be decoded: {e}"
+            )))
+        })?;
+
+        if prior_config.did == current_config.did {
+            return Ok(ValidateCallbackResult::Invalid(
+                "A controller may create at most one self-recovery configuration for a DID".into(),
             ));
         }
     }
