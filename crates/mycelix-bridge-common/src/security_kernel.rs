@@ -87,6 +87,24 @@ impl SignedCapability {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SignatureVerification {
+    Verified,
+    Invalid,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RevocationStatus {
+    Current,
+    Revoked,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AuthorityResolution {
+    Unambiguous,
+    Ambiguous,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VerificationEvidence {
     // Deliberately non-Copy: trusted verification evidence should not be implicitly duplicated.
@@ -95,8 +113,8 @@ pub struct VerificationEvidence {
     // in-crate verifier boundary rather than constructing trusted evidence
     // from arbitrary booleans.
     signature: SignatureVerification,
-        revocation: RevocationStatus,
-        authority: AuthorityResolution,
+    revocation: RevocationStatus,
+    authority: AuthorityResolution,
     /// Exclusive upper bound on how long this verification evidence may authorize.
     valid_until_us: u64,
     /// Stable commitment for the exact capability the evidence verifies.
