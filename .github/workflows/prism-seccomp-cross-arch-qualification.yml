@@ -1,0 +1,132 @@
+name: Prism Seccomp Cross-Architecture Qualification
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-workspace/mycelix-prism/prism-bridge/**"
+      - "mycelix-workspace/mycelix-prism/prism-common/**"
+      - "mycelix-workspace/crates/mycelix-claim-types/**"
+      - ".github/workflows/prism-seccomp-cross-arch-qualification.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "mycelix-workspace/mycelix-prism/prism-bridge/**"
+      - "mycelix-workspace/mycelix-prism/prism-common/**"
+      - "mycelix-workspace/crates/mycelix-claim-types/**"
+      - ".github/workflows/prism-seccomp-cross-arch-qualification.yml"
+
+concurrency:
+  group: prism-seccomp-cross-arch-${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  cross-arch-check:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - x86_64-unknown-linux-gnu
+          - aarch64-unknown-linux-gnu
+          - riscv64gc-unknown-linux-gnu
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
+        with:
+          toolchain: 1.96.0
+          targets: ${{ matrix.target }}
+
+      - name: Build isolated Prism cross-architecture workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="${RUNNER_TEMP}/prism-seccomp-cross-arch-${{ matrix.target }}"
+          rm -rf "${root}"
+          mkdir -p "${root}/mycelix-prism/prism-bridge" "${root}/mycelix-prism/prism-common" "${root}/crates/mycelix-claim-types"
+          cp -a mycelix-workspace/mycelix-prism/prism-bridge/. "${root}/mycelix-prism/prism-bridge/"
+          cp -a mycelix-workspace/mycelix-prism/prism-common/. "${root}/mycelix-prism/prism-common/"
+          cp -a mycelix-workspace/crates/mycelix-claim-types/. "${root}/crates/mycelix-claim-types/"
+          cat > "${root}/Cargo.toml" <<'EOF'
+          [workspace]
+          members = ["mycelix-prism/prism-bridge", "mycelix-prism/prism-common", "crates/mycelix-claim-types"]
+          resolver = "3"
+
+          [workspace.package]
+          edition = "2024"
+          version = "0.1.0"
+          license = "AGPL-3.0-or-later"
+
+          [workspace.dependencies]
+          log = "0.4"
+          libc = "0.2"
+          url = "2.5"
+          blake3 = "1.5"
+          serde = { version = "1.0", features = ["derive"] }
+          serde_json = "1.0"
+          tokio = { version = "1.0", features = ["full"] }
+          thiserror = "2.0"
+          getrandom = { version = "0.3", features = ["wasm_js"] }
+          rmp-serde = "1.3"
+          EOF
+          cd "${root}"
+          cargo +1.96.0 generate-lockfile
+          cargo +1.96.0 check --locked -p prism-bridge --tests --target "${{ matrix.target }}"
+
+      - name: Emit cross-architecture qualification identity
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="${RUNNER_TEMP}/prism-seccomp-cross-arch-${{ matrix.target }}"
+          evidence_dir="${RUNNER_TEMP}/prism-seccomp-cross-arch-evidence-${{ matrix.target }}"
+          mkdir -p "${evidence_dir}"
+          expected_head="${{ github.event.pull_request.head.sha || github.sha }}"
+          checked_out_head="$(git rev-parse HEAD)"
+          job_status="${{ job.status }}"
+          qualified="false"
+          if [[ "${job_status}" == "success" && "${checked_out_head}" == "${expected_head}" ]]; then
+            qualified="true"
+          fi
+          {
+            echo "schema=PRISM-SECCOMP-CROSS-ARCH-QUALIFICATION-EVIDENCE-V1"
+            echo "qualification=PRISM-SECCOMP-CROSS-ARCH"
+            echo "qualified=${qualified}"
+            echo "target=${{ matrix.target }}"
+            echo "job_status=${job_status}"
+            echo "workflow=${GITHUB_WORKFLOW}"
+            echo "run_id=${GITHUB_RUN_ID}"
+            echo "run_attempt=${GITHUB_RUN_ATTEMPT}"
+            echo "source_head=${expected_head}"
+            echo "checked_out_head=${checked_out_head}"
+            echo "rust=1.96.0"
+            echo "host_kernel=$(uname -srvm)"
+            echo "host_machine=$(uname -m)"
+            echo "test_command=cargo +1.96.0 check --locked -p prism-bridge --tests --target ${{ matrix.target }}"
+            if [[ -f "${root}/Cargo.lock" ]]; then
+              echo -n "workspace_lock_sha256="
+              sha256sum "${root}/Cargo.lock" | cut -d ' ' -f1
+              cp "${root}/Cargo.lock" "${evidence_dir}/Cargo.lock"
+            else
+              echo "workspace_lock_sha256=unavailable"
+            fi
+          } | tee "${evidence_dir}/qualification-evidence.txt"
+          if [[ "${checked_out_head}" != "${expected_head}" ]]; then
+            echo "ERROR: checkout provenance mismatch" | tee -a "${evidence_dir}/qualification-evidence.txt" >&2
+            exit 1
+          fi
+
+      - name: Upload cross-architecture qualification evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: prism-seccomp-cross-arch-${{ matrix.target }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/prism-seccomp-cross-arch-evidence-${{ matrix.target }}
+          if-no-files-found: error
+          retention-days: 90
