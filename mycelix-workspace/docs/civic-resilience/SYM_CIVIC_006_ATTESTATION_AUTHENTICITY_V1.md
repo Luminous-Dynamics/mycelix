@@ -18,7 +18,13 @@ The benchmark uses the layered pattern of contemporary attestation systems: a st
 
 ## Contract
 
-An attestation is admissible only when:
+An attestation is classified into one of three dispositions:
+
+- `REJECT_AUTHENTICATION`: the subject, attester, temporal policy, delegation, predicate typing, or authenticated bytes fail the contract;
+- `AUTHENTICATED_CONTENT_UNQUALIFIED`: authentication and subject binding succeed, but the scientific proposition is explicitly `false` or `uncertain`; this is not a scientific validation result;
+- `AUTHENTICATED`: authentication and subject binding succeed and no scientific truth claim is inferred.
+
+An attestation reaches `AUTHENTICATED` only when:
 
 - the signed subject identity is the exact immutable subject under review;
 - the attester identity is known and permitted under the applicable policy;
@@ -55,11 +61,11 @@ A-18 multi-subject statement silently truncated to one subject
 A-19 signed predicate altered after attestation
 A-20 historical attestation verified after key expiry without explicit historical policy
 
-The qualifier derives dispositions from the contract; fixture files do not contain expected verdicts.
+The qualifier derives dispositions from the contract; fixture files do not contain expected verdicts. A successful authentication disposition never implies scientific truth or civic authorization.
 
 ## Qualification ceiling
 
-PASS establishes only that this synthetic corpus distinguishes subject binding, attester authentication, and policy/time semantics from the truth-status of the asserted scientific content.
+PASS establishes only that this synthetic corpus distinguishes subject binding, attester authentication, policy/time semantics, and explicit content status. In particular, it distinguishes authenticated provenance from authenticated-but-scientifically-unqualified content.
 
 It does not establish production cryptographic security, secure key storage, protocol interoperability, scientific correctness, causal validity, civic legitimacy, authorization, or deployment readiness.
 
