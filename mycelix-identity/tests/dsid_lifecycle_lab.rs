@@ -149,6 +149,21 @@ enum MfaAssuranceLevel {
     ConstitutionallyCritical,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+struct CredentialView {
+    id: String,
+    subject_did: String,
+    issuer_did: String,
+    credential_type: Vec<String>,
+    claims: serde_json::Value,
+    issued_at: i64,
+    expires_at: Option<i64>,
+    valid_from: String,
+    valid_until: Option<String>,
+    revoked: bool,
+    schema_id: Option<String>,
+}
+
 fn dna_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("..")
@@ -584,6 +599,74 @@ async fn dsid_008_updated_did_remains_canonical() {
             loaded.id,
             loaded.version,
             loaded.services.len()
+        ),
+        true,
+    );
+}
+
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_009_credential_projection_preserves_w3c_dates_and_revocation_state() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let app = conductor.setup_app("dsid-credential-view", std::slice::from_ref(&dna)).await.unwrap();
+    let cell = app.cells()[0].clone();
+    let agent = app.agent().clone();
+    let subject_did = format!("did:mycelix:{}", agent);
+
+    let _did_record: Record = conductor
+        .call(&cell.zome("did_registry"), "create_did", ())
+        .await;
+
+    let issue_input = serde_json::json!({
+        "subject_did": subject_did,
+        "schema_id": "",
+        "claims": {
+            "purpose": "DSID qualification",
+            "version": 1
+        },
+        "credential_types": ["QualificationCredential"],
+        "issuer_name": "Mycelix DSID Laboratory",
+        "expiration_days": 30,
+        "enable_revocation": false,
+        "strict_schema": false
+    });
+
+    let issued: Record = conductor
+        .call(&cell.zome("verifiable_credential"), "issue_credential", issue_input)
+        .await;
+
+    let held: Vec<CredentialView> = conductor
+        .call(&cell.zome("verifiable_credential"), "get_my_credentials_view", ())
+        .await;
+
+    assert_eq!(held.len(), 1);
+    let credential = &held[0];
+    assert_eq!(credential.subject_did, format!("did:mycelix:{}", agent));
+    assert_eq!(credential.issuer_did, format!("did:mycelix:{}", agent));
+    assert!(credential.credential_type.iter().any(|t| t == "QualificationCredential"));
+    assert_eq!(credential.claims["purpose"], "DSID qualification");
+    assert!(!credential.valid_from.is_empty());
+    assert!(credential.valid_until.is_some());
+    assert!(!credential.revoked);
+    assert!(credential.schema_id.is_none());
+
+    let mut agents = BTreeMap::new();
+    agents.insert("alice", agent.to_string());
+    emit_evidence(
+        "DSID-009",
+        "credential-projection-preserves-w3c-dates-and-revocation-state",
+        &dna,
+        agents,
+        &[&issued],
+        "A real issued credential crosses the browser boundary without its proof envelope while preserving canonical W3C dates and active revocation state.",
+        format!(
+            "credential_id={} valid_from={} valid_until_present={} revoked={}",
+            credential.id,
+            credential.valid_from,
+            credential.valid_until.is_some(),
+            credential.revoked
         ),
         true,
     );
