@@ -986,6 +986,14 @@ fn delivery_attempts_snapshot(
         .collect()
 }
 
+fn attempt_history_matches_bindings(record: &DeliveryRecord) -> bool {
+    record.attempts.len() == record.attempt_envelope_ids.len()
+        && record
+            .attempts
+            .iter()
+            .all(|attempt_id| record.attempt_envelope_ids.contains_key(attempt_id))
+}
+
 fn source_observation_matches_delivery(state: &FederationState, record: &DeliveryRecord) -> bool {
     let Some(observation) = state.observations.get(record.source_observation_id()) else {
         return false;
@@ -1312,6 +1320,7 @@ mod tests {
         assert_eq!(source_ids.len(), state.delivery_count());
         for record in state.deliveries.values() {
             assert!(source_observation_matches_delivery(&state, record));
+            assert!(attempt_history_matches_bindings(record));
         }
     }
 
@@ -1631,6 +1640,9 @@ mod tests {
             state.delivery("delivery-1").unwrap().attempts().len(),
             1
         );
+        assert!(attempt_history_matches_bindings(
+            state.delivery("delivery-1").unwrap()
+        ));
     }
 
     #[test]
