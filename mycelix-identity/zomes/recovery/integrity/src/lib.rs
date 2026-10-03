@@ -188,6 +188,8 @@ pub enum LinkTypes {
     RequestToVotes,
     /// Trustee to their responsibilities
     TrusteeToConfig,
+    /// Deterministic request-id index for cross-agent lookup
+    RecoveryRequestIdToRequest,
     /// DID to self-recovery config (progressive recovery)
     DidToSelfRecoveryConfig,
     /// DID to self-recovery requests
@@ -257,7 +259,8 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 | LinkTypes::RequestToVotes
                 | LinkTypes::TrusteeToConfig
                 | LinkTypes::DidToSelfRecoveryConfig
-                | LinkTypes::DidToSelfRecoveryRequest => Ok(ValidateCallbackResult::Valid),
+                | LinkTypes::DidToSelfRecoveryRequest
+                | LinkTypes::RecoveryRequestIdToRequest => Ok(ValidateCallbackResult::Valid),
             }
         }
         FlatOp::RegisterDeleteLink {
