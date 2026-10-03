@@ -523,19 +523,8 @@ check_semantic_validation_suite_wiring() {
     fi
   fi
 
-  if [[ -f "$rust_test" ]]; then
-    for test_name in \
-      test_invalid_decision_entry_reaches_integrity_validation \
-      test_invalid_resource_entry_reaches_integrity_validation \
-      test_invalid_story_entry_reaches_integrity_validation; do
-      if rg -n --pcre2 "\basync[[:space:]]+fn[[:space:]]+$test_name\b" "$rust_test" >/dev/null 2>&1; then
-        echo "OK:   semantic-validation test is present: $test_name"
-      else
-        echo "FAIL: semantic-validation test is missing: $test_name"
-        fail=1
-      fi
-    done
-  fi
+  # Exact manifest/test-name equality above is the authoritative structural
+  # mapping; do not maintain a second hard-coded list that can drift.
 }
 
 # Semantic cases must resolve to real coordinator entrypoints and the runtime
