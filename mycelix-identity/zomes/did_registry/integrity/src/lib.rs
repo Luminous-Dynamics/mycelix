@@ -217,8 +217,7 @@ fn validate_substrate_role_link(
     if action.author != target_agent {
         return Ok(ValidateCallbackResult::Invalid(
             "SubstrateRoleToAgent link must be authored by the advertised agent".into(),
-        ));
-    }
+        ));    }
 
     if base_address.clone().into_entry_hash().is_none() {
         return Ok(ValidateCallbackResult::Invalid(
@@ -328,6 +327,31 @@ fn validate_did_to_deactivation_link(
     Ok(ValidateCallbackResult::Valid)
 }
 
+/// Validate the method-specific identifier grammar for `did:mycelix`.
+///
+/// Mycelix currently derives the identifier from the canonical textual form of
+/// a Holochain AgentPubKey. That textual form is ASCII and uses the base64url
+/// alphabet; we therefore reject whitespace, URI delimiters, non-ASCII bytes,
+/// and an empty identifier before any DHT lookup occurs.
+fn validate_mycelix_did_syntax(did: &str) -> Result<(), &'static str> {
+    const PREFIX: &str = "did:mycelix:";
+    let Some(identifier) = did.strip_prefix(PREFIX) else {
+        return Err("DID must start with 'did:mycelix:'");
+    };
+
+    if identifier.is_empty() {
+        return Err("did:mycelix identifier must not be empty");
+    }
+
+    if !identifier.bytes().all(|byte| {
+        byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_'
+    }) {
+        return Err("did:mycelix identifier contains an invalid character");
+    }
+
+    Ok(())
+}
+
 /// Validate DID document creation
 /// Enforce that a DID document's identifier is derived from the committing
 /// agent's key. Pure so it can be unit-tested without a full Create action.
@@ -345,11 +369,10 @@ fn validate_create_did_document(
     action: EntryCreationAction,
     did_doc: DidDocument,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Validate DID format
-    if !did_doc.id.starts_with("did:mycelix:") {
-        return Ok(ValidateCallbackResult::Invalid(
-            "DID must start with 'did:mycelix:'".into(),
-        ));
+    // Validate the complete method-specific identifier grammar before
+    // binding it to the committing agent.
+    if let Err(message) = validate_mycelix_did_syntax(&did_doc.id) {
+        return Ok(ValidateCallbackResult::Invalid(message.into()));
     }
 
     // Validate controller matches author
@@ -437,8 +460,7 @@ fn validate_update_did_document(
     }
 
     // Updated timestamp must advance
-    if did_doc.updated <= original.updated {
-        return Ok(ValidateCallbackResult::Invalid(
+    if did_doc.updated <= original.updated {        return Ok(ValidateCallbackResult::Invalid(
             "DID updated timestamp must advance".into(),
         ));
     }
@@ -458,11 +480,8 @@ fn validate_create_did_deactivation(
     action: EntryCreationAction,
     deactivation: DidDeactivation,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Validate DID format
-    if !deactivation.did.starts_with("did:mycelix:") {
-        return Ok(ValidateCallbackResult::Invalid(
-            "DID must start with 'did:mycelix:'".into(),
-        ));
+    if let Err(message) = validate_mycelix_did_syntax(&deactivation.did) {
+        return Ok(ValidateCallbackResult::Invalid(message.into()));
     }
 
     // Bind the deactivation to its committer -- deactivate_did only ever
@@ -494,6 +513,23 @@ fn validate_create_did_deactivation(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn did_method_specific_syntax_is_strict() {
+        assert!(validate_mycelix_did_syntax("did:mycelix:uhCAkSELF").is_ok());
+        assert!(validate_mycelix_did_syntax("did:mycelix:").is_err());
+        assert!(validate_mycelix_did_syntax("did:mycelix:abc:def").is_err());
+        assert!(validate_mycelix_did_syntax("did:mycelix:abc#key").is_err());
+        assert!(validate_mycelix_did_syntax("did:mycelix:abc?versionId=1").is_err());
+        assert!(validate_mycelix_did_syntax("did:mycelix:abc def").is_err());
+        assert!(validate_mycelix_did_syntax("did:key:abc").is_err());
+        assert!(validate_mycelix_did_syntax("did:mycelix:abc%20def").is_err());
+    }
+
+    #[test]
+    fn did_method_specific_syntax_accepts_base64url_alphabet() {
+        assert!(validate_mycelix_did_syntax("did:mycelix:uhCAk-_0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz").is_ok());
+    }
 
     #[test]
     fn did_id_must_match_committing_agent() {
@@ -697,8 +733,7 @@ mod tests {
                     did,
                     reason: String::new(),
                     deactivated_at: Timestamp::from_micros(0),
-                };
-                prop_assert!(deactivation.reason.is_empty());
+                };                prop_assert!(deactivation.reason.is_empty());
             }
         }
     }
