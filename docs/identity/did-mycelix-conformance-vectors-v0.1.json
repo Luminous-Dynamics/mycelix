@@ -30,6 +30,11 @@
     {"id":"WIRE-004","field":"service_endpoint","wire_name":"serviceEndpoint"},
     {"id":"WIRE-005","field":"version_id","wire_name":"versionId"}
   ],
+  "version_vectors": [
+    {"id":"VER-001","transition":"1->2","expected":"accept"},
+    {"id":"VER-002","transition":"1->3","expected":"reject","reason":"version gaps are not permitted"},
+    {"id":"VER-003","transition":"2->2","expected":"reject","reason":"version must increase exactly by one"}
+  ],
   "verification_method_vectors": [
     {"id":"VM-001","algorithm":"Ed25519","multicodec":"0xed01","multibase":"base58btc","prefix":"z","payload":"multicodec(0xed01) || raw_32_byte_ed25519_public_key","holochain_hash_type_bytes_included":false}
   ],
@@ -37,7 +42,8 @@
     {"id":"AUTH-001","operation":"create","authority":"committing-agent","expected":"accept-only-if-did-identifier-and-controller-equal-committer"},
     {"id":"AUTH-002","operation":"update","authority":"current-controller","expected":"accept-only-if-controller-and-original-entry-author-equal-committer"},
     {"id":"AUTH-003","operation":"deactivate","authority":"current-controller","expected":"accept-only-if-did-equals-committing-agent-did"},
-    {"id":"AUTH-004","operation":"controller-key-rotation","status":"not-yet-specified","expected":"must-not-be-inferred-from-current-update-semantics"}
+    {"id":"AUTH-004","operation":"controller-key-rotation","status":"not-supported","expected":"existing-did-controller-is-immutable"},
+    {"id":"AUTH-005","operation":"verification-method-rotation","authority":"current-controller","expected":"preserve-old-method-id-and-remove-it-from-authentication-before-activating-distinct-new-method"}
   ],
   "deployment_vectors": [
     {"id":"DEP-001","deployment":"canonical-production","expected":"authoritative"},
