@@ -609,7 +609,7 @@ mod tests {
             outcomes[2]
                 .get("holochain")
                 .and_then(serde_json::Value::as_str),
-            Some("ValidateCallbackResult::UnresolvedDependencies(UnresolvedDependencies)")
+            Some("ValidateCallbackResult::UnresolvedDependencies(...) after explicit address binding; an unbound logical identity remains pure Unresolved")
         );
 
         let errors = document
