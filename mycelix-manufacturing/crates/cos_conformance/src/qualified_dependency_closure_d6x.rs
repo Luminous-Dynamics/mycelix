@@ -1294,6 +1294,98 @@ mod tests {
         assert!(!c.valid());
     }
 
+    #[derive(Debug, Deserialize)]
+    struct GoldenCorpusV1 {
+        schema_version: String,
+        d6x_schema_version: String,
+        d6x_algorithm_version: String,
+        canonicalization_version: String,
+        hash_domain_prefix_hex: String,
+        closure_identity_domain: String,
+        certificate_domain: String,
+        claim_ceiling: String,
+        generation_note: String,
+        vectors: Vec<GoldenVectorV1>,
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct GoldenVectorV1 {
+        id: String,
+        description: String,
+        profile_variant: String,
+        projection_variant: String,
+        expected: GoldenExpectedV1,
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct GoldenExpectedV1 {
+        status: DependencyClosureStatusV1,
+        included_node_ids: Vec<String>,
+        included_edge_ids: Vec<String>,
+        missing_dependency_ids: Vec<String>,
+        cycle_detected: bool,
+        closure_identity_sha256: String,
+        certificate_sha256: String,
+    }
+
+    #[test]
+    fn golden_vector_corpus_is_well_formed_and_covers_acceptance_cases() {
+        let corpus: GoldenCorpusV1 = serde_json::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/testdata/d6x_qualified_closure_golden_vectors.json"
+        )))
+        .expect("D6X golden vector corpus must parse");
+
+        assert_eq!(corpus.schema_version, "D6X-GOLDEN-1");
+        assert_eq!(corpus.d6x_schema_version, D6X_SCHEMA_VERSION);
+        assert_eq!(corpus.d6x_algorithm_version, D6X_ALGORITHM_VERSION);
+        assert_eq!(corpus.canonicalization_version, D6X_CANONICALIZATION_VERSION);
+        assert_eq!(
+            corpus.hash_domain_prefix_hex,
+            "4d5943454c49582d494e54454752414c2d4436532d524543454950542d563100"
+        );
+        assert_eq!(corpus.closure_identity_domain, "d6x-closure-identity");
+        assert_eq!(corpus.certificate_domain, "d6x-dependency-closure");
+        assert_eq!(corpus.claim_ceiling, D6X_CLAIM_CEILING);
+        assert!(!corpus.generation_note.is_empty());
+
+        let ids = corpus
+            .vectors
+            .iter()
+            .map(|vector| vector.id.as_str())
+            .collect::<BTreeSet<_>>();
+
+        for vector in &corpus.vectors {
+            assert!(!vector.id.is_empty());
+            assert!(!vector.description.is_empty());
+            assert!(!vector.profile_variant.is_empty());
+            assert!(!vector.projection_variant.is_empty());
+            assert!(!vector.expected.included_node_ids.iter().any(String::is_empty));
+            assert!(!vector.expected.included_edge_ids.iter().any(String::is_empty));
+            assert!(!vector.expected.missing_dependency_ids.iter().any(String::is_empty));
+            assert!(is_canonical_sha256_commitment(
+                &vector.expected.closure_identity_sha256
+            ));
+            assert!(is_canonical_sha256_commitment(
+                &vector.expected.certificate_sha256
+            ));
+        }
+
+        for required in [
+            "baseline-complete",
+            "edge-free-complete",
+            "missing-required-node",
+            "cyclic-complete",
+            "currentness-historical",
+            "currentness-frontier-mismatch",
+            "currentness-frontier-omitted",
+            "resource-node-limit",
+            "resource-edge-limit",
+        ] {
+            assert!(ids.contains(required), "missing D6X golden vector: {required}");
+        }
+    }
+
     #[test]
     fn source_snapshot_mutation_changes_d6x_identity() {
         let (baseline, environment, derivation_profile) = projection(false);
