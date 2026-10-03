@@ -88,6 +88,26 @@ def main() -> None:
     assert set(manifest["expected_case_ids"]) == EXPECTED
     assert manifest["claim_ceiling"] == "ReferenceModelOnly"
 
+    ledger_schema = manifest["ledger_schema"]
+    assert ledger_schema["terminal_gate_field"] == "terminal_gate"
+    assert ledger_schema["authority_state_field"] == "authority_state"
+    assert ledger_schema["gate_vocabulary"] == [
+        "wire-authentication",
+        "d6s-integrity",
+        "invocation-routing-or-binding",
+        "invocation-binding-or-authorization",
+        "capability-authorization",
+        "nonce-replay-protection",
+        "invocation-expiry",
+        "zome-semantic-validation",
+    ]
+    assert ledger_schema["authority_states"] == [
+        "unauthenticated",
+        "authenticated-not-authorized",
+        "not-authorized",
+        "authorized",
+    ]
+
     deps = manifest["dependencies"]
     assert deps["d6s_canon_1_manifest_path"] == "docs/integral/d6s-canon-1-manifest.json"
     assert deps["d6s_canon_1_manifest_blob_sha"] == git_blob_sha(CANON1_MANIFEST)
@@ -138,6 +158,15 @@ def main() -> None:
         result = case["boundary_result"]
         reached = case["zome_reached"]
         semantic = case["semantic_result"]
+        terminal_gate = case["terminal_gate"]
+        authority_state = case["authority_state"]
+
+        assert terminal_gate in ledger_schema["gate_vocabulary"], case["case_id"]
+        assert authority_state in ledger_schema["authority_states"], case["case_id"]
+        if reached:
+            assert authority_state == "authorized", case["case_id"]
+        else:
+            assert authority_state != "authorized", case["case_id"]
 
         if result in PRE_ZOME_RESULTS:
             assert reached is False, case["case_id"]
@@ -164,6 +193,27 @@ def main() -> None:
     assert invalid_signature["boundary_result"] == "holochain-signature-authentication-rejection"
     assert invalid_signature["zome_reached"] is False
 
+    expected_gates = {
+        "wire-signature-invalid": "wire-authentication",
+        "wire-signature-valid": "wire-authentication",
+        "payload-mutation": "d6s-integrity",
+        "wrong-cell": "invocation-routing-or-binding",
+        "wrong-zome": "invocation-binding-or-authorization",
+        "wrong-function": "invocation-binding-or-authorization",
+        "valid-capability": "capability-authorization",
+        "author-grant": "capability-authorization",
+        "wrong-capability": "capability-authorization",
+        "revoked-capability": "capability-authorization",
+        "provenance-mismatch": "capability-authorization",
+        "blocked-provenance": "capability-authorization",
+        "nonce-replay": "nonce-replay-protection",
+        "nonce-stale": "nonce-replay-protection",
+        "expired-invocation": "invocation-expiry",
+        "canonical-payload-accepted": "capability-authorization",
+        "authorized-semantic-rejection": "zome-semantic-validation",
+    }
+    assert {case["case_id"]: case["terminal_gate"] for case in cases} == expected_gates
+
     author_grant = next(case for case in cases if case["case_id"] == "author-grant")
     assert author_grant["capability_state"] == "author-grant"
     assert author_grant["provenance_state"] == "current-author"
@@ -176,6 +226,7 @@ def main() -> None:
     print("holochain_reference=0.7.0")
     print("runtime_binding_status=ReferenceMappingOnly")
     print("zome_reached_cases=" + ",".join(sorted(authorized)))
+    print("authority_ledger_schema=v1")
     print("claim_ceiling=ReferenceModelOnly")
 
 
