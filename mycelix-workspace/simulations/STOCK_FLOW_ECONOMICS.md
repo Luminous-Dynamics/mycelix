@@ -868,3 +868,28 @@ The resulting trust boundary is:
 deserialized input -> domain validation -> atomic transition -> state validation -> stock/flow reconciliation -> evidence binding
 
 This is aligned with the wider accounting objective of making stock changes, cash flows, and non-cash changes explicitly traceable rather than relying on implicit balancing adjustments.
+
+## Projection-boundary and trace-sequence hardening (implemented)
+
+Sector consolidation now treats actor-to-sector assignments as a closed input domain. Every
+assignment record must refer to a known actor, and every state actor must have exactly one
+assignment. Unknown records are rejected rather than silently ignored. The same validation is
+shared by monetary balance-sheet and physical-stock projections.
+
+This closes an evidence seam in which a caller could provide a valid assignment for every modeled
+actor plus an extra unknown assignment and receive a projection that quietly discarded the extra
+record. The projection boundary is now explicit:
+
+`state actors <-> sector assignments -> deterministic sector projection`
+
+The simulation-trace runner also validates its initial economic state before producing even an
+empty trace. Period identifiers in a multi-period trace are required to be strictly increasing,
+so a receipt chain cannot describe a temporally contradictory sequence while remaining
+hash-consistent.
+
+These are structural invariants, not economic behavior. They strengthen reproducibility by ensuring
+that the same validated domain is consumed whether a trace contains many periods, one period, or
+none. This complements the SFC principle that accounting structures should remain internally
+consistent across opening stocks, transactions, and closing stocks, and the broader accounting
+practice of keeping changes in assets and liabilities traceable rather than silently absorbed into
+unexplained reconciliation differences.
