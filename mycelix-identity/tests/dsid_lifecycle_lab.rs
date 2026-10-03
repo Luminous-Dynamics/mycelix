@@ -120,6 +120,16 @@ fn commit_sha() -> String {
     std::env::var("GITHUB_SHA").unwrap_or_else(|_| "local-uncommitted".to_string())
 }
 
+fn decode_entry<T: serde::de::DeserializeOwned>(record: &Record) -> Option<T> {
+    match record.entry().as_option()? {
+        Entry::App(bytes) => {
+            let sb = SerializedBytes::from(bytes.to_owned());
+            rmp_serde::from_slice(sb.bytes()).ok()
+        }
+        _ => None,
+    }
+}
+
 fn action_hash(record: &Record) -> String {
     record.action_address().to_string()
 }
@@ -128,7 +138,7 @@ fn entry_hash(record: &Record) -> Option<String> {
     record
         .entry()
         .as_option()
-        .map(|entry| holo_hash::EntryHash::with_data_sync(entry).to_string())
+        .map(|entry| EntryHash::with_data_sync(entry).to_string())
 }
 
 fn emit_evidence(
@@ -174,8 +184,7 @@ async fn dsid_001_create_and_load_canonical_identity() {
         .await;
     let canonical_record: Record = conductor
         .call(&cell.zome("did_registry"), "get_my_did", ())
-        .await
-        .expect("canonical DID record must exist");
+        .await;
     let loaded: Option<DidDocumentView> = conductor
         .call(&cell.zome("did_registry"), "get_my_did_view", ())
         .await;
@@ -216,11 +225,7 @@ async fn dsid_002_initial_security_state_is_present() {
     let did_record: Record = conductor
         .call(&cell.zome("did_registry"), "create_did", ())
         .await;
-    let did: DidDocument = did_record
-        .entry()
-        .to_app_option()
-        .expect("DID entry must decode")
-        .expect("DID entry must be present");
+    let did: DidDocument = decode_entry(&did_record).expect("DID entry must decode");
 
     let mfa_ready: bool = conductor
         .call(&cell.zome("mfa"), "has_mfa_state", did.id.clone())
@@ -302,22 +307,14 @@ async fn dsid_004_multi_agent_resolution_after_consistency() {
         .await
         .expect("fresh peers must reach consistency before cross-agent resolution");
 
-    let alice_doc: DidDocument = alice_record
-        .entry()
-        .to_app_option()
-        .expect("Alice DID entry must decode")
-        .expect("Alice DID entry must be present");
+    let alice_doc: DidDocument = decode_entry(&alice_record).expect("Alice DID entry must decode");
 
     let resolved: Option<Record> = conductor
         .call(&bob.zome("did_registry"), "resolve_did", alice_doc.id.clone())
         .await;
     let resolved = resolved.expect("Bob must resolve Alice after consistency");
 
-    let resolved_doc: DidDocument = resolved
-        .entry()
-        .to_app_option()
-        .expect("resolved DID entry must decode")
-        .expect("resolved DID entry must be present");
+    let resolved_doc: DidDocument = decode_entry(&resolved).expect("resolved DID entry must decode");
     assert_eq!(resolved_doc.id, alice_doc.id);
     assert_eq!(resolved_doc.controller, alice_app.agent());
 
