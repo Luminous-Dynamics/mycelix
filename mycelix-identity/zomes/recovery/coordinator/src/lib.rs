@@ -1154,10 +1154,27 @@ pub fn arm_recovery_time_lock(request_id: String) -> ExternResult<Record> {
         &config,
     )?;
 
-    let now = sys_time()?;
-    let expires = Timestamp::from_micros(
-        now.as_micros() + (config.time_lock as i64 * 1_000_000),
-    );
+    // Use the committed certificate action timestamp as the authoritative
+    // lock clock. This avoids any gap between the pre-commit application
+    // timestamp and the signed Holochain action timestamp.
+    let certificate_record = get(certificate_hash.clone(), GetOptions::default())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Could not retrieve newly-created recovery approval certificate".into()
+        )))?;
+    let duration_micros = (config.time_lock as i64)
+        .checked_mul(1_000_000)
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Recovery time-lock duration overflow".into()
+        )))?;
+    let expires_micros = certificate_record
+        .action()
+        .timestamp()
+        .as_micros()
+        .checked_add(duration_micros)
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Recovery time-lock expiry overflow".into()
+        )))?;
+    let expires = Timestamp::from_micros(expires_micros);
 
     let approved = RecoveryRequest {
         status: RecoveryStatus::Approved,
