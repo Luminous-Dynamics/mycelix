@@ -473,6 +473,11 @@ fn validate_create_link(
             link_type, max_len
         )));
     }
+    if !matches!(link_type, LinkTypes::TagToStories) && !tag.0.is_empty() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Link tag must be empty except for TagToStories".into(),
+        ));
+    }
     let action_hash = |hash: AnyLinkableHash, label: &str| -> Result<ActionHash, ValidateCallbackResult> {
         ActionHash::try_from(hash)
             .map_err(|_| ValidateCallbackResult::Invalid(format!("{label} must be an ActionHash")))
