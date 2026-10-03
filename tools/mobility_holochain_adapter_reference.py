@@ -106,6 +106,7 @@ def main() -> int:
         "schema_identifier_is_signed": True,
         "breaking_changes_require_new_schema_identifier": True,
         "version_policy": "strict_v1",
+        "schema_identifier_changes_rejected_as_semantic_invalidity": True,
     }
     for key, expected in expected_serialization_contract.items():
         if serialization_contract.get(key) != expected:
@@ -120,6 +121,11 @@ def main() -> int:
         "binding_attestation_payload_rejects_unknown_wire_fields",
     ]:
         raise SystemExit("machine serialization contract unknown-field test list drifted")
+    if serialization_contract.get("schema_identifier_tests") != [
+        "authority_agent_payload_rejects_schema_identifier_change",
+        "binding_attestation_payload_rejects_schema_identifier_change",
+    ]:
+        raise SystemExit("machine serialization contract schema-identifier test list drifted")
 
     if "agent_for(&authority)" not in source:
         raise SystemExit("runtime binding must expose authority-agent lookup")
@@ -181,6 +187,12 @@ def main() -> int:
         raise SystemExit("signed payload schema identifiers must be owned Strings")
     if source.count("#[serde(deny_unknown_fields)]") != 2:
         raise SystemExit("both signed payload types must reject unknown wire fields")
+    for test_name in (
+        "authority_agent_payload_rejects_schema_identifier_change",
+        "binding_attestation_payload_rejects_schema_identifier_change",
+    ):
+        if test_name not in source:
+            raise SystemExit(f"missing schema-identifier regression test: {test_name}")
 
     if "provenance: QualificationDependencyBindingProvenance" not in source:
         raise SystemExit("resolved dependencies must carry their provenance witness")
