@@ -200,33 +200,28 @@ async fn load_credentials(ctx: IdentityCtx) {
     let hc = use_holochain();
     if hc.is_mock() { return; }
 
-    match hc.call_zome_default::<(), Vec<serde_json::Value>>(
-        "verifiable_credential", "get_my_credentials", &()
+    match hc.call_zome_default::<(), Vec<CredentialView>>(
+        "verifiable_credential", "get_my_credentials_view", &()
     ).await {
-        Ok(records) => {
-            let creds: Vec<CredentialView> = records.iter().filter_map(|r| {
-                match serde_json::from_value::<CredentialView>(r.clone()) {
-                    Ok(c) => Some(c),
-                    Err(e) => {
-                        web_sys::console::warn_1(
-                            &format!("[Identity] Failed to parse credential: {e}").into()
-                        );
-                        None
-                    }
-                }
-            }).collect();
-            if !creds.is_empty() {
-                ctx.credentials_held.set(creds);
-            }
-        }
+        Ok(creds) => ctx.credentials_held.set(creds),
         Err(e) => {
             web_sys::console::warn_1(
-                &format!("[Identity] get_my_credentials failed: {e}").into()
+                &format!("[Identity] get_my_credentials_view failed: {e}").into()
+            );
+        }
+    }
+
+    match hc.call_zome_default::<(), Vec<CredentialView>>(
+        "verifiable_credential", "get_my_issued_credentials_view", &()
+    ).await {
+        Ok(creds) => ctx.credentials_issued.set(creds),
+        Err(e) => {
+            web_sys::console::warn_1(
+                &format!("[Identity] get_my_issued_credentials_view failed: {e}").into()
             );
         }
     }
 }
-
 async fn load_reputation(ctx: IdentityCtx) {
     let hc = use_holochain();
     if hc.is_mock() { return; }
