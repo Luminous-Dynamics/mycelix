@@ -41,7 +41,9 @@ def main():
   if any(k in c["candidate"] for k in ("raw_subject_identifier","raw_payload","authorized_decision","civic_authorization")): fail(c["id"]+" prohibited field")
  derived={c["id"]:reject(c) for c in cases}
  expected={f"T-{i:02d}" for i in range(1,13)}
- if {k for k,v in derived.items() if v}!=expected: fail("derived rejection set")
+ actual={k for k,v in derived.items() if v}
+ print("SYM-CIVIC-005 DERIVED="+json.dumps({"rejected":sorted(actual),"expected":sorted(expected)},separators=(",",":")))
+ if actual!=expected: fail("derived rejection set")
  if any(derived[k] for k in ("T-13","T-14","T-15")): fail("valid case rejected")
  payload={"program":d["program"],"schema":d["schema"],"cases":[{"id":c["id"],"rejected":derived[c["id"]]} for c in cases]}
  digest=hashlib.sha256(json.dumps(payload,sort_keys=True,separators=(",",":")).encode()).hexdigest()
