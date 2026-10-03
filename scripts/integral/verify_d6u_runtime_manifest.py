@@ -30,6 +30,7 @@ SUPPORTED = {
     "wrong-zome",
     "wrong-function",
     "wrong-cell",
+    "blocked-provenance",
 }
 
 UNSUPPORTED = {
