@@ -311,20 +311,6 @@ mod tests {
     use super::*;
     use crate::security_kernel::CapabilityAction;
 
-
-        crate::security_kernel::Capability::new(
-            "did:mycelix:alice",
-            "did:mycelix:issuer",
-            "resource:ledger",
-            vec![CapabilityAction::Read],
-            100,
-            200,
-            7,
-        )
-        .unwrap()
-    }
-
-
     #[test]
     fn provenance_ref_rejects_empty_and_oversized_ids() {
         assert!(ProvenanceRef::new("", ProvenanceRelation::References).is_err());
@@ -400,7 +386,9 @@ mod tests {
                 "action":"Read",
                 "policy_version":7
             },
-            "decision":"Deny",
+            "decision":{
+                "Deny":"ActionNotGranted"
+            },
             "policy_version":7,
             "timestamp_us":151,
             "provenance":[],
@@ -414,6 +402,7 @@ mod tests {
             )
         );
         assert_eq!(event.capability_binding(), None);
+        assert_eq!(event.authority_binding(), None);
     }
 
     #[test]
@@ -490,20 +479,7 @@ mod tests {
 
     #[test]
     fn serialized_enforcement_event_round_trips() {
-        let request = crate::security_kernel::AuthorizationRequest::new(
-            "did:mycelix:alice",
-            "resource:ledger",
-            CapabilityAction::Read,
-            7,
-        )
-        .unwrap();
-        let permit = authorize_permit(&verified(), &request, 150).unwrap();
-        let enforcement = EnforcementRequest::from_permit(
-            permit,
-            VerificationEvidence::new_for_capability(&capability(), true, true, true),
-            150,
-        )
-        .unwrap();
+        let enforcement = crate::security_kernel::test_enforcement_request();
         let event = SecurityEvent::from_enforcement_request(
             "event:round-trip",
             "did:mycelix:alice",
@@ -525,20 +501,8 @@ mod tests {
 
     #[test]
     fn enforcement_event_rejects_policy_version_mismatch() {
-        let request = crate::security_kernel::AuthorizationRequest::new(
-            "did:mycelix:alice",
-            "resource:ledger",
-            CapabilityAction::Read,
-            7,
-        )
-        .unwrap();
-        let permit = authorize_permit(&verified(), &request, 150).unwrap();
-        let enforcement = EnforcementRequest::from_permit(
-            permit,
-            VerificationEvidence::new_for_capability(&capability(), true, true, true),
-            150,
-        )
-        .unwrap();
+        let enforcement = crate::security_kernel::test_enforcement_request();
+
         assert_eq!(
             SecurityEvent::from_enforcement_request(
                 "event:mismatch",
