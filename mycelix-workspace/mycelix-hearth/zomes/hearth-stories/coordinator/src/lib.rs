@@ -217,6 +217,22 @@ pub fn add_media_to_story(input: AddMediaInput) -> ExternResult<()> {
         )));
     }
 
+    // The integrity zome validates StoryToMedia against the story's declared
+    // media_hashes. Keep that application field synchronized before creating
+    // the link so the rich link invariant remains satisfiable.
+    if !story.media_hashes.contains(&input.media_hash) {
+        if story.media_hashes.len() >= 20 {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "A story cannot have more than 20 media attachments".into()
+            )));
+        }
+        story.media_hashes.push(input.media_hash.clone());
+        update_entry(
+            input.story_hash.clone(),
+            &EntryTypes::FamilyStory(story),
+        )?;
+    }
+
     create_link(
         input.story_hash,
         input.media_hash,
