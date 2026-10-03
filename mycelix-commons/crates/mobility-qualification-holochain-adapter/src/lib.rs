@@ -1055,6 +1055,35 @@ mod tests {
         assert_eq!(left, right);
     }
 
+    fn binding_provenance_for_test(
+        logical_identity: IdentityRef,
+        authority: IdentityRef,
+    ) -> QualificationDependencyBindingProvenance {
+        let suffix = logical_identity.id.clone();
+        let authority_scope = IdentityRef {
+            kind: IdentityKind::ReconciliationWitness,
+            namespace: "mobility".into(),
+            id: format!("binding-scope-{suffix}"),
+        };
+        let authority_delegation = IdentityRef {
+            kind: IdentityKind::ReconciliationWitness,
+            namespace: "mobility".into(),
+            id: format!("binding-delegation-{suffix}"),
+        };
+        QualificationDependencyBindingProvenance {
+            witness_identity: IdentityRef {
+                kind: IdentityKind::ReconciliationWitness,
+                namespace: "mobility".into(),
+                id: format!("binding-witness-{suffix}"),
+            },
+            logical_identity,
+            authority: authority.clone(),
+            authority_scope: authority_scope.clone(),
+            authority_delegation: authority_delegation.clone(),
+            basis: vec![authority, authority_scope, authority_delegation],
+        }
+    }
+
     fn authority_credential(
         authority: IdentityRef,
         agent: AgentPubKey,
@@ -1081,10 +1110,8 @@ mod tests {
             signature: Signature([0u8; 64]),
             payload: HolochainAuthorityAgentBindingPayload {
                 schema: HOLOCHAIN_AUTHORITY_AGENT_BINDING_SCHEMA,
-                authority: authority.clone(),
-                provenance: QualificationDependencyBindingProvenance {
+                provenance: QualificationAuthorityAgentBindingProvenance {
                     witness_identity: witness,
-                    logical_identity: authority.clone(),
                     authority,
                     authority_scope: scope,
                     authority_delegation: delegation,
@@ -1158,6 +1185,51 @@ mod tests {
             calls.lock().unwrap().as_slice(),
             ["verify_signature", "verify_signature"]
         );
+    }
+
+    #[test]
+    fn dependency_binding_accepts_signer_registered_for_authority() {
+        let _guard = host_test_lock().lock().expect("HDI test lock is not poisoned");
+        let _previous = set_hdi(RecordingHdi {
+            calls: Arc::new(Mutex::new(Vec::new())),
+            verify_result: true,
+        });
+
+        let authority = identity("accepted-authority");
+        let agent = action_agent_key(36);
+
+        let mut registry = HolochainAuthorityAgentBindingSet::new();
+        assert!(matches!(
+            registry.bind_attested(authority_credential(
+                authority.clone(),
+                agent.clone(),
+                "runtime-accepted"
+            )),
+            Ok(Ok(()))
+        ));
+
+        let logical = identity("accepted-logical");
+        let binding = SignedHolochainBindingAttestation {
+            signer: agent,
+            signature: Signature([0u8; 64]),
+            payload: HolochainBindingAttestationPayload {
+                schema: HOLOCHAIN_BINDING_ATTESTATION_SCHEMA,
+                provenance: binding_provenance_for_test(logical.clone(), authority),
+                address: HolochainDependencyAddress::Action(action_hash(36)),
+                retrieval: QualificationDependencyRetrievalKind::Action,
+            },
+        };
+
+        let mut bindings = HolochainDependencyBindingSet::new();
+        assert!(matches!(
+            bindings.bind_attested_with_authority(binding, &registry),
+            Ok(Ok(()))
+        ));
+
+        let decision = bindings.resolve_required(vec![logical]);
+        assert!(matches!(decision, QualificationDecision::Valid(_)));
+
+        let _ = set_hdi(ErrHdi);
     }
 
     #[test]
