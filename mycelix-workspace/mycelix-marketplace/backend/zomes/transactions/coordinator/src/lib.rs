@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 use hdk::prelude::*;
-use listings_integrity::{Listing, ListingStatus};
+use listings_types::{Listing, ListingStatus};
 use mycelix_common::{link_queries, remote_calls, time};
 use transactions_integrity::*;
 
