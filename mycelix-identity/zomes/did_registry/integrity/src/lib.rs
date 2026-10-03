@@ -461,11 +461,10 @@ fn validate_create_did_document(
         return Ok(ValidateCallbackResult::Invalid(msg));
     }
 
-    // Validate at least one verification method
-    if did_doc.verification_method.is_empty() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "DID must have at least one verification method".into(),
-        ));
+    // Validate the complete cryptographic verification-method set at the
+    // integrity boundary, independent of the coordinator API used.
+    if let Err(message) = validate_verification_method_set(&did_doc) {
+        return Ok(ValidateCallbackResult::Invalid(message.into()));
     }
 
     // Validate version starts at 1
@@ -530,45 +529,10 @@ fn validate_update_did_document(
         ));
     }
 
-    // Every verification-method ID must be unique and every method must remain
-    // controlled by this DID. References in authentication/keyAgreement must
-    // resolve to an actual verification method in the new document.
-    let method_ids: std::collections::BTreeSet<&str> = did_doc
-        .verification_method
-        .iter()
-        .map(|method| method.id.as_str())
-        .collect();
-    if method_ids.len() != did_doc.verification_method.len() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "DID verification method IDs must be unique".into(),
-        ));
-    }
-    if did_doc
-        .verification_method
-        .iter()
-        .any(|method| method.controller != did_doc.id)
-    {
-        return Ok(ValidateCallbackResult::Invalid(
-            "DID verification methods must be controlled by the DID".into(),
-        ));
-    }
-    if did_doc
-        .authentication
-        .iter()
-        .any(|reference| !method_ids.contains(reference.as_str()))
-    {
-        return Ok(ValidateCallbackResult::Invalid(
-            "DID authentication references must resolve to verification methods".into(),
-        ));
-    }
-    if did_doc
-        .key_agreement
-        .iter()
-        .any(|reference| !method_ids.contains(reference.as_str()))
-    {
-        return Ok(ValidateCallbackResult::Invalid(
-            "DID keyAgreement references must resolve to verification methods".into(),
-        ));
+    // Re-validate cryptographic key structure and relationship roles even when
+    // a generic update path bypasses coordinator-specific key helpers.
+    if let Err(message) = validate_verification_method_set(&did_doc) {
+        return Ok(ValidateCallbackResult::Invalid(message.into()));
     }
 
     // Updated timestamp must advance
