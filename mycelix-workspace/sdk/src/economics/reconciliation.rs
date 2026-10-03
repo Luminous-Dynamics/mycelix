@@ -344,6 +344,23 @@ mod tests {
     }
 
     #[test]
+    fn direct_legacy_postings_reject_invalid_inputs() {
+        let (mut pre, assignments) = setup();
+        pre.actors[1].monetary.deposits = -1;
+        assert!(postings_for_step(&pre, &assignments, &[]).is_err());
+
+        let pre = setup().0;
+        let invalid = EconomicTransition::CreditCreation(
+            crate::economics::stock_flow::CreditCreation {
+                lender: "bank".into(),
+                borrower: "household".into(),
+                amount: 0,
+            },
+        );
+        assert!(postings_for_step(&pre, &assignments, &[invalid]).is_err());
+    }
+
+    #[test]
     fn credit_creation_reconciles_exact_stock_delta() {
         let (pre, assignments) = setup();
         let transitions = vec![EconomicTransition::CreditCreation(
