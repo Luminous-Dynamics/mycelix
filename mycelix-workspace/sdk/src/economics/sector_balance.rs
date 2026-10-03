@@ -104,6 +104,7 @@ impl SectorPhysicalStock {
         state: &EconomicState,
         assignments: &[SectorAssignment],
     ) -> Result<Self, String> {
+        validate_sector_assignments(state, assignments)?;
         let mut actors = state.actors.clone();
         actors.sort_by(|a, b| a.actor.cmp(&b.actor));
 
@@ -163,12 +164,55 @@ impl SectorPhysicalStock {
     }
 }
 
+fn validate_sector_assignments(
+    state: &EconomicState,
+    assignments: &[SectorAssignment],
+) -> Result<(), String> {
+    if state.actors.len() != assignments.len() {
+        return Err("sector assignments must cover every actor exactly once".into());
+    }
+
+    for assignment in assignments {
+        if !state.actors.iter().any(|actor| actor.actor == assignment.actor) {
+            return Err(format!(
+                "sector assignment references unknown actor {}",
+                assignment.actor
+            ));
+        }
+    }
+
+    for actor in &state.actors {
+        let count = assignments
+            .iter()
+            .filter(|assignment| assignment.actor == actor.actor)
+            .count();
+        match count {
+            0 => {
+                return Err(format!(
+                    "missing sector assignment for actor {}",
+                    actor.actor
+                ))
+            }
+            1 => {}
+            _ => {
+                return Err(format!(
+                    "actor {} must have exactly one sector assignment",
+                    actor.actor
+                ))
+            }
+        }
+    }
+
+    Ok(())
+}
+
 impl SectorBalanceSheet {
     /// Build a deterministic sector consolidation from actor state.
     pub fn from_state(
         state: &EconomicState,
         assignments: &[SectorAssignment],
     ) -> Result<Self, String> {
+        validate_sector_assignments(state, assignments)?;
         let mut actors = state.actors.clone();
         actors.sort_by(|a, b| a.actor.cmp(&b.actor));
 
@@ -340,19 +384,7 @@ impl SectorBalanceSheet {
         state: &EconomicState,
         assignments: &[SectorAssignment],
     ) -> Result<(), String> {
-        if state.actors.len() != assignments.len() {
-            return Err("sector assignments must cover every actor exactly once".into());
-        }
-
-        for actor in &state.actors {
-            let count = assignments.iter().filter(|a| a.actor == actor.actor).count();
-            if count != 1 {
-                return Err(format!(
-                    "actor {} must have exactly one sector assignment",
-                    actor.actor
-                ));
-            }
-        }
+        validate_sector_assignments(state, assignments)?;
 
         if !self.financial_rows_clear() {
             return Err("sector financial balance-sheet rows do not clear".into());
@@ -430,6 +462,20 @@ mod tests {
         let state = EconomicState::new(vec![ActorBalanceSheet::new("household")]);
         let error = SectorBalanceSheet::from_state(&state, &[]).unwrap_err();
         assert!(error.contains("missing sector assignment"));
+    }
+
+    #[test]
+    fn unknown_assignment_is_rejected() {
+        let state = EconomicState::new(vec![ActorBalanceSheet::new("household")]);
+        let assignments = vec![SectorAssignment {
+            actor: "ghost".into(),
+            sector: EconomicSector::Firm,
+        }];
+        let error = SectorBalanceSheet::from_state(&state, &assignments).unwrap_err();
+        assert!(error.contains("unknown actor ghost"));
+
+        let physical = SectorPhysicalStock::from_state(&state, &assignments).unwrap_err();
+        assert!(physical.contains("unknown actor ghost"));
     }
 
     #[test]
