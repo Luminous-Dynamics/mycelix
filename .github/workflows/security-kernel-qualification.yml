@@ -43,7 +43,7 @@ jobs:
       - name: Format
         run: cargo fmt --manifest-path crates/mycelix-bridge-common/Cargo.toml -- --check
 
-      - name: Assert kernel trust surface remains private
+      - name: Assert security trust surfaces remain private
         shell: bash
         run: |
           set -euo pipefail
@@ -55,12 +55,19 @@ jobs:
             'pub\(crate\).*authority_binding_from_freshness_digest' \
             'pub\(crate\).*new_for_capability' \
             'pub\(crate\).*binding_digest' \
-            'pub\(crate\).*revalidate_permit' \
+            'pub\(crate\).*revalidate_permit'; do
+            if rg -n \"$pattern\" crates/mycelix-bridge-common/src/security_kernel.rs; then
+              echo "security-kernel trust-surface regression: $pattern" >&2
+              exit 1
+            fi
+          done
+
+          for pattern in \
             'pub[[:space:]]+decision:' \
             'pub[[:space:]]+capability_binding:' \
             'pub[[:space:]]+authority_binding:'; do
-            if rg -n \"$pattern\" crates/mycelix-bridge-common/src/security_kernel.rs; then
-              echo "security-kernel trust-surface regression: $pattern" >&2
+            if rg -n \"$pattern\" crates/mycelix-bridge-common/src/security_events.rs; then
+              echo "security-event trust-surface regression: $pattern" >&2
               exit 1
             fi
           done
