@@ -112,6 +112,8 @@ pub struct DeliveryRecord {
     contract: ImmutableDeliveryContract,
     authority: AuthorityDisposition,
     attempts: BTreeSet<String>,
+    /// Identifier of the source observation minted by the admitting transition.
+    /// This provenance link is not part of the immutable logical delivery contract.
     source_observation_id: String,
 }
 
@@ -977,14 +979,18 @@ fn source_observation_matches_delivery(state: &FederationState, record: &Deliver
 
 fn delivery_identity_snapshot(
     state: &FederationState,
-) -> BTreeMap<String, (ImmutableDeliveryContract, AuthorityDisposition)> {
+) -> BTreeMap<String, (ImmutableDeliveryContract, AuthorityDisposition, String)> {
     state
         .deliveries
         .iter()
         .map(|(id, record)| {
             (
                 id.clone(),
-                (record.contract.clone(), record.authority),
+                (
+                    record.contract.clone(),
+                    record.authority,
+                    record.source_observation_id.clone(),
+                ),
             )
         })
         .collect()
