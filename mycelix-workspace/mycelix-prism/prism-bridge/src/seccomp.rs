@@ -1975,7 +1975,7 @@ mod linux {
                 SeccompArgPredicateV1::new(
                     0,
                     u64::MAX,
-                    0x0000_0002_0000_0002,
+                    0x0000_0001_0000_0001,
                 )
                 .unwrap(),
             ])
