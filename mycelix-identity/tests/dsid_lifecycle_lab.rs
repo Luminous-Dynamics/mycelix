@@ -166,6 +166,39 @@ struct CredentialView {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+struct DidVerificationMethodWireView {
+    id: String,
+    #[serde(rename = "type")]
+    type_name: String,
+    controller: String,
+    #[serde(rename = "publicKeyMultibase")]
+    public_key_multibase: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+struct DidServiceWireView {
+    id: String,
+    #[serde(rename = "type")]
+    type_name: String,
+    #[serde(rename = "serviceEndpoint")]
+    endpoint: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+struct DidDocumentWireView {
+    #[serde(rename = "@context")]
+    context: Vec<String>,
+    id: String,
+    controller: String,
+    #[serde(rename = "verificationMethod")]
+    verification_methods: Vec<DidVerificationMethodWireView>,
+    authentication: Vec<String>,
+    #[serde(rename = "keyAgreement", default)]
+    key_agreement: Vec<String>,
+    service: Vec<DidServiceWireView>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 struct DidResolutionMetadataView {
     #[serde(rename = "contentType")]
     content_type: Option<String>,
@@ -184,7 +217,7 @@ struct DidDocumentMetadataView {
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 struct DidResolutionView {
     #[serde(rename = "didDocument")]
-    did_document: Option<DidDocumentView>,
+    did_document: Option<DidDocumentWireView>,
     #[serde(rename = "didResolutionMetadata")]
     resolution_metadata: DidResolutionMetadataView,
     #[serde(rename = "didDocumentMetadata")]
@@ -802,6 +835,13 @@ async fn dsid_011_resolution_metadata_tracks_deactivation() {
         before.resolution_metadata.content_type.as_deref(),
         Some("application/did+json")
     );
+
+    let wire_doc = before.did_document.as_ref().expect("wire DID document must exist");
+    assert_eq!(wire_doc.id, did_view.id);
+    assert_eq!(wire_doc.controller, did_view.controller);
+    assert_eq!(wire_doc.context, vec!["https://www.w3.org/ns/did/v1.1"]);
+    assert_eq!(wire_doc.verification_methods.len(), 1);
+    assert!(!wire_doc.verification_methods[0].public_key_multibase.is_empty());
 
     let wire = serde_json::to_value(&before).expect("DID resolution result must serialize");
     assert!(wire.get("didDocument").is_some());
