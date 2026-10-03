@@ -1081,3 +1081,18 @@ numeric boundary:
 
 The legacy API remains narrower than v2 because it does not introduce the physical-stock dimension,
 but it no longer has a weaker state/transition/arithmetic trust boundary.
+
+
+## Period-ledger provenance re-verification (implemented)
+
+EconomicPeriodLedger remains a derived projection rather than a second source of truth, but serialized ledgers can now be re-verified against the authoritative transition sequence through verify_against_transitions.
+
+This matters because a ledger's stored transition_hash proves only which transition list it claims to describe; it does not, by itself, prove that the serialized derived totals were actually computed from that list. Re-derivation therefore checks the complete ledger structure, every aggregate field, the transition count, the ordered transition hash, and the derived category totals.
+
+The preferred provenance path is now explicit:
+
+authoritative transitions -> derive ledger -> serialize -> verify_against_transitions
+
+A tampered derived field is rejected even when the transition hash itself is left unchanged, while a reordered transition sequence is rejected because the exact ordered transition evidence is bound.
+
+This is an accounting-provenance hardening rather than a behavioral model change. It keeps the SFC accounting substrate aligned with the broader requirement that stocks and flows be traceable to the same underlying transaction structure. Current SFC literature likewise treats the balance-sheet and transaction-flow structures as the accounting backbone and emphasizes consistency across stocks, flows, and asset/liability counterparts.
