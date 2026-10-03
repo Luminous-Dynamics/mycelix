@@ -56,7 +56,7 @@ jobs:
           # module-private boundary, whether it is pub(crate), pub(super), or pub(in ...).
           # Use multiline matching so a future refactor cannot evade this guard by placing
           # the visibility modifier and item name on separate lines.
-          # The qualification lane is intentionally a low-trust pull_request/push workflow;
+          # The qualification lane is intentionally a low-trust pull_request workflow;
           # do not broaden it to a privileged pull_request_target trigger.
           if rg -n '^[[:space:]]*pull_request_target[[:space:]]*:' .github/workflows/security-kernel-qualification.yml; then
             echo "security-workflow regression: privileged pull_request_target trigger is forbidden" >&2
