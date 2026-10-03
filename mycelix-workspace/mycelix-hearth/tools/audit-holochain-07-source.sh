@@ -580,28 +580,241 @@ check_semantic_case_entrypoints() {
 # from drifting away from the validator it claims to witness.
 check_semantic_case_integrity_bindings() {
   local manifest="mycelix-workspace/mycelix-hearth/tests/hearth-07-semantic-validation-cases.json"
-  local ids tests zomes operations invariants surfaces
-  mapfile -t ids < <(sed -n 's/^[[:space:]]*"case_id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest")
-  mapfile -t tests < <(sed -n 's/^[[:space:]]*"test"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest")
-  mapfile -t zomes < <(sed -n 's/^[[:space:]]*"zome"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest")
-  mapfile -t operations < <(sed -n 's/^[[:space:]]*"operation"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest")
-  mapfile -t invariants < <(sed -n 's/^[[:space:]]*"invariant"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest")
-  mapfile -t surfaces < <(sed -n 's/^[[:space:]]*"operation_surface"[[:space:]]*:\s*\[\([^]]*\)\].*/\1/p' "$manifest")
+  local rows
+  mapfile -t rows < <(perl -MJSON::PP -0777 -ne '$d=decode_json($_); for $c (@{$d->{cases} // []}) { print join("\t", map { defined $_ ? $_ : "" } ($c->{case_id}, $c->{test}, $c->{zome}, $c->{operation}, $c->{invariant}, $c->{expected_result}, join(",", @{$c->{operation_surface} // []}))), "\n"; }' "$manifest")
 
-  local count="${#ids[@]}"
-  if [[ "$count" -eq 0 || "$count" -ne "${#tests[@]}" || "$count" -ne "${#zomes[@]}" || "$count" -ne "${#operations[@]}" || "$count" -ne "${#invariants[@]}" || "$count" -ne "${#surfaces[@]}" ]]; then
-    echo "FAIL: semantic manifest fields are not structurally aligned"
+  if ((${#rows[@]} == 0)); then
+    echo "FAIL: semantic manifest contains no parseable case rows"
     fail=1
     return
   fi
 
-  local i id zome operation invariant surface integrity_file
-  for i in "${!ids[@]}"; do
-    id="${ids[$i]}"
-    zome="${zomes[$i]}"
-    operation="${operations[$i]}"
-    invariant="${invariants[$i]}"
-    surface="${surfaces[$i]}"
+  local i id test zome operation invariant expected_result surface integrity_file
+  for i in "${!rows[@]}"; do
+    IFS=
+    integrity_file="mycelix-workspace/mycelix-hearth/zomes/${zome//_/-}/integrity/src/lib.rs"
+
+    if [[ ! -f "$integrity_file" ]]; then
+      echo "FAIL: $id references missing integrity source: $integrity_file"
+      fail=1
+      continue
+    fi
+
+    if rg -n --fixed-strings "$invariant" "$integrity_file" >/dev/null 2>&1; then
+      echo "OK:   $id invariant is present in integrity source"
+    else
+      echo "FAIL: $id invariant is absent from integrity source: $invariant"
+      fail=1
+    fi
+
+    for declared_surface in ${surface//,/ }; do
+      declared_surface="${declared_surface//\"/}"
+      declared_surface="${declared_surface//[[:space:]]/}"
+      case "$declared_surface" in
+        CreateEntry)
+          pattern='FlatOp::CreateEntry'
+          ;;
+        CreateRecord)
+          pattern='FlatOp::CreateRecord'
+          ;;
+        Update)
+          pattern='FlatOp::Update'
+          ;;
+        Delete)
+          pattern='FlatOp::Delete'
+          ;;
+        Link.CreateLink)
+          pattern='FlatOp::Link(OpLink::CreateLink'
+          ;;
+        Link.DeleteLink)
+          pattern='FlatOp::Link(link @ OpLink::DeleteLink'
+          ;;
+        *)
+          echo "FAIL: $id contains unknown operation surface: $declared_surface"
+          fail=1
+          continue
+          ;;
+      esac
+      if rg -n --fixed-strings "$pattern" "$integrity_file" >/dev/null 2>&1; then
+        echo "OK:   $id declares operation surface $declared_surface present in integrity source"
+      else
+        echo "FAIL: $id declares operation surface $declared_surface absent from integrity source"
+        fail=1
+      fi
+    done
+  done
+}
+
+# Dependency retrieval semantics: must_get_action only proves retrieval; it does not prove
+# that the referenced record passed application validation. Update/delete authorization
+# therefore uses must_get_valid_record before trusting the referenced author. Valid-record
+# consumers must also inspect the referenced entry/action rather than treating retrieval
+# itself as the invariant.
+check_dependency_semantics() {
+  local file="$1"
+  if rg -n --pcre2 'must_get_action\(action\.(?:original_action_address|deletes_address)' "$file" >/tmp/hearth07_weak_dependency.$ 2>/dev/null; then
+    echo "FAIL: $file uses must_get_action for update/delete authorization"
+    cat /tmp/hearth07_weak_dependency.$
+    fail=1
+  fi
+  if rg -n --pcre2 'must_get_valid_record\(' "$file" >/dev/null 2>&1; then
+    if rg -n --pcre2 '\.(?:entry\(\)\.to_app_option|action\(\))|try_from_action' "$file" >/dev/null 2>&1; then
+      echo "OK:   $file valid-record dependencies are semantically inspected"
+    else
+      echo "FAIL: $file retrieves a valid record without inspecting its entry/action"
+      fail=1
+    fi
+  else
+    echo "OK:   $file has no must_get_valid_record dependency sites"
+  fi
+}
+
+# Immutable-field helpers must prove the referenced CreateRecord is valid and
+# deserialize the original entry before comparing fields. This guards against a
+# future helper that retrieves a record but accidentally treats retrieval as proof.
+check_immutable_dependency_semantics() {
+  local file="$1"
+  local helper_count
+  helper_count="$(rg -n --pcre2 '^\s*(?:pub\s+)?fn\s+validate_[A-Za-z0-9_]*immutable_fields\s*\(' "$file" | wc -l)"
+  if [[ "$helper_count" -eq 0 ]]; then
+    echo "OK:   $file has no immutable-field helper sites"
+    return
+  fi
+  if ! rg -n --pcre2 'validate_[A-Za-z0-9_]*immutable_fields\s*\(' "$file" >/dev/null 2>&1; then
+    echo "FAIL: $file declares immutable-field helpers but no call site was found"
+    fail=1
+  fi
+  if ! rg -n --pcre2 'must_get_valid_record\(' "$file" >/dev/null 2>&1; then
+    echo "FAIL: $file immutable-field helpers do not use must_get_valid_record"
+    fail=1
+  fi
+  if ! rg -n --pcre2 '\.entry\(\)\s*\.to_app_option\(\)' "$file" >/dev/null 2>&1; then
+    echo "FAIL: $file immutable-field helpers do not deserialize the original entry"
+    fail=1
+  fi
+  echo "OK:   $file immutable-field dependency semantics"
+}
+
+check_standalone_tests_workspace_boundary() {
+  local manifest="mycelix-workspace/mycelix-hearth/tests/Cargo.toml"
+  if [[ -f "$manifest" ]] && rg -n --fixed-strings "[workspace]" "$manifest" >/dev/null 2>&1; then
+    echo "OK:   Hearth integration tests declare their standalone Cargo workspace boundary"
+  else
+    echo "FAIL: Hearth integration tests must declare an explicit standalone Cargo workspace boundary"
+    fail=1
+  fi
+}
+
+check_qualification_workflow_provenance() {
+  local workflow=".github/workflows/hearth-07-qualification.yml"
+  if [[ ! -f "$workflow" ]]; then
+    echo "FAIL: missing Hearth 0.7 qualification workflow"
+    fail=1
+    return
+  fi
+  if rg -n --fixed-strings "target_sha:" "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings "ref: ${{ env.QUALIFY_SHA }}" "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings "git rev-parse HEAD" "$workflow" >/dev/null 2>&1; then
+    echo "OK:   qualification workflow binds execution to an exact candidate SHA"
+  else
+    echo "FAIL: qualification workflow does not enforce exact candidate-SHA checkout provenance"
+    fail=1
+  fi
+  if rg -n --fixed-strings "cargo build --locked" "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings "cargo test --locked" "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings "cargo generate-lockfile" "$workflow" >/dev/null 2>&1; then
+    echo "OK:   qualification workflow generates and consumes locked Rust closures"
+  else
+    echo "FAIL: qualification workflow is missing locked Rust dependency closure enforcement"
+    fail=1
+  fi
+}
+
+check_dna_source_completeness() {
+  local dna="mycelix-workspace/mycelix-hearth/dna/dna.yaml"
+  local count=0
+  while IFS= read -r -d "" file; do
+    local dir name
+    dir="$(basename "$(dirname "$(dirname "$(dirname "$file")")")")"
+    name="${dir//-/_}_integrity"
+    if rg -n --fixed-strings "- name: $name" "$dna" >/dev/null 2>&1; then
+      echo "OK:   DNA packages discovered integrity zome $name"
+    else
+      echo "FAIL: DNA is missing discovered integrity zome $name"
+      fail=1
+    fi
+    count=$((count + 1))
+  done < <(git ls-files -z -- "mycelix-workspace/mycelix-hearth/zomes/*/integrity/src/lib.rs")
+  local dna_count
+  dna_count="$(rg -n "^[[:space:]]*-[[:space:]]*name:[[:space:]]*hearth_[A-Za-z0-9_]+_integrity$" "$dna" | wc -l)"
+  if [[ "$dna_count" -eq "$count" ]]; then
+    echo "OK:   DNA integrity-zome count matches tracked Hearth integrity zomes ($count)"
+  else
+    echo "FAIL: DNA integrity-zome count ($dna_count) differs from tracked Hearth integrity zomes ($count)"
+    fail=1
+  fi
+}
+check_standalone_tests_workspace_boundary
+check_qualification_workflow_provenance
+check_dna_source_completeness
+check_semantic_validation_suite_wiring
+check_semantic_case_entrypoints
+check_semantic_case_integrity_bindings
+
+for file in "${integrity_files[@]}"; do
+  check_create_record_coverage "$file"
+done
+
+for file in "${integrity_files[@]}"; do
+  check_dangerous_operation_catchalls "$file"
+done
+
+for file in "${integrity_files[@]}"; do
+  check_create_record_entry_dispatch "$file"
+done
+for file in "${integrity_files[@]}"; do
+  check_dependency_semantics "$file"
+done
+
+for file in "${integrity_files[@]}"; do
+  check_update_action_coverage "$file"
+done
+
+for file in "${integrity_files[@]}"; do
+  check_update_delete_authorization "$file"
+done
+
+for file in "${integrity_files[@]}"; do
+  check_entry_type_dispatch "$file"
+done
+
+for file in "${integrity_files[@]}"; do
+  check_delete_link_authorization "$file"
+done
+
+for file in "${integrity_files[@]}"; do
+  check_link_type_policy "$file"
+done
+
+for file in "${integrity_files[@]}"; do
+  check_link_tag_contract "$file"
+done
+
+for file in "${integrity_files[@]}"; do
+  check_immutable_dependency_semantics "$file"
+done
+
+for file in "${integrity_files[@]}"; do
+  check_validation_determinism "$file"
+done
+
+echo
+if [[ "$fail" -ne 0 ]]; then
+  echo "HEARTH-0.7 source audit: FAIL"
+  exit "$fail"
+fi
+echo "HEARTH-0.7 source audit: PASS"
+\t' read -r id test zome operation invariant expected_result surface <<< "${rows[$i]}"
     integrity_file="mycelix-workspace/mycelix-hearth/zomes/${zome//_/-}/integrity/src/lib.rs"
 
     if [[ ! -f "$integrity_file" ]]; then
