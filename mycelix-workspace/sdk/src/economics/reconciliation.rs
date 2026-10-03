@@ -49,6 +49,24 @@ pub struct StockFlowReconciliation {
     pub posting_count: u64,
 }
 
+impl StockFlowReconciliation {
+    /// Re-derive this reconciliation from the supplied states, assignments, and
+    /// ordered transition program and require exact equality.
+    pub fn verify_against(
+        &self,
+        pre_state: &EconomicState,
+        post_state: &EconomicState,
+        assignments: &[SectorAssignment],
+        transitions: &[EconomicTransition],
+    ) -> Result<(), String> {
+        let expected = reconcile_step(pre_state, post_state, assignments, transitions)?;
+        if self != &expected {
+            return Err("stock-flow reconciliation does not match supplied economic artifacts".into());
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StockFlowMismatch {
     pub sector: EconomicSector,
@@ -387,6 +405,22 @@ mod tests {
         let post = SectorBalanceSheet::default();
 
         assert!(balance_sheet_delta(&pre, &post).is_err());
+    }
+
+
+    #[test]
+    fn reconciliation_verify_against_rejects_tampering() {
+        let (pre, assignments) = setup();
+        let transitions = vec![EconomicTransition::CreditCreation(
+            CreditCreation::new("bank", "household", 100).unwrap(),
+        )];
+        let (post, _) = apply_step(&pre, 1, &transitions, None).unwrap();
+        let mut receipt = reconcile_step(&pre, &post, &assignments, &transitions).unwrap();
+        receipt.posting_count = receipt.posting_count.saturating_add(1);
+
+        assert!(receipt
+            .verify_against(&pre, &post, &assignments, &transitions)
+            .is_err());
     }
 
     #[test]
