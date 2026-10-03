@@ -927,3 +927,38 @@ program when the stronger sealing path is used.
 The design also follows the current accounting direction of making asset/liability changes and
 non-cash changes traceable to the underlying statement information rather than hidden inside an
 unexplained aggregate reconciliation.
+
+## Full-trace replay provenance (implemented)
+
+The stronger evidence boundary now also supports whole-trace sealing through
+`EconomicEvidenceCapsule::seal_verified_trace`.
+
+For a multi-period run, this path validates the initial state and manifest genesis hash, verifies
+the supplied trace, then replays every period from the initial state. The replayed trace must be
+byte-equivalent in its structured receipt representation to the supplied trace, and the replayed
+terminal state must equal the supplied terminal state.
+
+The final accounting closure is then evaluated against the **actual opening state of the final
+period**, obtained by replaying the prefix of the trace. This is important: using the simulation
+genesis state as the accounting pre-state for the final period would incorrectly collapse
+multi-period provenance into a single-step proof.
+
+This closes two distinct tampering classes:
+
+1. a receipt can be internally rehashed while describing a transition that was never produced by
+   the authoritative transition program;
+2. a final-period accounting closure can be valid while an earlier receipt in the chain has been
+   altered.
+
+The resulting strongest evidence path is:
+
+initial state
+-> replayed ordered transition program
+-> complete verified receipt chain
+-> final-period replayed pre-state
+-> cross-layer accounting closure
+-> terminal evidence capsule
+
+This is consistent with the SFC accounting discipline in which sectoral transactions and stocks are
+kept jointly coherent, and with current IASB work seeking clearer traceability between statement
+of financial position items, cash-flow reconciliations, and specified non-cash changes.
