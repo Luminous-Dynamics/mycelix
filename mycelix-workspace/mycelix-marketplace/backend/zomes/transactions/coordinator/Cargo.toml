@@ -17,7 +17,7 @@ thiserror.workspace = true
 mycelix_common = { path = "../../../crates/mycelix_common" }
 
 transactions_integrity = { path = "../integrity" }
-listings_integrity = { path = "../../listings/integrity" }
+listings_types = { path = "../../listings/types" }
 reputation_integrity = { path = "../../reputation/integrity" }
 
 # Security utilities

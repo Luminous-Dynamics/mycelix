@@ -17,18 +17,18 @@ mod tests {
         ListingOutputForPurchase {
             listing_hash: ActionHash::from_raw_36(vec![3u8; 36]),
             seller_agent_id: AgentPubKey::from_raw_36(vec![2u8; 36]),
-            listing: listings_integrity::Listing {
+            listing: listings_types::Listing {
                 title: "Mechanical keyboard".to_string(),
                 description: "Test listing".to_string(),
                 price_cents: 1999,
-                category: listings_integrity::ListingCategory::Electronics,
+                category: listings_types::ListingCategory::Electronics,
                 photos_ipfs_cids: vec![],
                 quantity_available: 10,
-                status: listings_integrity::ListingStatus::Active,
-                epistemic: listings_integrity::EpistemicClassification {
-                    empirical: listings_integrity::EmpiricalLevel::E1Testimonial,
-                    normative: listings_integrity::NormativeLevel::N0Personal,
-                    materiality: listings_integrity::MaterialityLevel::M1Temporal,
+                status: listings_types::ListingStatus::Active,
+                epistemic: listings_types::EpistemicClassification {
+                    empirical: listings_types::EmpiricalLevel::E1Testimonial,
+                    normative: listings_types::NormativeLevel::N0Personal,
+                    materiality: listings_types::MaterialityLevel::M1Temporal,
                 },
                 created_at: Timestamp::from_micros(1_000_000),
                 updated_at: Timestamp::from_micros(1_000_000),
@@ -40,6 +40,7 @@ mod tests {
         CreateTransactionInput {
             seller: AgentPubKey::from_raw_36(vec![2u8; 36]),
             listing_hash: ActionHash::from_raw_36(vec![3u8; 36]),
+            reservation_certificate_hash: ActionHash::from_raw_36(vec![4u8; 36]),
             quantity: 2,
             total_price_cents: 3998,
         }
@@ -49,6 +50,7 @@ mod tests {
             buyer: AgentPubKey::from_raw_36(vec![1u8; 36]),
             seller: AgentPubKey::from_raw_36(vec![2u8; 36]),
             listing_hash: ActionHash::from_raw_36(vec![3u8; 36]),
+            reservation_certificate_hash: ActionHash::from_raw_36(vec![4u8; 36]),
             quantity: 1,
             total_price_cents: 1999,
             status: TransactionStatus::Pending,
@@ -301,6 +303,7 @@ mod tests {
         let input = CreateTransactionInput {
             seller: AgentPubKey::from_raw_36(vec![2u8; 36]),
             listing_hash: ActionHash::from_raw_36(vec![3u8; 36]),
+            reservation_certificate_hash: ActionHash::from_raw_36(vec![4u8; 36]),
             quantity: 2,
             total_price_cents: 3998, // 2 * 1999
         };
@@ -465,40 +468,46 @@ mod tests {
 
     #[test]
     fn test_marketplace_settlement_result_serde() {
-        // settled = true variant
+        let root = ActionHash::from_raw_36(vec![8u8; 36]);
+        let revision = ActionHash::from_raw_36(vec![9u8; 36]);
+
         let result = TransactionSettlementResult {
+            root_transaction_hash: root.clone(),
+            transaction_revision_hash: revision.clone(),
+            state: TransactionSettlementState::Completed,
             settled: true,
-            finance_reference: Some("payment:mycelix-marketplace:did:key:buyer:123456".to_string()),
+            idempotency_reference: "marketplace_tx:test".into(),
+            finance_payment_id: Some("payment-123".into()),
+            finance_action_hash: Some(ActionHash::from_raw_36(vec![10u8; 36])),
             error: None,
         };
         let json = serde_json::to_string(&result).unwrap();
         let back: TransactionSettlementResult = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.root_transaction_hash, root);
+        assert_eq!(back.transaction_revision_hash, revision);
+        assert_eq!(back.state, TransactionSettlementState::Completed);
         assert!(back.settled);
-        assert!(back.finance_reference.is_some());
+        assert_eq!(back.finance_payment_id.as_deref(), Some("payment-123"));
+        assert!(back.finance_action_hash.is_some());
         assert!(back.error.is_none());
 
-        // settled = false — finance unavailable
         let result2 = TransactionSettlementResult {
+            root_transaction_hash: ActionHash::from_raw_36(vec![11u8; 36]),
+            transaction_revision_hash: ActionHash::from_raw_36(vec![12u8; 36]),
+            state: TransactionSettlementState::Unavailable,
             settled: false,
-            finance_reference: None,
-            error: Some("Finance cluster not available".to_string()),
+            idempotency_reference: "marketplace_tx:unavailable".into(),
+            finance_payment_id: None,
+            finance_action_hash: None,
+            error: Some("Finance cluster not available".into()),
         };
         let json2 = serde_json::to_string(&result2).unwrap();
         let back2: TransactionSettlementResult = serde_json::from_str(&json2).unwrap();
+        assert_eq!(back2.state, TransactionSettlementState::Unavailable);
         assert!(!back2.settled);
-        assert!(back2.finance_reference.is_none());
+        assert!(back2.finance_payment_id.is_none());
+        assert!(back2.finance_action_hash.is_none());
         assert!(back2.error.as_deref().unwrap().contains("not available"));
-
-        // settled = false — rejected by finance
-        let result3 = TransactionSettlementResult {
-            settled: false,
-            finance_reference: None,
-            error: Some("Finance cluster rejected settlement: Unauthorized".to_string()),
-        };
-        let json3 = serde_json::to_string(&result3).unwrap();
-        let back3: TransactionSettlementResult = serde_json::from_str(&json3).unwrap();
-        assert!(!back3.settled);
-        assert!(back3.error.as_deref().unwrap().contains("rejected"));
     }
 
     // ===== Purchase Term Binding Tests =====
@@ -547,7 +556,7 @@ mod tests {
     fn test_purchase_rejects_inactive_listing() {
         let input = valid_purchase_input();
         let mut listing = mock_listing_output();
-        listing.listing.status = listings_integrity::ListingStatus::Inactive;
+        listing.listing.status = listings_types::ListingStatus::Inactive;
         let buyer = AgentPubKey::from_raw_36(vec![1u8; 36]);
 
         let error = validate_purchase_terms(&input, &listing, &buyer).unwrap_err();
