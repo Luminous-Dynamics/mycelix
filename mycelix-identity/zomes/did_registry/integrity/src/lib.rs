@@ -7,6 +7,7 @@
 //! Updated to use HDI 0.7 patterns with FlatOp validation
 
 use hdi::prelude::*;
+use mycelix_crypto::{AlgorithmId, TaggedPublicKey};
 
 /// DID Document entry type
 #[hdk_entry_helper]
@@ -354,6 +355,68 @@ fn validate_mycelix_did_syntax(did: &str) -> Result<(), &'static str> {
     Ok(())
 }
 
+/// Validate one verification method against the DID cryptographic contract.
+fn validate_verification_method(method: &VerificationMethod, did_id: &str) -> Result<AlgorithmId, String> {
+    if method.id.is_empty() || method.id.len() > 256 {
+        return Err("Verification method ID must be 1-256 characters".into());
+    }
+    if method.type_.is_empty() || method.type_.len() > 256 {
+        return Err("Verification method type must be 1-256 characters".into());
+    }
+    if method.controller != did_id {
+        return Err("Verification method controller must equal the DID".into());
+    }
+    if method.public_key_multibase.is_empty() || method.public_key_multibase.len() > 4096 {
+        return Err("Public key multibase must be 1-4096 characters".into());
+    }
+    let tagged = TaggedPublicKey::from_multibase(&method.public_key_multibase)
+        .map_err(|error| format!("Invalid verification method key: {error}"))?;
+    if let Some(declared_code) = method.algorithm {
+        let declared = AlgorithmId::from_u16(declared_code)
+            .ok_or_else(|| format!("Unknown verification method algorithm: {declared_code:#06x}"))?;
+        if declared != tagged.algorithm {
+            return Err(format!(
+                "Verification method algorithm does not match multibase key: declared={}, detected={}",
+                declared.did_verification_method_type(),
+                tagged.algorithm.did_verification_method_type()
+            ));
+        }
+    }
+    if method.type_ != tagged.algorithm.did_verification_method_type() {
+        return Err(format!(
+            "Verification method type does not match key algorithm: type={}, algorithm={}",
+            method.type_,
+            tagged.algorithm.did_verification_method_type()
+        ));
+    }
+    Ok(tagged.algorithm)
+}
+
+fn validate_verification_method_set(did_doc: &DidDocument) -> Result<(), String> {
+    if did_doc.verification_method.is_empty() {
+        return Err("DID must have at least one verification method".into());
+    }
+    let mut algorithms = std::collections::BTreeMap::new();
+    for method in &did_doc.verification_method {
+        let algorithm = validate_verification_method(method, &did_doc.id)?;
+        if algorithms.insert(method.id.as_str(), algorithm).is_some() {
+            return Err("DID verification method IDs must be unique".into());
+        }
+    }
+    for reference in &did_doc.authentication {
+        let algorithm = algorithms.get(reference.as_str()).ok_or_else(|| format!("DID authentication reference '{}' must resolve to a verification method", reference))?;
+        if !algorithm.is_signature_algorithm() {
+            return Err(format!("DID authentication reference '{}' must use a signature algorithm, detected {}", reference, algorithm.did_verification_method_type()));
+        }
+    }
+    for reference in &did_doc.key_agreement {
+        let algorithm = algorithms.get(reference.as_str()).ok_or_else(|| format!("DID keyAgreement reference '{}' must resolve to a verification method", reference))?;
+        if !matches!(algorithm, AlgorithmId::MlKem768 | AlgorithmId::MlKem1024) {
+            return Err(format!("DID keyAgreement reference '{}' must use an ML-KEM algorithm, detected {}", reference, algorithm.did_verification_method_type()));
+        }
+    }
+    Ok(())
+}
 /// Validate DID document creation
 /// Enforce that a DID document's identifier is derived from the committing
 /// agent's key. Pure so it can be unit-tested without a full Create action.
