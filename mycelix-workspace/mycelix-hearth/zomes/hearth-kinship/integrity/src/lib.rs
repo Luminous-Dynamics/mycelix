@@ -512,7 +512,12 @@ fn validate_create_link(
             let anchor_hash = EntryHash::try_from(base_address).map_err(|_| {
                 ValidateCallbackResult::Invalid("AllHearths base must be an EntryHash".into())
             })?;
-            let _anchor = load_anchor(anchor_hash, "AllHearths anchor")?;
+            let anchor = load_anchor(anchor_hash, "AllHearths anchor")?;
+            if anchor.0 != "all_hearths" {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "AllHearths base anchor must be 'all_hearths'".into(),
+                ));
+            }
             let hearth_hash = action_hash_from_link(target_address, "AllHearths target")?;
             let _ = load_original_typed_entry::<Hearth>(hearth_hash, "Hearth")?;
         }
@@ -542,7 +547,12 @@ fn validate_create_link(
             let anchor_hash = EntryHash::try_from(base_address).map_err(|_| {
                 ValidateCallbackResult::Invalid("TypeToHearths base must be an EntryHash".into())
             })?;
-            let _anchor = load_anchor(anchor_hash, "TypeToHearths anchor")?;
+            let anchor = load_anchor(anchor_hash, "TypeToHearths anchor")?;
+            if !anchor.0.starts_with("hearth_type:") || anchor.0.len() <= "hearth_type:".len() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "TypeToHearths base anchor must use a non-empty hearth_type: namespace".into(),
+                ));
+            }
             let hearth_hash = action_hash_from_link(target_address, "TypeToHearths target")?;
             let _ = load_original_typed_entry::<Hearth>(hearth_hash, "Hearth")?;
         }
