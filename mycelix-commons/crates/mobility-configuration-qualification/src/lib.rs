@@ -14,7 +14,9 @@ pub mod temporal_reconciliation;
 pub mod temporal_reconciliation_witness;
 pub mod witness_revision;
 
-pub use binding_provenance::QualificationDependencyBindingProvenance;
+pub use binding_provenance::{
+    QualificationAuthorityAgentBindingProvenance, QualificationDependencyBindingProvenance,
+};
 
 pub use qualification::{
     QualificationDecision, QualificationDependencyBinding, QualificationDependencyBindingSet,
