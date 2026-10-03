@@ -1,0 +1,50 @@
+{
+  "schema": "mycelix.mobility.qualification_adapter_boundary.v1",
+  "version": "1",
+  "semantic_outcomes": [
+    {
+      "pure": "valid",
+      "meaning": "qualification completed for the supplied dependency set",
+      "holochain": "ValidateCallbackResult::Valid"
+    },
+    {
+      "pure": "invalid",
+      "meaning": "supplied records contain a definitive structural contradiction",
+      "holochain": "ValidateCallbackResult::Invalid(String)"
+    },
+    {
+      "pure": "unresolved",
+      "meaning": "qualification cannot complete because required logical dependencies are unavailable",
+      "holochain": "ValidateCallbackResult::UnresolvedDependencies(UnresolvedDependencies)"
+    }
+  ],
+  "error_boundary": {
+    "semantic_invalidity": "must be returned as a validation result, not ExternResult::Err",
+    "runtime_failure": "may remain an ExternResult::Err",
+    "dependency_absence": "must remain unresolved until the required addressable dependency is available"
+  },
+  "identity_boundary": {
+    "logical_identity_type": "IdentityRef",
+    "protocol_address_type": "Holochain hash or other runtime-specific addressable dependency",
+    "implicit_string_to_hash_conversion": false,
+    "adapter_binding_required": true
+  },
+  "dependency_retrieval": {
+    "deterministic_host_function_family": "must_get_*",
+    "mutable_link_collections_as_validation_dependencies": false,
+    "missing_addressable_dependency_is_semantic_invalidity": false
+  },
+  "determinism": {
+    "retrieval_order_independent": true,
+    "serialization_order_independent": true,
+    "batching_partition_independent": true,
+    "wall_clock_independent": true,
+    "peer_identity_independent": true
+  },
+  "compatibility": {
+    "pure_layer_holochain_dependency": null,
+    "current_workspace_line": "Holochain 0.6-compatible",
+    "recommended_runtime_line": "Holochain 0.7",
+    "migration_isolation": "runtime adapter only"
+  }
+}
