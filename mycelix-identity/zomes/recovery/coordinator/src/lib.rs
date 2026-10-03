@@ -1169,6 +1169,7 @@ pub fn cancel_recovery(request_id: String) -> ExternResult<Record> {
         status: RecoveryStatus::Cancelled,
         created: current_request.created,
         time_lock_expires: current_request.time_lock_expires,
+        approval_certificate: current_request.approval_certificate,
     };
 
     let action_hash = update_entry(
