@@ -9,8 +9,8 @@
     "deployment_rule": "Only the canonical Mycelix Identity DNA deployment is authoritative for the method. Staging, test, and foreign Identity DNA deployments are not alternate authorities for the same did:mycelix namespace."
   },
   "did_vectors": [
-    {"id":"DID-001","input":"did:mycelix:uhCAkSELF","kind":"valid","expected":"accept"},
-    {"id":"DID-002","input":"did:mycelix:uhCAk-_0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz","kind":"valid","expected":"accept"},
+    {"id":"DID-001","input":"did:mycelix:uhCAk29vb29vb29vb29vb29vb29vb29vb29vb29vb29uTp5Iv","kind":"valid","expected":"accept"},
+    {"id":"DID-002","input":"did:mycelix:uhCAkZBguduqvDVaKHA-SpVnP_TT6JZIk4-3Vfq0iPdubq8JPSInp","kind":"valid","expected":"accept"},
     {"id":"DID-003","input":"did:mycelix:","kind":"invalid","expected":"reject","error":"INVALID_DID"},
     {"id":"DID-004","input":"did:mycelix:abc:def","kind":"invalid","expected":"reject","error":"INVALID_DID"},
     {"id":"DID-005","input":"did:mycelix:abc#key-1","kind":"did-url-not-did","expected":"reject-as-resolve-input","error":"INVALID_DID"},
