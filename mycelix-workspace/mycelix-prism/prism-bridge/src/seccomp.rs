@@ -2018,17 +2018,33 @@ mod linux {
         }
 
         #[test]
-        fn compiled_filter_rejects_unexpected_opcode() {
+        fn compiled_filter_rejects_unexpected_instruction_shape() {
             let arch = SeccompArchitecture::current().unwrap();
             let policy = SeccompSyscallPolicyV2::new(
                 arch,
                 vec![SeccompSyscallRuleV2::new(libc::SYS_socket, Vec::new()).unwrap()],
             )
             .unwrap();
-            let mut filter = compile_filter_v2(&policy).unwrap();
-            filter[0].code = BPF_JMP;
+
+            let mut unexpected_opcode = compile_filter_v2(&policy).unwrap();
+            unexpected_opcode[0].code = BPF_JMP;
             assert!(matches!(
-                validate_compiled_filter(&filter),
+                validate_compiled_filter(&unexpected_opcode),
+                Err(SeccompError::CompilerInvariantViolation)
+            ));
+
+            let mut unexpected_load = compile_filter_v2(&policy).unwrap();
+            unexpected_load[0].k = 8; // instruction-pointer field is outside the compiler contract
+            assert!(matches!(
+                validate_compiled_filter(&unexpected_load),
+                Err(SeccompError::CompilerInvariantViolation)
+            ));
+
+            let mut unexpected_jump = compile_filter_v2(&policy).unwrap();
+            unexpected_jump[4].code = BPF_JMP | BPF_JGE | BPF_K;
+            unexpected_jump[4].k = 1;
+            assert!(matches!(
+                validate_compiled_filter(&unexpected_jump),
                 Err(SeccompError::CompilerInvariantViolation)
             ));
         }
