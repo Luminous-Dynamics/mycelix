@@ -293,10 +293,21 @@ pub fn resolve_substrate(role: String) -> ExternResult<Vec<AgentPubKey>> {
         GetStrategy::default(),
     )?;
 
-    Ok(links
-        .into_iter()
-        .filter_map(|l| AgentPubKey::try_from(l.target).ok())
-        .collect())
+    let mut providers = Vec::new();
+    for link in links {
+        let Ok(agent) = AgentPubKey::try_from(link.target) else {
+            continue;
+        };
+
+        // A discovery advertisement is not sufficient by itself. Do not
+        // return providers whose canonical Mycelix DID is deactivated.
+        let did = format!("did:mycelix:{}", agent);
+        if is_did_active(did)? {
+            providers.push(agent);
+        }
+    }
+
+    Ok(providers)
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
