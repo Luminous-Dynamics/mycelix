@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 
 EXPECTED_SCHEMA = "mycelix.mobility.evidence_disposition_transition.v1"
-EXPECTED_COUNT = 107
+EXPECTED_COUNT = 109
 EXPECTED_OUTCOME_CLASSES = [
     "accepted",
     "rejected",
@@ -79,6 +79,16 @@ EXPECTED_BINDING_VECTORS = [
         "bound_missing_dependency_is_delegated_to_the_matching_must_get_unresolved_path",
         "accepted",
     ),
+    (
+        "EDT-108",
+        "definitive_valid_and_invalid_decisions_map_directly_to_holochain_results",
+        "accepted",
+    ),
+    (
+        "EDT-109",
+        "pure_unresolved_decision_cannot_be_mapped_until_runtime_address_binding_exists",
+        "adapter_boundary_error",
+    ),
 ]
 
 
@@ -120,7 +130,7 @@ def main() -> int:
                 f"{expected_id} has unsupported outcome {vector.get('expected')!r}"
             )
 
-    for expected, actual in zip(EXPECTED_BINDING_VECTORS, vectors[-12:], strict=True):
+    for expected, actual in zip(EXPECTED_BINDING_VECTORS, vectors[-14:], strict=True):
         if (
             actual.get("id"),
             actual.get("case"),
