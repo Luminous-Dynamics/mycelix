@@ -962,3 +962,20 @@ initial state
 This is consistent with the SFC accounting discipline in which sectoral transactions and stocks are
 kept jointly coherent, and with current IASB work seeking clearer traceability between statement
 of financial position items, cash-flow reconciliations, and specified non-cash changes.
+
+## Chain-constructor hardening (implemented)
+
+Receipt construction now verifies an existing predecessor before extending the evidence chain.
+A successor therefore cannot be built on top of a receipt whose own chain hash or required identity
+fields are already inconsistent.
+
+Newly constructed chain nodes also reject empty pre-state, transition, or post-state hashes.
+Trace verification separately requires non-empty trace identity hashes before checking the receipt
+sequence and trace hash.
+
+This establishes a useful invariant for transported evidence:
+
+`deserialize -> structural identity checks -> predecessor verification -> chain linkage -> trace verification`
+
+A recomputed hash is therefore not sufficient to make malformed evidence acceptable at the chain
+boundary; the structure must also satisfy the same identity rules used by normal construction.
