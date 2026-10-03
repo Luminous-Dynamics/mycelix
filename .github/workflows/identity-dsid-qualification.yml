@@ -69,6 +69,8 @@ jobs:
           assert corpus["identifier_scope"]["mode"] == "canonical-production-identity-dna"
           assert corpus["did_vectors"][0]["expected"] == "accept"
           assert corpus["did_vectors"][0]["input"].startswith("did:mycelix:")
+          unsupported = next(row for row in corpus["did_vectors"] if row["id"] == "DID-008")
+          assert unsupported["error"] == "METHOD_NOT_SUPPORTED"
           assert corpus["wire_vectors"][0]["wire_name"] == "verificationMethod"
           assert corpus["verification_method_vectors"][0]["multicodec"] == "0xed01"
           assert corpus["version_vectors"][0]["transition"] == "1->2"
