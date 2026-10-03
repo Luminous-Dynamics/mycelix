@@ -47,26 +47,30 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Any explicit visibility modifier on a trust-construction item broadens the
+          # module-private boundary, whether it is pub(crate), pub(super), or pub(in ...).
           for pattern in \
-            'pub\(crate\).*SignatureVerification' \
-            'pub\(crate\).*RevocationStatus' \
-            'pub\(crate\).*AuthorityResolution' \
-            'pub\(crate\).*AUTHORITY_FRESHNESS_' \
-            'pub\(crate\).*authority_binding_from_freshness_digest' \
-            'pub\(crate\).*new_for_capability' \
-            'pub\(crate\).*binding_digest' \
-            'pub\(crate\).*revalidate_permit'; do
+            'pub([[:space:]]*\([^)]*\))?[[:space:]]+.*SignatureVerification' \
+            'pub([[:space:]]*\([^)]*\))?[[:space:]]+.*RevocationStatus' \
+            'pub([[:space:]]*\([^)]*\))?[[:space:]]+.*AuthorityResolution' \
+            'pub([[:space:]]*\([^)]*\))?[[:space:]]+.*AUTHORITY_FRESHNESS_' \
+            'pub([[:space:]]*\([^)]*\))?[[:space:]]+.*authority_binding_from_freshness_digest' \
+            'pub([[:space:]]*\([^)]*\))?[[:space:]]+.*new_for_capability' \
+            'pub([[:space:]]*\([^)]*\))?[[:space:]]+.*binding_digest' \
+            'pub([[:space:]]*\([^)]*\))?[[:space:]]+.*revalidate_permit'; do
             if rg -n "$pattern" crates/mycelix-bridge-common/src/security_kernel.rs; then
               echo "security-kernel trust-surface regression: $pattern" >&2
               exit 1
             fi
           done
 
+          # Trust-sensitive SecurityEvent fields must remain module-private under
+          # every Rust visibility form, not merely bare pub.
           for pattern in \
-            'pub[[:space:]]+decision:' \
-            'pub[[:space:]]+capability_binding:' \
-            'pub[[:space:]]+authority_binding:' \
-            'pub[[:space:]]+(event_id|actor_id|capability_ref|request|policy_version|timestamp_us|provenance|recovery_correlation):'; do
+            'pub([[:space:]]*\([^)]*\))?[[:space:]]+decision:' \
+            'pub([[:space:]]*\([^)]*\))?[[:space:]]+capability_binding:' \
+            'pub([[:space:]]*\([^)]*\))?[[:space:]]+authority_binding:' \
+            'pub([[:space:]]*\([^)]*\))?[[:space:]]+(event_id|actor_id|capability_ref|request|policy_version|timestamp_us|provenance|recovery_correlation):'; do
             if rg -n "$pattern" crates/mycelix-bridge-common/src/security_events.rs; then
               echo "security-event trust-surface regression: $pattern" >&2
               exit 1
