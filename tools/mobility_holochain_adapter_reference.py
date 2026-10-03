@@ -97,11 +97,24 @@ def main() -> int:
     ):
         raise SystemExit("host retrieval must be unreachable after binding-time type validation")
     bind_start = source.index("pub fn bind(")
-    bind_body = source[bind_start:source.index("\n    }", bind_start) + 6]
-    if bind_body.find("identity\n            .validate()") == -1:
-        raise SystemExit("logical identity validation must occur at the adapter binding boundary")
-    if bind_body.find("validate_address_kind") < bind_body.find("identity\n            .validate()"):
-        raise SystemExit("structural identity validation must precede address-kind validation")
+    bind_end = source.index("\n    /// Bind from a cryptographically", bind_start)
+    bind_body = source[bind_start:bind_end]
+    required_bind_fragments = (
+        "provenance: QualificationDependencyBindingProvenance",
+        "provenance\n            .validate()",
+        "matches_logical_identity(&identity)",
+        "identity\n            .validate()",
+        "validate_address_kind(&address, retrieval)",
+        "self.provenance.insert(identity, provenance)",
+    )
+    for fragment in required_bind_fragments:
+        if fragment not in bind_body:
+            raise SystemExit(f"binding boundary missing invariant fragment: {fragment}")
+
+    provenance_validation = bind_body.index("provenance\n            .validate()")
+    address_validation = bind_body.index("validate_address_kind(&address, retrieval)")
+    if provenance_validation > address_validation:
+        raise SystemExit("provenance validation must precede protocol address validation")
 
     print("mobility Holochain adapter independent reference qualification: PASS")
     return 0
