@@ -56,13 +56,13 @@ impl ProvenanceRef {
 /// authorization decision.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct SecurityEvent {
-    pub event_id: String,
-    pub actor_id: String,
-    pub capability_ref: String,
-    pub request: AuthorizationRequest,
+    event_id: String,
+    actor_id: String,
+    capability_ref: String,
+    request: AuthorizationRequest,
     decision: AuthorizationDecision,
-    pub policy_version: u64,
-    pub timestamp_us: u64,
+    policy_version: u64,
+    timestamp_us: u64,
     /// Kernel-derived commitment of the exact capability used for a successful
     /// enforcement request. Directly constructed events may leave this absent.
     #[serde(default)]
@@ -71,8 +71,8 @@ pub struct SecurityEvent {
     /// that qualified a successful enforcement request.
     #[serde(default)]
     authority_binding: Option<[u8; 32]>,
-    pub provenance: Vec<ProvenanceRef>,
-    pub recovery_correlation: Option<String>,
+    provenance: Vec<ProvenanceRef>,
+    recovery_correlation: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -131,8 +131,32 @@ impl<'de> serde::Deserialize<'de> for SecurityEvent {
 }
 
 impl SecurityEvent {
+    pub fn event_id(&self) -> &str {
+        &self.event_id
+    }
+
+    pub fn actor_id(&self) -> &str {
+        &self.actor_id
+    }
+
+    pub fn capability_ref(&self) -> &str {
+        &self.capability_ref
+    }
+
+    pub fn request(&self) -> &AuthorizationRequest {
+        &self.request
+    }
+
     pub fn decision(&self) -> &AuthorizationDecision {
         &self.decision
+    }
+
+    pub fn policy_version(&self) -> u64 {
+        self.policy_version
+    }
+
+    pub fn timestamp_us(&self) -> u64 {
+        self.timestamp_us
     }
 
     pub fn capability_binding(&self) -> Option<[u8; 32]> {
@@ -141,6 +165,14 @@ impl SecurityEvent {
 
     pub fn authority_binding(&self) -> Option<[u8; 32]> {
         self.authority_binding
+    }
+
+    pub fn provenance(&self) -> &[ProvenanceRef] {
+        &self.provenance
+    }
+
+    pub fn recovery_correlation(&self) -> Option<&str> {
+        self.recovery_correlation.as_deref()
     }
 
     fn new_internal(
@@ -340,9 +372,9 @@ mod tests {
         .unwrap();
 
         assert_eq!(event.decision(), &AuthorizationDecision::Allow);
-        assert_eq!(event.request, *enforcement.request());
-        assert_eq!(event.provenance.len(), 1);
-        assert_eq!(event.recovery_correlation.as_deref(), Some("recovery:1"));
+        assert_eq!(event.request(), enforcement.request());
+        assert_eq!(event.provenance().len(), 1);
+        assert_eq!(event.recovery_correlation(), Some("recovery:1"));
         assert_eq!(
             event.capability_binding(),
             Some(enforcement.capability_binding())
