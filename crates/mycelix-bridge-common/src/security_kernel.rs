@@ -525,10 +525,11 @@ impl AuthorizationRequest {
     }
 }
 
-/// Convert the authority freshness lease from milliseconds to microseconds.
+#[cfg(test)]
+/// Test the checked conversion used by the future authority adapter boundary.
 ///
 /// The authority stack uses milliseconds while the bridge kernel uses microseconds.
-/// Overflow is invalid and must be handled by the caller as missing/invalid evidence.
+/// Overflow is invalid and must be handled as missing/invalid evidence.
 fn authority_lease_until_us(lease_until_ms: u64) -> Option<u64> {
     lease_until_ms.checked_mul(1_000)
 }
