@@ -60,6 +60,7 @@ struct RecoveryRequestMirror {
     did: String,
     new_agent: AgentPubKey,
     initiated_by: String,
+    recovery_config_action_hash: ActionHash,
     reason: String,
     status: RecoveryStatusMirror,
     created: Timestamp,
@@ -2344,6 +2345,73 @@ async fn dsid_030_rejected_recovery_cannot_resurrect_in_derived_status() {
         &[&request],
         "A rejected recovery request remains terminal in the DHT-derived quorum projection.",
         format!("derived_status={}", status["status"]),
+        true,
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_031_recovery_request_pins_config_snapshot() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let alice_app = conductor.setup_app("dsid-config-pin-alice", std::slice::from_ref(&dna)).await.unwrap();
+    let bob_app = conductor.setup_app("dsid-config-pin-bob", std::slice::from_ref(&dna)).await.unwrap();
+    let carol_app = conductor.setup_app("dsid-config-pin-carol", std::slice::from_ref(&dna)).await.unwrap();
+
+    let alice = alice_app.cells()[0].clone();
+    let bob = bob_app.cells()[0].clone();
+    let carol = carol_app.cells()[0].clone();
+
+    for cell in [&alice, &bob, &carol] {
+        let _: Record = conductor.call(&cell.zome("did_registry"), "create_did", ()).await;
+    }
+
+    let alice_did = format!("did:mycelix:{}", alice_app.agent());
+    let bob_did = format!("did:mycelix:{}", bob_app.agent());
+    let carol_did = format!("did:mycelix:{}", carol_app.agent());
+
+    let config: Record = conductor.call(
+        &alice.zome("recovery"),
+        "setup_recovery",
+        serde_json::json!({
+            "did": alice_did,
+            "trustees": [alice_did.clone(), bob_did, carol_did],
+            "threshold": 2,
+            "time_lock": 86400
+        }),
+    ).await;
+
+    await_consistency(&[alice.clone(), bob.clone(), carol.clone()]).await.unwrap();
+
+    let request: Record = conductor.call(
+        &alice.zome("recovery"),
+        "initiate_recovery",
+        serde_json::json!({
+            "did": alice_did,
+            "initiator_did": format!("did:mycelix:{}", alice_app.agent()),
+            "new_agent": bob_app.agent(),
+            "reason": "DSID config snapshot pin"
+        }),
+    ).await;
+
+    let req: RecoveryRequestMirror = request.entry().to_app_option().unwrap().unwrap();
+    assert_eq!(req.recovery_config_action_hash, config.action_address());
+
+    let mut agents = BTreeMap::new();
+    agents.insert("alice", alice_app.agent().to_string());
+    agents.insert("bob", bob_app.agent().to_string());
+    agents.insert("carol", carol_app.agent().to_string());
+    emit_evidence(
+        "DSID-031",
+        "recovery-request-pins-config-snapshot",
+        &dna,
+        agents,
+        &[&config, &request],
+        "Every recovery request must remain governed by the exact recovery configuration snapshot that existed when the request was created.",
+        format!(
+            "config_snapshot_bound={}",
+            req.recovery_config_action_hash == config.action_address()
+        ),
         true,
     );
 }
