@@ -454,6 +454,7 @@ pub fn initiate_recovery(input: InitiateRecoveryInput) -> ExternResult<Record> {
         did: input.did.clone(),
         new_agent: input.new_agent,
         initiated_by: input.initiator_did.clone(),
+        recovery_config_action_hash: config_record.action_address().clone(),
         reason: input.reason,
         status: RecoveryStatus::Pending,
         created: now,
@@ -558,16 +559,16 @@ pub fn vote_on_recovery(input: VoteOnRecoveryInput) -> ExternResult<Record> {
         )));
     }
 
-    let config_record = get_recovery_config(request.did.clone())?
+    let config_record = get_latest_record(request.recovery_config_action_hash.clone())?
         .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Recovery configuration not found".into()
+            "Pinned recovery configuration not found".into()
         )))?;
     let config: RecoveryConfig = config_record
         .entry()
         .to_app_option()
         .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
         .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Invalid recovery configuration".into()
+            "Invalid pinned recovery configuration".into()
         )))?;
 
     if !config.trustees.contains(&input.trustee_did) {
@@ -701,17 +702,17 @@ fn check_and_update_request_status(request_id: String) -> ExternResult<()> {
     }
 
     let vote_records = get_recovery_votes(request_id.clone())?;
-    let config_record = get_recovery_config(current_request.did.clone())?;
-    let config: RecoveryConfig = match config_record {
-        Some(rec) => rec
-            .entry()
-            .to_app_option()
-            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-            .ok_or(wasm_error!(WasmErrorInner::Guest(
-                "Invalid recovery config".into()
-            )))?,
-        None => return Ok(()),
-    };
+    let config_record = get_latest_record(current_request.recovery_config_action_hash.clone())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Pinned recovery config snapshot not found".into()
+        )))?;
+    let config: RecoveryConfig = config_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Invalid pinned recovery config".into()
+        )))?;
 
     let mut approve_count = 0u32;
     let mut reject_count = 0u32;
@@ -978,9 +979,9 @@ pub fn arm_recovery_time_lock(request_id: String) -> ExternResult<Record> {
         )));
     }
 
-    let config_record = get_recovery_config(request.did.clone())?
+    let config_record = get_latest_record(request.recovery_config_action_hash.clone())?
         .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Recovery configuration not found".into()
+            "Pinned recovery configuration not found".into()
         )))?;
     let config: RecoveryConfig = config_record
         .entry()
@@ -1289,8 +1290,8 @@ pub fn get_recovery_status(request_id: String) -> ExternResult<Option<RecoverySt
             "Invalid recovery request record".into()
         )))?;
 
-    let config_record = get_recovery_config(request.did.clone())?
-        .ok_or(wasm_error!(WasmErrorInner::Guest("Recovery config not found".into())))?;
+    let config_record = get_latest_record(request.recovery_config_action_hash.clone())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest("Pinned recovery config not found".into())))?;
     let config: RecoveryConfig = config_record
         .entry()
         .to_app_option()
