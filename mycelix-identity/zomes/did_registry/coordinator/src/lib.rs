@@ -931,6 +931,16 @@ pub fn update_did_document(input: UpdateDidInput) -> ExternResult<Record> {
         )))?;
 
     let now = sys_time()?;
+    if now <= current_did.updated {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "DID update timestamp must advance".into()
+        )));
+    }
+    let next_version = current_did.version.checked_add(1).ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "DID version exhausted at u32::MAX".into()
+        ))
+    })?;
 
     // Validate key_agreement references if provided
     if let Some(ref ka) = input.key_agreement {
@@ -977,7 +987,7 @@ pub fn update_did_document(input: UpdateDidInput) -> ExternResult<Record> {
         service: input.service.unwrap_or(current_did.service),
         created: current_did.created,
         updated: now,
-        version: current_did.version + 1,
+        version: next_version,
     };
 
     let action_hash = update_entry(
@@ -1016,7 +1026,7 @@ pub fn update_did_document(input: UpdateDidInput) -> ExternResult<Record> {
     // Broadcast DidUpdated event (covers key rotation, service changes, etc.)
     let payload = serde_json::json!({
         "did": current_did.id,
-        "version": current_did.version + 1,
+        "version": next_version,
         "event": "did_updated",
     })
     .to_string();
