@@ -14,7 +14,8 @@ pub mod temporal_reconciliation_witness;
 pub mod witness_revision;
 
 pub use qualification::{
-    QualificationDecision, QualificationDependencyBindingSet, QualificationOutcome,
+    QualificationDecision, QualificationDependencyBinding, QualificationDependencyBindingSet,
+    QualificationDependencyRetrievalKind, QualificationOutcome,
     QualificationStatus, QualificationValidationError,
 };
 
