@@ -133,6 +133,10 @@ def main() -> int:
         "all requested logical identities bound; return canonical identity/address pairs"
     ):
         raise SystemExit("binding resolution success semantics changed")
+    if identity.get("resolution_invalid") != (
+        "malformed logical identity is definitive invalidity"
+    ):
+        raise SystemExit("binding resolution invalid semantics changed")
     if identity.get("resolution_missing") != (
         "return canonical missing logical identities and preserve unresolved semantic state"
     ):
