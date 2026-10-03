@@ -1068,34 +1068,11 @@ pub fn cancel_recovery(request_id: String) -> ExternResult<Record> {
             "Request ID must be 1-256 characters".into()
         )));
     }
-    let agent_info = agent_info()?;
 
-    // Find the request
-    let filter = ChainQueryFilter::new()
-        .entry_type(EntryType::App(AppEntryDef::try_from(
-            UnitEntryTypes::RecoveryRequest,
-        )?))
-        .include_entries(true);
-
-    let records = query(filter)?;
-
-    let mut request_record: Option<Record> = None;
-    for record in records {
-        if let Some(req) = record
-            .entry()
-            .to_app_option::<RecoveryRequest>()
-            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-        {
-            if req.id == request_id {
-                // Keep iterating — update_entry appends newer versions later in the chain
-                request_record = Some(record);
-            }
-        }
-    }
-
-    let current_record = request_record.ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Recovery request not found".into()
-    )))?;
+    let current_record = get_recovery_request(request_id.clone())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Recovery request not found".into()
+        )))?;
 
     let current_request: RecoveryRequest = current_record
         .entry()
@@ -1105,44 +1082,41 @@ pub fn cancel_recovery(request_id: String) -> ExternResult<Record> {
             "Invalid recovery request".into()
         )))?;
 
-    // Get recovery config to verify owner
-    let config_record = get_recovery_config(current_request.did.clone())?.ok_or(wasm_error!(
-        WasmErrorInner::Guest("Recovery config not found".into())
-    ))?;
+    // The request is pinned to the exact recovery configuration that governed
+    // it at creation time; cancellation must use that same immutable snapshot.
+    let config_record = get(
+        current_request.recovery_config_action_hash.clone(),
+        GetOptions::default(),
+    )?
+    .ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Pinned recovery config not found".into()
+    )))?;
 
     let config: RecoveryConfig = config_record
         .entry()
         .to_app_option()
         .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
         .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Invalid recovery config".into()
+            "Invalid pinned recovery config".into()
         )))?;
 
-    // Verify caller is owner
-    if config.owner != agent_info.agent_initial_pubkey {
+    let caller = agent_info()?.agent_initial_pubkey;
+    if config.owner != caller {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Only owner can cancel recovery".into()
         )));
     }
 
-    // Verify not already completed
     if current_request.status == RecoveryStatus::Completed {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Cannot cancel completed recovery".into()
         )));
     }
 
-    // Update to cancelled
     let cancelled_request = RecoveryRequest {
-        id: current_request.id,
-        did: current_request.did,
-        new_agent: current_request.new_agent,
-        initiated_by: current_request.initiated_by,
-        reason: current_request.reason,
         status: RecoveryStatus::Cancelled,
-        created: current_request.created,
-        time_lock_expires: current_request.time_lock_expires,
-        approval_certificate: current_request.approval_certificate,
+        approval_certificate: current_request.approval_certificate.clone(),
+        ..current_request
     };
 
     let action_hash = update_entry(
@@ -1248,7 +1222,7 @@ pub fn get_recovery_status(request_id: String) -> ExternResult<Option<RecoverySt
             "Invalid recovery request record".into()
         )))?;
 
-    let config_record = get_latest_record(request.recovery_config_action_hash.clone())?
+    let config_record = get(request.recovery_config_action_hash.clone(), GetOptions::default())?
         .ok_or(wasm_error!(WasmErrorInner::Guest("Pinned recovery config not found".into())))?;
     let config: RecoveryConfig = config_record
         .entry()
