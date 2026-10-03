@@ -9,7 +9,7 @@
 //! Provenance records origin and transformation context without asserting that
 //! the underlying claim is true.
 
-use serde::{de::Error as _, Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, de::Error as _};
 
 use crate::security_kernel::{AuthorizationDecision, AuthorizationRequest, EnforcementRequest};
 
