@@ -123,9 +123,9 @@ pub const AUTHORITY_FRESHNESS_PROFILE: &str =
 pub fn authority_binding_from_freshness_digest(freshness_digest: [u8; 32]) -> [u8; 32] {
     let mut hasher = blake3::Hasher::new();
     hasher.update(b"mycelix/security/authority-binding/v1");
-    frame_bytes(&mut hasher, AUTHORITY_FRESHNESS_PROTOCOL_VERSION.as_bytes());
-    frame_bytes(&mut hasher, AUTHORITY_FRESHNESS_PROFILE.as_bytes());
-    frame_bytes(&mut hasher, &freshness_digest);
+    frame_hash_bytes(&mut hasher, AUTHORITY_FRESHNESS_PROTOCOL_VERSION.as_bytes());
+    frame_hash_bytes(&mut hasher, AUTHORITY_FRESHNESS_PROFILE.as_bytes());
+    frame_hash_bytes(&mut hasher, &freshness_digest);
     *hasher.finalize().as_bytes()
 }
 
@@ -483,6 +483,11 @@ impl AuthorizationRequest {
             policy_version,
         })
     }
+}
+
+fn frame_hash_bytes(hasher: &mut blake3::Hasher, value: &[u8]) {
+    hasher.update(&(value.len() as u64).to_le_bytes());
+    hasher.update(value);
 }
 
 /// Cross the independent verification boundary.
