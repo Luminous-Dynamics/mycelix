@@ -889,7 +889,7 @@ pub fn verify_witness_join_binding(
                 && witness.d6o_dependency_snapshot_id.as_deref()
                     == Some(receipt.dependency_snapshot_id.as_str())
                 && receipt.observation_id == observation.observation_id
-                && receipt.observer_id == observation.observer_id
+                && receipt.observer_id == evidence.observer.observer_id
                 && receipt.classification == assessment.classification
                 && receipt.observation_profile_id == evidence.observer.observation_profile_id
                 && receipt.semantic_environment_root == set.semantic_environment_root
@@ -1058,9 +1058,9 @@ pub fn compose_finality_eligibility(
         };
 
         if !observation_matches_set(observation, set)
-            || item.observer_id != observation.observer_id
-            || item.evidence_root != observation.observer.evidence_root
-            || item.custody_root != observation.observer.custody_root
+            || item.observer_id != observation.observer.observer_id
+            || item.evidence_root != evidence.observer.evidence_root
+            || item.custody_root != evidence.observer.custody_root
             || item.assessment_commitment.is_empty()
         {
             return empty(FinalityEligibilityDispositionV1::BlockedBinding);
@@ -2044,7 +2044,7 @@ mod tests {
         let receipt = EvidenceEligibilityReceiptV1 {
             eligibility_id: format!("eligibility-{}", observation.observation.observation_id),
             observation_id: observation.observation.observation_id.clone(),
-            observer_id: observation.observer_id.clone(),
+            observer_id: observation.observer.observer_id.clone(),
             observer_generation_id: generation.generation_id.clone(),
             observation_profile_id: generation.observation_profile_id.clone(),
             semantic_environment_root: generation.semantic_environment_root.clone(),
