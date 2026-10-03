@@ -415,14 +415,28 @@ pub fn get_recovery_config(did: String) -> ExternResult<Option<Record>> {
         return Ok(None);
     }
 
-    let latest_link = links.into_iter().max_by_key(|l| l.timestamp);
-    if let Some(link) = latest_link {
+    // Multiple distinct config creation links for one DID are ambiguous
+    // authorization state. New duplicates are rejected at the integrity
+    // source-chain boundary; legacy ambiguity fails closed here.
+    let mut config_target: Option<ActionHash> = None;
+    for link in links {
         let action_hash = ActionHash::try_from(link.target)
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        return get_latest_record(action_hash);
+        if let Some(existing) = config_target.as_ref() {
+            if existing != &action_hash {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Ambiguous recovery configuration: multiple distinct config records exist for this DID".into(),
+                )));
+            }
+        } else {
+            config_target = Some(action_hash);
+        }
     }
 
-    Ok(None)
+    match config_target {
+        Some(action_hash) => get_latest_record(action_hash),
+        None => Ok(None),
+    }
 }
 
 /// Initiate a recovery request (trustee only)
@@ -1320,17 +1334,27 @@ pub fn get_recovery_request(request_id: String) -> ExternResult<Option<Record>> 
     )?;
 
     let mut found: Option<Record> = None;
+    let mut found_action: Option<ActionHash> = None;
     for link in links {
         let action_hash = ActionHash::try_from(link.target)
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid request link target".into())))?;
-        if let Some(record) = get_latest_record(action_hash)? {
+        if let Some(record) = get_latest_record(action_hash.clone())? {
             if let Some(request) = record
                 .entry()
                 .to_app_option::<RecoveryRequest>()
                 .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
             {
                 if request.id == request_id {
-                    found = Some(record);
+                    if let Some(existing) = found_action.as_ref() {
+                        if existing != &action_hash {
+                            return Err(wasm_error!(WasmErrorInner::Guest(
+                                "Ambiguous recovery request ID: multiple distinct request records exist".into(),
+                            )));
+                        }
+                    } else {
+                        found_action = Some(action_hash);
+                        found = Some(record);
+                    }
                 }
             }
         }
@@ -1355,7 +1379,17 @@ pub fn get_recovery_request(request_id: String) -> ExternResult<Option<Record>> 
             .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
         {
             if req.id == request_id {
-                found = Some(record);
+                let action_hash = record.action_address().clone();
+                if let Some(existing) = found_action.as_ref() {
+                    if existing != &action_hash {
+                        return Err(wasm_error!(WasmErrorInner::Guest(
+                            "Ambiguous legacy recovery request ID: multiple request records exist".into(),
+                        )));
+                    }
+                } else {
+                    found_action = Some(action_hash);
+                    found = Some(record);
+                }
             }
         }
     }
