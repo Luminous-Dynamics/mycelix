@@ -958,14 +958,19 @@ fn source_observation_matches_delivery(state: &FederationState, record: &Deliver
         return false;
     };
 
-    let recognized_by = match record.authority() {
-        AuthorityDisposition::RecognizedForeignEvidence
-        | AuthorityDisposition::ExplicitDelegatedAuthority => {
-            Some(record.contract().target_node.as_str())
+    let contract = record.contract();
+    let recognized_by = if contract.origin_node != contract.target_node {
+        match state.recognition_mode(
+            &contract.target_node,
+            &contract.origin_node,
+            &contract.semantic_subject_id,
+        ) {
+            Ok(Some(_)) => Some(contract.target_node.as_str()),
+            Ok(None) => None,
+            Err(()) => return false,
         }
-        AuthorityDisposition::LocalAuthority
-        | AuthorityDisposition::ForeignEvidence
-        | AuthorityDisposition::NoAuthority => None,
+    } else {
+        None
     };
 
     observation.source_observation
