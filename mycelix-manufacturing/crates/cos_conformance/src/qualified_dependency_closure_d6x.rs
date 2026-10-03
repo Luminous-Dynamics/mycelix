@@ -2148,3 +2148,5 @@ mod tests {
         assert_eq!(c.dependency_resolutions.get(&SemanticDependencyReferenceV1::node("root", Some("commit-root".into()))), Some(&SemanticDependencyResolutionV1::Present));
         assert_eq!(c.dependency_resolutions.get(&SemanticDependencyReferenceV1::node("missing", None)), Some(&SemanticDependencyResolutionV1::Missing));
         assert!(c.valid());
+    }
+}
