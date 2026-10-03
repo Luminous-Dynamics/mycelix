@@ -301,7 +301,7 @@ impl ActorEconomicObservables {
                 | EconomicTransition::InventoryCostAddition(_) => {}
             }
 
-            apply_transition(&mut working, transition)?;
+            transition.apply_to_state(&mut working)?;
             for (actor, before) in before_liquidity {
                 let after = liquidity(&working, &actor)?;
                 let delta = after
@@ -579,40 +579,6 @@ fn affected_actors(transition: &EconomicTransition) -> Vec<ActorId> {
     };
     ids.dedup();
     ids
-}
-
-fn apply_transition(
-    state: &mut EconomicState,
-    transition: &EconomicTransition,
-) -> Result<(), String> {
-    match transition {
-        EconomicTransition::MonetaryTransfer(flow) => state.apply_flow(flow),
-        EconomicTransition::IncomeTransfer(flow) => state.apply_income_transfer(flow),
-        EconomicTransition::CapitalInvestment(investment) => {
-            state.apply_capital_investment(investment)
-        }
-        EconomicTransition::Production(event) => state.apply_production(event),
-        EconomicTransition::InventoryTransfer(transfer) => {
-            state.apply_inventory_transfer(transfer)
-        }
-        EconomicTransition::InventoryConsumption(consumption) => {
-            state.apply_inventory_consumption(consumption)
-        }
-        EconomicTransition::GoodsSale(sale) => state.apply_goods_sale(sale),
-        EconomicTransition::TradeCreditSale(sale) => state.apply_trade_credit_sale(sale),
-        EconomicTransition::TradeCreditSettlement(settlement) => {
-            state.apply_trade_credit_settlement(settlement)
-        }
-        EconomicTransition::InventoryCostAddition(addition) => {
-            state.apply_inventory_cost_addition(addition)
-        }
-        EconomicTransition::InventoryCostRelief(relief) => {
-            state.apply_inventory_cost_relief(relief)
-        }
-        EconomicTransition::Depreciation(depreciation) => state.apply_depreciation(depreciation),
-        EconomicTransition::CreditCreation(credit) => state.create_credit(credit),
-        EconomicTransition::DebtRepayment(repayment) => state.repay_debt(repayment),
-    }
 }
 
 #[cfg(test)]
