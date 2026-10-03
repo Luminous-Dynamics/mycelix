@@ -524,6 +524,37 @@ mod tests {
                 .and_then(serde_json::Value::as_bool),
             Some(true)
         );
+
+        assert_eq!(
+            identity
+                .get("protocol_address_type")
+                .and_then(serde_json::Value::as_str),
+            Some("Holochain hash or other runtime-specific addressable dependency")
+        );
+        assert_eq!(
+            identity
+                .get("exactly_one_address_per_logical_identity")
+                .and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(
+            identity
+                .get("duplicate_logical_identity_binding")
+                .and_then(serde_json::Value::as_str),
+            Some("rejected")
+        );
+        assert_eq!(
+            identity
+                .get("unbound_logical_identity_is_semantic_invalidity")
+                .and_then(serde_json::Value::as_bool),
+            Some(false)
+        );
+        assert_eq!(
+            identity
+                .get("binding_order_independent")
+                .and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
     }
 
     #[test]
