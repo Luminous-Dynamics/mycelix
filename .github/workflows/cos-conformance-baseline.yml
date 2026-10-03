@@ -11,7 +11,7 @@ on:
 # Baseline control run: establish whether the D6W stack itself compiles before
 # D6X changes are treated as causal for downstream compiler failures.
 concurrency:
-  group: cos-conformance-baseline-d6w
+  group: cos-conformance-baseline-${{ github.sha }}
   cancel-in-progress: false
 
 permissions:
