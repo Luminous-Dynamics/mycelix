@@ -53,6 +53,7 @@ A-16 authenticated assertion with explicitly uncertain science
 A-17 expired key accepted under explicit historical grace policy
 A-18 multi-subject statement silently truncated to one subject
 A-19 signed predicate altered after attestation
+A-20 historical attestation verified after key expiry without explicit historical policy
 
 The qualifier derives dispositions from the contract; fixture files do not contain expected verdicts.
 
@@ -63,3 +64,11 @@ PASS establishes only that this synthetic corpus distinguishes subject binding, 
 It does not establish production cryptographic security, secure key storage, protocol interoperability, scientific correctness, causal validity, civic legitimacy, authorization, or deployment readiness.
 
 No runtime implementation is proposed.
+
+## Standards alignment notes
+
+This research profile is intentionally narrower than any production attestation or provenance implementation. Its temporal and binding semantics are informed by established provenance practice: W3C PROV defines validity using normalization plus uniqueness, event-ordering, typing, and impossibility constraints, and treats entity invalidation as a lifetime boundary. RO-Crate 1.3 is the current Recommendation; its provenance model uses CreateAction `object` for inputs and `result` for outputs, and retains prior file versions when representing changes. These references constrain the research vocabulary but do not make this synthetic qualifier standards-compliant.
+
+References:
+- https://www.w3.org/TR/prov-constraints/
+- https://www.researchobject.org/ro-crate/specification/1.3/
