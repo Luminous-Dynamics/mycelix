@@ -34,7 +34,10 @@ def manifest_ok(c):
     m=c.get("manifest",{}); k=c.get("commitment",{})
     if not m.get("digest") or m.get("actual_digest")!=m.get("digest"):
         return False
-    if k.get("manifest_digest")!=m.get("digest"):
+    if c.get("historical"):
+        if k.get("manifest_digest") != c.get("historical_manifest_digest"):
+            return False
+    elif k.get("manifest_digest")!=m.get("digest"):
         return False
     if "uri" in m and m.get("uri","").rstrip("/").endswith("/latest") and not m.get("version"):
         return False
