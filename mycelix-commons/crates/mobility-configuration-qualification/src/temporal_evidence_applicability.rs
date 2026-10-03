@@ -5114,6 +5114,16 @@ mod tests {
         let document: serde_json::Value =
             serde_json::from_str(&corpus).expect("disposition corpus must be valid JSON");
 
+        let top_level = document
+            .as_object()
+            .expect("disposition corpus must be a JSON object");
+        let mut top_level_keys: Vec<_> = top_level.keys().map(String::as_str).collect();
+        top_level_keys.sort_unstable();
+        assert_eq!(
+            top_level_keys,
+            vec!["authority", "outcome_classes", "schema", "semantics", "vectors"]
+        );
+
         let outcome_classes = document
             .get("outcome_classes")
             .and_then(serde_json::Value::as_array)
