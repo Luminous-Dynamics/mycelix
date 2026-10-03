@@ -886,6 +886,11 @@
       "id": "EDT-175",
       "case": "authority_agent_registry_rejects_reuse_of_the_same_provenance_witness",
       "expected": "adapter_boundary_error"
+    },
+    {
+      "id": "EDT-176",
+      "case": "missing_authority_agent_binding_is_preflight_only_and_makes_no_host_calls",
+      "expected": "unresolved_at_protocol_layer"
     }
   ],
   "outcome_classes": [
