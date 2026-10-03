@@ -2208,3 +2208,70 @@ async fn dsid_028_recovery_time_lock_arming_is_cross_agent_safe() {
         true,
     );
 }
+
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_029_recovery_request_id_is_deterministically_derived() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let alice_app = conductor.setup_app("dsid-request-id", std::slice::from_ref(&dna)).await.unwrap();
+    let bob_app = conductor.setup_app("dsid-request-id-bob", std::slice::from_ref(&dna)).await.unwrap();
+    let alice = alice_app.cells()[0].clone();
+    let bob = bob_app.cells()[0].clone();
+
+    let _: Record = conductor.call(&alice.zome("did_registry"), "create_did", ()).await;
+    let _: Record = conductor.call(&bob.zome("did_registry"), "create_did", ()).await;
+
+    let alice_did = format!("did:mycelix:{}", alice_app.agent());
+    let bob_did = format!("did:mycelix:{}", bob_app.agent());
+
+    let _: Record = conductor.call(
+        &alice.zome("recovery"),
+        "setup_recovery",
+        serde_json::json!({
+            "did": alice_did,
+            "trustees": [alice_did.clone(), bob_did, format!("did:mycelix:{}", alice_app.agent())],
+            "threshold": 2,
+            "time_lock": 86400
+        }),
+    ).await;
+
+    let _ = await_consistency(&[alice.clone(), bob.clone()]).await;
+
+    let request: Record = conductor.call(
+        &alice.zome("recovery"),
+        "initiate_recovery",
+        serde_json::json!({
+            "did": alice_did,
+            "initiator_did": format!("did:mycelix:{}", alice_app.agent()),
+            "new_agent": bob_app.agent(),
+            "reason": "DSID deterministic request ID"
+        }),
+    ).await;
+
+    let decoded: RecoveryRequestMirror = request
+        .entry()
+        .to_app_option()
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(
+        decoded.id,
+        format!("recovery:{}:{}", decoded.did, decoded.created.as_micros())
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("alice", alice_app.agent().to_string());
+    agents.insert("bob", bob_app.agent().to_string());
+    emit_evidence(
+        "DSID-029",
+        "recovery-request-id-is-deterministically-derived",
+        &dna,
+        agents,
+        &[&request],
+        "Recovery request identity must be a deterministic function of the protected DID and immutable creation timestamp.",
+        format!("request_id_matches_derivation={}", decoded.id == format!("recovery:{}:{}", decoded.did, decoded.created.as_micros())),
+        true,
+    );
+}
