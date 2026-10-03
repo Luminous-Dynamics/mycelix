@@ -31,6 +31,29 @@ pub enum EconomicTransition {
 }
 
 impl EconomicTransition {
+    /// Apply this validated transition to a mutable economic state.
+    ///
+    /// This is the single canonical mutation dispatcher used by execution and
+    /// observation replay so those paths cannot silently diverge in the future.
+    pub(crate) fn apply_to_state(&self, state: &mut EconomicState) -> Result<(), String> {
+        match self {
+            Self::MonetaryTransfer(flow) => state.apply_flow(flow),
+            Self::IncomeTransfer(flow) => state.apply_income_transfer(flow),
+            Self::CapitalInvestment(investment) => state.apply_capital_investment(investment),
+            Self::Production(production) => state.apply_production(production),
+            Self::InventoryTransfer(transfer) => state.apply_inventory_transfer(transfer),
+            Self::InventoryConsumption(consumption) => state.apply_inventory_consumption(consumption),
+            Self::GoodsSale(sale) => state.apply_goods_sale(sale),
+            Self::TradeCreditSale(sale) => state.apply_trade_credit_sale(sale),
+            Self::TradeCreditSettlement(settlement) => state.apply_trade_credit_settlement(settlement),
+            Self::InventoryCostAddition(addition) => state.apply_inventory_cost_addition(addition),
+            Self::InventoryCostRelief(relief) => state.apply_inventory_cost_relief(relief),
+            Self::Depreciation(depreciation) => state.apply_depreciation(depreciation),
+            Self::CreditCreation(credit) => state.create_credit(credit),
+            Self::DebtRepayment(repayment) => state.repay_debt(repayment),
+        }
+    }
+
     /// Validate transition-domain invariants independently of constructors.
     ///
     /// The transition enum is deserializable, so callers can construct values
@@ -303,24 +326,7 @@ pub fn apply_step(
             .validate()
             .map_err(EconomicStepError::TransitionRejected)?;
 
-        let result = match transition {
-            EconomicTransition::MonetaryTransfer(flow) => next.apply_flow(flow),
-            EconomicTransition::IncomeTransfer(transfer) => next.apply_income_transfer(transfer),
-            EconomicTransition::CapitalInvestment(investment) => next.apply_capital_investment(investment),
-            EconomicTransition::Production(production) => next.apply_production(production),
-            EconomicTransition::InventoryTransfer(transfer) => next.apply_inventory_transfer(transfer),
-            EconomicTransition::InventoryConsumption(consumption) => next.apply_inventory_consumption(consumption),
-            EconomicTransition::GoodsSale(sale) => next.apply_goods_sale(sale),
-            EconomicTransition::TradeCreditSale(sale) => next.apply_trade_credit_sale(sale),
-            EconomicTransition::TradeCreditSettlement(settlement) => {
-                next.apply_trade_credit_settlement(settlement)
-            }
-            EconomicTransition::InventoryCostAddition(addition) => next.apply_inventory_cost_addition(addition),
-            EconomicTransition::InventoryCostRelief(relief) => next.apply_inventory_cost_relief(relief),
-            EconomicTransition::Depreciation(depreciation) => next.apply_depreciation(depreciation),
-            EconomicTransition::CreditCreation(credit) => next.create_credit(credit),
-            EconomicTransition::DebtRepayment(repayment) => next.repay_debt(repayment),
-        };
+        let result = transition.apply_to_state(&mut next);
 
         if let Err(error) = result {
             return Err(EconomicStepError::TransitionRejected(error));
