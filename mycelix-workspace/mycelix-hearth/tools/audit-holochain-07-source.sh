@@ -446,6 +446,17 @@ check_semantic_validation_suite_wiring() {
       test_invalid_resource_entry_reaches_integrity_validation \
       test_invalid_story_entry_reaches_integrity_validation \
       test_cross_hearth_collection_story_link_reaches_integrity_validation; do
+    if [[ -f "mycelix-workspace/mycelix-hearth/zomes/hearth-stories/integrity/src/lib.rs" ]]; then
+      if awk '/LinkTypes::CollectionToStories =>/{in_case=1} in_case && /LinkTypes::HearthToTraditions =>/{exit} in_case' \
+        mycelix-workspace/mycelix-hearth/zomes/hearth-stories/integrity/src/lib.rs \
+        | rg -n 'story_entry\.hearth_hash|collection_entry\.hearth_hash' >/dev/null 2>&1; then
+        echo "OK:   Stories CollectionToStories validates collection/story hearth ownership"
+      else
+        echo "FAIL: Stories CollectionToStories lacks explicit cross-hearth ownership validation"
+        fail=1
+      fi
+    fi
+
       if rg -n --pcre2 "\basync[[:space:]]+fn[[:space:]]+$test_name\b" "$rust_test" >/dev/null 2>&1; then
         echo "OK:   semantic-validation test is present: $test_name"
       else
