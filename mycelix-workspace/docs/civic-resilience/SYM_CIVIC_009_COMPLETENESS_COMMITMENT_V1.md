@@ -60,8 +60,11 @@ C-14 exact bundle/manifest/attester binding
 C-15 valid historical commitment with exact historical manifest
 C-16 valid scoped commitment with explicit scope boundary
 C-17 authenticated snapshot that explicitly does not claim external exhaustiveness
+C-18 invalid commitment signature
 
 The qualifier derives dispositions from semantic predicates; fixture files contain no expected verdicts.
+
+The current corpus census is expected to be 14 provenance rejections, 1 content-unqualified commitment, and 4 accepted commitments.
 
 ## Qualification ceiling
 
