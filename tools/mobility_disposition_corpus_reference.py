@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 
 EXPECTED_SCHEMA = "mycelix.mobility.evidence_disposition_transition.v1"
-EXPECTED_COUNT = 149
+EXPECTED_COUNT = 158
 EXPECTED_OUTCOME_CLASSES = [
     "accepted",
     "rejected",
@@ -73,6 +73,15 @@ EXPECTED_BINDING_VECTORS = [
     ("EDT-147", "authority_agent_binding_retains_domain_provenance_requirement", "accepted"),
     ("EDT-148", "authority_agent_signature_does_not_infer_domain_authority_identity", "accepted"),
     ("EDT-149", "authority_agent_binding_is_order_independent_and_immutable", "accepted"),
+    ("EDT-150", "authority_agent_provenance_uses_a_dedicated_subject_binding_type", "accepted"),
+    ("EDT-151", "authority_agent_provenance_requires_distinct_witness_authority_scope_and_delegation_roles", "typed_structural_error"),
+    ("EDT-152", "authority_agent_provenance_requires_exact_scope_and_delegation_basis", "typed_structural_error"),
+    ("EDT-153", "authority_agent_provenance_is_closed_schema_serializable", "accepted"),
+    ("EDT-154", "verified_authority_agent_credential_is_admitted_to_immutable_registry", "accepted"),
+    ("EDT-155", "authority_agent_credential_with_wrong_issuer_is_semantic_invalidity", "typed_structural_error"),
+    ("EDT-156", "unregistered_authority_agent_binding_keeps_runtime_dependency_unresolved", "unresolved_at_protocol_layer"),
+    ("EDT-157", "registered_authority_agent_signer_is_required_for_runtime_binding", "typed_structural_error"),
+    ("EDT-158", "authority_agent_registry_rejects_second_binding_for_same_authority", "adapter_boundary_error"),
 ]
 
 
@@ -114,7 +123,7 @@ def main() -> int:
                 f"{expected_id} has unsupported outcome {vector.get('expected')!r}"
             )
 
-    for expected, actual in zip(EXPECTED_BINDING_VECTORS, vectors[-54:], strict=True):
+    for expected, actual in zip(EXPECTED_BINDING_VECTORS, vectors[-63:], strict=True):
         if (
             actual.get("id"),
             actual.get("case"),
