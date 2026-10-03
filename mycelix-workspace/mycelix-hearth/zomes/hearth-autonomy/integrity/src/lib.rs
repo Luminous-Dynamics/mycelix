@@ -206,7 +206,34 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 original_action.author(), action.author(),
             ))
         }
-        FlatOp::CreateRecord(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::CreateRecord(OpRecord::CreateEntry { app_entry, .. }) => match app_entry {
+                EntryTypes::AutonomyProfile(profile) => validate_profile(&profile),
+                EntryTypes::AutonomyRequest(request) => validate_request(&request),
+                EntryTypes::GuardianApproval(approval) => validate_approval(&approval),
+                EntryTypes::TierTransition(transition) => validate_transition(&transition),
+                    },
+        FlatOp::CreateRecord(OpRecord::UpdateEntry { app_entry, action, .. }) => match app_entry {
+                EntryTypes::AutonomyProfile(profile) => {
+                    validate_profile_update(&profile)?;
+                    validate_profile_immutable_fields(&profile, &action.original_action_address)
+                }
+                EntryTypes::AutonomyRequest(request) => {
+                    validate_request_update(&request)?;
+                    validate_request_immutable_fields(&request, &action.original_action_address)
+                }
+                EntryTypes::GuardianApproval(_) => {
+                    // INVARIANT: GuardianApproval immutability — once a guardian records
+                    // their approval or denial, it cannot be modified. This ensures
+                    // that autonomy decisions remain stable and auditable.
+                    Ok(ValidateCallbackResult::Invalid(
+                        "GuardianApproval cannot be updated once recorded".into(),
+                    ))
+                }
+                EntryTypes::TierTransition(transition) => {
+                    validate_transition_update(&transition)?;
+                    validate_transition_immutable_fields(&transition, &action.original_action_address)
+                }
+                    },
         FlatOp::AgentActivity(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::Update(OpUpdate::Entry { action, .. }) => {
             let original = must_get_valid_record(action.original_action_address.clone())?;
