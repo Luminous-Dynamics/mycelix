@@ -36,7 +36,7 @@ This directly exercises I-2, I-4, I-7, and I-8 at the shared-type boundary. The 
 The kernel now has a second, narrower boundary after authorization:
 
 1. `authorize_permit()` is the public authorization entry point: it evaluates the verified capability against the exact request and mints the bounded permit on success.
-2. A successful decision yields an `AuthorizationPermit` that is not serializable and has no public constructor.
+2. A successful decision yields an `AuthorizationPermit` that is not serializable, has no public constructor, and exposes no public inspection methods; it is opaque until consumed by `EnforcementRequest::from_permit()`.
 3. `EnforcementRequest::from_permit()` is the only public constructor for an enforcement request and revalidates the permit at the enforcement boundary. A permit is consumed by this operation and is intentionally not `Clone`, preventing safe in-memory duplication of the same authorization token. `SecurityEvent` likewise exposes no mutable serialized fields; callers receive read-only accessors and explicit consuming enrichment methods.
 4. Deny and Indeterminate outcomes produce no permit.
 5. Post-issuance revocation or authority ambiguity blocks enforcement rather than relying on the earlier Allow.
