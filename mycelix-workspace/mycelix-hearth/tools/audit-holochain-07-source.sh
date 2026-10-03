@@ -231,6 +231,50 @@ check_update_action_coverage() {
   fi
 }
 
+# Update/Delete are distinct DHT operations from CreateEntry/CreateRecord.
+# When an integrity zome exposes these paths, require the original record to be
+# fetched through must_get_valid_record before applying author authorization.
+check_update_delete_authorization() {
+  local file="$1"
+  if grep -Fq "FlatOp::Update(OpUpdate::Entry { action" "$file"; then
+    local update_block
+    update_block="$(awk '/FlatOp::Update(OpUpdate::Entry/{in_block=1} /FlatOp::Update(_)/{if(in_block){in_block=0}} in_block' "$file")"
+    if printf '%s\n' "$update_block" | grep -Fq "must_get_valid_record(action.original_action_address"; then
+      echo "OK:   $file Update path validates the original record"
+    else
+      echo "FAIL: $file Update path lacks must_get_valid_record(action.original_action_address)"
+      fail=1
+    fi
+    if printf '%s\n' "$update_block" | grep -Fq "check_author_match("; then
+      echo "OK:   $file Update path checks original-author authorization"
+    else
+      echo "FAIL: $file Update path lacks explicit original-author authorization"
+      fail=1
+    fi
+  else
+    echo "OK:   $file has no explicit entry Update authorization path"
+  fi
+
+  if grep -Fq "FlatOp::Delete(OpDelete { action" "$file"; then
+    local delete_block
+    delete_block="$(awk '/FlatOp::Delete(OpDelete/{in_block=1} /FlatOp::Update/{if(in_block){in_block=0}} in_block' "$file")"
+    if printf '%s\n' "$delete_block" | grep -Fq "must_get_valid_record(action.deletes_address"; then
+      echo "OK:   $file Delete path validates the original record"
+    else
+      echo "FAIL: $file Delete path lacks must_get_valid_record(action.deletes_address)"
+      fail=1
+    fi
+    if printf '%s\n' "$delete_block" | grep -Fq "check_author_match("; then
+      echo "OK:   $file Delete path checks original-author authorization"
+    else
+      echo "FAIL: $file Delete path lacks explicit original-author authorization"
+      fail=1
+    fi
+  else
+    echo "OK:   $file has no explicit entry Delete authorization path"
+  fi
+}
+
 # Every declared EntryTypes variant must have at least one explicit validation dispatch reference.
 check_entry_type_dispatch() {
   local file="$1"
