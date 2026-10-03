@@ -112,6 +112,9 @@ pub struct DeliveryRecord {
     contract: ImmutableDeliveryContract,
     authority: AuthorityDisposition,
     attempts: BTreeSet<String>,
+    /// Binds each transport attempt to the envelope identity that carried it.
+    /// Attempt identity remains separate from immutable logical-delivery identity.
+    attempt_envelope_ids: BTreeMap<String, String>,
     /// Identifier of the source observation minted by the admitting transition.
     /// This provenance link is not part of the immutable logical delivery contract.
     source_observation_id: String,
@@ -303,6 +306,7 @@ pub enum FederationDecision {
     PayloadConflict,
     OriginConflict,
     ContractConflict,
+    AttemptConflict,
     UnknownNode,
     RecognitionConflict,
     Rejected,
@@ -458,6 +462,16 @@ pub fn deliver(
     }
 
     if let Some(existing) = state.deliveries.get(&envelope.logical_delivery_id) {
+        if let Some(bound_envelope_id) = existing.attempt_envelope_ids.get(&envelope.attempt_id) {
+            if bound_envelope_id != &envelope.envelope_id {
+                return FederationOutcome::known_origin(
+                    FederationDecision::AttemptConflict,
+                    AuthorityDisposition::NoAuthority,
+                    envelope,
+                    "A transport attempt identity cannot be rebound to a different envelope identity.",
+                );
+            }
+        }
         if existing.contract.origin_node != envelope.origin_node {
             let mut outcome = FederationOutcome::known_origin(
                 FederationDecision::OriginConflict,
@@ -557,6 +571,8 @@ pub fn deliver(
 
     if let Some(existing) = state.deliveries.get_mut(&envelope.logical_delivery_id) {
         existing.attempts.insert(envelope.attempt_id.clone());
+        existing.attempt_envelope_ids
+            .insert(envelope.attempt_id.clone(), envelope.envelope_id.clone());
         return FederationOutcome::known_origin(
             FederationDecision::Duplicate,
             existing.authority,
@@ -660,6 +676,10 @@ pub fn deliver(
             contract: ImmutableDeliveryContract::from(envelope),
             authority,
             attempts: BTreeSet::from([envelope.attempt_id.clone()]),
+            attempt_envelope_ids: BTreeMap::from([(
+                envelope.attempt_id.clone(),
+                envelope.envelope_id.clone(),
+            )]),
             source_observation_id: envelope.envelope_id.clone(),
             source_observation_recognized_by: if foreign && recognition.is_some() {
                 Some(envelope.target_node.clone())
@@ -953,11 +973,16 @@ fn source_observation_count(state: &FederationState) -> usize {
 
 fn delivery_attempts_snapshot(
     state: &FederationState,
-) -> BTreeMap<String, BTreeSet<String>> {
+) -> BTreeMap<String, (BTreeSet<String>, BTreeMap<String, String>)> {
     state
         .deliveries
         .iter()
-        .map(|(id, record)| (id.clone(), record.attempts.clone()))
+        .map(|(id, record)| {
+            (
+                id.clone(),
+                (record.attempts.clone(), record.attempt_envelope_ids.clone()),
+            )
+        })
         .collect()
 }
 
@@ -1606,6 +1631,30 @@ mod tests {
             state.delivery("delivery-1").unwrap().attempts().len(),
             1
         );
+    }
+
+    #[test]
+    fn attempt_identity_cannot_rebind_to_a_different_envelope() {
+        let mut state = nodes();
+        let original = envelope();
+        assert_eq!(
+            deliver(&mut state, &original, 50, true).decision(),
+            FederationDecision::AcceptedLocal
+        );
+
+        let before_identity = delivery_identity_snapshot(&state);
+        let before_attempts = delivery_attempts_snapshot(&state);
+        let before_observations = state.observations.clone();
+
+        let mut rebound = original.clone();
+        rebound.envelope_id = "env-rebound".into();
+
+        let outcome = deliver(&mut state, &rebound, 50, true);
+        assert_eq!(outcome.decision(), FederationDecision::AttemptConflict);
+        assert_eq!(outcome.authority(), AuthorityDisposition::NoAuthority);
+        assert_eq!(delivery_identity_snapshot(&state), before_identity);
+        assert_eq!(delivery_attempts_snapshot(&state), before_attempts);
+        assert_eq!(state.observations, before_observations);
     }
 
     #[test]
