@@ -122,6 +122,19 @@ struct CreateStoryInput {
     visibility: HearthVisibility,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct CreateCollectionInput {
+    hearth_hash: ActionHash,
+    name: String,
+    description: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct AddToCollectionInput {
+    collection_hash: ActionHash,
+    story_hash: ActionHash,
+}
+
 fn hearth_dna_path() -> PathBuf {
     let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     path.pop();
@@ -239,4 +252,70 @@ async fn test_invalid_story_entry_reaches_integrity_validation() {
         .await;
 
     assert_integrity_rejection(result, "Story title cannot be empty");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "requires Holochain conductor (nix develop)"]
+async fn test_cross_hearth_collection_story_link_reaches_integrity_validation() {
+    let (conductor, alice) = setup_alice().await;
+    let hearth_a = create_test_hearth(&conductor, &alice).await;
+    let hearth_b = {
+        let record: Record = conductor
+            .call(
+                &alice.zome("hearth_kinship"),
+                "create_hearth",
+                CreateHearthInput {
+                    name: "Semantic Validation Hearth B".into(),
+                    description: "Second hearth for link isolation qualification".into(),
+                    hearth_type: HearthType::Intentional,
+                    max_members: Some(8),
+                },
+            )
+            .await;
+        record.action_address().clone()
+    };
+
+    let collection: Record = conductor
+        .call(
+            &alice.zome("hearth_stories"),
+            "create_collection",
+            CreateCollectionInput {
+                hearth_hash: hearth_a,
+                name: "Hearth A Collection".into(),
+                description: "Collection used for cross-hearth link rejection".into(),
+            },
+        )
+        .await;
+
+    let story: Record = conductor
+        .call(
+            &alice.zome("hearth_stories"),
+            "create_story",
+            CreateStoryInput {
+                hearth_hash: hearth_b,
+                title: "Hearth B Story".into(),
+                content: "This story deliberately belongs to another hearth.".into(),
+                story_type: StoryType::Memory,
+                media_hashes: vec![],
+                tags: vec![],
+                visibility: HearthVisibility::AllMembers,
+            },
+        )
+        .await;
+
+    let result = conductor
+        .call_fallible(
+            &alice.zome("hearth_stories"),
+            "add_to_collection",
+            AddToCollectionInput {
+                collection_hash: collection.action_address().clone(),
+                story_hash: story.action_address().clone(),
+            },
+        )
+        .await;
+
+    assert_integrity_rejection(
+        result,
+        "CollectionToStories story belongs to a different hearth",
+    );
 }
