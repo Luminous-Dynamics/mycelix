@@ -217,10 +217,10 @@ impl SectorFinancialFlowMatrix {
                     flow.amount,
                 (FinancialFlowCategory::LoanCreation, _, true)
                     if instrument == BalanceSheetInstrument::Debt =>
-                    flow.amount,
+                    -flow.amount,
                 (FinancialFlowCategory::DebtRepayment, true, _)
                     if instrument == BalanceSheetInstrument::Debt =>
-                    -flow.amount,
+                    flow.amount,
                 (FinancialFlowCategory::DebtRepayment, _, true)
                     if instrument == BalanceSheetInstrument::Loans =>
                     -flow.amount,
@@ -229,13 +229,13 @@ impl SectorFinancialFlowMatrix {
                     flow.amount,
                 (FinancialFlowCategory::TradeCreditExtension, _, true)
                     if instrument == BalanceSheetInstrument::TradePayables =>
-                    flow.amount,
+                    -flow.amount,
                 (FinancialFlowCategory::TradeCreditSettlement, true, _)
                     if instrument == BalanceSheetInstrument::TradeReceivables =>
                     -flow.amount,
                 (FinancialFlowCategory::TradeCreditSettlement, _, true)
                     if instrument == BalanceSheetInstrument::TradePayables =>
-                    -flow.amount,
+                    flow.amount,
                 _ => 0,
             };
             sum.checked_add(delta)
@@ -406,6 +406,51 @@ mod tests {
         assert!(matrix
             .validate_against_balance_sheet_delta(&pre_sheet, &tampered)
             .is_err());
+    }
+
+    #[test]
+    fn financial_matrix_reconciles_loan_claim_and_debt_liability_signs() {
+        let mut bank = ActorBalanceSheet::new("bank");
+        bank.monetary.cash = 1_000;
+        let mut firm = ActorBalanceSheet::new("firm");
+        firm.monetary.deposits = 100;
+        let pre = EconomicState::new(vec![bank, firm]);
+
+        let transitions = vec![
+            EconomicTransition::CreditCreation(
+                CreditCreation::new("bank", "firm", 60).unwrap(),
+            ),
+            EconomicTransition::DebtRepayment(
+                DebtRepayment::new("bank", "firm", 20).unwrap(),
+            ),
+        ];
+
+        let (post, _) =
+            crate::economics::transition::apply_step(&pre, 1, &transitions, None).unwrap();
+        let assignments = assignments();
+        let pre_sheet = SectorBalanceSheet::from_state(&pre, &assignments).unwrap();
+        let post_sheet = SectorBalanceSheet::from_state(&post, &assignments).unwrap();
+        let matrix =
+            SectorFinancialFlowMatrix::from_transitions(&transitions, &assignments).unwrap();
+
+        matrix
+            .validate_against_balance_sheet_delta(&pre_sheet, &post_sheet)
+            .unwrap();
+
+        assert_eq!(
+            post_sheet.sector_instrument_total(
+                EconomicSector::Bank,
+                BalanceSheetInstrument::Loans
+            ),
+            40
+        );
+        assert_eq!(
+            post_sheet.sector_instrument_total(
+                EconomicSector::Firm,
+                BalanceSheetInstrument::Debt
+            ),
+            -40
+        );
     }
 
     #[test]
