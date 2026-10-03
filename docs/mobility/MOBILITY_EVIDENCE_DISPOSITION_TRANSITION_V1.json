@@ -517,5 +517,14 @@
       "case": "bound_protocol_address_wrong_for_selected_retrieval_primitive_is_adapter_error",
       "expected": "adapter_boundary_error"
     }
+  ],
+  "outcome_classes": [
+    "accepted",
+    "rejected",
+    "typed_structural_error",
+    "unresolved_at_protocol_layer",
+    "explicit_branch",
+    "not_silently_collapsed",
+    "adapter_boundary_error"
   ]
 }
