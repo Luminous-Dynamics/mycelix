@@ -57,6 +57,23 @@ impl<T> QualificationDecision<T> {
         matches!(self, Self::Unresolved { .. })
     }
 
+    /// Whether this decision is final for the current dependency set.
+    ///
+    /// Runtime adapters may map this to a protocol's definitive-validation
+    /// predicate. Unresolved decisions are deliberately non-definitive.
+    pub fn is_definitive(&self) -> bool {
+        !self.is_unresolved()
+    }
+
+    /// Returns logical engineering identities that remain unavailable.
+    ///
+    /// These are not protocol/DHT hashes. A runtime adapter must bind each
+    /// identity to its own addressable dependency representation before
+    /// constructing a protocol-specific unresolved result.
+    pub fn missing_identities(&self) -> &[IdentityRef] {
+        self.missing()
+    }
+
     pub fn missing(&self) -> &[IdentityRef] {
         match self {
             Self::Unresolved { missing, .. } => missing,
@@ -301,6 +318,29 @@ mod tests {
         assert_eq!(decision.invalid_reason(), Some("contradiction"));
         assert!(!decision.is_valid());
         assert!(!decision.is_unresolved());
+    }
+
+    #[test]
+    fn unresolved_decision_exposes_logical_identities_without_protocol_conversion() {
+        let decision = QualificationDecision::Unresolved {
+            missing: vec![id("z"), id("a")],
+            partial: 7u8,
+        };
+
+        assert!(decision.is_unresolved());
+        assert!(!decision.is_definitive());
+        assert_eq!(decision.missing_identities(), &[id("a"), id("z")]);
+    }
+
+    #[test]
+    fn valid_and_invalid_decisions_are_definitive() {
+        let valid = QualificationDecision::Valid(1u8);
+        let invalid = QualificationDecision::Invalid {
+            reason: "contradiction".into(),
+        };
+
+        assert!(valid.is_definitive());
+        assert!(invalid.is_definitive());
     }
 
     #[test]
