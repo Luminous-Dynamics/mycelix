@@ -73,7 +73,7 @@ jobs:
         working-directory: mycelix-workspace/mycelix-hearth
         run: |
           set -o pipefail
-          nix develop .#ci --impure --command bash -c             'cd tests && cargo test --release -- --include-ignored --test-threads=1 2>&1 | tee ../qualification-sweettest.log'
+          nix develop .#ci --impure --command bash -c             'set -o pipefail; cd tests && cargo test --release -- --include-ignored --test-threads=1 2>&1 | tee ../qualification-sweettest.log'
 
       - name: Capture qualification metadata
         if: always()
