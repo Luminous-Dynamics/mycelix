@@ -247,7 +247,13 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink { link_type, tag, .. } => {
+        FlatOp::RegisterCreateLink {
+            base_address,
+            target_address,
+            link_type,
+            tag,
+            action,
+        } => {
             if tag.0.len() > 1024 {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Link tag exceeds maximum length of 1024 bytes".into(),
