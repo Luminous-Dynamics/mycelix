@@ -1720,6 +1720,22 @@ mod tests {
     }
 
     #[test]
+    fn attempt_history_bijection_detects_orphan_bindings() {
+        let mut state = nodes();
+        assert_eq!(
+            deliver(&mut state, &envelope(), 50, true).decision(),
+            FederationDecision::AcceptedLocal
+        );
+
+        let mut corrupted = state.delivery("delivery-1").unwrap().clone();
+        corrupted
+            .attempt_envelope_ids
+            .insert("orphan-attempt".into(), "orphan-envelope".into());
+
+        assert!(!attempt_history_matches_bindings(&corrupted));
+    }
+
+    #[test]
     fn attempt_identity_cannot_rebind_to_a_different_envelope() {
         let mut state = nodes();
         let original = envelope();
