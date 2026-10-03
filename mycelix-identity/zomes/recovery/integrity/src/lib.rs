@@ -260,7 +260,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 | LinkTypes::TrusteeToConfig
                 | LinkTypes::DidToSelfRecoveryConfig
                 | LinkTypes::DidToSelfRecoveryRequest
-                | LinkTypes::RecoveryRequestIdToRequest => Ok(ValidateCallbackResult::Valid),
+                | LinkTypes::RecoveryRequestIdToRequest => {
+                    validate_recovery_link(link_type, &base_address, &target_address)
+                },
             }
         }
         FlatOp::RegisterDeleteLink {
@@ -303,6 +305,146 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             Ok(ValidateCallbackResult::Valid)
         }
     }
+}
+
+fn string_to_entry_hash(value: &str) -> EntryHash {
+    let bytes = holo_hash::blake2b_256(value.as_bytes())
+        .into_iter()
+        .chain([0u8; 4])
+        .collect::<Vec<u8>>();
+    EntryHash::from_raw_36(bytes)
+}
+
+fn validate_recovery_link(
+    link_type: LinkTypes,
+    base_address: &AnyLinkableHash,
+    target_address: &AnyLinkableHash,
+) -> ExternResult<ValidateCallbackResult> {
+    let base = match base_address.clone().into_entry_hash() {
+        Some(base) => base,
+        None => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Recovery link base must be an EntryHash".into(),
+            ));
+        }
+    };
+
+    let target_action = match target_address.clone().into_action_hash() {
+        Some(target) => target,
+        None => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Recovery link target must be an ActionHash".into(),
+            ));
+        }
+    };
+
+    let record = must_get_valid_record(target_action)?;
+    match link_type {
+        LinkTypes::DidToRecoveryConfig => {
+            let config: RecoveryConfig = record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Recovery config link target must decode as RecoveryConfig".into()
+                )))?;
+            if string_to_entry_hash(&config.did) != base {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "DidToRecoveryConfig base does not match target DID".into(),
+                ));
+            }
+        }
+        LinkTypes::DidToRecoveryRequest => {
+            let request: RecoveryRequest = record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Recovery request link target must decode as RecoveryRequest".into()
+                )))?;
+            if string_to_entry_hash(&request.did) != base {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "DidToRecoveryRequest base does not match target DID".into(),
+                ));
+            }
+        }
+        LinkTypes::RecoveryRequestIdToRequest => {
+            let request: RecoveryRequest = record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Recovery request index target must decode as RecoveryRequest".into()
+                )))?;
+            if string_to_entry_hash(&request.id) != base {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Recovery request index base does not match target request ID".into(),
+                ));
+            }
+        }
+        LinkTypes::RequestToVotes => {
+            let vote: RecoveryVote = record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "RequestToVotes target must decode as RecoveryVote".into()
+                )))?;
+            if string_to_entry_hash(&vote.request_id) != base {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "RequestToVotes base does not match target request ID".into(),
+                ));
+            }
+        }
+        LinkTypes::TrusteeToConfig => {
+            let config: RecoveryConfig = record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "TrusteeToConfig target must decode as RecoveryConfig".into()
+                )))?;
+            if !config
+                .trustees
+                .iter()
+                .any(|trustee| string_to_entry_hash(trustee) == base)
+            {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "TrusteeToConfig base does not match a configured trustee".into(),
+                ));
+            }
+        }
+        LinkTypes::DidToSelfRecoveryConfig => {
+            let config: SelfRecoveryConfig = record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Self-recovery config link target must decode as SelfRecoveryConfig".into()
+                )))?;
+            if string_to_entry_hash(&config.did) != base {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "DidToSelfRecoveryConfig base does not match target DID".into(),
+                ));
+            }
+        }
+        LinkTypes::DidToSelfRecoveryRequest => {
+            let request: SelfRecoveryRequest = record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Self-recovery request link target must decode as SelfRecoveryRequest".into()
+                )))?;
+            if string_to_entry_hash(&request.did) != base {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "DidToSelfRecoveryRequest base does not match target DID".into(),
+                ));
+            }
+        }
+    }
+
+    Ok(ValidateCallbackResult::Valid)
 }
 
 /// Validate recovery config creation
