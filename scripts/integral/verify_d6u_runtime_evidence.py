@@ -33,7 +33,38 @@ def main() -> None:
 
     assert set(observed) == expected, f"coverage mismatch: {set(observed) ^ expected}"
     assert observed == expected_outcomes, f"outcome mismatch: {observed}"
-    print(f"verified D6U runtime case coverage and outcomes: {len(observed)}/{len(expected)}")
+
+    expected_supplemental = set(manifest.get("supplemental_substrate_checks", []))
+    supplemental_reasons = {
+        "future-expiry-rejection": "Future",
+    }
+    assert expected_supplemental == set(supplemental_reasons)
+    supplemental_observed = {}
+    for line in log.splitlines():
+        if not line.startswith("D6U_SUBSTRATE_CHECK\t"):
+            continue
+        parts = line.split("\t")
+        assert len(parts) == 4 and parts[3] == "PASS", (
+            f"malformed substrate-check line: {line!r}"
+        )
+        check_id, reason = parts[1], parts[2]
+        assert check_id not in supplemental_observed, (
+            f"duplicate D6U_SUBSTRATE_CHECK observation: {check_id}"
+        )
+        supplemental_observed[check_id] = reason
+
+    assert set(supplemental_observed) == expected_supplemental, (
+        f"supplemental coverage mismatch: "
+        f"{set(supplemental_observed) ^ expected_supplemental}"
+    )
+    assert supplemental_observed == supplemental_reasons, (
+        f"supplemental outcome mismatch: {supplemental_observed}"
+    )
+    print(
+        f"verified D6U runtime case coverage and outcomes: "
+        f"{len(observed)}/{len(expected)}; "
+        f"supplemental={len(supplemental_observed)}"
+    )
 
 
 if __name__ == "__main__":
