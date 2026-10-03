@@ -273,7 +273,17 @@ check_link_type_policy() {
     fail=1
     return
   fi
-  policy_block="$(printf '%s\n' "$source" | awk '/^[[:space:]]*(pub[[:space:]]+)?fn[[:space:]]+validate_create_link[[:space:]]*\(/{in_block=1} in_block{print} /^[[:space:]]*fn[[:space:]]+validate_delete_link[[:space:]]*\(/{if(in_block){exit}}')"
+  policy_block="$(printf '%s\n' "$source" | awk '
+    /^[[:space:]]*(pub[[:space:]]+)?fn[[:space:]]+validate_create_link[[:space:]]*\(/ {
+      in_block=1
+      print
+      next
+    }
+    in_block && /^[[:space:]]*(pub[[:space:]]+)?fn[[:space:]]+validate_[A-Za-z0-9_]+[[:space:]]*\(/ {
+      exit
+    }
+    in_block { print }
+  ')"
   if [[ -z "$policy_block" ]] || ! printf '%s\n' "$policy_block" | grep -Fq 'match link_type {'; then
     echo "FAIL: $file lacks an explicit LinkTypes match in its CreateLink validation policy"
     fail=1
