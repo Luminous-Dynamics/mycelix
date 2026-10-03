@@ -44,14 +44,7 @@ impl InputCommitmentV1 {
         // the exact D6X profile against the exact projection/environment/profile
         // and bind D6W to the resulting semantic closure identity. Runtime
         // evidence is intentionally excluded from this identity comparison.
-        let Some(expected_closure) =
-            qualified_dependency_closure_d6x::compute_dependency_closure(
-                p, e, derivation_profile, closure_profile,
-            )
-        else {
-            return None;
-        };
-        if expected_closure.closure_identity_commitment != closure.closure_identity_commitment {
+        if !closure.verifies_against_sources(p, e, derivation_profile, closure_profile) {
             return None;
         }
         // D6W must consume the exact projection that D6X qualified. In
