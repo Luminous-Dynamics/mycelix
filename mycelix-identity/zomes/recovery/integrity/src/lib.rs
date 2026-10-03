@@ -865,13 +865,9 @@ fn validate_create_recovery_approval_certificate(
         }
         previous_trustee = Some(vote.trustee.clone());
 
-        if vote.voted_at != vote_record.action().timestamp() {
-            return Ok(ValidateCallbackResult::Invalid(
-                "Recovery vote timestamp must equal its signed action timestamp".into(),
-            ));
-        }
-
-        if vote.voted_at > certificate_action_timestamp {
+        // Vote timing is derived from the signed action header, not the
+        // compatibility `voted_at` field.
+        if vote_record.action().timestamp() > certificate_action_timestamp {
             return Ok(ValidateCallbackResult::Invalid(
                 "Recovery approval certificate cannot predate a cited approval vote".into(),
             ));
@@ -1820,16 +1816,10 @@ fn validate_create_recovery_vote(
         ));
     }
 
-    // Bind the application-level timestamp to the signed source-chain
-    // action timestamp. Otherwise a modified coordinator could choose an
-    // arbitrary `voted_at` value and influence the deterministic
-    // duplicate-vote ordering rule without changing the signed action.
-    if vote.voted_at != action.timestamp {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Recovery vote timestamp must equal the signed action timestamp".into(),
-        ));
-    }
-
+    // `voted_at` is retained for compatibility/display only. It is not
+    // authoritative security state: quorum ordering is derived from the signed
+    // source-chain action sequence, and Holochain action timestamps belong to
+    // the action header rather than the application entry.
     Ok(ValidateCallbackResult::Valid)
 }
 
@@ -2005,14 +1995,14 @@ mod author_binding_tests {
     }
 
     #[test]
-    fn create_vote_rejects_timestamp_not_bound_to_action() {
+    fn create_vote_treats_voted_at_as_non_authoritative_metadata() {
         let mut vote = valid_vote(format!("did:mycelix:{}", me()));
-        vote.voted_at = Timestamp::from_micros(1);
+        vote.voted_at = Timestamp::from_micros(1_000_000_000);
         let action = test_action(me());
 
         let result =
             validate_create_recovery_vote(EntryCreationAction::Create(action), vote).unwrap();
 
-        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+        assert_eq!(result, ValidateCallbackResult::Valid);
     }
 }
