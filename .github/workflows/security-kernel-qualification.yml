@@ -78,6 +78,12 @@ jobs:
             fi
           done
 
+          # AuthorizationRequest must remain constructor-gated when decoded from wire data.
+          if ! rg -nU '#\[serde\(try_from[[:space:]]*=[[:space:]]*"AuthorizationRequestWire"\)\][[:space:]]*pub struct AuthorizationRequest' crates/mycelix-bridge-common/src/security_kernel.rs; then
+            echo "security-kernel regression: AuthorizationRequest lost its serde constructor gate" >&2
+            exit 1
+          fi
+
           for pattern in \
             '#\[derive\([^]]*(Serialize|Deserialize)[^]]*\)\][[:space:]]*(pub[[:space:]]+)?struct (VerificationEvidence|AuthorizationPermit|EnforcementRequest)' \
             'impl[[:space:]]+(Serialize|Deserialize)[[:space:]]+for[[:space:]]+(VerificationEvidence|AuthorizationPermit|EnforcementRequest)' \
