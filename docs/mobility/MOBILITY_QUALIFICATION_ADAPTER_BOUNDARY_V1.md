@@ -164,6 +164,7 @@ The adapter therefore uses an explicit `HolochainAuthorityAgentBindingSet`. Each
 - is signed by the exact agent key it names;
 - is admitted into an immutable authority→agent registry;
 - cannot be duplicated for the same authority identity;
+- cannot reuse a provenance witness already admitted for another authority-agent claim;
 - must be present before a signed runtime dependency binding can be accepted.
 
 A runtime dependency binding is accepted only when its signer matches the registered agent for the provenance authority. The registry retains the full verified authority-agent credential, not just the AgentPubKey, so downstream consumers can audit the exact signed provenance statement that established the mapping.
