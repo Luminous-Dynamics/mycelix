@@ -1623,3 +1623,142 @@ async fn dsid_021_self_recovery_anchor_updates_are_replacement_agent_bound() {
         true,
     );
 }
+
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_022_recovery_quorum_is_derived_cross_agent_from_dht() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let alice_app = conductor.setup_app(
+        "dsid-quorum-alice",
+        std::slice::from_ref(&dna),
+    ).await.unwrap();
+    let bob_app = conductor.setup_app(
+        "dsid-quorum-bob",
+        std::slice::from_ref(&dna),
+    ).await.unwrap();
+    let carol_app = conductor.setup_app(
+        "dsid-quorum-carol",
+        std::slice::from_ref(&dna),
+    ).await.unwrap();
+
+    let alice = alice_app.cells()[0].clone();
+    let bob = bob_app.cells()[0].clone();
+    let carol = carol_app.cells()[0].clone();
+
+    let _alice_did: Record = conductor
+        .call(&alice.zome("did_registry"), "create_did", ())
+        .await;
+    let _bob_did: Record = conductor
+        .call(&bob.zome("did_registry"), "create_did", ())
+        .await;
+    let _carol_did: Record = conductor
+        .call(&carol.zome("did_registry"), "create_did", ())
+        .await;
+
+    let alice_did = format!("did:mycelix:{}", alice_app.agent());
+    let bob_did = format!("did:mycelix:{}", bob_app.agent());
+    let carol_did = format!("did:mycelix:{}", carol_app.agent());
+
+    let setup: Record = conductor
+        .call(
+            &alice.zome("recovery"),
+            "setup_recovery",
+            serde_json::json!({
+                "did": alice_did,
+                "trustees": [alice_did.clone(), bob_did.clone(), carol_did.clone()],
+                "threshold": 2,
+                "time_lock": 86400
+            }),
+        )
+        .await;
+
+    await_consistency(&[alice.clone(), bob.clone(), carol.clone()])
+        .await
+        .expect("recovery config must synchronize");
+
+    let request: Record = conductor
+        .call(
+            &alice.zome("recovery"),
+            "initiate_recovery",
+            serde_json::json!({
+                "did": alice_did,
+                "initiator_did": alice_did.clone(),
+                "new_agent": bob_app.agent(),
+                "reason": "DSID cross-agent quorum"
+            }),
+        )
+        .await;
+
+    let request_data: RecoveryRequestMirror =
+        request.entry().to_app_option().expect("request must decode").expect("request entry present");
+
+    await_consistency(&[alice.clone(), bob.clone(), carol.clone()])
+        .await
+        .expect("recovery request must synchronize");
+
+    let bob_vote: Record = conductor
+        .call(
+            &bob.zome("recovery"),
+            "vote_on_recovery",
+            serde_json::json!({
+                "request_id": request_data.id.clone(),
+                "trustee_did": bob_did,
+                "vote": "Approve"
+            }),
+        )
+        .await;
+
+    let carol_vote: Record = conductor
+        .call(
+            &carol.zome("recovery"),
+            "vote_on_recovery",
+            serde_json::json!({
+                "request_id": request_data.id.clone(),
+                "trustee_did": carol_did,
+                "vote": "Approve"
+            }),
+        )
+        .await;
+
+    await_consistency(&[alice.clone(), bob.clone(), carol.clone()])
+        .await
+        .expect("all trustee votes must synchronize");
+
+    let derived: serde_json::Value = conductor
+        .call(
+            &bob.zome("recovery"),
+            "get_recovery_status",
+            request_data.id.clone(),
+        )
+        .await
+        .expect("DHT-derived recovery status must exist");
+
+    assert_eq!(derived["status"], "Approved");
+    assert_eq!(derived["approve_count"], 3u64);
+    assert_eq!(derived["reject_count"], 0u64);
+    assert_eq!(derived["threshold"], 2u64);
+    assert_eq!(derived["trustee_count"], 3u64);
+
+    let mut agents = BTreeMap::new();
+    agents.insert("alice", alice_app.agent().to_string());
+    agents.insert("bob", bob_app.agent().to_string());
+    agents.insert("carol", carol_app.agent().to_string());
+    emit_evidence(
+        "DSID-022",
+        "recovery-quorum-is-derived-cross-agent-from-dht",
+        &dna,
+        agents,
+        &[&setup, &request, &bob_vote, &carol_vote],
+        "Recovery quorum is computed from the complete DHT-visible vote set rather than requiring cross-agent mutation of the initiator's RecoveryRequest source-chain entry.",
+        format!(
+            "status={} approvals={} rejects={} threshold={}",
+            derived["status"],
+            derived["approve_count"],
+            derived["reject_count"],
+            derived["threshold"]
+        ),
+        true,
+    );
+}
