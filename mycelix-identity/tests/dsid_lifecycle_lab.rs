@@ -1343,3 +1343,46 @@ async fn dsid_017_not_found_resolution_uses_structured_w3c_error() {
         true,
     );
 }
+
+
+#[test]
+fn dsid_018_conformance_vectors_parse_as_identity_inputs() {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join("..")
+        .join("docs")
+        .join("identity")
+        .join("did-mycelix-conformance-vectors-v0.1.json");
+    let corpus: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(path).expect("conformance corpus must exist"))
+            .expect("conformance corpus must be valid JSON");
+
+    let vectors = corpus["did_vectors"]
+        .as_array()
+        .expect("did_vectors must be an array");
+
+    let valid = vectors
+        .iter()
+        .find(|vector| vector["expected"] == "accept")
+        .expect("at least one accepting DID vector is required");
+    let valid_did = valid["input"].as_str().expect("valid DID must be a string");
+    let valid_identifier = valid_did
+        .strip_prefix("did:mycelix:")
+        .expect("valid vector must use did:mycelix");
+    AgentPubKey::try_from(valid_identifier)
+        .expect("accepting vector must contain a valid Holochain AgentPubKey");
+
+    let checksum_invalid = vectors
+        .iter()
+        .find(|vector| vector["id"] == "DID-002")
+        .expect("DID-002 checksum-invalid vector must exist");
+    let invalid_identifier = checksum_invalid["input"]
+        .as_str()
+        .expect("checksum-invalid DID must be a string")
+        .strip_prefix("did:mycelix:")
+        .expect("DID-002 must use did:mycelix");
+    assert!(
+        AgentPubKey::try_from(invalid_identifier).is_err(),
+        "DID-002 must fail Holochain AgentPubKey parsing"
+    );
+}
