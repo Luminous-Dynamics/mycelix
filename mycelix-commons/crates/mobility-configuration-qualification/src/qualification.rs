@@ -40,9 +40,17 @@ pub enum QualificationDecision<T> {
 /// The address type is intentionally generic: the pure layer never learns
 /// whether the runtime uses a Holochain hash, a database key, or another
 /// addressable representation. Binding is explicit and deterministic.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct QualificationDependencyBindingSet<A> {
     bindings: BTreeMap<IdentityRef, A>,
+}
+
+impl<A> Default for QualificationDependencyBindingSet<A> {
+    fn default() -> Self {
+        Self {
+            bindings: BTreeMap::new(),
+        }
+    }
 }
 
 impl<A> QualificationDependencyBindingSet<A> {
@@ -633,6 +641,37 @@ mod tests {
                 .get("binding_order_independent")
                 .and_then(serde_json::Value::as_bool),
             Some(true)
+        );
+
+        assert_eq!(
+            identity
+                .get("resolution_operation")
+                .and_then(serde_json::Value::as_str),
+            Some("QualificationDependencyBindingSet::resolve_required")
+        );
+        assert_eq!(
+            identity
+                .get("resolution_success")
+                .and_then(serde_json::Value::as_str),
+            Some("all requested logical identities bound; return canonical identity/address pairs")
+        );
+        assert_eq!(
+            identity
+                .get("resolution_missing")
+                .and_then(serde_json::Value::as_str),
+            Some("return canonical missing logical identities and preserve unresolved semantic state")
+        );
+        assert_eq!(
+            identity
+                .get("duplicate_requests_deduplicated")
+                .and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(
+            identity
+                .get("address_derivation")
+                .and_then(serde_json::Value::as_bool),
+            Some(false)
         );
     }
 
