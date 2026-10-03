@@ -189,7 +189,7 @@ The reference model currently includes fixtures for:
 42. node-budget truncation cannot leave a selected edge pointing at an unselected target node.
 43. the machine-readable D6X golden corpus freezes closure and certificate commitments for baseline, edge-free, missing, cyclic, currentness, and resource cases.
 
-The machine-readable corpus is at `testdata/d6x_qualified_closure_golden_vectors.json`. Its commitment values were independently reconstructed from the frozen D6S-CANON-1 encoding (cross-checked against the existing D6S golden corpus); Rust reference-model execution has not yet been run. Before interoperability or production claims, execute the Rust/WASM/Holochain conformance corpus and reconcile its emitted values against these vectors.
+The machine-readable corpus is at `testdata/d6x_qualified_closure_golden_vectors.json`. Its commitment values were independently reconstructed from the exact D6X-CANON-1 reference encoding and cross-checked against the existing D6S golden corpus. The corpus is self-contained: it carries baseline typed inputs plus declarative mutation recipes so another implementation can reproduce the fixtures without depending on Rust test-helper names. Rust reference-model execution has not yet been run. Before interoperability or production claims, execute the Rust/WASM/Holochain conformance corpus and reconcile its emitted values against these vectors.
 
 Claim ceiling: **ReferenceModelOnly**.
 
