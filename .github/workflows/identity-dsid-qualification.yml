@@ -145,7 +145,7 @@ jobs:
         run: |
           grep '^DSID_EVIDENCE ' dsid-lifecycle-evidence.txt | cut -d ' ' -f2- \
             > dsid-lifecycle-evidence.jsonl
-          test "$(wc -l < dsid-lifecycle-evidence.jsonl)" -eq 31
+          test "$(wc -l < dsid-lifecycle-evidence.jsonl)" -eq 33
           python3 - <<'PY'
           import json
           from pathlib import Path
@@ -187,6 +187,8 @@ jobs:
               "DSID-029",
               "DSID-030",
               "DSID-031",
+              "DSID-032",
+              "DSID-033",
           }
 
           assert len(rows) == len(expected_ids)
@@ -253,7 +255,7 @@ jobs:
 
           assert manifest["execution_commit"]
           assert manifest["qualified_head_commit"]
-          assert len(manifest["scenario_ids"]) == 31
+          assert len(manifest["scenario_ids"]) == 33
           assert manifest["evidence_schema_versions"] == [1]
           assert len(manifest["dna_hashes"]) == 1
           assert len(manifest["evidence_commit_shas"]) == 1
