@@ -263,32 +263,39 @@ check_link_type_policy() {
     fail=1
     return
   fi
-  if ! printf '%s\n' "$source" | rg -n --pcre2 'FlatOp::Link\s*\(\s*OpLink::CreateLink\s*\{\s*link_type,\s*action\s*\}' >/dev/null 2>&1; then
+  if ! printf '%s\n' "$source" | grep -Fq 'FlatOp::Link(OpLink::CreateLink { link_type, action })'; then
     echo "FAIL: $file CreateLink validation does not bind link_type and action"
     fail=1
     return
   fi
-  if ! printf '%s\n' "$source" | rg -n --pcre2 'action\.data\.base_address\b' >/dev/null 2>&1 || ! printf '%s\n' "$source" | rg -n --pcre2 'action\.data\.target_address\b' >/dev/null 2>&1; then
+  if ! printf '%s\n' "$source" | grep -Fq 'action.data.base_address' || ! printf '%s\n' "$source" | grep -Fq 'action.data.target_address'; then
     echo "FAIL: $file CreateLink validation does not inspect both base_address and target_address"
     fail=1
     return
   fi
   policy_block="$(printf '%s\n' "$source" | awk '/^[[:space:]]*(pub[[:space:]]+)?fn[[:space:]]+validate_create_link[[:space:]]*\(/{in_block=1} in_block{print} /^[[:space:]]*fn[[:space:]]+validate_delete_link[[:space:]]*\(/{if(in_block){exit}}')"
-  if [[ -z "$policy_block" ]] || ! printf '%s\n' "$policy_block" | rg -n --pcre2 'match\s+link_type\s*\{' >/dev/null 2>&1; then
+  if [[ -z "$policy_block" ]] || ! printf '%s\n' "$policy_block" | grep -Fq 'match link_type {'; then
     echo "FAIL: $file lacks an explicit LinkTypes match in its CreateLink validation policy"
     fail=1
     return
   fi
+  if printf '%s\n' "$policy_block" | grep -Eq '^[[:space:]]*_[[:space:]]*=>'; then
+    echo "FAIL: $file has a wildcard arm in its LinkTypes CreateLink policy"
+    fail=1
+  fi
   while IFS= read -r variant; do
     [[ -z "$variant" ]] && continue
-    if printf '%s\n' "$policy_block" | rg -n --pcre2 "\bLinkTypes::${variant}\b" >/dev/null 2>&1; then
+    if printf '%s\n' "$policy_block" | grep -Fq "LinkTypes::$variant"; then
       echo "OK:   $file LinkTypes::$variant has CreateLink policy coverage"
     else
       echo "FAIL: $file LinkTypes::$variant is not handled in CreateLink validation policy"
       fail=1
     fi
-  done < <(printf '%s\n' "$enum_block" | rg --pcre2 -o '^    [A-Za-z_][A-Za-z0-9_]*,
+  done < <(printf '%s\n' "$enum_block" | grep -E '^    [A-Za-z_][A-Za-z0-9_]*,$' | sed -E 's/^    ([A-Za-z_][A-Za-z0-9_]*),$/\1/')
+}
+
 # Holochain emits CreateEntry and CreateRecord operations for entry writes; a
+
 # permissive CreateRecord catch-all would leave a second validation surface
 # without the application-level entry policy. Updates are checked the same way.
 check_create_record_coverage() {
