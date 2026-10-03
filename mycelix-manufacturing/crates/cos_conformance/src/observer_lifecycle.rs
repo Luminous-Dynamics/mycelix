@@ -1841,7 +1841,7 @@ mod tests {
 
     #[test]
     fn dependency_root_change_downgrades_future_independence() {
-        let (mut ledger, generation, snapshot) = active_ledger();
+        let (mut ledger, generation, base_snapshot) = active_ledger();
         let changed = snapshot(
             "snapshot-2",
             &generation.generation_id,
@@ -1861,7 +1861,7 @@ mod tests {
                 &ledger,
                 &e,
                 &generation,
-                &snapshot,
+                &base_snapshot,
                 ObserverLifecycleUsePurposeV1::CurrentFinalityEligibility,
                 ObservationClassificationV1::CorroboratingIndependent,
                 1,
@@ -2211,7 +2211,7 @@ mod tests {
 
     #[test]
     fn canonical_d6o_commitments_bind_authoritative_lifecycle_objects() {
-        let generation = generation("observer-A-g1", 1, None);
+        let base_generation = generation("observer-A-g1", 1, None);
         let mut canonical_generation = generation.clone();
         canonical_generation.generation_commitment = canonical_generation.recomputed_commitment();
         assert!(canonical_generation.commitment_matches());
@@ -2219,7 +2219,7 @@ mod tests {
         assert!(!canonical_generation.commitment_matches());
 
         let mut transition = transition(
-            &generation,
+            &base_generation,
             "suspend-canonical",
             ObserverStatusV1::Suspended,
             2,
@@ -2232,10 +2232,10 @@ mod tests {
 
         let mut snapshot = snapshot(
             "snapshot-canonical",
-            &generation.generation_id,
+            &base_generation.generation_id,
             1,
             None,
-            &generation.evidence_root,
+            &base_generation.evidence_root,
             &generation.custody_root,
             ObservationIndependenceV1::DeclaredIndependent,
         );
@@ -2253,7 +2253,7 @@ mod tests {
             Some(&successor.generation_id),
         );
         rotation_transition.transition_commitment = rotation_transition.recomputed_commitment();
-        let mut certificate = rotation_certificate(&generation, &successor, &rotation_transition);
+        let mut certificate = rotation_certificate(&base_generation, &successor, &rotation_transition);
         certificate.certificate_commitment = certificate.recomputed_commitment();
         assert!(certificate.commitment_matches());
         certificate.successor_environment_root = "env-substituted".into();
