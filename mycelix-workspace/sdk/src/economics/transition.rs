@@ -119,6 +119,59 @@ pub struct EconomicChainReceipt {
 }
 
 impl EconomicChainReceipt {
+    /// Verify the receipt's internal hash and predecessor relationship.
+    ///
+    /// This does not prove that the step was actually executed; that proof
+    /// comes from apply_step or a higher-level accounting closure. It does
+    /// prove that the serialized receipt has not been altered without
+    /// recomputing its chain hash.
+    pub fn verify(&self) -> Result<(), EconomicStepError> {
+        if self.genesis_state_hash.is_empty()
+            || self.step.pre_state_hash.is_empty()
+            || self.step.transition_hash.is_empty()
+            || self.step.post_state_hash.is_empty()
+            || self.chain_hash.is_empty()
+        {
+            return Err(EconomicStepError::Serialization(
+                "evidence chain receipt requires non-empty state, transition, and chain hashes"
+                    .into(),
+            ));
+        }
+
+        if self.previous_receipt_hash.is_none()
+            && self.genesis_state_hash != self.step.pre_state_hash
+        {
+            return Err(EconomicStepError::Serialization(
+                "genesis receipt must bind genesis state to step pre-state".into(),
+            ));
+        }
+
+        if self
+            .previous_receipt_hash
+            .as_ref()
+            .is_some_and(String::is_empty)
+        {
+            return Err(EconomicStepError::Serialization(
+                "previous receipt hash must be non-empty when present".into(),
+            ));
+        }
+
+        let bytes = serde_json::to_vec(&(
+            &self.genesis_state_hash,
+            &self.previous_receipt_hash,
+            &self.step,
+        ))
+        .map_err(|error| EconomicStepError::Serialization(error.to_string()))?;
+        let expected = blake3::hash(&bytes).to_hex().to_string();
+        if self.chain_hash != expected {
+            return Err(EconomicStepError::Serialization(
+                "evidence chain receipt hash mismatch".into(),
+            ));
+        }
+
+        Ok(())
+    }
+
     /// Link a successful step receipt to the previous chain node.
     ///
     /// The chain hash binds the genesis state, ordering, complete step receipt,
@@ -437,6 +490,42 @@ mod tests {
 
         assert_eq!(first, second);
         assert_eq!(receipt_a, receipt_b);
+    }
+
+    #[test]
+    fn chain_receipt_verify_detects_tampering() {
+        let state = initial_state();
+        let transitions = vec![EconomicTransition::CreditCreation(
+            CreditCreation::new("bank", "household", 500).unwrap(),
+        )];
+        let (_, step) = apply_step(&state, 1, &transitions, None).unwrap();
+        let receipt = EconomicChainReceipt::link(None, step).unwrap();
+        receipt.verify().unwrap();
+
+        let mut tampered = receipt.clone();
+        tampered.step.post_state_hash = "tampered".into();
+        assert!(tampered.verify().is_err());
+
+        let mut rehashed = receipt;
+        rehashed.step.post_state_hash = "tampered".into();
+        let bytes = serde_json::to_vec(&(
+            &rehashed.genesis_state_hash,
+            &rehashed.previous_receipt_hash,
+            &rehashed.step,
+        ))
+        .unwrap();
+        rehashed.chain_hash = blake3::hash(&bytes).to_hex().to_string();
+        assert!(rehashed.verify().is_ok());
+    }
+
+    #[test]
+    fn genesis_receipt_verify_rejects_inconsistent_pre_state() {
+        let state = initial_state();
+        let (_, step) = apply_step(&state, 1, &[], None).unwrap();
+        let mut receipt = EconomicChainReceipt::link(None, step).unwrap();
+        receipt.step.pre_state_hash = "wrong-pre-state".into();
+
+        assert!(receipt.verify().is_err());
     }
 
     #[test]
