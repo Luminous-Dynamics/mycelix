@@ -81,3 +81,14 @@ The adapter also supports an optional signed binding attestation. The attestatio
 Holochain 0.8 provides deterministic `verify_signature` over serializable values, so the adapter can verify this payload before accepting an attested binding. A failed signature is semantic invalidity; an actual host failure from signature verification remains an `ExternResult::Err`.
 
 The signature establishes authorship of the exact binding statement by the supplied Holochain agent key. It does not by itself establish that the signer corresponds to the domain authority identity named inside the provenance witness. That relationship remains a separate provenance/authority question and must not be inferred by the adapter.
+
+
+## Authority-agent registry
+
+The concrete runtime adapter maintains a separate immutable `HolochainAuthorityAgentBindingSet`. A signed authority-agent credential establishes the protocol-level relation:
+
+**domain authority IdentityRef ↔ AgentPubKey**
+
+The credential is verified before registry insertion, and a second credential for the same authority is rejected. Runtime dependency attestations must then be signed by the registered agent for their provenance authority.
+
+This is intentionally narrower than “the signer is the real-world authority.” The pure provenance graph establishes the domain authority statement; the cryptographic credential establishes control of the protocol key; the adapter composes those facts without silently equating them.
