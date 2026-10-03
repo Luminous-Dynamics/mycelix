@@ -614,11 +614,12 @@ mod tests {
         let transitions = vec![EconomicTransition::CreditCreation(
             CreditCreation::new("bank", "household", 500).unwrap(),
         )];
-        let (_, step) = apply_step(&state, 1, &transitions, None).unwrap();
+        let (_, step_one) = apply_step(&state, 1, &transitions, None).unwrap();
+        let (_, step_two) = apply_step(&state, 2, &transitions, None).unwrap();
 
-        let first = EconomicChainReceipt::link(None, step.clone()).unwrap();
-        let second = EconomicChainReceipt::link(Some(&first), step.clone()).unwrap();
-        let second_again = EconomicChainReceipt::link(Some(&first), step).unwrap();
+        let first = EconomicChainReceipt::link(None, step_one.clone()).unwrap();
+        let second = EconomicChainReceipt::link(Some(&first), step_two.clone()).unwrap();
+        let second_again = EconomicChainReceipt::link(Some(&first), step_two).unwrap();
 
         assert_eq!(second, second_again);
         assert_eq!(first.genesis_state_hash, first.step.pre_state_hash);
