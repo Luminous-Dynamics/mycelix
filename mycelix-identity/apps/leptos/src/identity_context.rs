@@ -150,31 +150,24 @@ async fn load_mfa(ctx: IdentityCtx) {
         }
     };
 
-    match hc.call_zome_default::<String, serde_json::Value>(
-        "mfa", "get_mfa_state", &did
+    match hc.call_zome_default::<String, Option<MfaStateView>>(
+        "mfa", "get_mfa_view", &did
     ).await {
-        Ok(record) => {
-            match serde_json::from_value::<MfaStateView>(record) {
-                Ok(mfa) => {
-                    web_sys::console::log_1(
-                        &format!("[Identity] Loaded MFA: {} factors", mfa.factors.len()).into()
-                    );
-                    ctx.mfa_state.set(Some(mfa));
-                }
-                Err(e) => {
-                    web_sys::console::warn_1(
-                        &format!("[Identity] Failed to parse MFA state: {e}").into()
-                    );
-                }
-            }
+        Ok(Some(mfa)) => {
+            web_sys::console::log_1(
+                &format!("[Identity] Loaded MFA: {} factors", mfa.factors.len()).into()
+            );
+            ctx.mfa_state.set(Some(mfa));
         }
+        Ok(None) => {}
         Err(e) => {
-            web_sys::console::warn_1(&format!("[Identity] get_mfa_state failed: {e}").into());
+            web_sys::console::warn_1(&format!("[Identity] get_mfa_view failed: {e}").into());
         }
     }
 
-    // Query recovery using the same canonical DID derived from the conductor
-    // agent key. "self" is not a valid DID input to the recovery zome.
+    // Social-recovery config is a separate lifecycle layer and may legitimately
+    // be absent for a new DID. Do not manufacture a config or treat absence as
+    // a transport error.
     match hc.call_zome_default::<String, serde_json::Value>(
         "recovery", "get_recovery_config", &did
     ).await {
