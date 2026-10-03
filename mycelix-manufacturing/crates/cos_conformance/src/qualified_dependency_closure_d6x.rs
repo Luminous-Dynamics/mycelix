@@ -645,7 +645,17 @@ pub fn compute_dependency_closure(
         included_ids.insert(id.clone());
         let node_dependency = SemanticDependencyReferenceV1::node(id.clone(), Some(node.node_commitment.clone()));
         dependencies.insert(node_dependency.clone());
-        dependency_resolutions.insert(node_dependency.clone(), SemanticDependencyResolutionV1::Present);
+        // CurrentOnly edges can mark a node Stale before that node reaches the
+        // queue. Never allow dequeue-time bookkeeping to downgrade that stronger
+        // resolution back to Present.
+        dependency_resolutions
+            .entry(node_dependency.clone())
+            .and_modify(|resolution| {
+                if *resolution != SemanticDependencyResolutionV1::Stale {
+                    *resolution = SemanticDependencyResolutionV1::Present;
+                }
+            })
+            .or_insert(SemanticDependencyResolutionV1::Present);
 
         for edge in projection.edges.values() {
             if edge.from_node_id != id { continue; }
@@ -1475,6 +1485,32 @@ mod tests {
         let dep=SemanticDependencyReferenceV1::node("dep", Some("commit-dep".into()));
         assert_eq!(c.dependency_resolutions.get(&dep), Some(&SemanticDependencyResolutionV1::Stale));
         assert_eq!(c.status, DependencyClosureStatusV1::BlockedCurrentness);
+    }
+
+    #[test]
+    fn stale_currentness_survives_target_node_dequeue() {
+        let (mut a, e, d) = projection(false);
+        a.nodes.get_mut("dep").unwrap().historical_only = true;
+
+        let mut p = profile(BTreeSet::new());
+        p.rules = [DependencyRuleV1 {
+            edge_kind: ClaimGraphEdgeKindV1::Supports,
+            from_kind: Some(ClaimGraphNodeKindV1::Statement),
+            to_kind: Some(ClaimGraphNodeKindV1::Evidence),
+            currentness: DependencyCurrentnessV1::CurrentOnly,
+        }]
+        .into_iter()
+        .collect();
+
+        let c = compute_dependency_closure(&a, &e, &d, &p).unwrap();
+        let dep = SemanticDependencyReferenceV1::node("dep", Some("commit-dep".into()));
+
+        assert_eq!(
+            c.dependency_resolutions.get(&dep),
+            Some(&SemanticDependencyResolutionV1::Stale)
+        );
+        assert_eq!(c.status, DependencyClosureStatusV1::BlockedCurrentness);
+        assert!(c.valid());
     }
 
     #[test]
