@@ -7,7 +7,7 @@
 //! Provenance/custody and unrelated graph material are not dependencies unless
 //! the profile explicitly makes them dependencies.
 use crate::canonical_derivation_receipt::{
-    canonical_sha256, DerivationProfileV1, QualifiedProjectionV1, SemanticEnvironmentV1,
+    canonical_sha256, is_canonical_sha256_commitment, DerivationProfileV1, QualifiedProjectionV1, SemanticEnvironmentV1,
     D6S_CLAIM_CEILING,
 };
 use crate::evidence_claim_graph::{ClaimGraphEdgeKindV1, ClaimGraphNodeKindV1};
