@@ -369,6 +369,22 @@ impl ActorEconomicObservables {
         Ok(observations)
     }
 
+    /// Re-derive this actor observation from the supplied state and transitions and require exact equality.
+    pub fn verify_against(
+        &self,
+        state: &EconomicState,
+        transitions: &[EconomicTransition],
+    ) -> Result<(), String> {
+        let expected = Self::from_state_and_transitions(state, transitions)?;
+        let expected_observation = expected
+            .get(&self.actor)
+            .ok_or_else(|| format!("actor observation {} is not present in replayed state", self.actor))?;
+        if self != expected_observation {
+            return Err(format!("actor observation does not match transition replay for {}", self.actor));
+        }
+        Ok(())
+    }
+
     /// Liquidity change attributed to operating activity after removing
     /// explicitly classified investing, financing, and other transfers.
     ///
@@ -643,6 +659,16 @@ mod tests {
         ActorBalanceSheet, CreditCreation, DebtRepayment, EconomicState, IncomeTransfer,
         GoodsSale, EconomicFlowCategory,
     };
+
+    #[test]
+    fn actor_observation_verify_against_rejects_tampering() {
+        let state = EconomicState::new(vec![ActorBalanceSheet::new("household")]);
+        let transitions = vec![];
+        let observations = ActorEconomicObservables::from_state_and_transitions(&state, &transitions).unwrap();
+        let mut observation = observations.get("household").unwrap().clone();
+        observation.deposits = 1;
+        assert!(observation.verify_against(&state, &transitions).is_err());
+    }
 
     #[test]
     fn actor_observations_reject_invalid_initial_state() {
