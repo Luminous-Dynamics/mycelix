@@ -2180,7 +2180,7 @@ mod linux {
                 SeccompArgPredicateV1::new(
                     0,
                     mask,
-                    target,
+                    target.wrapping_add(1),
                 )
                 .unwrap(),
             ])
@@ -2211,7 +2211,7 @@ mod linux {
                         } else {
                             SECCOMP_RET_ERRNO | libc::EPERM as u32
                         },
-                        "exhaustive split-word mismatch high={high:#06x} low={low:#06x}"
+                        "exhaustive split-word mismatch high={high:#06x} low={low:#06x} modeled_allow={modeled_allow}"
                     );
                 }
             }
