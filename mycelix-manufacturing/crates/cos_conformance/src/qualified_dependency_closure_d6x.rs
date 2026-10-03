@@ -1046,6 +1046,61 @@ mod tests {
     }
 
     #[test]
+    fn one_over_node_resource_limit_blocks_after_required_work_remains() {
+        let (a, e, d) = projection(false);
+        let mut p = profile(BTreeSet::new());
+        p.max_nodes = 1;
+        p.max_edges = 1;
+
+        let c = compute_dependency_closure(&a, &e, &d, &p).unwrap();
+
+        assert_eq!(c.status, DependencyClosureStatusV1::BlockedResourceLimit);
+        assert_eq!(c.included_node_ids, BTreeSet::from(["root".to_string()]));
+        assert!(c.included_edges.is_empty());
+        assert!(c.valid());
+    }
+
+    #[test]
+    fn one_over_edge_resource_limit_blocks_only_after_an_additional_selected_edge_exists() {
+        let (mut a, e, d) = projection(false);
+        a.nodes.insert("dep-2".into(), QualifiedNodeV1 {
+            node_id: "dep-2".into(),
+            kind: ClaimGraphNodeKindV1::Evidence,
+            content_commitment: "content-dep-2".into(),
+            node_commitment: "commit-dep-2".into(),
+            historical_only: false,
+            current_frontier_root: Some("frontier".into()),
+            claim_ceiling: D6X_CLAIM_CEILING.into(),
+        });
+        a.edges.insert("e2".into(), QualifiedEdgeV1 {
+            edge_id: "e2".into(),
+            from_node_id: "root".into(),
+            to_node_id: "dep-2".into(),
+            kind: ClaimGraphEdgeKindV1::Supports,
+            edge_commitment: "edge-e2".into(),
+            claim_ceiling: D6X_CLAIM_CEILING.into(),
+        });
+
+        let mut p = profile(BTreeSet::new());
+        p.rules = [
+            DependencyRuleV1 {
+                edge_kind: ClaimGraphEdgeKindV1::Supports,
+                from_kind: Some(ClaimGraphNodeKindV1::Statement),
+                to_kind: Some(ClaimGraphNodeKindV1::Evidence),
+                currentness: DependencyCurrentnessV1::Any,
+            },
+        ].into_iter().collect();
+        p.max_nodes = 8;
+        p.max_edges = 1;
+
+        let c = compute_dependency_closure(&a, &e, &d, &p).unwrap();
+
+        assert_eq!(c.status, DependencyClosureStatusV1::BlockedResourceLimit);
+        assert_eq!(c.included_edges.len(), 1);
+        assert!(c.valid());
+    }
+
+    #[test]
     fn source_snapshot_mutation_changes_d6x_identity() {
         let (baseline, environment, derivation_profile) = projection(false);
         let before = compute_dependency_closure(
