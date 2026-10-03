@@ -154,7 +154,7 @@ impl ExternalEffectObservationV1 {
             &self.source,
             &self.evidence_root,
             &self.claim_ceiling,
-        ))
+        ]))
         .expect("D6M observation reference model must be serializable");
         let mut input = Vec::with_capacity(D6M_OBSERVATION_COMMITMENT_DOMAIN.len() + payload.len());
         input.extend_from_slice(D6M_OBSERVATION_COMMITMENT_DOMAIN);
