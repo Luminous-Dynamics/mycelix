@@ -1786,6 +1786,34 @@ mod tests {
     }
 
     #[test]
+    fn envelope_identity_cannot_be_reused_for_a_different_logical_delivery() {
+        let mut state = nodes();
+        let first = envelope();
+
+        assert_eq!(
+            deliver(&mut state, &first, 50, true).decision(),
+            FederationDecision::AcceptedLocal
+        );
+
+        let mut aliased = first.clone();
+        aliased.logical_delivery_id = "delivery-aliased".into();
+        aliased.attempt_id = "attempt-aliased".into();
+
+        let before_identity = delivery_identity_snapshot(&state);
+        let before_attempts = delivery_attempts_snapshot(&state);
+        let before_observations = state.observations.clone();
+
+        let outcome = deliver(&mut state, &aliased, 50, true);
+        assert_eq!(outcome.decision(), FederationDecision::Rejected);
+        assert_eq!(outcome.authority(), AuthorityDisposition::NoAuthority);
+        assert_eq!(delivery_identity_snapshot(&state), before_identity);
+        assert_eq!(delivery_attempts_snapshot(&state), before_attempts);
+        assert_eq!(state.observations, before_observations);
+        assert_eq!(state.delivery_count(), 1);
+        assert_eq!(state.observation_count(), 1);
+    }
+
+    #[test]
     fn observation_identity_is_insert_only_and_conflicts_never_overwrite() {
         let mut state = nodes();
         let first = ObservationRecord {
