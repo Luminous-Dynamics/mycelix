@@ -703,6 +703,10 @@ mod tests {
         }
     }
 
+    fn action_agent_key(byte: u8) -> AgentPubKey {
+        AgentPubKey::from_raw_36(vec![byte; 36])
+    }
+
     fn action_hash(byte: u8) -> ActionHash {
         ActionHash::from_raw_36(vec![byte; 36])
     }
@@ -1059,6 +1063,188 @@ mod tests {
         let left = bindings.resolve_required(vec![identity("c"), identity("a"), identity("b")]);
         let right = bindings.resolve_required(vec![identity("b"), identity("c"), identity("a")]);
         assert_eq!(left, right);
+    }
+
+    fn authority_credential(
+        authority: IdentityRef,
+        agent: AgentPubKey,
+        id_suffix: &str,
+    ) -> SignedHolochainAuthorityAgentBinding {
+        let scope = IdentityRef {
+            kind: IdentityKind::ReconciliationWitness,
+            namespace: "mobility".into(),
+            id: format!("credential-scope-{id_suffix}"),
+        };
+        let delegation = IdentityRef {
+            kind: IdentityKind::ReconciliationWitness,
+            namespace: "mobility".into(),
+            id: format!("credential-delegation-{id_suffix}"),
+        };
+        let witness = IdentityRef {
+            kind: IdentityKind::ReconciliationWitness,
+            namespace: "mobility".into(),
+            id: format!("credential-witness-{id_suffix}"),
+        };
+
+        SignedHolochainAuthorityAgentBinding {
+            issuer: agent.clone(),
+            signature: Signature([0u8; 64]),
+            payload: HolochainAuthorityAgentBindingPayload {
+                schema: HOLOCHAIN_AUTHORITY_AGENT_BINDING_SCHEMA,
+                authority: authority.clone(),
+                provenance: QualificationDependencyBindingProvenance {
+                    witness_identity: witness,
+                    logical_identity: authority.clone(),
+                    authority,
+                    authority_scope: scope,
+                    authority_delegation: delegation,
+                    basis: vec![
+                        IdentityRef {
+                            kind: IdentityKind::EvidenceRecord,
+                            namespace: "mobility".into(),
+                            id: format!("credential-basis-authority-{id_suffix}"),
+                        },
+                        IdentityRef {
+                            kind: IdentityKind::ReconciliationWitness,
+                            namespace: "mobility".into(),
+                            id: format!("credential-scope-{id_suffix}"),
+                        },
+                        IdentityRef {
+                            kind: IdentityKind::ReconciliationWitness,
+                            namespace: "mobility".into(),
+                            id: format!("credential-delegation-{id_suffix}"),
+                        },
+                    ],
+                },
+                agent,
+            },
+        }
+    }
+
+    #[test]
+    fn authority_agent_registry_accepts_verified_credential() {
+        let _guard = host_test_lock().lock().expect("HDI test lock is not poisoned");
+        let _previous = set_hdi(RecordingHdi {
+            calls: Arc::new(Mutex::new(Vec::new())),
+            verify_result: true,
+        });
+
+        let authority = identity("registry-authority");
+        let agent = action_agent_key(31);
+        let credential = authority_credential(authority.clone(), agent.clone(), "accept");
+
+        let mut registry = HolochainAuthorityAgentBindingSet::new();
+        let result = registry.bind_attested(credential);
+
+        let _ = set_hdi(ErrHdi);
+
+        assert!(matches!(result, Ok(Ok(()))));
+        assert_eq!(registry.agent_for(&authority), Some(&agent));
+    }
+
+    #[test]
+    fn authority_agent_registry_rejects_duplicate_authority() {
+        let _guard = host_test_lock().lock().expect("HDI test lock is not poisoned");
+        let calls = Arc::new(Mutex::new(Vec::new()));
+        let _previous = set_hdi(RecordingHdi {
+            calls: Arc::clone(&calls),
+            verify_result: true,
+        });
+
+        let authority = identity("duplicate-authority");
+        let first = authority_credential(authority.clone(), action_agent_key(32), "first");
+        let second = authority_credential(authority.clone(), action_agent_key(33), "second");
+
+        let mut registry = HolochainAuthorityAgentBindingSet::new();
+        assert!(matches!(registry.bind_attested(first), Ok(Ok(()))));
+        assert!(matches!(
+            registry.bind_attested(second),
+            Ok(Err(HolochainAdapterBoundaryError::BindingRejected { .. }))
+        ));
+
+        let _ = set_hdi(ErrHdi);
+        assert_eq!(registry.len(), 1);
+        assert_eq!(
+            calls.lock().unwrap().as_slice(),
+            ["verify_signature", "verify_signature"]
+        );
+    }
+
+    #[test]
+    fn dependency_binding_rejects_runtime_signer_not_registered_for_authority() {
+        let _guard = host_test_lock().lock().expect("HDI test lock is not poisoned");
+        let _previous = set_hdi(RecordingHdi {
+            calls: Arc::new(Mutex::new(Vec::new())),
+            verify_result: true,
+        });
+
+        let authority = identity("bound-authority");
+        let registered_agent = action_agent_key(34);
+        let wrong_agent = action_agent_key(35);
+
+        let mut registry = HolochainAuthorityAgentBindingSet::new();
+        assert!(matches!(
+            registry.bind_attested(authority_credential(
+                authority.clone(),
+                registered_agent,
+                "runtime-mismatch"
+            )),
+            Ok(Ok(()))
+        ));
+
+        let logical = identity("runtime-signer-mismatch");
+        let binding = SignedHolochainBindingAttestation {
+            signer: wrong_agent,
+            signature: Signature([0u8; 64]),
+            payload: HolochainBindingAttestationPayload {
+                schema: HOLOCHAIN_BINDING_ATTESTATION_SCHEMA,
+                provenance: QualificationDependencyBindingProvenance {
+                    witness_identity: IdentityRef {
+                        kind: IdentityKind::ReconciliationWitness,
+                        namespace: "mobility".into(),
+                        id: "runtime-mismatch-witness".into(),
+                    },
+                    logical_identity: logical,
+                    authority: authority.clone(),
+                    authority_scope: IdentityRef {
+                        kind: IdentityKind::ReconciliationWitness,
+                        namespace: "mobility".into(),
+                        id: "runtime-mismatch-scope".into(),
+                    },
+                    authority_delegation: IdentityRef {
+                        kind: IdentityKind::ReconciliationWitness,
+                        namespace: "mobility".into(),
+                        id: "runtime-mismatch-delegation".into(),
+                    },
+                    basis: vec![
+                        authority,
+                        IdentityRef {
+                            kind: IdentityKind::ReconciliationWitness,
+                            namespace: "mobility".into(),
+                            id: "runtime-mismatch-scope".into(),
+                        },
+                        IdentityRef {
+                            kind: IdentityKind::ReconciliationWitness,
+                            namespace: "mobility".into(),
+                            id: "runtime-mismatch-delegation".into(),
+                        },
+                    ],
+                },
+                address: HolochainDependencyAddress::Action(action_hash(35)),
+                retrieval: QualificationDependencyRetrievalKind::Action,
+            },
+        };
+
+        let mut bindings = HolochainDependencyBindingSet::new();
+        let result = bindings.bind_attested_with_authority(binding, &registry);
+        let _ = set_hdi(ErrHdi);
+
+        assert!(matches!(
+            result,
+            Ok(Err(HolochainAdapterBoundaryError::SemanticInvalid { reason }))
+                if reason == "runtime binding signer does not match the registered authority agent key"
+        ));
+        assert!(bindings.is_empty());
     }
 
     #[test]
