@@ -218,7 +218,7 @@ pub fn classify_branches(
     }
 
     for (claim_id, authority_a) in &branch_a.authority_claims {
-        if let Some(authority_b) = branch_b.authority_claims.get(*claim_id) {
+        if let Some(authority_b) = branch_b.authority_claims.get(claim_id) {
             if authority_a != authority_b {
                 conflicts.push(ReconciliationConflict {
                     kind: ConflictKind::AuthorityConflict,
@@ -474,7 +474,7 @@ pub fn cockpit_projection(
             matches!(value, AuthorityDisposition::LocalAuthority)
                 && branch
                     .authority_validity
-                    .get(claim_id)
+                    .get(*claim_id)
                     .copied()
                     .unwrap_or(AuthorityValidity::Current)
                     .is_current()
@@ -490,7 +490,7 @@ pub fn cockpit_projection(
                     | AuthorityDisposition::RecognizedForeignEvidence
             ) && branch
                 .authority_validity
-                .get(claim_id)
+                .get(*claim_id)
                 .copied()
                 .unwrap_or(AuthorityValidity::Current)
                 .is_current()
@@ -503,7 +503,7 @@ pub fn cockpit_projection(
             matches!(value, AuthorityDisposition::ExplicitDelegatedAuthority)
                 && branch
                     .authority_validity
-                    .get(claim_id)
+                    .get(*claim_id)
                     .copied()
                     .unwrap_or(AuthorityValidity::Current)
                     .is_current()
