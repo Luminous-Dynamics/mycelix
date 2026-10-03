@@ -57,7 +57,24 @@
     "binding_preserves_address_kind": true,
     "valid_record_requires_action_hash": true,
     "wrong_address_kind_is_adapter_boundary_error": true,
-    "valid_record_retrieval_requires_action_hash": true
+    "valid_record_retrieval_requires_action_hash": true,
+    "retrieval_kind_mappings": [
+      {
+        "pure": "ValidRecord",
+        "protocol_address_type": "ActionHash",
+        "host_function": "must_get_valid_record"
+      },
+      {
+        "pure": "Action",
+        "protocol_address_type": "ActionHash",
+        "host_function": "must_get_action"
+      },
+      {
+        "pure": "Entry",
+        "protocol_address_type": "EntryHash",
+        "host_function": "must_get_entry"
+      }
+    ]
   },
   "determinism": {
     "retrieval_order_independent": true,
