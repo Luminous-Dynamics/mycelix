@@ -508,6 +508,56 @@ pub fn resolve_did_view(did: String) -> ExternResult<Option<DidDocumentView>> {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DidResolutionMetadataView {
+    pub error: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DidDocumentMetadataView {
+    pub created: String,
+    pub updated: String,
+    pub deactivated: bool,
+    pub version_id: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DidResolutionView {
+    pub did_document: Option<DidDocumentView>,
+    pub resolution_metadata: DidResolutionMetadataView,
+    pub document_metadata: Option<DidDocumentMetadataView>,
+}
+
+/// Resolve a DID with explicit document and resolution metadata.
+#[hdk_extern]
+pub fn resolve_did_resolution(did: String) -> ExternResult<DidResolutionView> {
+    if !did.starts_with("did:mycelix:") {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Invalid DID format".into()
+        )));
+    }
+
+    match resolve_did_view(did.clone())? {
+        Some(document) => Ok(DidResolutionView {
+            document_metadata: Some(DidDocumentMetadataView {
+                created: document.created.clone(),
+                updated: document.updated.clone(),
+                deactivated: !document.active,
+                version_id: document.version.to_string(),
+            }),
+            did_document: Some(document),
+            resolution_metadata: DidResolutionMetadataView { error: None },
+        }),
+        None => Ok(DidResolutionView {
+            did_document: None,
+            resolution_metadata: DidResolutionMetadataView {
+                error: Some("notFound".into()),
+            },
+            document_metadata: None,
+        }),
+    }
+}
+
 /// Update DID document (add service endpoints, rotate keys, etc.)
 #[hdk_extern]
 pub fn update_did_document(input: UpdateDidInput) -> ExternResult<Record> {
