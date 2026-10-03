@@ -1151,6 +1151,18 @@ fn validate_create_self_recovery_request(
     Ok(ValidateCallbackResult::Valid)
 }
 
+/// Whether a self-recovery status transition is permitted while proof-of-control is disabled.
+pub fn self_recovery_transition_allowed(
+    from: &RecoveryStatus,
+    to: &RecoveryStatus,
+) -> bool {
+    matches!(
+        (from, to),
+        (RecoveryStatus::Pending, RecoveryStatus::Pending)
+            | (RecoveryStatus::Pending, RecoveryStatus::Cancelled)
+    )
+}
+
 /// Validate self-recovery request updates (same state machine as social recovery)
 ///
 /// Author-binding for updates is enforced universally by this crate's
@@ -1187,10 +1199,9 @@ fn validate_update_self_recovery_request(
     // Until cryptographic proof-of-control exists, self-recovery is deliberately
     // prevented from entering any executable state, even if a modified
     // coordinator attempts to update the entry directly.
-    let allowed_transition = matches!(
-        (&original.status, &request.status),
-        (RecoveryStatus::Pending, RecoveryStatus::Pending)
-            | (RecoveryStatus::Pending, RecoveryStatus::Cancelled)
+    let allowed_transition = self_recovery_transition_allowed(
+        &original.status,
+        &request.status,
     );
     if !allowed_transition {
         return Ok(ValidateCallbackResult::Invalid(format!(
@@ -1339,6 +1350,33 @@ mod tests {
     }
 
     // ── Self-Recovery Tests ──
+
+    #[test]
+    fn self_recovery_transition_predicate_is_fail_closed() {
+        assert!(self_recovery_transition_allowed(
+            &RecoveryStatus::Pending,
+            &RecoveryStatus::Pending,
+        ));
+        assert!(self_recovery_transition_allowed(
+            &RecoveryStatus::Pending,
+            &RecoveryStatus::Cancelled,
+        ));
+        for target in [
+            RecoveryStatus::Approved,
+            RecoveryStatus::ReadyToExecute,
+            RecoveryStatus::Completed,
+            RecoveryStatus::Rejected,
+        ] {
+            assert!(!self_recovery_transition_allowed(
+                &RecoveryStatus::Pending,
+                &target,
+            ));
+        }
+        assert!(!self_recovery_transition_allowed(
+            &RecoveryStatus::Approved,
+            &RecoveryStatus::ReadyToExecute,
+        ));
+    }
 
     #[test]
     fn self_recovery_min_time_lock_is_72_hours() {
