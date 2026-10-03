@@ -42,7 +42,6 @@ fn child() -> ! {
     // Exercise the kernel syscall directly rather than the libc getppid()
     // wrapper: getppid() is specified as always-successful, so its wrapper
     // behavior is not the right boundary for proving a seccomp errno action.
-    disjunctive_stage(b"G-netlink-ok\n");
     let denied = unsafe { libc::syscall(libc::SYS_getppid) };
     let errno = std::io::Error::last_os_error().raw_os_error();
     if denied != -1 || errno != Some(libc::EPERM) {
@@ -106,7 +105,6 @@ fn child() -> ! {
         unsafe { libc::_exit(96) };
     }
 
-    disjunctive_stage(b"I-getpid-denied-ok\n");
     unsafe { libc::_exit(0) }
 }
 
@@ -203,7 +201,6 @@ fn parameter_predicate_child() -> ! {
     };
     let _ = unsafe { *libc::__errno_location() };
 
-    disjunctive_stage(b"B-pre-install\n");
     if install_v2(
         RendererProcessAssignmentId::new(4).unwrap(),
         profile,
@@ -427,6 +424,7 @@ fn disjunctive_socket_child() -> ! {
     }
     let _ = unsafe { *libc::__errno_location() };
 
+    disjunctive_stage(b"B-pre-install\n");
     if install_v2(
         RendererProcessAssignmentId::new(5).unwrap(),
         profile,
@@ -499,6 +497,7 @@ fn disjunctive_socket_child() -> ! {
         unsafe { libc::_exit(143) };
     }
 
+    disjunctive_stage(b"I-getpid-denied-ok\n");
     unsafe { libc::_exit(0) }
 }
 
