@@ -511,12 +511,20 @@ fn validate_create_link(
             }
         }
         LinkTypes::CollectionToStories => {
-            let base = action_hash(base_address, "CollectionToStories base")?;
+            let collection = action_hash(base_address, "CollectionToStories base")?;
             let story = action_hash(target_address, "CollectionToStories target")?;
-            let record = must_get_valid_record(base)?;
-            let entry: StoryCollection = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("StoryCollection entry missing".into())))?;
-            if !entry.story_hashes.contains(&story) {
-                return Ok(ValidateCallbackResult::Invalid("CollectionToStories target is not listed in the collection".into()));
+            let collection_record = must_get_valid_record(collection)?;
+            let collection_entry: StoryCollection = collection_record.entry().to_app_option()?.ok_or(
+                wasm_error!(WasmErrorInner::Guest("StoryCollection entry missing".into()))
+            )?;
+            let story_record = must_get_valid_record(story)?;
+            let story_entry: FamilyStory = story_record.entry().to_app_option()?.ok_or(
+                wasm_error!(WasmErrorInner::Guest("FamilyStory entry missing".into()))
+            )?;
+            if story_entry.hearth_hash != collection_entry.hearth_hash {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "CollectionToStories story belongs to a different hearth".into(),
+                ));
             }
         }
         LinkTypes::HearthToTraditions => {
