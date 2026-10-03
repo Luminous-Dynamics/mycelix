@@ -1,0 +1,1511 @@
+{
+  "schema": "mycelix.sym-civic.policy-decision.v1",
+  "program": "SYM-CIVIC-011",
+  "parent_subject": "6e49198c934ff7d215134c9ccbcd3f3951982128",
+  "analysis_role": "research_only",
+  "invariants": [
+    "subject_binding",
+    "composition_binding",
+    "decisive_evidence_binding",
+    "immutable_policy_identity",
+    "policy_bytes_digest_match",
+    "policy_validity_window",
+    "decision_identity_lineage",
+    "decision_expiry_replay_protection",
+    "exact_replay_idempotent",
+    "missing_positive_evidence_denies",
+    "deletion_monotonicity",
+    "negative_evidence_retention",
+    "stale_evidence_non_escalation",
+    "conflict_preservation",
+    "order_independence",
+    "quorum_not_authorization",
+    "scientific_truth_separation",
+    "civic_authority_separation"
+  ],
+  "cases": [
+    {
+      "id": "D-01",
+      "family": "missing_required_positive",
+      "candidate": {
+        "subject_digest": "sha256:subject-a",
+        "evaluation_time": "2026-10-03T01:00:00Z",
+        "composition": {
+          "digest": "sha256:composition-a",
+          "status": "AGREEMENT",
+          "evidence_ids": [
+            "vr-a"
+          ],
+          "positive_properties": [],
+          "negative_properties": []
+        },
+        "policy": {
+          "uri": "https://example.org/policies/security/v1",
+          "id": "https://example.org/policies/security",
+          "version": "2026-10",
+          "digest": "sha256:policy-a",
+          "actual_digest": "sha256:policy-a",
+          "valid_from": "2026-10-03T00:00:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "required_positive_properties": [
+            "security.checked"
+          ]
+        },
+        "decision": {
+          "id": "decision-a",
+          "subject_digest": "sha256:subject-a",
+          "composition_digest": "sha256:composition-a",
+          "evidence_ids": [
+            "vr-a"
+          ],
+          "policy_id": "https://example.org/policies/security",
+          "policy_version": "2026-10",
+          "policy_digest": "sha256:policy-a",
+          "evaluated_at": "2026-10-03T01:00:00Z",
+          "time_created": "2026-10-03T00:30:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "outcome": "deny",
+          "identity_material": {
+            "subject_digest": "sha256:subject-a",
+            "policy_id": "https://example.org/policies/security",
+            "policy_version": "2026-10",
+            "policy_digest": "sha256:policy-a",
+            "policy_valid_from": "2026-10-03T00:00:00Z",
+            "policy_valid_until": "2026-10-04T00:00:00Z",
+            "required_positive_properties": [
+              "security.checked"
+            ],
+            "composition_digest": "sha256:composition-a",
+            "evidence_ids": [
+              "vr-a"
+            ],
+            "evaluated_at": "2026-10-03T01:00:00Z",
+            "decision_valid_until": "2026-10-04T00:00:00Z",
+            "outcome": "deny"
+          }
+        }
+      },
+      "note": "Missing a required positive property yields a provenance-valid DENY, not ALLOW."
+    },
+    {
+      "id": "D-02",
+      "family": "complete_required_positive",
+      "candidate": {
+        "subject_digest": "sha256:subject-a",
+        "evaluation_time": "2026-10-03T01:00:00Z",
+        "composition": {
+          "digest": "sha256:composition-a",
+          "status": "AGREEMENT",
+          "evidence_ids": [
+            "vr-a",
+            "vr-b"
+          ],
+          "positive_properties": [
+            "security.checked"
+          ],
+          "negative_properties": []
+        },
+        "policy": {
+          "uri": "https://example.org/policies/security/v1",
+          "id": "https://example.org/policies/security",
+          "version": "2026-10",
+          "digest": "sha256:policy-a",
+          "actual_digest": "sha256:policy-a",
+          "valid_from": "2026-10-03T00:00:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "required_positive_properties": [
+            "security.checked"
+          ]
+        },
+        "decision": {
+          "id": "decision-a",
+          "subject_digest": "sha256:subject-a",
+          "composition_digest": "sha256:composition-a",
+          "evidence_ids": [
+            "vr-a",
+            "vr-b"
+          ],
+          "policy_id": "https://example.org/policies/security",
+          "policy_version": "2026-10",
+          "policy_digest": "sha256:policy-a",
+          "evaluated_at": "2026-10-03T01:00:00Z",
+          "time_created": "2026-10-03T00:30:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "outcome": "allow",
+          "identity_material": {
+            "subject_digest": "sha256:subject-a",
+            "policy_id": "https://example.org/policies/security",
+            "policy_version": "2026-10",
+            "policy_digest": "sha256:policy-a",
+            "policy_valid_from": "2026-10-03T00:00:00Z",
+            "policy_valid_until": "2026-10-04T00:00:00Z",
+            "required_positive_properties": [
+              "security.checked"
+            ],
+            "composition_digest": "sha256:composition-a",
+            "evidence_ids": [
+              "vr-a",
+              "vr-b"
+            ],
+            "evaluated_at": "2026-10-03T01:00:00Z",
+            "decision_valid_until": "2026-10-04T00:00:00Z",
+            "outcome": "allow"
+          }
+        },
+        "expected_identity_change": false
+      },
+      "note": "All required positive properties are present and the decision is ALLOW."
+    },
+    {
+      "id": "D-03",
+      "family": "required_evidence_deletion_to_deny",
+      "candidate": {
+        "subject_digest": "sha256:subject-a",
+        "evaluation_time": "2026-10-03T01:00:00Z",
+        "composition": {
+          "digest": "sha256:composition-a",
+          "status": "AGREEMENT",
+          "evidence_ids": [
+            "vr-a",
+            "vr-b"
+          ],
+          "positive_properties": [
+            "security.checked"
+          ],
+          "negative_properties": []
+        },
+        "policy": {
+          "uri": "https://example.org/policies/security/v1",
+          "id": "https://example.org/policies/security",
+          "version": "2026-10",
+          "digest": "sha256:policy-a",
+          "actual_digest": "sha256:policy-a",
+          "valid_from": "2026-10-03T00:00:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "required_positive_properties": [
+            "security.checked"
+          ]
+        },
+        "decision": {
+          "id": "decision-c",
+          "subject_digest": "sha256:subject-a",
+          "composition_digest": "sha256:composition-a",
+          "evidence_ids": [
+            "vr-a",
+            "vr-b"
+          ],
+          "policy_id": "https://example.org/policies/security",
+          "policy_version": "2026-10",
+          "policy_digest": "sha256:policy-a",
+          "evaluated_at": "2026-10-03T01:00:00Z",
+          "time_created": "2026-10-03T00:30:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "outcome": "allow",
+          "identity_material": {
+            "subject_digest": "sha256:subject-a",
+            "policy_id": "https://example.org/policies/security",
+            "policy_version": "2026-10",
+            "policy_digest": "sha256:policy-a",
+            "policy_valid_from": "2026-10-03T00:00:00Z",
+            "policy_valid_until": "2026-10-04T00:00:00Z",
+            "required_positive_properties": [
+              "security.checked"
+            ],
+            "composition_digest": "sha256:composition-a",
+            "evidence_ids": [
+              "vr-a",
+              "vr-b"
+            ],
+            "evaluated_at": "2026-10-03T01:00:00Z",
+            "decision_valid_until": "2026-10-04T00:00:00Z",
+            "outcome": "allow"
+          }
+        },
+        "monotonicity_probe": {
+          "before": "allow",
+          "after": "deny",
+          "deleted": [
+            "vr-b"
+          ]
+        }
+      },
+      "note": "Deleting required evidence may remove ALLOW; it must not manufacture ALLOW."
+    },
+    {
+      "id": "D-04",
+      "family": "required_evidence_deletion_to_allow",
+      "candidate": {
+        "subject_digest": "sha256:subject-a",
+        "evaluation_time": "2026-10-03T01:00:00Z",
+        "composition": {
+          "digest": "sha256:composition-a",
+          "status": "AGREEMENT",
+          "evidence_ids": [
+            "vr-a"
+          ],
+          "positive_properties": [
+            "security.checked"
+          ],
+          "negative_properties": []
+        },
+        "policy": {
+          "uri": "https://example.org/policies/security/v1",
+          "id": "https://example.org/policies/security",
+          "version": "2026-10",
+          "digest": "sha256:policy-a",
+          "actual_digest": "sha256:policy-a",
+          "valid_from": "2026-10-03T00:00:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "required_positive_properties": [
+            "security.checked"
+          ]
+        },
+        "decision": {
+          "id": "decision-a",
+          "subject_digest": "sha256:subject-a",
+          "composition_digest": "sha256:composition-a",
+          "evidence_ids": [
+            "vr-a"
+          ],
+          "policy_id": "https://example.org/policies/security",
+          "policy_version": "2026-10",
+          "policy_digest": "sha256:policy-a",
+          "evaluated_at": "2026-10-03T01:00:00Z",
+          "time_created": "2026-10-03T00:30:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "outcome": "allow",
+          "identity_material": {
+            "subject_digest": "sha256:subject-a",
+            "policy_id": "https://example.org/policies/security",
+            "policy_version": "2026-10",
+            "policy_digest": "sha256:policy-a",
+            "policy_valid_from": "2026-10-03T00:00:00Z",
+            "policy_valid_until": "2026-10-04T00:00:00Z",
+            "required_positive_properties": [
+              "security.checked"
+            ],
+            "composition_digest": "sha256:composition-a",
+            "evidence_ids": [
+              "vr-a"
+            ],
+            "evaluated_at": "2026-10-03T01:00:00Z",
+            "decision_valid_until": "2026-10-04T00:00:00Z",
+            "outcome": "allow"
+          }
+        },
+        "monotonicity_probe": {
+          "before": "deny",
+          "after": "allow",
+          "deleted": [
+            "required-positive"
+          ]
+        }
+      },
+      "note": "A DENY to ALLOW transition under evidence deletion violates monotonicity."
+    },
+    {
+      "id": "D-05",
+      "family": "negative_evidence_discarded",
+      "candidate": {
+        "subject_digest": "sha256:subject-a",
+        "evaluation_time": "2026-10-03T01:00:00Z",
+        "composition": {
+          "digest": "sha256:composition-a",
+          "status": "AGREEMENT",
+          "evidence_ids": [
+            "vr-a"
+          ],
+          "positive_properties": [
+            "security.checked"
+          ],
+          "negative_properties": [
+            "security.blocked"
+          ]
+        },
+        "policy": {
+          "uri": "https://example.org/policies/security/v1",
+          "id": "https://example.org/policies/security",
+          "version": "2026-10",
+          "digest": "sha256:policy-a",
+          "actual_digest": "sha256:policy-a",
+          "valid_from": "2026-10-03T00:00:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "required_positive_properties": [
+            "security.checked"
+          ]
+        },
+        "decision": {
+          "id": "decision-a",
+          "subject_digest": "sha256:subject-a",
+          "composition_digest": "sha256:composition-a",
+          "evidence_ids": [
+            "vr-a"
+          ],
+          "policy_id": "https://example.org/policies/security",
+          "policy_version": "2026-10",
+          "policy_digest": "sha256:policy-a",
+          "evaluated_at": "2026-10-03T01:00:00Z",
+          "time_created": "2026-10-03T00:30:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "outcome": "allow",
+          "identity_material": {
+            "subject_digest": "sha256:subject-a",
+            "policy_id": "https://example.org/policies/security",
+            "policy_version": "2026-10",
+            "policy_digest": "sha256:policy-a",
+            "policy_valid_from": "2026-10-03T00:00:00Z",
+            "policy_valid_until": "2026-10-04T00:00:00Z",
+            "required_positive_properties": [
+              "security.checked"
+            ],
+            "composition_digest": "sha256:composition-a",
+            "evidence_ids": [
+              "vr-a"
+            ],
+            "evaluated_at": "2026-10-03T01:00:00Z",
+            "decision_valid_until": "2026-10-04T00:00:00Z",
+            "outcome": "allow"
+          }
+        },
+        "negative_evidence_discarded": true
+      },
+      "note": "Negative evidence cannot be discarded to produce ALLOW."
+    },
+    {
+      "id": "D-06",
+      "family": "stale_evidence_removal_to_allow",
+      "candidate": {
+        "subject_digest": "sha256:subject-a",
+        "evaluation_time": "2026-10-03T01:00:00Z",
+        "composition": {
+          "digest": "sha256:composition-a",
+          "status": "AGREEMENT",
+          "evidence_ids": [
+            "vr-a"
+          ],
+          "positive_properties": [
+            "security.checked"
+          ],
+          "negative_properties": []
+        },
+        "policy": {
+          "uri": "https://example.org/policies/security/v1",
+          "id": "https://example.org/policies/security",
+          "version": "2026-10",
+          "digest": "sha256:policy-a",
+          "actual_digest": "sha256:policy-a",
+          "valid_from": "2026-10-03T00:00:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "required_positive_properties": [
+            "security.checked"
+          ]
+        },
+        "decision": {
+          "id": "decision-a",
+          "subject_digest": "sha256:subject-a",
+          "composition_digest": "sha256:composition-a",
+          "evidence_ids": [
+            "vr-a"
+          ],
+          "policy_id": "https://example.org/policies/security",
+          "policy_version": "2026-10",
+          "policy_digest": "sha256:policy-a",
+          "evaluated_at": "2026-10-03T01:00:00Z",
+          "time_created": "2026-10-03T00:30:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "outcome": "allow",
+          "identity_material": {
+            "subject_digest": "sha256:subject-a",
+            "policy_id": "https://example.org/policies/security",
+            "policy_version": "2026-10",
+            "policy_digest": "sha256:policy-a",
+            "policy_valid_from": "2026-10-03T00:00:00Z",
+            "policy_valid_until": "2026-10-04T00:00:00Z",
+            "required_positive_properties": [
+              "security.checked"
+            ],
+            "composition_digest": "sha256:composition-a",
+            "evidence_ids": [
+              "vr-a"
+            ],
+            "evaluated_at": "2026-10-03T01:00:00Z",
+            "decision_valid_until": "2026-10-04T00:00:00Z",
+            "outcome": "allow"
+          }
+        },
+        "stale_removal_probe": {
+          "before": "deny",
+          "after": "allow",
+          "removed": [
+            "stale-vr"
+          ]
+        }
+      },
+      "note": "Removing stale evidence cannot transform DENY into ALLOW."
+    },
+    {
+      "id": "D-07",
+      "family": "conflict_collapsed_to_allow",
+      "candidate": {
+        "subject_digest": "sha256:subject-a",
+        "evaluation_time": "2026-10-03T01:00:00Z",
+        "composition": {
+          "digest": "sha256:composition-a",
+          "status": "CONFLICT",
+          "evidence_ids": [
+            "vr-a",
+            "vr-b"
+          ],
+          "positive_properties": [
+            "security.checked"
+          ],
+          "negative_properties": [
+            "security.blocked"
+          ]
+        },
+        "policy": {
+          "uri": "https://example.org/policies/security/v1",
+          "id": "https://example.org/policies/security",
+          "version": "2026-10",
+          "digest": "sha256:policy-a",
+          "actual_digest": "sha256:policy-a",
+          "valid_from": "2026-10-03T00:00:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "required_positive_properties": [
+            "security.checked"
+          ]
+        },
+        "decision": {
+          "id": "decision-a",
+          "subject_digest": "sha256:subject-a",
+          "composition_digest": "sha256:composition-a",
+          "evidence_ids": [
+            "vr-a",
+            "vr-b"
+          ],
+          "policy_id": "https://example.org/policies/security",
+          "policy_version": "2026-10",
+          "policy_digest": "sha256:policy-a",
+          "evaluated_at": "2026-10-03T01:00:00Z",
+          "time_created": "2026-10-03T00:30:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "outcome": "allow",
+          "identity_material": {
+            "subject_digest": "sha256:subject-a",
+            "policy_id": "https://example.org/policies/security",
+            "policy_version": "2026-10",
+            "policy_digest": "sha256:policy-a",
+            "policy_valid_from": "2026-10-03T00:00:00Z",
+            "policy_valid_until": "2026-10-04T00:00:00Z",
+            "required_positive_properties": [
+              "security.checked"
+            ],
+            "composition_digest": "sha256:composition-a",
+            "evidence_ids": [
+              "vr-a",
+              "vr-b"
+            ],
+            "evaluated_at": "2026-10-03T01:00:00Z",
+            "decision_valid_until": "2026-10-04T00:00:00Z",
+            "outcome": "allow"
+          }
+        },
+        "conflict_handling": "collapse"
+      },
+      "note": "Conflicting evidence cannot be silently collapsed into ALLOW."
+    },
+    {
+      "id": "D-08",
+      "family": "policy_version_identity_reuse",
+      "candidate": {
+        "subject_digest": "sha256:subject-a",
+        "evaluation_time": "2026-10-03T01:00:00Z",
+        "composition": {
+          "digest": "sha256:composition-a",
+          "status": "AGREEMENT",
+          "evidence_ids": [
+            "vr-a",
+            "vr-b"
+          ],
+          "positive_properties": [
+            "security.checked"
+          ],
+          "negative_properties": []
+        },
+        "policy": {
+          "uri": "https://example.org/policies/security/v1",
+          "id": "https://example.org/policies/security",
+          "version": "2026-10",
+          "digest": "sha256:policy-new",
+          "actual_digest": "sha256:policy-a",
+          "valid_from": "2026-10-03T00:00:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "required_positive_properties": [
+            "security.checked"
+          ]
+        },
+        "decision": {
+          "id": "decision-reused",
+          "subject_digest": "sha256:subject-a",
+          "composition_digest": "sha256:composition-a",
+          "evidence_ids": [
+            "vr-a",
+            "vr-b"
+          ],
+          "policy_id": "https://example.org/policies/security",
+          "policy_version": "2026-10",
+          "policy_digest": "sha256:policy-new",
+          "evaluated_at": "2026-10-03T01:00:00Z",
+          "time_created": "2026-10-03T00:30:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "outcome": "allow",
+          "identity_material": {
+            "subject_digest": "sha256:subject-a",
+            "policy_id": "https://example.org/policies/security",
+            "policy_version": "2026-10",
+            "policy_digest": "sha256:policy-new",
+            "policy_valid_from": "2026-10-03T00:00:00Z",
+            "policy_valid_until": "2026-10-04T00:00:00Z",
+            "required_positive_properties": [
+              "security.checked"
+            ],
+            "composition_digest": "sha256:composition-a",
+            "evidence_ids": [
+              "vr-a",
+              "vr-b"
+            ],
+            "evaluated_at": "2026-10-03T01:00:00Z",
+            "decision_valid_until": "2026-10-04T00:00:00Z",
+            "outcome": "allow"
+          }
+        },
+        "previous_identity_material": {
+          "policy_id": "https://example.org/policies/security",
+          "policy_version": "2026-09",
+          "policy_digest": "sha256:policy-old",
+          "composition_digest": "sha256:composition-a",
+          "evidence_ids": [
+            "vr-a",
+            "vr-b"
+          ]
+        },
+        "previous_decision_id": "decision-reused"
+      },
+      "note": "Material policy identity changed while the decision identity was reused."
+    },
+    {
+      "id": "D-09",
+      "family": "mutable_latest_policy",
+      "candidate": {
+        "subject_digest": "sha256:subject-a",
+        "evaluation_time": "2026-10-03T01:00:00Z",
+        "composition": {
+          "digest": "sha256:composition-a",
+          "status": "AGREEMENT",
+          "evidence_ids": [
+            "vr-a",
+            "vr-b"
+          ],
+          "positive_properties": [
+            "security.checked"
+          ],
+          "negative_properties": []
+        },
+        "policy": {
+          "uri": "https://example.org/policies/security/latest",
+          "id": "https://example.org/policies/security",
+          "version": "2026-10",
+          "digest": "sha256:policy-a",
+          "actual_digest": "sha256:policy-a",
+          "valid_from": "2026-10-03T00:00:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "required_positive_properties": [
+            "security.checked"
+          ]
+        },
+        "decision": {
+          "id": "decision-a",
+          "subject_digest": "sha256:subject-a",
+          "composition_digest": "sha256:composition-a",
+          "evidence_ids": [
+            "vr-a",
+            "vr-b"
+          ],
+          "policy_id": "https://example.org/policies/security",
+          "policy_version": "2026-10",
+          "policy_digest": "sha256:policy-a",
+          "evaluated_at": "2026-10-03T01:00:00Z",
+          "time_created": "2026-10-03T00:30:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "outcome": "allow",
+          "identity_material": {
+            "subject_digest": "sha256:subject-a",
+            "policy_id": "https://example.org/policies/security",
+            "policy_version": "2026-10",
+            "policy_digest": "sha256:policy-a",
+            "policy_valid_from": "2026-10-03T00:00:00Z",
+            "policy_valid_until": "2026-10-04T00:00:00Z",
+            "required_positive_properties": [
+              "security.checked"
+            ],
+            "composition_digest": "sha256:composition-a",
+            "evidence_ids": [
+              "vr-a",
+              "vr-b"
+            ],
+            "evaluated_at": "2026-10-03T01:00:00Z",
+            "decision_valid_until": "2026-10-04T00:00:00Z",
+            "outcome": "allow"
+          }
+        }
+      },
+      "note": "A mutable latest policy locator is not an immutable policy identity."
+    },
+    {
+      "id": "D-10",
+      "family": "decisive_evidence_id_omission",
+      "candidate": {
+        "subject_digest": "sha256:subject-a",
+        "evaluation_time": "2026-10-03T01:00:00Z",
+        "composition": {
+          "digest": "sha256:composition-a",
+          "status": "AGREEMENT",
+          "evidence_ids": [
+            "vr-a",
+            "vr-b"
+          ],
+          "positive_properties": [
+            "security.checked"
+          ],
+          "negative_properties": []
+        },
+        "policy": {
+          "uri": "https://example.org/policies/security/v1",
+          "id": "https://example.org/policies/security",
+          "version": "2026-10",
+          "digest": "sha256:policy-a",
+          "actual_digest": "sha256:policy-a",
+          "valid_from": "2026-10-03T00:00:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "required_positive_properties": [
+            "security.checked"
+          ]
+        },
+        "decision": {
+          "id": "decision-a",
+          "subject_digest": "sha256:subject-a",
+          "composition_digest": "sha256:composition-a",
+          "evidence_ids": [],
+          "policy_id": "https://example.org/policies/security",
+          "policy_version": "2026-10",
+          "policy_digest": "sha256:policy-a",
+          "evaluated_at": "2026-10-03T01:00:00Z",
+          "time_created": "2026-10-03T00:30:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "outcome": "allow",
+          "identity_material": {
+            "subject_digest": "sha256:subject-a",
+            "policy_id": "https://example.org/policies/security",
+            "policy_version": "2026-10",
+            "policy_digest": "sha256:policy-a",
+            "policy_valid_from": "2026-10-03T00:00:00Z",
+            "policy_valid_until": "2026-10-04T00:00:00Z",
+            "required_positive_properties": [
+              "security.checked"
+            ],
+            "composition_digest": "sha256:composition-a",
+            "evidence_ids": [
+              "vr-a",
+              "vr-b"
+            ],
+            "evaluated_at": "2026-10-03T01:00:00Z",
+            "decision_valid_until": "2026-10-04T00:00:00Z",
+            "outcome": "allow"
+          }
+        }
+      },
+      "note": "A decision cannot claim provenance while omitting the decisive evidence identities."
+    },
+    {
+      "id": "D-11",
+      "family": "policy_digest_mismatch",
+      "candidate": {
+        "subject_digest": "sha256:subject-a",
+        "evaluation_time": "2026-10-03T01:00:00Z",
+        "composition": {
+          "digest": "sha256:composition-a",
+          "status": "AGREEMENT",
+          "evidence_ids": [
+            "vr-a",
+            "vr-b"
+          ],
+          "positive_properties": [
+            "security.checked"
+          ],
+          "negative_properties": []
+        },
+        "policy": {
+          "uri": "https://example.org/policies/security/v1",
+          "id": "https://example.org/policies/security",
+          "version": "2026-10",
+          "digest": "sha256:policy-a",
+          "actual_digest": "sha256:policy-bytes-b",
+          "valid_from": "2026-10-03T00:00:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "required_positive_properties": [
+            "security.checked"
+          ]
+        },
+        "decision": {
+          "id": "decision-a",
+          "subject_digest": "sha256:subject-a",
+          "composition_digest": "sha256:composition-a",
+          "evidence_ids": [
+            "vr-a",
+            "vr-b"
+          ],
+          "policy_id": "https://example.org/policies/security",
+          "policy_version": "2026-10",
+          "policy_digest": "sha256:policy-a",
+          "evaluated_at": "2026-10-03T01:00:00Z",
+          "time_created": "2026-10-03T00:30:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "outcome": "allow",
+          "identity_material": {
+            "subject_digest": "sha256:subject-a",
+            "policy_id": "https://example.org/policies/security",
+            "policy_version": "2026-10",
+            "policy_digest": "sha256:policy-a",
+            "policy_valid_from": "2026-10-03T00:00:00Z",
+            "policy_valid_until": "2026-10-04T00:00:00Z",
+            "required_positive_properties": [
+              "security.checked"
+            ],
+            "composition_digest": "sha256:composition-a",
+            "evidence_ids": [
+              "vr-a",
+              "vr-b"
+            ],
+            "evaluated_at": "2026-10-03T01:00:00Z",
+            "decision_valid_until": "2026-10-04T00:00:00Z",
+            "outcome": "allow"
+          }
+        }
+      },
+      "note": "Declared policy identity and evaluated policy bytes must agree."
+    },
+    {
+      "id": "D-12",
+      "family": "decision_outside_policy_validity",
+      "candidate": {
+        "subject_digest": "sha256:subject-a",
+        "evaluation_time": "2026-10-03T01:00:00Z",
+        "composition": {
+          "digest": "sha256:composition-a",
+          "status": "AGREEMENT",
+          "evidence_ids": [
+            "vr-a",
+            "vr-b"
+          ],
+          "positive_properties": [
+            "security.checked"
+          ],
+          "negative_properties": []
+        },
+        "policy": {
+          "uri": "https://example.org/policies/security/v1",
+          "id": "https://example.org/policies/security",
+          "version": "2026-10",
+          "digest": "sha256:policy-a",
+          "actual_digest": "sha256:policy-a",
+          "valid_from": "2026-10-03T00:00:00Z",
+          "valid_until": "2026-10-03T00:45:00Z",
+          "required_positive_properties": [
+            "security.checked"
+          ]
+        },
+        "decision": {
+          "id": "decision-a",
+          "subject_digest": "sha256:subject-a",
+          "composition_digest": "sha256:composition-a",
+          "evidence_ids": [
+            "vr-a",
+            "vr-b"
+          ],
+          "policy_id": "https://example.org/policies/security",
+          "policy_version": "2026-10",
+          "policy_digest": "sha256:policy-a",
+          "evaluated_at": "2026-10-03T01:00:00Z",
+          "time_created": "2026-10-03T00:30:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "outcome": "allow",
+          "identity_material": {
+            "subject_digest": "sha256:subject-a",
+            "policy_id": "https://example.org/policies/security",
+            "policy_version": "2026-10",
+            "policy_digest": "sha256:policy-a",
+            "policy_valid_from": "2026-10-03T00:00:00Z",
+            "policy_valid_until": "2026-10-03T00:45:00Z",
+            "required_positive_properties": [
+              "security.checked"
+            ],
+            "composition_digest": "sha256:composition-a",
+            "evidence_ids": [
+              "vr-a",
+              "vr-b"
+            ],
+            "evaluated_at": "2026-10-03T01:00:00Z",
+            "decision_valid_until": "2026-10-04T00:00:00Z",
+            "outcome": "allow"
+          }
+        }
+      },
+      "note": "Decision evaluation outside the policy validity interval is invalid."
+    },
+    {
+      "id": "D-13",
+      "family": "expired_decision_replay",
+      "candidate": {
+        "subject_digest": "sha256:subject-a",
+        "evaluation_time": "2026-10-03T01:00:00Z",
+        "composition": {
+          "digest": "sha256:composition-a",
+          "status": "AGREEMENT",
+          "evidence_ids": [
+            "vr-a",
+            "vr-b"
+          ],
+          "positive_properties": [
+            "security.checked"
+          ],
+          "negative_properties": []
+        },
+        "policy": {
+          "uri": "https://example.org/policies/security/v1",
+          "id": "https://example.org/policies/security",
+          "version": "2026-10",
+          "digest": "sha256:policy-a",
+          "actual_digest": "sha256:policy-a",
+          "valid_from": "2026-10-03T00:00:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "required_positive_properties": [
+            "security.checked"
+          ]
+        },
+        "decision": {
+          "id": "decision-a",
+          "subject_digest": "sha256:subject-a",
+          "composition_digest": "sha256:composition-a",
+          "evidence_ids": [
+            "vr-a",
+            "vr-b"
+          ],
+          "policy_id": "https://example.org/policies/security",
+          "policy_version": "2026-10",
+          "policy_digest": "sha256:policy-a",
+          "evaluated_at": "2026-10-03T01:00:00Z",
+          "time_created": "2026-10-03T00:30:00Z",
+          "valid_until": "2026-10-03T00:45:00Z",
+          "outcome": "allow",
+          "identity_material": {
+            "subject_digest": "sha256:subject-a",
+            "policy_id": "https://example.org/policies/security",
+            "policy_version": "2026-10",
+            "policy_digest": "sha256:policy-a",
+            "policy_valid_from": "2026-10-03T00:00:00Z",
+            "policy_valid_until": "2026-10-04T00:00:00Z",
+            "required_positive_properties": [
+              "security.checked"
+            ],
+            "composition_digest": "sha256:composition-a",
+            "evidence_ids": [
+              "vr-a",
+              "vr-b"
+            ],
+            "evaluated_at": "2026-10-03T01:00:00Z",
+            "decision_valid_until": "2026-10-03T00:45:00Z",
+            "outcome": "allow"
+          }
+        },
+        "replayed_after_expiry": true
+      },
+      "note": "An expired decision cannot silently re-enter the current evidence/decision state."
+    },
+    {
+      "id": "D-14",
+      "family": "exact_replay_idempotent",
+      "candidate": {
+        "subject_digest": "sha256:subject-a",
+        "evaluation_time": "2026-10-03T01:00:00Z",
+        "composition": {
+          "digest": "sha256:composition-a",
+          "status": "AGREEMENT",
+          "evidence_ids": [
+            "vr-a",
+            "vr-b"
+          ],
+          "positive_properties": [
+            "security.checked"
+          ],
+          "negative_properties": []
+        },
+        "policy": {
+          "uri": "https://example.org/policies/security/v1",
+          "id": "https://example.org/policies/security",
+          "version": "2026-10",
+          "digest": "sha256:policy-a",
+          "actual_digest": "sha256:policy-a",
+          "valid_from": "2026-10-03T00:00:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "required_positive_properties": [
+            "security.checked"
+          ]
+        },
+        "decision": {
+          "id": "decision-replay",
+          "subject_digest": "sha256:subject-a",
+          "composition_digest": "sha256:composition-a",
+          "evidence_ids": [
+            "vr-a",
+            "vr-b"
+          ],
+          "policy_id": "https://example.org/policies/security",
+          "policy_version": "2026-10",
+          "policy_digest": "sha256:policy-a",
+          "evaluated_at": "2026-10-03T01:00:00Z",
+          "time_created": "2026-10-03T00:30:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "outcome": "allow",
+          "identity_material": {
+            "subject_digest": "sha256:subject-a",
+            "policy_id": "https://example.org/policies/security",
+            "policy_version": "2026-10",
+            "policy_digest": "sha256:policy-a",
+            "policy_valid_from": "2026-10-03T00:00:00Z",
+            "policy_valid_until": "2026-10-04T00:00:00Z",
+            "required_positive_properties": [
+              "security.checked"
+            ],
+            "composition_digest": "sha256:composition-a",
+            "evidence_ids": [
+              "vr-a",
+              "vr-b"
+            ],
+            "evaluated_at": "2026-10-03T01:00:00Z",
+            "decision_valid_until": "2026-10-04T00:00:00Z",
+            "outcome": "allow"
+          }
+        },
+        "exact_replay": true,
+        "replay_of": "decision-replay"
+      },
+      "note": "Exact replay of identical decision material is idempotent and remains provenance-preserving."
+    },
+    {
+      "id": "D-15",
+      "family": "contradictory_policy_outcomes_unresolved",
+      "candidate": {
+        "subject_digest": "sha256:subject-a",
+        "evaluation_time": "2026-10-03T01:00:00Z",
+        "composition": {
+          "digest": "sha256:composition-a",
+          "status": "AGREEMENT",
+          "evidence_ids": [
+            "vr-a",
+            "vr-b"
+          ],
+          "positive_properties": [
+            "security.checked"
+          ],
+          "negative_properties": []
+        },
+        "policy": {
+          "uri": "https://example.org/policies/security/v1",
+          "id": "https://example.org/policies/security",
+          "version": "2026-10",
+          "digest": "sha256:policy-a",
+          "actual_digest": "sha256:policy-a",
+          "valid_from": "2026-10-03T00:00:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "required_positive_properties": [
+            "security.checked"
+          ]
+        },
+        "decision": {
+          "id": "decision-a",
+          "subject_digest": "sha256:subject-a",
+          "composition_digest": "sha256:composition-a",
+          "evidence_ids": [
+            "vr-a",
+            "vr-b"
+          ],
+          "policy_id": "https://example.org/policies/security",
+          "policy_version": "2026-10",
+          "policy_digest": "sha256:policy-a",
+          "evaluated_at": "2026-10-03T01:00:00Z",
+          "time_created": "2026-10-03T00:30:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "outcome": "unresolved",
+          "identity_material": {
+            "subject_digest": "sha256:subject-a",
+            "policy_id": "https://example.org/policies/security",
+            "policy_version": "2026-10",
+            "policy_digest": "sha256:policy-a",
+            "policy_valid_from": "2026-10-03T00:00:00Z",
+            "policy_valid_until": "2026-10-04T00:00:00Z",
+            "required_positive_properties": [
+              "security.checked"
+            ],
+            "composition_digest": "sha256:composition-a",
+            "evidence_ids": [
+              "vr-a",
+              "vr-b"
+            ],
+            "evaluated_at": "2026-10-03T01:00:00Z",
+            "decision_valid_until": "2026-10-04T00:00:00Z",
+            "outcome": "unresolved"
+          }
+        },
+        "policy_evaluations": [
+          {
+            "id": "pe-a",
+            "outcome": "deny"
+          },
+          {
+            "id": "pe-b",
+            "outcome": "allow"
+          }
+        ],
+        "policy_conflict_handling": "preserve"
+      },
+      "note": "Conflicting policy outcomes remain unresolved rather than selecting a winner."
+    },
+    {
+      "id": "D-16",
+      "family": "quorum_as_authorization",
+      "candidate": {
+        "subject_digest": "sha256:subject-a",
+        "evaluation_time": "2026-10-03T01:00:00Z",
+        "composition": {
+          "digest": "sha256:composition-a",
+          "status": "AGREEMENT",
+          "evidence_ids": [
+            "vr-a",
+            "vr-b"
+          ],
+          "positive_properties": [
+            "security.checked"
+          ],
+          "negative_properties": []
+        },
+        "policy": {
+          "uri": "https://example.org/policies/security/v1",
+          "id": "https://example.org/policies/security",
+          "version": "2026-10",
+          "digest": "sha256:policy-a",
+          "actual_digest": "sha256:policy-a",
+          "valid_from": "2026-10-03T00:00:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "required_positive_properties": [
+            "security.checked"
+          ]
+        },
+        "decision": {
+          "id": "decision-a",
+          "subject_digest": "sha256:subject-a",
+          "composition_digest": "sha256:composition-a",
+          "evidence_ids": [
+            "vr-a",
+            "vr-b"
+          ],
+          "policy_id": "https://example.org/policies/security",
+          "policy_version": "2026-10",
+          "policy_digest": "sha256:policy-a",
+          "evaluated_at": "2026-10-03T01:00:00Z",
+          "time_created": "2026-10-03T00:30:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "outcome": "allow",
+          "identity_material": {
+            "subject_digest": "sha256:subject-a",
+            "policy_id": "https://example.org/policies/security",
+            "policy_version": "2026-10",
+            "policy_digest": "sha256:policy-a",
+            "policy_valid_from": "2026-10-03T00:00:00Z",
+            "policy_valid_until": "2026-10-04T00:00:00Z",
+            "required_positive_properties": [
+              "security.checked"
+            ],
+            "composition_digest": "sha256:composition-a",
+            "evidence_ids": [
+              "vr-a",
+              "vr-b"
+            ],
+            "evaluated_at": "2026-10-03T01:00:00Z",
+            "decision_valid_until": "2026-10-04T00:00:00Z",
+            "outcome": "allow"
+          }
+        },
+        "quorum": {
+          "required": 2,
+          "observed": 2
+        },
+        "authorization_mapping": "authorize"
+      },
+      "note": "A quorum threshold remains a composition fact and is not an authorization grant."
+    },
+    {
+      "id": "D-17",
+      "family": "decision_as_scientific_truth",
+      "candidate": {
+        "subject_digest": "sha256:subject-a",
+        "evaluation_time": "2026-10-03T01:00:00Z",
+        "composition": {
+          "digest": "sha256:composition-a",
+          "status": "AGREEMENT",
+          "evidence_ids": [
+            "vr-a",
+            "vr-b"
+          ],
+          "positive_properties": [
+            "security.checked"
+          ],
+          "negative_properties": []
+        },
+        "policy": {
+          "uri": "https://example.org/policies/security/v1",
+          "id": "https://example.org/policies/security",
+          "version": "2026-10",
+          "digest": "sha256:policy-a",
+          "actual_digest": "sha256:policy-a",
+          "valid_from": "2026-10-03T00:00:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "required_positive_properties": [
+            "security.checked"
+          ]
+        },
+        "decision": {
+          "id": "decision-a",
+          "subject_digest": "sha256:subject-a",
+          "composition_digest": "sha256:composition-a",
+          "evidence_ids": [
+            "vr-a",
+            "vr-b"
+          ],
+          "policy_id": "https://example.org/policies/security",
+          "policy_version": "2026-10",
+          "policy_digest": "sha256:policy-a",
+          "evaluated_at": "2026-10-03T01:00:00Z",
+          "time_created": "2026-10-03T00:30:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "outcome": "allow",
+          "identity_material": {
+            "subject_digest": "sha256:subject-a",
+            "policy_id": "https://example.org/policies/security",
+            "policy_version": "2026-10",
+            "policy_digest": "sha256:policy-a",
+            "policy_valid_from": "2026-10-03T00:00:00Z",
+            "policy_valid_until": "2026-10-04T00:00:00Z",
+            "required_positive_properties": [
+              "security.checked"
+            ],
+            "composition_digest": "sha256:composition-a",
+            "evidence_ids": [
+              "vr-a",
+              "vr-b"
+            ],
+            "evaluated_at": "2026-10-03T01:00:00Z",
+            "decision_valid_until": "2026-10-04T00:00:00Z",
+            "outcome": "allow"
+          }
+        },
+        "interpretation_claim": "scientific_truth"
+      },
+      "note": "A policy decision must not be represented as scientific truth."
+    },
+    {
+      "id": "D-18",
+      "family": "decision_as_civic_authority",
+      "candidate": {
+        "subject_digest": "sha256:subject-a",
+        "evaluation_time": "2026-10-03T01:00:00Z",
+        "composition": {
+          "digest": "sha256:composition-a",
+          "status": "AGREEMENT",
+          "evidence_ids": [
+            "vr-a",
+            "vr-b"
+          ],
+          "positive_properties": [
+            "security.checked"
+          ],
+          "negative_properties": []
+        },
+        "policy": {
+          "uri": "https://example.org/policies/security/v1",
+          "id": "https://example.org/policies/security",
+          "version": "2026-10",
+          "digest": "sha256:policy-a",
+          "actual_digest": "sha256:policy-a",
+          "valid_from": "2026-10-03T00:00:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "required_positive_properties": [
+            "security.checked"
+          ]
+        },
+        "decision": {
+          "id": "decision-a",
+          "subject_digest": "sha256:subject-a",
+          "composition_digest": "sha256:composition-a",
+          "evidence_ids": [
+            "vr-a",
+            "vr-b"
+          ],
+          "policy_id": "https://example.org/policies/security",
+          "policy_version": "2026-10",
+          "policy_digest": "sha256:policy-a",
+          "evaluated_at": "2026-10-03T01:00:00Z",
+          "time_created": "2026-10-03T00:30:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "outcome": "allow",
+          "identity_material": {
+            "subject_digest": "sha256:subject-a",
+            "policy_id": "https://example.org/policies/security",
+            "policy_version": "2026-10",
+            "policy_digest": "sha256:policy-a",
+            "policy_valid_from": "2026-10-03T00:00:00Z",
+            "policy_valid_until": "2026-10-04T00:00:00Z",
+            "required_positive_properties": [
+              "security.checked"
+            ],
+            "composition_digest": "sha256:composition-a",
+            "evidence_ids": [
+              "vr-a",
+              "vr-b"
+            ],
+            "evaluated_at": "2026-10-03T01:00:00Z",
+            "decision_valid_until": "2026-10-04T00:00:00Z",
+            "outcome": "allow"
+          }
+        },
+        "authority_claim": "civic_authority"
+      },
+      "note": "A policy decision must not be represented as civic authority."
+    },
+    {
+      "id": "D-19",
+      "family": "order_dependent_consumption",
+      "candidate": {
+        "subject_digest": "sha256:subject-a",
+        "evaluation_time": "2026-10-03T01:00:00Z",
+        "composition": {
+          "digest": "sha256:composition-a",
+          "status": "AGREEMENT",
+          "evidence_ids": [
+            "vr-a",
+            "vr-b"
+          ],
+          "positive_properties": [
+            "security.checked"
+          ],
+          "negative_properties": []
+        },
+        "policy": {
+          "uri": "https://example.org/policies/security/v1",
+          "id": "https://example.org/policies/security",
+          "version": "2026-10",
+          "digest": "sha256:policy-a",
+          "actual_digest": "sha256:policy-a",
+          "valid_from": "2026-10-03T00:00:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "required_positive_properties": [
+            "security.checked"
+          ]
+        },
+        "decision": {
+          "id": "decision-a",
+          "subject_digest": "sha256:subject-a",
+          "composition_digest": "sha256:composition-a",
+          "evidence_ids": [
+            "vr-a",
+            "vr-b"
+          ],
+          "policy_id": "https://example.org/policies/security",
+          "policy_version": "2026-10",
+          "policy_digest": "sha256:policy-a",
+          "evaluated_at": "2026-10-03T01:00:00Z",
+          "time_created": "2026-10-03T00:30:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "outcome": "allow",
+          "identity_material": {
+            "subject_digest": "sha256:subject-a",
+            "policy_id": "https://example.org/policies/security",
+            "policy_version": "2026-10",
+            "policy_digest": "sha256:policy-a",
+            "policy_valid_from": "2026-10-03T00:00:00Z",
+            "policy_valid_until": "2026-10-04T00:00:00Z",
+            "required_positive_properties": [
+              "security.checked"
+            ],
+            "composition_digest": "sha256:composition-a",
+            "evidence_ids": [
+              "vr-a",
+              "vr-b"
+            ],
+            "evaluated_at": "2026-10-03T01:00:00Z",
+            "decision_valid_until": "2026-10-04T00:00:00Z",
+            "outcome": "allow"
+          }
+        },
+        "order_probe": {
+          "outcomes": [
+            "allow",
+            "deny"
+          ],
+          "order_dependent": true
+        }
+      },
+      "note": "Decision semantics cannot depend on evidence arrival order."
+    },
+    {
+      "id": "D-20",
+      "family": "policy_field_omission_cannot_weaken_deny",
+      "candidate": {
+        "subject_digest": "sha256:subject-a",
+        "evaluation_time": "2026-10-03T01:00:00Z",
+        "composition": {
+          "digest": "sha256:composition-a",
+          "status": "AGREEMENT",
+          "evidence_ids": [
+            "vr-a"
+          ],
+          "positive_properties": [],
+          "negative_properties": [
+            "security.blocked"
+          ]
+        },
+        "policy": {
+          "uri": "https://example.org/policies/security/v1",
+          "id": "https://example.org/policies/security",
+          "version": "2026-10",
+          "digest": "sha256:policy-a",
+          "actual_digest": "sha256:policy-a",
+          "valid_from": "2026-10-03T00:00:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "required_positive_properties": [
+            "security.checked"
+          ]
+        },
+        "decision": {
+          "id": "decision-a",
+          "subject_digest": "sha256:subject-a",
+          "composition_digest": "sha256:composition-a",
+          "evidence_ids": [
+            "vr-a"
+          ],
+          "policy_id": "https://example.org/policies/security",
+          "policy_version": "2026-10",
+          "policy_digest": "",
+          "evaluated_at": "2026-10-03T01:00:00Z",
+          "time_created": "2026-10-03T00:30:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "outcome": "deny",
+          "identity_material": {
+            "subject_digest": "sha256:subject-a",
+            "policy_id": "https://example.org/policies/security",
+            "policy_version": "2026-10",
+            "policy_digest": "sha256:policy-a",
+            "policy_valid_from": "2026-10-03T00:00:00Z",
+            "policy_valid_until": "2026-10-04T00:00:00Z",
+            "required_positive_properties": [
+              "security.checked"
+            ],
+            "composition_digest": "sha256:composition-a",
+            "evidence_ids": [
+              "vr-a"
+            ],
+            "evaluated_at": "2026-10-03T01:00:00Z",
+            "decision_valid_until": "2026-10-04T00:00:00Z",
+            "outcome": "deny"
+          }
+        },
+        "policy_field_omitted": "digest"
+      },
+      "note": "Omitting policy identity must not convert a DENY into ALLOW or create an unverifiable decision."
+    },
+    {
+      "id": "D-21",
+      "family": "irrelevant_evidence_deletion_invariant",
+      "candidate": {
+        "subject_digest": "sha256:subject-a",
+        "evaluation_time": "2026-10-03T01:00:00Z",
+        "composition": {
+          "digest": "sha256:composition-a",
+          "status": "AGREEMENT",
+          "evidence_ids": [
+            "vr-a",
+            "vr-b"
+          ],
+          "positive_properties": [
+            "security.checked"
+          ],
+          "negative_properties": []
+        },
+        "policy": {
+          "uri": "https://example.org/policies/security/v1",
+          "id": "https://example.org/policies/security",
+          "version": "2026-10",
+          "digest": "sha256:policy-a",
+          "actual_digest": "sha256:policy-a",
+          "valid_from": "2026-10-03T00:00:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "required_positive_properties": [
+            "security.checked"
+          ]
+        },
+        "decision": {
+          "id": "decision-a",
+          "subject_digest": "sha256:subject-a",
+          "composition_digest": "sha256:composition-a",
+          "evidence_ids": [
+            "vr-a",
+            "vr-b"
+          ],
+          "policy_id": "https://example.org/policies/security",
+          "policy_version": "2026-10",
+          "policy_digest": "sha256:policy-a",
+          "evaluated_at": "2026-10-03T01:00:00Z",
+          "time_created": "2026-10-03T00:30:00Z",
+          "valid_until": "2026-10-04T00:00:00Z",
+          "outcome": "allow",
+          "identity_material": {
+            "subject_digest": "sha256:subject-a",
+            "policy_id": "https://example.org/policies/security",
+            "policy_version": "2026-10",
+            "policy_digest": "sha256:policy-a",
+            "policy_valid_from": "2026-10-03T00:00:00Z",
+            "policy_valid_until": "2026-10-04T00:00:00Z",
+            "required_positive_properties": [
+              "security.checked"
+            ],
+            "composition_digest": "sha256:composition-a",
+            "evidence_ids": [
+              "vr-a",
+              "vr-b"
+            ],
+            "evaluated_at": "2026-10-03T01:00:00Z",
+            "decision_valid_until": "2026-10-04T00:00:00Z",
+            "outcome": "allow"
+          }
+        },
+        "monotonicity_probe": {
+          "before": "allow",
+          "after": "allow",
+          "deleted": [
+            "irrelevant-vr"
+          ]
+        }
+      },
+      "note": "Deleting irrelevant evidence leaves the decision unchanged."
+    }
+  ]
+}
