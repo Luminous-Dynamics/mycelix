@@ -96,6 +96,9 @@
   ],
   "unsupported_reference_case_reasons": {
     "wire-signature-valid": "The isolated authenticated-but-not-yet-authorized intermediate state is not exposed as a standalone Holochain 0.7 app-interface result.",
-    "nonce-stale": "Holochain 0.7 uses random 256-bit nonces and witnesses Fresh, Duplicate, Expired, or Future; the D6S reference state's distinct stale/older-nonce condition is not independently reproducible on this substrate."
-  }
+    "nonce-stale": "Holochain 0.7 uses random 256-bit nonces and witnesses Fresh, Duplicate, Expired, or Future; the D6S stale/older-nonce state is not independently reproducible on this substrate."
+  },
+  "supplemental_substrate_checks": [
+    "future-expiry-rejection"
+  ]
 }
