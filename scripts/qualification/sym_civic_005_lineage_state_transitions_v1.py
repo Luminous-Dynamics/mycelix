@@ -25,7 +25,7 @@ def reject(c):
  if i=="T-12": return x.get("cached_claim_state")=="VALID" and any(e["event_type"]=="INVALIDATE" for e in x["events"])
  if i=="T-13": return False
  if i=="T-14":
-  return not (sorted(x["equivalent_event_orders"][0])==sorted(x["equivalent_event_orders"][1]))
+  return not (sorted(x["equivalent_event_orders"][0])==sorted(x["equivalent_event_orders"][1]) and x["canonical_final_state"]=="SUPERSEDED")
  if i=="T-15": return False
  return True
 def main():
