@@ -37,6 +37,7 @@ struct Evidence {
     agents: BTreeMap<&'static str, String>,
     action_hashes: Vec<String>,
     entry_hashes: Vec<String>,
+    evidence_scope: &'static str,
     expected: String,
     observed: String,
     pass: bool,
@@ -281,6 +282,7 @@ fn emit_evidence(
         agents,
         action_hashes: records.iter().map(|r| action_hash(r)).collect(),
         entry_hashes: records.iter().filter_map(|r| entry_hash(r)).collect(),
+        evidence_scope: if records.is_empty() { "absence-bound" } else { "record-bound" },
         expected: expected.into(),
         observed: observed.into(),
         pass,
@@ -630,7 +632,7 @@ async fn dsid_008_updated_did_remains_canonical() {
         }]
     });
 
-    let _updated: Record = conductor
+    let updated: Record = conductor
         .call(&cell.zome("did_registry"), "update_did_document", update_input)
         .await;
 
@@ -1091,7 +1093,7 @@ async fn dsid_014_initial_verification_key_is_canonical_multibase() {
         "initial-verification-key-is-canonical-multibase",
         &dna,
         agents,
-        &[],
+        &[&record],
         "The initial DID verification method encodes the exact Holochain Ed25519 agent key as multicodec-prefixed base58btc multibase.",
         format!(
             "algorithm={:?} raw_key_bytes={} round_trip={}",
