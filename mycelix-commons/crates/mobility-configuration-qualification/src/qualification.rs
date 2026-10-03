@@ -691,6 +691,12 @@ mod tests {
         );
         assert_eq!(
             identity
+                .get("resolution_invalid")
+                .and_then(serde_json::Value::as_str),
+            Some("malformed logical identity is definitive invalidity")
+        );
+        assert_eq!(
+            identity
                 .get("resolution_missing")
                 .and_then(serde_json::Value::as_str),
             Some("return canonical missing logical identities and preserve unresolved semantic state")
