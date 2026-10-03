@@ -39,7 +39,9 @@ An adapter therefore MUST NOT:
 - use a mutable link collection as a substitute for an addressable dependency;
 - treat an unavailable engineering identity as evidence that the underlying record is false or invalid.
 
-An adapter MUST establish an explicit deterministic binding from each unresolved logical identity to the protocol address used for dependency retrieval.
+An adapter MUST establish an explicit deterministic binding from each unresolved logical identity to exactly one protocol address used for dependency retrieval. The pure layer provides `QualificationDependencyBindingSet<A>` for this purpose without fixing the runtime address type.
+
+The binding set is intentionally append-only: a logical identity cannot be rebound to a second address within the same binding set. Iteration is canonicalized by logical identity, so construction order cannot affect downstream dependency resolution. An unbound logical identity remains unresolved; it must not be converted into a negative semantic finding.
 
 ## Dependency retrieval boundary
 
