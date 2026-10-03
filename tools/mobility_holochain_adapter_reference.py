@@ -58,6 +58,12 @@ def main() -> int:
         raise SystemExit("adapter must require a pure provenance witness for each runtime binding")
     if "HolochainAuthorityAgentBindingSet" not in source:
         raise SystemExit("adapter must provide an immutable authority-agent registry")
+    if "QualificationAuthorityAgentBindingProvenance" not in source:
+        raise SystemExit("authority-agent credentials must use the dedicated provenance type")
+    if "SignedHolochainAuthorityAgentBinding" not in source:
+        raise SystemExit("adapter must expose signed authority-agent credentials")
+    if "HOLOCHAIN_AUTHORITY_AGENT_BINDING_SCHEMA" not in source:
+        raise SystemExit("authority-agent credential schema must be explicit")
     if "issuer != self.payload.agent" not in source:
         raise SystemExit("authority-agent credential issuer must equal the bound agent")
     if "one AgentPubKey in an immutable binding set" not in source:
