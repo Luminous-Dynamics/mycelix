@@ -96,6 +96,14 @@ impl HolochainDependencyBindingSet {
         address: HolochainDependencyAddress,
         retrieval: QualificationDependencyRetrievalKind,
     ) -> Result<(), HolochainAdapterBoundaryError> {
+        identity
+            .validate()
+            .map_err(|error| match error {
+                QualificationValidationError::Structural { reason } => {
+                    HolochainAdapterBoundaryError::BindingRejected { reason }
+                }
+            })?;
+
         validate_address_kind(&address, retrieval)?;
 
         self.inner
@@ -269,7 +277,7 @@ mod tests {
     use hdi::hdi::{set_hdi, HdiT};
     use mobility_configuration_qualification::identity_lineage::IdentityKind;
     use std::panic::{catch_unwind, AssertUnwindSafe};
-    use std::sync::{Arc, Mutex};
+    use std::sync::{Arc, Mutex, OnceLock};
 
     fn identity(value: &str) -> IdentityRef {
         IdentityRef {
@@ -405,6 +413,25 @@ mod tests {
     }
 
     #[test]
+    fn malformed_identity_precedes_address_kind_mismatch() {
+        let mut bindings = HolochainDependencyBindingSet::new();
+
+        let error = bindings
+            .bind(
+                malformed_identity(),
+                HolochainDependencyAddress::Entry(entry_hash(8)),
+                QualificationDependencyRetrievalKind::ValidRecord,
+            )
+            .expect_err("malformed logical identity must win over adapter kind mismatch");
+
+        assert!(matches!(
+            error,
+            HolochainAdapterBoundaryError::BindingRejected { .. }
+        ));
+        assert!(bindings.is_empty());
+    }
+
+    #[test]
     fn malformed_identity_remains_a_structural_binding_failure() {
         let mut bindings = HolochainDependencyBindingSet::new();
         let error = bindings
@@ -497,6 +524,12 @@ mod tests {
         address: HolochainDependencyAddress,
         expected_call: &'static str,
     ) {
+        static HOST_TEST_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        let _guard = HOST_TEST_LOCK
+            .get_or_init(|| Mutex::new(()))
+            .lock()
+            .expect("HDI test lock is not poisoned");
+
         let mut bindings = HolochainDependencyBindingSet::new();
         bindings
             .bind(identity("dispatch"), address, retrieval)
