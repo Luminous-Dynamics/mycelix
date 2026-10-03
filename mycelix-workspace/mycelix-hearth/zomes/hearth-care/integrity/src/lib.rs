@@ -152,13 +152,13 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::Link(OpLink::CreateLink { action, .. }) => {
-            if action.data.tag.0.len() > 256 {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Link tag too long (max 256 bytes)".into(),
-                ));
-            }
-            Ok(ValidateCallbackResult::Valid)
+        FlatOp::Link(OpLink::CreateLink { link_type, action }) => {
+            validate_create_link(
+                link_type,
+                action.data.base_address.clone(),
+                action.data.target_address.clone(),
+                action.author(),
+            )
         }
         FlatOp::Link(link @ OpLink::DeleteLink {
             action,
@@ -205,6 +205,92 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             ))
         }
     }
+}
+
+fn validate_create_link(
+    link_type: LinkTypes,
+    base_address: AnyLinkableHash,
+    target_address: AnyLinkableHash,
+    author: &AgentPubKey,
+) -> ExternResult<ValidateCallbackResult> {
+    let action_hash = |hash: AnyLinkableHash, label: &str| -> Result<ActionHash, ValidateCallbackResult> {
+        ActionHash::try_from(hash)
+            .map_err(|_| ValidateCallbackResult::Invalid(format!("{label} must be an ActionHash")))
+    };
+    let agent_key = |hash: AnyLinkableHash, label: &str| -> Result<AgentPubKey, ValidateCallbackResult> {
+        AgentPubKey::try_from(hash)
+            .map_err(|_| ValidateCallbackResult::Invalid(format!("{label} must be an AgentPubKey")))
+    };
+
+    match link_type {
+        LinkTypes::HearthToSchedules => {
+            let hearth_hash = action_hash(base_address, "HearthToSchedules base")?;
+            let schedule_hash = action_hash(target_address, "HearthToSchedules target")?;
+            let record = must_get_valid_record(schedule_hash)?;
+            let schedule: CareSchedule = record.entry().to_app_option()?.ok_or(
+                wasm_error!(WasmErrorInner::Guest("HearthToSchedules target entry missing".into()))
+            )?;
+            if schedule.hearth_hash != hearth_hash {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "HearthToSchedules target belongs to a different hearth".into(),
+                ));
+            }
+        }
+        LinkTypes::AgentToSchedules => {
+            let agent = agent_key(base_address, "AgentToSchedules base")?;
+            let schedule_hash = action_hash(target_address, "AgentToSchedules target")?;
+            let record = must_get_valid_record(schedule_hash)?;
+            let schedule: CareSchedule = record.entry().to_app_option()?.ok_or(
+                wasm_error!(WasmErrorInner::Guest("AgentToSchedules target entry missing".into()))
+            )?;
+            if schedule.assigned_to != agent {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "AgentToSchedules base does not match the schedule assignee".into(),
+                ));
+            }
+        }
+        LinkTypes::HearthToSwaps => {
+            let hearth_hash = action_hash(base_address, "HearthToSwaps base")?;
+            let swap_hash = action_hash(target_address, "HearthToSwaps target")?;
+            let record = must_get_valid_record(swap_hash)?;
+            let swap: CareSwap = record.entry().to_app_option()?.ok_or(
+                wasm_error!(WasmErrorInner::Guest("HearthToSwaps target entry missing".into()))
+            )?;
+            if swap.hearth_hash != hearth_hash {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "HearthToSwaps target belongs to a different hearth".into(),
+                ));
+            }
+        }
+        LinkTypes::ScheduleToSwaps => {
+            let schedule_hash = action_hash(base_address, "ScheduleToSwaps base")?;
+            let swap_hash = action_hash(target_address, "ScheduleToSwaps target")?;
+            let record = must_get_valid_record(swap_hash)?;
+            let swap: CareSwap = record.entry().to_app_option()?.ok_or(
+                wasm_error!(WasmErrorInner::Guest("ScheduleToSwaps target entry missing".into()))
+            )?;
+            if swap.original_schedule_hash != schedule_hash {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "ScheduleToSwaps target references a different schedule".into(),
+                ));
+            }
+        }
+        LinkTypes::HearthToMealPlans => {
+            let hearth_hash = action_hash(base_address, "HearthToMealPlans base")?;
+            let plan_hash = action_hash(target_address, "HearthToMealPlans target")?;
+            let record = must_get_valid_record(plan_hash)?;
+            let plan: MealPlan = record.entry().to_app_option()?.ok_or(
+                wasm_error!(WasmErrorInner::Guest("HearthToMealPlans target entry missing".into()))
+            )?;
+            if plan.hearth_hash != hearth_hash {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "HearthToMealPlans target belongs to a different hearth".into(),
+                ));
+            }
+        }
+    }
+
+    Ok(ValidateCallbackResult::Valid)
 }
 
 fn validate_schedule(
