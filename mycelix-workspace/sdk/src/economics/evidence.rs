@@ -610,6 +610,69 @@ impl EconomicEvidenceCapsule {
         )
     }
 
+    /// Re-verify a sealed capsule against the supplied single-step execution artifacts.
+    ///
+    /// Unlike verify_integrity, this method does not trust hashes stored in the capsule as
+    /// evidence of execution. It replays the transition program, rebuilds the accounting closure,
+    /// and requires the complete capsule to equal the independently reconstructed result.
+    pub fn verify_against_step(
+        &self,
+        initial_state: &EconomicState,
+        final_state: &EconomicState,
+        final_receipt: &EconomicChainReceipt,
+        transitions: &[EconomicTransition],
+        observations: &EconomicObservables,
+        assignments: &[crate::economics::sector_balance::SectorAssignment],
+    ) -> Result<(), EconomicStepError> {
+        self.verify_integrity()?;
+        let expected = Self::seal_verified_step(
+            self.manifest.clone(),
+            initial_state,
+            final_state,
+            final_receipt,
+            transitions,
+            observations,
+            assignments,
+        )?;
+        if self != &expected {
+            return Err(EconomicStepError::Serialization(
+                "evidence capsule does not match supplied step artifacts".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Re-verify a sealed capsule against the supplied complete simulation trace.
+    ///
+    /// This replays every period and rebuilds the final-period accounting closure before
+    /// comparing the reconstructed capsule with the serialized evidence artifact.
+    pub fn verify_against_trace(
+        &self,
+        initial_state: &EconomicState,
+        final_state: &EconomicState,
+        trace: &EconomicSimulationTrace,
+        steps: &[EconomicSimulationStep],
+        observations: &EconomicObservables,
+        assignments: &[crate::economics::sector_balance::SectorAssignment],
+    ) -> Result<(), EconomicStepError> {
+        self.verify_integrity()?;
+        let expected = Self::seal_verified_trace(
+            self.manifest.clone(),
+            initial_state,
+            final_state,
+            trace,
+            steps,
+            observations,
+            assignments,
+        )?;
+        if self != &expected {
+            return Err(EconomicStepError::Serialization(
+                "evidence capsule does not match supplied trace artifacts".into(),
+            ));
+        }
+        Ok(())
+    }
+
     /// Bind a self-verifying cross-layer accounting closure into the evidence capsule.
     pub fn seal_with_accounting_closure(
         manifest: EconomicEvidenceManifest,
@@ -1333,6 +1396,97 @@ mod tests {
             &assignments,
         )
         .is_err());
+    }
+
+    #[test]
+    fn verify_against_step_rejects_rehashed_capsule_tampering() {
+        let mut bank = ActorBalanceSheet::new("bank");
+        bank.monetary.cash = 1_000;
+        let initial = EconomicState::new(vec![
+            bank,
+            ActorBalanceSheet::new("household"),
+        ]);
+        let transitions = vec![EconomicTransition::CreditCreation(
+            CreditCreation::new("bank", "household", 100).unwrap(),
+        )];
+        let (final_state, step) = apply_step(&initial, 1, &transitions, None).unwrap();
+        let receipt = EconomicChainReceipt::link(None, step).unwrap();
+        let ledger = EconomicPeriodLedger::from_transitions(&transitions).unwrap();
+        let observations = EconomicObservables::from_state_and_ledger(&final_state, &ledger);
+        let assignments = vec![
+            crate::economics::sector_balance::SectorAssignment {
+                actor: "bank".into(), sector: EconomicSector::Bank,
+            },
+            crate::economics::sector_balance::SectorAssignment {
+                actor: "household".into(), sector: EconomicSector::Household,
+            },
+        ];
+        let manifest = EconomicEvidenceManifest::new(
+            "economics-v1", "params-external", 111,
+            state_hash(&initial).unwrap(),
+        ).unwrap();
+        let mut capsule = EconomicEvidenceCapsule::seal_verified_step(
+            manifest, &initial, &final_state, &receipt, &transitions, &observations, &assignments,
+        ).unwrap();
+
+        capsule.final_chain_hash = "rehashed-but-wrong".into();
+        let bytes = serde_json::to_vec(&(
+            &capsule.manifest_hash,
+            &capsule.final_chain_hash,
+            &capsule.observations_hash,
+            &capsule.accounting_closure_hash,
+        )).unwrap();
+        capsule.evidence_hash = blake3::hash(&bytes).to_hex().to_string();
+
+        assert!(capsule.verify_against_step(
+            &initial, &final_state, &receipt, &transitions, &observations, &assignments,
+        ).is_err());
+    }
+
+    #[test]
+    fn verify_against_trace_replays_all_periods() {
+        let mut bank = ActorBalanceSheet::new("bank");
+        bank.monetary.cash = 1_000;
+        let initial = EconomicState::new(vec![
+            bank,
+            ActorBalanceSheet::new("household"),
+        ]);
+        let assignments = vec![
+            crate::economics::sector_balance::SectorAssignment {
+                actor: "bank".into(), sector: EconomicSector::Bank,
+            },
+            crate::economics::sector_balance::SectorAssignment {
+                actor: "household".into(), sector: EconomicSector::Household,
+            },
+        ];
+        let steps = vec![
+            EconomicSimulationStep {
+                period: 1,
+                transitions: vec![EconomicTransition::CreditCreation(
+                    CreditCreation::new("bank", "household", 100).unwrap(),
+                )],
+            },
+            EconomicSimulationStep {
+                period: 2,
+                transitions: vec![EconomicTransition::DebtRepayment(
+                    crate::economics::stock_flow::DebtRepayment::new("bank", "household", 40).unwrap(),
+                )],
+            },
+        ];
+        let (final_state, trace) = EconomicSimulationTrace::run(&initial, &steps).unwrap();
+        let ledger = EconomicPeriodLedger::from_transitions(&steps[1].transitions).unwrap();
+        let observations = EconomicObservables::from_state_and_ledger(&final_state, &ledger);
+        let manifest = EconomicEvidenceManifest::new(
+            "economics-v1", "params-trace-external", 112,
+            state_hash(&initial).unwrap(),
+        ).unwrap();
+        let capsule = EconomicEvidenceCapsule::seal_verified_trace(
+            manifest, &initial, &final_state, &trace, &steps, &observations, &assignments,
+        ).unwrap();
+
+        capsule.verify_against_trace(
+            &initial, &final_state, &trace, &steps, &observations, &assignments,
+        ).unwrap();
     }
 
     #[test]
