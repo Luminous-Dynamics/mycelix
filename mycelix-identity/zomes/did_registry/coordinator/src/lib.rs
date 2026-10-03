@@ -753,12 +753,14 @@ pub struct DidResolutionMetadataView {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DidDocumentMetadataView {
-    pub created: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated: Option<String>,
-    pub deactivated: bool,
-    #[serde(rename = "versionId")]
-    pub version_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub deactivated: Option<bool>,
+    #[serde(rename = "versionId", skip_serializing_if = "Option::is_none")]
+    pub version_id: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -784,7 +786,12 @@ pub fn resolve_did_resolution(did: String) -> ExternResult<DidResolutionView> {
                 detail,
             }),
         },
-        document_metadata: None,
+        document_metadata: Some(DidDocumentMetadataView {
+            created: None,
+            updated: None,
+            deactivated: None,
+            version_id: None,
+        }),
     };
 
     let Some(rest) = did.strip_prefix("did:") else {
@@ -847,10 +854,10 @@ pub fn resolve_did_resolution(did: String) -> ExternResult<DidResolutionView> {
     match resolved {
         Some(document) => {
             let document_metadata = Some(DidDocumentMetadataView {
-                created: document.created.clone(),
+                created: Some(document.created.clone()),
                 updated: (document.version > 1).then(|| document.updated.clone()),
-                deactivated: !document.active,
-                version_id: document.version.to_string(),
+                deactivated: Some(!document.active),
+                version_id: Some(document.version.to_string()),
             });
 
             // W3C DID Resolution requires a deactivated DID to resolve with
@@ -886,7 +893,12 @@ pub fn resolve_did_resolution(did: String) -> ExternResult<DidResolutionView> {
                     detail: "No canonical DID document was found for this method-specific identifier.".into(),
                 }),
             },
-            document_metadata: None,
+            document_metadata: Some(DidDocumentMetadataView {
+                created: None,
+                updated: None,
+                deactivated: None,
+                version_id: None,
+            }),
         }),
     }
 }
