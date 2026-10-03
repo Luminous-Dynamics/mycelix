@@ -301,6 +301,104 @@ jobs:
       - name: Test identity
         run: cd mycelix-identity && cargo test --workspace
 
+  test-identity-ui:
+    name: Identity UI WASM Check
+    needs: changes
+    if: needs.changes.outputs.identity == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            mycelix-identity/apps/leptos
+            crates/mycelix-leptos-core
+            crates/mycelix-leptos-client
+      - name: Check Identity UI
+        run: cargo check --manifest-path mycelix-identity/apps/leptos/Cargo.toml --target wasm32-unknown-unknown
+
+  test-identity-integration:
+    name: Identity DSID Lifecycle (SweetConductor)
+    needs: changes
+    if: needs.changes.outputs.identity == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: cachix/install-nix-action@v27
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+      - uses: cachix/cachix-action@v15
+        with:
+          name: holochain-ci
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            mycelix-identity
+            mycelix-identity/tests
+      - name: Build identity zomes
+        run: |
+          cd mycelix-identity
+          nix develop .#ci --impure --command \
+            cargo build --release --target wasm32-unknown-unknown --workspace
+      - name: Pack identity DNA
+        run: |
+          cd mycelix-identity
+          nix develop .#ci --impure --command hc dna pack dna/
+          test -s dna/mycelix_identity_dna.dna
+      - name: Run DSID lifecycle lab
+        run: |
+          set -o pipefail
+          cd mycelix-identity
+          nix develop .#ci --impure --command bash -c '
+            set -o pipefail
+            cd tests
+            cargo test --test dsid_lifecycle_lab \
+              -- --include-ignored --nocapture --test-threads=1 \
+              | tee "$GITHUB_WORKSPACE/dsid-lifecycle-evidence.txt"
+          '
+          grep '^DSID_EVIDENCE ' "$GITHUB_WORKSPACE/dsid-lifecycle-evidence.txt" \
+            | cut -d ' ' -f2- \
+            > "$GITHUB_WORKSPACE/dsid-lifecycle-evidence.jsonl"
+      - name: Validate evidence capsule
+        run: |
+          test -s dsid-lifecycle-evidence.jsonl
+          test "$(wc -l < dsid-lifecycle-evidence.jsonl)" -eq 14
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          rows = [json.loads(line) for line in Path("dsid-lifecycle-evidence.jsonl").read_text().splitlines()]
+          assert len(rows) == 14
+          assert all(row["schema_version"] == 1 for row in rows)
+          assert all(row["pass"] is True for row in rows)
+          assert len({row["scenario_id"] for row in rows}) == 14
+          assert all(row["dna_hash"] for row in rows)
+          assert len({row["dna_hash"] for row in rows}) == 1
+          assert all(row["commit_sha"] for row in rows)
+          assert len({row["commit_sha"] for row in rows}) == 1
+          assert all(row["agents"] for row in rows)
+          assert all(row["action_hashes"] for row in rows)
+          assert all(row["entry_hashes"] for row in rows)
+          PY
+      - name: Hash DSID evidence
+        run: sha256sum dsid-lifecycle-evidence.jsonl > dsid-lifecycle-evidence.sha256
+      - name: Upload DSID evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: dsid-lifecycle-evidence
+          path: |
+            dsid-lifecycle-evidence.txt
+            dsid-lifecycle-evidence.jsonl
+            dsid-lifecycle-evidence.sha256
+
   test-personal:
     needs: changes
     if: needs.changes.outputs.personal == 'true' || github.event_name == 'push'
@@ -447,6 +545,8 @@ jobs:
       - test-finance-integration
       - test-governance
       - test-identity
+      - test-identity-ui
+      - test-identity-integration
       - test-personal
       - test-attribution
       - test-bridge
@@ -467,6 +567,8 @@ jobs:
           echo "Finance Integration (informational): ${{ needs.test-finance-integration.result }}"
           echo "Governance: ${{ needs.test-governance.result }}"
           echo "Identity: ${{ needs.test-identity.result }}"
+          echo "Identity UI: ${{ needs.test-identity-ui.result }}"
+          echo "Identity Integration: ${{ needs.test-identity-integration.result }}"
           echo "Personal: ${{ needs.test-personal.result }}"
           echo "Attribution: ${{ needs.test-attribution.result }}"
           echo "Bridge: ${{ needs.test-bridge.result }}"
@@ -474,7 +576,7 @@ jobs:
           echo "Prism: ${{ needs.test-prism.result }}"
           if [ "${{ needs.format.result }}" = "failure" ]; then exit 1; fi
           # Skipped jobs are OK (path filter didn't match)
-          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}"; do
+          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-identity-ui.result }}" "${{ needs.test-identity-integration.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}"; do
             if [ "$result" = "failure" ]; then exit 1; fi
           done
           echo "All checks passed!"

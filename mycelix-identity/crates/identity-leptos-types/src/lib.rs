@@ -216,8 +216,8 @@ pub struct DidDocumentView {
     pub verification_methods: Vec<VerificationMethodView>,
     pub key_agreements: Vec<String>,
     pub services: Vec<ServiceEndpointView>,
-    pub created: i64,
-    pub updated: i64,
+    pub created: String,
+    pub updated: String,
     pub version: u32,
     pub active: bool,
 }
@@ -233,6 +233,75 @@ impl DidDocumentView {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DidVerificationMethodWireView {
+    pub id: String,
+    #[serde(rename = "type")]
+    pub type_name: String,
+    pub controller: String,
+    #[serde(rename = "publicKeyMultibase")]
+    pub public_key_multibase: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DidServiceWireView {
+    pub id: String,
+    #[serde(rename = "type")]
+    pub type_name: String,
+    #[serde(rename = "serviceEndpoint")]
+    pub endpoint: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DidDocumentWireView {
+    #[serde(rename = "@context")]
+    pub context: Vec<String>,
+    pub id: String,
+    pub controller: String,
+    #[serde(rename = "verificationMethod")]
+    pub verification_methods: Vec<DidVerificationMethodWireView>,
+    pub authentication: Vec<String>,
+    #[serde(rename = "keyAgreement", skip_serializing_if = "Vec::is_empty")]
+    pub key_agreement: Vec<String>,
+    pub service: Vec<DidServiceWireView>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DidResolutionErrorView {
+    #[serde(rename = "type")]
+    pub type_uri: String,
+    pub title: String,
+    pub detail: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DidResolutionMetadataView {
+    /// Media type of the returned DID Document representation.
+    #[serde(rename = "contentType")]
+    pub content_type: Option<String>,
+    pub error: Option<DidResolutionErrorView>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DidDocumentMetadataView {
+    pub created: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated: Option<String>,
+    pub deactivated: bool,
+    #[serde(rename = "versionId")]
+    pub version_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DidResolutionView {
+    #[serde(rename = "didDocument")]
+    pub did_document: Option<DidDocumentWireView>,
+    #[serde(rename = "didResolutionMetadata")]
+    pub resolution_metadata: DidResolutionMetadataView,
+    #[serde(rename = "didDocumentMetadata")]
+    pub document_metadata: Option<DidDocumentMetadataView>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FactorView {
     pub factor_type: FactorType,
     pub factor_id: String,
@@ -244,11 +313,11 @@ pub struct FactorView {
 }
 
 impl FactorView {
-    /// Strength decays over time. Returns visual percentage (0-100).
-    pub fn visual_strength(&self, now_secs: i64) -> f32 {
-        let age_days = (now_secs - self.last_verified) as f32 / 86400.0;
-        let decay = (-age_days / 90.0).exp(); // 90-day half-life
-        (self.effective_strength * decay * 100.0).clamp(0.0, 100.0)
+    /// The coordinator supplies the current strength after applying the
+    /// canonical factor-specific decay policy. This method only formats that
+    /// authoritative value for display.
+    pub fn visual_strength(&self) -> f32 {
+        (self.effective_strength * 100.0).clamp(0.0, 100.0)
     }
 }
 
@@ -333,11 +402,19 @@ pub struct VerificationAnchorView {
     pub masked_identifier: String,
 }
 
+/// A self-recovery anchor projection. Unlike an MFA factor, the underlying
+/// recovery anchor currently has no independent enrollment timestamp.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SelfRecoveryAnchorView {
+    pub anchor_type: VerificationAnchorType,
+    pub masked_identifier: String,
+}
+
 /// Self-recovery configuration for the frontend.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SelfRecoveryConfigView {
     pub did: String,
-    pub anchors: Vec<VerificationAnchorView>,
+    pub anchors: Vec<SelfRecoveryAnchorView>,
     pub anchor_threshold: u32,
     pub time_lock_secs: u64,
     pub active: bool,
@@ -412,8 +489,16 @@ pub struct CredentialView {
     pub issuer_did: String,
     pub credential_type: Vec<String>,
     pub claims: serde_json::Value,
+    /// Unix seconds from the Mycelix creation timestamp. Kept for stable
+    /// sorting/counting and legacy UI consumers.
     pub issued_at: i64,
+    /// Parsed expiry when a consumer has one; W3C expiry remains authoritative
+    /// in valid_until.
     pub expires_at: Option<i64>,
+    /// Canonical W3C validFrom representation.
+    pub valid_from: String,
+    /// Canonical W3C validUntil representation.
+    pub valid_until: Option<String>,
     pub revoked: bool,
     pub schema_id: Option<String>,
 }
@@ -517,7 +602,9 @@ mod tests {
             verification_methods: vec![],
             key_agreements: vec![],
             services: vec![],
-            created: 0, updated: 0, version: 1, active: true,
+            created: "1970-01-01T00:00:00.000Z".into(),
+            updated: "1970-01-01T00:00:00.000Z".into(),
+            version: 1, active: true,
         };
         assert!(did.short_id().len() < did.id.len());
         assert!(did.short_id().contains("..."));
@@ -534,12 +621,8 @@ mod tests {
             active: true,
             metadata: String::new(),
         };
-        // Verified just now
-        let fresh = factor.visual_strength(1_000_000);
-        assert!(fresh > 85.0);
-        // Verified 180 days ago
-        let stale = factor.visual_strength(1_000_000 + 180 * 86400);
-        assert!(stale < 20.0);
+        assert_eq!(factor.visual_strength(), 90.0);
+
     }
 
     #[test]

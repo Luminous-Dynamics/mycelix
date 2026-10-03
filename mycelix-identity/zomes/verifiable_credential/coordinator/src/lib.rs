@@ -1629,6 +1629,113 @@ pub fn get_my_credentials(_: ()) -> ExternResult<Vec<Record>> {
     get_credentials_for_subject(my_did)
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CredentialView {
+    pub id: String,
+    pub subject_did: String,
+    pub issuer_did: String,
+    pub credential_type: Vec<String>,
+    pub claims: serde_json::Value,
+    pub issued_at: i64,
+    pub expires_at: Option<i64>,
+    pub valid_from: String,
+    pub valid_until: Option<String>,
+    pub revoked: bool,
+    pub schema_id: Option<String>,
+}
+
+fn credential_view(record: &Record, revoked: bool) -> ExternResult<CredentialView> {
+    let credential: VerifiableCredential = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Credential record did not contain a VerifiableCredential".into()
+        )))?;
+
+    Ok(CredentialView {
+        id: credential.id,
+        subject_did: credential.credential_subject.id,
+        issuer_did: credential.issuer.did().to_string(),
+        credential_type: credential.credential_type,
+        claims: credential.credential_subject.claims,
+        issued_at: credential.mycelix_created.as_micros() / 1_000_000,
+        expires_at: None,
+        valid_from: credential.valid_from,
+        valid_until: credential.valid_until,
+        revoked,
+        schema_id: (!credential.mycelix_schema_id.is_empty())
+            .then_some(credential.mycelix_schema_id),
+    })
+}
+
+fn records_to_credential_views(records: Vec<Record>) -> ExternResult<Vec<CredentialView>> {
+    let ids = records
+        .iter()
+        .map(|record| {
+            let credential: VerifiableCredential = record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Credential record did not contain a VerifiableCredential".into()
+                )))?;
+            Ok(credential.id)
+        })
+        .collect::<ExternResult<Vec<_>>>()?;
+
+    if ids.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    // The revocation zome caps a single batch at 100 IDs. Chunk here so a
+    // legitimate identity with more than 100 credentials remains readable
+    // without weakening the fail-closed revocation rule.
+    let mut statuses = Vec::with_capacity(ids.len());
+    for chunk in ids.chunks(100) {
+        statuses.extend(batch_check_credential_revocation_status(chunk)?);
+    }
+
+    if statuses.len() != records.len() {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Revocation batch returned {} results for {} credentials",
+            statuses.len(),
+            records.len()
+        ))));
+    }
+
+    records
+        .iter()
+        .zip(statuses.iter())
+        .map(|(record, status)| {
+            let revoked = matches!(
+                status,
+                CredentialRevocationStatus::Revoked(_)
+                    | CredentialRevocationStatus::Suspended(_, _)
+                    | CredentialRevocationStatus::Unknown
+            );
+            credential_view(record, revoked)
+        })
+        .collect()
+}
+
+/// Return held credentials as browser-safe projections. Raw Holochain Records
+/// and cryptographic proof envelopes never cross this API boundary.
+#[hdk_extern]
+pub fn get_my_credentials_view(_: ()) -> ExternResult<Vec<CredentialView>> {
+    let agent_info = agent_info()?;
+    let my_did = format!("did:mycelix:{}", agent_info.agent_initial_pubkey);
+    records_to_credential_views(get_credentials_for_subject(my_did)?)
+}
+
+/// Return issued credentials as browser-safe projections.
+#[hdk_extern]
+pub fn get_my_issued_credentials_view(_: ()) -> ExternResult<Vec<CredentialView>> {
+    let agent_info = agent_info()?;
+    let my_did = format!("did:mycelix:{}", agent_info.agent_initial_pubkey);
+    records_to_credential_views(get_credentials_issued_by(my_did)?)
+}
+
 // =============================================================================
 // PRE-SIGNED CREDENTIAL ISSUANCE (for PQC/hybrid proofs created off-chain)
 // =============================================================================

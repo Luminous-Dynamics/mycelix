@@ -19,3 +19,4 @@ subtle = { workspace = true }
 bs58 = { workspace = true }
 mycelix-crypto = { workspace = true }
 did_registry_integrity = { path = "../integrity" }
+sha2 = { workspace = true }

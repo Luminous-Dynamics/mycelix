@@ -11,6 +11,7 @@ use hdk::prelude::HdkPathExt;
 use hdk::prelude::*;
 use mycelix_crypto::{AlgorithmId, CryptoError, TaggedPublicKey};
 use mycelix_zome_helpers::anchor_hash;
+use sha2::{Digest, Sha256};
 
 /// Get-or-create a deterministic Path anchor for a string key. Used as a
 /// link base for discovery indexes (e.g. substrate role -> providers).
@@ -58,6 +59,25 @@ fn validate_multibase_key(key: &str) -> Result<AlgorithmId, String> {
             CryptoError::Base58Decode(msg) => format!("Invalid base58btc encoding: {}", msg),
             other => format!("Key validation error: {}", other),
         })
+}
+
+/// Encode a Holochain agent's raw Ed25519 public key into the Mycelix
+/// W3C multibase representation: z + base58btc(multicodec(0xed01) || key).
+///
+/// Holochain AgentPubKey is a typed 36-byte hash, so the first four bytes are
+/// the HoloHash type discriminator and are not part of the Ed25519 key.
+fn agent_pub_key_multibase(agent_pub_key: &AgentPubKey) -> Result<String, String> {
+    let raw = agent_pub_key.get_raw_36();
+    if raw.len() != 36 {
+        return Err(format!(
+            "Unexpected AgentPubKey raw length: expected 36, got {}",
+            raw.len()
+        ));
+    }
+
+    TaggedPublicKey::new(AlgorithmId::Ed25519, raw[4..].to_vec())
+        .map(|key| key.to_multibase())
+        .map_err(|e| e.to_string())
 }
 
 /// Legacy Ed25519-only validator (delegates to the algorithm-agnostic version).
@@ -117,9 +137,12 @@ fn auto_create_self_recovery(did: &str) -> ExternResult<()> {
 }
 
 fn auto_create_mfa_state(did: &str, agent_pub_key: &AgentPubKey) -> ExternResult<()> {
-    // Create primary key hash from agent pub key
-    // Using the agent's public key as the initial factor
-    let primary_key_hash = format!("sha256:{}", agent_pub_key);
+    // MFA's primary-key verifier derives the factor identifier from the
+    // canonical 39-byte HoloHash representation. Keep creation and verification
+    // on exactly the same digest contract.
+    let mut hasher = Sha256::new();
+    hasher.update(agent_pub_key.get_raw_39());
+    let primary_key_hash = format!("sha256:{:x}", hasher.finalize());
 
     let input = CreateMfaStateInput {
         did: did.to_string(),
@@ -161,6 +184,48 @@ fn auto_create_mfa_state(did: &str, agent_pub_key: &AgentPubKey) -> ExternResult
                  DID creation requires MFA to be available."
                 .to_string()
         ))),
+    }
+}
+
+/// Emit identity lifecycle notifications only after the corresponding
+/// DID source-chain write has committed.
+#[hdk_extern(infallible)]
+pub fn post_commit(committed_actions: Vec<SignedActionHashed>) {
+    for action in committed_actions {
+        let action_hash = action.action_address().clone();
+        let Some(record) = get(action_hash.clone(), GetOptions::default()).ok().flatten()
+        else {
+            continue;
+        };
+
+        let Ok(Some(document)) = record
+            .entry()
+            .to_app_option::<DidDocument>()
+        else {
+            continue;
+        };
+
+        let payload = serde_json::json!({
+            "did": document.id,
+            "version": document.version,
+            "event": if matches!(&action.action().data, ActionData::Create(_)) {
+                "did_created"
+            } else {
+                "did_updated"
+            },
+        }).to_string();
+
+        let event_type = if matches!(action.action().data, ActionData::Create(_)) {
+            "DidCreated"
+        } else {
+            "DidUpdated"
+        };
+
+        notify_bridge_of_did_event(
+            &document.id,
+            event_type,
+            &payload,
+        );
     }
 }
 
@@ -258,7 +323,7 @@ pub fn register_substrate(input: RegisterSubstrateInput) -> ExternResult<Record>
     create_link(
         anchor,
         agent,
-        LinkTypes::DidToService,
+        LinkTypes::SubstrateRoleToAgent,
         input.metadata.role.as_bytes().to_vec(),
     )?;
 
@@ -270,14 +335,96 @@ pub fn register_substrate(input: RegisterSubstrateInput) -> ExternResult<Record>
 pub fn resolve_substrate(role: String) -> ExternResult<Vec<AgentPubKey>> {
     let anchor = anchor_hash(&format!("substrate:{}", role))?;
     let links = get_links(
-        LinkQuery::try_new(anchor, LinkTypes::DidToService)?,
+        LinkQuery::try_new(anchor, LinkTypes::SubstrateRoleToAgent)?,
         GetStrategy::default(),
     )?;
 
-    Ok(links
-        .into_iter()
-        .filter_map(|l| AgentPubKey::try_from(l.target).ok())
-        .collect())
+    let mut providers = Vec::new();
+    for link in links {
+        let Ok(agent) = AgentPubKey::try_from(link.target) else {
+            continue;
+        };
+
+        // A discovery advertisement is not sufficient by itself. Do not
+        // return providers whose canonical Mycelix DID is deactivated.
+        let did = format!("did:mycelix:{}", agent);
+        if is_did_active(did)? {
+            providers.push(agent);
+        }
+    }
+
+    Ok(providers)
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DidDocumentView {
+    pub id: String,
+    pub controller: String,
+    pub verification_methods: Vec<DidVerificationMethodView>,
+    pub key_agreements: Vec<String>,
+    pub services: Vec<DidServiceView>,
+    pub created: String,
+    pub updated: String,
+    pub version: u32,
+    pub active: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DidVerificationMethodView {
+    pub id: String,
+    pub type_name: String,
+    pub controller: String,
+    pub public_key_multibase: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DidServiceView {
+    pub id: String,
+    pub type_name: String,
+    pub endpoint: String,
+}
+
+fn did_document_view(document: DidDocument) -> ExternResult<DidDocumentView> {
+    let active = is_did_active(document.id.clone())?;
+    Ok(DidDocumentView {
+        id: document.id,
+        controller: format!("did:mycelix:{}", document.controller),
+        verification_methods: document
+            .verification_method
+            .into_iter()
+            .map(|method| DidVerificationMethodView {
+                id: method.id,
+                type_name: method.type_,
+                controller: method.controller,
+                public_key_multibase: method.public_key_multibase,
+            })
+            .collect(),
+        key_agreements: document.key_agreement,
+        services: document
+            .service
+            .into_iter()
+            .map(|service| DidServiceView {
+                id: service.id,
+                type_name: service.type_,
+                endpoint: service.service_endpoint,
+            })
+            .collect(),
+        created: document.created.to_string(),
+        updated: document.updated.to_string(),
+        version: document.version,
+        active,
+    })
+}
+
+fn record_to_did_document_view(record: &Record) -> ExternResult<DidDocumentView> {
+    let document: DidDocument = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Invalid DID document record".into()
+        )))?;
+    did_document_view(document)
 }
 
 /// Create a new DID document for the calling agent
@@ -303,7 +450,11 @@ pub fn create_did() -> ExternResult<Record> {
             .did_verification_method_type()
             .to_string(),
         controller: did_id.clone(),
-        public_key_multibase: format!("z{}", agent_pub_key),
+        public_key_multibase: agent_pub_key_multibase(&agent_pub_key)
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+                "Failed to encode initial Ed25519 public key: {}",
+                e
+            ))))?,
         algorithm: Some(AlgorithmId::Ed25519.as_u16()),
     };
 
@@ -330,6 +481,14 @@ pub fn create_did() -> ExternResult<Record> {
         (),
     )?;
 
+    // Retain an append-only history index for deterministic version resolution.
+    create_link(
+        agent_pub_key.clone(),
+        action_hash.clone(),
+        LinkTypes::DidHistory,
+        (),
+    )?;
+
     // Auto-create MFA state for the new DID (fail-closed: MFA is required)
     // This registers the primary key pair as the initial authentication factor
     auto_create_mfa_state(&did_id, &agent_pub_key)?;
@@ -344,16 +503,9 @@ pub fn create_did() -> ExternResult<Record> {
         );
     }
 
-    // Broadcast DidCreated event to bridge for ecosystem-wide awareness
-    let payload = serde_json::json!({
-        "did": did_id,
-        "event": "did_created",
-    })
-    .to_string();
-    if let Err(e) = notify_bridge_of_did_event(&did_id, "DidCreated", &payload) {
-        debug!("Failed to notify bridge of DID creation: {:?}", e);
-    }
-
+    // Ecosystem notification is emitted from post_commit so observers can
+    // never receive a DidCreated event for a DID whose source-chain commit
+    // later rolled back.
     let record = get(action_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Could not find created DID".into())
     ))?;
@@ -361,29 +513,135 @@ pub fn create_did() -> ExternResult<Record> {
     Ok(record)
 }
 
+/// Create a frontend-safe view of a new DID document.
+///
+/// This keeps Holochain Record/action/hash serialization out of browser code.
+#[hdk_extern]
+pub fn create_did_view(_: ()) -> ExternResult<DidDocumentView> {
+    let record = create_did()?;
+    record_to_did_document_view(&record)
+}
+
 /// Get DID document for an agent
 #[hdk_extern]
 pub fn get_did_document(agent_pub_key: AgentPubKey) -> ExternResult<Option<Record>> {
+    // Prefer the append-only history index. Canonical AgentToDid is a mutable
+    // convenience pointer and may temporarily contain stale links during DHT
+    // convergence; history gives us deterministic version-aware state.
+    let history_links = get_links(
+        LinkQuery::try_new(agent_pub_key.clone(), LinkTypes::DidHistory)?,
+        GetStrategy::default(),
+    )?;
+
+    if !history_links.is_empty() {
+        let mut candidates = Vec::new();
+        for link in history_links {
+            let action_hash = ActionHash::try_from(link.target)
+                .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid history link target".into())))?;
+            if let Some(record) = get(action_hash, GetOptions::default())? {
+                if let Some(document) = record.entry().to_app_option::<DidDocument>().ok().flatten() {
+                    // Version is the protocol ordering primitive. Link timestamps
+                    // are only an observation-time property and must not decide
+                    // which document is canonical.
+                    candidates.push((document.version, link.timestamp, record));
+                }
+            }
+        }
+        if let Some((_, _, record)) = candidates
+            .into_iter()
+            .max_by_key(|(version, timestamp, _)| (*version, *timestamp))
+        {
+            return Ok(Some(record));
+        }
+    }
+
+    // Backward-compatible fallback for identities created before the history
+    // index existed.
     let links = get_links(
         LinkQuery::try_new(agent_pub_key, LinkTypes::AgentToDid)?,
         GetStrategy::default(),
     )?;
 
-    if links.is_empty() {
-        return Ok(None);
-    }
-
-    // Get the latest DID document
     let latest_link = links.into_iter().max_by_key(|l| l.timestamp);
     if let Some(link) = latest_link {
         let action_hash = ActionHash::try_from(link.target)
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        get(action_hash, GetOptions::default())
+        get_latest_record(action_hash)
     } else {
         Ok(None)
     }
 }
 
+/// Get the calling agent's DID in a browser-safe representation.
+///
+/// The browser must not decode Holochain's Record envelope or hash types just
+/// to render the canonical identity state.
+#[hdk_extern]
+pub fn get_my_did_view(_: ()) -> ExternResult<Option<DidDocumentView>> {
+    let agent = agent_info()?.agent_initial_pubkey;
+    match get_did_document(agent)? {
+        Some(record) => Ok(Some(record_to_did_document_view(&record)?)),
+        None => Ok(None),
+    }
+}
+
+/// Input for deterministic historical DID resolution.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct ResolveDidVersionInput {
+    pub did: String,
+    pub version: u32,
+}
+
+/// Resolve an exact historical DID document version.
+#[hdk_extern]
+pub fn resolve_did_version(input: ResolveDidVersionInput) -> ExternResult<Option<Record>> {
+    let agent_str = input
+        .did
+        .strip_prefix("did:mycelix:")
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Invalid DID format".into())))?;
+    if agent_str.is_empty() || !agent_str.bytes().all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_') {
+        return Err(wasm_error!(WasmErrorInner::Guest("Invalid DID identifier".into())));
+    }
+
+    let agent_pub_key = AgentPubKey::try_from(agent_str)
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid agent pub key in DID".into())))?;
+    let history_links = get_links(
+        LinkQuery::try_new(agent_pub_key.clone(), LinkTypes::DidHistory)?,
+        GetStrategy::default(),
+    )?;
+
+    for link in history_links {
+        let action_hash = ActionHash::try_from(link.target)
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid history link target".into())))?;
+        if let Some(record) = get(action_hash, GetOptions::default())? {
+            let document: Option<DidDocument> = record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+            if let Some(document) = document {
+                if document.id == input.did && document.version == input.version {
+                    return Ok(Some(record));
+                }
+            }
+        }
+    }
+
+    // Backward-compatible fallback for a version-1 identity created before
+    // the DidHistory index existed.
+    if input.version == 1 {
+        if let Some(record) = get_did_document(agent_pub_key)? {
+            let document: Option<DidDocument> = record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+            if document.as_ref().is_some_and(|d| d.id == input.did && d.version == 1) {
+                return Ok(Some(record));
+            }
+        }
+    }
+
+    Ok(None)
+}
 /// Resolve a DID to its document
 #[hdk_extern]
 pub fn resolve_did(did: String) -> ExternResult<Option<Record>> {
@@ -401,6 +659,248 @@ pub fn resolve_did(did: String) -> ExternResult<Option<Record>> {
         .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid agent pub key in DID".into())))?;
 
     get_did_document(agent_pub_key)
+}
+
+/// Resolve a DID into a browser-safe canonical document view.
+///
+/// This is deliberately separate from the raw Record-returning resolver so
+/// external callers do not have to understand Holochain action/entry envelopes.
+#[hdk_extern]
+pub fn resolve_did_view(did: String) -> ExternResult<Option<DidDocumentView>> {
+    match resolve_did(did)? {
+        Some(record) => Ok(Some(record_to_did_document_view(&record)?)),
+        None => Ok(None),
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DidVerificationMethodWireView {
+    pub id: String,
+    #[serde(rename = "type")]
+    pub type_name: String,
+    pub controller: String,
+    #[serde(rename = "publicKeyMultibase")]
+    pub public_key_multibase: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DidServiceWireView {
+    pub id: String,
+    #[serde(rename = "type")]
+    pub type_name: String,
+    #[serde(rename = "serviceEndpoint")]
+    pub endpoint: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DidDocumentWireView {
+    #[serde(rename = "@context")]
+    pub context: Vec<String>,
+    pub id: String,
+    pub controller: String,
+    #[serde(rename = "verificationMethod")]
+    pub verification_methods: Vec<DidVerificationMethodWireView>,
+    pub authentication: Vec<String>,
+    #[serde(rename = "keyAgreement", skip_serializing_if = "Vec::is_empty")]
+    pub key_agreement: Vec<String>,
+    pub service: Vec<DidServiceWireView>,
+}
+
+fn did_document_wire_view(document: &DidDocument) -> DidDocumentWireView {
+    DidDocumentWireView {
+        context: vec!["https://www.w3.org/ns/did/v1.1".into()],
+        id: document.id.clone(),
+        controller: format!("did:mycelix:{}", document.controller),
+        verification_methods: document
+            .verification_method
+            .iter()
+            .map(|method| DidVerificationMethodWireView {
+                id: method.id.clone(),
+                type_name: method.type_.clone(),
+                controller: method.controller.clone(),
+                public_key_multibase: method.public_key_multibase.clone(),
+            })
+            .collect(),
+        authentication: document.authentication.clone(),
+        key_agreement: document.key_agreement.clone(),
+        service: document
+            .service
+            .iter()
+            .map(|service| DidServiceWireView {
+                id: service.id.clone(),
+                type_name: service.type_.clone(),
+                endpoint: service.service_endpoint.clone(),
+            })
+            .collect(),
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DidResolutionError {
+    #[serde(rename = "type")]
+    pub type_uri: String,
+    pub title: String,
+    pub detail: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DidResolutionMetadataView {
+    #[serde(rename = "contentType", skip_serializing_if = "Option::is_none")]
+    pub content_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<DidResolutionError>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DidDocumentMetadataView {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub deactivated: Option<bool>,
+    #[serde(rename = "versionId", skip_serializing_if = "Option::is_none")]
+    pub version_id: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DidResolutionView {
+    #[serde(rename = "didDocument")]
+    pub did_document: Option<DidDocumentWireView>,
+    #[serde(rename = "didResolutionMetadata")]
+    pub resolution_metadata: DidResolutionMetadataView,
+    #[serde(rename = "didDocumentMetadata")]
+    pub document_metadata: Option<DidDocumentMetadataView>,
+}
+
+/// Resolve a DID with explicit document and resolution metadata.
+#[hdk_extern]
+pub fn resolve_did_resolution(did: String) -> ExternResult<DidResolutionView> {
+    let error_result = |type_uri: &str, title: &str, detail: String| DidResolutionView {
+        did_document: None,
+        resolution_metadata: DidResolutionMetadataView {
+            content_type: None,
+            error: Some(DidResolutionError {
+                type_uri: type_uri.into(),
+                title: title.into(),
+                detail,
+            }),
+        },
+        document_metadata: Some(DidDocumentMetadataView {
+            created: None,
+            updated: None,
+            deactivated: None,
+            version_id: None,
+        }),
+    };
+
+    let Some(rest) = did.strip_prefix("did:") else {
+        return Ok(error_result(
+            "https://www.w3.org/ns/did#INVALID_DID",
+            "Invalid DID",
+            "DID must use the `did:<method>:<method-specific-id>` form.".into(),
+        ));
+    };
+
+    let Some((method, agent_str)) = rest.split_once(':') else {
+        return Ok(error_result(
+            "https://www.w3.org/ns/did#INVALID_DID",
+            "Invalid DID",
+            "DID is missing its method-specific identifier.".into(),
+        ));
+    };
+
+    if method != "mycelix" {
+        return Ok(error_result(
+            "https://www.w3.org/ns/did#METHOD_NOT_SUPPORTED",
+            "DID method not supported",
+            format!("The resolver does not support the DID method '{}'.", method),
+        ));
+    }
+
+    if agent_str.is_empty()
+        || !agent_str
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
+    {
+        return Ok(error_result(
+            "https://www.w3.org/ns/did#INVALID_DID",
+            "Invalid DID",
+            "The did:mycelix method-specific identifier contains invalid characters.".into(),
+        ));
+    }
+    if AgentPubKey::try_from(agent_str).is_err() {
+        return Ok(error_result(
+            "https://www.w3.org/ns/did#INVALID_DID",
+            "Invalid DID",
+            "The method-specific identifier is not a valid Holochain AgentPubKey.".into(),
+        ));
+    }
+
+    let resolved = match resolve_did_view(did.clone()) {
+        Ok(document) => document,
+        Err(error) => {
+            return Ok(error_result(
+                "https://www.w3.org/ns/did#INTERNAL_ERROR",
+                "DID resolution failed",
+                format!(
+                    "The method-specific resolver encountered an unexpected error: {}",
+                    error
+                ),
+            ));
+        }
+    };
+
+    match resolved {
+        Some(document) => {
+            let document_metadata = Some(DidDocumentMetadataView {
+                created: Some(document.created.clone()),
+                updated: (document.version > 1).then(|| document.updated.clone()),
+                deactivated: Some(!document.active),
+                version_id: Some(document.version.to_string()),
+            });
+
+            // W3C DID Resolution requires a deactivated DID to resolve with
+            // didDocument = null and deactivated=true metadata. Historical
+            // documents remain available through explicit version resolution.
+            if !document.active {
+                Ok(DidResolutionView {
+                    did_document: None,
+                    resolution_metadata: DidResolutionMetadataView {
+                        content_type: None,
+                        error: None,
+                    },
+                    document_metadata,
+                })
+            } else {
+                Ok(DidResolutionView {
+                    document_metadata,
+                    did_document: Some(did_document_wire_view(&document)),
+                    resolution_metadata: DidResolutionMetadataView {
+                        content_type: Some("application/did".into()),
+                        error: None,
+                    },
+                })
+            }
+        }
+        None => Ok(DidResolutionView {
+            did_document: None,
+            resolution_metadata: DidResolutionMetadataView {
+                content_type: None,
+                error: Some(DidResolutionError {
+                    type_uri: "https://www.w3.org/ns/did#NOT_FOUND".into(),
+                    title: "DID not found".into(),
+                    detail: "No canonical DID document was found for this method-specific identifier.".into(),
+                }),
+            },
+            document_metadata: Some(DidDocumentMetadataView {
+                created: None,
+                updated: None,
+                deactivated: None,
+                version_id: None,
+            }),
+        }),
+    }
 }
 
 /// Update DID document (add service endpoints, rotate keys, etc.)
@@ -496,6 +996,16 @@ pub fn update_did_document(input: UpdateDidInput) -> ExternResult<Record> {
         )))?;
 
     let now = sys_time()?;
+    if now <= current_did.updated {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "DID update timestamp must advance".into()
+        )));
+    }
+    let next_version = current_did.version.checked_add(1).ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "DID version exhausted at u32::MAX".into()
+        ))
+    })?;
 
     // Validate key_agreement references if provided
     if let Some(ref ka) = input.key_agreement {
@@ -542,12 +1052,21 @@ pub fn update_did_document(input: UpdateDidInput) -> ExternResult<Record> {
         service: input.service.unwrap_or(current_did.service),
         created: current_did.created,
         updated: now,
-        version: current_did.version + 1,
+        version: next_version,
     };
 
     let action_hash = update_entry(
         current_record.action_address().clone(),
         &EntryTypes::DidDocument(updated_did),
+    )?;
+
+    // Keep an append-only history index before replacing the canonical pointer.
+    // This gives version-aware tooling a stable source of historical documents.
+    create_link(
+        agent_pub_key.clone(),
+        action_hash.clone(),
+        LinkTypes::DidHistory,
+        (),
     )?;
 
     // Delete stale AgentToDid links to prevent DHT bloat.
@@ -572,7 +1091,7 @@ pub fn update_did_document(input: UpdateDidInput) -> ExternResult<Record> {
     // Broadcast DidUpdated event (covers key rotation, service changes, etc.)
     let payload = serde_json::json!({
         "did": current_did.id,
-        "version": current_did.version + 1,
+        "version": next_version,
         "event": "did_updated",
     })
     .to_string();
@@ -664,20 +1183,59 @@ pub fn deactivate_did(reason: String) -> ExternResult<Record> {
         (),
     )?;
 
-    // Cascade: revoke all credentials issued by this DID.
-    // The DID deactivation entry is already committed above, so even if cascade
-    // revocation fails, the DID itself is deactivated. We propagate the error so
-    // the caller knows credentials may still be active and can retry.
-    cascade_revoke_credentials_for_did(&current_did.id, &reason, now)?;
-
-    // Notify bridge of deactivation for ecosystem-wide awareness
-    if let Err(e) = notify_bridge_of_deactivation(&current_did.id, &reason, now) {
-        debug!("Failed to notify bridge of DID deactivation: {:?}", e);
-    }
-
+    // Credential cascade and bridge notification run from post_commit.
+    // They therefore cannot roll back this successful DID deactivation.
     get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
         "Could not find deactivation record".into()
     )))
+}
+
+/// Post-commit follow-up for lifecycle work that must not affect DID commit
+/// atomicity. Deactivation is durable before credential cascade/notifications
+/// are attempted.
+#[hdk_extern(infallible)]
+pub fn post_commit(committed_actions: Vec<SignedActionHashed>) {
+    for action in committed_actions {
+        if !matches!(action.action().data, ActionData::Create(_)) {
+            continue;
+        }
+
+        let Some(record) = get(action.action_address().clone(), GetOptions::default()).ok().flatten()
+        else {
+            continue;
+        };
+
+        let Ok(Some(deactivation)) = record
+            .entry()
+            .to_app_option::<DidDeactivation>()
+        else {
+            continue;
+        };
+
+        if let Err(error) = cascade_revoke_credentials_for_did(
+            &deactivation.did,
+            &deactivation.reason,
+            deactivation.deactivated_at,
+        ) {
+            debug!(
+                "Post-commit credential cascade failed for {}: {:?}. DID remains deactivated; retry is safe.",
+                deactivation.did,
+                error
+            );
+        }
+
+        if let Err(error) = notify_bridge_of_deactivation(
+            &deactivation.did,
+            &deactivation.reason,
+            deactivation.deactivated_at,
+        ) {
+            debug!(
+                "Post-commit deactivation notification failed for {}: {:?}",
+                deactivation.did,
+                error
+            );
+        }
+    }
 }
 
 /// Notify bridge of DID deactivation via cross-zome call
@@ -842,37 +1400,47 @@ fn cascade_revoke_credentials_for_did(
 /// Check if a DID is active (not deactivated)
 #[hdk_extern]
 pub fn is_did_active(did: String) -> ExternResult<bool> {
-    // First check if DID exists
-    let record = resolve_did(did.clone())?;
+    // Validate and parse the canonical DID before any DHT lookup.
+    let Some(agent_str) = did.strip_prefix("did:mycelix:") else {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Invalid DID format".into()
+        )));
+    };
+    if agent_str.is_empty() {
+        return Ok(false);
+    }
+    let agent_pub_key = AgentPubKey::try_from(agent_str)
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid agent pub key in DID".into())))?;
+
+    // Existence comes from the canonical DID index.
+    let record = get_did_document(agent_pub_key.clone())?;
     if record.is_none() {
         return Ok(false);
     }
 
-    // Parse DID to extract agent pub key for link lookup
-    if !did.starts_with("did:mycelix:") {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Invalid DID format".into()
-        )));
-    }
-
-    let agent_str = did
-        .strip_prefix("did:mycelix:")
-        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Invalid DID format".into())))?;
-    let agent_pub_key = AgentPubKey::try_from(agent_str)
-        .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid agent pub key in DID".into())))?;
-
-    // Check for deactivation links - if any exist, DID is deactivated
+    // A deactivation link is not trusted by itself: validate the linked
+    // record and ensure it names this exact DID.
     let deactivation_links = get_links(
         LinkQuery::try_new(agent_pub_key, LinkTypes::DidToDeactivation)?,
         GetStrategy::default(),
     )?;
 
-    // If there are any deactivation links, the DID is not active
-    if !deactivation_links.is_empty() {
-        return Ok(false);
+    for link in deactivation_links {
+        let action_hash = ActionHash::try_from(link.target)
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid deactivation link target".into())))?;
+        if let Some(record) = get(action_hash, GetOptions::default())? {
+            if let Some(deactivation) = record
+                .entry()
+                .to_app_option::<DidDeactivation>()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            {
+                if deactivation.did == did {
+                    return Ok(false);
+                }
+            }
+        }
     }
 
-    // No deactivation links found, DID is active
     Ok(true)
 }
 
@@ -1145,7 +1713,6 @@ pub struct RotateKeyInput {
 /// from the `authentication` array so it can no longer be used to authenticate.
 #[hdk_extern]
 pub fn rotate_key(input: RotateKeyInput) -> ExternResult<Record> {
-    // Input validation
     if input.old_key_id.is_empty() || input.old_key_id.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Old key ID must be 1-256 characters".into()
@@ -1164,20 +1731,15 @@ pub fn rotate_key(input: RotateKeyInput) -> ExternResult<Record> {
         )));
     }
 
-    // Validate the new key format
-    if let Err(e) = validate_multibase_key(&input.new_method.public_key_multibase) {
-        return Err(wasm_error!(WasmErrorInner::Guest(format!(
-            "Invalid new key: {}",
-            e
-        ))));
-    }
+    validate_multibase_key(&input.new_method.public_key_multibase).map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!("Invalid new key: {}", e)))
+    })?;
 
     let agent_info = agent_info()?;
     let agent_pub_key = agent_info.agent_initial_pubkey;
 
     let current_record = get_did_document(agent_pub_key)?
         .ok_or(wasm_error!(WasmErrorInner::Guest("No DID found".into())))?;
-
     let current_did: DidDocument = current_record
         .entry()
         .to_app_option()
@@ -1186,31 +1748,53 @@ pub fn rotate_key(input: RotateKeyInput) -> ExternResult<Record> {
             "Invalid DID entry".into()
         )))?;
 
-    // Find the old key
-    let old_key_idx = current_did
+    if input.new_method.controller != current_did.id {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "New verification method controller must equal the DID".into()
+        )));
+    }
+
+    let old_key = current_did
         .verification_method
         .iter()
-        .position(|m| m.id == input.old_key_id)
+        .find(|method| method.id == input.old_key_id)
         .ok_or(wasm_error!(WasmErrorInner::Guest(format!(
             "Verification method '{}' not found",
             input.old_key_id
         ))))?;
 
-    // Build updated methods: deprecate old key, add new one
+    if !current_did
+        .authentication
+        .iter()
+        .any(|id| id == &input.old_key_id)
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Verification method '{}' is not an active authentication method",
+            input.old_key_id
+        ))));
+    }
+
+    if current_did
+        .verification_method
+        .iter()
+        .any(|method| method.id == input.new_method.id)
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Verification method ID '{}' already exists",
+            input.new_method.id
+        ))));
+    }
+
+    // Preserve the historical verification-method ID exactly. Removing the old
+    // method from authentication is the deprecation signal; renaming its ID
+    // would break signatures/DID URLs that reference the historical method.
+    let _old_key_id = old_key.id.clone();
     let mut methods = current_did.verification_method.clone();
-    let deprecated_id = format!(
-        "{}-deprecated-v{}",
-        methods[old_key_idx].id, current_did.version
-    );
-    methods[old_key_idx].id = deprecated_id.clone();
     methods.push(input.new_method.clone());
 
-    // Update authentication: remove old key reference, add new one
     let mut auth = current_did.authentication.clone();
-    auth.retain(|a| a != &input.old_key_id);
-    if !auth.contains(&input.new_method.id) {
-        auth.push(input.new_method.id);
-    }
+    auth.retain(|id| id != &input.old_key_id);
+    auth.push(input.new_method.id.clone());
 
     update_did_document(UpdateDidInput {
         verification_method: Some(methods),
@@ -1237,7 +1821,6 @@ pub struct RotateKeyAgreementInput {
 /// is removed from `keyAgreement` so new encryption uses the new key.
 #[hdk_extern]
 pub fn rotate_key_agreement(input: RotateKeyAgreementInput) -> ExternResult<Record> {
-    // Input validation
     if input.old_key_id.is_empty() || input.old_key_id.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Old key ID must be 1-256 characters".into()
@@ -1256,26 +1839,19 @@ pub fn rotate_key_agreement(input: RotateKeyAgreementInput) -> ExternResult<Reco
         )));
     }
 
-    // Validate the new key is a KEM algorithm
     let alg = validate_multibase_key(&input.new_method.public_key_multibase)
         .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!("Invalid new KEM key: {}", e))))?;
-
-    match alg {
-        AlgorithmId::MlKem768 | AlgorithmId::MlKem1024 => {}
-        _ => {
-            return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                "Key agreement rotation requires a KEM algorithm (ML-KEM-768 or ML-KEM-1024), got {}",
-                alg.did_verification_method_type()
-            ))));
-        }
+    if !matches!(alg, AlgorithmId::MlKem768 | AlgorithmId::MlKem1024) {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Key agreement rotation requires a KEM algorithm (ML-KEM-768 or ML-KEM-1024), got {}",
+            alg.did_verification_method_type()
+        ))));
     }
 
     let agent_info = agent_info()?;
     let agent_pub_key = agent_info.agent_initial_pubkey;
-
     let current_record = get_did_document(agent_pub_key)?
         .ok_or(wasm_error!(WasmErrorInner::Guest("No DID found".into())))?;
-
     let current_did: DidDocument = current_record
         .entry()
         .to_app_option()
@@ -1284,35 +1860,45 @@ pub fn rotate_key_agreement(input: RotateKeyAgreementInput) -> ExternResult<Reco
             "Invalid DID entry".into()
         )))?;
 
-    // Find the old KEM key in verification_method
-    let old_key_idx = current_did
+    if input.new_method.controller != current_did.id {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "New KEM verification method controller must equal the DID".into()
+        )));
+    }
+
+    if !current_did
+        .key_agreement
+        .iter()
+        .any(|id| id == &input.old_key_id)
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Verification method '{}' is not an active keyAgreement method",
+            input.old_key_id
+        ))));
+    }
+
+    if current_did
         .verification_method
         .iter()
-        .position(|m| m.id == input.old_key_id)
-        .ok_or(wasm_error!(WasmErrorInner::Guest(format!(
-            "KEM verification method '{}' not found",
-            input.old_key_id
-        ))))?;
+        .any(|method| method.id == input.new_method.id)
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Verification method ID '{}' already exists",
+            input.new_method.id
+        ))));
+    }
 
-    // Build updated methods: deprecate old KEM key, add new one
+    // Preserve the old DID URL exactly for historical ciphertext/decryption.
     let mut methods = current_did.verification_method.clone();
-    let deprecated_id = format!(
-        "{}-deprecated-v{}",
-        methods[old_key_idx].id, current_did.version
-    );
-    methods[old_key_idx].id = deprecated_id.clone();
     methods.push(input.new_method.clone());
 
-    // Update key_agreement: remove old key reference, add new one
     let mut ka = current_did.key_agreement.clone();
-    ka.retain(|k| k != &input.old_key_id);
-    if !ka.contains(&input.new_method.id) {
-        ka.push(input.new_method.id);
-    }
+    ka.retain(|id| id != &input.old_key_id);
+    ka.push(input.new_method.id.clone());
 
     update_did_document(UpdateDidInput {
         verification_method: Some(methods),
-        authentication: None, // preserve existing authentication
+        authentication: None,
         key_agreement: Some(ka),
         service: None,
     })
@@ -1368,136 +1954,14 @@ pub struct ClaimRecoveredDidInput {
 /// It creates a new DID document controlled by the new agent, linked from
 /// the original agent's pubkey so that DID resolution picks up the transfer.
 #[hdk_extern]
-pub fn claim_recovered_did(input: ClaimRecoveredDidInput) -> ExternResult<Record> {
-    // Input validation
-    if input.request_id.is_empty() || input.request_id.len() > 256 {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Request ID must be 1-256 characters".into()
-        )));
-    }
-    if !input.did.starts_with("did:mycelix:") {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Invalid DID format".into()
-        )));
-    }
-
-    let my_agent_info = agent_info()?;
-    let new_agent = my_agent_info.agent_initial_pubkey;
-
-    // Verify recovery request is completed via cross-zome call to recovery zome
-    let response = call(
-        CallTargetCell::Local,
-        ZomeName::new("recovery"),
-        FunctionName::new("get_recovery_request"),
-        None,
-        input.request_id.clone(),
-    )?;
-
-    let request: RecoveryRequestMirror = match response {
-        ZomeCallResponse::Ok(result) => {
-            let record: Option<Record> = result.decode().map_err(|e| {
-                wasm_error!(WasmErrorInner::Guest(format!(
-                    "Failed to decode recovery request: {:?}",
-                    e
-                )))
-            })?;
-            let rec = record.ok_or(wasm_error!(WasmErrorInner::Guest(
-                "Recovery request not found".into()
-            )))?;
-            rec.entry()
-                .to_app_option()
-                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-                .ok_or(wasm_error!(WasmErrorInner::Guest(
-                    "Invalid recovery request entry".into()
-                )))?
-        }
-        _ => {
-            return Err(wasm_error!(WasmErrorInner::Guest(
-                "Failed to query recovery zome".into()
-            )));
-        }
-    };
-
-    // Verify request is completed
-    if request.status != RecoveryStatusMirror::Completed {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Recovery request is not completed".into()
-        )));
-    }
-
-    // Verify the caller is the designated new agent
-    if request.new_agent != new_agent {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Only the designated recovery agent can claim this DID".into()
-        )));
-    }
-
-    // Verify the DID matches
-    if request.did != input.did {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "DID does not match recovery request".into()
-        )));
-    }
-
-    // Parse original agent pubkey from DID for linking
-    let original_agent_str = input
-        .did
-        .strip_prefix("did:mycelix:")
-        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Invalid DID format".into())))?;
-    let original_agent = AgentPubKey::try_from(original_agent_str)
-        .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid agent pub key in DID".into())))?;
-
-    let now = sys_time()?;
-
-    // Create new DID document controlled by the new agent
-    let verification_method = VerificationMethod {
-        id: format!("{}#recovery-key-1", input.did),
-        type_: AlgorithmId::Ed25519
-            .did_verification_method_type()
-            .to_string(),
-        controller: input.did.clone(),
-        public_key_multibase: format!("z{}", new_agent),
-        algorithm: Some(AlgorithmId::Ed25519.as_u16()),
-    };
-
-    let did_doc = DidDocument {
-        id: input.did.clone(),
-        controller: new_agent.clone(),
-        verification_method: vec![verification_method.clone()],
-        authentication: vec![format!("{}#recovery-key-1", input.did)],
-        key_agreement: vec![],
-        service: vec![],
-        created: now,
-        updated: now,
-        version: 1, // Fresh document for new controller
-    };
-
-    let action_hash = create_entry(&EntryTypes::DidDocument(did_doc))?;
-
-    // Link from the ORIGINAL agent's pubkey to this new DID document.
-    // This ensures resolve_did() finds the recovered document, since it
-    // looks up links from the agent pubkey embedded in the DID string.
-    // The latest link (by timestamp) takes precedence.
-    create_link(
-        original_agent,
-        action_hash.clone(),
-        LinkTypes::AgentToDid,
-        (),
-    )?;
-
-    // Also link from the new agent for get_my_did() convenience
-    create_link(
-        new_agent.clone(),
-        action_hash.clone(),
-        LinkTypes::AgentToDid,
-        (),
-    )?;
-
-    // Auto-create MFA state for the new agent's control of this DID (fail-closed)
-    auto_create_mfa_state(&input.did, &new_agent)?;
-
-    get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Could not find recovered DID document".into()
+pub fn claim_recovered_did(_input: ClaimRecoveredDidInput) -> ExternResult<Record> {
+    // A social recovery approval is not, by itself, a DID controller key
+    // rotation proof. The current DID method intentionally keeps the
+    // controller (the agent-derived DID subject) immutable. Returning a clear
+    // error is safer than creating a document that violates the integrity
+    // contract and would become unresolvable.
+    Err(wasm_error!(WasmErrorInner::Guest(
+        "DID controller transfer is not implemented: completed social recovery cannot yet change the controller of an existing did:mycelix DID".into()
     )))
 }
 
@@ -1686,110 +2150,3 @@ mod tests {
             "#keys-1".to_string(),
             "#keys-1".to_string(), // duplicate
         ];
-
-        // Remove old key references
-        auth.retain(|a| a != old_key_id);
-        assert!(
-            auth.is_empty(),
-            "All references to old key should be removed"
-        );
-
-        // Add new key
-        if !auth.contains(&new_key_id.to_string()) {
-            auth.push(new_key_id.to_string());
-        }
-        assert_eq!(auth, vec!["#keys-2".to_string()]);
-    }
-
-    #[test]
-    fn test_rotate_key_methods_update_logic() {
-        // Simulate the methods update logic from rotate_key
-        let mut methods = vec![VerificationMethod {
-            id: "#keys-1".into(),
-            type_: "Ed25519VerificationKey2020".into(),
-            controller: "did:mycelix:test".into(),
-            public_key_multibase: make_test_multibase_key(0xAA),
-            algorithm: None,
-        }];
-
-        let version = 1u32;
-        let old_key_idx = 0;
-
-        // Deprecate old key
-        let deprecated_id = format!("{}-deprecated-v{}", methods[old_key_idx].id, version);
-        methods[old_key_idx].id = deprecated_id.clone();
-
-        // Add new key
-        methods.push(VerificationMethod {
-            id: "#keys-2".into(),
-            type_: "Ed25519VerificationKey2020".into(),
-            controller: "did:mycelix:test".into(),
-            public_key_multibase: make_test_multibase_key(0xBB),
-            algorithm: None,
-        });
-
-        assert_eq!(methods.len(), 2);
-        assert_eq!(methods[0].id, "#keys-1-deprecated-v1");
-        assert_eq!(methods[1].id, "#keys-2");
-        // Old key's public material is preserved for signature verification
-        assert!(!methods[0].public_key_multibase.is_empty());
-    }
-
-    // --- rotate_key_agreement tests ---
-
-    #[test]
-    fn test_rotate_key_agreement_input_validation() {
-        let input = RotateKeyAgreementInput {
-            old_key_id: String::new(),
-            new_method: VerificationMethod {
-                id: "#kem-2".into(),
-                type_: "Multikey".into(),
-                controller: "did:mycelix:test".into(),
-                public_key_multibase: make_test_multibase_key(0xAA),
-                algorithm: None,
-            },
-        };
-        assert!(input.old_key_id.is_empty());
-    }
-
-    #[test]
-    fn test_rotate_key_agreement_ka_update_logic() {
-        // Simulate the key_agreement array update logic from rotate_key_agreement
-        let old_key_id = "#kem-1";
-        let new_key_id = "#kem-2";
-        let mut ka = vec![
-            "#kem-1".to_string(),
-            "#kem-1".to_string(), // duplicate
-        ];
-
-        // Remove old key references
-        ka.retain(|k| k != old_key_id);
-        assert!(
-            ka.is_empty(),
-            "All references to old KEM key should be removed"
-        );
-
-        // Add new key
-        if !ka.contains(&new_key_id.to_string()) {
-            ka.push(new_key_id.to_string());
-        }
-        assert_eq!(ka, vec!["#kem-2".to_string()]);
-    }
-
-    #[test]
-    fn test_rotate_key_agreement_preserves_auth() {
-        // rotate_key_agreement passes authentication: None, which means
-        // update_did_document preserves the existing authentication array
-        let auth = vec!["#keys-1".to_string()];
-        let preserved = None::<Vec<String>>.unwrap_or(auth.clone());
-        assert_eq!(preserved, auth);
-    }
-
-    #[test]
-    fn test_rotate_key_agreement_deprecated_id_format() {
-        let old_id = "#kem-1";
-        let version = 2u32;
-        let deprecated = format!("{}-deprecated-v{}", old_id, version);
-        assert_eq!(deprecated, "#kem-1-deprecated-v2");
-    }
-}

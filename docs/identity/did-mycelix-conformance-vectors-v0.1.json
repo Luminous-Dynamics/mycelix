@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "method": "mycelix",
+  "profile": "did:mycelix Method — Implementation Profile v0.1",
+  "status": "implementation-profile",
+  "identifier_scope": {
+    "mode": "canonical-production-identity-dna",
+    "identifier_form": "did:mycelix:<agent_pub_key>",
+    "deployment_rule": "Only the canonical Mycelix Identity DNA deployment is authoritative for the method. Staging, test, and foreign Identity DNA deployments are not alternate authorities for the same did:mycelix namespace."
+  },
+  "did_vectors": [
+    {"id":"DID-001","input":"did:mycelix:uhCAk29vb29vb29vb29vb29vb29vb29vb29vb29vb29uTp5Iv","kind":"valid","expected":"accept"},
+    {"id":"DID-002","input":"did:mycelix:AgentKey-with-valid-alphabet-but-invalid-checksum","kind":"invalid","expected":"reject","error":"INVALID_DID"},
+    {"id":"DID-003","input":"did:mycelix:","kind":"invalid","expected":"reject","error":"INVALID_DID"},
+    {"id":"DID-004","input":"did:mycelix:abc:def","kind":"invalid","expected":"reject","error":"INVALID_DID"},
+    {"id":"DID-005","input":"did:mycelix:abc#key-1","kind":"did-url-not-did","expected":"reject-as-resolve-input","error":"INVALID_DID"},
+    {"id":"DID-006","input":"did:mycelix:abc?versionId=1","kind":"did-url-not-did","expected":"reject-as-resolve-input","error":"INVALID_DID"},
+    {"id":"DID-007","input":"did:mycelix:abc%20def","kind":"invalid","expected":"reject","error":"INVALID_DID"},
+    {"id":"DID-008","input":"did:key:abc","kind":"valid-other-method","expected":"method-not-supported-by-mycelix-resolver","error":"METHOD_NOT_SUPPORTED"}
+  ],
+  "resolution_vectors": [
+    {"id":"RES-001","state":"existing-active","expected":{"didDocument":"present","didResolutionMetadata.contentType":"application/did","didDocumentMetadata.deactivated":false,"didDocumentMetadata.versionId":"1"}},
+    {"id":"RES-002","state":"existing-deactivated","expected":{"didDocument":null,"didDocumentMetadata.deactivated":true,"didResolutionMetadata.contentType":null}},
+    {"id":"RES-003","state":"not-found","expected":{"didDocument":null,"didResolutionMetadata.error.type":"https://www.w3.org/ns/did#NOT_FOUND","didResolutionMetadata.error.title":"DID not found"}},
+    {"id":"RES-004","state":"unsupported-method","expected":{"didDocument":null,"didResolutionMetadata.error.type":"https://www.w3.org/ns/did#METHOD_NOT_SUPPORTED","didResolutionMetadata.error.title":"DID method not supported","didDocumentMetadata":null}}
+  ],
+  "wire_vectors": [
+    {"id":"WIRE-001","field":"verificationMethod","wire_name":"verificationMethod"},
+    {"id":"WIRE-002","field":"public_key_multibase","wire_name":"publicKeyMultibase"},
+    {"id":"WIRE-003","field":"key_agreement","wire_name":"keyAgreement"},
+    {"id":"WIRE-004","field":"service_endpoint","wire_name":"serviceEndpoint"},
+    {"id":"WIRE-005","field":"version_id","wire_name":"versionId"}
+  ],
+  "version_vectors": [
+    {"id":"VER-001","transition":"1->2","expected":"accept"},
+    {"id":"VER-002","transition":"1->3","expected":"reject","reason":"version gaps are not permitted"},
+    {"id":"VER-003","transition":"2->2","expected":"reject","reason":"version must increase exactly by one"}
+  ],
+  "verification_method_vectors": [
+    {"id":"VM-001","algorithm":"Ed25519","multicodec":"0xed01","multibase":"base58btc","prefix":"z","payload":"multicodec(0xed01) || raw_32_byte_ed25519_public_key","holochain_hash_type_bytes_included":false,"strict_did_boundary":true},
+    {"id":"VM-002","algorithm":"Ed25519","kind":"legacy-raw-32-byte","expected":"reject-at-did-integrity-boundary"}
+  ],
+  "recovery_vectors": [
+    {"id":"REC-001","operation":"configure","authority":"did-controller","expected":"reject-cross-owner-configuration"},
+    {"id":"REC-002","operation":"self-recovery-request","authority":"replacement-agent","expected":"new-agent-must-equal-request-author"},
+    {"id":"REC-003","operation":"quorum-state","authority":"DHT-derived","expected":"compute-from-request-and-visible-trustee-votes-without-cross-agent-request-mutation"},
+    {"id":"REC-004","operation":"vote","authority":"configured-trustee","expected":"reject-votes-for-nonexistent-requests"},
+    {"id":"REC-005","operation":"vote","authority":"configured-trustee","expected":"reject-votes-from-non-trustees"},
+    {"id":"REC-006","operation":"state-read","authority":"canonical-latest-record","expected":"follow-recovery-config-update-chain"},
+    {"id":"REC-007","operation":"time-lock-arming","authority":"original-request-author","expected":"arm-only-after-DHT-derived-quorum-approval"},
+    {"id":"REC-008","operation":"self-recovery-approval","authority":"cryptographic-proof-required","expected":"identifier-or-hash-equality-alone-must-not-approve"},
+    {"id":"REC-009","operation":"recovery-request-id","authority":"protocol-derived","expected":"recovery:<did>:<creation-timestamp>"},
+    {"id":"REC-010","operation":"terminal-rejection","authority":"DHT-derived-state","expected":"Rejected-is-terminal-and-cannot-resurrect"},
+    {"id":"REC-011","operation":"request-config-binding","authority":"immutable-request","expected":"pin-exact-recovery-config-action-at-request-creation"},
+    {"id":"REC-012","operation":"request-read","authority":"canonical-latest-record","expected":"follow-recovery-request-update-chain"},
+    {"id":"REC-013","operation":"request-cancel","authority":"pinned-config-owner","expected":"authorize-against-exact-config-snapshot"},
+    {"id":"RES-006","operation":"canonical-read","authority":"latest-update-chain","expected":"resolve-latest-valid-DID-version"},
+    {"id":"RES-005","operation":"json-shape","expected":"omit-absent-optional-resolution-metadata-properties"}
+  ],
+  "authority_vectors": [
+    {"id":"AUTH-001","operation":"create","authority":"committing-agent","expected":"accept-only-if-did-identifier-and-controller-equal-committer"},
+    {"id":"AUTH-002","operation":"update","authority":"current-controller","expected":"accept-only-if-controller-and-original-entry-author-equal-committer"},
+    {"id":"AUTH-003","operation":"deactivate","authority":"current-controller","expected":"accept-only-if-did-equals-committing-agent-did"},
+    {"id":"AUTH-004","operation":"controller-key-rotation","status":"not-supported","expected":"existing-did-controller-is-immutable"},
+    {"id":"AUTH-005","operation":"verification-method-rotation","authority":"current-controller","expected":"preserve-old-method-id-and-remove-it-from-authentication-before-activating-distinct-new-method"}
+  ],
+  "deployment_vectors": [
+    {"id":"DEP-001","deployment":"canonical-production","expected":"authoritative"},
+    {"id":"DEP-002","deployment":"staging","expected":"non-authoritative"},
+    {"id":"DEP-003","deployment":"foreign-identity-dna","expected":"non-authoritative"}
+  ]
+}

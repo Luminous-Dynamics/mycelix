@@ -296,17 +296,35 @@ pub fn create_mfa_state(input: CreateMfaStateInput) -> ExternResult<MfaStateOutp
         )));
     }
 
-    // Verify DID exists in did_registry (cross-zome call)
-    // Note: This may fail if did_registry is not available, which is acceptable
-    // for standalone testing. In production, both zomes will be present.
-    if let Ok(exists) = verify_did_exists(&input.did) {
-        if !exists {
+    // Verify DID exists in did_registry (cross-zome call). This is a
+    // security prerequisite: inability to verify the canonical DID must not
+    // silently turn into an orphaned MFA namespace.
+    match verify_did_exists(&input.did) {
+        Ok(true) => {}
+        Ok(false) => {
             return Err(wasm_error!(WasmErrorInner::Guest(
                 "DID does not exist in registry. Create DID first.".into()
             )));
         }
+        Err(error) => {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "DID existence verification failed; refusing MFA initialization: {}",
+                error
+            ))));
+        }
     }
-    // If cross-zome call fails, we proceed (for testing without did_registry)
+
+    // Bind the initial factor identifier to the caller's canonical Holochain
+    // AgentPubKey representation. This prevents callers from inventing an
+    // arbitrary sha256 identifier and labeling it as the primary key.
+    let mut hasher = Sha256::new();
+    hasher.update(agent_info.agent_initial_pubkey.get_raw_39());
+    let expected_key_hash = format!("sha256:{}", hex_encode(&hasher.finalize()));
+    if !bool::from(input.primary_key_hash.as_bytes().ct_eq(expected_key_hash.as_bytes())) {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Primary key factor ID does not match the caller's AgentPubKey".into()
+        )));
+    }
 
     // Create initial factor (primary key pair)
     let primary_factor = EnrolledFactor {
@@ -2314,6 +2332,83 @@ pub fn get_mfa_summary(did: String) -> ExternResult<Option<MfaSummary>> {
                 category_count,
                 has_external_verification: has_external,
                 fl_eligible,
+            }))
+        }
+        Err(_) => Ok(None),
+    }
+}
+
+fn mask_factor_identifier(value: &str) -> String {
+    let chars: Vec<char> = value.chars().collect();
+    if chars.len() <= 12 {
+        let prefix: String = chars.iter().take(4).collect();
+        return format!("{prefix}…");
+    }
+    let prefix: String = chars.iter().take(8).collect();
+    let suffix: String = chars.iter().rev().take(4).collect::<Vec<_>>().into_iter().rev().collect();
+    format!("{prefix}…{suffix}")
+}
+
+// =============================================================================
+// Browser-safe projections
+// =============================================================================
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct MfaStateView {
+    pub did: String,
+    pub factors: Vec<MfaFactorView>,
+    pub assurance_level: AssuranceLevel,
+    pub effective_strength: f32,
+    pub category_count: u8,
+    pub updated: i64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct MfaFactorView {
+    pub factor_type: FactorType,
+    pub factor_id: String,
+    pub enrolled_at: i64,
+    pub last_verified: i64,
+    pub effective_strength: f32,
+    pub active: bool,
+    pub metadata: String,
+}
+
+/// Return a browser-safe projection of the caller's MFA state.
+///
+/// This keeps AgentPubKey, ActionHash, and Holochain Record serialization out
+/// of frontend code while preserving the canonical MFA state in the DHT.
+#[hdk_extern]
+pub fn get_mfa_view(did: String) -> ExternResult<Option<MfaStateView>> {
+    let now = sys_time()?;
+    match get_mfa_state_internal(&did) {
+        Ok((state, _)) => {
+            let (assurance_level, effective_strength, category_count) = state.calculate_assurance(now);
+            let updated = state.updated.as_micros();
+            let did = state.did.clone();
+            Ok(Some(MfaStateView {
+                did,
+                factors: state
+                    .factors
+                    .into_iter()
+                    .map(|factor| MfaFactorView {
+                        factor_type: factor.factor_type,
+                        // Browser clients receive only a display-safe hint. Raw
+                        // credential/device identifiers and metadata stay inside the
+                        // Holochain runtime.
+                        factor_id: mask_factor_identifier(&factor.factor_id),
+                        enrolled_at: factor.enrolled_at.as_micros(),
+                        last_verified: factor.last_verified.as_micros(),
+                        // Recompute using the canonical factor-specific decay policy.
+                        effective_strength: factor.current_strength(now),
+                        active: factor.active,
+                        metadata: String::new(),
+                    })
+                    .collect(),
+                assurance_level,
+                effective_strength,
+                category_count,
+                updated,
             }))
         }
         Err(_) => Ok(None),
