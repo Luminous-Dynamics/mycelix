@@ -1,0 +1,50 @@
+{
+  "profile": "D6S-CANON-2",
+  "kind": "authority-boundary-reference-manifest",
+  "version": 1,
+  "fixture_path": "docs/integral/d6s-canon-2-authority-boundary-fixture.json",
+  "expected_case_count": 17,
+  "expected_case_ids": [
+    "author-grant",
+    "authorized-semantic-rejection",
+    "blocked-provenance",
+    "canonical-payload-accepted",
+    "expired-invocation",
+    "nonce-replay",
+    "nonce-stale",
+    "payload-mutation",
+    "provenance-mismatch",
+    "revoked-capability",
+    "valid-capability",
+    "wire-signature-invalid",
+    "wire-signature-valid",
+    "wrong-capability",
+    "wrong-cell",
+    "wrong-function",
+    "wrong-zome"
+  ],
+  "holochain_reference": {
+    "version": "0.7.0",
+    "runtime_binding_status": "ReferenceMappingOnly",
+    "invocation_type": "ZomeCallInvocation",
+    "invocation_fields": [
+      "cell_id",
+      "zome",
+      "cap_secret",
+      "fn_name",
+      "payload",
+      "provenance",
+      "nonce",
+      "expires_at"
+    ],
+    "authorization_methods": [
+      "verify_nonce",
+      "verify_grant",
+      "verify_blocked_provenance",
+      "is_authorized"
+    ],
+    "authentication_boundary": "signature-authentication-precedes-nonce-witnessing",
+    "expiry_field": "expires_at"
+  },
+  "claim_ceiling": "ReferenceModelOnly"
+}
