@@ -39,6 +39,11 @@
   "verification_method_vectors": [
     {"id":"VM-001","algorithm":"Ed25519","multicodec":"0xed01","multibase":"base58btc","prefix":"z","payload":"multicodec(0xed01) || raw_32_byte_ed25519_public_key","holochain_hash_type_bytes_included":false}
   ],
+  "recovery_vectors": [
+    {"id":"REC-001","operation":"configure","authority":"did-controller","expected":"reject-cross-owner-configuration"},
+    {"id":"REC-002","operation":"self-recovery-request","authority":"replacement-agent","expected":"new-agent-must-equal-request-author"},
+    {"id":"REC-003","operation":"quorum-state","authority":"DHT-derived","expected":"compute-from-request-and-visible-trustee-votes-without-cross-agent-request-mutation"}
+  ],
   "authority_vectors": [
     {"id":"AUTH-001","operation":"create","authority":"committing-agent","expected":"accept-only-if-did-identifier-and-controller-equal-committer"},
     {"id":"AUTH-002","operation":"update","authority":"current-controller","expected":"accept-only-if-controller-and-original-entry-author-equal-committer"},
