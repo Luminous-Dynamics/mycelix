@@ -1,0 +1,64 @@
+name: Hearth 0.7 Qualification
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - "mycelix-workspace/mycelix-hearth/**"
+      - "crates/mycelix-bridge-*/**"
+  workflow_dispatch:
+
+concurrency:
+  group: hearth-07-qualification-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Hearth 0.7 Qualification
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: cachix/install-nix-action@v27
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - uses: cachix/cachix-action@v15
+        with:
+          name: holochain-ci
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            mycelix-workspace/mycelix-hearth
+            mycelix-workspace/mycelix-hearth/tests
+
+      - name: Run Hearth 0.7 source audit
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: |
+          nix develop .#ci --impure --command \
+            bash tools/audit-holochain-07-source.sh
+
+      - name: Build Hearth 0.7 zomes
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: |
+          nix develop .#ci --impure --command \
+            cargo build --release --target wasm32-unknown-unknown --workspace
+
+      - name: Pack Hearth 0.7 DNA
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: |
+          nix develop .#ci --impure --command \
+            hc dna pack dna/
+
+      - name: Run Hearth 0.7 SweetConductor qualification
+        working-directory: mycelix-workspace/mycelix-hearth/tests
+        run: |
+          nix develop ../.#ci --impure --command \
+            cargo test --release -- --include-ignored --test-threads=1
