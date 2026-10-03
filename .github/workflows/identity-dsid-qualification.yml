@@ -92,18 +92,20 @@ jobs:
           ]
 
           assert len(rows) == 6
-          assert [row["scenario_id"] for row in rows] == [
+          assert {row["scenario_id"] for row in rows} == {
               "DSID-001",
               "DSID-002",
               "DSID-003",
               "DSID-004",
               "DSID-005",
               "DSID-006",
-          ]
+          }
           assert all(row["schema_version"] == 1 for row in rows)
           assert all(row["pass"] is True for row in rows)
           assert all(row["dna_hash"] for row in rows)
+          assert len({row["dna_hash"] for row in rows}) == 1
           assert all(row["commit_sha"] for row in rows)
+          assert len({row["commit_sha"] for row in rows}) == 1
           assert all(row["agents"] for row in rows)
           assert rows[0]["action_hashes"]
           assert rows[0]["entry_hashes"]
