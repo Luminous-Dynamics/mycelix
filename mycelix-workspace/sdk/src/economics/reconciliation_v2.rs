@@ -88,6 +88,8 @@ pub fn reconcile_step(
     assignments: &[SectorAssignment],
     transitions: &[EconomicTransition],
 ) -> Result<StockFlowReconciliation, String> {
+    pre_state.validate()?;
+    post_state.validate()?;
     let pre = SectorBalanceSheet::from_state(pre_state, assignments)?;
     let post = SectorBalanceSheet::from_state(post_state, assignments)?;
     let expected = aggregate_postings(postings_for_step(pre_state, assignments, transitions)?)?;
