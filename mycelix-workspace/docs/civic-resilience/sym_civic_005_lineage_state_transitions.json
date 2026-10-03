@@ -574,9 +574,11 @@
             "effective_at": "2026-10-03T02:00:00Z",
             "reason": "superseded"
           }
-        ]
+        ],
+        "arrival_derived_state": "SUPERSEDED",
+        "canonical_final_state": "SUPERSEDED"
       },
-      "note": "Equivalent arrival orders produce the same canonical logical order."
+      "note": "Equivalent arrival orders canonicalize to the same terminal state."
     },
     {
       "id": "T-15",
