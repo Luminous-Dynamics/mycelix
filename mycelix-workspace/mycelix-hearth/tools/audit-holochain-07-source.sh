@@ -101,6 +101,8 @@ check_present_any "Hearth uses SweetConductor::standard" 'SweetConductor::standa
 check_present "Hearth dev shell provides Node.js 24" 'nodejs_24'
 check_present "Hearth dev shell provides Perl" '\bperl\b'
 check_present "Hearth flake uses Holonix main-0.7" 'holonix.*ref=main-0\.7'
+check_present "Hearth package builds use Holonix Rust" 'nativeBuildInputs[[:space:]]*=[[:space:]]*\[[[:space:]]*holochainPackages\.rust[[:space:]]'
+check_absent "Hearth package builds do not use shared Rust toolchain" 'holochainBase\.rustToolchain'
 check_lock_present "flake.lock pins Holochain 0.7.0" '"original"[[:space:]]*:[[:space:]]*\{[[:space:]]*"owner"[[:space:]]*:[[:space:]]*"holochain"[[:space:]]*,[[:space:]]*"ref"[[:space:]]*:[[:space:]]*"holochain-0\.7\.0"'
 check_lock_present "flake.lock pins Kitsune2 0.5.0" '"original"[[:space:]]*:[[:space:]]*\{[[:space:]]*"owner"[[:space:]]*:[[:space:]]*"holochain"[[:space:]]*,[[:space:]]*"ref"[[:space:]]*:[[:space:]]*"v0\.5\.0"'
 check_lock_present "flake.lock pins Lair 0.7.1" '"original"[[:space:]]*:[[:space:]]*\{[[:space:]]*"owner"[[:space:]]*:[[:space:]]*"holochain"[[:space:]]*,[[:space:]]*"ref"[[:space:]]*:[[:space:]]*"v0\.7\.1"'
