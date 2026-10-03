@@ -105,6 +105,11 @@ impl EconomicAccountingClosure {
         let period_ledger = EconomicPeriodLedger::from_transitions(transitions)?;
         let aggregate_observations =
             EconomicObservables::try_from_state_and_ledger(post_state, &period_ledger)?;
+        validate_projection_closure(
+            &aggregate_observations,
+            &actor_observations,
+            &sector_observations,
+        )?;
         let aggregate_observations_hash = hash_json(&aggregate_observations)?;
 
         let actor_observations_hash = hash_json(&actor_observations)?;
@@ -208,6 +213,197 @@ fn validate_actor_terminal_state(
                 actor.actor
             ));
         }
+    }
+
+    Ok(())
+}
+
+fn validate_projection_closure(
+    aggregate: &EconomicObservables,
+    actors: &BTreeMap<ActorId, ActorEconomicObservables>,
+    sectors: &BTreeMap<EconomicSector, SectorEconomicObservables>,
+) -> Result<(), String> {
+    fn sum_actor<F>(
+        actors: &BTreeMap<ActorId, ActorEconomicObservables>,
+        field: &str,
+        select: F,
+    ) -> Result<i128, String>
+    where
+        F: Fn(&ActorEconomicObservables) -> i128,
+    {
+        actors.values().try_fold(0i128, |total, observation| {
+            total
+                .checked_add(select(observation))
+                .ok_or_else(|| format!("aggregate actor {field} overflow"))
+        })
+    }
+
+    fn sum_sector<F>(
+        sectors: &BTreeMap<EconomicSector, SectorEconomicObservables>,
+        field: &str,
+        select: F,
+    ) -> Result<i128, String>
+    where
+        F: Fn(&SectorEconomicObservables) -> i128,
+    {
+        sectors.values().try_fold(0i128, |total, observation| {
+            total
+                .checked_add(select(observation))
+                .ok_or_else(|| format!("aggregate sector {field} overflow"))
+        })
+    }
+
+    fn require_equal(label: &str, expected: i128, actual: i128) -> Result<(), String> {
+        if expected != actual {
+            return Err(format!("cross-layer {label} mismatch: expected {expected}, got {actual}"));
+        }
+        Ok(())
+    }
+
+    let actor_checks = [
+        ("cash", sum_actor(actors, "cash", |o| o.cash)?, aggregate.aggregate_cash),
+        (
+            "deposits",
+            sum_actor(actors, "deposits", |o| o.deposits)?,
+            aggregate.aggregate_deposits,
+        ),
+        ("loans", sum_actor(actors, "loans", |o| o.loan_claims)?, aggregate.aggregate_loans),
+        ("debt", sum_actor(actors, "debt", |o| o.debt)?, aggregate.aggregate_debt),
+        (
+            "trade receivables",
+            sum_actor(actors, "trade receivables", |o| o.trade_receivables)?,
+            aggregate.aggregate_trade_receivables,
+        ),
+        (
+            "trade payables",
+            sum_actor(actors, "trade payables", |o| o.trade_payables)?,
+            aggregate.aggregate_trade_payables,
+        ),
+        ("liquidity", sum_actor(actors, "liquidity", |o| o.liquidity)?, aggregate.liquidity),
+        (
+            "working capital",
+            sum_actor(actors, "working capital", |o| o.net_working_capital())?,
+            aggregate.net_working_capital,
+        ),
+        (
+            "credit created",
+            sum_actor(actors, "credit originated", |o| o.credit_originated)?,
+            aggregate.credit_created,
+        ),
+        (
+            "debt repaid",
+            sum_actor(actors, "debt repaid", |o| o.debt_repaid)?,
+            aggregate.debt_repaid,
+        ),
+        (
+            "trade credit extended",
+            sum_actor(actors, "trade credit extended", |o| o.trade_credit_extended)?,
+            aggregate.trade_credit_extended,
+        ),
+        (
+            "trade credit settled",
+            sum_actor(actors, "trade credit settled", |o| o.trade_credit_settled)?,
+            aggregate.trade_credit_settled,
+        ),
+        (
+            "interest paid",
+            sum_actor(actors, "interest paid", |o| o.interest_paid)?,
+            aggregate.interest_paid,
+        ),
+        (
+            "sales",
+            sum_actor(actors, "sales", |o| o.sales_revenue)?,
+            aggregate.sales_consideration,
+        ),
+        (
+            "cost of goods sold",
+            sum_actor(actors, "cost of goods sold", |o| o.cost_of_goods_sold)?,
+            aggregate.cost_of_goods_sold,
+        ),
+        (
+            "depreciation",
+            sum_actor(actors, "depreciation", |o| o.depreciation)?,
+            aggregate.depreciation,
+        ),
+    ];
+    for (label, actor_value, aggregate_value) in actor_checks {
+        require_equal(label, actor_value, aggregate_value)?;
+    }
+
+    let sector_checks = [
+        (
+            "sector liquidity",
+            sum_sector(sectors, "liquidity", |o| o.closing_liquidity)?,
+            aggregate.liquidity,
+        ),
+        (
+            "sector loans",
+            sum_sector(sectors, "loans", |o| o.loan_claims)?,
+            aggregate.aggregate_loans,
+        ),
+        (
+            "sector debt",
+            sum_sector(sectors, "debt", |o| o.debt)?,
+            aggregate.aggregate_debt,
+        ),
+        (
+            "sector trade receivables",
+            sum_sector(sectors, "trade receivables", |o| o.trade_receivables)?,
+            aggregate.aggregate_trade_receivables,
+        ),
+        (
+            "sector trade payables",
+            sum_sector(sectors, "trade payables", |o| o.trade_payables)?,
+            aggregate.aggregate_trade_payables,
+        ),
+        (
+            "sector working capital",
+            sum_sector(sectors, "working capital", |o| o.net_working_capital())?,
+            aggregate.net_working_capital,
+        ),
+        (
+            "sector credit originated",
+            sum_sector(sectors, "credit originated", |o| o.credit_originated)?,
+            aggregate.credit_created,
+        ),
+        (
+            "sector debt repaid",
+            sum_sector(sectors, "debt repaid", |o| o.debt_repaid)?,
+            aggregate.debt_repaid,
+        ),
+        (
+            "sector trade credit extended",
+            sum_sector(sectors, "trade credit extended", |o| o.trade_credit_extended)?,
+            aggregate.trade_credit_extended,
+        ),
+        (
+            "sector trade credit settled",
+            sum_sector(sectors, "trade credit settled", |o| o.trade_credit_settled)?,
+            aggregate.trade_credit_settled,
+        ),
+        (
+            "sector interest paid",
+            sum_sector(sectors, "interest paid", |o| o.interest_paid)?,
+            aggregate.interest_paid,
+        ),
+        (
+            "sector sales",
+            sum_sector(sectors, "sales", |o| o.sales_revenue)?,
+            aggregate.sales_consideration,
+        ),
+        (
+            "sector cost of goods sold",
+            sum_sector(sectors, "cost of goods sold", |o| o.cost_of_goods_sold)?,
+            aggregate.cost_of_goods_sold,
+        ),
+        (
+            "sector depreciation",
+            sum_sector(sectors, "depreciation", |o| o.depreciation)?,
+            aggregate.depreciation,
+        ),
+    ];
+    for (label, sector_value, aggregate_value) in sector_checks {
+        require_equal(label, sector_value, aggregate_value)?;
     }
 
     Ok(())
