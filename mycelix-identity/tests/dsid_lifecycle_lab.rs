@@ -833,7 +833,7 @@ async fn dsid_011_resolution_metadata_tracks_deactivation() {
     assert_eq!(before.resolution_metadata.error, None);
     assert_eq!(
         before.resolution_metadata.content_type.as_deref(),
-        Some("application/did+json")
+        Some("application/did")
     );
 
     let wire_doc = before.did_document.as_ref().expect("wire DID document must exist");
