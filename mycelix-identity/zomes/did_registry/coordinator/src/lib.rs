@@ -312,7 +312,7 @@ fn did_document_view(document: DidDocument) -> ExternResult<DidDocumentView> {
     let active = is_did_active(document.id.clone())?;
     Ok(DidDocumentView {
         id: document.id,
-        controller: document.controller.to_string(),
+        controller: format!("did:mycelix:{}", document.controller),
         verification_methods: document
             .verification_method
             .into_iter()
