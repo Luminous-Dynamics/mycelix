@@ -185,7 +185,7 @@ async fn test_invalid_decision_entry_reaches_integrity_validation() {
     let (conductor, alice) = setup_alice().await;
     let hearth_hash = create_test_hearth(&conductor, &alice).await;
 
-    let result: ExternResult<Record> = conductor
+    let result: Result<Record, _> = conductor
         .call_fallible(
             &alice.zome("hearth_decisions"),
             "create_decision",
@@ -211,7 +211,7 @@ async fn test_invalid_resource_entry_reaches_integrity_validation() {
     let (conductor, alice) = setup_alice().await;
     let hearth_hash = create_test_hearth(&conductor, &alice).await;
 
-    let result: ExternResult<Record> = conductor
+    let result: Result<Record, _> = conductor
         .call_fallible(
             &alice.zome("hearth_resources"),
             "register_resource",
@@ -235,7 +235,7 @@ async fn test_invalid_story_entry_reaches_integrity_validation() {
     let (conductor, alice) = setup_alice().await;
     let hearth_hash = create_test_hearth(&conductor, &alice).await;
 
-    let result: ExternResult<Record> = conductor
+    let result: Result<Record, _> = conductor
         .call_fallible(
             &alice.zome("hearth_stories"),
             "create_story",
