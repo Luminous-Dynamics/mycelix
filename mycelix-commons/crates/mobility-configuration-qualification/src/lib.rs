@@ -3,6 +3,7 @@ use std::collections::BTreeSet;
 use std::fs;
 
 /// Typed identity/lineage semantics for the mobility evidence substrate.
+pub mod binding_provenance;
 pub mod identity_lineage;
 pub mod qualification;
 pub mod reconciliation_evidence_projection;
@@ -12,6 +13,8 @@ pub mod temporal_evidence_applicability;
 pub mod temporal_reconciliation;
 pub mod temporal_reconciliation_witness;
 pub mod witness_revision;
+
+pub use binding_provenance::QualificationDependencyBindingProvenance;
 
 pub use qualification::{
     QualificationDecision, QualificationDependencyBinding, QualificationDependencyBindingSet,
