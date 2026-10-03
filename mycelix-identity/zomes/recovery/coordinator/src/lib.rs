@@ -852,6 +852,63 @@ mod tests {
     }
 }
 
+fn create_recovery_approval_certificate(
+    request_record: &Record,
+    request: &RecoveryRequest,
+    config_record: &Record,
+    config: &RecoveryConfig,
+) -> ExternResult<ActionHash> {
+    let vote_records = get_recovery_votes(request.id.clone())?;
+    let mut approvals: Vec<(String, ActionHash)> = Vec::new();
+
+    for record in vote_records {
+        let Some(vote) = record
+            .entry()
+            .to_app_option::<RecoveryVote>()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        else {
+            continue;
+        };
+
+        if vote.request_id != request.id
+            || vote.vote != VoteDecision::Approve
+            || !config.trustees.contains(&vote.trustee)
+        {
+            continue;
+        }
+
+        let trustee = vote.trustee.clone();
+        approvals.push((trustee, record.action_address().clone()));
+    }
+
+    approvals.sort_by(|a, b| a.0.cmp(&b.0));
+    approvals.dedup_by(|a, b| a.0 == b.0);
+
+    if approvals.len() < config.threshold as usize {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "DHT-visible approvals no longer satisfy the configured recovery threshold".into()
+        )));
+    }
+
+    let vote_action_hashes = approvals
+        .into_iter()
+        .take(config.threshold as usize)
+        .map(|(_, hash)| hash)
+        .collect();
+
+    let certificate = RecoveryApprovalCertificate {
+        request_id: request.id.clone(),
+        request_action_hash: request_record.action_address().clone(),
+        recovery_config_action_hash: config_record.action_address().clone(),
+        vote_action_hashes,
+        threshold: config.threshold,
+        issued_at: sys_time()?,
+    };
+
+    create_entry(&EntryTypes::RecoveryApprovalCertificate(certificate))
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))
+}
+
 /// Arm the recovery time lock after a DHT-derived quorum reaches threshold.
 ///
 /// Only the original recovery-request author can mutate the RecoveryRequest.
