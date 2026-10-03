@@ -718,6 +718,16 @@ fn validate_create_recovery_approval_certificate(
         ));
     }
 
+    // The signed Create action is the authoritative certificate clock.
+    // `issued_at` is retained as an informational compatibility field and
+    // must not be allowed to move authorization time independently.
+    let certificate_action_timestamp = *action.timestamp();
+    if certificate.issued_at > certificate_action_timestamp {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Recovery approval certificate issued_at cannot be later than its signed action timestamp".into(),
+        ));
+    }
+
     if *action.author() != *must_get_action(certificate.request_action_hash.clone())?.action().author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Recovery approval certificate must be authored by the request author".into(),
@@ -778,8 +788,7 @@ fn validate_create_recovery_approval_certificate(
             .ok_or(wasm_error!(WasmErrorInner::Guest(
                 "Recovery time-lock duration overflow".into()
             )))?;
-        let expected_expiry = certificate
-            .issued_at
+        let expected_expiry = certificate_action_timestamp
             .as_micros()
             .checked_add(duration_micros)
             .ok_or(wasm_error!(WasmErrorInner::Guest(
@@ -854,7 +863,7 @@ fn validate_create_recovery_approval_certificate(
             ));
         }
 
-        if vote.voted_at > certificate.issued_at {
+        if vote.voted_at > certificate_action_timestamp {
             return Ok(ValidateCallbackResult::Invalid(
                 "Recovery approval certificate cannot predate a cited approval vote".into(),
             ));
