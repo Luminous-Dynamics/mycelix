@@ -43,6 +43,16 @@ jobs:
           toolchain: 1.96.0
           targets: ${{ matrix.target }}
 
+      # prism-bridge depends on blake3, whose build script uses cc when
+      # compiling for a foreign target. The hosted x86_64 runner therefore
+      # needs the matching cross C compiler for AArch64; without it the
+      # qualification lane can fail before Rust reaches Prism code.
+      - name: Install AArch64 cross compiler
+        if: ${{ matrix.target == 'aarch64-unknown-linux-gnu' }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+
       - name: Build isolated Prism cross-architecture workspace
         shell: bash
         run: |
