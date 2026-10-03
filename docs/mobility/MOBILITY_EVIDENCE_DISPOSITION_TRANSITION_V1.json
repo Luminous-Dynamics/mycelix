@@ -801,6 +801,26 @@
       "id": "EDT-158",
       "case": "authority_agent_registry_rejects_second_binding_for_same_authority",
       "expected": "adapter_boundary_error"
+    },
+    {
+      "id": "EDT-159",
+      "case": "authority_agent_registry_retains_verified_credential_for_auditability",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-160",
+      "case": "runtime_binding_requires_exact_registered_authority_scope",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-161",
+      "case": "runtime_binding_requires_exact_registered_authority_delegation",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-162",
+      "case": "runtime_binding_preserves_registered_authority_credential_provenance_continuity",
+      "expected": "accepted"
     }
   ],
   "outcome_classes": [
