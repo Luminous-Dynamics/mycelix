@@ -218,7 +218,15 @@ impl DerivationCommitmentV1 {
         v.commitment=v.recompute();Some(v)
     }
     pub fn recompute(&self)->String{let mut v=self.clone();v.commitment.clear();canonical_sha256("d6w-derivation",&v)}
-    pub fn valid(&self)->bool{self.schema_version==D6W_SCHEMA_VERSION&&!self.input.is_empty()&&!self.profile.is_empty()&&self.claim_ceiling==D6S_CLAIM_CEILING&&self.commitment==self.recompute()}
+    pub fn valid(&self)->bool{
+        self.schema_version==D6W_SCHEMA_VERSION
+            && is_canonical_sha256_commitment(&self.input)
+            && is_canonical_sha256_commitment(&self.profile)
+            && self.execution_trace.as_deref().is_none_or(|trace| !trace.trim().is_empty())
+            && self.claim_ceiling==D6S_CLAIM_CEILING
+            && is_canonical_sha256_commitment(&self.commitment)
+            && self.commitment==self.recompute()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -232,7 +240,14 @@ impl ResultCommitmentV1 {
         let mut v=Self{schema_version:D6W_SCHEMA_VERSION.into(),derivation:d.commitment.clone(),status,payload,contradiction,unresolved,claim_ceiling:D6S_CLAIM_CEILING.into(),commitment:String::new()};v.commitment=v.recompute();Some(v)
     }
     pub fn recompute(&self)->String{let mut v=self.clone();v.commitment.clear();canonical_sha256("d6w-result",&v)}
-    pub fn valid(&self)->bool{self.schema_version==D6W_SCHEMA_VERSION&&!self.derivation.is_empty()&&!self.payload.is_empty()&&self.claim_ceiling==D6S_CLAIM_CEILING&&self.commitment==self.recompute()}
+    pub fn valid(&self)->bool{
+        self.schema_version==D6W_SCHEMA_VERSION
+            && is_canonical_sha256_commitment(&self.derivation)
+            && !self.payload.is_empty()
+            && self.claim_ceiling==D6S_CLAIM_CEILING
+            && is_canonical_sha256_commitment(&self.commitment)
+            && self.commitment==self.recompute()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -278,7 +293,15 @@ impl LayeredReceiptV1 {
             && self.result==expected.result && self.claim_ceiling==expected.claim_ceiling && self.commitment==expected.commitment
     }
     pub fn recompute(&self)->String{let mut v=self.clone();v.commitment.clear();canonical_sha256("d6w-receipt",&v)}
-    pub fn valid(&self)->bool{self.schema_version==D6W_SCHEMA_VERSION&&!self.input.is_empty()&&!self.derivation.is_empty()&&!self.result.is_empty()&&self.claim_ceiling==D6S_CLAIM_CEILING&&self.commitment==self.recompute()}
+    pub fn valid(&self)->bool{
+        self.schema_version==D6W_SCHEMA_VERSION
+            && is_canonical_sha256_commitment(&self.input)
+            && is_canonical_sha256_commitment(&self.derivation)
+            && is_canonical_sha256_commitment(&self.result)
+            && self.claim_ceiling==D6S_CLAIM_CEILING
+            && is_canonical_sha256_commitment(&self.commitment)
+            && self.commitment==self.recompute()
+    }
 }
 
 #[cfg(test)]
@@ -328,6 +351,51 @@ mod tests {
         let cp = closure_profile();
         let c=compute_dependency_closure(&p,&e,&d,&cp).unwrap();
         (p,e,d,c)
+    }
+
+    #[test]
+    fn d6w_derived_layers_cannot_be_self_consistent_with_opaque_references() {
+        let (p, e, d, closure) = fixture(false);
+        let profile = closure_profile();
+        let input = InputCommitmentV1::from_projection(&p, &e, &closure, &profile, &d)
+            .expect("baseline D6W input");
+
+        let mut derivation = DerivationCommitmentV1::new(&input, &d, None)
+            .expect("baseline D6W derivation");
+        derivation.profile = "opaque-profile".into();
+        derivation.commitment = derivation.recompute();
+
+        assert!(!derivation.valid());
+        assert!(ResultCommitmentV1::new(
+            &derivation,
+            DerivationResultStatusV1::Rejected,
+            "result".into(),
+            false,
+            false,
+        ).is_none());
+    }
+
+    #[test]
+    fn d6w_layered_receipt_rejects_opaque_references_even_when_recommitted() {
+        let (p, e, d, closure) = fixture(false);
+        let profile = closure_profile();
+        let input = InputCommitmentV1::from_projection(&p, &e, &closure, &profile, &d)
+            .expect("baseline D6W input");
+        let derivation = DerivationCommitmentV1::new(&input, &d, None)
+            .expect("baseline D6W derivation");
+        let result = ResultCommitmentV1::new(
+            &derivation,
+            DerivationResultStatusV1::Rejected,
+            "result".into(),
+            false,
+            false,
+        ).expect("baseline D6W result");
+        let mut receipt = LayeredReceiptV1::new(&input, &derivation, &result)
+            .expect("baseline layered receipt");
+        receipt.result = "opaque-result".into();
+        receipt.commitment = receipt.recompute();
+
+        assert!(!receipt.valid());
     }
 
     #[test]
