@@ -1129,6 +1129,11 @@ impl EconomicState {
     /// Retire a debt claim after receiving repayment.
     pub fn repay_debt(&mut self, repayment: &DebtRepayment) -> Result<(), String> {
         Self::require_positive(repayment.amount, "debt repayment")?;
+        let next_flow_volume = self
+            .monetary_flow_volume
+            .checked_add(repayment.amount)
+            .ok_or_else(|| "monetary flow counter overflow".to_string())?;
+        Self::require_positive(repayment.amount, "debt repayment")?;
 
         let next_debt_repaid = self
             .debt_repaid
@@ -1172,6 +1177,7 @@ impl EconomicState {
         borrower.monetary.liabilities -= repayment.amount;
         lender.monetary.claims -= repayment.amount;
         self.debt_repaid = next_debt_repaid;
+        self.monetary_flow_volume = next_flow_volume;
         Ok(())
     }
 
@@ -1629,6 +1635,20 @@ mod tests {
         let before = s.clone();
         assert!(s.create_credit(&CreditCreation::new("bank", "firm", 1).unwrap()).is_err());
         assert_eq!(s, before);
+    }
+
+    #[test]
+    fn debt_repayment_counts_as_monetary_flow() {
+        let mut s = state();
+        s.create_credit(&CreditCreation::new("bank", "household", 10).unwrap())
+            .unwrap();
+        let before = s.monetary_flow_volume;
+
+        s.repay_debt(&DebtRepayment::new("bank", "household", 4).unwrap())
+            .unwrap();
+
+        assert_eq!(s.monetary_flow_volume, before + 4);
+        assert_eq!(s.debt_repaid, 4);
     }
 
     #[test]
