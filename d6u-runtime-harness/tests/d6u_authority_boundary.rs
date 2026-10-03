@@ -639,13 +639,14 @@ call(
     assert_eq!(reached.load(Ordering::SeqCst), before);
     record_case("wrong-function", "authorization-failed");
 
+    let missing_cell = CellId::new(alice_cell.dna_hash().clone(), charlie.clone());
     let wrong_cell = params(
-        &bob_cell,
+        &missing_cell,
         &alice,
         SweetInlineZomes::COORDINATOR.into(),
         "probe".into(),
         None,
-        base,
+        base.clone(),
         Nonce256Bits::from([0x73; 32]),
         holochain_nonce::fresh_nonce(Timestamp::now()).unwrap().1,
     );
