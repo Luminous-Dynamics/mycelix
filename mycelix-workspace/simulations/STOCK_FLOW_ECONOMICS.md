@@ -979,3 +979,13 @@ This establishes a useful invariant for transported evidence:
 
 A recomputed hash is therefore not sufficient to make malformed evidence acceptable at the chain
 boundary; the structure must also satisfy the same identity rules used by normal construction.
+
+## Static compile seam closure (implemented)
+
+The hardening pass also surfaced and corrected a syntactic defect in the sector transaction
+projection: the GoodsSale match arm lacked its separating comma before the next transition arm.
+
+This was found during boundary inspection rather than assumed away because the remote CI queue had
+not yet produced a completed compiler result. Keeping the correction explicit preserves the evidence
+discipline: static inspection findings are distinguished from compiler-verified findings until the
+workflow actually completes.
