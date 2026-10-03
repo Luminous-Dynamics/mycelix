@@ -111,11 +111,25 @@ jobs:
             exit 1
           fi
 
+      - name: Collect kernel qualification evidence
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="${RUNNER_TEMP}/prism-seccomp-kernel-qualification"
+          evidence_dir="${RUNNER_TEMP}/prism-seccomp-kernel-qualification-evidence"
+          rm -rf "${evidence_dir}"
+          mkdir -p "${evidence_dir}"
+          cp "${RUNNER_TEMP}/prism-seccomp-kernel-qualification-evidence.txt" "${evidence_dir}/qualification-evidence.txt"
+          if [[ -f "${root}/Cargo.lock" ]]; then
+            cp "${root}/Cargo.lock" "${evidence_dir}/Cargo.lock"
+          fi
+
       - name: Upload kernel qualification evidence
         if: ${{ always() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: prism-seccomp-kernel-qualification-evidence-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/prism-seccomp-kernel-qualification-evidence.txt
+          path: ${{ runner.temp }}/prism-seccomp-kernel-qualification-evidence
           if-no-files-found: error
           retention-days: 90
