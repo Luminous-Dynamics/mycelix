@@ -183,8 +183,13 @@ async fn dsid_001_create_and_load_canonical_identity() {
         .call(&cell.zome("did_registry"), "create_did_view", ())
         .await;
     let canonical_record: Record = conductor
-        .call(&cell.zome("did_registry"), "get_my_did", ())
-        .await;
+        .call(
+            &cell.zome("did_registry"),
+            "get_did_document",
+            agent.clone(),
+        )
+        .await
+        .expect("canonical DID record must exist");
     let loaded: Option<DidDocumentView> = conductor
         .call(&cell.zome("did_registry"), "get_my_did_view", ())
         .await;
