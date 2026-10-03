@@ -26,6 +26,7 @@ pub enum HolochainDependencyAddress {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, SerializedBytes)]
+#[serde(deny_unknown_fields)]
 pub struct HolochainAuthorityAgentBindingPayload {
     pub schema: String,
     pub provenance: QualificationAuthorityAgentBindingProvenance,
@@ -160,6 +161,7 @@ impl SignedHolochainAuthorityAgentBinding {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, SerializedBytes)]
+#[serde(deny_unknown_fields)]
 pub struct HolochainBindingAttestationPayload {
     pub schema: String,
     pub provenance: QualificationDependencyBindingProvenance,
@@ -1224,6 +1226,68 @@ mod tests {
             .expect("canonical bytes must round-trip through the declared payload type");
 
         assert_eq!(decoded, payload);
+    }
+
+    #[test]
+    fn authority_agent_payload_rejects_unknown_wire_fields() {
+        #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, SerializedBytes)]
+        struct AuthorityPayloadWithExtraField {
+            schema: String,
+            provenance: QualificationAuthorityAgentBindingProvenance,
+            agent: AgentPubKey,
+            extra: String,
+        }
+
+        let authority = identity("unknown-field-authority");
+        let credential = authority_credential(authority, action_agent_key(47), "unknown-field");
+        let payload = AuthorityPayloadWithExtraField {
+            schema: credential.payload.schema.clone(),
+            provenance: credential.payload.provenance.clone(),
+            agent: credential.payload.agent.clone(),
+            extra: "must-not-be-accepted".into(),
+        };
+
+        let encoded =
+            SerializedBytes::try_from(payload).expect("shadow payload must encode canonically");
+        let decoded = HolochainAuthorityAgentBindingPayload::try_from(encoded);
+
+        assert!(
+            decoded.is_err(),
+            "v1 authority payloads must reject unknown wire fields"
+        );
+    }
+
+    #[test]
+    fn binding_attestation_payload_rejects_unknown_wire_fields() {
+        #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, SerializedBytes)]
+        struct BindingPayloadWithExtraField {
+            schema: String,
+            provenance: QualificationDependencyBindingProvenance,
+            address: HolochainDependencyAddress,
+            retrieval: QualificationDependencyRetrievalKind,
+            extra: String,
+        }
+
+        let provenance = binding_provenance_for_test(
+            identity("unknown-field-binding"),
+            identity("unknown-field-binding-authority"),
+        );
+        let payload = BindingPayloadWithExtraField {
+            schema: HOLOCHAIN_BINDING_ATTESTATION_SCHEMA.into(),
+            provenance,
+            address: HolochainDependencyAddress::Action(action_hash(48)),
+            retrieval: QualificationDependencyRetrievalKind::Action,
+            extra: "must-not-be-accepted".into(),
+        };
+
+        let encoded =
+            SerializedBytes::try_from(payload).expect("shadow payload must encode canonically");
+        let decoded = HolochainBindingAttestationPayload::try_from(encoded);
+
+        assert!(
+            decoded.is_err(),
+            "v1 binding attestation payloads must reject unknown wire fields"
+        );
     }
 
     #[test]
