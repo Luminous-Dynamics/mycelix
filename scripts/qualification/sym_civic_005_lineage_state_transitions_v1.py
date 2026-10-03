@@ -47,5 +47,5 @@ def main():
  if any(derived[k] for k in ("T-13","T-14","T-15")): fail("valid case rejected")
  payload={"program":d["program"],"schema":d["schema"],"cases":[{"id":c["id"],"rejected":derived[c["id"]]} for c in cases]}
  digest=hashlib.sha256(json.dumps(payload,sort_keys=True,separators=(",",":")).encode()).hexdigest()
- print(f"SYM-CIVIC-005 PASS: 15 temporal-lineage cases, 12 rejection cases, 3 admissible cases, canonical receipt={digest}")
+ print(f"SYM-CIVIC-005 PASS: 15 temporal-lineage cases, 11 rejection cases, 4 admissible cases, canonical receipt={digest}")
 if __name__=="__main__": main()
