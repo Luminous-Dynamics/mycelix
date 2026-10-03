@@ -538,6 +538,54 @@ check_semantic_validation_suite_wiring() {
   fi
 }
 
+# Semantic cases must resolve to real coordinator entrypoints and the runtime
+# witness must actually name the same zome/function. This closes the gap between
+# a declarative case manifest and executable source.
+check_semantic_case_entrypoints() {
+  local manifest="mycelix-workspace/mycelix-hearth/tests/hearth-07-semantic-validation-cases.json"
+  local rust_test="mycelix-workspace/mycelix-hearth/tests/sweettest_semantic_validation.rs"
+  local zomes operations
+  mapfile -t zomes < <(sed -n 's/^[[:space:]]*"zome"[[:space:]]*:[[:space:]]*"\\([^"]*\\)".*/\\1/p' "$manifest")
+  mapfile -t operations < <(sed -n 's/^[[:space:]]*"operation"[[:space:]]*:[[:space:]]*"\\([^"]*\\)".*/\\1/p' "$manifest")
+
+  if [[ "${#zomes[@]}" -eq 0 || "${#zomes[@]}" -ne "${#operations[@]}" ]]; then
+    echo "FAIL: semantic manifest zome/operation declaration counts differ"
+    fail=1
+    return
+  fi
+
+  local i zome operation coord_file
+  for i in "${!zomes[@]}"; do
+    zome="${zomes[$i]}"
+    operation="${operations[$i]}"
+    coord_file="mycelix-workspace/mycelix-hearth/zomes/${zome//_/-}/coordinator/src/lib.rs"
+
+    if [[ -f "$coord_file" ]]; then
+      echo "OK:   semantic case ${zome}/${operation} resolves to coordinator source"
+    else
+      echo "FAIL: semantic case ${zome}/${operation} has no coordinator source: $coord_file"
+      fail=1
+      continue
+    fi
+
+    if rg -n --pcre2 "^#[[:space:]]*hdk_extern[[:space:]]*$" "$coord_file" >/dev/null 2>&1 \
+      && rg -n --pcre2 "pub[[:space:]]+fn[[:space:]]+${operation}[[:space:]]*\\(" "$coord_file" >/dev/null 2>&1; then
+      echo "OK:   semantic case ${zome}/${operation} resolves to an #[hdk_extern]"
+    else
+      echo "FAIL: semantic case ${zome}/${operation} has no matching #[hdk_extern] function"
+      fail=1
+    fi
+
+    if rg -n --fixed-strings ".zome(\\\"${zome}\\\")" "$rust_test" >/dev/null 2>&1 \
+      && rg -n --fixed-strings "\\\"${operation}\\\"" "$rust_test" >/dev/null 2>&1; then
+      echo "OK:   semantic runtime witness invokes ${zome}/${operation}"
+    else
+      echo "FAIL: semantic runtime witness does not invoke ${zome}/${operation}"
+      fail=1
+    fi
+  done
+}
+
 # Dependency retrieval semantics: must_get_action only proves retrieval; it does not prove
 # that the referenced record passed application validation. Update/delete authorization
 # therefore uses must_get_valid_record before trusting the referenced author. Valid-record
@@ -651,6 +699,7 @@ check_standalone_tests_workspace_boundary
 check_qualification_workflow_provenance
 check_dna_source_completeness
 check_semantic_validation_suite_wiring
+check_semantic_case_entrypoints
 
 for file in "${integrity_files[@]}"; do
   check_create_record_coverage "$file"
