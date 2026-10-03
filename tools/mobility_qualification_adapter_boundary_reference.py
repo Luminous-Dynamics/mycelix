@@ -124,7 +124,9 @@ def main() -> int:
          "duplicate_logical_identity_binding", "unbound_logical_identity_is_semantic_invalidity",
          "binding_order_independent", "resolution_operation", "resolution_success",
          "resolution_invalid", "resolution_missing", "duplicate_requests_deduplicated",
-         "address_derivation"},
+         "address_derivation", "retrieval_kind_type", "allowed_retrieval_kinds",
+         "retrieval_kind_required", "retrieval_kind_mapping_runtime_owned",
+         "retrieval_kind_mismatch_is_adapter_boundary_error"},
         "identity boundary",
     )
     if identity.get("logical_identity_type") != "IdentityRef":
@@ -154,6 +156,13 @@ def main() -> int:
         raise SystemExit("binding resolution missing semantics changed")
     require_bool(identity, "duplicate_requests_deduplicated", True)
     require_bool(identity, "address_derivation", False)
+    if identity.get("retrieval_kind_type") != "QualificationDependencyRetrievalKind":
+        raise SystemExit("unexpected retrieval kind type")
+    if identity.get("allowed_retrieval_kinds") != ["ValidRecord", "Action", "Entry"]:
+        raise SystemExit("unexpected allowed retrieval kinds")
+    require_bool(identity, "retrieval_kind_required", True)
+    require_bool(identity, "retrieval_kind_mapping_runtime_owned", True)
+    require_bool(identity, "retrieval_kind_mismatch_is_adapter_boundary_error", True)
 
     dependencies = document.get("dependency_retrieval")
     if not isinstance(dependencies, dict):
@@ -169,6 +178,9 @@ def main() -> int:
         raise SystemExit("dependency retrieval must use must_get_*")
     require_bool(dependencies, "mutable_link_collections_as_validation_dependencies", False)
     require_bool(dependencies, "missing_addressable_dependency_is_semantic_invalidity", False)
+    require_bool(dependencies, "binding_preserves_address_kind", True)
+    require_bool(dependencies, "valid_record_requires_action_hash", True)
+    require_bool(dependencies, "wrong_address_kind_is_adapter_boundary_error", True)
     require_bool(dependencies, "binding_preserves_address_kind", True)
     require_bool(dependencies, "valid_record_requires_action_hash", True)
     require_bool(dependencies, "wrong_address_kind_is_adapter_boundary_error", True)
