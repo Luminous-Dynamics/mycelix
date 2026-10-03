@@ -244,6 +244,12 @@ pub fn setup_recovery(input: SetupRecoveryInput) -> ExternResult<Record> {
             "Threshold must be between 1 and the number of trustees".into()
         )));
     }
+    if get_recovery_config(input.did.clone())?.is_some() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Recovery configuration already exists for this DID; update the existing configuration instead of creating a second one".into()
+        )));
+    }
+
     let agent_info = agent_info()?;
     let agent_did = format!("did:mycelix:{}", agent_info.agent_initial_pubkey);
     if input.did != agent_did {
@@ -1420,6 +1426,13 @@ pub fn mark_self_recovery_superseded(did: String) -> ExternResult<()> {
                 .ok_or(wasm_error!(WasmErrorInner::Guest(
                     "Failed to decode config".into()
                 )))?;
+
+            let caller = agent_info()?.agent_initial_pubkey;
+            if config.owner != caller {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Only the DID owner can mark self-recovery as superseded".into()
+                )));
+            }
 
             config.superseded_by_social = true;
             config.updated = sys_time()?;
