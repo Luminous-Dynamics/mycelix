@@ -226,7 +226,10 @@ fn validate_create_link(
 
     match link_type {
         LinkTypes::AllQueries => {
-            return validate_anchor_name(base_address, "all_hearth_queries", "AllQueries");
+            let anchor_result = validate_anchor_name(base_address, "all_hearth_queries", "AllQueries")?;
+            if anchor_result != ValidateCallbackResult::Valid {
+                return Ok(anchor_result);
+            }
             let target = ActionHash::try_from(target_address).map_err(|_| ValidateCallbackResult::Invalid("AllQueries target must be an ActionHash".into()))?;
             let record = must_get_valid_record(target)?;
             let _: BridgeQueryEntry = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("BridgeQuery entry missing".into())))?;
@@ -247,7 +250,10 @@ fn validate_create_link(
             return validate_anchor_name(base_address, &format!("domain_queries:{}", entry.domain), "DomainToQuery");
         }
         LinkTypes::AllEvents => {
-            return validate_anchor_name(base_address, "all_hearth_events", "AllEvents");
+            let anchor_result = validate_anchor_name(base_address, "all_hearth_events", "AllEvents")?;
+            if anchor_result != ValidateCallbackResult::Valid {
+                return Ok(anchor_result);
+            }
             let target = ActionHash::try_from(target_address).map_err(|_| ValidateCallbackResult::Invalid("AllEvents target must be an ActionHash".into()))?;
             let record = must_get_valid_record(target)?;
             let _: BridgeEventEntry = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("BridgeEvent entry missing".into())))?;
@@ -278,7 +284,10 @@ fn validate_create_link(
             if &base != author {
                 return Ok(ValidateCallbackResult::Invalid("DispatchRateLimit base must equal the link author".into()));
             }
-            validate_anchor_name(target_address, "dispatch_rate_limit", "DispatchRateLimit")?;
+            let anchor_result = validate_anchor_name(target_address, "dispatch_rate_limit", "DispatchRateLimit")?;
+            if anchor_result != ValidateCallbackResult::Valid {
+                return Ok(anchor_result);
+            }
             let zome = std::str::from_utf8(&tag.0)
                 .map_err(|_| wasm_error!(WasmErrorInner::Guest("DispatchRateLimit tag must be UTF-8".into())))?;
             if !ALLOWED_ZOMES.contains(&zome) {
@@ -309,7 +318,10 @@ fn validate_create_link(
             validate_notification(&entry).map_err(|e| wasm_error!(WasmErrorInner::Guest(e)))?;
         }
         LinkTypes::AllNotifications => {
-            validate_anchor_name(base_address, "all_notifications", "AllNotifications")?;
+            let anchor_result = validate_anchor_name(base_address, "all_notifications", "AllNotifications")?;
+            if anchor_result != ValidateCallbackResult::Valid {
+                return Ok(anchor_result);
+            }
             let target = ActionHash::try_from(target_address).map_err(|_| ValidateCallbackResult::Invalid("AllNotifications target must be an ActionHash".into()))?;
             let record = must_get_valid_record(target)?;
             let entry: CrossClusterNotification = record.entry().to_app_option()?.ok_or(wasm_error!(WasmErrorInner::Guest("Notification entry missing".into())))?;
