@@ -2217,27 +2217,30 @@ async fn dsid_029_recovery_request_id_is_deterministically_derived() {
     let dna = load_dna().await;
     let alice_app = conductor.setup_app("dsid-request-id", std::slice::from_ref(&dna)).await.unwrap();
     let bob_app = conductor.setup_app("dsid-request-id-bob", std::slice::from_ref(&dna)).await.unwrap();
+    let carol_app = conductor.setup_app("dsid-request-id-carol", std::slice::from_ref(&dna)).await.unwrap();
     let alice = alice_app.cells()[0].clone();
     let bob = bob_app.cells()[0].clone();
+    let carol = carol_app.cells()[0].clone();
 
     let _: Record = conductor.call(&alice.zome("did_registry"), "create_did", ()).await;
     let _: Record = conductor.call(&bob.zome("did_registry"), "create_did", ()).await;
 
     let alice_did = format!("did:mycelix:{}", alice_app.agent());
     let bob_did = format!("did:mycelix:{}", bob_app.agent());
+    let carol_did = format!("did:mycelix:{}", carol_app.agent());
 
     let _: Record = conductor.call(
         &alice.zome("recovery"),
         "setup_recovery",
         serde_json::json!({
             "did": alice_did,
-            "trustees": [alice_did.clone(), bob_did, format!("did:mycelix:{}", alice_app.agent())],
+            "trustees": [alice_did.clone(), bob_did, carol_did],
             "threshold": 2,
             "time_lock": 86400
         }),
     ).await;
 
-    let _ = await_consistency(&[alice.clone(), bob.clone()]).await;
+    await_consistency(&[alice.clone(), bob.clone(), carol.clone()]).await.unwrap();
 
     let request: Record = conductor.call(
         &alice.zome("recovery"),
@@ -2264,6 +2267,7 @@ async fn dsid_029_recovery_request_id_is_deterministically_derived() {
     let mut agents = BTreeMap::new();
     agents.insert("alice", alice_app.agent().to_string());
     agents.insert("bob", bob_app.agent().to_string());
+    agents.insert("carol", carol_app.agent().to_string());
     emit_evidence(
         "DSID-029",
         "recovery-request-id-is-deterministically-derived",
