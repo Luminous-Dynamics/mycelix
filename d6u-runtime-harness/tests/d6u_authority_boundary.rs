@@ -431,7 +431,7 @@ async fn d6u_runtime_authority_boundary() {
 
     let (n, exp) = holochain_nonce::fresh_nonce(Timestamp::now()).unwrap();
     let before = reached.load(Ordering::SeqCst);
-    expect_rejected(
+    expect_unauthorized_reason(
         call(
             &app_api,
             "d6u-alice",
@@ -448,7 +448,8 @@ async fn d6u_runtime_authority_boundary() {
             ),
         )
         .await,
-    );
+    ,
+        "BadCapGrant");
     assert_eq!(reached.load(Ordering::SeqCst), before);
     record_case("provenance-mismatch", "authorization-failed");
 
@@ -473,7 +474,7 @@ async fn d6u_runtime_authority_boundary() {
 
     let (n, exp) = holochain_nonce::fresh_nonce(Timestamp::now()).unwrap();
     let before = reached.load(Ordering::SeqCst);
-    expect_rejected(
+    expect_unauthorized_reason(
         call(
             &app_api,
             "d6u-alice",
@@ -490,7 +491,8 @@ async fn d6u_runtime_authority_boundary() {
             ),
         )
         .await,
-    );
+    ,
+        "BadCapGrant");
     assert_eq!(reached.load(Ordering::SeqCst), before);
     record_case("revoked-capability", "authorization-failed");
 
@@ -522,7 +524,7 @@ async fn d6u_runtime_authority_boundary() {
     );
 
     let before = reached.load(Ordering::SeqCst);
-    expect_rejected(
+    expect_unauthorized_reason(
         app_api
             .handle_request(
                 "d6u-bob".into(),
@@ -530,7 +532,8 @@ async fn d6u_runtime_authority_boundary() {
             )
             .await
             .unwrap(),
-    );
+    ,
+        "BadCapGrant");
     assert_eq!(reached.load(Ordering::SeqCst), before);
     record_case("nonce-replay", "authorization-failed");
 
@@ -545,9 +548,10 @@ async fn d6u_runtime_authority_boundary() {
         holochain_nonce::fresh_nonce(Timestamp::now()).unwrap().1,
     );
     let before = reached.load(Ordering::SeqCst);
-    expect_rejected(
+    expect_unauthorized_reason(
         call(&app_api, "d6u-bob", &conductor.keystore(), stale).await,
-    );
+    ,
+        "BadNonce");
     assert_eq!(reached.load(Ordering::SeqCst), before);
     record_case("nonce-stale", "authorization-failed");
 
@@ -562,7 +566,7 @@ async fn d6u_runtime_authority_boundary() {
         Timestamp::from_micros(0),
     );
     let before = reached.load(Ordering::SeqCst);
-    expect_rejected(
+    expect_unauthorized_reason(
         call(
             &app_api,
             "d6u-alice",
@@ -570,7 +574,8 @@ async fn d6u_runtime_authority_boundary() {
             expired,
         )
         .await,
-    );
+    ,
+        "BadNonce");
     assert_eq!(reached.load(Ordering::SeqCst), before);
     record_case("expired-invocation", "authorization-failed");
 
@@ -585,7 +590,7 @@ async fn d6u_runtime_authority_boundary() {
         holochain_nonce::fresh_nonce(Timestamp::now()).unwrap().1,
     );
     let before = reached.load(Ordering::SeqCst);
-    expect_rejected(
+    expect_unauthorized_reason(
         call(
             &app_api,
             "d6u-alice",
@@ -593,7 +598,8 @@ async fn d6u_runtime_authority_boundary() {
             wrong_zome,
         )
         .await,
-    );
+    ,
+        "BadNonce");
     assert_eq!(reached.load(Ordering::SeqCst), before);
     record_case("wrong-zome", "routing-failed");
 
@@ -608,7 +614,7 @@ async fn d6u_runtime_authority_boundary() {
         holochain_nonce::fresh_nonce(Timestamp::now()).unwrap().1,
     );
     let before = reached.load(Ordering::SeqCst);
-    expect_rejected(
+    expect_ribosome_error(
         call(
             &app_api,
             "d6u-alice",
@@ -631,7 +637,7 @@ async fn d6u_runtime_authority_boundary() {
         holochain_nonce::fresh_nonce(Timestamp::now()).unwrap().1,
     );
     let before = reached.load(Ordering::SeqCst);
-    expect_rejected(
+    expect_unauthorized_reason(
         call(
             &app_api,
             "d6u-bob",
@@ -639,7 +645,8 @@ async fn d6u_runtime_authority_boundary() {
             wrong_cell,
         )
         .await,
-    );
+    ,
+        "BadCapGrant");
     assert_eq!(reached.load(Ordering::SeqCst), before);
     record_case("wrong-cell", "routing-failed");
 
