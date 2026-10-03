@@ -126,6 +126,18 @@ def main() -> int:
         "binding_attestation_payload_rejects_schema_identifier_change",
     ]:
         raise SystemExit("machine serialization contract schema-identifier test list drifted")
+    dependency_contract = contract.get("dependency_retrieval")
+    if not isinstance(dependency_contract, dict):
+        raise SystemExit("machine contract missing dependency_retrieval object")
+    expected_dependency_contract = {
+        "valid_record_requires_action_hash": True,
+        "valid_record_does_not_prove_later_operations_valid": True,
+        "unavailable_valid_record_maps_to_protocol_unresolved": True,
+        "valid_record_semantics": "inductive_validity_of_the_referenced_create_record_as_reported_by_visible_validation_authorities",
+    }
+    for key, expected in expected_dependency_contract.items():
+        if dependency_contract.get(key) != expected:
+            raise SystemExit(f"machine retrieval contract drift for {key}: expected {expected!r}")
 
     if "agent_for(&authority)" not in source:
         raise SystemExit("runtime binding must expose authority-agent lookup")
@@ -217,6 +229,10 @@ def main() -> int:
         raise SystemExit("adapter must preserve the pure invalid decision")
     if "QualificationDecision::Unresolved" not in source:
         raise SystemExit("adapter must preserve the pure unresolved decision")
+    if "inductive-validity dependency" not in source:
+        raise SystemExit("adapter must document ValidRecord as an inductive-validity dependency")
+    if "later operation" not in source:
+        raise SystemExit("adapter must not overclaim that ValidRecord proves later operation validity")
     if (
         'unreachable!("HolochainDependencyBindingSet prevents address-kind mismatch")'
         not in source
