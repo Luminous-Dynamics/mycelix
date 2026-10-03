@@ -1540,16 +1540,24 @@ mod tests {
             agent.clone(),
             "scope-mismatch",
         );
+        let registered_delegation =
+            credential.payload.provenance.authority_delegation.clone();
+        let registered_basis = credential.payload.provenance.basis.clone();
         let mut registry = HolochainAuthorityAgentBindingSet::new();
         assert!(matches!(registry.bind_attested(credential), Ok(Ok(()))));
 
         let logical = identity("scope-mismatch-logical");
+        let mut provenance =
+            binding_provenance_for_test(logical, authority);
+        provenance.authority_delegation = registered_delegation;
+        provenance.basis = registered_basis;
+        provenance.basis.push(provenance.authority_scope.clone());
         let binding = SignedHolochainBindingAttestation {
             signer: agent,
             signature: Signature([0u8; 64]),
             payload: HolochainBindingAttestationPayload {
                 schema: HOLOCHAIN_BINDING_ATTESTATION_SCHEMA,
-                provenance: binding_provenance_for_test(logical, authority),
+                provenance,
                 address: HolochainDependencyAddress::Action(action_hash(40)),
                 retrieval: QualificationDependencyRetrievalKind::Action,
             },
@@ -1585,6 +1593,7 @@ mod tests {
             "delegation-mismatch",
         );
         let registered_scope = credential.payload.provenance.authority_scope.clone();
+        let registered_basis = credential.payload.provenance.basis.clone();
         let mut registry = HolochainAuthorityAgentBindingSet::new();
         assert!(matches!(registry.bind_attested(credential), Ok(Ok(()))));
 
@@ -1592,11 +1601,8 @@ mod tests {
         let mut provenance =
             binding_provenance_for_test(logical.clone(), authority.clone());
         provenance.authority_scope = registered_scope;
-        provenance.basis = vec![
-            authority.clone(),
-            provenance.authority_scope.clone(),
-            provenance.authority_delegation.clone(),
-        ];
+        provenance.basis = registered_basis;
+        provenance.basis.push(provenance.authority_delegation.clone());
         let binding = SignedHolochainBindingAttestation {
             signer: agent,
             signature: Signature([0u8; 64]),
