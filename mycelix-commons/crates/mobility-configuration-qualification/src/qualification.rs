@@ -651,6 +651,30 @@ mod tests {
         );
         assert_eq!(
             provenance
+                .get("basis_must_include_exact_authority_scope")
+                .and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(
+            provenance
+                .get("basis_must_include_exact_authority_delegation")
+                .and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(
+            provenance
+                .get("all_provenance_roles_must_be_distinct")
+                .and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(
+            provenance
+                .get("provenance_witness_identity_must_be_unique_per_binding")
+                .and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(
+            provenance
                 .get("protocol_address_excluded_from_pure_witness")
                 .and_then(serde_json::Value::as_bool),
             Some(true)
