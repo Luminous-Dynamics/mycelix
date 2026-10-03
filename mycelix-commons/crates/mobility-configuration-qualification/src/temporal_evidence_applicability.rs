@@ -1467,25 +1467,19 @@ impl EvidenceDispositionReconciliationCoverage {
                 delegations,
             )?;
 
-        if !missing_transitions.is_empty() {
-            return match authority_assessment {
-                AuthorityDelegationChainAssessment::Complete { roots } => {
-                    Ok(EvidenceDispositionCoverageAssessment::Unresolved {
-                        missing: missing_transitions,
-                        authority_roots: roots,
-                    })
-                }
-                AuthorityDelegationChainAssessment::Unresolved { missing, roots } => {
-                    let mut combined = missing_transitions;
-                    combined.extend(missing);
-                    combined.sort_by(|a, b| (&a.namespace, &a.id).cmp(&(&b.namespace, &b.id)));
-                    combined.dedup();
-                    Ok(EvidenceDispositionCoverageAssessment::Unresolved {
-                        missing: combined,
-                        authority_roots: roots,
-                    })
-                }
-            };
+        let authority_qualification = authority_assessment.into_qualification();
+        let combined_qualification =
+            authority_qualification.require_missing(missing_transitions);
+
+        if let QualificationStatus::Unresolved {
+            missing,
+            partial,
+        } = combined_qualification
+        {
+            return Ok(EvidenceDispositionCoverageAssessment::Unresolved {
+                missing,
+                authority_roots: partial.authority_roots,
+            });
         }
 
         self.validate_against_graph(
@@ -1496,18 +1490,15 @@ impl EvidenceDispositionReconciliationCoverage {
             &named_transitions,
         )?;
 
-        match authority_assessment {
-            AuthorityDelegationChainAssessment::Complete { roots } => {
+        match combined_qualification {
+            QualificationStatus::Complete(partial) => {
                 Ok(EvidenceDispositionCoverageAssessment::Complete {
-                    authority_roots: roots,
+                    authority_roots: partial.authority_roots,
                 })
             }
-            AuthorityDelegationChainAssessment::Unresolved { missing, roots } => {
-                Ok(EvidenceDispositionCoverageAssessment::Unresolved {
-                    missing,
-                    authority_roots: roots,
-                })
-            }
+            QualificationStatus::Unresolved { .. } => unreachable!(
+                "unresolved coverage dependencies return before structural graph validation"
+            ),
         }
     }
 
