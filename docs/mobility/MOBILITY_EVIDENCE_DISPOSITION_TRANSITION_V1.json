@@ -756,6 +756,51 @@
       "id": "EDT-149",
       "case": "authority_agent_binding_is_order_independent_and_immutable",
       "expected": "accepted"
+    },
+    {
+      "id": "EDT-150",
+      "case": "authority_agent_provenance_uses_a_dedicated_subject_binding_type",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-151",
+      "case": "authority_agent_provenance_requires_distinct_witness_authority_scope_and_delegation_roles",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-152",
+      "case": "authority_agent_provenance_requires_exact_scope_and_delegation_basis",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-153",
+      "case": "authority_agent_provenance_is_closed_schema_serializable",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-154",
+      "case": "verified_authority_agent_credential_is_admitted_to_immutable_registry",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-155",
+      "case": "authority_agent_credential_with_wrong_issuer_is_semantic_invalidity",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-156",
+      "case": "unregistered_authority_agent_binding_keeps_runtime_dependency_unresolved",
+      "expected": "unresolved_at_protocol_layer"
+    },
+    {
+      "id": "EDT-157",
+      "case": "registered_authority_agent_signer_is_required_for_runtime_binding",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-158",
+      "case": "authority_agent_registry_rejects_second_binding_for_same_authority",
+      "expected": "adapter_boundary_error"
     }
   ],
   "outcome_classes": [
