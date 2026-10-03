@@ -158,6 +158,7 @@ The disposition validators share a common protocol-status algebra in the standal
 - `QualificationOutcome::require_missing(...)` provides the same composition at the `Result` boundary while preserving structural errors unchanged; this keeps future protocol adapters from accidentally converting semantic invalidity into unresolved state.
 - `QualificationStatus::zip(...)` composes independent qualification paths as a deterministic product: both partial payloads are retained, while missing dependencies are unioned and canonicalized.
 - Dependency accumulation is partition-invariant: adding missing identities incrementally or as one batch yields the same canonical unresolved set, and `zip(...)` preserves the same missing-set law across different groupings.
+- `QualificationDecision<T>` is the runtime-neutral adapter boundary: `Valid(T)`, `Invalid { reason }`, and `Unresolved { missing, partial }` are mutually exclusive and contain no Holochain-specific types. This keeps the pure qualification crate portable while giving a future integrity-zome adapter a direct three-outcome mapping.
 - `QualificationValidationError::Structural { reason }` means the supplied records contain a definitive structural contradiction.
 
 Transition-graph, authority-delegation, and composed-coverage validators expose adapters into this same algebra. Their existing `Result<_, String>` entry points remain available, and the existing coverage typed-error name is retained as a compatibility alias to the shared structural-error type.
