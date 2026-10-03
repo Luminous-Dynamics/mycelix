@@ -510,6 +510,22 @@ impl SectorEconomicObservables {
         Ok(())
     }
 
+    /// Re-derive the complete sector observation map and require exact sector coverage.
+    ///
+    /// This rejects missing or unexpected sectors as well as tampered observation fields.
+    pub fn verify_map_against(
+        observations: &BTreeMap<EconomicSector, SectorEconomicObservables>,
+        state: &EconomicState,
+        transitions: &[super::transition::EconomicTransition],
+        assignments: &[SectorAssignment],
+    ) -> Result<(), String> {
+        let expected = Self::from_state_and_transitions(state, transitions, assignments)?;
+        if observations != &expected {
+            return Err("sector observation map does not match transition-derived projection".into());
+        }
+        Ok(())
+    }
+
     /// Closing monetary net working capital.
     pub fn net_working_capital(&self) -> i128 {
         self.inventory_carrying_value
@@ -699,6 +715,47 @@ mod tests {
             sales_revenue: operating.max(0),
             ..ActorEconomicObservables::default()
         }
+    }
+
+
+    #[test]
+    fn sector_observation_map_verifier_rejects_extra_sector() {
+        let state = EconomicState::new(vec![ActorBalanceSheet::new("household")]);
+        let assignments = vec![SectorAssignment {
+            actor: "household".into(),
+            sector: EconomicSector::Household,
+        }];
+        let transitions = vec![];
+        let mut observations =
+            SectorEconomicObservables::from_state_and_transitions(
+                &state,
+                &transitions,
+                &assignments,
+            )
+            .unwrap();
+        observations.insert(
+            EconomicSector::Bank,
+            SectorEconomicObservables {
+                sector: EconomicSector::Bank,
+                ..observation(
+                    EconomicSector::Bank,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                )
+            },
+        );
+
+        assert!(SectorEconomicObservables::verify_map_against(
+            &observations,
+            &state,
+            &transitions,
+            &assignments,
+        )
+        .is_err());
     }
 
     #[test]
