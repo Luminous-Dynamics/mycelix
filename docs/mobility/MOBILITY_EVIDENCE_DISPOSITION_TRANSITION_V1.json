@@ -851,6 +851,21 @@
       "id": "EDT-168",
       "case": "signed_payload_schema_is_owned_and_canonically_roundtrippable",
       "expected": "accepted"
+    },
+    {
+      "id": "EDT-169",
+      "case": "authority_agent_payload_rejects_unknown_wire_fields",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-170",
+      "case": "binding_attestation_payload_rejects_unknown_wire_fields",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-171",
+      "case": "signed_payload_breaking_changes_require_new_schema_identifier",
+      "expected": "accepted"
     }
   ],
   "outcome_classes": [
