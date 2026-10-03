@@ -1312,37 +1312,47 @@ fn cascade_revoke_credentials_for_did(
 /// Check if a DID is active (not deactivated)
 #[hdk_extern]
 pub fn is_did_active(did: String) -> ExternResult<bool> {
-    // First check if DID exists
-    let record = resolve_did(did.clone())?;
+    // Validate and parse the canonical DID before any DHT lookup.
+    let Some(agent_str) = did.strip_prefix("did:mycelix:") else {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Invalid DID format".into()
+        )));
+    };
+    if agent_str.is_empty() {
+        return Ok(false);
+    }
+    let agent_pub_key = AgentPubKey::try_from(agent_str)
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid agent pub key in DID".into())))?;
+
+    // Existence comes from the canonical DID index.
+    let record = get_did_document(agent_pub_key.clone())?;
     if record.is_none() {
         return Ok(false);
     }
 
-    // Parse DID to extract agent pub key for link lookup
-    if !did.starts_with("did:mycelix:") {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Invalid DID format".into()
-        )));
-    }
-
-    let agent_str = did
-        .strip_prefix("did:mycelix:")
-        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Invalid DID format".into())))?;
-    let agent_pub_key = AgentPubKey::try_from(agent_str)
-        .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid agent pub key in DID".into())))?;
-
-    // Check for deactivation links - if any exist, DID is deactivated
+    // A deactivation link is not trusted by itself: validate the linked
+    // record and ensure it names this exact DID.
     let deactivation_links = get_links(
         LinkQuery::try_new(agent_pub_key, LinkTypes::DidToDeactivation)?,
         GetStrategy::default(),
     )?;
 
-    // If there are any deactivation links, the DID is not active
-    if !deactivation_links.is_empty() {
-        return Ok(false);
+    for link in deactivation_links {
+        let action_hash = ActionHash::try_from(link.target)
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid deactivation link target".into())))?;
+        if let Some(record) = get(action_hash, GetOptions::default())? {
+            if let Some(deactivation) = record
+                .entry()
+                .to_app_option::<DidDeactivation>()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            {
+                if deactivation.did == did {
+                    return Ok(false);
+                }
+            }
+        }
     }
 
-    // No deactivation links found, DID is active
     Ok(true)
 }
 
