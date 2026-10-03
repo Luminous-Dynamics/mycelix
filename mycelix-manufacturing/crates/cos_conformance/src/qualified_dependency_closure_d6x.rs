@@ -283,12 +283,15 @@ impl DependencyClosureCertificateV1 {
                 match self.status {
                     DependencyClosureStatusV1::Complete =>
                         self.missing_dependency_ids.is_empty() && !has_stale,
+                    // Status precedence is deterministic and mirrors the
+                    // constructor: missing dependencies dominate currentness,
+                    // and currentness dominates resource truncation.
                     DependencyClosureStatusV1::BlockedMissingDependency =>
                         !self.missing_dependency_ids.is_empty(),
                     DependencyClosureStatusV1::BlockedCurrentness =>
-                        has_stale,
+                        self.missing_dependency_ids.is_empty() && has_stale,
                     DependencyClosureStatusV1::BlockedResourceLimit =>
-                        !has_stale,
+                        self.missing_dependency_ids.is_empty() && !has_stale,
                 }
             }
             && self.commitment == self.recompute()
@@ -1190,6 +1193,61 @@ mod tests {
 
         let p = profile(BTreeSet::new());
         assert!(compute_dependency_closure(&a, &e, &d, &p).is_none());
+    }
+
+    #[test]
+    fn blocked_currentness_cannot_hide_missing_dependency_precedence() {
+        let (a, e, d) = projection(false);
+        let mut c = compute_dependency_closure(
+            &a,
+            &e,
+            &d,
+            &profile(["missing".into()].into_iter().collect()),
+        )
+        .unwrap();
+
+        c.status = DependencyClosureStatusV1::BlockedCurrentness;
+        c.closure_identity_commitment = c.closure_identity();
+        c.commitment = c.recompute();
+
+        assert!(!c.valid());
+    }
+
+    #[test]
+    fn blocked_resource_limit_cannot_hide_missing_or_stale_precedence() {
+        let (a, e, d) = projection(false);
+        let mut c = compute_dependency_closure(
+            &a,
+            &e,
+            &d,
+            &profile(["missing".into()].into_iter().collect()),
+        )
+        .unwrap();
+
+        c.status = DependencyClosureStatusV1::BlockedResourceLimit;
+        c.closure_identity_commitment = c.closure_identity();
+        c.commitment = c.recompute();
+
+        assert!(!c.valid());
+
+        let (mut a, e, d) = projection(false);
+        a.nodes.get_mut("dep").unwrap().historical_only = true;
+        let mut current_profile = profile(BTreeSet::new());
+        current_profile.rules = [DependencyRuleV1 {
+            edge_kind: ClaimGraphEdgeKindV1::Supports,
+            from_kind: Some(ClaimGraphNodeKindV1::Statement),
+            to_kind: Some(ClaimGraphNodeKindV1::Evidence),
+            currentness: DependencyCurrentnessV1::CurrentOnly,
+        }]
+        .into_iter()
+        .collect();
+
+        let mut c = compute_dependency_closure(&a, &e, &d, &current_profile).unwrap();
+        c.status = DependencyClosureStatusV1::BlockedResourceLimit;
+        c.closure_identity_commitment = c.closure_identity();
+        c.commitment = c.recompute();
+
+        assert!(!c.valid());
     }
 
     #[test]
