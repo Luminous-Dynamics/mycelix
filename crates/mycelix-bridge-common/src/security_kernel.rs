@@ -242,8 +242,10 @@ pub struct VerifiedCapability {
 
 /// A short-lived, non-serializable authorization permit bound to one exact
 /// request. It is deliberately not constructible from advisory output or
-/// from a bare Allow value.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// from a bare Allow value. Ownership is intentionally linear: the permit is
+/// consumed when creating an EnforcementRequest so callers cannot replay the
+/// same in-memory permit by cloning it.
+#[derive(Debug, PartialEq, Eq)]
 pub struct AuthorizationPermit {
     request: AuthorizationRequest,
     issued_at_us: u64,
@@ -253,7 +255,12 @@ pub struct AuthorizationPermit {
 }
 
 /// The only request type accepted by an enforcement adapter.
-#[derive(Debug, Clone, PartialEq, Eq)]
+///
+/// This type is intentionally not Clone: a successfully revalidated
+/// enforcement request is a one-shot authority hand-off. Applications that
+/// need durable audit data should copy the contained non-authoritative fields
+/// into a SecurityEvent instead of duplicating the enforcement capability.
+#[derive(Debug, PartialEq, Eq)]
 pub struct EnforcementRequest {
     request: AuthorizationRequest,
     issued_at_us: u64,
@@ -950,7 +957,12 @@ mod tests {
     #[test]
     fn capability_expiry_boundary_is_exclusive() {
         let cap = capability();
-        let evidence = VerificationEvidence::new_for_capability(&cap, SignatureVerification::Verified, RevocationStatus::Current, AuthorityResolution::Unambiguous);
+        let evidence = VerificationEvidence::new_for_capability(
+            &cap,
+            SignatureVerification::Verified,
+            RevocationStatus::Current,
+            AuthorityResolution::Unambiguous,
+        );
 
         assert!(verify_capability(cap.clone(), evidence, cap.expires_at_us - 1).is_ok());
         assert_eq!(
@@ -979,12 +991,12 @@ mod tests {
         let verified = verify_capability(
             cap.clone(),
             VerificationEvidence::new_for_capability_with_valid_until(
-                    &cap,
-                    SignatureVerification::Verified,
-                    RevocationStatus::Current,
-                    AuthorityResolution::Unambiguous,
-                    175
-                ),
+                &cap,
+                SignatureVerification::Verified,
+                RevocationStatus::Current,
+                AuthorityResolution::Unambiguous,
+                175,
+            ),
             150,
         )
         .unwrap();
@@ -1030,8 +1042,9 @@ mod tests {
                 SignatureVerification::Verified, RevocationStatus::Current, AuthorityResolution::Unambiguous,
                 permit.valid_until_us(),
             );
+        let permit_valid_until_us = permit.valid_until_us();
         assert_eq!(
-            EnforcementRequest::from_permit(permit, evidence, permit.valid_until_us()),
+            EnforcementRequest::from_permit(permit, evidence, permit_valid_until_us),
             Err(AuthorizationDecision::Deny(
                 AuthorizationDenial::OutsideValidityWindow,
             ))
