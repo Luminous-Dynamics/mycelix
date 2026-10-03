@@ -30,6 +30,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           submodules: recursive
 
       - uses: dtolnay/rust-toolchain@stable
@@ -37,6 +38,12 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: mycelix-manufacturing
+
+      - name: Capture tested revision
+        if: always()
+        run: |
+          mkdir -p evidence
+          git rev-parse HEAD > evidence/tested-commit-sha.txt
 
       - name: Capture toolchain identity
         if: always()
@@ -82,7 +89,8 @@ jobs:
             "schema": "MYCELIX-COS-CONFORMANCE-EVIDENCE-V1",
             "claim_ceiling": "ReferenceModelOnly",
             "repository": "${{ github.repository }}",
-            "commit_sha": "${{ github.sha }}",
+            "trigger_sha": "${{ github.sha }}",
+            "tested_commit_sha": "$(cat evidence/tested-commit-sha.txt)",
             "workflow": "${{ github.workflow }}",
             "run_id": ${{ github.run_id }},
             "run_attempt": ${{ github.run_attempt }},
@@ -97,7 +105,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: cos-conformance-evidence-${{ github.sha }}
+          name: cos-conformance-evidence-${{ github.event.pull_request.head.sha || github.sha }}
           path: evidence/
           if-no-files-found: warn
           retention-days: 30
