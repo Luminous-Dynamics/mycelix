@@ -266,18 +266,26 @@ pub struct DidDocumentWireView {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DidResolutionErrorView {
+    #[serde(rename = "type")]
+    pub type_uri: String,
+    pub title: String,
+    pub detail: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DidResolutionMetadataView {
     /// Media type of the returned DID Document representation.
     #[serde(rename = "contentType")]
     pub content_type: Option<String>,
-    /// Empty on success; a method-specific error code on resolution failure.
-    pub error: Option<String>,
+    pub error: Option<DidResolutionErrorView>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DidDocumentMetadataView {
     pub created: String,
-    pub updated: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated: Option<String>,
     pub deactivated: bool,
     #[serde(rename = "versionId")]
     pub version_id: String,
