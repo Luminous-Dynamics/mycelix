@@ -1176,7 +1176,7 @@ pub fn get_recovery_request(request_id: String) -> ExternResult<Option<Record>> 
     for link in links {
         let action_hash = ActionHash::try_from(link.target)
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid request link target".into())))?;
-        if let Some(record) = get(action_hash, GetOptions::default())? {
+        if let Some(record) = get_latest_record(action_hash)? {
             if let Some(request) = record
                 .entry()
                 .to_app_option::<RecoveryRequest>()
