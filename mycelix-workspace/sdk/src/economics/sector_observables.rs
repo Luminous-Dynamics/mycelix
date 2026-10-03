@@ -720,7 +720,7 @@ mod tests {
 
     #[test]
     fn sector_observation_map_verifier_rejects_extra_sector() {
-        let state = EconomicState::new(vec![ActorBalanceSheet::new("household")]);
+        let state = EconomicState::new(vec![crate::economics::stock_flow::ActorBalanceSheet::new("household")]);
         let assignments = vec![SectorAssignment {
             actor: "household".into(),
             sector: EconomicSector::Household,
