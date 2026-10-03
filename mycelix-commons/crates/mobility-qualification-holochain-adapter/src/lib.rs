@@ -1399,8 +1399,9 @@ mod tests {
     #[test]
     fn dependency_binding_without_authority_agent_mapping_is_unresolved() {
         let _guard = host_test_lock().lock().expect("HDI test lock is not poisoned");
+        let calls = Arc::new(Mutex::new(Vec::new()));
         let _previous = set_hdi(RecordingHdi {
-            calls: Arc::new(Mutex::new(Vec::new())),
+            calls: Arc::clone(&calls),
             verify_result: true,
         });
 
@@ -1429,6 +1430,10 @@ mod tests {
                 if missing == vec![authority]
         ));
         assert!(bindings.is_empty());
+        assert!(
+            calls.lock().unwrap().is_empty(),
+            "missing authority-agent registration must stop before host calls"
+        );
     }
 
     #[test]
