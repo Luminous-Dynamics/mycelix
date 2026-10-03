@@ -128,16 +128,24 @@
     "signature_does_not_resolve_authority_identity": true
   },
   "signed_payload_serialization": {
-      "library": "holochain_serialized_bytes",
-      "version": "0.0.57",
-      "representation": "SerializedBytes",
-      "payloads": [
-        "HolochainAuthorityAgentBindingPayload",
-        "HolochainBindingAttestationPayload"
-      ],
-      "schema_fields_are_owned_strings": true,
-      "explicit_try_from_roundtrip_tested": true,
-      "verify_signature_remains_single_crypto_verifier": true
+    "library": "holochain_serialized_bytes",
+    "version": "0.0.57",
+    "representation": "SerializedBytes",
+    "payloads": [
+      "HolochainAuthorityAgentBindingPayload",
+      "HolochainBindingAttestationPayload"
+    ],
+    "schema_fields_are_owned_strings": true,
+    "explicit_try_from_roundtrip_tested": true,
+    "verify_signature_remains_single_crypto_verifier": true,
+    "unknown_fields_rejected_by_v1": true,
+    "schema_identifier_is_signed": true,
+    "breaking_changes_require_new_schema_identifier": true,
+    "version_policy": "strict_v1",
+    "unknown_field_tests": [
+      "authority_agent_payload_rejects_unknown_wire_fields",
+      "binding_attestation_payload_rejects_unknown_wire_fields"
+    ]
   },
   "authority_agent_binding": {
     "registry_type": "HolochainAuthorityAgentBindingSet",
