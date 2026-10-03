@@ -2320,6 +2320,17 @@ pub fn get_mfa_summary(did: String) -> ExternResult<Option<MfaSummary>> {
     }
 }
 
+fn mask_factor_identifier(value: &str) -> String {
+    let chars: Vec<char> = value.chars().collect();
+    if chars.len() <= 12 {
+        let prefix: String = chars.iter().take(4).collect();
+        return format!("{prefix}…");
+    }
+    let prefix: String = chars.iter().take(8).collect();
+    let suffix: String = chars.iter().rev().take(4).collect::<Vec<_>>().into_iter().rev().collect();
+    format!("{prefix}…{suffix}")
+}
+
 // =============================================================================
 // Browser-safe projections
 // =============================================================================
@@ -2364,12 +2375,15 @@ pub fn get_mfa_view(did: String) -> ExternResult<Option<MfaStateView>> {
                     .into_iter()
                     .map(|factor| MfaFactorView {
                         factor_type: factor.factor_type,
-                        factor_id: factor.factor_id,
+                        // Browser clients receive only a display-safe hint. Raw
+                        // credential/device identifiers and metadata stay inside the
+                        // Holochain runtime.
+                        factor_id: mask_factor_identifier(&factor.factor_id),
                         enrolled_at: factor.enrolled_at.as_micros(),
                         last_verified: factor.last_verified.as_micros(),
                         effective_strength: factor.effective_strength,
                         active: factor.active,
-                        metadata: factor.metadata,
+                        metadata: String::new(),
                     })
                     .collect(),
                 assurance_level,
