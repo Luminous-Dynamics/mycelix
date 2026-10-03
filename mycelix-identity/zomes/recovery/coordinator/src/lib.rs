@@ -449,10 +449,6 @@ pub fn initiate_recovery(input: InitiateRecoveryInput) -> ExternResult<Record> {
     let now = sys_time()?;
     let request_id = format!("recovery:{}:{}", input.did, now.as_micros());
 
-    // Save values for bridge event before they are moved
-    let did_for_event = input.did.clone();
-    let initiator_for_event = input.initiator_did.clone();
-
     let request = RecoveryRequest {
         id: request_id.clone(),
         did: input.did.clone(),
@@ -482,9 +478,6 @@ pub fn initiate_recovery(input: InitiateRecoveryInput) -> ExternResult<Record> {
         LinkTypes::RecoveryRequestIdToRequest,
         (),
     )?;
-
-    // Save request_id for bridge event before it's moved
-    let request_id_for_event = request_id.clone();
 
     // Create initial approval vote from initiator
     let vote = RecoveryVote {
