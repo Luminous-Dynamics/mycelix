@@ -15,6 +15,8 @@ on:
     types: [opened, synchronize, reopened]
     paths:
       - 'mycelix-identity/**'
+      - 'docs/identity/did-mycelix-*.json'
+      - 'docs/identity/did-mycelix-*.md'
       - 'crates/mycelix-leptos-core/**'
       - 'crates/mycelix-leptos-client/**'
       - '.github/workflows/identity-dsid-qualification.yml'
