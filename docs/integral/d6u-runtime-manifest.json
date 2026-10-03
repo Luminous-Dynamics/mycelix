@@ -99,6 +99,8 @@
     "nonce-stale": "Holochain 0.7 uses random 256-bit nonces and witnesses Fresh, Duplicate, Expired, or Future; the D6S stale/older-nonce state is not independently reproducible on this substrate."
   },
   "supplemental_substrate_checks": [
-    "future-expiry-rejection"
+    "future-expiry-rejection",
+    "wrong-zome-routing",
+    "wrong-function-routing"
   ]
 }
