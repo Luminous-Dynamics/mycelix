@@ -989,3 +989,24 @@ This was found during boundary inspection rather than assumed away because the r
 not yet produced a completed compiler result. Keeping the correction explicit preserves the evidence
 discipline: static inspection findings are distinguished from compiler-verified findings until the
 workflow actually completes.
+
+## Observable input-domain hardening (implemented)
+
+Actor-level observation derivation now validates the supplied opening economic state before deriving
+any measurements and validates every deserialized transition through the canonical
+`EconomicTransition::validate` boundary before replay.
+
+This closes the final direct-reporting side door: an empty transition list can no longer turn a
+malformed opening ledger into a seemingly valid observation payload, and a malformed transition
+cannot bypass the shared domain validator merely by entering through the reporting layer.
+
+Because sector observables are built from actor observables, the validation propagates upward into
+the sector reporting path as well.
+
+The resulting input discipline is now consistent across execution and reporting:
+
+`state validation -> transition validation -> deterministic replay -> observation projection`
+
+This follows the core SFC requirement that stocks and flows be treated as one accounting system
+rather than allowing independently constructed reporting data to float free of the underlying
+accounts.
