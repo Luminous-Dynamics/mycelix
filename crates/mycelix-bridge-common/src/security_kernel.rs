@@ -540,6 +540,42 @@ fn authority_lease_until_us(lease_until_ms: u64) -> Option<u64> {
     lease_until_ms.checked_mul(1_000)
 }
 
+#[cfg(test)]
+pub(crate) fn test_enforcement_request() -> EnforcementRequest {
+    let capability = Capability::new(
+        "did:mycelix:alice",
+        "did:mycelix:issuer",
+        "resource:ledger",
+        vec![CapabilityAction::Read],
+        100,
+        200,
+        7,
+    )
+    .unwrap();
+    let evidence = VerificationEvidence::new_for_capability(
+        &capability,
+        SignatureVerification::Verified,
+        RevocationStatus::Current,
+        AuthorityResolution::Unambiguous,
+    );
+    let verified = verify_capability(capability.clone(), evidence, 150).unwrap();
+    let request = AuthorizationRequest::new(
+        "did:mycelix:alice",
+        "resource:ledger",
+        CapabilityAction::Read,
+        7,
+    )
+    .unwrap();
+    let permit = authorize_permit(&verified, &request, 150).unwrap();
+    let enforcement_evidence = VerificationEvidence::new_for_capability(
+        &capability,
+        SignatureVerification::Verified,
+        RevocationStatus::Current,
+        AuthorityResolution::Unambiguous,
+    );
+    EnforcementRequest::from_permit(permit, enforcement_evidence, 150).unwrap()
+}
+
 fn frame_hash_bytes(hasher: &mut blake3::Hasher, value: &[u8]) {
     hasher.update(&(value.len() as u64).to_le_bytes());
     hasher.update(value);
