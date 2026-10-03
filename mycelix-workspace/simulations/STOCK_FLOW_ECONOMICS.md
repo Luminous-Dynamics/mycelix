@@ -893,3 +893,37 @@ none. This complements the SFC principle that accounting structures should remai
 consistent across opening stocks, transactions, and closing stocks, and the broader accounting
 practice of keeping changes in assets and liabilities traceable rather than silently absorbed into
 unexplained reconciliation differences.
+
+## Replay-verified evidence sealing (implemented)
+
+A stronger evidence path, EconomicEvidenceCapsule::seal_verified_step, now exists for callers that
+have the authoritative initial state, terminal state, ordered transitions, terminal observations,
+sector assignments, and final chain receipt.
+
+Before sealing, it:
+
+- verifies the supplied receipt's internal chain hash;
+- validates the initial state;
+- replays the exact transition sequence through apply_step;
+- requires the replayed terminal state and step receipt to match the supplied artifacts;
+- checks the supplied terminal state hash against the receipt;
+- rebuilds the cross-layer accounting closure; and
+- requires the supplied aggregate observations to match that closure.
+
+This deliberately sits beside the legacy evidence APIs rather than silently changing their historical
+semantics. The older sealers remain useful for compatibility and hash binding; the replay-verified
+path is the stronger provenance boundary when the authoritative execution inputs are available.
+
+The resulting distinction is explicit:
+
+hash-consistent receipt
+-> replay-verified state transition
+-> accounting-closure-verified evidence
+
+This is particularly useful for reproducibility because an independently constructed observation
+payload can no longer be mistaken for an observation actually produced by the supplied transition
+program when the stronger sealing path is used.
+
+The design also follows the current accounting direction of making asset/liability changes and
+non-cash changes traceable to the underlying statement information rather than hidden inside an
+unexplained aggregate reconciliation.
