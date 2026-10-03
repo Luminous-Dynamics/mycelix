@@ -190,6 +190,25 @@ impl EconomicPeriodLedger {
         Ok(ledger)
     }
 
+    /// Verify that this serialized ledger exactly matches a supplied ordered
+    /// transition list, including every derived total and the transition hash.
+    ///
+    /// The ledger stores only a digest of its source transitions, so the digest
+    /// alone cannot prove that the derived fields were computed from that list.
+    /// Re-derivation closes that provenance gap without mutating the ledger.
+    pub fn verify_against_transitions(
+        &self,
+        transitions: &[EconomicTransition],
+    ) -> Result<(), EconomicStepError> {
+        let expected = Self::from_transitions(transitions)?;
+        if self != &expected {
+            return Err(EconomicStepError::Serialization(
+                "period ledger does not match supplied transition list".into(),
+            ));
+        }
+        Ok(())
+    }
+
     pub fn category_total(&self, category: EconomicFlowCategory) -> i128 {
         self.category_totals.get(&category).copied().unwrap_or(0)
     }
@@ -422,6 +441,41 @@ mod tests {
         assert_eq!(a.monetary_transfer_total, 25);
         assert_eq!(a.transition_count, 7);
         assert_eq!(a.hash().unwrap(), b.hash().unwrap());
+    }
+
+    #[test]
+    fn verify_against_transitions_rejects_tampered_derived_fields() {
+        let transitions = vec![EconomicTransition::CreditCreation(
+            CreditCreation::new("bank", "firm", 500).unwrap(),
+        )];
+        let mut ledger = EconomicPeriodLedger::from_transitions(&transitions).unwrap();
+        ledger.credit_created = 499;
+
+        assert!(matches!(
+            ledger.verify_against_transitions(&transitions),
+            Err(EconomicStepError::Serialization(message))
+                if message.contains("does not match")
+        ));
+    }
+
+    #[test]
+    fn verify_against_transitions_binds_order_and_hash() {
+        let transitions = vec![
+            EconomicTransition::MonetaryTransfer(
+                MonetaryFlow::deposit_transfer("household", "firm", 25).unwrap(),
+            ),
+            EconomicTransition::CreditCreation(
+                CreditCreation::new("bank", "firm", 500).unwrap(),
+            ),
+        ];
+        let reversed = vec![
+            transitions[1].clone(),
+            transitions[0].clone(),
+        ];
+        let ledger = EconomicPeriodLedger::from_transitions(&transitions).unwrap();
+
+        ledger.verify_against_transitions(&transitions).unwrap();
+        assert!(ledger.verify_against_transitions(&reversed).is_err());
     }
 
     #[test]
