@@ -461,7 +461,6 @@ mod linux {
 
     const SECCOMP_DATA_NR_OFFSET: u32 = 0;
     const SECCOMP_DATA_ARCH_OFFSET: u32 = 4;
-    const B_LD_W_ABS_FOR_TEST: u16 = BPF_LD | BPF_W | BPF_ABS;
 
     fn stmt(code: u16, k: u32) -> SockFilter {
         SockFilter { code, jt: 0, jf: 0, k }
@@ -2455,7 +2454,7 @@ mod linux {
         fn compiled_filter_rejects_filter_length_above_kernel_bounds() {
             let mut filter = Vec::with_capacity(4097);
             for _ in 0..4096 {
-                filter.push(stmt(B_LD_W_ABS_FOR_TEST, SECCOMP_DATA_NR_OFFSET));
+                filter.push(stmt(BPF_LD | BPF_W | BPF_ABS, SECCOMP_DATA_NR_OFFSET));
             }
             filter.push(stmt(BPF_RET | BPF_K, SECCOMP_RET_ERRNO | libc::EPERM as u32));
 
