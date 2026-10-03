@@ -191,12 +191,12 @@ check_validation_determinism() {
 # link deletion without this authorization invariant.
 check_delete_link_authorization() {
   local file="$1"
-  if ! rg -n --pcre2 'FlatOp::Link\\s*\\(\\s*OpLink::DeleteLink' "$file" >/dev/null 2>&1; then
+  if ! rg -n --pcre2 'FlatOp::Link\s*\(\s*OpLink::DeleteLink' "$file" >/dev/null 2>&1; then
     echo "FAIL: $file has no explicit FlatOp::Link(OpLink::DeleteLink) coverage"
     fail=1
     return
   fi
-  if rg -n --pcre2 '(check_link_author_match|original_action\\.author\\(\\)|original_action\\(\\).*author)' "$file" >/dev/null 2>&1; then
+  if rg -n --pcre2 '(check_link_author_match|original_action\.author\(\)|original_action\\(\\).*author)' "$file" >/dev/null 2>&1; then
     echo "OK:   $file DeleteLink authorization compares original and deleting authors"
   else
     echo "FAIL: $file DeleteLink path lacks an explicit original/deleting author comparison"
@@ -210,8 +210,8 @@ check_delete_link_authorization() {
 # authorization. Holochain validation can receive these operations separately.
 check_update_action_coverage() {
   local file="$1"
-  if rg -n --pcre2 'FlatOp::CreateEntry\\s*\\(\\s*OpEntry::UpdateEntry' "$file" >/dev/null 2>&1; then
-    if rg -n --pcre2 'FlatOp::Update\\s*\\(\\s*OpUpdate::Entry' "$file" >/dev/null 2>&1; then
+  if rg -n --pcre2 'FlatOp::CreateEntry\s*\(\s*OpEntry::UpdateEntry' "$file" >/dev/null 2>&1; then
+    if rg -n --pcre2 'FlatOp::Update\s*\(\s*OpUpdate::Entry' "$file" >/dev/null 2>&1; then
       echo "OK:   $file has explicit FlatOp::Update(OpUpdate::Entry) coverage"
     else
       echo "FAIL: $file validates UpdateEntry data but has no explicit Update action coverage"
@@ -252,12 +252,12 @@ check_dependency_semantics() {
 check_immutable_dependency_semantics() {
   local file="$1"
   local helper_count
-  helper_count="$(rg -n --pcre2 '^\\s*(?:pub\\s+)?fn\\s+validate_[A-Za-z0-9_]*immutable_fields\\s*\\(' "$file" | wc -l)"
+  helper_count="$(rg -n --pcre2 '^\s*(?:pub\s+)?fn\s+validate_[A-Za-z0-9_]*immutable_fields\s*\(' "$file" | wc -l)"
   if [[ "$helper_count" -eq 0 ]]; then
     echo "OK:   $file has no immutable-field helper sites"
     return
   fi
-  if ! rg -n --pcre2 'validate_[A-Za-z0-9_]*immutable_fields\\s*\\(' "$file" >/dev/null 2>&1; then
+  if ! rg -n --pcre2 'validate_[A-Za-z0-9_]*immutable_fields\s*\(' "$file" >/dev/null 2>&1; then
     echo "FAIL: $file declares immutable-field helpers but no call site was found"
     fail=1
   fi
@@ -265,7 +265,7 @@ check_immutable_dependency_semantics() {
     echo "FAIL: $file immutable-field helpers do not use must_get_valid_record"
     fail=1
   fi
-  if ! rg -n --pcre2 '\\.entry\\(\\)\\s*\\.to_app_option\\(\\)' "$file" >/dev/null 2>&1; then
+  if ! rg -n --pcre2 '\.entry\(\)\s*\.to_app_option\(\)' "$file" >/dev/null 2>&1; then
     echo "FAIL: $file immutable-field helpers do not deserialize the original entry"
     fail=1
   fi
