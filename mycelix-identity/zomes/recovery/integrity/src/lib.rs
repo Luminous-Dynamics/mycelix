@@ -220,7 +220,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     config,
                 ),
                 EntryTypes::SelfRecoveryRequest(request) => {
-                    validate_create_self_recovery_request(request)
+                    validate_create_self_recovery_request(EntryCreationAction::Create(action), request)
                 }
             },
             OpEntry::UpdateEntry {
@@ -674,11 +674,12 @@ fn validate_create_self_recovery_config(
     // and later advance the request using leaked/guessed anchors.
     // The request may still be for a DID whose original controller is offline.
 fn validate_create_self_recovery_request(
+    action: EntryCreationAction,
     request: SelfRecoveryRequest,
 ) -> ExternResult<ValidateCallbackResult> {
-    if request.new_agent == AgentPubKey::from_raw_36(vec![0u8; 36]) {
+    if request.new_agent != *action.author() {
         return Ok(ValidateCallbackResult::Invalid(
-            "Self-recovery new_agent must be a real agent key".into(),
+            "Self-recovery request new_agent must be the committing agent".into(),
         ));
     }
     if !request.did.starts_with("did:mycelix:") {
