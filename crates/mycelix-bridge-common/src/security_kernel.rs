@@ -1353,13 +1353,13 @@ mod tests {
 
         let refreshed_evidence =
             VerificationEvidence::new_for_capability_with_authority_binding_and_valid_until(
-            &cap,
-            [1; 32],
-            SignatureVerification::Verified,
-            RevocationStatus::Current,
-            AuthorityResolution::Unambiguous,
-            190,
-        );
+                &cap,
+                [1; 32],
+                SignatureVerification::Verified,
+                RevocationStatus::Current,
+                AuthorityResolution::Unambiguous,
+                190,
+            );
         assert_eq!(
             revalidate_permit(&permit, refreshed_evidence, 175),
             AuthorizationDecision::Deny(AuthorizationDenial::OutsideValidityWindow)
