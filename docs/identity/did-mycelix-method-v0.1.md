@@ -231,6 +231,7 @@ The current qualification laboratory maps concrete protocol behavior to determin
 | DSID-027 | generic update rejects legacy untagged DID key |
 | DSID-028 | cross-agent recovery time-lock arming |
 | DSID-029 | deterministic recovery request identity |
+| DSID-030 | rejected recovery remains terminal in derived status |
 
 The qualification workflow records scenario IDs, agents, DNA hash, action hashes, entry hashes, expected and observed behavior, pass state, and commit SHA, then hashes the complete evidence capsule.
 
