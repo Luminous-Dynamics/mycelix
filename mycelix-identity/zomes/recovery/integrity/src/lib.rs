@@ -1249,6 +1249,17 @@ fn validate_update_recovery_request(
                 "Approval certificate request_id does not match RecoveryRequest".into(),
             ));
         }
+        if certificate.request_action_hash != action.original_action_address {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Approval certificate must bind to this exact RecoveryRequest creation action".into(),
+            ));
+        }
+        if certificate.recovery_config_action_hash != request.recovery_config_action_hash {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Approval certificate must bind to this exact pinned RecoveryConfig snapshot".into(),
+            ));
+        }
+
         // The certificate binds to the immutable request's creation action.
         // Later state-machine transitions may validly update the request again
         // while retaining the same approval certificate.
