@@ -62,6 +62,10 @@ def main() -> int:
         raise SystemExit("adapter must map pure Invalid directly")
     if "LogicalDependencyNotBound" not in source:
         raise SystemExit("adapter must refuse to synthesize unresolved hashes from unbound logical identities")
+    if "SemanticInvalid" not in source:
+        raise SystemExit("adapter must preserve semantic invalidity as a distinct preflight class")
+    if "duplicate_binding_remains_an_adapter_contract_failure" not in source:
+        raise SystemExit("adapter must pin duplicate binding as an adapter-contract defect")
     if "QualificationDecision::Invalid" not in source:
         raise SystemExit("adapter must preserve the pure invalid decision")
     if "QualificationDecision::Unresolved" not in source:
