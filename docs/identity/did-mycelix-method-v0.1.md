@@ -124,7 +124,7 @@ Successful DID Document resolution currently advertises \`contentType = applicat
 
 A missing DID is represented as a method-level \`notFound\` resolution error in the typed metadata API.
 
-The current resolver obtains the DID's controller agent key from the method-specific identifier and resolves the canonical DHT state through the agent-to-DID index. The coordinator additionally parses the identifier as a Holochain `AgentPubKey`, so syntactically plausible but non-key identifiers cannot reach DHT resolution.
+The current resolver obtains the DID's controller agent key from the method-specific identifier and resolves the canonical DHT state through the agent-to-DID index. Recovery anchors are not treated as current authorization evidence; the self-recovery transition is fail-closed until an authenticated proof envelope exists. The coordinator additionally parses the identifier as a Holochain `AgentPubKey`, so syntactically plausible but non-key identifiers cannot reach DHT resolution.
 
 ### Authenticity boundary
 
@@ -244,6 +244,7 @@ The following are intentionally not implied to be complete:
 5. Generic DID Resolution input/output compatibility.
 6. Formal version selection and historical-version resolution.
 7. Complete controller-key rotation and recovery authority semantics.
+8. Cryptographic proof-of-control for progressive self-recovery anchors (tracked in issue #3874).
 8. DID Method registration and interoperability test vectors.
 9. Production network-infrastructure guarantees and availability characteristics.
 10. Migration of the Identity implementation from the current Holochain 0.6 generation to the current 0.7 generation.
