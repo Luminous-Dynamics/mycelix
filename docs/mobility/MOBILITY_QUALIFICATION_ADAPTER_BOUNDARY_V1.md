@@ -125,3 +125,18 @@ The witness does not contain, derive, parse, hash, or otherwise interpret the Ho
 The adapter requires the witness to name the exact logical identity being bound. Malformed provenance is semantic invalidity; duplicate binding state or a protocol address-kind mismatch is an adapter boundary failure.
 
 The witness is carried through resolved dependencies so downstream consumers retain the provenance context. This is intentionally a bounded structural provenance statement, not a cryptographic proof, legal authority determination, global DHT completeness claim, or assertion that the engineering claim itself is true.
+
+
+## Optional cryptographic attestation
+
+The runtime boundary may optionally carry a signed binding attestation whose canonical payload contains the schema identifier, pure binding-provenance witness, concrete protocol address, and retrieval intent.
+
+The adapter verifies that payload with Holochain's deterministic Ed25519 `verify_signature` host function. This optional layer therefore provides a protocol-level authorship check over the exact binding statement while leaving semantic meaning in the pure layer.
+
+The boundary is deliberately split:
+
+- invalid attestation payload or non-matching signature → semantic `Invalid`;
+- actual host failure while performing signature verification → `ExternResult::Err`;
+- a valid signature does not implicitly resolve the relationship between the Holochain signer key and the domain authority identity named by the provenance witness.
+
+The signed layer is optional because applications may have an independent authoritative mechanism for establishing the logical-to-protocol binding. It must never become an excuse to infer authority from a bare protocol signature.
