@@ -104,6 +104,20 @@ check_present "Hearth flake uses Holonix main-0.7" 'holonix.*ref=main-0\.7'
 check_lock_present "flake.lock pins Holochain 0.7.0" '"original"[[:space:]]*:[[:space:]]*\{[[:space:]]*"owner"[[:space:]]*:[[:space:]]*"holochain"[[:space:]]*,[[:space:]]*"ref"[[:space:]]*:[[:space:]]*"holochain-0\.7\.0"'
 check_lock_present "flake.lock pins Kitsune2 0.5.0" '"original"[[:space:]]*:[[:space:]]*\{[[:space:]]*"owner"[[:space:]]*:[[:space:]]*"holochain"[[:space:]]*,[[:space:]]*"ref"[[:space:]]*:[[:space:]]*"v0\.5\.0"'
 check_lock_present "flake.lock pins Lair 0.7.1" '"original"[[:space:]]*:[[:space:]]*\{[[:space:]]*"owner"[[:space:]]*:[[:space:]]*"holochain"[[:space:]]*,[[:space:]]*"ref"[[:space:]]*:[[:space:]]*"v0\.7\.1"'
+# The Holochain and Holonix repositories are distinct repositories. A shared
+# locked Git revision is therefore a lockfile integrity defect (and can produce a
+# confusing 404 when Nix tries to fetch Holonix at the Holochain release commit).
+check_lock_repository_identity() {
+  local lock="mycelix-workspace/mycelix-hearth/flake.lock"
+  if rg -nU --pcre2 '"holochain"[[:space:]]*:[[:space:]]*\{[\s\S]{0,1200}"locked"[[:space:]]*:[[:space:]]*\{[\s\S]{0,500}"rev"[[:space:]]*:[[:space:]]*"(?<rev>[0-9a-f]{40})"[\s\S]{0,800}\}[[:space:]]*,?[\s\S]{0,1200}"holonix"[[:space:]]*:[[:space:]]*\{[\s\S]{0,1200}"locked"[\s\S]{0,500}"rev"[[:space:]]*:[[:space:]]*"\k<rev>"' "$lock" >/dev/null 2>&1 || \
+     rg -nU --pcre2 '"holonix"[[:space:]]*:[[:space:]]*\{[\s\S]{0,1200}"locked"[[:space:]]*:[[:space:]]*\{[\s\S]{0,500}"rev"[[:space:]]*:[[:space:]]*"(?<rev>[0-9a-f]{40})"[\s\S]{0,800}\}[[:space:]]*,?[\s\S]{0,1200}"holochain"[[:space:]]*:[[:space:]]*\{[\s\S]{0,1200}"locked"[\s\S]{0,500}"rev"[[:space:]]*:[[:space:]]*"\k<rev>"' "$lock" >/dev/null 2>&1; then
+    echo "FAIL: flake.lock uses one Git revision for both Holochain and Holonix"
+    fail=1
+  else
+    echo "OK:   flake.lock keeps Holochain and Holonix revisions distinct"
+  fi
+}
+
 check_lock_present "flake.lock pins Holonix main-0.7" '"original"[[:space:]]*:[[:space:]]*\{[[:space:]]*"owner"[[:space:]]*:[[:space:]]*"holochain"[[:space:]]*,[[:space:]]*"ref"[[:space:]]*:[[:space:]]*"main-0\.7"'
 
 # Coordinator/client action access must use the 0.7 header/data split where action
@@ -530,6 +544,7 @@ check_immutable_dependency_semantics() {
 }
 
 check_semantic_validation_suite_wiring
+check_lock_repository_identity
 check_stateful_link_transition_contracts
 
 for file in "${integrity_files[@]}"; do
