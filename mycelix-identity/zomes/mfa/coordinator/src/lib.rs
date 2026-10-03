@@ -2355,8 +2355,10 @@ pub fn get_mfa_view(did: String) -> ExternResult<Option<MfaStateView>> {
     match get_mfa_state_internal(&did) {
         Ok((state, _)) => {
             let (assurance_level, effective_strength, category_count) = state.calculate_assurance(now);
+            let updated = state.updated.as_micros();
+            let did = state.did.clone();
             Ok(Some(MfaStateView {
-                did: state.did,
+                did,
                 factors: state
                     .factors
                     .into_iter()
@@ -2373,7 +2375,7 @@ pub fn get_mfa_view(did: String) -> ExternResult<Option<MfaStateView>> {
                 assurance_level,
                 effective_strength,
                 category_count,
-                updated: state.updated.as_micros(),
+                updated,
             }))
         }
         Err(_) => Ok(None),
