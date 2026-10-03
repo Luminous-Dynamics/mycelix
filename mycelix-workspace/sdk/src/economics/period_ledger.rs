@@ -69,6 +69,9 @@ impl EconomicPeriodLedger {
         };
 
         for transition in transitions {
+            transition.validate()
+                .map_err(EconomicStepError::Serialization)?;
+
             match transition {
                 EconomicTransition::MonetaryTransfer(flow) => {
                     ledger.monetary_transfer_total = ledger
