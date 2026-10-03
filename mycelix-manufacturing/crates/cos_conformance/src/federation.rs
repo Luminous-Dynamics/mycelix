@@ -1083,7 +1083,19 @@ fn node_map_keys_match_profiles(state: &FederationState) -> bool {
 
 fn recognition_edges_are_canonical(state: &FederationState) -> bool {
     state.recognition_edges.windows(2).all(|pair| {
-        pair[0].cmp(&pair[1]) == std::cmp::Ordering::Less
+        let left = (
+            &pair[0].recognizing_node,
+            &pair[0].origin_node,
+            &pair[0].scope,
+            pair[0].mode,
+        );
+        let right = (
+            &pair[1].recognizing_node,
+            &pair[1].origin_node,
+            &pair[1].scope,
+            pair[1].mode,
+        );
+        left < right
             && !pair[0].recognizing_node.is_empty()
             && !pair[0].origin_node.is_empty()
             && !pair[0].scope.is_empty()
