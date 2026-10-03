@@ -1,5 +1,9 @@
 use serde::{Deserialize, Serialize};
 
+use crate::qualification::{
+    QualificationOutcome, QualificationStatus, QualificationValidationError,
+};
+
 use crate::identity_lineage::{
     ApplicabilityInterval, IdentityKind, IdentityRef, LineageEdge, LineageRelation,
     TemporalConfigurationApplicability,
@@ -238,6 +242,15 @@ impl EvidenceDispositionTransition {
             })
         }
     }
+
+    pub fn validate_graph_qualified(
+        transitions: &[EvidenceDispositionTransition],
+    ) -> QualificationOutcome<DispositionChainQualification> {
+        Self::validate_graph(transitions)
+            .map_err(QualificationValidationError::from)
+            .map(DispositionChainAssessment::into_qualification)
+    }
+
     /// Validate adding exactly one new transition to an existing append-only graph.
     ///
     /// The existing graph is validated first, then the candidate is checked for
@@ -458,6 +471,15 @@ impl EvidenceDispositionAuthorityDelegation {
                 },
             }
         }
+    }
+
+    pub fn validate_chain_with_target_qualified(
+        target: &EvidenceDispositionAuthorityDelegation,
+        delegations: &[EvidenceDispositionAuthorityDelegation],
+    ) -> QualificationOutcome<AuthorityDelegationChainQualification> {
+        Self::validate_chain_with_target(target, delegations)
+            .map_err(QualificationValidationError::from)
+            .map(AuthorityDelegationChainAssessment::into_qualification)
     }
 
     pub fn validate_graph(
@@ -1053,38 +1075,72 @@ pub enum EvidenceDispositionCoverageAssessment {
     },
 }
 
+pub type EvidenceDispositionCoverageValidationError = QualificationValidationError;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum EvidenceDispositionCoverageValidationError {
-    Structural { reason: String },
+pub struct DispositionChainQualification {
+    pub branch_points: Vec<IdentityRef>,
 }
 
-impl EvidenceDispositionCoverageValidationError {
-    fn structural(reason: impl Into<String>) -> Self {
-        Self::Structural {
-            reason: reason.into(),
-        }
-    }
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AuthorityDelegationChainQualification {
+    pub roots: Vec<IdentityRef>,
 }
 
-impl std::fmt::Display for EvidenceDispositionCoverageValidationError {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EvidenceDispositionCoverageQualification {
+    pub authority_roots: Vec<IdentityRef>,
+}
+
+impl DispositionChainAssessment {
+    pub fn into_qualification(self) -> QualificationStatus<DispositionChainQualification> {
         match self {
-            Self::Structural { reason } => formatter.write_str(reason),
+            Self::Complete { branch_points } => {
+                QualificationStatus::Complete(DispositionChainQualification { branch_points })
+            }
+            Self::Unresolved {
+                missing,
+                branch_points,
+            } => QualificationStatus::Unresolved {
+                missing,
+                partial: DispositionChainQualification { branch_points },
+            },
         }
     }
 }
 
-impl std::error::Error for EvidenceDispositionCoverageValidationError {}
-
-impl From<String> for EvidenceDispositionCoverageValidationError {
-    fn from(reason: String) -> Self {
-        Self::structural(reason)
+impl AuthorityDelegationChainAssessment {
+    pub fn into_qualification(
+        self,
+    ) -> QualificationStatus<AuthorityDelegationChainQualification> {
+        match self {
+            Self::Complete { roots } => {
+                QualificationStatus::Complete(AuthorityDelegationChainQualification { roots })
+            }
+            Self::Unresolved { missing, roots } => QualificationStatus::Unresolved {
+                missing,
+                partial: AuthorityDelegationChainQualification { roots },
+            },
+        }
     }
 }
 
-impl From<&str> for EvidenceDispositionCoverageValidationError {
-    fn from(reason: &str) -> Self {
-        Self::structural(reason)
+impl EvidenceDispositionCoverageAssessment {
+    pub fn into_qualification(
+        self,
+    ) -> QualificationStatus<EvidenceDispositionCoverageQualification> {
+        match self {
+            Self::Complete { authority_roots } => QualificationStatus::Complete(
+                EvidenceDispositionCoverageQualification { authority_roots },
+            ),
+            Self::Unresolved {
+                missing,
+                authority_roots,
+            } => QualificationStatus::Unresolved {
+                missing,
+                partial: EvidenceDispositionCoverageQualification { authority_roots },
+            },
+        }
     }
 }
 
@@ -1433,6 +1489,27 @@ impl EvidenceDispositionReconciliationCoverage {
     ///
     /// The delegation graph is scoped to the named delegation identity;
     /// unrelated delegation records do not become dependencies of this check.
+    pub fn validate_against_graph_and_authority_chain_qualified(
+        &self,
+        reconciliation: &EvidenceDispositionReconciliation,
+        authority_scope: &EvidenceDispositionAuthorityScope,
+        authority_delegation: &EvidenceDispositionAuthorityDelegation,
+        delegations: &[EvidenceDispositionAuthorityDelegation],
+        boundary: &EvidenceDispositionCoverageBoundary,
+        transitions: &[EvidenceDispositionTransition],
+    ) -> QualificationOutcome<EvidenceDispositionCoverageQualification> {
+        self.validate_against_graph_and_authority_chain_assessment(
+            reconciliation,
+            authority_scope,
+            authority_delegation,
+            delegations,
+            boundary,
+            transitions,
+        )
+        .map_err(QualificationValidationError::from)
+        .map(EvidenceDispositionCoverageAssessment::into_qualification)
+    }
+
     pub fn validate_against_graph_and_authority_chain(
         &self,
         reconciliation: &EvidenceDispositionReconciliation,
