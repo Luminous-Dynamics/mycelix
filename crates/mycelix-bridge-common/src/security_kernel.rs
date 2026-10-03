@@ -242,9 +242,11 @@ pub struct VerifiedCapability {
 
 /// A short-lived, non-serializable authorization permit bound to one exact
 /// request. It is deliberately not constructible from advisory output or
-/// from a bare Allow value. Ownership is intentionally linear: the permit is
-/// consumed when creating an EnforcementRequest so callers cannot replay the
-/// same in-memory permit by cloning it.
+/// from a bare Allow value. The authorization hand-off is intentionally non-duplicable: the permit is
+/// consumed when creating an EnforcementRequest, so callers cannot replay the
+/// same in-memory permit by cloning it. This does not claim that an application
+/// cannot intentionally reuse an already-revalidated request before its expiry;
+/// effect-specific idempotency belongs to the enforcement adapter.
 #[must_use = "authorization permits must be consumed by EnforcementRequest::from_permit"]
 #[derive(Debug, PartialEq, Eq)]
 pub struct AuthorizationPermit {
