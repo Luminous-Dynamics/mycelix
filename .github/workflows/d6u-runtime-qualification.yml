@@ -99,8 +99,8 @@ jobs:
             echo "cargo=$(cargo --version)"
             echo "cargo_lock_sha256=$(sha256sum Cargo.lock | cut -d' ' -f1)"
             echo "test=d6u_authority_boundary:passed"
-            echo "supported_cases=15"
-            echo "unsupported_cases=wire-signature-valid,blocked-provenance"
+            echo "supported_cases=16"
+            echo "unsupported_cases=wire-signature-valid"
             echo "claim_ceiling=ReferenceModelOnly"
           } | tee d6u-runtime-evidence.txt
 
