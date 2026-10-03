@@ -20,7 +20,8 @@ pub type QualificationOutcome<T> =
 impl<T> QualificationStatus<T> {
     pub fn unresolved(mut missing: Vec<IdentityRef>, partial: T) -> Self {
         missing.sort_by(|left, right| {
-            (&left.namespace, &left.kind, &left.id).cmp(&(&right.namespace, &right.kind, &right.id))
+            (&left.namespace, &left.kind, &left.id)
+                .cmp(&(&right.namespace, &right.kind, &right.id))
         });
         missing.dedup();
         Self::Unresolved { missing, partial }
@@ -221,6 +222,20 @@ mod tests {
                 partial: 7u8,
             }
         );
+    }
+
+    #[test]
+    fn require_missing_is_order_independent_and_idempotent() {
+        let first = id("a");
+        let second = id("b");
+
+        let left = QualificationStatus::Complete(7u8)
+            .require_missing(vec![first.clone(), second.clone()])
+            .require_missing(vec![first.clone()]);
+        let right = QualificationStatus::Complete(7u8)
+            .require_missing(vec![second, first]);
+
+        assert_eq!(left, right);
     }
 
     #[test]
