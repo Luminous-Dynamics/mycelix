@@ -524,14 +524,26 @@ mod tests {
         bindings.insert(id("b"), "address-b", QualificationDependencyRetrievalKind::Action).unwrap();
         bindings.insert(id("c"), "address-c", QualificationDependencyRetrievalKind::Entry).unwrap();
 
-        let forward = bindings
-            .resolve_required(vec![id("c"), id("a"), id("b")])
-            .unwrap();
-        let reverse = bindings
-            .resolve_required(vec![id("b"), id("c"), id("a")])
-            .unwrap();
+        let forward = bindings.resolve_required(vec![id("c"), id("a"), id("b")]);
+        let reverse = bindings.resolve_required(vec![id("b"), id("c"), id("a")]);
 
         assert_eq!(forward, reverse);
+        let QualificationDecision::Valid(resolved) = forward else {
+            panic!("all logical dependencies are bound");
+        };
+        assert_eq!(resolved.len(), 3);
+        assert_eq!(
+            resolved[0].1.retrieval,
+            QualificationDependencyRetrievalKind::ValidRecord
+        );
+        assert_eq!(
+            resolved[1].1.retrieval,
+            QualificationDependencyRetrievalKind::Action
+        );
+        assert_eq!(
+            resolved[2].1.retrieval,
+            QualificationDependencyRetrievalKind::Entry
+        );
     }
 
     #[test]
