@@ -507,8 +507,26 @@ mod linux {
         }
 
         fn predicate_instruction_count(predicate: &SeccompArgPredicateV1) -> usize {
-            usize::from(predicate.mask as u32 != 0) * 4
-                + usize::from((predicate.mask >> 32) as u32 != 0) * 4
+            let low = predicate.mask as u32 != 0;
+            let high = (predicate.mask >> 32) as u32 != 0;
+            match predicate.op {
+                // MaskedEqual emits load + AND + branch + EPERM for each
+                // populated half of the 64-bit argument.
+                SeccompArgPredicateOpV1::MaskedEqual => {
+                    usize::from(low) * 4 + usize::from(high) * 4
+                }
+                // MaskedNotEqual emits three instructions for the low half
+                // when both halves are populated (its successful low-half
+                // mismatch jumps over the high-half body), then four for the
+                // high half. A single populated half emits four instructions.
+                SeccompArgPredicateOpV1::MaskedNotEqual => {
+                    if low && high {
+                        7
+                    } else {
+                        4
+                    }
+                }
+            }
         }
 
         fn clause_instruction_count(clause: &SeccompSyscallClauseV2) -> usize {
