@@ -796,28 +796,10 @@ fn validate_create_self_recovery_config(
 
 /// Validate self-recovery request creation
 ///
-/// Deliberately NOT author-bound (reviewed 2026-07-08, P0 pass): binding
-/// this to action.author() would be architecturally WRONG, not just
-/// unnecessary. Self-recovery exists specifically for when the DID owner's
-/// ORIGINAL agent key is unreachable -- the whole point is that the
-/// committing agent is necessarily a *different* key (a new device/session)
-/// than the one being recovered from. Its actual security comes from
-/// anchor-possession proof (verified_anchors must match
-/// SelfRecoveryConfig.anchors, checked coordinator-side in
-/// initiate_self_recovery/verify_self_recovery_anchor), not agent identity.
-///
-/// KNOWN GAP found while reviewing this path (out of scope to fix here):
-/// `verify_self_recovery_anchor` checks anchor possession by comparing the
-/// caller-supplied hash against the enrolled hash list with no actual
-/// proof-of-control (no signature challenge) -- anyone who knows/guesses/
-/// leaks the phone/email hash can "verify" that anchor. This is a
-/// proof-of-possession gap, architecturally different from the
-/// author-identity forgeries fixed elsewhere this pass (same class as the
-/// report_reputation forgery gap documented in the bridge zome).
-    // The recovery requester must be the designated replacement agent.
-    // Otherwise an attacker can create a request naming an unrelated new_agent
-    // and later advance the request using leaked/guessed anchors.
-    // The request may still be for a DID whose original controller is offline.
+/// Self-recovery deliberately allows the DID subject to differ from the
+/// replacement agent because the original controller may be offline. The
+/// replacement agent, however, is the author of the request and therefore is
+/// bound to request.new_agent by the integrity rule below.
 fn validate_create_self_recovery_request(
     action: EntryCreationAction,
     request: SelfRecoveryRequest,
