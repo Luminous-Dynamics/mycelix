@@ -510,6 +510,12 @@ mod linux {
                     if instruction.jt != 0 || instruction.jf != 0 {
                         return Err(SeccompError::CompilerInvariantViolation);
                     }
+                    let allowed_action = instruction.k == SECCOMP_RET_ALLOW
+                        || instruction.k == SECCOMP_RET_ERRNO | libc::EPERM as u32
+                        || instruction.k == SECCOMP_RET_KILL_PROCESS;
+                    if !allowed_action {
+                        return Err(SeccompError::CompilerInvariantViolation);
+                    }
                 }
                 _ => {
                     return Err(SeccompError::CompilerInvariantViolation);
@@ -2002,6 +2008,30 @@ mod linux {
             .unwrap();
             let mut filter = compile_filter_v2(&policy).unwrap();
             filter[0].code = BPF_JMP;
+            assert!(matches!(
+                validate_compiled_filter(&filter),
+                Err(SeccompError::CompilerInvariantViolation)
+            ));
+        }
+
+        #[test]
+        fn compiled_filter_rejects_unapproved_return_action() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let policy = SeccompSyscallPolicyV2::new(
+                arch,
+                vec![SeccompSyscallRuleV2::new(libc::SYS_socket, Vec::new()).unwrap()],
+            )
+            .unwrap();
+            let mut filter = compile_filter_v2(&policy).unwrap();
+
+            let allow_index = filter
+                .iter()
+                .position(|instruction| {
+                    instruction.code == BPF_RET | BPF_K
+                        && instruction.k == SECCOMP_RET_ALLOW
+                })
+                .unwrap();
+            filter[allow_index].k = 0x7fc0_0000; // SECCOMP_RET_TRACE
             assert!(matches!(
                 validate_compiled_filter(&filter),
                 Err(SeccompError::CompilerInvariantViolation)
