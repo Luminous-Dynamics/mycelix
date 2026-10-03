@@ -836,6 +836,21 @@
       "id": "EDT-165",
       "case": "runtime_binding_rejects_authority_credential_witness_reuse",
       "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-166",
+      "case": "authority_agent_payload_has_explicit_canonical_serialized_bytes_roundtrip",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-167",
+      "case": "binding_attestation_payload_has_explicit_canonical_serialized_bytes_roundtrip",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-168",
+      "case": "signed_payload_schema_is_owned_and_canonically_roundtrippable",
+      "expected": "accepted"
     }
   ],
   "outcome_classes": [
