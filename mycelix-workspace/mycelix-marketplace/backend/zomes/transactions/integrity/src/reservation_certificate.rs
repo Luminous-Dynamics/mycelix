@@ -478,14 +478,17 @@ impl InventoryFrontier {
         if certificate.listing_hash != self.listing_hash {
             return Err(CertificateError::WrongListing);
         }
-        if certificate.listing_revision != self.listing_revision {
-            return Err(CertificateError::WrongRevision);
-        }
+        // Exact replay/conflict classification is independent of the frontier's
+        // later mutable listing revision. Once a certificate was accepted, the
+        // same immutable event must remain idempotent even after a revision bridge.
         if let Some(existing) = self.certificates.get(&certificate.certificate_id) {
             if existing == &certificate {
                 return Ok(ApplyOutcome::Idempotent);
             }
             return Err(CertificateError::IntentConflict);
+        }
+        if certificate.listing_revision != self.listing_revision {
+            return Err(CertificateError::WrongRevision);
         }
         self.check_frontier(
             &certificate.seller,
@@ -1327,6 +1330,36 @@ mod tests {
         assert_eq!(f.listing_revision(), &new_revision);
         assert_eq!(f.next_sequence(), 2);
         assert_eq!(f.head_certificate_id(), Some("capacity:1"));
+    }
+
+    #[test]
+    fn replay_of_historical_reservation_after_listing_revision_bridge_is_idempotent() {
+        let mut f = frontier(2);
+        let certificate = certificate_with_capacity("c1", 0, None, 1, 2);
+        assert_eq!(
+            f.apply(FrontierEvent::Reserve(certificate.clone())),
+            Ok(ApplyOutcome::Applied)
+        );
+
+        let new_revision = hash(7);
+        assert_eq!(
+            f.apply(FrontierEvent::SetCapacity {
+                listing_hash: hash(3),
+                listing_revision: new_revision,
+                capacity: 2,
+                seller: agent(2),
+                sequence: 1,
+                previous_certificate_id: Some("c1".into()),
+            }),
+            Ok(ApplyOutcome::Applied)
+        );
+
+        assert_eq!(
+            f.apply(FrontierEvent::Reserve(certificate)),
+            Ok(ApplyOutcome::Idempotent)
+        );
+        assert_eq!(f.next_sequence(), 2);
+        assert_eq!(f.active_reserved(), 1);
     }
 
     #[test]
