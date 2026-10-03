@@ -133,6 +133,7 @@
     "agent_identity_type": "AgentPubKey",
     "credential_type": "SignedHolochainAuthorityAgentBinding",
     "credential_schema": "mycelix.mobility.holochain_authority_agent_binding.v1",
+    "provenance_type": "QualificationAuthorityAgentBindingProvenance",
     "issuer_must_equal_agent": true,
     "credential_signature_required": true,
     "authority_must_be_present_before_runtime_binding": true,
@@ -140,6 +141,7 @@
     "duplicate_authority_binding": "rejected",
     "signer_must_match_registered_agent": true,
     "signature_does_not_resolve_domain_authority_identity": true,
-    "domain_provenance_remains_required": true
+    "domain_provenance_remains_required": true,
+    "missing_authority_agent_binding": "unresolved"
   }
 }
