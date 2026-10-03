@@ -830,6 +830,20 @@ fn validate_create_recovery_request(
         ));
     }
 
+    // Bind request identity to immutable request fields. This prevents a
+    // modified coordinator from choosing arbitrary identifiers that could make
+    // two logically distinct requests share a quorum namespace.
+    let expected_request_id = format!(
+        "recovery:{}:{}",
+        request.did,
+        request.created.as_micros()
+    );
+    if request.id != expected_request_id {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Recovery request ID must be derived from DID and creation timestamp".into(),
+        ));
+    }
+
     // Validate reason provided
     if request.reason.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
