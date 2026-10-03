@@ -97,7 +97,7 @@ impl HolochainAuthorityAgentBindingSet {
         self.bindings.get(authority)
     }
 
-    pub fn len(&self) {
+    pub fn len(&self) -> usize {
         self.bindings.len()
     }
 
@@ -1275,6 +1275,7 @@ mod tests {
 
         let authority = identity("duplicate-authority");
         let first = authority_credential(authority.clone(), action_agent_key(32), "first");
+        let expected = first.clone();
         let second = authority_credential(authority.clone(), action_agent_key(33), "second");
 
         let mut registry = HolochainAuthorityAgentBindingSet::new();
@@ -1286,6 +1287,7 @@ mod tests {
 
         let _ = set_hdi(ErrHdi);
         assert_eq!(registry.len(), 1);
+        assert_eq!(registry.credential_for(&authority), Some(&expected));
         assert_eq!(
             calls.lock().unwrap().as_slice(),
             ["verify_signature", "verify_signature"]
