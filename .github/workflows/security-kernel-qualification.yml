@@ -81,13 +81,38 @@ jobs:
             '#\[derive\([^]]*(Serialize|Deserialize)[^]]*\)\][[:space:]]*(pub[[:space:]]+)?struct (VerificationEvidence|AuthorizationPermit|EnforcementRequest)' \
             'impl[[:space:]]+(Serialize|Deserialize)[[:space:]]+for[[:space:]]+(VerificationEvidence|AuthorizationPermit|EnforcementRequest)' \
             '#\[derive\(Debug, Clone, PartialEq, Eq\)\][[:space:]]*pub struct AuthorizationPermit' \
-            '#\[derive\(Debug, Clone, PartialEq, Eq\)\][[:space:]]*pub struct EnforcementRequest' \
-            'pub fn (request|issued_at_us|valid_until_us|is_valid_at)'; do
+            '#\[derive\(Debug, Clone, PartialEq, Eq\)\][[:space:]]*pub struct EnforcementRequest'; do
             if rg -nU "$pattern" crates/mycelix-bridge-common/src/security_kernel.rs; then
               echo "security-kernel serialization/linear-token regression: $pattern" >&2
               exit 1
             fi
           done
+
+      - name: Assert authorization permits remain opaque
+        shell: bash
+        run: |
+          set -euo pipefail
+          awk '
+            BEGIN { in_impl = 0; depth = 0; found = 0 }
+            {
+              if (!in_impl && $0 ~ /^[[:space:]]*impl[[:space:]]+AuthorizationPermit[[:space:]]*\{[[:space:]]*$/) {
+                in_impl = 1
+              }
+              if (in_impl) {
+                if ($0 ~ /(^|[^[:alnum:]_])pub([[:space:]]*\([^)]*\))?[[:space:]]+fn[[:space:]]/) {
+                  print NR ": public AuthorizationPermit method: " $0
+                  found = 1
+                }
+                open_count = gsub(/\{/, "{", $0)
+                close_count = gsub(/\}/, "}", $0)
+                depth += open_count - close_count
+                if (depth <= 0) {
+                  exit found ? 1 : 0
+                }
+              }
+            }
+            END { if (in_impl && found == 0) exit 0 }
+          ' crates/mycelix-bridge-common/src/security_kernel.rs
 
       - name: Test default feature set
         run: cargo test --locked --manifest-path crates/mycelix-bridge-common/Cargo.toml
