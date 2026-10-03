@@ -17,6 +17,61 @@ pub enum QualificationValidationError {
 pub type QualificationOutcome<T> =
     Result<QualificationStatus<T>, QualificationValidationError>;
 
+/// Runtime-neutral three-outcome boundary for protocol adapters.
+///
+/// This mirrors the semantic distinction needed by distributed validation:
+/// valid completion, definitive structural invalidity, and unresolved
+/// addressable dependencies. It contains no Holochain-specific types so the
+/// pure qualification crate remains portable.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum QualificationDecision<T> {
+    Valid(T),
+    Invalid { reason: String },
+    Unresolved {
+        missing: Vec<IdentityRef>,
+        partial: T,
+    },
+}
+
+impl<T> From<QualificationOutcome<T>> for QualificationDecision<T> {
+    fn from(outcome: QualificationOutcome<T>) -> Self {
+        match outcome {
+            Ok(QualificationStatus::Complete(value)) => Self::Valid(value),
+            Ok(QualificationStatus::Unresolved { missing, partial }) => Self::Unresolved {
+                missing: canonicalize_missing(missing),
+                partial,
+            },
+            Err(QualificationValidationError::Structural { reason }) => {
+                Self::Invalid { reason }
+            }
+        }
+    }
+}
+
+impl<T> QualificationDecision<T> {
+    pub fn is_valid(&self) -> bool {
+        matches!(self, Self::Valid(_))
+    }
+
+    pub fn is_unresolved(&self) -> bool {
+        matches!(self, Self::Unresolved { .. })
+    }
+
+    pub fn missing(&self) -> &[IdentityRef] {
+        match self {
+            Self::Unresolved { missing, .. } => missing,
+            Self::Valid(_) | Self::Invalid { .. } => &[],
+        }
+    }
+
+    pub fn invalid_reason(&self) -> Option<&str> {
+        match self {
+            Self::Invalid { reason } => Some(reason),
+            Self::Valid(_) | Self::Unresolved { .. } => None,
+        }
+    }
+}
+
 fn canonicalize_missing(mut missing: Vec<IdentityRef>) -> Vec<IdentityRef> {
     missing.sort_by(|left, right| {
         (&left.namespace, &left.kind, &left.id)
@@ -195,6 +250,79 @@ mod tests {
             namespace: "mobility".into(),
             id: value.into(),
         }
+    }
+
+    #[test]
+    fn outcome_maps_to_valid_decision() {
+        let decision = QualificationDecision::from(
+            Ok::<_, QualificationValidationError>(QualificationStatus::Complete(7u8)),
+        );
+
+        assert_eq!(decision, QualificationDecision::Valid(7u8));
+        assert!(decision.is_valid());
+        assert!(!decision.is_unresolved());
+        assert_eq!(decision.missing(), &[]);
+    }
+
+    #[test]
+    fn outcome_maps_to_unresolved_decision_and_canonicalizes_dependencies() {
+        let decision = QualificationDecision::from(Ok::<_, QualificationValidationError>(
+            QualificationStatus::Unresolved {
+                missing: vec![id("z"), id("a"), id("z")],
+                partial: 7u8,
+            },
+        ));
+
+        assert_eq!(
+            decision,
+            QualificationDecision::Unresolved {
+                missing: vec![id("a"), id("z")],
+                partial: 7u8,
+            }
+        );
+        assert!(decision.is_unresolved());
+        assert_eq!(decision.missing(), &[id("a"), id("z")]);
+    }
+
+    #[test]
+    fn outcome_maps_structural_error_to_invalid_decision() {
+        let decision = QualificationDecision::from(
+            Err::<QualificationStatus<u8>, _>(
+                QualificationValidationError::structural("contradiction"),
+            ),
+        );
+
+        assert_eq!(
+            decision,
+            QualificationDecision::Invalid {
+                reason: "contradiction".into(),
+            }
+        );
+        assert_eq!(decision.invalid_reason(), Some("contradiction"));
+        assert!(!decision.is_valid());
+        assert!(!decision.is_unresolved());
+    }
+
+    #[test]
+    fn decision_projection_has_mutually_exclusive_terminal_states() {
+        let valid = QualificationDecision::Valid(1u8);
+        let invalid = QualificationDecision::Invalid {
+            reason: "x".into(),
+        };
+        let unresolved = QualificationDecision::Unresolved {
+            missing: vec![id("m")],
+            partial: 1u8,
+        };
+
+        assert!(valid.is_valid());
+        assert!(!valid.is_unresolved());
+        assert_eq!(valid.invalid_reason(), None);
+        assert!(!invalid.is_valid());
+        assert!(!invalid.is_unresolved());
+        assert_eq!(invalid.missing(), &[]);
+        assert!(!unresolved.is_valid());
+        assert!(unresolved.is_unresolved());
+        assert_eq!(unresolved.invalid_reason(), None);
     }
 
     #[test]
