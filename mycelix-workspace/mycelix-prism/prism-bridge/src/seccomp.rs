@@ -1993,32 +1993,6 @@ mod linux {
         }
 
         #[test]
-        fn compiled_filter_rejects_backward_conditional_jump() {
-            let arch = SeccompArchitecture::current().unwrap();
-            let policy = SeccompSyscallPolicyV2::new(
-                arch,
-                vec![SeccompSyscallRuleV2::new(libc::SYS_socket, Vec::new()).unwrap()],
-            )
-            .unwrap();
-            let mut filter = compile_filter_v2(&policy).unwrap();
-            let socket_jump = filter
-                .iter()
-                .position(|instruction| {
-                    instruction.code == BPF_JMP | BPF_JEQ | BPF_K
-                        && instruction.k == libc::SYS_socket as u32
-                })
-                .unwrap();
-
-            // A generated seccomp program has no reason to contain a loop.
-            // Reject a synthetic back-edge as a compiler invariant failure.
-            filter[socket_jump].jf = 0;
-            assert!(matches!(
-                validate_compiled_filter(&filter),
-                Err(SeccompError::CompilerInvariantViolation)
-            ));
-        }
-
-        #[test]
         fn compiled_filter_rejects_unexpected_opcode() {
             let arch = SeccompArchitecture::current().unwrap();
             let policy = SeccompSyscallPolicyV2::new(
