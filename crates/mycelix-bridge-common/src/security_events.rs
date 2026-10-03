@@ -110,22 +110,11 @@ impl<'de> serde::Deserialize<'de> for SecurityEvent {
         .map_err(D::Error::custom)?;
 
         if matches!(&wire.decision, AuthorizationDecision::Allow) {
-            if wire.capability_binding.is_none() || wire.authority_binding.is_none() {
-                return Err(D::Error::custom(
-                    "allow security events require kernel capability and authority bindings",
-                ));
-            }
-            if wire.capability_binding == Some([0; 32]) || wire.authority_binding == Some([0; 32]) {
-                return Err(D::Error::custom(
-                    "allow security event bindings must be non-zero",
-                ));
-            }
-            if event.actor_id != event.request.subject() {
-                return Err(D::Error::custom(
-                    "allow security events require actor to match request subject",
-                ));
-            }
-        } else if wire.capability_binding.is_some() || wire.authority_binding.is_some() {
+            return Err(D::Error::custom(
+                "Allow security events must be created from a live EnforcementRequest",
+            ));
+        }
+        if wire.capability_binding.is_some() || wire.authority_binding.is_some() {
             return Err(D::Error::custom(
                 "non-Allow security events cannot carry enforcement bindings",
             ));
@@ -454,11 +443,11 @@ mod tests {
     }
 
     #[test]
-    fn deserialization_rejects_zero_allow_bindings() {
+    fn deserialization_rejects_allow_even_with_bindings() {
         let json = r#"{
-            "event_id":"event:zero-allow-binding",
+            "event_id":"event:forged-allow",
             "actor_id":"did:mycelix:alice",
-            "capability_ref":"capability:zero",
+            "capability_ref":"capability:forged",
             "request":{
                 "subject":"did:mycelix:alice",
                 "resource":"resource:ledger",
@@ -468,8 +457,8 @@ mod tests {
             "decision":"Allow",
             "policy_version":7,
             "timestamp_us":151,
-            "capability_binding":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-            "authority_binding":[3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3],
+            "capability_binding":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            "authority_binding":[2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2],
             "provenance":[],
             "recovery_correlation":null
         }"#;
@@ -478,10 +467,10 @@ mod tests {
     }
 
     #[test]
-    fn serialized_enforcement_event_round_trips() {
+    fn serialized_enforcement_event_is_not_deserializable_as_authority() {
         let enforcement = crate::security_kernel::test_enforcement_request();
         let event = SecurityEvent::from_enforcement_request(
-            "event:round-trip",
+            "event:serialized-allow",
             "did:mycelix:alice",
             "capability:1",
             &enforcement,
@@ -491,12 +480,41 @@ mod tests {
         .unwrap();
 
         let encoded = serde_json::to_string(&event).unwrap();
+        assert!(serde_json::from_str::<SecurityEvent>(&encoded).is_err());
+    }
+
+    #[test]
+    fn serialized_deny_event_round_trips() {
+        let request = crate::security_kernel::AuthorizationRequest::new(
+            "did:mycelix:alice",
+            "resource:ledger",
+            CapabilityAction::Read,
+            7,
+        )
+        .unwrap();
+        let event = SecurityEvent::new(
+            "event:deny-round-trip",
+            "did:mycelix:alice",
+            "capability:1",
+            request,
+            AuthorizationDecision::Deny(
+                crate::security_kernel::AuthorizationDenial::ActionNotGranted,
+            ),
+            7,
+            151,
+        )
+        .unwrap();
+
+        let encoded = serde_json::to_string(&event).unwrap();
         let decoded: SecurityEvent = serde_json::from_str(&encoded).unwrap();
 
         assert_eq!(decoded, event);
-        assert_eq!(decoded.decision(), &AuthorizationDecision::Allow);
-        assert!(decoded.capability_binding().is_some());
-        assert!(decoded.authority_binding().is_some());
+        assert_eq!(
+            decoded.decision(),
+            &AuthorizationDecision::Deny(
+                crate::security_kernel::AuthorizationDenial::ActionNotGranted
+            )
+        );
     }
 
     #[test]
