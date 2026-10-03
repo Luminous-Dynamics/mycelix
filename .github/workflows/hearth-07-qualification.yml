@@ -80,7 +80,12 @@ jobs:
         working-directory: mycelix-workspace/mycelix-hearth
         run: |
           {
-            echo "claim_ceiling=RuntimeQualificationPending"
+            echo "job_status=${{ job.status }}"
+            if [[ "${{ job.status }}" == "success" ]]; then
+              echo "claim_ceiling=RuntimeQualificationPassed"
+            else
+              echo "claim_ceiling=RuntimeQualificationPending"
+            fi
             echo "commit=${GITHUB_SHA}"
             echo "ref=${GITHUB_REF_NAME}"
             echo "event=${GITHUB_EVENT_NAME}"
