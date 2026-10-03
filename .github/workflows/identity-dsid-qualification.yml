@@ -173,6 +173,7 @@ jobs:
           assert manifest["evidence_schema_versions"] == [1]
           assert len(manifest["dna_hashes"]) == 1
           assert len(manifest["evidence_commit_shas"]) == 1
+          assert manifest["evidence_commit_shas"] == [manifest["source_commit"]]
 
           Path("identity-dsid-qualification-manifest.json").write_text(
               json.dumps(manifest, indent=2, sort_keys=True) + "\n"
