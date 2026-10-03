@@ -5119,7 +5119,7 @@ mod tests {
             .and_then(serde_json::Value::as_array)
             .expect("disposition corpus must contain a vectors array");
 
-        assert_eq!(vectors.len(), 90);
+        assert_eq!(vectors.len(), 95);
 
         for (index, vector) in vectors.iter().enumerate() {
             let expected_id = format!("EDT-{:03}", index + 1);
