@@ -1430,6 +1430,26 @@ and statement-of-financial-position line items, reinforcing the value of making 
 rather than hiding them in aggregate residuals.
 
 
+## Canonical terminal-state provenance (implemented)
+
+Accounting closure sealing now replays the supplied ordered transition program from the supplied
+opening state through the same canonical `apply_step` execution path used by economic stepping,
+then requires the supplied terminal state to equal that replay result exactly.
+
+This is stronger than checking only the balance-sheet fields represented by individual reporting
+layers. Lifetime state counters and any future state fields are now covered automatically by the
+full terminal-state equality check, rather than depending on each observation or projection to
+remember to expose them.
+
+The provenance rule is therefore:
+
+`opening state + ordered transitions -> canonical replay -> terminal state equality -> projection closure`
+
+A serialized closure may still be internally hash-consistent, but it cannot be sealed against a
+fabricated terminal state that happens to satisfy the currently observed accounting projections.
+This is an integrity boundary, not a behavioral assumption and does not change the transition
+semantics themselves.
+
 ## Canonical transition mutation dispatch (implemented)
 
 Transition mutation is now dispatched through one canonical `EconomicTransition::apply_to_state`
