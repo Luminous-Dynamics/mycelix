@@ -3933,6 +3933,12 @@ mod tests {
         assert!(failure.0.expected_state_valid);
         assert!(!failure.0.observed_state_valid);
         assert!(failure.0.pre_state_fingerprint != failure.0.post_state_fingerprint);
+        assert_eq!(failure.0.pre_admission_index, 1);
+        assert_eq!(failure.0.post_admission_index, 1);
+        assert_eq!(failure.0.pre_delivery_count, 1);
+        assert_eq!(failure.0.post_delivery_count, 0);
+        assert!(failure.0.newly_admitted_deliveries.is_empty());
+
 
         for index in 0..failure.0.trace_prefix.len() {
             let mut reduced = failure.0.trace_prefix.clone();
@@ -4172,13 +4178,14 @@ mod tests {
             },
         ];
         let capsule = FederationStateMachineFailureCapsule {
-            schema_version: 1,
+            schema_version: 2,
             failure_kind: "invariant-violation".into(),
             trace_prefix: plan.clone(),
             failed_step_index: 5,
             operation: plan[5].0,
             token: plan[5].1,
             expected_state_valid: true,
+            observed_state_valid: false,
             observed_violations: vec![(
                 FederationInvariantId::SourceObservationBijection,
                 FederationInvariantViolation::SourceObservationSetMismatch,
@@ -4190,6 +4197,11 @@ mod tests {
             observed_authority: Some(AuthorityDisposition::LocalAuthority),
             pre_state_fingerprint: b"pre-state".to_vec(),
             post_state_fingerprint: b"post-state".to_vec(),
+            pre_admission_index: 5,
+            post_admission_index: 6,
+            pre_delivery_count: 5,
+            post_delivery_count: 6,
+            newly_admitted_deliveries: vec![("delivery-evidence".into(), 5)],
         };
 
         let json = capsule.to_json();
@@ -4231,6 +4243,26 @@ mod tests {
                 assert!(
                     !step.state_fingerprint.is_empty(),
                     "state-machine trace emitted an empty fingerprint"
+                );
+                assert!(
+                    step.post_admission_index >= step.pre_admission_index,
+                    "state-machine evidence regressed the admission counter"
+                );
+                assert!(
+                    step.post_delivery_count >= step.pre_delivery_count,
+                    "state-machine evidence regressed admitted-delivery count"
+                );
+                let admission_delta = step.post_admission_index - step.pre_admission_index;
+                let delivery_delta = (step.post_delivery_count - step.pre_delivery_count) as u64;
+                assert_eq!(admission_delta, delivery_delta);
+                assert_eq!(step.newly_admitted_deliveries.len() as u64, admission_delta);
+                assert_eq!(
+                    step.newly_admitted_deliveries
+                        .iter()
+                        .map(|(_, index)| *index)
+                        .collect::<BTreeSet<_>>(),
+                    (step.pre_admission_index..step.post_admission_index)
+                        .collect::<BTreeSet<_>>()
                 );
                 if let Some(authority) = step.authority {
                     if matches!(
