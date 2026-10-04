@@ -92,7 +92,7 @@ def reconstruct(stream: dict[str, Any]) -> tuple[str, str, dict[str, str] | None
     for event in events:
         if not isinstance(event, dict):
             return "DENY", "event-not-object", None
-        for key in ("sequence", "pcr", "event_type", "digest_sha256"):
+        for key in ("sequence", "pcr", "event_type"):
             if key not in event:
                 return "DENY", "missing-event-" + key, None
 
@@ -111,15 +111,20 @@ def reconstruct(stream: dict[str, Any]) -> tuple[str, str, dict[str, str] | None
             return "DENY", "digest-algorithm-substitution", None
         if event["event_type"] == "EV_EFI_HCRTM_EVENT" and pcr == 0:
             return "INDETERMINATE", "hcrtm-initial-state-adjustment-unsupported", None
-        if not valid_digest(event["digest_sha256"]):
-            return "DENY", "malformed-digest", None
         if event.get("session_id", stream["session_id"]) != stream["session_id"]:
             return "DENY", "cross-session-event", None
 
         if event["event_type"] == "EV_NO_ACTION":
             if pcr == 0 and "startup_locality" in event:
                 return "INDETERMINATE", "startup-locality-initial-state-adjustment-unsupported", None
+            if "digest_sha256" in event and not valid_digest(event["digest_sha256"]):
+                return "DENY", "malformed-no-action-digest", None
             continue
+
+        if "digest_sha256" not in event:
+            return "DENY", "missing-event-digest_sha256", None
+        if not valid_digest(event["digest_sha256"]):
+            return "DENY", "malformed-digest", None
 
         key = str(pcr)
         if key in states:
@@ -236,6 +241,7 @@ def mutate(base: dict[str, Any], name: str) -> dict[str, Any]:
             if event["pcr"] == 0:
                 event["event_type"] = "EV_NO_ACTION"
                 event["startup_locality"] = 3
+                event.pop("digest_sha256", None)
                 break
     elif name == "hcrtm-initial-state-adjustment-unsupported":
         for event in value["events"]:
