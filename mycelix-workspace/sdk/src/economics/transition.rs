@@ -9,7 +9,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::stock_flow::{CapitalInvestment, ProductionEvent, InventoryTransfer, InventoryConsumption, GoodsSale, TradeCreditSale, TradeCreditSettlement, InventoryCostAddition, InventoryCostRelief, Depreciation, RealAssetRevaluation, CreditCreation, DebtRepayment, DebtWriteOff, EconomicState, IncomeTransfer, MonetaryFlow};
+use super::stock_flow::{CapitalInvestment, ProductionEvent, InventoryTransfer, InventoryConsumption, GoodsSale, TradeCreditSale, TradeCreditSettlement, InventoryCostAddition, InventoryCostRelief, Depreciation, RealAssetRevaluation, CreditCreation, DebtRepayment, DebtWriteOff, DebtForgiveness, EconomicState, IncomeTransfer, MonetaryFlow};
 
 /// One explicit economic state transition.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -30,6 +30,7 @@ pub enum EconomicTransition {
     CreditCreation(CreditCreation),
     DebtRepayment(DebtRepayment),
     DebtWriteOff(DebtWriteOff),
+    DebtForgiveness(DebtForgiveness),
 }
 
 impl EconomicTransition {
@@ -59,6 +60,7 @@ impl EconomicTransition {
             Self::CreditCreation(credit) => state.create_credit(credit),
             Self::DebtRepayment(repayment) => state.repay_debt(repayment),
             Self::DebtWriteOff(write_off) => state.write_off_debt(write_off),
+            Self::DebtForgiveness(forgiveness) => state.forgive_debt(forgiveness),
         }
     }
 
@@ -135,6 +137,9 @@ impl EconomicTransition {
             }
             Self::DebtWriteOff(write_off) => {
                 require_positive(write_off.amount, "debt write-off")
+            }
+            Self::DebtForgiveness(forgiveness) => {
+                require_positive(forgiveness.amount, "debt forgiveness")
             }
         }
     }
@@ -820,4 +825,20 @@ mod tests {
         assert_eq!(next.actors[0].monetary.claims, 0);
         assert_eq!(receipt.transition_count, 2);
     }
+    #[test]
+    fn debt_forgiveness_transition_dispatches_canonically() {
+        let mut bank = crate::economics::stock_flow::ActorBalanceSheet::new("bank");
+        bank.monetary.claims = 25;
+        let mut firm = crate::economics::stock_flow::ActorBalanceSheet::new("firm");
+        firm.monetary.liabilities = 25;
+        let state = EconomicState::new(vec![bank, firm]);
+        let transition = EconomicTransition::DebtForgiveness(
+            DebtForgiveness::new("bank", "firm", 10).unwrap(),
+        );
+        let (post, _) = apply_step(&state, 1, &[transition], None).unwrap();
+        assert_eq!(post.actors[0].monetary.claims, 15);
+        assert_eq!(post.actors[1].monetary.liabilities, 15);
+        assert_eq!(post.debt_forgiven, 10);
+    }
+
 }
