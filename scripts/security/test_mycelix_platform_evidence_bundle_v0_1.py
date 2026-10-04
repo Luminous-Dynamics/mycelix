@@ -191,6 +191,14 @@ def build_bundle(bundle: Path) -> dict:
         "verifier_id": reconstruction["verifier_id"],
         "verifier_source_sha256": reconstruction["verifier_source_sha256"],
     }
+    manifest["payload_coherence"] = {
+        "status": payload_coherence["state"],
+        "output_sha256": platform.sha256_file(payload_coherence_path),
+        "source_sha256": platform.sha256_file(
+            SECURITY / "verify_mycelix_event_payload_digest_coherence_v0_1.py"
+        ),
+        "input_sha256": platform.sha256_file(input_path),
+    }
     manifest["live_observation"]["selection"] = reconstruction["pcr_selection"]
     manifest["live_observation"]["pcr_values_sha256"] = reconstruction["observed_pcrs_sha256"]
     manifest["live_observation"]["pcr_post_artifact_sha256"] = platform.sha256_file(bundle / "pcr-post.yaml")
@@ -209,6 +217,8 @@ def build_bundle(bundle: Path) -> dict:
     manifest["artifacts"]["reconstruction_file_sha256"] = platform.sha256_file(reconstruction_path)
     manifest["artifacts"]["reconstruction_input_sha256"] = platform.sha256_file(input_path)
     manifest["artifacts"]["observed_pcr_values_file_sha256"] = platform.sha256_file(observed_pcr_path)
+    manifest["artifacts"]["raw_eventlog_output_sha256"] = platform.sha256_file(raw_eventlog_path)
+    manifest["artifacts"]["payload_coherence_output_sha256"] = platform.sha256_file(payload_coherence_path)
     manifest["artifacts"]["raw_eventlog_output_sha256"] = platform.sha256_file(raw_eventlog_path)
     manifest["artifacts"]["payload_coherence_output_sha256"] = platform.sha256_file(payload_coherence_path)
     manifest["artifacts"]["tss_version_evidence_sha256"] = platform.sha256_file(bundle / "tss-version-evidence.txt")
