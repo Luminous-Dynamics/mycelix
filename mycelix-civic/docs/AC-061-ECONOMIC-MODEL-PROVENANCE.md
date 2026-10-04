@@ -23,6 +23,8 @@ When implementation provenance is unavailable, comparison returns `None` and the
 
 Independence remains distinct from correctness: independent implementations can share assumptions, data, or errors.
 
+For systemic-risk measurement, provenance is therefore an observability primitive: it makes correlated model usage visible without turning the provenance layer into a score of model quality.
+
 ## Analysis integration
 
 `EconomicPolicyAnalysis` retains the existing `model_ref` for explicit migration compatibility and adds optional structured provenance.
