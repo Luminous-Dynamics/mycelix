@@ -137,6 +137,8 @@ def main() -> int:
         "valid_record_does_not_prove_later_operations_valid": True,
         "unavailable_valid_record_maps_to_protocol_unresolved": True,
         "valid_record_semantics": "inductive_validity_of_the_referenced_create_record_as_reported_by_visible_validation_authorities",
+        "valid_record_unresolved_if_upstream_validator_marks_invalid": True,
+        "valid_record_unresolved_is_not_equivalent_to_missing_transport_data": True,
     }
     for key, expected in expected_dependency_contract.items():
         if dependency_contract.get(key) != expected:
