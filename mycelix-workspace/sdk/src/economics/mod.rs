@@ -36,7 +36,10 @@ pub use substrate::{
     SubstrateDimension, SubstrateEvent, SubstrateEventKind, SubstrateLedger, SubstrateReport,
     SubstrateState,
 };
-pub use seea::{SeeaAccountType, SeeaChangeKind, SeeaObservation, SeeaProvenance};
+pub use seea::{
+    SeeaAccountType, SeeaChangeKind, SeeaFreshness, SeeaFreshnessError, SeeaFreshnessPolicy,
+    SeeaObservation, SeeaProvenance,
+};
 pub use procurement_guard::{
     assess_procurement_option, cheapest_eligible_procurement, ProcurementAssessment, ProcurementOption,
 };
