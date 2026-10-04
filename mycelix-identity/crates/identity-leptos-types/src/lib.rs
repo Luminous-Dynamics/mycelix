@@ -214,6 +214,7 @@ pub struct DidDocumentView {
     pub id: String,
     pub controller: String,
     pub verification_methods: Vec<VerificationMethodView>,
+    pub assertion_methods: Vec<String>,
     pub key_agreements: Vec<String>,
     pub services: Vec<ServiceEndpointView>,
     pub created: String,
@@ -260,6 +261,8 @@ pub struct DidDocumentWireView {
     #[serde(rename = "verificationMethod")]
     pub verification_methods: Vec<DidVerificationMethodWireView>,
     pub authentication: Vec<String>,
+    #[serde(rename = "assertionMethod", skip_serializing_if = "Vec::is_empty")]
+    pub assertion_method: Vec<String>,
     #[serde(rename = "keyAgreement", skip_serializing_if = "Vec::is_empty")]
     pub key_agreement: Vec<String>,
     pub service: Vec<DidServiceWireView>,
@@ -600,6 +603,7 @@ mod tests {
             id: "did:mycelix:uhCAk4YSfRTHgq0P0LfxR9ip-DPO4FcD".into(),
             controller: String::new(),
             verification_methods: vec![],
+            assertion_methods: vec![],
             key_agreements: vec![],
             services: vec![],
             created: "1970-01-01T00:00:00.000Z".into(),
@@ -671,6 +675,7 @@ mod tests {
                 controller: "did:mycelix:test".into(),
                 public_key_multibase: "zBase58Key".into(),
             }],
+            assertion_methods: vec!["key-1".into()],
             key_agreements: vec![],
             services: vec![],
             created: 1711900000, updated: 1711900000, version: 1, active: true,
