@@ -4899,6 +4899,28 @@ mod tests {
             serde_json::from_str::<FederationStateMachineTraceCapsule>(&tampered).is_err(),
             "successful trace capsule must reject unknown integrity fields"
         );
+
+        let capsule = serde_json::from_str::<FederationStateMachineTraceCapsule>(&capsule_text)
+            .expect("generated trace capsule must deserialize");
+        let checkpoint = state_machine_trace_checkpoint(
+            &capsule,
+            0,
+            capsule.evidence.len(),
+            FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_GENESIS,
+        );
+        let mut checkpoint_value =
+            serde_json::to_value(&checkpoint).expect("checkpoint must serialize");
+        checkpoint_value
+            .as_object_mut()
+            .expect("checkpoint must serialize as an object")
+            .insert("unexpected_checkpoint_field".into(), serde_json::Value::Bool(true));
+        let tampered_checkpoint = serde_json::to_string_pretty(&checkpoint_value)
+            .expect("tampered checkpoint JSON must serialize");
+        assert!(
+            serde_json::from_str::<FederationStateMachineTraceCheckpoint>(&tampered_checkpoint)
+                .is_err(),
+            "trace checkpoint must reject unknown fields"
+        );
     }
 
     #[test]
