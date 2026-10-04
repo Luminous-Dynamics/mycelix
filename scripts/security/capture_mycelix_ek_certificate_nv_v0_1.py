@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Capture EK certificates from TPM NV only, without network fallback."""
+"""Capture TCG EK certificates directly from their TPM NV indices."""
 from __future__ import annotations
 
 import argparse
@@ -13,9 +13,19 @@ from pathlib import Path
 from typing import Any
 
 VERIFIER_ID = "mycelix.tpm.ek-certificate-nv-capture.v0.1"
-TCG_LOW_CERT_HANDLES = {0x01C00002, 0x01C0000A}
-TCG_HIGH_CERT_MIN = 0x01C00012
-TCG_HIGH_CERT_MAX = 0x01C07FFF
+
+# TCG-defined default-template EK certificate NV indices used by tpm2-tools.
+EK_CERTIFICATE_HANDLES = {
+    0x01C00002: "rsa-legacy-2048",
+    0x01C0000A: "ecc-legacy-nist-p256",
+    0x01C00012: "rsa-2048",
+    0x01C00014: "ecc-nist-p256",
+    0x01C00016: "ecc-nist-p384",
+    0x01C00018: "ecc-nist-p521",
+    0x01C0001A: "ecc-sm2-p256",
+    0x01C0001C: "rsa-3072",
+    0x01C0001E: "rsa-4096",
+}
 
 def sha256_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -26,37 +36,21 @@ def canonical_hash(value: Any) -> str:
     ).hexdigest()
 
 def parse_handles(text: str) -> list[int]:
-    values = {int(raw, 16) for raw in re.findall(r"0x[0-9a-fA-F]+", text)}
-    return sorted(values)
+    return sorted({int(raw, 16) for raw in re.findall(r"0x[0-9a-fA-F]+", text)})
 
-def is_ek_certificate_handle(handle: int) -> bool:
-    if handle in TCG_LOW_CERT_HANDLES:
-        return True
-    return TCG_HIGH_CERT_MIN <= handle <= TCG_HIGH_CERT_MAX and handle % 2 == 0
-
-def classify_handles(handles: list[int]) -> dict[str, list[str]]:
+def classify_handles(handles: list[int]) -> dict[str, list[dict[str, str]]]:
+    candidates: list[dict[str, str]] = []
+    other: list[dict[str, str]] = []
+    for handle in handles:
+        entry = {"handle": f"0x{handle:08x}"}
+        if handle in EK_CERTIFICATE_HANDLES:
+            entry["profile_id"] = EK_CERTIFICATE_HANDLES[handle]
+            candidates.append(entry)
+        else:
+            other.append(entry)
     return {
-        "candidate_ek_certificate_handles": [
-            f"0x{h:08x}" for h in handles if is_ek_certificate_handle(h)
-        ],
-        "other_nv_handles": [
-            f"0x{h:08x}" for h in handles if not is_ek_certificate_handle(h)
-        ],
-    }
-
-def source_policy(command: list[str]) -> dict[str, Any]:
-    return {
-        "mode": "TPM_NV_ONLY",
-        "network_url_present": any(
-            token.startswith(("http://", "https://")) for token in command
-        ),
-        "explicit_network_option_present": any(
-            token in {"-X", "--allow-unverified"} for token in command
-        ),
-        "offline_option_present": any(
-            token in {"-x", "--offline"} for token in command
-        ),
-        "raw_output_requested": "--raw" in command,
+        "candidate_ek_certificate_handles": candidates,
+        "other_nv_handles": other,
     }
 
 def run(command: list[str], env: dict[str, str], cwd: Path) -> subprocess.CompletedProcess[str]:
@@ -82,31 +76,28 @@ def result(state: str, reason: str, details: dict[str, Any] | None = None) -> di
     return value
 
 def self_test() -> int:
-    inventory = "
-".join([
-        "0x01c00002",
-        "0x01c00004",
-        "0x01c00012",
-        "0x01c00014",
-        "0x01000000",
-    ])
-    classified = classify_handles(parse_handles(inventory))
-    if "0x01c00002" not in classified["candidate_ek_certificate_handles"]:
-        print("low-range certificate classification: FAIL")
+    handles = parse_handles(
+        "\n".join(
+            [
+                "0x01c00002",
+                "0x01c00004",
+                "0x01c00012",
+                "0x01c00014",
+                "0x01c00020",
+                "0x01000000",
+            ]
+        )
+    )
+    classified = classify_handles(handles)
+    candidate_ids = {item["handle"] for item in classified["candidate_ek_certificate_handles"]}
+    if candidate_ids != {"0x01c00002", "0x01c00012", "0x01c00014"}:
+        print("exact TCG EK certificate handle registry: FAIL")
         return 1
-    if "0x01c00012" not in classified["candidate_ek_certificate_handles"]:
-        print("high-range certificate classification: FAIL")
+    if any(item["handle"] == "0x01c00020" for item in classified["candidate_ek_certificate_handles"]):
+        print("reserved automotive handle misclassified as EK certificate: FAIL")
         return 1
-    if "0x01c00004" in classified["candidate_ek_certificate_handles"]:
-        print("non-certificate handle misclassified: FAIL")
-        return 1
-    policy = source_policy([
-        "tpm2_getekcertificate", "--raw", "-o", "ek-cert-rsa.der",
-    ])
-    if policy["mode"] != "TPM_NV_ONLY" or policy["network_url_present"] or policy["explicit_network_option_present"]:
-        print("NV-only policy: FAIL")
-        return 1
-    print("EK NV-only certificate capture semantic corpus: PASS")
+    print("EK NV certificate capture semantic corpus: PASS")
+    print("exact TCG/tpm2-tools certificate handle registry: PASS")
     return 0
 
 def capture(out: Path, env: dict[str, str]) -> int:
@@ -114,71 +105,103 @@ def capture(out: Path, env: dict[str, str]) -> int:
     inventory_path = out / "ek-nv-index-handles.txt"
     transcript_path = out / "ek-certificate-capture-transcript.json"
     result_path = out / "ek-certificate-capture.json"
-    rsa_path = out / "ek-cert-rsa.der"
-    ecc_path = out / "ek-cert-ecc.der"
-    if shutil.which("tpm2_getcap") is None or shutil.which("tpm2_getekcertificate") is None:
+
+    if shutil.which("tpm2_getcap") is None or shutil.which("tpm2_nvread") is None:
         result_value = result("INDETERMINATE", "required-tpm2-tools-unavailable")
-        result_path.write_text(json.dumps(result_value, indent=2, sort_keys=True) + "
-", encoding="utf-8")
+        result_path.write_text(
+            json.dumps(result_value, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
         return 2
 
-    inv = run(["tpm2_getcap", "handles-nv-index"], env, out)
-    inventory_path.write_text(inv.stdout + inv.stderr, encoding="utf-8")
-    classified = classify_handles(parse_handles(inventory_path.read_text(encoding="utf-8")))
-    for path in (rsa_path, ecc_path):
-        if path.exists():
-            path.unlink()
+    inventory = run(["tpm2_getcap", "handles-nv-index"], env, out)
+    inventory_path.write_text(inventory.stdout + inventory.stderr, encoding="utf-8")
+    handles = parse_handles(inventory_path.read_text(encoding="utf-8"))
+    classified = classify_handles(handles)
 
-    command = [
-        "tpm2_getekcertificate",
-        "--raw",
-        "-o", str(rsa_path),
-        "-o", str(ecc_path),
+    artifacts: dict[str, dict[str, Any]] = {}
+    commands: list[dict[str, Any]] = []
+    rsa_candidates = [
+        (handle, label)
+        for handle, label in EK_CERTIFICATE_HANDLES.items()
+        if label.startswith("rsa-") and handle in handles
     ]
-    proc = run(command, env, out)
-    present = {
-        kind: {
-            "present": path.is_file(),
-            "sha256": sha256_file(path) if path.is_file() else None,
-            "size": path.stat().st_size if path.is_file() else 0,
+    ecc_candidates = [
+        (handle, label)
+        for handle, label in EK_CERTIFICATE_HANDLES.items()
+        if label.startswith("ecc-") and handle in handles
+    ]
+
+    for handle, label in rsa_candidates + ecc_candidates:
+        output = out / f"ek-cert-{label}.der"
+        command = ["tpm2_nvread", f"{handle}", "-o", str(output)]
+        proc = run(command, env, out)
+        entry = {
+            "handle": f"0x{handle:08x}",
+            "profile_id": label,
+            "command": command,
+            "returncode": proc.returncode,
+            "stdout_sha256": hashlib.sha256(proc.stdout.encode()).hexdigest(),
+            "stderr_sha256": hashlib.sha256(proc.stderr.encode()).hexdigest(),
+            "present": output.is_file(),
+            "sha256": sha256_file(output) if output.is_file() else None,
+            "size": output.stat().st_size if output.is_file() else 0,
         }
-        for kind, path in (("rsa", rsa_path), ("ecc", ecc_path))
-    }
+        commands.append(entry)
+        artifacts[label] = {
+            "handle": entry["handle"],
+            "present": entry["present"],
+            "sha256": entry["sha256"],
+            "size": entry["size"],
+        }
+
+    rsa2048 = artifacts.get("rsa-2048") or artifacts.get("rsa-legacy-2048")
     transcript = {
         "inventory_command": ["tpm2_getcap", "handles-nv-index"],
-        "inventory_returncode": inv.returncode,
-        "inventory_stdout_sha256": hashlib.sha256(inv.stdout.encode()).hexdigest(),
-        "inventory_stderr_sha256": hashlib.sha256(inv.stderr.encode()).hexdigest(),
-        "certificate_command": command,
-        "certificate_returncode": proc.returncode,
-        "certificate_stdout_sha256": hashlib.sha256(proc.stdout.encode()).hexdigest(),
-        "certificate_stderr_sha256": hashlib.sha256(proc.stderr.encode()).hexdigest(),
-        "source_policy": source_policy(command),
-        "candidate_handles": classified["candidate_ek_certificate_handles"],
+        "inventory_returncode": inventory.returncode,
+        "inventory_stdout_sha256": hashlib.sha256(inventory.stdout.encode()).hexdigest(),
+        "inventory_stderr_sha256": hashlib.sha256(inventory.stderr.encode()).hexdigest(),
+        "certificate_reads": commands,
+        "source_policy": {
+            "mode": "TPM_NV_ONLY",
+            "network_access": False,
+            "network_url_present": False,
+            "web_certificate_option_present": False,
+            "offline_remote_lookup": False,
+            "raw_bytes_preserved": True,
+        },
     }
-    transcript_path.write_text(json.dumps(transcript, indent=2, sort_keys=True) + "
-", encoding="utf-8")
+    transcript_path.write_text(
+        json.dumps(transcript, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
-    policy = source_policy(command)
-    if policy["network_url_present"] or policy["explicit_network_option_present"] or policy["offline_option_present"]:
-        state, reason = "DENY", "certificate-source-policy-invalid"
-    elif proc.returncode == 0 and any(v["present"] for v in present.values()):
-        state, reason = "PASS", "ek-certificate-captured-from-tpm-nv-path"
-    elif proc.returncode == 0:
-        state, reason = "INDETERMINATE", "no-ek-certificate-artifact-returned"
+    if rsa2048 and rsa2048["present"]:
+        state = "PASS"
+        reason = "rsa-ek-certificate-read-directly-from-tcg-nv-index"
     elif classified["candidate_ek_certificate_handles"]:
-        state, reason = "INDETERMINATE", "ek-certificate-nv-present-but-retrieval-failed"
+        state = "INDETERMINATE"
+        reason = "candidate-ek-certificate-nv-index-present-but-rsa-certificate-unavailable"
     else:
-        state, reason = "INDETERMINATE", "no-tcg-ek-certificate-nv-index-observed"
-    result_value = result(state, reason, {
-        "source_policy": policy,
-        "inventory_sha256": sha256_file(inventory_path),
-        "transcript_sha256": sha256_file(transcript_path),
-        "candidate_handles": classified["candidate_ek_certificate_handles"],
-        "artifacts": present,
-    })
-    result_path.write_text(json.dumps(result_value, indent=2, sort_keys=True) + "
-", encoding="utf-8")
+        state = "INDETERMINATE"
+        reason = "no-tcg-ek-certificate-nv-index-observed"
+
+    return_value = result(
+        state,
+        reason,
+        {
+            "source_policy": transcript["source_policy"],
+            "inventory_sha256": sha256_file(inventory_path),
+            "transcript_sha256": sha256_file(transcript_path),
+            "candidate_handles": classified["candidate_ek_certificate_handles"],
+            "artifacts": artifacts,
+            "rsa_certificate": rsa2048,
+        },
+    )
+    result_path.write_text(
+        json.dumps(return_value, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
     return {"PASS": 0, "DENY": 1, "INDETERMINATE": 2}[state]
 
 def main() -> int:
@@ -192,8 +215,7 @@ def main() -> int:
         return self_test()
     if not args.output:
         parser.error("--output is required with --capture")
-    env = os.environ.copy()
-    return capture(Path(args.output).resolve(), env)
+    return capture(Path(args.output).resolve(), os.environ.copy())
 
 if __name__ == "__main__":
     raise SystemExit(main())
