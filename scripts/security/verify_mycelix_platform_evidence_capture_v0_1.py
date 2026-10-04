@@ -19,6 +19,8 @@ ROOT = Path(__file__).resolve().parents[2]
 CONTRACT = ROOT / "docs/security/mycelix-platform-evidence-capture-v0.1.json"
 RECONSTRUCTION_SCRIPT = ROOT / "scripts/security/reconstruct_mycelix_pc_client_eventlog_v0_1.py"
 ADAPTER_SCRIPT = ROOT / "scripts/security/adapt_mycelix_tpm2_eventlog_yaml_v1_v0_1.py"
+RAW_EVENTLOG_PARSER_SCRIPT = ROOT / "scripts/security/parse_mycelix_raw_tpm2_eventlog_v0_1.py"
+PAYLOAD_COHERENCE_SCRIPT = ROOT / "scripts/security/verify_mycelix_event_payload_digest_coherence_v0_1.py"
 RECONSTRUCTION_VERIFIER_ID = "mycelix.pc-client.eventlog-reconstruction.v0.1"
 
 
@@ -123,6 +125,13 @@ def session_binding(manifest: dict[str, Any]) -> str:
             "reconstruction_verifier_source_sha256": manifest["reconstruction"]["verifier_source_sha256"],
             "os_image_digest": manifest["os_image_digest"],
             "workload_digest": manifest["workload_digest"],
+            "raw_eventlog_parser_status": manifest["raw_eventlog"]["status"],
+            "raw_eventlog_parser_output_sha256": manifest["raw_eventlog"]["output_sha256"],
+            "raw_eventlog_parser_source_sha256": manifest["raw_eventlog"]["source_sha256"],
+            "payload_coherence_status": manifest["payload_coherence"]["status"],
+            "payload_coherence_output_sha256": manifest["payload_coherence"]["output_sha256"],
+            "payload_coherence_source_sha256": manifest["payload_coherence"]["source_sha256"],
+            "payload_coherence_input_sha256": manifest["payload_coherence"]["input_sha256"],
         }
     )
 
@@ -172,6 +181,13 @@ def fixture_manifest() -> dict[str, Any]:
             "parser_status": "PASS",
             "parser_output_sha256": "7" * 64,
         },
+        "raw_eventlog": {
+            "status": "PASS",
+            "parser_id": "mycelix.pc-client.raw-tpm2-eventlog-parser.v0.1",
+            "output_sha256": "8" * 64,
+            "source_sha256": sha256_file(RAW_EVENTLOG_PARSER_SCRIPT),
+            "binary_sha256": "c" * 64,
+        },
         "quote": {
             "pcr_selection": "sha256:0,2,4,7",
             "nonce_sha256": "d" * 64,
@@ -205,6 +221,12 @@ def fixture_manifest() -> dict[str, Any]:
             "pcr_values_sha256": pcr_values_hash(live),
             "pcr_values_file_sha256": "a" * 64,
         },
+        "payload_coherence": {
+            "status": "INDETERMINATE",
+            "output_sha256": "9" * 64,
+            "source_sha256": sha256_file(PAYLOAD_COHERENCE_SCRIPT),
+            "input_sha256": "3" * 64,
+        },
         "artifacts": {
             "quote_message_sha256": "5" * 64,
             "quote_signature_sha256": "6" * 64,
@@ -212,6 +234,8 @@ def fixture_manifest() -> dict[str, Any]:
             "reconstruction_file_sha256": "8" * 64,
             "reconstruction_input_sha256": "3" * 64,
             "observed_pcr_values_file_sha256": "a" * 64,
+            "raw_eventlog_output_sha256": "8" * 64,
+            "payload_coherence_output_sha256": "9" * 64,
             "tss_version_evidence_sha256": "f" * 64,
             "ek_public_sha256": "b" * 64,
         },
@@ -350,6 +374,19 @@ def validate_semantics(manifest: dict[str, Any]) -> tuple[str, str]:
             "parser_status",
             "parser_output_sha256",
         ),
+        "raw_eventlog": (
+            "status",
+            "parser_id",
+            "output_sha256",
+            "source_sha256",
+            "binary_sha256",
+        ),
+        "payload_coherence": (
+            "status",
+            "output_sha256",
+            "source_sha256",
+            "input_sha256",
+        ),
         "quote": ("pcr_selection", "nonce_sha256", "attestation_key_sha256"),
         "challenge": ("sha256", "origin"),
         "toolchain": (
@@ -377,6 +414,8 @@ def validate_semantics(manifest: dict[str, Any]) -> tuple[str, str]:
             "reconstruction_file_sha256",
             "reconstruction_input_sha256",
             "observed_pcr_values_file_sha256",
+            "raw_eventlog_output_sha256",
+            "payload_coherence_output_sha256",
             "tss_version_evidence_sha256",
             "ek_public_sha256",
         ),
@@ -431,6 +470,16 @@ def validate_semantics(manifest: dict[str, Any]) -> tuple[str, str]:
         denies.append("ek-artifact-binding-mismatch")
     if manifest["live_observation"]["pcr_values_file_sha256"] != manifest["artifacts"]["observed_pcr_values_file_sha256"]:
         denies.append("observed-pcr-file-binding-mismatch")
+    if manifest["raw_eventlog"]["status"] != "PASS":
+        denies.append("raw-eventlog-parser-failed")
+    if manifest["raw_eventlog"]["parser_id"] != "mycelix.pc-client.raw-tpm2-eventlog-parser.v0.1":
+        denies.append("raw-eventlog-parser-id-mismatch")
+    if manifest["raw_eventlog"]["binary_sha256"] != manifest["event_log"]["sha256"]:
+        denies.append("raw-eventlog-binary-binding-mismatch")
+    if manifest["payload_coherence"]["source_sha256"] != sha256_file(PAYLOAD_COHERENCE_SCRIPT):
+        denies.append("payload-coherence-source-binding-mismatch")
+    if manifest["payload_coherence"]["input_sha256"] != manifest["reconstruction"]["input_sha256"]:
+        denies.append("payload-coherence-input-binding-mismatch")
 
     if (
         manifest["reconstruction"]["status"] == "PASS"
@@ -548,6 +597,47 @@ def run_quote_check(bundle: Path) -> tuple[str, str]:
         else ("DENY", "tpm2-checkquote-rejected")
     )
 
+
+def validate_raw_eventlog_result(raw: dict[str, Any], manifest: dict[str, Any]) -> tuple[str, str]:
+    required = {"profile_id", "profile_version", "parser_id", "parser_source_sha256", "binary_sha256", "events", "content_sha256"}
+    missing = sorted(required - set(raw))
+    if missing:
+        return "DENY", "raw-eventlog-missing-" + ",".join(missing)
+    if raw["profile_id"] != "mycelix.security.platform.binary-eventlog.extraction":
+        return "DENY", "raw-eventlog-profile-mismatch"
+    if raw["profile_version"] != "0.1.0":
+        return "DENY", "raw-eventlog-version-mismatch"
+    if raw["parser_id"] != "mycelix.pc-client.raw-tpm2-eventlog-parser.v0.1":
+        return "DENY", "raw-eventlog-parser-id-mismatch"
+    if raw["parser_source_sha256"] != sha256_file(RAW_EVENTLOG_PARSER_SCRIPT):
+        return "DENY", "raw-eventlog-parser-source-mismatch"
+    if raw["binary_sha256"] != manifest["event_log"]["sha256"]:
+        return "DENY", "raw-eventlog-binary-binding-mismatch"
+    if raw["content_sha256"] != self_hash(raw, "content_sha256"):
+        return "DENY", "raw-eventlog-content-integrity-mismatch"
+    events = raw["events"]
+    if not isinstance(events, list) or not events:
+        return "DENY", "raw-eventlog-events-invalid"
+    previous = -1
+    for event in events:
+        if not isinstance(event, dict):
+            return "DENY", "raw-eventlog-event-not-object"
+        if not isinstance(event.get("sequence"), int) or event["sequence"] <= previous:
+            return "DENY", "raw-eventlog-sequence-invalid"
+        previous = event["sequence"]
+        if not isinstance(event.get("pcr"), int) or not 0 <= event["pcr"] < 24:
+            return "DENY", "raw-eventlog-pcr-index-invalid"
+        if not isinstance(event.get("event_type"), str) or not event["event_type"]:
+            return "DENY", "raw-eventlog-type-invalid"
+        payload = event.get("payload_hex")
+        if not isinstance(payload, str) or len(payload) % 2 or any(c not in "0123456789abcdefABCDEF" for c in payload):
+            return "DENY", "raw-eventlog-payload-hex-invalid"
+        digests = event.get("digests")
+        if not isinstance(digests, dict):
+            return "DENY", "raw-eventlog-digests-invalid"
+        if "sha256" in digests and event.get("digest_sha256") != digests["sha256"]:
+            return "DENY", "raw-eventlog-sha256-digest-binding-mismatch"
+    return "PASS", "raw-eventlog-structure-valid"
 
 def validate_reconstruction_result(
     reconstruction: dict[str, Any],
@@ -680,6 +770,8 @@ def verify_bundle(args: argparse.Namespace) -> int:
         "tss-version-evidence.txt": manifest["toolchain"]["tss_version_evidence_sha256"],
         "eventlog-reconstruction-input.json": manifest["reconstruction"]["input_sha256"],
         "observed-pcr-values.json": manifest["live_observation"]["pcr_values_file_sha256"],
+        "raw-eventlog.json": manifest["raw_eventlog"]["output_sha256"],
+        "payload-coherence.json": manifest["payload_coherence"]["output_sha256"],
         "eventlog-reconstruction.json": manifest["artifacts"]["reconstruction_file_sha256"],
     }
     for relative, expected in checks.items():
@@ -710,6 +802,11 @@ def verify_bundle(args: argparse.Namespace) -> int:
 
     reconstruction_path = bundle / "eventlog-reconstruction.json"
     reconstruction = load_json(reconstruction_path)
+    raw_eventlog = load_json(bundle / "raw-eventlog.json")
+    raw_state, raw_reason = validate_raw_eventlog_result(raw_eventlog, manifest)
+    print(f"Raw event-log validation: {raw_state} ({raw_reason})")
+    if raw_state != "PASS":
+        return 1 if raw_state == "DENY" else 2
     if self_hash(reconstruction, "content_sha256") != reconstruction.get("content_sha256"):
         print("PLATFORM EVIDENCE: DENY: reconstruction-self-hash-mismatch")
         return 1
@@ -737,6 +834,36 @@ def verify_bundle(args: argparse.Namespace) -> int:
         if independent != reconstruction:
             print("PLATFORM EVIDENCE: DENY: supplied reconstruction differs from independent execution")
             return 1
+
+    payload_result = load_json(bundle / "payload-coherence.json")
+    if payload_result.get("profile_id") != "mycelix.security.event-payload-digest-coherence":
+        print("PLATFORM EVIDENCE: DENY: payload-coherence-profile-mismatch")
+        return 1
+    if payload_result.get("profile_version") != "0.1.0":
+        print("PLATFORM EVIDENCE: DENY: payload-coherence-version-mismatch")
+        return 1
+    if payload_result.get("verifier_id") != "mycelix.pc-client.event-payload-digest-coherence.v0.1":
+        print("PLATFORM EVIDENCE: DENY: payload-coherence-verifier-id-mismatch")
+        return 1
+    if payload_result.get("verifier_source_sha256") != sha256_file(PAYLOAD_COHERENCE_SCRIPT):
+        print("PLATFORM EVIDENCE: DENY: payload-coherence-source-mismatch")
+        return 1
+    if payload_result.get("input_sha256") != sha256_file(input_path):
+        print("PLATFORM EVIDENCE: DENY: payload-coherence-input-mismatch")
+        return 1
+    if payload_result.get("content_sha256") != self_hash(payload_result, "content_sha256"):
+        print("PLATFORM EVIDENCE: DENY: payload-coherence-self-hash-mismatch")
+        return 1
+    payload_state = payload_result.get("state")
+    if payload_state == "DENY":
+        print("PLATFORM EVIDENCE: DENY: payload-coherence-failure")
+        return 1
+    if payload_state not in {"PASS", "INDETERMINATE"}:
+        print("PLATFORM EVIDENCE: DENY: payload-coherence-state-invalid")
+        return 1
+    if manifest["payload_coherence"]["status"] != payload_state:
+        print("PLATFORM EVIDENCE: DENY: payload-coherence-manifest-state-mismatch")
+        return 1
 
     quote_state, quote_reason = run_quote_check(bundle)
     print(f"TPM Quote verification: {quote_state} ({quote_reason})")
@@ -913,8 +1040,16 @@ def capture(args: argparse.Namespace) -> int:
     if parsed.returncode != 0:
         raise RuntimeError("tpm2_eventlog parser failed; raw evidence preserved but not qualified")
 
+    raw_eventlog_path = out / "raw-eventlog.json"
+    raw_parse = run(
+        [sys.executable, str(RAW_EVENTLOG_PARSER_SCRIPT), "--parse", str(out / "eventlog.bin"), "--output", str(raw_eventlog_path)],
+        env, out, check=False,
+    )
+    if raw_parse.returncode != 0:
+        raise RuntimeError("independent raw event-log parser failed; raw evidence preserved but not qualified")
     trusted = load_json(out / "trusted-time.json")
     input_path = out / "eventlog-reconstruction-input.json"
+
     reconstruction_path = out / "eventlog-reconstruction.json"
     adapter = run(
         [
@@ -926,6 +1061,8 @@ def capture(args: argparse.Namespace) -> int:
             str(out / "eventlog.bin"),
             "--observed-pcr-json",
             str(out / "observed-pcr-values.json"),
+            "--payload-json",
+            str(raw_eventlog_path),
             "--session-id",
             session_id,
             "--pcr-selection",
@@ -970,6 +1107,23 @@ def capture(args: argparse.Namespace) -> int:
             )
         if replay.returncode not in (0, 1, 2):
             raise RuntimeError("independent event-log reconstruction process failed")
+        payload_coherence_path = out / "payload-coherence.json"
+        payload_proc = run(
+            [
+                sys.executable,
+                str(PAYLOAD_COHERENCE_SCRIPT),
+                "--verify",
+                str(input_path),
+                "--output",
+                str(payload_coherence_path),
+            ],
+            env,
+            out,
+            check=False,
+        )
+        if payload_proc.returncode not in (0, 2) and not payload_coherence_path.is_file():
+            raise RuntimeError("payload coherence verifier failed without producing a result")
+        payload_coherence = load_json(payload_coherence_path)
     else:
         input_path.write_text(
             json.dumps({
@@ -995,7 +1149,22 @@ def capture(args: argparse.Namespace) -> int:
         reconstruction_path.write_text(
             json.dumps(reconstruction, indent=2, sort_keys=True) + "\n", encoding="utf-8"
         )
-
+        payload_coherence_path = out / "payload-coherence.json"
+        payload_coherence = {
+            "profile_id": "mycelix.security.event-payload-digest-coherence",
+            "profile_version": "0.1.0",
+            "verifier_id": "mycelix.pc-client.event-payload-digest-coherence.v0.1",
+            "verifier_source_sha256": sha256_file(PAYLOAD_COHERENCE_SCRIPT),
+            "input_sha256": sha256_file(input_path),
+            "event_count": 0,
+            "event_results": [],
+            "state": "INDETERMINATE",
+            "reason": "canonical-input-unavailable",
+        }
+        payload_coherence["content_sha256"] = self_hash(payload_coherence, "content_sha256")
+        payload_coherence_path.write_text(
+            json.dumps(payload_coherence, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
     ek_hash = sha256_file(out / "ek.pub")
     manifest: dict[str, Any] = {
         "profile_id": "mycelix.security.platform.evidence.capture",
@@ -1014,6 +1183,19 @@ def capture(args: argparse.Namespace) -> int:
             "parser_profile_version": "1.0",
             "parser_status": "PASS",
             "parser_output_sha256": sha256_file(out / "eventlog-parsed.yaml"),
+        },
+        "raw_eventlog": {
+            "status": "PASS",
+            "parser_id": "mycelix.pc-client.raw-tpm2-eventlog-parser.v0.1",
+            "output_sha256": sha256_file(raw_eventlog_path),
+            "source_sha256": sha256_file(RAW_EVENTLOG_PARSER_SCRIPT),
+            "binary_sha256": sha256_file(out / "eventlog.bin"),
+        },
+        "payload_coherence": {
+            "status": payload_coherence.get("state", "DENY"),
+            "output_sha256": sha256_file(payload_coherence_path),
+            "source_sha256": sha256_file(PAYLOAD_COHERENCE_SCRIPT),
+            "input_sha256": sha256_file(input_path),
         },
         "quote": {
             "pcr_selection": args.pcr_selection,
@@ -1053,6 +1235,7 @@ def capture(args: argparse.Namespace) -> int:
             "reconstruction_file_sha256": sha256_file(out / "eventlog-reconstruction.json"),
             "reconstruction_input_sha256": sha256_file(out / "eventlog-reconstruction-input.json"),
             "observed_pcr_values_file_sha256": sha256_file(out / "observed-pcr-values.json"),
+            "raw_eventlog_output_sha256": sha256_file(raw_eventlog_path),
             "tss_version_evidence_sha256": sha256_file(out / "tss-version-evidence.txt"),
             "ek_public_sha256": ek_hash,
         },
@@ -1080,6 +1263,7 @@ def capture(args: argparse.Namespace) -> int:
     print("Event-log parser: PASS")
     print(f"Event-log reconstruction: {reconstruction.get('status', 'INDETERMINATE')}")
     print(f"Event-log reconstruction reason: {reconstruction.get('reason', 'unknown')}")
+    print(f"Payload coherence: {payload_coherence.get('state', 'DENY')} ({payload_coherence.get('reason', 'unknown')})")
     print("Claim ceiling: ReferenceModelOnly")
     return 0
 

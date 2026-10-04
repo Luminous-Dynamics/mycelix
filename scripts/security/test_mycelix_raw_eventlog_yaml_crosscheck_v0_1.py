@@ -133,6 +133,48 @@ pcrs:
             print("canonical payload propagation: FAIL")
             return 1
 
+        bad_binary_meta = json.loads(raw_json.read_text(encoding="utf-8"))
+        bad_binary_meta["binary_sha256"] = "00" * 32
+        bad_binary_path = root / "bad-binary-meta.json"
+        bad_binary_path.write_text(
+            json.dumps(bad_binary_meta, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        if call(
+            ADAPTER,
+            [
+                "--adapt", str(yaml),
+                "--binary-eventlog", str(binary),
+                "--observed-pcr-json", str(observed),
+                "--payload-json", str(bad_binary_path),
+                "--session-id", "raw-yaml-crosscheck",
+                "--pcr-selection", "sha256:0",
+                "--output", str(root / "bad-binary-output.json"),
+            ],
+        ) == 0:
+            print("sidecar/binary provenance rejection: FAIL")
+            return 1
+
+        bad_source_meta = json.loads(raw_json.read_text(encoding="utf-8"))
+        bad_source_meta["parser_source_sha256"] = "11" * 32
+        bad_source_path = root / "bad-source-meta.json"
+        bad_source_path.write_text(
+            json.dumps(bad_source_meta, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        if call(
+            ADAPTER,
+            [
+                "--adapt", str(yaml),
+                "--binary-eventlog", str(binary),
+                "--observed-pcr-json", str(observed),
+                "--payload-json", str(bad_source_path),
+                "--session-id", "raw-yaml-crosscheck",
+                "--pcr-selection", "sha256:0",
+                "--output", str(root / "bad-source-output.json"),
+            ],
+        ) == 0:
+            print("sidecar/source provenance rejection: FAIL")
+            return 1
+
         # Payload coherence is INDETERMINATE overall because the SpecID control
         # event is non-extending, but the directly verifiable separator must PASS.
         rc = call(PAYLOAD, ["--verify", str(canonical), "--output", str(result)])
