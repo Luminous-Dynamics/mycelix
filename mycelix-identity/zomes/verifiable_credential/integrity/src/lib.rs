@@ -386,21 +386,43 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         }
         FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterUpdate(update) => {
-            let action = match &update {
-                OpUpdate::Entry { action, .. }
-                | OpUpdate::PrivateEntry { action, .. }
-                | OpUpdate::Agent { action, .. }
-                | OpUpdate::CapClaim { action, .. }
-                | OpUpdate::CapGrant { action, .. } => action,
-            };
-            let original = must_get_action(action.original_action_address.clone())?;
-            if *original.action().author() != action.author {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Only the original entry author can update their entries".into(),
-                ));
+        FlatOp::RegisterUpdate(update) => match update {
+            OpUpdate::Entry {
+                app_entry,
+                action,
+                ..
+            } => {
+                let original = must_get_action(action.original_action_address.clone())?;
+                if *original.action().author() != action.author {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "Only the original entry author can update their entries".into(),
+                    ));
+                }
+
+                match app_entry {
+                    EntryTypes::CredentialRequest(req) => {
+                        validate_update_credential_request(action, req)
+                    }
+                    EntryTypes::EncryptedEntry(_) => Ok(ValidateCallbackResult::Invalid(
+                        "Encrypted entries are append-only (re-encrypt instead)".into(),
+                    )),
+                    _ => Ok(ValidateCallbackResult::Invalid(
+                        "Credentials and presentations cannot be updated".into(),
+                    )),
+                }
             }
-            Ok(ValidateCallbackResult::Valid)
+            OpUpdate::PrivateEntry { action, .. }
+            | OpUpdate::Agent { action, .. }
+            | OpUpdate::CapClaim { action, .. }
+            | OpUpdate::CapGrant { action, .. } => {
+                let original = must_get_action(action.original_action_address.clone())?;
+                if *original.action().author() != action.author {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "Only the original entry author can update their entries".into(),
+                    ));
+                }
+                Ok(ValidateCallbackResult::Valid)
+            }
         }
         FlatOp::RegisterDelete(OpDelete { action }) => {
             let original = must_get_action(action.deletes_address.clone())?;
