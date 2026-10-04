@@ -439,6 +439,21 @@ fn did_to_agent(did: &str) -> Option<AgentPubKey> {
         .and_then(|value| AgentPubKey::try_from(value).ok())
 }
 
+/// Application security timestamps cannot claim a point later than the signed
+/// Holochain action that carries them.
+fn validate_timestamp_not_future(
+    field: &str,
+    value: Timestamp,
+    action_timestamp: Timestamp,
+) -> Result<(), String> {
+    if value > action_timestamp {
+        return Err(format!(
+            "{field} cannot be later than its signed Holochain action timestamp"
+        ));
+    }
+    Ok(())
+}
+
 fn validate_recovery_link(
     link_type: LinkTypes,
     base_address: &AnyLinkableHash,
@@ -640,6 +655,14 @@ fn validate_create_recovery_config(
             "Recovery configuration DID must match the author's canonical DID".into(),
         ));
     }
+    for (field, value) in [
+        ("Recovery config created timestamp", config.created),
+        ("Recovery config updated timestamp", config.updated),
+    ] {
+        if let Err(message) = validate_timestamp_not_future(field, value, *action.timestamp()) {
+            return Ok(ValidateCallbackResult::Invalid(message));
+        }
+    }
 
     // Validate trustee count (3-7)
     if config.trustees.len() < 3 || config.trustees.len() > 7 {
@@ -824,11 +847,18 @@ fn validate_update_recovery_config(
         ));
     }
 
-    // Updated timestamp must advance
+    // Updated timestamp must advance and remain subordinate to the signed action clock.
     if config.updated <= original.updated {
         return Ok(ValidateCallbackResult::Invalid(
             "Recovery config updated timestamp must advance".into(),
         ));
+    }
+    if let Err(message) = validate_timestamp_not_future(
+        "Recovery config updated timestamp",
+        config.updated,
+        *action.timestamp(),
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(message));
     }
 
     Ok(ValidateCallbackResult::Valid)
@@ -1131,6 +1161,14 @@ fn validate_create_recovery_request(
         ));
     }
 
+    if let Err(message) = validate_timestamp_not_future(
+        "Recovery request created timestamp",
+        request.created,
+        *action.timestamp(),
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(message));
+    }
+
     // Bind request identity to immutable request fields. This prevents a
     // modified coordinator from choosing arbitrary identifiers that could make
     // two logically distinct requests share a quorum namespace.
@@ -1424,6 +1462,15 @@ fn validate_create_self_recovery_config(
             "Self-recovery configuration DID must match the author's canonical DID".into(),
         ));
     }
+    for (field, value) in [
+        ("Self-recovery config created timestamp", config.created),
+        ("Self-recovery config updated timestamp", config.updated),
+    ] {
+        if let Err(message) = validate_timestamp_not_future(field, value, *action.timestamp()) {
+            return Ok(ValidateCallbackResult::Invalid(message));
+        }
+    }
+
     // Time lock minimum: 72 hours for self-recovery (stronger than social's 24h)
     if config.time_lock < SELF_RECOVERY_MIN_TIME_LOCK {
         return Ok(ValidateCallbackResult::Invalid(format!(
@@ -1478,6 +1525,13 @@ fn validate_update_self_recovery_config(
         return Ok(ValidateCallbackResult::Invalid(
             "Self-recovery config updated timestamp must advance".into(),
         ));
+    }
+    if let Err(message) = validate_timestamp_not_future(
+        "Self-recovery config updated timestamp",
+        config.updated,
+        *action.timestamp(),
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(message));
     }
 
     if config.time_lock < SELF_RECOVERY_MIN_TIME_LOCK {
@@ -1543,6 +1597,13 @@ fn validate_create_self_recovery_request(
         return Ok(ValidateCallbackResult::Invalid(
             "Self-recovery request new_agent must be the committing agent".into(),
         ));
+    }
+    if let Err(message) = validate_timestamp_not_future(
+        "Self-recovery request created timestamp",
+        request.created,
+        *action.timestamp(),
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(message));
     }
     if !request.did.starts_with("did:mycelix:") {
         return Ok(ValidateCallbackResult::Invalid(
@@ -1662,6 +1723,29 @@ mod tests {
             Just(VoteDecision::Reject),
             Just(VoteDecision::Abstain),
         ]
+    }
+
+    #[test]
+    fn security_timestamps_cannot_be_future_dated() {
+        let action_timestamp = Timestamp::from_micros(1_000_000);
+        assert!(validate_timestamp_not_future(
+            "Recovery config created timestamp",
+            Timestamp::from_micros(1_000_000),
+            action_timestamp,
+        )
+        .is_ok());
+        assert!(validate_timestamp_not_future(
+            "Recovery request created timestamp",
+            Timestamp::from_micros(1_000_001),
+            action_timestamp,
+        )
+        .is_err());
+        assert!(validate_timestamp_not_future(
+            "Self-recovery config updated timestamp",
+            Timestamp::from_micros(999_999),
+            action_timestamp,
+        )
+        .is_ok());
     }
 
     #[test]
