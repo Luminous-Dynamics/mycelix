@@ -63,6 +63,38 @@ jobs:
         working-directory: d6u-runtime-harness
         run: python3 ../scripts/integral/verify_d6u_runtime_lock.py Cargo.lock
 
+      - name: Negative-test substrate lock verifier
+        if: success()
+        working-directory: d6u-runtime-harness
+        run: |
+          set -euo pipefail
+          tampered_lock=$(mktemp)
+          cp Cargo.lock "$tampered_lock"
+          python3 - "$tampered_lock" <<'PY'
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+lines = path.read_text(encoding="utf-8").splitlines()
+inside_holochain = False
+for index, line in enumerate(lines):
+    if line == "[[package]]":
+        inside_holochain = False
+    elif line == 'name = "holochain"':
+        inside_holochain = True
+    elif inside_holochain and line == 'version = "0.7.0"':
+        lines[index] = 'version = "0.0.0"'
+        break
+else:
+    raise SystemExit("holochain lock package/version not found")
+path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+PY
+          if python3 ../scripts/integral/verify_d6u_runtime_lock.py "$tampered_lock"; then
+            echo "tampered Cargo.lock was incorrectly accepted"
+            exit 1
+          fi
+          rm -f "$tampered_lock"
+
       - name: Test D6U runtime boundary
         working-directory: d6u-runtime-harness
         run: |
