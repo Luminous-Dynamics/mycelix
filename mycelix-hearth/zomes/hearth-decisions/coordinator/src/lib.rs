@@ -715,7 +715,7 @@ pub fn close_decision(input: CloseDecisionInput) -> ExternResult<Record> {
         closed_by: agent,
     })?;
 
-    let record = get(input.decision_hash, GetOptions::default())?.ok_or(wasm_error!(
+    let record = get_current_decision_record(input.decision_hash)?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Could not find the updated Decision".into())
     ))?;
 
@@ -731,7 +731,7 @@ pub fn amend_vote(input: AmendVoteInput) -> ExternResult<Record> {
     let agent = agent_info()?.agent_initial_pubkey;
 
     // Get the decision
-    let decision_record = get(input.decision_hash.clone(), GetOptions::default())?.ok_or(
+    let decision_record = get_current_decision_record(input.decision_hash.clone())?.ok_or(
         wasm_error!(WasmErrorInner::Guest("Decision not found".into())),
     )?;
     let decision: Decision = decision_record
