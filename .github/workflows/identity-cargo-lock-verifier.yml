@@ -1,0 +1,80 @@
+name: Identity Cargo Lock Verifier
+
+on:
+  push:
+    branches:
+      - feat/sovereign-identity-live-bootstrap
+    paths:
+      - 'mycelix-identity/Cargo.toml'
+      - 'mycelix-identity/**/Cargo.toml'
+      - '.github/workflows/identity-cargo-lock-verifier.yml'
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'mycelix-identity/Cargo.toml'
+      - 'mycelix-identity/**/Cargo.toml'
+      - '.github/workflows/identity-cargo-lock-verifier.yml'
+
+concurrency:
+  group: identity-cargo-lock-${{ github.event.pull_request.number || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Generate and verify Identity Cargo lockfile
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Assert exact qualified head checkout
+        run: |
+          checked_out="$(git rev-parse HEAD)"
+          expected="${{ github.event.pull_request.head.sha || github.sha }}"
+          test "$checked_out" = "$expected"
+          echo "Qualified head: $expected"
+          echo "Checked out:    $checked_out"
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Generate candidate Cargo lockfile
+        run: |
+          cd mycelix-identity
+          cp Cargo.lock Cargo.lock.committed
+          cargo generate-lockfile --manifest-path Cargo.toml
+          sha256sum Cargo.lock.committed > "$GITHUB_WORKSPACE/identity-cargo-lock-committed.sha256"
+          sha256sum Cargo.lock > "$GITHUB_WORKSPACE/identity-cargo-lock-candidate.sha256"
+          git diff --no-index -- Cargo.lock.committed Cargo.lock > "$GITHUB_WORKSPACE/identity-cargo-lock.diff" || true
+          if cmp -s Cargo.lock.committed Cargo.lock; then
+            echo "CARGO_LOCK_STATUS unchanged" > "$GITHUB_WORKSPACE/identity-cargo-lock-status.txt"
+          else
+            echo "CARGO_LOCK_STATUS differs" > "$GITHUB_WORKSPACE/identity-cargo-lock-status.txt"
+          fi
+
+      - name: Summarize candidate lockfile drift
+        run: |
+          cat identity-cargo-lock-status.txt
+          cat identity-cargo-lock-committed.sha256
+          cat identity-cargo-lock-candidate.sha256
+          if grep -q '^CARGO_LOCK_STATUS differs$' identity-cargo-lock-status.txt; then
+            echo "Candidate lockfile differs from the committed lockfile."
+            sed -n '1,240p' identity-cargo-lock.diff
+          fi
+
+      - name: Upload lockfile diagnostic
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: identity-cargo-lock-diagnostic-${{ github.event.pull_request.head.sha || github.sha }}
+          if-no-files-found: error
+          path: |
+            mycelix-identity/Cargo.lock.committed
+            mycelix-identity/Cargo.lock
+            identity-cargo-lock.diff
+            identity-cargo-lock-status.txt
+            identity-cargo-lock-committed.sha256
+            identity-cargo-lock-candidate.sha256
