@@ -1415,6 +1415,22 @@ impl EconomicState {
 mod tests {
 
     #[test]
+    fn real_asset_revaluation_loss_cannot_create_negative_asset_stock() {
+        let mut state = EconomicState::new(vec![ActorBalanceSheet::new("firm")]);
+        state.actors[0].real.productive_capital = 10;
+
+        let loss = RealAssetRevaluation::new(
+            "firm",
+            RealAssetRevaluationTarget::ProductiveCapital,
+            -11,
+        )
+        .unwrap();
+
+        assert!(state.apply_real_asset_revaluation(&loss).is_err());
+        assert_eq!(state.actors[0].real.productive_capital, 10);
+    }
+
+    #[test]
     fn real_asset_revaluation_is_non_cash_and_preserves_physical_quantity() {
         let mut state = EconomicState::new(vec![ActorBalanceSheet::new("firm")]);
         state.actors[0].real.productive_capital = 100;
