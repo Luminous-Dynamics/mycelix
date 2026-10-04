@@ -359,6 +359,15 @@ impl HolochainDependencyBindingSet {
         // a duplicate witness or logical-identity conflict.
         validate_address_kind(&address, retrieval)?;
 
+        // Preserve the pure-layer conflict precedence: an existing logical
+        // identity is the primary immutable binding conflict, ahead of any
+        // secondary witness-reuse conflict.
+        if self.inner.contains(&identity) {
+            return Err(HolochainAdapterBoundaryError::BindingRejected {
+                reason: "logical qualification dependency cannot be bound to multiple protocol addresses".into(),
+            });
+        }
+
         if self
             .provenance
             .values()
