@@ -309,15 +309,25 @@ mod tests {
     #[test]
     fn same_scope_id_with_changed_contents_cannot_authorize_execution() {
         let mut lifecycle = lifecycle();
+        lifecycle
+            .record(
+                "revision:2",
+                EconomicActionStage::Contracted,
+                EconomicActionChangeKind::Update,
+                &scope("action:1", "scope:1"),
+                "authority:dao-1",
+                vec!["evidence:contract".into()],
+                1_100,
+            )
+            .unwrap();
+
         let mut altered = scope("action:1", "scope:1");
         altered.authority_ref = "authority:changed".into();
 
         let mut receipt = receipt(&lifecycle, EconomicExecutionKind::Payment);
         receipt.scope_fingerprint = altered.fingerprint().unwrap();
 
-        lifecycle.current_stage = EconomicActionStage::Contracted;
         let mut ledger = EconomicExecutionLedger::new("action:1").unwrap();
-
         assert!(ledger.record(&lifecycle, receipt).is_err());
     }
 
