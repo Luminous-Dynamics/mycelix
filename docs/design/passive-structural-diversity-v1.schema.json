@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/passive-structural-diversity-v1.json",
+  "title": "Mycelix Passive Structural Diversity Provenance v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "candidate_topology_digest",
+    "population_size",
+    "novelty"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "passive-structural-diversity-v1"
+    },
+    "candidate_topology_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "population_size": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "novelty": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "reference_topology_digests": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+      }
+    },
+    "semantic_status": {
+      "const": "SearchHeuristicOnly"
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
