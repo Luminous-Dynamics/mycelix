@@ -296,7 +296,7 @@ jobs:
           # Bind the evidence to the exact source-side qualification contract as
           # well as the candidate commit. These files are all read from the
           # immutable checkout established at the beginning of the job.
-          sha256sum             tools/audit-holochain-07-source.sh             tests/hearth-07-semantic-validation-cases.json             tests/sweettest_semantic_validation.rs             dna/dna.yaml             flake.nix             flake.lock             Cargo.toml             tests/Cargo.toml             ../../.github/workflows/hearth-07-qualification.yml             > qualification-source-contract-sha256.txt
+          sha256sum             tools/audit-holochain-07-source.sh             tests/hearth-07-semantic-validation-cases.json             tests/sweettest_semantic_validation.rs             dna/dna.yaml             flake.nix             flake.lock             ../../.gitmodules             Cargo.toml             tests/Cargo.toml             ../../.github/workflows/hearth-07-qualification.yml             > qualification-source-contract-sha256.txt
           sha256sum -c qualification-source-contract-sha256.txt
 
       - name: Capture qualification metadata
@@ -334,6 +334,7 @@ jobs:
         with:
           name: hearth-07-qualification-${{ env.QUALIFY_SHA }}
           path: |
+            qualification-submodules.txt
             mycelix-workspace/mycelix-hearth/qualification-metadata.txt
             mycelix-workspace/mycelix-hearth/qualification-source-audit.log
             mycelix-workspace/mycelix-hearth/qualification-operation-matrix.txt
