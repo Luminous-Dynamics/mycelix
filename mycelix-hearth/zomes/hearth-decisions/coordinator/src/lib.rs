@@ -452,17 +452,17 @@ pub fn cast_vote(input: CastVoteInput) -> ExternResult<Record> {
     Ok(record)
 }
 
-/// Tally all votes for a decision.
-/// Returns Vec<(option_index, total_weight_bp)> sorted by option index.
-#[hdk_extern]
-pub fn tally_votes(decision_hash: ActionHash) -> ExternResult<Vec<(u32, u32)>> {
+/// Collect the exact current vote records used by a tally.
+fn collect_tally_evidence(
+    decision_hash: ActionHash,
+) -> ExternResult<(Vec<(u32, u32)>, Vec<ActionHash>)> {
     let links = get_links(
         LinkQuery::try_new(decision_hash, LinkTypes::DecisionToVotes)?,
         GetStrategy::default(),
     )?;
 
-    // Collect all votes
     let mut tallies: std::collections::HashMap<u32, u32> = std::collections::HashMap::new();
+    let mut vote_refs = Vec::new();
 
     for link in links {
         let target = link
@@ -472,7 +472,7 @@ pub fn tally_votes(decision_hash: ActionHash) -> ExternResult<Vec<(u32, u32)>> {
                 "Link target is not an ActionHash".into()
             )))?;
 
-        if let Some(record) = get_latest_record(target)? {
+        if let Some(record) = get_latest_record(target.clone())? {
             let vote: Vote = record
                 .entry()
                 .to_app_option()
@@ -487,13 +487,22 @@ pub fn tally_votes(decision_hash: ActionHash) -> ExternResult<Vec<(u32, u32)>> {
 
             let current = tallies.entry(vote.choice).or_insert(0);
             *current = current.saturating_add(vote.weight_bp);
+            vote_refs.push(target);
         }
     }
 
+    vote_refs.sort_by_key(|hash| hash.get_raw_36().to_vec());
     let mut result: Vec<(u32, u32)> = tallies.into_iter().collect();
     result.sort_by_key(|(idx, _)| *idx);
 
-    Ok(result)
+    Ok((result, vote_refs))
+}
+
+/// Tally all votes for a decision.
+/// Returns Vec<(option_index, total_weight_bp)> sorted by option index.
+#[hdk_extern]
+pub fn tally_votes(decision_hash: ActionHash) -> ExternResult<Vec<(u32, u32)>> {
+    Ok(collect_tally_evidence(decision_hash)?.0)
 }
 
 /// Finalize a decision: tally votes, create DecisionOutcome, update decision status.
@@ -556,8 +565,8 @@ pub fn finalize_decision(input: FinalizeDecisionInput) -> ExternResult<Record> {
         ))));
     }
 
-    // Tally votes
-    let tallies = tally_votes(input.decision_hash.clone())?;
+    // Tally votes and retain the exact action hashes used as evidence.
+    let (tallies, tally_vote_refs) = collect_tally_evidence(input.decision_hash.clone())?;
 
     // Silence or zero-weight participation cannot select a substantive option.
     if !has_positive_weight(&tallies) {
@@ -612,6 +621,9 @@ pub fn finalize_decision(input: FinalizeDecisionInput) -> ExternResult<Record> {
         finalization_basis_action: Some(decision_record.action_address().clone()),
         resolved_by: Some(agent.clone()),
         chosen_option,
+        tally_vote_refs: Some(tally_vote_refs.clone()),
+        tally: Some(tallies.clone()),
+        tally_fingerprint: Some(tally_evidence_fingerprint(&tally_vote_refs, &tallies)),
         participation_rate_bp,
         resolved_at: now,
         quorum_bp: decision.quorum_bp,
