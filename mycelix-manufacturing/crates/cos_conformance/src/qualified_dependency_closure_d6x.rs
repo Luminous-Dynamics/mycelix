@@ -1629,6 +1629,7 @@ mod tests {
         mutation_semantics: String,
         cross_runtime_rule: String,
         semantic_derivation: String,
+        authoritative_d6p: String,
     }
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1756,6 +1757,16 @@ mod tests {
         assert!(!corpus.recipe_contract.mutation_semantics.is_empty());
         assert!(!corpus.recipe_contract.cross_runtime_rule.is_empty());
         assert!(!corpus.recipe_contract.semantic_derivation.is_empty());
+        assert!(!corpus.recipe_contract.authoritative_d6p.is_empty());
+        assert!(is_canonical_sha256_commitment(
+            &corpus.fixtures.authoritative_d6p.receipt.receipt_commitment
+        ));
+        assert!(is_canonical_sha256_commitment(
+            &corpus.fixtures.authoritative_d6p.composition.composition_commitment
+        ));
+        assert!(is_canonical_sha256_commitment(
+            &corpus.fixtures.authoritative_d6p.composition.witnesses[0].witness_commitment
+        ));
 
         let ids = corpus
             .vectors
