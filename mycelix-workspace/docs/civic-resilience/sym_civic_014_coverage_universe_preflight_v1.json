@@ -1,0 +1,403 @@
+{
+  "schema": "mycelix.sym-civic.coverage-universe-preflight.v1",
+  "program": "SYM-CIVIC-014",
+  "parent_subject": "2e1c7ef4e2d0ced913834681e11318104d02de75",
+  "analysis_role": "research_only",
+  "cases": [
+    {
+      "id": "U-01",
+      "family": "finite_manifest_valid",
+      "mutations": []
+    },
+    {
+      "id": "U-02",
+      "family": "universe_id_substitution",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "universe.id",
+          "value": "appeal-vds/other"
+        }
+      ]
+    },
+    {
+      "id": "U-03",
+      "family": "universe_semantic_version_change",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "universe.semantic_version",
+          "value": "2.0"
+        }
+      ]
+    },
+    {
+      "id": "U-04",
+      "family": "scope_digest_substitution",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "scope.scope_digest",
+          "value": "sha256:wrong-scope"
+        }
+      ]
+    },
+    {
+      "id": "U-05",
+      "family": "scope_decision_substitution",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "scope.decision_id",
+          "value": "decision-other"
+        }
+      ]
+    },
+    {
+      "id": "U-06",
+      "family": "critical_extension_tamper",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "extensions.critical_namespaces.coverage-v1.mode",
+          "value": "OPEN_WORLD"
+        }
+      ]
+    },
+    {
+      "id": "U-07",
+      "family": "critical_extension_removal",
+      "mutations": [
+        {
+          "op": "remove",
+          "path": "extensions.critical_namespaces.coverage-v1"
+        }
+      ]
+    },
+    {
+      "id": "U-08",
+      "family": "unknown_critical_namespace",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "extensions.critical_namespaces",
+          "value": {
+            "coverage-v1": {
+              "mode": "FINITE_MANIFEST"
+            },
+            "future-v2": {
+              "mode": "OTHER"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "U-09",
+      "family": "extension_schema_version_change",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "extensions.schema_version",
+          "value": "ext-2"
+        }
+      ]
+    },
+    {
+      "id": "U-10",
+      "family": "frontier_identity_tamper",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "frontier.identity_digest",
+          "value": "sha256:tampered"
+        }
+      ]
+    },
+    {
+      "id": "U-11",
+      "family": "missing_anchor",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "frontier.anchor_checkpoint_id",
+          "value": "missing",
+          "reseal": true
+        }
+      ]
+    },
+    {
+      "id": "U-12",
+      "family": "truncated_valid_middle_segment",
+      "mutations": [
+        {
+          "op": "remove",
+          "path": "checkpoints.0"
+        }
+      ]
+    },
+    {
+      "id": "U-13",
+      "family": "continuity_proof_removal",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "frontier.continuity_proven",
+          "value": false,
+          "reseal": true
+        }
+      ]
+    },
+    {
+      "id": "U-14",
+      "family": "consistency_proof_removal",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "frontier.consistency_proven",
+          "value": false,
+          "reseal": true
+        }
+      ]
+    },
+    {
+      "id": "U-15",
+      "family": "stateful_witness_removal",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "witness.stateful",
+          "value": false,
+          "reseal": true
+        }
+      ]
+    },
+    {
+      "id": "U-16",
+      "family": "fork_signal",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "witness.fork_free",
+          "value": false,
+          "reseal": true
+        }
+      ]
+    },
+    {
+      "id": "U-17",
+      "family": "alternate_frontier_history",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "witness.last_accepted_checkpoint_id",
+          "value": "checkpoint-genesis",
+          "reseal": true
+        }
+      ]
+    },
+    {
+      "id": "U-18",
+      "family": "stale_frontier_cut",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "frontier.covered_cut",
+          "value": "2026-10-03T23:00:00Z",
+          "reseal": true
+        }
+      ]
+    },
+    {
+      "id": "U-19",
+      "family": "stale_frontier_freshness",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "frontier.fresh_until",
+          "value": "2026-10-03T23:00:00Z",
+          "reseal": true
+        }
+      ]
+    },
+    {
+      "id": "U-20",
+      "family": "stale_non_inclusion_proof",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "frontier.non_inclusion_proof.fresh_until",
+          "value": "2026-10-03T23:00:00Z",
+          "reseal": true
+        }
+      ]
+    },
+    {
+      "id": "U-21",
+      "family": "unsupported_non_inclusion",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "frontier.non_inclusion_proof.supported",
+          "value": false,
+          "reseal": true
+        }
+      ]
+    },
+    {
+      "id": "U-22",
+      "family": "non_inclusion_without_universe_coverage",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "frontier.non_inclusion_proof.covers_declared_universe",
+          "value": false,
+          "reseal": true
+        }
+      ]
+    },
+    {
+      "id": "U-23",
+      "family": "empty_result_without_closure",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "frontier.enumerated_count",
+          "value": 0,
+          "reseal": true
+        }
+      ]
+    },
+    {
+      "id": "U-24",
+      "family": "decisive_item_observed",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "observed_decisive_items",
+          "value": [
+            "appeal-live"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "U-25",
+      "family": "open_world_presented_as_closed_world",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "frontier.coverage_mode",
+          "value": "VDS_NATIVE_NON_INCLUSION",
+          "reseal": true
+        },
+        {
+          "op": "replace",
+          "path": "frontier.closure_basis",
+          "value": "VDS_NATIVE",
+          "reseal": true
+        }
+      ]
+    },
+    {
+      "id": "U-26",
+      "family": "canonical_enumerator_without_independent_closure_witness",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "frontier.coverage_mode",
+          "value": "CLOSED_WORLD_ENUMERATION",
+          "reseal": true
+        },
+        {
+          "op": "replace",
+          "path": "frontier.closure_basis",
+          "value": "CANONICAL_ENUMERATOR",
+          "reseal": true
+        },
+        {
+          "op": "replace",
+          "path": "frontier.enumerator_digest",
+          "value": "sha256:enumerator-a",
+          "reseal": true
+        },
+        {
+          "op": "replace",
+          "path": "frontier.closure_attestation",
+          "value": {
+            "independent_witness": false,
+            "output_digest": "sha256:enumerator-output-a",
+            "enumerated_count": 3
+          },
+          "reseal": true
+        }
+      ]
+    },
+    {
+      "id": "U-27",
+      "family": "proof_universe_binding_mismatch",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "frontier.non_inclusion_proof.universe_identity_digest",
+          "value": "sha256:wrong"
+        }
+      ]
+    },
+    {
+      "id": "U-28",
+      "family": "proof_scope_binding_mismatch",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "frontier.non_inclusion_proof.scope_identity_digest",
+          "value": "sha256:wrong"
+        }
+      ]
+    },
+    {
+      "id": "U-29",
+      "family": "proof_terminal_binding_mismatch",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "frontier.non_inclusion_proof.terminal_checkpoint_id",
+          "value": "checkpoint-other"
+        }
+      ]
+    },
+    {
+      "id": "U-30",
+      "family": "proof_manifest_binding_mismatch",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "frontier.non_inclusion_proof.manifest_digest",
+          "value": "sha256:wrong"
+        }
+      ]
+    },
+    {
+      "id": "U-31",
+      "family": "proof_cut_mismatch",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "frontier.non_inclusion_proof.coverage_cut",
+          "value": "2026-10-03T23:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "U-32",
+      "family": "extension_commitment_tamper",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "extensions.identity_digest",
+          "value": "sha256:tampered"
+        }
+      ]
+    }
+  ]
+}
