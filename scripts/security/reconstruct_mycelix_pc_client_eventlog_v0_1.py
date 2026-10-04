@@ -88,6 +88,7 @@ def reconstruct(stream: dict[str, Any]) -> tuple[str, str, dict[str, str] | None
     states = {str(index): bytes(32) for index in ids}
     previous_sequence = -1
     seen_sequences: set[int] = set()
+    hcrtm_seen = False
 
     for event in events:
         if not isinstance(event, dict):
@@ -110,15 +111,21 @@ def reconstruct(stream: dict[str, Any]) -> tuple[str, str, dict[str, str] | None
         if event.get("digest_algorithm", "sha256") != "sha256":
             return "DENY", "digest-algorithm-substitution", None
         if event["event_type"] == "EV_EFI_HCRTM_EVENT" and pcr == 0:
-            return "INDETERMINATE", "hcrtm-initial-state-adjustment-unsupported", None
+            hcrtm_seen = True
+            if "0" in states:
+                states["0"] = bytes(31) + b"\x04"
         if event.get("session_id", stream["session_id"]) != stream["session_id"]:
             return "DENY", "cross-session-event", None
 
         if event["event_type"] == "EV_NO_ACTION":
-            if pcr == 0 and "startup_locality" in event:
-                return "INDETERMINATE", "startup-locality-initial-state-adjustment-unsupported", None
             if "digest_sha256" in event and not valid_digest(event["digest_sha256"]):
                 return "DENY", "malformed-no-action-digest", None
+            if pcr == 0 and "startup_locality" in event and not hcrtm_seen:
+                locality = event["startup_locality"]
+                if locality not in (0, 3, 4):
+                    return "DENY", "reserved-startup-locality", None
+                if "0" in states and locality > 0:
+                    states["0"] = bytes(31) + bytes([locality])
             continue
 
         if "digest_sha256" not in event:
@@ -243,11 +250,31 @@ def mutate(base: dict[str, Any], name: str) -> dict[str, Any]:
                 event["startup_locality"] = 3
                 event.pop("digest_sha256", None)
                 break
+        states = {str(index): bytes(32) for index in selection_ids(value["pcr_selection"])}
+        for event in value["events"]:
+            if event["event_type"] == "EV_NO_ACTION":
+                if event.get("pcr") == 0 and event.get("startup_locality", 0) > 0:
+                    states["0"] = bytes(31) + bytes([event["startup_locality"]])
+                continue
+            key = str(event["pcr"])
+            if key in states:
+                states[key] = hashlib.sha256(states[key] + bytes.fromhex(event["digest_sha256"])).digest()
+        value["observed_pcr_values"] = {key: digest.hex() for key, digest in states.items()}
     elif name == "hcrtm-initial-state-adjustment-unsupported":
         for event in value["events"]:
             if event["pcr"] == 0:
                 event["event_type"] = "EV_EFI_HCRTM_EVENT"
                 break
+        states = {str(index): bytes(32) for index in selection_ids(value["pcr_selection"])}
+        for event in value["events"]:
+            if event["event_type"] == "EV_EFI_HCRTM_EVENT" and event["pcr"] == 0:
+                states["0"] = bytes(31) + b"\x04"
+            if event["event_type"] == "EV_NO_ACTION":
+                continue
+            key = str(event["pcr"])
+            if key in states:
+                states[key] = hashlib.sha256(states[key] + bytes.fromhex(event["digest_sha256"])).digest()
+        value["observed_pcr_values"] = {key: digest.hex() for key, digest in states.items()}
     else:
         raise KeyError(name)
     return value
