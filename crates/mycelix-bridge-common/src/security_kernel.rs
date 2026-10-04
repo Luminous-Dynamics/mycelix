@@ -22,11 +22,33 @@ use serde::{Deserialize, Serialize, de::Error as _, de::SeqAccess, de::Visitor};
 use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
 
 pub const MAX_SECURITY_IDENTIFIER_BYTES: usize = 512;
+/// Maximum byte length accepted by the pre-deserialization security JSON envelope helper.
+///
+/// This is a parser/input-envelope bound, distinct from per-field retention bounds.
+pub const MAX_SECURITY_WIRE_BYTES: usize = 512 * 1024;
 /// Maximum number of actions a capability can contain.
 pub const MAX_CAPABILITY_ACTIONS: usize = 5;
 /// Maximum lifetime of an issued authorization permit, independent of the
 /// underlying capability's absolute expiry.
 pub const MAX_AUTHORIZATION_PERMIT_LIFETIME_US: u64 = 5 * 60 * 1_000_000;
+
+/// Deserialize a security-domain JSON payload only after enforcing an outer input-size bound.
+///
+/// Field-level security identifiers are still bounded independently by their wire visitors.
+/// This helper closes the separate parser/input-envelope gap where a JSON parser may need to
+/// materialize escaped or otherwise attacker-controlled input before those visitors run.
+pub fn deserialize_bounded_security_json<T>(input: &[u8]) -> Result<T, serde_json::Error>
+where
+    T: serde::de::DeserializeOwned,
+{
+    if input.len() > MAX_SECURITY_WIRE_BYTES {
+        return Err(serde_json::Error::io(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "security JSON input exceeds size limit",
+        )));
+    }
+    serde_json::from_slice(input)
+}
 
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -1055,6 +1077,30 @@ mod tests {
         ];
 
         assert!(Capability::new("alice", "issuer", "ledger", actions, 1, 2, 3).is_err());
+    }
+
+    #[test]
+    fn bounded_security_json_accepts_exact_envelope_limit() {
+        let mut input = br#"{
+            \"subject\":\"did:mycelix:alice\",
+            \"resource\":\"resource:ledger\",
+            \"action\":\"Read\",
+            \"policy_version\":7
+        }"#
+        .to_vec();
+        input.resize(MAX_SECURITY_WIRE_BYTES, b' ');
+
+        let decoded: AuthorizationRequest = deserialize_bounded_security_json(&input).unwrap();
+        assert_eq!(decoded.subject(), "did:mycelix:alice");
+    }
+
+    #[test]
+    fn bounded_security_json_rejects_oversized_envelope_before_parsing() {
+        let input = vec![b' '; MAX_SECURITY_WIRE_BYTES + 1];
+        let error =
+            deserialize_bounded_security_json::<AuthorizationRequest>(&input).unwrap_err();
+
+        assert_eq!(error.classify(), serde_json::error::Category::Io);
     }
 
     #[test]

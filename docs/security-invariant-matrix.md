@@ -22,6 +22,7 @@ The first deterministic authority boundary is implemented in
 The kernel provides:
 
 - `Capability` and `AuthorizationRequest` as explicit inputs; both wire-deserialization paths are constructor-gated so serialized input cannot bypass their constructor invariants. Their private wire schemas also reject unknown fields, preventing field-smuggling across the signed semantic boundary.
+- Security-domain JSON inputs have a separate outer parser/input-envelope bound: `deserialize_bounded_security_json()` rejects payloads over 512 KiB before invoking Serde, closing the parser-level gap that field retention limits cannot address. This helper is the required boundary for attacker-controlled JSON adapters.
 - `ProvenanceRef` uses the same constructor-gated wire boundary, rejects unknown fields, and keeps its invariant-bearing fields private so callers cannot bypass `ProvenanceRef::new()` with a struct literal or mutation.
 - Security-event recovery correlations are also constructor-gated during wire decoding, and untrusted provenance sequences are bounded before retention to keep audit input fail-closed and resource-bounded.
 - `VerificationEvidence` as an opaque, non-serializable hand-off from an independent cryptographic/identity verifier; its trusted fields cannot be constructed or deserialized by downstream callers, and it intentionally does not implement `Debug`, `PartialEq`, or `Eq` so downstream code cannot turn trusted evidence into an observation/comparison surface.

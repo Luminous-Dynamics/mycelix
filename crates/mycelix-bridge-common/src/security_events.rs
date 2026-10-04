@@ -14,7 +14,10 @@ use serde::{
     de::{Error as _, SeqAccess, Visitor},
 };
 
-use crate::security_kernel::{AuthorizationDecision, AuthorizationRequest, EnforcementRequest};
+use crate::security_kernel::{
+    AuthorizationDecision, AuthorizationRequest, EnforcementRequest,
+    MAX_SECURITY_WIRE_BYTES, deserialize_bounded_security_json,
+};
 
 pub const MAX_PROVENANCE_IDENTIFIER_BYTES: usize = 512;
 /// Resource bound for provenance edges accepted from a security-event wire envelope.
@@ -513,6 +516,31 @@ mod tests {
             r#"{"artifact_id":"evidence:source-1","relation":"References","authority":"ignored"}"#,
         );
         assert!(unknown.is_err());
+    }
+
+    #[test]
+    fn bounded_security_json_accepts_exact_security_event_envelope_limit() {
+        let mut input = br#"{
+            \"event_id\":\"event:bounded-json\",
+            \"actor_id\":\"did:mycelix:alice\",
+            \"capability_ref\":\"capability:1\",
+            \"request\":{
+                \"subject\":\"did:mycelix:alice\",
+                \"resource\":\"resource:ledger\",
+                \"action\":\"Read\",
+                \"policy_version\":7
+            },
+            \"decision\":{\"Deny\":\"ActionNotGranted\"},
+            \"policy_version\":7,
+            \"timestamp_us\":151,
+            \"provenance\":[],
+            \"recovery_correlation\":null
+        }"#
+        .to_vec();
+        input.resize(MAX_SECURITY_WIRE_BYTES, b' ');
+
+        let decoded: SecurityEvent = deserialize_bounded_security_json(&input).unwrap();
+        assert!(matches!(decoded.decision(), SecurityEventDecision::Deny(_)));
     }
 
     #[test]
