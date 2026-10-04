@@ -532,8 +532,9 @@ pub struct IssueCredentialInput {
     /// silently skipping validation. Default: false (backward-compatible).
     #[serde(default)]
     pub strict_schema: bool,
-    /// Optional cryptographic proof profile. Missing values preserve the legacy
-    /// Mycelix-native profile for compatibility.
+    /// Optional cryptographic proof profile. Omitted values default to the
+    /// W3C eddsa-jcs-2022 profile; callers must opt into the legacy Mycelix
+    /// profile explicitly.
     #[serde(default)]
     pub proof_profile: Option<CredentialProofProfile>,
 }
