@@ -509,13 +509,36 @@ impl ImpactLedger {
         Ok(obligation.status)
     }
 
-    /// Return unresolved exposure in deterministic ID order.
+    /// Return unresolved exposure across the complete impact ledger.
     pub fn exposure(&self) -> ImpactExposure {
+        self.exposure_matching(|_| true)
+    }
+
+    /// Return unresolved exposure belonging to one economic action.
+    ///
+    /// Action-level close-out must not inherit unresolved state belonging to
+    /// unrelated actions in the shared impact ledger.
+    pub fn exposure_for_action(&self, action_ref: &str) -> ImpactExposure {
+        if action_ref.trim().is_empty() {
+            return ImpactExposure {
+                open_impact_ids: Vec::new(),
+                remediation_impact_ids: Vec::new(),
+                blocking_obligation_ids: Vec::new(),
+            };
+        }
+
+        self.exposure_matching(|impact| impact.action_ref == action_ref)
+    }
+
+    fn exposure_matching<F>(&self, mut matches: F) -> ImpactExposure
+    where
+        F: FnMut(&SubstrateImpact) -> bool,
+    {
         let mut open_impact_ids = Vec::new();
         let mut remediation_impact_ids = Vec::new();
         let mut blocking_obligation_ids = Vec::new();
 
-        for impact in self.impacts.values() {
+        for impact in self.impacts.values().filter(|impact| matches(impact)) {
             if impact.direction != ImpactDirection::Depletion {
                 continue;
             }
@@ -532,7 +555,15 @@ impl ImpactLedger {
         }
 
         for obligation in self.obligations.values() {
-            if obligation.blocks_discretionary() {
+            if !obligation.blocks_discretionary() {
+                continue;
+            }
+
+            let Some(impact) = self.impacts.get(&obligation.impact_id) else {
+                continue;
+            };
+
+            if matches(impact) {
                 blocking_obligation_ids.push(obligation.id.clone());
             }
         }
@@ -544,10 +575,10 @@ impl ImpactLedger {
         }
     }
 
-    /// Gate economic action against the current impact/reciprocity state.
-    pub fn gate(&self, purpose: super::substrate::DistributionPurpose) -> ImpactGateDecision {
-        let exposure = self.exposure();
-
+    fn gate_from_exposure(
+        exposure: ImpactExposure,
+        purpose: super::substrate::DistributionPurpose,
+    ) -> ImpactGateDecision {
         match purpose {
             super::substrate::DistributionPurpose::Maintenance
             | super::substrate::DistributionPurpose::Restoration => {
@@ -576,6 +607,20 @@ impl ImpactLedger {
                 }
             }
         }
+    }
+
+    /// Gate economic action against the complete impact/reciprocity state.
+    pub fn gate(&self, purpose: super::substrate::DistributionPurpose) -> ImpactGateDecision {
+        Self::gate_from_exposure(self.exposure(), purpose)
+    }
+
+    /// Gate one economic action against only its own impact/reciprocity state.
+    pub fn gate_for_action(
+        &self,
+        action_ref: &str,
+        purpose: super::substrate::DistributionPurpose,
+    ) -> ImpactGateDecision {
+        Self::gate_from_exposure(self.exposure_for_action(action_ref), purpose)
     }
 
     /// Return the set of impacted dimensions represented by the ledger.
@@ -614,6 +659,66 @@ mod tests {
             share_bps,
             evidence_ref: Some(format!("evidence:{actor}")),
         }
+    }
+
+    #[test]
+    fn action_scoped_exposure_excludes_unrelated_actions() {
+        let mut ledger = ImpactLedger::new();
+
+        let mut local = depletion();
+        local.id = "impact:local".into();
+        local.action_ref = "action:local".into();
+        ledger.record_impact(local).unwrap();
+
+        let mut other = depletion();
+        other.id = "impact:other".into();
+        other.action_ref = "action:other".into();
+        ledger.record_impact(other).unwrap();
+
+        assert_eq!(
+            ledger.exposure_for_action("action:local").open_impact_ids,
+            vec!["impact:local"]
+        );
+        assert_eq!(
+            ledger.exposure_for_action("action:other").open_impact_ids,
+            vec!["impact:other"]
+        );
+        assert!(ledger.exposure_for_action("action:missing").open_impact_ids.is_empty());
+
+        assert_eq!(
+            ledger.gate_for_action(
+                "action:local",
+                DistributionPurpose::Discretionary
+            ),
+            ImpactGateDecision::InsufficientAttribution
+        );
+    }
+
+    #[test]
+    fn action_scoped_exposure_excludes_unrelated_restoration_obligation() {
+        let mut ledger = ImpactLedger::new();
+
+        let mut unrelated = depletion();
+        unrelated.id = "impact:other".into();
+        unrelated.action_ref = "action:other".into();
+        ledger.record_impact(unrelated).unwrap();
+        ledger
+            .attribute_impact(
+                "impact:other",
+                vec![attribution("actor:other", 10_000)],
+                Some("obligation:other".into()),
+                Some(5_000),
+            )
+            .unwrap();
+
+        let local = ledger.exposure_for_action("action:local");
+        assert!(local.open_impact_ids.is_empty());
+        assert!(local.remediation_impact_ids.is_empty());
+        assert!(local.blocking_obligation_ids.is_empty());
+
+        let other = ledger.exposure_for_action("action:other");
+        assert_eq!(other.remediation_impact_ids, vec!["impact:other"]);
+        assert_eq!(other.blocking_obligation_ids, vec!["obligation:other"]);
     }
 
     #[test]

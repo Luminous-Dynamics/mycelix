@@ -235,12 +235,15 @@ impl EconomicIntegrityGate {
         let covered_impact_ids =
             impacts.validate_action_scope(&scope.action_ref, &scope.required_dimensions)?;
 
-        let assessment = Self::assess(
-            substrate,
-            impacts,
-            &scope.required_dimensions,
-            scope.purpose,
-        );
+        let substrate_decision =
+            substrate.gate(&scope.required_dimensions, scope.purpose);
+        let impact_decision =
+            impacts.gate_for_action(&scope.action_ref, scope.purpose);
+        let assessment = EconomicIntegrityAssessment {
+            substrate: substrate_decision,
+            impact: impact_decision,
+            decision: Self::combine(substrate_decision, impact_decision),
+        };
 
         Ok(ScopedEconomicIntegrityAssessment {
             scope_id: scope.scope_id.clone(),
@@ -406,6 +409,30 @@ mod tests {
         assert_eq!(
             assessment.assessment.decision,
             EconomicIntegrityDecision::InsufficientEvidence
+        );
+    }
+
+    #[test]
+    fn scoped_assessment_ignores_unrelated_action_impacts() {
+        let substrate = healthy_substrate();
+        let mut impacts = ImpactLedger::new();
+        let mut unrelated = open_depletion();
+        unrelated.id = "impact:other".into();
+        unrelated.action_ref = "action:other".into();
+        impacts.record_impact(unrelated).unwrap();
+
+        let assessment = EconomicIntegrityGate::assess_scoped(
+            &substrate,
+            &impacts,
+            &valid_scope("action:1", DistributionPurpose::Discretionary),
+        )
+        .unwrap();
+
+        assert!(assessment.covered_impact_ids.is_empty());
+        assert_eq!(assessment.assessment.impact, ImpactGateDecision::Allowed);
+        assert_eq!(
+            assessment.assessment.decision,
+            EconomicIntegrityDecision::Allowed
         );
     }
 
