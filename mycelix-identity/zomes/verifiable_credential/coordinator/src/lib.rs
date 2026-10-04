@@ -3808,6 +3808,7 @@ fn verify_credential_signature(vc: &VerifiableCredential) -> ExternResult<bool> 
 
         if vc.proof.proof_type != "DataIntegrityProof"
             || vc.proof.algorithm.is_some()
+            || vc.proof.proof_context.as_deref() != Some(vc.context.as_slice())
         {
             return Ok(false);
         }
