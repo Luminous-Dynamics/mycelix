@@ -595,6 +595,60 @@ fn did_to_agent(did: &str) -> Option<AgentPubKey> {
         .and_then(|value| AgentPubKey::try_from(value.to_string()).ok())
 }
 
+fn validate_create_epistemic_claim_reference(
+    action: &Create,
+    claim: EpistemicClaimReference,
+) -> ExternResult<ValidateCallbackResult> {
+    let credential_record = must_get_valid_record(claim.credential_hash.clone())?;
+    let credential: AcademicCredential = credential_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Epistemic claim credential_hash must reference an AcademicCredential".into(),
+        )))?;
+
+    if credential.id != claim.credential_id {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Epistemic claim credential_id must match the referenced credential".into(),
+        ));
+    }
+    if credential.credential_subject.id != claim.subject {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Epistemic claim subject must match the referenced credential subject".into(),
+        ));
+    }
+    if claim.source_happ != "mycelix-identity" || claim.predicate != "hasAcademicAchievement" {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Unsupported academic epistemic claim projection".into(),
+        ));
+    }
+    if (claim.epistemic_e - 0.8).abs() > f64::EPSILON
+        || (claim.epistemic_n - 0.7).abs() > f64::EPSILON
+        || (claim.epistemic_m - 0.9).abs() > f64::EPSILON
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Academic epistemic claim must use the canonical E3/N2/M3 scores".into(),
+        ));
+    }
+    if claim.object.is_empty() || claim.claim_id.is_empty() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Academic epistemic claim object and claim_id are required".into(),
+        ));
+    }
+
+    let issuer = did_to_agent(&credential.issuer.id).ok_or(wasm_error!(
+        WasmErrorInner::Guest("Academic credential issuer must be a did:mycelix AgentPubKey".into())
+    ))?;
+    if action.author != issuer {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Academic epistemic claim must be published by the credential issuer".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
 fn validate_education_link(
     link_type: LinkTypes,
     target_address: &AnyLinkableHash,
@@ -713,7 +767,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::AcademicRevocationRequest(req) => {
                     validate_create_revocation_request(EntryCreationAction::Create(action), req)
                 }
-                EntryTypes::EpistemicClaimReference(_) => Ok(ValidateCallbackResult::Valid),
+                EntryTypes::EpistemicClaimReference(claim) => {
+                    validate_create_epistemic_claim_reference(&action, claim)
+                }
             },
             OpEntry::UpdateEntry {
                 app_entry, action, ..
