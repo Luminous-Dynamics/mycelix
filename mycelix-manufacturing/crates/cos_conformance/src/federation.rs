@@ -5468,6 +5468,33 @@ mod tests {
             )
         );
 
+        let same_endpoint_a = state_machine_trace_checkpoint_publication(
+            &fork_a,
+            8,
+            &base_publication.publication_sha256,
+        );
+        let mut same_endpoint_b_snapshot = fork_a.clone();
+        same_endpoint_b_snapshot.evidence[0].token ^= 1;
+        reseal_state_machine_trace_for_test(&mut same_endpoint_b_snapshot);
+        let same_endpoint_b = state_machine_trace_checkpoint_publication(
+            &same_endpoint_b_snapshot,
+            8,
+            &base_publication.publication_sha256,
+        );
+        assert_ne!(
+            same_endpoint_a.publication_sha256,
+            same_endpoint_b.publication_sha256,
+            "divergent snapshots at one checkpoint endpoint must have distinct publication digests"
+        );
+        assert_eq!(
+            validate_state_machine_trace_checkpoint_publication_set(
+                &[base_publication.clone(), same_endpoint_a, same_endpoint_b]
+            ),
+            Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::PublicationForkDetected
+            )
+        );
+
         let duplicate_set = vec![base_publication.clone(), base_publication];
         assert!(
             validate_state_machine_trace_checkpoint_publication_set(&duplicate_set).is_ok(),
