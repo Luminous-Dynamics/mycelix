@@ -3110,7 +3110,10 @@ mod tests {
         let hash_data = eddsa_jcs_hash_data_from_values(document, proof_config)
             .expect("published Digital Bazaar JCS vector must canonicalize");
         assert_eq!(
-            hex::encode(hash_data),
+            hash_data
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect::<String>(),
             "8c90672e61f82a6785f58bad89200c88b183bd80af88ad264f08165fa3e307aa817b37f3e0855fea4eadad6f0a34c10e774135c0ffc599a7410543b2d434cd51"
         );
     }
