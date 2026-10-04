@@ -13,6 +13,9 @@
 
 pub mod commons;
 pub mod decay_garden;
+pub mod impact;
+pub mod integrity_gate;
+pub mod substrate;
 pub mod metabolic_oracle;
 pub mod poc;
 pub mod recognition;
@@ -27,6 +30,18 @@ pub use metabolic_oracle::{
 pub use poc::{
     calculate_mycel_score, jubilee_normalize, GamingDetection, GamingRecommendation,
     MycelCalculation, MycelComponent, MycelScore,
+};
+pub use impact::{
+    AttributionBasis, ImpactAttribution, ImpactDirection, ImpactExposure, ImpactGateDecision,
+    ImpactLedger, ImpactStatus, ObligationStatus, RestorationObligation, SubstrateImpact,
+};
+pub use integrity_gate::{
+    EconomicIntegrityAssessment, EconomicIntegrityDecision, EconomicIntegrityGate,
+};
+pub use substrate::{
+    BoundaryDirection, DistributionPurpose, GateDecision, SubstrateAccount, SubstrateBoundary,
+    SubstrateDimension, SubstrateEvent, SubstrateEventKind, SubstrateLedger, SubstrateReport,
+    SubstrateState,
 };
 pub use recognition::{
     calculate_recognition_score, ContributionType, RecognitionConfig, RecognitionEvent,
@@ -207,6 +222,7 @@ mod tests {
         // Balance at exempt floor — no decay
         member.sap_balance = 1_000;
         let effective = member.effective_sap_balance(&config, one_year);
+        // Balance at exempt floor — no decay
         assert_eq!(effective, 1_000);
 
         // Balance above exempt floor — decays
