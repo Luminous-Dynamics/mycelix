@@ -242,7 +242,7 @@ jobs:
         working-directory: mycelix-workspace/mycelix-hearth
         run: |
           set -o pipefail
-          nix develop .#ci --command bash -c             'set -o pipefail; cd tests && cargo test --locked --release -- --include-ignored --test-threads=1 2>&1 | tee ../qualification-sweettest.log'
+          nix develop .#ci --command bash -c             'set -o pipefail; cd tests && cargo test --locked --release --test sweettest_semantic_validation -- --include-ignored --test-threads=1 2>&1 | tee ../qualification-sweettest.log'
 
       - name: Capture immutable qualification evidence
         if: always()

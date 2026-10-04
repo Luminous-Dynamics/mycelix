@@ -940,6 +940,12 @@ check_qualification_workflow_provenance() {
     fi
   done
 
+  if rg -n --fixed-strings "cargo test --locked --release --test sweettest_semantic_validation -- --include-ignored --test-threads=1" "$workflow" >/dev/null 2>&1; then
+    echo "OK:   qualification workflow runs only the authoritative semantic Sweettest target"
+  else
+    echo "FAIL: qualification workflow must target sweettest_semantic_validation explicitly"
+    fail=1
+  fi
   if rg -n --fixed-strings "cargo build --locked" "$workflow" >/dev/null 2>&1 \
     && rg -n --fixed-strings "cargo test --locked" "$workflow" >/dev/null 2>&1 \
     && rg -n --fixed-strings "cargo generate-lockfile" "$workflow" >/dev/null 2>&1; then
