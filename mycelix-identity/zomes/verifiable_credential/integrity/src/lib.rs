@@ -836,10 +836,11 @@ fn validate_create_verifiable_credential(
         return Ok(ValidateCallbackResult::Invalid(msg));
     }
 
-    // Validate context includes W3C VC context
-    if !vc.context.iter().any(|c| c.contains("credentials")) {
+    // W3C VC Data Model 2.0 requires the base credentials-v2 context
+    // to be the first item in the ordered @context set.
+    if vc.context.first().map(String::as_str) != Some("https://www.w3.org/ns/credentials/v2") {
         return Ok(ValidateCallbackResult::Invalid(
-            "Credential must include W3C credentials context".into(),
+            "Credential @context must begin with https://www.w3.org/ns/credentials/v2".into(),
         ));
     }
 
@@ -867,10 +868,36 @@ fn validate_create_verifiable_credential(
         ));
     }
 
-    // Validate proof exists and has required fields
+    // Validate the W3C temporal fields before accepting them into the DHT.
+    // Holochain Timestamp parsing gives us a concrete temporal value, allowing
+    // us to enforce the VC validity interval rather than trusting arbitrary text.
+    let valid_from = vc.valid_from.parse::<Timestamp>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Credential validFrom must be a valid RFC3339 timestamp: {e}"
+        )))
+    })?;
+    if let Some(valid_until_str) = vc.valid_until.as_deref() {
+        let valid_until = valid_until_str.parse::<Timestamp>().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Credential validUntil must be a valid RFC3339 timestamp: {e}"
+            )))
+        })?;
+        if valid_from > valid_until {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Credential validFrom must not be later than validUntil".into(),
+            ));
+        }
+    }
+
+    // Validate proof exists and has required fields.
     if vc.proof.proof_type.is_empty() || vc.proof.proof_value.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Credential must have valid proof".into(),
+        ));
+    }
+    if vc.proof.created.parse::<Timestamp>().is_err() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Credential proof created value must be a valid RFC3339 timestamp".into(),
         ));
     }
 
@@ -1384,6 +1411,29 @@ mod tests {
     }
 
     // --- Validation conditions ---
+
+    #[test]
+    fn vc_context_must_use_w3c_base_as_first_item() {
+        let mut vc = minimal_vc();
+        assert_eq!(
+            vc.context.first().map(String::as_str),
+            Some("https://www.w3.org/ns/credentials/v2")
+        );
+        vc.context = vec!["https://example.invalid/first".into(), "https://www.w3.org/ns/credentials/v2".into()];
+        assert_ne!(
+            vc.context.first().map(String::as_str),
+            Some("https://www.w3.org/ns/credentials/v2")
+        );
+    }
+
+    #[test]
+    fn vc_validity_interval_is_ordered() {
+        let from = "2026-01-01T00:00:00Z".parse::<Timestamp>().unwrap();
+        let until = "2026-01-02T00:00:00Z".parse::<Timestamp>().unwrap();
+        assert!(from <= until);
+        assert!("2026-01-01T00:00:00Z".parse::<Timestamp>().is_ok());
+        assert!("not-a-timestamp".parse::<Timestamp>().is_err());
+    }
 
     #[test]
     fn vc_must_include_credentials_context() {
