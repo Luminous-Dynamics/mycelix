@@ -37,6 +37,13 @@ def main() -> None:
             f"Cargo.lock version mismatch for {package_name!r}: "
             f"expected={expected_version!r}, observed={sorted(observed_versions)!r}"
         )
+        for package in matches:
+            assert package.get("source", "").startswith("registry+"), (
+                f"Cargo.lock substrate package {package_name!r} must come from a registry"
+            )
+            assert package.get("checksum"), (
+                f"Cargo.lock substrate package {package_name!r} must include a checksum"
+            )
 
     print(
         "verified D6U Cargo.lock substrate packages: "
