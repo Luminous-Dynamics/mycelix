@@ -1,0 +1,81 @@
+name: SYM-CIVIC-017 Policy Publication Binding v8
+
+on:
+  push:
+    branches:
+      - 'staging/sym-civic-017-policy-publication-binding-v8'
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'mycelix-workspace/docs/civic-resilience/SYM_CIVIC_017_POLICY_PUBLICATION_BINDING_V1.md'
+      - 'mycelix-workspace/docs/civic-resilience/sym_civic_017_policy_publication_binding_v1.json'
+      - 'scripts/qualification/sym_civic_017_policy_publication_binding_v1.py'
+      - '.github/workflows/sym-civic-017-policy-publication-binding.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Policy publication binding v8
+    runs-on: ubuntu-24.04
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Exact head geometry
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='0a0b5bbddbac1e611ee9664896c18387a14373f5'
+          test "$(git merge-base HEAD "$EXPECTED_PARENT")" = "$EXPECTED_PARENT"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
+          test "$(git rev-list --parents -n 1 HEAD | awk '{print NF-1}')" = "1"
+          test "$(git rev-list --count "$EXPECTED_PARENT"..HEAD)" = "1"
+          test -z "$(git status --short)"
+
+      - name: Exact research surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='0a0b5bbddbac1e611ee9664896c18387a14373f5'
+          expected="$(printf '%s\n'             'mycelix-workspace/docs/civic-resilience/SYM_CIVIC_017_POLICY_PUBLICATION_BINDING_V1.md'             'mycelix-workspace/docs/civic-resilience/sym_civic_017_policy_publication_binding_v1.json'             'scripts/qualification/sym_civic_017_policy_publication_binding_v1.py'             '.github/workflows/sym-civic-017-policy-publication-binding.yml' | sort)"
+          actual="$(git diff --name-only "$EXPECTED_PARENT" HEAD | sort)"
+          test "$actual" = "$expected"
+          git diff --check "$EXPECTED_PARENT" HEAD
+
+      - name: Qualifier integrity
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import ast
+          from pathlib import Path
+          allowed = {"__future__", "copy", "hashlib", "json", "datetime", "pathlib", "urllib"}
+          path = Path("scripts/qualification/sym_civic_017_policy_publication_binding_v1.py")
+          text = path.read_text(encoding="utf-8")
+          text.encode("utf-8").decode("utf-8")
+          tree = ast.parse(text)
+          for node in ast.walk(tree):
+              if isinstance(node, ast.Import):
+                  if any(a.name.split(".")[0] not in allowed for a in node.names):
+                      raise SystemExit("non-stdlib import")
+              elif isinstance(node, ast.ImportFrom):
+                  if (node.module or "").split(".")[0] not in allowed:
+                      raise SystemExit("non-stdlib import")
+          print("qualifier integrity: PASS")
+          PY
+
+      - name: Qualifier syntax
+        run: python3 -c 'from pathlib import Path; compile(Path("scripts/qualification/sym_civic_017_policy_publication_binding_v1.py").read_text(encoding="utf-8"), "sym_civic_017_policy_publication_binding_v1.py", "exec")'
+
+      - name: Execute exact policy-publication corpus
+        run: python3 scripts/qualification/sym_civic_017_policy_publication_binding_v1.py
+
+      - name: Immutable checkout
+        run: test -z "$(git status --short)"

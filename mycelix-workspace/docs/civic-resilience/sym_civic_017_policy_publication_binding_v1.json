@@ -1,0 +1,28 @@
+{
+  "schema": "mycelix.sym-civic.policy-publication-binding-preflight.v1",
+  "program": "SYM-CIVIC-017",
+  "parent_subject": "0a0b5bbddbac1e611ee9664896c18387a14373f5",
+  "analysis_role": "research_only",
+  "cases": [
+    {"id":"P-01","family":"canonical_publication","mutations":[]},
+    {"id":"P-02","family":"effective_witness_set_tamper","mutations":[{"op":"replace","path":"publication.wire_payload.4.0.0.0","value":"member-tampered"}]},
+    {"id":"P-03","family":"effective_quorum_tamper","mutations":[{"op":"replace","path":"publication.wire_payload.4.1","value":3}]},
+    {"id":"P-04","family":"source_agreement_hash_omission","mutations":[{"op":"remove","path":"publication.source_agreement_hashes.1"}]},
+    {"id":"P-05","family":"source_agreement_digest_omission","mutations":[{"op":"remove","path":"publication.source_agreement_content_digests.1"}]},
+    {"id":"P-06","family":"source_content_change_without_republication","mutations":[{"op":"replace","path":"agreements.0.witnesses.0.audience_member_id","value":"member-alpha-new"}]},
+    {"id":"P-07","family":"wrong_sealing_key","mutations":[{"op":"replace","path":"publication.sealing_key_ref","value":"policy-seal-evil"}]},
+    {"id":"P-08","family":"wrong_signature_key","mutations":[{"op":"replace","path":"publication.signature.key_ref","value":"policy-seal-evil"}]},
+    {"id":"P-09","family":"payload_digest_tamper","mutations":[{"op":"replace","path":"publication.payload_digest","value":"sha256:tampered"}]},
+    {"id":"P-10","family":"signature_digest_tamper","mutations":[{"op":"replace","path":"publication.signature.signature_digest","value":"sha256:tampered"}]},
+    {"id":"P-11","family":"wire_algorithm_reorder","mutations":[{"op":"replace","path":"publication.wire_payload.1","value":["EdDSA","ES256"]}]},
+    {"id":"P-12","family":"transition_order_reorder","mutations":[{"op":"replace","path":"publication.wire_payload.3","value":[["policy-version-v1","2026-09-25T00:00:00Z"],["pattern-library-v1","2026-09-20T00:00:00Z"]]}]},
+    {"id":"P-13","family":"timestamp_rollback_requires_rejection","mutations":[{"op":"replace","path":"publication.publication_timestamp","value":"2026-09-29T00:00:00Z"}]},
+    {"id":"P-14","family":"republish_later_same_content","mutations":[{"op":"replace","path":"publication.publication_timestamp","value":"2026-10-02T12:00:00Z"},{"op":"replace","path":"publication.wire_payload.0","value":"2026-10-02T12:00:00Z"}]},
+    {"id":"P-15","family":"freshness_tolerance_tamper","mutations":[{"op":"replace","path":"publication.wire_payload.5.0","value":301}]},
+    {"id":"P-16","family":"notarisation_interval_tamper","mutations":[{"op":"replace","path":"publication.wire_payload.5.1","value":61}]},
+    {"id":"P-17","family":"unknown_critical_extension","mutations":[{"op":"replace","path":"publication.extensions.critical_namespaces","value":{"policy-publication-v1":{"mode":"EFFECTIVE_WITNESS_BINDING"},"future-v2":{"mode":"OTHER"}}}]},
+    {"id":"P-18","family":"source_agreement_order_permutation","mutations":[{"op":"replace","path":"agreement_order","value":[1,0]}]},
+    {"id":"P-19","family":"dependency_binding_digest_tamper","mutations":[{"op":"replace","path":"publication.dependency_binding_digest","value":"sha256:tampered"}]},
+    {"id":"P-20","family":"duplicate_agreement_hash_identity","mutations":[{"op":"replace","path":"agreements.1.agreement_hash","value":"sha256:a-agreement","reseal":true}]}
+  ]
+}
