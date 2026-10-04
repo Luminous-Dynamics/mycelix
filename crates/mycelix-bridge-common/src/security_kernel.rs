@@ -557,6 +557,9 @@ impl Capability {
         if self.actions.is_empty() {
             return Err("capability must grant at least one action");
         }
+        if self.actions.len() > MAX_CAPABILITY_ACTIONS {
+            return Err("capability action sequence exceeds size limit");
+        }
         if self
             .actions
             .windows(2)
@@ -1020,6 +1023,20 @@ mod tests {
 
         let decoded: Capability = serde_json::from_value(json).unwrap();
         assert_eq!(decoded.subject().len(), MAX_SECURITY_IDENTIFIER_BYTES);
+    }
+
+    #[test]
+    fn capability_constructor_rejects_excessive_action_count() {
+        let actions = vec![
+            CapabilityAction::Read,
+            CapabilityAction::Write,
+            CapabilityAction::Execute,
+            CapabilityAction::Delegate,
+            CapabilityAction::Admin,
+            CapabilityAction::Read,
+        ];
+
+        assert!(Capability::new("alice", "issuer", "ledger", actions, 1, 2, 3).is_err());
     }
 
     #[test]
