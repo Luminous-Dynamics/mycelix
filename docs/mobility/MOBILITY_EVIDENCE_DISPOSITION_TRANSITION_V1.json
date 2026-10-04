@@ -931,6 +931,16 @@
       "id": "EDT-184",
       "case": "runtime_attestation_signature_host_failure_precedes_missing_authority_preflight",
       "expected": "adapter_boundary_error"
+    },
+    {
+      "id": "EDT-185",
+      "case": "authority_agent_payload_validation_precedes_signature_verification",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-186",
+      "case": "authority_agent_issuer_mismatch_precedes_signature_verification",
+      "expected": "typed_structural_error"
     }
   ],
   "outcome_classes": [
