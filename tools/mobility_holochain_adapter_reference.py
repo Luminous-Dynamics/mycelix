@@ -103,6 +103,7 @@ def main() -> int:
     for test_name in (
         "authority_agent_payload_validation_precedes_signature_verification",
         "authority_agent_issuer_mismatch_precedes_signature_verification",
+        "malformed_authority_credential_precedes_duplicate_authority_admission",
     ):
         if test_name not in source:
             raise SystemExit(f"missing authority credential precedence regression: {test_name}")
