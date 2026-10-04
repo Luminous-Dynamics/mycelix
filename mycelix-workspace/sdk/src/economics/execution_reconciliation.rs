@@ -16,6 +16,7 @@ use super::{
     execution_receipt::{EconomicExecutionKind, EconomicExecutionReceipt},
 };
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 /// Explicit expected execution constraint.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -79,6 +80,20 @@ impl EconomicExecutionConstraint {
         }
         Ok(())
     }
+
+    /// Return a deterministic SHA-256 fingerprint of the complete constraint.
+    ///
+    /// The digest binds the exact execution expectation observed during
+    /// reconciliation, not merely its stable identifier.
+    pub fn fingerprint(&self) -> Result<String, String> {
+        self.validate()?;
+        let canonical = serde_json::to_vec(self)
+            .map_err(|error| format!("Execution constraint canonicalization failed: {error}"))?;
+        let mut hasher = Sha256::new();
+        hasher.update(b"MYCELIX-ECONOMIC-EXECUTION-CONSTRAINT-V1\0");
+        hasher.update(canonical);
+        Ok(hex::encode(hasher.finalize()))
+    }
 }
 
 /// Exact conformance result between an execution receipt and a constraint.
@@ -107,8 +122,12 @@ pub struct EconomicExecutionReconciliation {
     pub reconciliation_id: String,
     /// Receipt being reconciled.
     pub execution_id: String,
+    /// SHA-256 fingerprint of the exact receipt observed.
+    pub execution_fingerprint: String,
     /// Constraint being applied.
     pub constraint_id: String,
+    /// SHA-256 fingerprint of the exact constraint observed.
+    pub constraint_fingerprint: String,
     /// Deterministic conformance result.
     pub result: ExecutionConformance,
     /// Reconciliation evidence references.
@@ -129,6 +148,30 @@ impl EconomicExecutionReconciliation {
         if self.constraint_id.trim().is_empty() {
             return Err("Reconciliation constraint ID cannot be empty".into());
         }
+        if self.execution_fingerprint.len() != 64
+            || !self
+                .execution_fingerprint
+                .as_bytes()
+                .iter()
+                .all(u8::is_ascii_hexdigit)
+        {
+            return Err(
+                "Reconciliation execution fingerprint must be a 64-character hexadecimal SHA-256"
+                    .into(),
+            );
+        }
+        if self.constraint_fingerprint.len() != 64
+            || !self
+                .constraint_fingerprint
+                .as_bytes()
+                .iter()
+                .all(u8::is_ascii_hexdigit)
+        {
+            return Err(
+                "Reconciliation constraint fingerprint must be a 64-character hexadecimal SHA-256"
+                    .into(),
+            );
+        }
         if self
             .evidence_refs
             .iter()
@@ -144,6 +187,35 @@ impl EconomicExecutionReconciliation {
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EconomicExecutionReconciliationLedger {
     reconciliations: Vec<EconomicExecutionReconciliation>,
+}
+
+/// Compute the exact conformance result for a receipt and constraint whose
+/// authorization context has already been established.
+///
+/// Keeping this calculation in one place prevents the persisted result from
+/// becoming an independently trusted claim at later audit boundaries.
+pub fn exact_conformance(
+    receipt: &EconomicExecutionReceipt,
+    constraint: &EconomicExecutionConstraint,
+) -> ExecutionConformance {
+    if receipt.kind != constraint.kind {
+        return ExecutionConformance::KindMismatch;
+    }
+
+    match (receipt.quantity, receipt.quantity_unit.as_deref()) {
+        (None, _) => ExecutionConformance::MissingObservedQuantity,
+        (Some(_), None) => ExecutionConformance::UnitMismatch,
+        (Some(_), Some(unit)) if unit != constraint.quantity_unit => {
+            ExecutionConformance::UnitMismatch
+        }
+        (Some(actual), Some(_)) if actual < constraint.quantity => {
+            ExecutionConformance::UnderQuantity
+        }
+        (Some(actual), Some(_)) if actual > constraint.quantity => {
+            ExecutionConformance::OverQuantity
+        }
+        (Some(_), Some(_)) => ExecutionConformance::Conformant,
+    }
 }
 
 impl EconomicExecutionReconciliationLedger {
@@ -241,29 +313,17 @@ impl EconomicExecutionReconciliationLedger {
             return Err("Execution receipt authorization does not match constraint".into());
         }
 
-        let result = if receipt.kind != constraint.kind {
-            ExecutionConformance::KindMismatch
-        } else {
-            match (receipt.quantity, receipt.quantity_unit.as_deref()) {
-                (None, _) => ExecutionConformance::MissingObservedQuantity,
-                (Some(_), None) => ExecutionConformance::UnitMismatch,
-                (Some(actual), Some(unit)) if unit != constraint.quantity_unit => {
-                    ExecutionConformance::UnitMismatch
-                }
-                (Some(actual), Some(_)) if actual < constraint.quantity => {
-                    ExecutionConformance::UnderQuantity
-                }
-                (Some(actual), Some(_)) if actual > constraint.quantity => {
-                    ExecutionConformance::OverQuantity
-                }
-                (Some(_), Some(_)) => ExecutionConformance::Conformant,
-            }
-        };
+        let execution_fingerprint = receipt.fingerprint()?;
+        let constraint_fingerprint = constraint.fingerprint()?;
+
+        let result = exact_conformance(receipt, constraint);
 
         let reconciliation = EconomicExecutionReconciliation {
             reconciliation_id,
             execution_id: receipt.execution_id.clone(),
+            execution_fingerprint,
             constraint_id: constraint.constraint_id.clone(),
+            constraint_fingerprint,
             result,
             evidence_refs,
             recorded_at,
@@ -352,6 +412,52 @@ mod tests {
             quantity_unit: "unit".into(),
             evidence_refs: vec!["evidence:contract-quantity".into()],
         }
+    }
+
+    #[test]
+    fn receipt_fingerprint_changes_when_receipt_content_changes() {
+        let lifecycle = contracted_lifecycle();
+        let receipt = receipt(&lifecycle, Some(100));
+        let mut changed = receipt.clone();
+        changed.external_ref = "external:changed".into();
+
+        assert_ne!(receipt.fingerprint().unwrap(), changed.fingerprint().unwrap());
+    }
+
+    #[test]
+    fn constraint_fingerprint_changes_when_constraint_content_changes() {
+        let lifecycle = contracted_lifecycle();
+        let constraint = constraint(&lifecycle, 100);
+        let mut changed = constraint.clone();
+        changed.quantity = 101;
+
+        assert_ne!(constraint.fingerprint().unwrap(), changed.fingerprint().unwrap());
+    }
+
+    #[test]
+    fn persisted_reconciliation_rejects_missing_fingerprint_shape() {
+        let lifecycle = contracted_lifecycle();
+        let receipt = receipt(&lifecycle, Some(100));
+        let constraint = constraint(&lifecycle, 100);
+        let mut ledger = EconomicExecutionReconciliationLedger::new();
+
+        let result = serde_json::from_str::<EconomicExecutionReconciliation>(
+            &serde_json::to_string(&serde_json::json!({
+                "reconciliation_id": "reconciliation:invalid",
+                "execution_id": receipt.execution_id,
+                "constraint_id": constraint.constraint_id,
+                "result": "Conformant",
+                "evidence_refs": ["evidence:invalid"],
+                "recorded_at": 1_300
+            }))
+            .unwrap(),
+        );
+
+        assert!(result.is_err() || {
+            let record = result.unwrap();
+            ledger.reconciliations.push(record);
+            ledger.validate().is_err()
+        });
     }
 
     #[test]
@@ -483,7 +589,9 @@ mod tests {
         ledger.reconciliations.push(EconomicExecutionReconciliation {
             reconciliation_id: "reconciliation:one".into(),
             execution_id: "execution:one".into(),
+            execution_fingerprint: "a".repeat(64),
             constraint_id: "constraint:one".into(),
+            constraint_fingerprint: "b".repeat(64),
             result: ExecutionConformance::Conformant,
             evidence_refs: vec!["evidence:one".into()],
             recorded_at: 1_300,
@@ -491,7 +599,9 @@ mod tests {
         ledger.reconciliations.push(EconomicExecutionReconciliation {
             reconciliation_id: "reconciliation:one".into(),
             execution_id: "execution:two".into(),
+            execution_fingerprint: "c".repeat(64),
             constraint_id: "constraint:two".into(),
+            constraint_fingerprint: "d".repeat(64),
             result: ExecutionConformance::Conformant,
             evidence_refs: vec!["evidence:two".into()],
             recorded_at: 1_400,

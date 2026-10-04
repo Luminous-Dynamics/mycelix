@@ -28,7 +28,7 @@ use super::{
     execution_reconciliation::{
         EconomicExecutionConstraint, EconomicExecutionReconciliationLedger, ExecutionConformance,
     },
-    execution_receipt::EconomicExecutionKind,
+    execution_receipt::{EconomicExecutionKind, EconomicExecutionLedger},
     impact::ImpactLedger,
     integrity_gate::{
         EconomicActionScope, EconomicIntegrityDecision, EconomicIntegrityGate,
@@ -50,6 +50,12 @@ pub enum EconomicFinalizationDecision {
     BlockedByMissingConstraint,
     /// A required execution constraint has no reconciliation.
     BlockedByMissingReconciliation,
+    /// A required reconciliation points to a missing execution receipt.
+    BlockedByMissingExecutionEvidence,
+    /// A stored reconciliation fingerprint does not match the supplied evidence.
+    BlockedByEvidenceBinding,
+    /// A stored conformance result does not match the exact receipt/constraint data.
+    BlockedBySemanticMismatch,
     /// At least one required reconciliation is non-conformant.
     BlockedByNonConformance,
     /// Impact evidence or restoration state is unresolved.
@@ -80,6 +86,12 @@ pub struct EconomicFinalizationAssessment {
     pub decision: EconomicFinalizationDecision,
     /// Required constraint IDs with no reconciliation.
     pub missing_constraint_ids: Vec<String>,
+    /// Reconciliation IDs that reference missing execution receipts.
+    pub missing_execution_ids: Vec<String>,
+    /// Reconciliation IDs whose stored receipt/constraint fingerprints do not match.
+    pub binding_mismatch_reconciliation_ids: Vec<String>,
+    /// Reconciliation IDs whose stored conformance result is semantically stale/forged.
+    pub semantic_mismatch_reconciliation_ids: Vec<String>,
     /// Required reconciliation IDs whose recorded result was non-conformant.
     pub nonconformant_reconciliation_ids: Vec<String>,
     /// Open depletion impacts.
@@ -113,8 +125,9 @@ impl EconomicActionFinalizationGate {
     /// certificate.
     ///
     /// The order is fail-closed and deterministic:
-    /// emergency escalation > lifecycle > missing controls > non-conformance
-    /// > unresolved impact > non-clean integrity > ready.
+    /// emergency escalation > lifecycle > missing controls > evidence binding
+    /// > semantic mismatch > non-conformance > unresolved impact
+    /// > non-clean integrity > ready.
     ///
     /// Required constraints are validated against immutable lifecycle history
     /// rather than only the current revision. This preserves valid evidence
@@ -126,11 +139,16 @@ impl EconomicActionFinalizationGate {
         substrate: &SubstrateLedger,
         impacts: &ImpactLedger,
         reconciliations: &EconomicExecutionReconciliationLedger,
+        execution: &EconomicExecutionLedger,
         constraints: &[EconomicExecutionConstraint],
     ) -> Result<EconomicFinalizationAssessment, String> {
         lifecycle.validate()?;
         reconciliations.validate()?;
+        execution.validate()?;
         scope.validate()?;
+        if execution.action_ref() != lifecycle.action_ref() {
+            return Err("Finalization execution ledger action reference does not match lifecycle".into());
+        }
 
         let current_revision = lifecycle.current_revision()?;
         let scope_fingerprint = scope.fingerprint()?;
@@ -221,14 +239,51 @@ impl EconomicActionFinalizationGate {
         }
 
         let mut matched = BTreeSet::new();
+        let mut missing_execution_ids = Vec::new();
+        let mut binding_mismatch_reconciliation_ids = Vec::new();
+        let mut semantic_mismatch_reconciliation_ids = Vec::new();
         let mut nonconformant_reconciliation_ids = Vec::new();
 
         for reconciliation in reconciliations.reconciliations() {
-            if !constraints_by_id.contains_key(&reconciliation.constraint_id) {
+            let Some(constraint) = constraints_by_id.get(&reconciliation.constraint_id) else {
                 continue;
-            }
+            };
 
             matched.insert(reconciliation.constraint_id.clone());
+
+            let constraint_fingerprint = constraint.fingerprint()?;
+            if constraint_fingerprint != reconciliation.constraint_fingerprint {
+                binding_mismatch_reconciliation_ids.push(reconciliation.reconciliation_id.clone());
+            }
+
+            let Some(receipt) = execution
+                .receipts()
+                .iter()
+                .find(|receipt| receipt.execution_id == reconciliation.execution_id)
+            else {
+                missing_execution_ids.push(reconciliation.reconciliation_id.clone());
+                continue;
+            };
+
+            if receipt.action_ref != constraint.action_ref
+                || receipt.lifecycle_revision_id != constraint.lifecycle_revision_id
+                || receipt.scope_id != constraint.scope_id
+                || receipt.scope_fingerprint != constraint.scope_fingerprint
+            {
+                binding_mismatch_reconciliation_ids.push(reconciliation.reconciliation_id.clone());
+            }
+
+            let execution_fingerprint = receipt.fingerprint()?;
+            if execution_fingerprint != reconciliation.execution_fingerprint {
+                binding_mismatch_reconciliation_ids.push(reconciliation.reconciliation_id.clone());
+            }
+
+            let expected_result =
+                super::execution_reconciliation::exact_conformance(receipt, constraint);
+            if expected_result != reconciliation.result {
+                semantic_mismatch_reconciliation_ids.push(reconciliation.reconciliation_id.clone());
+            }
+
             if reconciliation.result != ExecutionConformance::Conformant {
                 nonconformant_reconciliation_ids.push(reconciliation.reconciliation_id.clone());
             }
@@ -240,6 +295,11 @@ impl EconomicActionFinalizationGate {
             .cloned()
             .collect::<Vec<_>>();
         missing_constraint_ids.sort();
+        missing_execution_ids.sort();
+        binding_mismatch_reconciliation_ids.sort();
+        binding_mismatch_reconciliation_ids.dedup();
+        semantic_mismatch_reconciliation_ids.sort();
+        semantic_mismatch_reconciliation_ids.dedup();
         nonconformant_reconciliation_ids.sort();
 
         let exposure = impacts.exposure();
@@ -254,6 +314,12 @@ impl EconomicActionFinalizationGate {
             EconomicFinalizationDecision::BlockedByMissingConstraint
         } else if !missing_constraint_ids.is_empty() {
             EconomicFinalizationDecision::BlockedByMissingReconciliation
+        } else if !missing_execution_ids.is_empty() {
+            EconomicFinalizationDecision::BlockedByMissingExecutionEvidence
+        } else if !binding_mismatch_reconciliation_ids.is_empty() {
+            EconomicFinalizationDecision::BlockedByEvidenceBinding
+        } else if !semantic_mismatch_reconciliation_ids.is_empty() {
+            EconomicFinalizationDecision::BlockedBySemanticMismatch
         } else if !nonconformant_reconciliation_ids.is_empty() {
             EconomicFinalizationDecision::BlockedByNonConformance
         } else if !exposure.open_impact_ids.is_empty()
@@ -275,6 +341,9 @@ impl EconomicActionFinalizationGate {
             completion_constraint_present,
             decision,
             missing_constraint_ids,
+            missing_execution_ids,
+            binding_mismatch_reconciliation_ids,
+            semantic_mismatch_reconciliation_ids,
             nonconformant_reconciliation_ids,
             open_impact_ids: exposure.open_impact_ids,
             remediation_impact_ids: exposure.remediation_impact_ids,
@@ -427,6 +496,37 @@ mod tests {
         }
     }
 
+    fn execution_ledger(entries: Vec<EconomicExecutionReceipt>) -> EconomicExecutionLedger {
+        if entries.is_empty() {
+            return EconomicExecutionLedger::new("action:1").unwrap();
+        }
+        let json = serde_json::to_string(&serde_json::json!({
+            "action_ref": "action:1",
+            "receipts": entries
+        }))
+        .unwrap();
+        serde_json::from_str(&json).unwrap()
+    }
+
+    fn reconciliation(
+        reconciliation_id: &str,
+        receipt: &EconomicExecutionReceipt,
+        constraint: &EconomicExecutionConstraint,
+        result: ExecutionConformance,
+        recorded_at: u64,
+    ) -> EconomicExecutionReconciliation {
+        EconomicExecutionReconciliation {
+            reconciliation_id: reconciliation_id.into(),
+            execution_id: receipt.execution_id.clone(),
+            execution_fingerprint: receipt.fingerprint().unwrap(),
+            constraint_id: constraint.constraint_id.clone(),
+            constraint_fingerprint: constraint.fingerprint().unwrap(),
+            result,
+            evidence_refs: vec![format!("evidence:{reconciliation_id}")],
+            recorded_at,
+        }
+    }
+
     fn reconciliation_ledger(
         entries: Vec<EconomicExecutionReconciliation>,
     ) -> EconomicExecutionReconciliationLedger {
@@ -474,8 +574,10 @@ mod tests {
         let delivery_constraint = delivery_constraint(&completed);
         let completion_constraint = completion_constraint(&completed);
 
-        let mut delivery_reconciliations = EconomicExecutionReconciliationLedger::new();
         let delivery_receipt = delivery_receipt(&implementation);
+        let completion_receipt = completion_receipt(&completed);
+
+        let mut delivery_reconciliations = EconomicExecutionReconciliationLedger::new();
         delivery_reconciliations
             .reconcile(
                 &implementation,
@@ -489,7 +591,6 @@ mod tests {
         let delivery_reconciliation = delivery_reconciliations.reconciliations()[0].clone();
 
         let mut completion_reconciliations = EconomicExecutionReconciliationLedger::new();
-        let completion_receipt = completion_receipt(&completed);
         completion_reconciliations
             .reconcile(
                 &completed,
@@ -504,6 +605,7 @@ mod tests {
 
         let reconciliations =
             reconciliation_ledger(vec![delivery_reconciliation, completion_reconciliation]);
+        let execution = execution_ledger(vec![delivery_receipt, completion_receipt]);
 
         let assessment = EconomicActionFinalizationGate::assess(
             &completed,
@@ -511,6 +613,7 @@ mod tests {
             &healthy_substrate(),
             &ImpactLedger::new(),
             &reconciliations,
+            &execution,
             &[delivery_constraint, completion_constraint],
         )
         .unwrap();
@@ -519,6 +622,8 @@ mod tests {
         assert!(assessment.is_ready());
         assert!(assessment.completion_constraint_present);
         assert!(assessment.missing_constraint_ids.is_empty());
+        assert!(assessment.missing_execution_ids.is_empty());
+        assert!(assessment.binding_mismatch_reconciliation_ids.is_empty());
         assert!(assessment.nonconformant_reconciliation_ids.is_empty());
     }
 
@@ -531,6 +636,7 @@ mod tests {
             &healthy_substrate(),
             &ImpactLedger::new(),
             &EconomicExecutionReconciliationLedger::new(),
+            &execution_ledger(Vec::new()),
             &[],
         )
         .unwrap();
@@ -553,6 +659,7 @@ mod tests {
             &healthy_substrate(),
             &ImpactLedger::new(),
             &EconomicExecutionReconciliationLedger::new(),
+            &execution_ledger(Vec::new()),
             &[constraint],
         )
         .unwrap();
@@ -571,24 +678,28 @@ mod tests {
     fn nonconformance_cannot_be_hidden_by_a_later_conformant_reconciliation() {
         let lifecycle = completed_lifecycle();
         let constraint = completion_constraint(&lifecycle);
+        let mut bad_receipt = completion_receipt(&lifecycle);
+        bad_receipt.execution_id = "execution:bad".into();
+        let mut good_receipt = completion_receipt(&lifecycle);
+        good_receipt.execution_id = "execution:good".into();
+
         let reconciliations = reconciliation_ledger(vec![
-            EconomicExecutionReconciliation {
-                reconciliation_id: "reconciliation:bad".into(),
-                execution_id: "execution:bad".into(),
-                constraint_id: constraint.constraint_id.clone(),
-                result: ExecutionConformance::OverQuantity,
-                evidence_refs: vec!["evidence:bad".into()],
-                recorded_at: 1_500,
-            },
-            EconomicExecutionReconciliation {
-                reconciliation_id: "reconciliation:good".into(),
-                execution_id: "execution:good".into(),
-                constraint_id: constraint.constraint_id.clone(),
-                result: ExecutionConformance::Conformant,
-                evidence_refs: vec!["evidence:good".into()],
-                recorded_at: 1_600,
-            },
+            reconciliation(
+                "reconciliation:bad",
+                &bad_receipt,
+                &constraint,
+                ExecutionConformance::OverQuantity,
+                1_500,
+            ),
+            reconciliation(
+                "reconciliation:good",
+                &good_receipt,
+                &constraint,
+                ExecutionConformance::Conformant,
+                1_600,
+            ),
         ]);
+        let execution = execution_ledger(vec![bad_receipt, good_receipt]);
 
         let assessment = EconomicActionFinalizationGate::assess(
             &lifecycle,
@@ -596,6 +707,7 @@ mod tests {
             &healthy_substrate(),
             &ImpactLedger::new(),
             &reconciliations,
+            &execution,
             &[constraint],
         )
         .unwrap();
@@ -614,14 +726,15 @@ mod tests {
     fn unresolved_impacts_block_even_when_execution_controls_are_clean() {
         let lifecycle = completed_lifecycle();
         let constraint = completion_constraint(&lifecycle);
-        let reconciliations = reconciliation_ledger(vec![EconomicExecutionReconciliation {
-            reconciliation_id: "reconciliation:completion".into(),
-            execution_id: "execution:completion".into(),
-            constraint_id: constraint.constraint_id.clone(),
-            result: ExecutionConformance::Conformant,
-            evidence_refs: vec!["evidence:completion".into()],
-            recorded_at: 1_600,
-        }]);
+        let completion_receipt = completion_receipt(&lifecycle);
+        let reconciliations = reconciliation_ledger(vec![reconciliation(
+            "reconciliation:completion",
+            &completion_receipt,
+            &constraint,
+            ExecutionConformance::Conformant,
+            1_600,
+        )]);
+        let execution = execution_ledger(vec![completion_receipt]);
 
         let mut impacts = ImpactLedger::new();
         impacts
@@ -648,6 +761,7 @@ mod tests {
             &healthy_substrate(),
             &impacts,
             &reconciliations,
+            &execution,
             &[constraint],
         )
         .unwrap();
@@ -663,14 +777,15 @@ mod tests {
     fn integrity_warning_blocks_clean_finalization() {
         let lifecycle = completed_lifecycle();
         let constraint = completion_constraint(&lifecycle);
-        let reconciliations = reconciliation_ledger(vec![EconomicExecutionReconciliation {
-            reconciliation_id: "reconciliation:completion".into(),
-            execution_id: "execution:completion".into(),
-            constraint_id: constraint.constraint_id.clone(),
-            result: ExecutionConformance::Conformant,
-            evidence_refs: vec!["evidence:completion".into()],
-            recorded_at: 1_600,
-        }]);
+        let completion_receipt = completion_receipt(&lifecycle);
+        let reconciliations = reconciliation_ledger(vec![reconciliation(
+            "reconciliation:completion",
+            &completion_receipt,
+            &constraint,
+            ExecutionConformance::Conformant,
+            1_600,
+        )]);
+        let execution = execution_ledger(vec![completion_receipt]);
 
         let assessment = EconomicActionFinalizationGate::assess(
             &lifecycle,
@@ -678,6 +793,7 @@ mod tests {
             &warning_substrate(),
             &ImpactLedger::new(),
             &reconciliations,
+            &execution,
             &[constraint],
         )
         .unwrap();
@@ -697,6 +813,7 @@ mod tests {
             &healthy_substrate(),
             &ImpactLedger::new(),
             &EconomicExecutionReconciliationLedger::new(),
+            &execution_ledger(Vec::new()),
             &[],
         )
         .unwrap();
@@ -719,8 +836,192 @@ mod tests {
             &healthy_substrate(),
             &ImpactLedger::new(),
             &EconomicExecutionReconciliationLedger::new(),
+            &execution_ledger(Vec::new()),
             &[constraint],
         )
         .is_err());
+    }
+
+    #[test]
+    fn missing_execution_receipt_blocks_finalization() {
+        let lifecycle = completed_lifecycle();
+        let constraint = completion_constraint(&lifecycle);
+        let receipt = completion_receipt(&lifecycle);
+        let reconciliations = reconciliation_ledger(vec![reconciliation(
+            "reconciliation:missing-execution",
+            &receipt,
+            &constraint,
+            ExecutionConformance::Conformant,
+            1_600,
+        )]);
+
+        let assessment = EconomicActionFinalizationGate::assess(
+            &lifecycle,
+            &scope(),
+            &healthy_substrate(),
+            &ImpactLedger::new(),
+            &reconciliations,
+            &execution_ledger(Vec::new()),
+            &[constraint],
+        )
+        .unwrap();
+
+        assert_eq!(
+            assessment.decision,
+            EconomicFinalizationDecision::BlockedByMissingExecutionEvidence
+        );
+        assert_eq!(
+            assessment.missing_execution_ids,
+            vec!["reconciliation:missing-execution"]
+        );
+    }
+
+    #[test]
+    fn reconciliation_fingerprint_mismatch_blocks_finalization() {
+        let lifecycle = completed_lifecycle();
+        let constraint = completion_constraint(&lifecycle);
+        let receipt = completion_receipt(&lifecycle);
+        let mut entry = reconciliation(
+            "reconciliation:tampered",
+            &receipt,
+            &constraint,
+            ExecutionConformance::Conformant,
+            1_600,
+        );
+        entry.constraint_fingerprint = "f".repeat(64);
+
+        let reconciliations = reconciliation_ledger(vec![entry]);
+        let execution = execution_ledger(vec![receipt]);
+
+        let assessment = EconomicActionFinalizationGate::assess(
+            &lifecycle,
+            &scope(),
+            &healthy_substrate(),
+            &ImpactLedger::new(),
+            &reconciliations,
+            &execution,
+            &[constraint],
+        )
+        .unwrap();
+
+        assert_eq!(
+            assessment.decision,
+            EconomicFinalizationDecision::BlockedByEvidenceBinding
+        );
+        assert_eq!(
+            assessment.binding_mismatch_reconciliation_ids,
+            vec!["reconciliation:tampered"]
+        );
+    }
+
+    #[test]
+    fn forged_conformant_result_is_rejected_even_when_fingerprints_match() {
+        let lifecycle = completed_lifecycle();
+        let mut constraint = completion_constraint(&lifecycle);
+        constraint.quantity = 2;
+        let receipt = completion_receipt(&lifecycle);
+        let reconciliations = reconciliation_ledger(vec![reconciliation(
+            "reconciliation:forged-result",
+            &receipt,
+            &constraint,
+            ExecutionConformance::Conformant,
+            1_600,
+        )]);
+        let execution = execution_ledger(vec![receipt]);
+
+        let assessment = EconomicActionFinalizationGate::assess(
+            &lifecycle,
+            &scope(),
+            &healthy_substrate(),
+            &ImpactLedger::new(),
+            &reconciliations,
+            &execution,
+            &[constraint],
+        )
+        .unwrap();
+
+        assert_eq!(
+            assessment.decision,
+            EconomicFinalizationDecision::BlockedBySemanticMismatch
+        );
+        assert_eq!(
+            assessment.semantic_mismatch_reconciliation_ids,
+            vec!["reconciliation:forged-result"]
+        );
+    }
+
+    #[test]
+    fn receipt_authorization_mismatch_blocks_finalization() {
+        let lifecycle = completed_lifecycle();
+        let constraint = completion_constraint(&lifecycle);
+        let mut receipt = completion_receipt(&lifecycle);
+        receipt.lifecycle_revision_id = lifecycle.revisions()[2].revision_id.clone();
+
+        let reconciliations = reconciliation_ledger(vec![reconciliation(
+            "reconciliation:wrong-revision",
+            &receipt,
+            &constraint,
+            ExecutionConformance::Conformant,
+            1_600,
+        )]);
+        let execution = execution_ledger(vec![receipt]);
+
+        let assessment = EconomicActionFinalizationGate::assess(
+            &lifecycle,
+            &scope(),
+            &healthy_substrate(),
+            &ImpactLedger::new(),
+            &reconciliations,
+            &execution,
+            &[constraint],
+        )
+        .unwrap();
+
+        assert_eq!(
+            assessment.decision,
+            EconomicFinalizationDecision::BlockedByEvidenceBinding
+        );
+        assert_eq!(
+            assessment.binding_mismatch_reconciliation_ids,
+            vec!["reconciliation:wrong-revision"]
+        );
+    }
+
+    #[test]
+    fn receipt_fingerprint_mismatch_blocks_finalization() {
+        let lifecycle = completed_lifecycle();
+        let constraint = completion_constraint(&lifecycle);
+        let receipt = completion_receipt(&lifecycle);
+        let mut entry = reconciliation(
+            "reconciliation:tampered-receipt",
+            &receipt,
+            &constraint,
+            ExecutionConformance::Conformant,
+            1_600,
+        );
+        entry.execution_fingerprint = "e".repeat(64);
+
+        let reconciliations = reconciliation_ledger(vec![entry]);
+        let execution = execution_ledger(vec![receipt]);
+
+        let assessment = EconomicActionFinalizationGate::assess(
+            &lifecycle,
+            &scope(),
+            &healthy_substrate(),
+            &ImpactLedger::new(),
+            &reconciliations,
+            &execution,
+            &[constraint],
+        )
+        .unwrap();
+
+        assert_eq!(
+            assessment.decision,
+            EconomicFinalizationDecision::BlockedByEvidenceBinding
+        );
+        assert_eq!(
+            assessment.binding_mismatch_reconciliation_ids,
+            vec!["reconciliation:tampered-receipt"]
+        );
     }
 }

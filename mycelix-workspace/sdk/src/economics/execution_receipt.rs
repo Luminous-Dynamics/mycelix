@@ -16,6 +16,7 @@ use super::action_lifecycle::{
     EconomicActionLifecycle, EconomicActionStage,
 };
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 /// Type of execution evidence attached to an economic action.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -105,6 +106,21 @@ impl EconomicExecutionReceipt {
         }
         Ok(())
     }
+
+    /// Return a deterministic SHA-256 fingerprint of the complete receipt.
+    ///
+    /// The domain/version prefix prevents this digest from being confused with
+    /// fingerprints from other Mycelix artifacts. The encoding scheme is the
+    /// same serde-json based reference canonicalization used by AC-036.
+    pub fn fingerprint(&self) -> Result<String, String> {
+        self.validate()?;
+        let canonical = serde_json::to_vec(self)
+            .map_err(|error| format!("Economic execution receipt canonicalization failed: {error}"))?;
+        let mut hasher = Sha256::new();
+        hasher.update(b"MYCELIX-ECONOMIC-EXECUTION-RECEIPT-V1\0");
+        hasher.update(canonical);
+        Ok(hex::encode(hasher.finalize()))
+    }
 }
 
 /// Append-only execution ledger for one economic action.
@@ -135,6 +151,37 @@ impl EconomicExecutionLedger {
     /// Read immutable execution history.
     pub fn receipts(&self) -> &[EconomicExecutionReceipt] {
         &self.receipts
+    }
+
+    /// Validate persisted execution history without mutating it.
+    ///
+    /// This closes the structural ambiguity where a deserialized ledger could
+    /// contain duplicate execution IDs or receipts belonging to another action.
+    pub fn validate(&self) -> Result<(), String> {
+        if self.action_ref.trim().is_empty() {
+            return Err("Execution ledger action reference cannot be empty".into());
+        }
+
+        let mut seen = std::collections::BTreeSet::new();
+        for receipt in &self.receipts {
+            receipt.validate()?;
+
+            if !seen.insert(receipt.execution_id.clone()) {
+                return Err(format!(
+                    "Duplicate execution ID in history: {}",
+                    receipt.execution_id
+                ));
+            }
+
+            if receipt.action_ref != self.action_ref {
+                return Err(format!(
+                    "Execution receipt {} action reference does not match ledger",
+                    receipt.execution_id
+                ));
+            }
+        }
+
+        Ok(())
     }
 
     /// Attach a receipt to the exact current lifecycle authorization.
@@ -251,6 +298,54 @@ mod tests {
             evidence_refs: vec!["evidence:execution".into()],
             recorded_at: 1_200,
         }
+    }
+
+    #[test]
+    fn execution_history_rejects_cross_action_receipts() {
+        let lifecycle = lifecycle();
+        let mut receipt = receipt(&lifecycle, EconomicExecutionKind::Delivery);
+        receipt.action_ref = "action:other".into();
+
+        let ledger: EconomicExecutionLedger = serde_json::from_value(serde_json::json!({
+            "action_ref": "action:1",
+            "receipts": [receipt]
+        }))
+        .unwrap();
+
+        assert!(ledger.validate().is_err());
+    }
+
+    #[test]
+    fn malformed_execution_history_is_rejected() {
+        let receipt = receipt(
+            &EconomicActionLifecycle::start(
+                &scope("action:1", "scope:1"),
+                "revision:1",
+                "authority:dao-1",
+                vec!["evidence:planning".into()],
+                1_000,
+            )
+            .unwrap(),
+            EconomicExecutionKind::Delivery,
+        );
+
+        let duplicate = serde_json::json!({
+            "action_ref": "action:1",
+            "receipts": [receipt, receipt]
+        });
+        let ledger: EconomicExecutionLedger = serde_json::from_value(duplicate).unwrap();
+
+        assert!(ledger.validate().is_err());
+    }
+
+    #[test]
+    fn receipt_fingerprint_changes_when_receipt_content_changes() {
+        let lifecycle = lifecycle();
+        let receipt = receipt(&lifecycle, EconomicExecutionKind::Payment);
+        let mut changed = receipt.clone();
+        changed.external_ref = "external:changed".into();
+
+        assert_ne!(receipt.fingerprint().unwrap(), changed.fingerprint().unwrap());
     }
 
     #[test]
