@@ -299,7 +299,7 @@ pub struct MetabolicOracle {
     /// Adjustment history for audit and backwards-compatible inspection.
     pub adjustment_history: Vec<PolicyAdjustment>,
     /// Explicit governance decisions authorizing parameter changes.
-    pub governed_decision_history: Vec<GovernedPolicyAdjustment>,
+    governed_decision_history: Vec<GovernedPolicyAdjustment>,
 }
 
 /// Current network economic parameters
@@ -492,6 +492,11 @@ impl MetabolicOracle {
         self.adjustment_history.push(adjustment.clone());
     }
 
+    /// Return governance decisions in append-only insertion order.
+    pub fn governed_decisions(&self) -> &[GovernedPolicyAdjustment] {
+        &self.governed_decision_history
+    }
+
     /// Apply an adjustment directly when the caller has already established
     /// governance externally. This remains useful for deterministic simulation.
     pub fn apply_adjustment(&mut self, adjustment: &PolicyAdjustment) -> Result<(), String> {
@@ -664,8 +669,8 @@ mod tests {
         assert_eq!(fingerprint.len(), 64);
         let applied = oracle.apply_governed_adjustment(decision).unwrap();
         assert_eq!(applied.len(), 64);
-        assert_eq!(oracle.governed_decision_history.len(), 1);
-        assert_eq!(oracle.governed_decision_history[0].authority_ref, "authority:dao-1");
+        assert_eq!(oracle.governed_decisions().len(), 1);
+        assert_eq!(oracle.governed_decisions()[0].authority_ref, "authority:dao-1");
     }
 
     #[test]
