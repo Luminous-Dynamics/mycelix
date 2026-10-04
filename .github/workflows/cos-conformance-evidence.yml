@@ -72,7 +72,8 @@ jobs:
           )
 
           for line in path.read_text().splitlines():
-              if "uses:" not in line:
+              stripped = line.lstrip()
+              if not (stripped.startswith("- uses:") or stripped.startswith("uses:")):
                   continue
               match = pattern.fullmatch(line)
               assert match, f"workflow action is not pinned to a full SHA: {line!r}"
