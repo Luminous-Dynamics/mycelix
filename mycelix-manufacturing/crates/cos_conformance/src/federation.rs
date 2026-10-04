@@ -3224,6 +3224,7 @@ mod tests {
     struct FederationStateMachineTraceCheckpointPublication {
         schema_version: u16,
         publication_profile: String,
+        trace_schema_version: u16,
         trace_verification_profile: String,
         trace_index: usize,
         evidence_end: usize,
@@ -3238,6 +3239,7 @@ mod tests {
         hash_domain: String,
         schema_version: u16,
         publication_profile: String,
+        trace_schema_version: u16,
         trace_verification_profile: String,
         trace_index: usize,
         evidence_end: usize,
@@ -3332,6 +3334,7 @@ mod tests {
             hash_domain: FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_HASH_DOMAIN.into(),
             schema_version: publication.schema_version,
             publication_profile: publication.publication_profile.clone(),
+            trace_schema_version: publication.trace_schema_version,
             trace_verification_profile: publication.trace_verification_profile.clone(),
             trace_index: publication.trace_index,
             evidence_end: publication.evidence_end,
@@ -3364,6 +3367,7 @@ mod tests {
         let mut publication = FederationStateMachineTraceCheckpointPublication {
             schema_version: FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_SCHEMA_VERSION,
             publication_profile: FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_PROFILE.into(),
+            trace_schema_version: capsule.schema_version,
             trace_verification_profile: capsule.verification_profile.clone(),
             trace_index: capsule.trace_index,
             evidence_end,
@@ -3382,6 +3386,7 @@ mod tests {
         UnsupportedSchemaVersion,
         UnsupportedPublicationProfile,
         TraceVerificationProfileMismatch,
+        TraceSchemaVersionMismatch,
         TraceIndexMismatch,
         InvalidEvidenceEnd,
         BodyDigestMismatch,
@@ -3443,6 +3448,11 @@ mod tests {
         {
             return Err(
                 FederationStateMachineTraceCheckpointPublicationViolation::UnsupportedPublicationProfile
+            );
+        }
+        if publication.trace_schema_version != capsule.schema_version {
+            return Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::TraceSchemaVersionMismatch
             );
         }
         if publication.trace_verification_profile != capsule.verification_profile {
@@ -5630,6 +5640,19 @@ mod tests {
                 (&later, &later_publication),
             ])
             .is_ok()
+        );
+
+        let mut forged_publication_schema = later_publication.clone();
+        forged_publication_schema.trace_schema_version = 4;
+        reseal_trace_checkpoint_publication_for_test(&mut forged_publication_schema);
+        assert_eq!(
+            validate_state_machine_trace_checkpoint_publication(
+                &later,
+                &forged_publication_schema,
+            ),
+            Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::TraceSchemaVersionMismatch
+            )
         );
 
         let mut unsupported_later_schema = later.clone();
