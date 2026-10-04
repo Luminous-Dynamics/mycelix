@@ -18,6 +18,7 @@ from typing import Any, Sequence
 ROOT = Path(__file__).resolve().parents[2]
 CONTRACT = ROOT / "docs/security/mycelix-platform-evidence-capture-v0.1.json"
 RECONSTRUCTION_SCRIPT = ROOT / "scripts/security/reconstruct_mycelix_pc_client_eventlog_v0_1.py"
+ADAPTER_SCRIPT = ROOT / "scripts/security/adapt_mycelix_tpm2_eventlog_yaml_v1_v0_1.py"
 RECONSTRUCTION_VERIFIER_ID = "mycelix.pc-client.eventlog-reconstruction.v0.1"
 
 
@@ -731,6 +732,10 @@ def verify_bundle(args: argparse.Namespace) -> int:
 
     print("PLATFORM EVIDENCE: PASS")
     print("Claim ceiling: ReferenceModelOnly")
+    if reconstruction.get("status") == "DENY":
+        return 1
+    if reconstruction.get("status") == "INDETERMINATE":
+        return 2
     return 0
 
 
@@ -880,8 +885,9 @@ def capture(args: argparse.Namespace) -> int:
     if boot_after != boot_before:
         raise RuntimeError("OS boot_id changed during capture")
 
+    session_id = f"linuxboot-{boot_before}-{sha256_file(out / 'eventlog.bin')[:16]}"
     parsed = run(
-        ["tpm2_eventlog", str(out / "eventlog.bin")],
+        ["tpm2_eventlog", "--eventlog-version=1", str(out / "eventlog.bin")],
         env,
         out,
         check=False,
@@ -893,26 +899,91 @@ def capture(args: argparse.Namespace) -> int:
         raise RuntimeError("tpm2_eventlog parser failed; raw evidence preserved but not qualified")
 
     trusted = load_json(out / "trusted-time.json")
-    reconstruction: dict[str, Any] = {
-        "status": "INDETERMINATE",
-        "reason": "independent-event-log-reconstruction-result-not-yet-supplied",
-        "event_log_sha256": sha256_file(out / "eventlog.bin"),
-        "pcr_selection": args.pcr_selection,
-        "verifier_id": "external-reconstruction-required",
-        "verifier_source_sha256": "",
-        "input_sha256": "",
-        "reconstructed_pcrs_sha256": "",
-    }
-    reconstruction["content_sha256"] = self_hash(reconstruction, "content_sha256")
-    (out / "eventlog-reconstruction.json").write_text(
-        json.dumps(reconstruction, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    input_path = out / "eventlog-reconstruction-input.json"
+    reconstruction_path = out / "eventlog-reconstruction.json"
+    adapter = run(
+        [
+            sys.executable,
+            str(ADAPTER_SCRIPT),
+            "--adapt",
+            str(out / "eventlog-parsed.yaml"),
+            "--binary-eventlog",
+            str(out / "eventlog.bin"),
+            "--session-id",
+            session_id,
+            "--pcr-selection",
+            args.pcr_selection,
+            "--output",
+            str(input_path),
+        ],
+        env,
+        out,
+        check=False,
     )
+    if adapter.returncode == 0:
+        replay = run(
+            [
+                sys.executable,
+                str(RECONSTRUCTION_SCRIPT),
+                "--reconstruct",
+                str(input_path),
+                "--output",
+                str(reconstruction_path),
+            ],
+            env,
+            out,
+            check=False,
+        )
+        if reconstruction_path.is_file():
+            reconstruction = load_json(reconstruction_path)
+        else:
+            reconstruction = {
+                "status": "DENY",
+                "reason": "reconstruction-executable-produced-no-result",
+                "event_log_sha256": sha256_file(out / "eventlog.bin"),
+                "pcr_selection": args.pcr_selection,
+                "verifier_id": RECONSTRUCTION_VERIFIER_ID,
+                "verifier_source_sha256": sha256_file(RECONSTRUCTION_SCRIPT),
+                "input_sha256": sha256_file(input_path),
+                "reconstructed_pcrs_sha256": "",
+            }
+            reconstruction["content_sha256"] = self_hash(reconstruction, "content_sha256")
+            reconstruction_path.write_text(
+                json.dumps(reconstruction, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            )
+        if replay.returncode not in (0, 1, 2):
+            raise RuntimeError("independent event-log reconstruction process failed")
+    else:
+        input_path.write_text(
+            json.dumps({
+                "status": "INDETERMINATE",
+                "reason": "eventlog-yaml-adapter-failed",
+                "session_id": session_id,
+                "event_log_sha256": sha256_file(out / "eventlog.bin"),
+                "pcr_selection": args.pcr_selection,
+            }, sort_keys=True, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        reconstruction = {
+            "status": "INDETERMINATE",
+            "reason": "eventlog-yaml-adapter-failed",
+            "event_log_sha256": sha256_file(out / "eventlog.bin"),
+            "pcr_selection": args.pcr_selection,
+            "verifier_id": "external-reconstruction-required",
+            "verifier_source_sha256": "",
+            "input_sha256": sha256_file(input_path),
+            "reconstructed_pcrs_sha256": "",
+        }
+        reconstruction["content_sha256"] = self_hash(reconstruction, "content_sha256")
+        reconstruction_path.write_text(
+            json.dumps(reconstruction, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
 
     ek_hash = sha256_file(out / "ek.pub")
     manifest: dict[str, Any] = {
         "profile_id": "mycelix.security.platform.evidence.capture",
         "profile_version": "0.1.0",
-        "session_id": f"linuxboot-{boot_before}-{sha256_file(out / 'eventlog.bin')[:16]}",
+        "session_id": session_id,
         "boot_id": boot_before,
         "tpm": {
             "device_path": str(device),
@@ -962,7 +1033,7 @@ def capture(args: argparse.Namespace) -> int:
             "quote_signature_sha256": sha256_file(out / "quote.sig"),
             "attestation_key_sha256": sha256_file(out / "ak.pub"),
             "reconstruction_file_sha256": sha256_file(out / "eventlog-reconstruction.json"),
-            "reconstruction_input_sha256": "",
+            "tss_version_evidence_sha256": sha256_file(out / "tss-version-evidence.txt"),
             "tss_version_evidence_sha256": sha256_file(out / "tss-version-evidence.txt"),
             "ek_public_sha256": ek_hash,
         },
@@ -988,7 +1059,8 @@ def capture(args: argparse.Namespace) -> int:
     print("Capture status: CAPTURED_RAW_EVIDENCE")
     print("Qualification status: NOT QUALIFIED")
     print("Event-log parser: PASS")
-    print("Event-log reconstruction: INDETERMINATE until independently supplied")
+    print(f"Event-log reconstruction: {reconstruction.get('status', 'INDETERMINATE')}")
+    print(f"Event-log reconstruction reason: {reconstruction.get('reason', 'unknown')}")
     print("Claim ceiling: ReferenceModelOnly")
     return 0
 
