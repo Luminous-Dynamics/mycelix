@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "profile_id": "mycelix.security.rats.trusted-time-binding",
+  "profile_version": "0.1.0",
+  "claim_ceiling": "ReferenceModelOnly",
+  "parent_contract": "mycelix.security.rats.appraisal@0.1.0",
+  "time_semantics_source": {
+    "issue": 3189,
+    "structural_profile": "evidence-time-core",
+    "required_positive": "PolicyTrustedTimeInterval"
+  },
+  "policy": {
+    "security_domain": "E1",
+    "verifier_profile_id": "mycelix.rats.tpm2.e1.v0.1",
+    "time_source_namespace": "example-time-provider",
+    "time_source_instance": "server-a",
+    "time_source_trust_domain": "operator-a",
+    "time_source_profile_id": "synthetic-authenticated-time",
+    "time_source_profile_version": "1",
+    "time_scale_profile": "unix-utc-v1",
+    "max_interval_width_seconds": 5,
+    "require_request_binding": true,
+    "expected_request_binding": "sha256:request-001",
+    "max_result_age_seconds": 60,
+    "future_skew_seconds": 0
+  },
+  "states": [
+    "PASS",
+    "DENY",
+    "INDETERMINATE"
+  ],
+  "decision_rule": "Use the entire trusted-now interval conservatively; if possible times disagree about validity or maximum age, return INDETERMINATE rather than assuming the favorable clock value.",
+  "non_equivalences": [
+    ["wall_clock", "policy_trusted_time"],
+    ["policy_trusted_time", "freshness"],
+    ["freshness", "current_authorization"],
+    ["attestation_result", "time_authority"]
+  ],
+  "fixture": {
+    "trusted_now": {
+      "earliest": 1791115200,
+      "latest": 1791115202,
+      "source_namespace": "example-time-provider",
+      "source_instance": "server-a",
+      "source_trust_domain": "operator-a",
+      "source_profile_id": "synthetic-authenticated-time",
+      "source_profile_version": "1",
+      "time_scale_profile": "unix-utc-v1",
+      "request_binding_sha256": "sha256:request-001",
+      "verifier_profile_id": "mycelix.rats.tpm2.e1.v0.1",
+      "available": true,
+      "structurally_valid": true,
+      "policy_trusted": true
+    },
+    "result": {
+      "issued_at": 1791115170,
+      "expires_at": 1791115230,
+      "nonce": "nonce-001",
+      "audience": "mycelix-enclave-e1"
+    },
+    "request": {
+      "request_binding_sha256": "sha256:request-001",
+      "nonce": "nonce-001",
+      "audience": "mycelix-enclave-e1"
+    }
+  },
+  "vectors": [
+    {"id":"TIME-001","mutation":"canonical-valid","expected":"PASS"},
+    {"id":"TIME-002","mutation":"interval-entirely-after-expiry","expected":"DENY"},
+    {"id":"TIME-003","mutation":"interval-entirely-before-issuance","expected":"DENY"},
+    {"id":"TIME-004","mutation":"interval-straddles-expiry","expected":"INDETERMINATE"},
+    {"id":"TIME-005","mutation":"interval-straddles-max-age","expected":"INDETERMINATE"},
+    {"id":"TIME-006","mutation":"time-source-unavailable","expected":"INDETERMINATE"},
+    {"id":"TIME-007","mutation":"unadmitted-source-profile","expected":"DENY"},
+    {"id":"TIME-008","mutation":"trust-domain-substitution","expected":"DENY"},
+    {"id":"TIME-009","mutation":"verifier-profile-substitution","expected":"DENY"},
+    {"id":"TIME-010","mutation":"excessive-interval-width","expected":"DENY"},
+    {"id":"TIME-011","mutation":"local-clock-masquerades-as-trusted","expected":"DENY"},
+    {"id":"TIME-012","mutation":"nonce-valid-but-time-ambiguous","expected":"INDETERMINATE"},
+    {"id":"TIME-013","mutation":"fresh-nonce-stale-time","expected":"DENY"},
+    {"id":"TIME-014","mutation":"missing-time-evidence","expected":"INDETERMINATE"},
+    {"id":"TIME-015","mutation":"missing-request-binding","expected":"DENY"},
+    {"id":"TIME-016","mutation":"future-dated-inside-uncertainty","expected":"INDETERMINATE"},
+    {"id":"TIME-017","mutation":"reversed-time-interval","expected":"DENY"}
+  ]
+}
