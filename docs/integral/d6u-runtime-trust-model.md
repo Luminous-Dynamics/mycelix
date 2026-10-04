@@ -24,7 +24,7 @@ The current chain is:
 8. Runtime evidence-record reconstruction against repository state and workflow identity.
 9. Negative regression checks proving the evidence verifiers reject tampering.
 10. Build-provenance attestation for the three captured subjects.
-11. Post-attestation verification requiring the exact repository, signer workflow, workflow source digest, and GitHub-hosted execution.
+11. Post-attestation verification requiring the exact repository, signer workflow, signer workflow digest, workflow source digest, and GitHub-hosted execution.
 
 ## Claim boundary
 
