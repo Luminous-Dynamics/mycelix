@@ -108,5 +108,7 @@ The reference tests cover:
 
 - an unchanged assessment remaining fresh;
 - required substrate changes invalidating freshness;
+- constraint input permutation preserving the same snapshot fingerprint;
+- action-local impact changes invalidating freshness;
 - unrelated action impacts not invalidating freshness.
 
