@@ -108,6 +108,17 @@ jobs:
           printf '%s\n' "${status}" > ../evidence/cargo-test.exit-code
           exit "${status}"
 
+      - name: Capture resolved dependency graph
+        if: always()
+        run: |
+          mkdir -p evidence
+          if [[ ! -f mycelix-manufacturing/Cargo.lock ]]; then
+            echo "Cargo.lock was not produced by the evidence build" > evidence/dependency-lock-error.txt
+            exit 1
+          fi
+          cp mycelix-manufacturing/Cargo.lock evidence/Cargo.lock
+          sha256sum evidence/Cargo.lock | awk '{print $1}' > evidence/cargo-lock-sha256.txt
+
       - name: Generate machine-readable report
         run: |
           mkdir -p evidence
@@ -145,6 +156,10 @@ jobs:
           if [[ -f evidence/workflow-action-refs.json ]]; then
             workflow_action_refs="$(cat evidence/workflow-action-refs.json)"
           fi
+          dependency_lock_sha256="null"
+          if [[ -f evidence/cargo-lock-sha256.txt ]]; then
+            dependency_lock_sha256="$(cat evidence/cargo-lock-sha256.txt)"
+          fi
           cat > evidence/run-envelope.json <<JSON
           {
             "schema": "MYCELIX-COS-CONFORMANCE-EVIDENCE-V1",
@@ -158,6 +173,7 @@ jobs:
             "workflow_file_blob_sha": "$(cat evidence/workflow-file-blob-sha.txt 2>/dev/null || printf %s null)",
             "workflow_action_refs": $workflow_action_refs,
             "rust_toolchain_input": "1.99.0",
+            "dependency_lock_sha256": "$dependency_lock_sha256",
             "run_id": ${{ github.run_id }},
             "run_attempt": ${{ github.run_attempt }},
             "event": "${{ github.event_name }}",
@@ -184,6 +200,7 @@ jobs:
           assert envelope["workflow_action_refs"]
           assert all(sha_re.fullmatch(sha) for sha in envelope["workflow_action_refs"].values())
           assert envelope["rust_toolchain_input"] == "1.99.0"
+          assert sha_re.fullmatch(envelope["dependency_lock_sha256"])
           assert sha_re.fullmatch(envelope["requested_head_sha"])
           assert sha_re.fullmatch(envelope["tested_commit_sha"])
           assert sha_re.fullmatch(envelope["workflow_file_blob_sha"])
