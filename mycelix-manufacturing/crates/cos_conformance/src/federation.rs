@@ -3010,6 +3010,11 @@ mod tests {
         observed_authority: Option<AuthorityDisposition>,
         pre_state_fingerprint: Vec<u8>,
         post_state_fingerprint: Vec<u8>,
+        pre_admission_index: u64,
+        post_admission_index: u64,
+        pre_delivery_count: usize,
+        post_delivery_count: usize,
+        newly_admitted_deliveries: Vec<(String, u64)>,
     }
 
     impl FederationStateMachineFailureCapsule {
@@ -3022,6 +3027,11 @@ mod tests {
             audit: Vec<FederationInvariantAuditEntry>,
             pre_state_fingerprint: Vec<u8>,
             post_state_fingerprint: Vec<u8>,
+            pre_admission_index: u64,
+            post_admission_index: u64,
+            pre_delivery_count: usize,
+            post_delivery_count: usize,
+            newly_admitted_deliveries: Vec<(String, u64)>,
         ) -> Self {
             let trace_prefix = plan[..=failed_step_index].to_vec();
             let observed_violations = audit
@@ -3035,7 +3045,7 @@ mod tests {
                 .collect();
 
             Self {
-                schema_version: 1,
+                schema_version: 2,
                 failure_kind: "invariant-violation".into(),
                 trace_index,
                 trace_prefix,
@@ -3052,6 +3062,11 @@ mod tests {
                 observed_authority: None,
                 pre_state_fingerprint,
                 post_state_fingerprint,
+                pre_admission_index,
+                post_admission_index,
+                pre_delivery_count,
+                post_delivery_count,
+                newly_admitted_deliveries,
             }
         }
 
@@ -3067,6 +3082,11 @@ mod tests {
         decision: Option<FederationDecision>,
         authority: Option<AuthorityDisposition>,
         state_fingerprint: Vec<u8>,
+        pre_admission_index: u64,
+        post_admission_index: u64,
+        pre_delivery_count: usize,
+        post_delivery_count: usize,
+        newly_admitted_deliveries: Vec<(String, u64)>,
     }
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -3390,6 +3410,9 @@ mod tests {
 
         for (step_index, (operation, token)) in plan.iter().copied().enumerate() {
             let before = canonical_state_fingerprint(&state);
+            let before_admission_index = state.next_admission_index;
+            let before_delivery_count = state.delivery_count();
+            let before_delivery_ids = state.deliveries.keys().cloned().collect::<BTreeSet<_>>();
             let mut decision = None;
             let mut authority = None;
 
@@ -3707,6 +3730,15 @@ mod tests {
                 }
             }
 
+            let post_admission_index = state.next_admission_index;
+            let post_delivery_count = state.delivery_count();
+            let newly_admitted_deliveries = state
+                .deliveries
+                .iter()
+                .filter(|(id, _)| !before_delivery_ids.contains(*id))
+                .map(|(id, record)| (id.clone(), record.admission_index()))
+                .collect::<Vec<_>>();
+
             if validate_state(&state).is_err() {
                 let audit = audit_state(&state);
                 let mut capsule = FederationStateMachineFailureCapsule::for_invariant_failure(
@@ -3718,6 +3750,11 @@ mod tests {
                     audit,
                     before.clone(),
                     canonical_state_fingerprint(&state),
+                    before_admission_index,
+                    post_admission_index,
+                    before_delivery_count,
+                    post_delivery_count,
+                    newly_admitted_deliveries.clone(),
                 );
                 capsule.expected_decision = match operation {
                     FederationStateMachineOperation::AdmitLocal
@@ -3809,11 +3846,49 @@ mod tests {
                 panic_invariant_failure(capsule);
             }
 
+            assert!(
+                post_admission_index >= before_admission_index,
+                "valid state-machine transition cannot regress the admission counter"
+            );
+            assert!(
+                post_delivery_count >= before_delivery_count,
+                "valid state-machine transition cannot delete admitted deliveries"
+            );
+
+            let admission_delta = post_admission_index - before_admission_index;
+            let delivery_delta = (post_delivery_count - before_delivery_count) as u64;
+            assert_eq!(
+                admission_delta,
+                delivery_delta,
+                "admission counter delta must equal admitted-delivery-count delta"
+            );
+            assert_eq!(
+                newly_admitted_deliveries.len() as u64,
+                admission_delta,
+                "every consumed admission ordinal must correspond to one new delivery"
+            );
+            let expected_new_ordinals = (before_admission_index..post_admission_index)
+                .collect::<BTreeSet<_>>();
+            let observed_new_ordinals = newly_admitted_deliveries
+                .iter()
+                .map(|(_, admission_index)| *admission_index)
+                .collect::<BTreeSet<_>>();
+            assert_eq!(
+                observed_new_ordinals,
+                expected_new_ordinals,
+                "new deliveries must receive exactly the consumed admission ordinal range"
+            );
+
             evidence.push(FederationStateMachineEvidence {
                 operation,
                 decision,
                 authority,
                 state_fingerprint: canonical_state_fingerprint(&state),
+                pre_admission_index: before_admission_index,
+                post_admission_index,
+                pre_delivery_count: before_delivery_count,
+                post_delivery_count,
+                newly_admitted_deliveries,
             });
         }
 
