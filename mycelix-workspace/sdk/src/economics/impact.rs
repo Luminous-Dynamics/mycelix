@@ -336,12 +336,7 @@ impl ImpactLedger {
         }
 
         let impact_ids = self.impact_ids_for_action(action_ref);
-        for impact_id in &impact_ids {
-            let impact = self
-                .impacts
-                .get(impact_id)
-                .expect("impact ID from the same ledger must remain addressable");
-
+        for impact in self.impacts.values().filter(|impact| impact.action_ref == action_ref) {
             if !required.contains(&impact.dimension) {
                 return Err(format!(
                     "Action scope omits known impact dimension {:?} for impact {}",
@@ -804,6 +799,34 @@ mod tests {
             ledger.gate(DistributionPurpose::Discretionary),
             ImpactGateDecision::Allowed
         );
+    }
+
+    #[test]
+    fn scope_validation_isolated_between_actions() {
+        let mut ledger = ImpactLedger::new();
+        ledger.record_impact(SubstrateImpact {
+            id: "impact-other-action".into(),
+            action_actor: "did:example:other".into(),
+            action_ref: "action:other".into(),
+            dimension: SubstrateDimension::Ecological,
+            unit: "m3".into(),
+            magnitude: 500,
+            direction: ImpactDirection::Depletion,
+            affected_ref: "river:other".into(),
+            attributions: vec![],
+            evidence_refs: vec!["evidence:other".into()],
+            status: ImpactStatus::Open,
+            obligation_id: None,
+            recorded_at: 1_000,
+        }).unwrap();
+
+        let result = ledger.validate_action_scope(
+            "action:1",
+            &[SubstrateDimension::Financial],
+        );
+
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_empty());
     }
 
     #[test]
