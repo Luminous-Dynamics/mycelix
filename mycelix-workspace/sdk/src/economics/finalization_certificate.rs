@@ -101,9 +101,6 @@ impl EconomicFinalizationCertificate {
         {
             return Err("Finalization certificate evidence references cannot be empty".into());
         }
-        if self.finalized_at == 0 {
-            return Err("Finalization certificate timestamp must be greater than zero".into());
-        }
         Ok(())
     }
 
