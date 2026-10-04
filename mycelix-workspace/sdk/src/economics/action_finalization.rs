@@ -527,16 +527,6 @@ mod tests {
         }
     }
 
-    fn mutable_reconciliation_ledger(
-        entries: Vec<EconomicExecutionReconciliation>,
-    ) -> EconomicExecutionReconciliationLedger {
-        let json = serde_json::to_string(&serde_json::json!({
-            "reconciliations": entries
-        }))
-        .unwrap();
-        serde_json::from_str(&json).unwrap()
-    }
-
     fn reconciliation_ledger(
         entries: Vec<EconomicExecutionReconciliation>,
     ) -> EconomicExecutionReconciliationLedger {
@@ -927,23 +917,17 @@ mod tests {
     #[test]
     fn forged_conformant_result_is_rejected_even_when_fingerprints_match() {
         let lifecycle = completed_lifecycle();
-        let constraint = completion_constraint(&lifecycle);
+        let mut constraint = completion_constraint(&lifecycle);
+        constraint.quantity = 2;
         let receipt = completion_receipt(&lifecycle);
         let reconciliations = reconciliation_ledger(vec![reconciliation(
             "reconciliation:forged-result",
             &receipt,
             &constraint,
-            ExecutionConformance::OverQuantity,
+            ExecutionConformance::Conformant,
             1_600,
         )]);
         let execution = execution_ledger(vec![receipt]);
-
-        let mut reconciliations = reconciliations;
-        reconciliations
-            .reconciliations_mut_for_test()
-            .first_mut()
-            .unwrap()
-            .result = ExecutionConformance::Conformant;
 
         let assessment = EconomicActionFinalizationGate::assess(
             &lifecycle,
