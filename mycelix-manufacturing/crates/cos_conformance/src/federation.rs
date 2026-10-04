@@ -3224,6 +3224,7 @@ mod tests {
     struct FederationStateMachineTraceCheckpointPublication {
         schema_version: u16,
         publication_profile: String,
+        trace_verification_profile: String,
         trace_index: usize,
         evidence_end: usize,
         body_sha256: String,
@@ -3237,6 +3238,7 @@ mod tests {
         hash_domain: String,
         schema_version: u16,
         publication_profile: String,
+        trace_verification_profile: String,
         trace_index: usize,
         evidence_end: usize,
         body_sha256: String,
@@ -3330,6 +3332,7 @@ mod tests {
             hash_domain: FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_HASH_DOMAIN.into(),
             schema_version: publication.schema_version,
             publication_profile: publication.publication_profile.clone(),
+            trace_verification_profile: publication.trace_verification_profile.clone(),
             trace_index: publication.trace_index,
             evidence_end: publication.evidence_end,
             body_sha256: publication.body_sha256.clone(),
@@ -3361,6 +3364,7 @@ mod tests {
         let mut publication = FederationStateMachineTraceCheckpointPublication {
             schema_version: FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_SCHEMA_VERSION,
             publication_profile: FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_PROFILE.into(),
+            trace_verification_profile: capsule.verification_profile.clone(),
             trace_index: capsule.trace_index,
             evidence_end,
             body_sha256: capsule.integrity.body_sha256.clone(),
@@ -3377,6 +3381,7 @@ mod tests {
     enum FederationStateMachineTraceCheckpointPublicationViolation {
         UnsupportedSchemaVersion,
         UnsupportedPublicationProfile,
+        TraceVerificationProfileMismatch,
         TraceIndexMismatch,
         InvalidEvidenceEnd,
         BodyDigestMismatch,
@@ -3400,6 +3405,7 @@ mod tests {
         for publication in publications {
             let key = (
                 publication.publication_profile.as_str(),
+                publication.trace_verification_profile.as_str(),
                 publication.trace_index,
                 publication.previous_publication_sha256.as_str(),
             );
@@ -3434,6 +3440,11 @@ mod tests {
         {
             return Err(
                 FederationStateMachineTraceCheckpointPublicationViolation::UnsupportedPublicationProfile
+            );
+        }
+        if publication.trace_verification_profile != capsule.verification_profile {
+            return Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::TraceVerificationProfileMismatch
             );
         }
         if publication.trace_index != capsule.trace_index {
@@ -5415,6 +5426,13 @@ mod tests {
         );
     }
 
+    fn reseal_trace_checkpoint_publication_for_test(
+        publication: &mut FederationStateMachineTraceCheckpointPublication,
+    ) {
+        publication.publication_sha256 =
+            state_machine_trace_checkpoint_publication_sha256(publication);
+    }
+
     #[test]
     fn state_machine_trace_checkpoint_publications_detect_equivocation() {
         let base_text = state_machine_trace_capsule(32, 8);
@@ -5492,6 +5510,20 @@ mod tests {
             ),
             Err(
                 FederationStateMachineTraceCheckpointPublicationViolation::PublicationForkDetected
+            )
+        );
+
+        let mut profile_forged = fork_a_publication.clone();
+        profile_forged.trace_verification_profile =
+            "integral-federation-state-machine-trace-v2".into();
+        reseal_trace_checkpoint_publication_for_test(&mut profile_forged);
+        assert_eq!(
+            validate_state_machine_trace_checkpoint_publication(
+                &fork_a,
+                &profile_forged
+            ),
+            Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::TraceVerificationProfileMismatch
             )
         );
 
