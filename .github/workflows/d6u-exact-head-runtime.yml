@@ -1,9 +1,9 @@
 name: D6U Exact-Head Runtime Qualification
 
 on:
-  # PR synchronize is the authoritative trigger for this qualification workflow.
-  # Keeping a push trigger here would duplicate every PR update and cause the
-  # concurrency group to cancel one of the two identical runtime jobs.
+  # Pull-request execution remains the primary qualification path. The exact
+  # branch push lane is retained as a deterministic fallback when repository
+  # workflow registration prevents a pull_request run from materializing.
   pull_request:
     paths:
       - ".github/workflows/d6u-runtime-qualification.yml"
@@ -12,6 +12,15 @@ on:
       - "docs/integral/d6u-runtime-*.md"
       - "scripts/integral/verify_d6u_runtime_*.py"
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+  push:
+    branches:
+      - myc-int-demo-d6u-holochain-07-runtime
+    paths:
+      - ".github/workflows/d6u-exact-head-runtime.yml"
+      - "d6u-runtime-harness/**"
+      - "docs/integral/d6u-runtime-*.json"
+      - "docs/integral/d6u-runtime-*.md"
+      - "scripts/integral/verify_d6u_runtime_*.py"
 
 permissions:
   contents: read
