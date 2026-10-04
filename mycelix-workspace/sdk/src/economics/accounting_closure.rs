@@ -28,7 +28,7 @@ use super::sector_observables::SectorEconomicObservables;
 use super::sector_other_volume::SectorOtherVolumeChangeMatrix;
 use super::sector_revaluation::SectorRevaluationChangeMatrix;
 use super::stock_flow::{ActorId, EconomicState};
-use super::transition::{state_hash, transition_hash, EconomicTransition};
+use super::transition::{apply_step, state_hash, transition_hash, EconomicTransition};
 /// Current serialized schema for an EconomicAccountingClosure.
 ///
 /// Version zero is reserved for unversioned legacy receipts. Such receipts
@@ -77,6 +77,20 @@ impl EconomicAccountingClosure {
         let pre_state_hash = state_hash(pre_state).map_err(|error| error.to_string())?;
         let post_state_hash = state_hash(post_state).map_err(|error| error.to_string())?;
         let transition_hash = transition_hash(transitions).map_err(|error| error.to_string())?;
+
+        let (replayed_post_state, _) = apply_step(
+            pre_state,
+            0,
+            transitions,
+            Some(&pre_state_hash),
+        )
+        .map_err(|error| format!("canonical terminal-state replay failed: {error}"))?;
+        if replayed_post_state != *post_state {
+            return Err(
+                "supplied terminal state does not equal the canonical transition replay result"
+                    .into(),
+            );
+        }
 
         let actor_assignments: Vec<(ActorId, EconomicSector)> = assignments
             .iter()
@@ -895,6 +909,23 @@ mod tests {
         .unwrap();
         closure.sector_observations_hash = "tampered".into();
         assert!(closure.verify().is_err());
+    }
+
+    #[test]
+    fn closure_rejects_unreplayed_terminal_counter_tampering() {
+        let (pre, assignments, transitions, mut post) = fixture();
+        post.monetary_flow_volume = post
+            .monetary_flow_volume
+            .checked_add(1)
+            .unwrap();
+
+        assert!(EconomicAccountingClosure::validate_and_seal(
+            &pre,
+            &post,
+            &assignments,
+            &transitions,
+        )
+        .is_err());
     }
 
     #[test]
