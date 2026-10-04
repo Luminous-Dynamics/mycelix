@@ -1016,6 +1016,41 @@ mod tests {
         assert_eq!(bindings.len(), 1);
     }
     #[test]
+    fn logical_rebinding_precedes_duplicate_provenance_binding_conflict() {
+        let mut bindings = HolochainDependencyBindingSet::new();
+        let logical = identity("logical-conflict-precedence");
+        let authority = identity("logical-conflict-authority");
+        let first = binding_provenance_for_test(logical.clone(), authority);
+        bindings
+            .bind(
+                logical.clone(),
+                HolochainDependencyAddress::Action(action_hash(17)),
+                QualificationDependencyRetrievalKind::Action,
+                first.clone(),
+            )
+            .unwrap();
+
+        let conflicting = QualificationDependencyBindingProvenance {
+            witness_identity: identity("logical-conflict-witness-reused"),
+            ..first
+        };
+        let error = bindings
+            .bind(
+                logical,
+                HolochainDependencyAddress::Action(action_hash(18)),
+                QualificationDependencyRetrievalKind::Action,
+                conflicting,
+            )
+            .expect_err("logical rebinding must precede secondary witness conflicts");
+
+        assert!(matches!(
+            error,
+            HolochainAdapterBoundaryError::BindingRejected { reason }
+                if reason == "logical qualification dependency cannot be bound to multiple protocol addresses"
+        ));
+        assert_eq!(bindings.len(), 1);
+    }
+    #[test]
     fn duplicate_provenance_witness_is_an_adapter_contract_failure() {
         let mut bindings = HolochainDependencyBindingSet::new();
         let first = identity("first");
