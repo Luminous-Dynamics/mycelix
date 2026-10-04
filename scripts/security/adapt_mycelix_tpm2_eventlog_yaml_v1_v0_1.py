@@ -127,7 +127,8 @@ def adapt(
         if len(payloads) != len(raw_events):
             raise ValueError("raw payload parser emitted duplicate event sequence")
     events: list[dict[str, Any]] = []
-    previous_event_num = -1    for event_match in EVENT_RE.finditer(yaml_text):
+    previous_event_num = -1
+    for event_match in EVENT_RE.finditer(yaml_text):
         event_num = int(event_match.group("num"))
         body = event_match.group("body")
         pcr_match = PCR_RE.search(body)
