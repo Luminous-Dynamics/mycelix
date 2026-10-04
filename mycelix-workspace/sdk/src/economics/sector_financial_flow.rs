@@ -453,6 +453,51 @@ mod tests {
     }
 
     #[test]
+    #[test]
+    fn financial_matrix_reconciles_debt_write_off_claim_and_liability_deltas() {
+        let mut bank = ActorBalanceSheet::new("bank");
+        bank.monetary.claims = 100;
+        let mut firm = ActorBalanceSheet::new("firm");
+        firm.monetary.liabilities = 100;
+        let pre = EconomicState::new(vec![bank, firm]);
+
+        let transitions = vec![
+            EconomicTransition::DebtWriteOff(
+                DebtWriteOff::new("bank", "firm", 40).unwrap(),
+            ),
+        ];
+        let (post, _) =
+            crate::economics::transition::apply_step(&pre, 1, &transitions, None).unwrap();
+        let assignments = vec![
+            SectorAssignment { actor: "bank".into(), sector: EconomicSector::Bank },
+            SectorAssignment { actor: "firm".into(), sector: EconomicSector::Firm },
+        ];
+        let pre_sheet = SectorBalanceSheet::from_state(&pre, &assignments).unwrap();
+        let post_sheet = SectorBalanceSheet::from_state(&post, &assignments).unwrap();
+        let matrix =
+            SectorFinancialFlowMatrix::from_transitions(&transitions, &assignments).unwrap();
+
+        assert_eq!(matrix.flows.len(), 1);
+        assert_eq!(matrix.flows[0].category, FinancialFlowCategory::DebtWriteOff);
+        matrix
+            .validate_against_balance_sheet_delta(&pre_sheet, &post_sheet)
+            .unwrap();
+        assert_eq!(
+            post_sheet.sector_instrument_total(
+                EconomicSector::Bank,
+                BalanceSheetInstrument::Loans
+            ),
+            60
+        );
+        assert_eq!(
+            post_sheet.sector_instrument_total(
+                EconomicSector::Firm,
+                BalanceSheetInstrument::Debt
+            ),
+            -60
+        );
+    }
+
     fn financial_matrix_reconciles_loan_claim_and_debt_liability_signs() {
         let mut bank = ActorBalanceSheet::new("bank");
         bank.monetary.cash = 1_000;
