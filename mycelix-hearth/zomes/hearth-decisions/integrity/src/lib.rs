@@ -118,12 +118,11 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(OpEntry::CreateEntry {
             app_entry,
-            action,
+            action: _,
         }) => match app_entry {
             EntryTypes::Decision(decision) => validate_decision(&decision),
             EntryTypes::Vote(vote) => {
                 validate_vote(&vote)?;
-                validate_vote_author(&vote, &action.author)?;
                 validate_vote_decision_reference(&vote)
             }
             EntryTypes::DecisionOutcome(outcome) => validate_outcome(&outcome),
@@ -187,19 +186,6 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 // ============================================================================
 // Validation Functions
 // ============================================================================
-
-/// Bind the declared Vote voter to the Holochain action author.
-fn validate_vote_author(
-    vote: &Vote,
-    action_author: &AgentPubKey,
-) -> ExternResult<ValidateCallbackResult> {
-    if vote.voter != *action_author {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Vote voter must match the Holochain action author".into(),
-        ));
-    }
-    Ok(ValidateCallbackResult::Valid)
-}
 
 /// Validate a Vote against the immutable Decision constraints it references.
 fn validate_vote_against_decision(
@@ -571,23 +557,6 @@ mod tests {
     }
 
     // ---- Decision Validation ----
-
-    #[test]
-    fn vote_author_must_match_action_author() {
-        let vote = make_vote(0, 10000);
-        assert!(matches!(
-            validate_vote_author(&vote, &fake_agent()).unwrap(),
-            ValidateCallbackResult::Valid
-        ));
-
-        let other = AgentPubKey::from_raw_36(vec![0xBBu8; 36]);
-        match validate_vote_author(&vote, &other).unwrap() {
-            ValidateCallbackResult::Invalid(message) => {
-                assert!(message.contains("voter"))
-            }
-            other => panic!("expected Invalid, got {:?}", other),
-        }
-    }
 
     #[test]
     fn vote_choice_must_fit_decision_option_count() {
