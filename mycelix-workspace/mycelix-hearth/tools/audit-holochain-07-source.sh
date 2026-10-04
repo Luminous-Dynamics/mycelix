@@ -1218,60 +1218,74 @@ check_dna_source_completeness() {
     fail=1
   fi
 }
-check_standalone_tests_workspace_boundary
-check_qualification_workflow_provenance
-check_coordinator_operation_bindings
-check_coordinator_symbol_parity
-check_dna_source_completeness
-check_semantic_validation_suite_wiring
-check_semantic_case_entrypoints
-check_semantic_case_integrity_bindings
+run_audit_check() {
+  local name="$1"
+  shift
+  local started finished status
+  started="$(date +%s)"
+  echo "AUDIT_START ${name} epoch=${started}"
+  "$@"
+  status=$?
+  finished="$(date +%s)"
+  echo "AUDIT_END ${name} status=${status} duration=$((finished - started))s"
+  return "$status"
+}
+
+run_audit_check check_standalone_tests_workspace_boundary check_standalone_tests_workspace_boundary
+run_audit_check check_qualification_workflow_provenance check_qualification_workflow_provenance
+run_audit_check check_coordinator_operation_bindings check_coordinator_operation_bindings
+run_audit_check check_coordinator_symbol_parity check_coordinator_symbol_parity
+run_audit_check check_dna_source_completeness check_dna_source_completeness
+run_audit_check check_semantic_validation_suite_wiring check_semantic_validation_suite_wiring
+run_audit_check check_semantic_case_entrypoints check_semantic_case_entrypoints
+run_audit_check check_semantic_case_integrity_bindings check_semantic_case_integrity_bindings
 
 for file in "${integrity_files[@]}"; do
-  check_create_record_coverage "$file"
+  run_audit_check "check_create_record_coverage:$(basename "$(dirname "$(dirname "$(dirname "$file")")")")" check_create_record_coverage "$file"
 done
 
 for file in "${integrity_files[@]}"; do
-  check_dangerous_operation_catchalls "$file"
+  run_audit_check "check_dangerous_operation_catchalls:$(basename "$(dirname "$(dirname "$(dirname "$file")")")")" check_dangerous_operation_catchalls "$file"
 done
 
 for file in "${integrity_files[@]}"; do
-  check_create_record_entry_dispatch "$file"
-done
-for file in "${integrity_files[@]}"; do
-  check_dependency_semantics "$file"
+  run_audit_check "check_create_record_entry_dispatch:$(basename "$(dirname "$(dirname "$(dirname "$file")")")")" check_create_record_entry_dispatch "$file"
 done
 
 for file in "${integrity_files[@]}"; do
-  check_update_action_coverage "$file"
+  run_audit_check "check_dependency_semantics:$(basename "$(dirname "$(dirname "$(dirname "$file")")")")" check_dependency_semantics "$file"
 done
 
 for file in "${integrity_files[@]}"; do
-  check_update_delete_authorization "$file"
+  run_audit_check "check_update_action_coverage:$(basename "$(dirname "$(dirname "$(dirname "$file")")")")" check_update_action_coverage "$file"
 done
 
 for file in "${integrity_files[@]}"; do
-  check_entry_type_dispatch "$file"
+  run_audit_check "check_update_delete_authorization:$(basename "$(dirname "$(dirname "$(dirname "$file")")")")" check_update_delete_authorization "$file"
 done
 
 for file in "${integrity_files[@]}"; do
-  check_delete_link_authorization "$file"
+  run_audit_check "check_entry_type_dispatch:$(basename "$(dirname "$(dirname "$(dirname "$file")")")")" check_entry_type_dispatch "$file"
 done
 
 for file in "${integrity_files[@]}"; do
-  check_link_type_policy "$file"
+  run_audit_check "check_delete_link_authorization:$(basename "$(dirname "$(dirname "$(dirname "$file")")")")" check_delete_link_authorization "$file"
 done
 
 for file in "${integrity_files[@]}"; do
-  check_link_tag_contract "$file"
+  run_audit_check "check_link_type_policy:$(basename "$(dirname "$(dirname "$(dirname "$file")")")")" check_link_type_policy "$file"
 done
 
 for file in "${integrity_files[@]}"; do
-  check_immutable_dependency_semantics "$file"
+  run_audit_check "check_link_tag_contract:$(basename "$(dirname "$(dirname "$(dirname "$file")")")")" check_link_tag_contract "$file"
 done
 
 for file in "${integrity_files[@]}"; do
-  check_validation_determinism "$file"
+  run_audit_check "check_immutable_dependency_semantics:$(basename "$(dirname "$(dirname "$(dirname "$file")")")")" check_immutable_dependency_semantics "$file"
+done
+
+for file in "${integrity_files[@]}"; do
+  run_audit_check "check_validation_determinism:$(basename "$(dirname "$(dirname "$(dirname "$file")")")")" check_validation_determinism "$file"
 done
 
 echo
