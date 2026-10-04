@@ -155,7 +155,10 @@ jobs:
             d6u-runtime-harness/d6u-runtime-evidence.txt \
             d6u-runtime-harness/d6u-runtime-test.log \
             d6u-runtime-harness/Cargo.lock; do
-            gh attestation verify "$subject" --repo "$GITHUB_REPOSITORY"
+            gh attestation verify "$subject" \
+              --repo "$GITHUB_REPOSITORY" \
+              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/d6u-runtime-qualification.yml" \
+              --deny-self-hosted-runners
           done
 
       - name: Upload runtime evidence
