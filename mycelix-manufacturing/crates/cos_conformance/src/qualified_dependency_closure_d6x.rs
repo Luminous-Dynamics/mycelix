@@ -1921,28 +1921,15 @@ mod tests {
         let environment = corpus.fixtures.semantic_environment.clone();
         let derivation_profile = corpus.fixtures.derivation_profile.clone();
 
-        let mut projection_value = serde_json::to_value(&corpus.fixtures.baseline_projection)
-            .expect("typed golden baseline projection must serialize");
-        let projection_object = projection_value
-            .as_object_mut()
-            .expect("typed golden baseline projection must serialize as an object");
+        let mut projection = corpus.fixtures.baseline_projection.clone();
 
-        let declared_environment_commitment = projection_object
-            .get("semantic_environment_commitment")
-            .and_then(serde_json::Value::as_str)
-            .expect("golden baseline projection must declare semantic_environment_commitment");
         assert_eq!(
-            declared_environment_commitment,
+            projection.semantic_environment_commitment,
             environment.commitment(),
             "golden fixture must bind the exact D6S semantic-environment commitment"
         );
-
-        let declared_derivation_commitment = projection_object
-            .get("derivation_profile_commitment")
-            .and_then(serde_json::Value::as_str)
-            .expect("golden baseline projection must declare derivation_profile_commitment");
         assert_eq!(
-            declared_derivation_commitment,
+            projection.derivation_profile_commitment,
             derivation_profile.commitment(),
             "golden fixture must bind the exact D6S derivation-profile commitment"
         );
@@ -1954,29 +1941,16 @@ mod tests {
                 "duplicate projected D6P receipt commitment: {receipt}"
             );
             assert!(
-                !corpus
-                    .fixtures
-                    .baseline_projection
-                    .d6p_current_receipt_commitments
-                    .is_empty()
-                    || corpus
-                        .fixtures
-                        .baseline_projection
-                        .d6p_current_receipt_commitments
-                        .is_empty(),
-                "typed baseline projection always exposes d6p_current_receipt_commitments"
+                projection.d6p_current_receipt_commitments.insert(receipt.clone()),
+                "golden recipe may not add the same D6P receipt commitment twice: {receipt}"
             );
         }
 
-        if !vector.recipe.projection_d6p_receipt_commitments.is_empty() {
-            let receipts = projection_object
-                .get_mut("d6p_current_receipt_commitments")
-                .and_then(serde_json::Value::as_array_mut)
-                .expect("golden projection receipt commitments must be an array");
-            for receipt in &vector.recipe.projection_d6p_receipt_commitments {
-                receipts.push(serde_json::Value::String(receipt.clone()));
-            }
-        }
+        let mut projection_value = serde_json::to_value(&projection)
+            .expect("typed golden baseline projection must serialize");
+        let projection_object = projection_value
+            .as_object_mut()
+            .expect("typed golden baseline projection must serialize as an object");
 
         for mutation in &vector.recipe.projection_mutations {
             match mutation.op.as_str() {
