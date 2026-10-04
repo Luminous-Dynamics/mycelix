@@ -59,6 +59,20 @@ fn string_to_entry_hash(s: &str) -> EntryHash {
     )
 }
 
+fn deterministic_request_credential_id(issuer_did: &str, request_id: &str) -> String {
+    let mut material = Vec::with_capacity(issuer_did.len() + request_id.len() + 1);
+    material.extend_from_slice(issuer_did.as_bytes());
+    material.push(0);
+    material.extend_from_slice(request_id.as_bytes());
+    let digest = holo_hash::blake2b_256(&material);
+    format!(
+        "urn:mycelix:request-credential:{}",
+        bs58::encode(digest)
+            .with_alphabet(bs58::Alphabet::BITCOIN)
+            .into_string()
+    )
+}
+
 fn get_latest_record_strict(action_hash: ActionHash) -> ExternResult<Option<Record>> {
     let Some(details) = get_details(action_hash, GetOptions::default())? else {
         return Ok(None);
@@ -289,12 +303,20 @@ pub fn issue_credential(input: IssueCredentialInput) -> ExternResult<Record> {
         }
     }
 
-    // Build credential ID
-    let credential_id = format!(
-        "urn:uuid:{}:{}",
-        issuer_did.replace(":", "-"),
-        now.as_micros()
-    );
+    // Build credential ID. Request-bound issuance supplies a deterministic
+    // request-derived ID; generic issuance retains the historical timestamp ID.
+    let credential_id = input.credential_id.clone().unwrap_or_else(|| {
+        format!(
+            "urn:uuid:{}:{}",
+            issuer_did.replace(":", "-"),
+            now.as_micros()
+        )
+    });
+    if credential_id.is_empty() || credential_id.len() > 512 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Credential ID must be 1-512 characters".into()
+        )));
+    }
 
     // Calculate expiration if provided
     let valid_until = input.expiration_days.map(|days| {
@@ -459,6 +481,10 @@ pub struct IssueCredentialInput {
     pub credential_types: Vec<String>,
     /// Optional issuer name
     pub issuer_name: Option<String>,
+    /// Optional deterministic credential identifier. Omitted callers retain
+    /// the historical timestamp-based identifier.
+    #[serde(default)]
+    pub credential_id: Option<String>,
     /// Expiration in days (None = no expiration)
     pub expiration_days: Option<u32>,
     /// Whether to enable revocation
@@ -2297,23 +2323,37 @@ pub fn issue_credential_for_request(
             "Credential request already has an issued credential".into(),
         )));
     }
+    let deterministic_id = deterministic_request_credential_id(&caller_did, &req.id);
     if !credential_claims_satisfy_request(&req.provided_claims, &input.claims) {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Issued credential claims must fulfill the claims supplied in the credential request".into(),
         )));
     }
 
-    let credential_record = issue_credential(IssueCredentialInput {
-        subject_did: req.requester_did.clone(),
-        schema_id: req.schema_id.clone(),
-        claims: input.claims,
-        credential_types: input.credential_types,
-        issuer_name: input.issuer_name,
-        expiration_days: input.expiration_days,
-        enable_revocation: input.enable_revocation,
-        strict_schema: input.strict_schema,
-        proof_profile: Some(CredentialProofProfile::W3cEddsaJcs2022),
-    })?;
+    let credential_record = match get_credential(deterministic_id.clone())? {
+        Some(existing) => existing,
+        None => {
+            let issue_input = IssueCredentialInput {
+                subject_did: req.requester_did.clone(),
+                schema_id: req.schema_id.clone(),
+                claims: input.claims,
+                credential_types: input.credential_types,
+                issuer_name: input.issuer_name,
+                expiration_days: input.expiration_days,
+                enable_revocation: input.enable_revocation,
+                strict_schema: input.strict_schema,
+                credential_id: Some(deterministic_id.clone()),
+                proof_profile: Some(CredentialProofProfile::W3cEddsaJcs2022),
+            };
+            match issue_credential(issue_input) {
+                Ok(record) => record,
+                Err(first_error) => get_credential(deterministic_id.clone())?
+                    .ok_or(first_error)?,
+            }
+        }
+    };
+
+    let credential: VerifiableCredential = credential_record
 
     let credential: VerifiableCredential = credential_record
         .entry()
