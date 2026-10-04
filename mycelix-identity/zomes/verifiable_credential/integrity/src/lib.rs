@@ -498,6 +498,42 @@ fn action_target(
 /// an integrity validator can bind a derived credential to the exact credential
 /// content it claims to derive from. The binding is to the credential content hash,
 /// not merely its human-readable ID.
+fn is_date_time_stamp(value: &str) -> bool {
+    // VC 2.x validity values are XML Schema dateTimeStamp-like values:
+    // full date + time + an explicit timezone. Fractional seconds are allowed.
+    if value.len() < 20 || value.as_bytes().get(10) != Some(&b'T') {
+        return false;
+    }
+    let bytes = value.as_bytes();
+    if !bytes[0..10].iter().enumerate().all(|(i, b)| {
+        if matches!(i, 4 | 7) { *b == b'-' } else { b.is_ascii_digit() }
+    }) {
+        return false;
+    }
+    if bytes[13] != b':' || bytes[16] != b':' {
+        return false;
+    }
+    if !bytes[11..19].iter().enumerate().all(|(i, b)| {
+        if matches!(i, 2 | 5) { *b == b':' } else { b.is_ascii_digit() }
+    }) {
+        return false;
+    }
+
+    if value.ends_with('Z') {
+        return true;
+    }
+    if value.len() < 25 {
+        return false;
+    }
+    let tz_start = value.len() - 6;
+    (bytes[tz_start] == b'+' || bytes[tz_start] == b'-')
+        && bytes[tz_start + 3] == b':'
+        && bytes[tz_start + 1].is_ascii_digit()
+        && bytes[tz_start + 2].is_ascii_digit()
+        && bytes[tz_start + 4].is_ascii_digit()
+        && bytes[tz_start + 5].is_ascii_digit()
+}
+
 fn compute_credential_content_hash(vc: &VerifiableCredential) -> Vec<u8> {
     let mut content = Vec::new();
     content.extend(vc.id.as_bytes());
@@ -884,6 +920,19 @@ fn validate_create_verifiable_credential(
     // Validate the W3C temporal fields before accepting them into the DHT.
     // Holochain Timestamp parsing gives us a concrete temporal value, allowing
     // us to enforce the VC validity interval rather than trusting arbitrary text.
+    if !is_date_time_stamp(&vc.valid_from) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Credential validFrom must be an explicit dateTimeStamp with timezone".into(),
+        ));
+    }
+    if let Some(valid_until) = vc.valid_until.as_deref() {
+        if !is_date_time_stamp(valid_until) {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Credential validUntil must be an explicit dateTimeStamp with timezone".into(),
+            ));
+        }
+    }
+
     let valid_from = vc.valid_from.parse::<Timestamp>().map_err(|e| {
         wasm_error!(WasmErrorInner::Guest(format!(
             "Credential validFrom must be a valid RFC3339 timestamp: {e}"
@@ -898,6 +947,24 @@ fn validate_create_verifiable_credential(
         if valid_from > valid_until {
             return Ok(ValidateCallbackResult::Invalid(
                 "Credential validFrom must not be later than validUntil".into(),
+            ));
+        }
+    }
+
+    if vc.mycelix_schema_id.is_empty() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Credential must include a Mycelix schema ID".into(),
+        ));
+    }
+    if let Some(schema) = &vc.credential_schema {
+        if schema.id != vc.mycelix_schema_id {
+            return Ok(ValidateCallbackResult::Invalid(
+                "credentialSchema.id must match mycelix_schema_id".into(),
+            ));
+        }
+        if schema.schema_type.is_empty() {
+            return Ok(ValidateCallbackResult::Invalid(
+                "credentialSchema.type must not be empty".into(),
             ));
         }
     }
@@ -1523,6 +1590,16 @@ mod tests {
             vc.context.first().map(String::as_str),
             Some("https://www.w3.org/ns/credentials/v2")
         );
+    }
+
+    #[test]
+    fn date_time_stamp_requires_explicit_timezone() {
+        assert!(is_date_time_stamp("2026-01-01T00:00:00Z"));
+        assert!(is_date_time_stamp("2026-01-01T00:00:00+02:00"));
+        assert!(is_date_time_stamp("2026-01-01T00:00:00.123Z"));
+        assert!(!is_date_time_stamp("2026-01-01"));
+        assert!(!is_date_time_stamp("2026-01-01T00:00:00"));
+        assert!(!is_date_time_stamp("2026-13-99T99:99:99Z"));
     }
 
     #[test]
