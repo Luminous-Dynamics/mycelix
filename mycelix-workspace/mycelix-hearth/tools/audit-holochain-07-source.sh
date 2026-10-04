@@ -804,12 +804,13 @@ check_semantic_case_entrypoints() {
 # from drifting away from the validator it claims to witness.
 check_semantic_case_integrity_bindings() {
   local manifest="mycelix-workspace/mycelix-hearth/tests/hearth-07-semantic-validation-cases.json"
-  local ids tests zomes operations invariants invariant_codes surfaces results validator_sources validator_symbols
+  local ids tests zomes operations invariants rejection_reasons invariant_codes surfaces results validator_sources validator_symbols
   mapfile -t ids < <(sed -n 's/^[[:space:]]*"case_id"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
   mapfile -t tests < <(sed -n 's/^[[:space:]]*"test"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
   mapfile -t zomes < <(sed -n 's/^[[:space:]]*"zome"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
   mapfile -t operations < <(sed -n 's/^[[:space:]]*"operation"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
   mapfile -t invariants < <(sed -n 's/^[[:space:]]*"invariant"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
+  mapfile -t rejection_reasons < <(sed -n 's/^[[:space:]]*"rejection_reason"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
   mapfile -t invariant_codes < <(sed -n 's/^[[:space:]]*"invariant_code"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
   mapfile -t surfaces < <(sed -n 's/^[[:space:]]*"operation_surface"[[:space:]]*:[[:space:]]*\[\([^]]*\)\].*/\1/p' "$manifest")
   mapfile -t results < <(sed -n 's/^[[:space:]]*"expected_result"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
@@ -817,19 +818,25 @@ check_semantic_case_integrity_bindings() {
   mapfile -t validator_symbols < <(sed -n 's/^[[:space:]]*"validator_symbol"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
 
   local count="${#ids[@]}"
-  if [[ "$count" -eq 0 || "$count" -ne "${#tests[@]}" || "$count" -ne "${#zomes[@]}" || "$count" -ne "${#operations[@]}" || "$count" -ne "${#invariants[@]}" || "$count" -ne "${#invariant_codes[@]}" || "$count" -ne "${#surfaces[@]}" || "$count" -ne "${#results[@]}" || "$count" -ne "${#validator_sources[@]}" || "$count" -ne "${#validator_symbols[@]}" ]]; then
+  if [[ "$count" -eq 0 || "$count" -ne "${#tests[@]}" || "$count" -ne "${#zomes[@]}" || "$count" -ne "${#operations[@]}" || "$count" -ne "${#invariants[@]}" || "$count" -ne "${#rejection_reasons[@]}" || "$count" -ne "${#invariant_codes[@]}" || "$count" -ne "${#surfaces[@]}" || "$count" -ne "${#results[@]}" || "$count" -ne "${#validator_sources[@]}" || "$count" -ne "${#validator_symbols[@]}" ]]; then
     echo "FAIL: semantic manifest fields are not structurally aligned"
     fail=1
     return
   fi
 
-  local i id zome operation invariant invariant_code expected_result surface integrity_file validator_source validator_symbol
+  local i id zome operation invariant rejection_reason invariant_code expected_result surface integrity_file validator_source validator_symbol
   for i in "${!ids[@]}"; do
     id="${ids[$i]}"
     zome="${zomes[$i]}"
     operation="${operations[$i]}"
     invariant="${invariants[$i]}"
+    rejection_reason="${rejection_reasons[$i]}"
     invariant_code="${invariant_codes[$i]}"
+    if [[ -z "$rejection_reason" ]]; then
+      echo "FAIL: $id has no rejection_reason"
+      fail=1
+      continue
+    fi
     if [[ -z "$invariant_code" ]]; then
       echo "FAIL: $id has no executable invariant predicate"
       fail=1
@@ -872,11 +879,11 @@ check_semantic_case_integrity_bindings() {
         echo "FAIL: $id validator symbol $validator_symbol is not defined in declared source"
         fail=1
       fi
-      if [[ -n "$validator_block" ]] && python3 - "$invariant_code" "$invariant" "$validator_block" <<'PY'
+      if [[ -n "$validator_block" ]] && python3 - "$invariant_code" "$rejection_reason" "$validator_block" <<'PY'
 import re
 import sys
 
-code_pattern, human_invariant, source = sys.argv[1:]
+code_pattern, expected_reason, source = sys.argv[1:]
 
 # Remove comments and string literals before matching the executable predicate.
 # This prevents a copied predicate in documentation, diagnostics, or examples
@@ -905,7 +912,7 @@ predicate_match = re.search(rf'\bif\s+{predicate}\s*\{{', masked)
 if not predicate_match:
     print(
         f"FAIL: {code_pattern!r} is not an executable invariant predicate "
-        f"inside the declared validator; manifest invariant={human_invariant!r}"
+        f"inside the declared validator; manifest rejection_reason={expected_reason!r}"
     )
     raise SystemExit(2)
 
@@ -950,10 +957,10 @@ if not re.search(
     )
     raise SystemExit(2)
 
-if not re.search(rf'"{re.escape(human_invariant)}"', raw_predicate_branch):
+if not re.search(rf'"{re.escape(expected_reason)}"', raw_predicate_branch):
     print(
         f"FAIL: executable invariant predicate {code_pattern!r} does not "
-        f"emit the exact manifest rejection reason {human_invariant!r}"
+        f"emit the exact manifest rejection reason {expected_reason!r}"
     )
     raise SystemExit(2)
 
