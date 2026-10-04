@@ -449,13 +449,23 @@ jobs:
             exit 1
           fi
           for pattern in \
-            '#\[derive\([^]]*(Serialize|Deserialize)[^]]*\)\][[:space:]]*(pub[[:space:]]+)?struct (VerificationEvidence|AuthorizationPermit|EnforcementRequest)' \
-            'impl[[:space:]]+(Serialize|Deserialize)[[:space:]]+for[[:space:]]+(VerificationEvidence|AuthorizationPermit|EnforcementRequest)' \
+            '#\[derive\([^]]*(Serialize|Deserialize)[^]]*\)\][[:space:]]*(pub[[:space:]]+)?struct (VerificationEvidence|VerifiedCapability|AuthorizationPermit|EnforcementRequest)' \
+            'impl[[:space:]]+(Serialize|Deserialize)[[:space:]]+for[[:space:]]+(VerificationEvidence|VerifiedCapability|AuthorizationPermit|EnforcementRequest)' \
             '#\[derive\([^]]*(Debug|PartialEq|Eq)[^]]*\)\][[:space:]]*pub struct VerificationEvidence' \
             '#\[derive\([^]]*(Debug|Clone|Copy|PartialEq|Eq|Serialize|Deserialize)[^]]*\)\][[:space:]]*pub struct AuthorizationPermit' \
             '#\[derive\([^]]*(Debug|Clone|Copy|PartialEq|Eq|Serialize|Deserialize)[^]]*\)\][[:space:]]*pub struct EnforcementRequest'; do
             if rg -nU "$pattern" crates/mycelix-bridge-common/src/security_kernel.rs; then
               echo "security-kernel serialization/linear-token regression: $pattern" >&2
+              exit 1
+            fi
+          done
+
+          # A VerifiedCapability can mint permits; exposing its trust-bearing fields or
+          # serialization would let downstream callers forge the verification hand-off.
+          for pattern in \
+            '^[[:space:]]*pub([[:space:]]*\([^)]*\))?[[:space:]]+(capability|verification_valid_until_us|authority_binding)[[:space:]]*:'; do
+            if rg -nU "$pattern" crates/mycelix-bridge-common/src/security_kernel.rs; then
+              echo "security-kernel trust-surface regression: VerifiedCapability field became public: $pattern" >&2
               exit 1
             fi
           done
