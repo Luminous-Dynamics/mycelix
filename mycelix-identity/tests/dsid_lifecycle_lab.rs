@@ -3767,3 +3767,141 @@ async fn dsid_041_w3c_jcs_presentation_is_challenge_bound() {
     );
 }
 
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_042_key_rotation_revokes_stale_presentation_authorization() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let issuer_app = conductor
+        .setup_app("dsid-vp-rotation-issuer", std::slice::from_ref(&dna))
+        .await
+        .unwrap();
+    let holder_app = conductor
+        .setup_app("dsid-vp-rotation-holder", std::slice::from_ref(&dna))
+        .await
+        .unwrap();
+
+    let issuer = issuer_app.cells()[0].clone();
+    let holder = holder_app.cells()[0].clone();
+    let issuer_did = format!("did:mycelix:{}", issuer_app.agent());
+    let holder_did = format!("did:mycelix:{}", holder_app.agent());
+
+    let _: Record = conductor
+        .call(&issuer.zome("did_registry"), "create_did", ())
+        .await;
+    let created_holder: Record = conductor
+        .call(&holder.zome("did_registry"), "create_did", ())
+        .await;
+
+    let credential: Record = conductor
+        .call(
+            &issuer.zome("verifiable_credential"),
+            "issue_credential",
+            serde_json::json!({
+                "subject_did": holder_did.clone(),
+                "schema_id": "mycelix:schema:education:degree:v1",
+                "claims": {
+                    "degree": "DSID rotation authorization"
+                },
+                "credential_types": ["QualificationCredential"],
+                "issuer_name": "DSID Rotation Issuer",
+                "expiration_days": 365,
+                "enable_revocation": false,
+                "strict_schema": false
+            }),
+        )
+        .await;
+
+    let credential_value: serde_json::Value = credential
+        .entry()
+        .to_app_option()
+        .unwrap()
+        .unwrap();
+    let credential_id = credential_value["id"]
+        .as_str()
+        .expect("credential must expose an ID")
+        .to_owned();
+
+    let initial: DidDocument = decode_entry(&created_holder).expect("holder DID must decode");
+    let old_key_id = initial
+        .verification_method
+        .iter()
+        .find(|method| method.id.ends_with("#keys-1"))
+        .map(|method| method.id.clone())
+        .expect("initial Ed25519 key must exist");
+    let new_key_id = format!("{}#keys-2", holder_did);
+    let raw_key = [42u8; 32];
+    let new_public_key = format!(
+        "z{}",
+        bs58::encode(raw_key)
+            .with_alphabet(bs58::Alphabet::BITCOIN)
+            .into_string()
+    );
+
+    let rotated: Record = conductor
+        .call(
+            &holder.zome("did_registry"),
+            "rotate_key",
+            serde_json::json!({
+                "old_key_id": old_key_id,
+                "new_method": {
+                    "id": new_key_id.clone(),
+                    "type": "Ed25519VerificationKey2020",
+                    "controller": holder_did,
+                    "publicKeyMultibase": new_public_key,
+                    "algorithm": 0xed01
+                }
+            }),
+        )
+        .await;
+
+    let rotated_doc: DidDocument = decode_entry(&rotated).expect("rotated DID must decode");
+    assert!(!rotated_doc
+        .authentication
+        .iter()
+        .any(|method| method == &format!("{}#keys-1-multikey", format!("did:mycelix:{}", holder_app.agent()))),
+        "rotation must remove the old canonical Multikey from authentication"
+    );
+
+    await_consistency(&[issuer.clone(), holder.clone()])
+        .await
+        .expect("credential and DID rotation must reach DHT consistency");
+
+    let stale_presentation: Result<Record, _> = conductor
+        .call_fallible(
+            &holder.zome("verifiable_credential"),
+            "create_presentation",
+            serde_json::json!({
+                "credential_ids": [credential_id],
+                "challenge": "dsid-042-challenge"
+            }),
+        )
+        .await;
+    assert!(
+        stale_presentation.is_err(),
+        "presentation creation must fail once the canonical JCS Multikey is no longer authorized"
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("issuer", issuer_app.agent().to_string());
+    agents.insert("holder", holder_app.agent().to_string());
+    emit_evidence(
+        "DSID-042",
+        "key-rotation-revokes-stale-presentation-authorization",
+        &dna,
+        agents,
+        &[&credential, &created_holder, &rotated],
+        "After key rotation removes the historical canonical Multikey from DID authentication, the holder must not mint new JCS presentations using that stale verification method.",
+        format!(
+            "old_multikey_auth_removed={} stale_presentation_rejected={}",
+            !rotated_doc.authentication.iter().any(|method| {
+                method == &format!("{}#keys-1-multikey", holder_app.agent())
+            }),
+            stale_presentation.is_err()
+        ),
+        !rotated_doc.authentication.iter().any(|method| {
+            method == &format!("{}#keys-1-multikey", holder_app.agent())
+        }) && stale_presentation.is_err(),
+    );
+}
+
