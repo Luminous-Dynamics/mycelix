@@ -692,31 +692,81 @@ fn seccomp_install_rejects_wrong_architecture_before_enforcement() {
 fn thread_sync_child() -> ! {
     use prism_bridge::process::{RendererProcessAssignmentId, SandboxProfileV1};
     use prism_bridge::seccomp::{install, SeccompArchitecture, SeccompSyscallPolicyV1};
-    use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
-    use std::sync::Arc;
+
+    #[repr(C)]
+    #[derive(Clone, Copy)]
+    struct Observation {
+        result: i64,
+        errno: i32,
+    }
+
+    unsafe fn read_exact(fd: libc::c_int, bytes: &mut [u8]) -> bool {
+        let mut offset = 0usize;
+        while offset < bytes.len() {
+            let rc = libc::syscall(
+                libc::SYS_read,
+                fd,
+                bytes[offset..].as_mut_ptr(),
+                bytes.len() - offset,
+            );
+            if rc <= 0 {
+                return false;
+            }
+            offset += rc as usize;
+        }
+        true
+    }
+
+    unsafe fn write_exact(fd: libc::c_int, bytes: &[u8]) -> bool {
+        let mut offset = 0usize;
+        while offset < bytes.len() {
+            let rc = libc::syscall(
+                libc::SYS_write,
+                fd,
+                bytes[offset..].as_ptr(),
+                bytes.len() - offset,
+            );
+            if rc <= 0 {
+                return false;
+            }
+            offset += rc as usize;
+        }
+        true
+    }
 
     let architecture =
         SeccompArchitecture::current().unwrap_or_else(|| unsafe { libc::_exit(100) });
     let policy = SeccompSyscallPolicyV1::new(
         architecture,
-        vec![libc::SYS_getpid, libc::SYS_write, libc::SYS_exit_group],
+        vec![
+            libc::SYS_getpid,
+            libc::SYS_read,
+            libc::SYS_write,
+            libc::SYS_exit_group,
+        ],
     )
     .unwrap_or_else(|_| unsafe { libc::_exit(101) });
     let profile = SandboxProfileV1::renderer_default()
         .with_syscall_policy_digest(policy.digest())
         .unwrap_or_else(|_| unsafe { libc::_exit(102) });
 
-    // Establish a pre-install rendezvous so the sibling is definitely alive
-    // and executing before TSYNC is attempted. This keeps scheduling latency
-    // after installation from being mistaken for a synchronization failure.
-    let ready = Arc::new(std::sync::Barrier::new(2));
-    let release = Arc::new(AtomicBool::new(false));
-    let observed = Arc::new(AtomicI64::new(i64::MIN));
-    let observed_errno = Arc::new(std::sync::atomic::AtomicI32::new(i32::MIN));
-    let thread_ready = Arc::clone(&ready);
-    let thread_release = Arc::clone(&release);
-    let thread_observed = Arc::clone(&observed);
-    let thread_errno = Arc::clone(&observed_errno);
+    // Use pipes for deterministic pre/post-install rendezvous. The test policy
+    // explicitly permits read/write, so the synchronization channel remains
+    // usable after seccomp installation without introducing sched_yield/futex
+    // dependencies that would otherwise complicate the enforcement probe.
+    let mut ready = [-1; 2];
+    let mut release = [-1; 2];
+    let mut observed = [-1; 2];
+    if unsafe { libc::pipe2(ready.as_mut_ptr(), libc::O_CLOEXEC) } != 0
+        || unsafe { libc::pipe2(release.as_mut_ptr(), libc::O_CLOEXEC) } != 0
+        || unsafe { libc::pipe2(observed.as_mut_ptr(), libc::O_CLOEXEC) } != 0
+    {
+        unsafe { libc::_exit(103) };
+    }
+
+    let thread_ready = ready[1];
+    let thread_release = release[0];
+    let thread_observed = observed[1];
 
     std::thread::spawn(move || {
         // Pre-resolve the exact raw syscall/errno paths used for the
@@ -725,25 +775,48 @@ fn thread_sync_child() -> ! {
         // process crash.
         let _ = unsafe { libc::syscall(libc::SYS_getppid) };
         let _ = unsafe { *libc::__errno_location() };
-        thread_ready.wait();
 
-        while !thread_release.load(Ordering::Acquire) {
-            std::hint::spin_loop();
+        let ready_byte = [1u8];
+        if !unsafe { write_exact(thread_ready, &ready_byte) } {
+            unsafe { libc::_exit(104) };
         }
-        // Use only raw libc/kernel paths after installation. Avoid Rust's
-        // higher-level errno helpers here because they can introduce unrelated
-        // runtime work into a deliberately tiny, fail-closed seccomp probe.
+
+        let mut release_byte = [0u8; 1];
+        if !unsafe { read_exact(thread_release, &mut release_byte) } {
+            unsafe { libc::_exit(105) };
+        }
+
+        // Use only raw libc/kernel paths after installation. The read/write
+        // channel is explicitly allowlisted solely to make this TSYNC probe
+        // deterministic across native runner architectures.
         let result = unsafe { libc::syscall(libc::SYS_getppid) };
         let errno = unsafe { *libc::__errno_location() };
-        thread_observed.store(i64::from(result), Ordering::Release);
-        thread_errno.store(errno, Ordering::Release);
+        let observation = Observation {
+            result: result as i64,
+            errno,
+        };
+        let bytes = unsafe {
+            std::slice::from_raw_parts(
+                (&observation as *const Observation).cast::<u8>(),
+                std::mem::size_of::<Observation>(),
+            )
+        };
+        if !unsafe { write_exact(thread_observed, bytes) } {
+            unsafe { libc::_exit(106) };
+        }
+
         loop {
             std::hint::spin_loop();
         }
     });
 
-    // Both threads have reached the pre-install rendezvous.
-    ready.wait();
+    // Both threads have reached the pre-install rendezvous. Because the
+    // synchronization primitive itself remains available after installation,
+    // the test no longer depends on a fixed spin-loop budget for scheduling.
+    let mut ready_byte = [0u8; 1];
+    if !unsafe { read_exact(ready[0], &mut ready_byte) } {
+        unsafe { libc::_exit(107) };
+    }
 
     if install(
         RendererProcessAssignmentId::new(2).unwrap(),
@@ -752,26 +825,29 @@ fn thread_sync_child() -> ! {
     )
     .is_err()
     {
-        unsafe { libc::_exit(102) };
+        unsafe { libc::_exit(108) };
     }
 
-    release.store(true, Ordering::Release);
-
-    for _ in 0..100_000_000 {
-        if observed.load(Ordering::Acquire) != i64::MIN {
-            break;
-        }
-        std::hint::spin_loop();
+    let release_byte = [1u8];
+    if !unsafe { write_exact(release[1], &release_byte) } {
+        unsafe { libc::_exit(109) };
     }
+
+    let mut bytes = [0u8; std::mem::size_of::<Observation>()];
+    if !unsafe { read_exact(observed[0], &mut bytes) } {
+        unsafe { libc::_exit(110) };
+    }
+
+    let observation = unsafe {
+        std::ptr::read_unaligned(bytes.as_ptr().cast::<Observation>())
+    };
 
     // getppid() always returns a positive parent PID when it executes. -1
     // therefore proves that the sibling thread was filtered and received the
     // policy's default EPERM action rather than merely surviving the TSYNC
     // installation.
-    if observed.load(Ordering::Acquire) != -1
-        || observed_errno.load(Ordering::Acquire) != libc::EPERM
-    {
-        unsafe { libc::_exit(103) };
+    if observation.result != -1 || observation.errno != libc::EPERM {
+        unsafe { libc::_exit(111) };
     }
 
     unsafe { libc::_exit(0) }
