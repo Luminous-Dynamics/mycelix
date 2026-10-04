@@ -61,6 +61,12 @@ pub struct SectorEconomicObservables {
     pub credit_received: i128,
     pub credit_originated: i128,
     pub debt_repaid: i128,
+    /// Debt claims extinguished by write-off in this sector as lender.
+    #[serde(default)]
+    pub debt_written_off_as_lender: i128,
+    /// Debt liabilities extinguished by write-off in this sector as borrower.
+    #[serde(default)]
+    pub debt_written_off_as_borrower: i128,
 
     pub trade_credit_received: i128,
     pub trade_credit_extended: i128,
@@ -114,6 +120,8 @@ impl Default for SectorEconomicObservables {
             credit_received: 0,
             credit_originated: 0,
             debt_repaid: 0,
+            debt_written_off_as_lender: 0,
+            debt_written_off_as_borrower: 0,
             trade_credit_received: 0,
             trade_credit_extended: 0,
             trade_credit_settled: 0,
