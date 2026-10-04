@@ -23,9 +23,10 @@ on:
   workflow_dispatch:
 
 concurrency:
-  # Normalize push + PR events for the same qualified commit so one head
-  # cannot consume two 90-minute runner slots concurrently.
-  group: identity-dsid-${{ github.workflow }}-${{ github.event.pull_request.head.sha || github.sha }}
+  # One branch has one authoritative qualification run at a time. Exact-head
+  # checkout below prevents stale canceled runs from becoming evidence for a
+  # newer commit while also collapsing push + PR duplicates.
+  group: identity-dsid-${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 env:
