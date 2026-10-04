@@ -15,7 +15,7 @@ use hdk::prelude::*;
 use mycelix_crypto::{AlgorithmId, TaggedPublicKey, TaggedSignature};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
-use mycelix_zome_helpers::{get_latest_record, records_from_links_strict};
+use mycelix_zome_helpers::records_from_links_strict;
 use verifiable_credential_integrity::*;
 
 /// Mirror type for credential_schema deserialization (cross-zome)
@@ -58,6 +58,43 @@ fn string_to_entry_hash(s: &str) -> EntryHash {
             .chain([0u8; 4])
             .collect::<Vec<u8>>(),
     )
+}
+
+fn get_latest_record_strict(action_hash: ActionHash) -> ExternResult<Option<Record>> {
+    let Some(details) = get_details(action_hash, GetOptions::default())? else {
+        return Ok(None);
+    };
+
+    match details {
+        Details::Record(record_details) => match record_details.updates.as_slice() {
+            [] => Ok(Some(record_details.record)),
+            [latest_update] => {
+                get_latest_record_strict(latest_update.action_address().clone())
+            }
+            _ => Err(wasm_error!(WasmErrorInner::Guest(
+                "Ambiguous update chain: multiple competing direct updates exist".into(),
+            ))),
+        },
+        Details::Entry(_) => Ok(None),
+    }
+}
+
+fn records_from_links_latest_strict(links: Vec<Link>) -> ExternResult<Vec<Record>> {
+    let mut records = Vec::new();
+    for link in links {
+        let action_hash = ActionHash::try_from(link.target.clone())
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+                "Invalid link target".into()
+            )))?;
+        let record = get_latest_record_strict(action_hash.clone())?.ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Record not found for link target: {:?}",
+                action_hash
+            )))
+        })?;
+        records.push(record);
+    }
+    Ok(records)
 }
 
 /// Compute cryptographic hash of credential content for signing
@@ -1773,7 +1810,7 @@ pub fn get_credential_request(
                 "Invalid credential request link target".into(),
             )))?;
 
-        let Some(record) = get_latest_record(action_hash.clone())? else {
+        let Some(record) = get_latest_record_strict(action_hash.clone())? else {
             continue;
         };
         let Some(req) = record
@@ -1816,7 +1853,7 @@ pub fn get_pending_requests(issuer_did: String) -> ExternResult<Vec<Record>> {
 
     let mut requests = Vec::new();
     let mut seen = std::collections::HashSet::new();
-    for record in records_from_links_strict(links)? {
+    for record in records_from_links_latest_strict(links)? {
         let Some(req) = record
             .entry()
             .to_app_option::<CredentialRequest>()
@@ -1868,7 +1905,7 @@ pub fn update_request_status(input: UpdateRequestStatusInput) -> ExternResult<Re
                 "Invalid credential request link target".into(),
             )))?;
 
-        if let Some(record) = get_latest_record(action_hash.clone())? {
+        if let Some(record) = get_latest_record_strict(action_hash.clone())? {
             let Some(req) = record
                 .entry()
                 .to_app_option::<CredentialRequest>()
@@ -1903,7 +1940,7 @@ pub fn update_request_status(input: UpdateRequestStatusInput) -> ExternResult<Re
         "Request not found".into()
     )))?;
 
-    let record = get_latest_record(request_action)?.ok_or(wasm_error!(WasmErrorInner::Guest(
+    let record = get_latest_record_strict(request_action)?.ok_or(wasm_error!(WasmErrorInner::Guest(
         "Credential request record not found".into()
     )))?;
 
@@ -1999,7 +2036,7 @@ pub fn issue_credential_for_request(
                 "Invalid credential request link target".into(),
             )))?;
 
-        let Some(record) = get_latest_record(action_hash.clone())? else {
+        let Some(record) = get_latest_record_strict(action_hash.clone())? else {
             continue;
         };
         let Some(req) = record
