@@ -63,7 +63,8 @@
       "observed-pcr-values.json",
       "raw-eventlog.json",
       "payload-coherence.json",
-      "reference-appraisal.json"
+      "reference-appraisal.json",
+      "time-appraisal.json"
     ],
     "optional_artifacts": [
       "pcr-pre.yaml",
