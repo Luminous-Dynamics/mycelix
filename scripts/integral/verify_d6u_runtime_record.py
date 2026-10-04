@@ -77,7 +77,7 @@ def main() -> None:
         "workflow_sha": git_blob_sha(WORKFLOW),
         "d6s2_manifest_git_blob_sha": git_blob_sha(D6S2_MANIFEST),
         "d6s2_fixture_git_blob_sha": git_blob_sha(D6S2_FIXTURE),
-        "d6s2_authority_ledger_schema": "v1",
+        "d6s2_authority_ledger_schema": f"v{d6s2[\"version\"]}",
         "d6s1_corpus_sha256": sha256(D6S1_CORPUS),
         "test_log_sha256": sha256(TEST_LOG),
         "manifest_version": str(manifest["version"]),
