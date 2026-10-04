@@ -2,16 +2,11 @@ name: D6U Exact-Head Runtime Qualification
 
 on:
   workflow_call:
-  # Direct PR execution remains available, but the authoritative PR trigger
-  # is the known-good D6S workflow calling this file as a reusable workflow.
-  pull_request:
-    paths:
-      - ".github/workflows/d6u-runtime-qualification.yml"
-      - "d6u-runtime-harness/**"
-      - "docs/integral/d6u-runtime-*.json"
-      - "docs/integral/d6u-runtime-*.md"
-      - "scripts/integral/verify_d6u_runtime_*.py"
-    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    inputs:
+      trusted_workflow_sha:
+        description: "Git blob SHA for the callable D6U workflow stored on the trusted caller revision"
+        required: true
+        type: string
 permissions:
   contents: read
 
@@ -22,6 +17,8 @@ concurrency:
 jobs:
   d6u-runtime:
     name: D6U Holochain 0.7 runtime evidence
+    env:
+      TRUSTED_WORKFLOW_SHA: ${{ inputs.trusted_workflow_sha }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -212,7 +209,7 @@ PY
             echo "workflow_execution_commit_sha=${{ github.workflow_sha }}"
             echo "workflow_execution_ref=${{ github.workflow_ref }}"
             echo "attestation_status=deferred-to-trusted-builder"
-            echo "workflow_sha=$(git hash-object ../.github/workflows/d6u-exact-head-runtime.yml)"
+            echo "workflow_sha=${TRUSTED_WORKFLOW_SHA}"
             echo "d6s2_manifest_git_blob_sha=$(git hash-object ../docs/integral/d6s-canon-2-manifest.json)"
             echo "d6s2_fixture_git_blob_sha=$(git hash-object ../docs/integral/d6s-canon-2-authority-boundary-fixture.json)"
             d6s2_ledger_version=$(python3 -c 'import json; print(json.load(open("../docs/integral/d6s-canon-2-manifest.json"))["version"])')
