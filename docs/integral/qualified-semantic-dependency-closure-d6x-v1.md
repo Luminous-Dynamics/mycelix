@@ -124,7 +124,7 @@ The executable corpus test first calls:
 
 compose_finality_eligibility_from_authoritative_d6n_d6o(...)
 
-and requires the resulting D6P composition to equal the separately committed authoritative_d6p composition. D6X then consumes the reconstructed composition, not the corpus copy, and separately verifies that the committed D6P receipt is an exact projection of that reconstruction.
+and requires the resulting D6P composition to equal the separately committed authoritative_d6p composition. The authoritative D6O step also requires the admitted eligibility receipt to be the exact receipt registered in the lifecycle ledger; a self-consistent but unregistered receipt is rejected. D6X then consumes the reconstructed composition, not the corpus copy, and separately verifies that the committed D6P receipt is an exact projection of that reconstruction.
 
 The corpus also mutates D6M, D6N, and D6O inputs into internally self-consistent alternatives and requires the authoritative reconstruction boundary to reject each one. This establishes the intended chain for the ReferenceModelOnly test corpus:
 
