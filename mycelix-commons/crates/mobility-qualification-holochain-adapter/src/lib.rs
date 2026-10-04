@@ -1769,6 +1769,25 @@ mod tests {
         assert_eq!(calls.lock().unwrap().as_slice(), ["verify_signature", "verify_signature"]);
     }
     #[test]
+    fn valid_duplicate_authority_is_adapter_rejection_and_state_preserving() {
+        let _guard = host_test_lock().lock().expect("HDI test lock is not poisoned");
+        let calls = Arc::new(Mutex::new(Vec::new()));
+        let _previous = set_hdi(RecordingHdi { calls: Arc::clone(&calls), verify_result: true });
+        let authority = identity("valid-duplicate-authority");
+        let first = authority_credential(authority.clone(), action_agent_key(79), "valid-admission-first");
+        let expected = first.clone();
+        let second = authority_credential(authority.clone(), action_agent_key(80), "valid-admission-second");
+        let mut registry = HolochainAuthorityAgentBindingSet::new();
+        assert!(matches!(registry.bind_attested(first), Ok(Ok(()))));
+        let result = registry.bind_attested(second);
+        let _ = set_hdi(ErrHdi);
+        assert!(matches!(result, Ok(Err(HolochainAdapterBoundaryError::BindingRejected { reason }))
+            if reason == "an authority identity may be bound to only one AgentPubKey in an immutable binding set"));
+        assert_eq!(registry.len(), 1);
+        assert_eq!(registry.credential_for(&authority), Some(&expected));
+        assert_eq!(calls.lock().unwrap().as_slice(), ["verify_signature", "verify_signature"]);
+    }
+    #[test]
     fn authority_agent_registry_rejects_duplicate_authority() {
         let _guard = host_test_lock().lock().expect("HDI test lock is not poisoned");
         let calls = Arc::new(Mutex::new(Vec::new()));
