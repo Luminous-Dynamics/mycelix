@@ -21,7 +21,9 @@ on:
         type: string
 
 concurrency:
-  group: hearth-07-qualification-${{ github.event.pull_request.number || github.ref }}
+  # Push and pull_request events for the same branch share one cancellation domain;
+  # this prevents duplicate qualification runs from producing competing evidence.
+  group: hearth-07-qualification-${{ github.event.pull_request.head.ref || github.ref }}
   cancel-in-progress: true
 
 permissions:
