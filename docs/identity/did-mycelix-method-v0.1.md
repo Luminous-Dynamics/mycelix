@@ -128,16 +128,20 @@ The current resolver obtains the DID's controller agent key from the method-spec
 
 ### Credential proof profile
 
-Mycelix's current in-DNA credential signer uses the explicit cryptosuite identifier
-`mycelix-blake2b-ed25519-2026`. It signs a deterministic Mycelix credential-content
-payload with Ed25519 and BLAKE2b-256. This is a Mycelix-native proof profile, not a
-claim of W3C `eddsa-rdfc-2022` or `eddsa-jcs-2022` interoperability.
+New Mycelix credentials now default to the W3C Recommendation's
+`eddsa-jcs-2022` proof profile: RFC 8785 JSON Canonicalization Scheme,
+SHA-256 hashing of the canonical proof configuration and unsecured credential,
+followed by an Ed25519 signature encoded as base58-btc Multibase.
 
-The W3C cryptosuites have separate normative canonicalization and hashing
-requirements. Standard interoperability will be added as a dedicated protocol
-migration rather than silently changing the meaning of already-issued proofs.
-Legacy records without a cryptosuite identifier remain readable by the current
+The older `mycelix-blake2b-ed25519-2026` profile remains available as an explicit
+compatibility mode for pre-standard records and controlled migration. Legacy
+records without a cryptosuite identifier remain readable by the current
 verification path.
+
+Mycelix intentionally does not label the BLAKE2b construction as a W3C
+`eddsa-rdfc-2022` or `eddsa-jcs-2022` proof. Those suites have normative
+canonicalization and hashing algorithms, and conforming processors must reject
+non-conforming proof inputs.
  Recovery anchors are not treated as current authorization evidence; the self-recovery transition is fail-closed until an authenticated proof envelope exists. The coordinator additionally parses the identifier as a Holochain `AgentPubKey`, so syntactically plausible but non-key identifiers cannot reach DHT resolution.
 
 ### Authenticity boundary
