@@ -447,7 +447,13 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             Ok(ValidateCallbackResult::Valid)
         }
         FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::RegisterAgentActivity(activity) => match activity {
+            OpActivity::CreateEntry {
+                app_entry_type: Some(UnitEntryTypes::MfaState),
+                action,
+            } => validate_mfa_state_chain_uniqueness(action),
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
         FlatOp::RegisterUpdate(update) => {
             let action = match &update {
                 OpUpdate::Entry { action, .. }
@@ -473,6 +479,100 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             }
             Ok(ValidateCallbackResult::Valid)
         }
+    }
+}
+
+fn select_latest_action_hash(
+    candidates: impl IntoIterator<Item = (u32, ActionHash)>,
+) -> Option<ActionHash> {
+    candidates
+        .into_iter()
+        .max_by_key(|(seq, _)| *seq)
+        .map(|(_, hash)| hash)
+}
+
+/// Return the latest MFA-state action on the author's source chain.
+fn latest_mfa_state_action(
+    author: AgentPubKey,
+    chain_top: ActionHash,
+) -> ExternResult<Option<ActionHash>> {
+    let activity = must_get_agent_activity(author, ChainFilter::new(chain_top))?;
+    let entry_type = EntryType::App(AppEntryDef::try_from(UnitEntryTypes::MfaState)?);
+    let mut candidates = Vec::new();
+
+    for item in activity {
+        let prior_action = item.action.action();
+        if prior_action.entry_type() != Some(&entry_type) {
+            continue;
+        }
+        if !matches!(prior_action, Action::Create(_) | Action::Update(_)) {
+            continue;
+        }
+        candidates.push((
+            prior_action.action_seq(),
+            hdi::hash::hash_action(prior_action.clone())?,
+        ));
+    }
+
+    Ok(select_latest_action_hash(candidates))
+}
+
+/// Enforce one initial MFA state for an owner's canonical DID.
+fn validate_mfa_state_chain_uniqueness(
+    action: Create,
+) -> ExternResult<ValidateCallbackResult> {
+    let current_entry = must_get_entry(action.entry_hash.clone())?;
+    let current: MfaState = current_entry.try_into().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "MFA state entry could not be decoded: {e}"
+        )))
+    })?;
+
+    let activity = must_get_agent_activity(
+        action.author.clone(),
+        ChainFilter::new(action.prev_action.clone()),
+    )?;
+    let entry_type = EntryType::App(AppEntryDef::try_from(UnitEntryTypes::MfaState)?);
+
+    for item in activity {
+        let prior_action = item.action.action();
+        let Action::Create(prior_create) = prior_action else {
+            continue;
+        };
+        if prior_create.entry_type != entry_type {
+            continue;
+        }
+        let prior_entry = must_get_entry(prior_create.entry_hash.clone())?;
+        let prior: MfaState = prior_entry.try_into().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "MFA state history entry could not be decoded: {e}"
+            )))
+        })?;
+        if prior.did == current.did {
+            return Ok(ValidateCallbackResult::Invalid(
+                "A DID may only have one initial MFA state".into(),
+            ));
+        }
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+/// Validate that an MFA-state update targets the current state on the
+/// author's source chain rather than a stale ancestor.
+fn validate_mfa_state_update_targets_latest(
+    action: &Update,
+) -> ExternResult<ValidateCallbackResult> {
+    match latest_mfa_state_action(action.author.clone(), action.prev_action.clone())? {
+        Some(latest_hash) if latest_hash == action.original_action_address => {
+            Ok(ValidateCallbackResult::Valid)
+        }
+        Some(_) => Ok(ValidateCallbackResult::Invalid(
+            "MFA state update must target the latest state on the author's source chain".into(),
+        )),
+        None => Ok(ValidateCallbackResult::Invalid(
+            "MFA state update has no prior canonical state".into(),
+        )),
     }
 }
 
@@ -558,6 +658,11 @@ fn validate_update_mfa_state(
         ));
     }
 
+    match validate_mfa_state_update_targets_latest(&action)? {
+        ValidateCallbackResult::Valid => {}
+        invalid => return Ok(invalid),
+    }
+
     // Fetch original to enforce invariants
     let original_record = must_get_valid_record(action.original_action_address.clone())?;
     let original: MfaState = original_record
@@ -585,11 +690,14 @@ fn validate_update_mfa_state(
         ));
     }
 
-    // Version must increment
-    if state.version <= original.version {
-        return Ok(ValidateCallbackResult::Invalid(
-            "MFA state version must increase on update".into(),
-        ));
+    // Version is the method-level ordering primitive; every accepted update
+    // must advance exactly one version.
+    if state.version != original.version.saturating_add(1) {
+        return Ok(ValidateCallbackResult::Invalid(format!(
+            "MFA state version must increment exactly by 1 (expected {}, got {})",
+            original.version.saturating_add(1),
+            state.version
+        )));
     }
 
     // Updated timestamp must advance
@@ -742,6 +850,22 @@ mod tests {
     // =========================================================================
     // Factor Category Tests
     // =========================================================================
+
+    #[test]
+    fn latest_mfa_state_selector_uses_source_chain_sequence() {
+        let first = ActionHash::from_raw_36(vec![1; 36]);
+        let second = ActionHash::from_raw_36(vec![2; 36]);
+
+        assert_eq!(
+            select_latest_action_hash(vec![(4, first.clone()), (5, second.clone())]),
+            Some(second.clone())
+        );
+        assert_eq!(
+            select_latest_action_hash(vec![(5, second.clone()), (4, first)]),
+            Some(second)
+        );
+        assert_eq!(select_latest_action_hash(Vec::new()), None);
+    }
 
     #[test]
     fn test_factor_type_categories() {
