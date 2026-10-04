@@ -153,7 +153,12 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 LinkTypes::DidToVerificationMethod => Ok(ValidateCallbackResult::Valid),
                 LinkTypes::DidToService => Ok(ValidateCallbackResult::Valid),
                 LinkTypes::SubstrateRoleToAgent => {
-                    validate_substrate_role_link(&base_address, &target_address, &action)
+                    validate_substrate_role_link(
+                        &base_address,
+                        &target_address,
+                        &action,
+                        &tag,
+                    )
                 }
                 LinkTypes::DidHistory => {
                     validate_agent_to_did_link(&base_address, &target_address, &action)
@@ -256,6 +261,7 @@ fn validate_substrate_role_link(
     base_address: &AnyLinkableHash,
     target_address: &AnyLinkableHash,
     action: &CreateLink,
+    tag: &LinkTag,
 ) -> ExternResult<ValidateCallbackResult> {
     let target_agent = match target_address.clone().into_agent_pub_key() {
         Some(agent) => agent,
@@ -269,11 +275,79 @@ fn validate_substrate_role_link(
     if action.author != target_agent {
         return Ok(ValidateCallbackResult::Invalid(
             "SubstrateRoleToAgent link must be authored by the advertised agent".into(),
-        ));    }
+        ));
+    }
 
-    if base_address.clone().into_entry_hash().is_none() {
-        return Ok(ValidateCallbackResult::Invalid(
+    let base = base_address.clone().into_entry_hash().ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
             "SubstrateRoleToAgent base must be an EntryHash role anchor".into(),
+        ))
+    })?;
+
+    let role = String::from_utf8(tag.0.clone()).map_err(|_| {
+        wasm_error!(WasmErrorInner::Guest(
+            "SubstrateRoleToAgent tag must contain UTF-8 role metadata".into(),
+        ))
+    })?;
+    if role.is_empty() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SubstrateRoleToAgent role cannot be empty".into(),
+        ));
+    }
+
+    let expected_anchor = EntryHash::from_raw_32(
+        holo_hash::blake2b_256(format!("substrate:{role}").as_bytes()).to_vec(),
+    );
+    if base != expected_anchor {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SubstrateRoleToAgent base does not match the role tag".into(),
+        ));
+    }
+
+    // A discovery link is valid only when the advertised agent's latest DID
+    // document contains the canonical SubstrateMetadata service for the same
+    // role. This prevents a direct link write from bypassing register_substrate.
+    let latest_action = latest_did_document_action(
+        action.author.clone(),
+        action.prev_action.clone(),
+    )?
+    .ok_or(wasm_error!(WasmErrorInner::Guest(
+        "SubstrateRoleToAgent requires an existing DID document".into()
+    )))?;
+
+    let record = must_get_valid_record(latest_action)?;
+    let did_doc: DidDocument = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Latest DID document could not be decoded".into()
+        )))?;
+
+    let expected_did = format!("did:mycelix:{}", target_agent);
+    if did_doc.id != expected_did || did_doc.controller != target_agent {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SubstrateRoleToAgent requires the target's canonical DID document".into(),
+        ));
+    }
+
+    let expected_service_id = format!("{expected_did}#substrate");
+    let service_matches = did_doc.service.iter().any(|service| {
+        if service.id != expected_service_id || service.type_ != SUBSTRATE_SERVICE_TYPE {
+            return false;
+        }
+        let Ok(metadata) = serde_json::from_str::<serde_json::Value>(&service.service_endpoint) else {
+            return false;
+        };
+        metadata
+            .get("role")
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|service_role| service_role == role)
+    });
+
+    if !service_matches {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SubstrateRoleToAgent link requires a matching SubstrateMetadata DID service".into(),
         ));
     }
 
@@ -576,22 +650,29 @@ fn validate_create_did_document(
     Ok(ValidateCallbackResult::Valid)
 }
 
-/// Validate that a DID update targets the current DID-document state on
-/// the author's source chain rather than a stale ancestor.
+fn select_latest_action_hash(
+    candidates: impl IntoIterator<Item = (u32, ActionHash)>,
+) -> Option<ActionHash> {
+    candidates
+        .into_iter()
+        .max_by_key(|(seq, _)| *seq)
+        .map(|(_, hash)| hash)
+}
+
+/// Return the latest DID-document action on an author's source chain.
 ///
 /// Holochain source-chain ordering is deterministic for validation, while DHT
-/// link traversal is not. A coordinator that updates an older DID document
-/// could otherwise create a second record at the same version and force every
-/// resolver into an ambiguity/DoS condition.
-fn validate_did_update_targets_latest(action: &Update) -> ExternResult<ValidateCallbackResult> {
-    let activity = must_get_agent_activity(
-        action.author.clone(),
-        ChainFilter::new(action.prev_action.clone()),
-    )?;
+/// link traversal is not. This is the canonical ordering primitive for every
+/// integrity rule that needs the current DID document.
+fn latest_did_document_action(
+    author: AgentPubKey,
+    chain_top: ActionHash,
+) -> ExternResult<Option<ActionHash>> {
+    let activity = must_get_agent_activity(author, ChainFilter::new(chain_top))?;
     let entry_type =
         EntryType::App(AppEntryDef::try_from(UnitEntryTypes::DidDocument)?);
 
-    let mut latest: Option<(u32, ActionHash)> = None;
+    let mut candidates = Vec::new();
     for item in activity {
         let prior_action = item.action.action();
         if prior_action.entry_type() != Some(&entry_type) {
@@ -602,14 +683,17 @@ fn validate_did_update_targets_latest(action: &Update) -> ExternResult<ValidateC
         }
 
         let hash = hdi::hash::hash_action(prior_action.clone())?;
-        let seq = prior_action.action_seq();
-        if latest.as_ref().is_none_or(|(latest_seq, _)| seq > *latest_seq) {
-            latest = Some((seq, hash));
-        }
+        candidates.push((prior_action.action_seq(), hash));
     }
 
-    match latest {
-        Some((_, latest_hash)) if latest_hash == action.original_action_address => {
+    Ok(select_latest_action_hash(candidates))
+}
+
+/// Validate that a DID update targets the current DID-document state on
+/// the author's source chain rather than a stale ancestor.
+fn validate_did_update_targets_latest(action: &Update) -> ExternResult<ValidateCallbackResult> {
+    match latest_did_document_action(action.author.clone(), action.prev_action.clone())? {
+        Some(latest_hash) if latest_hash == action.original_action_address => {
             Ok(ValidateCallbackResult::Valid)
         }
         Some(_) => Ok(ValidateCallbackResult::Invalid(
@@ -934,25 +1018,19 @@ mod tests {
     }
 
     #[test]
-    fn latest_did_update_guard_selects_by_source_chain_sequence() {
+    fn latest_did_action_selector_uses_source_chain_sequence() {
         let first = ActionHash::from_raw_36(vec![1; 36]);
         let second = ActionHash::from_raw_36(vec![2; 36]);
 
-        fn select_latest(candidates: Vec<(u32, ActionHash)>) -> Option<ActionHash> {
-            candidates
-                .into_iter()
-                .max_by_key(|(seq, _)| *seq)
-                .map(|(_, hash)| hash)
-        }
-
         assert_eq!(
-            select_latest(vec![(4, first.clone()), (5, second.clone())]),
+            select_latest_action_hash(vec![(4, first.clone()), (5, second.clone())]),
             Some(second.clone())
         );
         assert_eq!(
-            select_latest(vec![(5, second.clone()), (4, first)]),
+            select_latest_action_hash(vec![(5, second.clone()), (4, first)]),
             Some(second)
         );
+        assert_eq!(select_latest_action_hash(Vec::new()), None);
     }
 
     #[test]
