@@ -37,7 +37,7 @@ pub struct FreshnessAttestation {
     pub timestamp: u64,
     /// Tier at the time of attestation.
     pub tier_at_attestation: ConsciousnessTier,
-    /// BLAKE3 keyed hash signature over canonical bytes.
+    /// BLAKE3 keyed MAC over canonical bytes.
     #[serde(default)]
     pub signature: Vec<u8>,
 }
@@ -52,14 +52,14 @@ impl FreshnessAttestation {
         buf
     }
 
-    /// Sign with BLAKE3 keyed hash.
+    /// Compute a BLAKE3 keyed MAC.
     pub fn sign_blake3(&mut self, key: &[u8; 32]) {
         let data = self.canonical_bytes();
         let mac = blake3::keyed_hash(key, &data);
         self.signature = mac.as_bytes().to_vec();
     }
 
-    /// Verify BLAKE3 keyed hash signature.
+    /// Verify the BLAKE3 keyed MAC.
     pub fn verify_blake3(&self, key: &[u8; 32]) -> bool {
         let data = self.canonical_bytes();
         let mac = blake3::keyed_hash(key, &data);
