@@ -162,6 +162,11 @@ pub struct VerifiablePresentation {
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
 pub struct DerivedCredential {
+    /// Exact ActionHash of the original immutable credential.
+    ///
+    /// The human-readable ID remains for presentation/interoperability, but
+    /// lineage-sensitive operations must use this cryptographic action reference.
+    pub original_credential_action: ActionHash,
     /// Original credential ID
     pub original_credential_id: String,
     /// DID of the original issuer
@@ -612,6 +617,11 @@ fn validate_credential_link(
                 .ok_or(wasm_error!(WasmErrorInner::Guest(
                     "CredentialToDerived base must reference a VerifiableCredential".into(),
                 )))?;
+            if actual_base != dc.original_credential_action {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "CredentialToDerived base does not match the derived credential's pinned source action".into(),
+                ));
+            }
             if original_vc.id != dc.original_credential_id {
                 return Ok(ValidateCallbackResult::Invalid(
                     "CredentialToDerived base does not match the referenced original credential ID".into(),
@@ -1729,6 +1739,7 @@ mod tests {
     #[test]
     fn derived_credential_json_round_trip() {
         let dc = DerivedCredential {
+            original_credential_action: ActionHash::from_raw_36(vec![9u8; 36]),
             original_credential_id: "urn:uuid:cred-001".into(),
             original_issuer: "did:mycelix:issuer1".into(),
             holder: "did:mycelix:holder1".into(),
@@ -1887,6 +1898,7 @@ mod author_binding_tests {
     fn derived_for_integrity_tests(holder: String, original: &VerifiableCredential) -> DerivedCredential {
         let original_hash = compute_credential_content_hash(original);
         DerivedCredential {
+            original_credential_action: ActionHash::from_raw_36(vec![9u8; 36]),
             original_credential_id: original.id.clone(),
             original_issuer: original.issuer.did().to_string(),
             holder,
@@ -1908,6 +1920,7 @@ mod author_binding_tests {
 
     fn valid_derived(holder: String) -> DerivedCredential {
         DerivedCredential {
+            original_credential_action: ActionHash::from_raw_36(vec![9u8; 36]),
             original_credential_id: "urn:uuid:cred-1".into(),
             original_issuer: "did:mycelix:issuer1".into(),
             holder,
