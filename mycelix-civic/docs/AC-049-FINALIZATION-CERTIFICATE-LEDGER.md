@@ -94,5 +94,6 @@ The reference tests cover:
 - second-certificate rejection;
 - verification after issuance;
 - verification failure after current action evidence changes;
+- pre-completion certificate timestamp rejection;
 - unrecorded certificate rejection.
 
