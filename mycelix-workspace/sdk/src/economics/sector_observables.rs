@@ -369,6 +369,16 @@ impl SectorEconomicObservables {
                     "sector debt repaid",
                 ),
                 (
+                    &mut sector_observation.debt_written_off_as_lender,
+                    observation.debt_written_off_as_lender,
+                    "sector debt written off as lender",
+                ),
+                (
+                    &mut sector_observation.debt_written_off_as_borrower,
+                    observation.debt_written_off_as_borrower,
+                    "sector debt written off as borrower",
+                ),
+                (
                     &mut sector_observation.trade_credit_received,
                     observation.trade_credit_received,
                     "sector trade credit received",
