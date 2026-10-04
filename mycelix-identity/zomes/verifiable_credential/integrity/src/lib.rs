@@ -464,6 +464,15 @@ fn action_target(
     })
 }
 
+fn expected_original_credential_action_hash(
+    _holder: AgentPubKey,
+    _credential_id: &str,
+) -> ExternResult<ActionHash> {
+    Err(wasm_error!(WasmErrorInner::Guest(
+        "CredentialToDerived integrity requires an ActionHash target that must be bound by the original credential reference".into(),
+    )))
+}
+
 fn validate_credential_link(
     link_type: LinkTypes,
     base_address: &AnyLinkableHash,
@@ -549,14 +558,18 @@ fn validate_credential_link(
                     "CredentialToDerived link must be authored by the derived-credential holder".into(),
                 ));
             }
-            let actual_base = base_address.clone().into_entry_hash().ok_or_else(|| {
+            let actual_base = base_address.clone().into_action_hash().ok_or_else(|| {
                 wasm_error!(WasmErrorInner::Guest(
-                    "CredentialToDerived base must be an EntryHash".into(),
+                    "CredentialToDerived base must be an ActionHash".into(),
                 ))
             })?;
-            if actual_base != string_to_entry_hash(&dc.original_credential_id) {
+            let original_id = &dc.original_credential_id;
+            if actual_base != expected_original_credential_action_hash(
+                action.author.clone(),
+                original_id,
+            )? {
                 return Ok(ValidateCallbackResult::Invalid(
-                    "CredentialToDerived base does not match the original credential ID".into(),
+                    "CredentialToDerived base does not match the referenced original credential".into(),
                 ));
             }
         }
