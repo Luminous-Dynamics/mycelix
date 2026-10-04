@@ -77,35 +77,73 @@ impl EconomicTransition {
                 Ok(())
             }
         };
+        let require_actor = |actor: &str, label: &str| {
+            if actor.is_empty() {
+                Err(format!("{label} actor id must be non-empty"))
+            } else {
+                Ok(())
+            }
+        };
+        let require_distinct = |left: &str, right: &str, label: &str| {
+            require_actor(left, label)?;
+            require_actor(right, label)?;
+            if left == right {
+                Err(format!("{label} actor ids must be distinct"))
+            } else {
+                Ok(())
+            }
+        };
 
         match self {
-            Self::MonetaryTransfer(flow) => require_positive(flow.amount, "monetary transfer"),
-            Self::IncomeTransfer(flow) => require_positive(flow.amount, "income transfer"),
+            Self::MonetaryTransfer(flow) => {
+                require_distinct(&flow.from, &flow.to, "monetary transfer")?;
+                require_positive(flow.amount, "monetary transfer")
+            }
+            Self::IncomeTransfer(flow) => {
+                require_distinct(&flow.payer, &flow.recipient, "income transfer")?;
+                require_positive(flow.amount, "income transfer")
+            }
             Self::CapitalInvestment(investment) => {
+                require_distinct(
+                    &investment.buyer,
+                    &investment.producer,
+                    "capital investment",
+                )?;
                 require_positive(investment.amount, "capital investment")
             }
             Self::Production(production) => {
+                require_actor(&production.producer, "production")?;
                 require_positive(production.resource_input, "production resource input")?;
                 require_positive(production.output, "production output")
             }
             Self::InventoryTransfer(transfer) => {
+                require_distinct(&transfer.from, &transfer.to, "inventory transfer")?;
                 require_positive(transfer.quantity, "inventory transfer")
             }
             Self::InventoryConsumption(consumption) => {
+                require_actor(&consumption.consumer, "inventory consumption")?;
                 require_positive(consumption.quantity, "inventory consumption")
             }
             Self::GoodsSale(sale) => {
+                require_distinct(&sale.seller, &sale.buyer, "goods sale")?;
                 require_positive(sale.quantity, "goods sale quantity")?;
                 require_positive(sale.consideration, "goods sale consideration")
             }
             Self::TradeCreditSale(sale) => {
+                require_distinct(&sale.seller, &sale.buyer, "trade-credit sale")?;
                 require_positive(sale.quantity, "trade-credit sale quantity")?;
                 require_positive(sale.consideration, "trade-credit sale consideration")
             }
             Self::TradeCreditSettlement(settlement) => {
+                require_distinct(
+                    &settlement.seller,
+                    &settlement.buyer,
+                    "trade-credit settlement",
+                )?;
                 require_positive(settlement.amount, "trade-credit settlement")
             }
             Self::InventoryCostAddition(addition) => {
+                require_actor(&addition.actor, "inventory cost addition")?;
                 require_positive(addition.quantity, "inventory cost addition quantity")?;
                 require_positive(
                     addition.carrying_value,
@@ -113,6 +151,7 @@ impl EconomicTransition {
                 )
             }
             Self::InventoryCostRelief(relief) => {
+                require_actor(&relief.actor, "inventory cost relief")?;
                 require_positive(relief.quantity, "inventory cost relief quantity")?;
                 require_positive(
                     relief.carrying_value,
@@ -120,9 +159,11 @@ impl EconomicTransition {
                 )
             }
             Self::Depreciation(depreciation) => {
+                require_actor(&depreciation.actor, "depreciation")?;
                 require_positive(depreciation.amount, "depreciation")
             }
             Self::RealAssetRevaluation(revaluation) => {
+                require_actor(&revaluation.actor, "real-asset revaluation")?;
                 if revaluation.amount == 0 {
                     Err("real-asset revaluation amount must be non-zero".into())
                 } else {
@@ -130,17 +171,26 @@ impl EconomicTransition {
                 }
             }
             Self::CreditCreation(credit) => {
+                require_distinct(&credit.lender, &credit.borrower, "credit creation")?;
                 require_positive(credit.amount, "credit creation")
             }
             Self::DebtRepayment(repayment) => {
+                require_distinct(&repayment.lender, &repayment.borrower, "debt repayment")?;
                 require_positive(repayment.amount, "debt repayment")
             }
             Self::DebtWriteOff(write_off) => {
+                require_distinct(&write_off.lender, &write_off.borrower, "debt write-off")?;
                 require_positive(write_off.amount, "debt write-off")
             }
             Self::DebtForgiveness(forgiveness) => {
+                require_distinct(
+                    &forgiveness.lender,
+                    &forgiveness.borrower,
+                    "debt forgiveness",
+                )?;
                 require_positive(forgiveness.amount, "debt forgiveness")
             }
+
         }
     }
 }
@@ -425,6 +475,81 @@ mod tests {
             ActorBalanceSheet::new("firm"),
             ActorBalanceSheet::new("household"),
         ])
+    }
+
+    #[test]
+    fn transition_validation_rejects_self_directed_bilateral_transitions() {
+        let cases = [
+            EconomicTransition::MonetaryTransfer(
+                MonetaryFlow::new("actor", "actor", 1).unwrap(),
+            ),
+            EconomicTransition::IncomeTransfer(
+                IncomeTransfer::new("actor", "actor", 1).unwrap(),
+            ),
+            EconomicTransition::CapitalInvestment(
+                CapitalInvestment::new("actor", "actor", 1).unwrap(),
+            ),
+            EconomicTransition::InventoryTransfer(
+                InventoryTransfer::new("actor", "actor", 1).unwrap(),
+            ),
+            EconomicTransition::GoodsSale(
+                GoodsSale::new("actor", "actor", 1, 1).unwrap(),
+            ),
+            EconomicTransition::TradeCreditSale(
+                TradeCreditSale::new("actor", "actor", 1, 1).unwrap(),
+            ),
+            EconomicTransition::TradeCreditSettlement(
+                TradeCreditSettlement::new("actor", "actor", 1).unwrap(),
+            ),
+            EconomicTransition::CreditCreation(
+                CreditCreation::new("actor", "actor", 1).unwrap(),
+            ),
+            EconomicTransition::DebtRepayment(
+                DebtRepayment::new("actor", "actor", 1).unwrap(),
+            ),
+            EconomicTransition::DebtWriteOff(
+                DebtWriteOff::new("actor", "actor", 1).unwrap(),
+            ),
+            EconomicTransition::DebtForgiveness(
+                DebtForgiveness::new("actor", "actor", 1).unwrap(),
+            ),
+        ];
+
+        for transition in cases {
+            assert!(transition.validate().is_err(), "{transition:?}");
+        }
+    }
+
+    #[test]
+    fn transition_validation_rejects_empty_actor_ids() {
+        let cases = [
+            EconomicTransition::Production(ProductionEvent::new("", 1, 1).unwrap()),
+            EconomicTransition::InventoryConsumption(
+                InventoryConsumption::new("", 1).unwrap(),
+            ),
+            EconomicTransition::InventoryCostAddition(
+                InventoryCostAddition::new("", 1, 1).unwrap(),
+            ),
+            EconomicTransition::InventoryCostRelief(
+                InventoryCostRelief::new("", 1, 1).unwrap(),
+            ),
+            EconomicTransition::Depreciation(Depreciation::new("", 1).unwrap()),
+            EconomicTransition::RealAssetRevaluation(
+                RealAssetRevaluation::new(
+                    "",
+                    RealAssetRevaluationTarget::ProductiveCapital,
+                    1,
+                )
+                .unwrap(),
+            ),
+            EconomicTransition::CreditCreation(
+                CreditCreation::new("", "borrower", 1).unwrap(),
+            ),
+        ];
+
+        for transition in cases {
+            assert!(transition.validate().is_err(), "{transition:?}");
+        }
     }
 
     #[test]
