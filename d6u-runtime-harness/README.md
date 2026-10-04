@@ -62,6 +62,8 @@ A successful run is runtime evidence for the native Holochain cases and separate
 
 Claim ceiling: ReferenceModelOnly.
 
+Execution note: runtime qualification remains unprivileged and independently attestable.
+
 
 ## Qualification trust model
 
