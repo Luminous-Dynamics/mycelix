@@ -971,6 +971,11 @@
       "id": "EDT-192",
       "case": "credential_signature_host_failure_precedes_duplicate_authority_admission",
       "expected": "adapter_boundary_error"
+    },
+    {
+      "id": "EDT-193",
+      "case": "address_kind_mismatch_precedes_duplicate_provenance_binding_conflict",
+      "expected": "adapter_boundary_error"
     }
   ],
   "outcome_classes": [
