@@ -40,6 +40,9 @@ pub struct EconomicObservables {
     pub gross_leverage: Option<RatioObservation>,
     pub credit_created: i128,
     pub debt_repaid: i128,
+    /// Gross debt extinguished through explicit non-cash write-off.
+    #[serde(default)]
+    pub debt_written_off: i128,
     pub trade_credit_extended: i128,
     pub trade_credit_settled: i128,
     pub net_credit_impulse: i128,
@@ -171,6 +174,7 @@ impl EconomicObservables {
             }),
             credit_created: ledger.credit_created,
             debt_repaid: ledger.debt_repaid,
+            debt_written_off: ledger.debt_written_off,
             trade_credit_extended: ledger.trade_credit_extended,
             trade_credit_settled: ledger.trade_credit_settled,
             net_credit_impulse,
