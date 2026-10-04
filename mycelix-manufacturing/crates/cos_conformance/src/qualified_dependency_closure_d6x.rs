@@ -1532,6 +1532,10 @@ mod tests {
     #[derive(Debug, Clone, Deserialize)]
     #[serde(deny_unknown_fields)]
     struct GoldenRecipeV1 {
+        profile_id: String,
+        profile_version: String,
+        excluded_boundary_policy: String,
+        claim_ceiling: String,
         root_node_ids: Vec<String>,
         required_node_ids: Vec<String>,
         #[serde(default)]
@@ -1625,6 +1629,10 @@ mod tests {
             assert!(!vector.description.is_empty());
             assert!(!vector.profile_variant.is_empty());
             assert!(!vector.projection_variant.is_empty());
+            assert!(!vector.recipe.profile_id.trim().is_empty());
+            assert!(!vector.recipe.profile_version.trim().is_empty());
+            assert!(!vector.recipe.excluded_boundary_policy.trim().is_empty());
+            assert_eq!(vector.recipe.claim_ceiling, D6X_CLAIM_CEILING);
             assert!(!vector.recipe.root_node_ids.is_empty());
             assert!(vector.recipe.root_node_ids.iter().all(|id| !id.is_empty()));
             assert!(vector.recipe.required_node_ids.iter().all(|id| !id.is_empty()));
@@ -1912,8 +1920,8 @@ mod tests {
             currentness: vector.recipe.rule.currentness,
         };
         let profile = DependencyClosureProfileV1 {
-            profile_id: "closure".into(),
-            version: "1".into(),
+            profile_id: vector.recipe.profile_id.clone(),
+            version: vector.recipe.profile_version.clone(),
             root_node_ids: vector.recipe.root_node_ids.iter().cloned().collect(),
             required_node_ids: vector.recipe.required_node_ids.iter().cloned().collect(),
             required_d6p_receipt_commitments: vector
@@ -1923,10 +1931,10 @@ mod tests {
                 .cloned()
                 .collect(),
             rules: [rule].into_iter().collect(),
-            excluded_boundary_policy: "Only rule-matched semantic edges expand closure.".into(),
+            excluded_boundary_policy: vector.recipe.excluded_boundary_policy.clone(),
             max_nodes: vector.recipe.max_nodes,
             max_edges: vector.recipe.max_edges,
-            claim_ceiling: D6X_CLAIM_CEILING.into(),
+            claim_ceiling: vector.recipe.claim_ceiling.clone(),
         };
 
         (projection, environment, derivation_profile, profile)
