@@ -133,6 +133,9 @@ def main() -> None:
         "evidence_verifier_git_blob_sha": git_blob_sha(
             ROOT / manifest["evidence_verifier_path"]
         ),
+        "lock_verifier_git_blob_sha": git_blob_sha(
+            ROOT / manifest["lock_verifier_path"]
+        ),
         "case_coverage": case_coverage,
         "supplemental_coverage": supplemental_coverage,
         "application_check_coverage": application_check_coverage,
