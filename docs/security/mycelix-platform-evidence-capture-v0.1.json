@@ -6,7 +6,7 @@
   "status": "executable-reference-profile",
   "claim_ceiling": "ReferenceModelOnly",
   "theorem": {
-    "statement": "A platform Evidence bundle is admissible only when all security-relevant artifacts are bound to one capture session, one boot identity, one TPM identity, one PCR selection, one challenge nonce, one tool/profile snapshot, and one event-log reconstruction result.",
+    "statement": "A platform Evidence bundle is admissible only when all security-relevant artifacts are cross-bound to one capture session, one boot identity, one TPM identity, one PCR selection, one challenge, one toolchain snapshot, one reference-value version, one trusted-time object, and one event-log reconstruction result.",
     "non_equivalences": [
       ["physical_tpm_present", "measured_boot_verified"],
       ["quote_signature_valid", "reference_values_approved"],
@@ -27,13 +27,15 @@
       "ak.pub",
       "reference-values.json",
       "trusted-time.json",
-      "eventlog-reconstruction.json"
+      "eventlog-reconstruction.json",
+      "nonce.bin"
     ],
     "optional_artifacts": [
       "pcr-pre.yaml",
       "ek.pub",
       "swtpm-print-info.txt",
       "tool-versions.json",
+      "eventlog-parsed.yaml",
       "os-image.digest",
       "workload-image.digest"
     ]
@@ -44,14 +46,19 @@
       "profile_version",
       "session_id",
       "boot_id",
+      "session_binding_sha256",
       "tpm.device_path",
       "tpm.properties_sha256",
+      "tpm.identity_digest",
       "event_log.sha256",
       "event_log.parser_profile_id",
       "event_log.parser_profile_version",
+      "event_log.parser_output_sha256",
       "quote.pcr_selection",
       "quote.nonce_sha256",
       "quote.attestation_key_sha256",
+      "quote.quoted_pcr_sha256",
+      "challenge.sha256",
       "toolchain.tpm2_tools_version",
       "toolchain.tss_version_evidence_sha256",
       "reference_values.version",
@@ -59,55 +66,28 @@
       "trusted_time.sha256",
       "reconstruction.event_log_sha256",
       "reconstruction.pcr_selection",
-      "reconstruction.result_sha256",
+      "reconstruction.content_sha256",
+      "artifacts.reconstruction_file_sha256",
+      "live_observation.pcr_post_sha256",
       "claim_ceiling"
     ],
-    "session_binding": "Every required artifact digest is interpreted in the context of the same session_id and boot_id.",
+    "session_binding": "The session_binding_sha256 covers the session/boot/TPM/event-log/PCR/challenge/AK/toolchain/reference/trusted-time/reconstruction identifiers in canonical form.",
     "canonical_json": "Manifest semantic hashing uses UTF-8 JSON with sorted keys and no insignificant whitespace."
   },
   "coherence_rules": [
-    {
-      "id": "CAP-001",
-      "rule": "The selected TPM device path and observed TPM properties digest must remain constant throughout the capture."
-    },
-    {
-      "id": "CAP-002",
-      "rule": "The boot_id must be captured from the same operating-system boot that owns the event log and PCR observations."
-    },
-    {
-      "id": "CAP-003",
-      "rule": "The binary event-log digest must exactly match the digest referenced by the reconstruction result."
-    },
-    {
-      "id": "CAP-004",
-      "rule": "The quote PCR selection must exactly equal the declared reconstruction PCR selection and the live PCR observation selection."
-    },
-    {
-      "id": "CAP-005",
-      "rule": "The quote qualifying data must equal the fresh verifier challenge byte-for-byte; only its SHA-256 digest is carried in the manifest."
-    },
-    {
-      "id": "CAP-006",
-      "rule": "The post-quote PCR observation must be the input supplied to tpm2_checkquote so the verifier checks equality against the quoted PCR values."
-    },
-    {
-      "id": "CAP-007",
-      "rule": "Quote cryptographic verification and event-log reconstruction are separate observations and neither silently implies the other."
-    },
-    {
-      "id": "CAP-008",
-      "rule": "Event-log reconstruction PASS is required before a platform-measurement claim can be classified as PASS."
-    },
-    {
-      "id": "CAP-009",
-      "rule": "Unavailable trusted time, unavailable reconstruction, or other ambiguous external observation produces INDETERMINATE, never PASS."
-    },
-    {
-      "id": "CAP-010",
-      "rule": "Reference-value rollback or profile substitution produces DENY."
-    }
+    {"id":"CAP-001","rule":"The selected TPM device path and observed TPM fixed-properties digest remain constant throughout the capture."},
+    {"id":"CAP-002","rule":"The boot_id must be stable before and after all TPM capture operations."},
+    {"id":"CAP-003","rule":"The event-log digest must match the event log named by the independent reconstruction result."},
+    {"id":"CAP-004","rule":"Quote PCR selection, reconstruction PCR selection, and live-observation selection must be byte-for-byte identical."},
+    {"id":"CAP-005","rule":"Quote qualifying data must equal the verifier challenge file byte-for-byte; manifest challenge.sha256 and quote.nonce_sha256 must match that file."},
+    {"id":"CAP-006","rule":"The live post-quote PCR observation is supplied to tpm2_checkquote, so the quote's PCR values are compared with the live observation."},
+    {"id":"CAP-007","rule":"Quote cryptographic verification, event-log parsing, event-log reconstruction, reference appraisal, trusted time, and authorization remain distinct observations."},
+    {"id":"CAP-008","rule":"A parser-success result is insufficient: event-log reconstruction must explicitly report PASS and bind the exact event-log digest and PCR selection."},
+    {"id":"CAP-009","rule":"Any unavailable or ambiguous trusted-time or reconstruction dependency is INDETERMINATE, never PASS."},
+    {"id":"CAP-010","rule":"Reference-value rollback, profile substitution, artifact substitution, or session-binding mismatch is DENY."},
+    {"id":"CAP-011","rule":"Any DENY anywhere outranks INDETERMINATE; any INDETERMINATE outranks PASS."}
   ],
-  "decision_algebra": "DENY > INDETERMINATE > PASS",
+  "decision_algebra": "ANY DENY > ANY INDETERMINATE > ALL PASS",
   "vectors": [
     {"id":"CAP-V01","mutation":"canonical-valid","expected":"PASS"},
     {"id":"CAP-V02","mutation":"session-id-substitution","expected":"DENY"},
@@ -131,38 +111,22 @@
     {"id":"CAP-V20","mutation":"post-quote-pcr-mismatch","expected":"DENY"}
   ],
   "execution_modes": {
-    "self_test": {
-      "purpose": "Run deterministic semantic coherence vectors without a TPM. This does not establish hardware or measured-boot security."
-    },
-    "verify": {
-      "purpose": "Verify an existing capture-session bundle and cryptographically check the TPM Quote when tpm2_checkquote is available."
-    },
-    "capture": {
-      "purpose": "Capture raw physical TPM/PC-client artifacts when a compatible Linux TPM device and toolchain exist. The capture is not a PASS unless all external inputs, including reconstruction and trusted time, are coherently bound."
-    }
+    "self_test": "Deterministic semantic coherence vectors; no hardware claim.",
+    "verify": "Verify an existing bundle and cryptographically check the TPM Quote when tpm2_checkquote is available.",
+    "capture": "Capture raw physical TPM/PC-client artifacts when compatible hardware and tools exist. The result remains unqualified until independent reconstruction and trusted-time evidence are valid."
   },
   "capture_requirements": {
     "device_candidates": ["/dev/tpmrm0", "/dev/tpm0"],
-    "event_log_candidates": [
-      "/sys/kernel/security/tpm0/binary_bios_measurements"
-    ],
-    "required_tools": [
-      "tpm2_getcap",
-      "tpm2_pcrread",
-      "tpm2_quote",
-      "tpm2_createek",
-      "tpm2_createak",
-      "tpm2_checkquote",
-      "tpm2_eventlog"
-    ],
+    "event_log_candidates": ["/sys/kernel/security/tpm0/binary_bios_measurements"],
+    "required_tools": ["tpm2_getcap","tpm2_pcrread","tpm2_quote","tpm2_createek","tpm2_createak","tpm2_checkquote","tpm2_eventlog"],
     "quote_default_pcr_selection": "sha256:0,2,4,7",
-    "workload_pcr_note": "PCR16 remains available for workload-specific evidence but is not treated as a PC-client firmware event-log PCR by this profile."
+    "workload_pcr_note": "PCR16 remains a separate workload-specific measurement surface and is not silently treated as a PC-client firmware event-log PCR."
   },
   "reference_boundary": {
-    "event_log_semantics": "The PC-client event log is evidence for reconstructing PCR state; it is not trusted merely because it parses.",
-    "reference_values": "Reference values are an independent appraisal input identified by version and digest.",
-    "trusted_time": "Trusted time is consumed as an externally qualified evidence object; local wall-clock output is not authoritative.",
-    "authorization": "A coherent platform Evidence bundle remains evidence only. Resource authorization is evaluated by the downstream RATS/Relying-Party/PEP chain."
+    "event_log_semantics": "The PC-client event log is an input to reconstruction; parsing alone is not a trust decision.",
+    "reference_values": "Reference values are identified by version and digest and remain an independent appraisal input.",
+    "trusted_time": "Trusted time is an externally qualified evidence object; local wall-clock time is not authoritative.",
+    "authorization": "Coherent platform Evidence remains evidence only and is consumed by the downstream RATS/Relying-Party/PEP chain."
   },
   "standards": {
     "rfc_9334_rats": "https://www.rfc-editor.org/rfc/rfc9334.html",
