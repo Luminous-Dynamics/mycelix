@@ -3394,17 +3394,14 @@ mod tests {
     fn validate_state_machine_trace_checkpoint_publication_set(
         publications: &[FederationStateMachineTraceCheckpointPublication],
     ) -> Result<(), FederationStateMachineTraceCheckpointPublicationViolation> {
-        let mut successors = BTreeMap::<
-            (&str, usize, &str, &str),
-            &str,
-        >::new();
+        let mut successors =
+            BTreeMap::<(&str, usize, &str), &str>::new();
 
         for publication in publications {
             let key = (
                 publication.publication_profile.as_str(),
                 publication.trace_index,
                 publication.previous_publication_sha256.as_str(),
-                publication.body_sha256.as_str(),
             );
             if let Some(existing) = successors.insert(
                 key,
