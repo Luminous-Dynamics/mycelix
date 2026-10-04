@@ -473,17 +473,44 @@ fn collect_tally_evidence(
             )))?;
 
         if let Some(record) = get_latest_record(target.clone())? {
-            let vote: Vote = record
-                .entry()
-                .to_app_option()
-                .map_err(|e| {
-                    wasm_error!(WasmErrorInner::Guest(format!(
-                        "Failed to deserialize vote: {e}"
-                    )))
-                })?
-                .ok_or(wasm_error!(WasmErrorInner::Guest(
-                    "Vote entry is missing".into()
-                )))?;
+            let entry_type = record.action().entry_type().ok_or(wasm_error!(
+                WasmErrorInner::Guest("Tally target has no application entry type".into())
+            ))?;
+            let EntryType::App(app_entry_def) = entry_type else {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Tally target must be an application Vote entry".into()
+                )));
+            };
+            let entry = match record.entry() {
+                RecordEntry::Present(entry) => entry,
+                _ => return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Tally target has no entry data".into()
+                ))),
+            };
+            let vote = match EntryTypes::deserialize_from_type(
+                app_entry_def.zome_index,
+                app_entry_def.entry_index,
+                entry,
+            )
+            .map_err(|error| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Failed to identify tally Vote entry type: {error:?}"
+                )))
+            })? {
+                Some(EntryTypes::Vote(vote)) => vote,
+                Some(_) => return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Tally target is not a Vote entry".into()
+                ))),
+                None => return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Tally target belongs to another zome or entry definition".into()
+                ))),
+            };
+
+            if vote.decision_hash != decision_hash {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Tally target Vote belongs to another Decision".into()
+                )));
+            }
 
             let current = tallies.entry(vote.choice).or_insert(0);
             *current = current.saturating_add(vote.weight_bp);
@@ -578,12 +605,9 @@ pub fn finalize_decision(input: FinalizeDecisionInput) -> ExternResult<Record> {
     // Find the winning option (highest weight, lowest index breaks ties)
     let chosen_option = winning_option(&tallies);
 
-    // Calculate participation rate: voter count / active member count
-    let vote_links = get_links(
-        LinkQuery::try_new(input.decision_hash.clone(), LinkTypes::DecisionToVotes)?,
-        GetStrategy::default(),
-    )?;
-    let voter_count = vote_links.len() as u32;
+    // Calculate participation from the exact vote evidence set used for this outcome.
+    // This avoids letting duplicate or malformed DHT links inflate participation.
+    let voter_count = tally_vote_refs.len() as u32;
 
     // Get active member count via kinship cross-zome call
     let active_members: u32 = decode_zome_response(
