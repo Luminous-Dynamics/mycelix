@@ -1777,6 +1777,14 @@ pub fn update_request_status(input: UpdateRequestStatusInput) -> ExternResult<Re
         )));
     }
 
+    // Issued is proof-carrying state. It must name the exact credential that
+    // fulfilled the approved request; callers must use issue_credential_for_request.
+    if input.new_status == RequestStatus::Issued {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Use issue_credential_for_request to transition an approved request to Issued".into()
+        )));
+    }
+
     let now = sys_time()?;
     let updated_req = CredentialRequest {
         status: input.new_status,
@@ -1792,6 +1800,141 @@ pub fn update_request_status(input: UpdateRequestStatusInput) -> ExternResult<Re
     get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
         "Could not find updated request".into()
     )))
+}
+
+/// Issue a credential that is cryptographically bound to an approved request.
+///
+/// The request itself remains requester-authored; only its target issuer may
+/// invoke this function. The request's issuer, subject, and schema become
+/// authoritative inputs for credential construction, and the request's Issued
+/// state stores the exact credential ActionHash.
+#[derive(Serialize, Deserialize, Debug)]
+pub struct IssueCredentialForRequestInput {
+    pub request_id: String,
+    pub claims: serde_json::Value,
+    pub credential_types: Vec<String>,
+    pub issuer_name: Option<String>,
+    pub expiration_days: Option<u32>,
+    pub enable_revocation: bool,
+    #[serde(default)]
+    pub strict_schema: bool,
+}
+
+#[hdk_extern]
+pub fn issue_credential_for_request(
+    input: IssueCredentialForRequestInput,
+) -> ExternResult<Record> {
+    let caller = agent_info()?.agent_initial_pubkey;
+    let caller_did = format!("did:mycelix:{}", caller);
+    let issuer_hash = string_to_entry_hash(&caller_did);
+
+    let links = get_links(
+        LinkQuery::try_new(issuer_hash, LinkTypes::IssuerToRequest)?,
+        GetStrategy::default(),
+    )?;
+
+    let mut request_record: Option<Record> = None;
+    let mut request: Option<CredentialRequest> = None;
+
+    for link in links {
+        let action_hash = ActionHash::try_from(link.target)
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+                "Invalid credential request link target".into(),
+            )))?;
+
+        let Some(record) = get_latest_record(action_hash.clone())? else {
+            continue;
+        };
+        let Some(req) = record
+            .entry()
+            .to_app_option::<CredentialRequest>()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        else {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Credential request index contains an invalid request record".into(),
+            )));
+        };
+
+        if req.id != input.request_id {
+            continue;
+        }
+        if req.issuer_did != caller_did {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Credential request issuer does not match the committing agent".into(),
+            )));
+        }
+
+        if request_record.is_some() {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Ambiguous credential request ID: multiple current request records exist".into(),
+            )));
+        }
+
+        request_record = Some(record);
+        request = Some(req);
+    }
+
+    let record = request_record.ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Approved credential request not found".into()
+    )))?;
+    let req = request.ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Approved credential request could not be decoded".into()
+    )))?;
+
+    if req.status != RequestStatus::Approved {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only an Approved credential request can be fulfilled".into(),
+        )));
+    }
+    if req.issued_credential.is_some() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Credential request already has an issued credential".into(),
+        )));
+    }
+
+    let credential = issue_credential(IssueCredentialInput {
+        subject_did: req.requester_did.clone(),
+        schema_id: req.schema_id.clone(),
+        claims: input.claims,
+        credential_types: input.credential_types,
+        issuer_name: input.issuer_name,
+        expiration_days: input.expiration_days,
+        enable_revocation: input.enable_revocation,
+        strict_schema: input.strict_schema,
+    })?;
+
+    let credential: VerifiableCredential = credential
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Issued credential record could not be decoded".into(),
+        )))?;
+    let credential_action = get_credential(credential.id.clone())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Issued credential could not be resolved by its canonical ID".into(),
+        )))?;
+    let credential_action_hash = credential_action.action_address().clone();
+
+    // The request update carries the credential ActionHash. The integrity zome
+    // independently dereferences it and verifies issuer, subject, and schema.
+    let updated = CredentialRequest {
+        status: RequestStatus::Issued,
+        updated: sys_time()?,
+        issued_credential: Some(credential_action_hash),
+        ..req
+    };
+
+    let _updated_request = update_entry(
+        record.action_address().clone(),
+        &EntryTypes::CredentialRequest(updated),
+    )?;
+
+    get(credential_action.action_address().clone(), GetOptions::default())?.ok_or(
+        wasm_error!(WasmErrorInner::Guest(
+            "Could not retrieve the issued credential after binding it to the request".into(),
+        )),
+    )
 }
 
 /// Input for updating request status
