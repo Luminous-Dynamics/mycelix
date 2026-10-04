@@ -381,6 +381,10 @@ impl HolochainDependencyBindingSet {
         binding: SignedHolochainBindingAttestation,
         authority_bindings: &HolochainAuthorityAgentBindingSet,
     ) -> ExternResult<Result<(), HolochainAdapterBoundaryError>> {
+        if let Err(error) = binding.payload.validate() {
+            return Ok(Err(error));
+        }
+
         let authority = binding.payload.provenance.authority.clone();
         let Some(authorized_credential) = authority_bindings.credential_for(&authority) else {
             return Ok(Err(
@@ -1291,6 +1295,39 @@ mod tests {
             ),
             "a v1 authority credential must reject a changed schema identifier"
         );
+    }
+
+    #[test]
+    fn malformed_attestation_payload_precedes_missing_authority_preflight() {
+        let authority = identity("malformed-precedence-authority");
+        let binding = SignedHolochainBindingAttestation {
+            signer: action_agent_key(51),
+            signature: Signature([0u8; 64]),
+            payload: HolochainBindingAttestationPayload {
+                schema: "mycelix.mobility.holochain_binding_attestation.v2".into(),
+                provenance: binding_provenance_for_test(
+                    identity("malformed-precedence-binding"),
+                    authority,
+                ),
+                address: HolochainDependencyAddress::Action(action_hash(52)),
+                retrieval: QualificationDependencyRetrievalKind::Action,
+            },
+        };
+        let mut bindings = HolochainDependencyBindingSet::new();
+        let authority_bindings = HolochainAuthorityAgentBindingSet::new();
+
+        let result = bindings
+            .bind_attested_with_authority(binding, &authority_bindings)
+            .expect("payload structural validation should complete without host failure");
+
+        assert!(
+            matches!(
+                result,
+                Err(HolochainAdapterBoundaryError::SemanticInvalid { .. })
+            ),
+            "malformed attestation payload must remain structural invalidity even when authority preflight is unresolved"
+        );
+        assert!(bindings.is_empty());
     }
 
     #[test]
