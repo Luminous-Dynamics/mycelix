@@ -678,6 +678,9 @@ check_semantic_case_entrypoints() {
     if awk -v op="$operation" '
       /^[[:space:]]*#\[hdk_extern\][[:space:]]*$/ { saw_extern=1; next }
       {
+        if (saw_extern && ($0 ~ /^[[:space:]]*$/ || $0 ~ /^[[:space:]]*\/\//)) {
+          next
+        }
         if ($0 ~ "^[[:space:]]*(pub[[:space:]]+)?(async[[:space:]]+)?fn[[:space:]]+" op "[[:space:]]*\\(") {
           found=saw_extern
           exit
