@@ -3212,6 +3212,7 @@ mod tests {
                     | FederationStateMachineOperation::DuplicateObservation
                     | FederationStateMachineOperation::ConflictObservation
                     | FederationStateMachineOperation::ForgedSourceObservation => None,
+                    _ => None,
                 };
                 capsule.observed_decision = decision;
                 capsule.observed_authority = authority;
