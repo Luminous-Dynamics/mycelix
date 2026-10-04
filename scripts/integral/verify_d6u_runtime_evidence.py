@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify complete D6U runtime case coverage from the captured test log."""
+"""Verify complete D6U runtime case coverage and observed substrate witnesses."""
 
 import json
 import sys
@@ -35,12 +35,16 @@ def main() -> None:
     assert observed == expected_outcomes, f"outcome mismatch: {observed}"
 
     expected_supplemental = set(manifest.get("supplemental_substrate_checks", []))
-    supplemental_reasons = {
+    supplemental_expected_fragments = {
         "future-expiry-rejection": "Future",
-        "wrong-zome-routing": "Zome not found witness",
-        "wrong-function-routing": "missing-function witness",
+        "wrong-zome-routing": "Zome not found: Zome 'wrong-zome' not found",
+        "wrong-function-routing": (
+            "Attempted to call a zome function that doesn't exist: "
+            "Zome: coordinator Fn no_such_function"
+        ),
     }
-    assert expected_supplemental == set(supplemental_reasons)
+    assert expected_supplemental == set(supplemental_expected_fragments)
+
     supplemental_observed = {}
     for line in log.splitlines():
         if not line.startswith("D6U_SUBSTRATE_CHECK\t"):
@@ -53,14 +57,21 @@ def main() -> None:
         assert check_id not in supplemental_observed, (
             f"duplicate D6U_SUBSTRATE_CHECK observation: {check_id}"
         )
+        assert "\t" not in reason, f"substrate witness must be a single field: {line!r}"
+        expected_fragment = supplemental_expected_fragments[check_id]
+        assert expected_fragment in log, (
+            f"raw runtime log is missing substrate witness for {check_id!r}: "
+            f"{expected_fragment!r}"
+        )
+        assert expected_fragment in reason, (
+            f"substrate witness for {check_id!r} does not contain the expected "
+            f"runtime fragment {expected_fragment!r}: {reason!r}"
+        )
         supplemental_observed[check_id] = reason
 
     assert set(supplemental_observed) == expected_supplemental, (
         f"supplemental coverage mismatch: "
         f"{set(supplemental_observed) ^ expected_supplemental}"
-    )
-    assert supplemental_observed == supplemental_reasons, (
-        f"supplemental outcome mismatch: {supplemental_observed}"
     )
     print(
         f"verified D6U runtime case coverage and outcomes: "
