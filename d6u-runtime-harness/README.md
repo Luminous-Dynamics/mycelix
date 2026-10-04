@@ -14,11 +14,10 @@ Pinned runtime:
 
 The integration test uses the real Sweettest conductor, real inline-zome execution, real AppRequest::CallZome messages, real ZomeCallParamsSigned signatures, and native capability-grant entries.
 
-Observed cases targeted by the harness:
+Native Holochain 0.7 cases targeted by the harness:
 
 - canonical payload accepted;
 - authorized but semantically rejected payload;
-- authenticated but D6S-commitment-inconsistent payload;
 - invalid call signature;
 - author-grant execution;
 - explicit assigned capability;
@@ -31,12 +30,15 @@ Observed cases targeted by the harness:
 - wrong function;
 - wrong cell.
 
-The reference matrix contains two cases deliberately outside this harness:
+The reference matrix contains three cases deliberately outside native Holochain 0.7 execution in this harness:
 
 - isolated authenticated-but-not-yet-authorized state;
-- distinct stale/older-nonce state.
+- distinct stale/older-nonce state;
+- pre-zome D6S commitment-mismatch state.
 
 Blocked provenance is now exercised through Holochain's system-level P2P block mechanism.
+
+The payload-mutation case is retained as a separate probe-local D6S commitment application check; it is not counted as native Holochain enforcement.
 
 As a supplemental substrate check, the runtime also exercises Holochain 0.7's excessive-future-expiry rejection. This is not substituted for the canonical `nonce-stale` reference case.
 
@@ -55,6 +57,6 @@ These outcome classes are verified against the frozen manifest by `scripts/integ
 
 Each supplemental substrate check emits two separate records: a `D6U_RUNTIME_WITNESS` line containing the error returned by the Holochain runtime, and a `D6U_SUBSTRATE_CHECK` line asserting that the expected witness was observed. The verifier requires the witness and PASS records to cover the same declared checks.
 
-A successful run is runtime evidence for this fixture only. It does not establish Mycelix semantic truth, legal authority, production safety, physical outcomes, or actuation authority.
+A successful run is runtime evidence for the native Holochain cases and separately reported supplemental application/substrate checks for this fixture only. It does not establish Mycelix semantic truth, legal authority, production safety, physical outcomes, or actuation authority.
 
 Claim ceiling: ReferenceModelOnly.
