@@ -622,7 +622,7 @@ async fn d6u_runtime_authority_boundary() {
         holochain_nonce::fresh_nonce(Timestamp::now()).unwrap().1,
     );
     let before = reached.load(Ordering::SeqCst);
-let wrong_function_response =
+    let wrong_function_response =
         call(&app_api, "d6u-alice", &conductor.keystore(), wrong_function).await;
     let wrong_function_message = expect_internal_error_contains(
         wrong_function_response,
