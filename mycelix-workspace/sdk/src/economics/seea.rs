@@ -242,7 +242,6 @@ impl SeeaObservation {
         self.to_ecological_substrate(boundary, baseline, updated_at)
     }
 }
-}
 
 #[cfg(test)]
 mod tests {
