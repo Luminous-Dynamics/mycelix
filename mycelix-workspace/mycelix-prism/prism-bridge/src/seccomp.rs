@@ -617,7 +617,10 @@ mod linux {
                     // or fall through to the next clause/rule immediately
                     // after an ALLOW. Anything else could bypass checks while
                     // remaining inside the program.
-                    if !dispatch_indices.contains(&index) {
+                    // Instruction 1 is the canonical architecture-check
+                    // JEQ and is validated by the fixed safety-prefix checks
+                    // above, not by predicate topology.
+                    if index != 1 && !dispatch_indices.contains(&index) {
                         for offset in [instruction.jt, instruction.jf] {
                             let target = index + 1 + usize::from(offset);
                             let local_epem = target == index + 2
