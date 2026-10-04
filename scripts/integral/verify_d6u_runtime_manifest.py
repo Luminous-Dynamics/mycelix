@@ -108,6 +108,10 @@ def main() -> None:
     assert manifest["kind"] == "holochain-0.7-authority-boundary-runtime-manifest"
     assert isinstance(manifest["version"], int) and manifest["version"] > 0
     assert manifest["claim_ceiling"] == "ReferenceModelOnly"
+    assert manifest["attestation_policy"] == {
+        "mode": "deferred-to-trusted-builder",
+        "rationale": "The PR-controlled runtime workflow intentionally has no OIDC or attestations write permission; signed provenance must be produced by a trusted default-branch builder that does not execute PR-controlled code.",
+    }
     assert manifest["evidence_verifier_path"] == "scripts/integral/verify_d6u_runtime_evidence.py"
     assert manifest["evidence_record_verifier_path"] == "scripts/integral/verify_d6u_runtime_record.py"
     assert manifest["lock_verifier_path"] == "scripts/integral/verify_d6u_runtime_lock.py"
