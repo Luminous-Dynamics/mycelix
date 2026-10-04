@@ -34,7 +34,9 @@ pub mod stock_flow;
 pub mod transition;
 pub mod trace;
 
-pub use accounting_closure::EconomicAccountingClosure;
+pub use accounting_closure::{
+    EconomicAccountingClosure, ECONOMIC_ACCOUNTING_CLOSURE_SCHEMA_VERSION,
+};
 pub use commons::{CommonsContribution, CommonsPool, CommonsResult};
 pub use decay_garden::{
     calculate_demurrage, CompostAllocation, CompostDistribution, CompostEvent, DemurrageConfig,

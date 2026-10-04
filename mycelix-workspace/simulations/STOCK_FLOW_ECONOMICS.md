@@ -364,6 +364,24 @@ This gives scenario runners a direct execution primitive:
 
 and lets the evidence capsule seal the resulting trace against model and parameter identity.
 
+## Accounting closure schema versioning (implemented)
+
+`EconomicAccountingClosure` now binds an explicit schema discriminator into its closure hash.
+This prevents the meaning of a serialized closure from changing silently as fields are added to the
+receipt.
+
+Current contract:
+
+- schema version `1` is emitted by `validate_and_seal`;
+- schema version `0` is the serde default for unversioned legacy receipts;
+- legacy receipts remain readable, but `verify()` rejects them as not hash-verifiable under the
+  current schema;
+- unsupported future schema versions fail closed rather than being interpreted optimistically.
+
+The closure also explicitly stores the aggregate-observation hash that is already part of the
+cross-layer binding. This keeps the serialized receipt and its verification material structurally
+aligned.
+
 ## Reproducible evidence capsule (implemented)
 
 The evidence layer binds five independent configuration identities:
@@ -636,13 +654,16 @@ overflow. Sector balance-sheet and physical-stock total helpers likewise expose 
 and financial-row / balance-sheet identity validation no longer relies on wrapping arithmetic.
 
 The evidence capsule schema marks newly added sector hashes optional for deserialization, so older
-capsules without those fields remain readable. The new full-seal API additionally binds the
-sector financial-claim projection into the evidence hash while leaving the historical aggregate,
-actor-only, and actor+sector binding paths unchanged.
+capsules without those fields remain readable. The accounting closure now also carries an explicit
+schema version in the closure hash. Newly sealed closures use
+`ECONOMIC_ACCOUNTING_CLOSURE_SCHEMA_VERSION = 1`; unversioned legacy closures remain
+deserializable for archival/migration tooling but fail closed under `verify()` rather than being
+mistaken for current-schema evidence.
 
 This matters for reproducibility: evidence should distinguish a genuinely different projection
-from an arithmetic artifact, and schema evolution should not silently turn an older receipt into
-an unreadable artifact.
+from an arithmetic artifact, and schema evolution should never silently make an old hash look valid
+under a new binding contract. A future schema can be introduced deliberately with a new discriminator
+and an explicit migration/compatibility path.
 
 The accounting boundary remains intentionally layered:
 
@@ -1134,6 +1155,22 @@ sector, aggregate-observation, and accounting-closure layers preserve it as a se
 This matches the 2025 SNA distinction: bilateral debt forgiveness records a capital transfer together with
 simultaneous financial-claim extinction, while unilateral write-offs/write-downs without mutual agreement
 belong to other changes in volume.
+
+
+## Research boundary: debt rescheduling and refinancing
+
+The 2025 SNA treats debt assumption and rescheduling as financial-account changes when the contractual
+terms change, such as maturity or interest rate, because the change represents a new contractual
+arrangement. Rescheduling/refinancing therefore should not be approximated by a generic repayment or
+forgiveness event.
+
+The current substrate intentionally stops short of implementing this transition because its debt model
+does not yet carry contract identity or terms. The next sound increment is to introduce an explicit,
+typed debt-instrument contract layer (instrument identity, counterparties, principal, and the minimum terms
+needed to distinguish the old contract from the replacement contract), then model rescheduling or
+refinancing as an atomic old-instrument extinction plus new-instrument creation. That preserves the
+SFC financial-account distinction without inventing unsupported economics in the current stock model.
+
 
 ## State-counter versus period-ledger semantics (implemented)
 
