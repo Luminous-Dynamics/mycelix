@@ -25,7 +25,7 @@ The current PR-controlled chain is:
 9. Negative regression checks proving the evidence verifiers reject tampering.
 10. Unprivileged upload of the captured runtime evidence artifacts.
 
-The PR-controlled workflow deliberately does **not** mint artifact attestations and does not request `id-token` or `attestations: write`. Signed provenance is deferred to a trusted default-branch builder that does not execute PR-controlled code.
+The PR-controlled workflow deliberately does **not** mint artifact attestations and does not request `id-token` or `attestations: write`. Signed provenance is deferred to a trusted default-branch builder that does not execute PR-controlled code. The implementation of that trust root is tracked separately in PR #4059.
 
 The exact PR-head qualification subject is recorded separately from GitHub's `GITHUB_SHA` merge-context digest; the former identifies what the runtime job actually checked out, while the latter is reserved as an input to a future trusted attestation workflow.
 
