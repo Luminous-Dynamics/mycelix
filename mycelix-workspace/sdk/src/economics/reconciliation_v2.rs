@@ -801,6 +801,32 @@ mod tests {
     }
 
     #[test]
+    fn real_asset_revaluation_reconciles_as_non_cash_equity_change() {
+        let (mut pre, assignments) = setup();
+        let firm = pre.actors.iter_mut().find(|a| a.actor == "firm").unwrap();
+        firm.real.productive_capital = 100;
+
+        let transitions = vec![EconomicTransition::RealAssetRevaluation(
+            crate::economics::stock_flow::RealAssetRevaluation::new(
+                "firm",
+                crate::economics::stock_flow::RealAssetRevaluationTarget::ProductiveCapital,
+                25,
+            )
+            .unwrap(),
+        )];
+        let (post, _) = apply_step(&pre, 1, &transitions, None).unwrap();
+        let receipt = reconcile_step(&pre, &post, &assignments, &transitions).unwrap();
+
+        assert_eq!(receipt.posting_count, 2);
+        assert_eq!(receipt.physical_posting_count, 0);
+        assert_eq!(
+            post.actors.iter().find(|a| a.actor == "firm").unwrap().real.productive_capital,
+            125
+        );
+        assert_eq!(post.monetary_flow_volume, pre.monetary_flow_volume);
+    }
+
+    #[test]
     fn production_reconciles_inventory_and_resource_stocks() {
         let (mut pre, assignments) = setup();
         let firm = pre.actors.iter_mut().find(|a| a.actor == "firm").unwrap();
