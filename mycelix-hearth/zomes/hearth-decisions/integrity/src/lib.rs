@@ -118,10 +118,14 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(OpEntry::CreateEntry {
             app_entry,
-            action: _,
+            action,
         }) => match app_entry {
             EntryTypes::Decision(decision) => validate_decision(&decision),
-            EntryTypes::Vote(vote) => validate_vote(&vote),
+            EntryTypes::Vote(vote) => {
+                validate_vote(&vote)?;
+                validate_vote_author(&vote, &action.author)?;
+                validate_vote_decision_reference(&vote)
+            }
             EntryTypes::DecisionOutcome(outcome) => validate_outcome(&outcome),
         },
         FlatOp::StoreEntry(OpEntry::UpdateEntry {
@@ -183,6 +187,108 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 // ============================================================================
 // Validation Functions
 // ============================================================================
+
+/// Bind the declared Vote voter to the Holochain action author.
+fn validate_vote_author(
+    vote: &Vote,
+    action_author: &AgentPubKey,
+) -> ExternResult<ValidateCallbackResult> {
+    if vote.voter != *action_author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Vote voter must match the Holochain action author".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+/// Validate a Vote against the immutable Decision constraints it references.
+fn validate_vote_against_decision(
+    vote: &Vote,
+    decision: &Decision,
+) -> ExternResult<ValidateCallbackResult> {
+    if vote.choice as usize >= decision.options.len() {
+        return Ok(ValidateCallbackResult::Invalid(format!(
+            "Vote choice {} is outside Decision option range 0..{}",
+            vote.choice,
+            decision.options.len().saturating_sub(1),
+        )));
+    }
+
+    if vote.created_at < decision.created_at {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Vote created_at cannot precede the referenced Decision created_at".into(),
+        ));
+    }
+
+    if vote.created_at > decision.deadline {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Vote created_at cannot be after the referenced Decision deadline".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+/// Resolve the Vote's Decision by hash and apply only deterministic checks.
+///
+/// A missing dependency is intentionally propagated as an unresolved dependency
+/// by must_get_valid_record; validators should retry when the referenced
+/// Decision arrives rather than disagreeing about incomplete DHT state.
+fn validate_vote_decision_reference(
+    vote: &Vote,
+) -> ExternResult<ValidateCallbackResult> {
+    let record = must_get_valid_record(vote.decision_hash.clone())?;
+
+    if !matches!(record.action().action(), Action::Create(_)) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Vote decision_hash must reference the original Decision Create action".into(),
+        ));
+    }
+
+    let entry_type = record.action().entry_type().ok_or(wasm_error!(
+        WasmErrorInner::Guest(
+            "Vote decision reference does not contain an application entry type".into()
+        )
+    ))?;
+
+    let EntryType::App(app_entry_def) = entry_type else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Vote decision reference must be an application Decision entry".into(),
+        ));
+    };
+
+    let entry = match record.entry() {
+        RecordEntry::Present(entry) => entry,
+        _ => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Vote decision reference does not contain entry data".into(),
+            ));
+        }
+    };
+
+    let decision = EntryTypes::deserialize_from_type(
+        app_entry_def.zome_index,
+        app_entry_def.entry_index,
+        entry,
+    )
+    .map_err(|error| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to identify Vote Decision reference type: {error:?}"
+        )))
+    })?;
+
+    match decision {
+        Some(EntryTypes::Decision(decision)) => {
+            validate_vote_against_decision(vote, &decision)
+        }
+        Some(_) => Ok(ValidateCallbackResult::Invalid(
+            "Vote decision_hash does not reference a Decision entry".into(),
+        )),
+        None => Ok(ValidateCallbackResult::Invalid(
+            "Vote decision_hash belongs to another zome or entry definition".into(),
+        )),
+    }
+}
 
 pub fn validate_decision(decision: &Decision) -> ExternResult<ValidateCallbackResult> {
     if decision.title.is_empty() {
@@ -465,6 +571,94 @@ mod tests {
     }
 
     // ---- Decision Validation ----
+
+    #[test]
+    fn vote_author_must_match_action_author() {
+        let vote = make_vote(0, 10000);
+        assert!(matches!(
+            validate_vote_author(&vote, &fake_agent()).unwrap(),
+            ValidateCallbackResult::Valid
+        ));
+
+        let other = AgentPubKey::from_raw_36(vec![0xBBu8; 36]);
+        match validate_vote_author(&vote, &other).unwrap() {
+            ValidateCallbackResult::Invalid(message) => {
+                assert!(message.contains("voter"))
+            }
+            other => panic!("expected Invalid, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn vote_choice_must_fit_decision_option_count() {
+        let decision = make_decision("Test", vec!["A", "B"]);
+        let mut vote = make_vote(1, 10000);
+        assert!(matches!(
+            validate_vote_against_decision(&vote, &decision).unwrap(),
+            ValidateCallbackResult::Valid
+        ));
+
+        vote.choice = 2;
+        match validate_vote_against_decision(&vote, &decision).unwrap() {
+            ValidateCallbackResult::Invalid(message) => {
+                assert!(message.contains("outside Decision option range"))
+            }
+            other => panic!("expected Invalid, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn vote_choice_19_is_valid_for_twenty_option_decision() {
+        let options: Vec<String> = (0..20).map(|i| format!("Option {i}")).collect();
+        let option_refs: Vec<&str> = options.iter().map(String::as_str).collect();
+        let decision = make_decision("Test", option_refs);
+        let vote = make_vote(19, 10000);
+        assert!(matches!(
+            validate_vote_against_decision(&vote, &decision).unwrap(),
+            ValidateCallbackResult::Valid
+        ));
+    }
+
+    #[test]
+    fn vote_must_not_precede_decision_creation() {
+        let decision = make_decision("Test", vec!["A", "B"]);
+        let mut vote = make_vote(0, 10000);
+        vote.created_at = Timestamp::from_micros(999_999);
+        match validate_vote_against_decision(&vote, &decision).unwrap() {
+            ValidateCallbackResult::Invalid(message) => {
+                assert!(message.contains("cannot precede"))
+            }
+            other => panic!("expected Invalid, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn vote_must_not_follow_decision_deadline() {
+        let mut decision = make_decision("Test", vec!["A", "B"]);
+        decision.deadline = Timestamp::from_micros(2_000_000);
+
+        let mut vote = make_vote(0, 10000);
+        vote.created_at = Timestamp::from_micros(2_000_001);
+        match validate_vote_against_decision(&vote, &decision).unwrap() {
+            ValidateCallbackResult::Invalid(message) => {
+                assert!(message.contains("after the referenced Decision deadline"))
+            }
+            other => panic!("expected Invalid, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn vote_at_decision_deadline_is_valid() {
+        let mut decision = make_decision("Test", vec!["A", "B"]);
+        decision.deadline = Timestamp::from_micros(2_000_000);
+
+        let mut vote = make_vote(0, 10000);
+        vote.created_at = decision.deadline;
+        assert!(matches!(
+            validate_vote_against_decision(&vote, &decision).unwrap(),
+            ValidateCallbackResult::Valid
+        ));
+    }
 
     #[test]
     fn valid_decision_passes() {
