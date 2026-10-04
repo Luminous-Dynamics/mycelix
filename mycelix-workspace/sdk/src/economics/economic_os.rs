@@ -324,7 +324,7 @@ mod tests {
     #[test]
     fn rejects_malformed_profile_identity() {
         let mut value = envelope();
-        value.policy_profile_fingerprint = "not-a-hash".into();
+        value.policy_contexts[0].profile_fingerprint = "not-a-hash".into();
         assert!(value.validate().is_err());
     }
 
