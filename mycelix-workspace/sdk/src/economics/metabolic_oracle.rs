@@ -669,6 +669,26 @@ mod tests {
     }
 
     #[test]
+    fn test_governed_policy_fingerprint_is_order_independent_for_observations() {
+        let oracle = MetabolicOracle::new();
+        let adjustment = oracle.generate_adjustment();
+        let left = GovernedPolicyAdjustment {
+            decision_id: "decision:1".into(),
+            observation_refs: vec!["observation:b".into(), "observation:a".into()],
+            rule_ref: "rule:countercyclical:v1".into(),
+            authority_ref: "authority:dao-1".into(),
+            adjustment: adjustment.clone(),
+            decided_at: 1_000,
+        };
+        let right = GovernedPolicyAdjustment {
+            observation_refs: vec!["observation:a".into(), "observation:b".into()],
+            ..left.clone()
+        };
+
+        assert_eq!(left.fingerprint().unwrap(), right.fingerprint().unwrap());
+    }
+
+    #[test]
     fn test_governed_policy_rejects_duplicate_decision() {
         let mut oracle = MetabolicOracle::new();
         let decision = GovernedPolicyAdjustment {
