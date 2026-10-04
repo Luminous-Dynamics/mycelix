@@ -46,9 +46,9 @@ pub use jurisdiction_pack::{
 };
 pub use policy_analysis::{EconomicAnalysisBinding, EconomicPolicyAnalysis};
 pub use policy_context::{EconomicPolicyContext, EconomicPolicyContextRole};
-pub use policy_observation::{\
-    EconomicObservation, EconomicObservationBinding, EconomicObservationSignal,\
-    EconomicObservationSnapshot,\
+pub use policy_observation::{
+    EconomicObservation, EconomicObservationBinding, EconomicObservationSignal,
+    EconomicObservationSnapshot,
 };
 pub use scenario::{EconomicPolicyScenario, EconomicScenarioBinding, EconomicScenarioKind};
 pub use policy_profile::{EconomicOsOperation, EconomicPolicyProfile};
