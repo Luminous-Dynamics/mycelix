@@ -25,6 +25,8 @@ jobs:
   verify:
     name: Generate and verify Identity Cargo lockfile
     runs-on: ubuntu-latest
+    env:
+      CARGO_TERM_COLOR: never
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -88,15 +90,21 @@ jobs:
           done
 
           sha256sum Cargo.lock.committed > "$GITHUB_WORKSPACE/identity-cargo-lock-committed.sha256"
-          if cmp -s Cargo.lock.committed Cargo.lock; then
-            echo "CARGO_LOCK_STATUS unchanged" > "$GITHUB_WORKSPACE/identity-cargo-lock-status.txt"
+          if cmp -s Cargo.lock.committed Cargo.lock.workspace; then
+            echo "CONSERVATIVE_LOCK_STATUS unchanged" > "$GITHUB_WORKSPACE/identity-cargo-lock-conservative-status.txt"
           else
-            echo "CARGO_LOCK_STATUS differs" > "$GITHUB_WORKSPACE/identity-cargo-lock-status.txt"
+            echo "CONSERVATIVE_LOCK_STATUS differs" > "$GITHUB_WORKSPACE/identity-cargo-lock-conservative-status.txt"
+          fi
+          if cmp -s Cargo.lock.committed Cargo.lock; then
+            echo "FULL_LOCK_STATUS unchanged" > "$GITHUB_WORKSPACE/identity-cargo-lock-full-status.txt"
+          else
+            echo "FULL_LOCK_STATUS differs" > "$GITHUB_WORKSPACE/identity-cargo-lock-full-status.txt"
           fi
 
       - name: Summarize candidate lockfile drift
         run: |
-          cat identity-cargo-lock-status.txt
+          cat identity-cargo-lock-conservative-status.txt
+          cat identity-cargo-lock-full-status.txt
           cat identity-cargo-lock-committed.sha256
           cat identity-cargo-lock-workspace.sha256
           cat identity-cargo-lock-workspace-candidate.sha256
@@ -127,7 +135,8 @@ jobs:
             identity-cargo-lock-workspace-update.txt
             identity-cargo-lock-workspace.diff
             identity-cargo-lock-full.diff
-            identity-cargo-lock-status.txt
+            identity-cargo-lock-conservative-status.txt
+            identity-cargo-lock-full-status.txt
             identity-cargo-lock-committed.sha256
             identity-cargo-lock-workspace.sha256
             identity-cargo-lock-workspace-candidate.sha256
