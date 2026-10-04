@@ -247,20 +247,23 @@ impl SectorFinancialFlowMatrix {
     ) -> Result<i128, String> {
         self.flows.iter().try_fold(0i128, |sum, flow| {
             let delta = match flow.category {
-                FinancialFlowCategory::LoanCreation | FinancialFlowCategory::DebtRepayment => {
-                    match instrument {
-                        BalanceSheetInstrument::Loans if flow.to == sector => flow.amount,
-                        BalanceSheetInstrument::Loans if flow.from == sector => -flow.amount,
-                        BalanceSheetInstrument::Debt if flow.to == sector => -flow.amount,
-                        BalanceSheetInstrument::Debt if flow.from == sector => flow.amount,
-                        _ => 0,
-                    }
-                }
-                FinancialFlowCategory::TradeCreditExtension
-                | FinancialFlowCategory::TradeCreditSettlement => match instrument {
+                FinancialFlowCategory::LoanCreation => match instrument {
+                    BalanceSheetInstrument::Loans if flow.from == sector => flow.amount,
+                    BalanceSheetInstrument::Debt if flow.to == sector => -flow.amount,
+                    _ => 0,
+                },
+                FinancialFlowCategory::DebtRepayment => match instrument {
+                    BalanceSheetInstrument::Loans if flow.to == sector => -flow.amount,
+                    BalanceSheetInstrument::Debt if flow.from == sector => flow.amount,
+                    _ => 0,
+                },
+                FinancialFlowCategory::TradeCreditExtension => match instrument {
                     BalanceSheetInstrument::TradeReceivables if flow.to == sector => flow.amount,
-                    BalanceSheetInstrument::TradeReceivables if flow.from == sector => -flow.amount,
-                    BalanceSheetInstrument::TradePayables if flow.to == sector => -flow.amount,
+                    BalanceSheetInstrument::TradePayables if flow.from == sector => -flow.amount,
+                    _ => 0,
+                },
+                FinancialFlowCategory::TradeCreditSettlement => match instrument {
+                    BalanceSheetInstrument::TradeReceivables if flow.to == sector => -flow.amount,
                     BalanceSheetInstrument::TradePayables if flow.from == sector => flow.amount,
                     _ => 0,
                 },
@@ -415,7 +418,10 @@ mod tests {
         ];
         let (post, _) =
             crate::economics::transition::apply_step(&pre, 1, &transitions, None).unwrap();
-        let assignments = assignments();
+        let assignments = vec![
+            SectorAssignment { actor: "bank".into(), sector: EconomicSector::Bank },
+            SectorAssignment { actor: "firm".into(), sector: EconomicSector::Firm },
+        ];
         let pre_sheet = SectorBalanceSheet::from_state(&pre, &assignments).unwrap();
         let post_sheet = SectorBalanceSheet::from_state(&post, &assignments).unwrap();
         let matrix = SectorFinancialFlowMatrix::from_transitions(&transitions, &assignments).unwrap();
