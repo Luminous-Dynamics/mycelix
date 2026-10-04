@@ -986,7 +986,10 @@ The accounting substrate now supports a deliberately narrow non-cash valuation t
 `RealAssetRevaluation`, for two existing monetary-valued real assets: productive capital and
 inventory carrying value. Its amount is signed: positive values represent holding gains and
 negative values holding losses. The transition cannot drive the affected carrying value below
-zero.
+zero. For inventory carrying value specifically, a revaluation also requires positive physical
+inventory, so valuation cannot create an inventory carrying amount where no underlying physical
+stock exists. Productive-capital revaluation remains permitted at zero carrying value because a
+fully depreciated physical asset may still exist.
 
 Revaluation changes no cash, deposit, financial claim, liability, or physical quantity. Its
 balance-sheet counterpart is the actor's derived equity/net-worth residual. Consequently it is
