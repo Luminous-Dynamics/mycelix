@@ -16,7 +16,9 @@ pub mod decay_garden;
 pub mod substrate;
 pub mod metabolic_oracle;
 pub mod poc;
+pub mod procurement_guard;
 pub mod recognition;
+pub mod seea;
 
 pub use commons::{CommonsContribution, CommonsPool, CommonsResult};
 pub use decay_garden::{
@@ -33,6 +35,13 @@ pub use substrate::{
     BoundaryDirection, DistributionPurpose, GateDecision, SubstrateAccount, SubstrateBoundary,
     SubstrateDimension, SubstrateEvent, SubstrateEventKind, SubstrateLedger, SubstrateReport,
     SubstrateState,
+};
+pub use seea::{
+    SeeaAccountType, SeeaChangeKind, SeeaFreshness, SeeaFreshnessError, SeeaFreshnessPolicy,
+    SeeaObservation, SeeaProvenance,
+};
+pub use procurement_guard::{
+    assess_procurement_option, cheapest_eligible_procurement, ProcurementAssessment, ProcurementOption,
 };
 pub use recognition::{
     calculate_recognition_score, ContributionType, RecognitionConfig, RecognitionEvent,
