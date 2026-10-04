@@ -196,29 +196,7 @@ jobs:
       - name: Derive Hearth 0.7 operation matrix
         working-directory: mycelix-workspace/mycelix-hearth
         run: |
-          set -u
-
-          # Pre-create every evidence path so an earlier qualification failure
-          # cannot turn missing downstream artifacts into a second failure.
-          mkdir -p tests
-          printf '%s\n' 'unavailable_checkout_not_reached' > qualification-submodules.txt
-          printf '%s\n' 'unavailable_source_audit_not_reached' > qualification-source-audit.log
-          printf '%s\n' 'unavailable_operation_matrix_not_reached' > qualification-operation-matrix.txt
-          printf '%s\n' 'unavailable_format_not_reached' > qualification-format.log
-          printf '%s\n' 'unavailable_build_not_reached' > qualification-build.log
-          printf '%s\n' 'unavailable_dna_pack_not_reached' > qualification-dna-pack.log
-          printf '%s\n' 'unavailable_sweettest_not_reached' > qualification-sweettest.log
-          printf '%s\n' 'unavailable_wasm_capture' > qualification-wasm-sha256.txt
-          printf '%s\n' 'unavailable_dna_capture' > qualification-dna-sha256.txt
-          printf '%s\n' 'unavailable_cargo_lock_capture' > qualification-cargo-lock-sha256.txt
-          printf '%s\n' 'unavailable_cargo_lock_summary' > qualification-cargo-lock-summary.txt
-          printf '%s\n' 'unavailable_source_contract_capture' > qualification-source-contract-sha256.txt
-          printf '%s\n' 'unavailable_cargo_metadata_capture' > qualification-cargo-metadata.json
-          printf '%s\n' 'unavailable_tests_cargo_metadata_capture' > tests/qualification-cargo-metadata.json
-          printf '%s\n' 'unavailable_hearth_cargo_lock' > Cargo.lock
-          printf '%s\n' 'unavailable_tests_cargo_lock' > tests/Cargo.lock
-          printf '%s\n' 'partial' > qualification-evidence-status.txt
-
+          set -euo pipefail
           {
             echo "operation_matrix_schema=HEARTH-OPERATION-MATRIX-0.7-1"
             echo "tested_sha=$(git rev-parse HEAD)"
@@ -305,7 +283,29 @@ jobs:
         if: always()
         working-directory: mycelix-workspace/mycelix-hearth
         run: |
-          set -euo pipefail
+          set -u
+
+          # Pre-create evidence paths so an earlier qualification failure
+          # cannot become a second failure merely because later artifacts are absent.
+          mkdir -p tests
+          printf '%s\n' 'unavailable_checkout_not_reached' > qualification-submodules.txt
+          printf '%s\n' 'unavailable_source_audit_not_reached' > qualification-source-audit.log
+          printf '%s\n' 'unavailable_operation_matrix_not_reached' > qualification-operation-matrix.txt
+          printf '%s\n' 'unavailable_format_not_reached' > qualification-format.log
+          printf '%s\n' 'unavailable_build_not_reached' > qualification-build.log
+          printf '%s\n' 'unavailable_dna_pack_not_reached' > qualification-dna-pack.log
+          printf '%s\n' 'unavailable_sweettest_not_reached' > qualification-sweettest.log
+          printf '%s\n' 'unavailable_wasm_capture' > qualification-wasm-sha256.txt
+          printf '%s\n' 'unavailable_dna_capture' > qualification-dna-sha256.txt
+          printf '%s\n' 'unavailable_cargo_lock_capture' > qualification-cargo-lock-sha256.txt
+          printf '%s\n' 'unavailable_cargo_lock_summary' > qualification-cargo-lock-summary.txt
+          printf '%s\n' 'unavailable_source_contract_capture' > qualification-source-contract-sha256.txt
+          printf '%s\n' 'unavailable_cargo_metadata_capture' > qualification-cargo-metadata.json
+          printf '%s\n' 'unavailable_tests_cargo_metadata_capture' > tests/qualification-cargo-metadata.json
+          printf '%s\n' 'unavailable_hearth_cargo_lock' > Cargo.lock
+          printf '%s\n' 'unavailable_tests_cargo_lock' > tests/Cargo.lock
+          printf '%s\n' 'partial' > qualification-evidence-status.txt
+
           {
             echo "tested_sha=$QUALIFY_SHA"
             echo "checked_out_sha=$(git rev-parse HEAD)"
