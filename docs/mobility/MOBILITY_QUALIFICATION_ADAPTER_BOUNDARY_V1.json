@@ -186,6 +186,7 @@
     "provenance_witness_unique_per_registry_binding": true,
     "duplicate_provenance_witness_in_registry": "rejected",
     "preflight_missing_is_not_protocol_unresolved": true,
-    "missing_binding_stops_before_host_calls": true
+    "missing_binding_stops_before_host_calls": true,
+    "runtime_binding_payload_validation_precedes_authority_preflight": true
   }
 }
