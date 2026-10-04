@@ -3173,6 +3173,41 @@ mod tests {
         integrity: FederationStateMachineTraceIntegrity,
     }
 
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct FederationStateMachineTraceCheckpoint {
+        schema_version: u16,
+        verification_profile: String,
+        trace_index: usize,
+        step_start: usize,
+        step_end: usize,
+        body_sha256: String,
+        chain_start_prev_sha256: String,
+        chain_head_sha256: String,
+        previous_checkpoint_sha256: String,
+        checkpoint_sha256: String,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+    struct FederationStateMachineTraceCheckpointHashView {
+        hash_domain: String,
+        schema_version: u16,
+        verification_profile: String,
+        trace_index: usize,
+        step_start: usize,
+        step_end: usize,
+        body_sha256: String,
+        chain_start_prev_sha256: String,
+        chain_head_sha256: String,
+        previous_checkpoint_sha256: String,
+    }
+
+    const FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_SCHEMA_VERSION: u16 = 1;
+    const FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_HASH_DOMAIN: &str =
+        "integral-federation-trace-checkpoint-sha256-v1";
+    const FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_GENESIS: &str =
+        "sha256:0000000000000000000000000000000000000000000000000000000000000000";
+
     fn state_machine_trace_hash_view(
         capsule: &FederationStateMachineTraceCapsule,
     ) -> FederationStateMachineTraceHashView {
@@ -3250,6 +3285,200 @@ mod tests {
                 .map(|evidence| evidence.chain_sha256.clone())
                 .unwrap_or_else(|| FEDERATION_STATE_MACHINE_TRACE_CHAIN_GENESIS.into()),
         }
+    }
+
+    fn state_machine_trace_checkpoint_sha256(
+        checkpoint: &FederationStateMachineTraceCheckpoint,
+    ) -> String {
+        let view = FederationStateMachineTraceCheckpointHashView {
+            hash_domain: FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_HASH_DOMAIN.into(),
+            schema_version: checkpoint.schema_version,
+            verification_profile: checkpoint.verification_profile.clone(),
+            trace_index: checkpoint.trace_index,
+            step_start: checkpoint.step_start,
+            step_end: checkpoint.step_end,
+            body_sha256: checkpoint.body_sha256.clone(),
+            chain_start_prev_sha256: checkpoint.chain_start_prev_sha256.clone(),
+            chain_head_sha256: checkpoint.chain_head_sha256.clone(),
+            previous_checkpoint_sha256: checkpoint.previous_checkpoint_sha256.clone(),
+        };
+        let bytes = serde_json::to_vec(&view)
+            .expect("trace checkpoint hash view must be serializable");
+        state_machine_domain_separated_sha256(
+            FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_HASH_DOMAIN,
+            &bytes,
+        )
+    }
+
+    fn state_machine_trace_checkpoint(
+        capsule: &FederationStateMachineTraceCapsule,
+        step_start: usize,
+        step_end: usize,
+        previous_checkpoint_sha256: &str,
+    ) -> FederationStateMachineTraceCheckpoint {
+        assert!(
+            step_start <= step_end && step_end <= capsule.evidence.len(),
+            "trace checkpoint range must be within the trace evidence"
+        );
+        let chain_start_prev_sha256 = if step_start == 0 {
+            FEDERATION_STATE_MACHINE_TRACE_CHAIN_GENESIS.to_owned()
+        } else {
+            capsule.evidence[step_start - 1].chain_sha256.clone()
+        };
+        let chain_head_sha256 = if step_start == step_end {
+            chain_start_prev_sha256.clone()
+        } else {
+            capsule.evidence[step_end - 1].chain_sha256.clone()
+        };
+        let mut checkpoint = FederationStateMachineTraceCheckpoint {
+            schema_version: FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_SCHEMA_VERSION,
+            verification_profile: capsule.verification_profile.clone(),
+            trace_index: capsule.trace_index,
+            step_start,
+            step_end,
+            body_sha256: capsule.integrity.body_sha256.clone(),
+            chain_start_prev_sha256,
+            chain_head_sha256,
+            previous_checkpoint_sha256: previous_checkpoint_sha256.to_owned(),
+            checkpoint_sha256: String::new(),
+        };
+        checkpoint.checkpoint_sha256 =
+            state_machine_trace_checkpoint_sha256(&checkpoint);
+        checkpoint
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+    enum FederationStateMachineTraceCheckpointViolation {
+        UnsupportedSchemaVersion,
+        UnsupportedVerificationProfile,
+        TraceIndexMismatch,
+        InvalidStepRange,
+        EmptyNonTerminalSegment,
+        BodyDigestMismatch,
+        ChainStartMismatch,
+        ChainHeadMismatch,
+        CheckpointDigestMismatch,
+        FirstCheckpointPredecessorMismatch,
+        CheckpointRangeGap,
+        CheckpointChainStartMismatch,
+        PreviousCheckpointMismatch,
+        CoverageIncomplete,
+    }
+
+    fn validate_state_machine_trace_checkpoint(
+        capsule: &FederationStateMachineTraceCapsule,
+        checkpoint: &FederationStateMachineTraceCheckpoint,
+    ) -> Result<(), FederationStateMachineTraceCheckpointViolation> {
+        if checkpoint.schema_version
+            != FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_SCHEMA_VERSION
+        {
+            return Err(
+                FederationStateMachineTraceCheckpointViolation::UnsupportedSchemaVersion
+            );
+        }
+        if checkpoint.verification_profile
+            != capsule.verification_profile
+        {
+            return Err(
+                FederationStateMachineTraceCheckpointViolation::UnsupportedVerificationProfile
+            );
+        }
+        if checkpoint.trace_index != capsule.trace_index {
+            return Err(
+                FederationStateMachineTraceCheckpointViolation::TraceIndexMismatch
+            );
+        }
+        if checkpoint.step_start > checkpoint.step_end
+            || checkpoint.step_end > capsule.evidence.len()
+        {
+            return Err(
+                FederationStateMachineTraceCheckpointViolation::InvalidStepRange
+            );
+        }
+        if checkpoint.step_start == checkpoint.step_end && !capsule.evidence.is_empty() {
+            return Err(
+                FederationStateMachineTraceCheckpointViolation::EmptyNonTerminalSegment
+            );
+        }
+        if checkpoint.body_sha256 != capsule.integrity.body_sha256 {
+            return Err(
+                FederationStateMachineTraceCheckpointViolation::BodyDigestMismatch
+            );
+        }
+        let expected_chain_start = if checkpoint.step_start == 0 {
+            FEDERATION_STATE_MACHINE_TRACE_CHAIN_GENESIS
+        } else {
+            capsule.evidence[checkpoint.step_start - 1]
+                .chain_sha256
+                .as_str()
+        };
+        if checkpoint.chain_start_prev_sha256 != expected_chain_start {
+            return Err(
+                FederationStateMachineTraceCheckpointViolation::ChainStartMismatch
+            );
+        }
+        let expected_chain_head = if checkpoint.step_start == checkpoint.step_end {
+            expected_chain_start
+        } else {
+            capsule.evidence[checkpoint.step_end - 1]
+                .chain_sha256
+                .as_str()
+        };
+        if checkpoint.chain_head_sha256 != expected_chain_head {
+            return Err(
+                FederationStateMachineTraceCheckpointViolation::ChainHeadMismatch
+            );
+        }
+        if checkpoint.checkpoint_sha256 != state_machine_trace_checkpoint_sha256(checkpoint) {
+            return Err(
+                FederationStateMachineTraceCheckpointViolation::CheckpointDigestMismatch
+            );
+        }
+        Ok(())
+    }
+
+    fn validate_state_machine_trace_checkpoint_chain(
+        capsule: &FederationStateMachineTraceCapsule,
+        checkpoints: &[FederationStateMachineTraceCheckpoint],
+    ) -> Result<(), FederationStateMachineTraceCheckpointViolation> {
+        if checkpoints.is_empty() {
+            return Err(FederationStateMachineTraceCheckpointViolation::CoverageIncomplete);
+        }
+
+        for checkpoint in checkpoints {
+            validate_state_machine_trace_checkpoint(capsule, checkpoint)?;
+        }
+
+        if checkpoints[0].step_start != 0
+            || checkpoints[0].previous_checkpoint_sha256
+                != FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_GENESIS
+        {
+            return Err(
+                FederationStateMachineTraceCheckpointViolation::FirstCheckpointPredecessorMismatch
+            );
+        }
+
+        for pair in checkpoints.windows(2) {
+            if pair[1].step_start != pair[0].step_end {
+                return Err(FederationStateMachineTraceCheckpointViolation::CheckpointRangeGap);
+            }
+            if pair[1].chain_start_prev_sha256 != pair[0].chain_head_sha256 {
+                return Err(
+                    FederationStateMachineTraceCheckpointViolation::CheckpointChainStartMismatch
+                );
+            }
+            if pair[1].previous_checkpoint_sha256 != pair[0].checkpoint_sha256 {
+                return Err(
+                    FederationStateMachineTraceCheckpointViolation::PreviousCheckpointMismatch
+                );
+            }
+        }
+
+        if checkpoints.last().unwrap().step_end != capsule.evidence.len() {
+            return Err(FederationStateMachineTraceCheckpointViolation::CoverageIncomplete);
+        }
+
+        Ok(())
     }
 
     fn reseal_state_machine_trace_for_test(capsule: &mut FederationStateMachineTraceCapsule) {
@@ -4722,6 +4951,130 @@ mod tests {
         assert_eq!(
             state_machine_trace_body_sha256(&capsule),
             state_machine_trace_body_sha256(&reformatted)
+        );
+    }
+
+    fn reseal_trace_checkpoint_for_test(
+        checkpoint: &mut FederationStateMachineTraceCheckpoint,
+    ) {
+        checkpoint.checkpoint_sha256 =
+            state_machine_trace_checkpoint_sha256(checkpoint);
+    }
+
+    #[test]
+    fn state_machine_trace_checkpoints_form_an_independently_verifiable_contiguous_receipt_chain() {
+        let capsule_text = state_machine_trace_capsule(25, 12);
+        let capsule =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&capsule_text)
+                .expect("capsule must deserialize");
+
+        let first = state_machine_trace_checkpoint(
+            &capsule,
+            0,
+            4,
+            FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_GENESIS,
+        );
+        let second = state_machine_trace_checkpoint(
+            &capsule,
+            4,
+            8,
+            &first.checkpoint_sha256,
+        );
+        let third = state_machine_trace_checkpoint(
+            &capsule,
+            8,
+            12,
+            &second.checkpoint_sha256,
+        );
+        let chain = vec![first.clone(), second.clone(), third.clone()];
+
+        assert!(
+            validate_state_machine_trace_checkpoint_chain(&capsule, &chain).is_ok(),
+            "generated checkpoint receipt chain must validate independently of replay"
+        );
+        assert_eq!(
+            first.chain_start_prev_sha256,
+            FEDERATION_STATE_MACHINE_TRACE_CHAIN_GENESIS
+        );
+        assert_eq!(third.step_end, capsule.evidence.len());
+
+        for checkpoint in &chain {
+            let json = serde_json::to_string_pretty(checkpoint)
+                .expect("checkpoint must serialize");
+            let round_trip =
+                serde_json::from_str::<FederationStateMachineTraceCheckpoint>(&json)
+                    .expect("checkpoint must deserialize");
+            assert_eq!(&round_trip, checkpoint);
+            assert_eq!(
+                json,
+                serde_json::to_string_pretty(&round_trip)
+                    .expect("checkpoint serialization must be deterministic")
+            );
+        }
+    }
+
+    #[test]
+    fn state_machine_trace_checkpoints_reject_resealed_chain_reordering_and_range_forgery() {
+        let capsule_text = state_machine_trace_capsule(26, 12);
+        let capsule =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&capsule_text)
+                .expect("capsule must deserialize");
+
+        let first = state_machine_trace_checkpoint(
+            &capsule,
+            0,
+            4,
+            FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_GENESIS,
+        );
+        let second = state_machine_trace_checkpoint(
+            &capsule,
+            4,
+            8,
+            &first.checkpoint_sha256,
+        );
+        let third = state_machine_trace_checkpoint(
+            &capsule,
+            8,
+            12,
+            &second.checkpoint_sha256,
+        );
+
+        let mut reordered = vec![first.clone(), third.clone(), second.clone()];
+        assert_eq!(
+            validate_state_machine_trace_checkpoint_chain(&capsule, &reordered),
+            Err(FederationStateMachineTraceCheckpointViolation::CheckpointRangeGap)
+        );
+
+        let mut forged = second.clone();
+        forged.step_start = 5;
+        reseal_trace_checkpoint_for_test(&mut forged);
+        let forged_chain = vec![first.clone(), forged.clone(), third.clone()];
+        assert_eq!(
+            validate_state_machine_trace_checkpoint_chain(&capsule, &forged_chain),
+            Err(FederationStateMachineTraceCheckpointViolation::CheckpointRangeGap)
+        );
+
+        reordered.swap(1, 2);
+        let mut resealed_prev = second.clone();
+        resealed_prev.previous_checkpoint_sha256 =
+            FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_GENESIS.into();
+        reseal_trace_checkpoint_for_test(&mut resealed_prev);
+        let resealed_chain = vec![first, resealed_prev, third];
+        assert_eq!(
+            validate_state_machine_trace_checkpoint_chain(&capsule, &resealed_chain),
+            Err(FederationStateMachineTraceCheckpointViolation::PreviousCheckpointMismatch)
+        );
+    }
+
+    #[test]
+    fn state_machine_trace_checkpoint_hash_domain_is_distinct_from_trace_hash_domains() {
+        assert_ne!(
+            FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_HASH_DOMAIN,
+            FEDERATION_STATE_MACHINE_TRACE_BODY_HASH_DOMAIN
+        );
+        assert_ne!(
+            FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_HASH_DOMAIN,
+            FEDERATION_STATE_MACHINE_TRACE_EVIDENCE_CHAIN_HASH_DOMAIN
         );
     }
 
