@@ -2694,6 +2694,56 @@ mod linux {
         }
 
         #[test]
+        fn compiled_filter_rejects_predicate_jump_over_later_checks() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let rule = SeccompSyscallRuleV2::new_with_clauses(
+                libc::SYS_socket,
+                vec![
+                    SeccompSyscallClauseV2::new(vec![
+                        SeccompArgPredicateV1::new(
+                            0,
+                            u64::MAX,
+                            libc::AF_UNIX as u64,
+                        ).unwrap(),
+                        SeccompArgPredicateV1::new(1, u64::MAX, 7).unwrap(),
+                    ]).unwrap(),
+                    SeccompSyscallClauseV2::new(vec![
+                        SeccompArgPredicateV1::new(
+                            0,
+                            u64::MAX,
+                            libc::AF_NETLINK as u64,
+                        ).unwrap(),
+                    ]).unwrap(),
+                ],
+            ).unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+            let mut filter = compile_filter_v2(&policy).unwrap();
+
+            let first_predicate = filter.iter().position(|instruction| {
+                instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                    && instruction.k == libc::AF_UNIX as u32
+            }).unwrap();
+            let first_clause_allow = filter.iter().enumerate().skip(first_predicate + 1).find_map(
+                |(index, instruction)| {
+                    (instruction.code == BPF_RET | BPF_K
+                        && instruction.k == SECCOMP_RET_ALLOW).then_some(index)
+                }
+            ).unwrap();
+
+            // Jump over a later predicate directly into this clause's ALLOW.
+            // The target is in bounds and reachable, but it bypasses a security
+            // predicate and therefore must not survive structural validation.
+            filter[first_predicate].jt = u8::try_from(
+                first_clause_allow - first_predicate - 1
+            ).unwrap();
+
+            assert!(matches!(
+                validate_compiled_filter(&filter),
+                Err(SeccompError::CompilerInvariantViolation)
+            ));
+        }
+
+        #[test]
         fn compiled_filter_rejects_dispatch_jump_over_argument_checks() {
             let arch = SeccompArchitecture::current().unwrap();
             let first = SeccompSyscallRuleV2::new(
