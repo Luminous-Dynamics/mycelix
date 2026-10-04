@@ -16,7 +16,9 @@ on:
       - '.github/workflows/identity-cargo-lock-verifier.yml'
 
 concurrency:
-  group: identity-cargo-lock-${{ github.event.pull_request.head.sha || github.sha }}
+  # One branch has one authoritative lock diagnostic at a time. Exact-head
+  # checkout below keeps evidence bound to the run's qualified commit.
+  group: identity-cargo-lock-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -60,6 +62,20 @@ jobs:
           sha256sum Cargo.lock > "$GITHUB_WORKSPACE/identity-cargo-lock-full-candidate.sha256"
           git diff --no-index -- Cargo.lock.committed Cargo.lock > "$GITHUB_WORKSPACE/identity-cargo-lock-full.diff" || true
 
+          for name in apps/leptos tests; do
+            manifest="$name/Cargo.toml"
+            lock="$name/Cargo.lock"
+            if [[ -f "$lock" ]]; then
+              cp "$lock" "$lock.committed"
+            else
+              : > "$lock.committed"
+            fi
+            cp "$lock.committed" "$lock"
+            cargo generate-lockfile --manifest-path "$manifest"
+            slug="$(printf "%s" "$name" | tr "/" "-")"
+            sha256sum "$lock" > "$GITHUB_WORKSPACE/identity-${slug}-cargo-lock-candidate.sha256"
+          done
+
           sha256sum Cargo.lock.committed > "$GITHUB_WORKSPACE/identity-cargo-lock-committed.sha256"
           if cmp -s Cargo.lock.committed Cargo.lock; then
             echo "CARGO_LOCK_STATUS unchanged" > "$GITHUB_WORKSPACE/identity-cargo-lock-status.txt"
@@ -91,6 +107,10 @@ jobs:
             mycelix-identity/Cargo.lock.committed
             mycelix-identity/Cargo.lock.workspace
             mycelix-identity/Cargo.lock
+            mycelix-identity/apps/leptos/Cargo.lock
+            mycelix-identity/tests/Cargo.lock
+            mycelix-identity/apps/leptos/Cargo.lock.committed
+            mycelix-identity/tests/Cargo.lock.committed
             identity-cargo-lock-workspace-update.txt
             identity-cargo-lock-workspace.diff
             identity-cargo-lock-full.diff
