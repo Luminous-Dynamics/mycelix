@@ -1089,7 +1089,7 @@ This distinction matters in the 2025 SNA. Bilateral debt forgiveness is recorded
 as a capital transfer from creditor to debtor together with the simultaneous
 extinction of the financial claim. Unilateral writing-off/write-down outside a
 mutual agreement is recorded as an other change in the volume of assets and
-liabilities. cite unavailable in repository docs; see external research references below.
+liabilities.
 
 The model therefore leaves a deliberate future boundary:
 
