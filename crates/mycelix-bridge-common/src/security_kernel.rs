@@ -886,9 +886,7 @@ fn revalidate_permit(
         return AuthorizationOutcome::Deny(AuthorizationDenial::VerificationEvidenceMismatch);
     }
     if evidence.authority_binding == [0; 32] {
-        return AuthorizationOutcome::Indeterminate(
-            AuthorizationIndeterminacy::AmbiguousAuthority,
-        );
+        return AuthorizationOutcome::Indeterminate(AuthorizationIndeterminacy::AmbiguousAuthority);
     }
     if evidence.authority_binding != permit.authority_binding {
         return AuthorizationOutcome::Deny(AuthorizationDenial::AuthorityBindingMismatch);
@@ -1150,8 +1148,7 @@ mod tests {
     #[test]
     fn bounded_security_json_rejects_oversized_envelope_before_parsing() {
         let input = vec![b' '; MAX_SECURITY_WIRE_BYTES + 1];
-        let error =
-            deserialize_bounded_security_json::<AuthorizationRequest>(&input).unwrap_err();
+        let error = deserialize_bounded_security_json::<AuthorizationRequest>(&input).unwrap_err();
 
         assert_eq!(error.classify(), serde_json::error::Category::Io);
     }
@@ -1226,15 +1223,11 @@ mod tests {
         oversized.resize(MAX_SECURITY_WIRE_BYTES + 1, b' ');
 
         let cursor = std::io::Cursor::new(oversized);
-        let error =
-            deserialize_bounded_security_json_reader::<_, AuthorizationRequest>(cursor)
-                .unwrap_err();
+        let error = deserialize_bounded_security_json_reader::<_, AuthorizationRequest>(cursor)
+            .unwrap_err();
 
         assert_eq!(error.classify(), serde_json::error::Category::Io);
-        assert_eq!(
-            error.io_error_kind(),
-            Some(std::io::ErrorKind::InvalidData)
-        );
+        assert_eq!(error.io_error_kind(), Some(std::io::ErrorKind::InvalidData));
     }
 
     #[test]
@@ -1318,7 +1311,10 @@ mod tests {
     fn authority_freshness_lease_conversion_is_checked() {
         assert_eq!(checked_authority_lease_until_us(42), Some(42_000));
         let boundary = u64::MAX / 1_000;
-        assert_eq!(checked_authority_lease_until_us(boundary), Some(boundary * 1_000));
+        assert_eq!(
+            checked_authority_lease_until_us(boundary),
+            Some(boundary * 1_000),
+        );
         assert_eq!(checked_authority_lease_until_us(boundary + 1), None);
     }
 
