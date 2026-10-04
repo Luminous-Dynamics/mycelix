@@ -52,7 +52,8 @@
     "zome_reached",
     "semantic_result",
     "claim_ceiling",
-    "case_outcome"
+    "case_outcome",
+    "application_check_coverage"
   ],
   "evidence_status": "NotExecuted",
   "claim_ceiling": "ReferenceModelOnly",
