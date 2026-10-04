@@ -1231,6 +1231,13 @@ def capture(args: argparse.Namespace) -> int:
             "source_sha256": sha256_file(PAYLOAD_COHERENCE_SCRIPT),
             "input_sha256": sha256_file(input_path),
         },
+        "reference_appraisal": {
+            "status": reference_appraisal.get("state", "DENY"),
+            "output_sha256": sha256_file(reference_appraisal_path),
+            "source_sha256": sha256_file(REFERENCE_APPRAISAL_SCRIPT),
+            "registry_sha256": sha256_file(REFERENCE_REGISTRY),
+            "input_sha256": sha256_file(out / "reference-values.json"),
+        },
         "quote": {
             "pcr_selection": args.pcr_selection,
             "nonce_sha256": sha256_file(out / "nonce.bin"),
