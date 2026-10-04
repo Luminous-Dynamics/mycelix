@@ -587,8 +587,8 @@ check_semantic_case_entrypoints() {
   local manifest="mycelix-workspace/mycelix-hearth/tests/hearth-07-semantic-validation-cases.json"
   local rust_test="mycelix-workspace/mycelix-hearth/tests/sweettest_semantic_validation.rs"
   local zomes operations
-  mapfile -t zomes < <(sed -n 's/^[[:space:]]*"zome"[[:space:]]*:[[:space:]]*"\\([^"]*\\)".*/\\1/p' "$manifest")
-  mapfile -t operations < <(sed -n 's/^[[:space:]]*"operation"[[:space:]]*:[[:space:]]*"\\([^"]*\\)".*/\\1/p' "$manifest")
+  mapfile -t zomes < <(sed -n 's/^[[:space:]]*"zome"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest")
+  mapfile -t operations < <(sed -n 's/^[[:space:]]*"operation"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest")
 
   if [[ "${#zomes[@]}" -eq 0 || "${#zomes[@]}" -ne "${#operations[@]}" ]]; then
     echo "FAIL: semantic manifest zome/operation declaration counts differ"
