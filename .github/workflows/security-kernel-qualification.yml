@@ -490,6 +490,11 @@ jobs:
             fi
           done
 
+          if ! grep -nzE '#\\[must_use[[:space:]]*=[[:space:]]*"verified capabilities must be passed to authorize_permit"\\]\\s*pub struct VerifiedCapability' crates/mycelix-bridge-common/src/security_kernel.rs; then
+            echo "security-kernel regression: VerifiedCapability lost its compiler-visible must-use boundary" >&2
+            exit 1
+          fi
+
           # A VerifiedCapability can mint permits; exposing its trust-bearing fields or
           # serialization would let downstream callers forge the verification hand-off.
           for pattern in \
