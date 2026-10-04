@@ -469,21 +469,44 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             } => validate_mfa_state_chain_uniqueness(action),
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterUpdate(update) => {
-            let action = match &update {
-                OpUpdate::Entry { action, .. }
-                | OpUpdate::PrivateEntry { action, .. }
-                | OpUpdate::Agent { action, .. }
-                | OpUpdate::CapClaim { action, .. }
-                | OpUpdate::CapGrant { action, .. } => action,
-            };
-            let original = must_get_action(action.original_action_address.clone())?;
-            if *original.action().author() != action.author {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Only the original entry author can update their entries".into(),
-                ));
+        FlatOp::RegisterUpdate(update) => match update {
+            OpUpdate::Entry {
+                app_entry,
+                action,
+                ..
+            } => {
+                let original = must_get_action(action.original_action_address.clone())?;
+                if *original.action().author() != action.author {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "Only the original entry author can update their entries".into(),
+                    ));
+                }
+
+                match app_entry {
+                    EntryTypes::MfaState(state) => validate_update_mfa_state(action, state),
+                    EntryTypes::FactorEnrollment(_) => Ok(ValidateCallbackResult::Invalid(
+                        "Factor enrollments are append-only".into(),
+                    )),
+                    EntryTypes::FactorVerification(_) => Ok(ValidateCallbackResult::Invalid(
+                        "Factor verifications are append-only".into(),
+                    )),
+                    EntryTypes::EncryptedEntry(_) => Ok(ValidateCallbackResult::Invalid(
+                        "Encrypted entries are append-only (re-encrypt instead)".into(),
+                    )),
+                }
             }
-            Ok(ValidateCallbackResult::Valid)
+            OpUpdate::PrivateEntry { action, .. }
+            | OpUpdate::Agent { action, .. }
+            | OpUpdate::CapClaim { action, .. }
+            | OpUpdate::CapGrant { action, .. } => {
+                let original = must_get_action(action.original_action_address.clone())?;
+                if *original.action().author() != action.author {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "Only the original entry author can update their entries".into(),
+                    ));
+                }
+                Ok(ValidateCallbackResult::Valid)
+            }
         }
         FlatOp::RegisterDelete(OpDelete { action }) => {
             let original = must_get_action(action.deletes_address.clone())?;
