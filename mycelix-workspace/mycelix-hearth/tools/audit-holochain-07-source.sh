@@ -833,7 +833,6 @@ check_semantic_case_integrity_bindings() {
 
       if [[ "$validator_source" != "$integrity_file" ]]; then
         if python3 - "$validator_source" "$integrity_file" "$validator_symbol" <<'PY'
-import json
 import re
 import sys
 import tomllib
@@ -1041,60 +1040,72 @@ integrity_text = integrity_source.read_text()
 integrity_prod = integrity_text.split("#[cfg(test)]", 1)[0]
 
 use_statements = re.findall(
-    r'(?ms)^[[:space:]]*(?:pub[[:space:]]+)?use[[:space:]]+[^;]+;',
+    r"(?ms)^[[:space:]]*(?:pub[[:space:]]+)?use[[:space:]]+[^;]+;",
     integrity_prod,
 )
 crate_pattern = re.escape(imported_crate)
-symbol_pattern = re.escape(validator_symbol)
-matching_uses = [
-    statement
-    for statement in use_statements
-    if re.search(rf'\b{crate_pattern}::', statement)
-    and re.search(rf'\b{symbol_pattern}\b', statement)
-]
 
-if not matching_uses:
-    print(
-        f"FAIL: {integrity_source} does not import "
-        f"{imported_crate}::{validator_symbol} from the resolved dependency"
-    )
-    raise SystemExit(2)
+expected_direct = re.compile(
+    rf"(?ms)^[[:space:]]*(?:pub[[:space:]]+)?use[[:space:]]+"
+    rf"{crate_pattern}::{re.escape(validator_symbol)}[[:space:]]*;"
+)
+expected_group = re.compile(
+    rf"(?ms)^[[:space:]]*(?:pub[[:space:]]+)?use[[:space:]]+"
+    rf"{crate_pattern}::\{[^;]*\}[[:space:]]*;"
+)
 
-for statement in matching_uses:
+matching_uses = []
+for statement in use_statements:
     normalized = " ".join(statement.split())
-    if re.search(rf'\b{symbol_pattern}\b\s+as\s+', normalized):
-        print(
-            f"FAIL: {integrity_source} aliases {validator_symbol}; "
-            "semantic provenance requires a direct validator symbol import"
-        )
-        raise SystemExit(2)
+    if not re.search(rf"\b{crate_pattern}::", normalized):
+        continue
 
-    prefix = re.search(rf'use\s+{crate_pattern}::(.+);$', normalized)
-    if prefix:
-        imported_items = prefix.group(1).strip()
-        if imported_items.startswith("{") and imported_items.endswith("}"):
-            items = [item.strip() for item in imported_items[1:-1].split(",")]
-            if not any(
-                item == validator_symbol or item.startswith(f"{validator_symbol} ")
-                and " as " not in item
-                for item in items
-            ):
-                continue
+    if expected_direct.fullmatch(normalized):
+        matching_uses.append(normalized)
+        continue
 
-# A second import of the same validator leaf from another path would make the
-# dispatcher binding ambiguous even if the expected dependency is also present.
+    group_match = expected_group.fullmatch(normalized)
+    if group_match:
+        body = group_match.group(0)
+        brace_start = body.find("{")
+        brace_end = body.rfind("}")
+        items = [item.strip() for item in body[brace_start + 1:brace_end].split(",")]
+        symbol_items = [
+            item for item in items
+            if re.search(
+                rf"^(?:{re.escape(validator_symbol)}(?:$|\s+as\s+)|.*\bas\s+{re.escape(validator_symbol)}$)",
+                item,
+            )
+        ]
+        if any(item == validator_symbol for item in symbol_items):
+            matching_uses.append(normalized)
+            continue
+        if symbol_items:
+            print(
+                f"FAIL: {integrity_source} imports {validator_symbol} through an alias "
+                "instead of a direct validator symbol binding"
+            )
+            raise SystemExit(2)
+
 conflicting_uses = []
 for statement in use_statements:
     normalized = " ".join(statement.split())
-    if not re.search(rf'\b{symbol_pattern}\b', normalized):
+    if not re.search(rf"\b{re.escape(validator_symbol)}\b", normalized):
         continue
-    if not re.search(rf'\b{crate_pattern}::', normalized):
+    if not re.search(rf"\b{crate_pattern}::", normalized):
         conflicting_uses.append(normalized)
 
 if conflicting_uses:
     print(
         f"FAIL: {integrity_source} contains additional imports of validator symbol "
         f"{validator_symbol} outside resolved provenance: {' | '.join(conflicting_uses)}"
+    )
+    raise SystemExit(2)
+
+if not matching_uses:
+    print(
+        f"FAIL: {integrity_source} does not directly import "
+        f"{imported_crate}::{validator_symbol} from the resolved dependency"
     )
     raise SystemExit(2)
 
