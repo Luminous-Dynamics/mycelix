@@ -523,8 +523,41 @@ mod linux {
             4
         };
 
-        if filter[first_rule_index].code != BPF_JMP | BPF_JEQ | BPF_K {
+        if filter[first_rule_index].code != BPF_JMP | BPF_JEQ | BPF_K
+            || filter[first_rule_index].jt != 0
+            || filter[first_rule_index].jf == 0
+        {
             return Err(SeccompError::CompilerInvariantViolation);
+        }
+
+        // The syscall dispatch chain has one canonical shape: a matching
+        // dispatch enters its rule body at the immediately following
+        // instruction, while a mismatch jumps directly to the next dispatch
+        // (or the final default-deny terminator). Do not merely require
+        // in-bounds jumps; otherwise a forged dispatch could jump over argument
+        // predicates into an ALLOW that happens to remain reachable elsewhere.
+        let mut dispatch_index = first_rule_index;
+        loop {
+            let dispatch = &filter[dispatch_index];
+            let next = dispatch_index
+                .checked_add(1)
+                .and_then(|pc| pc.checked_add(usize::from(dispatch.jf)))
+                .ok_or(SeccompError::CompilerInvariantViolation)?;
+            if dispatch.jt != 0 || next <= dispatch_index + 1 {
+                return Err(SeccompError::CompilerInvariantViolation);
+            }
+
+            if next == filter.len() - 1 {
+                break;
+            }
+
+            if filter[next].code != BPF_JMP | BPF_JEQ | BPF_K
+                || filter[next].jt != 0
+                || filter[next].jf == 0
+            {
+                return Err(SeccompError::CompilerInvariantViolation);
+            }
+            dispatch_index = next;
         }
 
         for (index, instruction) in filter.iter().enumerate() {
