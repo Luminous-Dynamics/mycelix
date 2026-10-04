@@ -1018,11 +1018,12 @@ check_qualification_workflow_provenance() {
 # that the paired integrity zome actually declares. This catches stale coordinator
 # references after entry/link migrations or renames.
 check_coordinator_symbol_parity() {
-  local coordinator file zome enum_block variant
+  local coordinator file zome enum_block variant source
   while IFS= read -r -d "" coordinator; do
     zome="$(basename "$(dirname "$(dirname "$(dirname "$coordinator")")")")"
     file="mycelix-workspace/mycelix-hearth/zomes/$zome/integrity/src/lib.rs"
     [[ -f "$file" ]] || continue
+    source="$(sed '/^\#\[cfg(test)\]/,$d' "$coordinator")"
 
     enum_block="$(sed '/^\#\[cfg(test)\]/,$d' "$file" | sed -n '/^pub enum EntryTypes[[:space:]]*{/,/^}/p')"
     while IFS= read -r variant; do
@@ -1033,7 +1034,7 @@ check_coordinator_symbol_parity() {
         echo "FAIL: $zome coordinator references undeclared EntryTypes::$variant"
         fail=1
       fi
-    done < <(rg -o --pcre2 'EntryTypes::[A-Za-z_][A-Za-z0-9_]*' "$coordinator" | sed 's/.*EntryTypes:://' | sort -u)
+    done < <(printf '%s\n' "$source" | rg -o --pcre2 'EntryTypes::[A-Za-z_][A-Za-z0-9_]*' | sed 's/.*EntryTypes:://' | sort -u)
 
     enum_block="$(sed '/^\#\[cfg(test)\]/,$d' "$file" | sed -n '/^pub enum LinkTypes[[:space:]]*{/,/^}/p')"
     while IFS= read -r variant; do
@@ -1044,12 +1045,12 @@ check_coordinator_symbol_parity() {
         echo "FAIL: $zome coordinator references undeclared LinkTypes::$variant"
         fail=1
       fi
-    done < <(rg -o --pcre2 'LinkTypes::[A-Za-z_][A-Za-z0-9_]*' "$coordinator" | sed 's/.*LinkTypes:://' | sort -u)
+    done < <(printf '%s\n' "$source" | rg -o --pcre2 'LinkTypes::[A-Za-z_][A-Za-z0-9_]*' | sed 's/.*LinkTypes:://' | sort -u)
   done < <(git ls-files -z -- "mycelix-workspace/mycelix-hearth/zomes/*/coordinator/src/**/*.rs")
 }
 
 check_coordinator_operation_bindings() {
-  local coordinator file zome
+  local coordinator file zome source
   while IFS= read -r -d "" coordinator; do
     zome="$(basename "$(dirname "$(dirname "$(dirname "$coordinator")")")")"
     file="mycelix-workspace/mycelix-hearth/zomes/$zome/integrity/src/lib.rs"
@@ -1058,6 +1059,7 @@ check_coordinator_operation_bindings() {
       fail=1
       continue
     fi
+    source="$(sed '/^\#\[cfg(test)\]/,$d' "$coordinator")"
 
     # Entry creation is paired with both 0.7 validation surfaces.
     if rg -n --pcre2 '\bcreate_entry\s*\(' "$coordinator" >/dev/null 2>&1; then
