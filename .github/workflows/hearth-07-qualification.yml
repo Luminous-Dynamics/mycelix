@@ -92,16 +92,11 @@ jobs:
             echo "OK: submodule $submodule_path matches gitlink $gitlink_sha"
           done < qualification-submodules.txt
 
-      - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24
-        env:
-          # install-nix-action hardcodes GITHUB_TOKEN from the github context
-          # and only suppresses that fallback when GITHUB_SERVER_URL differs.
-          # Scope the override to this step so the rest of CI retains normal
-          # GitHub metadata semantics while Nix is installed token-free.
-          GITHUB_SERVER_URL: ""
+      - uses: NixOS/nix-installer-action@62c1943b776c509394b550f3f983adc14e9212d6
         with:
-          install_url: https://releases.nixos.org/nix/nix-2.35.0/install
-          github_access_token: ""
+          # Pin the NixOS-maintained installer action and its embedded Nix
+          # release; neither uses the ambient GitHub token for installation.
+          installer-version: "2.35.1"
 
       - name: Verify Nix credential isolation
         run: |
