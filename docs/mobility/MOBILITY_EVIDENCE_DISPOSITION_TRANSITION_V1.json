@@ -911,6 +911,16 @@
       "id": "EDT-180",
       "case": "runtime_binding_rejects_provenance_witness_from_other_authority_registry_binding",
       "expected": "adapter_boundary_error"
+    },
+    {
+      "id": "EDT-181",
+      "case": "runtime_retrieval_dispatch_passes_exact_bound_protocol_address",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-182",
+      "case": "canonical_retrieval_order_reaches_host_boundary_before_failure",
+      "expected": "accepted"
     }
   ],
   "outcome_classes": [
