@@ -85,6 +85,17 @@ await mustReject('tampered credential', () => vc.verifyCredential({
   documentLoader
 }));
 
+const wrongProofPurpose = structuredClone(fixture.credential);
+if(wrongProofPurpose.proof?.proofPurpose !== 'assertionMethod') {
+  throw new Error('fixture credential proofPurpose must be assertionMethod');
+}
+wrongProofPurpose.proof.proofPurpose = 'authentication';
+await mustReject('wrong credential proof purpose', () => vc.verifyCredential({
+  credential: wrongProofPurpose,
+  suite,
+  documentLoader
+}));
+
 await mustReject('wrong presentation challenge', () => vc.verify({
   presentation: fixture.presentation,
   challenge: fixture.presentationChallenge + '-wrong',
@@ -172,6 +183,34 @@ await mustReject('tampered issuer verification key', () => vc.verifyCredential({
   documentLoader: tamperedLoader.build()
 }));
 
+const unauthorizedIssuerDocument = structuredClone(fixture.issuerDidDocument);
+if(!Array.isArray(unauthorizedIssuerDocument.assertionMethod) ||
+   !unauthorizedIssuerDocument.assertionMethod.includes(credentialVerificationMethodId)) {
+  throw new Error('fixture issuer must authorize the credential verification method via assertionMethod');
+}
+unauthorizedIssuerDocument.assertionMethod =
+  unauthorizedIssuerDocument.assertionMethod.filter(id => id !== credentialVerificationMethodId);
+
+const authorizationLoader = securityLoader();
+for(const [url, document] of credentialContexts) authorizationLoader.addStatic(url, document);
+authorizationLoader.addStatic(dataIntegrityContext.CONTEXT_URL, dataIntegrityContext.CONTEXT);
+authorizationLoader.addStatic(multikeyContext.CONTEXT_URL, multikeyContext.CONTEXT);
+authorizationLoader.addStatic(unauthorizedIssuerDocument.id, unauthorizedIssuerDocument);
+for(const method of unauthorizedIssuerDocument.verificationMethod ?? []) {
+  authorizationLoader.addStatic(method.id, {
+    '@context': multikeyContext.CONTEXT_URL,
+    id: method.id,
+    type: method.type,
+    controller: method.controller,
+    publicKeyMultibase: method.publicKeyMultibase
+  });
+}
+await mustReject('issuer assertionMethod authorization removal', () => vc.verifyCredential({
+  credential: fixture.credential,
+  suite,
+  documentLoader: authorizationLoader.build()
+}));
+
 console.log(JSON.stringify({
   independent_implementation: 'Digital Bazaar',
   cryptosuite: fixture.cryptosuite,
@@ -180,8 +219,10 @@ console.log(JSON.stringify({
   challenge_validated: true,
   domain_present: true,
   tampered_credential_rejected: true,
+  wrong_proof_purpose_rejected: true,
   wrong_challenge_rejected: true,
   wrong_domain_rejected: true,
   tampered_presentation_rejected: true,
-  tampered_issuer_key_rejected: true
+  tampered_issuer_key_rejected: true,
+  issuer_assertion_method_authorization_rejected: true
 }, null, 2));
