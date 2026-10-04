@@ -88,7 +88,8 @@ jobs:
             echo "workflow_sha=$(git hash-object ../.github/workflows/d6u-runtime-qualification.yml)"
             echo "d6s2_manifest_git_blob_sha=$(git hash-object ../docs/integral/d6s-canon-2-manifest.json)"
             echo "d6s2_fixture_git_blob_sha=$(git hash-object ../docs/integral/d6s-canon-2-authority-boundary-fixture.json)"
-            echo "d6s2_authority_ledger_schema=v1"
+            d6s2_ledger_version=$(python3 -c 'import json; print(json.load(open("../docs/integral/d6s-canon-2-manifest.json"))["version"])')
+            echo "d6s2_authority_ledger_schema=v${d6s2_ledger_version}"
             echo "d6s1_corpus_sha256=$(sha256sum ../docs/integral/d6s-canon-1-golden-vectors.json | cut -d' ' -f1)"
             echo "test_log_sha256=$(sha256sum d6u-runtime-test.log | cut -d' ' -f1)"
             echo "manifest_version=$(python3 -c 'import json; print(json.load(open("../docs/integral/d6u-runtime-manifest.json"))["version"])')"
