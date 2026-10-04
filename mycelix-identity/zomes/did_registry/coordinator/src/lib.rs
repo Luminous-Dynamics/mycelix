@@ -396,6 +396,7 @@ pub struct DidDocumentView {
     pub id: String,
     pub controller: String,
     pub verification_methods: Vec<DidVerificationMethodView>,
+    pub assertion_methods: Vec<String>,
     pub key_agreements: Vec<String>,
     pub services: Vec<DidServiceView>,
     pub created: String,
@@ -511,6 +512,10 @@ pub fn create_did() -> ExternResult<Record> {
         controller: agent_pub_key.clone(),
         verification_method: vec![verification_method.clone(), w3c_multikey],
         authentication: vec![format!("{}#keys-1", did_id)],
+        assertion_method: vec![
+            format!("{}#keys-1", did_id),
+            format!("{}#keys-1-multikey", did_id),
+        ],
         key_agreement: vec![],
         service: vec![],
         created: now,
@@ -789,6 +794,8 @@ pub struct DidDocumentWireView {
     #[serde(rename = "verificationMethod")]
     pub verification_methods: Vec<DidVerificationMethodWireView>,
     pub authentication: Vec<String>,
+    #[serde(rename = "assertionMethod", skip_serializing_if = "Vec::is_empty")]
+    pub assertion_method: Vec<String>,
     #[serde(rename = "keyAgreement", skip_serializing_if = "Vec::is_empty")]
     pub key_agreement: Vec<String>,
     pub service: Vec<DidServiceWireView>,
@@ -810,6 +817,7 @@ fn did_document_wire_view(document: &DidDocument) -> DidDocumentWireView {
             })
             .collect(),
         authentication: document.authentication.clone(),
+        assertion_method: document.assertion_method.clone(),
         key_agreement: document.key_agreement.clone(),
         service: document
             .service
@@ -1128,6 +1136,37 @@ pub fn update_did_document(input: UpdateDidInput) -> ExternResult<Record> {
         }
     }
 
+    // Validate assertionMethod references against the effective verification-method set.
+    if let Some(ref assertions) = input.assertion_method {
+        if assertions.len() > 100 {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Assertion method entries must not exceed 100".into()
+            )));
+        }
+        for reference in assertions {
+            if reference.is_empty() || reference.len() > 256 {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Assertion method entry must be 1-256 characters".into()
+                )));
+            }
+        }
+
+        let effective_methods = input
+            .verification_method
+            .as_ref()
+            .unwrap_or(&current_did.verification_method);
+        let method_ids: std::collections::HashSet<&str> =
+            effective_methods.iter().map(|m| m.id.as_str()).collect();
+        for assertion_ref in assertions {
+            if !method_ids.contains(assertion_ref.as_str()) {
+                return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                    "Assertion method '{}' references a verification method that does not exist in the document",
+                    assertion_ref
+                ))));
+            }
+        }
+    }
+
     // Build updated document
     let updated_did = DidDocument {
         id: current_did.id.clone(),
@@ -1136,6 +1175,7 @@ pub fn update_did_document(input: UpdateDidInput) -> ExternResult<Record> {
             .verification_method
             .unwrap_or(current_did.verification_method),
         authentication: input.authentication.unwrap_or(current_did.authentication),
+        assertion_method: input.assertion_method.unwrap_or(current_did.assertion_method),
         key_agreement: input.key_agreement.unwrap_or(current_did.key_agreement),
         service: input.service.unwrap_or(current_did.service),
         created: current_did.created,
@@ -1198,6 +1238,9 @@ pub struct UpdateDidInput {
     #[serde(rename = "verificationMethod", alias = "verification_method")]
     pub verification_method: Option<Vec<VerificationMethod>>,
     pub authentication: Option<Vec<String>>,
+    /// Assertion methods (DID URL fragments referencing signature verification methods).
+    #[serde(rename = "assertionMethod", alias = "assertion_method")]
+    pub assertion_method: Option<Vec<String>>,
     /// Key agreement methods (DID URL fragments referencing KEM verification methods).
     #[serde(rename = "keyAgreement", alias = "key_agreement")]
     pub key_agreement: Option<Vec<String>>,
