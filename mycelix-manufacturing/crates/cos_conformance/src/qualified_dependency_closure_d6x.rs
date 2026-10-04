@@ -1798,14 +1798,6 @@ mod tests {
                         .edge_commitment
                         .clone()
                         .expect("validated add_edge edge_commitment");
-                    let edges = projection_object
-                        .get_mut("edges")
-                        .and_then(serde_json::Value::as_object_mut)
-                        .expect("golden projection edges must be an object");
-                    assert!(
-                        edges.get(&edge_id).is_none(),
-                        "golden add_edge must not overwrite an existing edge: {edge_id}"
-                    );
                     let nodes = projection_object
                         .get("nodes")
                         .and_then(serde_json::Value::as_object)
@@ -1817,6 +1809,14 @@ mod tests {
                     assert!(
                         nodes.contains_key(&to_node_id),
                         "golden add_edge target node is missing: {to_node_id}"
+                    );
+                    let edges = projection_object
+                        .get_mut("edges")
+                        .and_then(serde_json::Value::as_object_mut)
+                        .expect("golden projection edges must be an object");
+                    assert!(
+                        edges.get(&edge_id).is_none(),
+                        "golden add_edge must not overwrite an existing edge: {edge_id}"
                     );
                     edges.insert(
                         edge_id.clone(),
