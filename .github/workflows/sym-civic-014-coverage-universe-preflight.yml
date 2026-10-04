@@ -1,0 +1,168 @@
+name: SYM-CIVIC-014 Coverage Universe Preflight
+
+on:
+  push:
+    branches:
+      - 'staging/sym-civic-014-coverage-universe-preflight'
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'mycelix-workspace/docs/civic-resilience/SYM_CIVIC_014_COVERAGE_UNIVERSE_PREFLIGHT_V1.md'
+      - 'mycelix-workspace/docs/civic-resilience/sym_civic_014_coverage_universe_preflight_v1.json'
+      - 'scripts/qualification/sym_civic_014_coverage_universe_preflight_v1.py'
+      - '.github/workflows/sym-civic-014-coverage-universe-preflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    name: Coverage universe proof boundary
+    runs-on: ubuntu-24.04
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Exact ancestry
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='2e1c7ef4e2d0ced913834681e11318104d02de75'
+          test "$(git merge-base HEAD "$EXPECTED_PARENT")" = "$EXPECTED_PARENT"
+          test "$(git rev-list --count "$EXPECTED_PARENT"..HEAD)" = "1"
+          test -z "$(git status --short)"
+          printf '%s\n' \
+            "HEAD=$(git rev-parse HEAD)" \
+            "PARENT=$EXPECTED_PARENT" \
+            "MERGE_BASE=$(git merge-base HEAD "$EXPECTED_PARENT")" \
+            "AHEAD=$(git rev-list --count "$EXPECTED_PARENT"..HEAD)"
+
+      - name: Exact research surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='2e1c7ef4e2d0ced913834681e11318104d02de75'
+          expected="$(printf '%s\n' \
+            '.github/workflows/sym-civic-014-coverage-universe-preflight.yml' \
+            'mycelix-workspace/docs/civic-resilience/SYM_CIVIC_014_COVERAGE_UNIVERSE_PREFLIGHT_V1.md' \
+            'mycelix-workspace/docs/civic-resilience/sym_civic_014_coverage_universe_preflight_v1.json' \
+            'scripts/qualification/sym_civic_014_coverage_universe_preflight_v1.py' | sort)"
+          actual="$(git diff --name-only "$EXPECTED_PARENT" HEAD | sort)"
+          test "$actual" = "$expected"
+          git diff --check "$EXPECTED_PARENT" HEAD
+
+      - name: Canonical UTF-8 integrity
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          paths = [
+              Path(".github/workflows/sym-civic-014-coverage-universe-preflight.yml"),
+              Path("mycelix-workspace/docs/civic-resilience/SYM_CIVIC_014_COVERAGE_UNIVERSE_PREFLIGHT_V1.md"),
+              Path("mycelix-workspace/docs/civic-resilience/sym_civic_014_coverage_universe_preflight_v1.json"),
+              Path("scripts/qualification/sym_civic_014_coverage_universe_preflight_v1.py"),
+          ]
+          for path in paths:
+              raw = path.read_bytes()
+              raw.decode("utf-8")
+              if b"\x00" in raw:
+                  raise SystemExit(f"{path}: NUL byte detected")
+          print("canonical UTF-8: PASS")
+          PY
+
+      - name: Stdlib-only qualifier audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import ast
+          from pathlib import Path
+          allowed = {"__future__", "copy", "hashlib", "json", "datetime", "pathlib"}
+          tree = ast.parse(Path("scripts/qualification/sym_civic_014_coverage_universe_preflight_v1.py").read_text(encoding="utf-8"))
+          for node in ast.walk(tree):
+              if isinstance(node, ast.Import):
+                  for alias in node.names:
+                      if alias.name.split(".")[0] not in allowed:
+                          raise SystemExit(f"non-stdlib import: {alias.name}")
+              elif isinstance(node, ast.ImportFrom):
+                  if (node.module or "").split(".")[0] not in allowed:
+                      raise SystemExit(f"non-stdlib import: {node.module}")
+          print("qualifier imports: stdlib-only")
+          PY
+
+      - name: Qualifier syntax
+        run: python3 -c 'from pathlib import Path; compile(Path("scripts/qualification/sym_civic_014_coverage_universe_preflight_v1.py").read_text(encoding="utf-8"), "sym_civic_014_coverage_universe_preflight_v1.py", "exec")'
+
+      - name: Baseline semantic self-audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import importlib.util
+          from pathlib import Path
+
+          path = Path("scripts/qualification/sym_civic_014_coverage_universe_preflight_v1.py")
+          spec = importlib.util.spec_from_file_location("sym_civic_014", path)
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+
+          candidate = module.base_candidate()
+          universe = candidate["universe"]
+          scope = candidate["scope"]
+          frontier = candidate["frontier"]
+          proof = frontier["non_inclusion_proof"]
+          witness = candidate["witness"]
+          checkpoints = module.checkpoint_map(candidate)
+          terminal = checkpoints[frontier["terminal_checkpoint_id"]]
+          anchor = checkpoints[frontier["anchor_checkpoint_id"]]
+
+          checks = {
+              "provenance": module.provenance(candidate),
+              "universe_identity": universe.get("identity_material") == module.identity_material(universe),
+              "universe_digest": universe.get("identity_digest") == module.digest(universe["identity_material"]),
+              "scope_identity": scope.get("identity_material") == module.identity_material(scope),
+              "scope_digest": scope.get("identity_digest") == module.digest(scope["identity_material"]),
+              "extension_digest": candidate["extensions"].get("identity_digest") == module.extension_identity_digest(candidate["extensions"]),
+              "frontier_extension_binding": frontier.get("extension_identity_digest") == candidate["extensions"].get("identity_digest"),
+              "terminal_predecessor_digest": terminal.get("predecessor_digest") == anchor.get("identity_digest"),
+              "proof_universe_binding": proof.get("universe_identity_digest") == universe.get("identity_digest"),
+              "proof_scope_binding": proof.get("scope_identity_digest") == scope.get("identity_digest"),
+              "proof_terminal_binding": proof.get("terminal_checkpoint_digest") == terminal.get("identity_digest"),
+              "proof_cut_binding": proof.get("coverage_cut") == frontier.get("covered_cut"),
+              "proof_manifest_binding": proof.get("manifest_digest") == universe.get("manifest_digest"),
+              "primary": module.primary_qualify(candidate),
+              "independent": module.independent_qualify(candidate),
+          }
+
+          for name, value in checks.items():
+              print(f"BASELINE_{name.upper()}={value}")
+
+          if checks["primary"] == module.REJECT or checks["independent"] == module.REJECT:
+              raise SystemExit("baseline semantic self-audit: unexpected provenance rejection")
+          print("baseline semantic self-audit: PASS")
+          PY
+
+      - name: Execute exact preflight corpus
+        run: python3 scripts/qualification/sym_civic_014_coverage_universe_preflight_v1.py
+
+      - name: Static no-runtime audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='2e1c7ef4e2d0ced913834681e11318104d02de75'
+          changed="$(git diff --name-only "$EXPECTED_PARENT" HEAD)"
+          if printf '%s\n' "$changed" | grep -E '[.]rs$|[.]toml$|[.]lock$'; then
+            echo 'forbidden runtime source path detected' >&2
+            exit 1
+          fi
+
+      - name: Immutable checkout postflight
+        run: test -z "$(git status --short)"
