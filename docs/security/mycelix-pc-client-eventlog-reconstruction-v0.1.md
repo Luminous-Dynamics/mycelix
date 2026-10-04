@@ -20,9 +20,11 @@ It does **not** decide whether any measurement digest is good, approved, authent
 
 ## PC-client basis
 
-The TCG PC Client Platform Firmware Profile requires platform firmware measurements to extend PCRs and to log the corresponding events; it also requires `EV_SEPARATOR` across PCRs 0–7 once per boot to delineate the transition from pre-OS to OS-Present. citeturn311994view0turn311994view1
+The TCG PC Client Platform Firmware Profile requires platform firmware measurements to extend PCRs and to log the corresponding events; it also requires `EV_SEPARATOR` across PCRs 0–7 once per boot to delineate the transition from pre-OS to OS-Present. See: https://trustedcomputinggroup.org/resource/pc-client-specific-platform-firmware-profile-specification/
 
-The tpm2-tools event-log parser consumes the binary PC-client event-log format, but parser success is not itself a PCR reconstruction theorem. citeturn312934search0
+The tpm2-tools `tpm2_eventlog` utility parses the binary event log; parsing is intentionally not treated as reconstruction: https://tpm2-tools.readthedocs.io/en/latest/man/tpm2_eventlog.1/
+
+The Linux TPM event-log documentation describes the event log as richer context accompanying PCR contents and treats the log as evidence rather than an independently trusted authority: https://www.kernel.org/doc/html/latest/security/tpm/tpm_event_log.html
 
 ## Independent replay rule
 
@@ -34,13 +36,11 @@ PCR_0 = 32 zero bytes
 PCR_next = SHA256(PCR_previous || measurement_digest)
 ```
 
-The reconstruction consumes the recorded measurement digest associated with each target-PCR event in source-log order.
+The reconstruction consumes the recorded measurement digest associated with each selected-PCR event in source-log order.
 
 It does **not** silently replace the recorded measurement digest with a locally recomputed payload hash. Payload-to-digest validation is a separate event-type-specific check.
 
 ## Why this matters
-
-The Linux kernel documentation describes the event log as richer context accompanying PCR contents while warning that the log is not trusted by itself. citeturn312934search7
 
 Therefore:
 
@@ -61,22 +61,26 @@ The executable corpus contains **22 vectors** covering digest tampering, event r
 
 ## Output contract
 
-A reconstruction result must include:
+A reconstruction result is machine-consumable JSON containing:
 
 ```
 profile_id
 profile_version
 event_log_sha256
+session_id
 pcr_bank
-target_pcr
+pcr_selection
 event_count
-reconstructed_pcr_sha256
-observed_pcr_sha256
+reconstructed_pcr_values
+reconstructed_pcrs_sha256
+observed_pcr_values
+observed_pcrs_sha256
 match
 reconstruction_status
+reason
 ```
 
-A missing observed PCR or missing reconstruction is `INDETERMINATE`.
+A missing/ambiguous observed PCR state is `INDETERMINATE`.
 
 A computed mismatch is `DENY`.
 
@@ -88,6 +92,14 @@ Semantic reference corpus:
 
 ```text
 python3 scripts/security/reconstruct_mycelix_pc_client_eventlog_v0_1.py --self-test
+```
+
+Generate a machine-readable reconstruction result:
+
+```text
+python3 scripts/security/reconstruct_mycelix_pc_client_eventlog_v0_1.py \
+  --reconstruct /path/to/event-stream.json \
+  --output /path/to/eventlog-reconstruction.json
 ```
 
 The next physical-platform step is to add an adapter that converts the exact `tpm2_eventlog` YAML representation of a captured binary log into this canonical event stream, then feed its result into #4011.
