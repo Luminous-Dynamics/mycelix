@@ -17,6 +17,12 @@
 
 use holochain::prelude::*;
 use holochain::sweettest::*;
+use holochain::{
+    conductor::api::error::ConductorApiError,
+    conductor::CellError,
+    core::workflow::WorkflowError,
+    core::SourceChainError,
+};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -211,13 +217,20 @@ fn expected_reason(test_name: &str) -> String {
         .to_string()
 }
 
-fn assert_integrity_rejection<T, E: std::fmt::Debug>(result: Result<T, E>, expected_reason: &str) {
+fn assert_integrity_rejection<T>(result: Result<T, ConductorApiError>, expected_reason: &str) {
     let err = result.expect_err("invalid input must be rejected by the zome");
-    let debug = format!("{err:?}");
-    assert!(
-        debug.contains(expected_reason),
-        "expected integrity rejection reason {expected_reason:?}, got {debug}"
-    );
+    match err {
+        ConductorApiError::CellError(CellError::WorkflowError(wfe)) => match *wfe {
+            WorkflowError::SourceChainError(SourceChainError::InvalidCommit(reason)) => {
+                assert!(
+                    reason.contains(expected_reason),
+                    "expected integrity rejection reason {expected_reason:?}, got {reason:?}"
+                );
+            }
+            other => panic!("expected SourceChainError::InvalidCommit, got {other:?}"),
+        },
+        other => panic!("expected ConductorApiError::CellError(WorkflowError(SourceChainError::InvalidCommit)), got {other:?}"),
+    }
 }
 
 #[tokio::test(flavor = "multi_thread")]
