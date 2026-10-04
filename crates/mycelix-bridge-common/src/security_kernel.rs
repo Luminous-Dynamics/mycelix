@@ -385,7 +385,12 @@ impl TryFrom<AuthorizationRequestWire> for AuthorizationRequest {
     type Error = &'static str;
 
     fn try_from(wire: AuthorizationRequestWire) -> Result<Self, Self::Error> {
-        Self::new(wire.subject, wire.resource, wire.action, wire.policy_version)
+        Self::new(
+            wire.subject,
+            wire.resource,
+            wire.action,
+            wire.policy_version,
+        )
     }
 }
 
