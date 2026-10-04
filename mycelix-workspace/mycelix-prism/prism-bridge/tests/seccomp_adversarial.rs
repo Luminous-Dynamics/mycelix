@@ -691,7 +691,10 @@ fn seccomp_install_rejects_wrong_architecture_before_enforcement() {
 #[cfg(target_os = "linux")]
 fn thread_sync_divergent_filter_child() -> ! {
     use prism_bridge::process::{RendererProcessAssignmentId, SandboxProfileV1};
-    use prism_bridge::seccomp::{install, SeccompArchitecture, SeccompError, SeccompSyscallPolicyV1};
+    use prism_bridge::seccomp::{
+        install, install_v2, SeccompArgPredicateV1, SeccompArchitecture, SeccompError,
+        SeccompSyscallPolicyV1, SeccompSyscallRuleV2, SeccompSyscallPolicyV2,
+    };
 
     #[repr(C)]
     struct SockFilter {
@@ -848,9 +851,37 @@ fn thread_sync_divergent_filter_child() -> ! {
         unsafe { libc::_exit(189) };
     }
 
+    // Exercise the same kernel-side TSYNC failure through the parameter-aware
+    // V2 installation path. Keeping the divergent sibling in place means both
+    // installers must normalize the same underlying failure to ESRCH.
+    let v2_rule = SeccompSyscallRuleV2::new(
+        libc::SYS_getpid,
+        vec![SeccompArgPredicateV1::new(0, 1, 0)
+            .unwrap_or_else(|_| unsafe { libc::_exit(195) })],
+    )
+    .unwrap_or_else(|_| unsafe { libc::_exit(196) });
+    let v2_policy = SeccompSyscallPolicyV2::new(architecture, vec![v2_rule])
+        .unwrap_or_else(|_| unsafe { libc::_exit(197) });
+    let v2_profile = SandboxProfileV1::renderer_default()
+        .with_syscall_policy_digest(v2_policy.digest())
+        .unwrap_or_else(|_| unsafe { libc::_exit(198) });
+
+    let v2_result = install_v2(
+        RendererProcessAssignmentId::new(9).unwrap(),
+        v2_profile,
+        &v2_policy,
+    );
+    if !matches!(
+        v2_result,
+        Err(SeccompError::InstallationFailed(errno)) if errno == libc::ESRCH
+    ) {
+        unsafe { libc::_exit(199) };
+    }
+
     // Linux guarantees that a failed TSYNC synchronization does not attach the
     // new filter. Probe the calling thread with getppid(), which is absent from
-    // the proposed allowlist: success proves no partial filter was installed.
+    // both the V1 and V2 proposed allowlists: success proves no partial filter
+    // was installed by either attempted path.
     let caller_probe = unsafe { libc::syscall(libc::SYS_getppid) };
     if caller_probe <= 0 {
         unsafe { libc::_exit(191) };
