@@ -1715,7 +1715,7 @@ mod tests {
         let first_agent = action_agent_key(53);
         let second_agent = action_agent_key(54);
         let first_credential =
-            authority_credential(first_authority.clone(), first_agent, "cross-registry-first");
+            authority_credential(first_authority.clone(), first_agent.clone(), "cross-registry-first");
         let second_credential =
             authority_credential(second_authority, second_agent, "cross-registry-second");
 
@@ -1725,6 +1725,12 @@ mod tests {
             .witness_identity
             .clone();
         let registered_provenance = first_credential.payload.provenance.clone();
+
+        let calls = Arc::new(Mutex::new(Vec::new()));
+        let _previous = set_hdi(RecordingHdi {
+            calls: Arc::clone(&calls),
+            verify_result: true,
+        });
 
         let mut registry = HolochainAuthorityAgentBindingSet::new();
         assert!(matches!(
@@ -1759,6 +1765,11 @@ mod tests {
         let result = bindings.bind_attested_with_authority(binding, &registry);
         let _ = set_hdi(ErrHdi);
 
+        assert_eq!(
+            calls.lock().unwrap().as_slice(),
+            ["verify_signature", "verify_signature"],
+            "cross-registry witness reuse must be rejected before runtime signature verification"
+        );
         assert!(matches!(
             result,
             Ok(Err(HolochainAdapterBoundaryError::BindingRejected { reason }))
