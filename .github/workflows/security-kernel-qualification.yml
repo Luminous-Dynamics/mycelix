@@ -474,7 +474,7 @@ jobs:
           fi
           for pattern in \
             '#\[derive\([^]]*(Serialize|Deserialize)[^]]*\)\][[:space:]]*(pub[[:space:]]+)?struct (VerificationEvidence|VerifiedCapability|AuthorizationPermit|EnforcementRequest)' \
-            'impl[[:space:]]+(Serialize|Deserialize)[[:space:]]+for[[:space:]]+(VerificationEvidence|VerifiedCapability|AuthorizationPermit|EnforcementRequest)' \
+            'impl[[:space:]]+(Debug|Clone|Copy|PartialEq|Eq|Serialize|Deserialize)[[:space:]]+for[[:space:]]+(VerificationEvidence|VerifiedCapability|AuthorizationPermit|EnforcementRequest)' \
             '#\[derive\([^]]*(Debug|PartialEq|Eq)[^]]*\)\][[:space:]]*pub struct VerificationEvidence' \
             '#\[derive\([^]]*(Debug|Clone|Copy|PartialEq|Eq|Serialize|Deserialize)[^]]*\)\][[:space:]]*pub struct AuthorizationPermit' \
             '#\[derive\([^]]*(Debug|Clone|Copy|PartialEq|Eq|Serialize|Deserialize)[^]]*\)\][[:space:]]*pub struct EnforcementRequest'
