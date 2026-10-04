@@ -673,6 +673,83 @@ fn compute_credential_content_hash(vc: &VerifiableCredential) -> Vec<u8> {
     holo_hash::blake2b_256(&content).to_vec()
 }
 
+
+fn eddsa_jcs_hash_data_for_presentation(
+    vp: &VerifiablePresentation,
+) -> ExternResult<Vec<u8>> {
+    let mut unsecured = serde_json::to_value(vp).map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Presentation JSON serialization failed: {e}"
+        )))
+    })?;
+    let unsecured_map = unsecured.as_object_mut().ok_or(wasm_error!(
+        WasmErrorInner::Guest("Presentation must serialize to a JSON object".into())
+    ))?;
+    unsecured_map.remove("proof");
+
+    let proof_value = serde_json::to_value(&vp.proof).map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Presentation proof JSON serialization failed: {e}"
+        )))
+    })?;
+    let mut proof_config = proof_value.as_object().cloned().ok_or(wasm_error!(
+        WasmErrorInner::Guest("Presentation proof must serialize to a JSON object".into())
+    ))?;
+    proof_config.remove("proofValue");
+
+    eddsa_jcs_hash_data_from_values(unsecured, Value::Object(proof_config))
+}
+
+fn compute_presentation_content_hash(vp: &VerifiablePresentation) -> Vec<u8> {
+    let mut content = Vec::new();
+    content.extend(vp.id.as_bytes());
+    content.push(0);
+    content.extend(vp.holder.as_bytes());
+    content.push(0);
+    for credential in &vp.verifiable_credential {
+        content.extend(credential.id.as_bytes());
+        content.push(0);
+    }
+    if let Some(challenge) = &vp.proof.challenge {
+        content.extend(challenge.as_bytes());
+    }
+    content.push(0);
+    if let Some(domain) = &vp.proof.domain {
+        content.extend(domain.as_bytes());
+    }
+
+    holo_hash::blake2b_256(&content).to_vec()
+}
+
+fn verify_presentation_signature_at_validation(
+    action_author: &AgentPubKey,
+    vp: &VerifiablePresentation,
+) -> ExternResult<bool> {
+    let hash_data = match vp.proof.cryptosuite.as_deref() {
+        Some("eddsa-jcs-2022") => eddsa_jcs_hash_data_for_presentation(vp)?,
+        None | Some("mycelix-blake2b-ed25519-2026") => compute_presentation_content_hash(vp),
+        Some(_) => return Ok(false),
+    };
+
+    if vp.proof.cryptosuite.as_deref() == Some("eddsa-jcs-2022") {
+        let raw = decode_raw_jcs_signature(&vp.proof.proof_value)
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e)))?;
+        return verify_signature(action_author.clone(), Signature::from(raw), hash_data);
+    }
+
+    let tagged = TaggedSignature::from_multibase(&vp.proof.proof_value)
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+    if tagged.algorithm != AlgorithmId::Ed25519 || tagged.signature_bytes.len() != 64 {
+        return Ok(false);
+    }
+    let raw = <[u8; 64]>::try_from(tagged.signature_bytes.as_slice()).map_err(|_| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Presentation Ed25519 proofValue must decode to exactly 64 bytes".into()
+        ))
+    })?;
+    verify_signature(action_author.clone(), Signature::from(raw), hash_data)
+}
+
 fn validate_credential_link(
     link_type: LinkTypes,
     base_address: &AnyLinkableHash,
@@ -1164,13 +1241,6 @@ fn validate_create_verifiable_presentation(
     action: EntryCreationAction,
     vp: VerifiablePresentation,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Author-binding: the coordinator's create_presentation already derives
-    // `holder_did` from agent_info() rather than trusting caller input (it
-    // isn't even part of CreatePresentationInput), but that's bypassable by
-    // a modified coordinator -- the integrity validator is the real
-    // security boundary. Without this, any agent could commit a
-    // VerifiablePresentation claiming to be presented by an arbitrary
-    // holder DID.
     let expected_holder_did = format!("did:mycelix:{}", action.author());
     if vp.holder != expected_holder_did {
         return Ok(ValidateCallbackResult::Invalid(
@@ -1178,7 +1248,12 @@ fn validate_create_verifiable_presentation(
         ));
     }
 
-    // Validate type includes VerifiablePresentation
+    if vp.context.first().map(String::as_str) != Some("https://www.w3.org/ns/credentials/v2") {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Presentation @context must start with the W3C credentials/v2 context".into(),
+        ));
+    }
+
     if !vp
         .presentation_type
         .contains(&"VerifiablePresentation".to_string())
@@ -1188,32 +1263,83 @@ fn validate_create_verifiable_presentation(
         ));
     }
 
-    // Validate holder is a DID
     if !vp.holder.starts_with("did:") {
         return Ok(ValidateCallbackResult::Invalid(
             "Holder must be a valid DID".into(),
         ));
     }
 
-    // Validate at least one credential
     if vp.verifiable_credential.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Presentation must contain at least one credential".into(),
         ));
     }
 
-    // The presentation proof verification method must belong to the holder
-    // DID whose AgentPubKey is used to verify the signature.
     if !verification_method_matches_did(&vp.proof.verification_method, &vp.holder) {
         return Ok(ValidateCallbackResult::Invalid(
             "Presentation proof verification method must belong to the holder DID".into(),
         ));
     }
 
-    // Validate proof purpose for presentation
     if vp.proof.proof_purpose != "authentication" {
         return Ok(ValidateCallbackResult::Invalid(
             "Presentation proof purpose must be 'authentication'".into(),
+        ));
+    }
+
+    match vp.proof.cryptosuite.as_deref() {
+        Some("eddsa-jcs-2022") => {
+            if vp.proof.proof_type != "DataIntegrityProof" {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "eddsa-jcs-2022 presentation proofs must use DataIntegrityProof".into(),
+                ));
+            }
+            if vp.proof.algorithm.is_some() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "eddsa-jcs-2022 presentation proofs must not declare algorithm".into(),
+                ));
+            }
+            if vp.proof.proof_context.as_deref() != Some(vp.context.as_slice()) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "eddsa-jcs-2022 presentation proof @context must exactly match the presentation @context".into(),
+                ));
+            }
+            let expected_method = format!("{}#keys-1-multikey", vp.holder);
+            if vp.proof.verification_method != expected_method {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "eddsa-jcs-2022 presentation proof must use the holder's canonical Multikey".into(),
+                ));
+            }
+        }
+        None | Some("mycelix-blake2b-ed25519-2026") => {
+            if vp.proof.algorithm != Some(0xed01) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Mycelix presentation proof must declare the Ed25519 0xed01 algorithm".into(),
+                ));
+            }
+        }
+        Some(_) => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Unsupported presentation cryptosuite".into(),
+            ));
+        }
+    }
+
+    if vp.proof.proof_type.is_empty() || vp.proof.proof_value.is_empty() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Presentation must have a valid proof".into(),
+        ));
+    }
+    if !is_date_time_stamp(&vp.proof.created) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Presentation proof created value must be an explicit dateTimeStamp with timezone".into(),
+        ));
+    }
+
+    let signature_valid = verify_presentation_signature_at_validation(&action.author(), &vp)?;
+    if !signature_valid {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Presentation proof signature does not verify against the committing holder".into(),
         ));
     }
 
