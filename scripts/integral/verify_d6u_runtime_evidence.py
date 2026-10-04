@@ -86,6 +86,9 @@ def main() -> None:
         assert check_id not in supplemental_observed, (
             f"duplicate D6U_SUBSTRATE_CHECK observation: {check_id}"
         )
+        assert check_id in supplemental_expected_fragments, (
+            f"unexpected D6U_SUBSTRATE_CHECK observation: {check_id}"
+        )
         assert "\t" not in reason, f"substrate witness must be a single field: {line!r}"
         expected_fragment = supplemental_expected_fragments[check_id]
         assert reason.strip(), f"substrate witness for {check_id!r} must be non-empty"
