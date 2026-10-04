@@ -17,7 +17,8 @@
     "pcr": "non-negative integer",
     "event_type": "string",
     "digest_sha256": "exactly 64 lowercase hexadecimal characters",
-    "session_id": "optional; when present, must equal the reconstruction session_id"
+    "session_id": "optional; when present, must equal the reconstruction session_id",
+    "startup_locality": "optional integer 0..4; valid only on PCR0 EV_NO_ACTION StartupLocality records"
   },
   "output_schema": {
     "profile_id": "string",
@@ -54,7 +55,8 @@
     "the reconstruction receipt must identify the exact verifier executable provenance",
     "the bundle verifier independently executes the reconstruction theorem and rejects disagreement with the supplied receipt",
     "EV_NO_ACTION is logged context and does not extend the PCR",
-    "HCRTM PCR0 initialization is outside the zero-state replay profile and must be INDETERMINATE rather than silently misreconstructed"
+    "HCRTM PCR0 initialization is outside the zero-state replay profile and must be INDETERMINATE rather than silently misreconstructed",
+    "PCR0 StartupLocality EV_NO_ACTION records do not provide an ordinary extend measurement; their locality effect changes the initial PCR state and is outside the zero-state replay profile, so the verifier returns INDETERMINATE"
   ],
   "vectors": [
     {
@@ -175,6 +177,11 @@
     {
       "id": "PLR-V24",
       "mutation": "hcrtm-initial-state-adjustment-unsupported",
+      "expected": "INDETERMINATE"
+    },
+    {
+      "id": "PLR-V25",
+      "mutation": "startup-locality-initial-state-adjustment-unsupported",
       "expected": "INDETERMINATE"
     }
   ],
