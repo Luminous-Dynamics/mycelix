@@ -461,27 +461,35 @@ check_create_record_entry_dispatch() {
   local source enum_block variant create_block update_block
   source="$(sed '/^\#\[cfg(test)\]/,$d' "$file")"
   enum_block="$(printf '%s\n' "$source" | sed -n '/^pub enum EntryTypes[[:space:]]*{/,/^}/p')"
-  create_block="$(printf '%s\n' "$source" | awk '/FlatOp::CreateRecord\\(OpRecord::CreateEntry/{in_block=1} /FlatOp::CreateRecord\\(OpRecord::UpdateEntry/{in_block=0} in_block')"
-  update_block="$(printf '%s\n' "$source" | awk '/FlatOp::CreateRecord\\(OpRecord::UpdateEntry/{in_block=1} /FlatOp::Link/{if(in_block){in_block=0}} in_block')"
+  create_block="$(printf '%s\n' "$source" | awk '
+    index($0, "FlatOp::CreateRecord(OpRecord::CreateEntry") { in_block=1 }
+    index($0, "FlatOp::CreateRecord(OpRecord::UpdateEntry") { in_block=0 }
+    in_block
+  ')"
+  update_block="$(printf '%s\n' "$source" | awk '
+    index($0, "FlatOp::CreateRecord(OpRecord::UpdateEntry") { in_block=1 }
+    index($0, "FlatOp::Link") && in_block { in_block=0 }
+    in_block
+  ')"
   while IFS= read -r variant; do
     [[ -z "$variant" ]] && continue
-    if printf '%s\n' "$create_block" | rg -n --pcre2 "\\bEntryTypes::${variant}\\b" >/dev/null 2>&1; then
+    if printf '%s\n' "$create_block" | rg -n --pcre2 "\bEntryTypes::${variant}\b" >/dev/null 2>&1; then
       echo "OK:   $file CreateRecord create dispatch covers EntryTypes::$variant"
     else
       echo "FAIL: $file CreateRecord create dispatch misses EntryTypes::$variant"
       fail=1
     fi
-    if [[ "$variant" != "Anchor" ]] && printf '%s\n' "$create_block" | rg -nU --pcre2 "EntryTypes::${variant}\\([^)]*\\)[[:space:]]*=>[[:space:]]*Ok[[:space:]]*\\([[:space:]]*ValidateCallbackResult::Valid" >/dev/null 2>&1; then
+    if [[ "$variant" != "Anchor" ]] && printf '%s\n' "$create_block" | rg -nU --pcre2 "EntryTypes::${variant}\([^)]*\)[[:space:]]*=>[[:space:]]*Ok[[:space:]]*\([[:space:]]*ValidateCallbackResult::Valid" >/dev/null 2>&1; then
       echo "FAIL: $file CreateRecord accepts non-anchor EntryTypes::$variant without application validation"
       fail=1
     fi
-    if printf '%s\n' "$update_block" | rg -n --pcre2 "\\bEntryTypes::${variant}\\b" >/dev/null 2>&1; then
+    if printf '%s\n' "$update_block" | rg -n --pcre2 "\bEntryTypes::${variant}\b" >/dev/null 2>&1; then
       echo "OK:   $file CreateRecord update dispatch covers EntryTypes::$variant"
     else
       echo "FAIL: $file CreateRecord update dispatch misses EntryTypes::$variant"
       fail=1
     fi
-  done < <(printf '%s\n' "$enum_block" | rg --pcre2 -o '^\\s*[A-Za-z_][A-Za-z0-9_]*\\s*\\(' | sed -E 's/^\\s*([A-Za-z_][A-Za-z0-9_]*).*$/\\1/')
+  done < <(printf '%s\n' "$enum_block" | rg --pcre2 -o '^\s*[A-Za-z_][A-Za-z0-9_]*\s*\(' | sed -E 's/^\s*([A-Za-z_][A-Za-z0-9_]*).*$/\1/')
 }
 # Dangerous operation families must never be accepted solely by a terminal
 # wildcard. Delete and Link carry authorization/state semantics of their own;
