@@ -3237,6 +3237,14 @@ mod tests {
             shrunk.len() < failing.len(),
             "shrinker must reduce a non-minimal failing sequence"
         );
+        for index in 0..shrunk.len() {
+            let mut reduced = shrunk.clone();
+            reduced.remove(index);
+            assert!(
+                !fails(&reduced),
+                "shrunk sequence is not 1-minimal; removing step {index} still fails"
+            );
+        }
     }
 
     #[test]
