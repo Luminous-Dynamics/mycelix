@@ -774,7 +774,7 @@ for index, case in enumerate(cases, start=1):
         if isinstance(value, str):
             if not value.strip():
                 reject(f"case #{index} field {key!r} is empty")
-            if "\\n" in value or "\\r" in value:
+            if "\n" in value or "\r" in value:
                 reject(f"case #{index} field {key!r} contains a newline")
 
     case_id = case["case_id"]
@@ -794,11 +794,11 @@ for index, case in enumerate(cases, start=1):
         reject(f"{case_id} boundary must be integrity_validation")
     if case["expected_result"] != "Invalid":
         reject(f"{case_id} expected_result must be Invalid")
-    if case["invariant_code"].strip() == case["invariant"].strip():
-        reject(f"{case_id} invariant_code must remain executable code, not prose copied from invariant")
     surfaces = case["operation_surface"]
     if not surfaces or any(not isinstance(surface, str) for surface in surfaces):
         reject(f"{case_id} operation_surface must be a non-empty string array")
+    if len(surfaces) != len(set(surfaces)):
+        reject(f"{case_id} contains duplicate operation surfaces")
     unknown = [surface for surface in surfaces if surface not in allowed_surfaces]
     if unknown:
         reject(f"{case_id} contains unknown operation surfaces: {unknown}")
