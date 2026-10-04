@@ -2508,7 +2508,7 @@ mod tests {
         assert_eq!(validate_state(&state), Ok(()));
     }
 
-    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
     enum FederationStateMachineOperation {
         AddRecognition,
         DuplicateRecognition,
