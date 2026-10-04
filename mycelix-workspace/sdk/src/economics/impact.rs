@@ -469,6 +469,10 @@ impl ImpactLedger {
         let mut blocking_obligation_ids = Vec::new();
 
         for impact in self.impacts.values() {
+            if impact.direction != ImpactDirection::Depletion {
+                continue;
+            }
+
             match impact.status {
                 ImpactStatus::Open | ImpactStatus::Challenged | ImpactStatus::Inconclusive => {
                     open_impact_ids.push(impact.id.clone());
