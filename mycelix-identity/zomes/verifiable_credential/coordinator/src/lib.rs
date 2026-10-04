@@ -1967,7 +1967,7 @@ pub fn issue_credential_for_request(
         )));
     }
 
-    let credential = issue_credential(IssueCredentialInput {
+    let credential_record = issue_credential(IssueCredentialInput {
         subject_did: req.requester_did.clone(),
         schema_id: req.schema_id.clone(),
         claims: input.claims,
@@ -1978,18 +1978,14 @@ pub fn issue_credential_for_request(
         strict_schema: input.strict_schema,
     })?;
 
-    let credential: VerifiableCredential = credential
+    let credential: VerifiableCredential = credential_record
         .entry()
         .to_app_option()
         .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
         .ok_or(wasm_error!(WasmErrorInner::Guest(
             "Issued credential record could not be decoded".into(),
         )))?;
-    let credential_action = get_credential(credential.id.clone())?
-        .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Issued credential could not be resolved by its canonical ID".into(),
-        )))?;
-    let credential_action_hash = credential_action.action_address().clone();
+    let credential_action_hash = credential_record.action_address().clone();
 
     // The request update carries the credential ActionHash. The integrity zome
     // independently dereferences it and verifies issuer, subject, and schema.
@@ -2005,7 +2001,7 @@ pub fn issue_credential_for_request(
         &EntryTypes::CredentialRequest(updated),
     )?;
 
-    get(credential_action.action_address().clone(), GetOptions::default())?.ok_or(
+    get(credential_action_hash, GetOptions::default())?.ok_or(
         wasm_error!(WasmErrorInner::Guest(
             "Could not retrieve the issued credential after binding it to the request".into(),
         )),
