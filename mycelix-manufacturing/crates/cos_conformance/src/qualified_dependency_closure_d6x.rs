@@ -2173,7 +2173,7 @@ mod tests {
     }
 
     #[test]
-    fn source_snapshot_mutation_changes_d6x_identity() {
+    fn source_snapshot_substitution_is_rejected_at_d6x_boundary() {
         let (baseline, environment, derivation_profile) = projection(false);
         let before = compute_dependency_closure(
             &baseline,
@@ -2181,7 +2181,7 @@ mod tests {
             &derivation_profile,
             &profile(BTreeSet::new()),
         )
-        .unwrap();
+        .expect("baseline projection must yield a closure");
 
         let mut changed = baseline.clone();
         changed.source_dkg_snapshot_commitment = "different-snapshot".into();
@@ -2190,11 +2190,19 @@ mod tests {
             &environment,
             &derivation_profile,
             &profile(BTreeSet::new()),
-        )
-        .unwrap();
+        );
 
-        assert_ne!(before.source_dkg_snapshot_commitment, after.source_dkg_snapshot_commitment);
-        assert_ne!(before.closure_identity_commitment, after.closure_identity_commitment);
+        assert_eq!(
+            before.source_dkg_snapshot_commitment,
+            environment
+                .dependency_snapshot_root
+                .clone()
+                .expect("baseline environment must bind a dependency snapshot")
+        );
+        assert!(
+            after.is_none(),
+            "D6X must reject a projection whose source snapshot commitment diverges from the bound environment"
+        );
     }
 
     #[test]
