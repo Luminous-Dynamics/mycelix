@@ -202,7 +202,7 @@ check_validation_determinism() {
   forbidden_log="${diagnostic_dir}/forbidden.log"
   random_log="${diagnostic_dir}/random.log"
 
-  if printf '%s\n' "$source" | rg -n --pcre2 '(?<![A-Za-z0-9_.])(?:get|get_links|get_links_details|get_details|count_links|get_agent_activity|get_validation_receipts|agent_info|call_info|create_entry|update_entry|delete_entry|create_link|delete_link|call|call_remote|send_remote_signal|emit_signal|sys_time|random_bytes)\s*\(' >"$forbidden_log" 2>&1; then
+  if printf '%s\n' "$source" | rg -nU --pcre2 '(?<![A-Za-z0-9_.])(?:get|get_links|get_links_details|get_details|count_links|get_agent_activity|get_validation_receipts|agent_info|call_info|create_entry|update_entry|delete_entry|create_link|delete_link|call|call_remote|send_remote_signal|emit_signal|sys_time|random_bytes)\s*\(' >"$forbidden_log" 2>&1; then
     echo "FAIL: $file contains non-deterministic validation host API usage"
     cat "$forbidden_log"
     fail=1
