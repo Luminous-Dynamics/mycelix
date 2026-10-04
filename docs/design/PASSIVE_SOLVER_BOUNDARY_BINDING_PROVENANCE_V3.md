@@ -24,6 +24,7 @@ v3 records deterministic evidence for the selected patch:
 - boundary patch digest derived from interface identity, exact mesh identity, selection, perimeter, and residuals;
 - `evidence_level=AdapterAttested` for ordinary adapter binding;
 - `solver_entity_fingerprint` and `solver_entity_mapping_digest` when the binding is promoted to `SolverEntityAttested` after concrete solver-side entity introspection.
+- the solver-entity mapping digest is adapter-specific, preventing an attestation receipt from being transplanted between adapter implementations.
 
 
 The certificate rejects selections that contain non-boundary edges, omit expected rim edges, fail the declared interface geometry, or do not form one connected closed loop.
