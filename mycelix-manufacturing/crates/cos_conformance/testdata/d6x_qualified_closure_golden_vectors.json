@@ -29,6 +29,10 @@
         "certificate_sha256": "753cd27457ee36c2fbfcc0eb300c46caab20246ab7039eece70dca624a31d9a1"
       },
       "recipe": {
+        "profile_id": "closure",
+        "profile_version": "1",
+        "excluded_boundary_policy": "Only rule-matched semantic edges expand closure.",
+        "claim_ceiling": "ReferenceModelOnly",
         "root_node_ids": [
           "root"
         ],
@@ -61,6 +65,10 @@
         "certificate_sha256": "073ec7ebf215d6206d86b31d6588e784e2932852a05bf06ce91cbfb7869c851d"
       },
       "recipe": {
+        "profile_id": "closure",
+        "profile_version": "1",
+        "excluded_boundary_policy": "Only rule-matched semantic edges expand closure.",
+        "claim_ceiling": "ReferenceModelOnly",
         "root_node_ids": [
           "root"
         ],
@@ -98,6 +106,10 @@
         "certificate_sha256": "8e47bdbbdeca409e2c25b0898aba0262271703b33630f4ef4ee6279ea62b177"
       },
       "recipe": {
+        "profile_id": "closure",
+        "profile_version": "1",
+        "excluded_boundary_policy": "Only rule-matched semantic edges expand closure.",
+        "claim_ceiling": "ReferenceModelOnly",
         "root_node_ids": [
           "root"
         ],
@@ -136,6 +148,10 @@
         "certificate_sha256": "9ff103909320cd1235d2240864a7867316277de3305193e414327f43a5077139"
       },
       "recipe": {
+        "profile_id": "closure",
+        "profile_version": "1",
+        "excluded_boundary_policy": "Only rule-matched semantic edges expand closure.",
+        "claim_ceiling": "ReferenceModelOnly",
         "root_node_ids": [
           "root"
         ],
@@ -180,6 +196,10 @@
         "certificate_sha256": "81aeaedff58238170c78df1aca86afb45807456fa1725f893fb5a094cac42cfa"
       },
       "recipe": {
+        "profile_id": "closure",
+        "profile_version": "1",
+        "excluded_boundary_policy": "Only rule-matched semantic edges expand closure.",
+        "claim_ceiling": "ReferenceModelOnly",
         "root_node_ids": [
           "root"
         ],
@@ -223,6 +243,10 @@
         "certificate_sha256": "7568c5746e3c121aeda9e90210237b2758f9ff1c4a052e687360414b89ef6fc8"
       },
       "recipe": {
+        "profile_id": "closure",
+        "profile_version": "1",
+        "excluded_boundary_policy": "Only rule-matched semantic edges expand closure.",
+        "claim_ceiling": "ReferenceModelOnly",
         "root_node_ids": [
           "root"
         ],
@@ -266,6 +290,10 @@
         "certificate_sha256": "60167f53318920b573fd44340ed2325eba289fa7de389b8adfa1428c351429c7"
       },
       "recipe": {
+        "profile_id": "closure",
+        "profile_version": "1",
+        "excluded_boundary_policy": "Only rule-matched semantic edges expand closure.",
+        "claim_ceiling": "ReferenceModelOnly",
         "root_node_ids": [
           "root"
         ],
@@ -306,6 +334,10 @@
         "certificate_sha256": "de806374e0805aa74a1c2211fe6c57e0e1b22ff6d82b3e9bb854640383b23f36"
       },
       "recipe": {
+        "profile_id": "closure",
+        "profile_version": "1",
+        "excluded_boundary_policy": "Only rule-matched semantic edges expand closure.",
+        "claim_ceiling": "ReferenceModelOnly",
         "root_node_ids": [
           "root"
         ],
@@ -341,6 +373,10 @@
         "certificate_sha256": "0f94300671b986935a00864f1ca4ffbd63955ec8a9dc4365b4a08fe305d4321b"
       },
       "recipe": {
+        "profile_id": "closure",
+        "profile_version": "1",
+        "excluded_boundary_policy": "Only rule-matched semantic edges expand closure.",
+        "claim_ceiling": "ReferenceModelOnly",
         "root_node_ids": [
           "root"
         ],
