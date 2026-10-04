@@ -1208,6 +1208,44 @@ mod tests {
     }
 
     #[test]
+    fn resolution_evidence_with_wrong_observed_commitment_fails_closed() {
+        let (projection, environment, derivation_profile) = projection(false);
+        let profile = profile(BTreeSet::new());
+        let mut certificate =
+            compute_dependency_closure(&projection, &environment, &derivation_profile, &profile)
+                .expect("baseline closure");
+
+        let dependency = SemanticDependencyReferenceV1::node(
+            "root",
+            Some(
+                projection
+                    .nodes
+                    .get("root")
+                    .expect("root")
+                    .node_commitment
+                    .clone(),
+            ),
+        );
+        certificate.resolution_evidence.insert(
+            dependency,
+            SemanticDependencyResolutionEvidenceV1 {
+                retrieval_reference: Some("runtime://resolver/wrong-observed-commitment".into()),
+                observed_commitment: Some("commitment-from-another-object".into()),
+                qualification_context_commitment: Some("qualification-context-1".into()),
+            },
+        );
+        certificate.commitment = certificate.recompute();
+
+        assert!(!certificate.valid());
+        assert!(!certificate.verifies_against_sources(
+            &projection,
+            &environment,
+            &derivation_profile,
+            &profile,
+        ));
+    }
+
+    #[test]
     fn structured_dependency_maps_are_hashable_and_deterministic() {
         let (projection, environment, derivation_profile) = projection(false);
         let profile = profile(BTreeSet::new());
