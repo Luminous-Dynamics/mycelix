@@ -87,22 +87,7 @@ fn decision_record_order_key(record: &Record) -> (Timestamp, Vec<u8>) {
     )
 }
 
-/// Determine whether a decision revision is terminal.
-fn decision_record_is_terminal(record: &Record) -> ExternResult<bool> {
-    let decision: Decision = record
-        .entry()
-        .to_app_option()
-        .map_err(|e| {
-            wasm_error!(WasmErrorInner::Guest(format!(
-                "Failed to deserialize Decision record: {e}"
-            )))
-        })?
-        .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Decision record entry is missing".into()
-        )))?;
-    Ok(decision.status != DecisionStatus::Open)
-}
-
+/// Canonical lifecycle precedence for concurrent Decision revisions.,///,/// `Finalized` contains a substantive resolution, while `Closed` only ends,/// the process. `Open` remains the lowest-precedence observable state.,fn decision_status_rank(status: &DecisionStatus) -> u8 {,    match status {,        DecisionStatus::Open => 0,,        DecisionStatus::Closed => 1,,        DecisionStatus::Finalized => 2,,    },},,/// Read the lifecycle status from a Decision record.,fn decision_record_status(record: &Record) -> ExternResult<DecisionStatus> {,    let decision: Decision = record,        .entry(),        .to_app_option(),        .map_err(|e| {,            wasm_error!(WasmErrorInner::Guest(format!(,                "Failed to deserialize Decision record: {e}",            ))),        })?,        .ok_or(wasm_error!(WasmErrorInner::Guest(,            "Decision record entry is missing".into(),        )))?;,    Ok(decision.status),},,/// Deterministically compare two reachable Decision revisions.,fn decision_revision_is_preferred(candidate: &Record, current: &Record) -> ExternResult<bool> {,    let candidate_status = decision_record_status(candidate)?;,    let current_status = decision_record_status(current)?;,    let candidate_rank = decision_status_rank(&candidate_status);,    let current_rank = decision_status_rank(&current_status);,,    if candidate_rank != current_rank {,        return Ok(candidate_rank > current_rank);,    },,    Ok(decision_record_order_key(candidate) > decision_record_order_key(current)),},
 /// Collect every reachable valid Decision revision from a root action.
 ///
 /// Decision updates can branch concurrently. We therefore traverse the immutable
@@ -153,18 +138,19 @@ fn get_current_decision_record(action_hash: ActionHash) -> ExternResult<Option<R
         return Ok(None);
     }
 
-    let mut terminal: Vec<Record> = Vec::new();
-    let mut open: Vec<Record> = Vec::new();
+    let mut canonical: Option<Record> = None;
     for record in revisions {
-        if decision_record_is_terminal(&record)? {
-            terminal.push(record);
-        } else {
-            open.push(record);
+        let replace = canonical
+            .as_ref()
+            .map(|current| decision_revision_is_preferred(&record, current))
+            .transpose()?
+            .unwrap_or(true);
+        if replace {
+            canonical = Some(record);
         }
     }
 
-    let candidates = if terminal.is_empty() { open } else { terminal };
-    Ok(candidates.into_iter().max_by_key(decision_record_order_key))
+    Ok(canonical)
 }
 
 /// Check whether the current time is at or past the deadline.
@@ -2072,21 +2058,16 @@ mod tests {
     // ---- Current Decision revision semantics ----
 
     #[test]
-    fn decision_record_terminal_classification() {
-        let open = DecisionStatus::Open;
-        let closed = DecisionStatus::Closed;
-        let finalized = DecisionStatus::Finalized;
-
-        assert!(!matches!(open, DecisionStatus::Closed | DecisionStatus::Finalized));
-        assert!(matches!(closed, DecisionStatus::Closed | DecisionStatus::Finalized));
-        assert!(matches!(finalized, DecisionStatus::Closed | DecisionStatus::Finalized));
+    fn decision_status_rank_prefers_substantive_resolution() {
+        assert_eq!(decision_status_rank(&DecisionStatus::Open), 0);
+        assert_eq!(decision_status_rank(&DecisionStatus::Closed), 1);
+        assert_eq!(decision_status_rank(&DecisionStatus::Finalized), 2);
     }
 
     #[test]
-    fn terminal_revision_semantics_are_strictly_non_open() {
-        for status in [DecisionStatus::Closed, DecisionStatus::Finalized] {
-            assert_ne!(status, DecisionStatus::Open);
-        }
+    fn decision_status_rank_is_strictly_ordered() {
+        assert!(decision_status_rank(&DecisionStatus::Finalized) > decision_status_rank(&DecisionStatus::Closed));
+        assert!(decision_status_rank(&DecisionStatus::Closed) > decision_status_rank(&DecisionStatus::Open));
     }
 
     // ---- Pure helper: winning_option (deterministic tiebreaker) ----
