@@ -510,25 +510,37 @@ pub fn get_credential(credential_id: String) -> ExternResult<Option<Record>> {
         GetStrategy::default(),
     )?;
 
+    let mut selected: Option<(ActionHash, Record)> = None;
     for link in links {
         let action_hash = ActionHash::try_from(link.target)
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        if let Some(record) = get(action_hash, GetOptions::default())? {
+        if let Some(record) = get(action_hash.clone(), GetOptions::default())? {
             // The link base is a hash of the ID string, so confirm the entry
-            // really carries the requested ID before returning it.
+            // really carries the requested ID before considering it.
             if let Some(vc) = record
                 .entry()
                 .to_app_option::<VerifiableCredential>()
                 .ok()
                 .flatten()
             {
-                if vc.id == credential_id {
-                    return Ok(Some(record));
+                if vc.id != credential_id {
+                    continue;
+                }
+
+                if let Some((existing_hash, _)) = selected.as_ref() {
+                    if existing_hash != &action_hash {
+                        return Err(wasm_error!(WasmErrorInner::Guest(
+                            "Ambiguous credential ID: multiple distinct credentials exist".into(),
+                        )));
+                    }
+                } else {
+                    selected = Some((action_hash, record));
                 }
             }
         }
     }
-    Ok(None)
+
+    Ok(selected.map(|(_, record)| record))
 }
 
 /// Get credentials issued by a DID
