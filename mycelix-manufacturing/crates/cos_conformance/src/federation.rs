@@ -2765,6 +2765,28 @@ mod tests {
         current
     }
 
+    fn state_machine_token_shrink_candidates(token: u64) -> BTreeSet<u64> {
+        let mut candidates = BTreeSet::from([
+            0,
+            1,
+            2,
+            3,
+            4,
+            8,
+            16,
+            32,
+            64,
+            128,
+            token.saturating_sub(1),
+            token / 2,
+            token / 4,
+            token & 0xff,
+            token % 1024,
+        ]);
+        candidates.remove(&token);
+        candidates
+    }
+
     fn shrink_failing_state_machine_tokens<F>(
         plan: &[(FederationStateMachineOperation, u64)],
         mut fails: F,
@@ -2779,38 +2801,29 @@ mod tests {
 
         let mut current = plan.to_vec();
 
-        for index in 0..current.len() {
-            let original_token = current[index].1;
-            let mut candidates = BTreeSet::from([
-                0,
-                1,
-                2,
-                3,
-                4,
-                8,
-                16,
-                32,
-                64,
-                128,
-                original_token.saturating_sub(1),
-                original_token / 2,
-                original_token / 4,
-                original_token & 0xff,
-                original_token % 1024,
-            ]);
-            candidates.remove(&original_token);
+        loop {
+            let mut changed = false;
 
-            for candidate_token in candidates {
-                if candidate_token >= current[index].1 {
-                    continue;
-                }
+            for index in 0..current.len() {
+                let current_token = current[index].1;
 
-                let mut candidate = current.clone();
-                candidate[index].1 = candidate_token;
-                if fails(&candidate) {
-                    current = candidate;
-                    break;
+                for candidate_token in state_machine_token_shrink_candidates(current_token) {
+                    if candidate_token >= current_token {
+                        continue;
+                    }
+
+                    let mut candidate = current.clone();
+                    candidate[index].1 = candidate_token;
+                    if fails(&candidate) {
+                        current = candidate;
+                        changed = true;
+                        break;
+                    }
                 }
+            }
+
+            if !changed {
+                break;
             }
         }
 
@@ -3385,11 +3398,70 @@ mod tests {
                 "capsule is not minimal after removing step {index}"
             );
         }
+        let replayed = invariant_failure_from_plan(&failure.0.trace_prefix, failure.0.trace_index)
+            .expect("minimized failure capsule must replay");
+        assert_eq!(
+            replayed.observed_violations,
+            failure.0.observed_violations,
+            "replay must preserve the exact invariant-violation surface"
+        );
+        assert_eq!(replayed.operation, failure.0.operation);
+        assert_eq!(replayed.token, failure.0.token);
+        assert_eq!(
+            replayed.pre_state_fingerprint,
+            failure.0.pre_state_fingerprint,
+            "replay must reproduce the pre-failure state fingerprint"
+        );
+        assert_eq!(
+            replayed.post_state_fingerprint,
+            failure.0.post_state_fingerprint,
+            "replay must reproduce the post-failure state fingerprint"
+        );
+
         let json = failure.0.to_json();
         let round_trip =
             serde_json::from_str::<FederationStateMachineFailureCapsule>(&json)
                 .expect("failure capsule must deserialize");
         assert_eq!(round_trip, failure.0);
+    }
+
+    #[test]
+    fn state_machine_parameter_shrinker_reaches_a_fixed_point() {
+        let failing = vec![
+            (FederationStateMachineOperation::AdmitLocal, 4096),
+            (FederationStateMachineOperation::InjectDeliveryMapCorruption, 4096),
+        ];
+        let fails = |candidate: &[(FederationStateMachineOperation, u64)]| {
+            candidate.len() == 2
+                && candidate[0].0 == FederationStateMachineOperation::AdmitLocal
+                && candidate[1].0 == FederationStateMachineOperation::InjectDeliveryMapCorruption
+                && candidate[0].1 == candidate[1].1
+                && candidate[0].1 > 0
+        };
+
+        let shrunk = shrink_failing_state_machine_tokens(&failing, fails);
+        assert_eq!(
+            shrunk,
+            vec![
+                (FederationStateMachineOperation::AdmitLocal, 1),
+                (FederationStateMachineOperation::InjectDeliveryMapCorruption, 1),
+            ]
+        );
+        assert!(fails(&shrunk));
+
+        for index in 0..shrunk.len() {
+            for candidate_token in state_machine_token_shrink_candidates(shrunk[index].1) {
+                if candidate_token >= shrunk[index].1 {
+                    continue;
+                }
+                let mut candidate = shrunk.clone();
+                candidate[index].1 = candidate_token;
+                assert!(
+                    !fails(&candidate),
+                    "parameter-shrunk sequence is not at a fixed point for token index {index}"
+                );
+            }
+        }
     }
 
     #[test]
