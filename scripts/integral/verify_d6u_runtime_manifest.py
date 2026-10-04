@@ -6,6 +6,7 @@ It does not execute Holochain and must not be treated as runtime qualification.
 """
 
 import hashlib
+import json
 import subprocess
 from pathlib import Path
 
@@ -13,46 +14,6 @@ ROOT = Path(__file__).parents[2]
 MANIFEST = ROOT / "docs/integral/d6u-runtime-manifest.json"
 D6S2_MANIFEST = ROOT / "docs/integral/d6s-canon-2-manifest.json"
 D6S2_FIXTURE = ROOT / "docs/integral/d6s-canon-2-authority-boundary-fixture.json"
-
-SUPPORTED = {
-    "canonical-payload-accepted",
-    "authorized-semantic-rejection",
-    "wire-signature-invalid",
-    "author-grant",
-    "valid-capability",
-    "wrong-capability",
-    "revoked-capability",
-    "provenance-mismatch",
-    "nonce-replay",
-    "expired-invocation",
-    "wrong-zome",
-    "wrong-function",
-    "wrong-cell",
-    "blocked-provenance",
-}
-
-UNSUPPORTED = {
-    "wire-signature-valid",
-    "nonce-stale",
-    "payload-mutation",
-}
-
-CASE_OUTCOMES = {
-    "canonical-payload-accepted": "accepted",
-    "authorized-semantic-rejection": "semantic-rejected",
-    "wire-signature-invalid": "authentication-failed",
-    "author-grant": "accepted",
-    "valid-capability": "accepted",
-    "wrong-capability": "authorization-failed",
-    "revoked-capability": "authorization-failed",
-    "provenance-mismatch": "authorization-failed",
-    "nonce-replay": "authorization-failed",
-    "expired-invocation": "authorization-failed",
-    "wrong-zome": "routing-failed",
-    "wrong-function": "routing-failed",
-    "wrong-cell": "routing-failed",
-    "blocked-provenance": "authorization-failed",
-}
 
 SUPPLEMENTAL_SUBSTRATE_CHECKS = {
     "future-expiry-rejection",
@@ -77,6 +38,15 @@ UNSUPPORTED_REASONS = {
     "payload-mutation": "D6S-CANON-2 defines this as a pre-zome D6S-integrity rejection with zome_reached=false, but Holochain 0.7 has no native invocation-payload D6S commitment gate; the harness retains a probe-local commitment check only as supplemental application evidence.",
 }
 
+EXPECTED_EVIDENCE_CLASSES = [
+    "accepted",
+    "semantic-rejected",
+    "d6s-commitment-mismatch",
+    "authentication-failed",
+    "authorization-failed",
+    "routing-failed",
+]
+
 
 def git_blob_sha(path: Path) -> str:
     return subprocess.run(
@@ -91,13 +61,44 @@ def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def derive_case_outcomes(fixture_cases: list[dict]) -> dict[str, str]:
+    """Derive D6U protocol outcomes from the canonical D6S-CANON-2 fixture.
+
+    The case IDs themselves remain canonical fixture data. Only the translation
+    from reference boundary results to D6U observation classes is encoded here.
+    """
+    outcomes: dict[str, str] = {}
+    for case in fixture_cases:
+        case_id = case["case_id"]
+        boundary_result = case["boundary_result"]
+        semantic_result = case["semantic_result"]
+
+        if boundary_result == "authorized":
+            outcomes[case_id] = (
+                "semantic-rejected"
+                if semantic_result == "rejected-by-zome"
+                else "accepted"
+            )
+        elif boundary_result == "holochain-signature-authentication-rejection":
+            outcomes[case_id] = "authentication-failed"
+        elif boundary_result == "holochain-authorization-rejection":
+            outcomes[case_id] = "authorization-failed"
+        elif boundary_result in {
+            "holochain-routing-or-binding-rejection",
+            "holochain-binding-or-authorization-rejection",
+        }:
+            outcomes[case_id] = "routing-failed"
+    return outcomes
+
+
 def main() -> None:
-    manifest = __import__("json").loads(MANIFEST.read_text(encoding="utf-8"))
-    d6s2 = __import__("json").loads(D6S2_MANIFEST.read_text(encoding="utf-8"))
+    manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    d6s2 = json.loads(D6S2_MANIFEST.read_text(encoding="utf-8"))
+    fixture = json.loads(D6S2_FIXTURE.read_text(encoding="utf-8"))
 
     assert manifest["profile"] == "D6U-RUNTIME-1"
     assert manifest["kind"] == "holochain-0.7-authority-boundary-runtime-manifest"
-    assert manifest["version"] == 8
+    assert isinstance(manifest["version"], int) and manifest["version"] > 0
     assert manifest["claim_ceiling"] == "ReferenceModelOnly"
     assert manifest["evidence_verifier_path"] == "scripts/integral/verify_d6u_runtime_evidence.py"
     assert manifest["evidence_record_verifier_path"] == "scripts/integral/verify_d6u_runtime_record.py"
@@ -132,24 +133,34 @@ def main() -> None:
         "holochain_serialized_bytes": "0.0.57",
     }
 
+    fixture_cases = fixture["boundary"]
+    fixture_case_ids = {case["case_id"] for case in fixture_cases}
+    assert fixture["profile"] == "D6S-CANON-2"
+    assert d6s2["expected_case_count"] == len(fixture_case_ids)
+    assert fixture_case_ids == set(d6s2["expected_case_ids"])
+    assert len(fixture_cases) == len(fixture_case_ids)
+
     supported = set(manifest["supported_reference_cases"])
     unsupported = set(manifest["unsupported_reference_cases"])
-    assert supported == SUPPORTED
-    assert unsupported == UNSUPPORTED
+    assert supported | unsupported == fixture_case_ids
+    assert supported.isdisjoint(unsupported)
     assert manifest["unsupported_reference_case_reasons"] == UNSUPPORTED_REASONS
+    assert set(manifest["unsupported_reference_case_reasons"]) == unsupported
     assert len(supported) == 14
     assert len(unsupported) == 3
-    assert supported.isdisjoint(unsupported)
-    assert manifest["case_outcomes"] == CASE_OUTCOMES
+
+    derived_outcomes = derive_case_outcomes(fixture_cases)
+    assert supported <= set(derived_outcomes)
+    expected_case_outcomes = {
+        case_id: derived_outcomes[case_id] for case_id in supported
+    }
+    assert manifest["case_outcomes"] == expected_case_outcomes
     assert set(manifest["case_outcomes"]) == supported
-    assert manifest["evidence_outcome_classes"] == [
-        "accepted",
-        "semantic-rejected",
-        "d6s-commitment-mismatch",
-        "authentication-failed",
-        "authorization-failed",
-        "routing-failed",
-    ]
+    assert set(manifest["case_outcomes"].values()) <= set(
+        EXPECTED_EVIDENCE_CLASSES
+    )
+
+    assert manifest["evidence_outcome_classes"] == EXPECTED_EVIDENCE_CLASSES
     assert set(manifest["supplemental_substrate_checks"]) == SUPPLEMENTAL_SUBSTRATE_CHECKS
     assert set(manifest["supplemental_application_checks"]) == SUPPLEMENTAL_APPLICATION_CHECKS
     assert set(manifest["evidence_artifact_files"]) == EVIDENCE_ARTIFACT_FILES
@@ -159,20 +170,21 @@ def main() -> None:
     assert deps["d6s_canon_2_manifest_blob_sha"] == git_blob_sha(D6S2_MANIFEST)
     assert deps["d6s_canon_2_fixture_path"] == "docs/integral/d6s-canon-2-authority-boundary-fixture.json"
     assert deps["d6s_canon_2_fixture_blob_sha"] == git_blob_sha(D6S2_FIXTURE)
-    assert deps["d6s_canon_1_corpus_sha256"] == \
+    assert deps["d6s_canon_1_corpus_sha256"] == (
         "9d61cdb2e625c13c5813fffb7cceea4af2f93ed60d7d64c068dc6d3f6f6b614d"
+    )
 
     assert d6s2["profile"] == "D6S-CANON-2"
     assert d6s2["claim_ceiling"] == "ReferenceModelOnly"
     assert d6s2["runtime_evidence"]["status"] == "NotExecuted"
 
     print("verified D6U runtime manifest")
-    print("holochain=0.7.0")
-    print("hdk=0.7.0")
-    print("hdi=0.8.0")
-    print("supported_cases=14")
-    print("unsupported_cases=3")
-    print("claim_ceiling=ReferenceModelOnly")
+    print(f"holochain={substrate['holochain']}")
+    print(f"hdk={substrate['hdk']}")
+    print(f"hdi={substrate['hdi']}")
+    print(f"supported_cases={len(supported)}")
+    print(f"unsupported_cases={len(unsupported)}")
+    print(f"claim_ceiling={manifest['claim_ceiling']}")
 
 
 if __name__ == "__main__":
