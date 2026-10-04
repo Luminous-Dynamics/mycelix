@@ -1135,7 +1135,7 @@ check_dna_source_completeness() {
     count=$((count + 1))
   done < <(git ls-files -z -- "mycelix-workspace/mycelix-hearth/zomes/*/integrity/src/lib.rs")
   local dna_count
-  dna_count="$(awk '/^integrity:/,/^coordinator:/ { if ($0 ~ /^[[:space:]]*- name: hearth_[A-Za-z0-9_]+_integrity$/) print $2 }' "$dna" | sort -u | wc -l)"
+  dna_count="$(awk '/^integrity:/,/^coordinator:/ { if ($0 ~ /^[[:space:]]*- name: hearth_[A-Za-z0-9_]+_integrity$/) print $3 }' "$dna" | sort -u | wc -l)"
   if [[ "$dna_count" -eq "$count" ]]; then
     echo "OK:   DNA integrity-zome count matches tracked Hearth integrity zomes ($count)"
   else
