@@ -3283,6 +3283,7 @@ mod tests {
                 algorithm: FEDERATION_STATE_MACHINE_TRACE_CAPSULE_HASH_ALGORITHM.into(),
                 encoding: FEDERATION_STATE_MACHINE_TRACE_CAPSULE_HASH_ENCODING.into(),
                 body_sha256: String::new(),
+                chain_head_sha256: FEDERATION_STATE_MACHINE_TRACE_CHAIN_GENESIS.into(),
             },
         };
         capsule.integrity = state_machine_trace_integrity(&capsule);
@@ -3351,8 +3352,11 @@ mod tests {
             "successful trace capsule evidence length must match its plan"
         );
 
-        let mut expected_pre_state_fingerprint = capsule.initial_state.state_fingerprint.clone();
+        let mut expected_pre_state_fingerprint =
+            capsule.initial_state.state_fingerprint.clone();
         let mut expected_post_boundary = capsule.initial_state.clone();
+        let mut expected_chain_prev_sha256 =
+            FEDERATION_STATE_MACHINE_TRACE_CHAIN_GENESIS.to_string();
 
         for (step_index, ((operation, token), evidence)) in
             recorded_plan.iter().zip(&capsule.evidence).enumerate()
@@ -3372,6 +3376,15 @@ mod tests {
             assert_eq!(
                 evidence.pre_state_fingerprint, expected_pre_state_fingerprint,
                 "trace capsule evidence must preserve state-fingerprint continuity"
+            );
+            assert_eq!(
+                evidence.chain_prev_sha256, expected_chain_prev_sha256,
+                "trace capsule evidence must preserve chain continuity"
+            );
+            assert_eq!(
+                evidence.chain_sha256,
+                state_machine_evidence_chain_sha256(evidence),
+                "trace capsule evidence chain digest must match its step body"
             );
             assert!(
                 evidence.post_admission_index >= evidence.pre_admission_index,
@@ -3404,6 +3417,14 @@ mod tests {
                     .collect::<BTreeSet<_>>(),
                 "trace capsule evidence must enumerate the exact consumed ordinal range"
             );
+
+            expected_post_boundary = FederationStateMachineTraceBoundary {
+                admission_index: evidence.post_admission_index,
+                delivery_count: evidence.post_delivery_count,
+                state_fingerprint: evidence.state_fingerprint.clone(),
+            };
+            expected_pre_state_fingerprint = evidence.state_fingerprint.clone();
+            expected_chain_prev_sha256 = evidence.chain_sha256.clone();
         }
 
         assert_eq!(
@@ -3659,6 +3680,8 @@ mod tests {
         let mut state = nodes();
         let mut admitted = Vec::<FederationEnvelope>::new();
         let mut evidence = Vec::with_capacity(plan.len());
+        let mut previous_chain_sha256 =
+            FEDERATION_STATE_MACHINE_TRACE_CHAIN_GENESIS.to_string();
 
         for (step_index, (operation, token)) in plan.iter().copied().enumerate() {
             let before = canonical_state_fingerprint(&state);
@@ -4131,7 +4154,7 @@ mod tests {
                 "new deliveries must receive exactly the consumed admission ordinal range"
             );
 
-            evidence.push(FederationStateMachineEvidence {
+            let mut step_evidence = FederationStateMachineEvidence {
                 step_index,
                 operation,
                 token,
@@ -4139,12 +4162,18 @@ mod tests {
                 authority,
                 pre_state_fingerprint: before,
                 state_fingerprint: canonical_state_fingerprint(&state),
+                chain_prev_sha256: previous_chain_sha256.clone(),
+                chain_sha256: String::new(),
                 pre_admission_index: before_admission_index,
                 post_admission_index,
                 pre_delivery_count: before_delivery_count,
                 post_delivery_count,
                 newly_admitted_deliveries,
-            });
+            };
+            step_evidence.chain_sha256 =
+                state_machine_evidence_chain_sha256(&step_evidence);
+            previous_chain_sha256 = step_evidence.chain_sha256.clone();
+            evidence.push(step_evidence);
         }
 
         evidence
