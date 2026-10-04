@@ -14,6 +14,8 @@
 
 use hdk::prelude::*;
 use mycelix_crypto::{AlgorithmId, TaggedSignature};
+use serde_json::Value;
+use sha2::{Digest, Sha256};
 use mycelix_zome_helpers::{get_latest_record, records_from_links_strict};
 use verifiable_credential_integrity::*;
 
@@ -374,6 +376,23 @@ pub fn issue_credential(input: IssueCredentialInput) -> ExternResult<Record> {
     )))
 }
 
+/// Credential proof profile used when creating new credentials.
+///
+/// MycelixBlake2bEd25519 is retained for legacy compatibility. New
+/// request-bound credentials use the W3C eddsa-jcs-2022 profile,
+/// implemented with RFC 8785 JCS and SHA-256.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CredentialProofProfile {
+    MycelixBlake2bEd25519,
+    W3cEddsaJcs2022,
+}
+
+impl Default for CredentialProofProfile {
+    fn default() -> Self {
+        Self::MycelixBlake2bEd25519
+    }
+}
+
 /// Input for issuing a credential
 #[derive(Serialize, Deserialize, Debug)]
 pub struct IssueCredentialInput {
@@ -396,6 +415,10 @@ pub struct IssueCredentialInput {
     /// silently skipping validation. Default: false (backward-compatible).
     #[serde(default)]
     pub strict_schema: bool,
+    /// Optional cryptographic proof profile. Missing values preserve the legacy
+    /// Mycelix-native profile for compatibility.
+    #[serde(default)]
+    pub proof_profile: Option<CredentialProofProfile>,
 }
 
 /// Verify a credential
