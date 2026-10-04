@@ -57,7 +57,7 @@ PCR replay + Quote
 
 ## Adversarial corpus
 
-The executable corpus contains **24 vectors** covering digest tampering, event removal/insertion/reordering, PCR-index and sequence substitution, malformed digests, wrong banks, expected-PCR absence/substitution, key-order invariance, metadata-only substitution, reconstruction unavailability, invalid initial state, algorithm substitution, multi-PCR handling, cross-session contamination, separator handling, and final PCR mismatch.
+The executable corpus contains **25 vectors** covering digest tampering, event removal/insertion/reordering, PCR-index and sequence substitution, malformed digests, wrong banks, expected-PCR absence/substitution, key-order invariance, metadata-only substitution, reconstruction unavailability, invalid initial state, algorithm substitution, multi-PCR handling, cross-session contamination, separator handling, and final PCR mismatch.
 
 ## Output contract
 
@@ -102,7 +102,7 @@ python3 scripts/security/reconstruct_mycelix_pc_client_eventlog_v0_1.py \
   --output /path/to/eventlog-reconstruction.json
 ```
 
-The replay profile also explicitly refuses to silently mis-model PC-client special cases: EV_NO_ACTION is non-extending, while HCRTM PCR0 initialization is outside the zero-state profile and yields INDETERMINATE.
+The replay profile also explicitly refuses to silently mis-model PC-client special cases: EV_NO_ACTION is non-extending; HCRTM PCR0 initialization is outside the zero-state profile; and PCR0 StartupLocality records are treated as initial-state adjustments outside the zero-state profile. Each unsupported case yields INDETERMINATE rather than a fabricated PASS.
 
 The next physical-platform step is to add an adapter that converts the exact `tpm2_eventlog` YAML representation of a captured binary log into this canonical event stream, then feed its result into #4011.
 
