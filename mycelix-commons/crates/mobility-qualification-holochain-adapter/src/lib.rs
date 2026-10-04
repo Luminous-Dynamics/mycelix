@@ -115,9 +115,9 @@ impl HolochainAuthorityAgentBindingSet {
     /// Return whether a provenance witness has already been admitted by the
     /// authority-agent registry.
     pub fn contains_provenance_witness(&self, witness_identity: &IdentityRef) -> bool {
-        self.bindings.values().any(|credential| {
-            &credential.payload.provenance.witness_identity == witness_identity
-        })
+        self.bindings
+            .values()
+            .any(|credential| &credential.payload.provenance.witness_identity == witness_identity)
     }
 
     pub fn len(&self) -> usize {
