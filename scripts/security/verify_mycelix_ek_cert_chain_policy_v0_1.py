@@ -193,6 +193,8 @@ def verify(m:dict[str,Any])->dict[str,Any]:
     if not valid_hash(spki.get("certificate_sha256")) or not valid_hash(spki.get("ek_public_wire_sha256")):
         return result("DENY","spki-binding-digest-invalid")
     if spki.get("state")=="INDETERMINATE":return result("INDETERMINATE","spki-binding-indeterminate")
+    if not valid_hash(spki.get("certificate_sha256")) or not valid_hash(spki.get("ek_public_wire_sha256")):
+        return result("DENY","spki-binding-digest-invalid")
     if spki.get("state")!="PASS":return result("DENY","spki-binding-not-pass")
     if spki.get("certificate_sha256")!=m["leaf_certificate_sha256"]:return result("DENY","spki-certificate-digest-mismatch")
     expected_binding=session_binding(m,m["leaf_certificate_sha256"],m["intermediate_certificate_sha256"],m["trust_anchor_root_sha256"],rev["crl_der_sha256"])
@@ -301,7 +303,7 @@ def self_test()->int:
     if verify(p)["state"]!="PASS":
       print("key-order-permutation: FAIL");return 1
     print("EK certificate chain policy semantic corpus: PASS")
-    print("14 adversarial mutations plus canonical and key-order control: PASS")
+    print("17 adversarial mutations plus canonical and key-order control: PASS")
     return 0
 
 def main()->int:
