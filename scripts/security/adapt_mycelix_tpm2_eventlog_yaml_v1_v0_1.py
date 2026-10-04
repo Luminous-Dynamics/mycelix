@@ -137,14 +137,14 @@ def adapt(yaml_text: str, binary_eventlog: Path, session_id: str, pcr_selection:
 
 def self_test() -> int:
     binary = Path(__file__).resolve()
-    d11, d22 = "11" * 32, "22" * 32
+    d11, d22, zeros = "11" * 32, "22" * 32, "0" * 64
     simple_yaml = f"""---
 version: 1
 events:
   - EventNum: 0
     PCRIndex: 0
     EventType: EV_NO_ACTION
-    Digest: "{"0000000000000000000000000000000000000000000000000000000000000000"}"
+    Digest: "{zeros}"
     EventSize: 32
     SpecID:
       - Signature: Spec ID Event03
