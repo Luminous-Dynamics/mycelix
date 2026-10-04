@@ -289,8 +289,8 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/mycelix-interop"
           cd "$RUNNER_TEMP/mycelix-interop"
-          npm init -y >/dev/null 2>&1
-          npm install --no-save \
+          nix develop "$GITHUB_WORKSPACE/mycelix-identity#ci" --command npm init -y >/dev/null 2>&1
+          nix develop "$GITHUB_WORKSPACE/mycelix-identity#ci" --command npm install --no-save \
             @digitalbazaar/vc@7.3.0 \
             @digitalbazaar/data-integrity@2.5.0 \
             @digitalbazaar/eddsa-jcs-2022-cryptosuite@1.0.0 \
@@ -300,7 +300,7 @@ jobs:
             @digitalbazaar/multikey-context@2.0.1 \
             --ignore-scripts
 
-          node --input-type=module <<'NODE'
+          nix develop "$GITHUB_WORKSPACE/mycelix-identity#ci" --command node --input-type=module <<'NODE'
           import fs from 'node:fs';
           const pkg = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
           const expected = {
@@ -322,10 +322,10 @@ jobs:
           console.log('Pinned Digital Bazaar dependency set verified.');
           NODE
 
-          node "$GITHUB_WORKSPACE/mycelix-identity/tests/interop_verify.mjs" \
+          nix develop "$GITHUB_WORKSPACE/mycelix-identity#ci" --command node "$GITHUB_WORKSPACE/mycelix-identity/tests/interop_verify.mjs" \
             "$GITHUB_WORKSPACE/interop-fixtures/mycelix-eddsa-jcs-interop.json" \
             | tee "$GITHUB_WORKSPACE/dsid-independent-interop.json"
-          npm list --json --depth=0 > "$GITHUB_WORKSPACE/dsid-independent-interop-packages.json"
+          nix develop "$GITHUB_WORKSPACE/mycelix-identity#ci" --command npm list --json --depth=0 > "$GITHUB_WORKSPACE/dsid-independent-interop-packages.json"
           cp package-lock.json "$GITHUB_WORKSPACE/dsid-independent-interop-package-lock.json"
           sha256sum "$GITHUB_WORKSPACE/dsid-independent-interop-package-lock.json"             > "$GITHUB_WORKSPACE/dsid-independent-interop-package-lock.sha256"
 
@@ -338,6 +338,9 @@ jobs:
 
           def sha256_file(path):
               return Path(path).read_text().split()[0]
+
+          def text_file(path):
+              return Path(path).read_text().strip()
 
           rows = [
               json.loads(line)
@@ -362,9 +365,9 @@ jobs:
               "interop_package_lock_sha256": sha256_file("dsid-independent-interop-package-lock.sha256"),
               "flake_lock_sha256": sha256_file("mycelix-identity/flake.lock.sha256"),
               "cargo_lock_sha256": sha256_file("mycelix-identity/Cargo.lock.sha256"),
-              "nix_version": os.environ.get("DSID_NIX_VERSION", ""),
-              "node_version": os.environ.get("DSID_NODE_VERSION", ""),
-              "npm_version": os.environ.get("DSID_NPM_VERSION", ""),
+              "nix_version": text_file("dsid-nix-version.txt"),
+              "node_version": text_file("dsid-node-version.txt"),
+              "npm_version": text_file("dsid-npm-version.txt"),
               "scenario_ids": sorted(row["scenario_id"] for row in rows),
               "evidence_schema_versions": sorted({row["schema_version"] for row in rows}),
               "dna_hashes": sorted({row["dna_hash"] for row in rows}),
@@ -415,6 +418,13 @@ jobs:
             dsid-independent-interop-packages.json
             dsid-independent-interop-package-lock.json
             dsid-independent-interop-package-lock.sha256
+            dsid-nix-version.txt
+            dsid-node-version.txt
+            dsid-npm-version.txt
+            dsid-cargo-version.txt
+            dsid-hc-version.txt
+            mycelix-identity/flake.lock.sha256
+            mycelix-identity/Cargo.lock.sha256
       - name: Check Identity UI
         run: |
           cargo check \
