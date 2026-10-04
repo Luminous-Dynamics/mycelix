@@ -280,6 +280,9 @@ def main() -> None:
         f"{repo}/{policy['workflow_path']}@"
     )
     assert record["attestation_status"] == "deferred-to-trusted-builder"
+    expected_workflow_sha = policy["required_tracked_blobs"][policy["workflow_path"]]
+    assert re.fullmatch(r"[0-9a-f]{40}", record["workflow_sha"])
+    assert record["workflow_sha"] == expected_workflow_sha
     assert record["claim_ceiling"] == policy["claim_ceiling"]
     assert record["manifest_version"] == str(policy["manifest_version"])
     assert record["d6s2_authority_ledger_schema"] == policy["d6s2_authority_ledger_schema"]
