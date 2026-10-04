@@ -397,7 +397,36 @@ fn validate_create_link_with_topology(
                 None => Ok(ValidateCallbackResult::Invalid("DecisionToOutcome target belongs to another zome or entry definition".into())),
             }
         }
-        LinkTypes::AgentToVotes => Ok(ValidateCallbackResult::Valid),
+        LinkTypes::AgentToVotes => {
+            let agent = base_address
+                .clone()
+                .into_agent_pub_key()
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "AgentToVotes base is not an AgentPubKey".into()
+                )))?;
+            let target = target_address
+                .clone()
+                .into_action_hash()
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "AgentToVotes target is not an ActionHash".into()
+                )))?;
+            let record = must_get_valid_record(target)?;
+            let vote = match decode_vote_record(&record) {
+                Ok(vote) => vote,
+                Err(reason) => return Ok(ValidateCallbackResult::Invalid(reason)),
+            };
+            if vote.voter != agent {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "AgentToVotes base must match Vote voter".into(),
+                ));
+            }
+            if vote.voter != *action_author {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "AgentToVotes link author must match Vote voter".into(),
+                ));
+            }
+            Ok(ValidateCallbackResult::Valid)
+        },
     }
 }
 /// Compute a deterministic fingerprint for explicit tally evidence.
