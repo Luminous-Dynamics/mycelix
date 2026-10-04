@@ -110,6 +110,7 @@ def main() -> None:
     assert manifest["claim_ceiling"] == "ReferenceModelOnly"
     assert manifest["evidence_verifier_path"] == "scripts/integral/verify_d6u_runtime_evidence.py"
     assert manifest["evidence_record_verifier_path"] == "scripts/integral/verify_d6u_runtime_record.py"
+    assert manifest["lock_verifier_path"] == "scripts/integral/verify_d6u_runtime_lock.py"
     assert manifest["evidence_status"] == "NotExecuted"
 
     substrate = manifest["substrate"]
