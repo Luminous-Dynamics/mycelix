@@ -128,11 +128,43 @@ impl CommonsPool {
         let to_reserve = amount / 4;
         let to_available = amount - to_reserve;
 
-        self.inalienable_reserve += to_reserve;
-        self.available_balance += to_available;
+        // Compute every new balance before mutating state so an overflow
+        // cannot leave a partially applied contribution behind.
+        let new_reserve = match self.inalienable_reserve.checked_add(to_reserve) {
+            Some(value) => value,
+            None => {
+                return CommonsResult::Error {
+                    message: "Inalienable reserve balance overflow".to_string(),
+                };
+            }
+        };
+        let new_available = match self.available_balance.checked_add(to_available) {
+            Some(value) => value,
+            None => {
+                return CommonsResult::Error {
+                    message: "Available commons balance overflow".to_string(),
+                };
+            }
+        };
+
+        let existing_contributed = self
+            .contributions
+            .get(member_did)
+            .map_or(0, |contribution| contribution.sap_contributed);
+        let new_contributed = match existing_contributed.checked_add(amount) {
+            Some(value) => value,
+            None => {
+                return CommonsResult::Error {
+                    message: "Member contribution total overflow".to_string(),
+                };
+            }
+        };
+
+        self.inalienable_reserve = new_reserve;
+        self.available_balance = new_available;
         self.last_activity = timestamp;
 
-        // Track contribution
+        // Track contribution.
         let contribution = self
             .contributions
             .entry(member_did.to_string())
@@ -141,7 +173,7 @@ impl CommonsPool {
                 first_contribution: timestamp,
                 last_contribution: timestamp,
             });
-        contribution.sap_contributed += amount;
+        contribution.sap_contributed = new_contributed;
         contribution.last_contribution = timestamp;
 
         CommonsResult::Contributed {
@@ -181,9 +213,21 @@ impl CommonsPool {
 
     /// Receive compost (demurrage redistribution) into the pool.
     /// Compost goes entirely to the circulating zone (not reserve).
-    pub fn receive_compost(&mut self, amount: u64, timestamp: u64) {
-        self.available_balance += amount;
-        self.last_activity = timestamp;
+    pub fn receive_compost(&mut self, amount: u64, timestamp: u64) -> CommonsResult {
+        match self.available_balance.checked_add(amount) {
+            Some(new_available) => {
+                self.available_balance = new_available;
+                self.last_activity = timestamp;
+                CommonsResult::Contributed {
+                    total: amount,
+                    to_reserve: 0,
+                    to_available: amount,
+                }
+            }
+            None => CommonsResult::Error {
+                message: "Available commons balance overflow while receiving compost".to_string(),
+            },
+        }
     }
 
     /// Return the reserve ratio in basis points using integer arithmetic.
@@ -312,14 +356,74 @@ mod tests {
     }
 
     #[test]
+    fn test_contribution_overflow_is_rejected_without_partial_mutation() {
+        let mut pool = CommonsPool::new("local-dao-1".to_string(), 1000);
+        pool.inalienable_reserve = u64::MAX;
+        pool.available_balance = 10;
+        pool.contributions.insert(
+            "did:test:alice".to_string(),
+            CommonsContribution {
+                sap_contributed: 100,
+                first_contribution: 1000,
+                last_contribution: 1000,
+            },
+        );
+
+        match pool.contribute("did:test:alice", 1_000, 1001) {
+            CommonsResult::Error { message } => {
+                assert!(message.contains("reserve"));
+            }
+            _ => panic!("Expected reserve overflow rejection"),
+        }
+
+        assert_eq!(pool.inalienable_reserve, u64::MAX);
+        assert_eq!(pool.available_balance, 10);
+        assert_eq!(
+            pool.contributions
+                .get("did:test:alice")
+                .unwrap()
+                .sap_contributed,
+            100
+        );
+        assert_eq!(pool.last_activity, 1000);
+    }
+
+    #[test]
+    fn test_compost_overflow_is_rejected_without_mutation() {
+        let mut pool = CommonsPool::new("local-dao-1".to_string(), 1000);
+        pool.available_balance = u64::MAX - 10;
+
+        match pool.receive_compost(11, 1001) {
+            CommonsResult::Error { message } => {
+                assert!(message.contains("overflow"));
+            }
+            _ => panic!("Expected compost overflow rejection"),
+        }
+
+        assert_eq!(pool.available_balance, u64::MAX - 10);
+        assert_eq!(pool.last_activity, 1000);
+    }
+
+    #[test]
     fn test_compost_receiving() {
         let mut pool = CommonsPool::new("local-dao-1".to_string(), 1000);
         pool.contribute("did:test:alice", 1_000, 1001);
 
         // Receive compost from demurrage
-        pool.receive_compost(500, 1002);
+        match pool.receive_compost(500, 1002) {
+            CommonsResult::Contributed {
+                total,
+                to_reserve,
+                to_available,
+            } => {
+                assert_eq!(total, 500);
+                assert_eq!(to_reserve, 0);
+                assert_eq!(to_available, 500);
+            }
+            _ => panic!("Expected compost acceptance"),
+        }
 
-        // Compost goes to available, not reserve
+        // Compost goes to available, not reserve.
         assert_eq!(pool.inalienable_reserve, 250);
         assert_eq!(pool.available_balance, 750 + 500);
     }
