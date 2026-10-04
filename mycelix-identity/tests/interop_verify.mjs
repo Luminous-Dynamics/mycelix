@@ -37,9 +37,14 @@ const suite = new DataIntegrityProof({
   cryptosuite: createVerifyCryptosuite()
 });
 
+const credentialProofPurpose = fixture.credential?.proof?.proofPurpose;
+if(credentialProofPurpose !== 'assertionMethod') {
+  throw new Error('fixture credential proofPurpose must be assertionMethod');
+}
 const credentialResult = await vc.verifyCredential({
   credential: fixture.credential,
   suite,
+  expectedProofPurpose: 'assertionMethod',
   documentLoader
 });
 if(!credentialResult.valid) {
@@ -47,11 +52,16 @@ if(!credentialResult.valid) {
     JSON.stringify(credentialResult));
 }
 
+const presentationProofPurpose = fixture.presentation?.proof?.proofPurpose;
+if(presentationProofPurpose !== 'authentication') {
+  throw new Error('fixture presentation proofPurpose must be authentication');
+}
 const presentationResult = await vc.verify({
   presentation: fixture.presentation,
   challenge: fixture.presentationChallenge,
   domain: fixture.presentationDomain,
   suite,
+  expectedProofPurpose: 'authentication',
   documentLoader
 });
 if(!presentationResult.valid) {
@@ -82,6 +92,7 @@ tamperedCredential.credentialSubject.degree = 'Tampered claim';
 await mustReject('tampered credential', () => vc.verifyCredential({
   credential: tamperedCredential,
   suite,
+  expectedProofPurpose: 'assertionMethod',
   documentLoader
 }));
 
@@ -93,6 +104,7 @@ wrongProofPurpose.proof.proofPurpose = 'authentication';
 await mustReject('wrong credential proof purpose', () => vc.verifyCredential({
   credential: wrongProofPurpose,
   suite,
+  expectedProofPurpose: 'assertionMethod',
   documentLoader
 }));
 
@@ -180,6 +192,7 @@ tamperedLoader.addStatic(fixture.holderDidDocument.id, fixture.holderDidDocument
 await mustReject('tampered issuer verification key', () => vc.verifyCredential({
   credential: fixture.credential,
   suite,
+  expectedProofPurpose: 'assertionMethod',
   documentLoader: tamperedLoader.build()
 }));
 
@@ -208,6 +221,7 @@ for(const method of unauthorizedIssuerDocument.verificationMethod ?? []) {
 await mustReject('issuer assertionMethod authorization removal', () => vc.verifyCredential({
   credential: fixture.credential,
   suite,
+  expectedProofPurpose: 'assertionMethod',
   documentLoader: authorizationLoader.build()
 }));
 
