@@ -228,7 +228,8 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             ..
         }) => {
             let original_record = must_get_valid_record(action.link_add_address.clone())?;
-            let result = check_link_author_match(original_record.action().author(), action.author());
+            let original_create_link = TypedAction::<CreateLinkData>::try_from_action(original_record.action().clone())?;
+            let result = check_link_author_match(original_create_link.author(), action.author());
             if result != ValidateCallbackResult::Valid {
                 return Ok(result);
             }
