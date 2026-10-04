@@ -198,7 +198,7 @@ check_validation_determinism() {
   local file="$1"
   local source
   source="$(sed '/^\#\[cfg(test)\]/,$d' "$file")"
-  if printf '%s\n' "$source" | rg -n --pcre2 '\b(get_links|get_details|get_agent_activity|sys_time|random_bytes|call)\s*\(' >/tmp/hearth07_validation_forbidden.$$ 2>/dev/null; then
+  if printf '%s\n' "$source" | rg -n --pcre2 '(?<![A-Za-z0-9_.])(?:get|get_links|get_details|get_agent_activity|create_entry|update_entry|delete_entry|create_link|delete_link|call|call_remote|send_remote_signal|emit_signal|sys_time|random_bytes)\s*\(' >/tmp/hearth07_validation_forbidden.$ 2>/dev/null; then
     echo "FAIL: $file contains non-deterministic validation host API usage"
     cat /tmp/hearth07_validation_forbidden.$$
     fail=1
