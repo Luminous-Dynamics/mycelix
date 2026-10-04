@@ -24,6 +24,7 @@ pub mod action_finalization;
 pub mod finalization_certificate;
 pub mod substrate;
 pub mod metabolic_oracle;
+pub mod policy_context;
 pub mod policy_profile;
 pub mod poc;
 pub mod recognition;
@@ -37,7 +38,10 @@ pub use metabolic_oracle::{
     TendLimitTier, VitalityIndex,
 };
 pub use economic_os::EconomicOsEnvelope;
-pub use jurisdiction_pack::{EconomicJurisdictionPack, EconomicOsCapability, InteroperabilityGuarantee};
+pub use jurisdiction_pack::{
+    EconomicJurisdictionPack, EconomicOsCapability, InteroperabilityGuarantee,
+};
+pub use policy_context::{EconomicPolicyContext, EconomicPolicyContextRole};
 pub use policy_profile::{EconomicOsOperation, EconomicPolicyProfile};
 pub use poc::{
     calculate_mycel_score, jubilee_normalize, GamingDetection, GamingRecommendation,
