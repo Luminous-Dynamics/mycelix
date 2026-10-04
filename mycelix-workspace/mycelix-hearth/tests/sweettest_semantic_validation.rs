@@ -209,7 +209,7 @@ fn expected_reason(test_name: &str) -> String {
         .and_then(|cases| {
             cases.iter().find_map(|case| {
                 (case["test"].as_str() == Some(test_name))
-                    .then(|| case["invariant"].as_str())
+                    .then(|| case["rejection_reason"].as_str())
                     .flatten()
             })
         })
@@ -608,6 +608,9 @@ fn test_semantic_case_manifest_is_structurally_valid() {
         let invariant = case["invariant"]
             .as_str()
             .expect("every semantic case needs an invariant");
+        let rejection_reason = case["rejection_reason"]
+            .as_str()
+            .expect("every semantic case needs a rejection_reason");
         let invariant_code = case["invariant_code"]
             .as_str()
             .expect("every semantic case needs invariant_code");
@@ -633,6 +636,14 @@ fn test_semantic_case_manifest_is_structurally_valid() {
         assert!(!zome.is_empty(), "semantic case zome must not be empty");
         assert!(!operation.is_empty(), "semantic case operation must not be empty");
         assert!(!invariant.is_empty(), "semantic case invariant must not be empty");
+        assert!(
+            !rejection_reason.is_empty(),
+            "{case_id} rejection_reason must not be empty"
+        );
+        assert!(
+            !rejection_reason.contains('\n'),
+            "{case_id} rejection_reason must be a single-line validation reason"
+        );
         assert!(
             !invariant_code.is_empty(),
             "{case_id} invariant_code must not be empty"
