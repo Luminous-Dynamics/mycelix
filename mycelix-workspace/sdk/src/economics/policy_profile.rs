@@ -165,7 +165,7 @@ impl EconomicPolicyProfile {
 ///
 /// Implementations may transport these operations through Holochain, HTTP,
 /// ISO 20022, SDMX, or other adapters without changing their semantic meaning.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum EconomicOsOperation {
     /// Publish a measurement/evidence observation.
     Observe,
