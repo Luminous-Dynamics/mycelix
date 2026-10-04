@@ -240,6 +240,21 @@ def main() -> int:
         raise SystemExit("adapter must preserve the pure invalid decision")
     if "QualificationDecision::Unresolved" not in source:
         raise SystemExit("adapter must preserve the pure unresolved decision")
+    determinism_contract = contract.get("determinism")
+    if not isinstance(determinism_contract, dict):
+        raise SystemExit("machine contract missing determinism object")
+    expected_determinism_contract = {
+        "caller_supplied_retrieval_order_canonicalized": True,
+        "canonical_retrieval_sort_key": "ResolvedHolochainDependency.identity",
+        "retrieval_canonicalization_function": "canonicalize_retrieval_order",
+    }
+    for key, expected in expected_determinism_contract.items():
+        if determinism_contract.get(key) != expected:
+            raise SystemExit(f"machine determinism contract drift for {key}: expected {expected!r}")
+    if "fn canonicalize_retrieval_order" not in source:
+        raise SystemExit("runtime retrieval must canonicalize caller-supplied dependency order")
+    if "retrieve_resolved_canonicalizes_caller_supplied_order" not in source:
+        raise SystemExit("runtime retrieval order must have a regression test")
     if "inductive-validity dependency" not in source:
         raise SystemExit("adapter must document ValidRecord as an inductive-validity dependency")
     if "later operation" not in source:
