@@ -61,6 +61,37 @@ jobs:
           echo "QUALIFY_SHA=$QUALIFY_SHA"
           echo "Checked-out HEAD=$tested_sha"
 
+      - name: Verify immutable submodule provenance
+        run: |
+          set -euo pipefail
+          git submodule status --recursive | tee qualification-submodules.txt
+          [[ -s qualification-submodules.txt ]] || {
+            echo "qualification checkout unexpectedly has no initialized submodules" >&2
+            exit 1
+          }
+          while IFS= read -r line; do
+            [[ "$line" =~ ^[[:space:]]([0-9a-f]{40})[[:space:]]([^[:space:]]+) ]] || {
+              echo "invalid submodule status line: $line" >&2
+              exit 1
+            }
+            submodule_sha="${BASH_REMATCH[1]}"
+            submodule_path="${BASH_REMATCH[2]}"
+            [[ "$line" != +* ]] || {
+              echo "submodule has a modified checkout: $submodule_path" >&2
+              exit 1
+            }
+            [[ "$line" != -* ]] || {
+              echo "submodule is not initialized: $submodule_path" >&2
+              exit 1
+            }
+            gitlink_sha="$(git rev-parse "HEAD:${submodule_path}")"
+            [[ "$submodule_sha" == "$gitlink_sha" ]] || {
+              echo "submodule gitlink mismatch for $submodule_path: gitlink=$gitlink_sha checkout=$submodule_sha" >&2
+              exit 1
+            }
+            echo "OK: submodule $submodule_path matches gitlink $gitlink_sha"
+          done < qualification-submodules.txt
+
       - uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b
         with:
           nix_path: nixpkgs=channel:nixos-unstable

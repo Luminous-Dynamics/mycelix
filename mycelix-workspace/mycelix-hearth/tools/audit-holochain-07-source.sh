@@ -849,6 +849,14 @@ check_qualification_workflow_provenance() {
     "Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6"
     "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02"
   )
+  if rg -n --fixed-strings 'mycelix-health' ".gitmodules" >/dev/null 2>&1 \
+    && rg -n --fixed-strings 'https://github.com/Luminous-Dynamics/mycelix-health.git' ".gitmodules" >/dev/null 2>&1; then
+    echo "OK:   qualification checkout declares the expected Hearth submodule source"
+  else
+    echo "FAIL: qualification checkout has an unexpected or missing Hearth submodule source"
+    fail=1
+  fi
+
   if rg -n --fixed-strings 'group: hearth-07-qualification-${{ github.event.pull_request.head.ref || github.ref }}' "$workflow" >/dev/null 2>&1; then
     echo "OK:   qualification workflow shares one cancellation domain across push/PR events"
   else
