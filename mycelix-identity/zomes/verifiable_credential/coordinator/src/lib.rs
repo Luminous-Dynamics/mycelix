@@ -3188,6 +3188,23 @@ fn w3c_assertion_binding_rejects_wrong_controller_key() {
 mod tests {
     use super::*;
 
+    #[test]
+    fn default_credential_proof_profile_is_w3c_jcs() {
+        assert_eq!(
+            CredentialProofProfile::default(),
+            CredentialProofProfile::W3cEddsaJcs2022
+        );
+    }
+
+    #[test]
+    fn runtime_jcs_proof_value_requires_raw_base58btc_ed25519() {
+        let valid = encode_raw_ed25519_multibase(&[7u8; 64]).unwrap();
+        let decoded = decode_raw_jcs_signature(&valid).unwrap();
+        assert_eq!(decoded, [7u8; 64]);
+
+        assert!(decode_raw_jcs_signature("mnot-base58btc").is_err());
+        assert!(decode_raw_jcs_signature("z123").is_err());
+    }
 
     #[test]
     fn eddsa_jcs_hash_matches_published_digitalbazaar_vector() {
