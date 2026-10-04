@@ -614,6 +614,14 @@ mod tests {
     fn unresolved_impacts_block_even_when_execution_controls_are_clean() {
         let lifecycle = completed_lifecycle();
         let constraint = completion_constraint(&lifecycle);
+        let reconciliations = reconciliation_ledger(vec![EconomicExecutionReconciliation {
+            reconciliation_id: "reconciliation:completion".into(),
+            execution_id: "execution:completion".into(),
+            constraint_id: constraint.constraint_id.clone(),
+            result: ExecutionConformance::Conformant,
+            evidence_refs: vec!["evidence:completion".into()],
+            recorded_at: 1_600,
+        }]);
 
         let mut impacts = ImpactLedger::new();
         impacts
@@ -639,14 +647,14 @@ mod tests {
             &scope(),
             &healthy_substrate(),
             &impacts,
-            &EconomicExecutionReconciliationLedger::new(),
+            &reconciliations,
             &[constraint],
         )
         .unwrap();
 
         assert_eq!(
             assessment.decision,
-            EconomicFinalizationDecision::BlockedByMissingReconciliation
+            EconomicFinalizationDecision::BlockedByUnresolvedImpact
         );
         assert_eq!(assessment.open_impact_ids, vec!["impact:open"]);
     }
