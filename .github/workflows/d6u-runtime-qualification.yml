@@ -85,6 +85,7 @@ jobs:
       - name: Emit runtime evidence record
         working-directory: d6u-runtime-harness
         run: |
+          set -euo pipefail
           {
             echo "D6U HOLOCHAIN 0.7 RUNTIME EVIDENCE"
             echo "status=runtime-reference-evidence"
