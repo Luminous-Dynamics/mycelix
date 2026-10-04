@@ -41,6 +41,73 @@ pub enum SeeaChangeKind {
     Decrease,
 }
 
+/// Result of applying an explicit freshness policy to an observation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SeeaFreshness {
+    /// Observation falls within the permitted age window.
+    Current,
+    /// Observation is older than the permitted age window.
+    Stale,
+}
+
+/// Error returned when a SEEA observation cannot be treated as current evidence.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SeeaFreshnessError {
+    /// Decision timestamp precedes the end of the observation period.
+    ObservationFromFuture,
+    /// Observation is outside the configured freshness window.
+    StaleObservation,
+    /// A publisher timestamp is later than the decision timestamp.
+    SourceTimestampFromFuture,
+}
+
+/// Explicit temporal policy for using a SEEA observation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SeeaFreshnessPolicy {
+    /// Decision time in the same units used by the observation.
+    pub as_of: u64,
+    /// Maximum permitted age measured from period end.
+    pub max_age: u64,
+}
+
+impl SeeaFreshnessPolicy {
+    /// Classify an observation without changing its underlying value.
+    pub fn evaluate(
+        &self,
+        observation: &SeeaObservation,
+    ) -> Result<SeeaFreshness, SeeaFreshnessError> {
+        if observation.period_end > self.as_of {
+            return Err(SeeaFreshnessError::ObservationFromFuture);
+        }
+
+        if observation
+            .provenance
+            .source_timestamp
+            .is_some_and(|timestamp| timestamp > self.as_of)
+        {
+            return Err(SeeaFreshnessError::SourceTimestampFromFuture);
+        }
+
+        let age = self.as_of.saturating_sub(observation.period_end);
+        if age > self.max_age {
+            Ok(SeeaFreshness::Stale)
+        } else {
+            Ok(SeeaFreshness::Current)
+        }
+    }
+
+    /// Require an observation to be current.
+    pub fn require_current(
+        &self,
+        observation: &SeeaObservation,
+    ) -> Result<(), SeeaFreshnessError> {
+        match self.evaluate(observation)? {
+            SeeaFreshness::Current => Ok(()),
+            SeeaFreshness::Stale => Err(SeeaFreshnessError::StaleObservation),
+        }
+    }
+}
+
 /// Source provenance carried with an imported observation.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SeeaProvenance {
@@ -127,7 +194,8 @@ impl SeeaObservation {
         self.provenance.validate()
     }
 
-    /// Convert a condition observation into an AC-017 substrate account.
+    /// Convert a condition observation into an AC-017 substrate account after
+    /// explicit freshness qualification.
     ///
     /// Only condition accounts map directly to the ecological substrate
     /// dimension. Extent/services/asset accounts remain typed observations
@@ -156,6 +224,24 @@ impl SeeaObservation {
             updated_at,
         ))
     }
+
+
+    /// Convert to ecological substrate only when the observation is explicitly
+    /// accepted by the caller's freshness policy.
+    pub fn to_ecological_substrate_if_current(
+        &self,
+        boundary: SubstrateBoundary,
+        baseline: i128,
+        updated_at: u64,
+        freshness: &SeeaFreshnessPolicy,
+    ) -> Result<SubstrateAccount, String> {
+        freshness
+            .require_current(self)
+            .map_err(|error| format!("SEEA freshness qualification failed: {error:?}"))?;
+
+        self.to_ecological_substrate(boundary, baseline, updated_at)
+    }
+}
 }
 
 #[cfg(test)]
@@ -212,6 +298,62 @@ mod tests {
         );
 
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn stale_observation_does_not_become_current_without_policy_override() {
+        let observation = condition_observation(760);
+        let policy = SeeaFreshnessPolicy {
+            as_of: 2_000,
+            max_age: 100,
+        };
+
+        assert_eq!(policy.evaluate(&observation), Ok(SeeaFreshness::Stale));
+        assert_eq!(
+            observation
+                .to_ecological_substrate_if_current(
+                    SubstrateBoundary::minimum(700, 50, true),
+                    900,
+                    1_801,
+                    &policy
+                )
+                .is_err(),
+            true
+        );
+    }
+
+    #[test]
+    fn future_source_timestamp_is_rejected() {
+        let observation = condition_observation(760);
+        let policy = SeeaFreshnessPolicy {
+            as_of: 1_800,
+            max_age: 100,
+        };
+
+        assert_eq!(
+            policy.evaluate(&observation),
+            Err(SeeaFreshnessError::SourceTimestampFromFuture)
+        );
+    }
+
+    #[test]
+    fn current_observation_can_be_projected_after_freshness_check() {
+        let observation = condition_observation(760);
+        let policy = SeeaFreshnessPolicy {
+            as_of: 1_820,
+            max_age: 50,
+        };
+
+        assert!(
+            observation
+                .to_ecological_substrate_if_current(
+                    SubstrateBoundary::minimum(700, 50, true),
+                    900,
+                    1_801,
+                    &policy
+                )
+                .is_ok()
+        );
     }
 
     #[test]
