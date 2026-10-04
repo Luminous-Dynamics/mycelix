@@ -138,6 +138,20 @@ def adapt(
                 event["startup_locality"] = locality
         elif digest is None:
             raise ValueError(f"event {event_num} has no SHA-256 digest")
+
+        if payload_json is not None:
+            raw_event = payloads.get(event_num)
+            if raw_event is None:
+                raise ValueError(f"raw parser is missing EventNum {event_num}")
+            if raw_event.get("pcr") != event["pcr"] or raw_event.get("event_type") != event["event_type"]:
+                raise ValueError(f"raw/YAML event identity mismatch at EventNum {event_num}")
+            raw_digest = raw_event.get("digest_sha256")
+            if digest is not None and raw_digest != digest:
+                raise ValueError(f"raw/YAML SHA-256 digest mismatch at EventNum {event_num}")
+            payload_hex = raw_event.get("payload_hex")
+            if not isinstance(payload_hex, str):
+                raise ValueError(f"raw parser is missing payload bytes at EventNum {event_num}")
+            event["payload_hex"] = payload_hex.lower().removeprefix("0x")
         events.append(event)
 
     if not events:
