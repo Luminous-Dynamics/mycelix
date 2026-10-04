@@ -337,6 +337,7 @@ jobs:
           nix develop --no-update-lock-file --no-write-lock-file "$GITHUB_WORKSPACE/mycelix-identity#ci" --command npm list --json --depth=0 > "$GITHUB_WORKSPACE/dsid-independent-interop-packages.json"
           cp package-lock.json "$GITHUB_WORKSPACE/dsid-independent-interop-package-lock.json"
           sha256sum "$GITHUB_WORKSPACE/dsid-independent-interop-package-lock.json"             > "$GITHUB_WORKSPACE/dsid-independent-interop-package-lock.sha256"
+          sha256sum "$GITHUB_WORKSPACE/interop-fixtures/mycelix-eddsa-jcs-interop.json" > "$GITHUB_WORKSPACE/dsid-independent-interop-fixture.sha256"
 
       - name: Build qualification manifest
         run: |
@@ -372,11 +373,14 @@ jobs:
               "method_profile_sha256": sha256_file("did-mycelix-method-v0.1.sha256"),
               "conformance_vectors_sha256": sha256_file("did-mycelix-conformance-v0.1.sha256"),
               "interop_package_lock_sha256": sha256_file("dsid-independent-interop-package-lock.sha256"),
+              "interop_fixture_sha256": sha256_file("dsid-independent-interop-fixture.sha256"),
               "flake_lock_sha256": sha256_file("mycelix-identity/flake.lock.sha256"),
               "cargo_lock_sha256": sha256_file("mycelix-identity/Cargo.lock.sha256"),
               "nix_version": text_file("dsid-nix-version.txt"),
               "node_version": text_file("dsid-node-version.txt"),
               "npm_version": text_file("dsid-npm-version.txt"),
+              "cargo_version": text_file("dsid-cargo-version.txt"),
+              "hc_version": text_file("dsid-hc-version.txt"),
               "scenario_ids": sorted(row["scenario_id"] for row in rows),
               "evidence_schema_versions": sorted({row["schema_version"] for row in rows}),
               "dna_hashes": sorted({row["dna_hash"] for row in rows}),
@@ -415,9 +419,9 @@ jobs:
             dsid-scenario-set.txt
             dsid-scenario-set.sha256
             dsid-dna.sha256
-            did-mycelix-method-v0.1.md
+            docs/identity/did-mycelix-method-v0.1.md
             did-mycelix-method-v0.1.sha256
-            did-mycelix-conformance-v0.1.json
+            docs/identity/did-mycelix-conformance-vectors-v0.1.json
             did-mycelix-conformance-v0.1.sha256
             identity-dsid-qualification-manifest.json
             identity-dsid-qualification-manifest.sha256
@@ -427,6 +431,7 @@ jobs:
             dsid-independent-interop-packages.json
             dsid-independent-interop-package-lock.json
             dsid-independent-interop-package-lock.sha256
+            dsid-independent-interop-fixture.sha256
             dsid-nix-version.txt
             dsid-node-version.txt
             dsid-npm-version.txt
@@ -439,4 +444,9 @@ jobs:
           cargo check \
             --manifest-path mycelix-identity/apps/leptos/Cargo.toml \
             --target wasm32-unknown-unknown
+
+      - name: Assert qualification workspace is clean
+        run: |
+          git status --short
+          test -z "$(git status --porcelain)"
 
