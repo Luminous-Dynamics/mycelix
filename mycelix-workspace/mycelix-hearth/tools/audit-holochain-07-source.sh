@@ -194,25 +194,39 @@ check_validation_determinism() {
 # link deletion without this authorization invariant.
 check_delete_link_authorization() {
   local file="$1"
-  if ! rg -n --pcre2 'FlatOp::Link\s*\([^)]*OpLink::DeleteLink' "$file" >/dev/null 2>&1; then
+  local delete_link_block
+  delete_link_block="$(awk '
+    /^[[:space:]]*FlatOp::Link[[:space:]]*\([[:space:]]*link[[:space:]]*@[[:space:]]*OpLink::DeleteLink/ {
+      in_block=1
+      print
+      next
+    }
+    in_block && /^[[:space:]]*FlatOp::/ {
+      exit
+    }
+    in_block { print }
+  ' "$file")"
+
+  if [[ -z "$delete_link_block" ]]; then
     echo "FAIL: $file has no explicit FlatOp::Link(OpLink::DeleteLink) coverage"
     fail=1
     return
   fi
-  if rg -n --pcre2 '(check_link_author_match|original_record\.action\(\)\.author\(\)|original_action\.author\(\)|original_action\\(\\).*author)' "$file" >/dev/null 2>&1; then
+
+  if printf '%s\n' "$delete_link_block" | rg -n --pcre2 'check_link_author_match|original_record\.action\(\)\.author\(\)|original_action\.author\(\)|original_action\\(\\).*author' >/dev/null 2>&1; then
     echo "OK:   $file DeleteLink authorization compares original and deleting authors"
   else
     echo "FAIL: $file DeleteLink path lacks an explicit original/deleting author comparison"
     fail=1
   fi
-  if rg -n --pcre2 'FlatOp::Link\s*\(\s*link\s*@\s*OpLink::DeleteLink[\s\S]{0,1400}must_get_valid_record\s*\(\s*action\.link_add_address' "$file" >/dev/null 2>&1; then
+
+  if printf '%s\n' "$delete_link_block" | rg -n --pcre2 'must_get_valid_record\s*\(\s*action\.link_add_address' >/dev/null 2>&1; then
     echo "OK:   $file DeleteLink retrieves the original CreateLink through must_get_valid_record"
   else
     echo "FAIL: $file DeleteLink path does not establish original CreateLink validity with must_get_valid_record"
     fail=1
   fi
 }
-
 # Action-family authorization must not be accidentally absorbed by a terminal
 # catch-all. If a zome validates entry updates at CreateEntry(UpdateEntry), it
 # must also expose an explicit Update(OpUpdate::Entry) path for action-level
