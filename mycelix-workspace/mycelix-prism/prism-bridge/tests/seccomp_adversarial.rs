@@ -689,6 +689,186 @@ fn seccomp_install_rejects_wrong_architecture_before_enforcement() {
 
 
 #[cfg(target_os = "linux")]
+fn thread_sync_divergent_filter_child() -> ! {
+    use prism_bridge::process::{RendererProcessAssignmentId, SandboxProfileV1};
+    use prism_bridge::seccomp::{install, SeccompArchitecture, SeccompError, SeccompSyscallPolicyV1};
+
+    #[repr(C)]
+    struct SockFilter {
+        code: u16,
+        jt: u8,
+        jf: u8,
+        k: u32,
+    }
+
+    #[repr(C)]
+    struct SockFprog {
+        len: u16,
+        filter: *const SockFilter,
+    }
+
+    const BPF_RET_K: u16 = 0x0006;
+    const SECCOMP_SET_MODE_FILTER: libc::c_uint = 1;
+    const SECCOMP_FILTER_FLAG_TSYNC: libc::c_uint = 1 << 0;
+    const SECCOMP_FILTER_FLAG_TSYNC_ESRCH: libc::c_uint = 1 << 4;
+    const SECCOMP_RET_ALLOW: u32 = 0x7fff_0000;
+
+    unsafe fn read_exact(fd: libc::c_int, bytes: &mut [u8]) -> bool {
+        let mut offset = 0usize;
+        while offset < bytes.len() {
+            let rc = libc::syscall(
+                libc::SYS_read,
+                fd,
+                bytes[offset..].as_mut_ptr(),
+                bytes.len() - offset,
+            );
+            if rc <= 0 {
+                return false;
+            }
+            offset += rc as usize;
+        }
+        true
+    }
+
+    unsafe fn write_exact(fd: libc::c_int, bytes: &[u8]) -> bool {
+        let mut offset = 0usize;
+        while offset < bytes.len() {
+            let rc = libc::syscall(
+                libc::SYS_write,
+                fd,
+                bytes[offset..].as_ptr(),
+                bytes.len() - offset,
+            );
+            if rc <= 0 {
+                return false;
+            }
+            offset += rc as usize;
+        }
+        true
+    }
+
+    let architecture =
+        SeccompArchitecture::current().unwrap_or_else(|| unsafe { libc::_exit(180) });
+
+    let mut ready = [-1; 2];
+    let mut release = [-1; 2];
+    if unsafe { libc::pipe2(ready.as_mut_ptr(), libc::O_CLOEXEC) } != 0
+        || unsafe { libc::pipe2(release.as_mut_ptr(), libc::O_CLOEXEC) } != 0
+    {
+        unsafe { libc::_exit(181) };
+    }
+
+    let sibling_ready = ready[1];
+    let sibling_release = release[0];
+
+    std::thread::spawn(move || {
+        // Attach a deliberately divergent filter tree only to this sibling.
+        // An unconditional ALLOW keeps the thread operational while making
+        // TSYNC unable to merge the calling thread's filter tree with it.
+        if unsafe { libc::prctl(libc::PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) } != 0 {
+            unsafe { libc::_exit(182) };
+        }
+        let filter = SockFilter {
+            code: BPF_RET_K,
+            jt: 0,
+            jf: 0,
+            k: SECCOMP_RET_ALLOW,
+        };
+        let program = SockFprog {
+            len: 1,
+            filter: &filter,
+        };
+        let rc = unsafe {
+            libc::syscall(
+                libc::SYS_seccomp,
+                SECCOMP_SET_MODE_FILTER,
+                0,
+                &program as *const SockFprog,
+            )
+        };
+        if rc != 0 {
+            unsafe { libc::_exit(183) };
+        }
+
+        let byte = [1u8];
+        if !unsafe { write_exact(sibling_ready, &byte) } {
+            unsafe { libc::_exit(184) };
+        }
+
+        let mut release_byte = [0u8; 1];
+        if !unsafe { read_exact(sibling_release, &mut release_byte) } {
+            unsafe { libc::_exit(185) };
+        }
+
+        unsafe { libc::_exit(0) }
+    });
+
+    let mut ready_byte = [0u8; 1];
+    if !unsafe { read_exact(ready[0], &mut ready_byte) } {
+        unsafe { libc::_exit(186) };
+    }
+
+    let policy = SeccompSyscallPolicyV1::new(
+        architecture,
+        vec![
+            libc::SYS_getpid,
+            libc::SYS_read,
+            libc::SYS_write,
+            libc::SYS_exit_group,
+        ],
+    )
+    .unwrap_or_else(|_| unsafe { libc::_exit(187) });
+    let profile = SandboxProfileV1::renderer_default()
+        .with_syscall_policy_digest(policy.digest())
+        .unwrap_or_else(|_| unsafe { libc::_exit(188) });
+
+    let result = install(
+        RendererProcessAssignmentId::new(7).unwrap(),
+        profile,
+        &policy,
+    );
+
+    // TSYNC_ESRCH must convert divergent-thread synchronization failure into
+    // ordinary ESRCH error handling. A positive raw syscall result (thread ID)
+    // is itself a failure and must never be treated as successful enforcement.
+    if !matches!(
+        result,
+        Err(SeccompError::InstallationFailed(errno)) if errno == libc::ESRCH
+    ) {
+        unsafe { libc::_exit(189) };
+    }
+
+    let release_byte = [1u8];
+    if !unsafe { write_exact(release[1], &release_byte) } {
+        unsafe { libc::_exit(190) };
+    }
+
+    unsafe { libc::_exit(0) }
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn seccomp_tsync_esrch_normalizes_divergent_filter_failure() {
+    if std::env::var_os("PRISM_SECCOMP_DIVERGENT_TSYNC_CHILD").is_some() {
+        thread_sync_divergent_filter_child();
+    }
+
+    let status = std::process::Command::new(std::env::current_exe().unwrap())
+        .arg("--exact")
+        .arg("seccomp_tsync_esrch_normalizes_divergent_filter_failure")
+        .arg("--nocapture")
+        .env("RUST_TEST_THREADS", "1")
+        .env("PRISM_SECCOMP_DIVERGENT_TSYNC_CHILD", "1")
+        .status()
+        .expect("failed to launch divergent-filter TSYNC child");
+
+    assert!(
+        status.success(),
+        "divergent-filter TSYNC child failed: {status}"
+    );
+}
+
+#[cfg(target_os = "linux")]
 fn thread_sync_child() -> ! {
     use prism_bridge::process::{RendererProcessAssignmentId, SandboxProfileV1};
     use prism_bridge::seccomp::{install, SeccompArchitecture, SeccompSyscallPolicyV1};
