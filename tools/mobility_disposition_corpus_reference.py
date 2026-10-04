@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 
 EXPECTED_SCHEMA = "mycelix.mobility.evidence_disposition_transition.v1"
-EXPECTED_COUNT = 179
+EXPECTED_COUNT = 180
 EXPECTED_OUTCOME_CLASSES = [
     "accepted",
     "rejected",
@@ -103,6 +103,7 @@ EXPECTED_BINDING_VECTORS = [
     ("EDT-177", "caller_supplied_runtime_dependency_order_is_canonicalized_before_host_retrieval", "accepted"),
     ("EDT-178", "must_get_valid_record_upstream_invalidity_remains_protocol_unresolved_not_transport_absence", "unresolved_at_protocol_layer"),
     ("EDT-179", "malformed_runtime_binding_payload_precedes_missing_authority_preflight", "typed_structural_error"),
+    ("EDT-180", "runtime_binding_rejects_provenance_witness_from_other_authority_registry_binding", "adapter_boundary_error"),
 ]
 
 
