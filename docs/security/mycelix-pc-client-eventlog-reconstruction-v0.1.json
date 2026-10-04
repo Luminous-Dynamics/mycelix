@@ -52,7 +52,9 @@
     "a PASS reconstruction receipt must contain complete PCR maps and hashes; metadata-only hashes are insufficient",
     "the reconstruction receipt input digest must match the exact canonical event-stream input artifact",
     "the reconstruction receipt must identify the exact verifier executable provenance",
-    "the bundle verifier independently executes the reconstruction theorem and rejects disagreement with the supplied receipt"
+    "the bundle verifier independently executes the reconstruction theorem and rejects disagreement with the supplied receipt",
+    "EV_NO_ACTION is logged context and does not extend the PCR",
+    "HCRTM PCR0 initialization is outside the zero-state replay profile and must be INDETERMINATE rather than silently misreconstructed"
   ],
   "vectors": [
     {
@@ -164,6 +166,16 @@
       "id": "PLR-V22",
       "mutation": "reconstructed-pcr-mismatch",
       "expected": "DENY"
+    },
+    {
+      "id": "PLR-V23",
+      "mutation": "no-action-does-not-extend",
+      "expected": "PASS"
+    },
+    {
+      "id": "PLR-V24",
+      "mutation": "hcrtm-initial-state-adjustment-unsupported",
+      "expected": "INDETERMINATE"
     }
   ],
   "qualification_required_artifacts": [
