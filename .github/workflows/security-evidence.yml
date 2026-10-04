@@ -34,7 +34,7 @@ jobs:
           assert recon["profile_id"] == "mycelix.security.platform.eventlog.reconstruction"
           assert platform["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"
           assert len(platform["vectors"]) == 22
-          assert len(recon["vectors"]) == 24
+          assert len(recon["vectors"]) == 25
           assert "eventlog-reconstruction-input.json" in platform["qualification_required_artifacts"]
           assert "verifier_source_sha256" in platform["required_reconstruction_output"]
           PY
