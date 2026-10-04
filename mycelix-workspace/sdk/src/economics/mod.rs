@@ -26,6 +26,7 @@ pub mod substrate;
 pub mod metabolic_oracle;
 pub mod policy_analysis;
 pub mod policy_context;
+pub mod policy_observation;
 pub mod scenario;
 pub mod policy_profile;
 pub mod poc;
@@ -45,6 +46,10 @@ pub use jurisdiction_pack::{
 };
 pub use policy_analysis::{EconomicAnalysisBinding, EconomicPolicyAnalysis};
 pub use policy_context::{EconomicPolicyContext, EconomicPolicyContextRole};
+pub use policy_observation::{
+    EconomicObservation, EconomicObservationBinding, EconomicObservationSignal,
+    EconomicObservationSnapshot,
+};
 pub use scenario::{EconomicPolicyScenario, EconomicScenarioBinding, EconomicScenarioKind};
 pub use policy_profile::{EconomicOsOperation, EconomicPolicyProfile};
 pub use poc::{
