@@ -701,19 +701,16 @@ fn eddsa_jcs_hash_data_for_presentation(
 }
 
 fn compute_presentation_content_hash(vp: &VerifiablePresentation) -> Vec<u8> {
-    let mut content = Vec::new();
-    content.extend(vp.id.as_bytes());
-    content.push(0);
+    // Preserve the exact legacy payload layout used by the historical
+    // coordinator profile for backward verification of existing presentations.
+    let mut content = vp.id.as_bytes().to_vec();
     content.extend(vp.holder.as_bytes());
-    content.push(0);
     for credential in &vp.verifiable_credential {
         content.extend(credential.id.as_bytes());
-        content.push(0);
     }
     if let Some(challenge) = &vp.proof.challenge {
         content.extend(challenge.as_bytes());
     }
-    content.push(0);
     if let Some(domain) = &vp.proof.domain {
         content.extend(domain.as_bytes());
     }
