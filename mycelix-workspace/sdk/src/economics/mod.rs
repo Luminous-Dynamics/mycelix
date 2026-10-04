@@ -16,6 +16,8 @@ pub mod decay_garden;
 pub mod impact;
 pub mod integrity_gate;
 pub mod action_lifecycle;
+pub mod execution_receipt;
+pub mod execution_reconciliation;
 pub mod substrate;
 pub mod metabolic_oracle;
 pub mod poc;
