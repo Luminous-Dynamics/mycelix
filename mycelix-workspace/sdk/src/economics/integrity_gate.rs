@@ -22,6 +22,7 @@ use super::{
     substrate::{DistributionPurpose, GateDecision, SubstrateDimension, SubstrateLedger},
 };
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 /// Versioned declaration of the integrity scope an action claims to operate under.
 ///
@@ -52,6 +53,21 @@ pub struct EconomicActionScope {
 }
 
 impl EconomicActionScope {
+    /// Return a deterministic SHA-256 fingerprint of the complete scope.
+    ///
+    /// The version prefix makes the canonicalization scheme explicit. All
+    /// serialized fields are included, so reusing a scope ID with altered
+    /// policy, authority, evidence, dimensions, purpose, or timestamp produces
+    /// a different fingerprint.
+    pub fn fingerprint(&self) -> Result<String, String> {
+        let canonical = serde_json::to_vec(self)
+            .map_err(|error| format!("Economic scope canonicalization failed: {error}"))?;
+        let mut hasher = Sha256::new();
+        hasher.update(b"MYCELIX-ECONOMIC-ACTION-SCOPE-V1\0");
+        hasher.update(canonical);
+        Ok(hex::encode(hasher.finalize()))
+    }
+
     /// Validate the scope declaration without inventing missing policy.
     pub fn validate(&self) -> Result<(), String> {
         if self.scope_id.trim().is_empty() {
