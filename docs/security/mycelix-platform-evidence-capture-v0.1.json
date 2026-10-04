@@ -293,7 +293,7 @@
     },
     {
       "id": "CAP-031",
-      "rule": "EK certificate capture must use TPM_NV_ONLY source mode, preserve raw certificate bytes, and retain the NV inventory plus tpm2_getekcertificate transcript."
+      "rule": "EK certificate capture must use TPM_NV_ONLY source mode, preserve raw certificate bytes, and retain the NV inventory plus tpm2_nvread transcript."
     },
     {
       "id": "CAP-032",
@@ -510,7 +510,7 @@
       "tpm2_checkquote",
       "tpm2_eventlog",
       "tpm2_readpublic",
-      "tpm2_getekcertificate"
+      "tpm2_nvread"
     ],
     "quote_default_pcr_selection": "sha256:0,2,4,7",
     "workload_pcr_note": "PCR16 remains a separate workload-specific measurement surface and is not silently treated as a PC-client firmware event-log PCR."
