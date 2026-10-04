@@ -43,6 +43,9 @@ pub struct EconomicObservables {
     /// Gross debt extinguished through explicit non-cash write-off.
     #[serde(default)]
     pub debt_written_off: i128,
+    /// Gross debt extinguished through bilateral forgiveness.
+    #[serde(default)]
+    pub debt_forgiven: i128,
     pub trade_credit_extended: i128,
     pub trade_credit_settled: i128,
     pub net_credit_impulse: i128,
@@ -181,6 +184,7 @@ impl EconomicObservables {
             credit_created: ledger.credit_created,
             debt_repaid: ledger.debt_repaid,
             debt_written_off: ledger.debt_written_off,
+            debt_forgiven: ledger.debt_forgiven,
             trade_credit_extended: ledger.trade_credit_extended,
             trade_credit_settled: ledger.trade_credit_settled,
             net_credit_impulse,
@@ -466,5 +470,22 @@ mod tests {
         assert_eq!(observations.productive_capital_revaluation, 50);
         assert_eq!(observations.inventory_carrying_value_revaluation, -50);
     }
+    #[test]
+    fn aggregate_observations_preserve_debt_forgiveness_separately() {
+        let state = EconomicState::new(vec![
+            ActorBalanceSheet::new("bank"),
+            ActorBalanceSheet::new("firm"),
+        ]);
+        let transitions = vec![EconomicTransition::DebtForgiveness(
+            crate::economics::stock_flow::DebtForgiveness::new("bank", "firm", 10).unwrap(),
+        )];
+        let observations =
+            EconomicObservables::try_from_state_and_transitions(&state, &transitions).unwrap();
+        assert_eq!(observations.debt_forgiven, 10);
+        assert_eq!(observations.debt_repaid, 0);
+        assert_eq!(observations.debt_written_off, 0);
+        assert_eq!(observations.net_credit_impulse, 0);
+    }
+
 
 }
