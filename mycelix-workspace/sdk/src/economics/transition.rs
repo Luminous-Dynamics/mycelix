@@ -31,10 +31,12 @@ pub enum EconomicTransition {
 }
 
 impl EconomicTransition {
-    /// Apply this validated transition to a mutable economic state.
+    /// Validate and apply this transition to a mutable economic state.
     ///
-    /// This is the single canonical mutation dispatcher used by execution and
-    /// observation replay so those paths cannot silently diverge in the future.
+    /// This is the single canonical mutation dispatcher used by execution,
+    /// observation replay, and reconciliation. It validates the deserializable
+    /// transition at the dispatcher boundary so future internal callers cannot
+    /// accidentally bypass the shared domain rules.
     pub(crate) fn apply_to_state(&self, state: &mut EconomicState) -> Result<(), String> {
         self.validate()?;
 
