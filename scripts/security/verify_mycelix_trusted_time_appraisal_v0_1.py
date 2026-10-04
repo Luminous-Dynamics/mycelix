@@ -11,7 +11,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[2]
 REGISTRY = ROOT / "docs/security/mycelix-trusted-time-registry-v0.1.json"
 VERIFIER_ID = "mycelix.trusted-time.appraisal.v0.1"
-APPROVED_REGISTRY_SHA256 = "CHANGE_ME"
+APPROVED_REGISTRY_SHA256 = "451ca270db7b95ac12fda9ef96ba536cefe243c43068e1320cf93e21d2a7acf7"
 
 
 def sha256_file(path: Path) -> str:
