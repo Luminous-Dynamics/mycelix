@@ -712,3 +712,139 @@ async fn test_tally_and_query_votes() {
     drop(bob_conductor);
     tokio::time::sleep(std::time::Duration::from_millis(500)).await;
 }
+
+
+// ============================================================================
+// Same-agent concurrent vote race
+// ============================================================================
+
+/// Two zome calls from the same cell/agent are issued concurrently so both can
+/// race through the coordinator's preflight duplicate-vote check. The system
+/// must not leave more than one accepted vote for the decision, even when the
+/// calls use different choices.
+///
+/// This deliberately differs from the multi-conductor races: both calls share
+/// one SweetConductor and therefore one source chain.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "requires Holochain conductor"]
+async fn test_same_agent_concurrent_vote_race_is_single_vote() {
+    let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
+    let mut alice_conductor = SweetConductor::from_standard_config().await;
+    let (alice,) = alice_conductor
+        .setup_app("test-app", &[dna_file])
+        .await
+        .unwrap()
+        .into_tuple();
+
+    let hearth_record: Record = alice_conductor
+        .call(
+            &alice.zome("hearth_kinship"),
+            "create_hearth",
+            CreateHearthInput {
+                name: "Same Agent Vote Race Hearth".to_string(),
+                description: "Testing concurrent duplicate-vote preflight".to_string(),
+                hearth_type: HearthType::Chosen,
+                max_members: Some(10),
+            },
+        )
+        .await;
+    let hearth_hash = hearth_record.action_address().clone();
+
+    let decision_record: Record = alice_conductor
+        .call(
+            &alice.zome("hearth_decisions"),
+            "create_decision",
+            CreateDecisionInput {
+                hearth_hash,
+                title: "Concurrent vote race".to_string(),
+                description: "Only one vote from one agent should survive".to_string(),
+                decision_type: DecisionType::MajorityVote,
+                eligible_roles: vec![MemberRole::Founder],
+                options: vec!["A".to_string(), "B".to_string()],
+                deadline: Timestamp::from_micros(
+                    Timestamp::now().as_micros() + 60_000_000,
+                ),
+                quorum_bp: None,
+            },
+        )
+        .await;
+    let decision_hash = decision_record.action_address().clone();
+
+    let (first, second) = tokio::join!(
+        alice_conductor.call_fallible::<_, Record>(
+            &alice.zome("hearth_decisions"),
+            "cast_vote",
+            CastVoteInput {
+                decision_hash: decision_hash.clone(),
+                choice: 0,
+                reasoning: Some("first concurrent vote".to_string()),
+            },
+        ),
+        alice_conductor.call_fallible::<_, Record>(
+            &alice.zome("hearth_decisions"),
+            "cast_vote",
+            CastVoteInput {
+                decision_hash: decision_hash.clone(),
+                choice: 1,
+                reasoning: Some("second concurrent vote".to_string()),
+            },
+        ),
+    );
+
+    let success_count = (if first.is_ok() { 1 } else { 0 })
+        + (if second.is_ok() { 1 } else { 0 });
+    assert!(
+        success_count <= 1,
+        "concurrent same-agent vote calls must not both succeed; results: first={first:?}, second={second:?}"
+    );
+
+    if success_count == 0 {
+        let recovered: Record = alice_conductor
+            .call(
+                &alice.zome("hearth_decisions"),
+                "cast_vote",
+                CastVoteInput {
+                    decision_hash: decision_hash.clone(),
+                    choice: 0,
+                    reasoning: Some("sequential recovery after race".to_string()),
+                },
+            )
+            .await;
+        assert_eq!(
+            recovered.action().author(),
+            alice.agent_pubkey(),
+            "sequential recovery vote must be authored by the same agent"
+        );
+    }
+
+    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+
+    let current_votes: Vec<Record> = alice_conductor
+        .call(
+            &alice.zome("hearth_decisions"),
+            "get_decision_votes",
+            decision_hash.clone(),
+        )
+        .await;
+    assert!(
+        current_votes.len() <= 1,
+        "a decision must expose at most one current vote for one agent; got {}",
+        current_votes.len()
+    );
+
+    let history: Vec<Record> = alice_conductor
+        .call(
+            &alice.zome("hearth_decisions"),
+            "get_vote_history",
+            decision_hash,
+        )
+        .await;
+    assert!(
+        history.len() <= 1,
+        "a single agent's vote history must not contain duplicate accepted votes from the race; got {}",
+        history.len()
+    );
+
+    drop(alice_conductor);
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+}
