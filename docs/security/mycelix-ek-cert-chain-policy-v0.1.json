@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "artifact_type": "mycelix-ek-cert-chain-policy-v0.1",
+  "profile_id": "mycelix.security.tpm.ek-cert-chain-policy",
+  "profile_version": "0.1.0",
+  "status": "executable-reference-profile",
+  "claim_ceiling": "ReferenceModelOnly",
+  "decision_algebra": "ANY DENY > ANY INDETERMINATE > ALL PASS",
+  "states": ["PASS", "DENY", "INDETERMINATE"],
+  "theorem": {
+    "statement": "An EK certificate is admissible only when the exact DER leaf path validates to an explicitly authorized root at the supplied time, the leaf satisfies the RSA storage-EK profile, AuthorityKeyIdentifier binds to the issuing CA SubjectKeyIdentifier, a CRL check is PASS, and the prior EK SPKI theorem binds the leaf to the observed EK public key.",
+    "scope": "The reference trust anchor is synthetic. This theorem is a deterministic policy model and does not assert real manufacturer authenticity."
+  },
+  "required_input": {
+    "session_id": "capture session identifier",
+    "tpm_identity_digest": "TPM session identity digest",
+    "verification_mode": ["ReferenceModelOnly", "OfflineBundle", "LiveVerifierSession"],
+    "claim_ceiling": "ReferenceModelOnly",
+    "leaf_certificate_der_base64": "exact leaf DER",
+    "leaf_certificate_sha256": "leaf digest",
+    "intermediate_certificate_der_base64": "exact issuing CA DER",
+    "intermediate_certificate_sha256": "intermediate digest",
+    "trust_anchor_root_der_base64": "explicit trusted root DER",
+    "trust_anchor_root_sha256": "trusted root digest",
+    "trust_anchor_state": "PASS, DENY or INDETERMINATE",
+    "trust_anchor_source_sha256": "source authorization digest",
+    "verification_time_unix": "deterministic validation time",
+    "revocation": ["state", "method", "crl_der_base64", "crl_der_sha256"],
+    "spki_binding": ["state", "verifier_id", "certificate_sha256", "ek_public_wire_sha256"],
+    "session_binding_sha256": "binding over session, TPM, certificate chain, trust anchor and CRL"
+  },
+  "profile_rules": {
+    "version": 3,
+    "basic_constraints": "critical CA:false",
+    "key_usage": "critical keyEncipherment for RSA storage EK",
+    "extended_key_usage": "optional; if present it should contain 2.23.133.8.1",
+    "authority_key_identifier": "matches issuing CA SubjectKeyIdentifier"
+  },
+  "non_equivalences": [
+    ["certificate_path_valid", "manufacturer_authenticity"],
+    ["trusted_root_hash_match", "real_world_root_authorization"],
+    ["spki_binding_pass", "issuer_trust"],
+    ["revocation_pass", "measured_boot_valid"],
+    ["ek_profile_pass", "AK_EK_lineage"]
+  ],
+  "vectors": [
+    {"id":"EKC-V01","mutation":"canonical-valid","expected":"PASS"},
+    {"id":"EKC-V02","mutation":"root-substitution","expected":"DENY"},
+    {"id":"EKC-V03","mutation":"intermediate-substitution","expected":"DENY"},
+    {"id":"EKC-V04","mutation":"leaf-byte-substitution","expected":"DENY"},
+    {"id":"EKC-V05","mutation":"expired-reference-time","expected":"DENY"},
+    {"id":"EKC-V06","mutation":"not-yet-valid-reference-time","expected":"DENY"},
+    {"id":"EKC-V07","mutation":"key-usage-profile-mismatch","expected":"DENY"},
+    {"id":"EKC-V08","mutation":"eku-profile-mismatch","expected":"DENY"},
+    {"id":"EKC-V09","mutation":"trust-anchor-substitution","expected":"DENY"},
+    {"id":"EKC-V10","mutation":"revocation-deny","expected":"DENY"},
+    {"id":"EKC-V11","mutation":"revocation-indeterminate","expected":"INDETERMINATE"},
+    {"id":"EKC-V12","mutation":"spki-certificate-substitution","expected":"DENY"},
+    {"id":"EKC-V13","mutation":"spki-indeterminate","expected":"INDETERMINATE"},
+    {"id":"EKC-V14","mutation":"session-binding-substitution","expected":"DENY"},
+    {"id":"EKC-V15","mutation":"key-order-permutation","expected":"PASS"}
+  ],
+  "reference_fixture": {
+    "root_sha256": "bf027c125d7641b37bb1e8e71eab5f480cc3b925eb33660b818b251faf5fa6bc",
+    "leaf_sha256": "b1f1973f877965e8a2538b9d59e34d5e00a6dc7770e33ca9354c49a4169cea4d",
+    "intermediate_sha256": "7b6dfe59bd20910fad89ec1a97dd048c38e8ebdb618c77d01bfb7faf2dd36899",
+    "crl_sha256": "6f1bb7caef3c3f43f787bcb79ac4208b5c0c5af21175be32430d70432a398252",
+    "verification_time_unix": 1791158400
+  }
+}
