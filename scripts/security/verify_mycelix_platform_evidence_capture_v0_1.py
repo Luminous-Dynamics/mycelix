@@ -21,6 +21,8 @@ RECONSTRUCTION_SCRIPT = ROOT / "scripts/security/reconstruct_mycelix_pc_client_e
 ADAPTER_SCRIPT = ROOT / "scripts/security/adapt_mycelix_tpm2_eventlog_yaml_v1_v0_1.py"
 RAW_EVENTLOG_PARSER_SCRIPT = ROOT / "scripts/security/parse_mycelix_raw_tpm2_eventlog_v0_1.py"
 PAYLOAD_COHERENCE_SCRIPT = ROOT / "scripts/security/verify_mycelix_event_payload_digest_coherence_v0_1.py"
+REFERENCE_APPRAISAL_SCRIPT = ROOT / "scripts/security/verify_mycelix_reference_value_appraisal_v0_1.py"
+REFERENCE_REGISTRY = ROOT / "docs/security/mycelix-reference-value-registry-v0.1.json"
 RECONSTRUCTION_VERIFIER_ID = "mycelix.pc-client.eventlog-reconstruction.v0.1"
 
 
@@ -132,6 +134,11 @@ def session_binding(manifest: dict[str, Any]) -> str:
             "payload_coherence_output_sha256": manifest["payload_coherence"]["output_sha256"],
             "payload_coherence_source_sha256": manifest["payload_coherence"]["source_sha256"],
             "payload_coherence_input_sha256": manifest["payload_coherence"]["input_sha256"],
+            "reference_appraisal_status": manifest["reference_appraisal"]["status"],
+            "reference_appraisal_output_sha256": manifest["reference_appraisal"]["output_sha256"],
+            "reference_appraisal_source_sha256": manifest["reference_appraisal"]["source_sha256"],
+            "reference_appraisal_registry_sha256": manifest["reference_appraisal"]["registry_sha256"],
+            "reference_appraisal_input_sha256": manifest["reference_appraisal"]["input_sha256"],
         }
     )
 
@@ -199,7 +206,7 @@ def fixture_manifest() -> dict[str, Any]:
             "observed_tool_versions_sha256": "0" * 64,
             "tss_version_evidence_sha256": "f" * 64,
         },
-        "reference_values": {"version": "pc-client-rim-2026.1", "sha256": "1" * 64},
+        "reference_values": {"version": "pc-client-rim-2026.1", "sha256": "9790c201e1f46f8494e3c42835f08c9e4eb410180b163efc86013dfa97ae7923"},
         "trusted_time": {
             "sha256": "2" * 64,
             "available": True,
@@ -226,6 +233,13 @@ def fixture_manifest() -> dict[str, Any]:
             "output_sha256": "9" * 64,
             "source_sha256": sha256_file(PAYLOAD_COHERENCE_SCRIPT),
             "input_sha256": "3" * 64,
+        },
+        "reference_appraisal": {
+            "status": "PASS",
+            "output_sha256": "0" * 64,
+            "source_sha256": sha256_file(REFERENCE_APPRAISAL_SCRIPT),
+            "registry_sha256": "28730695c1398a8133e5e7d0e1d89cdb84fca582b2186814c39f91121afc8ce1",
+            "input_sha256": "9790c201e1f46f8494e3c42835f08c9e4eb410180b163efc86013dfa97ae7923",
         },
         "artifacts": {
             "quote_message_sha256": "5" * 64,
@@ -387,6 +401,13 @@ def validate_semantics(manifest: dict[str, Any]) -> tuple[str, str]:
             "source_sha256",
             "input_sha256",
         ),
+        "reference_appraisal": (
+            "status",
+            "output_sha256",
+            "source_sha256",
+            "registry_sha256",
+            "input_sha256",
+        ),
         "quote": ("pcr_selection", "nonce_sha256", "attestation_key_sha256"),
         "challenge": ("sha256", "origin"),
         "toolchain": (
@@ -416,6 +437,7 @@ def validate_semantics(manifest: dict[str, Any]) -> tuple[str, str]:
             "observed_pcr_values_file_sha256",
             "raw_eventlog_output_sha256",
             "payload_coherence_output_sha256",
+            "reference_appraisal_output_sha256",
             "tss_version_evidence_sha256",
             "ek_public_sha256",
         ),
@@ -480,6 +502,14 @@ def validate_semantics(manifest: dict[str, Any]) -> tuple[str, str]:
         denies.append("payload-coherence-source-binding-mismatch")
     if manifest["payload_coherence"]["input_sha256"] != manifest["reconstruction"]["input_sha256"]:
         denies.append("payload-coherence-input-binding-mismatch")
+    if manifest["reference_appraisal"]["source_sha256"] != sha256_file(REFERENCE_APPRAISAL_SCRIPT):
+        denies.append("reference-appraisal-source-binding-mismatch")
+    if manifest["reference_appraisal"]["input_sha256"] != manifest["reference_values"]["sha256"]:
+        denies.append("reference-appraisal-input-binding-mismatch")
+    if manifest["reference_appraisal"]["status"] == "DENY":
+        denies.append("reference-appraisal-denied")
+    elif manifest["reference_appraisal"]["status"] != "PASS":
+        indeterminate.append("reference-appraisal-unavailable-or-unapproved")
 
     if (
         manifest["reconstruction"]["status"] == "PASS"
@@ -731,6 +761,7 @@ def verify_bundle(args: argparse.Namespace) -> int:
         "observed-pcr-values.json": manifest["live_observation"]["pcr_values_file_sha256"],
         "raw-eventlog.json": manifest["raw_eventlog"]["output_sha256"],
         "payload-coherence.json": manifest["payload_coherence"]["output_sha256"],
+        "reference-appraisal.json": manifest["reference_appraisal"]["output_sha256"],
         "eventlog-reconstruction.json": manifest["artifacts"]["reconstruction_file_sha256"],
     }
     for relative, expected in checks.items():
@@ -819,6 +850,38 @@ def verify_bundle(args: argparse.Namespace) -> int:
         print("PLATFORM EVIDENCE: DENY: payload-coherence-manifest-state-mismatch")
         return 1
 
+    reference_result = load_json(bundle / "reference-appraisal.json")
+    if reference_result.get("profile_id") != "mycelix.reference-value.appraisal":
+        print("PLATFORM EVIDENCE: DENY: reference-appraisal-profile-mismatch")
+        return 1
+    if reference_result.get("verifier_id") != "mycelix.reference-value.appraisal.v0.1":
+        print("PLATFORM EVIDENCE: DENY: reference-appraisal-verifier-id-mismatch")
+        return 1
+    if reference_result.get("verifier_source_sha256") != sha256_file(REFERENCE_APPRAISAL_SCRIPT):
+        print("PLATFORM EVIDENCE: DENY: reference-appraisal-source-mismatch")
+        return 1
+    if reference_result.get("registry_sha256") != sha256_file(REFERENCE_REGISTRY):
+        print("PLATFORM EVIDENCE: DENY: reference-appraisal-registry-mismatch")
+        return 1
+    if reference_result.get("reference_sha256") != manifest["reference_values"]["sha256"]:
+        print("PLATFORM EVIDENCE: DENY: reference-appraisal-input-mismatch")
+        return 1
+    if reference_result.get("content_sha256") != self_hash(reference_result, "content_sha256"):
+        print("PLATFORM EVIDENCE: DENY: reference-appraisal-self-hash-mismatch")
+        return 1
+    reference_state = reference_result.get("state")
+    if reference_state == "DENY":
+        print("PLATFORM EVIDENCE: DENY: reference-appraisal-denied")
+        return 1
+    if reference_state not in {"PASS", "INDETERMINATE"}:
+        print("PLATFORM EVIDENCE: DENY: reference-appraisal-state-invalid")
+        return 1
+    if manifest["reference_appraisal"]["status"] != reference_state:
+        print("PLATFORM EVIDENCE: DENY: reference-appraisal-manifest-state-mismatch")
+        return 1
+    if reference_state == "INDETERMINATE":
+        print("Reference appraisal: INDETERMINATE (reference set not approved)")
+        return 2
     quote_state, quote_reason = run_quote_check(bundle)
     print(f"TPM Quote verification: {quote_state} ({quote_reason})")
     if quote_state != "PASS":
@@ -1002,6 +1065,23 @@ def capture(args: argparse.Namespace) -> int:
     if raw_parse.returncode != 0:
         raise RuntimeError("independent raw event-log parser failed; raw evidence preserved but not qualified")
     trusted = load_json(out / "trusted-time.json")
+    reference_appraisal_path = out / "reference-appraisal.json"
+    reference_appraisal_proc = run(
+        [
+            sys.executable,
+            str(REFERENCE_APPRAISAL_SCRIPT),
+            "--appraise",
+            str(out / "reference-values.json"),
+            "--output",
+            str(reference_appraisal_path),
+        ],
+        env,
+        out,
+        check=False,
+    )
+    if reference_appraisal_proc.returncode not in (0, 2) and not reference_appraisal_path.is_file():
+        raise RuntimeError("reference-value appraisal failed without producing a result")
+    reference_appraisal = load_json(reference_appraisal_path)
     input_path = out / "eventlog-reconstruction-input.json"
 
     reconstruction_path = out / "eventlog-reconstruction.json"
@@ -1151,6 +1231,13 @@ def capture(args: argparse.Namespace) -> int:
             "source_sha256": sha256_file(PAYLOAD_COHERENCE_SCRIPT),
             "input_sha256": sha256_file(input_path),
         },
+        "reference_appraisal": {
+            "status": reference_appraisal.get("state", "DENY"),
+            "output_sha256": sha256_file(reference_appraisal_path),
+            "source_sha256": sha256_file(REFERENCE_APPRAISAL_SCRIPT),
+            "registry_sha256": sha256_file(REFERENCE_REGISTRY),
+            "input_sha256": sha256_file(out / "reference-values.json"),
+        },
         "quote": {
             "pcr_selection": args.pcr_selection,
             "nonce_sha256": sha256_file(out / "nonce.bin"),
@@ -1190,6 +1277,8 @@ def capture(args: argparse.Namespace) -> int:
             "reconstruction_input_sha256": sha256_file(out / "eventlog-reconstruction-input.json"),
             "observed_pcr_values_file_sha256": sha256_file(out / "observed-pcr-values.json"),
             "raw_eventlog_output_sha256": sha256_file(raw_eventlog_path),
+            "payload_coherence_output_sha256": sha256_file(payload_coherence_path),
+            "reference_appraisal_output_sha256": sha256_file(reference_appraisal_path),
             "tss_version_evidence_sha256": sha256_file(out / "tss-version-evidence.txt"),
             "ek_public_sha256": ek_hash,
         },

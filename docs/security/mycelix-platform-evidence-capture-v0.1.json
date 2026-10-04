@@ -62,7 +62,8 @@
       "eventlog-reconstruction-input.json",
       "observed-pcr-values.json",
       "raw-eventlog.json",
-      "payload-coherence.json"
+      "payload-coherence.json",
+      "reference-appraisal.json"
     ],
     "optional_artifacts": [
       "pcr-pre.yaml",
@@ -126,7 +127,13 @@
       "payload_coherence.output_sha256",
       "payload_coherence.source_sha256",
       "payload_coherence.input_sha256",
-      "artifacts.payload_coherence_output_sha256"
+      "artifacts.payload_coherence_output_sha256",
+      "reference_appraisal.status",
+      "reference_appraisal.output_sha256",
+      "reference_appraisal.source_sha256",
+      "reference_appraisal.registry_sha256",
+      "reference_appraisal.input_sha256",
+      "artifacts.reference_appraisal_output_sha256"
     ],
     "session_binding": "The session_binding_sha256 covers the session/boot/TPM/EK/event-log/PCR selection/challenge/AK/toolchain/reference/trusted-time/reconstruction result, exact reconstruction input digest, verifier identifier, verifier source digest, and platform/workload inputs in canonical form.",
     "canonical_json": "Manifest semantic hashing uses UTF-8 JSON with sorted keys and no insignificant whitespace."
@@ -219,6 +226,30 @@
     {
       "id": "CAP-022",
       "rule": "Payload coherence input and verifier source provenance must bind to the exact canonical reconstruction input and exact verifier source."
+    },
+    {
+      "id": "CAP-023",
+      "rule": "Reference-value version and digest alone are insufficient; the exact reference set must pass an independent appraisal against the approved registry."
+    },
+    {
+      "id": "CAP-024",
+      "rule": "An unapproved but syntactically valid reference set is INDETERMINATE, while a digest conflict for an approved version is DENY."
+    },
+    {
+      "id": "CAP-025",
+      "rule": "The reference-appraisal result is bound to the exact reference-values artifact, registry digest, verifier source, and capture session."
+    },
+    {
+      "id": "CAP-023",
+      "rule": "Reference-value version and digest alone are insufficient; the exact reference set must pass independent appraisal against an approved registry."
+    },
+    {
+      "id": "CAP-024",
+      "rule": "An unapproved reference set is INDETERMINATE; a digest conflict for an approved version is DENY."
+    },
+    {
+      "id": "CAP-025",
+      "rule": "Reference appraisal is bound to the exact reference artifact, registry digest, verifier source, and capture session."
     }
   ],
   "decision_algebra": "ANY DENY > ANY INDETERMINATE > ALL PASS",
@@ -361,7 +392,7 @@
   },
   "reference_boundary": {
     "event_log_semantics": "The PC-client event log is an input to reconstruction; parsing alone is not a trust decision.",
-    "reference_values": "Reference values are identified by version and digest and remain an independent appraisal input.",
+    "reference_values": "Reference values are independently appraised. In ReferenceModelOnly the reviewed static registry authorizes an exact fixture digest; dynamic provider authentication remains a separate future theorem.",
     "trusted_time": "Trusted time is an externally qualified evidence object; local wall-clock time is not authoritative.",
     "authorization": "Coherent platform Evidence remains evidence only and is consumed by the downstream RATS/Relying-Party/PEP chain."
   },

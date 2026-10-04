@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "registry_id": "mycelix.reference-values.registry.v0.1",
+  "profile_version": "0.1.0",
+  "authority_model": "reviewed static registry for ReferenceModelOnly; dynamic provider authentication is a separate future theorem",
+  "approved": [
+    {
+      "version": "pc-client-rim-2026.1",
+      "sha256": "9790c201e1f46f8494e3c42835f08c9e4eb410180b163efc86013dfa97ae7923",
+      "status": "APPROVED_REFERENCE_MODEL_FIXTURE"
+    }
+  ]
+}

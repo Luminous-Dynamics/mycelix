@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "artifact_type": "mycelix-reference-value-appraisal-v0.1",
+  "verifier_id": "mycelix.reference-value.appraisal.v0.1",
+  "states": [
+    "PASS",
+    "DENY",
+    "INDETERMINATE"
+  ],
+  "trust_model": "reviewed static registry for ReferenceModelOnly",
+  "rules": [
+    "Reference values are not trusted merely because their version and digest are self-consistent.",
+    "An approved version with a different digest is DENY.",
+    "A syntactically valid but unapproved version is INDETERMINATE.",
+    "A malformed input or malformed registry is DENY.",
+    "Appraisal result input, registry, verifier source, and result are all hash-bound."
+  ],
+  "registry": "mycelix.reference-values.registry.v0.1"
+}
