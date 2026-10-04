@@ -3,7 +3,7 @@
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Verifiable Credential Integrity Zome
 //!
-//! W3C Verifiable Credentials Data Model 2.0 compliant implementation
+//! W3C Verifiable Credentials Data Model 2.0 validation with Mycelix-specific integrity extensions
 //! <https://www.w3.org/TR/vc-data-model-2.0/>
 
 use hdi::prelude::*;
@@ -122,7 +122,7 @@ pub struct CredentialProof {
     pub proof_value: String,
     /// For DataIntegrityProof: cryptosuite used
     pub cryptosuite: Option<String>,
-    /// Algorithm identifier (multicodec u16). None defaults to Ed25519 (0xed01).
+    /// Optional Mycelix algorithm identifier (multicodec u16). W3C cryptosuites such as\n    /// eddsa-jcs-2022 define their algorithm through the cryptosuite and omit this field.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub algorithm: Option<u16>,
     /// Challenge value for replay protection (W3C Data Integrity spec).
