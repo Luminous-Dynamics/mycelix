@@ -264,7 +264,7 @@ impl SectorFinancialFlowMatrix {
                     BalanceSheetInstrument::Debt if flow.to == sector => -flow.amount,
                     _ => 0,
                 },
-                FinancialFlowCategory::DebtRepayment => match instrument {
+                FinancialFlowCategory::DebtRepayment | FinancialFlowCategory::DebtForgiveness => match instrument {
                     BalanceSheetInstrument::Loans if flow.to == sector => -flow.amount,
                     BalanceSheetInstrument::Debt if flow.from == sector => flow.amount,
                     _ => 0,
