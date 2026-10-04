@@ -45,6 +45,32 @@ def main() -> None:
     }
     assert expected_supplemental == set(supplemental_expected_fragments)
 
+    witness_expected_fragments = supplemental_expected_fragments
+    witness_observed = {}
+    for line in log.splitlines():
+        if not line.startswith("D6U_RUNTIME_WITNESS\t"):
+            continue
+        parts = line.split("\t", 2)
+        assert len(parts) == 3, f"malformed runtime witness line: {line!r}"
+        witness_id, witness = parts[1], parts[2]
+        assert witness_id not in witness_observed, (
+            f"duplicate D6U_RUNTIME_WITNESS observation: {witness_id}"
+        )
+        assert witness_id in witness_expected_fragments, (
+            f"unexpected D6U_RUNTIME_WITNESS observation: {witness_id}"
+        )
+        expected_fragment = witness_expected_fragments[witness_id]
+        assert expected_fragment in witness, (
+            f"runtime witness for {witness_id!r} does not contain the expected "
+            f"substrate fragment {expected_fragment!r}: {witness!r}"
+        )
+        witness_observed[witness_id] = witness
+
+    assert set(witness_observed) == expected_supplemental, (
+        f"runtime witness coverage mismatch: "
+        f"{set(witness_observed) ^ expected_supplemental}"
+    )
+
     supplemental_observed = {}
     for line in log.splitlines():
         if not line.startswith("D6U_SUBSTRATE_CHECK\t"):
@@ -72,6 +98,9 @@ def main() -> None:
     assert set(supplemental_observed) == expected_supplemental, (
         f"supplemental coverage mismatch: "
         f"{set(supplemental_observed) ^ expected_supplemental}"
+    )
+    assert set(supplemental_observed) == set(witness_observed), (
+        "supplemental checks and runtime witnesses must cover the same cases"
     )
     print(
         f"verified D6U runtime case coverage and outcomes: "
