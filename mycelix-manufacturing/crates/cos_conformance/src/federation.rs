@@ -3148,6 +3148,7 @@ mod tests {
     struct FederationStateMachineTraceHashView {
         hash_domain: String,
         schema_version: u16,
+        checkpoint_profile: String,
         verification_profile: String,
         trace_index: usize,
         initial_seed: u64,
@@ -3192,6 +3193,7 @@ mod tests {
     struct FederationStateMachineTraceCheckpointHashView {
         hash_domain: String,
         schema_version: u16,
+        checkpoint_profile: String,
         verification_profile: String,
         trace_index: usize,
         step_start: usize,
@@ -3203,10 +3205,12 @@ mod tests {
     }
 
     const FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_SCHEMA_VERSION: u16 = 1;
+    const FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PROFILE: &str =
+        "integral-federation-trace-checkpoint-receipt-v1";
     const FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_HASH_DOMAIN: &str =
         "integral-federation-trace-checkpoint-sha256-v1";
     const FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_GENESIS: &str =
-        "sha256:0000000000000000000000000000000000000000000000000000000000000000";
+        "sha256:checkpoint-genesis-v1:0000000000000000000000000000000000000000000000000000000000000000";
 
     fn state_machine_trace_hash_view(
         capsule: &FederationStateMachineTraceCapsule,
@@ -3293,6 +3297,7 @@ mod tests {
         let view = FederationStateMachineTraceCheckpointHashView {
             hash_domain: FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_HASH_DOMAIN.into(),
             schema_version: checkpoint.schema_version,
+            checkpoint_profile: checkpoint.checkpoint_profile.clone(),
             verification_profile: checkpoint.verification_profile.clone(),
             trace_index: checkpoint.trace_index,
             step_start: checkpoint.step_start,
@@ -3332,6 +3337,7 @@ mod tests {
         };
         let mut checkpoint = FederationStateMachineTraceCheckpoint {
             schema_version: FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_SCHEMA_VERSION,
+            checkpoint_profile: FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PROFILE.into(),
             verification_profile: capsule.verification_profile.clone(),
             trace_index: capsule.trace_index,
             step_start,
@@ -3350,6 +3356,7 @@ mod tests {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
     enum FederationStateMachineTraceCheckpointViolation {
         UnsupportedSchemaVersion,
+        UnsupportedCheckpointProfile,
         UnsupportedVerificationProfile,
         TraceIndexMismatch,
         InvalidStepRange,
@@ -3374,6 +3381,11 @@ mod tests {
         {
             return Err(
                 FederationStateMachineTraceCheckpointViolation::UnsupportedSchemaVersion
+            );
+        }
+        if checkpoint.checkpoint_profile != FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PROFILE {
+            return Err(
+                FederationStateMachineTraceCheckpointViolation::UnsupportedCheckpointProfile
             );
         }
         if checkpoint.verification_profile
@@ -5055,6 +5067,17 @@ mod tests {
         );
 
         reordered.swap(1, 2);
+        let mut forged_profile = second.clone();
+        forged_profile.checkpoint_profile =
+            "integral-federation-trace-checkpoint-receipt-v2".into();
+        reseal_trace_checkpoint_for_test(&mut forged_profile);
+        assert_eq!(
+            validate_state_machine_trace_checkpoint(&capsule, &forged_profile),
+            Err(
+                FederationStateMachineTraceCheckpointViolation::UnsupportedCheckpointProfile
+            )
+        );
+
         let mut resealed_prev = second.clone();
         resealed_prev.previous_checkpoint_sha256 =
             FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_GENESIS.into();
@@ -5075,6 +5098,14 @@ mod tests {
         assert_ne!(
             FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_HASH_DOMAIN,
             FEDERATION_STATE_MACHINE_TRACE_EVIDENCE_CHAIN_HASH_DOMAIN
+        );
+        assert_ne!(
+            FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_GENESIS,
+            FEDERATION_STATE_MACHINE_TRACE_CHAIN_GENESIS
+        );
+        assert_ne!(
+            FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PROFILE,
+            FEDERATION_STATE_MACHINE_TRACE_VERIFICATION_PROFILE
         );
     }
 
