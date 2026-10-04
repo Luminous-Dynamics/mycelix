@@ -524,35 +524,29 @@ async fn test_cross_hearth_collection_story_link_reaches_integrity_validation() 
         &expected_reason("test_cross_hearth_collection_story_link_reaches_integrity_validation"),
     );
 
+    let same_hearth_story: Record = conductor
+        .call(
+            &alice.zome("hearth_stories"),
+            "create_story",
+            CreateStoryInput {
+                hearth_hash: hearth_a,
+                title: "Hearth A Story".into(),
+                content: "Positive control using the same hearth as the collection.".into(),
+                story_type: StoryType::Memory,
+                media_hashes: vec![],
+                tags: vec![],
+                visibility: HearthVisibility::AllMembers,
+            },
+        )
+        .await;
+
     let valid_result = conductor
         .call_fallible(
             &alice.zome("hearth_stories"),
             "add_to_collection",
             AddToCollectionInput {
                 collection_hash: collection.action_address().clone(),
-                story_hash: {
-                    let record: Record = conductor
-                        .call(
-                            &alice.zome("hearth_stories"),
-                            "create_story",
-                            CreateStoryInput {
-                                hearth_hash: collection
-                                    .entry()
-                                    .to_app_option()
-                                    .unwrap()
-                                    .unwrap()
-                                    .hearth_hash,
-                                title: "Hearth A Story".into(),
-                                content: "Positive control using the same hearth as the collection.".into(),
-                                story_type: StoryType::Memory,
-                                media_hashes: vec![],
-                                tags: vec![],
-                                visibility: HearthVisibility::AllMembers,
-                            },
-                        )
-                        .await;
-                    record.action_address().clone()
-                },
+                story_hash: same_hearth_story.action_address().clone(),
             },
         )
         .await;
