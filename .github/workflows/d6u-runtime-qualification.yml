@@ -119,7 +119,8 @@ jobs:
             echo "supported_cases=${supported_case_count}"
             unsupported_case_list=$(python3 -c 'import json; print(",".join(json.load(open("../docs/integral/d6u-runtime-manifest.json"))["unsupported_reference_cases"]))')
             echo "unsupported_cases=${unsupported_case_list}"
-            echo "claim_ceiling=ReferenceModelOnly"
+            claim_ceiling=$(python3 -c 'import json; print(json.load(open("../docs/integral/d6u-runtime-manifest.json"))["claim_ceiling"])')
+            echo "claim_ceiling=${claim_ceiling}"
           } | tee d6u-runtime-evidence.txt
 
       - name: Verify emitted runtime evidence record
