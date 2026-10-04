@@ -842,6 +842,10 @@ validator_source = Path(sys.argv[1]).resolve()
 integrity_source = Path(sys.argv[2]).resolve()
 validator_symbol = sys.argv[3]
 
+if sys.version_info < (3, 11):
+    print("FAIL: external validator provenance requires Python 3.11+ (tomllib)")
+    raise SystemExit(2)
+
 
 def load_manifest(path: Path):
     try:
