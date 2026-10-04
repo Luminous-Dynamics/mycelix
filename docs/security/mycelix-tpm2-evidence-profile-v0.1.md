@@ -89,6 +89,21 @@ TPM quote valid
     -> workload authorized
 ```
 
+## Future EAT representation
+
+RFC 9711 defines the Entity Attestation Token (EAT) as an evidence representation aligned to the RATS model. RFC 10013 (July 2026) defines a standards-track measured-component data model for firmware, early-boot software, filesystem objects, registers, and other measured state. This profile records those standards as a **future representation layer** only; it does not claim that the vTPM fixture is currently encoded or qualified as EAT evidence. citeturn990097search0turn673251view0
+
+The intended future composition is:
+
+```text
+TPM/platform Evidence
+  -> measured-component representation
+  -> EAT Evidence
+  -> RATS Verifier
+```
+
+The mapping must preserve the non-equivalences between component authorities, EAT attester identity, Evidence, Attestation Results, and authorization.
+
 The actual RATS architecture remains:
 
 ```
