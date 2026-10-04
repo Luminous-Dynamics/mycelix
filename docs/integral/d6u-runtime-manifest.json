@@ -1,7 +1,7 @@
 {
   "profile": "D6U-RUNTIME-1",
   "kind": "holochain-0.7-authority-boundary-runtime-manifest",
-  "version": 2,
+  "version": 3,
   "substrate": {
     "holochain": "0.7.0",
     "hdk": "0.7.0",
