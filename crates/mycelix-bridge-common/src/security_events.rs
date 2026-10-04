@@ -10,8 +10,8 @@
 //! the underlying claim is true.
 
 use serde::{
-    de::{Error as _, SeqAccess, Visitor},
     Deserialize, Deserializer, Serialize,
+    de::{Error as _, SeqAccess, Visitor},
 };
 
 use crate::security_kernel::{AuthorizationDecision, AuthorizationRequest, EnforcementRequest};
@@ -195,9 +195,7 @@ where
 
 /// Bound provenance sequences before retaining an attacker-controlled
 /// number of references from wire input.
-fn deserialize_provenance_refs<'de, D>(
-    deserializer: D,
-) -> Result<Vec<ProvenanceRef>, D::Error>
+fn deserialize_provenance_refs<'de, D>(deserializer: D) -> Result<Vec<ProvenanceRef>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
@@ -506,11 +504,7 @@ mod tests {
     #[test]
     fn security_event_deserialization_rejects_excessive_provenance() {
         let provenance: String = (0..=MAX_SECURITY_EVENT_PROVENANCE_REFS)
-            .map(|index| {
-                format!(
-                    r#"{{"artifact_id":"evidence:{index}","relation":"References"}}"#
-                )
-            })
+            .map(|index| format!(r#"{{"artifact_id":"evidence:{index}","relation":"References"}}"#))
             .collect::<Vec<_>>()
             .join(",");
 
