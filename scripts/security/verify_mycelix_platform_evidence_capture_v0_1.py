@@ -19,6 +19,7 @@ ROOT = Path(__file__).resolve().parents[2]
 CONTRACT = ROOT / "docs/security/mycelix-platform-evidence-capture-v0.1.json"
 RECONSTRUCTION_SCRIPT = ROOT / "scripts/security/reconstruct_mycelix_pc_client_eventlog_v0_1.py"
 ADAPTER_SCRIPT = ROOT / "scripts/security/adapt_mycelix_tpm2_eventlog_yaml_v1_v0_1.py"
+RAW_EVENTLOG_PARSER_SCRIPT = ROOT / "scripts/security/parse_mycelix_raw_tpm2_eventlog_v0_1.py"
 RECONSTRUCTION_VERIFIER_ID = "mycelix.pc-client.eventlog-reconstruction.v0.1"
 
 
@@ -123,6 +124,9 @@ def session_binding(manifest: dict[str, Any]) -> str:
             "reconstruction_verifier_source_sha256": manifest["reconstruction"]["verifier_source_sha256"],
             "os_image_digest": manifest["os_image_digest"],
             "workload_digest": manifest["workload_digest"],
+            "raw_eventlog_parser_status": manifest["raw_eventlog"]["status"],
+            "raw_eventlog_parser_output_sha256": manifest["raw_eventlog"]["output_sha256"],
+            "raw_eventlog_parser_source_sha256": manifest["raw_eventlog"]["source_sha256"],
         }
     )
 
@@ -350,6 +354,13 @@ def validate_semantics(manifest: dict[str, Any]) -> tuple[str, str]:
             "parser_status",
             "parser_output_sha256",
         ),
+        "raw_eventlog": (
+            "status",
+            "parser_id",
+            "output_sha256",
+            "source_sha256",
+            "binary_sha256",
+        ),
         "quote": ("pcr_selection", "nonce_sha256", "attestation_key_sha256"),
         "challenge": ("sha256", "origin"),
         "toolchain": (
@@ -431,6 +442,12 @@ def validate_semantics(manifest: dict[str, Any]) -> tuple[str, str]:
         denies.append("ek-artifact-binding-mismatch")
     if manifest["live_observation"]["pcr_values_file_sha256"] != manifest["artifacts"]["observed_pcr_values_file_sha256"]:
         denies.append("observed-pcr-file-binding-mismatch")
+    if manifest["raw_eventlog"]["status"] != "PASS":
+        denies.append("raw-eventlog-parser-failed")
+    if manifest["raw_eventlog"]["parser_id"] != "mycelix.pc-client.raw-tpm2-eventlog-parser.v0.1":
+        denies.append("raw-eventlog-parser-id-mismatch")
+    if manifest["raw_eventlog"]["binary_sha256"] != manifest["event_log"]["sha256"]:
+        denies.append("raw-eventlog-binary-binding-mismatch")
 
     if (
         manifest["reconstruction"]["status"] == "PASS"
@@ -680,6 +697,7 @@ def verify_bundle(args: argparse.Namespace) -> int:
         "tss-version-evidence.txt": manifest["toolchain"]["tss_version_evidence_sha256"],
         "eventlog-reconstruction-input.json": manifest["reconstruction"]["input_sha256"],
         "observed-pcr-values.json": manifest["live_observation"]["pcr_values_file_sha256"],
+        "raw-eventlog.json": manifest["raw_eventlog"]["output_sha256"],
         "eventlog-reconstruction.json": manifest["artifacts"]["reconstruction_file_sha256"],
     }
     for relative, expected in checks.items():
@@ -913,6 +931,13 @@ def capture(args: argparse.Namespace) -> int:
     if parsed.returncode != 0:
         raise RuntimeError("tpm2_eventlog parser failed; raw evidence preserved but not qualified")
 
+    raw_eventlog_path = out / "raw-eventlog.json"
+    raw_parse = run(
+        [sys.executable, str(RAW_EVENTLOG_PARSER_SCRIPT), "--parse", str(out / "eventlog.bin"), "--output", str(raw_eventlog_path)],
+        env, out, check=False,
+    )
+    if raw_parse.returncode != 0:
+        raise RuntimeError("independent raw event-log parser failed; raw evidence preserved but not qualified")
     trusted = load_json(out / "trusted-time.json")
     input_path = out / "eventlog-reconstruction-input.json"
     reconstruction_path = out / "eventlog-reconstruction.json"
@@ -926,6 +951,8 @@ def capture(args: argparse.Namespace) -> int:
             str(out / "eventlog.bin"),
             "--observed-pcr-json",
             str(out / "observed-pcr-values.json"),
+            "--payload-json",
+            str(raw_eventlog_path),
             "--session-id",
             session_id,
             "--pcr-selection",
@@ -1015,6 +1042,13 @@ def capture(args: argparse.Namespace) -> int:
             "parser_status": "PASS",
             "parser_output_sha256": sha256_file(out / "eventlog-parsed.yaml"),
         },
+        "raw_eventlog": {
+            "status": "PASS",
+            "parser_id": "mycelix.pc-client.raw-tpm2-eventlog-parser.v0.1",
+            "output_sha256": sha256_file(raw_eventlog_path),
+            "source_sha256": sha256_file(RAW_EVENTLOG_PARSER_SCRIPT),
+            "binary_sha256": sha256_file(out / "eventlog.bin"),
+        },
         "quote": {
             "pcr_selection": args.pcr_selection,
             "nonce_sha256": sha256_file(out / "nonce.bin"),
@@ -1053,6 +1087,7 @@ def capture(args: argparse.Namespace) -> int:
             "reconstruction_file_sha256": sha256_file(out / "eventlog-reconstruction.json"),
             "reconstruction_input_sha256": sha256_file(out / "eventlog-reconstruction-input.json"),
             "observed_pcr_values_file_sha256": sha256_file(out / "observed-pcr-values.json"),
+            "raw_eventlog_output_sha256": sha256_file(raw_eventlog_path),
             "tss_version_evidence_sha256": sha256_file(out / "tss-version-evidence.txt"),
             "ek_public_sha256": ek_hash,
         },
