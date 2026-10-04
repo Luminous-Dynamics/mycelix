@@ -42,6 +42,7 @@
       "enum": [
         "Connected",
         "Disconnected",
+        "InvalidGraph",
         "InvalidMesh",
         "UndeclaredPath",
         "AnchorNotRepresented",
