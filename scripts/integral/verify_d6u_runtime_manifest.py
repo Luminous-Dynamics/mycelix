@@ -120,6 +120,7 @@ def main() -> None:
         "semantic_result",
         "claim_ceiling",
         "case_outcome",
+        "application_check_coverage",
     ]
     assert manifest["evidence_status"] == "NotExecuted"
 
