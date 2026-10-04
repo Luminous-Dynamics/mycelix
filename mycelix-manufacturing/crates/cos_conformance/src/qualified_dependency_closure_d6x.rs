@@ -1694,11 +1694,25 @@ mod tests {
 
     #[test]
     fn golden_vector_corpus_is_well_formed_and_covers_acceptance_cases() {
-        let corpus: GoldenCorpusV1 = serde_json::from_str(include_str!(concat!(
+        let corpus_text = include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/testdata/d6x_qualified_closure_golden_vectors.json"
-        )))
-        .expect("D6X golden vector corpus must parse");
+        ));
+        let corpus: GoldenCorpusV1 =
+            serde_json::from_str(corpus_text).expect("D6X golden vector corpus must parse");
+
+        // Re-compare the typed fixture subtree against its serialized form so
+        // Serde cannot silently discard an unknown field from the corpus.
+        let raw_corpus: serde_json::Value =
+            serde_json::from_str(corpus_text).expect("D6X golden corpus JSON must remain valid");
+        assert_eq!(
+            raw_corpus.get("fixtures"),
+            Some(
+                &serde_json::to_value(&corpus.fixtures)
+                    .expect("typed D6X fixtures must serialize")
+            ),
+            "D6X golden fixtures must contain exactly the declared typed schema"
+        );
 
         assert_eq!(corpus.schema_version, "D6X-GOLDEN-1");
         assert_eq!(corpus.d6x_schema_version, D6X_SCHEMA_VERSION);
