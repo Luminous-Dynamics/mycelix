@@ -1600,6 +1600,7 @@ mod linux {
         } else {
             hasher.update(b"PRISM-SECCOMP-SYSCALL-EVIDENCE-V5");
         }
+        hasher.update(b"PRISM-SECCOMP-COMPILED-BYTECODE-STRUCTURAL-VALIDATION-V1");
         hasher.update(b"PRISM-SECCOMP-COMPILED-BYTECODE-SEMANTIC-VALIDATION-V1");
         hasher.update(&policy.digest());
         hasher.update(&(filter.len() as u32).to_le_bytes());
@@ -1608,6 +1609,9 @@ mod linux {
             hasher.update(&[instruction.jt, instruction.jf]);
             hasher.update(&instruction.k.to_le_bytes());
         }
+        // Evidence binds the exact structural bytecode contract as well as
+        // policy-bound semantics. Future validator-invariant changes must
+        // therefore move this domain even if emitted bytes remain unchanged.
         hasher.update(b"PRISM-SECCOMP-RENDERER-POLICY-VALIDATION-V3");
         hasher.update(b"PRISM-SECCOMP-NO-NEW-PRIVS-REQUIRED-V1");
         hasher.update(&SECCOMP_RET_ERRNO.to_le_bytes());
