@@ -2092,19 +2092,28 @@ fn parse_tz_offset(s: &str) -> Option<i64> {
     if rest.len() == 4 && !rest.contains(':') {
         let hours: i64 = rest[0..2].parse().ok()?;
         let minutes: i64 = rest[2..4].parse().ok()?;
+        if hours > 23 || minutes > 59 {
+            return None;
+        }
         return Some(sign * (hours * 3600 + minutes * 60));
     }
 
     // Handle "+05:30" format
-    if rest.len() >= 5 && rest.chars().nth(2) == Some(':') {
+    if rest.len() == 5 && rest.as_bytes()[2] == b':' {
         let hours: i64 = rest[0..2].parse().ok()?;
         let minutes: i64 = rest[3..5].parse().ok()?;
+        if hours > 23 || minutes > 59 {
+            return None;
+        }
         return Some(sign * (hours * 3600 + minutes * 60));
     }
 
     // Handle "+05" format (hours only)
     if rest.len() == 2 {
         let hours: i64 = rest.parse().ok()?;
+        if hours > 23 {
+            return None;
+        }
         return Some(sign * hours * 3600);
     }
 
@@ -2430,6 +2439,20 @@ mod tests {
     fn tz_offset_hours_only() {
         assert_eq!(parse_tz_offset("+05"), Some(5 * 3600));
         assert_eq!(parse_tz_offset("-08"), Some(-8 * 3600));
+    }
+
+    #[test]
+    fn tz_offset_rejects_out_of_range_components() {
+        assert_eq!(parse_tz_offset("+24"), None);
+        assert_eq!(parse_tz_offset("+23:60"), None);
+        assert_eq!(parse_tz_offset("+24:00"), None);
+        assert_eq!(parse_tz_offset("+05:30:00"), None);
+    }
+
+    #[test]
+    fn iso8601_rejects_unknown_timezone_suffix() {
+        assert!(parse_iso8601_to_micros("2024-01-01T00:00:00FOO").is_none());
+        assert!(parse_iso8601_to_micros("2024-01-01T00:00:00UTC").is_none());
     }
 
     #[test]
