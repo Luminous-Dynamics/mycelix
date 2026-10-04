@@ -50,6 +50,7 @@
     "retrieval_kind_mapping_runtime_owned": true,
     "retrieval_kind_mismatch_is_adapter_boundary_error": true,
     "candidate_address_kind_validation_precedes_binding_conflicts": true,
+    "candidate_address_kind_precedes_logical_and_provenance_conflicts": true,
     "logical_identity_conflict_precedes_provenance_conflict": true
   },
   "dependency_retrieval": {
