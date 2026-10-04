@@ -29,6 +29,9 @@ pub struct EconomicPeriodLedger {
     /// Gross debt extinguished through explicit write-off.
     #[serde(default)]
     pub debt_written_off: i128,
+    /// Gross debt extinguished through bilateral forgiveness.
+    #[serde(default)]
+    pub debt_forgiven: i128,
     /// Gross capital formation settled during the period.
     pub investment: i128,
     /// Physical output added to inventories during the period.
@@ -229,6 +232,14 @@ impl EconomicPeriodLedger {
                             "period debt write-off total overflow".into(),
                         ))?;
                 }
+                EconomicTransition::DebtForgiveness(forgiveness) => {
+                    ledger.debt_forgiven = ledger
+                        .debt_forgiven
+                        .checked_add(forgiveness.amount)
+                        .ok_or_else(|| EconomicStepError::Serialization(
+                            "period debt forgiveness total overflow".into(),
+                        ))?;
+                }
             }
         }
 
@@ -354,6 +365,25 @@ mod tests {
         assert_eq!(ledger.monetary_transfer_total, 0);
         assert_eq!(ledger.credit_created, 0);
         assert_eq!(ledger.debt_repaid, 0);
+    }
+
+    #[test]
+    fn debt_forgiveness_is_separate_from_repayment_and_write_off() {
+        let transitions = vec![
+            EconomicTransition::DebtRepayment(
+                crate::economics::stock_flow::DebtRepayment::new("bank", "firm", 10).unwrap(),
+            ),
+            EconomicTransition::DebtWriteOff(
+                crate::economics::stock_flow::DebtWriteOff::new("bank", "firm", 20).unwrap(),
+            ),
+            EconomicTransition::DebtForgiveness(
+                crate::economics::stock_flow::DebtForgiveness::new("bank", "firm", 30).unwrap(),
+            ),
+        ];
+        let ledger = EconomicPeriodLedger::from_transitions(&transitions).unwrap();
+        assert_eq!(ledger.debt_repaid, 10);
+        assert_eq!(ledger.debt_written_off, 20);
+        assert_eq!(ledger.debt_forgiven, 30);
     }
 
     #[test]
