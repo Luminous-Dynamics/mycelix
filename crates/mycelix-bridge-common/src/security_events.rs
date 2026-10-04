@@ -18,8 +18,8 @@ pub const MAX_PROVENANCE_IDENTIFIER_BYTES: usize = 512;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(try_from = "ProvenanceRefWire")]
 pub struct ProvenanceRef {
-    pub artifact_id: String,
-    pub relation: ProvenanceRelation,
+    artifact_id: String,
+    relation: ProvenanceRelation,
 }
 
 #[derive(Debug, Deserialize)]
@@ -62,6 +62,14 @@ impl ProvenanceRef {
             artifact_id,
             relation,
         })
+    }
+
+    pub fn artifact_id(&self) -> &str {
+        &self.artifact_id
+    }
+
+    pub fn relation(&self) -> ProvenanceRelation {
+        self.relation
     }
 }
 
