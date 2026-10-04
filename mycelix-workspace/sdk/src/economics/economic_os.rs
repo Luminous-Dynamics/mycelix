@@ -56,7 +56,6 @@ impl EconomicOsEnvelope {
         for (name, value) in [
             ("event ID", self.event_id.as_str()),
             ("semantic type", self.semantic_type.as_str()),
-            ("policy profile reference", self.policy_profile_ref.as_str()),
             ("actor reference", self.actor_ref.as_str()),
         ] {
             if value.trim().is_empty() {
