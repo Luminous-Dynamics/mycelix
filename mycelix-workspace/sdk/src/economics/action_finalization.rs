@@ -234,6 +234,7 @@ impl EconomicActionFinalizationGate {
         hasher.update(canonical);
         Ok(hex::encode(hasher.finalize()))
     }
+}
 
 impl EconomicActionFinalizationGate {
     /// Assess whether a completed action can receive a clean finalization
