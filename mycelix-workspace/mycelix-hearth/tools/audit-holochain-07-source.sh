@@ -565,6 +565,7 @@ check_semantic_validation_suite_wiring() {
     # functions must not inflate the executable qualification-test count.
     executable_tests="$(awk '
       /^[[:space:]]*#\[(tokio::test|test)([^]]*)\][[:space:]]*$/ { pending_test=1; next }
+      /^[[:space:]]*#\[ignore([^]]*)\][[:space:]]*$/ { next }
       {
         if (pending_test && $0 ~ /^[[:space:]]*(pub[[:space:]]+)?async[[:space:]]+fn[[:space:]]+test_[A-Za-z0-9_]+[[:space:]]*\(/) {
           sub(/^[[:space:]]*(pub[[:space:]]+)?async[[:space:]]+fn[[:space:]]+/, "", $0)
@@ -573,7 +574,7 @@ check_semantic_validation_suite_wiring() {
           pending_test=0
           next
         }
-        if ($0 !~ /^[[:space:]]*$/ && $0 !~ /^[[:space:]]*\/\//) {
+        if ($0 !~ /^[[:space:]]*$/ && $0 !~ /^[[:space:]]*\/\// && $0 !~ /^[[:space:]]*#\[/) {
           pending_test=0
         }
       }
