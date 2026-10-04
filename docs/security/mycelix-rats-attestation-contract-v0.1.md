@@ -38,6 +38,8 @@ The contract fixes a synthetic E1 verifier profile with:
 - explicit challenge nonce and audience binding;
 - bounded evidence and result freshness;
 - replay detection at the semantic boundary;
+- explicit verifier-outage `INDETERMINATE` behavior;
+- explicit Evidence→Attestation Result digest binding;
 - exact subject, device, and workload binding;
 - exact policy-version binding;
 - explicit local authorization checks;
@@ -92,12 +94,12 @@ The command exits non-zero if any vector fails.
 
 ## Qualification corpus
 
-There are **28 executable vectors**:
+There are **31 executable vectors**:
 
 - 13 evidence appraisal vectors;
 - 15 relying-party/local-authorization vectors.
 
-The corpus includes signature, trust-anchor, nonce, audience, freshness, future-time, measurement-profile, domain, required-claim, verifier-profile, replay, result-substitution, policy-downgrade, resource authorization, purpose authorization, export-control authorization, delegation, and key-order invariants.
+The corpus includes signature, trust-anchor, nonce, audience, freshness, future-time, measurement-profile, domain, required-claim, verifier-profile, replay, verifier availability, Evidence→Result binding, result-substitution, policy-downgrade, resource authorization, purpose authorization, export-control authorization, delegation, and key-order invariants.
 
 The key-order permutation vector is intentionally positive: JSON member ordering must not alter semantic appraisal.
 
