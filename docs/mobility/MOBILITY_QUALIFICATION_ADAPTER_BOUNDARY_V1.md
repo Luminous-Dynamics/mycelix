@@ -71,6 +71,8 @@ The binding MUST preserve address-kind compatibility. For example, Holochain's `
 
 `ValidRecord` has an intentionally stronger but narrower meaning than simple existence: it requests an action-addressed record that the visible validation authorities report as valid, enabling inductive validation. It must not be interpreted as proof that every later operation associated with that record is valid. `Action` and `Entry` retrieval likewise provide the referenced object without independently asserting its full validation history.
 
+There is a second important unresolved case: `must_get_valid_record` can also terminate validation as unresolved when the referenced record is found but is reported invalid by upstream validators. Therefore protocol-level unresolved does not mean only transport absence; it means the adapter cannot yet establish the dependency as safely retrievable for the selected deterministic validation primitive. The pure semantic algebra remains separate from that host-level state.
+
 The pure layer owns:
 
 1. structural validation;
