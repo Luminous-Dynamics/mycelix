@@ -200,6 +200,7 @@ def fixture_manifest() -> dict[str, Any]:
             "selection": "sha256:0,2,4,7",
             "pcr_post_artifact_sha256": "4" * 64,
             "pcr_values_sha256": pcr_values_hash(live),
+            "pcr_values_file_sha256": "a" * 64,
         },
         "artifacts": {
             "quote_message_sha256": "5" * 64,
@@ -207,6 +208,7 @@ def fixture_manifest() -> dict[str, Any]:
             "attestation_key_sha256": "e" * 64,
             "reconstruction_file_sha256": "8" * 64,
             "reconstruction_input_sha256": "3" * 64,
+            "observed_pcr_values_file_sha256": "a" * 64,
             "tss_version_evidence_sha256": "f" * 64,
             "ek_public_sha256": "b" * 64,
         },
@@ -364,13 +366,14 @@ def validate_semantics(manifest: dict[str, Any]) -> tuple[str, str]:
             "verifier_id",
             "verifier_source_sha256",
         ),
-        "live_observation": ("selection", "pcr_post_artifact_sha256", "pcr_values_sha256"),
+        "live_observation": ("selection", "pcr_post_artifact_sha256", "pcr_values_sha256", "pcr_values_file_sha256"),
         "artifacts": (
             "quote_message_sha256",
             "quote_signature_sha256",
             "attestation_key_sha256",
             "reconstruction_file_sha256",
             "reconstruction_input_sha256",
+            "observed_pcr_values_file_sha256",
             "tss_version_evidence_sha256",
             "ek_public_sha256",
         ),
@@ -423,6 +426,8 @@ def validate_semantics(manifest: dict[str, Any]) -> tuple[str, str]:
         denies.append("attestation-key-artifact-binding-mismatch")
     if manifest["tpm"]["ek_public_sha256"] != manifest["artifacts"]["ek_public_sha256"]:
         denies.append("ek-artifact-binding-mismatch")
+    if manifest["live_observation"]["pcr_values_file_sha256"] != manifest["artifacts"]["observed_pcr_values_file_sha256"]:
+        denies.append("observed-pcr-file-binding-mismatch")
 
     if (
         manifest["reconstruction"]["status"] == "PASS"
@@ -671,6 +676,7 @@ def verify_bundle(args: argparse.Namespace) -> int:
         "tool-versions.json": manifest["toolchain"]["observed_tool_versions_sha256"],
         "tss-version-evidence.txt": manifest["toolchain"]["tss_version_evidence_sha256"],
         "eventlog-reconstruction-input.json": manifest["reconstruction"]["input_sha256"],
+        "observed-pcr-values.json": manifest["live_observation"]["pcr_values_file_sha256"],
         "eventlog-reconstruction.json": manifest["artifacts"]["reconstruction_file_sha256"],
     }
     for relative, expected in checks.items():
@@ -693,6 +699,10 @@ def verify_bundle(args: argparse.Namespace) -> int:
 
     if pcr_values_hash(values) != manifest["live_observation"]["pcr_values_sha256"]:
         print("PLATFORM EVIDENCE: DENY: pcr-values-state-hash-mismatch")
+        return 1
+    observed_file_values = load_json(bundle / "observed-pcr-values.json")
+    if observed_file_values != values:
+        print("PLATFORM EVIDENCE: DENY: observed-pcr-json-mismatch")
         return 1
 
     reconstruction_path = bundle / "eventlog-reconstruction.json"
