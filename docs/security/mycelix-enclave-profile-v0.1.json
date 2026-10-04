@@ -9,34 +9,70 @@
     {
       "id": "E0",
       "name": "public-development",
-      "handles": ["public"]
+      "handles": [
+        "public"
+      ]
     },
     {
       "id": "E1",
       "name": "cui-export-controlled",
-      "handles": ["CUI", "export-controlled"]
+      "handles": [
+        "CUI",
+        "export-controlled"
+      ]
     },
     {
       "id": "E2",
       "name": "classified-secret-reference",
-      "handles": ["SECRET-reference"]
+      "handles": [
+        "SECRET-reference"
+      ]
     },
     {
       "id": "E3",
       "name": "higher-assurance-compartmented",
-      "handles": ["higher-assurance-reference"]
+      "handles": [
+        "higher-assurance-reference"
+      ]
     }
   ],
   "non_equivalences": [
-    ["did-control", "host-integrity"],
-    ["did-control", "personnel-clearance"],
-    ["identity", "authorization"],
-    ["capability", "clearance"],
-    ["reputation", "authorization"],
-    ["network-membership", "resource-authorization"],
-    ["attestation", "permanent-authorization"],
-    ["qualification-evidence", "runtime-authority"],
-    ["classification-label", "security-enforcement"]
+    [
+      "did-control",
+      "host-integrity"
+    ],
+    [
+      "did-control",
+      "personnel-clearance"
+    ],
+    [
+      "identity",
+      "authorization"
+    ],
+    [
+      "capability",
+      "clearance"
+    ],
+    [
+      "reputation",
+      "authorization"
+    ],
+    [
+      "network-membership",
+      "resource-authorization"
+    ],
+    [
+      "attestation",
+      "permanent-authorization"
+    ],
+    [
+      "qualification-evidence",
+      "runtime-authority"
+    ],
+    [
+      "classification-label",
+      "security-enforcement"
+    ]
   ],
   "authorization_dimensions": [
     "subject_identity",
@@ -71,7 +107,16 @@
     "audience_binding_required": true,
     "workload_measurement_binding_required": true,
     "verifier_profile_binding_required": true,
-    "attestation_is_authorization": false
+    "attestation_is_authorization": false,
+    "rats_roles": [
+      "attester",
+      "evidence",
+      "verifier",
+      "attestation_result",
+      "relying_party"
+    ],
+    "raw_evidence_is_runtime_authority": false,
+    "attestation_result_is_runtime_authority": false
   },
   "crypto": {
     "algorithm_agility_required": true,
@@ -171,6 +216,8 @@
     "fips_204_ml_dsa": "https://csrc.nist.gov/pubs/fips/204/final",
     "nsa_zero_trust_guidelines": "https://www.nsa.gov/Press-Room/Press-Releases-Statements/Press-Release-View/Article/4496862/",
     "dfars_252_204_7021": "https://www.acquisition.gov/dfars/part-252-solicitation-provisions-and-contract-clauses",
-    "dfars_252_204_7012": "https://www.acquisition.gov/dfars/252.204-7012-safeguarding-covered-defense-information-and-cyber-incident-reporting."
+    "dfars_252_204_7012": "https://www.acquisition.gov/dfars/252.204-7012-safeguarding-covered-defense-information-and-cyber-incident-reporting.",
+    "rfc_9334_rats_architecture": "https://www.rfc-editor.org/rfc/rfc9334.html",
+    "tcg_tpm_2_0_library": "https://trustedcomputinggroup.org/resource/tpm-library-specification/"
   }
 }
