@@ -42,7 +42,7 @@ def main() -> None:
             "Attempted to call a zome function that doesn't exist: "
             "Zome: coordinator Fn no_such_function"
         ),
-        "wrong-cell-routing": "",
+        "wrong-cell-routing": "CellMissing(",
     }
     assert expected_supplemental == set(supplemental_expected_fragments)
 
