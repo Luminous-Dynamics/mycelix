@@ -6,7 +6,7 @@ This profile is the next execution boundary after the vTPM Evidence profile.
 
 It does **not** attempt to prove that measured boot is globally secure. It proves a narrower proposition:
 
-> A captured platform Evidence bundle is internally coherent when its TPM, boot/session, event log, PCR selection, quote, challenge, toolchain, reference values, trusted time, and reconstruction result all refer to the same bounded observation.
+> A captured platform Evidence bundle is internally coherent when its TPM, boot/session, event log, PCR selection, quote, challenge, toolchain, reference values, trusted time, and independent PCR reconstruction all refer to the same bounded observation.
 
 The critical property is rejection of **mix-and-match evidence**.
 
@@ -18,87 +18,100 @@ one boot/session
 + one Quote
 + one challenge nonce
 + one tool/profile snapshot
-+ one reconstruction result
++ one reference-value set
++ one trusted-time object
++ one reconstructed PCR state
     ↓
-coherent Evidence bundle
+coherent platform Evidence
 ```
 
 ## Why the event log is a separate theorem
 
-The Linux kernel documentation describes the preboot event log as a richer record accompanying PCR contents, while PCR values provide a way to validate the measurement log. citeturn628539view0
+The Linux TPM event-log model treats the preboot event log as richer context accompanying PCR contents; the log is not trusted merely because it exists or parses. citeturn312934search7
 
-The tpm2-tools `tpm2_eventlog` utility parses a binary TPM2 event log, and `tpm2_checkquote` verifies a TPM Quote plus qualifying data and PCR values. citeturn782502search2turn782502search0
+The tpm2-tools `tpm2_eventlog` utility parses a binary TPM2 event log according to the TCG PC Client Platform Firmware Profile format. citeturn312934search0
 
-This profile therefore refuses to collapse:
+The TCG PC Client profile requires firmware measurements to be extended into PCRs and logged, and `EV_SEPARATOR` is measured across PCRs 0–7 once per boot to delimit the pre-OS/OS-Present transition. citeturn311994view0turn311994view1
+
+Therefore:
 
 ```
 quote signature valid
-    != event log reconstructed
+    != event-log reconstructed
     != reference values approved
-    != trusted platform
+    != authorized workload
 ```
+
+## PCR artifact hash versus PCR state
+
+This distinction is now explicit.
+
+```
+sha256(pcr-post.yaml)
+    = artifact-integrity digest
+
+canonical_hash({
+  bank: "sha256",
+  values: { PCR -> actual PCR value }
+})
+    = observed PCR-state digest
+```
+
+They are intentionally different claims.
+
+`tpm2_pcrread` emits PCR values in YAML and can also write raw PCR values in binary form; the verifier uses the YAML representation for the human-auditable artifact and parses the actual SHA-256 PCR values for the state hash. citeturn562146search0
 
 ## Capture boundary
 
-A future physical run should capture:
+A future physical run captures:
 
-- exact TPM device path and TPM fixed-property evidence;
+- exact TPM device path and fixed-property evidence;
+- observed Endorsement Key public material;
 - exact Linux boot identity;
 - complete binary PC-client event log;
 - exact event-log parser profile/version;
 - exact PCR bank and selection;
-- fresh verifier challenge nonce;
+- fresh external verifier nonce;
 - TPM Quote message and signature;
 - Attestation Key public material;
-- OS/image identity;
-- workload identity;
+- post-quote PCR observation;
+- OS/workload identity;
 - reference-value set/version;
 - trusted-time evidence;
 - exact tpm2-tools/TSS provenance.
 
-The capture tool deliberately uses a small PC-client PCR selection by default:
+The default qualified PCR selection is:
 
 ```
 sha256:0,2,4,7
 ```
 
-These PCRs are the measured-boot/platform side of the theorem. PCR16 remains available for a separate workload-specific measurement and is not silently treated as a firmware event-log PCR.
+PCR16 remains a separate workload-specific surface and is not silently treated as a PC-client firmware event-log PCR.
 
-The TCG PC Client PTP specification defines platform-specific TPM behavior, and the current published PTP 1.07 line is the relevant PC-client profile family. citeturn782502search1
+## Independent reconstruction
 
-## Coherence rules
-
-The verifier requires:
-
-1. identical TPM device identity across the capture;
-2. identical boot/session identity;
-3. event-log digest bound into the manifest;
-4. quote selection equal to the declared selection;
-5. exact nonce/qualifying-data binding;
-6. post-quote PCR observation passed into quote verification;
-7. explicit event-log reconstruction;
-8. reconstruction bound to the exact event-log digest and PCR selection;
-9. unavailable or ambiguous upstream evidence -> `INDETERMINATE`;
-10. no physical-TPM or authorization claim from presence alone.
-
-## Reference values are intentionally independent
-
-The PC-client Reference Integrity Manifest material exists to provide the reference information needed to validate measurements; a successfully reconstructed log is therefore still not the same proposition as “the observed platform is approved.” citeturn782502search5
-
-The manifest records the reference-value **version and digest**, but the final appraisal remains a separate verifier decision.
-
-## Trusted time
-
-Trusted time is consumed as an evidence object from the existing EVID-TIME substrate.
+The independent reconstruction layer replays the measurement digests from the event stream:
 
 ```
-local wall clock
-    != trusted time
-    != freshness
-    != current authorization
+PCR_initial = 32 zero bytes
+PCR_next = SHA256(PCR_previous || measurement_digest)
 ```
 
-A capture session that lacks trusted time may still be preserved as evidence, but its qualification state is `INDETERMINATE`, never `PASS`.
+For the selected PCR set, the reconstructed value set is canonicalized and hashed.
+
+The capture verifier will only admit a reconstruction PASS when:
+
+```
+reconstructed_pcr_values_hash
+    ==
+observed_live_pcr_values_hash
+```
+
+A mismatch is `DENY`.
+
+Unavailable or ambiguous reconstruction is `INDETERMINATE`.
+
+The reconstruction layer intentionally consumes recorded event digests rather than silently substituting locally recomputed payload hashes. Event-type-specific digest validation remains a distinct appraisal theorem.
 
 ## Verification flow
 
@@ -107,15 +120,17 @@ capture-session.json
         ↓
 artifact digest verification
         ↓
-session / boot / TPM identity binding
+session / boot / TPM / EK binding
         ↓
-quote PCR selection + nonce binding
+actual PCR-state parsing
+        ↓
+event-log reconstruction
+        ↓
+reconstructed-vs-live PCR equality
+        ↓
+quote selection + nonce binding
         ↓
 tpm2_checkquote
-        ↓
-post-quote PCR consistency
-        ↓
-event-log reconstruction result
         ↓
 reference-value + trusted-time evidence
         ↓
@@ -136,7 +151,7 @@ current local authorization
 PEP
 ```
 
-No capture receipt, Quote, or measured component may become a bearer capability.
+No Quote, reconstruction receipt, or measured component may become a bearer capability.
 
 ## Current environment rule
 
@@ -146,20 +161,22 @@ When the TPM device or required utilities are absent, the capture mode exits as:
 TPM PLATFORM CAPTURE: NOT EXECUTED
 ```
 
-This is intentional. It avoids converting a software-only development environment into a hardware-security claim.
+This is intentional. It avoids converting a software-only environment into a hardware-security claim.
 
 ## Qualification ceiling
 
 A green result establishes only:
 
-- exact capture-session coherence;
-- exact cryptographic Quote verification using the selected tool;
-- exact binding of the event log and reconstruction result;
-- exact tool/profile/reference provenance captured in the bundle.
+- capture-session coherence;
+- artifact integrity;
+- actual observed PCR-state binding;
+- exact independent PCR reconstruction binding;
+- cryptographic Quote verification using the selected tool;
+- recorded tool/profile/reference provenance.
 
 It does **not** establish:
 
-- firmware correctness beyond the measured evidence;
+- firmware correctness beyond measured evidence;
 - absence of firmware supply-chain compromise;
 - kernel correctness;
 - resistance to physical TPM or bus attacks;
@@ -195,10 +212,4 @@ python3 scripts/security/verify_mycelix_platform_evidence_capture_v0_1.py --capt
   --nonce-file /path/to/fresh-verifier-nonce.bin
 ```
 
-The capture path refuses to claim a qualified platform result until the independently produced event-log reconstruction result is present and bound.
-
-## External basis
-
-The PC-client event-log model follows the TCG platform/firmware architecture and Linux's description of the firmware-to-OS event-log handoff. citeturn628539view0turn782502search1
-
-The quote verification boundary follows `tpm2_checkquote`, which verifies the quote signature and can additionally verify qualifying data and PCR values. citeturn782502search0
+The capture path refuses to claim a qualified platform result until the independently produced PCR reconstruction result is present and the reconstructed state equals the observed live PCR state.
