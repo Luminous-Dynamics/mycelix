@@ -301,6 +301,21 @@ mod tests {
     }
 
     #[test]
+    fn execution_history_rejects_cross_action_receipts() {
+        let lifecycle = lifecycle();
+        let mut receipt = receipt(&lifecycle, EconomicExecutionKind::Delivery);
+        receipt.action_ref = "action:other".into();
+
+        let ledger: EconomicExecutionLedger = serde_json::from_value(serde_json::json!({
+            "action_ref": "action:1",
+            "receipts": [receipt]
+        }))
+        .unwrap();
+
+        assert!(ledger.validate().is_err());
+    }
+
+    #[test]
     fn malformed_execution_history_is_rejected() {
         let receipt = receipt(
             &EconomicActionLifecycle::start(
