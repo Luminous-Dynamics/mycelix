@@ -220,12 +220,10 @@ fn validate_create_name_transfer(
         ));
     }
 
-    validate_name_transfer_chain_uniqueness(
-        match action {
-            EntryCreationAction::Create(create) => create,
-        },
-        &transfer,
-    )
+    let create_action = match action {
+        EntryCreationAction::Create(create) => create,
+    };
+    validate_name_transfer_chain_uniqueness(&create_action, &transfer)
 }
 
 fn validate_create_link(
