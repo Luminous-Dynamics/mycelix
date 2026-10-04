@@ -608,11 +608,14 @@ impl DebtRepayment {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct EconomicState {
     pub actors: Vec<ActorBalanceSheet>,
-    /// Cumulative nominal monetary flows during the current accounting period.
+    /// Cumulative nominal monetary-flow volume across the lifetime of this state.
+    /// Period-specific flow totals are derived from `EconomicPeriodLedger`.
     pub monetary_flow_volume: i128,
-    /// Cumulative newly-created credit during the current accounting period.
+    /// Cumulative newly-created credit across the lifetime of this state.
+    /// Period-specific credit creation is derived from `EconomicPeriodLedger`.
     pub credit_created: i128,
-    /// Cumulative debt repayment during the current accounting period.
+    /// Cumulative debt repayment across the lifetime of this state.
+    /// Period-specific debt repayment is derived from `EconomicPeriodLedger`.
     pub debt_repaid: i128,
 }
 
