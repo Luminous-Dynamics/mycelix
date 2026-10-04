@@ -1916,6 +1916,50 @@ pub fn verify_derived_credential(
         errors.push("Invalid holder DID format".to_string());
     }
 
+    // A derived credential inherits the source credential's current trust
+    // state. A valid historical signature is insufficient if the source is
+    // outside its validity window or its issuer DID is no longer active.
+    let now = sys_time()?;
+    match parse_iso8601_to_micros(&original_vc.valid_from) {
+        Some(valid_from_micros) => {
+            let valid_from = Timestamp::from_micros(valid_from_micros);
+            if now < valid_from {
+                errors.push("Original credential is not yet valid".to_string());
+            }
+        }
+        None => errors.push("Original credential validFrom is unparseable".to_string()),
+    }
+    if let Some(valid_until) = original_vc.valid_until.as_deref() {
+        match parse_iso8601_to_micros(valid_until) {
+            Some(valid_until_micros) => {
+                let valid_until = Timestamp::from_micros(valid_until_micros);
+                if now > valid_until {
+                    errors.push("Original credential has expired".to_string());
+                }
+            }
+            None => errors.push("Original credential validUntil is unparseable".to_string()),
+        }
+    }
+
+    match call(
+        CallTargetCell::Local,
+        ZomeName::new("did_registry"),
+        FunctionName::new("is_did_active"),
+        None,
+        original_vc.issuer.did().to_string(),
+    ) {
+        Ok(ZomeCallResponse::Ok(result)) => match result.decode::<bool>() {
+            Ok(true) => {}
+            Ok(false) => errors.push("Original credential issuer DID is not active".to_string()),
+            Err(e) => errors.push(format!(
+                "Original credential issuer DID active state could not be decoded: {e:?}"
+            )),
+        },
+        Ok(_) | Err(_) => errors.push(
+            "Original credential issuer DID active state could not be established".to_string(),
+        ),
+    }
+
     // Check original credential revocation status
     let revocation_status = check_credential_revocation_status(&derived.original_credential_id)?;
     match revocation_status {
