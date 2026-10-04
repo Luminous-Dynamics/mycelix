@@ -2270,6 +2270,60 @@ mod tests {
     }
 
     #[test]
+    fn golden_authoritative_entrypoint_rejects_self_consistent_d6p_receipt() {
+        let corpus: GoldenCorpusV1 = serde_json::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/testdata/d6x_qualified_closure_golden_vectors.json"
+        )))
+        .expect("D6X golden vector corpus must parse");
+
+        let upstream = &corpus.fixtures.authoritative_d6n_d6o;
+        let fixture = &corpus.fixtures.authoritative_d6p;
+        let mut forged = fixture.receipt.clone();
+        forged.composition_commitment = "composition-attacker".into();
+        forged.receipt_commitment = forged.recomputed_commitment();
+        assert!(forged.commitment_matches());
+
+        let mut vector = corpus
+            .vectors
+            .iter()
+            .find(|vector| vector.id == "baseline-complete")
+            .expect("baseline golden vector")
+            .clone();
+        vector.recipe.required_d6p_receipt_commitments =
+            vec![forged.receipt_commitment.clone()];
+        vector.recipe.projection_d6p_receipt_commitments =
+            vec![forged.receipt_commitment.clone()];
+
+        let (projection, environment, derivation_profile, profile) =
+            execute_golden_recipe(&corpus, &vector);
+
+        assert!(
+            compute_dependency_closure_from_authoritative_d6n_d6o(
+                &projection,
+                &environment,
+                &derivation_profile,
+                &profile,
+                &upstream.effect,
+                &upstream.route,
+                &upstream.profile,
+                &upstream.set,
+                &upstream.assessment,
+                &upstream.evidence,
+                std::slice::from_ref(&upstream.eligibility_receipt),
+                &upstream.lifecycle_profile,
+                &upstream.d6o_ledger,
+                &forged,
+                Some(&upstream.current_frontier_root),
+                &upstream.live_generation_id,
+                upstream.required_independent_observations,
+            )
+            .is_none(),
+            "unified authoritative D6X entrypoint must reject a self-consistent D6P receipt targeting the wrong composition"
+        );
+    }
+
+    #[test]
     fn golden_authoritative_d6n_d6o_rejects_unregistered_receipt() {
         let corpus_text = include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
