@@ -375,6 +375,16 @@ pub fn postings_for_step(
                     return Err(format!("borrower {} cannot settle repayment", repayment.borrower));
                 }
             }
+            EconomicTransition::DebtWriteOff(write_off) => {
+                let lender = sector_for(assignments, &write_off.lender)?;
+                let borrower = sector_for(assignments, &write_off.borrower)?;
+                vec![
+                    StockPosting::new(lender, BalanceSheetInstrument::Loans, -write_off.amount),
+                    StockPosting::new(lender, BalanceSheetInstrument::Equity, write_off.amount),
+                    StockPosting::new(borrower, BalanceSheetInstrument::Debt, write_off.amount),
+                    StockPosting::new(borrower, BalanceSheetInstrument::Equity, -write_off.amount),
+                ]
+            }
         };
 
         transition.apply_to_state(&mut working)?;
@@ -471,7 +481,8 @@ pub fn physical_postings_for_step(
             | EconomicTransition::Depreciation(_)
             | EconomicTransition::RealAssetRevaluation(_)
             | EconomicTransition::CreditCreation(_)
-            | EconomicTransition::DebtRepayment(_) => {}
+            | EconomicTransition::DebtRepayment(_)
+            | EconomicTransition::DebtWriteOff(_) => {}
         }
 
         transition.apply_to_state(&mut working)?;
@@ -638,7 +649,7 @@ mod tests {
     use crate::economics::stock_flow::{
         ActorBalanceSheet, CapitalInvestment, ProductionEvent, InventoryTransfer,
         InventoryConsumption, GoodsSale, InventoryCostAddition, InventoryCostRelief,
-        Depreciation, CreditCreation, DebtRepayment, IncomeTransfer, MonetaryFlow,
+        Depreciation, CreditCreation, DebtRepayment, DebtWriteOff, IncomeTransfer, MonetaryFlow,
     };
     use crate::economics::transition::apply_step;
 
@@ -798,6 +809,29 @@ mod tests {
         let transitions = vec![EconomicTransition::DebtRepayment(DebtRepayment::new("bank", "household", 200).unwrap())];
         let (post, _) = apply_step(&pre, 1, &transitions, None).unwrap();
         reconcile_step(&pre, &post, &assignments, &transitions).unwrap();
+    }
+
+    #[test]
+    fn debt_write_off_reconciles_claim_and_liability_without_cash() {
+        let (mut pre, assignments) = setup();
+        pre.create_credit(&CreditCreation::new("bank", "firm", 100).unwrap()).unwrap();
+
+        let transitions = vec![EconomicTransition::DebtWriteOff(
+            DebtWriteOff::new("bank", "firm", 40).unwrap(),
+        )];
+        let (post, _) = apply_step(&pre, 1, &transitions, None).unwrap();
+        let receipt = reconcile_step(&pre, &post, &assignments, &transitions).unwrap();
+
+        assert_eq!(receipt.posting_count, 4);
+        assert_eq!(receipt.physical_posting_count, 0);
+        assert_eq!(post.debt_written_off, 40);
+        assert_eq!(post.monetary_flow_volume, pre.monetary_flow_volume);
+        let bank = post.actors.iter().find(|a| a.actor == "bank").unwrap();
+        let firm = post.actors.iter().find(|a| a.actor == "firm").unwrap();
+        assert_eq!(bank.monetary.claims, 60);
+        assert_eq!(firm.monetary.liabilities, 60);
+        assert_eq!(bank.try_net_worth().unwrap() + firm.try_net_worth().unwrap(),
+            pre.actors.iter().map(|a| a.try_net_worth().unwrap()).sum::<i128>());
     }
 
     #[test]
