@@ -141,6 +141,8 @@ def main() -> int:
         "valid_record_semantics": "inductive_validity_of_the_referenced_create_record_as_reported_by_visible_validation_authorities",
         "valid_record_unresolved_if_upstream_validator_marks_invalid": True,
         "valid_record_unresolved_is_not_equivalent_to_missing_transport_data": True,
+        "dispatch_passes_exact_bound_protocol_address": True,
+        "canonical_retrieval_order_reaches_host_boundary": True,
     }
     for key, expected in expected_dependency_contract.items():
         if dependency_contract.get(key) != expected:
@@ -281,6 +283,13 @@ def main() -> int:
         raise SystemExit("runtime retrieval canonicalizer must sort by logical identity")
     if "retrieve_resolved_canonicalizes_caller_supplied_order" not in source:
         raise SystemExit("runtime retrieval order must have a regression test")
+    if "retrieve_resolved_dispatches_first_canonical_dependency_to_host" not in source:
+        raise SystemExit("canonical retrieval order must be exercised at the host boundary")
+    if "RecordedDispatch" not in source:
+        raise SystemExit("dispatch tests must record the exact protocol address passed to the host")
+    if "input.into_inner()" not in source:
+        raise SystemExit("dispatch test mock must inspect the host input's exact bound address")
+
     if "inductive-validity dependency" not in source:
         raise SystemExit("adapter must document ValidRecord as an inductive-validity dependency")
     if "later operation" not in source:
