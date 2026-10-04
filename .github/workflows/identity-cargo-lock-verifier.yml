@@ -18,7 +18,7 @@ on:
 concurrency:
   # One branch has one authoritative lock diagnostic at a time. Exact-head
   # checkout below keeps evidence bound to the run's qualified commit.
-  group: identity-cargo-lock-${{ github.event.pull_request.head.ref || github.ref_name }}
+  group: identity-cargo-lock-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
