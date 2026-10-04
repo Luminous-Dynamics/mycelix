@@ -191,7 +191,7 @@ jobs:
           cd mycelix-identity/tests
           nix develop --no-update-lock-file --no-write-lock-file ../.#ci --command \
             cargo test --test dsid_lifecycle_lab \
-              --locked -- --include-ignored --nocapture --test-threads=1 \
+              -- --include-ignored --nocapture --test-threads=1 \
             | tee "$GITHUB_WORKSPACE/dsid-lifecycle-evidence.txt"
 
       - name: Extract and validate evidence
