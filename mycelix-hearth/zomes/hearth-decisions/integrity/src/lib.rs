@@ -250,6 +250,28 @@ fn validate_outcome_author(
     Ok(ValidateCallbackResult::Valid)
 }
 
+/// Validate outcome semantics against its exact Decision basis.
+fn validate_outcome_against_basis(
+    outcome: &DecisionOutcome,
+    basis_decision: &Decision,
+) -> ExternResult<ValidateCallbackResult> {
+    if outcome.chosen_option as usize >= basis_decision.options.len() {
+        return Ok(ValidateCallbackResult::Invalid(format!(
+            "DecisionOutcome chosen_option {} is outside basis Decision option range 0..{}",
+            outcome.chosen_option,
+            basis_decision.options.len().saturating_sub(1),
+        )));
+    }
+
+    if outcome.quorum_bp != basis_decision.quorum_bp {
+        return Ok(ValidateCallbackResult::Invalid(
+            "DecisionOutcome quorum_bp must match the finalization basis Decision quorum_bp".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
 /// Bind a new DecisionOutcome to the exact Decision action/version it resolved.
 ///
 /// The basis must be a valid Decision record whose update lineage terminates at the
@@ -309,6 +331,8 @@ fn validate_outcome_basis(outcome: &DecisionOutcome) -> ExternResult<ValidateCal
             ));
         }
     };
+
+    validate_outcome_against_basis(outcome, &basis_decision)?;
 
     if basis_decision.status != DecisionStatus::Open {
         return Ok(ValidateCallbackResult::Invalid(
@@ -668,6 +692,43 @@ mod tests {
         let other = AgentPubKey::from_raw_36(vec![0xBBu8; 36]);
         assert!(matches!(
             validate_outcome_author(&outcome, &other).unwrap(),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    // ---- Outcome semantics against finalization basis ----
+
+    #[test]
+    fn outcome_chosen_option_must_exist_in_basis() {
+        let mut outcome = make_outcome(1, 5000);
+        let basis = make_decision("Test", vec!["A", "B"]);
+        assert!(matches!(
+            validate_outcome_against_basis(&outcome, &basis).unwrap(),
+            ValidateCallbackResult::Valid
+        ));
+
+        outcome.chosen_option = 2;
+        assert!(matches!(
+            validate_outcome_against_basis(&outcome, &basis).unwrap(),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
+    fn outcome_quorum_snapshot_must_match_basis() {
+        let mut outcome = make_outcome(0, 5000);
+        let mut basis = make_decision("Test", vec!["A", "B"]);
+        basis.quorum_bp = Some(5000);
+
+        outcome.quorum_bp = Some(5000);
+        assert!(matches!(
+            validate_outcome_against_basis(&outcome, &basis).unwrap(),
+            ValidateCallbackResult::Valid
+        ));
+
+        outcome.quorum_bp = Some(6000);
+        assert!(matches!(
+            validate_outcome_against_basis(&outcome, &basis).unwrap(),
             ValidateCallbackResult::Invalid(_)
         ));
     }
