@@ -1706,6 +1706,7 @@ pub fn add_service_endpoint(service: ServiceEndpoint) -> ExternResult<Record> {
     update_did_document(UpdateDidInput {
         verification_method: None,
         authentication: None,
+        assertion_method: None,
         key_agreement: None,
         service: Some(services),
     })
@@ -1737,6 +1738,7 @@ pub fn remove_service_endpoint(service_id: String) -> ExternResult<Record> {
     update_did_document(UpdateDidInput {
         verification_method: None,
         authentication: None,
+        assertion_method: None,
         key_agreement: None,
         service: Some(services),
     })
@@ -1860,6 +1862,7 @@ pub fn add_key_agreement(method: VerificationMethod) -> ExternResult<Record> {
     update_did_document(UpdateDidInput {
         verification_method: Some(methods),
         authentication: None,
+        assertion_method: None,
         key_agreement: Some(ka),
         service: None,
     })
@@ -1971,9 +1974,17 @@ pub fn rotate_key(input: RotateKeyInput) -> ExternResult<Record> {
     auth.retain(|id| id != &input.old_key_id);
     auth.push(input.new_method.id.clone());
 
+    let mut assertions = current_did.assertion_method.clone();
+    if assertions.iter().any(|id| id == &input.old_key_id)
+        && !assertions.iter().any(|id| id == &input.new_method.id)
+    {
+        assertions.push(input.new_method.id.clone());
+    }
+
     update_did_document(UpdateDidInput {
         verification_method: Some(methods),
         authentication: Some(auth),
+        assertion_method: Some(assertions),
         key_agreement: None,
         service: None,
     })
@@ -2074,6 +2085,7 @@ pub fn rotate_key_agreement(input: RotateKeyAgreementInput) -> ExternResult<Reco
     update_did_document(UpdateDidInput {
         verification_method: Some(methods),
         authentication: None,
+        assertion_method: None,
         key_agreement: Some(ka),
         service: None,
     })
