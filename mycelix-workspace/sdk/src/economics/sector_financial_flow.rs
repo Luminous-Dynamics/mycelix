@@ -159,13 +159,24 @@ impl SectorFinancialFlowMatrix {
                     FinancialFlowCategory::TradeCreditSettlement,
                     settlement.amount,
                 ),
-                _ => continue,
+                EconomicTransition::MonetaryTransfer(_)
+                | EconomicTransition::IncomeTransfer(_)
+                | EconomicTransition::CapitalInvestment(_)
+                | EconomicTransition::Production(_)
+                | EconomicTransition::InventoryTransfer(_)
+                | EconomicTransition::InventoryConsumption(_)
+                | EconomicTransition::GoodsSale(_)
+                | EconomicTransition::InventoryCostAddition(_)
+                | EconomicTransition::InventoryCostRelief(_)
+                | EconomicTransition::Depreciation(_) => continue,
             };
             matrix.push(SectorFinancialFlow::new(from, to, category, amount)?);
         }
         Ok(matrix)
     }
 
+    /// Non-financial transition variants are listed explicitly above so future enum additions force
+    /// a compile-time review of whether they create contractual financial claims.
     /// Validate that financial-claim flows explain the relevant
     /// balance-sheet instrument deltas between two sector snapshots.
     pub fn validate_against_balance_sheet_delta(
@@ -237,7 +248,11 @@ impl SectorFinancialFlowMatrix {
                 (FinancialFlowCategory::TradeCreditSettlement, _, true)
                     if instrument == BalanceSheetInstrument::TradePayables =>
                     flow.amount,
-                _ => 0,
+                (FinancialFlowCategory::LoanCreation
+                    | FinancialFlowCategory::DebtRepayment
+                    | FinancialFlowCategory::TradeCreditExtension
+                    | FinancialFlowCategory::TradeCreditSettlement)
+                    => 0,
             };
             sum.checked_add(delta)
                 .ok_or_else(|| "sector financial claim delta overflow".to_string())
