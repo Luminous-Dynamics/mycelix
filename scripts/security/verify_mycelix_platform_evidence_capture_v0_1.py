@@ -761,6 +761,7 @@ def verify_bundle(args: argparse.Namespace) -> int:
         "observed-pcr-values.json": manifest["live_observation"]["pcr_values_file_sha256"],
         "raw-eventlog.json": manifest["raw_eventlog"]["output_sha256"],
         "payload-coherence.json": manifest["payload_coherence"]["output_sha256"],
+        "reference-appraisal.json": manifest["reference_appraisal"]["output_sha256"],
         "eventlog-reconstruction.json": manifest["artifacts"]["reconstruction_file_sha256"],
     }
     for relative, expected in checks.items():
