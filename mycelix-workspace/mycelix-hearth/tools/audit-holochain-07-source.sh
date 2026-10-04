@@ -1078,6 +1078,13 @@ check_qualification_workflow_provenance() {
     echo "FAIL: qualification workflow must target sweettest_semantic_validation explicitly"
     fail=1
   fi
+
+  if rg -n --fixed-strings "Capture immutable qualification evidence" "$workflow" >/dev/null 2>&1     && rg -n --fixed-strings "if: always()" "$workflow" >/dev/null 2>&1     && rg -n --fixed-strings "unavailable_source_audit_not_reached" "$workflow" >/dev/null 2>&1     && rg -n --fixed-strings "qualification-evidence-status.txt" "$workflow" >/dev/null 2>&1     && rg -n --fixed-strings "source_contract_digest=unavailable" "$workflow" >/dev/null 2>&1; then
+    echo "OK:   qualification evidence capture is failure-monotonic with explicit unavailable markers"
+  else
+    echo "FAIL: qualification evidence capture must preserve artifacts across early failures"
+    fail=1
+  fi
   if rg -n --fixed-strings "cargo build --locked" "$workflow" >/dev/null 2>&1 \
     && rg -n --fixed-strings "cargo test --locked" "$workflow" >/dev/null 2>&1 \
     && rg -n --fixed-strings "cargo generate-lockfile" "$workflow" >/dev/null 2>&1; then
