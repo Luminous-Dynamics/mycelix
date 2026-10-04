@@ -295,6 +295,20 @@ mod tests {
     };
 
     #[test]
+    #[test]
+    fn debt_write_off_is_period_local_and_non_cash() {
+        let transitions = vec![
+            EconomicTransition::DebtWriteOff(
+                crate::economics::stock_flow::DebtWriteOff::new("bank", "firm", 40).unwrap(),
+            ),
+        ];
+        let ledger = EconomicPeriodLedger::from_transitions(&transitions).unwrap();
+        assert_eq!(ledger.debt_written_off, 40);
+        assert_eq!(ledger.debt_repaid, 0);
+        assert_eq!(ledger.monetary_transfer_total, 0);
+        assert_eq!(ledger.credit_created, 0);
+    }
+
     fn real_asset_revaluation_is_period_local_and_signed() {
         let transitions = vec![
             EconomicTransition::RealAssetRevaluation(
