@@ -3034,6 +3034,28 @@ mod tests {
     }
 
     #[test]
+    fn state_machine_trace_capsule_rejects_seed_operation_and_token_tampering() {
+        let capsule_text = state_machine_trace_capsule(5, 12);
+        let mut capsule =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&capsule_text)
+                .expect("capsule must deserialize");
+
+        let original_seed = capsule.initial_seed;
+        capsule.initial_seed ^= 1;
+        assert!(std::panic::catch_unwind(|| state_machine_plan_from_capsule(&capsule)).is_err());
+        capsule.initial_seed = original_seed;
+
+        let original_operation = capsule.operations[3];
+        capsule.operations[3] =
+            FederationStateMachineOperation::ConflictExistingDelivery;
+        assert!(std::panic::catch_unwind(|| state_machine_plan_from_capsule(&capsule)).is_err());
+        capsule.operations[3] = original_operation;
+
+        capsule.tokens[7] ^= 1;
+        assert!(std::panic::catch_unwind(|| state_machine_plan_from_capsule(&capsule)).is_err());
+    }
+
+    #[test]
     fn state_machine_trace_capsule_is_a_compact_reproduction_descriptor() {
         let capsule_text = state_machine_trace_capsule(3, 8);
         assert!(capsule_text.contains(""trace_index": 3"));
