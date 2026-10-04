@@ -113,6 +113,30 @@ jobs:
             END { if (in_impl && found == 0) exit 0 }
           ' crates/mycelix-bridge-common/src/security_kernel.rs
 
+          awk '
+            BEGIN { in_impl = 0; depth = 0; found = 0 }
+            {
+              if (!in_impl && $0 ~ /^[[:space:]]*impl[[:space:]]+VerifiedCapability[[:space:]]*\{[[:space:]]*$/) {
+                in_impl = 1
+              }
+              if (in_impl) {
+                if ($0 ~ /(^|[^[:alnum:]_])pub([[:space:]]*\([^)]*\))?[[:space:]]+fn[[:space:]]/) {
+                  print NR ": public VerifiedCapability method: " $0
+                  found = 1
+                }
+                open_count = gsub(/\{/, "{", $0)
+                close_count = gsub(/\}/, "}", $0)
+                depth += open_count - close_count
+                if (depth <= 0) {
+                  exit found ? 1 : 0
+                }
+              }
+            }
+            END { if (in_impl && found == 0) exit 0 }
+          ' crates/mycelix-bridge-common/src/security_kernel.rs
+
+          # VerifiedCapability is a trust-bearing hand-off into permit issuance. Keep it
+          # opaque even if future refactors add convenience traits to the public type.
           # This security PR must not silently replace the existing bridge-common public surface.
           # A prior truncation of lib.rs removed almost the entire shared API; keep a small set of
           # stable core module anchors here so the qualification lane catches that class of damage.
@@ -453,7 +477,8 @@ jobs:
             'impl[[:space:]]+(Serialize|Deserialize)[[:space:]]+for[[:space:]]+(VerificationEvidence|VerifiedCapability|AuthorizationPermit|EnforcementRequest)' \
             '#\[derive\([^]]*(Debug|PartialEq|Eq)[^]]*\)\][[:space:]]*pub struct VerificationEvidence' \
             '#\[derive\([^]]*(Debug|Clone|Copy|PartialEq|Eq|Serialize|Deserialize)[^]]*\)\][[:space:]]*pub struct AuthorizationPermit' \
-            '#\[derive\([^]]*(Debug|Clone|Copy|PartialEq|Eq|Serialize|Deserialize)[^]]*\)\][[:space:]]*pub struct EnforcementRequest'; do
+            '#\[derive\([^]]*(Debug|Clone|Copy|PartialEq|Eq|Serialize|Deserialize)[^]]*\)\][[:space:]]*pub struct EnforcementRequest'
+            '#\[derive\([^]]*(Debug|Clone|Copy|PartialEq|Eq|Serialize|Deserialize)[^]]*\)\][[:space:]]*pub struct VerifiedCapability'; do
             if grep -nzE "$pattern" crates/mycelix-bridge-common/src/security_kernel.rs; then
               echo "security-kernel serialization/linear-token regression: $pattern" >&2
               exit 1
