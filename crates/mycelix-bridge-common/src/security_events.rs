@@ -619,6 +619,9 @@ mod tests {
 
         assert!(serde_json::from_str::<SecurityEvent>(&base("")).is_err());
 
+        let boundary = "x".repeat(MAX_PROVENANCE_IDENTIFIER_BYTES);
+        assert!(serde_json::from_str::<SecurityEvent>(&base(&boundary)).is_ok());
+
         let oversized = "x".repeat(MAX_PROVENANCE_IDENTIFIER_BYTES + 1);
         assert!(serde_json::from_str::<SecurityEvent>(&base(&oversized)).is_err());
     }
