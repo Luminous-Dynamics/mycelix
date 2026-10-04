@@ -406,7 +406,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         }
         FlatOp::RegisterDeleteLink { .. } => Ok(ValidateCallbackResult::Invalid(
             "Trust credential indexes cannot be deleted".into(),
-        ))
+        )),
         FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterUpdate(update) => {
@@ -554,7 +554,21 @@ fn validate_update_credential(
         ));
     }
 
-    // Immutable fields
+    // The revocation update may only change revocation state. All
+    // cryptographic/provenance inputs that determine the trust claim remain
+    // immutable once issued.
+    if cred.range_proof != original.range_proof
+        || cred.trust_score_range != original.trust_score_range
+        || cred.trust_tier != original.trust_tier
+        || cred.expires_at != original.expires_at
+        || cred.supersedes != original.supersedes
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Trust credential proof, score range, tier, expiry, and supersession are immutable".into(),
+        ));
+    }
+
+    // Issuer and subject are likewise bound to the original credential.
     if cred.id != original.id {
         return Ok(ValidateCallbackResult::Invalid(
             "Trust credential ID cannot be changed".into(),
@@ -586,6 +600,26 @@ fn validate_update_credential(
         return Ok(ValidateCallbackResult::Invalid(
             "Trust credential revocation is irreversible".into(),
         ));
+    }
+
+    // Revocation metadata is required only when entering the revoked
+    // state and becomes immutable thereafter.
+    if cred.revoked && cred.revocation_reason.as_deref().is_none_or(str::is_empty) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Revoked credentials must include a non-empty revocation reason".into(),
+        ));
+    }
+    if !cred.revoked && cred.revocation_reason.is_some() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Non-revoked credentials cannot carry a revocation reason".into(),
+        ));
+    }
+    if let Some(original_reason) = &original.revocation_reason {
+        if cred.revocation_reason.as_ref() != Some(original_reason) {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Revocation reason cannot be changed once set".into(),
+            ));
+        }
     }
 
     // If being revoked, revoked_at must be set
