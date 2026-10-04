@@ -50,6 +50,7 @@ if(!credentialResult.valid) {
 const presentationResult = await vc.verify({
   presentation: fixture.presentation,
   challenge: fixture.presentationChallenge,
+  domain: fixture.presentationDomain,
   suite,
   documentLoader
 });
@@ -65,13 +66,19 @@ if(vpProof.challenge !== fixture.presentationChallenge ||
 }
 
 async function mustReject(label, fn) {
+  let result;
   try {
-    const result = await fn();
-    if(result?.valid === false) return;
-    throw new Error(label + ' unexpectedly verified');
+    result = await fn();
   } catch(error) {
-    if(error?.message?.includes('unexpectedly verified')) throw error;
+    // Only count an explicit proof/verification/challenge rejection as a
+    // negative-test success. Import, loader, and programming errors must fail.
+    if(/proof|signature|verification|challenge|domain|cryptosuite/i.test(
+      String(error?.message ?? '')
+    )) return;
+    throw error;
   }
+  if(result?.valid === false) return;
+  throw new Error(label + ' unexpectedly verified');
 }
 
 const tamperedCredential = structuredClone(fixture.credential);
@@ -85,6 +92,15 @@ await mustReject('tampered credential', () => vc.verifyCredential({
 await mustReject('wrong presentation challenge', () => vc.verify({
   presentation: fixture.presentation,
   challenge: fixture.presentationChallenge + '-wrong',
+  domain: fixture.presentationDomain,
+  suite,
+  documentLoader
+}));
+
+await mustReject('wrong presentation domain', () => vc.verify({
+  presentation: fixture.presentation,
+  challenge: fixture.presentationChallenge,
+  domain: fixture.presentationDomain + '-wrong',
   suite,
   documentLoader
 }));
@@ -97,5 +113,6 @@ console.log(JSON.stringify({
   challenge_validated: true,
   domain_present: true,
   tampered_credential_rejected: true,
-  wrong_challenge_rejected: true
+  wrong_challenge_rejected: true,
+  wrong_domain_rejected: true
 }, null, 2));
