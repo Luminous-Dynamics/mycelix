@@ -67,6 +67,8 @@ pub struct Vote {
 pub struct DecisionOutcome {
     /// The decision this outcome is for.
     pub decision_hash: ActionHash,
+    /// The Holochain agent that authored the resolution action.
+    pub resolved_by: AgentPubKey,
     /// Index of the winning option.
     pub chosen_option: u32,
     /// Participation rate in basis points (0-10000).
@@ -116,13 +118,19 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(OpEntry::CreateEntry {
-            app_entry,
-            action: _,
-        }) => match app_entry {
-            EntryTypes::Decision(decision) => validate_decision(&decision),
-            EntryTypes::Vote(vote) => validate_vote(&vote),
-            EntryTypes::DecisionOutcome(outcome) => validate_outcome(&outcome),
+        FlatOp::StoreEntry(OpEntry::CreateEntry { app_entry, action }) => match app_entry {
+            EntryTypes::Decision(decision) => {
+                validate_decision(&decision)?;
+                validate_decision_author(&decision, &action.author())
+            }
+            EntryTypes::Vote(vote) => {
+                validate_vote(&vote)?;
+                validate_vote_author(&vote, &action.author())
+            }
+            EntryTypes::DecisionOutcome(outcome) => {
+                validate_outcome(&outcome)?;
+                validate_outcome_author(&outcome, &action.author())
+            }
         },
         FlatOp::StoreEntry(OpEntry::UpdateEntry {
             app_entry,
@@ -183,6 +191,45 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 // ============================================================================
 // Validation Functions
 // ============================================================================
+
+/// Bind the declared Decision creator to the Holochain action author.
+fn validate_decision_author(
+    decision: &Decision,
+    action_author: &AgentPubKey,
+) -> ExternResult<ValidateCallbackResult> {
+    if decision.created_by != *action_author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Decision created_by must match the Holochain action author".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+/// Bind the declared Vote voter to the Holochain action author.
+fn validate_vote_author(
+    vote: &Vote,
+    action_author: &AgentPubKey,
+) -> ExternResult<ValidateCallbackResult> {
+    if vote.voter != *action_author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Vote voter must match the Holochain action author".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
+/// Bind the DecisionOutcome resolver to the Holochain action author.
+fn validate_outcome_author(
+    outcome: &DecisionOutcome,
+    action_author: &AgentPubKey,
+) -> ExternResult<ValidateCallbackResult> {
+    if outcome.resolved_by != *action_author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "DecisionOutcome resolved_by must match the Holochain action author".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
 
 pub fn validate_decision(decision: &Decision) -> ExternResult<ValidateCallbackResult> {
     if decision.title.is_empty() {
@@ -457,11 +504,59 @@ mod tests {
     fn make_outcome(chosen: u32, participation_bp: u32) -> DecisionOutcome {
         DecisionOutcome {
             decision_hash: fake_action_hash(),
+            resolved_by: fake_agent(),
             chosen_option: chosen,
             participation_rate_bp: participation_bp,
             resolved_at: fake_timestamp(),
             quorum_bp: None,
         }
+    }
+
+    #[test]
+    fn decision_author_must_match_action_author() {
+        let decision = make_decision("Title", vec!["A", "B"]);
+        assert!(matches!(
+            validate_decision_author(&decision, &fake_agent()).unwrap(),
+            ValidateCallbackResult::Valid
+        ));
+
+        let other = AgentPubKey::from_raw_36(vec![0xBBu8; 36]);
+        match validate_decision_author(&decision, &other).unwrap() {
+            ValidateCallbackResult::Invalid(message) => {
+                assert!(message.contains("created_by"))
+            }
+            other => panic!("expected Invalid, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn vote_author_must_match_action_author() {
+        let vote = make_vote(0, 10000);
+        assert!(matches!(
+            validate_vote_author(&vote, &fake_agent()).unwrap(),
+            ValidateCallbackResult::Valid
+        ));
+
+        let other = AgentPubKey::from_raw_36(vec![0xBBu8; 36]);
+        assert!(matches!(
+            validate_vote_author(&vote, &other).unwrap(),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
+    fn outcome_resolver_must_match_action_author() {
+        let outcome = make_outcome(0, 5000);
+        assert!(matches!(
+            validate_outcome_author(&outcome, &fake_agent()).unwrap(),
+            ValidateCallbackResult::Valid
+        ));
+
+        let other = AgentPubKey::from_raw_36(vec![0xBBu8; 36]);
+        assert!(matches!(
+            validate_outcome_author(&outcome, &other).unwrap(),
+            ValidateCallbackResult::Invalid(_)
+        ));
     }
 
     // ---- Decision Validation ----
