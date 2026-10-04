@@ -217,6 +217,23 @@ def mutate(base: dict[str, Any], name: str) -> dict[str, Any]:
         return value
     elif name == "reconstructed-pcr-mismatch":
         value["observed_pcr_values"]["4"] = "99" * 32
+    elif name == "no-action-does-not-extend":
+        value["events"][1]["event_type"] = "EV_NO_ACTION"
+        states = {str(index): bytes(32) for index in selection_ids(value["pcr_selection"])}
+        for event in value["events"]:
+            if event["event_type"] == "EV_NO_ACTION":
+                continue
+            key = str(event["pcr"])
+            if key in states:
+                states[key] = hashlib.sha256(
+                    states[key] + bytes.fromhex(event["digest_sha256"])
+                ).digest()
+        value["observed_pcr_values"] = {key: digest.hex() for key, digest in states.items()}
+    elif name == "hcrtm-initial-state-adjustment-unsupported":
+        for event in value["events"]:
+            if event["pcr"] == 0:
+                event["event_type"] = "EV_EFI_HCRTM_EVENT"
+                break
     else:
         raise KeyError(name)
     return value
