@@ -2919,6 +2919,12 @@ async fn dsid_036_issued_state_proves_credential_fulfillment() {
         Some(requester_did.as_str())
     );
 
+    assert_eq!(
+        credential_value["proof"]["cryptosuite"].as_str(),
+        Some("mycelix-blake2b-ed25519-2026"),
+        "newly issued Mycelix credentials must use the explicit native proof profile"
+    );
+
     let verified: serde_json::Value = conductor
         .call(
             &requester.zome("verifiable_credential"),
@@ -2961,16 +2967,18 @@ async fn dsid_036_issued_state_proves_credential_fulfillment() {
         &[&request, &approved, &credential, &final_request],
         "The Issued request state must carry the exact credential ActionHash that fulfills the request, and issuance must be cryptographically consistent with the request's issuer, subject, and schema.",
         format!(
-            "approved_record_present={} free_issued_rejected={} issued_pointer_matches={} credential_verified={} duplicate_fulfillment_rejected={}",
+            "approved_record_present={} free_issued_rejected={} issued_pointer_matches={} native_cryptosuite={} credential_verified={} duplicate_fulfillment_rejected={}",
             approved.entry().to_app_option::<serde_json::Value>().is_ok(),
             free_issued.is_err(),
             issued_action == credential.action_address().to_string(),
+            credential_value["proof"]["cryptosuite"].as_str() == Some("mycelix-blake2b-ed25519-2026"),
             verified["valid"] == true,
             duplicate_fulfillment.is_err()
         ),
         free_issued.is_err()
             && final_value["status"] == "Issued"
             && issued_action == credential.action_address().to_string()
+            && credential_value["proof"]["cryptosuite"].as_str() == Some("mycelix-blake2b-ed25519-2026")
             && verified["valid"] == true
             && duplicate_fulfillment.is_err(),
     );
