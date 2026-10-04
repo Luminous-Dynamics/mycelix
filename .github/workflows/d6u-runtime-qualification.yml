@@ -118,7 +118,7 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           if-no-files-found: warn
-          name: d6u-runtime-evidence-${{ github.sha }}
+          name: d6u-runtime-evidence-${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
           path: |
             d6u-runtime-harness/d6u-runtime-evidence.txt
             d6u-runtime-harness/d6u-runtime-test.log
