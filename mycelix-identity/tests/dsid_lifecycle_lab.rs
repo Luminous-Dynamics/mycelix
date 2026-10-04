@@ -3071,3 +3071,141 @@ async fn dsid_037_assertion_method_authorizes_w3c_multikey() {
             && did.assertion_method.contains(&legacy_id),
     );
 }
+
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_038_deactivated_issuer_fails_closed_in_credential_verification() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let issuer_app = conductor
+        .setup_app("dsid-deactivated-issuer", std::slice::from_ref(&dna))
+        .await
+        .unwrap();
+    let holder_app = conductor
+        .setup_app("dsid-deactivated-holder", std::slice::from_ref(&dna))
+        .await
+        .unwrap();
+
+    let issuer = issuer_app.cells()[0].clone();
+    let holder = holder_app.cells()[0].clone();
+    let issuer_did = format!("did:mycelix:{}", issuer_app.agent());
+    let holder_did = format!("did:mycelix:{}", holder_app.agent());
+
+    let _: Record = conductor
+        .call(&issuer.zome("did_registry"), "create_did", ())
+        .await;
+    let _: Record = conductor
+        .call(&holder.zome("did_registry"), "create_did", ())
+        .await;
+
+    let credential: Record = conductor
+        .call(
+            &issuer.zome("verifiable_credential"),
+            "issue_credential",
+            serde_json::json!({
+                "subject_did": holder_did,
+                "schema_id": "mycelix:schema:education:degree:v1",
+                "claims": {
+                    "degree": "DSID active-issuer credential"
+                },
+                "credential_types": ["QualificationCredential"],
+                "issuer_name": "DSID Qualification Issuer",
+                "expiration_days": 365,
+                "enable_revocation": true,
+                "strict_schema": false
+            }),
+        )
+        .await;
+
+    let credential_value: serde_json::Value = credential
+        .entry()
+        .to_app_option()
+        .unwrap()
+        .unwrap();
+    let credential_id = credential_value["id"]
+        .as_str()
+        .expect("issued credential must have an ID")
+        .to_owned();
+
+    await_consistency(&[issuer.clone(), holder.clone()])
+        .await
+        .expect("issuer and holder must reach DHT consistency");
+
+    let active: serde_json::Value = conductor
+        .call(
+            &holder.zome("verifiable_credential"),
+            "verify_credential",
+            credential_id.clone(),
+        )
+        .await;
+    assert_eq!(
+        active["valid"], true,
+        "credential must verify while its issuer DID is active: {active}"
+    );
+
+    let _: Record = conductor
+        .call(
+            &issuer.zome("did_registry"),
+            "deactivate_did",
+            "DSID issuer deactivation qualification",
+        )
+        .await;
+
+    await_consistency(&[issuer.clone(), holder.clone()])
+        .await
+        .expect("deactivation must reach holder DHT consistency");
+
+    let inactive: serde_json::Value = conductor
+        .call(
+            &holder.zome("verifiable_credential"),
+            "verify_credential",
+            credential_id.clone(),
+        )
+        .await;
+
+    assert_eq!(inactive["valid"], false);
+    let errors = inactive["errors"]
+        .as_array()
+        .expect("failed verification must include errors");
+    assert!(
+        errors
+            .iter()
+            .any(|error| error.as_str() == Some("Issuer DID is not active")),
+        "deactivated issuer must be an explicit verification failure: {inactive}"
+    );
+
+    let issuer_active: bool = conductor
+        .call(
+            &holder.zome("did_registry"),
+            "is_did_active",
+            issuer_did.clone(),
+        )
+        .await;
+    assert!(!issuer_active);
+
+    let mut agents = BTreeMap::new();
+    agents.insert("issuer", issuer_app.agent().to_string());
+    agents.insert("holder", holder_app.agent().to_string());
+    emit_evidence(
+        "DSID-038",
+        "deactivated-issuer-fails-closed",
+        &dna,
+        agents,
+        &[&credential],
+        "A credential that is cryptographically valid must fail current-state verification after its issuer DID is deactivated.",
+        format!(
+            "verified_active={} verified_after_deactivation={} explicit_issuer_inactive_error={} did_registry_active={}",
+            active["valid"] == true,
+            inactive["valid"] == true,
+            errors.iter().any(|error| error.as_str() == Some("Issuer DID is not active")),
+            issuer_active
+        ),
+        active["valid"] == true
+            && inactive["valid"] == false
+            && errors
+                .iter()
+                .any(|error| error.as_str() == Some("Issuer DID is not active"))
+            && !issuer_active,
+    );
+}
