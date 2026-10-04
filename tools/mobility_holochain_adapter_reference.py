@@ -90,6 +90,7 @@ def main() -> int:
         "provenance_witness_unique_per_registry_binding": True,
         "preflight_missing_is_not_protocol_unresolved": True,
         "missing_binding_stops_before_host_calls": True,
+        "runtime_binding_payload_validation_precedes_authority_preflight": True,
     }
     for key, expected in expected_authority_contract.items():
         if authority_contract.get(key) != expected:
@@ -154,6 +155,20 @@ def main() -> int:
         raise SystemExit("missing authority-agent registration must stop before host calls")
     if "binding.signer != authorized_credential.payload.agent" not in source:
         raise SystemExit("runtime binding signer must match the registered authority agent")
+    bind_attested_with_authority_start = source.index("pub fn bind_attested_with_authority(")
+    authority_lookup = source.index(
+        "let authority = binding.payload.provenance.authority.clone()",
+        bind_attested_with_authority_start,
+    )
+    payload_validation = source.index(
+        "binding.payload.validate()",
+        bind_attested_with_authority_start,
+    )
+    if payload_validation > authority_lookup:
+        raise SystemExit(
+            "runtime binding payload validation must precede missing authority preflight"
+        )
+
     compact_source = "".join(source.split())
     if "authorized_credential.payload.provenance.authority_scope" not in compact_source:
         raise SystemExit("runtime binding must preserve exact authority scope continuity")
