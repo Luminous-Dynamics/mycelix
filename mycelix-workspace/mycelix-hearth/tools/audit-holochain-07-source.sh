@@ -723,21 +723,58 @@ check_semantic_case_integrity_bindings() {
 # itself as the invariant.
 check_dependency_semantics() {
   local file="$1"
-  if rg -n --pcre2 'must_get_action\(action\.(?:original_action_address|deletes_address)' "$file" >/tmp/hearth07_weak_dependency.$ 2>/dev/null; then
+  local source
+  source="$(sed '/^\#\[cfg(test)\]/,$d' "$file")"
+  if printf '%s\n' "$source" | rg -n --pcre2 'must_get_action\(action\.(?:original_action_address|deletes_address)' >/tmp/hearth07_weak_dependency.$$ 2>/dev/null; then
     echo "FAIL: $file uses must_get_action for update/delete authorization"
-    cat /tmp/hearth07_weak_dependency.$
+    cat /tmp/hearth07_weak_dependency.$$
     fail=1
   fi
-  if rg -n --pcre2 'must_get_valid_record\(' "$file" >/dev/null 2>&1; then
-    if rg -n --pcre2 '\.(?:entry\(\)\.to_app_option|action\(\))|try_from_action' "$file" >/dev/null 2>&1; then
-      echo "OK:   $file valid-record dependencies are semantically inspected"
+  local call_count
+  call_count="$(printf '%s\n' "$source" | rg -o --fixed-strings 'must_get_valid_record(' | wc -l)"
+  if [[ "$call_count" -eq 0 ]]; then
+    echo "OK:   $file has no must_get_valid_record dependency sites"
+    rm -f /tmp/hearth07_weak_dependency.$$
+    return
+  fi
+
+  mapfile -t fn_lines < <(
+    printf '%s\n' "$source" |
+      rg -n --pcre2 '^\s*(?:pub\s+)?fn\s+[A-Za-z0-9_]+\s*\(' |
+      cut -d: -f1
+  )
+  local start_line next_fn end_line block fn_line fn_name saw_consumer=0
+  for start_line in "${fn_lines[@]}"; do
+    next_fn=""
+    for fn_line in "${fn_lines[@]}"; do
+      if [[ "$fn_line" -gt "$start_line" ]]; then
+        next_fn="$fn_line"
+        break
+      fi
+    done
+    if [[ -n "$next_fn" ]]; then
+      end_line=$((next_fn - 1))
     else
-      echo "FAIL: $file retrieves a valid record without inspecting its entry/action"
+      end_line="$(printf '%s\n' "$source" | wc -l)"
+    fi
+    block="$(sed -n "${start_line},${end_line}p" <<<"$source")"
+    if ! printf '%s\n' "$block" | rg -n --fixed-strings 'must_get_valid_record(' >/dev/null 2>&1; then
+      continue
+    fi
+    saw_consumer=1
+    fn_name="$(sed -n 's/.*fn[[:space:]]\+\([A-Za-z0-9_]*\).*/\1/p' <<<"$(sed -n "${start_line}p" <<<"$source")")"
+    if printf '%s\n' "$block" | rg -n --pcre2 '\.entry\(\)|\.action\(\)|try_from_action' >/dev/null 2>&1; then
+      echo "OK:   $file $fn_name inspects each valid-record dependency within its function scope"
+    else
+      echo "FAIL: $file $fn_name retrieves a valid record without inspecting its entry/action"
       fail=1
     fi
-  else
-    echo "OK:   $file has no must_get_valid_record dependency sites"
+  done
+  if [[ "$saw_consumer" -eq 0 ]]; then
+    echo "FAIL: $file has must_get_valid_record calls outside recognized function scope"
+    fail=1
   fi
+  rm -f /tmp/hearth07_weak_dependency.$$
 }
 
 # Immutable-field helpers must prove the referenced CreateRecord is valid and
