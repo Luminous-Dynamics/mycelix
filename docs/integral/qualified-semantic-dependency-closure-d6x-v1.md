@@ -122,9 +122,11 @@ The golden conformance corpus now carries a typed authoritative_d6n_d6o source f
 
 The executable corpus test first calls:
 
-compose_finality_eligibility_from_authoritative_d6n_d6o(...)
+compute_dependency_closure_from_authoritative_d6n_d6o(...)
 
-and requires the resulting D6P composition to equal the separately committed authoritative_d6p composition. The authoritative D6O step also requires the admitted eligibility receipt to be the exact receipt registered in the lifecycle ledger; a self-consistent but unregistered receipt is rejected. D6X then consumes the reconstructed composition, not the corpus copy, and separately verifies that the committed D6P receipt is an exact projection of that reconstruction.
+which internally reconstructs D6P from authoritative D6N/D6O inputs, verifies the supplied D6P receipt as an exact projection of that reconstruction, and only then delegates to the strict D6X D6P admission path. The underlying D6O step requires the admitted eligibility receipt to be the exact receipt registered in the lifecycle ledger; a self-consistent but unregistered receipt is rejected.
+
+The authoritative D6P reconstruction also binds the caller-supplied independent-observer threshold to the `FinalityQualificationProfileV1.required_independent_observations` value. A lower or otherwise substituted threshold is rejected instead of becoming an implicit policy override.
 
 The corpus also mutates D6M, D6N, and D6O inputs into internally self-consistent alternatives and requires the authoritative reconstruction boundary to reject each one. This establishes the intended chain for the ReferenceModelOnly test corpus:
 
