@@ -17,17 +17,21 @@ This standalone index freezes the exact Git identities and execution status of t
 #3983 TPM Evidence
     ↓
 #3994 EAT measured component
+    ↓
+#4011 physical platform Evidence capture/coherence
 
 #3973 protected release
     ↓
 #3974 comparative benchmark
-
+    ↓
 #4001 policy enforcement
     ↓
 #3975 E1 CUI/CMMC revision boundary
 ```
 
-All listed PRs are currently draft/open. The SHA recorded for each item is the exact snapshot identity, not a claim that the PR cannot change later.
+The security-evidence execution gate is introduced by **#4016**. Exact-head validation for #4011 is tracked separately by **#4013**.
+
+All listed PRs are currently draft/open unless explicitly stated otherwise. The SHA recorded for each item is the exact snapshot identity, not a claim that the PR cannot change later.
 
 ## Executed reference-model layers
 
@@ -47,9 +51,42 @@ E1 CUI/CMMC revision boundary: **12/12**
 
 These are executable/reference-model results, not deployment accreditation.
 
+## New platform Evidence boundary
+
+#4011 defines a new, narrower theorem:
+
+```
+one boot/session
++ one TPM identity
++ one binary event log
++ one PCR selection
++ one Quote
++ one challenge
++ one toolchain snapshot
++ one reference-value set
++ one trusted-time object
++ one reconstruction result
+    ↓
+coherent platform Evidence
+```
+
+The verifier explicitly separates:
+
+```
+quote verification
+!= event-log parsing
+!= event-log reconstruction
+!= reference-value appraisal
+!= trusted time
+!= RATS Result
+!= local authorization
+```
+
+The current semantic corpus contains **22 adversarial vectors**, including session/boot/EK substitution, parser/profile substitution, nonce/PCR/AK substitution, reconstruction tampering, trusted-time ambiguity, key-order invariance, post-quote PCR mismatch, and DENY-over-INDETERMINATE precedence.
+
 ## TPM boundary
 
-The TPM Evidence profile is deliberately **NOT EXECUTED** in the current environment.
+The physical TPM Evidence layer is deliberately **NOT EXECUTED** in the current environment.
 
 There is no:
 
@@ -63,7 +100,20 @@ tpm2_pcrextend
 tpm2_eventlog
 ```
 
-Consequently, no vTPM or physical-TPM PASS is claimed.
+Consequently, no physical-TPM or vTPM PASS is claimed.
+
+The capture helper is intentionally conservative: a physical run can preserve raw evidence even when the final qualification remains unqualified because independent event-log reconstruction or trusted time is unavailable.
+
+## CI execution boundary
+
+#4016 installs a dedicated security-evidence workflow that validates:
+
+- contract JSON structure and vector count;
+- Python bytecode compilation;
+- the complete semantic self-test;
+- preservation of the bounded claim ceiling.
+
+#4013 is the exact-head validation PR for #4011. At this snapshot there is **no hosted security-evidence result yet**, because the workflow is not authoritative from `main` until #4016 is merged.
 
 ## Current CMMC distinction
 
@@ -89,20 +139,55 @@ CMMC status
 
 ## What the program now demonstrates
 
-The architecture has crossed an important threshold: the critical trust transitions are no longer just prose.
+The architecture has crossed another useful boundary: the platform evidence layer itself now has an executable **coherence theorem** rather than merely an Evidence schema.
 
-There are executable reference models for:
+The evidence chain is now:
 
 ```
-Evidence
-→ Attestation Result
-→ trusted-time freshness
-→ release semantics
-→ comparative containment
-→ final fail-closed policy join
+platform observation
+    ↓
+capture-session coherence
+    ↓
+TPM Quote verification
+    ↓
+event-log reconstruction
+    ↓
+reference-value appraisal
+    ↓
+trusted-time appraisal
+    ↓
+RATS Attestation Result
+    ↓
+Relying Party
+    ↓
+PEP
+    ↓
+local authorization / enforcement
 ```
 
-The remaining high-value work is empirical: real TPM capture, PC-client event-log reconstruction, runtime attack campaigns, actual enforcement integration, and independent review.
+Each arrow remains a separately bounded claim.
+
+## Remaining empirical work
+
+The highest-value unresolved step is still the real physical platform:
+
+```
+physical TPM
+    ↓
+real PC-client measured boot
+    ↓
+binary event log
+    ↓
+independent PCR reconstruction
+    ↓
+measured-component representation
+    ↓
+RATS Result
+    ↓
+PEP
+```
+
+The repository is now structurally prepared for that evidence without allowing a vTPM fixture or parser success to impersonate hardware assurance.
 
 ## Unproven
 
