@@ -2162,8 +2162,8 @@ mod tests {
     }
 
     #[test]
-    fn deserialized_malformed_capability_is_rejected_before_authorization() {
-        let malformed: Capability = serde_json::from_str(
+    fn deserialized_malformed_capability_is_rejected_at_constructor_boundary() {
+        let malformed: Result<Capability, _> = serde_json::from_str(
             r#"{
                 "subject":"alice",
                 "issuer":"issuer",
@@ -2173,22 +2173,9 @@ mod tests {
                 "expires_at_us":2,
                 "policy_version":1
             }"#,
-        )
-        .unwrap();
-        let evidence = VerificationEvidence::new_for_capability(
-            &malformed,
-            SignatureVerification::Verified,
-            RevocationStatus::Current,
-            AuthorityResolution::Unambiguous,
         );
-        assert_eq!(
-            verify_capability(malformed, evidence, 1),
-            Err(AuthorizationDecision::Deny(
-                AuthorizationDenial::InvalidCapability,
-            ))
-        );
+        assert!(malformed.is_err());
     }
-
     #[test]
     fn malformed_capability_rejected() {
         assert!(
