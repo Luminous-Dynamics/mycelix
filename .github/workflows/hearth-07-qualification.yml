@@ -430,7 +430,7 @@ PY
 
           source_contract_verified=0
           if [[ -s "${hearth}/qualification-source-contract-sha256.txt" ]]              && ! head -n1 "${hearth}/qualification-source-contract-sha256.txt" | grep -q '^unavailable_'; then
-            if (cd "${hearth}" && sha256sum -c qualification-source-contract-sha256.txt); then
+            if (cd "${root}" && sha256sum -c mycelix-workspace/mycelix-hearth/qualification-source-contract-sha256.txt); then
               source_contract_verified=1
             fi
           fi
