@@ -238,6 +238,18 @@
     {
       "id": "CAP-025",
       "rule": "The reference-appraisal result is bound to the exact reference-values artifact, registry digest, verifier source, and capture session."
+    },
+    {
+      "id": "CAP-023",
+      "rule": "Reference-value version and digest alone are insufficient; the exact reference set must pass independent appraisal against an approved registry."
+    },
+    {
+      "id": "CAP-024",
+      "rule": "An unapproved reference set is INDETERMINATE; a digest conflict for an approved version is DENY."
+    },
+    {
+      "id": "CAP-025",
+      "rule": "Reference appraisal is bound to the exact reference artifact, registry digest, verifier source, and capture session."
     }
   ],
   "decision_algebra": "ANY DENY > ANY INDETERMINATE > ALL PASS",
@@ -380,7 +392,7 @@
   },
   "reference_boundary": {
     "event_log_semantics": "The PC-client event log is an input to reconstruction; parsing alone is not a trust decision.",
-    "reference_values": "Reference values are consumed through the independent reference-appraisal verifier. For ReferenceModelOnly, the reviewed static registry authorizes the exact fixture digest; live provider authentication is a separate future theorem.",
+    "reference_values": "Reference values are independently appraised. In ReferenceModelOnly the reviewed static registry authorizes an exact fixture digest; dynamic provider authentication remains a separate future theorem.",
     "trusted_time": "Trusted time is an externally qualified evidence object; local wall-clock time is not authoritative.",
     "authorization": "Coherent platform Evidence remains evidence only and is consumed by the downstream RATS/Relying-Party/PEP chain."
   },
