@@ -1112,9 +1112,9 @@ fn validate_create_verifiable_credential(
             "Credential must have valid proof".into(),
         ));
     }
-    if vc.proof.created.parse::<Timestamp>().is_err() {
+    if !is_date_time_stamp(&vc.proof.created) {
         return Ok(ValidateCallbackResult::Invalid(
-            "Credential proof created value must be a valid RFC3339 timestamp".into(),
+            "Credential proof created value must be an explicit dateTimeStamp with timezone".into(),
         ));
     }
 
