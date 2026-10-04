@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use super::sector_balance::{BalanceSheetInstrument, SectorAssignment, SectorBalanceSheet};
 use super::sector_flow::EconomicSector;
+use super::sector_other_volume::SectorOtherVolumeChangeMatrix;
 use super::stock_flow::ActorId;
 use super::transition::EconomicTransition;
 
@@ -178,12 +179,29 @@ impl SectorFinancialFlowMatrix {
 
     /// Non-financial transition variants are listed explicitly above so future enum additions force
     /// a compile-time review of whether they create contractual financial claims.
-    /// Validate that financial-claim flows explain the relevant
-    /// balance-sheet instrument deltas between two sector snapshots.
+    /// Validate that financial-account flows explain the relevant
+    /// balance-sheet instrument deltas. Use this form when no other-volume
+    /// adjustment is present in the same period.
     pub fn validate_against_balance_sheet_delta(
         &self,
         pre: &SectorBalanceSheet,
         post: &SectorBalanceSheet,
+    ) -> Result<(), String> {
+        let empty = SectorOtherVolumeChangeMatrix::default();
+        self.validate_against_balance_sheet_delta_with_other_volume(pre, post, &empty)
+    }
+
+    /// Validate financial-account flows together with an independent
+    /// other-volume projection against balance-sheet stock deltas.
+    ///
+    /// This preserves the accounting taxonomy: settlement/creation flows remain
+    /// in the financial account, while write-offs and similar adjustments can
+    /// explain stock changes without being mislabeled as transactions.
+    pub fn validate_against_balance_sheet_delta_with_other_volume(
+        &self,
+        pre: &SectorBalanceSheet,
+        post: &SectorBalanceSheet,
+        other_volume: &SectorOtherVolumeChangeMatrix,
     ) -> Result<(), String> {
         const SECTORS: [EconomicSector; 6] = [
             EconomicSector::Household,
@@ -206,7 +224,11 @@ impl SectorFinancialFlowMatrix {
                     .sector_instrument_total_checked(sector, instrument)?
                     .checked_sub(pre.sector_instrument_total_checked(sector, instrument)?)
                     .ok_or_else(|| "sector financial stock delta overflow".to_string())?;
-                let expected = self.expected_instrument_delta(sector, instrument)?;
+                let expected_financial = self.expected_instrument_delta(sector, instrument)?;
+                let expected_other = other_volume.instrument_delta(sector, instrument)?;
+                let expected = expected_financial
+                    .checked_add(expected_other)
+                    .ok_or_else(|| "combined sector financial stock delta overflow".to_string())?;
                 if actual != expected {
                     return Err(format!(
                         "sector {:?} {:?} delta mismatch: expected {}, actual {}",
@@ -216,48 +238,6 @@ impl SectorFinancialFlowMatrix {
             }
         }
         Ok(())
-    }
-
-    fn expected_instrument_delta(
-        &self,
-        sector: EconomicSector,
-        instrument: BalanceSheetInstrument,
-    ) -> Result<i128, String> {
-        self.flows.iter().try_fold(0i128, |sum, flow| {
-            let delta = match (flow.category, flow.from == sector, flow.to == sector) {
-                (FinancialFlowCategory::LoanCreation, true, _)
-                    if instrument == BalanceSheetInstrument::Loans =>
-                    flow.amount,
-                (FinancialFlowCategory::LoanCreation, _, true)
-                    if instrument == BalanceSheetInstrument::Debt =>
-                    -flow.amount,
-                (FinancialFlowCategory::DebtRepayment, true, _)
-                    if instrument == BalanceSheetInstrument::Debt =>
-                    flow.amount,
-                (FinancialFlowCategory::DebtRepayment, _, true)
-                    if instrument == BalanceSheetInstrument::Loans =>
-                    -flow.amount,
-                (FinancialFlowCategory::TradeCreditExtension, true, _)
-                    if instrument == BalanceSheetInstrument::TradeReceivables =>
-                    flow.amount,
-                (FinancialFlowCategory::TradeCreditExtension, _, true)
-                    if instrument == BalanceSheetInstrument::TradePayables =>
-                    -flow.amount,
-                (FinancialFlowCategory::TradeCreditSettlement, true, _)
-                    if instrument == BalanceSheetInstrument::TradeReceivables =>
-                    -flow.amount,
-                (FinancialFlowCategory::TradeCreditSettlement, _, true)
-                    if instrument == BalanceSheetInstrument::TradePayables =>
-                    flow.amount,
-                (FinancialFlowCategory::LoanCreation
-                    | FinancialFlowCategory::DebtRepayment
-                    | FinancialFlowCategory::TradeCreditExtension
-                    | FinancialFlowCategory::TradeCreditSettlement)
-                    => 0,
-            };
-            sum.checked_add(delta)
-                .ok_or_else(|| "sector financial claim delta overflow".to_string())
-        })
     }
 
     /// Re-derive this matrix from the supplied transition sequence and require exact equality.
