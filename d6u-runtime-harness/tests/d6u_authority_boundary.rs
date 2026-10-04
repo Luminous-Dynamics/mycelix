@@ -174,13 +174,14 @@ fn expect_authentication_failed(response: AppResponse) {
     }
 }
 
-fn expect_unauthorized_reason(response: AppResponse, reason: &str) {
+fn expect_unauthorized_reason(response: AppResponse, reason: &str) -> String {
     match response {
         AppResponse::Error(ExternalApiWireError::ZomeCallUnauthorized(message)) => {
             assert!(
                 message.contains(reason),
                 "expected authorization reason {reason}, got {message}"
             );
+            message.to_string()
         }
         other => panic!("expected ZomeCallUnauthorized wire error, got {other:?}"),
     }
@@ -196,13 +197,14 @@ fn expect_internal_error(response: AppResponse) {
     );
 }
 
-fn expect_internal_error_contains(response: AppResponse, reason: &str) {
+fn expect_internal_error_contains(response: AppResponse, reason: &str) -> String {
     match response {
         AppResponse::Error(ExternalApiWireError::InternalError(message)) => {
             assert!(
                 message.contains(reason),
                 "expected internal error reason {reason}, got {message}"
             );
+            message.to_string()
         }
         other => panic!("expected conductor internal error, got {other:?}"),
     }
@@ -566,12 +568,12 @@ async fn d6u_runtime_authority_boundary() {
         future_expiry,
     );
     let before = reached.load(Ordering::SeqCst);
-    expect_unauthorized_reason(
+    let future_message = expect_unauthorized_reason(
         call(&app_api, "d6u-bob", &conductor.keystore(), future).await,
         "Future",
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
-    println!("D6U_SUBSTRATE_CHECK\tfuture-expiry-rejection\tFuture\tPASS");
+    println!("D6U_SUBSTRATE_CHECK\tfuture-expiry-rejection\t{future_message}\tPASS");
     let expired = params(
         &alice_cell,
         &alice,
@@ -601,12 +603,12 @@ async fn d6u_runtime_authority_boundary() {
         holochain_nonce::fresh_nonce(Timestamp::now()).unwrap().1,
     );
     let before = reached.load(Ordering::SeqCst);
-    expect_internal_error_contains(
+    let wrong_zome_message = expect_internal_error_contains(
         call(&app_api, "d6u-alice", &conductor.keystore(), wrong_zome).await,
-        "Zome not found",
+        "Zome not found: Zome 'wrong-zome' not found",
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
-    println!("D6U_SUBSTRATE_CHECK\twrong-zome-routing\tZome not found witness\tPASS");
+    println!("D6U_SUBSTRATE_CHECK\twrong-zome-routing\t{wrong_zome_message}\tPASS");
     record_case("wrong-zome", "routing-failed");
 
     let wrong_function = params(
@@ -622,12 +624,12 @@ async fn d6u_runtime_authority_boundary() {
     let before = reached.load(Ordering::SeqCst);
 let wrong_function_response =
         call(&app_api, "d6u-alice", &conductor.keystore(), wrong_function).await;
-    expect_internal_error_contains(
+    let wrong_function_message = expect_internal_error_contains(
         wrong_function_response,
         "Attempted to call a zome function that doesn't exist: Zome: coordinator Fn no_such_function",
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
-    println!("D6U_SUBSTRATE_CHECK\twrong-function-routing\tmissing-function witness\tPASS");
+    println!("D6U_SUBSTRATE_CHECK\twrong-function-routing\t{wrong_function_message}\tPASS");
     record_case("wrong-function", "routing-failed");
 
     let missing_cell = CellId::new(alice_cell.dna_hash().clone(), charlie.clone());
