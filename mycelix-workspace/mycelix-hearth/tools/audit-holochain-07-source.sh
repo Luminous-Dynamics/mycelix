@@ -651,7 +651,7 @@ check_semantic_case_entrypoints() {
     else
       echo "FAIL: semantic case ${operation} is not the function immediately annotated by #[hdk_extern]"
       fail=1
-    fii
+    fi
 
     mapfile -t test_fn_lines < <(
       rg -n --fixed-strings "async fn ${test_name}" "$rust_test" |
