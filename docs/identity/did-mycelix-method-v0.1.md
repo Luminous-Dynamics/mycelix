@@ -124,7 +124,21 @@ Successful DID Document resolution currently advertises \`contentType = applicat
 
 A missing DID is represented as a method-level \`notFound\` resolution error in the typed metadata API.
 
-The current resolver obtains the DID's controller agent key from the method-specific identifier and resolves the canonical DHT state through the agent-to-DID index. Recovery anchors are not treated as current authorization evidence; the self-recovery transition is fail-closed until an authenticated proof envelope exists. The coordinator additionally parses the identifier as a Holochain `AgentPubKey`, so syntactically plausible but non-key identifiers cannot reach DHT resolution.
+The current resolver obtains the DID's controller agent key from the method-specific identifier and resolves the canonical DHT state through the agent-to-DID index.
+
+### Credential proof profile
+
+Mycelix's current in-DNA credential signer uses the explicit cryptosuite identifier
+`mycelix-blake2b-ed25519-2026`. It signs a deterministic Mycelix credential-content
+payload with Ed25519 and BLAKE2b-256. This is a Mycelix-native proof profile, not a
+claim of W3C `eddsa-rdfc-2022` or `eddsa-jcs-2022` interoperability.
+
+The W3C cryptosuites have separate normative canonicalization and hashing
+requirements. Standard interoperability will be added as a dedicated protocol
+migration rather than silently changing the meaning of already-issued proofs.
+Legacy records without a cryptosuite identifier remain readable by the current
+verification path.
+ Recovery anchors are not treated as current authorization evidence; the self-recovery transition is fail-closed until an authenticated proof envelope exists. The coordinator additionally parses the identifier as a Holochain `AgentPubKey`, so syntactically plausible but non-key identifiers cannot reach DHT resolution.
 
 ### Authenticity boundary
 
