@@ -17,7 +17,6 @@ D6S2_FIXTURE = ROOT / "docs/integral/d6s-canon-2-authority-boundary-fixture.json
 SUPPORTED = {
     "canonical-payload-accepted",
     "authorized-semantic-rejection",
-    "payload-mutation",
     "wire-signature-invalid",
     "author-grant",
     "valid-capability",
@@ -35,6 +34,7 @@ SUPPORTED = {
 UNSUPPORTED = {
     "wire-signature-valid",
     "nonce-stale",
+    "payload-mutation",
 }
 
 CASE_OUTCOMES = {
@@ -68,9 +68,14 @@ EVIDENCE_ARTIFACT_FILES = {
     "Cargo.lock",
 }
 
+SUPPLEMENTAL_APPLICATION_CHECKS = {
+    "probe-local-d6s-commitment-mutation",
+}
+
 UNSUPPORTED_REASONS = {
     "wire-signature-valid": "The isolated authenticated-but-not-yet-authorized intermediate state is not exposed as a standalone Holochain 0.7 app-interface result.",
     "nonce-stale": "Holochain 0.7 uses random 256-bit nonces and witnesses Fresh, Duplicate, Expired, or Future; the D6S stale/older-nonce state is not independently reproducible on this substrate.",
+    "payload-mutation": "D6S-CANON-2 defines this as a pre-zome D6S-integrity rejection with zome_reached=false, but Holochain 0.7 has no native invocation-payload D6S commitment gate; the harness retains a probe-local commitment check only as supplemental application evidence.",
 }
 
 
@@ -93,7 +98,7 @@ def main() -> None:
 
     assert manifest["profile"] == "D6U-RUNTIME-1"
     assert manifest["kind"] == "holochain-0.7-authority-boundary-runtime-manifest"
-    assert manifest["version"] == 7
+    assert manifest["version"] == 8
     assert manifest["claim_ceiling"] == "ReferenceModelOnly"
     assert manifest["evidence_verifier_path"] == "scripts/integral/verify_d6u_runtime_evidence.py"
     assert manifest["evidence_record_verifier_path"] == "scripts/integral/verify_d6u_runtime_record.py"
@@ -132,8 +137,8 @@ def main() -> None:
     assert supported == SUPPORTED
     assert unsupported == UNSUPPORTED
     assert manifest["unsupported_reference_case_reasons"] == UNSUPPORTED_REASONS
-    assert len(supported) == 15
-    assert len(unsupported) == 2
+    assert len(supported) == 14
+    assert len(unsupported) == 3
     assert supported.isdisjoint(unsupported)
     assert manifest["case_outcomes"] == CASE_OUTCOMES
     assert set(manifest["case_outcomes"]) == supported
@@ -146,6 +151,7 @@ def main() -> None:
         "routing-failed",
     ]
     assert set(manifest["supplemental_substrate_checks"]) == SUPPLEMENTAL_SUBSTRATE_CHECKS
+    assert set(manifest["supplemental_application_checks"]) == SUPPLEMENTAL_APPLICATION_CHECKS
     assert set(manifest["evidence_artifact_files"]) == EVIDENCE_ARTIFACT_FILES
 
     deps = manifest["dependencies"]
