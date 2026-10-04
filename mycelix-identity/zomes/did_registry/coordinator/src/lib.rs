@@ -478,26 +478,38 @@ pub fn create_did() -> ExternResult<Record> {
     // Generate DID identifier
     let did_id = format!("did:mycelix:{}", agent_pub_key);
 
-    // Create default verification method
+    // The original Ed25519VerificationKey2020 method is preserved for
+    // backward compatibility. A parallel Multikey representation is published
+    // for W3C Data Integrity EdDSA cryptosuites.
+    let public_key_multibase = agent_pub_key_multibase(&agent_pub_key)
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to encode initial Ed25519 public key: {}",
+            e
+        ))))?;
+
     let verification_method = VerificationMethod {
         id: format!("{}#keys-1", did_id),
         type_: AlgorithmId::Ed25519
             .did_verification_method_type()
             .to_string(),
         controller: did_id.clone(),
-        public_key_multibase: agent_pub_key_multibase(&agent_pub_key)
-            .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
-                "Failed to encode initial Ed25519 public key: {}",
-                e
-            ))))?,
+        public_key_multibase: public_key_multibase.clone(),
         algorithm: Some(AlgorithmId::Ed25519.as_u16()),
+    };
+
+    let w3c_multikey = VerificationMethod {
+        id: format!("{}#keys-1-multikey", did_id),
+        type_: "Multikey".to_string(),
+        controller: did_id.clone(),
+        public_key_multibase,
+        algorithm: None,
     };
 
     let now = sys_time()?;
     let did_doc = DidDocument {
         id: did_id.clone(),
         controller: agent_pub_key.clone(),
-        verification_method: vec![verification_method.clone()],
+        verification_method: vec![verification_method.clone(), w3c_multikey],
         authentication: vec![format!("{}#keys-1", did_id)],
         key_agreement: vec![],
         service: vec![],
