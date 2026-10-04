@@ -164,8 +164,8 @@ fn expect_ok(response: AppResponse) {
     }
 }
 
-fn record_case(id: &str, outcome: &str) {
-    println!("D6U_CASE\t{id}\t{outcome}\tPASS");
+fn record_case(id: &str, outcome: &str, zome_reached: bool) {
+    println!("D6U_CASE\t{id}\t{outcome}\tzome-reached={zome_reached}\tPASS");
 }
 
 fn expect_authentication_failed(response: AppResponse) {
@@ -261,7 +261,7 @@ async fn d6u_runtime_authority_boundary() {
         ProbeResult::Accepted,
     );
     assert_eq!(reached.load(Ordering::SeqCst), 1);
-    record_case("canonical-payload-accepted", "accepted");
+    record_case("canonical-payload-accepted", "accepted", true);
 
     let semantic_invalid = ProbeInput {
         semantic_valid: false,
@@ -288,7 +288,7 @@ async fn d6u_runtime_authority_boundary() {
         ProbeResult::SemanticRejected,
     );
     assert_eq!(reached.load(Ordering::SeqCst), 2);
-    record_case("authorized-semantic-rejection", "semantic-rejected");
+    record_case("authorized-semantic-rejection", "semantic-rejected", true);
 
     let mutated = ProbeInput {
         canonical_bytes: br#"{"a":1,"b":3}"#.to_vec(),
@@ -355,7 +355,7 @@ async fn d6u_runtime_authority_boundary() {
         .expect("invalid signature request must complete");
     expect_authentication_failed(invalid_response);
     assert_eq!(reached.load(Ordering::SeqCst), before);
-    record_case("wire-signature-invalid", "authentication-failed");
+    record_case("wire-signature-invalid", "authentication-failed", false);
 
     let (n, exp) = holochain_nonce::fresh_nonce(Timestamp::now()).unwrap();
     expect_probe_result(
@@ -378,7 +378,7 @@ async fn d6u_runtime_authority_boundary() {
         ProbeResult::Accepted,
     );
     assert_eq!(reached.load(Ordering::SeqCst), before + 1);
-    record_case("author-grant", "accepted");
+    record_case("author-grant", "accepted", true);
 
     let grant_response = call(
         &app_api,
@@ -421,7 +421,7 @@ async fn d6u_runtime_authority_boundary() {
         ProbeResult::Accepted,
     );
     assert_eq!(reached.load(Ordering::SeqCst), before + 1);
-    record_case("valid-capability", "accepted");
+    record_case("valid-capability", "accepted", true);
 
     let wrong_cap = CapSecret::from([0x5A; CAP_SECRET_BYTES]);
     let (n, exp) = holochain_nonce::fresh_nonce(Timestamp::now()).unwrap();
@@ -446,7 +446,7 @@ async fn d6u_runtime_authority_boundary() {
         "BadCapGrant",
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
-    record_case("wrong-capability", "authorization-failed");
+    record_case("wrong-capability", "authorization-failed", false);
 
     let (n, exp) = holochain_nonce::fresh_nonce(Timestamp::now()).unwrap();
     let before = reached.load(Ordering::SeqCst);
@@ -470,7 +470,7 @@ async fn d6u_runtime_authority_boundary() {
         "BadCapGrant",
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
-    record_case("provenance-mismatch", "authorization-failed");
+    record_case("provenance-mismatch", "authorization-failed", false);
 
     expect_ok(
         call(
@@ -513,7 +513,7 @@ async fn d6u_runtime_authority_boundary() {
         "BadCapGrant",
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
-    record_case("revoked-capability", "authorization-failed");
+    record_case("revoked-capability", "authorization-failed", false);
 
     let replay_nonce = Nonce256Bits::from([0xff; 32]);
     let replay_params = params(
@@ -553,7 +553,7 @@ async fn d6u_runtime_authority_boundary() {
         "Duplicate",
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
-    record_case("nonce-replay", "authorization-failed");
+    record_case("nonce-replay", "authorization-failed", false);
 
     let future_expiry =
         (Timestamp::now() + std::time::Duration::from_secs(60 * 60)).expect("future expiry");
@@ -591,7 +591,7 @@ async fn d6u_runtime_authority_boundary() {
         "Expired",
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
-    record_case("expired-invocation", "authorization-failed");
+    record_case("expired-invocation", "authorization-failed", false);
 
     let wrong_zome = params(
         &alice_cell,
@@ -611,7 +611,7 @@ async fn d6u_runtime_authority_boundary() {
     assert_eq!(reached.load(Ordering::SeqCst), before);
     println!("D6U_RUNTIME_WITNESS\twrong-zome-routing\t{wrong_zome_message}");
     println!("D6U_SUBSTRATE_CHECK\twrong-zome-routing\t{wrong_zome_message}\tPASS");
-    record_case("wrong-zome", "routing-failed");
+    record_case("wrong-zome", "routing-failed", false);
 
     let wrong_function = params(
         &alice_cell,
@@ -633,7 +633,7 @@ async fn d6u_runtime_authority_boundary() {
     assert_eq!(reached.load(Ordering::SeqCst), before);
     println!("D6U_RUNTIME_WITNESS\twrong-function-routing\t{wrong_function_message}");
     println!("D6U_SUBSTRATE_CHECK\twrong-function-routing\t{wrong_function_message}\tPASS");
-    record_case("wrong-function", "routing-failed");
+    record_case("wrong-function", "routing-failed", false);
 
     let missing_cell = CellId::new(alice_cell.dna_hash().clone(), charlie.clone());
     let wrong_cell = params(
@@ -656,7 +656,7 @@ async fn d6u_runtime_authority_boundary() {
     );
     println!("D6U_RUNTIME_WITNESS\twrong-cell-routing\t{wrong_cell_message}");
     println!("D6U_SUBSTRATE_CHECK\twrong-cell-routing\t{wrong_cell_message}\tPASS");
-    record_case("wrong-cell", "routing-failed");
+    record_case("wrong-cell", "routing-failed", false);
 
     let before = reached.load(Ordering::SeqCst);
     conductor
@@ -690,7 +690,7 @@ async fn d6u_runtime_authority_boundary() {
         "BlockedProvenance",
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
-    record_case("blocked-provenance", "authorization-failed");
+    record_case("blocked-provenance", "authorization-failed", false);
 
     assert_eq!(reached.load(Ordering::SeqCst), 6);
 }
