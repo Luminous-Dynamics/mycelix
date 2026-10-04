@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "artifact_type": "mycelix-raw-tpm2-eventlog-parser-v0.1",
+  "parser_id": "mycelix.pc-client.raw-tpm2-eventlog-parser.v0.1",
+  "input": "raw TCG PC-client binary event log",
+  "output": [
+    "SpecID algorithm table",
+    "exact TCG_EVENT2 PCRIndex/EventType",
+    "all recorded digest algorithms",
+    "exact Event payload bytes as payload_hex",
+    "binary log SHA-256"
+  ],
+  "rules": [
+    "The first record must be the legacy EV_NO_ACTION SpecID event at PCR0 with a zero SHA-1 digest.",
+    "Every subsequent event must have a complete TCG_EVENT2 header, at least one digest, and a bounded Event payload.",
+    "Digest sizes come only from the SpecID algorithm table; unknown or duplicated algorithms are DENY.",
+    "The parser preserves exact Event bytes and never hashes YAML presentation text.",
+    "The parser is independent of tpm2_eventlog YAML rendering.",
+    "payload_hex can be joined to the bounded YAML adapter and the payload-digest coherence verifier."
+  ],
+  "negative_cases": [
+    "truncated SpecID",
+    "truncated digest",
+    "truncated payload",
+    "unknown algorithm",
+    "duplicate algorithm in one event",
+    "missing SpecID",
+    "zero digest count"
+  ]
+}
