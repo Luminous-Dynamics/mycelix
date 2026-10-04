@@ -2765,3 +2765,213 @@ async fn dsid_035_request_status_update_is_cross_agent_and_dht_indexed() {
             && pending_after_approval.is_empty(),
     );
 }
+
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_036_issued_state_proves_credential_fulfillment() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let requester_app = conductor
+        .setup_app("dsid-vc-issued-requester", std::slice::from_ref(&dna))
+        .await
+        .unwrap();
+    let issuer_app = conductor
+        .setup_app("dsid-vc-issued-issuer", std::slice::from_ref(&dna))
+        .await
+        .unwrap();
+
+    let requester = requester_app.cells()[0].clone();
+    let issuer = issuer_app.cells()[0].clone();
+    let requester_did = format!("did:mycelix:{}", requester_app.agent());
+    let issuer_did = format!("did:mycelix:{}", issuer_app.agent());
+
+    let _: Record = conductor
+        .call(&requester.zome("did_registry"), "create_did", ())
+        .await;
+    let _: Record = conductor
+        .call(&issuer.zome("did_registry"), "create_did", ())
+        .await;
+
+    let request: Record = conductor
+        .call(
+            &requester.zome("verifiable_credential"),
+            "request_credential",
+            serde_json::json!({
+                "issuer_did": issuer_did,
+                "schema_id": "mycelix:schema:education:degree:v1",
+                "claims": {
+                    "degree": "DSID proof-carrying issuance"
+                },
+                "evidence": []
+            }),
+        )
+        .await;
+
+    let request_value: serde_json::Value = request
+        .entry()
+        .to_app_option()
+        .unwrap()
+        .unwrap();
+    let request_id = request_value["id"]
+        .as_str()
+        .expect("credential request must have an ID")
+        .to_owned();
+
+    await_consistency(&[requester.clone(), issuer.clone()])
+        .await
+        .expect("requester and issuer must reach DHT consistency");
+
+    let _: Record = conductor
+        .call(
+            &issuer.zome("verifiable_credential"),
+            "update_request_status",
+            serde_json::json!({
+                "request_id": request_id,
+                "new_status": "UnderReview"
+            }),
+        )
+        .await;
+    let approved: Record = conductor
+        .call(
+            &issuer.zome("verifiable_credential"),
+            "update_request_status",
+            serde_json::json!({
+                "request_id": request_id,
+                "new_status": "Approved"
+            }),
+        )
+        .await;
+
+    let free_issued: Result<Record, _> = conductor
+        .call_fallible(
+            &issuer.zome("verifiable_credential"),
+            "update_request_status",
+            serde_json::json!({
+                "request_id": request_id,
+                "new_status": "Issued"
+            }),
+        )
+        .await;
+    assert!(
+        free_issued.is_err(),
+        "Issued must require a proof-carrying credential fulfillment"
+    );
+
+    let credential: Record = conductor
+        .call(
+            &issuer.zome("verifiable_credential"),
+            "issue_credential_for_request",
+            serde_json::json!({
+                "request_id": request_id,
+                "claims": {
+                    "degree": "DSID proof-carrying issuance"
+                },
+                "credential_types": ["QualificationCredential"],
+                "issuer_name": "DSID Qualification Issuer",
+                "expiration_days": 365,
+                "enable_revocation": true,
+                "strict_schema": false
+            }),
+        )
+        .await;
+
+    await_consistency(&[requester.clone(), issuer.clone()])
+        .await
+        .expect("credential fulfillment and request update must reach consistency");
+
+    let final_request: Option<Record> = conductor
+        .call(
+            &requester.zome("verifiable_credential"),
+            "get_credential_request",
+            serde_json::json!({
+                "issuer_did": format!("did:mycelix:{}", issuer_app.agent()),
+                "request_id": request_id
+            }),
+        )
+        .await;
+    let final_request = final_request.expect("issued request must resolve through the issuer DHT index");
+    let final_value: serde_json::Value = final_request
+        .entry()
+        .to_app_option()
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(final_value["status"], "Issued");
+    let issued_action = final_value["issued_credential"]
+        .as_str()
+        .expect("Issued request must carry a credential action hash");
+    assert_eq!(issued_action, credential.action_address().to_string());
+
+    let credential_value: serde_json::Value = credential
+        .entry()
+        .to_app_option()
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        credential_value["issuer"]["id"]
+            .as_str()
+            .or_else(|| credential_value["issuer"].as_str()),
+        Some(issuer_did.as_str())
+    );
+    assert_eq!(
+        credential_value["credentialSubject"]["id"].as_str(),
+        Some(requester_did.as_str())
+    );
+
+    let verified: serde_json::Value = conductor
+        .call(
+            &requester.zome("verifiable_credential"),
+            "verify_credential",
+            credential_value["id"].clone(),
+        )
+        .await;
+    assert_eq!(verified["valid"], true);
+
+    let duplicate_fulfillment: Result<Record, _> = conductor
+        .call_fallible(
+            &issuer.zome("verifiable_credential"),
+            "issue_credential_for_request",
+            serde_json::json!({
+                "request_id": request_id,
+                "claims": {
+                    "degree": "DSID proof-carrying issuance"
+                },
+                "credential_types": ["QualificationCredential"],
+                "issuer_name": "DSID Qualification Issuer",
+                "expiration_days": 365,
+                "enable_revocation": true,
+                "strict_schema": false
+            }),
+        )
+        .await;
+    assert!(
+        duplicate_fulfillment.is_err(),
+        "an Issued request must not be fulfilled twice"
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("requester", requester_app.agent().to_string());
+    agents.insert("issuer", issuer_app.agent().to_string());
+    emit_evidence(
+        "DSID-036",
+        "issued-state-proves-credential-fulfillment",
+        &dna,
+        agents,
+        &[&request, &approved, &credential, &final_request],
+        "The Issued request state must carry the exact credential ActionHash that fulfills the request, and issuance must be cryptographically consistent with the request's issuer, subject, and schema.",
+        format!(
+            "approved_record_present={} free_issued_rejected={} issued_pointer_matches={} credential_verified={} duplicate_fulfillment_rejected={}",
+            approved.entry().to_app_option::<serde_json::Value>().is_ok(),
+            free_issued.is_err(),
+            issued_action == credential.action_address().to_string(),
+            verified["valid"] == true,
+            duplicate_fulfillment.is_err()
+        ),
+        free_issued.is_err()
+            && final_value["status"] == "Issued"
+            && issued_action == credential.action_address().to_string()
+            && verified["valid"] == true
+            && duplicate_fulfillment.is_err(),
+    );
+}
