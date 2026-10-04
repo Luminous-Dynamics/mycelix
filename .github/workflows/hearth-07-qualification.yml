@@ -217,6 +217,7 @@ jobs:
           printf '%s\n' 'unavailable_tests_cargo_metadata_capture' > tests/qualification-cargo-metadata.json
           printf '%s\n' 'unavailable_hearth_cargo_lock' > Cargo.lock
           printf '%s\n' 'unavailable_tests_cargo_lock' > tests/Cargo.lock
+          printf '%s\n' 'partial' > qualification-evidence-status.txt
 
           {
             echo "operation_matrix_schema=HEARTH-OPERATION-MATRIX-0.7-1"
