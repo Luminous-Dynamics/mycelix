@@ -3153,10 +3153,10 @@ mod tests {
     #[test]
     fn state_machine_trace_capsule_is_a_compact_reproduction_descriptor() {
         let capsule_text = state_machine_trace_capsule(3, 8);
-        assert!(capsule_text.contains(""trace_index": 3"));
-        assert!(capsule_text.contains(""initial_seed":"));
-        assert!(capsule_text.contains(""operations": ["));
-        assert!(capsule_text.contains(""tokens": ["));
+        assert!(capsule_text.contains("\"trace_index\": 3"));
+        assert!(capsule_text.contains("\"initial_seed\":"));
+        assert!(capsule_text.contains("\"operations\": ["));
+        assert!(capsule_text.contains("\"tokens\": ["));
 
         let capsule = serde_json::from_str::<FederationStateMachineTraceCapsule>(&capsule_text)
             .expect("capsule must remain self-describing");
