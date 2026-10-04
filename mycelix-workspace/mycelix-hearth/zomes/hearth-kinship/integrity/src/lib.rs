@@ -220,6 +220,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 link_type,
                 action.data.base_address.clone(),
                 action.data.target_address.clone(),
+                &action.data.tag,
                 action.author(),
             )
         }
