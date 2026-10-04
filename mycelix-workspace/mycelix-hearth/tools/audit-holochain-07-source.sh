@@ -727,7 +727,7 @@ check_semantic_case_entrypoints() {
       echo "OK:   semantic runtime witness ${test_name} is bound to ${zome}/${operation} call expression"
     else
       echo "FAIL: semantic runtime witness ${zome}/${operation} is not invoked by ${test_name} matching call expression"
-
+      fail=1
     fi
   done
 }
