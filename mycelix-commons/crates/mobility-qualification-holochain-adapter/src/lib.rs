@@ -354,6 +354,11 @@ impl HolochainDependencyBindingSet {
             .validate()
             .map_err(|reason| HolochainAdapterBoundaryError::SemanticInvalid { reason })?;
 
+        // Validate candidate-local protocol typing before consulting immutable
+        // binding state, so an invalid address/type pairing cannot be masked by
+        // a duplicate witness or logical-identity conflict.
+        validate_address_kind(&address, retrieval)?;
+
         if self
             .provenance
             .values()
@@ -363,8 +368,6 @@ impl HolochainDependencyBindingSet {
                 reason: "a provenance witness identity may justify only one runtime binding".into(),
             });
         }
-
-        validate_address_kind(&address, retrieval)?;
 
         self.inner
             .insert(identity.clone(), address, retrieval)
