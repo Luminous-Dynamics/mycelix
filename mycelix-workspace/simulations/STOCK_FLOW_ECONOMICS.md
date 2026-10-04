@@ -980,6 +980,22 @@ This establishes a useful invariant for transported evidence:
 A recomputed hash is therefore not sufficient to make malformed evidence acceptable at the chain
 boundary; the structure must also satisfy the same identity rules used by normal construction.
 
+## Exhaustive projection boundaries (implemented)
+
+The physical-stock reconciliation and sector financial-claim projection no longer use catch-all
+match arms for transition variants. Every currently known transition is classified explicitly as
+physical-changing or non-physical, and every transition entering the financial-claim matrix is
+explicitly classified as creating/retiring a contractual claim or as outside that matrix's scope.
+
+This is a forward-compatibility invariant: adding a new `EconomicTransition` variant now produces a
+compiler error in these projections until its accounting treatment is deliberately chosen. The
+system therefore cannot silently accept a new transition while omitting its stock or claim-flow
+consequences from reconciliation.
+
+This matters especially for the planned valuation/non-cash bridge. Such a transition must declare
+whether it changes a financial claim, a monetary-valued real asset, a physical stock, or more than
+one dimension; it cannot inherit a generic discard path.
+
 ## Complete observation and reconciliation provenance (implemented)
 
 Actor and sector observation layers now expose complete-map verifiers in addition to the existing
