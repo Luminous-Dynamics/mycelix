@@ -79,6 +79,14 @@ jobs:
           done
 
           # Capability and AuthorizationRequest must remain constructor-gated when decoded from wire data.
+          # Capability and AuthorizationRequest wire schemas must reject unknown fields.
+          for pattern in             '#\[derive\([^]]*Deserialize[^]]*\)\][[:space:]]*#\[serde\(deny_unknown_fields\)\][[:space:]]*struct (CapabilityWire|AuthorizationRequestWire)'; do
+            if ! rg -nU "$pattern" crates/mycelix-bridge-common/src/security_kernel.rs; then
+              echo "security-kernel regression: authorization wire schema lost deny_unknown_fields" >&2
+              exit 1
+            fi
+          done
+
           if ! rg -nU '#\[derive\([^]]*Deserialize[^]]*\)\][[:space:]]*#\[serde\(try_from[[:space:]]*=[[:space:]]*"CapabilityWire"\)\][[:space:]]*pub struct Capability' crates/mycelix-bridge-common/src/security_kernel.rs; then
             echo "security-kernel regression: Capability lost its Deserialize + serde constructor gate" >&2
             exit 1
