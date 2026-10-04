@@ -480,7 +480,10 @@ fn collect_tally_evidence(
     deduplicate_vote_refs(&mut vote_refs);
 
     for target in vote_refs.iter().cloned() {
-        if let Some(record) = get_latest_record(target.clone())? {
+        let record = get_latest_record(target.clone())?.ok_or(wasm_error!(
+            WasmErrorInner::Guest("Tally vote evidence record not found".into())
+        ))?;
+        {
             let entry_type = record.action().entry_type().ok_or(wasm_error!(
                 WasmErrorInner::Guest("Tally target has no application entry type".into())
             ))?;
@@ -522,7 +525,6 @@ fn collect_tally_evidence(
 
             let current = tallies.entry(vote.choice).or_insert(0);
             *current = current.saturating_add(vote.weight_bp);
-            vote_refs.push(target);
         }
     }
 
