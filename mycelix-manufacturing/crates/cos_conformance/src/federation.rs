@@ -6019,6 +6019,91 @@ mod tests {
     }
 
     #[test]
+    fn checkpoint_consistency_receipt_is_deterministic_and_typed() {
+        let earlier_text = state_machine_trace_capsule(35, 8);
+        let later_text = state_machine_trace_capsule(35, 12);
+        let earlier =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&earlier_text)
+                .expect("earlier capsule must deserialize");
+        let later =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&later_text)
+                .expect("later capsule must deserialize");
+        let earlier_publication = state_machine_trace_checkpoint_publication(
+            &earlier,
+            8,
+            FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_GENESIS,
+        );
+        let later_publication = state_machine_trace_checkpoint_publication(
+            &later,
+            12,
+            &earlier_publication.publication_sha256,
+        );
+        let receipt = state_machine_trace_checkpoint_consistency_receipt(
+            &earlier_publication,
+            &later_publication,
+        );
+
+        let json = serde_json::to_string_pretty(&receipt)
+            .expect("consistency receipt must serialize");
+        let round_trip =
+            serde_json::from_str::<FederationStateMachineTraceCheckpointConsistencyReceipt>(
+                &json,
+            )
+            .expect("consistency receipt must deserialize");
+        assert_eq!(round_trip, receipt);
+        assert_eq!(
+            json,
+            serde_json::to_string_pretty(&round_trip)
+                .expect("consistency receipt serialization must be deterministic")
+        );
+
+        let mut bad_schema = receipt.clone();
+        bad_schema.schema_version += 1;
+        assert_eq!(
+            validate_state_machine_trace_checkpoint_consistency_receipt(
+                &earlier,
+                &earlier_publication,
+                &later,
+                &later_publication,
+                &bad_schema,
+            ),
+            Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::ConsistencyReceiptSchemaMismatch
+            )
+        );
+
+        let mut bad_profile = receipt.clone();
+        bad_profile.receipt_profile = "future-consistency-receipt-profile".into();
+        assert_eq!(
+            validate_state_machine_trace_checkpoint_consistency_receipt(
+                &earlier,
+                &earlier_publication,
+                &later,
+                &later_publication,
+                &bad_profile,
+            ),
+            Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::ConsistencyReceiptProfileMismatch
+            )
+        );
+
+        let mut bad_digest = receipt;
+        bad_digest.receipt_sha256 = "sha256:invalid-consistency-receipt-digest".into();
+        assert_eq!(
+            validate_state_machine_trace_checkpoint_consistency_receipt(
+                &earlier,
+                &earlier_publication,
+                &later,
+                &later_publication,
+                &bad_digest,
+            ),
+            Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::ConsistencyReceiptDigestMismatch
+            )
+        );
+    }
+
+    #[test]
     fn empty_publication_chain_is_rejected() {
         assert_eq!(
             validate_state_machine_trace_checkpoint_publication_chain(&[]),
