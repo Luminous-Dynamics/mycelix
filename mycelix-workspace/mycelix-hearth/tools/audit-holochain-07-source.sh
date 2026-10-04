@@ -851,8 +851,15 @@ def fail(message):
 if not integrity_manifest.is_file():
     fail(f"integrity source has no owning Cargo.toml: {integrity_manifest}")
 
-validator_manifest = validator_source.parent / "Cargo.toml"
-if not validator_manifest.is_file():
+def nearest_manifest(path):
+    for parent in [path.parent, *path.parents]:
+        candidate = parent / "Cargo.toml"
+        if candidate.is_file():
+            return candidate.resolve()
+    return None
+
+validator_manifest = nearest_manifest(validator_source)
+if validator_manifest is None:
     fail(f"external validator source has no owning Cargo.toml: {validator_source}")
 
 metadata_cmd = [
