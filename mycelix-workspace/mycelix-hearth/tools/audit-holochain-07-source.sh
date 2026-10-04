@@ -561,7 +561,23 @@ check_semantic_validation_suite_wiring() {
     fi
 
     manifest_tests="$(sed -n 's/^[[:space:]]*"test"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest" | sort -u)"
-    executable_tests="$(sed -n 's/^async fn \(test_[A-Za-z0-9_]*\)[[:space:]]*(.*/\1/p' "$rust_test" | sort -u)"
+    # Discover only functions that are actually test entrypoints. Helper async
+    # functions must not inflate the executable qualification-test count.
+    executable_tests="$(awk '
+      /^[[:space:]]*#\[(tokio::test|test)([^]]*)\][[:space:]]*$/ { pending_test=1; next }
+      {
+        if (pending_test && $0 ~ /^[[:space:]]*(pub[[:space:]]+)?async[[:space:]]+fn[[:space:]]+test_[A-Za-z0-9_]+[[:space:]]*\(/) {
+          sub(/^[[:space:]]*(pub[[:space:]]+)?async[[:space:]]+fn[[:space:]]+/, "", $0)
+          sub(/[[:space:]]*\(.*/, "", $0)
+          print $0
+          pending_test=0
+          next
+        }
+        if ($0 !~ /^[[:space:]]*$/ && $0 !~ /^[[:space:]]*\/\//) {
+          pending_test=0
+        }
+      }
+    ' "$rust_test" | sort -u)"
 
     manifest_case_count="$(printf '%s\n' "$manifest_tests" | sed '/^$/d' | wc -l)"
     executable_test_count="$(printf '%s\n' "$executable_tests" | sed '/^$/d' | wc -l)"
