@@ -407,8 +407,14 @@ async fn d6u_runtime_authority_boundary() {
         .expect("invalid signature request must complete");
     expect_authentication_failed(invalid_response);
     assert_eq!(reached.load(Ordering::SeqCst), before);
-    record_case("wire-signature-invalid", "authentication-failed", false);
+    record_case(
+        "wire-signature-invalid",
+        "authentication-failed",
+        before,
+        &reached,
+    );
 
+    let before = reached.load(Ordering::SeqCst);
     let (n, exp) = holochain_nonce::fresh_nonce(Timestamp::now()).unwrap();
     expect_probe_result(
         call(
