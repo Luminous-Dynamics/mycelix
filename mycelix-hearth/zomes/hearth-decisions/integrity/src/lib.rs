@@ -81,6 +81,22 @@ pub struct DecisionOutcome {
     pub resolved_by: Option<AgentPubKey>,
     /// Index of the winning option.
     pub chosen_option: u32,
+    /// Exact vote records used by the finalizer's tally snapshot.
+    ///
+    /// Optional only for legacy outcomes created before AC-078. New outcomes
+    /// must explicitly carry their tally evidence.
+    #[serde(default)]
+    pub tally_vote_refs: Option<Vec<ActionHash>>,
+    /// Deterministic tally snapshot `(option_index, total_weight_bp)`.
+    ///
+    /// Optional only for legacy outcomes created before AC-078.
+    #[serde(default)]
+    pub tally: Option<Vec<(u32, u32)>>,
+    /// Blake2b-256 fingerprint of the canonical vote references + tally.
+    ///
+    /// Optional only for legacy outcomes created before AC-078.
+    #[serde(default)]
+    pub tally_fingerprint: Option<Vec<u8>>,
     /// Participation rate in basis points (0-10000).
     pub participation_rate_bp: u32,
     /// When the decision was resolved.
@@ -250,6 +266,147 @@ fn validate_outcome_author(
     Ok(ValidateCallbackResult::Valid)
 }
 
+/// Compute a deterministic fingerprint for explicit tally evidence.
+pub fn tally_evidence_fingerprint(
+    vote_refs: &[ActionHash],
+    tally: &[(u32, u32)],
+) -> Vec<u8> {
+    let mut refs: Vec<Vec<u8>> = vote_refs
+        .iter()
+        .map(|hash| hash.get_raw_36().to_vec())
+        .collect();
+    refs.sort();
+
+    let mut bytes = Vec::with_capacity(refs.len() * 36 + tally.len() * 8);
+    for reference in refs {
+        bytes.extend_from_slice(&reference);
+    }
+    for (option, weight) in tally {
+        bytes.extend_from_slice(&option.to_le_bytes());
+        bytes.extend_from_slice(&weight.to_le_bytes());
+    }
+
+    holo_hash::blake2b_256(bytes.as_slice()).to_vec()
+}
+
+/// Validate explicit vote evidence and its deterministic tally against a Decision basis.
+fn validate_tally_evidence(
+    outcome: &DecisionOutcome,
+    basis_decision: &Decision,
+) -> ExternResult<ValidateCallbackResult> {
+    let vote_refs = match &outcome.tally_vote_refs {
+        Some(refs) => refs,
+        None => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "New DecisionOutcome must contain tally vote references".into(),
+            ));
+        }
+    };
+    let tally = match &outcome.tally {
+        Some(tally) => tally,
+        None => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "New DecisionOutcome must contain a tally snapshot".into(),
+            ));
+        }
+    };
+    let fingerprint = match &outcome.tally_fingerprint {
+        Some(fingerprint) => fingerprint,
+        None => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "New DecisionOutcome must contain a tally fingerprint".into(),
+            ));
+        }
+    };
+
+    if vote_refs.len() > 256 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "DecisionOutcome tally vote references must be <= 256".into(),
+        ));
+    }
+    if tally.len() > basis_decision.options.len() || tally.len() > 20 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "DecisionOutcome tally snapshot exceeds the Decision option bound".into(),
+        ));
+    }
+    if fingerprint.len() != 32 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "DecisionOutcome tally fingerprint must be exactly 32 bytes".into(),
+        ));
+    }
+
+    let mut seen = std::collections::HashSet::new();
+    let mut computed: std::collections::BTreeMap<u32, u32> =
+        std::collections::BTreeMap::new();
+
+    for vote_hash in vote_refs {
+        if !seen.insert(vote_hash.clone()) {
+            return Ok(ValidateCallbackResult::Invalid(
+                "DecisionOutcome tally vote references must be unique".into(),
+            ));
+        }
+
+        let record = must_get_valid_record(vote_hash.clone())?;
+        let vote: Vote = record
+            .entry()
+            .to_app_option()
+            .map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Failed to deserialize tally Vote evidence: {e}"
+                )))
+            })?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Tally vote evidence is missing".into()
+            )))?;
+
+        if vote.decision_hash != outcome.decision_hash {
+            return Ok(ValidateCallbackResult::Invalid(
+                "DecisionOutcome tally vote evidence belongs to another Decision".into(),
+            ));
+        }
+
+        let entry = computed.entry(vote.choice).or_insert(0);
+        *entry = entry.saturating_add(vote.weight_bp);
+    }
+
+    let computed_tally: Vec<(u32, u32)> = computed.into_iter().collect();
+    if computed_tally != *tally {
+        return Ok(ValidateCallbackResult::Invalid(
+            "DecisionOutcome tally snapshot does not match referenced Vote evidence".into(),
+        ));
+    }
+
+    if !computed_tally.iter().any(|(_, weight)| *weight > 0) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "DecisionOutcome tally evidence contains no positive-weight substantive choice".into(),
+        ));
+    }
+
+    let (winning_option, _) = computed_tally
+        .iter()
+        .max_by(|(option_a, weight_a), (option_b, weight_b)| {
+            weight_a.cmp(weight_b).then_with(|| option_b.cmp(option_a))
+        })
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "DecisionOutcome tally evidence cannot be empty".into()
+        )))?;
+
+    if *winning_option != outcome.chosen_option {
+        return Ok(ValidateCallbackResult::Invalid(
+            "DecisionOutcome chosen_option does not match referenced Vote evidence".into(),
+        ));
+    }
+
+    let expected_fingerprint = tally_evidence_fingerprint(vote_refs, tally);
+    if *fingerprint != expected_fingerprint {
+        return Ok(ValidateCallbackResult::Invalid(
+            "DecisionOutcome tally fingerprint does not match referenced Vote evidence".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
 /// Validate outcome semantics against its exact Decision basis.
 fn validate_outcome_against_basis(
     outcome: &DecisionOutcome,
@@ -333,6 +490,7 @@ fn validate_outcome_basis(outcome: &DecisionOutcome) -> ExternResult<ValidateCal
     };
 
     validate_outcome_against_basis(outcome, &basis_decision)?;
+    validate_tally_evidence(outcome, &basis_decision)?;
 
     if basis_decision.status != DecisionStatus::Open {
         return Ok(ValidateCallbackResult::Invalid(
@@ -643,6 +801,9 @@ mod tests {
             finalization_basis_action: Some(fake_action_hash()),
             resolved_by: Some(fake_agent()),
             chosen_option: chosen,
+            tally_vote_refs: Some(vec![fake_action_hash()]),
+            tally: Some(vec![(chosen, 5000)]),
+            tally_fingerprint: Some(vec![0u8; 32]),
             participation_rate_bp: participation_bp,
             resolved_at: fake_timestamp(),
             quorum_bp: None,
