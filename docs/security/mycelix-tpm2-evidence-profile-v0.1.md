@@ -20,7 +20,7 @@ The reference profile freezes:
 - TPM 2.0 endorsement hierarchy for AK creation;
 - SHA-256 PCR bank, PCR 16 only;
 - local Unix-domain TCTI transport;
-- state locking, mode 0600, and fsync-oriented state handling.
+- state locking and mode 0600; no v0.11-only `fsync` backend option is assumed.
 
 Current upstream material identifies TPM 2.0 Library Specification Version 185 (March 2026). TCG also publishes a platform-specific PC Client TPM Profile, with Version 1.07 dated March 23, 2026. The latter is deliberately **not** claimed as the semantics of this vTPM workload-PCR fixture. citeturn412647search2turn567190search2
 
