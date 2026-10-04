@@ -9,7 +9,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::stock_flow::{CapitalInvestment, ProductionEvent, InventoryTransfer, InventoryConsumption, GoodsSale, TradeCreditSale, TradeCreditSettlement, InventoryCostAddition, InventoryCostRelief, Depreciation, RealAssetRevaluation, CreditCreation, DebtRepayment, EconomicState, IncomeTransfer, MonetaryFlow};
+use super::stock_flow::{CapitalInvestment, ProductionEvent, InventoryTransfer, InventoryConsumption, GoodsSale, TradeCreditSale, TradeCreditSettlement, InventoryCostAddition, InventoryCostRelief, Depreciation, RealAssetRevaluation, CreditCreation, DebtRepayment, DebtWriteOff, EconomicState, IncomeTransfer, MonetaryFlow};
 
 /// One explicit economic state transition.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -29,6 +29,7 @@ pub enum EconomicTransition {
     RealAssetRevaluation(RealAssetRevaluation),
     CreditCreation(CreditCreation),
     DebtRepayment(DebtRepayment),
+    DebtWriteOff(DebtWriteOff),
 }
 
 impl EconomicTransition {
@@ -57,6 +58,7 @@ impl EconomicTransition {
             Self::RealAssetRevaluation(revaluation) => state.apply_real_asset_revaluation(revaluation),
             Self::CreditCreation(credit) => state.create_credit(credit),
             Self::DebtRepayment(repayment) => state.repay_debt(repayment),
+            Self::DebtWriteOff(write_off) => state.write_off_debt(write_off),
         }
     }
 
@@ -130,6 +132,9 @@ impl EconomicTransition {
             }
             Self::DebtRepayment(repayment) => {
                 require_positive(repayment.amount, "debt repayment")
+            }
+            Self::DebtWriteOff(write_off) => {
+                require_positive(write_off.amount, "debt write-off")
             }
         }
     }
