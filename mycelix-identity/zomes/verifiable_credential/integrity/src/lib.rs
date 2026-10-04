@@ -133,13 +133,6 @@ pub struct CredentialProof {
     /// When present, the verifier MUST supply the same domain to verify.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub domain: Option<String>,
-    /// Optional proof-level @context used by W3C Data Integrity proof suites.
-    #[serde(
-        rename = "@context",
-        default,
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub proof_context: Option<Vec<String>>,
 }
 
 /// Verifiable Presentation - for presenting credentials
@@ -997,11 +990,6 @@ fn validate_create_verifiable_credential(
                     "eddsa-jcs-2022 proofs must not declare a non-standard algorithm field".into(),
                 ));
             }
-            if vc.proof.proof_context.as_deref() != Some(vc.context.as_slice()) {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "eddsa-jcs-2022 proof @context must equal the credential @context".into(),
-                ));
-            }
         }
         Some(_) => {
             return Ok(ValidateCallbackResult::Invalid(
@@ -1426,7 +1414,6 @@ mod tests {
             algorithm: None,
             challenge: None,
             domain: None,
-                proof_context: None,
         }
     }
 
@@ -1945,7 +1932,6 @@ mod author_binding_tests {
                 algorithm: None,
                 challenge: None,
                 domain: None,
-                proof_context: None,
             },
             mycelix_schema_id: "mycelix:schema:test:v1".into(),
             mycelix_created: Timestamp::from_micros(0),
@@ -1969,7 +1955,6 @@ mod author_binding_tests {
                 algorithm: None,
                 challenge: None,
                 domain: None,
-                proof_context: None,
             },
             mycelix_created: Timestamp::from_micros(0),
         }
