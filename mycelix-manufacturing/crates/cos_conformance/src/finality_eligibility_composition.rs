@@ -1343,6 +1343,12 @@ pub fn compose_finality_eligibility_from_authoritative_d6o(
             return None;
         };
 
+        if receipt.current_frontier_root != current_frontier_root
+            || receipt.classification != assessment_item.classification
+        {
+            return None;
+        }
+
         if d6o_ledger
             .eligibility_receipts
             .get(&receipt.eligibility_id)

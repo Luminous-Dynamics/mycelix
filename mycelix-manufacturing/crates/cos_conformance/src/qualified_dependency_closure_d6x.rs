@@ -2324,6 +2324,131 @@ mod tests {
     }
 
     #[test]
+    fn golden_authoritative_d6n_d6o_rejects_current_frontier_substitution() {
+        let corpus: GoldenCorpusV1 = serde_json::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/testdata/d6x_qualified_closure_golden_vectors.json"
+        )))
+        .expect("D6X golden vector corpus must parse");
+
+        let baseline = &corpus.fixtures.authoritative_d6n_d6o;
+        let mut fixture = baseline.clone();
+        fixture.eligibility_receipt.current_frontier_root = "frontier-attacker".into();
+        fixture.eligibility_receipt.eligibility_commitment =
+            fixture.eligibility_receipt.recomputed_commitment();
+        assert!(fixture.eligibility_receipt.commitment_matches());
+        fixture
+            .d6o_ledger
+            .eligibility_receipts
+            .insert(
+                fixture.eligibility_receipt.eligibility_id.clone(),
+                fixture.eligibility_receipt.clone(),
+            );
+
+        let expected_receipt = &corpus.fixtures.authoritative_d6p.receipt;
+        let mut vector = corpus
+            .vectors
+            .iter()
+            .find(|vector| vector.id == "baseline-complete")
+            .expect("baseline golden vector")
+            .clone();
+        vector.recipe.required_d6p_receipt_commitments =
+            vec![expected_receipt.receipt_commitment.clone()];
+        vector.recipe.projection_d6p_receipt_commitments =
+            vec![expected_receipt.receipt_commitment.clone()];
+
+        let (projection, environment, derivation_profile, profile) =
+            execute_golden_recipe(&corpus, &vector);
+
+        assert!(
+            compute_dependency_closure_from_authoritative_d6n_d6o(
+                &projection,
+                &environment,
+                &derivation_profile,
+                &profile,
+                &fixture.effect,
+                &fixture.route,
+                &fixture.profile,
+                &fixture.set,
+                &fixture.assessment,
+                &fixture.evidence,
+                std::slice::from_ref(&fixture.eligibility_receipt),
+                &fixture.lifecycle_profile,
+                &fixture.d6o_ledger,
+                expected_receipt,
+                Some(&fixture.current_frontier_root),
+                &fixture.live_generation_id,
+                fixture.required_independent_observations,
+            )
+            .is_none(),
+            "unified authoritative D6X entrypoint must reject a self-consistent D6O receipt with a substituted current frontier root"
+        );
+    }
+
+    #[test]
+    fn golden_authoritative_d6n_d6o_rejects_classification_substitution() {
+        let corpus: GoldenCorpusV1 = serde_json::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/testdata/d6x_qualified_closure_golden_vectors.json"
+        )))
+        .expect("D6X golden vector corpus must parse");
+
+        let baseline = &corpus.fixtures.authoritative_d6n_d6o;
+        let mut fixture = baseline.clone();
+        fixture.eligibility_receipt.classification =
+            ObservationClassificationV1::CorroboratingDependent;
+        fixture.eligibility_receipt.eligibility_commitment =
+            fixture.eligibility_receipt.recomputed_commitment();
+        assert!(fixture.eligibility_receipt.commitment_matches());
+        fixture
+            .d6o_ledger
+            .eligibility_receipts
+            .insert(
+                fixture.eligibility_receipt.eligibility_id.clone(),
+                fixture.eligibility_receipt.clone(),
+            );
+
+        let expected_receipt = &corpus.fixtures.authoritative_d6p.receipt;
+        let mut vector = corpus
+            .vectors
+            .iter()
+            .find(|vector| vector.id == "baseline-complete")
+            .expect("baseline golden vector")
+            .clone();
+        vector.recipe.required_d6p_receipt_commitments =
+            vec![expected_receipt.receipt_commitment.clone()];
+        vector.recipe.projection_d6p_receipt_commitments =
+            vec![expected_receipt.receipt_commitment.clone()];
+
+        let (projection, environment, derivation_profile, profile) =
+            execute_golden_recipe(&corpus, &vector);
+
+        assert!(
+            compute_dependency_closure_from_authoritative_d6n_d6o(
+                &projection,
+                &environment,
+                &derivation_profile,
+                &profile,
+                &fixture.effect,
+                &fixture.route,
+                &fixture.profile,
+                &fixture.set,
+                &fixture.assessment,
+                &fixture.evidence,
+                std::slice::from_ref(&fixture.eligibility_receipt),
+                &fixture.lifecycle_profile,
+                &fixture.d6o_ledger,
+                expected_receipt,
+                Some(&fixture.current_frontier_root),
+                &fixture.live_generation_id,
+                fixture.required_independent_observations,
+            )
+            .is_none(),
+            "unified authoritative D6X entrypoint must reject a self-consistent D6O receipt whose classification diverges from D6N"
+        );
+    }
+
+    #[test]
     fn golden_authoritative_d6n_d6o_rejects_unregistered_receipt() {
         let corpus_text = include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
