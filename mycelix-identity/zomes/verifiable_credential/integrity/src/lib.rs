@@ -535,6 +535,41 @@ fn is_date_time_stamp(value: &str) -> bool {
         && value.parse::<Timestamp>().is_ok()
 }
 
+fn eddsa_jcs_hash_data_from_values(
+    unsecured: Value,
+    mut proof_config: Value,
+) -> ExternResult<Vec<u8>> {
+    let context = unsecured
+        .get("@context")
+        .cloned()
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "JCS credential must contain an @context for proof configuration".into()
+        )))?;
+
+    let proof_config_map = proof_config.as_object_mut().ok_or(wasm_error!(
+        WasmErrorInner::Guest("JCS proof configuration must serialize to a JSON object".into())
+    ))?;
+    proof_config_map.insert("@context".to_string(), context);
+
+    let canonical_document = serde_json_canonicalizer::to_vec(&unsecured).map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "JCS credential canonicalization failed: {e}"
+        )))
+    })?;
+    let canonical_proof_config = serde_json_canonicalizer::to_vec(&proof_config).map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "JCS proof configuration canonicalization failed: {e}"
+        )))
+    })?;
+
+    let transformed_document_hash = Sha256::digest(&canonical_document);
+    let proof_config_hash = Sha256::digest(&canonical_proof_config);
+    let mut hash_data = Vec::with_capacity(64);
+    hash_data.extend_from_slice(&proof_config_hash);
+    hash_data.extend_from_slice(&transformed_document_hash);
+    Ok(hash_data)
+}
+
 fn eddsa_jcs_hash_data(vc: &VerifiableCredential) -> ExternResult<Vec<u8>> {
     let mut unsecured = serde_json::to_value(vc).map_err(|e| {
         wasm_error!(WasmErrorInner::Guest(format!(
@@ -556,35 +591,8 @@ fn eddsa_jcs_hash_data(vc: &VerifiableCredential) -> ExternResult<Vec<u8>> {
     ))?;
     proof_config.remove("proofValue");
 
-    let context = unsecured
-        .get("@context")
-        .cloned()
-        .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "JCS credential must contain an @context for proof configuration".into()
-        )))?;
-    proof_config.insert("@context".to_string(), context);
-
-    let canonical_document = serde_json_canonicalizer::to_vec(&unsecured).map_err(|e| {
-        wasm_error!(WasmErrorInner::Guest(format!(
-            "JCS credential canonicalization failed: {e}"
-        )))
-    })?;
-    let canonical_proof_config =
-        serde_json_canonicalizer::to_vec(&Value::Object(proof_config)).map_err(|e| {
-            wasm_error!(WasmErrorInner::Guest(format!(
-                "JCS proof configuration canonicalization failed: {e}"
-            )))
-        })?;
-
-    let transformed_document_hash = Sha256::digest(&canonical_document);
-    let proof_config_hash = Sha256::digest(&canonical_proof_config);
-
-    let mut hash_data = Vec::with_capacity(64);
-    hash_data.extend_from_slice(&proof_config_hash);
-    hash_data.extend_from_slice(&transformed_document_hash);
-    Ok(hash_data)
+    eddsa_jcs_hash_data_from_values(unsecured, Value::Object(proof_config))
 }
-
 fn decode_raw_jcs_signature(value: &str) -> Result<[u8; 64], String> {
     if !value.starts_with('z') || value.len() <= 1 {
         return Err("W3C JCS proofValue must use base58-btc Multibase (z prefix)".into());
