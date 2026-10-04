@@ -1697,6 +1697,10 @@ for file in "${integrity_files[@]}"; do
 done
 
 for file in "${integrity_files[@]}"; do
+  run_audit_check "check_create_entry_entry_dispatch:$(basename "$(dirname "$(dirname "$(dirname "$file")")")")" check_create_entry_entry_dispatch "$file"
+done
+
+for file in "${integrity_files[@]}"; do
   run_audit_check "check_create_record_entry_dispatch:$(basename "$(dirname "$(dirname "$(dirname "$file")")")")" check_create_record_entry_dispatch "$file"
 done
 
