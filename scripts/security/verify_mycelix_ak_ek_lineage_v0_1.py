@@ -173,6 +173,7 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
             ak,
             (
                 "public_sha256",
+                "public_area_sha256",
                 "name_hex",
                 "qualified_name_hex",
                 "name_alg",
@@ -195,14 +196,14 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
     attributes_binding = manifest["public_attributes_binding"]
     if not isinstance(attributes_binding, dict):
         return result("DENY", "public-attributes-binding-invalid")
-    for field in ("state", "verifier_id", "input_sha256", "output_sha256", "public_area_sha256", "derived_fixedTPM", "derived_fixedParent", "source_sha256", "verifier_input"):
+    for field in ("state", "verifier_id", "public_area_sha256", "derived_fixedTPM", "derived_fixedParent", "source_sha256", "verifier_input"):
         if field not in attributes_binding:
             return result("DENY", "missing-field", {"field": f"public_attributes_binding.{field}"})
     if attributes_binding["verifier_id"] != ATTRIBUTES_VERIFIER_ID:
         return result("DENY", "public-attributes-verifier-id-mismatch")
     if attributes_binding["state"] not in {"PASS", "INDETERMINATE"}:
         return result("DENY", "public-attributes-state-invalid")
-    for field in ("input_sha256", "output_sha256", "public_area_sha256", "source_sha256"):
+    for field in ("public_area_sha256", "source_sha256"):
         if not valid_hash(attributes_binding[field]):
             return result("DENY", "public-attributes-digest-invalid", {"field": field})
     generated_attributes = run_public_attributes_verifier(attributes_binding)
@@ -223,6 +224,8 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
         return result("DENY", "public-attributes-derived-fixed-bits-mismatch")
     if details.get("public_area_sha256") != attributes_binding["public_area_sha256"]:
         return result("DENY", "public-attributes-area-digest-mismatch")
+    if details.get("public_area_sha256") != ak["public_area_sha256"]:
+        return result("DENY", "public-attributes-ak-area-digest-mismatch")
     if details.get("name_hex") != ak["name_hex"]:
         return result("DENY", "public-attributes-name-mismatch")
 
@@ -437,7 +440,9 @@ def fixture() -> dict[str, Any]:
         },
         "ak": {
             "public_sha256": ak_public,
-            "public_area_sha256": "ab" * 32,
+            "public_area_sha256": hashlib.sha256(
+                bytes.fromhex("0001000b00000032") + (b"\\x00" * 64)
+            ).hexdigest(),
             "name_hex": ak_name.hex(),
             "qualified_name_hex": ak_qname.hex(),
             "name_alg": "sha256",
@@ -451,18 +456,20 @@ def fixture() -> dict[str, Any]:
             "method": "same-tpm-readpublic-context",
             "public_sha256": ak_public,
             "name_sha256": hashlib.sha256(ak_name).hexdigest(),
-            "public_area_sha256": "ab" * 32,
+            "public_area_sha256": hashlib.sha256(
+                bytes.fromhex("0001000b00000032") + (b"\\x00" * 64)
+            ).hexdigest(),
             "verifier_id": "mycelix.tpm.public-name-coherence.v0.1",
         },
         "public_attributes_binding": {
             "state": "PASS",
             "verifier_id": ATTRIBUTES_VERIFIER_ID,
-            "input_sha256": "ac" * 32,
-            "output_sha256": "ad" * 32,
-            "public_area_sha256": "ab" * 32,
+            "public_area_sha256": hashlib.sha256(
+                bytes.fromhex("0001000b00000032") + (b"\\x00" * 64)
+            ).hexdigest(),
             "derived_fixedTPM": True,
             "derived_fixedParent": True,
-            "source_sha256": "ae" * 32,
+            "source_sha256": sha256_file(ATTRIBUTES_VERIFIER_SCRIPT),
             "verifier_input": {
                 "profile_id": "mycelix.security.tpm.ak-public-attributes",
                 "profile_version": "0.1.0",
@@ -471,8 +478,15 @@ def fixture() -> dict[str, Any]:
                 "object_role": "AK",
                 "public_format": "TPMT_PUBLIC",
                 "public_wire_hex": (bytes.fromhex("0001000b00000032") + (b"\\x00" * 64)).hex(),
-                "public_wire_sha256": hashlib.sha256(bytes.fromhex("0001000b00000032") + (b"\\x00" * 64)).hexdigest(),
-                "name_hex": (SHA256_ALG_ID + hashlib.sha256(bytes.fromhex("0001000b00000032") + (b"\\x00" * 64)).digest()).hex(),
+                "public_wire_sha256": hashlib.sha256(
+                    bytes.fromhex("0001000b00000032") + (b"\\x00" * 64)
+                ).hexdigest(),
+                "name_hex": (
+                    SHA256_ALG_ID
+                    + hashlib.sha256(
+                        bytes.fromhex("0001000b00000032") + (b"\\x00" * 64)
+                    ).digest()
+                ).hex(),
                 "readpublic_state": "PASS",
                 "readpublic_source_sha256": "aa" * 32,
             },
@@ -500,6 +514,36 @@ def fixture() -> dict[str, Any]:
     }
 
 
+def mutate_attribute_input(value: dict[str, Any], attrs: int) -> None:
+    body = bytearray(
+        hex_bytes(
+            value["public_attributes_binding"]["verifier_input"]["public_wire_hex"],
+            "public_wire_hex",
+        )
+    )
+    body[4:8] = attrs.to_bytes(4, "big")
+    value["public_attributes_binding"]["verifier_input"]["public_wire_hex"] = bytes(body).hex()
+    value["public_attributes_binding"]["verifier_input"]["public_wire_sha256"] = hashlib.sha256(body).hexdigest()
+    value["public_attributes_binding"]["verifier_input"]["name_hex"] = (
+        SHA256_ALG_ID + hashlib.sha256(body).digest()
+    ).hex()
+
+
+def mutate_attribute_wire_tail(value: dict[str, Any]) -> None:
+    body = bytearray(
+        hex_bytes(
+            value["public_attributes_binding"]["verifier_input"]["public_wire_hex"],
+            "public_wire_hex",
+        )
+    )
+    body[-1] ^= 0xFF
+    value["public_attributes_binding"]["verifier_input"]["public_wire_hex"] = bytes(body).hex()
+    value["public_attributes_binding"]["verifier_input"]["public_wire_sha256"] = hashlib.sha256(body).hexdigest()
+    value["public_attributes_binding"]["verifier_input"]["name_hex"] = (
+        SHA256_ALG_ID + hashlib.sha256(body).digest()
+    ).hex()
+
+
 def self_test() -> int:
     base = fixture()
     cases: list[tuple[str, str, Any]] = [
@@ -507,8 +551,8 @@ def self_test() -> int:
         ("ak-qualified-name-substitution", "DENY", lambda x: x["ak"].update({"qualified_name_hex": "000b" + "ff" * 32})),
         ("parent-qname-substitution", "DENY", lambda x: x["parentage"].update({"parent_qualified_name_hex": "000b" + "ee" * 32})),
         ("parent-type-substitution", "DENY", lambda x: x["parentage"].update({"parent_type": "owner"})),
-        ("fixedTPM-cleared", "DENY", lambda x: x["ak"].update({"fixedTPM": False})),
-        ("fixedParent-cleared", "DENY", lambda x: x["ak"].update({"fixedParent": False})),
+        ("fixedTPM-cleared", "DENY", lambda x: mutate_attribute_input(x, 0x30)),
+        ("fixedParent-cleared", "DENY", lambda x: mutate_attribute_input(x, 0x22)),
         ("name-algorithm-substitution", "DENY", lambda x: x["ak"].update({"name_alg": "sha1"})),
         ("public-name-public-substitution", "DENY", lambda x: x["ak"].update({"public_sha256": "bb" * 32})),
         ("public-name-name-substitution", "DENY", lambda x: x["public_name_binding"].update({"name_sha256": "cc" * 32})),
@@ -523,6 +567,11 @@ def self_test() -> int:
         ("activation-tpm-substitution", "DENY", lambda x: x["credential_activation"].update({"tpm_identity_digest": "ef" * 32})),
         ("offline-activation", "INDETERMINATE", lambda x: (x.update({"verification_mode": "OfflineBundle"}), x["credential_activation"].update({"scope": "OfflineBundle"}))),
         ("live-without-observation", "INDETERMINATE", lambda x: (x.update({"verification_mode": "LiveVerifierSession"}), x["credential_activation"].update({"scope": "LiveVerifierSession"}))),
+        ("attributes-verifier-substitution", "DENY", lambda x: x["public_attributes_binding"].update({"verifier_id": "other-verifier"})),
+        ("attributes-derived-fixedTPM-substitution", "DENY", lambda x: x["public_attributes_binding"].update({"derived_fixedTPM": False})),
+        ("attributes-source-substitution", "DENY", lambda x: x["public_attributes_binding"].update({"source_sha256": "12" * 32})),
+        ("public-area-cross-object-splice", "DENY", mutate_attribute_wire_tail),
+        ("public-name-area-substitution", "DENY", lambda x: x["public_name_binding"].update({"public_area_sha256": "13" * 32})),
         ("activation-secret-substitution", "DENY", lambda x: x["credential_activation"].update({"activated_secret_sha256": "01" * 32})),
     ]
 
