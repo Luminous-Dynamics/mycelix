@@ -292,6 +292,26 @@
       "rule": "The TPMT_PUBLIC bytes returned by ReadPublic must equal the public body contained in the exact ak.pub or ek.pub artifact used by later attestation operations."
     },
     {
+      "id": "CAP-031",
+      "rule": "EK certificate capture must use TPM_NV_ONLY source mode, preserve raw certificate bytes, and retain the NV inventory plus tpm2_getekcertificate transcript."
+    },
+    {
+      "id": "CAP-032",
+      "rule": "The EK certificate capture command must not contain a network URL or explicit network fallback option; network-derived certificates are separate provenance."
+    },
+    {
+      "id": "CAP-033",
+      "rule": "When an RSA EK certificate is present, the platform verifier must independently re-execute the EK certificate SPKI theorem against the exact EK TPMT_PUBLIC bytes already bound by ReadPublic."
+    },
+    {
+      "id": "CAP-034",
+      "rule": "Absence of an RSA EK certificate is represented as INDETERMINATE and must never trigger a remote certificate retrieval."
+    },
+    {
+      "id": "CAP-035",
+      "rule": "Certificate capture, raw certificate, SPKI binding, and source transcript hashes are part of the session identity and cannot be spliced across sessions."
+    },
+    {
       "id": "CAP-028",
       "rule": "Live ReadPublic evidence is explicit but remains INDETERMINATE until a live verifier trusts and executes the ReadPublic provenance; it never silently becomes platform qualification."
     },
@@ -441,6 +461,31 @@
       "id": "CAP-V28",
       "mutation": "public-name-ak-source-substitution",
       "expected": "DENY"
+    },
+    {
+      "id": "CAP-V29",
+      "mutation": "ek-cert-source-mode-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "CAP-V30",
+      "mutation": "ek-cert-result-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "CAP-V31",
+      "mutation": "ek-cert-spki-source-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "CAP-V32",
+      "mutation": "ek-cert-spki-wire-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "CAP-V33",
+      "mutation": "ek-cert-absent",
+      "expected": "INDETERMINATE"
     }
   ],
   "execution_modes": {
@@ -465,7 +510,7 @@
       "tpm2_checkquote",
       "tpm2_eventlog",
       "tpm2_readpublic",
-      "tpm2_createek"
+      "tpm2_getekcertificate"
     ],
     "quote_default_pcr_selection": "sha256:0,2,4,7",
     "workload_pcr_note": "PCR16 remains a separate workload-specific measurement surface and is not silently treated as a PC-client firmware event-log PCR."
@@ -473,13 +518,17 @@
   "reference_boundary": {
     "event_log_semantics": "The PC-client event log is an input to reconstruction; parsing alone is not a trust decision.",
     "reference_values": "Reference values are identified by version and digest and remain an independent appraisal input.",
+    "ek_certificate": "EK certificate capture is TPM_NVRAM-only and preserves raw bytes; absence is explicit and does not trigger a network fallback.",
     "public_name_coherence": "AK and EK public-area/name results are independently re-executed from ReadPublic inputs; live ReadPublic provenance is explicit and does not raise the claim ceiling.",
     "trusted_time": "Trusted time is an externally qualified evidence object; local wall-clock time is not authoritative.",
     "authorization": "Coherent platform Evidence remains evidence only and is consumed by the downstream RATS/Relying-Party/PEP chain."
   },
   "qualification_required_artifacts": [
     "eventlog-reconstruction-input.json",
-    "eventlog-reconstruction.json"
+    "eventlog-reconstruction.json",
+    "ek-nv-index-handles.txt",
+    "ek-certificate-capture-transcript.json",
+    "ek-certificate-capture.json"
   ],
   "required_reconstruction_output": [
     "profile_id",
