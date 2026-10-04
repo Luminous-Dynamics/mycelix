@@ -15,6 +15,7 @@
     "disconnected_paths",
     "invalid_paths",
     "path_results",
+    "unexpected_connectivity",
     "physical_transport_unproven"
   ],
   "properties": {
@@ -124,6 +125,32 @@
       "type": "array",
       "items": {
         "type": "string"
+      }
+    },
+    "unexpected_connectivity": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "from_port",
+          "to_port",
+          "component"
+        ],
+        "properties": {
+          "from_port": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "to_port": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "component": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
       }
     }
   }
