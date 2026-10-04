@@ -68,3 +68,8 @@ Claim ceiling: ReferenceModelOnly.
 The explicit trust boundary for the runtime evidence chain is documented in [d6u-runtime-trust-model.md](../docs/integral/d6u-runtime-trust-model.md).
 
 The generated Cargo.lock is independently checked by scripts/integral/verify_d6u_runtime_lock.py for the exact Holochain substrate package versions, registry provenance, and checksums.
+
+
+## Attestation boundary
+
+The PR-controlled qualification workflow intentionally runs with `contents: read` only. It does not hold OIDC or artifact-attestation signing authority. Runtime evidence is uploaded as unprivileged build output; signed provenance is a separate trusted-builder responsibility and is not implied by a successful PR run.
