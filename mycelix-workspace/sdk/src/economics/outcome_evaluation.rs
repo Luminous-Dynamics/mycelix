@@ -7,7 +7,11 @@
 //! and measurement completeness so policy-induced outcomes are not silently
 //! scored as passive forecast errors.
 
-use super::{policy_analysis::{EconomicPolicyAnalysis, EconomicAnalysisBinding}, scenario::EconomicScenarioBinding};
+use super::{
+    policy_analysis::{EconomicAnalysisBinding, EconomicPolicyAnalysis},
+    policy_observation::EconomicObservationSnapshot,
+    scenario::EconomicScenarioBinding,
+};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -101,6 +105,29 @@ impl EconomicOutcomeEvaluation {
         {
             return Err("ScenarioOutcome with unknown influence must carry uncertainty or missing-data evidence".into());
         }
+        Ok(())
+    }
+
+    pub fn validate_against_outcome_snapshot(
+        &self,
+        snapshot: &EconomicObservationSnapshot,
+    ) -> Result<(), String> {
+        self.validate()?;
+
+        let fingerprint = snapshot.fingerprint()?;
+        if fingerprint != self.outcome_snapshot_fingerprint {
+            return Err("Economic outcome evaluation snapshot fingerprint does not match supplied snapshot".into());
+        }
+        if snapshot.captured_at != self.outcome_captured_at {
+            return Err(
+                "Economic outcome evaluation capture time does not match supplied snapshot"
+                    .into(),
+            );
+        }
+        if snapshot.captured_at > self.evaluation_at {
+            return Err("Economic outcome snapshot occurs after evaluation time".into());
+        }
+
         Ok(())
     }
 
@@ -239,7 +266,15 @@ mod tests {
         let value=evaluation();
         assert!(value.validate().is_ok());
         assert!(value.validate_against_analysis(&analysis()).is_ok());
-        assert_eq!(value.fingerprint().unwrap().len(),64);
+
+        let outcome = EconomicObservationSnapshot {
+            snapshot_id: "snapshot:outcome".into(),
+            observation_bindings: Vec::new(),
+            captured_at: 1_500,
+        };
+        assert!(value.validate_against_outcome_snapshot(&outcome).is_err());
+
+        assert_eq!(value.fingerprint().unwrap().len(), 64);
     }
 
     #[test] fn intervention_affected_requires_evidence() {
