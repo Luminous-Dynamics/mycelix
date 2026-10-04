@@ -72,19 +72,9 @@ if(!vpProof || vpProof.challenge !== fixture.presentationChallenge ||
 }
 
 async function mustReject(label, fn) {
-  let result;
-  try {
-    result = await fn();
-  } catch(error) {
-    // Only count an explicit proof/verification/challenge rejection as a
-    // negative-test success. Import, loader, and programming errors must fail.
-    if(/proof|signature|verification|challenge|domain|cryptosuite/i.test(
-      String(error?.message ?? '')
-    )) return;
-    throw error;
-  }
+  const result = await fn();
   if(result?.valid === false) return;
-  throw new Error(label + ' unexpectedly verified');
+  throw new Error(label + ' unexpectedly verified or did not return valid=false');
 }
 
 const tamperedCredential = structuredClone(fixture.credential);
