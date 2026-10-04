@@ -17,7 +17,9 @@
     "the observed-PCR JSON artifact must match the selected PCR set exactly",
     "when raw payload parser output is supplied, EventNum/PCRIndex/EventType and recorded SHA-256 digest are cross-checked before payload_hex is attached",
     "payload_hex is copied from the raw binary parser and is never reconstructed from YAML Event text",
-    "raw payload parser output filename and SHA-256 are carried as adapter provenance"
+    "raw payload parser output filename and SHA-256 are carried as adapter provenance",
+    "when payload sidecar data is supplied, parser_id, binary_sha256, and parser_source_sha256 must match the expected raw parser and the exact binary event log",
+    "payload sidecar provenance is part of the canonical adapter output"
   ],
   "supported_yaml_version": 1,
   "unsupported": [
