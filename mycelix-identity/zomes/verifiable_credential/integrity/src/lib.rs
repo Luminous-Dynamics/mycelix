@@ -458,6 +458,17 @@ fn string_to_entry_hash(value: &str) -> EntryHash {
     EntryHash::from_raw_36(bytes)
 }
 
+/// Return true when a DID URL's authority component names exactly the supplied DID.
+///
+/// The coordinator verifies signatures with the issuer/holder AgentPubKey, so a
+/// mismatched verification-method DID would otherwise become unauthenticated
+/// metadata: the proof could claim a method controlled by a different DID while
+/// the signature is actually checked against the issuer/holder key.
+fn verification_method_matches_did(verification_method: &str, did: &str) -> bool {
+    let method_did = verification_method.split_once('#').map_or(verification_method, |(base, _)| base);
+    method_did == did && !verification_method.is_empty()
+}
+
 fn did_to_agent(did: &str) -> Option<AgentPubKey> {
     did.strip_prefix("did:mycelix:")
         .and_then(|value| AgentPubKey::try_from(value).ok())
@@ -776,6 +787,16 @@ fn validate_create_verifiable_credential(
         ));
     }
 
+    // The proof verification method must belong to the same DID whose key
+    // authenticates the credential signature. The fragment is an identifier
+    // within that DID document; the verifier's cryptographic key is derived
+    // from the issuer DID itself.
+    if !verification_method_matches_did(&vc.proof.verification_method, vc.issuer.did()) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Credential proof verification method must belong to the issuer DID".into(),
+        ));
+    }
+
     // Validate proof purpose
     if vc.proof.proof_purpose != "assertionMethod" {
         return Ok(ValidateCallbackResult::Invalid(
@@ -826,6 +847,14 @@ fn validate_create_verifiable_presentation(
     if vp.verifiable_credential.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
             "Presentation must contain at least one credential".into(),
+        ));
+    }
+
+    // The presentation proof verification method must belong to the holder
+    // DID whose AgentPubKey is used to verify the signature.
+    if !verification_method_matches_did(&vp.proof.verification_method, &vp.holder) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Presentation proof verification method must belong to the holder DID".into(),
         ));
     }
 
@@ -1524,6 +1553,32 @@ mod author_binding_tests {
             },
             mycelix_created: Timestamp::from_micros(0),
         }
+    }
+
+    #[test]
+    fn credential_verification_method_must_match_issuer_did() {
+        let vc = minimal_vc();
+        assert!(verification_method_matches_did(
+            &vc.proof.verification_method,
+            vc.issuer.did()
+        ));
+        assert!(!verification_method_matches_did(
+            "did:mycelix:other#key-1",
+            vc.issuer.did()
+        ));
+    }
+
+    #[test]
+    fn presentation_verification_method_must_match_holder_did() {
+        let vp = valid_presentation("did:mycelix:holder".into());
+        assert!(verification_method_matches_did(
+            &vp.proof.verification_method,
+            &vp.holder
+        ));
+        assert!(!verification_method_matches_did(
+            "did:mycelix:other#keys-1",
+            &vp.holder
+        ));
     }
 
     #[test]
