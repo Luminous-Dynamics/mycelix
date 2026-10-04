@@ -170,7 +170,10 @@ impl EconomicActionFinalizationGate {
         execution: &EconomicExecutionLedger,
         constraints: &[EconomicExecutionConstraint],
     ) -> Result<String, String> {
-        let constraint_ids = constraints
+        let mut canonical_constraints = constraints.to_vec();
+        canonical_constraints.sort_by(|left, right| left.constraint_id.cmp(&right.constraint_id));
+
+        let constraint_ids = canonical_constraints
             .iter()
             .map(|constraint| constraint.constraint_id.as_str())
             .collect::<BTreeSet<_>>();
@@ -205,6 +208,11 @@ impl EconomicActionFinalizationGate {
             .iter()
             .map(|dimension| (*dimension, substrate.account(*dimension)))
             .collect::<Vec<_>>();
+        let relevant_substrate_events = substrate
+            .events()
+            .iter()
+            .filter(|event| scope.required_dimensions.contains(&event.dimension))
+            .collect::<Vec<_>>();
 
         let snapshot = serde_json::json!({
             "version": 1,
@@ -212,10 +220,11 @@ impl EconomicActionFinalizationGate {
             "lifecycle": lifecycle,
             "scope": scope,
             "required_substrate_accounts": relevant_substrate,
+            "required_substrate_events": relevant_substrate_events,
             "action_impacts": relevant_impacts,
             "relevant_reconciliations": relevant_reconciliations,
             "relevant_execution_receipts": relevant_receipts,
-            "required_constraints": constraints,
+            "required_constraints": canonical_constraints,
         });
 
         let canonical = serde_json::to_vec(&snapshot)
