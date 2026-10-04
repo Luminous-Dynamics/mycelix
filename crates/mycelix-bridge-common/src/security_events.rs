@@ -79,6 +79,17 @@ impl ProvenanceRef {
     }
 }
 
+/// Decision vocabulary used by security-event audit records.
+///
+/// This is separate from AuthorizationDecision: successful authorization is
+/// represented by an opaque permit, while Allow here records live enforcement.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SecurityEventDecision {
+    Allow,
+    Deny(crate::security_kernel::AuthorizationDenial),
+    Indeterminate(crate::security_kernel::AuthorizationIndeterminacy),
+}
+
 /// A structured record of an authorization-relevant security event.
 ///
 /// This is evidence for reconstruction and audit. It is intentionally not an
@@ -90,7 +101,7 @@ pub struct SecurityEvent {
     actor_id: String,
     capability_ref: String,
     request: AuthorizationRequest,
-    decision: AuthorizationDecision,
+    decision: SecurityEventDecision,
     policy_version: u64,
     timestamp_us: u64,
     /// Kernel-derived commitment of the exact capability used for a successful
@@ -271,7 +282,7 @@ impl<'de> serde::Deserialize<'de> for SecurityEvent {
         )
         .map_err(D::Error::custom)?;
 
-        if matches!(&wire.decision, AuthorizationDecision::Allow) {
+        if matches!(&wire.decision, SecurityEventDecision::Allow) {
             return Err(D::Error::custom(
                 "Allow security events must be created from a live EnforcementRequest",
             ));
@@ -311,7 +322,7 @@ impl SecurityEvent {
         &self.request
     }
 
-    pub fn decision(&self) -> &AuthorizationDecision {
+    pub fn decision(&self) -> &SecurityEventDecision {
         &self.decision
     }
 
@@ -344,7 +355,7 @@ impl SecurityEvent {
         actor_id: impl Into<String>,
         capability_ref: impl Into<String>,
         request: AuthorizationRequest,
-        decision: AuthorizationDecision,
+        decision: SecurityEventDecision,
         policy_version: u64,
         timestamp_us: u64,
     ) -> Result<Self, &'static str> {
@@ -389,9 +400,12 @@ impl SecurityEvent {
         policy_version: u64,
         timestamp_us: u64,
     ) -> Result<Self, &'static str> {
-        if matches!(&decision, AuthorizationDecision::Allow) {
-            return Err("allow security events must originate from enforcement");
-        }
+        let decision = match decision {
+            SecurityEventDecision::Deny(reason) => SecurityEventDecision::Deny(reason),
+            AuthorizationDecision::Indeterminate(reason) => {
+                SecurityEventDecision::Indeterminate(reason)
+            }
+        };
         Self::new_internal(
             event_id,
             actor_id,
@@ -451,7 +465,7 @@ impl SecurityEvent {
             actor_id,
             capability_ref,
             enforcement.request().clone(),
-            AuthorizationDecision::Allow,
+            SecurityEventDecision::Allow,
             policy_version,
             timestamp_us,
         )?;
@@ -651,7 +665,7 @@ mod tests {
         .with_recovery_correlation("recovery:1")
         .unwrap();
 
-        assert_eq!(event.decision(), &AuthorizationDecision::Allow);
+        assert_eq!(event.decision(), &SecurityEventDecision::Allow);
         assert_eq!(event.request(), enforcement.request());
         assert_eq!(event.provenance().len(), 1);
         assert_eq!(event.recovery_correlation(), Some("recovery:1"));
@@ -706,7 +720,7 @@ mod tests {
         let event: SecurityEvent = serde_json::from_str(json).unwrap();
         assert_eq!(
             event.decision(),
-            &AuthorizationDecision::Deny(
+            &SecurityEventDecision::Deny(
                 crate::security_kernel::AuthorizationDenial::ActionNotGranted
             )
         );
@@ -852,31 +866,6 @@ mod tests {
             )
             .unwrap_err(),
             "security event policy version does not match enforcement request"
-        );
-    }
-
-    #[test]
-    fn security_event_constructor_rejects_allow() {
-        let request = crate::security_kernel::AuthorizationRequest::new(
-            "did:mycelix:alice",
-            "resource:ledger",
-            CapabilityAction::Read,
-            7,
-        )
-        .unwrap();
-
-        assert_eq!(
-            SecurityEvent::new(
-                "event:allow",
-                "did:mycelix:alice",
-                "capability:1",
-                request,
-                AuthorizationDecision::Allow,
-                7,
-                150,
-            )
-            .unwrap_err(),
-            "allow security events must originate from enforcement"
         );
     }
 
