@@ -3303,10 +3303,11 @@ mod linux {
                             std::panic::AssertUnwindSafe(|| {
                                 validate_v2_compiled_semantics(policy, &mutated)
                             }),
-                        );
+                        )
+                        .expect("semantic validator panicked on a one-bit mutation");
                         assert!(
-                            result.is_ok(),
-                            "semantic validator panicked for policy {policy_index}, instruction {instruction_index}, mutation {mutation}"
+                            result.is_err(),
+                            "semantic validator accepted mutated stream for policy {policy_index}, instruction {instruction_index}, mutation {mutation}"
                         );
                     }
                 }
