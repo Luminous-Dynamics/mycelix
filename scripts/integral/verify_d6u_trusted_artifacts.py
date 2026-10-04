@@ -156,6 +156,7 @@ def main() -> None:
     artifact_dir = Path(sys.argv[1]).resolve()
     event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text(encoding="utf-8"))
     policy = json.loads(POLICY.read_text(encoding="utf-8"))
+    assert policy["origin_policy"] == "same-repository-only"
 
     repo = os.environ["GITHUB_REPOSITORY"]
     token = os.environ["GITHUB_TOKEN"]
