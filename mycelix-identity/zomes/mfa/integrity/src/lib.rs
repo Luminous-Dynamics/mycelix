@@ -420,15 +420,25 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink { link_type, tag, .. } => {
+        FlatOp::RegisterCreateLink {
+            base_address,
+            target_address,
+            link_type,
+            tag,
+            action,
+        } => {
             if tag.0.len() > 1024 {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Link tag exceeds maximum length of 1024 bytes".into(),
                 ));
             }
             match link_type {
-                LinkTypes::DidToMfaState => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::AgentToMfaState => Ok(ValidateCallbackResult::Valid),
+                LinkTypes::DidToMfaState => {
+                    validate_did_to_mfa_state_link(&base_address, &target_address, &action)
+                }
+                LinkTypes::AgentToMfaState => {
+                    validate_agent_to_mfa_state_link(&base_address, &target_address, &action)
+                }
                 LinkTypes::DidToEnrollments => Ok(ValidateCallbackResult::Valid),
                 LinkTypes::DidToVerifications => Ok(ValidateCallbackResult::Valid),
                 LinkTypes::MfaStateHistory => Ok(ValidateCallbackResult::Valid),
@@ -444,7 +454,12 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     "Only the link creator can delete their links".into(),
                 ));
             }
-            Ok(ValidateCallbackResult::Valid)
+            // All MFA-zome links are index/audit state. Deletion would let
+            // a coordinator hide security history or canonical state from DHT
+            // readers, so the integrity boundary keeps them append-only.
+            Ok(ValidateCallbackResult::Invalid(
+                "MFA links cannot be deleted".into(),
+            ))
         }
         FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterAgentActivity(activity) => match activity {
@@ -477,7 +492,19 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     "Only the original entry author can delete their entries".into(),
                 ));
             }
-            Ok(ValidateCallbackResult::Valid)
+
+            match original.action().entry_type() {
+                Some(EntryType::App(entry_def))
+                    if *entry_def == UnitEntryTypes::MfaState.into()
+                        || *entry_def == UnitEntryTypes::FactorEnrollment.into()
+                        || *entry_def == UnitEntryTypes::FactorVerification.into() =>
+                {
+                    Ok(ValidateCallbackResult::Invalid(
+                        "MFA security and audit entries cannot be deleted".into(),
+                    ))
+                }
+                _ => Ok(ValidateCallbackResult::Valid),
+            }
         }
     }
 }
@@ -574,6 +601,96 @@ fn validate_mfa_state_update_targets_latest(
             "MFA state update has no prior canonical state".into(),
         )),
     }
+}
+
+fn string_to_entry_hash(value: &str) -> EntryHash {
+    let bytes = holo_hash::blake2b_256(value.as_bytes())
+        .into_iter()
+        .chain([0u8; 4])
+        .collect::<Vec<u8>>();
+    EntryHash::from_raw_36(bytes)
+}
+
+fn action_target(
+    target_address: &AnyLinkableHash,
+    label: &str,
+) -> ExternResult<ActionHash> {
+    target_address.clone().into_action_hash().ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "{label} target must be an ActionHash"
+        )))
+    })
+}
+
+fn validate_did_to_mfa_state_link(
+    base_address: &AnyLinkableHash,
+    target_address: &AnyLinkableHash,
+    action: &CreateLink,
+) -> ExternResult<ValidateCallbackResult> {
+    let base = base_address.clone().into_entry_hash().ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "DidToMfaState base must be an EntryHash".into(),
+        ))
+    })?;
+    let target = action_target(target_address, "DidToMfaState")?;
+    let record = must_get_valid_record(target)?;
+    let state: MfaState = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "DidToMfaState target must contain an MFA state".into(),
+        )))?;
+
+    let expected_did = format!("did:mycelix:{}", action.author);
+    if state.did != expected_did || state.owner != action.author {
+        return Ok(ValidateCallbackResult::Invalid(
+            "DidToMfaState target must be the author's canonical MFA state".into(),
+        ));
+    }
+    if base != string_to_entry_hash(&state.did) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "DidToMfaState base does not match the target DID".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_agent_to_mfa_state_link(
+    base_address: &AnyLinkableHash,
+    target_address: &AnyLinkableHash,
+    action: &CreateLink,
+) -> ExternResult<ValidateCallbackResult> {
+    let base = base_address.clone().into_agent_pub_key().ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "AgentToMfaState base must be an AgentPubKey".into(),
+        ))
+    })?;
+    let target = action_target(target_address, "AgentToMfaState")?;
+    let record = must_get_valid_record(target)?;
+    let state: MfaState = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "AgentToMfaState target must contain an MFA state".into(),
+        )))?;
+
+    if base != action.author || state.owner != action.author || state.owner != base {
+        return Ok(ValidateCallbackResult::Invalid(
+            "AgentToMfaState must bind the author's AgentPubKey to its MFA state".into(),
+        ));
+    }
+
+    let expected_did = format!("did:mycelix:{}", base);
+    if state.did != expected_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "AgentToMfaState target DID must match the base agent".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
 }
 
 /// Validate MFA state creation
