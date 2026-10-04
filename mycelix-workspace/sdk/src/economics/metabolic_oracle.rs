@@ -13,8 +13,12 @@
 //! - Counter-cyclical: When stressed, lower fees + expand TEND limits
 
 use serde::{Deserialize, Serialize};
-use super::policy_profile::EconomicPolicyProfile;
+use super::{
+    policy_analysis::{EconomicAnalysisBinding, EconomicPolicyAnalysis},
+    policy_profile::EconomicPolicyProfile,
+};
 use sha2::{Digest, Sha256};
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Policy bounds preventing runaway self-modification
 /// These are constitutional constraints that cannot be modified by the oracle
@@ -214,6 +218,9 @@ pub struct GovernedPolicyAdjustment {
     pub policy_profile_fingerprint: String,
     /// References to the observations used in the decision.
     pub observation_refs: Vec<String>,
+    /// Exact advisory analyses considered by governance, when applicable.
+    /// An empty set is valid for regimes that permit non-model-based decisions.
+    pub analysis_evidence: Vec<EconomicAnalysisBinding>,
     /// Policy/rule reference authorizing the decision.
     pub rule_ref: String,
     /// Authority reference for the decision.
@@ -255,6 +262,17 @@ impl GovernedPolicyAdjustment {
         {
             return Err("Policy observation references cannot be empty".into());
         }
+
+        let mut analysis_ids = BTreeSet::new();
+        for binding in &self.analysis_evidence {
+            binding.validate()?;
+            if !analysis_ids.insert(&binding.analysis_ref) {
+                return Err(format!(
+                    "Duplicate policy decision analysis reference: {}",
+                    binding.analysis_ref
+                ));
+            }
+        }
         if self.rule_ref.trim().is_empty() {
             return Err("Policy decision rule reference cannot be empty".into());
         }
@@ -280,6 +298,75 @@ impl GovernedPolicyAdjustment {
         Ok(())
     }
 
+    /// Validate exact advisory analyses referenced by this decision.
+    ///
+    /// The analyses remain advisory. This method only proves that the decision
+    /// points to the exact analysis content it claims to have considered and
+    /// that those analyses share the decision's policy-profile context.
+    pub fn validate_against_analyses(
+        &self,
+        analyses: &BTreeMap<String, EconomicPolicyAnalysis>,
+    ) -> Result<(), String> {
+        self.validate()?;
+
+        for binding in &self.analysis_evidence {
+            let analysis = analyses.get(&binding.analysis_ref).ok_or_else(|| {
+                format!(
+                    "Policy decision analysis evidence is not available: {}",
+                    binding.analysis_ref
+                )
+            })?;
+            let fingerprint = analysis.fingerprint()?;
+            if fingerprint != binding.analysis_fingerprint {
+                return Err(format!(
+                    "Policy decision analysis fingerprint does not match supplied analysis: {}",
+                    binding.analysis_ref
+                ));
+            }
+            if analysis.policy_profile_ref != self.policy_profile_ref
+                || analysis.policy_profile_fingerprint != self.policy_profile_fingerprint
+            {
+                return Err(format!(
+                    "Policy decision analysis uses a different policy profile: {}",
+                    binding.analysis_ref
+                ));
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Return the number of distinct model/input provenance groups among the
+    /// analyses considered by this decision. Different analysis IDs do not
+    /// automatically imply independent analyses.
+    ///
+    /// This is an informational measurement. It does not impose a universal
+    /// minimum diversity requirement on any policy regime.
+    pub fn distinct_analysis_provenance_count(
+        &self,
+        analyses: &BTreeMap<String, EconomicPolicyAnalysis>,
+    ) -> Result<usize, String> {
+        self.validate_against_analyses(analyses)?;
+
+        let mut groups = BTreeSet::new();
+        for binding in &self.analysis_evidence {
+            let analysis = analyses
+                .get(&binding.analysis_ref)
+                .expect("validated analysis binding must resolve");
+            let scenario_fingerprint = analysis
+                .scenario
+                .as_ref()
+                .map(|scenario| scenario.scenario_fingerprint.as_str())
+                .unwrap_or("scenario:none");
+            groups.insert((
+                analysis.model_ref.as_str(),
+                analysis.observation_snapshot_fingerprint.as_str(),
+                scenario_fingerprint,
+            ));
+        }
+        Ok(groups.len())
+    }
+
     /// Return a deterministic content fingerprint for the governed decision.
     ///
     /// The fingerprint is a tamper-evident identifier, not a signature or proof
@@ -289,12 +376,18 @@ impl GovernedPolicyAdjustment {
         let mut observation_refs = self.observation_refs.clone();
         observation_refs.sort();
 
+        let mut analysis_evidence = self.analysis_evidence.clone();
+        analysis_evidence.sort_by_key(|binding| {
+            (binding.analysis_ref.clone(), binding.analysis_fingerprint.clone())
+        });
+
         let payload = serde_json::json!({
-            "version": 1,
+            "version": 2,
             "decision_id": self.decision_id,
             "policy_profile_ref": self.policy_profile_ref,
             "policy_profile_fingerprint": self.policy_profile_fingerprint,
             "observation_refs": observation_refs,
+            "analysis_evidence": analysis_evidence,
             "rule_ref": self.rule_ref,
             "authority_ref": self.authority_ref,
             "adjustment": self.adjustment,
@@ -303,7 +396,7 @@ impl GovernedPolicyAdjustment {
         let canonical = serde_json::to_vec(&payload)
             .map_err(|error| format!("Policy decision canonicalization failed: {error}"))?;
         let mut hasher = Sha256::new();
-        hasher.update(b"MYCELIX-ECONOMIC-POLICY-DECISION-V1\\0");
+        hasher.update(b"MYCELIX-ECONOMIC-POLICY-DECISION-V2\0");
         hasher.update(canonical);
         Ok(hex::encode(hasher.finalize()))
     }
@@ -697,6 +790,7 @@ mod tests {
             policy_profile_ref: "profile:za:reference:v1".into(),
             policy_profile_fingerprint: "a".repeat(64),
             observation_refs: Vec::new(),
+            analysis_evidence: Vec::new(),
             rule_ref: "rule:countercyclical:v1".into(),
             authority_ref: "authority:dao-1".into(),
             adjustment,
@@ -715,6 +809,7 @@ mod tests {
             policy_profile_ref: "profile:za:reference:v1".into(),
             policy_profile_fingerprint: "a".repeat(64),
             observation_refs: vec!["observation:vitality:1".into()],
+            analysis_evidence: Vec::new(),
             rule_ref: "rule:countercyclical:v1".into(),
             authority_ref: "authority:dao-1".into(),
             adjustment,
@@ -738,6 +833,7 @@ mod tests {
             policy_profile_ref: "profile:za:reference:v1".into(),
             policy_profile_fingerprint: "a".repeat(64),
             observation_refs: vec!["observation:b".into(), "observation:a".into()],
+            analysis_evidence: Vec::new(),
             rule_ref: "rule:countercyclical:v1".into(),
             authority_ref: "authority:dao-1".into(),
             adjustment: adjustment.clone(),
@@ -749,6 +845,114 @@ mod tests {
         };
 
         assert_eq!(left.fingerprint().unwrap(), right.fingerprint().unwrap());
+    }
+
+    fn advisory_analysis(id: &str, model: &str) -> EconomicPolicyAnalysis {
+        EconomicPolicyAnalysis {
+            analysis_id: id.into(),
+            policy_profile_ref: "profile:za:reference:v1".into(),
+            policy_profile_fingerprint: "a".repeat(64),
+            model_ref: model.into(),
+            observation_refs: vec!["observation:vitality:1".into()],
+            observation_snapshot_fingerprint: "b".repeat(64),
+            scenario: None,
+            proposed_adjustment: None,
+            confidence_bps: 8_000,
+            uncertainty_refs: vec!["uncertainty:test".into()],
+            alternative_analysis_bindings: Vec::new(),
+            rationale_refs: vec!["evidence:test".into()],
+            generated_at: 1_000,
+        }
+    }
+
+    #[test]
+    fn governed_decision_binds_exact_analysis_content() {
+        let oracle = MetabolicOracle::new();
+        let adjustment = oracle.generate_adjustment();
+        let analysis = advisory_analysis("analysis:one", "model:one:v1");
+        let fingerprint = analysis.fingerprint().unwrap();
+
+        let decision = GovernedPolicyAdjustment {
+            decision_id: "decision:analysis-bound".into(),
+            policy_profile_ref: "profile:za:reference:v1".into(),
+            policy_profile_fingerprint: "a".repeat(64),
+            observation_refs: vec!["observation:vitality:1".into()],
+            analysis_evidence: vec![EconomicAnalysisBinding {
+                analysis_ref: analysis.analysis_id.clone(),
+                analysis_fingerprint: fingerprint,
+            }],
+            rule_ref: "rule:countercyclical:v1".into(),
+            authority_ref: "authority:dao-1".into(),
+            adjustment,
+            decided_at: 1_000,
+        };
+
+        let mut analyses = BTreeMap::new();
+        analyses.insert(analysis.analysis_id.clone(), analysis.clone());
+        assert!(decision.validate_against_analyses(&analyses).is_ok());
+
+        let mut changed = analysis;
+        changed.generated_at = 1_001;
+        analyses.insert(changed.analysis_id.clone(), changed);
+        assert!(decision.validate_against_analyses(&analyses).is_err());
+    }
+
+    #[test]
+    fn duplicate_model_and_input_provenance_is_not_counted_twice() {
+        let oracle = MetabolicOracle::new();
+        let adjustment = oracle.generate_adjustment();
+        let first = advisory_analysis("analysis:first", "model:shared:v1");
+        let second = advisory_analysis("analysis:second", "model:shared:v1");
+
+        let first_fingerprint = first.fingerprint().unwrap();
+        let second_fingerprint = second.fingerprint().unwrap();
+
+        let decision = GovernedPolicyAdjustment {
+            decision_id: "decision:provenance-groups".into(),
+            policy_profile_ref: "profile:za:reference:v1".into(),
+            policy_profile_fingerprint: "a".repeat(64),
+            observation_refs: vec!["observation:vitality:1".into()],
+            analysis_evidence: vec![
+                EconomicAnalysisBinding {
+                    analysis_ref: first.analysis_id.clone(),
+                    analysis_fingerprint: first_fingerprint,
+                },
+                EconomicAnalysisBinding {
+                    analysis_ref: second.analysis_id.clone(),
+                    analysis_fingerprint: second_fingerprint,
+                },
+            ],
+            rule_ref: "rule:countercyclical:v1".into(),
+            authority_ref: "authority:dao-1".into(),
+            adjustment,
+            decided_at: 1_000,
+        };
+
+        let mut analyses = BTreeMap::new();
+        analyses.insert(first.analysis_id.clone(), first.clone());
+        analyses.insert(second.analysis_id.clone(), second.clone());
+        assert_eq!(
+            decision
+                .distinct_analysis_provenance_count(&analyses)
+                .unwrap(),
+            1
+        );
+
+        let independent = advisory_analysis("analysis:independent", "model:independent:v1");
+        let independent_fingerprint = independent.fingerprint().unwrap();
+        analyses.insert(independent.analysis_id.clone(), independent.clone());
+
+        let mut expanded = decision;
+        expanded.analysis_evidence.push(EconomicAnalysisBinding {
+            analysis_ref: independent.analysis_id,
+            analysis_fingerprint: independent_fingerprint,
+        });
+        assert_eq!(
+            expanded
+                .distinct_analysis_provenance_count(&analyses)
+                .unwrap(),
+            2
+        );
     }
 
     fn policy_profile() -> EconomicPolicyProfile {
@@ -779,6 +983,7 @@ mod tests {
             policy_profile_ref: profile.profile_id.clone(),
             policy_profile_fingerprint: profile.fingerprint().unwrap(),
             observation_refs: vec!["observation:vitality:1".into()],
+            analysis_evidence: Vec::new(),
             rule_ref: "rule:countercyclical:v1".into(),
             authority_ref: "authority:dao-1".into(),
             adjustment: oracle.generate_adjustment(),
@@ -799,6 +1004,7 @@ mod tests {
             policy_profile_ref: profile.profile_id.clone(),
             policy_profile_fingerprint: profile.fingerprint().unwrap(),
             observation_refs: vec!["observation:vitality:1".into()],
+            analysis_evidence: Vec::new(),
             rule_ref: "rule:countercyclical:v1".into(),
             authority_ref: "authority:dao-1".into(),
             adjustment: oracle.generate_adjustment(),
@@ -828,6 +1034,7 @@ mod tests {
             policy_profile_ref: "profile:za:reference:v1".into(),
             policy_profile_fingerprint: "a".repeat(64),
             observation_refs: vec!["observation:vitality:1".into()],
+            analysis_evidence: Vec::new(),
             rule_ref: "rule:countercyclical:v1".into(),
             authority_ref: "authority:dao-1".into(),
             adjustment: oracle.generate_adjustment(),
@@ -849,6 +1056,7 @@ mod tests {
             policy_profile_ref: "profile:za:reference:v1".into(),
             policy_profile_fingerprint: "a".repeat(64),
             observation_refs: vec!["observation:vitality:1".into()],
+            analysis_evidence: Vec::new(),
             rule_ref: "rule:countercyclical:v1".into(),
             authority_ref: "authority:dao-1".into(),
             adjustment,
