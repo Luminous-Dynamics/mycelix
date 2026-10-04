@@ -2882,6 +2882,56 @@ mod linux {
         }
 
         #[test]
+        fn v2_disjunctive_masked_not_equal_low_mismatch_preserves_later_predicates() {
+            let arch = SeccompArchitecture::current().unwrap();
+
+            let first = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new_with_op(
+                    0,
+                    u64::MAX,
+                    0x0000_0001_0000_0001,
+                    SeccompArgPredicateOpV1::MaskedNotEqual,
+                )
+                .unwrap(),
+                SeccompArgPredicateV1::new(1, u64::MAX, 7).unwrap(),
+            ])
+            .unwrap();
+
+            let second = SeccompSyscallClauseV2::new(vec![
+                SeccompArgPredicateV1::new(1, u64::MAX, 9).unwrap(),
+            ])
+            .unwrap();
+
+            let rule = SeccompSyscallRuleV2::new_with_clauses(
+                libc::SYS_socket,
+                vec![first, second],
+            )
+            .unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+            let filter = compile_filter_v2(&policy).unwrap();
+
+            // Low-half mismatch proves the NotEqual predicate. The later
+            // predicate in the same clause must still be evaluated.
+            let later_match = [0x0000_0002_0000_0001, 7, 0, 0, 0, 0];
+            assert!(policy.allows(libc::SYS_socket, &later_match));
+            assert_eq!(
+                interpret_v2_filter(&filter, arch, libc::SYS_socket, later_match),
+                SECCOMP_RET_ALLOW
+            );
+
+            // If the low mismatch incorrectly skips the later predicate,
+            // this case would widen into ALLOW. It must instead continue past
+            // the failed first clause and deny because the second clause also
+            // does not match.
+            let later_mismatch = [0x0000_0002_0000_0001, 8, 0, 0, 0, 0];
+            assert!(!policy.allows(libc::SYS_socket, &later_mismatch));
+            assert_eq!(
+                interpret_v2_filter(&filter, arch, libc::SYS_socket, later_mismatch),
+                SECCOMP_RET_ERRNO | libc::EPERM as u32
+            );
+        }
+
+        #[test]
         fn v2_disjunctive_compiled_filter_matches_model_across_clause_boundaries() {
             let arch = SeccompArchitecture::current().unwrap();
             let unix = SeccompSyscallClauseV2::new(vec![
