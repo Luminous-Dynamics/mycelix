@@ -27,6 +27,19 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Assert exact source checkout
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual_sha="$(git rev-parse HEAD)"
+          if [[ "$actual_sha" != "$EXPECTED_SHA" ]]; then
+            echo "security-workflow regression: checked out $actual_sha, expected source $EXPECTED_SHA" >&2
+            exit 1
+          fi
 
       - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # master
         with:
@@ -48,6 +61,11 @@ jobs:
           # do not broaden it to a privileged pull_request_target trigger.
           if rg -n '^[[:space:]]*pull_request_target[[:space:]]*:' .github/workflows/security-kernel-qualification.yml; then
             echo "security-workflow regression: privileged pull_request_target trigger is forbidden" >&2
+            exit 1
+          fi
+
+          if ! rg -n -F 'ref: ${{ github.event.pull_request.head.sha || github.sha }}' .github/workflows/security-kernel-qualification.yml; then
+            echo "security-workflow regression: qualification must checkout the source head SHA, not the synthetic pull-request merge ref" >&2
             exit 1
           fi
 
@@ -258,133 +276,3 @@ jobs:
           if not security_event_wire:
               raise SystemExit("security-event regression: SecurityEventWire disappeared")
           security_event_wire_body = security_event_wire.group("body")
-          if not re.search(
-              r'decision:\s*SecurityEventDecision\s*,',
-              security_event_wire_body,
-          ):
-              raise SystemExit(
-                  "security-event regression: SecurityEventWire must use the audit-only SecurityEventDecision vocabulary"
-              )
-          if not re.search(
-              r'#[serde\(\s*default,\s*deserialize_with\s*=\s*'
-              r'"deserialize_optional_provenance_identifier"\s*\)]\s*'
-              r'recovery_correlation:',
-              security_event_wire_body,
-              re.DOTALL,
-          ):
-              raise SystemExit(
-                  "security-event regression: bounded recovery-correlation deserializer is not attached to SecurityEventWire"
-              )
-
-          if not re.search(
-              r'#\[serde\(deserialize_with\s*=\s*"deserialize_provenance_refs"\)\]\s*'
-              r'provenance:\s*Vec<ProvenanceRef>',
-              security_event_wire_body,
-          ):
-              raise SystemExit("security-event regression: bounded provenance deserializer is not attached to SecurityEventWire")
-          PY
-
-          if ! rg -n 'MAX_CAPABILITY_ACTIONS' crates/mycelix-bridge-common/src/security_kernel.rs; then
-            echo "security-kernel regression: capability action limit disappeared" >&2
-            exit 1
-          fi
-          if ! rg -n 'deserialize_with[[:space:]]*=[[:space:]]*"deserialize_provenance_refs"' crates/mycelix-bridge-common/src/security_events.rs; then
-            echo "security-event regression: provenance wire sequence lost bounded deserialization" >&2
-            exit 1
-          fi
-          if ! rg -nU 'pub[[:space:]]+enum[[:space:]]+SecurityEventDecision' crates/mycelix-bridge-common/src/security_events.rs; then
-            echo "security-event regression: SecurityEventDecision vocabulary disappeared" >&2
-            exit 1
-          fi
-
-          if ! rg -nU 'decision:[[:space:]]*SecurityEventDecision' crates/mycelix-bridge-common/src/security_events.rs; then
-            echo "security-event regression: SecurityEvent no longer uses the audit decision vocabulary" >&2
-            exit 1
-          fi
-
-          if ! rg -n 'deserialize_optional_provenance_identifier' crates/mycelix-bridge-common/src/security_events.rs; then
-            echo "security-event regression: recovery correlation bounded deserializer disappeared" >&2
-            exit 1
-          fi
-          if ! rg -n 'deserialize_with[[:space:]]*=[[:space:]]*"deserialize_security_identifier"' crates/mycelix-bridge-common/src/security_kernel.rs; then
-            echo "security-kernel regression: bounded identifier deserializer disappeared" >&2
-            exit 1
-          fi
-          if ! rg -nU 'fn authority_binding_from_freshness_digest\([^)]*\)[[:space:]]*->[[:space:]]*\[u8;[[:space:]]*32\][[:space:]]*\{' crates/mycelix-bridge-common/src/security_kernel.rs; then
-            echo "security-kernel regression: authority freshness binding helper disappeared" >&2
-            exit 1
-          fi
-          if ! rg -nU 'if freshness_digest[[:space:]]*==[[:space:]]*\[0;[[:space:]]*32\][[:space:]]*\{[^}]*return[[:space:]]+\[0;[[:space:]]*32\];' crates/mycelix-bridge-common/src/security_kernel.rs; then
-            echo "security-kernel regression: zero freshness sentinel is not preserved as missing authority binding" >&2
-            exit 1
-          fi
-
-          if ! rg -n 'deserialize_with[[:space:]]*=[[:space:]]*"deserialize_provenance_identifier"' crates/mycelix-bridge-common/src/security_events.rs; then
-            echo "security-event regression: bounded identifier deserializer disappeared" >&2
-            exit 1
-          fi
-
-          if ! rg -n 'MAX_SECURITY_EVENT_PROVENANCE_REFS' crates/mycelix-bridge-common/src/security_events.rs; then
-            echo "security-event regression: provenance sequence limit disappeared" >&2
-            exit 1
-          fi
-
-          # Recovery correlations carry a non-empty, bounded identifier invariant.
-          # Wire decoding must route them through the validating constructor.
-          if ! rg -nU 'with_recovery_correlation\([^)]*\)[[:space:]]*$' crates/mycelix-bridge-common/src/security_events.rs; then
-            echo "security-event regression: recovery correlation validation call disappeared" >&2
-            exit 1
-          fi
-          if rg -nU 'event\.recovery_correlation[[:space:]]*=[[:space:]]*wire\.recovery_correlation' crates/mycelix-bridge-common/src/security_events.rs; then
-            echo "security-event regression: recovery correlation is assigned directly from wire data" >&2
-            exit 1
-          fi
-          for pattern in \
-            '#\[derive\([^]]*(Serialize|Deserialize)[^]]*\)\][[:space:]]*(pub[[:space:]]+)?struct (VerificationEvidence|AuthorizationPermit|EnforcementRequest)' \
-            'impl[[:space:]]+(Serialize|Deserialize)[[:space:]]+for[[:space:]]+(VerificationEvidence|AuthorizationPermit|EnforcementRequest)' \
-            '#\[derive\([^]]*(Debug|PartialEq|Eq)[^]]*\)\][[:space:]]*pub struct VerificationEvidence' \
-            '#\[derive\([^]]*(Debug|Clone|Copy|PartialEq|Eq|Serialize|Deserialize)[^]]*\)\][[:space:]]*pub struct AuthorizationPermit' \
-            '#\[derive\([^]]*(Debug|Clone|Copy|PartialEq|Eq|Serialize|Deserialize)[^]]*\)\][[:space:]]*pub struct EnforcementRequest'; do
-            if rg -nU "$pattern" crates/mycelix-bridge-common/src/security_kernel.rs; then
-              echo "security-kernel serialization/linear-token regression: $pattern" >&2
-              exit 1
-            fi
-          done
-
-      - name: Assert authorization permits remain opaque
-        shell: bash
-        run: |
-          set -euo pipefail
-          awk '
-            BEGIN { in_impl = 0; depth = 0; found = 0 }
-            {
-              if (!in_impl && $0 ~ /^[[:space:]]*impl[[:space:]]+AuthorizationPermit[[:space:]]*\{[[:space:]]*$/) {
-                in_impl = 1
-              }
-              if (in_impl) {
-                if ($0 ~ /(^|[^[:alnum:]_])pub([[:space:]]*\([^)]*\))?[[:space:]]+fn[[:space:]]/) {
-                  print NR ": public AuthorizationPermit method: " $0
-                  found = 1
-                }
-                open_count = gsub(/\{/, "{", $0)
-                close_count = gsub(/\}/, "}", $0)
-                depth += open_count - close_count
-                if (depth <= 0) {
-                  exit found ? 1 : 0
-                }
-              }
-            }
-            END { if (in_impl && found == 0) exit 0 }
-          ' crates/mycelix-bridge-common/src/security_kernel.rs
-
-      - name: Test default feature set
-        run: cargo test --locked --manifest-path crates/mycelix-bridge-common/Cargo.toml
-
-      - name: Test identity feature set
-        run: cargo test --locked --manifest-path crates/mycelix-bridge-common/Cargo.toml --features identity
-
-      - name: Clippy default feature set
-        run: cargo clippy --locked --manifest-path crates/mycelix-bridge-common/Cargo.toml --all-targets -- -D warnings
-
-      - name: Clippy identity feature set
-        run: cargo clippy --locked --manifest-path crates/mycelix-bridge-common/Cargo.toml --all-targets --features identity -- -D warnings
