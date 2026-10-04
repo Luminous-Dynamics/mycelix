@@ -2765,6 +2765,62 @@ mod tests {
         current
     }
 
+    fn shrink_failing_state_machine_tokens<F>(
+        plan: &[(FederationStateMachineOperation, u64)],
+        mut fails: F,
+    ) -> Vec<(FederationStateMachineOperation, u64)>
+    where
+        F: FnMut(&[(FederationStateMachineOperation, u64)]) -> bool,
+    {
+        assert!(
+            fails(plan),
+            "parameter shrinker requires an initially failing plan"
+        );
+
+        let mut current = plan.to_vec();
+
+        for index in 0..current.len() {
+            let original_token = current[index].1;
+            let mut candidates = BTreeSet::from([
+                0,
+                1,
+                2,
+                3,
+                4,
+                8,
+                16,
+                32,
+                64,
+                128,
+                original_token.saturating_sub(1),
+                original_token / 2,
+                original_token / 4,
+                original_token & 0xff,
+                original_token % 1024,
+            ]);
+            candidates.remove(&original_token);
+
+            for candidate_token in candidates {
+                if candidate_token >= current[index].1 {
+                    continue;
+                }
+
+                let mut candidate = current.clone();
+                candidate[index].1 = candidate_token;
+                if fails(&candidate) {
+                    current = candidate;
+                    break;
+                }
+            }
+        }
+
+        assert!(
+            fails(&current),
+            "parameter shrinker must preserve the failure predicate"
+        );
+        current
+    }
+
     fn state_machine_envelope(
         operation: FederationStateMachineOperation,
         token: u64,
@@ -3154,8 +3210,18 @@ mod tests {
                     assert_eq!(canonical_state_fingerprint(&state), before_conflict);
                 }
                 FederationStateMachineOperation::InjectDeliveryMapCorruption => {
-                    let record = state.deliveries.remove("sm-delivery-AdmitLocal-1").unwrap();
-                    state.deliveries.insert("corrupt-delivery-key".into(), record);
+                    let logical_delivery_id = format!("sm-delivery-AdmitLocal-{token}");
+                    let record = state
+                        .deliveries
+                        .remove(&logical_delivery_id)
+                        .unwrap_or_else(|| {
+                            panic!(
+                                "test-only delivery-map corruption requires AdmitLocal token {token}"
+                            )
+                        });
+                    state
+                        .deliveries
+                        .insert(format!("corrupt-delivery-key-{token}"), record);
                 }
             }
 
@@ -3233,6 +3299,26 @@ mod tests {
                         },
                     );
 
+                    let target_failed_step_index = capsule.failed_step_index;
+                    let target_expected_decision = capsule.expected_decision;
+                    let target_observed_decision = capsule.observed_decision;
+                    let target_expected_authority = capsule.expected_authority;
+                    let target_observed_authority = capsule.observed_authority;
+                    let minimized = shrink_failing_state_machine_tokens(
+                        &minimized,
+                        |candidate| {
+                            invariant_failure_from_plan(candidate, trace_index).is_some_and(|candidate_failure| {
+                                candidate_failure.failed_step_index == target_failed_step_index
+                                    && candidate_failure.observed_violations == target_violations
+                                    && candidate_failure.operation == target_operation
+                                    && candidate_failure.expected_decision == target_expected_decision
+                                    && candidate_failure.observed_decision == target_observed_decision
+                                    && candidate_failure.expected_authority == target_expected_authority
+                                    && candidate_failure.observed_authority == target_observed_authority
+                            })
+                        },
+                    );
+
                     if let Some(minimized_failure) = invariant_failure_from_plan(&minimized, trace_index) {
                         panic_any_invariant_failure(minimized_failure);
                     }
@@ -3255,9 +3341,9 @@ mod tests {
     #[test]
     fn state_machine_invariant_failure_path_emits_a_minimal_capsule() {
         let plan = vec![
-            (FederationStateMachineOperation::AdmitLocal, 1),
+            (FederationStateMachineOperation::AdmitLocal, 4096),
             (FederationStateMachineOperation::RecordObservation, 2),
-            (FederationStateMachineOperation::InjectDeliveryMapCorruption, 3),
+            (FederationStateMachineOperation::InjectDeliveryMapCorruption, 4096),
             (FederationStateMachineOperation::Partition, 4),
         ];
 
@@ -3280,13 +3366,13 @@ mod tests {
         assert_eq!(
             failure.0.trace_prefix,
             vec![
-                (FederationStateMachineOperation::AdmitLocal, 1),
-                (FederationStateMachineOperation::InjectDeliveryMapCorruption, 3),
+                (FederationStateMachineOperation::AdmitLocal, 0),
+                (FederationStateMachineOperation::InjectDeliveryMapCorruption, 0),
             ]
         );
         assert_eq!(failure.0.failed_step_index, 1);
         assert_eq!(failure.0.operation, FederationStateMachineOperation::InjectDeliveryMapCorruption);
-        assert_eq!(failure.0.token, 3);
+        assert_eq!(failure.0.token, 0);
         assert!(failure.0.expected_state_valid);
         assert!(!failure.0.observed_state_valid);
         assert!(failure.0.pre_state_fingerprint != failure.0.post_state_fingerprint);
@@ -3437,7 +3523,7 @@ mod tests {
 
     #[test]
     fn state_machine_failure_capsule_round_trips_and_is_deterministic() {
-        let (initial_seed, plan) = state_machine_trace_plan(11, 6);
+        let (_, plan) = state_machine_trace_plan(11, 6);
         let audit = vec![
             FederationInvariantAuditEntry {
                 id: FederationInvariantId::SourceObservationBijection,
@@ -3449,12 +3535,7 @@ mod tests {
         let capsule = FederationStateMachineFailureCapsule {
             schema_version: 1,
             failure_kind: "invariant-violation".into(),
-            trace: FederationStateMachineTraceCapsule {
-                trace_index: 11,
-                initial_seed,
-                operations: plan.iter().map(|(operation, _)| *operation).collect(),
-                tokens: plan.iter().map(|(_, token)| *token).collect(),
-            },
+            trace_prefix: plan.clone(),
             failed_step_index: 5,
             operation: plan[5].0,
             token: plan[5].1,
@@ -3479,18 +3560,13 @@ mod tests {
         assert_eq!(round_trip, capsule);
         assert_eq!(round_trip.failure_kind, "invariant-violation");
         assert_eq!(json, round_trip.to_json());
-        let replay_plan = state_machine_plan_from_capsule(&round_trip.trace);
         assert_eq!(
-            replay_plan.len(),
+            round_trip.trace_prefix.len(),
             round_trip.failed_step_index + 1
         );
         assert_eq!(
-            replay_plan[round_trip.failed_step_index],
+            round_trip.trace_prefix[round_trip.failed_step_index],
             (round_trip.operation, round_trip.token)
-        );
-        assert_eq!(
-            round_trip.trace.operations.len(),
-            round_trip.trace.tokens.len()
         );
     }
 
