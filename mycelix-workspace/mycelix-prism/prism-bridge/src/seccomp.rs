@@ -270,22 +270,48 @@ impl SeccompSyscallRuleV2 {
 /// V2 adds explicit argument predicates without silently widening V1.
 #[cfg(target_os = "linux")]
 const FORBIDDEN_RENDERER_SYSCALLS: &[i64] = &[
+    // Cross-process inspection/control and process creation.
     libc::SYS_ptrace,
     libc::SYS_process_vm_readv,
     libc::SYS_process_vm_writev,
     libc::SYS_process_madvise,
     libc::SYS_pidfd_getfd,
+    libc::SYS_pidfd_open,
+    libc::SYS_pidfd_send_signal,
     libc::SYS_kcmp,
     libc::SYS_clone,
     libc::SYS_clone3,
     libc::SYS_execve,
     libc::SYS_execveat,
+
+    // Namespace and modern mount-management interfaces.
     libc::SYS_unshare,
     libc::SYS_setns,
     libc::SYS_mount,
     libc::SYS_umount2,
     libc::SYS_pivot_root,
     libc::SYS_chroot,
+    libc::SYS_open_tree,
+    libc::SYS_move_mount,
+    libc::SYS_fsopen,
+    libc::SYS_fsconfig,
+    libc::SYS_fsmount,
+    libc::SYS_fspick,
+    libc::SYS_mount_setattr,
+
+    // High-risk kernel control / asynchronous-kernel interfaces.
+    libc::SYS_bpf,
+    libc::SYS_userfaultfd,
+    libc::SYS_perf_event_open,
+    libc::SYS_keyctl,
+    libc::SYS_add_key,
+    libc::SYS_request_key,
+    libc::SYS_io_uring_setup,
+    libc::SYS_io_uring_enter,
+    libc::SYS_io_uring_register,
+    libc::SYS_name_to_handle_at,
+    libc::SYS_open_by_handle_at,
+    libc::SYS_process_mrelease,
 ];
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 const FORBIDDEN_X86_PROCESS_CREATION_SYSCALLS: &[i64] = &[libc::SYS_fork, libc::SYS_vfork];
@@ -1403,7 +1429,7 @@ mod linux {
         // This commits the renderer-policy validation contract separately
         // from the syscall list and compiled BPF. Future changes to the
         // forbidden renderer syscall set must therefore bump this version.
-        hasher.update(b"PRISM-SECCOMP-RENDERER-POLICY-VALIDATION-V1");
+        hasher.update(b"PRISM-SECCOMP-RENDERER-POLICY-VALIDATION-V2");
         hasher.update(b"PRISM-SECCOMP-NO-NEW-PRIVS-REQUIRED-V1");
         hasher.update(&SECCOMP_RET_ERRNO.to_le_bytes());
         hasher.update(&(libc::EPERM as u32).to_le_bytes());
@@ -1432,7 +1458,7 @@ mod linux {
             hasher.update(&[instruction.jt, instruction.jf]);
             hasher.update(&instruction.k.to_le_bytes());
         }
-        hasher.update(b"PRISM-SECCOMP-RENDERER-POLICY-VALIDATION-V1");
+        hasher.update(b"PRISM-SECCOMP-RENDERER-POLICY-VALIDATION-V2");
         hasher.update(b"PRISM-SECCOMP-NO-NEW-PRIVS-REQUIRED-V1");
         hasher.update(&SECCOMP_RET_ERRNO.to_le_bytes());
         hasher.update(&(libc::EPERM as u32).to_le_bytes());
@@ -3876,24 +3902,44 @@ mod linux {
         fn renderer_policy_rejects_process_creation_and_namespace_mutation() {
             let arch = SeccompArchitecture::current().unwrap();
 
-            let mut process_creation_syscalls = vec![
+            let mut forbidden = vec![
                 libc::SYS_clone,
                 libc::SYS_clone3,
+                libc::SYS_execve,
+                libc::SYS_execveat,
+                libc::SYS_unshare,
+                libc::SYS_setns,
+                libc::SYS_open_tree,
+                libc::SYS_move_mount,
+                libc::SYS_fsopen,
+                libc::SYS_fsconfig,
+                libc::SYS_fsmount,
+                libc::SYS_fspick,
+                libc::SYS_mount_setattr,
+                libc::SYS_bpf,
+                libc::SYS_userfaultfd,
+                libc::SYS_perf_event_open,
+                libc::SYS_keyctl,
+                libc::SYS_add_key,
+                libc::SYS_request_key,
+                libc::SYS_io_uring_setup,
+                libc::SYS_io_uring_enter,
+                libc::SYS_io_uring_register,
+                libc::SYS_name_to_handle_at,
+                libc::SYS_open_by_handle_at,
+                libc::SYS_pidfd_open,
+                libc::SYS_pidfd_send_signal,
+                libc::SYS_process_mrelease,
             ];
             #[cfg(target_arch = "x86_64")]
             {
-                process_creation_syscalls.push(libc::SYS_fork);
-                process_creation_syscalls.push(libc::SYS_vfork);
+                forbidden.extend([
+                    libc::SYS_fork,
+                    libc::SYS_vfork,
+                ]);
             }
 
-            for syscall in process_creation_syscalls
-                .into_iter()
-                .chain([
-                    libc::SYS_execve,
-                    libc::SYS_execveat,
-                    libc::SYS_unshare,
-                    libc::SYS_setns,
-                ]) {
+            for syscall in forbidden {
                 let policy = SeccompSyscallPolicyV1::new(
                     arch,
                     vec![libc::SYS_getpid, syscall],
