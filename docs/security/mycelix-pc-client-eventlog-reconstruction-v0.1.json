@@ -7,26 +7,42 @@
   "claim_ceiling": "ReferenceModelOnly",
   "semantics": {
     "hash_algorithm": "SHA-256",
-    "initial_pcr": "32 zero bytes for SHA-256 bank",
-    "extend": "PCR := SHA256(previous_PCR || event_digest)",
-    "ordering": "source-log order is authoritative; reconstruction must not reorder events",
-    "scope": "reconstruct recorded PCR evolution; event digest truth, reference appraisal, and platform authorization are separate decisions"
+    "initial_pcr": "32 zero bytes for each SHA-256 PCR",
+    "extend": "PCR[p] := SHA256(PCR[p] || event_digest)",
+    "ordering": "source-log order is authoritative within each PCR; the verifier preserves the full event sequence and rejects duplicate/non-increasing sequence numbers",
+    "scope": "reconstruct recorded PCR evolution; event digest truth, payload validation, reference appraisal, Quote verification, and platform authorization are separate decisions"
   },
   "event_schema": {
     "sequence": "strictly increasing integer",
     "pcr": "non-negative integer",
     "event_type": "string",
-    "digest_sha256": "exactly 64 lowercase hexadecimal characters"
+    "digest_sha256": "exactly 64 lowercase hexadecimal characters",
+    "session_id": "optional; when present, must equal the reconstruction session_id"
+  },
+  "output_schema": {
+    "profile_id": "string",
+    "profile_version": "string",
+    "event_log_sha256": "64 lowercase hex",
+    "session_id": "string",
+    "pcr_bank": "sha256",
+    "pcr_selection": "sha256:<comma-separated unique PCR ids>",
+    "event_count": "integer",
+    "reconstructed_pcr_values": "PCR-id to 64-hex-value map",
+    "reconstructed_pcrs_sha256": "canonical state hash",
+    "observed_pcr_values": "PCR-id to 64-hex-value map",
+    "observed_pcrs_sha256": "canonical state hash",
+    "match": "boolean",
+    "reconstruction_status": "PASS|DENY|INDETERMINATE"
   },
   "invariants": [
     "one PCR bank per reconstruction",
     "event sequence is strictly increasing",
-    "each event has exactly one SHA-256 measurement digest for this profile",
-    "only events selecting the target PCR are applied to that PCR state",
-    "computed final PCR must equal the independently observed/quoted PCR",
+    "each event has one SHA-256 measurement digest",
+    "each selected PCR starts at 32 zero bytes",
+    "only events selecting a PCR update that PCR",
+    "reconstructed selected-PCR state must equal independently observed selected-PCR state",
     "event-log parser success alone never establishes reconstruction PASS",
     "reference-value appraisal is separate from digest replay",
-    "event metadata substitution with unchanged digest does not alter PCR replay but remains outside appraisal truth claims",
     "missing or ambiguous observed PCR state is INDETERMINATE, not PASS"
   ],
   "vectors": [
