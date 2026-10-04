@@ -22,7 +22,8 @@ v3 records deterministic evidence for the selected patch:
 - maximum interface-plane residual in micrometers;
 - maximum aperture-radial residual in micrometers;
 - boundary patch digest derived from interface identity, exact mesh identity, selection, perimeter, and residuals;
-- `evidence_level=AdapterAttested`.
+- `evidence_level=AdapterAttested` for ordinary adapter binding;
+- `solver_entity_fingerprint` and `solver_entity_mapping_digest` when the binding is promoted to `SolverEntityAttested` after concrete solver-side entity introspection.
 
 
 The certificate rejects selections that contain non-boundary edges, omit expected rim edges, fail the declared interface geometry, or do not form one connected closed loop.
@@ -48,17 +49,22 @@ The mesh-side boundary selection represents the typed interface rim on the
 candidate surface. It is distinct from the solver's own face/patch topology;
 the opaque external solver handle records that separate adapter mapping.
 
+A live-capable adapter may additionally introspect that concrete solver entity and
+emit the sealed `SolverEntityAttested` receipt. The receipt is deliberately
+portable: the core records only the fingerprint and binding digest, while the
+adapter owns the vendor-specific entity extraction.
+
 ## Compatibility
 
 `passive-solver-boundary-binding-v2.schema.json` remains historical. New binding artifacts should use v3.
 
 ## Verification boundary
 
-`solver_binding_verified=true` together with `evidence_level=AdapterAttested` means the
-sealed adapter orchestration path accepted the adapter's mapping draft after
-checking the typed interface, exact candidate mesh, and complete candidate-surface
-interface rim. It does not mean the solver itself accepted or executed the
-boundary condition.
+`solver_binding_verified=true` means the sealed construction path established a checked binding. With `evidence_level=AdapterAttested`, the adapter's mapping draft was accepted after checking the typed interface, exact candidate mesh, and complete candidate-surface interface rim.
+
+With `evidence_level=SolverEntityAttested`, the binding additionally carries a solver-entity fingerprint and a mapping digest tied to those exact identities. This is stronger provenance, not independent solver truth: the neutral core cannot inspect a vendor-specific solver's live state itself.
+
+Neither evidence level means the solver accepted or executed the boundary.
 
 `physical_transport_unproven=true` remains mandatory. The artifact does not establish solver convergence, numerical correctness, physical transport, manufacturing fidelity, or experimental agreement.
 
