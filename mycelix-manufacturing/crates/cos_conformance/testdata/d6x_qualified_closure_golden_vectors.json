@@ -488,7 +488,7 @@
         "observation_set_id": "set-1",
         "observation_set_commitment": "set-commit",
         "d6n_assessment_commitment": "assessment:set-commit",
-        "composition_commitment": "ecdcc990d7e1e524dc06dba051e493c4bdb4c336a63cc07de25f08aa60112625",
+        "composition_commitment": "9bcfab181214c9363ec2150af4f82a309d5997fdb43200eca5a48651685929e1",
         "witness_eligibility_ids": [
           "elig-1"
         ],
@@ -501,7 +501,7 @@
         "preserved_contradictory_count": 0,
         "disposition": "EligibleCurrent",
         "qualification_transition_id": "qualified-finality-eligibility-transition",
-        "receipt_commitment": "87497695bac8f0d53fafa79df9724491c8b7dadc99f87ff614038770d5b3156b",
+        "receipt_commitment": "6c82ec3cde3c35860d4895f2b4d995bd94e770baa36ee69b1d7b8d5adc7d5a3b",
         "claim_ceiling": "D6N/D6O finality-eligibility composition reference semantics only; no semantic authority or actuation claim."
       },
       "composition": {
@@ -529,7 +529,7 @@
             "observer_generation_id": "gen-1",
             "d6n_observation_set_id": "set-1",
             "d6n_observation_set_commitment": "set-commit",
-            "d6n_assessment_item_commitment": "827b5926c08379853f1c994618eac9f529e6a4d336d1633577396e205e6548",
+            "d6n_assessment_item_commitment": "9de08f09e8d3af79ad540992084316aeb593f94d32fb0f53d7edd06148b4f7eb",
             "d6n_classification": "CorroboratingIndependent",
             "d6o_eligibility_id": "elig-1",
             "d6o_disposition": "EligibleCurrent",
@@ -537,15 +537,16 @@
             "observation_frontier_root": "frontier",
             "current_frontier_root": "frontier",
             "lifecycle_profile_id": "lifecycle",
-            "witness_commitment": "30d1ab4468bfaf44a46ce53fa8da1a1214f799ca210d5d958cdaafc5c7a8a555",
+            "witness_commitment": "e1a1d34b4fb6ccf87474225a4ae138457bdd0ccda50bc321e7db522812d3ad16",
             "claim_ceiling": "D6N/D6O finality-eligibility composition reference semantics only; no semantic authority or actuation claim."
           }
         ],
         "disposition": "EligibleCurrent",
         "qualification_transition_id": "qualified-finality-eligibility-transition",
-        "composition_commitment": "ecdcc990d7e1e524dc06dba051e493c4bdb4c336a63cc07de25f08aa60112625",
+        "composition_commitment": "9bcfab181214c9363ec2150af4f82a309d5997fdb43200eca5a48651685929e1",
         "claim_ceiling": "D6N/D6O finality-eligibility composition reference semantics only; no semantic authority or actuation claim."
-      }
+      },
+      "composition_commitment": "9bcfab181214c9363ec2150af4f82a309d5997fdb43200eca5a48651685929e1"
     },
     "authoritative_d6n_d6o": {
       "effect": {
@@ -630,8 +631,8 @@
             "classification": "CorroboratingIndependent",
             "evidence_root": "evidence-1",
             "custody_root": "custody-1",
-            "observation_commitment": "2f400ae9565dd674322b03c64a54f4ccf780c6942d143c53e3641a4b8a3288f3",
-            "assessment_commitment": "827b5926c08379853f1c994618eac9f529e6a4d336d1633577396e205e6548",
+            "observation_commitment": "158460fc739395e4ccb3073fa053e3987f72a20a4f3d71d623a0486c0a0e5d4a",
+            "assessment_commitment": "9de08f09e8d3af79ad540992084316aeb593f94d32fb0f53d7edd06148b4f7eb",
             "claim_ceiling": "Contestable external-finality reference evidence only; no physical truth, settlement, or actuation authorization claim."
           }
         ],
@@ -657,7 +658,7 @@
             "observed_state": "Applied",
             "source": "IndependentObserver",
             "evidence_root": "evidence-1",
-            "observation_commitment": "2f400ae9565dd674322b03c64a54f4ccf780c6942d143c53e3641a4b8a3288f3",
+            "observation_commitment": "158460fc739395e4ccb3073fa053e3987f72a20a4f3d71d623a0486c0a0e5d4a",
             "claim_ceiling": "External-effect finality evidence only; no provider truth, legal settlement, or actuation authorization claim."
           },
           "observer_id": "observer-1",
