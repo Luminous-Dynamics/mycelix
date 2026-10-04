@@ -64,11 +64,38 @@ if(vpProof.challenge !== fixture.presentationChallenge ||
   throw new Error('fixture challenge/domain mismatch');
 }
 
+async function mustReject(label, fn) {
+  try {
+    const result = await fn();
+    if(result?.valid === false) return;
+    throw new Error(label + ' unexpectedly verified');
+  } catch(error) {
+    if(error?.message?.includes('unexpectedly verified')) throw error;
+  }
+}
+
+const tamperedCredential = structuredClone(fixture.credential);
+tamperedCredential.credentialSubject.degree = 'Tampered claim';
+await mustReject('tampered credential', () => vc.verifyCredential({
+  credential: tamperedCredential,
+  suite,
+  documentLoader
+}));
+
+await mustReject('wrong presentation challenge', () => vc.verify({
+  presentation: fixture.presentation,
+  challenge: fixture.presentationChallenge + '-wrong',
+  suite,
+  documentLoader
+}));
+
 console.log(JSON.stringify({
   independent_implementation: 'Digital Bazaar',
   cryptosuite: fixture.cryptosuite,
   credential_valid: credentialResult.valid,
   presentation_valid: presentationResult.valid,
   challenge_validated: true,
-  domain_present: true
+  domain_present: true,
+  tampered_credential_rejected: true,
+  wrong_challenge_rejected: true
 }, null, 2));
