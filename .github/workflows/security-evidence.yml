@@ -16,10 +16,37 @@ jobs:
   security-evidence:
     runs-on: ubuntu-latest
     steps:
+      - name: Resolve exact qualification commit
+        id: target
+        shell: bash
+        env:
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          if [[ -n "${PR_HEAD_SHA}" ]]; then
+            printf 'sha=%s\n' "${PR_HEAD_SHA}" >> "${GITHUB_OUTPUT}"
+            printf 'source=pull_request.head.sha\n' >> "${GITHUB_OUTPUT}"
+          else
+            printf 'sha=%s\n' "${GITHUB_SHA}" >> "${GITHUB_OUTPUT}"
+            printf 'source=github.sha\n' >> "${GITHUB_OUTPUT}"
+          fi
+          printf 'Qualification target: %s (source=%s)\n'             "${PR_HEAD_SHA:-${GITHUB_SHA}}"             "${PR_HEAD_SHA:+pull_request.head.sha}" 
+
       - name: Check out exact commit
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
+          ref: ${{ steps.target.outputs.sha }}
           persist-credentials: false
+
+      - name: Assert checked-out commit is exact target
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ steps.target.outputs.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          test "${actual}" = "${EXPECTED_SHA}"
+          printf 'Exact qualification checkout: %s\n' "${actual}"
 
       - name: Validate contracts
         shell: bash
@@ -43,7 +70,8 @@ jobs:
           assert payload["states"] == ["PASS", "DENY", "INDETERMINATE"]
           assert len(payload["expected_vectors"]) == 6
           assert raw_parser["parser_id"] == "mycelix.pc-client.raw-tpm2-eventlog-parser.v0.1"
-          assert "payload_hex" in raw_parser["output"]
+          assert isinstance(raw_parser["output"], list)
+          assert "exact Event payload bytes as payload_hex" in raw_parser["output"]
           PY
 
       - name: Compile security verifiers and bundle regression
