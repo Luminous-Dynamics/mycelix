@@ -897,7 +897,7 @@ mod tests {
 
     #[test]
     fn conclusion_is_not_authorization() {
-        conclusion_is_not_authorization();
+        super::conclusion_is_not_authorization();
         assert!(!claim_graph_assessment_can_authorize_actuation());
     }
 
