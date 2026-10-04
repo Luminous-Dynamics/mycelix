@@ -3640,14 +3640,41 @@ fn verify_credential_signature(vc: &VerifiableCredential) -> ExternResult<bool> 
         )))
     })?;
 
-    // Compute expected content hash.
+    // Standards-conformant W3C eddsa-jcs-2022 verification uses raw 64-byte
+    // Ed25519 signatures encoded directly as base58-btc Multibase.
+    if vc.proof.cryptosuite.as_deref() == Some("eddsa-jcs-2022") {
+        if vc.proof.proof_type != "DataIntegrityProof"
+            || vc.proof.algorithm.is_some()
+            || vc.proof.proof_context.as_deref() != Some(vc.context.as_slice())
+        {
+            return Ok(false);
+        }
+
+        let signature_bytes = multibase_decode(&vc.proof.proof_value).ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Invalid W3C EdDSA JCS proofValue multibase encoding".into()
+            ))
+        })?;
+        if signature_bytes.len() != 64 {
+            return Ok(false);
+        }
+
+        let signature = Signature::from(
+            <[u8; 64]>::try_from(signature_bytes.as_slice()).map_err(|_| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "Invalid W3C EdDSA JCS signature length".into()
+                ))
+            })?,
+        );
+
+        return verify_signature(pubkey, signature, eddsa_jcs_hash_data(vc)?);
+    }
+
+    // Compute expected content hash for the native/legacy Mycelix profile.
     let content_hash = compute_credential_hash(vc);
 
-    // The native Mycelix proof profile is deliberately distinct from W3C
-    // eddsa-rdfc-2022 / eddsa-jcs-2022. Those suites require their specified
-    // canonicalization and hashing construction. Legacy credentials with no
-    // cryptosuite remain supported; an explicit but unsupported label must not
-    // silently be treated as the Mycelix-native payload format.
+    // Legacy credentials with no cryptosuite and explicitly-native credentials
+    // use the Mycelix BLAKE2b payload format. Unsupported explicit suites fail closed.
     match vc.proof.cryptosuite.as_deref() {
         None | Some("mycelix-blake2b-ed25519-2026") => {}
         Some(_) => return Ok(false),
