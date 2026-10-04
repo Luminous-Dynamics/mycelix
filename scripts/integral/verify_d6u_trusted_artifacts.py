@@ -15,6 +15,7 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
+
 ROOT = Path(__file__).parents[2]
 POLICY = ROOT / "docs/integral/d6u-trusted-builder-policy.json"
 
@@ -54,6 +55,42 @@ def file_bytes_from_api(repo: str, path: str, ref: str, token: str) -> bytes:
     payload = api_get(repo, path, ref, token)
     assert payload.get("encoding") == "base64", f"unexpected encoding for {path!r}"
     return base64.b64decode(payload["content"], validate=True)
+
+
+def verify_artifact_layout(artifact_dir: Path, expected_files: set[str]) -> None:
+    assert artifact_dir.is_dir(), f"trusted artifact directory is missing: {artifact_dir}"
+
+    all_paths = list(artifact_dir.rglob("*"))
+    symlinks = [path for path in all_paths if path.is_symlink()]
+    assert not symlinks, f"trusted artifact contains symlink(s): {sorted(map(str, symlinks))!r}"
+
+    special = [
+        path
+        for path in all_paths
+        if not path.is_dir() and not path.is_file()
+    ]
+    assert not special, f"trusted artifact contains special file(s): {sorted(map(str, special))!r}"
+
+    nested_dirs = [path for path in all_paths if path.is_dir()]
+    assert not nested_dirs, (
+        f"trusted artifact contains unexpected directory entries: "
+        f"{sorted(map(str, nested_dirs))!r}"
+    )
+
+    files = {
+        path.relative_to(artifact_dir).as_posix()
+        for path in all_paths
+        if path.is_file()
+    }
+    assert files == expected_files, (
+        f"unexpected trusted-input files: {sorted(files)!r}"
+    )
+
+    for relative in expected_files:
+        path = artifact_dir / relative
+        assert path.is_file() and not path.is_symlink(), (
+            f"trusted input is not a regular file: {relative!r}"
+        )
 
 
 def load_record(path: Path) -> dict[str, str]:
@@ -179,12 +216,7 @@ def main() -> None:
         "d6u-runtime-test.log",
         "Cargo.lock",
     }
-    files = {
-        p.relative_to(artifact_dir).as_posix()
-        for p in artifact_dir.rglob("*")
-        if p.is_file() and not p.is_symlink()
-    }
-    assert files == expected_files, f"unexpected trusted-input files: {sorted(files)!r}"
+    verify_artifact_layout(artifact_dir, expected_files)
 
     evidence = artifact_dir / "d6u-runtime-evidence.txt"
     test_log = artifact_dir / "d6u-runtime-test.log"
