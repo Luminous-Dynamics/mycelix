@@ -544,10 +544,10 @@ check_create_entry_entry_dispatch() {
   fi
   while IFS= read -r variant; do
     [[ -z "$variant" ]] && continue
-    if printf '%s\n' "$create_block" | rg -nU --pcre2 "\\bEntryTypes::\${variant}\\b" >/dev/null 2>&1; then
-      echo "OK:   $file CreateEntry dispatch covers EntryTypes::\${variant}"
+    if printf '%s\n' "$create_block" | rg -nU --pcre2 "\\bEntryTypes::${variant}\\b" >/dev/null 2>&1; then
+      echo "OK:   $file CreateEntry dispatch covers EntryTypes::$variant"
     else
-      echo "FAIL: $file CreateEntry dispatch misses EntryTypes::\${variant}"
+      echo "FAIL: $file CreateEntry dispatch misses EntryTypes::$variant"
       fail=1
     fi
   done < <(printf '%s\n' "$enum_block" | rg --pcre2 -o '^\s*[A-Za-z_][A-Za-z0-9_]*\s*\(' | sed -E 's/^\s*([A-Za-z_][A-Za-z0-9_]*).*$/\1/')
