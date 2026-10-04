@@ -3209,3 +3209,154 @@ async fn dsid_038_deactivated_issuer_fails_closed_in_credential_verification() {
             && !issuer_active,
     );
 }
+
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_039_presigned_proof_admission_fails_closed() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let issuer_app = conductor
+        .setup_app("dsid-presigned-admission", std::slice::from_ref(&dna))
+        .await
+        .unwrap();
+    let issuer = issuer_app.cells()[0].clone();
+    let issuer_did = format!("did:mycelix:{}", issuer_app.agent());
+
+    let _: Record = conductor
+        .call(&issuer.zome("did_registry"), "create_did", ())
+        .await;
+
+    let native_tamper: Result<Record, _> = conductor
+        .call_fallible(
+            &issuer.zome("verifiable_credential"),
+            "issue_credential_with_proof",
+            serde_json::json!({
+                "credential": {
+                    "@context": ["https://www.w3.org/ns/credentials/v2"],
+                    "id": "urn:uuid:dsid-039-native-tamper",
+                    "type": ["VerifiableCredential"],
+                    "issuer": issuer_did.clone(),
+                    "validFrom": "2026-10-04T00:00:00Z",
+                    "credentialSubject": {
+                        "id": issuer_did,
+                        "claim": "tampered"
+                    },
+                    "credentialSchema": {
+                        "id": "mycelix:schema:test:v1",
+                        "type": "JsonSchema"
+                    },
+                    "proof": {
+                        "type": "DataIntegrityProof",
+                        "created": "2026-10-04T00:00:00Z",
+                        "verificationMethod": format!("{}#keys-1", issuer_did),
+                        "proofPurpose": "assertionMethod",
+                        "proofValue": "znot-a-signature",
+                        "cryptosuite": "mycelix-blake2b-ed25519-2026",
+                        "algorithm": 60673
+                    },
+                    "mycelix_schema_id": "mycelix:schema:test:v1",
+                    "mycelix_created": 0
+                }
+            }),
+        )
+        .await;
+    assert!(
+        native_tamper.is_err(),
+        "tampered native proof must be rejected before a credential record is committed"
+    );
+
+    let jcs_tamper: Result<Record, _> = conductor
+        .call_fallible(
+            &issuer.zome("verifiable_credential"),
+            "issue_credential_with_proof",
+            serde_json::json!({
+                "credential": {
+                    "@context": ["https://www.w3.org/ns/credentials/v2"],
+                    "id": "urn:uuid:dsid-039-jcs-tamper",
+                    "type": ["VerifiableCredential"],
+                    "issuer": issuer_did.clone(),
+                    "validFrom": "2026-10-04T00:00:00Z",
+                    "credentialSubject": {
+                        "id": issuer_did,
+                        "claim": "tampered"
+                    },
+                    "credentialSchema": {
+                        "id": "mycelix:schema:test:v1",
+                        "type": "JsonSchema"
+                    },
+                    "proof": {
+                        "type": "DataIntegrityProof",
+                        "created": "2026-10-04T00:00:00Z",
+                        "verificationMethod": format!("{}#keys-1-multikey", issuer_did),
+                        "proofPurpose": "assertionMethod",
+                        "proofValue": "z1",
+                        "cryptosuite": "eddsa-jcs-2022"
+                    },
+                    "mycelix_schema_id": "mycelix:schema:test:v1",
+                    "mycelix_created": 0
+                }
+            }),
+        )
+        .await;
+    assert!(
+        jcs_tamper.is_err(),
+        "tampered JCS proof must be rejected at the integrity boundary"
+    );
+
+    let unsupported_pqc: Result<Record, _> = conductor
+        .call_fallible(
+            &issuer.zome("verifiable_credential"),
+            "issue_credential_with_proof",
+            serde_json::json!({
+                "credential": {
+                    "@context": ["https://www.w3.org/ns/credentials/v2"],
+                    "id": "urn:uuid:dsid-039-pqc",
+                    "type": ["VerifiableCredential"],
+                    "issuer": issuer_did.clone(),
+                    "validFrom": "2026-10-04T00:00:00Z",
+                    "credentialSubject": {
+                        "id": issuer_did,
+                        "claim": "unsupported suite"
+                    },
+                    "credentialSchema": {
+                        "id": "mycelix:schema:test:v1",
+                        "type": "JsonSchema"
+                    },
+                    "proof": {
+                        "type": "DataIntegrityProof",
+                        "created": "2026-10-04T00:00:00Z",
+                        "verificationMethod": format!("{}#keys-1", issuer_did),
+                        "proofPurpose": "assertionMethod",
+                        "proofValue": "z1",
+                        "cryptosuite": "hybrid-eddsa-mldsa65-rdfc-2024"
+                    },
+                    "mycelix_schema_id": "mycelix:schema:test:v1",
+                    "mycelix_created": 0
+                }
+            }),
+        )
+        .await;
+    assert!(
+        unsupported_pqc.is_err(),
+        "unsupported PQC/hybrid suites must be rejected rather than admitted unverified"
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("issuer", issuer_app.agent().to_string());
+    emit_evidence(
+        "DSID-039",
+        "presigned-proof-admission-fails-closed",
+        &dna,
+        agents,
+        &[],
+        "Pre-signed credential paths must never commit cryptographically unverifiable proofs: malformed legacy/native and JCS signatures are rejected at the DHT integrity boundary, while unsupported PQC/hybrid suites are rejected before commit.",
+        format!(
+            "native_tamper_rejected={} jcs_tamper_rejected={} unsupported_pqc_rejected={}",
+            native_tamper.is_err(),
+            jcs_tamper.is_err(),
+            unsupported_pqc.is_err()
+        ),
+        native_tamper.is_err() && jcs_tamper.is_err() && unsupported_pqc.is_err(),
+    );
+}
