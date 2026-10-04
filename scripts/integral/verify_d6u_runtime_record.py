@@ -120,7 +120,12 @@ def main() -> None:
         f"evidence field mismatch: extra={set(record) - set(expected)}, "
         f"missing={set(expected) - set(record)}"
     )
-    assert record == expected, f"evidence record mismatch: {record}"
+    mismatches = {
+        key: {"record": record[key], "expected": value}
+        for key, value in expected.items()
+        if record[key] != value
+    }
+    assert not mismatches, f"evidence record mismatch: {mismatches}"
 
     assert d6s2["profile"] == "D6S-CANON-2"
     assert d6s2["claim_ceiling"] == "ReferenceModelOnly"
