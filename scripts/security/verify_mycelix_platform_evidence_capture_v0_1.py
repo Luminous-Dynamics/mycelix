@@ -167,6 +167,23 @@ def session_binding(manifest: dict[str, Any]) -> str:
             "ek_template_wire_sha256": manifest["ek_template_appraisal"]["wire_sha256"],
             "ek_template_source_sha256": manifest["ek_template_appraisal"]["source_sha256"],
             "ek_template_transcript_sha256": manifest["ek_template_appraisal"]["transcript_sha256"],
+            "ek_certificate_capture_status": manifest["ek_certificate_capture"]["status"],
+            "ek_certificate_capture_verifier_id": manifest["ek_certificate_capture"]["verifier_id"],
+            "ek_certificate_capture_result_sha256": manifest["ek_certificate_capture"]["result_sha256"],
+            "ek_certificate_capture_inventory_sha256": manifest["ek_certificate_capture"]["inventory_sha256"],
+            "ek_certificate_capture_transcript_sha256": manifest["ek_certificate_capture"]["transcript_sha256"],
+            "ek_certificate_capture_script_sha256": manifest["ek_certificate_capture"]["script_sha256"],
+            "ek_certificate_capture_source_mode": manifest["ek_certificate_capture"]["source_mode"],
+            "ek_certificate_capture_candidate_handles": manifest["ek_certificate_capture"]["candidate_handles"],
+            "ek_certificate_rsa_sha256": manifest["ek_certificate_capture"]["rsa_certificate_sha256"] or "",
+            "ek_certificate_rsa_present": manifest["ek_certificate_capture"]["rsa_certificate_present"],
+            "ek_cert_spki_status": manifest["ek_cert_spki_binding"]["status"],
+            "ek_cert_spki_verifier_id": manifest["ek_cert_spki_binding"]["verifier_id"],
+            "ek_cert_spki_input_sha256": manifest["ek_cert_spki_binding"]["input_sha256"] or "",
+            "ek_cert_spki_output_sha256": manifest["ek_cert_spki_binding"]["output_sha256"] or "",
+            "ek_cert_spki_certificate_sha256": manifest["ek_cert_spki_binding"]["certificate_sha256"] or "",
+            "ek_cert_spki_certificate_source_sha256": manifest["ek_cert_spki_binding"]["certificate_source_sha256"] or "",
+            "ek_cert_spki_ek_public_source_sha256": manifest["ek_cert_spki_binding"]["ek_public_source_sha256"] or "",
         }
     )
 
