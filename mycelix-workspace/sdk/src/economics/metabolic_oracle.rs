@@ -13,7 +13,10 @@
 //! - Counter-cyclical: When stressed, lower fees + expand TEND limits
 
 use serde::{Deserialize, Serialize};
-use super::policy_profile::EconomicPolicyProfile;
+use super::{
+    policy_analysis::{EconomicAnalysisBinding, EconomicPolicyAnalysis},
+    policy_profile::EconomicPolicyProfile,
+};
 use sha2::{Digest, Sha256};
 
 /// Policy bounds preventing runaway self-modification
@@ -214,6 +217,9 @@ pub struct GovernedPolicyAdjustment {
     pub policy_profile_fingerprint: String,
     /// References to the observations used in the decision.
     pub observation_refs: Vec<String>,
+    /// Exact advisory analyses considered by governance, when applicable.
+    /// An empty set is valid for regimes that permit non-model-based decisions.
+    pub analysis_evidence: Vec<EconomicAnalysisBinding>,
     /// Policy/rule reference authorizing the decision.
     pub rule_ref: String,
     /// Authority reference for the decision.
@@ -255,6 +261,17 @@ impl GovernedPolicyAdjustment {
         {
             return Err("Policy observation references cannot be empty".into());
         }
+
+        let mut analysis_ids = BTreeSet::new();
+        for binding in &self.analysis_evidence {
+            binding.validate()?;
+            if !analysis_ids.insert(&binding.analysis_ref) {
+                return Err(format!(
+                    "Duplicate policy decision analysis reference: {}",
+                    binding.analysis_ref
+                ));
+            }
+        }
         if self.rule_ref.trim().is_empty() {
             return Err("Policy decision rule reference cannot be empty".into());
         }
@@ -280,6 +297,75 @@ impl GovernedPolicyAdjustment {
         Ok(())
     }
 
+    /// Validate exact advisory analyses referenced by this decision.
+    ///
+    /// The analyses remain advisory. This method only proves that the decision
+    /// points to the exact analysis content it claims to have considered and
+    /// that those analyses share the decision's policy-profile context.
+    pub fn validate_against_analyses(
+        &self,
+        analyses: &BTreeMap<String, EconomicPolicyAnalysis>,
+    ) -> Result<(), String> {
+        self.validate()?;
+
+        for binding in &self.analysis_evidence {
+            let analysis = analyses.get(&binding.analysis_ref).ok_or_else(|| {
+                format!(
+                    "Policy decision analysis evidence is not available: {}",
+                    binding.analysis_ref
+                )
+            })?;
+            let fingerprint = analysis.fingerprint()?;
+            if fingerprint != binding.analysis_fingerprint {
+                return Err(format!(
+                    "Policy decision analysis fingerprint does not match supplied analysis: {}",
+                    binding.analysis_ref
+                ));
+            }
+            if analysis.policy_profile_ref != self.policy_profile_ref
+                || analysis.policy_profile_fingerprint != self.policy_profile_fingerprint
+            {
+                return Err(format!(
+                    "Policy decision analysis uses a different policy profile: {}",
+                    binding.analysis_ref
+                ));
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Return the number of distinct model/input provenance groups among the
+    /// analyses considered by this decision. Different analysis IDs do not
+    /// automatically imply independent analyses.
+    ///
+    /// This is an informational measurement. It does not impose a universal
+    /// minimum diversity requirement on any policy regime.
+    pub fn distinct_analysis_provenance_count(
+        &self,
+        analyses: &BTreeMap<String, EconomicPolicyAnalysis>,
+    ) -> Result<usize, String> {
+        self.validate_against_analyses(analyses)?;
+
+        let mut groups = BTreeSet::new();
+        for binding in &self.analysis_evidence {
+            let analysis = analyses
+                .get(&binding.analysis_ref)
+                .expect("validated analysis binding must resolve");
+            let scenario_fingerprint = analysis
+                .scenario
+                .as_ref()
+                .map(|scenario| scenario.scenario_fingerprint.as_str())
+                .unwrap_or("scenario:none");
+            groups.insert((
+                analysis.model_ref.as_str(),
+                analysis.observation_snapshot_fingerprint.as_str(),
+                scenario_fingerprint,
+            ));
+        }
+        Ok(groups.len())
+    }
+
     /// Return a deterministic content fingerprint for the governed decision.
     ///
     /// The fingerprint is a tamper-evident identifier, not a signature or proof
@@ -289,12 +375,18 @@ impl GovernedPolicyAdjustment {
         let mut observation_refs = self.observation_refs.clone();
         observation_refs.sort();
 
+        let mut analysis_evidence = self.analysis_evidence.clone();
+        analysis_evidence.sort_by_key(|binding| {
+            (binding.analysis_ref.clone(), binding.analysis_fingerprint.clone())
+        });
+
         let payload = serde_json::json!({
-            "version": 1,
+            "version": 2,
             "decision_id": self.decision_id,
             "policy_profile_ref": self.policy_profile_ref,
             "policy_profile_fingerprint": self.policy_profile_fingerprint,
             "observation_refs": observation_refs,
+            "analysis_evidence": analysis_evidence,
             "rule_ref": self.rule_ref,
             "authority_ref": self.authority_ref,
             "adjustment": self.adjustment,
@@ -697,6 +789,7 @@ mod tests {
             policy_profile_ref: "profile:za:reference:v1".into(),
             policy_profile_fingerprint: "a".repeat(64),
             observation_refs: Vec::new(),
+            analysis_evidence: Vec::new(),
             rule_ref: "rule:countercyclical:v1".into(),
             authority_ref: "authority:dao-1".into(),
             adjustment,
