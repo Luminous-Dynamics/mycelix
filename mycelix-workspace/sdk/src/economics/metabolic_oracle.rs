@@ -732,6 +732,8 @@ mod tests {
         let adjustment = oracle.generate_adjustment();
         let left = GovernedPolicyAdjustment {
             decision_id: "decision:1".into(),
+            policy_profile_ref: "profile:za:reference:v1".into(),
+            policy_profile_fingerprint: "a".repeat(64),
             observation_refs: vec!["observation:b".into(), "observation:a".into()],
             rule_ref: "rule:countercyclical:v1".into(),
             authority_ref: "authority:dao-1".into(),
@@ -799,6 +801,8 @@ mod tests {
         let mut oracle = MetabolicOracle::new();
         let decision = GovernedPolicyAdjustment {
             decision_id: "decision:1".into(),
+            policy_profile_ref: "profile:za:reference:v1".into(),
+            policy_profile_fingerprint: "a".repeat(64),
             observation_refs: vec!["observation:vitality:1".into()],
             rule_ref: "rule:countercyclical:v1".into(),
             authority_ref: "authority:dao-1".into(),
