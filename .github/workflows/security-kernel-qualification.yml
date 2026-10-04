@@ -180,7 +180,14 @@ jobs:
               ["event_id", "actor_id", "capability_ref"],
               "deserialize_provenance_identifier",
           )
-          security_event_wire_body = security_event_wire.group("body") if security_event_wire else ""
+          security_event_wire = re.search(
+              r"struct SecurityEventWire\s*\{(?P<body>.*?)\n\}",
+              events,
+              re.DOTALL,
+          )
+          if not security_event_wire:
+              raise SystemExit("security-event regression: SecurityEventWire disappeared")
+          security_event_wire_body = security_event_wire.group("body")
           if not re.search(
               r'#[serde\(\s*default,\s*deserialize_with\s*=\s*'
               r'"deserialize_optional_provenance_identifier"\s*\)]\s*'
@@ -192,15 +199,10 @@ jobs:
                   "security-event regression: bounded recovery-correlation deserializer is not attached to SecurityEventWire"
               )
 
-          security_event_wire = re.search(
-              r"struct SecurityEventWire\s*\{(?P<body>.*?)\n\}",
-              events,
-              re.DOTALL,
-          )
-          if not security_event_wire or not re.search(
+          if not re.search(
               r'#\[serde\(deserialize_with\s*=\s*"deserialize_provenance_refs"\)\]\s*'
               r'provenance:\s*Vec<ProvenanceRef>',
-              security_event_wire.group("body"),
+              security_event_wire_body,
           ):
               raise SystemExit("security-event regression: bounded provenance deserializer is not attached to SecurityEventWire")
           PY
