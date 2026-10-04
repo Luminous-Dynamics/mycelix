@@ -16,7 +16,7 @@ on:
       - '.github/workflows/identity-cargo-lock-verifier.yml'
 
 concurrency:
-  group: identity-cargo-lock-${{ github.event.pull_request.number || github.ref_name }}
+  group: identity-cargo-lock-${{ github.event.pull_request.head.sha || github.sha }}
   cancel-in-progress: true
 
 jobs:
