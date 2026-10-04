@@ -193,8 +193,12 @@ jobs:
         run: |
           set -o pipefail
           cd mycelix-identity/tests
+          cargo_args=(--test dsid_lifecycle_lab)
+          if [[ -f Cargo.lock ]]; then
+            cargo_args+=(--locked)
+          fi
           nix develop --no-update-lock-file --no-write-lock-file ../.#ci --command \
-            cargo test --test dsid_lifecycle_lab \
+            cargo test "${cargo_args[@]}" \
               -- --include-ignored --nocapture --test-threads=1 \
             | tee "$GITHUB_WORKSPACE/dsid-lifecycle-evidence.txt"
 
@@ -446,11 +450,18 @@ jobs:
             dsid-hc-version.txt
             mycelix-identity/flake.lock.sha256
             mycelix-identity/Cargo.lock.sha256
-      - name: Check Identity UI
+      - name: Check Identity UI in pinned CI environment
         run: |
-          cargo check \
-            --manifest-path mycelix-identity/apps/leptos/Cargo.toml \
+          cd mycelix-identity
+          cargo_args=(
+            --manifest-path apps/leptos/Cargo.toml
             --target wasm32-unknown-unknown
+          )
+          if [[ -f apps/leptos/Cargo.lock ]]; then
+            cargo_args+=(--locked)
+          fi
+          nix develop --no-update-lock-file --no-write-lock-file .#ci --command \
+            cargo check "${cargo_args[@]}"
 
       - name: Remove only generated excluded-workspace lockfiles
         run: |
