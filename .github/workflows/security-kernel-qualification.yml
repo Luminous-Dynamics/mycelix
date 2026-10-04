@@ -150,7 +150,7 @@ jobs:
                   raise SystemExit(f"security-wire regression: {struct_name} disappeared")
               body = match.group("body")
               for field in fields:
-                  expected = f'#[serde(deserialize_with = "{decoder}")]\\n    {field}:'
+                  expected = f'#[serde(deserialize_with = "{decoder}")]\n    {field}:'
                   if expected not in body:
                       raise SystemExit(
                           f"security-wire regression: {struct_name}.{field} lost {decoder}"
@@ -182,8 +182,8 @@ jobs:
           )
           security_event_wire_body = security_event_wire.group("body") if security_event_wire else ""
           if not re.search(
-              r'#[serde\\(\\s*default,\\s*deserialize_with\\s*=\\s*'
-              r'"deserialize_optional_provenance_identifier"\\s*\\)]\\s*'
+              r'#[serde\(\s*default,\s*deserialize_with\s*=\s*'
+              r'"deserialize_optional_provenance_identifier"\s*\)]\s*'
               r'recovery_correlation:',
               security_event_wire_body,
               re.DOTALL,
