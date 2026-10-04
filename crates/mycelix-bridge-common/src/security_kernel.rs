@@ -1578,6 +1578,24 @@ mod tests {
     }
 
     #[test]
+    fn zero_freshness_digest_fails_closed_at_verification() {
+        let cap = capability();
+        let evidence = VerificationEvidence::new_for_capability_with_freshness_digest(
+            &cap,
+            [0; 32],
+            SignatureVerification::Verified,
+            RevocationStatus::Current,
+            AuthorityResolution::Unambiguous,
+            200,
+        );
+
+        assert_eq!(
+            verify_capability(cap, evidence, 150).unwrap_err(),
+            AuthorizationDecision::Indeterminate(AuthorizationIndeterminacy::AmbiguousAuthority)
+        );
+    }
+
+    #[test]
     fn missing_authority_binding_fails_closed_at_verification() {
         let cap = capability();
         let evidence =
