@@ -98,9 +98,20 @@ def adapt(
     if not version or int(version.group(1)) != 1:
         raise ValueError("only tpm2_eventlog YAML version 1 is supported")
 
+    payloads: dict[int, dict[str, Any]] = {}
+    if payload_json is not None:
+        raw = json.loads(payload_json.read_text(encoding="utf-8"))
+        raw_events = raw.get("events") if isinstance(raw, dict) else None
+        if not isinstance(raw_events, list):
+            raise ValueError("raw payload parser output must contain an events list")
+        for item in raw_events:
+            if not isinstance(item, dict) or not isinstance(item.get("sequence"), int):
+                raise ValueError("raw payload parser emitted an invalid event")
+            payloads[item["sequence"]] = item
+        if len(payloads) != len(raw_events):
+            raise ValueError("raw payload parser emitted duplicate event sequence")
     events: list[dict[str, Any]] = []
-    previous_event_num = -1
-    for event_match in EVENT_RE.finditer(yaml_text):
+    previous_event_num = -1    for event_match in EVENT_RE.finditer(yaml_text):
         event_num = int(event_match.group("num"))
         body = event_match.group("body")
         pcr_match = PCR_RE.search(body)
