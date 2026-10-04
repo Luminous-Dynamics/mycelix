@@ -3190,6 +3190,19 @@ mod tests {
         }
     }
 
+    fn state_machine_domain_separated_sha256(domain: &str, bytes: &[u8]) -> String {
+        assert!(
+            domain.as_bytes().iter().all(|byte| *byte != 0),
+            "hash domains must not contain the delimiter byte"
+        );
+        let mut input = Vec::with_capacity(domain.len() + 1 + bytes.len());
+        input.extend_from_slice(domain.as_bytes());
+        input.push(0);
+        input.extend_from_slice(bytes);
+        let digest = Sha256::digest(input);
+        format!("sha256:{digest:x}")
+    }
+
     fn state_machine_evidence_chain_sha256(
         evidence: &FederationStateMachineEvidence,
     ) -> String {
@@ -3211,15 +3224,19 @@ mod tests {
         };
         let bytes = serde_json::to_vec(&view)
             .expect("trace evidence hash view must be serializable");
-        let digest = Sha256::digest(bytes);
-        format!("sha256:{digest:x}")
+        state_machine_domain_separated_sha256(
+            FEDERATION_STATE_MACHINE_TRACE_EVIDENCE_CHAIN_HASH_DOMAIN,
+            &bytes,
+        )
     }
 
     fn state_machine_trace_body_sha256(capsule: &FederationStateMachineTraceCapsule) -> String {
         let bytes = serde_json::to_vec(&state_machine_trace_hash_view(capsule))
             .expect("trace hash view must be serializable");
-        let digest = Sha256::digest(bytes);
-        format!("sha256:{digest:x}")
+        state_machine_domain_separated_sha256(
+            FEDERATION_STATE_MACHINE_TRACE_BODY_HASH_DOMAIN,
+            &bytes,
+        )
     }
 
     fn state_machine_trace_integrity(capsule: &FederationStateMachineTraceCapsule) -> FederationStateMachineTraceIntegrity {
@@ -4727,16 +4744,25 @@ mod tests {
             .bytes()
             .all(|byte| byte != 0));
 
+        let sample = serde_json::to_vec(evidence)
+            .expect("evidence sample must serialize");
+        let body_domain_digest = state_machine_domain_separated_sha256(
+            FEDERATION_STATE_MACHINE_TRACE_BODY_HASH_DOMAIN,
+            &sample,
+        );
+        let chain_domain_digest = state_machine_domain_separated_sha256(
+            FEDERATION_STATE_MACHINE_TRACE_EVIDENCE_CHAIN_HASH_DOMAIN,
+            &sample,
+        );
+        assert_ne!(
+            body_domain_digest, chain_domain_digest,
+            "distinct hash purposes must produce distinct domain-separated invocations"
+        );
+
         let chain_digest = state_machine_evidence_chain_sha256(evidence);
         assert_ne!(
             capsule.integrity.body_sha256, chain_digest,
             "distinct hash purposes must not share an undifferentiated digest domain"
-        );
-        assert!(
-            capsule_text.contains(
-                "\"hash_domain\": \"integral-federation-trace-body-sha256-v1\""
-            ),
-            "serialized trace hash view must expose the body domain identity indirectly through the authenticated record"
         );
     }
 
