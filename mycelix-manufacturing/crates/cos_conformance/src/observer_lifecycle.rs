@@ -500,22 +500,49 @@ impl ObserverLifecycleLedgerV1 {
     /// but a deserialized ledger can bypass them, so qualified consumers must
     /// re-check the whole committed object graph at the authority boundary.
     pub fn authoritative_state_valid(&self) -> bool {
-        self.generations.values().all(ObserverGenerationV1::commitment_matches)
+        // A deserialized ledger is an authority input, not a construction API:
+        // validate both each object's commitment and the map's referential
+        // integrity before any qualified consumer relies on it.
+        self.generations.iter().all(|(id, generation)| {
+            id == &generation.generation_id && generation.commitment_matches()
+        })
             && self
                 .generations
                 .keys()
                 .all(|id| self.validate_transition_chain(id))
-            && self
-                .transitions
-                .values()
-                .all(ObserverStatusTransitionV1::commitment_matches)
-            && self.dependency_snapshots.values().all(|snapshot| {
-                snapshot.commitment_matches() && self.dependency_chain_complete(&snapshot.snapshot_id)
+            && self.transitions.iter().all(|(id, transition)| {
+                id == &transition.transition_id
+                    && self.generations.contains_key(&transition.predecessor_generation_id)
+                    && transition
+                        .successor_generation_id
+                        .as_ref()
+                        .is_none_or(|successor_id| self.generations.contains_key(successor_id))
+                    && transition.commitment_matches()
             })
+            && self.dependency_snapshots.iter().all(|(id, snapshot)| {
+                id == &snapshot.snapshot_id
+                    && snapshot.commitment_matches()
+                    && self.dependency_chain_complete(&snapshot.snapshot_id)
+                    && self.generations.contains_key(&snapshot.observer_generation_id)
+            })
+            && self.rotations.iter().all(|(id, rotation)| {
+                id == &rotation.certificate_id
+                    && rotation.commitment_matches()
+                    && rotation.continuity_root_matches()
+                    && self.generations.contains_key(&rotation.predecessor_generation_id)
+                    && self.generations.contains_key(&rotation.successor_generation_id)
+                    && self.transitions.contains_key(&rotation.predecessor_transition_id)
+            })
+            && self
+                .eligibility_receipts
+                .iter()
+                .all(|(id, receipt)| {
+                    id == &receipt.eligibility_id
+                        && receipt.commitment_matches()
+                        && self.generations.contains_key(&receipt.observer_generation_id)
+                        && self.dependency_snapshots.contains_key(&receipt.dependency_snapshot_id)
+                })
             && self.rotations.values().all(|rotation| {
-                if !rotation.commitment_matches() || !rotation.continuity_root_matches() {
-                    return false;
-                }
                 let Some(predecessor) =
                     self.generations.get(&rotation.predecessor_generation_id)
                 else {
@@ -536,10 +563,6 @@ impl ObserverLifecycleLedgerV1 {
                     ObserverRotationDispositionV1::Accepted
                 )
             })
-            && self
-                .eligibility_receipts
-                .values()
-                .all(EvidenceEligibilityReceiptV1::commitment_matches)
     }
 
     pub fn record_generation(
@@ -1701,6 +1724,59 @@ mod tests {
         assert!(
             !ledger.authoritative_state_valid(),
             "a self-consistent but semantically inconsistent rotation must not survive the authoritative ledger boundary"
+        );
+    }
+
+    #[test]
+    fn authoritative_state_rejects_mismatched_snapshot_map_key() {
+        let (ledger, _generation, snapshot) = active_ledger();
+        let mut tampered = ledger;
+        let snapshot = tampered
+            .dependency_snapshots
+            .remove(&snapshot.snapshot_id)
+            .expect("active fixture snapshot");
+        tampered
+            .dependency_snapshots
+            .insert("attacker-key".into(), snapshot);
+
+        assert!(
+            !tampered.authoritative_state_valid(),
+            "authoritative lifecycle validation must bind snapshot map keys to snapshot identities"
+        );
+    }
+
+    #[test]
+    fn authoritative_state_rejects_orphan_transition() {
+        let (mut ledger, _generation, _snapshot) = active_ledger();
+        let mut orphan = ObserverStatusTransitionV1 {
+            transition_id: "orphan-transition".into(),
+            observer_id: "observer-A".into(),
+            predecessor_generation_id: "missing-generation".into(),
+            successor_generation_id: None,
+            from_status: ObserverStatusV1::Active,
+            to_status: ObserverStatusV1::Suspended,
+            effective_frontier_root: "frontier-2".into(),
+            effective_frontier_sequence: 2,
+            semantic_environment_root: "env-1".into(),
+            observation_profile_id: "obs-profile-1".into(),
+            evidence_root: "evidence-missing-generation".into(),
+            custody_root: "custody-missing-generation".into(),
+            upstream_observer_ids: BTreeSet::new(),
+            upstream_evidence_roots: BTreeSet::new(),
+            reason: "orphan regression".into(),
+            qualification_transition_id: "qualification-orphan".into(),
+            transition_commitment: String::new(),
+            claim_ceiling: OBSERVER_LIFECYCLE_CLAIM_CEILING.into(),
+        };
+        orphan.transition_commitment = orphan.recomputed_commitment();
+        assert!(orphan.commitment_matches());
+        ledger
+            .transitions
+            .insert(orphan.transition_id.clone(), orphan);
+
+        assert!(
+            !ledger.authoritative_state_valid(),
+            "authoritative lifecycle validation must reject committed transitions detached from any generation"
         );
     }
 
