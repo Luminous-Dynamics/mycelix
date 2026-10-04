@@ -665,6 +665,7 @@ mod tests {
         let adjustment = oracle.generate_adjustment();
         let decision = GovernedPolicyAdjustment {
             decision_id: "decision:1".into(),
+            policy_profile_ref: "profile:za:reference:v1".into(),
             observation_refs: vec!["observation:vitality:1".into()],
             rule_ref: "rule:countercyclical:v1".into(),
             authority_ref: "authority:dao-1".into(),
