@@ -12,8 +12,9 @@
     "PCR0 HCRTM events are preserved and left for the replay profile to classify as unsupported initial-state adjustment",
     "the adapter never selects a SHA-1 or SHA-384 digest as a SHA-256 digest",
     "missing or ambiguous SHA-256 digests on extending events are DENY",
-    "observed SHA-256 PCR values are parsed separately from the final pcrs section",
-    "the exact binary event-log digest and adapter source digest are emitted into the canonical input"
+    "observed SHA-256 PCR values are supplied from a separate tpm2_pcrread-derived JSON artifact; the tpm2_eventlog trailing pcrs section is not an observation source",
+    "the exact binary event-log digest and adapter source digest are emitted into the canonical input",
+    "the observed-PCR JSON artifact must match the selected PCR set exactly"
   ],
   "supported_yaml_version": 1,
   "unsupported": [
