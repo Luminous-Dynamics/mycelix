@@ -661,7 +661,19 @@ mod linux {
                 })
             };
 
-            if !is_argument_load(body_start) {
+            // A sole ALLOW is the canonical encoding of an unconditional
+            // single-clause rule. Multi-clause rules cannot contain empty
+            // clauses by policy construction, so every other rule body must
+            // begin with an argument predicate.
+            let starts_with_unconditional_allow = filter
+                .get(body_start)
+                .is_some_and(|instruction| {
+                    instruction.code == BPF_RET | BPF_K
+                        && instruction.k == SECCOMP_RET_ALLOW
+                });
+            if !is_argument_load(body_start)
+                && (!starts_with_unconditional_allow || body_start + 1 != body_end)
+            {
                 return Err(SeccompError::CompilerInvariantViolation);
             }
 
