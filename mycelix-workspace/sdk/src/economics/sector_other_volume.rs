@@ -202,6 +202,15 @@ impl SectorOtherVolumeChangeMatrix {
         Ok(())
     }
 
+    /// Checked stock delta attributable to this other-volume projection.
+    pub fn instrument_delta(
+        &self,
+        sector: EconomicSector,
+        instrument: BalanceSheetInstrument,
+    ) -> Result<i128, String> {
+        self.expected_instrument_delta(sector, instrument)
+    }
+
     fn expected_instrument_delta(
         &self,
         sector: EconomicSector,
