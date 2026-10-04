@@ -3947,3 +3947,188 @@ async fn dsid_042_key_rotation_revokes_stale_presentation_authorization() {
     );
 }
 
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_043_request_bound_issuance_is_deterministically_idempotent() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let requester_app = conductor
+        .setup_app("dsid-vc-idempotent-requester", std::slice::from_ref(&dna))
+        .await
+        .unwrap();
+    let issuer_app = conductor
+        .setup_app("dsid-vc-idempotent-issuer", std::slice::from_ref(&dna))
+        .await
+        .unwrap();
+
+    let requester = requester_app.cells()[0].clone();
+    let issuer = issuer_app.cells()[0].clone();
+    let requester_did = format!("did:mycelix:{}", requester_app.agent());
+    let issuer_did = format!("did:mycelix:{}", issuer_app.agent());
+
+    let _: Record = conductor
+        .call(&requester.zome("did_registry"), "create_did", ())
+        .await;
+    let _: Record = conductor
+        .call(&issuer.zome("did_registry"), "create_did", ())
+        .await;
+
+    let request: Record = conductor
+        .call(
+            &requester.zome("verifiable_credential"),
+            "request_credential",
+            serde_json::json!({
+                "issuer_did": issuer_did.clone(),
+                "schema_id": "mycelix:schema:education:degree:v1",
+                "claims": {
+                    "degree": "DSID deterministic fulfillment"
+                },
+                "evidence": []
+            }),
+        )
+        .await;
+
+    let request_value: serde_json::Value = request
+        .entry()
+        .to_app_option()
+        .unwrap()
+        .unwrap();
+    let request_id = request_value["id"]
+        .as_str()
+        .expect("request ID must exist")
+        .to_owned();
+
+    await_consistency(&[requester.clone(), issuer.clone()])
+        .await
+        .expect("request must reach the issuer");
+
+    let _: Record = conductor
+        .call(
+            &issuer.zome("verifiable_credential"),
+            "update_request_status",
+            serde_json::json!({
+                "request_id": request_id.clone(),
+                "new_status": "UnderReview"
+            }),
+        )
+        .await;
+    let _: Record = conductor
+        .call(
+            &issuer.zome("verifiable_credential"),
+            "update_request_status",
+            serde_json::json!({
+                "request_id": request_id.clone(),
+                "new_status": "Approved"
+            }),
+        )
+        .await;
+
+    let mut material = Vec::new();
+    material.extend_from_slice(issuer_did.as_bytes());
+    material.push(0);
+    material.extend_from_slice(request_id.as_bytes());
+    let deterministic_id = format!(
+        "urn:mycelix:request-credential:{}",
+        bs58::encode(holo_hash::blake2b_256(&material))
+            .with_alphabet(bs58::Alphabet::BITCOIN)
+            .into_string()
+    );
+
+    let preexisting: Record = conductor
+        .call(
+            &issuer.zome("verifiable_credential"),
+            "issue_credential",
+            serde_json::json!({
+                "subject_did": requester_did.clone(),
+                "schema_id": "mycelix:schema:education:degree:v1",
+                "claims": {
+                    "degree": "DSID deterministic fulfillment"
+                },
+                "credential_types": ["QualificationCredential"],
+                "issuer_name": "DSID Idempotency Issuer",
+                "expiration_days": 365,
+                "enable_revocation": false,
+                "strict_schema": false,
+                "credential_id": deterministic_id.clone(),
+                "proof_profile": "W3cEddsaJcs2022"
+            }),
+        )
+        .await;
+
+    let fulfilled: Record = conductor
+        .call(
+            &issuer.zome("verifiable_credential"),
+            "issue_credential_for_request",
+            serde_json::json!({
+                "request_id": request_id.clone(),
+                "claims": {
+                    "degree": "DSID deterministic fulfillment"
+                },
+                "credential_types": ["QualificationCredential"],
+                "issuer_name": "Ignored because deterministic credential already exists",
+                "expiration_days": 365,
+                "enable_revocation": false,
+                "strict_schema": false
+            }),
+        )
+        .await;
+
+    assert_eq!(
+        fulfilled.action_address(),
+        preexisting.action_address(),
+        "request-bound issuance must reuse the deterministic pre-existing credential"
+    );
+
+    await_consistency(&[requester.clone(), issuer.clone()])
+        .await
+        .expect("idempotent fulfillment must reach requester");
+
+    let final_request: Option<Record> = conductor
+        .call(
+            &requester.zome("verifiable_credential"),
+            "get_credential_request",
+            serde_json::json!({
+                "issuer_did": issuer_did,
+                "request_id": request_id
+            }),
+        )
+        .await;
+    let final_value: serde_json::Value = final_request
+        .expect("fulfilled request must resolve")
+        .entry()
+        .to_app_option()
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(final_value["status"], "Issued");
+    assert_eq!(
+        final_value["issued_credential"].as_str(),
+        Some(preexisting.action_address().to_string().as_str())
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("requester", requester_app.agent().to_string());
+    agents.insert("issuer", issuer_app.agent().to_string());
+    emit_evidence(
+        "DSID-043",
+        "request-bound-issuance-is-deterministically-idempotent",
+        &dna,
+        agents,
+        &[&request, &preexisting, &fulfilled, &final_request.unwrap()],
+        "Request-bound issuance derives one deterministic credential ID from issuer and request ID; an existing valid fulfillment is reused and then cryptographically bound into Issued state instead of minting a second credential.",
+        format!(
+            "deterministic_id_present={} reused_action={} issued_status={} issued_pointer_matches={}",
+            deterministic_id.starts_with("urn:mycelix:request-credential:"),
+            fulfilled.action_address() == preexisting.action_address(),
+            final_value["status"],
+            final_value["issued_credential"].as_str()
+                == Some(preexisting.action_address().to_string().as_str())
+        ),
+        deterministic_id.starts_with("urn:mycelix:request-credential:")
+            && fulfilled.action_address() == preexisting.action_address()
+            && final_value["status"] == "Issued"
+            && final_value["issued_credential"].as_str()
+                == Some(preexisting.action_address().to_string().as_str()),
+    );
+}
+
