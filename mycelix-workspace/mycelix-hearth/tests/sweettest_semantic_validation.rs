@@ -222,9 +222,9 @@ fn assert_integrity_rejection<T>(result: Result<T, ConductorApiError>, expected_
     match err {
         ConductorApiError::CellError(CellError::WorkflowError(wfe)) => match *wfe {
             WorkflowError::SourceChainError(SourceChainError::InvalidCommit(reason)) => {
-                assert!(
-                    reason.contains(expected_reason),
-                    "expected integrity rejection reason {expected_reason:?}, got {reason:?}"
+                assert_eq!(
+                    reason, expected_reason,
+                    "expected exact integrity rejection reason {expected_reason:?}, got {reason:?}"
                 );
             }
             other => panic!("expected SourceChainError::InvalidCommit, got {other:?}"),
@@ -257,6 +257,24 @@ async fn test_invalid_decision_entry_reaches_integrity_validation() {
         .await;
 
     assert_integrity_rejection(result, &expected_reason("test_invalid_decision_entry_reaches_integrity_validation"));
+
+    let valid_result: Result<Record, _> = conductor
+        .call_fallible(
+            &alice.zome("hearth_decisions"),
+            "create_decision",
+            CreateDecisionInput {
+                hearth_hash,
+                title: "Valid decision".into(),
+                description: "Positive control after repairing the targeted invariant.".into(),
+                decision_type: DecisionType::MajorityVote,
+                eligible_roles: vec![MemberRole::Founder],
+                options: vec!["Yes".into(), "No".into()],
+                deadline: Timestamp::from_micros(Timestamp::now().as_micros() + 3_600_000_000),
+                quorum_bp: Some(5000),
+            },
+        )
+        .await;
+    assert!(valid_result.is_ok(), "repaired decision input must be accepted by validation");
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -281,6 +299,22 @@ async fn test_invalid_resource_entry_reaches_integrity_validation() {
         .await;
 
     assert_integrity_rejection(result, &expected_reason("test_invalid_resource_entry_reaches_integrity_validation"));
+
+    let valid_result: Result<Record, _> = conductor
+        .call_fallible(
+            &alice.zome("hearth_resources"),
+            "register_resource",
+            RegisterResourceInput {
+                hearth_hash,
+                name: "Workshop drill".into(),
+                description: "Positive control after repairing the targeted invariant.".into(),
+                resource_type: ResourceType::Tool,
+                condition: "Good".into(),
+                location: "Workshop".into(),
+            },
+        )
+        .await;
+    assert!(valid_result.is_ok(), "repaired resource input must be accepted by validation");
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -306,6 +340,23 @@ async fn test_invalid_story_entry_reaches_integrity_validation() {
         .await;
 
     assert_integrity_rejection(result, &expected_reason("test_invalid_story_entry_reaches_integrity_validation"));
+
+    let valid_result: Result<Record, _> = conductor
+        .call_fallible(
+            &alice.zome("hearth_stories"),
+            "create_story",
+            CreateStoryInput {
+                hearth_hash,
+                title: "Valid story".into(),
+                content: "Positive control after repairing the targeted invariant.".into(),
+                story_type: StoryType::Memory,
+                media_hashes: vec![],
+                tags: vec![],
+                visibility: HearthVisibility::AllMembers,
+            },
+        )
+        .await;
+    assert!(valid_result.is_ok(), "repaired story input must be accepted by validation");
 }
 
 
@@ -346,6 +397,20 @@ async fn test_invalid_story_update_reaches_integrity_validation() {
         .await;
 
     assert_integrity_rejection(result, &expected_reason("test_invalid_story_update_reaches_integrity_validation"));
+
+    let valid_result: Result<Record, _> = conductor
+        .call_fallible(
+            &alice.zome("hearth_stories"),
+            "update_story",
+            UpdateStoryInput {
+                story_hash: story.action_address().clone(),
+                title: "Repaired story title".into(),
+                content: "Positive control after repairing the targeted invariant.".into(),
+                tags: vec![],
+            },
+        )
+        .await;
+    assert!(valid_result.is_ok(), "repaired story update must be accepted by validation");
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -373,6 +438,26 @@ async fn test_invalid_bridge_notification_reaches_integrity_validation() {
         .await;
 
     assert_integrity_rejection(result, &expected_reason("test_invalid_bridge_notification_reaches_integrity_validation"));
+
+    let valid_result: Result<ActionHash, _> = conductor
+        .call_fallible(
+            &alice.zome("hearth_bridge"),
+            "receive_notification",
+            CrossClusterNotificationInput {
+                schema_version: 1,
+                source_cluster: "source-cluster".into(),
+                source_zome: "test".into(),
+                event_type: "test_event".into(),
+                target_clusters: vec![],
+                target_agents: vec![],
+                payload: "{}".into(),
+                priority: 1,
+                created_at: Timestamp::from_micros(1),
+                expires_at: None,
+            },
+        )
+        .await;
+    assert!(valid_result.is_ok(), "repaired bridge notification must be accepted by validation");
 }
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
@@ -437,6 +522,43 @@ async fn test_cross_hearth_collection_story_link_reaches_integrity_validation() 
     assert_integrity_rejection(
         result,
         &expected_reason("test_cross_hearth_collection_story_link_reaches_integrity_validation"),
+    );
+
+    let valid_result = conductor
+        .call_fallible(
+            &alice.zome("hearth_stories"),
+            "add_to_collection",
+            AddToCollectionInput {
+                collection_hash: collection.action_address().clone(),
+                story_hash: {
+                    let record: Record = conductor
+                        .call(
+                            &alice.zome("hearth_stories"),
+                            "create_story",
+                            CreateStoryInput {
+                                hearth_hash: collection
+                                    .entry()
+                                    .to_app_option()
+                                    .unwrap()
+                                    .unwrap()
+                                    .hearth_hash,
+                                title: "Hearth A Story".into(),
+                                content: "Positive control using the same hearth as the collection.".into(),
+                                story_type: StoryType::Memory,
+                                media_hashes: vec![],
+                                tags: vec![],
+                                visibility: HearthVisibility::AllMembers,
+                            },
+                        )
+                        .await;
+                    record.action_address().clone()
+                },
+            },
+        )
+        .await;
+    assert!(
+        valid_result.is_ok(),
+        "same-hearth collection story link must be accepted by validation"
     );
 }
 
