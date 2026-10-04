@@ -1133,8 +1133,11 @@ fn validate_example(x: &Example) -> ExternResult<ValidateCallbackResult> {
 }
 '''
 
-def branch_has_rejection(test_source, code):
-    test_masked = token_re.sub(lambda m: "\n" * m.group(0).count("\n"), test_source)
+def branch_has_rejection(test_source, code, expected_reason=None):
+    test_masked = token_re.sub(
+        lambda m: "".join("\n" if c == "\n" else " " for c in m.group(0)),
+        test_source,
+    )
     match = re.search(rf'\bif\s+{re.escape(code)}\s*\{{', test_masked)
     if not match:
         return False
@@ -1146,20 +1149,45 @@ def branch_has_rejection(test_source, code):
         elif test_masked[index] == "}":
             depth -= 1
             if depth == 0:
-                return bool(
-                    re.search(
-                        r'ValidateCallbackResult::Invalid|\breturn\s+Err\s*\(',
-                        test_masked[opening + 1 : index],
-                    )
+                branch = test_masked[opening + 1 : index]
+                strict_invalid = re.search(
+                    r'\breturn\s+Ok\s*\(\s*ValidateCallbackResult::Invalid\s*\(',
+                    branch,
                 )
+                if not strict_invalid:
+                    return False
+                if expected_reason is None:
+                    return True
+                raw_branch = test_source[opening + 1 : index]
+                literals = [
+                    match.group(0)
+                    for match in token_re.finditer(raw_branch)
+                    if match.group(0).startswith('"')
+                ]
+                return f'"{expected_reason}"' in literals
     return False
 
-assert not branch_has_rejection(oracle_valid, "x.field.is_empty()"), (
+assert not branch_has_rejection(oracle_valid, "x.field.is_empty()", "field cannot be empty"), (
     "branch-local oracle accepted unrelated Invalid rejection"
 )
-assert branch_has_rejection(oracle_invalid, "x.field.is_empty()"), (
-    "branch-local oracle rejected the genuine Invalid branch"
+assert branch_has_rejection(
+    oracle_invalid, "x.field.is_empty()", "field cannot be empty"
+), "branch-local oracle rejected the genuine exact Invalid branch"
+oracle_err = oracle_invalid.replace(
+    'return Ok(ValidateCallbackResult::Invalid("field cannot be empty".into()));',
+    'return Err("field cannot be empty".into());',
 )
+assert not branch_has_rejection(
+    oracle_err, "x.field.is_empty()", "field cannot be empty"
+), "branch-local oracle accepted Err as an Invalid qualification result"
+oracle_wrong_reason = oracle_invalid.replace(
+    '"field cannot be empty"',
+    '"different reason"',
+    1,
+)
+assert not branch_has_rejection(
+    oracle_wrong_reason, "x.field.is_empty()", "field cannot be empty"
+), "branch-local oracle accepted a mismatched rejection reason"
 
 print(f"OK:   {code_pattern} is bound to a branch-local executable validator rejection path")
 PY
