@@ -23,6 +23,7 @@ EXPECTED_DISPATCH = (
 def main() -> int:
     cargo = CARGO.read_text(encoding="utf-8")
     source = LIB.read_text(encoding="utf-8")
+    compact_source = "".join(source.split())
     contract_path = Path(__file__).resolve().parent.parent / "docs/mobility/MOBILITY_QUALIFICATION_ADAPTER_BOUNDARY_V1.json"
     try:
         contract = json.loads(contract_path.read_text(encoding="utf-8"))
