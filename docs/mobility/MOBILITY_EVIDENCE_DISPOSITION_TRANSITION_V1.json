@@ -921,6 +921,16 @@
       "id": "EDT-182",
       "case": "canonical_retrieval_order_reaches_host_boundary_before_failure",
       "expected": "accepted"
+    },
+    {
+      "id": "EDT-183",
+      "case": "invalid_runtime_attestation_signature_precedes_missing_authority_preflight",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-184",
+      "case": "runtime_attestation_signature_host_failure_precedes_missing_authority_preflight",
+      "expected": "adapter_boundary_error"
     }
   ],
   "outcome_classes": [
