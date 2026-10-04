@@ -112,6 +112,14 @@ impl HolochainAuthorityAgentBindingSet {
         self.bindings.get(authority)
     }
 
+    /// Return whether a provenance witness has already been admitted by the
+    /// authority-agent registry.
+    pub fn contains_provenance_witness(&self, witness_identity: &IdentityRef) -> bool {
+        self.bindings.values().any(|credential| {
+            &credential.payload.provenance.witness_identity == witness_identity
+        })
+    }
+
     pub fn len(&self) -> usize {
         self.bindings.len()
     }
@@ -407,6 +415,16 @@ impl HolochainDependencyBindingSet {
             return Ok(Err(HolochainAdapterBoundaryError::SemanticInvalid {
                 reason: "runtime binding witness identity must differ from the registered authority credential witness"
                     .into(),
+            }));
+        }
+
+        if authority_bindings
+            .contains_provenance_witness(&binding.payload.provenance.witness_identity)
+        {
+            return Ok(Err(HolochainAdapterBoundaryError::BindingRejected {
+                reason:
+                    "a provenance witness admitted by the authority-agent registry may not be reused for a runtime binding"
+                        .into(),
             }));
         }
 
@@ -1680,6 +1698,71 @@ mod tests {
             result,
             Ok(Err(HolochainAdapterBoundaryError::SemanticInvalid { reason }))
                 if reason == "runtime binding witness identity must differ from the registered authority credential witness"
+        ));
+        assert!(bindings.is_empty());
+    }
+
+    #[test]
+    fn dependency_binding_rejects_provenance_witness_from_other_authority_registry_binding() {
+        let _guard = host_test_lock().lock().expect("HDI test lock is not poisoned");
+        let _previous = set_hdi(RecordingHdi {
+            calls: Arc::new(Mutex::new(Vec::new())),
+            verify_result: true,
+        });
+
+        let first_authority = identity("cross-registry-first-authority");
+        let second_authority = identity("cross-registry-second-authority");
+        let first_agent = action_agent_key(53);
+        let second_agent = action_agent_key(54);
+        let first_credential =
+            authority_credential(first_authority.clone(), first_agent, "cross-registry-first");
+        let second_credential =
+            authority_credential(second_authority, second_agent, "cross-registry-second");
+
+        let reused_witness = second_credential
+            .payload
+            .provenance
+            .witness_identity
+            .clone();
+        let registered_provenance = first_credential.payload.provenance.clone();
+
+        let mut registry = HolochainAuthorityAgentBindingSet::new();
+        assert!(matches!(
+            registry.bind_attested(first_credential),
+            Ok(Ok(()))
+        ));
+        assert!(matches!(
+            registry.bind_attested(second_credential),
+            Ok(Ok(()))
+        ));
+
+        let logical = identity("cross-registry-runtime-logical");
+        let mut provenance =
+            binding_provenance_for_test(logical, first_authority.clone());
+        provenance.witness_identity = reused_witness;
+        provenance.authority_scope = registered_provenance.authority_scope;
+        provenance.authority_delegation = registered_provenance.authority_delegation;
+        provenance.basis = registered_provenance.basis;
+
+        let binding = SignedHolochainBindingAttestation {
+            signer: first_agent,
+            signature: Signature([0u8; 64]),
+            payload: HolochainBindingAttestationPayload {
+                schema: HOLOCHAIN_BINDING_ATTESTATION_SCHEMA.into(),
+                provenance,
+                address: HolochainDependencyAddress::Action(action_hash(54)),
+                retrieval: QualificationDependencyRetrievalKind::Action,
+            },
+        };
+
+        let mut bindings = HolochainDependencyBindingSet::new();
+        let result = bindings.bind_attested_with_authority(binding, &registry);
+        let _ = set_hdi(ErrHdi);
+
+        assert!(matches!(
+            result,
+            Ok(Err(HolochainAdapterBoundaryError::BindingRejected { reason }))
+                if reason == "a provenance witness admitted by the authority-agent registry may not be reused for a runtime binding"
         ));
         assert!(bindings.is_empty());
     }
