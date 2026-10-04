@@ -709,8 +709,6 @@ fn thread_sync_divergent_filter_child() -> ! {
 
     const BPF_RET_K: u16 = 0x0006;
     const SECCOMP_SET_MODE_FILTER: libc::c_uint = 1;
-    const SECCOMP_FILTER_FLAG_TSYNC: libc::c_uint = 1 << 0;
-    const SECCOMP_FILTER_FLAG_TSYNC_ESRCH: libc::c_uint = 1 << 4;
     const SECCOMP_RET_ALLOW: u32 = 0x7fff_0000;
 
     unsafe fn read_exact(fd: libc::c_int, bytes: &mut [u8]) -> bool {
