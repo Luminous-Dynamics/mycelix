@@ -3224,7 +3224,7 @@ mod tests {
                     let minimized = shrink_failing_state_machine_plan(
                         failing_prefix,
                         |candidate| {
-                            invariant_failure_from_plan(candidate).is_some_and(|candidate_failure| {
+                            invariant_failure_from_plan(candidate, trace_index).is_some_and(|candidate_failure| {
                                 candidate_failure.observed_violations == target_violations
                                     && candidate_failure.operation == target_operation
                                     && candidate_failure.token == target_token
@@ -3232,7 +3232,7 @@ mod tests {
                         },
                     );
 
-                    if let Some(minimized_failure) = invariant_failure_from_plan(&minimized) {
+                    if let Some(minimized_failure) = invariant_failure_from_plan(&minimized, trace_index) {
                         panic_any_invariant_failure(minimized_failure);
                     }
                 }
