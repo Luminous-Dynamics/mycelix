@@ -109,6 +109,20 @@ jobs:
             echo "security-kernel regression: expected exactly one bounded from_reader call, found $reader_calls" >&2
             exit 1
           fi
+          total_reader_calls="$(rg -n 'serde_json::from_reader[[:space:]]*\(' \
+            crates/mycelix-bridge-common/src/security_kernel.rs \
+            crates/mycelix-bridge-common/src/security_events.rs | wc -l)"
+          if [[ "$total_reader_calls" -ne 1 ]]; then
+            echo "security-wire regression: unbounded/direct serde_json::from_reader call detected in security adapters" >&2
+            exit 1
+          fi
+          total_slice_calls="$(rg -n 'serde_json::from_slice[[:space:]]*\(' \
+            crates/mycelix-bridge-common/src/security_kernel.rs \
+            crates/mycelix-bridge-common/src/security_events.rs | wc -l)"
+          if [[ "$total_slice_calls" -ne 1 ]]; then
+            echo "security-wire regression: unexpected serde_json::from_slice call detected in security adapters" >&2
+            exit 1
+          fi
           if ! rg -n 'fn bounded_security_json_reader_rejects_oversized_stream' crates/mycelix-bridge-common/src/security_kernel.rs; then
             echo "security-kernel regression: oversized reader coverage disappeared" >&2
             exit 1
