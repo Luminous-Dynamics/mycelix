@@ -537,7 +537,9 @@ mod linux {
         // in-bounds jumps; otherwise a forged dispatch could jump over argument
         // predicates into an ALLOW that happens to remain reachable elsewhere.
         let mut dispatch_index = first_rule_index;
+        let mut dispatch_indices = Vec::new();
         loop {
+            dispatch_indices.push(dispatch_index);
             let dispatch = &filter[dispatch_index];
             let next = dispatch_index
                 .checked_add(1)
@@ -587,6 +589,37 @@ mod linux {
                             .ok_or(SeccompError::CompilerInvariantViolation)?;
                         if target >= filter.len() {
                             return Err(SeccompError::CompilerInvariantViolation);
+                        }
+                    }
+
+                    // Dispatches have their own canonical topology above.
+                    // Predicate branches are deliberately much more local:
+                    // they may fall through, skip one local EPERM, skip the
+                    // high-half body of a full-width MaskedNotEqual low half,
+                    // or fall through to the next clause/rule immediately
+                    // after an ALLOW. Anything else could bypass checks while
+                    // remaining inside the program.
+                    if !dispatch_indices.contains(&index) {
+                        for offset in [instruction.jt, instruction.jf] {
+                            let target = index + 1 + usize::from(offset);
+                            let local_epem = target == index + 2
+                                && filter[index + 1].code == BPF_RET | BPF_K
+                                && filter[index + 1].k == SECCOMP_RET_ERRNO | libc::EPERM as u32;
+                            let full_width_not_equal_shortcut = target == index + 4
+                                && filter.get(index + 1).is_some_and(|i| i.code == BPF_LD | BPF_W | BPF_ABS)
+                                && filter.get(index + 2).is_some_and(|i| i.code == BPF_ALU | BPF_AND | BPF_K)
+                                && filter.get(index + 3).is_some_and(|i| i.code == BPF_JMP | BPF_JEQ | BPF_K);
+                            let after_allow = target > 0
+                                && filter[target - 1].code == BPF_RET | BPF_K
+                                && filter[target - 1].k == SECCOMP_RET_ALLOW;
+
+                            if offset != 0
+                                && !local_epem
+                                && !full_width_not_equal_shortcut
+                                && !after_allow
+                            {
+                                return Err(SeccompError::CompilerInvariantViolation);
+                            }
                         }
                     }
                 }
