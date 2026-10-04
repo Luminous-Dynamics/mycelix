@@ -18,7 +18,7 @@ Linked Votes whose decision reference does not match the tallying Decision are r
 
 participation_rate_bp is derived from the exact explicit vote evidence set stored on the DecisionOutcome. Raw mutable DHT link cardinality is no longer the source of that metric.
 
-This prevents duplicate or malformed collection links from inflating the reported participation number. Holochain explicitly permits multiple identical links, so the Vote action hash is used as the semantic evidence identity and duplicate link actions are collapsed before tallying. citeturn468431search3
+This prevents duplicate or malformed collection links from inflating the reported participation number. Holochain explicitly permits multiple identical links, so the Vote action hash is used as the semantic evidence identity and duplicate link actions are collapsed before tallying.
 
 ## Qualification boundary
 
