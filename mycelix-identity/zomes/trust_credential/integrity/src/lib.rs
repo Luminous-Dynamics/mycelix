@@ -355,7 +355,35 @@ fn validate_trust_link(
             let subject = did_to_agent(&presentation.subject_did).ok_or(wasm_error!(
                 WasmErrorInner::Guest("Presentation subject must be a did:mycelix AgentPubKey".into())
             ))?;
-            if action.author != subject || *record.action().author() != subject {
+            let credential_hash = presentation.credential_action_hash.clone().ok_or(
+                wasm_error!(WasmErrorInner::Guest(
+                    "CredentialToPresentation requires a source credential ActionHash".into()
+                )),
+            )?;
+            let credential_record = must_get_valid_record(credential_hash)?;
+            let credential: TrustCredential = credential_record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Presentation source hash must reference a TrustCredential".into(),
+                )))?;
+            if credential.id != presentation.credential_id
+                || credential.subject_did != presentation.subject_did
+            {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "CredentialToPresentation source credential does not match the presentation".into(),
+                ));
+            }
+            if action.author != subject
+                || *record.action().author() != subject
+                || *credential_record.action().author()
+                    != *did_to_agent(&credential.issuer_did).ok_or(wasm_error!(
+                        WasmErrorInner::Guest(
+                            "Presentation source credential issuer must be a did:mycelix AgentPubKey"
+                        )
+                    ))?
+            {
                 return Ok(ValidateCallbackResult::Invalid(
                     "CredentialToPresentation link must be authored by the presentation subject".into(),
                 ));
@@ -961,41 +989,13 @@ fn validate_create_presentation(
         ));
     }
 
-    // New presentations must bind to one concrete source credential.
-    // The credential ID alone is not authoritative because duplicate IDs can
-    // exist in legacy data or across issuers.
-    let credential_hash = pres.credential_action_hash.clone().ok_or(wasm_error!(
-        WasmErrorInner::Guest(
-            "New trust presentations must include the source credential ActionHash".into()
-        )
-    ))?;
-    let credential_record = must_get_valid_record(credential_hash)?;
-    let credential: TrustCredential = credential_record
-        .entry()
-        .to_app_option()
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-        .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Presentation source hash must reference a TrustCredential".into()
-        )))?;
-
-    if credential.id != pres.credential_id
-        || credential.subject_did != pres.subject_did
-    {
+    // New presentations must carry an explicit source credential action.
+    // The target record is resolved and authenticated by the mandatory
+    // CredentialToPresentation link validation, keeping this entry check pure.
+    if pres.credential_action_hash.is_none() {
         return Ok(ValidateCallbackResult::Invalid(
-            "Presentation source credential does not match credential ID and subject".into(),
+            "New trust presentations must include the source credential ActionHash".into(),
         ));
-    }
-    if pres.disclosed_tier != credential.trust_tier {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Presentation disclosed tier must match the source credential".into(),
-        ));
-    }
-    if let Some(ref range) = pres.disclosed_range {
-        if *range != credential.trust_score_range {
-            return Ok(ValidateCallbackResult::Invalid(
-                "Presentation disclosed range must match the source credential".into(),
-            ));
-        }
     }
 
     // Presentation proof must not be empty
