@@ -908,6 +908,39 @@ def verify_bundle(args: argparse.Namespace) -> int:
     if reference_state == "INDETERMINATE":
         print("Reference appraisal: INDETERMINATE (reference set not approved)")
         return 2
+    time_result = load_json(bundle / "time-appraisal.json")
+    if time_result.get("profile_id") != "mycelix.trusted-time.appraisal":
+        print("PLATFORM EVIDENCE: DENY: time-appraisal-profile-mismatch")
+        return 1
+    if time_result.get("verifier_id") != "mycelix.trusted-time.appraisal.v0.1":
+        print("PLATFORM EVIDENCE: DENY: time-appraisal-verifier-id-mismatch")
+        return 1
+    if time_result.get("verifier_source_sha256") != sha256_file(TIME_APPRAISAL_SCRIPT):
+        print("PLATFORM EVIDENCE: DENY: time-appraisal-source-mismatch")
+        return 1
+    if time_result.get("registry_sha256") != sha256_file(TIME_REGISTRY):
+        print("PLATFORM EVIDENCE: DENY: time-appraisal-registry-mismatch")
+        return 1
+    if time_result.get("reference_sha256") != manifest["trusted_time"]["sha256"]:
+        print("PLATFORM EVIDENCE: DENY: time-appraisal-input-mismatch")
+        return 1
+    if time_result.get("content_sha256") != self_hash(time_result, "content_sha256"):
+        print("PLATFORM EVIDENCE: DENY: time-appraisal-self-hash-mismatch")
+        return 1
+    time_state = time_result.get("state")
+    if time_state == "DENY":
+        print("PLATFORM EVIDENCE: DENY: time-appraisal-denied")
+        return 1
+    if time_state not in {"PASS", "INDETERMINATE"}:
+        print("PLATFORM EVIDENCE: DENY: time-appraisal-state-invalid")
+        return 1
+    if manifest["time_appraisal"]["status"] != time_state:
+        print("PLATFORM EVIDENCE: DENY: time-appraisal-manifest-state-mismatch")
+        return 1
+    if time_state == "INDETERMINATE":
+        print("Time appraisal: INDETERMINATE")
+        return 2
+
     quote_state, quote_reason = run_quote_check(bundle)
     print(f"TPM Quote verification: {quote_state} ({quote_reason})")
     if quote_state != "PASS":
