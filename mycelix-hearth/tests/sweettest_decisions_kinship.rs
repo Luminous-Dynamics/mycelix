@@ -971,7 +971,7 @@ async fn test_same_agent_concurrent_vote_race_is_single_vote() {
         ),
     );
 
-    let success_count = usize::from(first.is_ok()) + usize::from(second.is_ok());
+    let success_count = (if first.is_ok() { 1 } else { 0 }) + (if second.is_ok() { 1 } else { 0 });
     assert!(
         success_count <= 1,
         "concurrent same-agent vote calls must not both succeed; results: first={first:?}, second={second:?}"
