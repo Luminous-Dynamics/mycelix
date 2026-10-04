@@ -91,6 +91,9 @@ pub struct ActorEconomicObservables {
     pub goods_purchases: i128,
     pub cost_of_goods_sold: i128,
     pub depreciation: i128,
+    /// Signed non-cash revaluation of monetary-valued real assets during the period.
+    #[serde(default)]
+    pub real_asset_revaluation: i128,
 }
 
 impl ActorEconomicObservables {
@@ -278,6 +281,14 @@ impl ActorEconomicObservables {
                         &mut observations.get_mut(&depreciation.actor).unwrap().depreciation,
                         depreciation.amount,
                         "actor depreciation",
+                    )?;
+                }
+                EconomicTransition::RealAssetRevaluation(revaluation) => {
+                    ensure_actor(&revaluation.actor)?;
+                    add_checked(
+                        &mut observations.get_mut(&revaluation.actor).unwrap().real_asset_revaluation,
+                        revaluation.amount,
+                        "actor real-asset revaluation",
                     )?;
                 }
                 EconomicTransition::MonetaryTransfer(flow) => {
@@ -588,6 +599,7 @@ fn affected_actors(transition: &EconomicTransition) -> Vec<ActorId> {
         EconomicTransition::InventoryCostAddition(addition) => vec![addition.actor.clone()],
         EconomicTransition::InventoryCostRelief(relief) => vec![relief.actor.clone()],
         EconomicTransition::Depreciation(depreciation) => vec![depreciation.actor.clone()],
+        EconomicTransition::RealAssetRevaluation(revaluation) => vec![revaluation.actor.clone()],
         EconomicTransition::CreditCreation(credit) => {
             vec![credit.lender.clone(), credit.borrower.clone()]
         }
