@@ -221,6 +221,12 @@ def fixture_manifest() -> dict[str, Any]:
             "pcr_values_sha256": pcr_values_hash(live),
             "pcr_values_file_sha256": "a" * 64,
         },
+        "payload_coherence": {
+            "status": "INDETERMINATE",
+            "output_sha256": "9" * 64,
+            "source_sha256": sha256_file(PAYLOAD_COHERENCE_SCRIPT),
+            "input_sha256": "3" * 64,
+        },
         "artifacts": {
             "quote_message_sha256": "5" * 64,
             "quote_signature_sha256": "6" * 64,
