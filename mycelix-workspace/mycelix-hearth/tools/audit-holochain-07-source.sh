@@ -835,11 +835,17 @@ check_immutable_dependency_semantics() {
     if ! printf '%s\n' "$block" | rg -n --pcre2 'must_get_valid_record\s*\(' >/dev/null 2>&1; then
       echo "FAIL: $file $helper_name lacks must_get_valid_record"
       fail=1
-    elif ! printf '%s\n' "$block" | rg -n --pcre2 '\.entry\(\)\s*\.to_app_option\(\)' >/dev/null 2>&1; then
-      echo "FAIL: $file $helper_name retrieves a valid record without deserializing its original entry"
-      fail=1
     else
-      echo "OK:   $file $helper_name validates and deserializes its own immutable dependency"
+      # Rust permits method chains to span lines. Normalize the helper body for
+      # the adjacency check so formatting cannot cause a false negative while
+      # still requiring the fetched record to be deserialized by that helper.
+      normalized_block="$(tr '\n' ' ' <<<"$block")"
+      if ! printf '%s\n' "$normalized_block" | rg -n --pcre2 '\.entry\(\)[[:space:]]*\.to_app_option\(\)' >/dev/null 2>&1; then
+        echo "FAIL: $file $helper_name retrieves a valid record without deserializing its original entry"
+        fail=1
+      else
+        echo "OK:   $file $helper_name validates and deserializes its own immutable dependency"
+      fi
     fi
 
     local uses
