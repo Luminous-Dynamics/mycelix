@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import Any
 
 ADAPTER_ID = "mycelix.pc-client.tpm2-eventlog-yaml-v1-adapter"
+RAW_PAYLOAD_PARSER_ID = "mycelix.pc-client.raw-tpm2-eventlog-parser.v0.1"
+RAW_PAYLOAD_PARSER_SCRIPT = Path(__file__).resolve().with_name("parse_mycelix_raw_tpm2_eventlog_v0_1.py")
 VERSION_RE = re.compile(r"(?m)^\s*version:\s*(\d+)\s*$")
 EVENT_RE = re.compile(
     r"(?ms)^\s*-\s*EventNum:\s*(?P<num>\d+)\s*\n"
@@ -101,7 +103,21 @@ def adapt(
     payloads: dict[int, dict[str, Any]] = {}
     if payload_json is not None:
         raw = json.loads(payload_json.read_text(encoding="utf-8"))
-        raw_events = raw.get("events") if isinstance(raw, dict) else None
+        if not isinstance(raw, dict):
+            raise ValueError("raw payload parser output must be an object")
+        if raw.get("parser_id") != RAW_PAYLOAD_PARSER_ID:
+            raise ValueError("unexpected raw payload parser id")
+        if raw.get("binary_sha256") != sha256_file(binary_eventlog):
+            raise ValueError("raw payload parser binary binding mismatch")
+        if raw.get("parser_source_sha256") != sha256_file(RAW_PAYLOAD_PARSER_SCRIPT):
+            raise ValueError("raw payload parser source binding mismatch")
+        raw_clone = dict(raw)
+        supplied_raw_hash = raw_clone.pop("content_sha256", None)
+        if not isinstance(supplied_raw_hash, str) or supplied_raw_hash != hashlib.sha256(
+            json.dumps(raw_clone, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+        ).hexdigest():
+            raise ValueError("raw payload parser receipt self-hash mismatch")
+        raw_events = raw.get("events")
         if not isinstance(raw_events, list):
             raise ValueError("raw payload parser output must contain an events list")
         for item in raw_events:
