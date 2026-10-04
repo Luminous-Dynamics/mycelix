@@ -392,6 +392,26 @@ jobs:
             exit 1
           fi
 
+          # Legacy offline freshness must never become trusted merely because a MAC buffer is non-empty.
+          # The only privileged offline path is the explicit key-verification API; ordinary tier
+          # calculation must stay rooted in locally retained verification state.
+          if ! rg -n 'fn unverified_attestation_does_not_override_self_reported' crates/mycelix-bridge-common/src/offline_credential.rs; then
+            echo "offline-credential regression: unverified-attestation rejection coverage disappeared" >&2
+            exit 1
+          fi
+          if ! rg -n 'fn verified_attestation_can_override_self_reported' crates/mycelix-bridge-common/src/offline_credential.rs; then
+            echo "offline-credential regression: verified-attestation coverage disappeared" >&2
+            exit 1
+          fi
+          if ! rg -n 'pub fn effective_tier_with_attestation_key' crates/mycelix-bridge-common/src/offline_credential.rs; then
+            echo "offline-credential regression: explicit verified-attestation API disappeared" >&2
+            exit 1
+          fi
+          if rg -n 'Some\(att\) if !att\.signature\.is_empty\(\)' crates/mycelix-bridge-common/src/offline_credential.rs; then
+            echo "offline-credential regression: non-empty MAC buffer is being treated as verification" >&2
+            exit 1
+          fi
+
           # Recovery correlations carry a non-empty, bounded identifier invariant.
           # Wire decoding must route them through the validating constructor.
           if ! rg -nU 'with_recovery_correlation\([^)]*\)[[:space:]]*$' crates/mycelix-bridge-common/src/security_events.rs; then
