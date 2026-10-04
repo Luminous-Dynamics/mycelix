@@ -13,7 +13,7 @@
 //! W3C Data Integrity EdDSA Cryptosuites v1.0 specification.
 
 use hdk::prelude::*;
-use mycelix_crypto::{AlgorithmId, TaggedSignature};
+use mycelix_crypto::{AlgorithmId, TaggedPublicKey, TaggedSignature};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use mycelix_zome_helpers::{get_latest_record, records_from_links_strict};
@@ -3523,6 +3523,67 @@ mod tests {
 /// The proof configuration contains the proof fields except proofValue, plus
 /// the proof-level @context when present. Both are JCS canonicalized (RFC 8785),
 /// SHA-256 hashed, and concatenated as proofConfigHash || documentHash.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct DidVerificationMethodProofMirror {
+    id: String,
+    #[serde(rename = "type", alias = "type_")]
+    type_: String,
+    controller: String,
+    #[serde(rename = "publicKeyMultibase", alias = "public_key_multibase")]
+    public_key_multibase: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct DidDocumentProofMirror {
+    id: String,
+    #[serde(rename = "verificationMethod", alias = "verification_method")]
+    verification_method: Vec<DidVerificationMethodProofMirror>,
+    #[serde(rename = "assertionMethod", alias = "assertion_method", default)]
+    assertion_method: Vec<String>,
+}
+
+fn canonical_agent_ed25519_multibase(agent_pub_key: &AgentPubKey) -> ExternResult<String> {
+    let raw = agent_pub_key.get_raw_36();
+    if raw.len() != 36 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Unexpected AgentPubKey raw length while deriving DID Multikey".into(),
+        )));
+    }
+    TaggedPublicKey::new(AlgorithmId::Ed25519, raw[4..].to_vec())
+        .map(|key| key.to_multibase())
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to encode canonical DID Multikey: {e}"
+        ))))
+}
+
+fn validate_w3c_assertion_method_binding(
+    did_doc: &DidDocumentProofMirror,
+    issuer_did: &str,
+    verification_method: &str,
+    expected_multibase: &str,
+) -> bool {
+    if did_doc.id != issuer_did
+        || !did_doc
+            .assertion_method
+            .iter()
+            .any(|reference| reference == verification_method)
+    {
+        return false;
+    }
+
+    let Some(method) = did_doc
+        .verification_method
+        .iter()
+        .find(|method| method.id == verification_method)
+    else {
+        return false;
+    };
+
+    method.controller == issuer_did
+        && method.type_ == "Multikey"
+        && method.public_key_multibase == expected_multibase
+}
+
 fn eddsa_jcs_hash_data_from_values(
     unsecured: Value,
     proof_config: Value,
@@ -3651,6 +3712,44 @@ fn verify_credential_signature(vc: &VerifiableCredential) -> ExternResult<bool> 
     // Standards-conformant W3C eddsa-jcs-2022 verification uses raw 64-byte
     // Ed25519 signatures encoded directly as base58-btc Multibase.
     if vc.proof.cryptosuite.as_deref() == Some("eddsa-jcs-2022") {
+        let response = call(
+            CallTargetCell::Local,
+            ZomeName::new("did_registry"),
+            FunctionName::new("resolve_did"),
+            None,
+            issuer_did.to_string(),
+        )?;
+
+        let did_record = match response {
+            ZomeCallResponse::Ok(result) => result.decode::<Option<Record>>().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Failed to decode issuer DID resolution: {e:?}"
+                )))
+            })?,
+            _ => None,
+        }
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Issuer DID could not be resolved for W3C proof verification".into()
+        )))?;
+
+        let did_doc: DidDocumentProofMirror = did_record
+            .entry()
+            .to_app_option()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Resolved issuer DID record contained no DID document".into()
+            )))?;
+
+        let expected_multibase = canonical_agent_ed25519_multibase(&pubkey)?;
+        if !validate_w3c_assertion_method_binding(
+            &did_doc,
+            issuer_did,
+            &vc.proof.verification_method,
+            &expected_multibase,
+        ) {
+            return Ok(false);
+        }
+
         if vc.proof.proof_type != "DataIntegrityProof"
             || vc.proof.algorithm.is_some()
             || vc.proof.proof_context.as_deref() != Some(vc.context.as_slice())
