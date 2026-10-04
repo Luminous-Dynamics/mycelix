@@ -73,6 +73,12 @@ pub struct ActorEconomicObservables {
     pub credit_received: i128,
     pub credit_originated: i128,
     pub debt_repaid: i128,
+    /// Debt claims extinguished by explicit write-off where this actor is lender.
+    #[serde(default)]
+    pub debt_written_off_as_lender: i128,
+    /// Debt liabilities extinguished by explicit write-off where this actor is borrower.
+    #[serde(default)]
+    pub debt_written_off_as_borrower: i128,
     pub trade_credit_received: i128,
     pub trade_credit_extended: i128,
     pub trade_credit_settled: i128,
@@ -225,6 +231,20 @@ impl ActorEconomicObservables {
                         &mut observations.get_mut(&repayment.borrower).unwrap().debt_repaid,
                         repayment.amount,
                         "actor debt repaid",
+                    )?;
+                }
+                EconomicTransition::DebtWriteOff(write_off) => {
+                    ensure_actor(&write_off.lender)?;
+                    ensure_actor(&write_off.borrower)?;
+                    add_checked(
+                        &mut observations.get_mut(&write_off.lender).unwrap().debt_written_off_as_lender,
+                        write_off.amount,
+                        "actor debt written off as lender",
+                    )?;
+                    add_checked(
+                        &mut observations.get_mut(&write_off.borrower).unwrap().debt_written_off_as_borrower,
+                        write_off.amount,
+                        "actor debt written off as borrower",
                     )?;
                 }
                 EconomicTransition::IncomeTransfer(flow) => {
@@ -605,6 +625,9 @@ fn affected_actors(transition: &EconomicTransition) -> Vec<ActorId> {
         }
         EconomicTransition::DebtRepayment(repayment) => {
             vec![repayment.lender.clone(), repayment.borrower.clone()]
+        }
+        EconomicTransition::DebtWriteOff(write_off) => {
+            vec![write_off.lender.clone(), write_off.borrower.clone()]
         }
     };
     ids.dedup();
