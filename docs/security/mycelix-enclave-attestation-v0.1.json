@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "profile_id": "mycelix.security.enclave.attestation",
+  "profile_version": "0.1.0",
+  "claim_ceiling": "ReferenceModelOnly",
+  "model": {
+    "roles": ["attester", "verifier", "relying_party"],
+    "non_equivalences": [
+      ["evidence", "attestation_result"],
+      ["attestation_result", "authorization"],
+      ["did_control", "host_integrity"],
+      ["device_attestation", "personnel_clearance"]
+    ]
+  },
+  "vectors": [
+    {"id":"ATT-001","case":"canonical-valid","evidence_valid":true,"result":"accept"},
+    {"id":"ATT-002","case":"bad-signature","evidence_valid":false,"result":"deny"},
+    {"id":"ATT-003","case":"unknown-endorsement","evidence_valid":false,"result":"deny"},
+    {"id":"ATT-004","case":"wrong-nonce","evidence_valid":false,"result":"deny"},
+    {"id":"ATT-005","case":"wrong-audience","evidence_valid":false,"result":"deny"},
+    {"id":"ATT-006","case":"stale-evidence","evidence_valid":false,"result":"deny"},
+    {"id":"ATT-007","case":"future-dated-evidence","evidence_valid":false,"result":"deny"},
+    {"id":"ATT-008","case":"firmware-measurement-substitution","evidence_valid":false,"result":"deny"},
+    {"id":"ATT-009","case":"workload-measurement-substitution","evidence_valid":false,"result":"deny"},
+    {"id":"ATT-010","case":"policy-profile-mismatch","evidence_valid":false,"result":"deny"},
+    {"id":"ATT-011","case":"verifier-profile-substitution","evidence_valid":false,"result":"deny"},
+    {"id":"ATT-012","case":"cross-domain-replay","evidence_valid":false,"result":"deny"},
+    {"id":"ATT-013","case":"valid-attestation-unauthorized-subject","evidence_valid":true,"authorization":false,"result":"deny"},
+    {"id":"ATT-014","case":"valid-attestation-unauthorized-resource","evidence_valid":true,"authorization":false,"result":"deny"},
+    {"id":"ATT-015","case":"valid-attestation-expired-authorization","evidence_valid":true,"freshness":false,"result":"deny"},
+    {"id":"ATT-016","case":"missing-security-evidence","evidence_present":false,"result":"deny-or-indeterminate"},
+    {"id":"ATT-017","case":"verifier-unavailable","evidence_valid":null,"result":"indeterminate"},
+    {"id":"ATT-018","case":"reference-value-version-mismatch","evidence_valid":false,"result":"deny"},
+    {"id":"ATT-019","case":"exact-replay","evidence_valid":true,"replay":true,"result":"deny"},
+    {"id":"ATT-020","case":"evidence-permutation","evidence_valid":true,"result":"same-as-canonical-valid"}
+  ],
+  "required_assertions": [
+    "attestation-result-never-bypasses-local-resource-policy",
+    "cross-domain-attestation-does-not-create-local-authority",
+    "missing-security-evidence-never-becomes-implicit-pass",
+    "replay-does-not-create-freshness",
+    "attestation-success-does-not-imply-clearance",
+    "policy-version-is-part-of-the-admission-input"
+  ],
+  "reference": {
+    "rfc_9334": "https://www.rfc-editor.org/rfc/rfc9334.html",
+    "tcg_tpm_2_0": "https://trustedcomputinggroup.org/resource/tpm-library-specification/"
+  }
+}
