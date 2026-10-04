@@ -695,11 +695,14 @@ check_semantic_case_entrypoints() {
     fi
     test_block="$(sed -n "${test_start},${test_end}p" "$rust_test")"
 
-    if printf "%s\\n" "$test_block" | rg -n --fixed-strings ".zome(\"${zome}\")" >/dev/null 2>&1       && printf "%s\\n" "$test_block" | rg -n --fixed-strings "\"${operation}\"" >/dev/null 2>&1; then
-      echo "OK:   semantic runtime witness ${test_name} is bound to ${zome}/${operation}'s own test body"
+    # Bind the operation to the same call expression, rather than merely
+    # requiring the zome name and operation string to coexist somewhere in the
+    # test body. This prevents unrelated calls from satisfying the witness.
+    if printf "%s\\n" "$test_block" | rg -nU --pcre2 "&alice\\.zome\\(\\\"\\${zome}\\\"\\)[[:space:]]*,[[:space:]]*\\\"\\${operation}\\\"[[:space:]]*," >/dev/null 2>&1; then
+      echo "OK:   semantic runtime witness ${test_name} is bound to ${zome}/${operation} call expression"
     else
-      echo "FAIL: semantic runtime witness ${zome}/${operation} is not invoked by ${test_name}'s own test body"
-      fail=1
+      echo "FAIL: semantic runtime witness ${zome}/${operation} is not invoked by ${test_name} matching call expression"
+
     fi
   done
 }
