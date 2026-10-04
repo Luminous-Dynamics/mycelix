@@ -4215,45 +4215,18 @@ mod tests {
             reduced.remove(index);
             assert!(
                 !fail    #[test]
-    fn state_machine_trace_capsule_rejects_temporal_evidence_tampering() {
-        let capsule_text = state_machine_trace_capsule(9, 10);
-        let mut capsule =
+    fn state_machine_trace_capsule_round_trips_and_replays_exactly() {
+        let capsule_text = state_machine_trace_capsule(17, 32);
+        let capsule =
             serde_json::from_str::<FederationStateMachineTraceCapsule>(&capsule_text)
-                .expect("capsule must deserialize");
+                .expect("deterministic trace capsule must deserialize");
 
-        capsule.evidence[2].pre_admission_index ^= 1;
-        assert!(std::panic::catch_unwind(|| state_machine_plan_from_capsule(&capsule)).is_err());
-
-        let mut capsule =
-            serde_json::from_str::<FederationStateMachineTraceCapsule>(&capsule_text)
-                .expect("capsule must deserialize");
-        capsule.evidence[4].newly_admitted_deliveries =
-            vec![("tampered-delivery".into(), 0)];
-        assert!(std::panic::catch_unwind(|| state_machine_plan_from_capsule(&capsule)).is_err());
-    }
-
-    #[test]
-    fn state_machine_trace_capsule_is_a_self_validating_evidence_artifact() {
-        let capsule_text = state_machine_trace_capsule(3, 8);
-        assert!(capsule_text.contains(""trace_index": 3"));
-        assert!(capsule_text.contains(""initial_seed":"));
-        assert!(capsule_text.contains(""operations": ["));
-        assert!(capsule_text.contains(""tokens": ["));
-        assert!(capsule_text.contains(""evidence": ["));
-
-        let capsule = serde_json::from_str::<FederationStateMachineTraceCapsule>(&capsule_text)
-            .expect("capsule must remain self-describing");
-        let capsule_plan = state_machine_plan_from_capsule(&capsule);
-        let replay = run_state_machine_trace_plan(&capsule_plan);
-        assert_eq!(replay.len(), 8);
-        assert_eq!(replay, capsule.evidence);
-        assert!(
-            replay.iter().all(|step| !step.state_fingerprint.is_empty()),
-            "successful trace evidence must carry state fingerprints"
+        assert_eq!(
+            capsule.schema_version,
+            FEDERATION_STATE_MACHINE_TRACE_CAPSULE_SCHEMA_VERSION
         );
-    }
 
-32);
+        let (_, generated_plan) = state_machine_trace_plan(capsule.trace_index, 32);
         let capsule_plan = state_machine_plan_from_capsule(&capsule);
         assert_eq!(generated_plan, capsule_plan);
 
@@ -4267,10 +4240,26 @@ mod tests {
             run_state_machine_trace_plan(&generated_plan),
             capsule.evidence
         );
-        assert_eq!(
-            run_state_machine_trace_plan(&generated_plan),
-            run_state_machine_trace_plan(&capsule_plan)
-        );
+
+        let last = capsule
+            .evidence
+            .last()
+            .expect("32-step trace must have terminal evidence");
+        assert_eq!(capsule.final_state.admission_index, last.post_admission_index);
+        assert_eq!(capsule.final_state.delivery_count, last.post_delivery_count);
+        assert_eq!(capsule.final_state.state_fingerprint, last.state_fingerprint);
+    }
+
+    #[test]
+    fn state_machine_empty_trace_capsule_has_matching_boundaries() {
+        let capsule_text = state_machine_trace_capsule(0, 0);
+        let capsule =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&capsule_text)
+                .expect("empty trace capsule must deserialize");
+
+        assert!(capsule.evidence.is_empty());
+        assert_eq!(capsule.initial_state, capsule.final_state);
+        assert_eq!(state_machine_plan_from_capsule(&capsule), Vec::new());
     }
 
     #[test]
@@ -4280,11 +4269,12 @@ mod tests {
             serde_json::from_str::<FederationStateMachineTraceCapsule>(&capsule_text)
                 .expect("capsule must deserialize");
 
-        let original_seed = capsule.initial_seed;
         capsule.initial_seed ^= 1;
         assert!(std::panic::catch_unwind(|| state_machine_plan_from_capsule(&capsule)).is_err());
-        capsule.initial_seed = original_seed;
 
+        let mut capsule =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&capsule_text)
+                .expect("capsule must deserialize");
         let original_operation = capsule.operations[3];
         capsule.operations[3] = match original_operation {
             FederationStateMachineOperation::AddRecognition => {
@@ -4294,25 +4284,106 @@ mod tests {
         };
         assert_ne!(capsule.operations[3], original_operation);
         assert!(std::panic::catch_unwind(|| state_machine_plan_from_capsule(&capsule)).is_err());
-        capsule.operations[3] = original_operation;
 
+        let mut capsule =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&capsule_text)
+                .expect("capsule must deserialize");
         capsule.tokens[7] ^= 1;
         assert!(std::panic::catch_unwind(|| state_machine_plan_from_capsule(&capsule)).is_err());
     }
 
     #[test]
-    fn state_machine_trace_capsule_is_a_compact_reproduction_descriptor() {
+    fn state_machine_trace_capsule_rejects_schema_boundary_and_temporal_tampering() {
+        let capsule_text = state_machine_trace_capsule(9, 10);
+
+        let mut capsule =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&capsule_text)
+                .expect("capsule must deserialize");
+        capsule.schema_version += 1;
+        assert!(std::panic::catch_unwind(|| state_machine_plan_from_capsule(&capsule)).is_err());
+
+        let mut capsule =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&capsule_text)
+                .expect("capsule must deserialize");
+        capsule.evidence[2].step_index ^= 1;
+        assert!(std::panic::catch_unwind(|| state_machine_plan_from_capsule(&capsule)).is_err());
+
+        let mut capsule =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&capsule_text)
+                .expect("capsule must deserialize");
+        capsule.evidence[2].pre_state_fingerprint[0] ^= 1;
+        assert!(std::panic::catch_unwind(|| state_machine_plan_from_capsule(&capsule)).is_err());
+
+        let mut capsule =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&capsule_text)
+                .expect("capsule must deserialize");
+        capsule.evidence[2].pre_admission_index ^= 1;
+        assert!(std::panic::catch_unwind(|| state_machine_plan_from_capsule(&capsule)).is_err());
+
+        let mut capsule =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&capsule_text)
+                .expect("capsule must deserialize");
+        capsule.evidence[4].newly_admitted_deliveries =
+            vec![("tampered-delivery".into(), 0)];
+        assert!(std::panic::catch_unwind(|| state_machine_plan_from_capsule(&capsule)).is_err());
+
+        let mut capsule =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&capsule_text)
+                .expect("capsule must deserialize");
+        capsule.final_state.admission_index ^= 1;
+        assert!(std::panic::catch_unwind(|| state_machine_plan_from_capsule(&capsule)).is_err());
+    }
+
+    #[test]
+    fn state_machine_trace_capsule_is_a_self_validating_evidence_artifact() {
         let capsule_text = state_machine_trace_capsule(3, 8);
+        assert!(capsule_text.contains("\"schema_version\": 1"));
         assert!(capsule_text.contains("\"trace_index\": 3"));
         assert!(capsule_text.contains("\"initial_seed\":"));
         assert!(capsule_text.contains("\"operations\": ["));
         assert!(capsule_text.contains("\"tokens\": ["));
+        assert!(capsule_text.contains("\"initial_state\": {"));
+        assert!(capsule_text.contains("\"evidence\": ["));
+        assert!(capsule_text.contains("\"final_state\": {"));
 
         let capsule = serde_json::from_str::<FederationStateMachineTraceCapsule>(&capsule_text)
             .expect("capsule must remain self-describing");
-        let replay = run_state_machine_trace_plan(&state_machine_plan_from_capsule(&capsule));
+        let capsule_plan = state_machine_plan_from_capsule(&capsule);
+        let replay = run_state_machine_trace_plan(&capsule_plan);
+
         assert_eq!(replay.len(), 8);
-        assert!(replay.iter().all(|step| !step.state_fingerprint.is_empty()));
+        assert_eq!(replay, capsule.evidence);
+        assert_eq!(
+            capsule.initial_state,
+            FederationStateMachineTraceBoundary {
+                admission_index: 0,
+                delivery_count: 0,
+                state_fingerprint: canonical_state_fingerprint(&nodes()),
+            }
+        );
+        assert_eq!(
+            capsule.final_state,
+            FederationStateMachineTraceBoundary {
+                admission_index: replay.last().unwrap().post_admission_index,
+                delivery_count: replay.last().unwrap().post_delivery_count,
+                state_fingerprint: replay.last().unwrap().state_fingerprint.clone(),
+            }
+        );
+        assert!(
+            replay.iter().enumerate().all(|(index, step)| {
+                step.step_index == index && !step.pre_state_fingerprint.is_empty()
+                    && !step.state_fingerprint.is_empty()
+            }),
+            "successful trace evidence must carry explicit step and state-boundary identities"
+        );
+    }
+
+    #[test]
+    fn state_machine_trace_capsule_is_deterministic_across_repeated_generation() {
+        assert_eq!(
+            state_machine_trace_capsule(31, 24),
+            state_machine_trace_capsule(31, 24)
+        );
     }
 
     #[test]
