@@ -788,13 +788,13 @@ check_semantic_case_integrity_bindings() {
       local validator_block dispatch_block
       validator_block="$(awk -v symbol="$validator_symbol" '
         {
-          pattern = "^[[:space:]]*(pub[[:space:]]+)?fn[[:space:]]+" symbol "[[:space:]]*\\\\("
+          pattern = "^[[:space:]]*(pub[[:space:]]+)?fn[[:space:]]+" symbol "[[:space:]]*\\("
           if (!in_block && $0 ~ pattern) {
             in_block = 1
             print
             next
           }
-          if (in_block && /^[[:space:]]*(pub[[:space:]]+)?fn[[:space:]]+[A-Za-z0-9_]+[[:space:]]*\\\\(/) {
+          if (in_block && /^[[:space:]]*(pub[[:space:]]+)?fn[[:space:]]+[A-Za-z0-9_]+[[:space:]]*\\(/) {
             exit
           }
           if (in_block) print
@@ -814,12 +814,12 @@ check_semantic_case_integrity_bindings() {
       fi
 
       dispatch_block="$(awk '
-        /^[[:space:]]*pub[[:space:]]+fn[[:space:]]+validate[[:space:]]*\\\\(/ {
+        /^[[:space:]]*pub[[:space:]]+fn[[:space:]]+validate[[:space:]]*\\(/ {
           in_block=1
           print
           next
         }
-        in_block && /^[[:space:]]*(pub[[:space:]]+)?fn[[:space:]]+[A-Za-z0-9_]+[[:space:]]*\\\\(/ {
+        in_block && /^[[:space:]]*(pub[[:space:]]+)?fn[[:space:]]+[A-Za-z0-9_]+[[:space:]]*\\(/ {
           exit
         }
         in_block { print }
