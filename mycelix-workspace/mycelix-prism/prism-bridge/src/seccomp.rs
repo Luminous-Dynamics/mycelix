@@ -598,6 +598,30 @@ mod linux {
                     if instruction.jt != 0 || instruction.jf != 0 {
                         return Err(SeccompError::CompilerInvariantViolation);
                     }
+
+                    // Every AND is compiler-owned predicate state. Do not
+                    // permit an orphan AND to rewrite the accumulator between
+                    // unrelated loads/branches: an attacker who can influence
+                    // emitted bytecode must not be able to satisfy the shape
+                    // validator with an accumulator transformation that is not
+                    // bound to a seccomp_data argument.
+                    let preceding = index
+                        .checked_sub(1)
+                        .and_then(|pc| filter.get(pc))
+                        .ok_or(SeccompError::CompilerInvariantViolation)?;
+                    let valid_argument_load = preceding.code == BPF_LD | BPF_W | BPF_ABS
+                        && (16..=60).contains(&preceding.k)
+                        && (preceding.k - 16) % 4 == 0;
+                    let following = filter
+                        .get(index + 1)
+                        .ok_or(SeccompError::CompilerInvariantViolation)?;
+                    if !valid_argument_load
+                        || following.code != BPF_JMP | BPF_JEQ | BPF_K
+                        || following.k & !instruction.k != 0
+                        || instruction.k == 0
+                    {
+                        return Err(SeccompError::CompilerInvariantViolation);
+                    }
                 }
                 code if code == BPF_JMP | BPF_JEQ | BPF_K => {
                     for offset in [instruction.jt, instruction.jf] {
@@ -2709,6 +2733,20 @@ mod linux {
             broken_triplet[arg_load + 1].code = BPF_LD | BPF_W | BPF_ABS;
             assert!(matches!(
                 validate_compiled_filter(&broken_triplet),
+                Err(SeccompError::CompilerInvariantViolation)
+            ));
+
+            let mut orphan_and = compile_filter_v2(&predicate_policy).unwrap();
+            orphan_and[arg_load].k = SECCOMP_DATA_NR_OFFSET;
+            assert!(matches!(
+                validate_compiled_filter(&orphan_and),
+                Err(SeccompError::CompilerInvariantViolation)
+            ));
+
+            let mut invalid_predicate_value = compile_filter_v2(&predicate_policy).unwrap();
+            invalid_predicate_value[arg_load + 2].k = 0x100;
+            assert!(matches!(
+                validate_compiled_filter(&invalid_predicate_value),
                 Err(SeccompError::CompilerInvariantViolation)
             ));
 
