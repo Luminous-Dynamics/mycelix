@@ -1038,6 +1038,11 @@ Revaluation amounts remain signed. For a sector holding gain/loss of (V):
 The dedicated projection is now hash-bound into `EconomicAccountingClosure`, so serialized
 valuation observations cannot be detached from the ordered transition program.
 
+The closure now also validates the projection against the actual terminal balance sheet by replaying
+all non-revaluation transitions as a baseline and requiring the remaining stock/equity residual to
+equal the typed revaluation projection. This prevents valuation deltas from being accepted merely
+because the serialized projection and transition list are internally consistent.
+
 This is intentionally **not** financial-instrument or FX revaluation yet. The current domain has no
 explicit financial-instrument identity or currency denomination from which an exchange-rate or
 market-price valuation change could be derived safely. The next valuation increment should add that

@@ -512,6 +512,47 @@ mod tests {
     }
 
     #[test]
+    fn revaluation_delta_fails_closed_on_equity_negation_overflow() {
+        let mut matrix = SectorRevaluationChangeMatrix::default();
+        matrix.push(
+            SectorRevaluationChange::new(
+                EconomicSector::Firm,
+                BalanceSheetInstrument::ProductiveCapital,
+                RevaluationChangeCategory::RealAssetHoldingGainLoss,
+                i128::MIN,
+            )
+            .unwrap(),
+        );
+
+        assert!(matrix.equity_delta(EconomicSector::Firm).is_err());
+    }
+
+    #[test]
+    fn revaluation_total_fails_closed_on_signed_overflow() {
+        let mut matrix = SectorRevaluationChangeMatrix::default();
+        matrix.push(
+            SectorRevaluationChange::new(
+                EconomicSector::Firm,
+                BalanceSheetInstrument::ProductiveCapital,
+                RevaluationChangeCategory::RealAssetHoldingGainLoss,
+                i128::MAX,
+            )
+            .unwrap(),
+        );
+        matrix.push(
+            SectorRevaluationChange::new(
+                EconomicSector::Firm,
+                BalanceSheetInstrument::InventoryCarryingValue,
+                RevaluationChangeCategory::RealAssetHoldingGainLoss,
+                1,
+            )
+            .unwrap(),
+        );
+
+        assert!(matrix.try_net_change(EconomicSector::Firm).is_err());
+    }
+
+    #[test]
     fn revaluation_projection_rejects_tampering() {
         let state = EconomicState::new(vec![
             ActorBalanceSheet::new("bank"),
