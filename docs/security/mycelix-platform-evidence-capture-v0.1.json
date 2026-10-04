@@ -219,6 +219,10 @@
     {
       "id": "CAP-022",
       "rule": "Payload coherence input and verifier source provenance must bind to the exact canonical reconstruction input and exact verifier source."
+    },
+    {
+      "id": "CAP-023",
+      "rule": "The platform verifier must independently re-execute the raw binary event-log parser against eventlog.bin and reject any supplied raw-eventlog.json that differs from that execution, even when the supplied sidecar is self-hashed and its manifest digest is updated."
     }
   ],
   "decision_algebra": "ANY DENY > ANY INDETERMINATE > ALL PASS",
@@ -331,6 +335,11 @@
     {
       "id": "CAP-V22",
       "mutation": "deny-over-indeterminate",
+      "expected": "DENY"
+    },
+    {
+      "id": "CAP-V23",
+      "mutation": "raw-parser-sidecar-substitution",
       "expected": "DENY"
     }
   ],

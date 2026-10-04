@@ -741,6 +741,29 @@ def run_independent_reconstruction(input_path: Path, output_path: Path, cwd: Pat
         return "DENY", "independent-reconstruction-failed"
     return "PASS", "independent-reconstruction-executed"
 
+def run_independent_raw_eventlog_parser(
+    eventlog_path: Path, output_path: Path, cwd: Path
+) -> tuple[str, str]:
+    if not RAW_EVENTLOG_PARSER_SCRIPT.is_file():
+        return "DENY", "raw-eventlog-parser-missing"
+    proc = run(
+        [
+            sys.executable,
+            str(RAW_EVENTLOG_PARSER_SCRIPT),
+            "--parse",
+            str(eventlog_path),
+            "--output",
+            str(output_path),
+        ],
+        os.environ.copy(),
+        cwd,
+        check=False,
+    )
+    if proc.returncode != 0:
+        return "DENY", "independent-raw-eventlog-parser-failed"
+    return "PASS", "independent-raw-eventlog-parser-executed"
+
+
 def verify_bundle(args: argparse.Namespace) -> int:
     bundle = Path(args.bundle).resolve()
     manifest_path = bundle / "capture-session.json"
@@ -807,6 +830,21 @@ def verify_bundle(args: argparse.Namespace) -> int:
     print(f"Raw event-log validation: {raw_state} ({raw_reason})")
     if raw_state != "PASS":
         return 1 if raw_state == "DENY" else 2
+    with tempfile.TemporaryDirectory(prefix="mycelix-independent-raw-eventlog-") as td:
+        independent_raw_path = Path(td) / "raw-eventlog.json"
+        independent_raw_state, independent_raw_reason = run_independent_raw_eventlog_parser(
+            bundle / "eventlog.bin", independent_raw_path, bundle
+        )
+        print(
+            f"Independent raw event-log parser execution: "
+            f"{independent_raw_state} ({independent_raw_reason})"
+        )
+        if independent_raw_state != "PASS":
+            return 1 if independent_raw_state == "DENY" else 2
+        independent_raw = load_json(independent_raw_path)
+        if independent_raw != raw_eventlog:
+            print("PLATFORM EVIDENCE: DENY: supplied raw event-log result differs from independent execution")
+            return 1
     if self_hash(reconstruction, "content_sha256") != reconstruction.get("content_sha256"):
         print("PLATFORM EVIDENCE: DENY: reconstruction-self-hash-mismatch")
         return 1
