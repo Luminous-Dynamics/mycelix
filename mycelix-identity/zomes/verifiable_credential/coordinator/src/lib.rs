@@ -63,7 +63,13 @@ fn string_to_entry_hash(s: &str) -> EntryHash {
 }
 
 fn deterministic_request_credential_id(issuer_did: &str, request_id: &str) -> String {
-    let mut material = Vec::with_capacity(issuer_did.len() + request_id.len() + 1);
+    // Domain-separate request-bound credential IDs from other identifier
+    // derivation primitives and make the construction versioned.
+    let domain = b"mycelix:vc-request-credential:v1";
+    let mut material =
+        Vec::with_capacity(domain.len() + issuer_did.len() + request_id.len() + 2);
+    material.extend_from_slice(domain);
+    material.push(0);
     material.extend_from_slice(issuer_did.as_bytes());
     material.push(0);
     material.extend_from_slice(request_id.as_bytes());
