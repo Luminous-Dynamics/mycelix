@@ -116,6 +116,22 @@ A strict frontier argument therefore cannot introduce a second notion of "curren
 
 This prevents an opaque or historical receipt from silently crossing into D6X, but it does not prove how the supplied composition was originally produced. Authoritative D6N/D6O reconstruction therefore remains an upstream qualification step. D6X must not be described as creating that authority merely because the D6P objects are internally consistent.
 
+### End-to-end corpus qualification
+
+The golden conformance corpus now carries a typed authoritative_d6n_d6o source fixture containing the effect, route, D6N qualification profile, observation set, D6N assessment, D6M evidence, D6O lifecycle profile/ledger, and current-frontier inputs required by the authoritative reconstruction function.
+
+The executable corpus test first calls:
+
+compose_finality_eligibility_from_authoritative_d6n_d6o(...)
+
+and requires the resulting D6P composition to equal the separately committed authoritative_d6p composition. D6X then consumes the reconstructed composition, not the corpus copy, and separately verifies that the committed D6P receipt is an exact projection of that reconstruction.
+
+The corpus also mutates D6M, D6N, and D6O inputs into internally self-consistent alternatives and requires the authoritative reconstruction boundary to reject each one. This establishes the intended chain for the ReferenceModelOnly test corpus:
+
+D6M evidence -> D6N assessment -> D6O eligibility -> D6P composition -> D6P receipt -> D6X closure
+
+This mirrors the useful part of SLSA's verification model: expected inputs and parameters should be explicitly checked, and recognized dependencies can be recursively verified rather than accepted merely because a higher-level object is internally consistent. It is an architectural analogy, not a claim of SLSA conformance.
+
 ## D6W binding
 
 D6W now requires the exact D6X `closure_identity_commitment` in its input layer:
