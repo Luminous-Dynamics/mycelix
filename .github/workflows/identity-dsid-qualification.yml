@@ -314,6 +314,8 @@ jobs:
             "$GITHUB_WORKSPACE/interop-fixtures/mycelix-eddsa-jcs-interop.json" \
             | tee "$GITHUB_WORKSPACE/dsid-independent-interop.json"
           npm list --json --depth=0 > "$GITHUB_WORKSPACE/dsid-independent-interop-packages.json"
+          cp package-lock.json "$GITHUB_WORKSPACE/dsid-independent-interop-package-lock.json"
+          sha256sum "$GITHUB_WORKSPACE/dsid-independent-interop-package-lock.json"             > "$GITHUB_WORKSPACE/dsid-independent-interop-package-lock.sha256"
 
       - name: Build qualification manifest
         run: |
@@ -345,6 +347,7 @@ jobs:
               "scenario_set_sha256": sha256_file("dsid-scenario-set.sha256"),
               "method_profile_sha256": sha256_file("did-mycelix-method-v0.1.sha256"),
               "conformance_vectors_sha256": sha256_file("did-mycelix-conformance-v0.1.sha256"),
+              "interop_package_lock_sha256": sha256_file("dsid-independent-interop-package-lock.sha256"),
               "scenario_ids": sorted(row["scenario_id"] for row in rows),
               "evidence_schema_versions": sorted({row["schema_version"] for row in rows}),
               "dna_hashes": sorted({row["dna_hash"] for row in rows}),
@@ -393,6 +396,8 @@ jobs:
             interop-fixtures/mycelix-eddsa-jcs-interop.json
             dsid-independent-interop.json
             dsid-independent-interop-packages.json
+            dsid-independent-interop-package-lock.json
+            dsid-independent-interop-package-lock.sha256
       - name: Check Identity UI
         run: |
           cargo check \
