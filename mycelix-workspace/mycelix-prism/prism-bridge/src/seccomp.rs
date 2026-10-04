@@ -634,13 +634,14 @@ mod linux {
             dispatch_index = next;
         }
 
-        // Every emitted rule body is a sequence of one or more non-empty
-        // predicate clauses. Each clause ends at exactly one ALLOW boundary:
-        // intermediate ALLOWs must be followed by the next clause's first
-        // argument load, while the final ALLOW must be immediately followed by
-        // the next syscall dispatch (or the global EPERM terminator). Without
-        // this invariant, a forged extra ALLOW inside a single clause could
-        // manufacture the "after ALLOW" topology used for legitimate OR edges.
+        // Every emitted rule body ends at exactly one final ALLOW boundary.
+        // Multi-clause bodies additionally place an ALLOW between each pair of
+        // non-empty clauses; each intermediate ALLOW must be followed by the
+        // next clause's first argument load. A single unconditional clause is
+        // the one intentional exception: its entire body is a lone ALLOW.
+        // Without this invariant, a forged extra ALLOW inside a single clause
+        // could manufacture the "after ALLOW" topology used for legitimate OR
+        // edges.
         for (rule_index, &dispatch) in dispatch_indices.iter().enumerate() {
             let body_end = dispatch_indices
                 .get(rule_index + 1)
@@ -3417,6 +3418,20 @@ mod linux {
                 validate_compiled_filter(&filter),
                 Err(SeccompError::CompilerInvariantViolation)
             ));
+        }
+
+        #[test]
+        fn compiled_filter_accepts_unconditional_single_clause_allow() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let rule = SeccompSyscallRuleV2::new(
+                libc::SYS_getpid,
+                Vec::new(),
+            ).unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+            let filter = compile_filter_v2(&policy).unwrap();
+
+            assert!(validate_compiled_filter(&filter).is_ok());
+            assert!(validate_v2_compiled_semantics(&policy, &filter).is_ok());
         }
 
         #[test]
