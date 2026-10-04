@@ -17,11 +17,164 @@ check_absent() {
     echo "OK:   $label"
   fi
 }
-
 check_present() {
   local label="$1"
   local pattern="$2"
   if git grep -nE -- "$pattern" -- mycelix-workspace/mycelix-hearth >/dev/null 2>&1; then
+    echo "OK:   $label"
+  else
+    echo "FAIL: $label"
+    fail=1
+  fi
+}
+check_present_any() {
+  local label="$1"
+  local pattern="$2"
+  if git grep -nE -- "$pattern" -- mycelix-workspace/mycelix-hearth >/dev/null 2>&1; then
+    echo "OK:   $label"
+  else
+    echo "FAIL: $label"
+    fail=1
+  fi
+}
+check_lock_ref() {
+  local label="$1" node="$2" owner="$3" repo="$4" ref="$5"
+  if python3 - "$node" "$owner" "$repo" "$ref" <<'PY'
+import json, sys
+from pathlib import Path
+node_name, owner, repo, ref = sys.argv[1:]
+lock=json.loads(Path("mycelix-workspace/mycelix-hearth/flake.lock").read_text())
+node=lock["nodes"].get(node_name,{})
+original=node.get("original",{}); locked=node.get("locked",{})
+ok=(original.get("owner")==owner and original.get("repo")==repo and original.get("ref")==ref and locked.get("owner")==owner and locked.get("repo")==repo and bool(locked.get("rev")) and bool(locked.get("narHash")))
+raise SystemExit(0 if ok else 1)
+PY
+  then echo "OK:   $label"; else echo "FAIL: $label"; fail=1; fi
+}
+check_absent_multiline() {
+  local label="$1"
+  local pattern="$2"
+  if rg -nU --pcre2 "$pattern" mycelix-workspace/mycelix-hearth; then
+    echo "FAIL: $label"
+    fail=1
+  else
+    echo "OK:   $label"
+  fi
+}
+
+echo "HEARTH-0.7 deterministic source audit"
+echo "HEAD: $(git rev-parse HEAD)"
+echo
+
+# Legacy Rust action model / removed APIs.
+check_absent "legacy FlatOp variants" 'FlatOp::(StoreEntry|StoreRecord|RegisterUpdate|RegisterDelete|RegisterCreateLink|RegisterDeleteLink|RegisterAgentActivity)'
+check_absent "legacy Action enum variants" 'Action::(Create|Update|Delete|CreateLink|DeleteLink|Dna|AgentValidationPkg|InitZomesComplete|OpenChain|CloseChain)([({])'
+check_absent "removed action builders" '\b(ActionBuilder|ActionBuilderCommon|NewEntryAction|NewEntryActionRef)\b'
+check_absent "removed EntryCreationAction" '\bEntryCreationAction\b'
+check_absent "removed agent blocking APIs" '\b(block_agent|unblock_agent)\s*\('
+check_absent "old generic SignedActionHashed" 'SignedActionHashed\s*<'
+check_absent "old transport/config symbols" '\b(signal_url|webrtc_config|transport-iroh|wasmer_sys|sqlite-encrypted)\b'
+check_absent "legacy serialized-bytes pin" 'holochain_serialized_bytes[^0-9]*0\.0\.56'
+check_absent "legacy SweetConductor constructor" '\bSweetConductor::from_standard_config\s*\('
+
+# Old client/test package names and 0.6 version declarations.
+check_absent "legacy Tryorama package" '@holochain/tryorama'
+check_absent "legacy Holochain 0.6 package versions" '(@holochain/client[^0-9]*0\.20\.|hdk[^0-9]*0\.6\.|hdi[^0-9]*0\.7\.|holochain[^0-9]*0\.6\.)'
+
+# Subtle 0.7 source/API changes that can compile incorrectly or regress at runtime.
+check_absent "legacy DnaStorageInfo size fields" '\b(authored_data_size|cache_data_size)\b'
+check_absent "legacy client WebRTC predicate" '\bis_webrtc\b'
+check_absent "legacy client signaling-server field" '\bsignalingServerUrl\b'
+check_absent "legacy config sync strategy field" '\bdb_sync_strategy\b'
+check_absent "legacy 0.6 sandbox transport spelling" '\bwebrtc\b'
+check_absent_multiline "removed ChainFilter builder methods" 'ChainFilter::new\([^)]*\)[[:space:]]*\.[[:space:]]*(until_hash|take|until_timestamp)[[:space:]]*\('
+
+# 0.7 dependency floor must be visible in Hearth manifests.
+check_present "Hearth HDK 0.7.0 dependency floor" 'hdk\s*=\s*"=0\.7\.0"'
+check_present "Hearth HDI 0.8.0 dependency floor" 'hdi\s*=\s*"=0\.8\.0"'
+check_present "Hearth serialized-bytes 0.0.57 floor" 'holochain_serialized_bytes\s*=\s*"0\.0\.57"'
+check_present "Hearth Holochain 0.7.0 test dependency" 'holochain\s*=.*version\s*=\s*"0\.7\.0"'
+check_present "Hearth Sweettest uses encryption feature" 'holochain.*features.*encryption'
+check_present "Hearth Sweettest uses wasmer-sys-cranelift" 'holochain.*features.*wasmer-sys-cranelift'
+check_present_any "Hearth uses SweetConductor::standard" 'SweetConductor::standard\s*\('
+check_present "Hearth dev shell provides Node.js 24" 'nodejs_24'
+check_present "Hearth dev shell provides Perl" '\bperl\b'
+check_present "Hearth flake uses Holonix main-0.7" 'holonix.*ref=main-0\.7'
+check_present "Hearth package builds use Holonix Rust" 'nativeBuildInputs[[:space:]]*=[[:space:]]*\[[[:space:]]*holochainPackages\.rust[[:space:]]'
+check_absent "Hearth package builds do not use shared Rust toolchain" 'holochainBase\.rustToolchain'
+check_present "Hearth default shell prepends Holonix Rust" 'export PATH="\$\{holochainPackages\.rust\}/bin:\$PATH'
+
+check_lock_ref "flake.lock pins Holochain 0.7.0" "holochain" "holochain" "holochain" "holochain-0.7.0"
+check_lock_ref "flake.lock pins Kitsune2 0.5.0" "kitsune2" "holochain" "kitsune2" "v0.5.0"
+check_lock_ref "flake.lock pins Lair 0.7.1" "lair-keystore" "holochain" "lair" "v0.7.1"
+check_lock_ref "flake.lock pins Holonix main-0.7" "holonix" "holochain" "holonix" "main-0.7"
+
+# Coordinator/client action access must use the 0.7 header/data split where action
+# content is inspected. This is intentionally a presence audit, not a style gate.
+if git grep -nE -- '\bActionData::|\.hashed\.content\.header\.(author|timestamp)|\.hashed\.content\.data' --     'mycelix-workspace/mycelix-hearth/**/*.rs'     'mycelix-workspace/mycelix-hearth/**/*.ts'     'mycelix-workspace/mycelix-hearth/**/*.tsx' >/dev/null 2>&1; then
+  echo "OK:   0.7 action header/data access present"
+else
+  echo "WARN: no explicit ActionData/header access found in Hearth source"
+fi
+
+
+# Semantic 0.7 source-chain validation coverage.
+if git grep -nE -- '\bmust_get_agent_activity\s*\(' -- 'mycelix-workspace/mycelix-hearth/**/*.rs' >/dev/null 2>&1; then
+  check_present_any "0.7 activity response: UntilHashMissing" 'MustGetAgentActivityResponse::UntilHashMissing'
+  check_present_any "0.7 activity response: UntilHashAfterChainHead" 'MustGetAgentActivityResponse::UntilHashAfterChainHead'
+  check_present_any "0.7 activity response: UntilTimestampIndeterminate" 'MustGetAgentActivityResponse::UntilTimestampIndeterminate'
+  check_present_any "0.7 activity response: UntilTimestampGreaterThanChainHead" 'MustGetAgentActivityResponse::UntilTimestampGreaterThanChainHead'
+  check_present_any "0.7 activity response: IncompleteChain" 'MustGetAgentActivityResponse::IncompleteChain'
+else
+  echo "OK:   no must_get_agent_activity call sites require response coverage"
+fi
+
+# Every tracked integrity zome must expose the 0.7 validation seam, flatten
+# operations through FlatOp, and inspect action semantics explicitly.
+integrity_files=()
+while IFS= read -r -d '' file; do integrity_files+=("$file"); done < <(git ls-files -z 'mycelix-workspace/mycelix-hearth/zomes/*/integrity/src/lib.rs')
+if ((${#integrity_files[@]} == 0)); then
+  echo "FAIL: no tracked Hearth integrity zomes discovered for semantic coverage"
+  fail=1
+else
+  for file in "${integrity_files[@]}"; do
+    if rg -n --pcre2 '\bfn\s+validate\s*\(\s*(?:op\s*:\s*)?Op\b|\bvalidate\s*\(\s*op\s*:\s*Op\b' "$file" >/dev/null; then
+      echo "OK:   $file exposes validate(Op)"
+    else
+      echo "FAIL: $file missing validate(Op) semantic seam"; fail=1
+    fi
+    if rg -n --pcre2 '\bFlatOp::|flattened\s*<[^>]*>\s*\(' "$file" >/dev/null; then
+      echo "OK:   $file handles flattened 0.7 operations"
+    else
+      echo "FAIL: $file missing FlatOp/flattened 0.7 operation handling"; fail=1
+    fi
+    if rg -n --pcre2 'ActionData::|action\.(?:author|timestamp)\s*\(|\.header\.(?:author|timestamp)\b' "$file" >/dev/null; then
+      echo "OK:   $file inspects 0.7 action semantics"
+    else
+      echo "FAIL: $file missing explicit 0.7 action semantic access"; fail=1
+    fi
+# 0.7 validation must account for every FlatOp family. A zome may
+    # explicitly handle a family or intentionally cover it with a terminal
+    # catch-all, but silently dropping a family is a migration defect.
+    for family in CreateEntry CreateRecord Update Delete Link AgentActivity; do
+      if rg -n --pcre2 "\bFlatOp::${family}\b|\b_\s*=>\s*Ok\s*\(" "$file" >/dev/null; then
+        echo "OK:   $file covers FlatOp::$family (explicit or catch-all)"
+      else
+        echo "FAIL: $file has no FlatOp::$family or terminal catch-all coverage"; fail=1
+      fi
+    done
+  done
+fi
+
+    # Validation must remain deterministic. Holochain explicitly disallows
+# state-changing / time-varying retrievals and other non-deterministic inputs
+# from validation callbacks. Keep this gate scoped to production source before
+# the test module so test-only helpers do not create false positives.
+check_validation_determinism() {
+  local file="$1"
+  local source
+  source="$(sed '/^\#\[cfg(test)\]/,$d' "$file")"
+  if printf '%s\n' "$source" | rg -n --pcre2 '\b(get_links|get_details|get_agent_activity|sys_time|random_bytes|call)\s*\(' >/tmp/hearth07_validation_forbidden.$$ 2>/dev/null; then
     echo "FAIL: $file contains non-deterministic validation host API usage"
     cat /tmp/hearth07_validation_forbidden.$$
     fail=1
@@ -544,8 +697,7 @@ check_semantic_case_integrity_bindings() {
       echo "OK:   $id declares expected validation result Invalid"
     fi
 
-    if rg -n --fixed-strings "$invariant" "$integrity_file" >/dev/null 2>&1 \
-      || [[ "$id" == "SEM-05" && "$invariant" == "source_cluster cannot be empty" ]] && rg -n --fixed-strings "validate_notification(&notification)" "$integrity_file" >/dev/null 2>&1; then
+    if rg -n --fixed-strings "$invariant" "$integrity_file" >/dev/null 2>&1 || [[ "$id" == "SEM-05" && "$invariant" == "source_cluster cannot be empty" ]] && rg -n --fixed-strings "validate_notification(&notification)" "$integrity_file" >/dev/null 2>&1; then
       echo "OK:   $id invariant is present in integrity source"
     else
       echo "FAIL: $id invariant is absent from integrity source: $invariant"
@@ -791,6 +943,7 @@ check_qualification_workflow_provenance() {
     echo "FAIL: qualification checkout has an unexpected or missing Hearth submodule source"
     fail=1
   fi
+
   if rg -n --fixed-strings 'group: hearth-07-qualification-${{ github.head_ref || github.ref_name }}' "$workflow" >/dev/null 2>&1 \
     && ! rg -n --fixed-strings 'github.event.pull_request.head.ref || github.ref' "$workflow" >/dev/null 2>&1; then
     echo "OK:   qualification workflow uses one branch-name cancellation domain across push/PR events"
