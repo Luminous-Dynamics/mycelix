@@ -5,7 +5,7 @@
   "profile_version": "0.1.0",
   "snapshot_date": "2026-10-04",
   "claim_ceiling": "ReferenceModelOnly",
-  "note": "PR heads are exact immutable Git identities at snapshot time; child PRs may still change afterward.",
+  "note": "PR heads are exact snapshot identities at this index update; child PRs may still change afterward.",
   "boundaries": [
     {"pr":3976,"issue":3968,"name":"sovereign enclave profile","head":"358e7bd40f1dadec0b9c6316c608414b51f0fcad","execution":"reference-model / structural JSON validation","qualification":"ReferenceModelOnly"},
     {"pr":3977,"issue":3977,"name":"RATS Evidence/appraisal","head":"bc28a1aa13048ce60757cce10fc168cb0db73d7","execution":"31/31 independent semantic vectors","qualification":"ReferenceModelOnly"},
@@ -16,9 +16,10 @@
     {"pr":3974,"issue":3974,"name":"comparative benchmark","head":"d387a233732c83ffb519c82874caf1b7037e8190","execution":"24/24 independent reference-model executions","qualification":"ReferenceModelOnly"},
     {"pr":4001,"issue":4001,"name":"PEP decision boundary","head":"690073394f3685bd8a28dd5f573a9b9925b0364d","execution":"24/24 independent decision-algebra vectors","qualification":"ReferenceModelOnly"},
     {"pr":3975,"issue":3975,"name":"E1 CUI/CMMC revision boundary","head":"31b00430affc7909e6776e74b5dbb590a700ab3f","execution":"12/12 structural revision-boundary vectors","qualification":"ReferenceModelOnly"},
-    {"pr":4011,"issue":4006,"name":"physical platform Evidence capture/coherence","head":"f7c38bbd6bcdce89180e6130450609df068cc1a6","execution":"22-vector semantic corpus defined; exact-head hosted security workflow awaits base-branch availability","qualification":"ReferenceModelOnly"},
-    {"pr":4013,"issue":4006,"name":"platform Evidence exact-head validation","head":"f7c38bbd6bcdce89180e6130450609df068cc1a6","execution":"CI-only validation PR; no hosted security-evidence result yet","qualification":"EvidenceGatePending"},
-    {"pr":4016,"issue":4006,"name":"security-evidence CI gate","head":"40413a45472c61ed9814b6b8daccb38f7bd20076","execution":"CI infrastructure only; workflow becomes authoritative after merge to main","qualification":"EvidenceGatePending"}
+    {"pr":4011,"issue":4006,"name":"physical platform Evidence capture/coherence","head":"e7f872db866ad3dbbcf7738bb94be670491b84fe","execution":"22-vector semantic corpus; dedicated security workflow queued on exact feature head","qualification":"EvidenceGatePending"},
+    {"pr":4013,"issue":4006,"name":"platform Evidence exact-head validation","head":"e7f872db866ad3dbbcf7738bb94be670491b84fe","execution":"dedicated security workflow queued; generic CI also queued","qualification":"EvidenceGatePending"},
+    {"pr":4019,"issue":4006,"name":"independent PC-client PCR reconstruction","head":"04fb145826a4bcf892347571d50fa3aab4c0b71b","execution":"22-vector semantic corpus and machine-consumable reconstruction result contract; hosted execution not yet completed","qualification":"EvidenceGatePending"},
+    {"pr":4016,"issue":4006,"name":"security-evidence CI gate","head":"40413a45472c61ed9814b6b8daccb38f7bd20076","execution":"CI infrastructure only; not yet merged to main","qualification":"EvidenceGatePending"}
   ],
   "executed_invariants": [
     "raw Evidence != Attestation Result != Authorization",
@@ -30,7 +31,9 @@
     "comparative benchmark has no composite security score",
     "platform parser success != event-log reconstruction",
     "observed TPM identity != manufacturer trust",
-    "one capture session != mix-and-match evidence"
+    "one capture session != mix-and-match evidence",
+    "PCR artifact digest != actual PCR-state digest",
+    "reconstructed PCR state == observed PCR state is a separate theorem"
   ],
   "current_execution_environment": {
     "tpm_device": false,
@@ -41,18 +44,19 @@
     "tpm2_pcrextend": false,
     "tpm2_eventlog": false,
     "nix_available": false,
-    "hosted_security_evidence_workflow": "not yet active on main"
+    "dedicated_security_workflow": "queued on exact validation head; authoritative base-branch gate pending"
   },
   "current_external_compliance_boundary": {
     "cmmc_phase_two_status": "suspended-2026-07-13",
-    "cmmc_level_2_during_pause": "DoW CIO current public guidance states 110 NIST SP 800-171 Rev.2 requirements apply through self-assessment and selected government-led assessment paths during the suspension.",
+    "cmmc_level_2_during_pause": "Current public DoW CIO guidance states that during the suspension Level 2 enforcement uses the 110 NIST SP 800-171 Rev.2 requirements through the described assessment paths.",
     "engineering_target": "NIST SP 800-171 Rev.3 and related Rev.3 publications remain the repository engineering target.",
     "contract_surface": "DFARS 252.204-7021 remains contract/solicitation specific; required CMMC level is inserted by the Contracting Officer."
   },
   "blockers": [
     "Real TPM/vTPM execution is unavailable in the current environment.",
     "Physical PC-client measured-boot and event-log reconstruction remain unexecuted.",
-    "The new security-evidence workflow is present in feature stacks but is not yet authoritative from main because it has not been merged.",
+    "The dedicated security-evidence workflow is not yet authoritative from main because its CI-gate PR has not been merged.",
+    "A physical capture still requires an independently sourced trusted-time object, reference-value set, and exact OS/workload identity.",
     "CMMC/NIST semantic mapping is not certification evidence.",
     "Independent assessment, organizational controls, physical/personnel controls, and contract applicability remain external."
   ],
