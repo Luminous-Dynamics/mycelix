@@ -98,8 +98,11 @@ jobs:
             observed_case_count=$(grep -c '^D6U_CASE' d6u-runtime-test.log)
             supplemental_case_count=$(python3 -c 'import json; print(len(json.load(open("../docs/integral/d6u-runtime-manifest.json")).get("supplemental_substrate_checks", [])))')
             observed_supplemental_count=$(grep -c '^D6U_SUBSTRATE_CHECK' d6u-runtime-test.log)
+            application_case_count=$(python3 -c 'import json; print(len(json.load(open("../docs/integral/d6u-runtime-manifest.json")).get("supplemental_application_checks", [])))')
+            observed_application_count=$(grep -c '^D6U_APPLICATION_CHECK' d6u-runtime-test.log)
             echo "case_coverage=${observed_case_count}-of-${supported_case_count}"
             echo "supplemental_coverage=${observed_supplemental_count}-of-${supplemental_case_count}"
+            echo "application_check_coverage=${observed_application_count}-of-${application_case_count}"
             echo "case_outcome_classes=accepted,semantic-rejected,d6s-commitment-mismatch,authentication-failed,authorization-failed,routing-failed"
             echo "runtime=holochain-0.7.0"
             echo "hdk=0.7.0"
