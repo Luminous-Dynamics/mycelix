@@ -140,7 +140,7 @@ jobs:
             while IFS= read -r -d "" file; do
               zome="$(basename "$(dirname "$(dirname "$(dirname "$file")")")")"
               printf "zome=%s" "${zome//-/_}"
-              coordinator="mycelix-workspace/mycelix-hearth/zomes/$zome/coordinator/src/lib.rs"
+              coordinator_dir="mycelix-workspace/mycelix-hearth/zomes/$zome/coordinator/src"
               for family in CreateEntry CreateRecord Update Delete AgentActivity; do
                 if rg -n --pcre2 "\\bFlatOp::${family}\\b" "$file" >/dev/null 2>&1; then
                   printf " validator.%s=present" "$family"
@@ -159,7 +159,7 @@ jobs:
                 printf " validator.Link.DeleteLink=absent"
               fi
               for family in create_entry update_entry delete_entry create_link delete_link; do
-                if [[ -f "$coordinator" ]] && rg -n --pcre2 "\\b${family}\\s*\\(" "$coordinator" >/dev/null 2>&1; then
+                if [[ -d "$coordinator_dir" ]] && rg -n --pcre2 "\\b${family}\\s*\\(" "$coordinator_dir" --glob '*.rs' >/dev/null 2>&1; then
                   printf " coordinator.%s=present" "$family"
                 else
                   printf " coordinator.%s=absent" "$family"
