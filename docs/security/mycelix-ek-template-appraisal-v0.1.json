@@ -1,0 +1,196 @@
+{
+  "schema_version": 1,
+  "artifact_type": "mycelix-ek-template-appraisal-v0.1",
+  "profile_id": "mycelix.security.tpm.ek-template-appraisal",
+  "profile_version": "0.1.0",
+  "status": "executable-reference-profile",
+  "claim_ceiling": "ReferenceModelOnly",
+  "decision_algebra": "ANY DENY > ANY INDETERMINATE > ALL PASS",
+  "states": [
+    "PASS",
+    "DENY",
+    "INDETERMINATE"
+  ],
+  "registry": {
+    "specification": "TCG EK Credential Profile for TPM Family 2.0 Level 0 Version 2.7",
+    "template_id": "L-1",
+    "algorithm": "RSA-2048",
+    "range": "Low",
+    "name_alg": "SHA-256",
+    "note": "The current tpm2_createek default rsa path selects the low-range template unless a manufacturer-defined template is explicitly requested."
+  },
+  "required_input": {
+    "verification_mode": "ReferenceModelOnly, OfflineBundle, or LiveVerifierSession",
+    "claim_ceiling": "ReferenceModelOnly",
+    "object_role": "EK",
+    "public_format": "TPMT_PUBLIC or TPM2B_PUBLIC",
+    "public_wire_hex": "exact EK public-area bytes",
+    "public_wire_sha256": "SHA-256 of supplied public-area wire bytes",
+    "name_hex": "TPM-provided EK Name",
+    "qualified_name_hex": "TPM-provided EK Qualified Name",
+    "creation_provenance": {
+      "state": "PASS, DENY, or INDETERMINATE",
+      "tool_id": "tpm2_createek",
+      "hierarchy": "TPM_RH_ENDORSEMENT",
+      "template_mode": "default-low-range or manufacturer-defined",
+      "transcript_sha256": "hash of exact creation command/provenance transcript"
+    }
+  },
+  "template": {
+    "type_hex": "0001",
+    "name_alg_hex": "000b",
+    "object_attributes_hex": "000300b2",
+    "auth_policy_hex": "837197674484b3f81a90cc8d46a5d724fd52d76e06520b64f2a1da1b331469aa",
+    "symmetric_algorithm_hex": "0006",
+    "symmetric_key_bits_hex": "0080",
+    "symmetric_mode_hex": "0043",
+    "scheme_hex": "0010",
+    "key_bits_hex": "0800",
+    "exponent_hex": "00000000",
+    "unique_size": 256
+  },
+  "non_equivalences": [
+    [
+      "ek_template_match",
+      "endorsement_hierarchy_execution"
+    ],
+    [
+      "ek_template_match",
+      "manufacturer_ek_certificate_trust"
+    ],
+    [
+      "ek_public_name_coherent",
+      "ek_template_match"
+    ],
+    [
+      "ek_template_match",
+      "AK_EK_lineage"
+    ],
+    [
+      "ek_template_match",
+      "platform_measured_boot_valid"
+    ]
+  ],
+  "vectors": [
+    [
+      "ETP-V01",
+      "canonical-valid",
+      "PASS"
+    ],
+    [
+      "ETP-V02",
+      "public-type-substitution",
+      "DENY"
+    ],
+    [
+      "ETP-V03",
+      "name-alg-substitution",
+      "DENY"
+    ],
+    [
+      "ETP-V04",
+      "attributes-substitution",
+      "DENY"
+    ],
+    [
+      "ETP-V05",
+      "auth-policy-substitution",
+      "DENY"
+    ],
+    [
+      "ETP-V06",
+      "symmetric-alg-substitution",
+      "DENY"
+    ],
+    [
+      "ETP-V07",
+      "symmetric-keybits-substitution",
+      "DENY"
+    ],
+    [
+      "ETP-V08",
+      "symmetric-mode-substitution",
+      "DENY"
+    ],
+    [
+      "ETP-V09",
+      "scheme-substitution",
+      "DENY"
+    ],
+    [
+      "ETP-V10",
+      "keybits-substitution",
+      "DENY"
+    ],
+    [
+      "ETP-V11",
+      "exponent-substitution",
+      "DENY"
+    ],
+    [
+      "ETP-V12",
+      "unique-size-substitution",
+      "DENY"
+    ],
+    [
+      "ETP-V13",
+      "trailing-bytes",
+      "DENY"
+    ],
+    [
+      "ETP-V14",
+      "tpm2b-size-substitution",
+      "DENY"
+    ],
+    [
+      "ETP-V15",
+      "name-substitution",
+      "DENY"
+    ],
+    [
+      "ETP-V16",
+      "public-wire-digest-substitution",
+      "DENY"
+    ],
+    [
+      "ETP-V17",
+      "creation-hierarchy-substitution",
+      "DENY"
+    ],
+    [
+      "ETP-V18",
+      "creation-tool-substitution",
+      "DENY"
+    ],
+    [
+      "ETP-V19",
+      "creation-provenance-indeterminate",
+      "INDETERMINATE"
+    ],
+    [
+      "ETP-V20",
+      "manufacturer-template-mode",
+      "INDETERMINATE"
+    ],
+    [
+      "ETP-V21",
+      "offline-bundle",
+      "INDETERMINATE"
+    ],
+    [
+      "ETP-V22",
+      "live-verifier",
+      "INDETERMINATE"
+    ],
+    [
+      "ETP-V23",
+      "creation-transcript-substitution",
+      "DENY"
+    ],
+    [
+      "ETP-V24",
+      "key-order-permutation",
+      "PASS"
+    ]
+  ]
+}
