@@ -4296,8 +4296,9 @@ mod tests {
     }
 
     #[test]
-    fn state_machine_trace_capsule_rejects_unknown_fields() {
+    fn state_machine_trace_capsule_rejects_unknown_fields_at_every_struct_boundary() {
         let capsule_text = state_machine_trace_capsule(2, 6);
+
         let mut value =
             serde_json::from_str::<serde_json::Value>(&capsule_text)
                 .expect("generated trace capsule JSON must parse");
@@ -4305,12 +4306,39 @@ mod tests {
             .as_object_mut()
             .expect("trace capsule must serialize as an object")
             .insert("unexpected_field".into(), serde_json::Value::Bool(true));
-
         let tampered = serde_json::to_string_pretty(&value)
-            .expect("tampered trace capsule JSON must serialize");
+            .expect("tampered capsule JSON must serialize");
         assert!(
             serde_json::from_str::<FederationStateMachineTraceCapsule>(&tampered).is_err(),
-            "successful trace capsule must reject unknown fields"
+            "successful trace capsule must reject unknown top-level fields"
+        );
+
+        let mut value =
+            serde_json::from_str::<serde_json::Value>(&capsule_text)
+                .expect("generated trace capsule JSON must parse");
+        value["initial_state"]
+            .as_object_mut()
+            .expect("initial state must serialize as an object")
+            .insert("unexpected_boundary_field".into(), serde_json::Value::Bool(true));
+        let tampered = serde_json::to_string_pretty(&value)
+            .expect("tampered boundary JSON must serialize");
+        assert!(
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&tampered).is_err(),
+            "successful trace capsule must reject unknown boundary fields"
+        );
+
+        let mut value =
+            serde_json::from_str::<serde_json::Value>(&capsule_text)
+                .expect("generated trace capsule JSON must parse");
+        value["evidence"][0]
+            .as_object_mut()
+            .expect("step evidence must serialize as an object")
+            .insert("unexpected_evidence_field".into(), serde_json::Value::Bool(true));
+        let tampered = serde_json::to_string_pretty(&value)
+            .expect("tampered evidence JSON must serialize");
+        assert!(
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&tampered).is_err(),
+            "successful trace capsule must reject unknown evidence fields"
         );
     }
 
