@@ -10,7 +10,9 @@
 //! # Cryptographic Signatures
 //!
 //! This implementation uses ed25519 signatures via Holochain's HDK signing API.
-//! Signatures use either the explicit Mycelix native profile or the W3C\n//! Data Integrity eddsa-jcs-2022 profile. The W3C profile uses RFC 8785 JCS,\n//! SHA-256, raw Ed25519 signatures, and base58-btc Multibase.
+//! Signatures use either the explicit Mycelix native profile or the W3C
+//! Data Integrity eddsa-jcs-2022 profile. The W3C profile uses RFC 8785 JCS,
+//! SHA-256, raw Ed25519 signatures, and base58-btc Multibase.
 
 use hdk::prelude::*;
 use mycelix_crypto::{AlgorithmId, TaggedPublicKey, TaggedSignature};
