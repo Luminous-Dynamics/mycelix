@@ -1,10 +1,13 @@
 name: Hearth Exact-Head Qualification
 
 on:
+  push:
+    branches: [ac-080-exact-head-qualification]
   pull_request:
     branches: [main]
     paths:
       - 'mycelix-hearth/**'
+      - '.github/workflows/hearth-exact-head.yml'
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
