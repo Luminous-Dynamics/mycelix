@@ -587,9 +587,9 @@ check_semantic_case_entrypoints() {
   local manifest="mycelix-workspace/mycelix-hearth/tests/hearth-07-semantic-validation-cases.json"
   local rust_test="mycelix-workspace/mycelix-hearth/tests/sweettest_semantic_validation.rs"
   local tests zomes operations
-  mapfile -t tests < <(sed -n 's/^[[:space:]]*"test"[[:space:]]*:[[:space:]]*"\\([^"]*\\)".*/\\1/p' "$manifest")
-  mapfile -t zomes < <(sed -n 's/^[[:space:]]*"zome"[[:space:]]*:[[:space:]]*"\\([^"]*\\)".*/\\1/p' "$manifest")
-  mapfile -t operations < <(sed -n 's/^[[:space:]]*"operation"[[:space:]]*:[[:space:]]*"\\([^"]*\\)".*/\\1/p' "$manifest")
+  mapfile -t tests < <(sed -n 's/^[[:space:]]*"test"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest")
+  mapfile -t zomes < <(sed -n 's/^[[:space:]]*"zome"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest")
+  mapfile -t operations < <(sed -n 's/^[[:space:]]*"operation"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest")
 
   if [[ "${#tests[@]}" -eq 0 || "${#tests[@]}" -ne "${#zomes[@]}" || "${#tests[@]}" -ne "${#operations[@]}" ]]; then
     echo "FAIL: semantic manifest test/zome/operation declaration counts differ"
