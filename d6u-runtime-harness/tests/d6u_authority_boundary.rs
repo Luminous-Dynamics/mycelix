@@ -532,7 +532,12 @@ async fn d6u_runtime_authority_boundary() {
         "BadCapGrant",
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
-    record_case("provenance-mismatch", "authorization-failed", before, &reached);
+    record_case(
+        "provenance-mismatch",
+        "authorization-failed",
+        before,
+        &reached,
+    );
 
     expect_ok(
         call(
@@ -575,7 +580,12 @@ async fn d6u_runtime_authority_boundary() {
         "BadCapGrant",
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
-    record_case("revoked-capability", "authorization-failed", before, &reached);
+    record_case(
+        "revoked-capability",
+        "authorization-failed",
+        before,
+        &reached,
+    );
 
     let replay_nonce = Nonce256Bits::from([0xff; 32]);
     let replay_params = params(
@@ -653,7 +663,12 @@ async fn d6u_runtime_authority_boundary() {
         "Expired",
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
-    record_case("expired-invocation", "authorization-failed", before, &reached);
+    record_case(
+        "expired-invocation",
+        "authorization-failed",
+        before,
+        &reached,
+    );
 
     let wrong_zome = params(
         &alice_cell,
@@ -752,7 +767,12 @@ async fn d6u_runtime_authority_boundary() {
         "BlockedProvenance",
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
-    record_case("blocked-provenance", "authorization-failed", before, &reached);
+    record_case(
+        "blocked-provenance",
+        "authorization-failed",
+        before,
+        &reached,
+    );
 
     assert_eq!(reached.load(Ordering::SeqCst), 6);
 }
