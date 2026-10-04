@@ -261,6 +261,14 @@
     {
       "id": "CAP-026",
       "rule": "Trusted-time evidence requires independent appraisal with an external nonce and an explicit verifier evaluation time; local clock claims are not authoritative."
+    },
+    {
+      "id": "CAP-027",
+      "rule": "Local-clock-only time is DENY; missing external evaluation time is INDETERMINATE; expired trusted-time evidence is DENY."
+    },
+    {
+      "id": "CAP-028",
+      "rule": "Trusted-time appraisal is bound to the exact time artifact, source registry digest, verifier source digest, and session."
     }
   ],
   "decision_algebra": "ANY DENY > ANY INDETERMINATE > ALL PASS",
