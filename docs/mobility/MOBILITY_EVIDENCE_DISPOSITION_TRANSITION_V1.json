@@ -1,0 +1,1005 @@
+{
+  "schema": "mycelix.mobility.evidence_disposition_transition.v1",
+  "authority": "measurement_only",
+  "semantics": {
+    "append_only": true,
+    "temporal_scope_is_immutable": true,
+    "terminal_dispositions": [
+      "superseded",
+      "retracted"
+    ],
+    "genesis_from": "active",
+    "missing_dependency": "unresolved_at_protocol_layer"
+  },
+  "vectors": [
+    {
+      "id": "EDT-001",
+      "case": "active_to_disputed_genesis",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-002",
+      "case": "active_to_superseded_genesis",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-003",
+      "case": "active_to_retracted_genesis",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-004",
+      "case": "active_to_unresolved_genesis",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-005",
+      "case": "disputed_to_active_with_predecessor",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-006",
+      "case": "unresolved_to_active_with_predecessor",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-007",
+      "case": "genesis_cannot_start_non_active",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-008",
+      "case": "non_genesis_requires_explicit_predecessor",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-009",
+      "case": "retracted_is_terminal",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-010",
+      "case": "superseded_is_terminal",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-011",
+      "case": "self_referencing_predecessor",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-012",
+      "case": "untyped_basis",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-013",
+      "case": "disposition_transition_does_not_rewrite_event_or_effectivity",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-014",
+      "case": "missing_predecessor_dependency",
+      "expected": "unresolved_at_protocol_layer"
+    },
+    {
+      "id": "EDT-015",
+      "case": "concurrent_disposition_branches_require_explicit_reconciliation",
+      "expected": "not_silently_collapsed"
+    },
+    {
+      "id": "EDT-016",
+      "case": "successor_configuration_does_not_inherit_disposition",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-017",
+      "case": "replacement_artifact_does_not_inherit_disposition",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-018",
+      "case": "holochain_validation_is_not_evidence_disposition",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-019",
+      "case": "duplicate_transition_identity",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-020",
+      "case": "predecessor_source_state_mismatch",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-021",
+      "case": "multiple_genesis_assertions",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-022",
+      "case": "branch_point_is_reported_without_selecting_winner",
+      "expected": "explicit_branch"
+    },
+    {
+      "id": "EDT-023",
+      "case": "missing_predecessor_identity",
+      "expected": "unresolved_at_protocol_layer"
+    },
+    {
+      "id": "EDT-024",
+      "case": "predecessor_cycle",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-025",
+      "case": "explicit_branch_reconciliation_requires_two_heads",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-026",
+      "case": "explicit_branch_reconciliation_validates_ancestry_without_selecting_winner",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-027",
+      "case": "reconciliation_rejects_branch_point_as_head",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-028",
+      "case": "reconciliation_rejects_nested_heads_as_competing_branches",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-029",
+      "case": "reconciliation_coverage_accepts_bounded_declared_head_set",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-030",
+      "case": "reconciliation_coverage_rejects_uncovered_reconciliation_head",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-031",
+      "case": "reconciliation_coverage_rejects_nested_heads",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-032",
+      "case": "reconciliation_coverage_rejects_unbound_boundary",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-033",
+      "case": "reconciliation_coverage_rejects_boundary_reconciliation_mismatch",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-034",
+      "case": "reconciliation_coverage_rejects_boundary_authority_mismatch",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-035",
+      "case": "reconciliation_coverage_rejects_boundary_basis_omission",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-036",
+      "case": "reconciliation_coverage_accepts_boundary_basis_extension",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-037",
+      "case": "authority_scope_binds_exact_reconciliation_subject_and_authority",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-038",
+      "case": "authority_scope_rejects_unrelated_reconciliation_subject",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-039",
+      "case": "authority_scope_rejects_unrelated_authority",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-040",
+      "case": "authority_scope_requires_reconciliation_basis_continuity",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-041",
+      "case": "authority_scope_accepts_reconciliation_basis_continuity",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-042",
+      "case": "coverage_boundary_authority_scope_must_match_reconciliation_scope",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-043",
+      "case": "reconciliation_coverage_rejects_boundary_authority_scope_mismatch",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-044",
+      "case": "authority_delegation_graph_accepts_continuous_chain",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-045",
+      "case": "authority_delegation_graph_rejects_grantor_discontinuity",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-046",
+      "case": "authority_delegation_graph_rejects_subject_change",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-047",
+      "case": "authority_delegation_graph_reports_missing_predecessor",
+      "expected": "unresolved_at_protocol_layer"
+    },
+    {
+      "id": "EDT-048",
+      "case": "authority_delegation_graph_rejects_cycle",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-049",
+      "case": "authority_scope_requires_exact_delegation_identity",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-050",
+      "case": "authority_delegation_graph_requires_basis_continuity",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-051",
+      "case": "authority_delegation_graph_rejects_provenance_drop",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-052",
+      "case": "authority_delegation_graph_allows_basis_extension",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-053",
+      "case": "authority_delegation_target_chain_ignores_unrelated_missing_predecessor",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-054",
+      "case": "authority_delegation_target_chain_reports_missing_predecessor",
+      "expected": "unresolved_at_protocol_layer"
+    },
+    {
+      "id": "EDT-055",
+      "case": "reconciliation_basis_must_be_unique",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-056",
+      "case": "reconciliation_coverage_basis_must_be_unique",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-057",
+      "case": "reconciliation_coverage_validates_named_authority_chain",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-058",
+      "case": "authority_delegation_target_chain_ignores_unrelated_invalid_record",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-059",
+      "case": "authority_provenance_chain_allows_monotonic_basis_accumulation",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-060",
+      "case": "reconciliation_coverage_accepts_reordered_boundary_sets",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-061",
+      "case": "reconciliation_coverage_rejects_authority_scope_basis_omission",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-062",
+      "case": "reconciliation_coverage_accepts_authority_scope_basis_at_boundary",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-063",
+      "case": "authority_scope_validates_named_delegation_chain",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-064",
+      "case": "authority_scope_reports_missing_named_delegation_predecessor",
+      "expected": "unresolved_at_protocol_layer"
+    },
+    {
+      "id": "EDT-065",
+      "case": "authority_scope_ignores_unrelated_invalid_delegation",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-066",
+      "case": "reconciliation_coverage_reports_unresolved_named_authority_chain",
+      "expected": "unresolved_at_protocol_layer"
+    },
+    {
+      "id": "EDT-067",
+      "case": "reconciliation_coverage_validates_named_authority_chain_and_ignores_unrelated_invalid_delegation",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-068",
+      "case": "authority_delegation_target_chain_reports_missing_target_as_unresolved",
+      "expected": "unresolved_at_protocol_layer"
+    },
+    {
+      "id": "EDT-069",
+      "case": "reconciliation_coverage_assessment_reports_missing_transition_dependency",
+      "expected": "unresolved_at_protocol_layer"
+    },
+    {
+      "id": "EDT-070",
+      "case": "reconciliation_coverage_assessment_rejects_structural_mismatch_before_unresolved",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-071",
+      "case": "reconciliation_coverage_assessment_rejects_invalid_authority_chain_before_unresolved",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-072",
+      "case": "reconciliation_coverage_assessment_aggregates_missing_transition_and_authority_dependencies",
+      "expected": "unresolved_at_protocol_layer"
+    },
+    {
+      "id": "EDT-073",
+      "case": "reconciliation_coverage_assessment_ignores_unrelated_invalid_transition",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-074",
+      "case": "reconciliation_coverage_assessment_is_invariant_to_transition_order",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-075",
+      "case": "reconciliation_coverage_assessment_stops_at_declared_branch_point",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-076",
+      "case": "reconciliation_coverage_assessment_rejects_known_nested_heads_even_with_missing_boundary",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-077",
+      "case": "authority_scope_reports_missing_named_delegation_target",
+      "expected": "unresolved_at_protocol_layer"
+    },
+    {
+      "id": "EDT-078",
+      "case": "authority_scope_rejects_binding_mismatch_before_unresolved_predecessor",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-079",
+      "case": "reconciliation_coverage_uses_direct_authority_target_without_requiring_duplicate_dependency",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-080",
+      "case": "authority_delegation_direct_target_conflict_is_rejected",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-081",
+      "case": "reconciliation_coverage_assessment_rejects_present_descendant_of_missing_named_head",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-082",
+      "case": "reconciliation_coverage_assessment_surfaces_structural_error_as_typed_error",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-083",
+      "case": "reconciliation_coverage_assessment_resolves_additional_covered_branch_head",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-084",
+      "case": "append_accepts_a_new_successor_of_an_existing_transition",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-085",
+      "case": "append_rejects_rewriting_an_existing_transition_identity",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-086",
+      "case": "append_preserves_unresolved_missing_predecessor_status",
+      "expected": "unresolved_at_protocol_layer"
+    },
+    {
+      "id": "EDT-087",
+      "case": "append_can_fill_a_previously_missing_predecessor",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-088",
+      "case": "qualification_status_composes_multiple_unresolved_dependency_paths_deterministically",
+      "expected": "unresolved_at_protocol_layer"
+    },
+    {
+      "id": "EDT-089",
+      "case": "reconciliation_coverage_rejects_known_nested_heads_even_with_unresolved_authority_chain",
+      "expected": "rejected"
+    },
+    {
+      "id": "EDT-090",
+      "case": "qualification_status_zips_independent_paths_and_unions_missing_dependencies",
+      "expected": "unresolved_at_protocol_layer"
+    },
+    {
+      "id": "EDT-091",
+      "case": "qualification_dependency_accumulation_is_invariant_to_partitioning",
+      "expected": "unresolved_at_protocol_layer"
+    },
+    {
+      "id": "EDT-092",
+      "case": "qualification_outcome_maps_to_runtime_neutral_valid_invalid_or_unresolved_decision",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-093",
+      "case": "qualification_decision_preserves_logical_identity_boundary_and_definitive_state",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-094",
+      "case": "runtime_neutral_qualification_adapter_contract_is_machine_readable_and_three_valued",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-095",
+      "case": "independent_reference_validator_accepts_only_the_declared_adapter_boundary_contract",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-096",
+      "case": "logical_dependency_binds_to_exactly_one_runtime_address",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-097",
+      "case": "logical_dependency_rebinding_is_rejected_as_typed_structural_error",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-098",
+      "case": "unbound_logical_dependency_remains_unresolved",
+      "expected": "unresolved_at_protocol_layer"
+    },
+    {
+      "id": "EDT-099",
+      "case": "logical_dependency_resolution_is_invariant_to_request_order",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-100",
+      "case": "malformed_requested_logical_dependency_is_definitive_structural_error",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-101",
+      "case": "bound_protocol_address_wrong_for_selected_retrieval_primitive_is_adapter_error",
+      "expected": "adapter_boundary_error"
+    },
+    {
+      "id": "EDT-102",
+      "case": "valid_record_binding_dispatches_only_to_must_get_valid_record",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-103",
+      "case": "action_binding_dispatches_only_to_must_get_action",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-104",
+      "case": "entry_binding_dispatches_only_to_must_get_entry",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-105",
+      "case": "adapter_retrieval_never_derives_protocol_hash_from_logical_identity_text",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-106",
+      "case": "unbound_logical_identity_has_no_protocol_hash_until_explicit_runtime_binding_exists",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-107",
+      "case": "bound_missing_dependency_is_delegated_to_the_matching_must_get_unresolved_path",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-108",
+      "case": "definitive_valid_and_invalid_decisions_map_directly_to_holochain_results",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-109",
+      "case": "pure_unresolved_decision_cannot_be_mapped_until_runtime_address_binding_exists",
+      "expected": "adapter_boundary_error"
+    },
+    {
+      "id": "EDT-110",
+      "case": "malformed_logical_identity_is_semantic_invalid_before_runtime_binding_validation",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-111",
+      "case": "duplicate_runtime_binding_is_adapter_boundary_failure",
+      "expected": "adapter_boundary_error"
+    },
+    {
+      "id": "EDT-112",
+      "case": "one_callback_seam_maps_semantic_invalidity_and_preserves_true_adapter_errors",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-113",
+      "case": "binding_provenance_accepts_exact_logical_dependency_and_authority_basis",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-114",
+      "case": "binding_provenance_rejects_wrong_witness_identity_kind",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-115",
+      "case": "binding_provenance_rejects_duplicate_basis_witness",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-116",
+      "case": "binding_provenance_rejects_authority_omission_from_basis",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-117",
+      "case": "binding_provenance_rejects_logical_identity_mismatch_at_runtime_binding",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-118",
+      "case": "runtime_binding_requires_explicit_provenance_witness",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-119",
+      "case": "resolved_runtime_dependency_carries_exact_binding_provenance",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-120",
+      "case": "binding_provenance_contains_no_protocol_address_derivation",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-121",
+      "case": "duplicate_provenance_witness_cannot_justify_multiple_runtime_bindings",
+      "expected": "adapter_boundary_error"
+    },
+    {
+      "id": "EDT-122",
+      "case": "binding_provenance_rejects_witness_identity_equal_to_authority",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-123",
+      "case": "binding_provenance_rejects_self_referential_basis",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-124",
+      "case": "binding_provenance_is_serializable_as_a_closed_schema",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-125",
+      "case": "unresolved_partial_runtime_binding_preserves_exact_provenance_witness",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-126",
+      "case": "binding_provenance_requires_exact_authority_scope_reference",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-127",
+      "case": "binding_provenance_requires_exact_authority_delegation_reference",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-128",
+      "case": "binding_provenance_allows_no_identity_reuse_across_provenance_roles",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-129",
+      "case": "binding_provenance_basis_cannot_contain_its_own_witness_identity",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-130",
+      "case": "binding_provenance_basis_cannot_use_bound_dependency_as_its_own_justification",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-131",
+      "case": "provenance_witness_identity_is_unique_per_runtime_binding",
+      "expected": "adapter_boundary_error"
+    },
+    {
+      "id": "EDT-132",
+      "case": "signed_binding_attestation_payload_binds_schema_provenance_address_and_retrieval_kind",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-133",
+      "case": "signed_binding_attestation_uses_deterministic_canonical_signature_verification",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-134",
+      "case": "unverified_binding_attestation_is_semantic_invalidity",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-135",
+      "case": "signature_verification_host_failure_remains_runtime_error",
+      "expected": "adapter_boundary_error"
+    },
+    {
+      "id": "EDT-136",
+      "case": "attested_runtime_binding_requires_verified_signature",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-137",
+      "case": "signature_attestation_does_not_resolve_authority_identity_by_itself",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-138",
+      "case": "signed_binding_attestation_verification_returns_valid_when_deterministic_host_verifies_payload",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-139",
+      "case": "signed_binding_attestation_signature_mismatch_is_semantic_invalidity",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-140",
+      "case": "signed_binding_attestation_verification_host_failure_remains_extern_result_error",
+      "expected": "adapter_boundary_error"
+    },
+    {
+      "id": "EDT-141",
+      "case": "attested_binding_acceptance_occurs_only_after_signature_verification",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-142",
+      "case": "authority_agent_credential_binds_exact_domain_authority_to_agent_pub_key",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-143",
+      "case": "authority_agent_credential_requires_issuer_to_equal_bound_agent",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-144",
+      "case": "authority_agent_registry_rejects_duplicate_authority_binding",
+      "expected": "adapter_boundary_error"
+    },
+    {
+      "id": "EDT-145",
+      "case": "runtime_binding_requires_authority_agent_binding_before_signer_acceptance",
+      "expected": "unresolved_at_protocol_layer"
+    },
+    {
+      "id": "EDT-146",
+      "case": "runtime_binding_signer_must_match_registered_authority_agent",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-147",
+      "case": "authority_agent_binding_retains_domain_provenance_requirement",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-148",
+      "case": "authority_agent_signature_does_not_infer_domain_authority_identity",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-149",
+      "case": "authority_agent_binding_is_order_independent_and_immutable",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-150",
+      "case": "authority_agent_provenance_uses_a_dedicated_subject_binding_type",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-151",
+      "case": "authority_agent_provenance_requires_distinct_witness_authority_scope_and_delegation_roles",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-152",
+      "case": "authority_agent_provenance_requires_exact_scope_and_delegation_basis",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-153",
+      "case": "authority_agent_provenance_is_closed_schema_serializable",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-154",
+      "case": "verified_authority_agent_credential_is_admitted_to_immutable_registry",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-155",
+      "case": "authority_agent_credential_with_wrong_issuer_is_semantic_invalidity",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-156",
+      "case": "unregistered_authority_agent_binding_keeps_runtime_dependency_unresolved",
+      "expected": "unresolved_at_protocol_layer"
+    },
+    {
+      "id": "EDT-157",
+      "case": "registered_authority_agent_signer_is_required_for_runtime_binding",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-158",
+      "case": "authority_agent_registry_rejects_second_binding_for_same_authority",
+      "expected": "adapter_boundary_error"
+    },
+    {
+      "id": "EDT-159",
+      "case": "authority_agent_registry_retains_verified_credential_for_auditability",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-160",
+      "case": "runtime_binding_requires_exact_registered_authority_scope",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-161",
+      "case": "runtime_binding_requires_exact_registered_authority_delegation",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-162",
+      "case": "runtime_binding_preserves_registered_authority_credential_provenance_continuity",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-163",
+      "case": "runtime_binding_rejects_dropped_authority_credential_basis",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-164",
+      "case": "runtime_binding_accepts_complete_registered_authority_credential_basis",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-165",
+      "case": "runtime_binding_rejects_authority_credential_witness_reuse",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-166",
+      "case": "authority_agent_payload_has_explicit_canonical_serialized_bytes_roundtrip",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-167",
+      "case": "binding_attestation_payload_has_explicit_canonical_serialized_bytes_roundtrip",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-168",
+      "case": "signed_payload_schema_is_owned_and_canonically_roundtrippable",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-169",
+      "case": "authority_agent_payload_rejects_unknown_wire_fields",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-170",
+      "case": "binding_attestation_payload_rejects_unknown_wire_fields",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-171",
+      "case": "signed_payload_breaking_changes_require_new_schema_identifier",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-172",
+      "case": "authority_agent_payload_rejects_schema_identifier_change",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-173",
+      "case": "binding_attestation_payload_rejects_schema_identifier_change",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-174",
+      "case": "valid_record_retrieval_is_explicitly_inductive_and_does_not_prove_later_operations",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-175",
+      "case": "authority_agent_registry_rejects_reuse_of_the_same_provenance_witness",
+      "expected": "adapter_boundary_error"
+    },
+    {
+      "id": "EDT-176",
+      "case": "missing_authority_agent_binding_is_preflight_only_and_stops_before_dht_retrieval",
+      "expected": "unresolved_at_protocol_layer"
+    },
+    {
+      "id": "EDT-177",
+      "case": "caller_supplied_runtime_dependency_order_is_canonicalized_before_host_retrieval",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-178",
+      "case": "must_get_valid_record_upstream_invalidity_remains_protocol_unresolved_not_transport_absence",
+      "expected": "unresolved_at_protocol_layer"
+    },
+    {
+      "id": "EDT-179",
+      "case": "malformed_runtime_binding_payload_precedes_missing_authority_preflight",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-180",
+      "case": "runtime_binding_rejects_provenance_witness_from_other_authority_registry_binding",
+      "expected": "adapter_boundary_error"
+    },
+    {
+      "id": "EDT-181",
+      "case": "runtime_retrieval_dispatch_passes_exact_bound_protocol_address",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-182",
+      "case": "canonical_retrieval_order_reaches_host_boundary_before_failure",
+      "expected": "accepted"
+    },
+    {
+      "id": "EDT-183",
+      "case": "invalid_runtime_attestation_signature_precedes_missing_authority_preflight",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-184",
+      "case": "runtime_attestation_signature_host_failure_precedes_missing_authority_preflight",
+      "expected": "adapter_boundary_error"
+    },
+    {
+      "id": "EDT-185",
+      "case": "authority_agent_payload_validation_precedes_signature_verification",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-186",
+      "case": "authority_agent_issuer_mismatch_precedes_signature_verification",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-187",
+      "case": "malformed_authority_credential_precedes_duplicate_authority_admission",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-188",
+      "case": "issuer_mismatch_precedes_duplicate_authority_admission",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-189",
+      "case": "invalid_authority_credential_signature_precedes_duplicate_authority_admission",
+      "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-190",
+      "case": "valid_duplicate_authority_is_adapter_rejection_and_state_preserving",
+      "expected": "adapter_boundary_error"
+    },
+    {
+      "id": "EDT-191",
+      "case": "valid_duplicate_provenance_witness_is_adapter_rejection_and_state_preserving",
+      "expected": "adapter_boundary_error"
+    },
+    {
+      "id": "EDT-192",
+      "case": "credential_signature_host_failure_precedes_duplicate_authority_admission",
+      "expected": "adapter_boundary_error"
+    },
+    {
+      "id": "EDT-193",
+      "case": "address_kind_mismatch_precedes_duplicate_provenance_binding_conflict",
+      "expected": "adapter_boundary_error"
+    },
+    {
+      "id": "EDT-194",
+      "case": "logical_rebinding_precedes_duplicate_provenance_binding_conflict",
+      "expected": "adapter_boundary_error"
+    },
+    {
+      "id": "EDT-195",
+      "case": "duplicate_authority_precedes_duplicate_provenance_conflict",
+      "expected": "adapter_boundary_error"
+    },
+    {
+      "id": "EDT-196",
+      "case": "address_kind_mismatch_precedes_logical_and_duplicate_provenance_binding_conflicts",
+      "expected": "adapter_boundary_error"
+    }
+  ],
+  "outcome_classes": [
+    "accepted",
+    "rejected",
+    "typed_structural_error",
+    "unresolved_at_protocol_layer",
+    "explicit_branch",
+    "not_silently_collapsed",
+    "adapter_boundary_error"
+  ]
+}

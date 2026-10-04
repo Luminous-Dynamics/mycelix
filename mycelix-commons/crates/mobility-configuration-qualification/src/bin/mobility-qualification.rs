@@ -1,4 +1,4 @@
-use mobility_configuration_qualification::{parse_corpus, qualify, QualificationResult};
+use mobility_configuration_qualification::{QualificationResult, parse_corpus, qualify};
 use serde::Serialize;
 use std::{env, fs, process};
 
@@ -19,9 +19,9 @@ struct NormalizedVector<'a> {
 }
 
 fn main() {
-    let path = env::args().nth(1).unwrap_or_else(|| {
-        "../../../docs/mobility/MOBILITY_CONFIGURATION_CONTRACT_V1.json".into()
-    });
+    let path = env::args()
+        .nth(1)
+        .unwrap_or_else(|| "../../../docs/mobility/MOBILITY_CONFIGURATION_CONTRACT_V1.json".into());
     let input = fs::read_to_string(&path).unwrap_or_else(|e| {
         eprintln!("cannot read {path}: {e}");
         process::exit(2);

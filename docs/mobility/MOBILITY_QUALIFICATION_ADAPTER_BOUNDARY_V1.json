@@ -1,0 +1,208 @@
+{
+  "schema": "mycelix.mobility.qualification_adapter_boundary.v1",
+  "version": "1",
+  "semantic_outcomes": [
+    {
+      "pure": "valid",
+      "meaning": "qualification completed for the supplied dependency set",
+      "holochain": "ValidateCallbackResult::Valid"
+    },
+    {
+      "pure": "invalid",
+      "meaning": "supplied records contain a definitive structural contradiction",
+      "holochain": "ValidateCallbackResult::Invalid(String)"
+    },
+    {
+      "pure": "unresolved",
+      "meaning": "qualification cannot complete because required logical dependencies are unavailable",
+      "holochain": "ValidateCallbackResult::UnresolvedDependencies(...) after explicit address binding; an unbound logical identity remains pure Unresolved"
+    }
+  ],
+  "error_boundary": {
+    "semantic_invalidity": "must be returned as a validation result, not ExternResult::Err",
+    "runtime_failure": "may remain an ExternResult::Err",
+    "dependency_absence": "must remain unresolved until the required addressable dependency is available",
+    "adapter_boundary_error": "protocol binding/type mismatch is an adapter contract failure, not semantic Invalid",
+    "adapter_boundary_error_is_semantic_invalidity": false
+  },
+  "identity_boundary": {
+    "logical_identity_type": "IdentityRef",
+    "protocol_address_type": "Holochain hash or other runtime-specific addressable dependency",
+    "implicit_string_to_hash_conversion": false,
+    "adapter_binding_required": true,
+    "exactly_one_address_per_logical_identity": true,
+    "duplicate_logical_identity_binding": "rejected",
+    "unbound_logical_identity_is_semantic_invalidity": false,
+    "binding_order_independent": true,
+    "resolution_operation": "QualificationDependencyBindingSet::resolve_required",
+    "resolution_success": "all requested logical identities bound; return canonical identity/address pairs",
+    "resolution_missing": "return canonical missing logical identities and preserve unresolved semantic state",
+    "duplicate_requests_deduplicated": true,
+    "address_derivation": false,
+    "resolution_invalid": "malformed logical identity is definitive invalidity",
+    "retrieval_kind_type": "QualificationDependencyRetrievalKind",
+    "allowed_retrieval_kinds": [
+      "ValidRecord",
+      "Action",
+      "Entry"
+    ],
+    "retrieval_kind_required": true,
+    "retrieval_kind_mapping_runtime_owned": true,
+    "retrieval_kind_mismatch_is_adapter_boundary_error": true,
+    "candidate_address_kind_validation_precedes_binding_conflicts": true,
+    "candidate_address_kind_precedes_logical_and_provenance_conflicts": true,
+    "logical_identity_conflict_precedes_provenance_conflict": true
+  },
+  "dependency_retrieval": {
+    "deterministic_host_function_family": "must_get_*",
+    "mutable_link_collections_as_validation_dependencies": false,
+    "missing_addressable_dependency_is_semantic_invalidity": false,
+    "binding_preserves_address_kind": true,
+    "valid_record_requires_action_hash": true,
+    "wrong_address_kind_is_adapter_boundary_error": true,
+    "retrieval_kind_mappings": [
+      {
+        "pure": "ValidRecord",
+        "protocol_address_type": "ActionHash",
+        "host_function": "must_get_valid_record"
+      },
+      {
+        "pure": "Action",
+        "protocol_address_type": "ActionHash",
+        "host_function": "must_get_action"
+      },
+      {
+        "pure": "Entry",
+        "protocol_address_type": "EntryHash",
+        "host_function": "must_get_entry"
+      }
+    ],
+    "valid_record_semantics": "inductive_validity_of_the_referenced_create_record_as_reported_by_visible_validation_authorities",
+    "valid_record_does_not_prove_later_operations_valid": true,
+    "unavailable_valid_record_maps_to_protocol_unresolved": true,
+    "valid_record_unresolved_if_upstream_validator_marks_invalid": true,
+    "valid_record_unresolved_is_not_equivalent_to_missing_transport_data": true,
+    "dispatch_passes_exact_bound_protocol_address": true,
+    "canonical_retrieval_order_reaches_host_boundary": true
+  },
+  "determinism": {
+    "retrieval_order_independent": true,
+    "serialization_order_independent": true,
+    "batching_partition_independent": true,
+    "wall_clock_independent": true,
+    "peer_identity_independent": true,
+    "caller_supplied_retrieval_order_canonicalized": true,
+    "canonical_retrieval_sort_key": "ResolvedHolochainDependency.identity",
+    "retrieval_canonicalization_function": "canonicalize_retrieval_order"
+  },
+  "compatibility": {
+    "pure_layer_holochain_dependency": null,
+    "current_workspace_line": "Holochain 0.6-compatible",
+    "recommended_runtime_line": "Holochain 0.7",
+    "migration_isolation": "runtime adapter only"
+  },
+  "binding_provenance": {
+    "witness_type": "QualificationDependencyBindingProvenance",
+    "witness_identity_type": "IdentityRef",
+    "witness_identity_kind": "ReconciliationWitness",
+    "logical_identity_type": "IdentityRef",
+    "authority_identity_type": "IdentityRef",
+    "authority_scope_identity_type": "IdentityRef",
+    "authority_scope_identity_kind": "ReconciliationWitness",
+    "authority_delegation_identity_type": "IdentityRef",
+    "authority_delegation_identity_kind": "ReconciliationWitness",
+    "basis_identity_type": "IdentityRef",
+    "basis_required": true,
+    "basis_unique": true,
+    "basis_must_include_exact_authority": true,
+    "basis_must_include_exact_authority_scope": true,
+    "basis_must_include_exact_authority_delegation": true,
+    "witness_must_name_exact_logical_identity": true,
+    "all_provenance_roles_must_be_distinct": true,
+    "basis_cannot_contain_witness_identity": true,
+    "basis_cannot_contain_logical_identity": true,
+    "protocol_address_excluded_from_pure_witness": true,
+    "cryptographic_proof": false,
+    "global_completeness_claim": false,
+    "binding_requires_provenance": true,
+    "provenance_carried_through_runtime_resolution": true,
+    "provenance_witness_identity_must_be_unique_per_binding": true
+  },
+  "cryptographic_attestation": {
+    "supported": true,
+    "required": false,
+    "algorithm": "Ed25519",
+    "verification_host_function": "verify_signature",
+    "payload_canonically_serialized": true,
+    "payload_binds_schema_provenance_address_and_retrieval_kind": true,
+    "verified_signature_required_for_attested_bind": true,
+    "invalid_signature_is_semantic_invalidity": true,
+    "verification_failure_host_error_remains_runtime_error": true,
+    "signature_does_not_resolve_authority_identity": true
+  },
+  "signed_payload_serialization": {
+    "library": "holochain_serialized_bytes",
+    "version": "0.0.57",
+    "representation": "SerializedBytes",
+    "payloads": [
+      "HolochainAuthorityAgentBindingPayload",
+      "HolochainBindingAttestationPayload"
+    ],
+    "schema_fields_are_owned_strings": true,
+    "explicit_try_from_roundtrip_tested": true,
+    "verify_signature_remains_single_crypto_verifier": true,
+    "unknown_fields_rejected_by_v1": true,
+    "schema_identifier_is_signed": true,
+    "breaking_changes_require_new_schema_identifier": true,
+    "version_policy": "strict_v1",
+    "unknown_field_tests": [
+      "authority_agent_payload_rejects_unknown_wire_fields",
+      "binding_attestation_payload_rejects_unknown_wire_fields"
+    ],
+    "schema_identifier_changes_rejected_as_semantic_invalidity": true,
+    "schema_identifier_tests": [
+      "authority_agent_payload_rejects_schema_identifier_change",
+      "binding_attestation_payload_rejects_schema_identifier_change"
+    ]
+  },
+  "authority_agent_binding": {
+    "registry_type": "HolochainAuthorityAgentBindingSet",
+    "authority_identity_type": "IdentityRef",
+    "agent_identity_type": "AgentPubKey",
+    "credential_type": "SignedHolochainAuthorityAgentBinding",
+    "credential_schema": "mycelix.mobility.holochain_authority_agent_binding.v1",
+    "provenance_type": "QualificationAuthorityAgentBindingProvenance",
+    "issuer_must_equal_agent": true,
+    "credential_payload_validation_precedes_signature_verification": true,
+    "credential_issuer_match_precedes_signature_verification": true,
+    "credential_definitive_invalidity_precedes_registry_admission": true,
+    "credential_signature_verification_precedes_registry_admission": true,
+    "credential_signature_host_failure_precedes_registry_admission": true,
+    "duplicate_authority_requires_verified_credential": true,
+    "duplicate_provenance_witness_requires_verified_credential": true,
+    "rejected_credential_admission_preserves_registry_state": true,
+    "duplicate_authority_precedes_duplicate_provenance_conflict": true,
+    "credential_signature_required": true,
+    "authority_must_be_present_before_runtime_binding": true,
+    "one_agent_per_authority": true,
+    "duplicate_authority_binding": "rejected",
+    "signer_must_match_registered_agent": true,
+    "signature_does_not_resolve_domain_authority_identity": true,
+    "domain_provenance_remains_required": true,
+    "missing_authority_agent_binding": "unresolved",
+    "registry_retains_verified_credential": true,
+    "audit_credential_accessor": "HolochainAuthorityAgentBindingSet::credential_for",
+    "runtime_binding_requires_exact_authority_scope_match": true,
+    "runtime_binding_requires_exact_authority_delegation_match": true,
+    "authority_credential_provenance_continuity_is_checked": true,
+    "registered_credential_basis_is_minimum_runtime_basis": true,
+    "runtime_binding_witness_must_differ_from_authority_credential_witness": true,
+    "provenance_witness_unique_per_registry_binding": true,
+    "duplicate_provenance_witness_in_registry": "rejected",
+    "authority_agent_witness_cannot_be_reused_by_runtime_binding": true,
+    "preflight_missing_is_not_protocol_unresolved": true,
+    "missing_binding_stops_before_dht_retrieval": true,
+    "runtime_binding_payload_validation_precedes_authority_preflight": true,
+    "runtime_binding_signature_verification_precedes_authority_preflight": true
+  }
+}

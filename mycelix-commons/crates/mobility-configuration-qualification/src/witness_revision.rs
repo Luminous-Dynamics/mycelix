@@ -70,10 +70,14 @@ mod tests {
     use super::*;
     use crate::identity_lineage::IdentityKind;
     use crate::temporal_applicability::{TemporalInterval, TemporalPoint};
-    use crate::temporal_reconciliation::{classify, Comparability, Compatibility};
+    use crate::temporal_reconciliation::{Comparability, Compatibility, classify};
 
     fn id(kind: IdentityKind, value: &str) -> IdentityRef {
-        IdentityRef { kind, namespace: "synthetic".into(), id: value.into() }
+        IdentityRef {
+            kind,
+            namespace: "synthetic".into(),
+            id: value.into(),
+        }
     }
 
     fn witness(identity: &str) -> TemporalReconciliationWitness {
@@ -135,7 +139,8 @@ mod tests {
             &current.right_applicability,
             current.explicitly_superseded,
             current.disputed,
-        ).unwrap();
+        )
+        .unwrap();
         assert!(validate_transition(&previous, &current, None).is_err());
     }
 
@@ -151,7 +156,8 @@ mod tests {
             &current.right_applicability,
             current.explicitly_superseded,
             current.disputed,
-        ).unwrap();
+        )
+        .unwrap();
         assert!(validate_transition(&previous, &current, None).is_err());
     }
 
@@ -168,7 +174,8 @@ mod tests {
             &current.right_applicability,
             current.explicitly_superseded,
             current.disputed,
-        ).unwrap();
+        )
+        .unwrap();
         let lineage = LineageEdge {
             relation: LineageRelation::Supersedes,
             source: current.witness_identity.clone(),
@@ -209,7 +216,8 @@ mod tests {
             &successor.right_applicability,
             successor.explicitly_superseded,
             successor.disputed,
-        ).unwrap();
+        )
+        .unwrap();
 
         assert!(previous.validate().is_ok());
         let lineage = LineageEdge {

@@ -23,8 +23,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - run: cargo fmt --all -- --check
-      - run: cargo test -p mobility-configuration-qualification
+      - run: cargo fmt --check --manifest-path mycelix-commons/crates/mobility-configuration-qualification/Cargo.toml
+      - run: cargo test --manifest-path mycelix-commons/crates/mobility-configuration-qualification/Cargo.toml
       - run: cargo run --quiet --manifest-path mycelix-commons/crates/mobility-configuration-qualification/Cargo.toml --bin mobility-historical-projection-state-qualification -- docs/mobility/MOBILITY_RECONCILIATION_HISTORICAL_PROJECTION_STATE_V1_EXECUTABLE.json > /tmp/rust.json
       - uses: actions/upload-artifact@v4
         with: {name: mobility-historical-projection-state-rust, path: /tmp/rust.json, if-no-files-found: error}
