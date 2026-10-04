@@ -168,7 +168,8 @@ impl SectorFinancialFlowMatrix {
                 | EconomicTransition::GoodsSale(_)
                 | EconomicTransition::InventoryCostAddition(_)
                 | EconomicTransition::InventoryCostRelief(_)
-                | EconomicTransition::Depreciation(_) => continue,
+                | EconomicTransition::Depreciation(_)
+                | EconomicTransition::RealAssetRevaluation(_) => continue,
             };
             matrix.push(SectorFinancialFlow::new(from, to, category, amount)?);
         }
