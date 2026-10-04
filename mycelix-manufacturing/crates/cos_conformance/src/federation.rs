@@ -3076,9 +3076,10 @@ mod tests {
         }
     }
 
-    #[derive(Debug, Clone, PartialEq, Eq)]
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
     struct FederationStateMachineEvidence {
         operation: FederationStateMachineOperation,
+        token: u64,
         decision: Option<FederationDecision>,
         authority: Option<AuthorityDisposition>,
         state_fingerprint: Vec<u8>,
@@ -3095,6 +3096,7 @@ mod tests {
         initial_seed: u64,
         operations: Vec<FederationStateMachineOperation>,
         tokens: Vec<u64>,
+        evidence: Vec<FederationStateMachineEvidence>,
     }
 
     fn state_machine_next_seed(seed: &mut u64) -> u64 {
@@ -3130,11 +3132,13 @@ mod tests {
 
     fn state_machine_trace_capsule(trace_index: usize, steps: usize) -> String {
         let (initial_seed, plan) = state_machine_trace_plan(trace_index, steps);
+        let evidence = run_state_machine_trace_plan(&plan);
         let capsule = FederationStateMachineTraceCapsule {
             trace_index,
             initial_seed,
             operations: plan.iter().map(|(operation, _)| *operation).collect(),
             tokens: plan.iter().map(|(_, token)| *token).collect(),
+            evidence,
         };
         serde_json::to_string_pretty(&capsule).expect("trace capsule is serializable")
     }
@@ -3165,6 +3169,60 @@ mod tests {
         assert_eq!(
             recorded_plan, canonical_plan,
             "trace capsule is not canonical for its trace index and length"
+        );
+        assert_eq!(
+            capsule.evidence.len(),
+            recorded_plan.len(),
+            "successful trace capsule evidence length must match its plan"
+        );
+
+        for ((operation, token), evidence) in recorded_plan.iter().zip(&capsule.evidence) {
+            assert_eq!(
+                evidence.operation, *operation,
+                "trace capsule evidence operation must match its canonical plan"
+            );
+            assert_eq!(
+                evidence.token, *token,
+                "trace capsule evidence token must match its canonical plan"
+            );
+            assert!(
+                evidence.post_admission_index >= evidence.pre_admission_index,
+                "trace capsule evidence cannot regress the admission counter"
+            );
+            assert!(
+                evidence.post_delivery_count >= evidence.pre_delivery_count,
+                "trace capsule evidence cannot regress admitted-delivery count"
+            );
+            let admission_delta =
+                evidence.post_admission_index - evidence.pre_admission_index;
+            let delivery_delta =
+                (evidence.post_delivery_count - evidence.pre_delivery_count) as u64;
+            assert_eq!(
+                admission_delta, delivery_delta,
+                "trace capsule evidence admission/delivery deltas must agree"
+            );
+            assert_eq!(
+                evidence.newly_admitted_deliveries.len() as u64,
+                admission_delta,
+                "trace capsule evidence must enumerate every consumed admission ordinal"
+            );
+            assert_eq!(
+                evidence
+                    .newly_admitted_deliveries
+                    .iter()
+                    .map(|(_, index)| *index)
+                    .collect::<BTreeSet<_>>(),
+                (evidence.pre_admission_index..evidence.post_admission_index)
+                    .collect::<BTreeSet<_>>(),
+                "trace capsule evidence must enumerate the exact consumed ordinal range"
+            );
+        }
+
+        let replayed_evidence = run_state_machine_trace_plan(&recorded_plan);
+        assert_eq!(
+            capsule.evidence,
+            replayed_evidence,
+            "successful trace capsule evidence must exactly match canonical replay"
         );
 
         recorded_plan
@@ -3881,6 +3939,7 @@ mod tests {
 
             evidence.push(FederationStateMachineEvidence {
                 operation,
+                token,
                 decision,
                 authority,
                 state_fingerprint: canonical_state_fingerprint(&state),
@@ -4089,26 +4148,46 @@ mod tests {
             let mut reduced = shrunk.clone();
             reduced.remove(index);
             assert!(
-                !fails(&reduced),
-                "shrunk sequence is not 1-minimal; removing step {index} still fails"
-            );
-        }
+                !fail    #[test]
+    fn state_machine_trace_capsule_rejects_temporal_evidence_tampering() {
+        let capsule_text = state_machine_trace_capsule(9, 10);
+        let mut capsule =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&capsule_text)
+                .expect("capsule must deserialize");
+
+        capsule.evidence[2].pre_admission_index ^= 1;
+        assert!(std::panic::catch_unwind(|| state_machine_plan_from_capsule(&capsule)).is_err());
+
+        let mut capsule =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&capsule_text)
+                .expect("capsule must deserialize");
+        capsule.evidence[4].newly_admitted_deliveries =
+            vec![("tampered-delivery".into(), 0)];
+        assert!(std::panic::catch_unwind(|| state_machine_plan_from_capsule(&capsule)).is_err());
     }
 
     #[test]
-    fn state_machine_trace_capsule_round_trips_and_replays_exactly() {
-        let capsule_text = state_machine_trace_capsule(17, 32);
+    fn state_machine_trace_capsule_is_a_compact_reproduction_descriptor() {
+        let capsule_text = state_machine_trace_capsule(3, 8);
+        assert!(capsule_text.contains(""trace_index": 3"));
+        assert!(capsule_text.contains(""initial_seed":"));
+        assert!(capsule_text.contains(""operations": ["));
+        assert!(capsule_text.contains(""tokens": ["));
+        assert!(capsule_text.contains(""evidence": ["));
+
         let capsule = serde_json::from_str::<FederationStateMachineTraceCapsule>(&capsule_text)
-            .expect("deterministic trace capsule must deserialize");
-
-        assert_eq!(
-            capsule.initial_seed,
-            0xD6E5_5EED_u64 ^ capsule.trace_index as u64
+            .expect("capsule must remain self-describing");
+        let capsule_plan = state_machine_plan_from_capsule(&capsule);
+        let replay = run_state_machine_trace_plan(&capsule_plan);
+        assert_eq!(replay.len(), 8);
+        assert_eq!(replay, capsule.evidence);
+        assert!(
+            replay.iter().all(|step| !step.state_fingerprint.is_empty()),
+            "successful trace evidence must carry state fingerprints"
         );
-        assert_eq!(capsule.operations.len(), 32);
-        assert_eq!(capsule.operations.len(), capsule.tokens.len());
+    }
 
-        let (_, generated_plan) = state_machine_trace_plan(capsule.trace_index, 32);
+32);
         let capsule_plan = state_machine_plan_from_capsule(&capsule);
         assert_eq!(generated_plan, capsule_plan);
 
@@ -4118,6 +4197,10 @@ mod tests {
                 .expect("trace capsule serialization must be deterministic")
         );
 
+        assert_eq!(
+            run_state_machine_trace_plan(&generated_plan),
+            capsule.evidence
+        );
         assert_eq!(
             run_state_machine_trace_plan(&generated_plan),
             run_state_machine_trace_plan(&capsule_plan)
