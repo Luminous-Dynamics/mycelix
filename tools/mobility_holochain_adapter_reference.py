@@ -138,11 +138,22 @@ def main() -> int:
         "missing_binding_stops_before_dht_retrieval": True,
         "runtime_binding_payload_validation_precedes_authority_preflight": True,
         "runtime_binding_signature_verification_precedes_authority_preflight": True,
-        "candidate_address_kind_validation_precedes_binding_conflicts": True,
     }
     for key, expected in expected_authority_contract.items():
         if authority_contract.get(key) != expected:
             raise SystemExit(f"machine contract drift for {key}: expected {expected!r}")
+
+    identity_contract = contract.get("identity_boundary")
+    if not isinstance(identity_contract, dict):
+        raise SystemExit("machine contract missing identity_boundary object")
+    expected_identity_contract = {
+        "retrieval_kind_mismatch_is_adapter_boundary_error": True,
+        "candidate_address_kind_validation_precedes_binding_conflicts": True,
+        "logical_identity_conflict_precedes_provenance_conflict": True,
+    }
+    for key, expected in expected_identity_contract.items():
+        if identity_contract.get(key) != expected:
+            raise SystemExit(f"machine identity contract drift for {key}: expected {expected!r}")
 
     serialization_contract = contract.get("signed_payload_serialization")
     if not isinstance(serialization_contract, dict):
@@ -377,11 +388,19 @@ def main() -> int:
 
     provenance_validation = bind_body.index("provenance\n            .validate()")
     address_validation = bind_body.index("validate_address_kind(&address, retrieval)")
+    logical_conflict = bind_body.index(
+        "logical qualification dependency cannot be bound to multiple protocol addresses"
+    )
     witness_conflict = bind_body.index("a provenance witness identity may justify only one runtime binding")
+    insertion = bind_body.index("self.inner\n            .insert(")
     if provenance_validation > address_validation:
         raise SystemExit("provenance validation must precede protocol address validation")
-    if address_validation > witness_conflict:
-        raise SystemExit("candidate address-kind validation must precede binding conflicts")
+    if address_validation > logical_conflict:
+        raise SystemExit("candidate address-kind validation must precede logical binding conflicts")
+    if logical_conflict > witness_conflict:
+        raise SystemExit("logical identity conflict must precede provenance witness conflicts")
+    if witness_conflict > insertion:
+        raise SystemExit("binding conflicts must be resolved before immutable insertion")
 
     print("mobility Holochain adapter independent reference qualification: PASS")
     return 0
