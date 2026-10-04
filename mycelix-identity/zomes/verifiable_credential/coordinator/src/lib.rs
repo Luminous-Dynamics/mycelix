@@ -2354,8 +2354,6 @@ pub fn issue_credential_for_request(
     };
 
     let credential: VerifiableCredential = credential_record
-
-    let credential: VerifiableCredential = credential_record
         .entry()
         .to_app_option()
         .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
