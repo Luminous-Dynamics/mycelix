@@ -106,6 +106,44 @@ fn validate_revocation_link(
 ) -> ExternResult<ValidateCallbackResult> {
     let target = action_target(target_address, "Revocation link")?;
     let record = must_get_valid_record(target)?;
+    if matches!(link_type, LinkTypes::IssuerToRevocationList) {
+        let list: RevocationList = record
+            .entry()
+            .to_app_option()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "IssuerToRevocationList target must be a RevocationList".into(),
+            )))?;
+        let issuer = AgentPubKey::try_from(
+            list.issuer
+                .strip_prefix("did:mycelix:")
+                .unwrap_or_default()
+                .to_string(),
+        )
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+            "Revocation list issuer must encode a valid AgentPubKey".into()
+        )))?;
+        if action.author != issuer || *record.action().author() != issuer {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Revocation list index must be authored by its issuer".into(),
+            ));
+        }
+
+        let actual_base = base_address.clone().into_entry_hash().ok_or_else(|| {
+            wasm_error!(WasmErrorInner::Guest(
+                "IssuerToRevocationList base must be an EntryHash".into(),
+            ))
+        })?;
+        let issuer_base = string_to_entry_hash(&list.issuer);
+        let list_id_base = string_to_entry_hash(&list.id);
+        if actual_base != issuer_base && actual_base != list_id_base {
+            return Ok(ValidateCallbackResult::Invalid(
+                "IssuerToRevocationList base must match the issuer or list ID anchor".into(),
+            ));
+        }
+        return Ok(ValidateCallbackResult::Valid);
+    }
+
     let entry: RevocationEntry = record
         .entry()
         .to_app_option()
@@ -135,12 +173,7 @@ fn validate_revocation_link(
     let expected_base = match link_type {
         LinkTypes::CredentialToRevocation => string_to_entry_hash(&entry.credential_id),
         LinkTypes::IssuerToRevocation => string_to_entry_hash(&entry.issuer),
-        LinkTypes::IssuerToRevocationList => {
-            // This variant is handled below because its target is a different entry type.
-            return Err(wasm_error!(WasmErrorInner::Guest(
-                "IssuerToRevocationList requires a RevocationList target".into()
-            )));
-        }
+        LinkTypes::IssuerToRevocationList => unreachable!("handled above"),
     };
 
     if actual_base != expected_base {
