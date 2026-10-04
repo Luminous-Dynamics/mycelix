@@ -18,6 +18,7 @@
     "max_evidence_age_seconds": 300,
     "future_skew_seconds": 30,
     "attestation_result_max_age_seconds": 60,
+    "expected_evidence_digest": "sha256:evidence-001",
     "required_evidence_claims": [
       "evidence_id",
       "security_domain",
@@ -135,6 +136,7 @@
   },
   "vectors": [
     {"id":"RATS-001","stage":"evidence","mutation":"none","expected":"PASS"},
+    {"id":"RATS-029","stage":"evidence","mutation":"verifier-unavailable","expected":"INDETERMINATE"},
     {"id":"RATS-002","stage":"evidence","mutation":"bad-signature","expected":"DENY"},
     {"id":"RATS-003","stage":"evidence","mutation":"unknown-trust-anchor","expected":"DENY"},
     {"id":"RATS-004","stage":"evidence","mutation":"wrong-nonce","expected":"DENY"},
@@ -161,6 +163,8 @@
     {"id":"RATS-025","stage":"relying-party","mutation":"cross-domain-result","expected":"DENY"},
     {"id":"RATS-026","stage":"relying-party","mutation":"missing-result-binding","expected":"DENY"},
     {"id":"RATS-027","stage":"relying-party","mutation":"result-replay-with-new-request-nonce","expected":"DENY"},
-    {"id":"RATS-028","stage":"relying-party","mutation":"unauthorized-delegation","expected":"DENY"}
+    {"id":"RATS-028","stage":"relying-party","mutation":"unauthorized-delegation","expected":"DENY"},
+    {"id":"RATS-030","stage":"relying-party","mutation":"result-evidence-substitution","expected":"DENY"},
+    {"id":"RATS-031","stage":"relying-party","mutation":"future-dated-result","expected":"DENY"}
   ]
 }
