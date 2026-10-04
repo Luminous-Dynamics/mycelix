@@ -75,7 +75,7 @@
     {"id":"AKQ-V25","mutation":"public-area-cross-object-splice","expected":"DENY"},
     {"id":"AKQ-V26","mutation":"public-name-area-substitution","expected":"DENY"},
     {"id":"AKQ-V27","mutation":"public-name-verifier-substitution","expected":"DENY"},
-    {"id":"AKQ-V27","mutation":"key-order-permutation","expected":"PASS"}
+    {"id":"AKQ-V28","mutation":"key-order-permutation","expected":"PASS"}
   ],
   "future_live_capture_requirements": [
     "capture EK public, EK Name, and EK Qualified Name from the same TPM context",
