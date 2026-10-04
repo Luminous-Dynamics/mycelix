@@ -145,6 +145,7 @@ impl FinalityQualificationProfileV1 {
         non_empty(&self.profile_id)
             && non_empty(&self.semantic_environment_root)
             && !self.allowed_observation_sources.is_empty()
+            && self.required_independent_observations > 0
             && non_empty(&self.profile_commitment)
             && self.claim_ceiling == CONTESTABLE_FINALITY_CLAIM_CEILING
     }
@@ -1120,6 +1121,16 @@ mod tests {
             resolution_commitment: "resolution-commitment".into(),
             claim_ceiling: CONTESTABLE_FINALITY_CLAIM_CEILING.into(),
         }
+    }
+
+    #[test]
+    fn qualification_profile_rejects_zero_independent_observation_threshold() {
+        let mut invalid = profile();
+        invalid.required_independent_observations = 0;
+        assert!(
+            !invalid.structurally_valid(),
+            "a finality qualification profile must require at least one independent observation"
+        );
     }
 
     #[test]
