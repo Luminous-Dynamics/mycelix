@@ -1634,9 +1634,9 @@ mod tests {
     #[derive(Debug, Deserialize)]
     #[serde(deny_unknown_fields)]
     struct GoldenFixturesV1 {
-        baseline_projection: serde_json::Value,
-        semantic_environment: serde_json::Value,
-        derivation_profile: serde_json::Value,
+        baseline_projection: QualifiedProjectionV1,
+        semantic_environment: SemanticEnvironmentV1,
+        derivation_profile: DerivationProfileV1,
     }
 
     #[derive(Debug, Clone, Deserialize)]
@@ -1712,12 +1712,9 @@ mod tests {
         assert_eq!(corpus.certificate_domain, "d6x-dependency-closure");
         assert_eq!(corpus.claim_ceiling, D6X_CLAIM_CEILING);
         assert!(!corpus.generation_note.is_empty());
-        assert!(corpus
-            .fixtures
-            .baseline_projection
-            .is_object());
-        assert!(corpus.fixtures.semantic_environment.is_object());
-        assert!(corpus.fixtures.derivation_profile.is_object());
+        assert!(!corpus.fixtures.baseline_projection.projection_id.is_empty());
+        assert!(!corpus.fixtures.semantic_environment.semantic_profile_id.is_empty());
+        assert!(!corpus.fixtures.derivation_profile.profile_id.is_empty());
         assert!(!corpus.recipe_contract.baseline_projection.is_empty());
         assert!(!corpus.recipe_contract.mutation_semantics.is_empty());
         assert!(!corpus.recipe_contract.cross_runtime_rule.is_empty());
@@ -1907,17 +1904,14 @@ mod tests {
         DerivationProfileV1,
         DependencyClosureProfileV1,
     ) {
-        let environment: SemanticEnvironmentV1 =
-            serde_json::from_value(corpus.fixtures.semantic_environment.clone())
-                .expect("golden semantic environment must deserialize");
-        let derivation_profile: DerivationProfileV1 =
-            serde_json::from_value(corpus.fixtures.derivation_profile.clone())
-                .expect("golden derivation profile must deserialize");
+        let environment = corpus.fixtures.semantic_environment.clone();
+        let derivation_profile = corpus.fixtures.derivation_profile.clone();
 
-        let mut projection_value = corpus.fixtures.baseline_projection.clone();
+        let mut projection_value = serde_json::to_value(&corpus.fixtures.baseline_projection)
+            .expect("typed golden baseline projection must serialize");
         let projection_object = projection_value
             .as_object_mut()
-            .expect("golden baseline projection must be an object");
+            .expect("typed golden baseline projection must serialize as an object");
 
         let declared_environment_commitment = projection_object
             .get("semantic_environment_commitment")
