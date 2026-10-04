@@ -205,7 +205,7 @@ def self_test()->int:
         ("certificate-digest-substitution","DENY",lambda x:x.update({"certificate_der_sha256":"44"*32})),
         ("ek-public-digest-substitution","DENY",lambda x:x.update({"ek_public_wire_sha256":"55"*32})),
         ("ek-modulus-substitution","DENY",lambda x:mutate_public_byte(x,len(FIXTURE_TPM_PUBLIC)-1)),
-        ("ek-exponent-substitution","DENY",lambda x:mutate_public_byte(x,104)),
+        ("ek-exponent-substitution","DENY",lambda x:mutate_public_byte(x,52)),
         ("ek-public-type-substitution","DENY",lambda x:x.update({"ek_public_wire_hex":"0002"+x["ek_public_wire_hex"][4:]})),
         ("tpm2b-size-substitution","DENY",mutate_public_wrapper),
         ("certificate-byte-substitution","DENY",lambda x:x.update({"certificate_der_hex":x["certificate_der_hex"][:-2]+"00"})),
