@@ -2794,6 +2794,31 @@ mod tests {
         }
     }
 
+    #[derive(Debug)]
+    struct FederationStateMachineInvariantFailure(
+        FederationStateMachineFailureCapsule,
+    );
+
+    fn panic_invariant_failure(
+        capsule: FederationStateMachineFailureCapsule,
+    ) -> ! {
+        std::panic::panic_any(FederationStateMachineInvariantFailure(capsule))
+    }
+
+    fn invariant_failure_from_plan(
+        plan: &[(FederationStateMachineOperation, u64)],
+    ) -> Option<FederationStateMachineFailureCapsule> {
+        let payload = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            run_state_machine_trace_plan_unshrunk(plan)
+        }))
+        .err()?;
+
+        payload
+            .downcast::<FederationStateMachineInvariantFailure>()
+            .ok()
+            .map(|failure| failure.0)
+    }
+
     fn run_state_machine_trace(
         trace_index: usize,
         steps: usize,
@@ -2803,6 +2828,20 @@ mod tests {
     }
 
     fn run_state_machine_trace_plan(
+        plan: &[(FederationStateMachineOperation, u64)],
+    ) -> Vec<FederationStateMachineEvidence> {
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            run_state_machine_trace_plan_unshrunk(plan)
+        })) {
+            Ok(evidence) => evidence,
+            Err(payload) => match payload.downcast::<FederationStateMachineInvariantFailure>() {
+                Ok(failure) => panic!("{}", failure.0.to_json()),
+                Err(payload) => std::panic::resume_unwind(payload),
+            },
+        }
+    }
+
+    fn run_state_machine_trace_plan_unshrunk(
         plan: &[(FederationStateMachineOperation, u64)],
     ) -> Vec<FederationStateMachineEvidence> {
         let mut state = nodes();
