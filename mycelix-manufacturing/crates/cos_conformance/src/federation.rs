@@ -3095,6 +3095,8 @@ mod tests {
         authority: Option<AuthorityDisposition>,
         pre_state_fingerprint: Vec<u8>,
         state_fingerprint: Vec<u8>,
+        chain_prev_sha256: String,
+        chain_sha256: String,
         pre_admission_index: u64,
         post_admission_index: u64,
         pre_delivery_count: usize,
@@ -3102,10 +3104,12 @@ mod tests {
         newly_admitted_deliveries: Vec<(String, u64)>,
     }
 
-    const FEDERATION_STATE_MACHINE_TRACE_CAPSULE_SCHEMA_VERSION: u16 = 2;
+    const FEDERATION_STATE_MACHINE_TRACE_CAPSULE_SCHEMA_VERSION: u16 = 3;
     const FEDERATION_STATE_MACHINE_TRACE_CAPSULE_HASH_ALGORITHM: &str = "sha-256";
     const FEDERATION_STATE_MACHINE_TRACE_CAPSULE_HASH_ENCODING: &str =
         "serde-json-struct-order-v1";
+    const FEDERATION_STATE_MACHINE_TRACE_CHAIN_GENESIS: &str =
+        "sha256:0000000000000000000000000000000000000000000000000000000000000000";
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
     #[serde(deny_unknown_fields)]
@@ -3113,6 +3117,24 @@ mod tests {
         algorithm: String,
         encoding: String,
         body_sha256: String,
+        chain_head_sha256: String,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+    struct FederationStateMachineEvidenceHashView {
+        step_index: usize,
+        operation: FederationStateMachineOperation,
+        token: u64,
+        decision: Option<FederationDecision>,
+        authority: Option<AuthorityDisposition>,
+        pre_state_fingerprint: Vec<u8>,
+        state_fingerprint: Vec<u8>,
+        chain_prev_sha256: String,
+        pre_admission_index: u64,
+        post_admission_index: u64,
+        pre_delivery_count: usize,
+        post_delivery_count: usize,
+        newly_admitted_deliveries: Vec<(String, u64)>,
     }
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -3156,6 +3178,30 @@ mod tests {
         }
     }
 
+    fn state_machine_evidence_chain_sha256(
+        evidence: &FederationStateMachineEvidence,
+    ) -> String {
+        let view = FederationStateMachineEvidenceHashView {
+            step_index: evidence.step_index,
+            operation: evidence.operation,
+            token: evidence.token,
+            decision: evidence.decision,
+            authority: evidence.authority,
+            pre_state_fingerprint: evidence.pre_state_fingerprint.clone(),
+            state_fingerprint: evidence.state_fingerprint.clone(),
+            chain_prev_sha256: evidence.chain_prev_sha256.clone(),
+            pre_admission_index: evidence.pre_admission_index,
+            post_admission_index: evidence.post_admission_index,
+            pre_delivery_count: evidence.pre_delivery_count,
+            post_delivery_count: evidence.post_delivery_count,
+            newly_admitted_deliveries: evidence.newly_admitted_deliveries.clone(),
+        };
+        let bytes = serde_json::to_vec(&view)
+            .expect("trace evidence hash view must be serializable");
+        let digest = Sha256::digest(bytes);
+        format!("sha256:{digest:x}")
+    }
+
     fn state_machine_trace_body_sha256(capsule: &FederationStateMachineTraceCapsule) -> String {
         let bytes = serde_json::to_vec(&state_machine_trace_hash_view(capsule))
             .expect("trace hash view must be serializable");
@@ -3168,6 +3214,11 @@ mod tests {
             algorithm: FEDERATION_STATE_MACHINE_TRACE_CAPSULE_HASH_ALGORITHM.into(),
             encoding: FEDERATION_STATE_MACHINE_TRACE_CAPSULE_HASH_ENCODING.into(),
             body_sha256: state_machine_trace_body_sha256(capsule),
+            chain_head_sha256: capsule
+                .evidence
+                .last()
+                .map(|evidence| evidence.chain_sha256.clone())
+                .unwrap_or_else(|| FEDERATION_STATE_MACHINE_TRACE_CHAIN_GENESIS.into()),
         }
     }
 
