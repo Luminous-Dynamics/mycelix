@@ -18,7 +18,7 @@
 39. `FederationState::validate_state` is a read-only qualification gate with typed invariant failures for delivery-map identity, observation-map identity, source-observation bijection, attempt history/binding integrity, and delivery-to-source-observation provenance. It never repairs corrupted state.
 40. `canonical_state_fingerprint` provides an order-independent serialized representation of authoritative federation state for deterministic qualification comparisons. It is comparison evidence, not a cryptographic hash or a production persistence format.
 41. The qualification validator also checks the authoritative node map, canonical recognition-edge ordering and node references, delivery origin/target references and identity-bearing fields, and predecessor existence/non-self-reference. These checks are diagnostic only and do not repair state.
-42. The qualification invariant inventory is itself executable: `FEDERATION_INVARIANT_REGISTRY` is the canonical 11-entry registry of invariant IDs, descriptions, predicates, and typed failures, and `validate_state` iterates it directly. The reference table below is documentation of that registry rather than a separately maintained invariant list.\n\n## Qualification validator
+42. The qualification invariant inventory is itself executable: `FEDERATION_INVARIANT_REGISTRY` is the canonical 12-entry registry of invariant IDs, descriptions, predicates, and typed failures, and `validate_state` iterates it directly. The reference table below is documentation of that registry rather than a separately maintained invariant list.\n\n## Qualification validator
 The validator deliberately mirrors the reference model's canonicalization boundary: recognition edges are checked in their normalized order, while semantic state is checked for key/relationship consistency. This follows the same broad separation seen in provenance validation, where uniqueness, ordering, and impossibility constraints are checked independently from normalization/equivalence.
 
 
@@ -32,6 +32,7 @@ The executable invariant layer is exposed as a typed, observational qualificatio
 | `DeliveryMapIdentity` | logical-delivery map keys | — | `DeliveryMapKeyMismatch` |
 | `DeliveryNodeReferences` | delivery origin/target and required identities | — | `DeliveryNodeReferenceMismatch` |
 | `DeliveryPredecessorReferences` | existing, non-self predecessor references | `DeliveryMapIdentity` | `DeliveryPredecessorMismatch` |
+| `DeliveryPredecessorAcyclic` | existing predecessor links form an acyclic admission-history graph | `DeliveryMapIdentity`, `DeliveryPredecessorReferences` | `DeliveryPredecessorCycle` |
 | `ObservationMapIdentity` | observation-map keys | — | `ObservationMapKeyMismatch` |
 | `SourceObservationBijection` | admitted-delivery/source-observation one-to-one set | `DeliveryMapIdentity`, `ObservationMapIdentity` | `SourceObservationSetMismatch` |
 | `DeliveryAttemptHistory` | non-empty admitted attempt history | — | `DeliveryMissingAttemptHistory` |
@@ -44,7 +45,7 @@ The executable invariant layer is exposed as a typed, observational qualificatio
 
 The executable transition corpus validates the authoritative state immediately after each exercised public state transition. It covers successful recognition insertion, exact duplicate recognition, rejected unknown-node recognition, ordinary observation insertion/duplication/conflict, local admission, a duplicate replay with a new transport attempt, attempt/envelope rebinding rejection, partition uncertainty, stale generation, expiry, revoked and absent authorization, and a forged source-observation claim. Each transition is followed by the full invariant gate; rejected paths additionally require the canonical authoritative-state fingerprint to remain unchanged. This establishes transition-level preservation for the encoded corpus rather than relying only on post-hoc corruption detection.
 
-The broader mutation evidence has two complementary layers: 11 single-fault mutations demonstrate distinguishable invariant failure surfaces, while the full 55 unordered invariant-pair matrix checks deterministic composition in both mutation orders. The pairwise corpus explicitly records the one intentionally destructive interaction between deleting attempt history and injecting an orphan binding; this is characterized rather than normalized away.
+The broader mutation evidence has two complementary layers: 12 single-fault mutations demonstrate distinguishable invariant failure surfaces, while the full 66 unordered invariant-pair matrix checks deterministic composition in both mutation orders. The pairwise corpus explicitly records the one intentionally destructive interaction between deleting attempt history and injecting an orphan binding; this is characterized rather than normalized away.
 
 ## Transition-sequence evidence
 
