@@ -2921,8 +2921,8 @@ async fn dsid_036_issued_state_proves_credential_fulfillment() {
 
     assert_eq!(
         credential_value["proof"]["cryptosuite"].as_str(),
-        Some("mycelix-blake2b-ed25519-2026"),
-        "newly issued Mycelix credentials must use the explicit native proof profile"
+        Some("eddsa-jcs-2022"),
+        "newly issued request-bound Mycelix credentials must use the W3C JCS proof profile"
     );
 
     let verified: serde_json::Value = conductor
@@ -2971,7 +2971,7 @@ async fn dsid_036_issued_state_proves_credential_fulfillment() {
             approved.entry().to_app_option::<serde_json::Value>().is_ok(),
             free_issued.is_err(),
             issued_action == credential.action_address().to_string(),
-            credential_value["proof"]["cryptosuite"].as_str() == Some("mycelix-blake2b-ed25519-2026"),
+            credential_value["proof"]["cryptosuite"].as_str() == Some("eddsa-jcs-2022"),
             verified["valid"] == true,
             duplicate_fulfillment.is_err()
         ),
