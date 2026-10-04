@@ -532,6 +532,8 @@ mod linux {
     const SECCOMP_DATA_ARCH_OFFSET: u32 = 4;
     const COMPILED_BYTECODE_STRUCTURAL_VALIDATION_DOMAIN: &[u8] =
         b"PRISM-SECCOMP-COMPILED-BYTECODE-STRUCTURAL-VALIDATION-V1";
+    const COMPILED_BYTECODE_SEMANTIC_VALIDATION_DOMAIN: &[u8] =
+        b"PRISM-SECCOMP-COMPILED-BYTECODE-SEMANTIC-VALIDATION-V1";
 
     fn stmt(code: u16, k: u32) -> SockFilter {
         SockFilter { code, jt: 0, jf: 0, k }
@@ -1604,7 +1606,7 @@ mod linux {
             hasher.update(b"PRISM-SECCOMP-SYSCALL-EVIDENCE-V5");
         }
         hasher.update(COMPILED_BYTECODE_STRUCTURAL_VALIDATION_DOMAIN);
-        hasher.update(b"PRISM-SECCOMP-COMPILED-BYTECODE-SEMANTIC-VALIDATION-V1");
+        hasher.update(COMPILED_BYTECODE_SEMANTIC_VALIDATION_DOMAIN);
         hasher.update(&policy.digest());
         hasher.update(&(filter.len() as u32).to_le_bytes());
         for instruction in filter {
