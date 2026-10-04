@@ -91,6 +91,11 @@
           "device_posture",
           "workload_identity",
           "security_domain",
+          "policy_version",
+          "purpose"
+        ],
+        "trust-root-compromise": [
+          "security_domain",
           "policy_version"
         ]
       },
@@ -151,6 +156,11 @@
           "subject_identity",
           "network_segment",
           "admin_plane"
+        ],
+        "trust-root-compromise": [
+          "subject_identity",
+          "network_segment",
+          "admin_plane"
         ]
       },
       "trust_boundary_cost": {
@@ -199,6 +209,10 @@
           "network_reachability"
         ],
         "admin-compromise": [
+          "subject_identity",
+          "network_reachability"
+        ],
+        "trust-root-compromise": [
           "subject_identity",
           "network_reachability"
         ]
