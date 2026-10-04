@@ -193,7 +193,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             target_address,
             tag,
             action,
-        } => validate_create_link(
+        } => validate_create_link_with_topology(
             link_type,
             &base_address,
             &target_address,
@@ -305,7 +305,7 @@ fn decode_vote_record(record: &Record) -> Result<Vote, String> {
 ///
 /// Link collections are mutable DHT state. The integrity boundary therefore validates
 /// both sides of the topology rather than trusting the coordinator's call path.
-fn validate_create_link(
+fn validate_create_link_with_topology(
     link_type: LinkTypes,
     base_address: &AnyLinkableHash,
     target_address: &AnyLinkableHash,
