@@ -4095,7 +4095,7 @@ mod linux {
                 libc::SYS_setfsuid,
                 libc::SYS_setfsgid,
                 libc::SYS_kexec_load,
-                libc::SYS_kexec_file_load,
+                KEXEC_FILE_LOAD_SYSCALL,
                 libc::SYS_init_module,
                 libc::SYS_finit_module,
                 libc::SYS_delete_module,
