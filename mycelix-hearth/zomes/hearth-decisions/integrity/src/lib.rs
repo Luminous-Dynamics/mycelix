@@ -116,11 +116,11 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(OpEntry::CreateEntry {
-            app_entry,
-            action: _,
-        }) => match app_entry {
-            EntryTypes::Decision(decision) => validate_decision(&decision),
+        FlatOp::StoreEntry(OpEntry::CreateEntry { app_entry, action }) => match app_entry {
+            EntryTypes::Decision(decision) => {
+                validate_decision(&decision)?;
+                validate_decision_deadline(&decision, action.timestamp())
+            }
             EntryTypes::Vote(vote) => validate_vote(&vote),
             EntryTypes::DecisionOutcome(outcome) => validate_outcome(&outcome),
         },
@@ -183,6 +183,19 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 // ============================================================================
 // Validation Functions
 // ============================================================================
+
+fn validate_decision_deadline(
+    decision: &Decision,
+    action_timestamp: Timestamp,
+) -> ExternResult<ValidateCallbackResult> {
+    if decision.deadline < action_timestamp {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Decision deadline cannot precede the Create action timestamp".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
 
 pub fn validate_decision(decision: &Decision) -> ExternResult<ValidateCallbackResult> {
     if decision.title.is_empty() {
@@ -628,6 +641,45 @@ mod tests {
         let d = make_decision("Title", vec!["Good", ""]);
         match validate_decision(&d).unwrap() {
             ValidateCallbackResult::Invalid(msg) => assert!(msg.contains("option cannot be empty")),
+            other => panic!("expected Invalid, got {:?}", other),
+        }
+    }
+
+    // ---- Decision Deadline Validation ----
+
+    #[test]
+    fn decision_deadline_at_action_timestamp_passes() {
+        let mut decision = make_decision("Test", vec!["A", "B"]);
+        let action_timestamp = Timestamp::from_micros(1_000_000);
+        decision.deadline = action_timestamp;
+
+        assert!(matches!(
+            validate_decision_deadline(&decision, action_timestamp).unwrap(),
+            ValidateCallbackResult::Valid
+        ));
+    }
+
+    #[test]
+    fn decision_deadline_after_action_timestamp_passes() {
+        let decision = make_decision("Test", vec!["A", "B"]);
+        let action_timestamp = Timestamp::from_micros(1_000_000);
+
+        assert!(matches!(
+            validate_decision_deadline(&decision, action_timestamp).unwrap(),
+            ValidateCallbackResult::Valid
+        ));
+    }
+
+    #[test]
+    fn decision_deadline_before_action_timestamp_rejected() {
+        let mut decision = make_decision("Test", vec!["A", "B"]);
+        let action_timestamp = Timestamp::from_micros(2_000_001);
+        decision.deadline = Timestamp::from_micros(2_000_000);
+
+        match validate_decision_deadline(&decision, action_timestamp).unwrap() {
+            ValidateCallbackResult::Invalid(message) => {
+                assert!(message.contains("cannot precede"))
+            }
             other => panic!("expected Invalid, got {:?}", other),
         }
     }
