@@ -4428,6 +4428,10 @@ mod tests {
 
         assert!(capsule.evidence.is_empty());
         assert_eq!(capsule.initial_state, capsule.final_state);
+        assert_eq!(
+            capsule.integrity.chain_head_sha256,
+            FEDERATION_STATE_MACHINE_TRACE_CHAIN_GENESIS
+        );
         assert_eq!(state_machine_plan_from_capsule(&capsule), Vec::new());
     }
 
@@ -4685,10 +4689,17 @@ mod tests {
         );
         assert!(
             replay.iter().enumerate().all(|(index, step)| {
-                step.step_index == index && !step.pre_state_fingerprint.is_empty()
+                step.step_index == index
+                    && !step.pre_state_fingerprint.is_empty()
                     && !step.state_fingerprint.is_empty()
+                    && !step.chain_sha256.is_empty()
             }),
-            "successful trace evidence must carry explicit step and state-boundary identities"
+            "successful trace evidence must carry explicit step, state-boundary, and chain identities"
+        );
+        assert_eq!(
+            replay.first().map(|step| step.chain_prev_sha256.as_str()),
+            Some(FEDERATION_STATE_MACHINE_TRACE_CHAIN_GENESIS),
+            "successful trace evidence must begin at the declared chain genesis"
         );
     }
 
