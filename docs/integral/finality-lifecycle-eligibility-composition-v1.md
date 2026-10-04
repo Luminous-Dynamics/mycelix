@@ -186,16 +186,22 @@ This is an integrity/semantic-binding boundary, not a provenance authority oracl
 
 D6N exposes an independent_count. D6P does not trust that count as current-finality authority.
 
-Instead, for every D6N CorroboratingIndependent observation:
+Instead, each D6N CorroboratingIndependent observation must first form an exact D6O EligibleCurrent join.
 
-    exact D6O EligibleCurrent receipt
-        -> count 1
+The resulting joins are then grouped by exact observer identity:
+
+    same observer identity
+        -> contributes at most 1
+
+    distinct observer identity
+        + exact D6O EligibleCurrent join
+        -> contributes 1
 
 Anything else:
 
-    -> count 0
+    -> contributes 0
 
-The final current witness count is derived from these exact joins.
+The final current witness count is the cardinality of the eligible observer-identity set.
 
 This prevents a historical D6N assessment from remaining sufficient after observer revocation, generation rotation, dependency change, or other lifecycle invalidation.
 
