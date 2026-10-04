@@ -15,10 +15,26 @@ use crate::security_kernel::{AuthorizationDecision, AuthorizationRequest, Enforc
 
 pub const MAX_PROVENANCE_IDENTIFIER_BYTES: usize = 512;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(try_from = "ProvenanceRefWire")]
 pub struct ProvenanceRef {
     pub artifact_id: String,
     pub relation: ProvenanceRelation,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ProvenanceRefWire {
+    artifact_id: String,
+    relation: ProvenanceRelation,
+}
+
+impl TryFrom<ProvenanceRefWire> for ProvenanceRef {
+    type Error = &'static str;
+
+    fn try_from(wire: ProvenanceRefWire) -> Result<Self, Self::Error> {
+        Self::new(wire.artifact_id, wire.relation)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -76,6 +92,7 @@ pub struct SecurityEvent {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct SecurityEventWire {
     event_id: String,
     actor_id: String,
@@ -310,6 +327,52 @@ mod tests {
             )
             .is_err()
         );
+    }
+
+    #[test]
+    fn provenance_ref_deserialization_is_constructor_gated() {
+        let valid: ProvenanceRef = serde_json::from_str(
+            r#"{"artifact_id":"evidence:source-1","relation":"DerivedFrom"}"#,
+        )
+        .unwrap();
+        assert_eq!(valid.artifact_id, "evidence:source-1");
+
+        let empty: Result<ProvenanceRef, _> =
+            serde_json::from_str(r#"{"artifact_id":"","relation":"References"}"#);
+        assert!(empty.is_err());
+
+        let oversized: Result<ProvenanceRef, _> = serde_json::from_str(&format!(
+            r#"{{"artifact_id":"{}","relation":"References"}}"#,
+            "x".repeat(MAX_PROVENANCE_IDENTIFIER_BYTES + 1)
+        ));
+        assert!(oversized.is_err());
+
+        let unknown: Result<ProvenanceRef, _> = serde_json::from_str(
+            r#"{"artifact_id":"evidence:source-1","relation":"References","authority":"ignored"}"#,
+        );
+        assert!(unknown.is_err());
+    }
+
+    #[test]
+    fn security_event_rejects_unknown_wire_fields() {
+        let json = r#"{
+            "event_id":"event:unknown",
+            "actor_id":"did:mycelix:alice",
+            "capability_ref":"capability:1",
+            "request":{
+                "subject":"did:mycelix:alice",
+                "resource":"resource:ledger",
+                "action":"Read",
+                "policy_version":7
+            },
+            "decision":{"Deny":"ActionNotGranted"},
+            "policy_version":7,
+            "timestamp_us":151,
+            "provenance":[],
+            "recovery_correlation":null,
+            "authority":"ignored"
+        }"#;
+        assert!(serde_json::from_str::<SecurityEvent>(json).is_err());
     }
 
     #[test]
