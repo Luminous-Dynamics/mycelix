@@ -976,6 +976,11 @@
       "id": "EDT-193",
       "case": "address_kind_mismatch_precedes_duplicate_provenance_binding_conflict",
       "expected": "adapter_boundary_error"
+    },
+    {
+      "id": "EDT-194",
+      "case": "logical_rebinding_precedes_duplicate_provenance_binding_conflict",
+      "expected": "adapter_boundary_error"
     }
   ],
   "outcome_classes": [
