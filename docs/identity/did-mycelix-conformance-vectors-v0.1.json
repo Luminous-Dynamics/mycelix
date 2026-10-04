@@ -39,6 +39,7 @@
   ],
   "verification_method_vectors": [
     {"id":"VM-001","algorithm":"Ed25519","multicodec":"0xed01","multibase":"base58btc","prefix":"z","payload":"multicodec(0xed01) || raw_32_byte_ed25519_public_key","holochain_hash_type_bytes_included":false,"strict_did_boundary":true},
+    {"id":"VM-003","algorithm":"Ed25519","type":"Multikey","controller_relationship":"assertionMethod","verification_method_id_suffix":"#keys-1-multikey","multicodec":"0xed01","multibase":"base58btc","payload":"multicodec(0xed01) || raw_32_byte_ed25519_public_key"},
     {"id":"VM-002","algorithm":"Ed25519","kind":"legacy-raw-32-byte","expected":"reject-at-did-integrity-boundary"}
   ],
   "recovery_vectors": [
