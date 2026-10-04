@@ -4,6 +4,7 @@ on:
   pull_request:
     branches: [main, myc-int-demo-d6w-layered-commitments]
     paths:
+      - '.github/workflows/cos-conformance-evidence.yml'
       - 'mycelix-manufacturing/crates/cos_conformance/**'
       - 'mycelix-manufacturing/Cargo.toml'
       - 'mycelix-manufacturing/Cargo.lock'
