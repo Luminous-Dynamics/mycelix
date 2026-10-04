@@ -25,6 +25,7 @@ The current chain is:
 9. Negative regression checks proving the evidence verifiers reject tampering.
 10. Build-provenance attestation for the three captured subjects.
 11. Post-attestation verification requiring the exact repository, signer workflow, signer workflow digest, workflow source digest, and GitHub-hosted execution.
+12. Explicit recording of the PR-head qualification subject separately from the `GITHUB_SHA` attestation source digest, because `pull_request` runs use the merge-context commit for `GITHUB_SHA`.
 
 ## Claim boundary
 
