@@ -26,7 +26,7 @@ concurrency:
   # One branch has one authoritative qualification run at a time. Exact-head
   # checkout below prevents stale canceled runs from becoming evidence for a
   # newer commit while also collapsing push + PR duplicates.
-  group: identity-dsid-${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  group: identity-dsid-${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 env:
