@@ -892,7 +892,7 @@ check_qualification_workflow_provenance() {
   local expected_action_ref action_use_count pinned_action_count
   local expected_action_refs=(
     "actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803"
-    "cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24"
+    "NixOS/nix-installer-action@62c1943b776c509394b550f3f983adc14e9212d6"
     "cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866"
     "actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f"
   )
@@ -926,10 +926,10 @@ check_qualification_workflow_provenance() {
     fail=1
   fi
 
-  if rg -n --fixed-strings 'GITHUB_SERVER_URL: ""' "$workflow" >/dev/null 2>&1     && rg -n --fixed-strings 'github_access_token: ""' "$workflow" >/dev/null 2>&1; then
-    echo "OK:   qualification workflow suppresses the install-nix-action token fallback"
+  if rg -n --fixed-strings 'Verify Nix credential isolation' "$workflow" >/dev/null 2>&1; then
+    echo "OK:   qualification workflow verifies that Nix configuration contains no GitHub access token"
   else
-    echo "FAIL: qualification workflow must suppress the install-nix-action GITHUB_TOKEN fallback"
+    echo "FAIL: qualification workflow must verify Nix credential isolation"
     fail=1
   fi
 
