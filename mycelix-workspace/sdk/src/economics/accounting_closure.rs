@@ -647,6 +647,49 @@ mod tests {
 
     #[test]
     #[test]
+    fn mixed_write_off_and_revaluation_share_one_closure_without_overlap() {
+        let mut bank = ActorBalanceSheet::new("bank");
+        bank.monetary.claims = 100;
+        let mut firm = ActorBalanceSheet::new("firm");
+        firm.monetary.liabilities = 100;
+        firm.real.productive_capital = 100;
+        let pre = EconomicState::new(vec![bank, firm]);
+
+        let transitions = vec![
+            EconomicTransition::DebtWriteOff(
+                DebtWriteOff::new("bank", "firm", 40).unwrap(),
+            ),
+            EconomicTransition::RealAssetRevaluation(
+                crate::economics::stock_flow::RealAssetRevaluation::new(
+                    "firm",
+                    crate::economics::stock_flow::RealAssetRevaluationTarget::ProductiveCapital,
+                    10,
+                )
+                .unwrap(),
+            ),
+        ];
+        let (post, _) = apply_step(&pre, 1, &transitions, None).unwrap();
+        let assignments = vec![
+            SectorAssignment {
+                actor: "bank".into(),
+                sector: EconomicSector::Bank,
+            },
+            SectorAssignment {
+                actor: "firm".into(),
+                sector: EconomicSector::Firm,
+            },
+        ];
+
+        EconomicAccountingClosure::validate_and_seal(
+            &pre,
+            &post,
+            &assignments,
+            &transitions,
+        )
+        .unwrap();
+    }
+
+    #[test]
     fn closure_binds_debt_write_off_counterparts() {
         let mut bank = ActorBalanceSheet::new("bank");
         bank.monetary.claims = 100;
