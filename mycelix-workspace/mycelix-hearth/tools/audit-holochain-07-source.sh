@@ -372,7 +372,7 @@ check_entry_type_dispatch() {
       echo "FAIL: $file EntryTypes::$variant has no validate dispatcher reference"
       fail=1
     fi
-  done < <(printf '%s\n' "$enum_block" | rg --pcre2 -o '^\s*[A-Za-z_][A-Za-z0-9_]*\s*\(' | sed -E 's/^\s*([A-Za-z_][A-Za-z0-9_]*).*$/\1/')
+  done < <(printf '%s\n' "$enum_block" | rg --pcre2 -o '^    [A-Za-z_][A-Za-z0-9_]*\s*(?:\(|\{|,|=)' | sed -E 's/^    ([A-Za-z_][A-Za-z0-9_]*).*$/\1/')
 }
 # Link validation must receive the typed base/target addresses and must dispatch
 # on every declared LinkTypes variant inside the CreateLink policy itself. A
@@ -425,7 +425,7 @@ check_link_type_policy() {
       echo "FAIL: $file LinkTypes::$variant is not handled in CreateLink validation policy"
       fail=1
     fi
-  done < <(printf '%s\n' "$enum_block" | grep -E '^    [A-Za-z_][A-Za-z0-9_]*,$' | sed -E 's/^    ([A-Za-z_][A-Za-z0-9_]*),$/\1/')
+  done < <(printf '%s\n' "$enum_block" | rg --pcre2 -o '^    [A-Za-z_][A-Za-z0-9_]*\s*(?:\(|\{|,|=)' | sed -E 's/^    ([A-Za-z_][A-Za-z0-9_]*).*$/\1/')
 }
 
 # Link tags are application data. Hearth coordinators use empty tags for ordinary
@@ -521,7 +521,7 @@ check_create_record_entry_dispatch() {
       echo "FAIL: $file CreateRecord update dispatch misses EntryTypes::$variant"
       fail=1
     fi
-  done < <(printf '%s\n' "$enum_block" | rg --pcre2 -o '^\s*[A-Za-z_][A-Za-z0-9_]*\s*\(' | sed -E 's/^\s*([A-Za-z_][A-Za-z0-9_]*).*$/\1/')
+  done < <(printf '%s\n' "$enum_block" | rg --pcre2 -o '^    [A-Za-z_][A-Za-z0-9_]*\s*(?:\(|\{|,|=)' | sed -E 's/^    ([A-Za-z_][A-Za-z0-9_]*).*$/\1/')
 }
 # CreateEntry dispatch must preserve the EntryTypes policy at the first validation surface.
 # A permissive FlatOp::CreateEntry(_) => Valid arm can otherwise swallow a newly
@@ -550,7 +550,7 @@ check_create_entry_entry_dispatch() {
       echo "FAIL: $file CreateEntry dispatch misses EntryTypes::$variant"
       fail=1
     fi
-  done < <(printf '%s\n' "$enum_block" | rg --pcre2 -o '^\s*[A-Za-z_][A-Za-z0-9_]*\s*\(' | sed -E 's/^\s*([A-Za-z_][A-Za-z0-9_]*).*$/\1/')
+  done < <(printf '%s\n' "$enum_block" | rg --pcre2 -o '^    [A-Za-z_][A-Za-z0-9_]*\s*(?:\(|\{|,|=)' | sed -E 's/^    ([A-Za-z_][A-Za-z0-9_]*).*$/\1/')
 }
 
 # Dangerous operation families must never be accepted solely by a terminal
@@ -1550,7 +1550,7 @@ check_coordinator_symbol_parity() {
     enum_block="$(sed '/^\#\[cfg(test)\]/,$d' "$file" | sed -n '/^pub enum EntryTypes[[:space:]]*{/,/^}/p')"
     while IFS= read -r variant; do
       [[ -z "$variant" ]] && continue
-      if printf '%s\n' "$enum_block" | grep -Eq "^[[:space:]]*$variant\("; then
+      if printf '%s\n' "$enum_block" | rg -nU --pcre2 "^[[:space:]]*${variant}[[:space:]]*(?:\\(|\\{|,|=)" >/dev/null 2>&1; then
         echo "OK:   $zome coordinator EntryTypes::$variant matches integrity declaration"
       else
         echo "FAIL: $zome coordinator references undeclared EntryTypes::$variant"
@@ -1561,7 +1561,7 @@ check_coordinator_symbol_parity() {
     enum_block="$(sed '/^\#\[cfg(test)\]/,$d' "$file" | sed -n '/^pub enum LinkTypes[[:space:]]*{/,/^}/p')"
     while IFS= read -r variant; do
       [[ -z "$variant" ]] && continue
-      if printf '%s\n' "$enum_block" | grep -Eq "^[[:space:]]*$variant,$"; then
+      if printf '%s\n' "$enum_block" | rg -nU --pcre2 "^[[:space:]]*${variant}[[:space:]]*(?:\\(|\\{|,|=)" >/dev/null 2>&1; then
         echo "OK:   $zome coordinator LinkTypes::$variant matches integrity declaration"
       else
         echo "FAIL: $zome coordinator references undeclared LinkTypes::$variant"
