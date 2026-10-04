@@ -1946,6 +1946,18 @@ pub fn update_request_status(input: UpdateRequestStatusInput) -> ExternResult<Re
     )))
 }
 
+fn credential_claims_satisfy_request(
+    requested: &serde_json::Value,
+    issued: &serde_json::Value,
+) -> bool {
+    match (requested.as_object(), issued.as_object()) {
+        (Some(requested), Some(issued)) => requested
+            .iter()
+            .all(|(key, value)| issued.get(key) == Some(value)),
+        _ => requested == issued,
+    }
+}
+
 /// Issue a credential that is cryptographically bound to an approved request.
 ///
 /// The request itself remains requester-authored; only its target issuer may
@@ -2038,6 +2050,11 @@ pub fn issue_credential_for_request(
     if req.issued_credential.is_some() {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Credential request already has an issued credential".into(),
+        )));
+    }
+    if !credential_claims_satisfy_request(&req.provided_claims, &input.claims) {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Issued credential claims must fulfill the claims supplied in the credential request".into(),
         )));
     }
 
