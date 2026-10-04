@@ -631,6 +631,67 @@ pub fn verify_credential(credential_id: String) -> ExternResult<VerificationResu
     ) {
         format_check_passed = false;
         errors.push("Proof verification method does not belong to issuer DID".to_string());
+    } else if let Ok(issuer_pubkey) =
+        AgentPubKey::try_from(credential.issuer.did().strip_prefix("did:mycelix:").unwrap_or("").to_string())
+    {
+        match call(
+            CallTargetCell::Local,
+            ZomeName::new("did_registry"),
+            FunctionName::new("resolve_did"),
+            None,
+            credential.issuer.did().to_string(),
+        ) {
+            Ok(ZomeCallResponse::Ok(result)) => match result.decode::<Option<Record>>() {
+                Ok(Some(did_record)) => {
+                    match did_record.entry().to_app_option::<DidDocumentProofMirror>() {
+                        Ok(Some(did_doc)) => {
+                            match canonical_agent_ed25519_multibase(&issuer_pubkey) {
+                                Ok(expected_multibase)
+                                    if validate_current_assertion_method_binding(
+                                        &did_doc,
+                                        credential.issuer.did(),
+                                        &credential.proof.verification_method,
+                                        &expected_multibase,
+                                    ) => {}
+                                _ => {
+                                    format_check_passed = false;
+                                    errors.push(
+                                        "Proof verification method is not currently authorized by issuer DID assertionMethod"
+                                            .to_string(),
+                                    );
+                                }
+                            }
+                        }
+                        _ => {
+                            format_check_passed = false;
+                            errors.push(
+                                "Issuer DID document could not be decoded for assertion authorization"
+                                    .to_string(),
+                            );
+                        }
+                    }
+                }
+                Ok(None) => {
+                    format_check_passed = false;
+                    errors.push("Issuer DID could not be resolved for assertion authorization".to_string());
+                }
+                Err(e) => {
+                    format_check_passed = false;
+                    errors.push(format!(
+                        "Issuer DID resolution decode failed for assertion authorization: {e:?}"
+                    ));
+                }
+            },
+            Ok(_) | Err(_) => {
+                format_check_passed = false;
+                errors.push(
+                    "Issuer DID assertion authorization could not be established".to_string(),
+                );
+            }
+        }
+    } else {
+        format_check_passed = false;
+        errors.push("Issuer DID cannot be converted to its AgentPubKey".to_string());
     }
 
     // Verify ed25519 signature using HDK
@@ -4109,6 +4170,32 @@ fn validate_w3c_authentication_method_binding(
     method.controller == holder_did
         && method.type_ == "Multikey"
         && method.public_key_multibase == expected_multibase
+}
+
+fn validate_current_assertion_method_binding(
+    did_doc: &DidDocumentProofMirror,
+    issuer_did: &str,
+    verification_method: &str,
+    expected_multibase: &str,
+) -> bool {
+    if did_doc.id != issuer_did
+        || !did_doc
+            .assertion_method
+            .iter()
+            .any(|reference| reference == verification_method)
+    {
+        return false;
+    }
+
+    let Some(method) = did_doc
+        .verification_method
+        .iter()
+        .find(|method| method.id == verification_method)
+    else {
+        return false;
+    };
+
+    method.controller == issuer_did && method.public_key_multibase == expected_multibase
 }
 
 fn validate_w3c_assertion_method_binding(
