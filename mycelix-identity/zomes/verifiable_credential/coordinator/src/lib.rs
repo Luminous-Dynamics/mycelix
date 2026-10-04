@@ -486,6 +486,26 @@ pub fn verify_credential(credential_id: String) -> ExternResult<VerificationResu
         }
     }
 
+    if let Ok(response) = call(
+        CallTargetCell::Local,
+        ZomeName::new("did_registry"),
+        FunctionName::new("is_did_active"),
+        None,
+        credential.issuer.did().to_string(),
+    ) {
+        let active = match response {
+            ZomeCallResponse::Ok(result) => result.decode::<bool>().unwrap_or(false),
+            _ => false,
+        };
+        if !active {
+            errors.push("Issuer DID is not active".to_string());
+        }
+    } else {
+        // Availability of the issuer DID registry is required for current-state
+        // verification; do not silently treat an unavailable registry as active.
+        errors.push("Issuer DID activity could not be established".to_string());
+    }
+
     // The declared verification method must be controlled by the same DID
     // whose AgentPubKey is used to verify the signature. Without this check,
     // proof metadata could name an unrelated DID while the cryptographic
