@@ -180,6 +180,7 @@
     "duplicate_authority_requires_verified_credential": true,
     "duplicate_provenance_witness_requires_verified_credential": true,
     "rejected_credential_admission_preserves_registry_state": true,
+    "duplicate_authority_precedes_duplicate_provenance_conflict": true,
     "credential_signature_required": true,
     "authority_must_be_present_before_runtime_binding": true,
     "one_agent_per_authority": true,
