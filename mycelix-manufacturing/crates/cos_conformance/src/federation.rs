@@ -3076,12 +3076,23 @@ mod tests {
         }
     }
 
+    const FEDERATION_STATE_MACHINE_TRACE_CAPSULE_SCHEMA_VERSION: u16 = 1;
+
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    struct FederationStateMachineTraceBoundary {
+        admission_index: u64,
+        delivery_count: usize,
+        state_fingerprint: Vec<u8>,
+    }
+
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
     struct FederationStateMachineEvidence {
+        step_index: usize,
         operation: FederationStateMachineOperation,
         token: u64,
         decision: Option<FederationDecision>,
         authority: Option<AuthorityDisposition>,
+        pre_state_fingerprint: Vec<u8>,
         state_fingerprint: Vec<u8>,
         pre_admission_index: u64,
         post_admission_index: u64,
@@ -3092,11 +3103,14 @@ mod tests {
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
     struct FederationStateMachineTraceCapsule {
+        schema_version: u16,
         trace_index: usize,
         initial_seed: u64,
         operations: Vec<FederationStateMachineOperation>,
         tokens: Vec<u64>,
+        initial_state: FederationStateMachineTraceBoundary,
         evidence: Vec<FederationStateMachineEvidence>,
+        final_state: FederationStateMachineTraceBoundary,
     }
 
     fn state_machine_next_seed(seed: &mut u64) -> u64 {
@@ -3133,12 +3147,29 @@ mod tests {
     fn state_machine_trace_capsule(trace_index: usize, steps: usize) -> String {
         let (initial_seed, plan) = state_machine_trace_plan(trace_index, steps);
         let evidence = run_state_machine_trace_plan(&plan);
+        let initial_state = FederationStateMachineTraceBoundary {
+            admission_index: 0,
+            delivery_count: 0,
+            state_fingerprint: canonical_state_fingerprint(&nodes()),
+        };
+        let final_state = evidence
+            .last()
+            .map(|step| FederationStateMachineTraceBoundary {
+                admission_index: step.post_admission_index,
+                delivery_count: step.post_delivery_count,
+                state_fingerprint: step.state_fingerprint.clone(),
+            })
+            .unwrap_or_else(|| initial_state.clone());
+
         let capsule = FederationStateMachineTraceCapsule {
+            schema_version: FEDERATION_STATE_MACHINE_TRACE_CAPSULE_SCHEMA_VERSION,
             trace_index,
             initial_seed,
             operations: plan.iter().map(|(operation, _)| *operation).collect(),
             tokens: plan.iter().map(|(_, token)| *token).collect(),
+            initial_state,
             evidence,
+            final_state,
         };
         serde_json::to_string_pretty(&capsule).expect("trace capsule is serializable")
     }
