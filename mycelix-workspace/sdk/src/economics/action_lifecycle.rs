@@ -798,7 +798,7 @@ mod tests {
     #[test]
     fn scope_amendment_cannot_change_stage() {
         let mut lifecycle = start();
-        let mut amended = scope("action:1", "scope:2");
+        let amended = scope("action:1", "scope:2");
 
         // Direct historical construction is validated separately; amend_scope
         // itself always retains the current stage.
@@ -818,7 +818,6 @@ mod tests {
 
         lifecycle.revisions.push(revision);
         assert!(lifecycle.validate().is_err());
-        amended.policy_ref = "policy:still-unused".into();
     }
 
     #[test]
