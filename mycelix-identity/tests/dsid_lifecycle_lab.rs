@@ -4617,3 +4617,180 @@ async fn dsid_047_deactivated_issuer_cannot_mint_new_credentials() {
     );
 }
 
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_048_request_bound_issuance_rejects_legacy_cryptosuite() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let requester_app = conductor
+        .setup_app("dsid-legacy-proof-requester", std::slice::from_ref(&dna))
+        .await
+        .unwrap();
+    let issuer_app = conductor
+        .setup_app("dsid-legacy-proof-issuer", std::slice::from_ref(&dna))
+        .await
+        .unwrap();
+
+    let requester = requester_app.cells()[0].clone();
+    let issuer = issuer_app.cells()[0].clone();
+    let requester_did = format!("did:mycelix:{}", requester_app.agent());
+    let issuer_did = format!("did:mycelix:{}", issuer_app.agent());
+
+    let _: Record = conductor
+        .call(&requester.zome("did_registry"), "create_did", ())
+        .await;
+    let _: Record = conductor
+        .call(&issuer.zome("did_registry"), "create_did", ())
+        .await;
+
+    let request: Record = conductor
+        .call(
+            &requester.zome("verifiable_credential"),
+            "request_credential",
+            serde_json::json!({
+                "issuer_did": issuer_did.clone(),
+                "schema_id": "mycelix:schema:education:degree:v1",
+                "claims": {"degree": "DSID legacy downgrade"},
+                "evidence": []
+            }),
+        )
+        .await;
+    let request_value: serde_json::Value = request
+        .entry()
+        .to_app_option()
+        .unwrap()
+        .unwrap();
+    let request_id = request_value["id"].as_str().unwrap().to_owned();
+
+    await_consistency(&[requester.clone(), issuer.clone()])
+        .await
+        .expect("request must reach issuer");
+
+    let _: Record = conductor
+        .call(
+            &issuer.zome("verifiable_credential"),
+            "update_request_status",
+            serde_json::json!({
+                "request_id": request_id.clone(),
+                "new_status": "UnderReview"
+            }),
+        )
+        .await;
+    let _: Record = conductor
+        .call(
+            &issuer.zome("verifiable_credential"),
+            "update_request_status",
+            serde_json::json!({
+                "request_id": request_id.clone(),
+                "new_status": "Approved"
+            }),
+        )
+        .await;
+
+    let mut material = Vec::new();
+    material.extend_from_slice(b"mycelix:vc-request-credential:v1");
+    material.push(0);
+    material.extend_from_slice(issuer_did.as_bytes());
+    material.push(0);
+    material.extend_from_slice(request_id.as_bytes());
+    let deterministic_id = format!(
+        "urn:mycelix:request-credential:{}",
+        bs58::encode(holo_hash::blake2b_256(&material))
+            .with_alphabet(bs58::Alphabet::BITCOIN)
+            .into_string()
+    );
+
+    let legacy: Record = conductor
+        .call(
+            &issuer.zome("verifiable_credential"),
+            "issue_credential",
+            serde_json::json!({
+                "subject_did": requester_did,
+                "schema_id": "mycelix:schema:education:degree:v1",
+                "claims": {"degree": "DSID legacy downgrade"},
+                "credential_types": ["QualificationCredential"],
+                "issuer_name": "DSID Legacy Profile",
+                "expiration_days": 365,
+                "enable_revocation": false,
+                "strict_schema": false,
+                "credential_id": deterministic_id,
+                "proof_profile": "MycelixBlake2bEd25519"
+            }),
+        )
+        .await;
+
+    let downgrade: Result<Record, _> = conductor
+        .call_fallible(
+            &issuer.zome("verifiable_credential"),
+            "issue_credential_for_request",
+            serde_json::json!({
+                "request_id": request_id.clone(),
+                "claims": {"degree": "DSID legacy downgrade"},
+                "credential_types": ["QualificationCredential"],
+                "issuer_name": "DSID Request Issuer",
+                "expiration_days": 365,
+                "enable_revocation": false,
+                "strict_schema": false
+            }),
+        )
+        .await;
+    assert!(
+        downgrade.is_err(),
+        "request-bound issuance must not accept a legacy Mycelix proof profile"
+    );
+
+    await_consistency(&[requester.clone(), issuer.clone()])
+        .await
+        .expect("request rejection must remain visible to requester");
+
+    let final_request: Option<Record> = conductor
+        .call(
+            &requester.zome("verifiable_credential"),
+            "get_credential_request",
+            serde_json::json!({
+                "issuer_did": issuer_did,
+                "request_id": request_id
+            }),
+        )
+        .await;
+    let final_value: serde_json::Value = final_request
+        .expect("request must remain resolvable")
+        .entry()
+        .to_app_option()
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(
+        final_value["status"],
+        "Approved",
+        "failed downgrade must not transition the request to Issued"
+    );
+    assert!(
+        final_value["issued_credential"].is_none(),
+        "failed downgrade must not attach a legacy credential to the request"
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("requester", requester_app.agent().to_string());
+    agents.insert("issuer", issuer_app.agent().to_string());
+    emit_evidence(
+        "DSID-048",
+        "request-bound-issuance-rejects-legacy-cryptosuite",
+        &dna,
+        agents,
+        &[&request, &legacy],
+        "Approved request-bound issuance must require a W3C eddsa-jcs-2022 credential; a legacy Mycelix proof cannot be silently upgraded into Issued state.",
+        format!(
+            "legacy_preexisting={} downgrade_rejected={} request_remains_approved={} no_issued_binding={}",
+            legacy.action_address() != request.action_address(),
+            downgrade.is_err(),
+            final_value["status"] == "Approved",
+            final_value["issued_credential"].is_none()
+        ),
+        legacy.action_address() != request.action_address()
+            && downgrade.is_err()
+            && final_value["status"] == "Approved"
+            && final_value["issued_credential"].is_none(),
+    );
+}
+
