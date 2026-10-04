@@ -43,7 +43,7 @@ pub use economic_os::EconomicOsEnvelope;
 pub use jurisdiction_pack::{
     EconomicJurisdictionPack, EconomicOsCapability, InteroperabilityGuarantee,
 };
-pub use policy_analysis::EconomicPolicyAnalysis;
+pub use policy_analysis::{EconomicAnalysisBinding, EconomicPolicyAnalysis};
 pub use policy_context::{EconomicPolicyContext, EconomicPolicyContextRole};
 pub use scenario::{EconomicPolicyScenario, EconomicScenarioBinding, EconomicScenarioKind};
 pub use policy_profile::{EconomicOsOperation, EconomicPolicyProfile};
