@@ -865,7 +865,8 @@ code_pattern, human_invariant, source = sys.argv[1:]
 
 # Remove comments and string literals before matching the executable predicate.
 # This prevents a copied predicate in documentation, diagnostics, or examples
-# from satisfying the semantic case.
+# from satisfying the semantic case. Preserve newlines so branch boundaries remain
+# stable while braces inside masked tokens cannot forge a block boundary.
 token_re = re.compile(
     r'//[^\n]*'
     r'|/\*.*?\*/'
@@ -876,21 +877,100 @@ token_re = re.compile(
 masked = token_re.sub(lambda m: "\n" * m.group(0).count("\n"), source)
 
 predicate = re.escape(code_pattern)
-if not re.search(rf'\bif\s+{predicate}\s*\{{', masked):
+predicate_match = re.search(rf'\bif\s+{predicate}\s*\{{', masked)
+if not predicate_match:
     print(
         f"FAIL: {code_pattern!r} is not an executable invariant predicate "
         f"inside the declared validator; manifest invariant={human_invariant!r}"
     )
     raise SystemExit(2)
 
-if not re.search(r'ValidateCallbackResult::Invalid|Err\s*\(', masked):
+# The rejection proof must be branch-local. A file-wide Invalid/Err match is too
+# weak: an unrelated invariant elsewhere in the validator could otherwise make
+# this semantic case look executable while the declared predicate merely logs,
+# computes, or returns Valid. Scan the masked branch with balanced-brace depth so
+# nested blocks remain inside the same predicate branch.
+open_brace = predicate_match.end() - 1
+depth = 0
+close_brace = None
+for index in range(open_brace, len(masked)):
+    char = masked[index]
+    if char == "{":
+        depth += 1
+    elif char == "}":
+        depth -= 1
+        if depth == 0:
+            close_brace = index
+            break
+
+if close_brace is None:
     print(
-        f"FAIL: validator has executable predicate {code_pattern!r} but no "
-        "executable Invalid/Err rejection path"
+        f"FAIL: executable invariant predicate {code_pattern!r} has no "
+        "balanced closing brace in the declared validator"
     )
     raise SystemExit(2)
 
-print(f"OK:   {code_pattern} is bound to executable validator rejection logic")
+predicate_branch = masked[open_brace + 1 : close_brace]
+if not re.search(r'ValidateCallbackResult::Invalid|\breturn\s+Err\s*\(', predicate_branch):
+    print(
+        f"FAIL: executable invariant predicate {code_pattern!r} has no "
+        "branch-local Invalid/Err rejection path"
+    )
+    raise SystemExit(2)
+
+# Adversarial oracle: reject the known false-positive shape where the predicate
+# branch is non-rejecting but a later, unrelated branch returns Invalid.
+oracle_valid = '''
+fn validate_example(x: &Example) -> ExternResult<ValidateCallbackResult> {
+    if x.field.is_empty() {
+        println!("diagnostic only");
+    }
+    if x.other_bad {
+        return Ok(ValidateCallbackResult::Invalid("unrelated".into()));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+'''
+oracle_invalid = '''
+fn validate_example(x: &Example) -> ExternResult<ValidateCallbackResult> {
+    if x.field.is_empty() {
+        return Ok(ValidateCallbackResult::Invalid("field cannot be empty".into()));
+    }
+    if x.other_bad {
+        return Ok(ValidateCallbackResult::Invalid("unrelated".into()));
+    }
+}
+'''
+
+def branch_has_rejection(test_source, code):
+    test_masked = token_re.sub(lambda m: "\n" * m.group(0).count("\n"), test_source)
+    match = re.search(rf'\bif\s+{re.escape(code)}\s*\{{', test_masked)
+    if not match:
+        return False
+    depth = 0
+    opening = match.end() - 1
+    for index in range(opening, len(test_masked)):
+        if test_masked[index] == "{":
+            depth += 1
+        elif test_masked[index] == "}":
+            depth -= 1
+            if depth == 0:
+                return bool(
+                    re.search(
+                        r'ValidateCallbackResult::Invalid|\breturn\s+Err\s*\(',
+                        test_masked[opening + 1 : index],
+                    )
+                )
+    return False
+
+assert not branch_has_rejection(oracle_valid, "x.field.is_empty()"), (
+    "branch-local oracle accepted unrelated Invalid rejection"
+)
+assert branch_has_rejection(oracle_invalid, "x.field.is_empty()"), (
+    "branch-local oracle rejected the genuine Invalid branch"
+)
+
+print(f"OK:   {code_pattern} is bound to a branch-local executable validator rejection path")
 PY
       then
         echo "OK:   $id invariant predicate is executable inside declared validator $validator_symbol"
