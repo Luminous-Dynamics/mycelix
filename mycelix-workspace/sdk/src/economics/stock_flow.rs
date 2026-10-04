@@ -604,6 +604,43 @@ impl DebtRepayment {
     }
 }
 
+/// Which monetary-valued real asset receives an explicit non-cash revaluation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RealAssetRevaluationTarget {
+    ProductiveCapital,
+    InventoryCarryingValue,
+}
+
+/// Explicit non-cash revaluation of a monetary-valued real asset.
+///
+/// A positive amount is a holding gain; a negative amount is a holding loss.
+/// No cash, financial claim, or physical quantity is created. The balancing
+/// change is therefore carried by the actor's derived equity/net worth.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RealAssetRevaluation {
+    pub actor: ActorId,
+    pub target: RealAssetRevaluationTarget,
+    /// Signed change in the asset's monetary carrying amount.
+    pub amount: i128,
+}
+
+impl RealAssetRevaluation {
+    pub fn new(
+        actor: impl Into<ActorId>,
+        target: RealAssetRevaluationTarget,
+        amount: i128,
+    ) -> Result<Self, String> {
+        if amount == 0 {
+            return Err("real-asset revaluation amount must be non-zero".into());
+        }
+        Ok(Self {
+            actor: actor.into(),
+            target,
+            amount,
+        })
+    }
+}
+
 /// Aggregate accounting state for a simulation timestep.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct EconomicState {
@@ -1017,6 +1054,39 @@ impl EconomicState {
         Ok(())
     }
 
+    /// Apply an explicit non-cash revaluation without changing physical stocks or liquidity.
+    pub fn apply_real_asset_revaluation(
+        &mut self,
+        revaluation: &RealAssetRevaluation,
+    ) -> Result<(), String> {
+        if revaluation.amount == 0 {
+            return Err("real-asset revaluation amount must be non-zero".into());
+        }
+
+        let actor = self.actor_mut(&revaluation.actor)?;
+        let current = match revaluation.target {
+            RealAssetRevaluationTarget::ProductiveCapital => actor.real.productive_capital,
+            RealAssetRevaluationTarget::InventoryCarryingValue => actor.inventory_carrying_value,
+        };
+        let next = current
+            .checked_add(revaluation.amount)
+            .ok_or_else(|| "real-asset revaluation overflow".to_string())?;
+        if next < 0 {
+            return Err(format!(
+                "real-asset revaluation would make {:?} negative for {}",
+                revaluation.target, actor.actor
+            ));
+        }
+
+        match revaluation.target {
+            RealAssetRevaluationTarget::ProductiveCapital => actor.real.productive_capital = next,
+            RealAssetRevaluationTarget::InventoryCarryingValue => {
+                actor.inventory_carrying_value = next
+            }
+        }
+        Ok(())
+    }
+
     /// Recognize an explicit depreciation charge against productive capital.
     pub fn apply_depreciation(&mut self, depreciation: &Depreciation) -> Result<(), String> {
         Self::require_positive(depreciation.amount, "depreciation")?;
@@ -1343,6 +1413,27 @@ impl EconomicState {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn real_asset_revaluation_is_non_cash_and_preserves_physical_quantity() {
+        let mut state = EconomicState::new(vec![ActorBalanceSheet::new("firm")]);
+        state.actors[0].real.productive_capital = 100;
+        state.actors[0].real.inventories = 5;
+        state.actors[0].inventory_carrying_value = 50;
+
+        let gain = RealAssetRevaluation::new(
+            "firm",
+            RealAssetRevaluationTarget::ProductiveCapital,
+            25,
+        )
+        .unwrap();
+        state.apply_real_asset_revaluation(&gain).unwrap();
+
+        assert_eq!(state.actors[0].real.productive_capital, 125);
+        assert_eq!(state.actors[0].real.inventories, 5);
+        assert_eq!(state.actors[0].inventory_carrying_value, 50);
+        assert_eq!(state.monetary_flow_volume, 0);
+    }
 
     #[test]
     fn state_domain_validation_rejects_unmatched_financial_claims_and_empty_ids() {
