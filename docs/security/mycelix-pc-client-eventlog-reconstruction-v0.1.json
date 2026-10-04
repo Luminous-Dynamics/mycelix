@@ -55,9 +55,10 @@
     "the reconstruction receipt must identify the exact verifier executable provenance",
     "the bundle verifier independently executes the reconstruction theorem and rejects disagreement with the supplied receipt",
     "EV_NO_ACTION is logged context and does not extend the PCR",
-    "HCRTM PCR0 initialization is outside the zero-state replay profile and must be INDETERMINATE rather than silently misreconstructed",
-    "PCR0 StartupLocality EV_NO_ACTION records do not provide an ordinary extend measurement; their locality effect changes the initial PCR state and is outside the zero-state replay profile, so the verifier returns INDETERMINATE",
-    "EV_NO_ACTION control records may omit digest_sha256 because they do not extend a PCR"
+    "EV_NO_ACTION control records may omit digest_sha256 because they do not extend a PCR",
+    "EV_NO_ACTION control records do not extend a PCR; PCR0 StartupLocality with locality 3 or 4 initializes the internal PCR0 state with that locality before subsequent extensions",
+    "PCR0 HCRTM events initialize the internal PCR0 state to locality 4 before the HCRTM digest extension",
+    "reserved StartupLocality values are DENY and StartupLocality appearing after HCRTM cannot reset the already-initialized PCR0 state"
   ],
   "vectors": [
     {
@@ -178,12 +179,12 @@
     {
       "id": "PLR-V24",
       "mutation": "hcrtm-initial-state-adjustment-unsupported",
-      "expected": "INDETERMINATE"
+      "expected": "PASS"
     },
     {
       "id": "PLR-V25",
       "mutation": "startup-locality-initial-state-adjustment-unsupported",
-      "expected": "INDETERMINATE"
+      "expected": "PASS"
     }
   ],
   "qualification_required_artifacts": [
