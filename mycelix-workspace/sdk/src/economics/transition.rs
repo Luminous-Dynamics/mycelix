@@ -9,7 +9,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::stock_flow::{CapitalInvestment, ProductionEvent, InventoryTransfer, InventoryConsumption, GoodsSale, TradeCreditSale, TradeCreditSettlement, InventoryCostAddition, InventoryCostRelief, Depreciation, CreditCreation, DebtRepayment, EconomicState, IncomeTransfer, MonetaryFlow};
+use super::stock_flow::{CapitalInvestment, ProductionEvent, InventoryTransfer, InventoryConsumption, GoodsSale, TradeCreditSale, TradeCreditSettlement, InventoryCostAddition, InventoryCostRelief, Depreciation, RealAssetRevaluation, CreditCreation, DebtRepayment, EconomicState, IncomeTransfer, MonetaryFlow};
 
 /// One explicit economic state transition.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -26,6 +26,7 @@ pub enum EconomicTransition {
     InventoryCostAddition(InventoryCostAddition),
     InventoryCostRelief(InventoryCostRelief),
     Depreciation(Depreciation),
+    RealAssetRevaluation(RealAssetRevaluation),
     CreditCreation(CreditCreation),
     DebtRepayment(DebtRepayment),
 }
@@ -53,6 +54,7 @@ impl EconomicTransition {
             Self::InventoryCostAddition(addition) => state.apply_inventory_cost_addition(addition),
             Self::InventoryCostRelief(relief) => state.apply_inventory_cost_relief(relief),
             Self::Depreciation(depreciation) => state.apply_depreciation(depreciation),
+            Self::RealAssetRevaluation(revaluation) => state.apply_real_asset_revaluation(revaluation),
             Self::CreditCreation(credit) => state.create_credit(credit),
             Self::DebtRepayment(repayment) => state.repay_debt(repayment),
         }
@@ -115,6 +117,13 @@ impl EconomicTransition {
             }
             Self::Depreciation(depreciation) => {
                 require_positive(depreciation.amount, "depreciation")
+            }
+            Self::RealAssetRevaluation(revaluation) => {
+                if revaluation.amount == 0 {
+                    Err("real-asset revaluation amount must be non-zero".into())
+                } else {
+                    Ok(())
+                }
             }
             Self::CreditCreation(credit) => {
                 require_positive(credit.amount, "credit creation")
@@ -406,6 +415,16 @@ mod tests {
             ActorBalanceSheet::new("firm"),
             ActorBalanceSheet::new("household"),
         ])
+    }
+
+    #[test]
+    fn transition_validation_rejects_zero_revaluation() {
+        let transition = EconomicTransition::RealAssetRevaluation(RealAssetRevaluation {
+            actor: "firm".into(),
+            target: crate::economics::stock_flow::RealAssetRevaluationTarget::ProductiveCapital,
+            amount: 0,
+        });
+        assert!(transition.validate().is_err());
     }
 
     #[test]
