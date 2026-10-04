@@ -111,6 +111,63 @@ await mustReject('wrong presentation domain', () => vc.verify({
   documentLoader
 }));
 
+const tamperedPresentation = structuredClone(fixture.presentation);
+if(typeof tamperedPresentation.proof?.proofValue !== 'string' ||
+   tamperedPresentation.proof.proofValue.length < 2) {
+  throw new Error('fixture presentation proofValue is required for the tamper test');
+}
+tamperedPresentation.proof.proofValue =
+  tamperedPresentation.proof.proofValue.slice(0, -1) +
+  (tamperedPresentation.proof.proofValue.endsWith('A') ? 'B' : 'A');
+
+await mustReject('tampered presentation proof', () => vc.verify({
+  presentation: tamperedPresentation,
+  challenge: fixture.presentationChallenge,
+  domain: fixture.presentationDomain,
+  suite,
+  documentLoader
+}));
+
+const issuerKeyMethod = fixture.issuerDidDocument?.verificationMethod?.[0];
+if(!issuerKeyMethod?.publicKeyMultibase) {
+  throw new Error('fixture issuer verification method publicKeyMultibase is required');
+}
+const tamperedIssuerDocument = structuredClone(fixture.issuerDidDocument);
+tamperedIssuerDocument.verificationMethod[0].publicKeyMultibase =
+  tamperedIssuerDocument.verificationMethod[0].publicKeyMultibase.slice(0, -1) +
+  (tamperedIssuerDocument.verificationMethod[0].publicKeyMultibase.endsWith('A') ? 'B' : 'A');
+
+const tamperedLoader = securityLoader();
+for(const [url, document] of credentialContexts) tamperedLoader.addStatic(url, document);
+tamperedLoader.addStatic(dataIntegrityContext.CONTEXT_URL, dataIntegrityContext.CONTEXT);
+tamperedLoader.addStatic(multikeyContext.CONTEXT_URL, multikeyContext.CONTEXT);
+tamperedLoader.addStatic(tamperedIssuerDocument.id, tamperedIssuerDocument);
+for(const method of tamperedIssuerDocument.verificationMethod ?? []) {
+  tamperedLoader.addStatic(method.id, {
+    '@context': multikeyContext.CONTEXT_URL,
+    id: method.id,
+    type: method.type,
+    controller: method.controller,
+    publicKeyMultibase: method.publicKeyMultibase
+  });
+}
+for(const method of fixture.holderDidDocument.verificationMethod ?? []) {
+  tamperedLoader.addStatic(method.id, {
+    '@context': multikeyContext.CONTEXT_URL,
+    id: method.id,
+    type: method.type,
+    controller: method.controller,
+    publicKeyMultibase: method.publicKeyMultibase
+  });
+}
+tamperedLoader.addStatic(fixture.holderDidDocument.id, fixture.holderDidDocument);
+
+await mustReject('tampered issuer verification key', () => vc.verifyCredential({
+  credential: fixture.credential,
+  suite,
+  documentLoader: tamperedLoader.build()
+}));
+
 console.log(JSON.stringify({
   independent_implementation: 'Digital Bazaar',
   cryptosuite: fixture.cryptosuite,
@@ -120,5 +177,7 @@ console.log(JSON.stringify({
   domain_present: true,
   tampered_credential_rejected: true,
   wrong_challenge_rejected: true,
-  wrong_domain_rejected: true
+  wrong_domain_rejected: true,
+  tampered_presentation_rejected: true,
+  tampered_issuer_key_rejected: true
 }, null, 2));
