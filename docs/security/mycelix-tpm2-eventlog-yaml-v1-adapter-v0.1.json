@@ -14,7 +14,12 @@
     "missing or ambiguous SHA-256 digests on extending events are DENY",
     "observed SHA-256 PCR values are supplied from a separate tpm2_pcrread-derived JSON artifact; the tpm2_eventlog trailing pcrs section is not an observation source",
     "the exact binary event-log digest and adapter source digest are emitted into the canonical input",
-    "the observed-PCR JSON artifact must match the selected PCR set exactly"
+    "the observed-PCR JSON artifact must match the selected PCR set exactly",
+    "when raw payload parser output is supplied, EventNum/PCRIndex/EventType and recorded SHA-256 digest are cross-checked before payload_hex is attached",
+    "payload_hex is copied from the raw binary parser and is never reconstructed from YAML Event text",
+    "raw payload parser output filename and SHA-256 are carried as adapter provenance",
+    "when a raw payload parser sidecar is supplied, its content_sha256 must verify before any payload bytes are admitted",
+    "raw parser sidecar provenance binds parser id, parser source digest, binary event-log digest, and receipt self-hash"
   ],
   "supported_yaml_version": 1,
   "unsupported": [
@@ -23,5 +28,8 @@
     "missing selected observed PCRs",
     "non-increasing EventNum",
     "extending event without SHA-256 digest"
-  ]
+  ],
+  "optional_inputs": {
+    "raw_payload_parser_output": "Independent raw binary parser output containing EventNum/PCRIndex/EventType/payload_hex"
+  }
 }

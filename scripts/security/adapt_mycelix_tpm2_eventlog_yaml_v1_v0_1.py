@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import Any
 
 ADAPTER_ID = "mycelix.pc-client.tpm2-eventlog-yaml-v1-adapter"
+RAW_PAYLOAD_PARSER_ID = "mycelix.pc-client.raw-tpm2-eventlog-parser.v0.1"
+RAW_PAYLOAD_PARSER_SCRIPT = Path(__file__).resolve().with_name("parse_mycelix_raw_tpm2_eventlog_v0_1.py")
 VERSION_RE = re.compile(r"(?m)^\s*version:\s*(\d+)\s*$")
 EVENT_RE = re.compile(
     r"(?ms)^\s*-\s*EventNum:\s*(?P<num>\d+)\s*\n"
@@ -92,11 +94,38 @@ def adapt(
     observed_pcr_json: Path,
     session_id: str,
     pcr_selection: str,
+    payload_json: Path | None = None,
 ) -> dict[str, Any]:
     version = VERSION_RE.search(yaml_text)
     if not version or int(version.group(1)) != 1:
         raise ValueError("only tpm2_eventlog YAML version 1 is supported")
 
+    payloads: dict[int, dict[str, Any]] = {}
+    if payload_json is not None:
+        raw = json.loads(payload_json.read_text(encoding="utf-8"))
+        if not isinstance(raw, dict):
+            raise ValueError("raw payload parser output must be an object")
+        if raw.get("parser_id") != RAW_PAYLOAD_PARSER_ID:
+            raise ValueError("unexpected raw payload parser id")
+        if raw.get("binary_sha256") != sha256_file(binary_eventlog):
+            raise ValueError("raw payload parser binary binding mismatch")
+        if raw.get("parser_source_sha256") != sha256_file(RAW_PAYLOAD_PARSER_SCRIPT):
+            raise ValueError("raw payload parser source binding mismatch")
+        raw_clone = dict(raw)
+        supplied_raw_hash = raw_clone.pop("content_sha256", None)
+        if not isinstance(supplied_raw_hash, str) or supplied_raw_hash != hashlib.sha256(
+            json.dumps(raw_clone, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+        ).hexdigest():
+            raise ValueError("raw payload parser receipt self-hash mismatch")
+        raw_events = raw.get("events")
+        if not isinstance(raw_events, list):
+            raise ValueError("raw payload parser output must contain an events list")
+        for item in raw_events:
+            if not isinstance(item, dict) or not isinstance(item.get("sequence"), int):
+                raise ValueError("raw payload parser emitted an invalid event")
+            payloads[item["sequence"]] = item
+        if len(payloads) != len(raw_events):
+            raise ValueError("raw payload parser emitted duplicate event sequence")
     events: list[dict[str, Any]] = []
     previous_event_num = -1
     for event_match in EVENT_RE.finditer(yaml_text):
@@ -126,6 +155,20 @@ def adapt(
                 event["startup_locality"] = locality
         elif digest is None:
             raise ValueError(f"event {event_num} has no SHA-256 digest")
+
+        if payload_json is not None:
+            raw_event = payloads.get(event_num)
+            if raw_event is None:
+                raise ValueError(f"raw parser is missing EventNum {event_num}")
+            if raw_event.get("pcr") != event["pcr"] or raw_event.get("event_type") != event["event_type"]:
+                raise ValueError(f"raw/YAML event identity mismatch at EventNum {event_num}")
+            raw_digest = raw_event.get("digest_sha256")
+            if digest is not None and raw_digest != digest:
+                raise ValueError(f"raw/YAML SHA-256 digest mismatch at EventNum {event_num}")
+            payload_hex = raw_event.get("payload_hex")
+            if not isinstance(payload_hex, str):
+                raise ValueError(f"raw parser is missing payload bytes at EventNum {event_num}")
+            event["payload_hex"] = payload_hex.lower().removeprefix("0x")
         events.append(event)
 
     if not events:
@@ -145,6 +188,8 @@ def adapt(
         "adapter_source_sha256": sha256_file(Path(__file__).resolve()),
         "adapter_yaml_version": 1,
         "observed_pcr_values_source": observed_pcr_json.name,
+        "payload_parser_source": payload_json.name if payload_json is not None else None,
+        "payload_parser_sha256": sha256_file(payload_json) if payload_json is not None else None,
     }
 
 
@@ -266,6 +311,7 @@ def main() -> int:
     mode.add_argument("--adapt", metavar="YAML")
     parser.add_argument("--binary-eventlog", metavar="BINARY_EVENTLOG")
     parser.add_argument("--observed-pcr-json", metavar="OBSERVED_PCR_JSON")
+    parser.add_argument("--payload-json", metavar="PAYLOAD_JSON")
     parser.add_argument("--session-id")
     parser.add_argument("--pcr-selection", default="sha256:0,2,4,7")
     parser.add_argument("--output")
@@ -285,6 +331,7 @@ def main() -> int:
         Path(args.observed_pcr_json),
         args.session_id,
         args.pcr_selection,
+        Path(args.payload_json) if args.payload_json else None,
     )
     if args.output:
         Path(args.output).write_text(
