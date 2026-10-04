@@ -26,7 +26,7 @@ jobs:
       contents: read
     uses: ./.github/workflows/d6u-exact-head-runtime.yml
     with:
-      trusted_workflow_sha: a1815b155717773e4662eae4a5fa44226bfe39ba
+      trusted_workflow_sha: 796e9339b2e6c1587bc18f5c3649af441d675576
 
   d6s-canon-reference:
     name: D6S canonical reference qualification
