@@ -24,6 +24,7 @@ pub mod action_finalization;
 pub mod finalization_certificate;
 pub mod substrate;
 pub mod metabolic_oracle;
+pub mod policy_analysis;
 pub mod policy_context;
 pub mod policy_profile;
 pub mod poc;
@@ -41,6 +42,7 @@ pub use economic_os::EconomicOsEnvelope;
 pub use jurisdiction_pack::{
     EconomicJurisdictionPack, EconomicOsCapability, InteroperabilityGuarantee,
 };
+pub use policy_analysis::EconomicPolicyAnalysis;
 pub use policy_context::{EconomicPolicyContext, EconomicPolicyContextRole};
 pub use policy_profile::{EconomicOsOperation, EconomicPolicyProfile};
 pub use poc::{
