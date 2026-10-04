@@ -340,10 +340,30 @@ pub fn create_presentation(input: CreatePresentationInput) -> ExternResult<Recor
         )));
     }
     // Always the committing agent, never caller-supplied -- otherwise any
-    // agent could present a credential claiming to be its subject (P0
-    // author-binding gap; integrity validation now enforces this too, see
-    // trust_credential integrity's validate_create_presentation).
+    // agent could present a credential claiming to be its subject.
     let subject_did = format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey);
+
+    // Resolve the source credential to one concrete action. A string credential
+    // ID alone is ambiguous across legacy data; multiple matches fail closed.
+    let mut matching: Vec<Record> = Vec::new();
+    for record in get_subject_credentials(subject_did.clone())? {
+        if let Some(credential) = record
+            .entry()
+            .to_app_option::<TrustCredential>()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        {
+            if credential.id == input.credential_id {
+                matching.push(record);
+            }
+        }
+    }
+
+    if matching.len() != 1 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Credential ID is ambiguous or not available to this subject; refusing presentation".into()
+        )));
+    }
+    let credential_action_hash = matching[0].action_address().clone();
 
     let now = sys_time()?;
     let pres_id = format!("pres:{}:{}", subject_did, now.as_micros());
@@ -354,6 +374,7 @@ pub fn create_presentation(input: CreatePresentationInput) -> ExternResult<Recor
     let presentation = TrustPresentation {
         id: pres_id.clone(),
         credential_id: input.credential_id.clone(),
+        credential_action_hash: Some(credential_action_hash),
         subject_did,
         disclosed_tier: input.disclosed_tier,
         disclosed_range: input.disclose_range.then_some(input.trust_range),
