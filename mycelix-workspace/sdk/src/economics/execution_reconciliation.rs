@@ -157,6 +157,34 @@ impl EconomicExecutionReconciliationLedger {
         &self.reconciliations
     }
 
+    /// Validate persisted reconciliation history without mutating it.
+    pub fn validate(&self) -> Result<(), String> {
+        let mut seen = std::collections::BTreeSet::new();
+        let mut previous_timestamp = None;
+
+        for reconciliation in &self.reconciliations {
+            reconciliation.validate()?;
+
+            if !seen.insert(reconciliation.reconciliation_id.clone()) {
+                return Err(format!(
+                    "Duplicate reconciliation ID in history: {}",
+                    reconciliation.reconciliation_id
+                ));
+            }
+
+            if let Some(previous) = previous_timestamp {
+                if reconciliation.recorded_at < previous {
+                    return Err("Reconciliation history timestamps cannot move backwards".into());
+                }
+            }
+            previous_timestamp = Some(reconciliation.recorded_at);
+        }
+
+        Ok(())
+    }
+
+
+
     /// Compare a receipt against an explicit constraint and persist the result.
     ///
     /// A non-conformant result is retained as evidence rather than rewritten or
@@ -173,6 +201,7 @@ impl EconomicExecutionReconciliationLedger {
         lifecycle.validate()?;
         receipt.validate()?;
         constraint.validate()?;
+        self.validate()?;
 
         let reconciliation_id = reconciliation_id.into();
         if self
@@ -446,6 +475,29 @@ mod tests {
                 1_500,
             )
             .is_err());
+    }
+
+    #[test]
+    fn malformed_persisted_reconciliation_history_is_rejected() {
+        let mut ledger = EconomicExecutionReconciliationLedger::new();
+        ledger.reconciliations.push(EconomicExecutionReconciliation {
+            reconciliation_id: "reconciliation:one".into(),
+            execution_id: "execution:one".into(),
+            constraint_id: "constraint:one".into(),
+            result: ExecutionConformance::Conformant,
+            evidence_refs: vec!["evidence:one".into()],
+            recorded_at: 1_300,
+        });
+        ledger.reconciliations.push(EconomicExecutionReconciliation {
+            reconciliation_id: "reconciliation:one".into(),
+            execution_id: "execution:two".into(),
+            constraint_id: "constraint:two".into(),
+            result: ExecutionConformance::Conformant,
+            evidence_refs: vec!["evidence:two".into()],
+            recorded_at: 1_400,
+        });
+
+        assert!(ledger.validate().is_err());
     }
 
     #[test]
