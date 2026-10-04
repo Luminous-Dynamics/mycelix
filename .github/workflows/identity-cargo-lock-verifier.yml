@@ -74,6 +74,7 @@ jobs:
             cargo generate-lockfile --manifest-path "$manifest"
             slug="$(printf "%s" "$name" | tr "/" "-")"
             sha256sum "$lock" > "$GITHUB_WORKSPACE/identity-${slug}-cargo-lock-candidate.sha256"
+            git diff --no-index -- "$lock.committed" "$lock" > "$GITHUB_WORKSPACE/identity-${slug}-cargo-lock.diff" || true
           done
 
           sha256sum Cargo.lock.committed > "$GITHUB_WORKSPACE/identity-cargo-lock-committed.sha256"
@@ -111,6 +112,8 @@ jobs:
             mycelix-identity/tests/Cargo.lock
             mycelix-identity/apps/leptos/Cargo.lock.committed
             mycelix-identity/tests/Cargo.lock.committed
+            identity-apps-leptos-cargo-lock.diff
+            identity-tests-cargo-lock.diff
             identity-cargo-lock-workspace-update.txt
             identity-cargo-lock-workspace.diff
             identity-cargo-lock-full.diff
