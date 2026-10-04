@@ -59,6 +59,8 @@ pub enum SeeaFreshnessError {
     StaleObservation,
     /// A publisher timestamp is later than the decision timestamp.
     SourceTimestampFromFuture,
+    /// The observation fails structural/provenance validation.
+    InvalidObservation(String),
 }
 
 /// Explicit temporal policy for using a SEEA observation.
@@ -71,11 +73,16 @@ pub struct SeeaFreshnessPolicy {
 }
 
 impl SeeaFreshnessPolicy {
-    /// Classify an observation without changing its underlying value.
+    /// Classify an observation only after structural validation and temporal
+    /// qualification.
     pub fn evaluate(
         &self,
         observation: &SeeaObservation,
     ) -> Result<SeeaFreshness, SeeaFreshnessError> {
+        observation
+            .validate()
+            .map_err(SeeaFreshnessError::InvalidObservation)?;
+
         if observation.period_end > self.as_of {
             return Err(SeeaFreshnessError::ObservationFromFuture);
         }
@@ -362,6 +369,22 @@ mod tests {
         observation.provenance.source_ref.clear();
 
         assert!(observation.validate().is_err());
+    }
+
+    #[test]
+    fn freshness_rejects_structurally_invalid_observations_before_temporal_use() {
+        let mut observation = condition_observation(760);
+        observation.unit.clear();
+
+        let policy = SeeaFreshnessPolicy {
+            as_of: 1_820,
+            max_age: 50,
+        };
+
+        assert!(matches!(
+            policy.evaluate(&observation),
+            Err(SeeaFreshnessError::InvalidObservation(_))
+        ));
     }
 
     #[test]
