@@ -29,7 +29,8 @@
     {"id":"WIRE-002","field":"public_key_multibase","wire_name":"publicKeyMultibase"},
     {"id":"WIRE-003","field":"key_agreement","wire_name":"keyAgreement"},
     {"id":"WIRE-004","field":"service_endpoint","wire_name":"serviceEndpoint"},
-    {"id":"WIRE-005","field":"version_id","wire_name":"versionId"}
+    {"id":"WIRE-005","field":"version_id","wire_name":"versionId"},
+    {"id":"WIRE-006","field":"assertion_method","wire_name":"assertionMethod"}
   ],
   "version_vectors": [
     {"id":"VER-001","transition":"1->2","expected":"accept"},
