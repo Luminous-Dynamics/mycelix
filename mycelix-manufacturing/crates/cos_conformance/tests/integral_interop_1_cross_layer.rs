@@ -48,14 +48,14 @@ fn actual_d6p_fixture() -> (
 ) {
     use cos_conformance::contestable_finality::{
         assess_observation_set, verify_observation_set_assessment_provenance,
-        ExternalObservedEvidenceV1, ExternalEffectObservationV1, ExternalObservationSourceV1,
+        ExternalObservedEvidenceV1,
         ExternalObserverProfileV1, ExternalObserverRoleV1, ExternalObservationSetV1,
         FinalityQualificationProfileV1, ObservationIndependenceV1,
     };
     use cos_conformance::effect_finality::{
-        assess_external_finality, ExternalFinalityProfileV1, ExternalFinalityReceiptV1,
-        ExternalFinalityStateV1, ExternalObservedStateV1, FinalityUsePurposeV1,
-        FinalityDispositionV1,
+        assess_external_finality, ExternalEffectObservationV1, ExternalFinalityProfileV1,
+        ExternalFinalityReceiptV1, ExternalFinalityStateV1, ExternalObservationSourceV1,
+        ExternalObservedStateV1, FinalityUsePurposeV1, FinalityDispositionV1,
     };
     use cos_conformance::observer_lifecycle::{
         assess_evidence_eligibility, verify_eligibility_receipt_provenance,
