@@ -1326,41 +1326,39 @@ run_audit_check() {
   shift
   local started finished status=0 tee_status=0 trace_dir="" trace_file="" fifo_file="" tee_pid=""
   started="$(date +%s)"
-  echo "AUDIT_START \${name} epoch=\${started}"
+  echo "AUDIT_START ${name} epoch=${started}"
 
   # Harness setup failures are audit failures too. Keep them inside the
   # aggregate failure contract instead of allowing set -e to abort the whole
   # script before the failure summary and later predicates are reached.
   if ! trace_dir="$(mktemp -d)"; then
-    echo "FAIL: \${name} audit harness could not create a temporary directory"
+    echo "FAIL: ${name} audit harness could not create a temporary directory"
     fail=1
     finished="$(date +%s)"
-    echo "AUDIT_END \${name} status=1 duration=$((finished - started))s"
+    echo "AUDIT_END ${name} status=1 duration=$((finished - started))s"
     return 0
   fi
-  trace_file="\${trace_dir}/predicate.log"
-  fifo_file="\${trace_dir}/predicate.fifo"
-  if ! tee "\${trace_file}" < "\${fifo_file}" &
-  then
-    echo "FAIL: \${name} audit harness could not start diagnostic tee"
-    rm -rf "\${trace_dir}"
+  trace_file="${trace_dir}/predicate.log"
+  fifo_file="${trace_dir}/predicate.fifo"
+  tee "${trace_file}" < "${fifo_file}" &
+  tee_pid=$!
     fail=1
     finished="$(date +%s)"
-    echo "AUDIT_END \${name} status=1 duration=$((finished - started))s"
+    echo "AUDIT_END ${name} status=1 duration=$((finished - started))s"
     return 0
   fi
   tee_pid=$!
 
-  if "$@" >"\${fifo_file}" 2>&1; then
+  if "$@" >"${fifo_file}" 2>&1; then
     status=0
   else
     status=$?
     fail=1
   fi
 
-  wait "\${tee_pid}" || tee_status=$?
-  if [[ "\${tee_status}" -ne 0 ]]; then
-    echo "FAIL: predicate diagnostic tee failed with status \${tee_status}"
+  wait "${tee_pid}" || tee_status=$?
+  if [[ "${tee_status}" -ne 0 ]]; then
+    echo "FAIL: predicate diagnostic tee failed with status ${tee_status}"
     status=1
     fail=1
   fi
@@ -1368,19 +1366,19 @@ run_audit_check() {
   # A predicate that prints FAIL but accidentally returns success must still
   # fail the aggregate audit. This protects the failure-propagation contract
   # independently of each predicate's local control flow.
-  if [[ -f "\${trace_file}" ]] && grep -qE '^FAIL:' "\${trace_file}"; then
-    if [[ "\${status}" -eq 0 ]]; then
-      echo "AUDIT_FAIL_OUTPUT \${name}: predicate emitted FAIL output despite success status"
+  if [[ -f "${trace_file}" ]] && grep -qE '^FAIL:' "${trace_file}"; then
+    if [[ "${status}" -eq 0 ]]; then
+      echo "AUDIT_FAIL_OUTPUT ${name}: predicate emitted FAIL output despite success status"
       status=1
     else
-      echo "AUDIT_FAIL_OUTPUT \${name}: predicate emitted FAIL output"
+      echo "AUDIT_FAIL_OUTPUT ${name}: predicate emitted FAIL output"
     fi
     fail=1
   fi
 
-  rm -rf "\${trace_dir}"
+  rm -rf "${trace_dir}"
   finished="$(date +%s)"
-  echo "AUDIT_END \${name} status=\${status} duration=$((finished - started))s"
+  echo "AUDIT_END ${name} status=${status} duration=$((finished - started))s"
   # Individual predicate failures are aggregated through the global 'fail'
   # accumulator; they must not trigger errexit before later diagnostics run.
   return 0
