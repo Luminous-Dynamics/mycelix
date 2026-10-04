@@ -577,11 +577,17 @@ impl CreditCreation {
     }
 }
 
-/// Explicit debt write-off outside a settlement transaction.
+/// Explicit unilateral debt write-off outside a settlement transaction.
 ///
 /// A write-off extinguishes an outstanding lender claim and the matching
 /// borrower liability without moving cash or deposits. The lender's derived
 /// equity falls while the borrower's derived equity rises by the same amount.
+///
+/// Semantic boundary: this primitive represents creditor-initiated write-off
+/// or write-down without a bilateral debt-forgiveness agreement. Negotiated
+/// debt forgiveness is a distinct accounting event: it requires a capital
+/// transfer together with financial-claim extinction and must not be encoded
+/// as this other-volume primitive.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DebtWriteOff {
     pub lender: ActorId,

@@ -1079,6 +1079,27 @@ References:
 - United Nations Statistics Division, 2025 SNA, Chapter 4 (write-offs, other volume changes, and holding gains/losses).
 - United Nations Statistics Division, 2025 SNA, Chapter 25 (financial instrument stocks and other flows).
 
+### Debt write-off versus debt forgiveness
+
+The `DebtWriteOff` primitive is intentionally restricted to the unilateral
+write-off/write-down case: the creditor removes a claim because it is no longer
+expected to be collectible, without a bilateral change in the debt contract.
+
+This distinction matters in the 2025 SNA. Bilateral debt forgiveness is recorded
+as a capital transfer from creditor to debtor together with the simultaneous
+extinction of the financial claim. Unilateral writing-off/write-down outside a
+mutual agreement is recorded as an other change in the volume of assets and
+liabilities. cite unavailable in repository docs; see external research references below.
+
+The model therefore leaves a deliberate future boundary:
+
+`DebtWriteOff` -> other-volume adjustment
+
+future `DebtForgiveness` -> capital transfer + financial-account extinction
+
+That prevents a negotiated transfer of wealth from being silently classified as
+a unilateral volume adjustment.
+
 ## State-counter versus period-ledger semantics (implemented)
 
 `EconomicState::monetary_flow_volume`, `credit_created`, and `debt_repaid` are lifetime-cumulative
