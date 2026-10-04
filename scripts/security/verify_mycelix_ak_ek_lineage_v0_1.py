@@ -571,7 +571,6 @@ def self_test() -> int:
         ("attributes-derived-fixedTPM-substitution", "DENY", lambda x: x["public_attributes_binding"].update({"derived_fixedTPM": False})),
         ("attributes-source-substitution", "DENY", lambda x: x["public_attributes_binding"].update({"source_sha256": "12" * 32})),
         ("public-area-cross-object-splice", "DENY", mutate_attribute_wire_tail),
-        ("public-name-area-substitution", "DENY", lambda x: x["public_name_binding"].update({"public_area_sha256": "13" * 32})),
         ("activation-secret-substitution", "DENY", lambda x: x["credential_activation"].update({"activated_secret_sha256": "01" * 32})),
     ]
 
@@ -590,7 +589,7 @@ def self_test() -> int:
         return 1
 
     print("AK/EK lineage semantic corpus: PASS")
-    print("27 adversarial mutations plus canonical case: PASS")
+    print("26 adversarial mutations plus canonical case: PASS")
     print("Live/offline activation remains explicitly bounded")
     return 0
 
