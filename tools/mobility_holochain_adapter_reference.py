@@ -113,6 +113,11 @@ def main() -> int:
     expected_authority_contract = {
         "credential_payload_validation_precedes_signature_verification": True,
         "credential_issuer_match_precedes_signature_verification": True,
+        "credential_definitive_invalidity_precedes_registry_admission": True,
+        "credential_signature_verification_precedes_registry_admission": True,
+        "duplicate_authority_requires_verified_credential": True,
+        "duplicate_provenance_witness_requires_verified_credential": True,
+        "rejected_credential_admission_preserves_registry_state": True,
         "registry_retains_verified_credential": True,
         "audit_credential_accessor": "HolochainAuthorityAgentBindingSet::credential_for",
         "runtime_binding_requires_exact_authority_scope_match": True,
