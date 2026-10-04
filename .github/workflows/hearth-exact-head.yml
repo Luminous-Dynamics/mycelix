@@ -46,6 +46,9 @@ jobs:
           echo "Checked out head:             $ACTUAL_HEAD"
           test "$ACTUAL_HEAD" = "$EXPECTED_HEAD"
 
+      - name: Assert clean exact-head tree
+        run: test -z "$(git status --porcelain)"
+
       - name: Install Nix
         uses: cachix/install-nix-action@v27
         with:
