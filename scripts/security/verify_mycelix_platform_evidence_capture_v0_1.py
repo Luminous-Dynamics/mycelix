@@ -233,6 +233,13 @@ def fixture_manifest() -> dict[str, Any]:
             "source_sha256": sha256_file(PAYLOAD_COHERENCE_SCRIPT),
             "input_sha256": "3" * 64,
         },
+        "reference_appraisal": {
+            "status": "PASS",
+            "output_sha256": "0" * 64,
+            "source_sha256": sha256_file(REFERENCE_APPRAISAL_SCRIPT),
+            "registry_sha256": "1" * 64,
+            "input_sha256": "2" * 64,
+        },
         "artifacts": {
             "quote_message_sha256": "5" * 64,
             "quote_signature_sha256": "6" * 64,
