@@ -4712,6 +4712,18 @@ mod tests {
             "generated capsule must pass the replay-independent evidence verifier"
         );
 
+        let mut unsupported_profile =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&capsule_text)
+                .expect("capsule must deserialize");
+        unsupported_profile.verification_profile = "future-profile".into();
+        reseal_state_machine_trace_for_test(&mut unsupported_profile);
+        let error = validate_state_machine_trace_evidence(&unsupported_profile)
+            .expect_err("re-sealed unsupported verification profile must be rejected");
+        assert_eq!(
+            error,
+            FederationStateMachineTraceEvidenceViolation::UnsupportedVerificationProfile
+        );
+
         let previous_post_delivery_count = capsule.evidence[2].post_delivery_count;
         capsule.evidence[3].pre_delivery_count = previous_post_delivery_count + 1;
         reseal_state_machine_trace_for_test(&mut capsule);
