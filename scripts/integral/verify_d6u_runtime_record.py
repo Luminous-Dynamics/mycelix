@@ -65,6 +65,7 @@ def main() -> None:
     record = load_record(EVIDENCE)
     workflow_execution_sha = os.environ["GITHUB_WORKFLOW_SHA"]
     workflow_execution_ref = os.environ["GITHUB_WORKFLOW_REF"]
+    attestation_source_digest = os.environ["GITHUB_SHA"]
     workflow_ref_prefix = (
         f"{os.environ['GITHUB_REPOSITORY']}/"
         ".github/workflows/d6u-runtime-qualification.yml@"
@@ -72,6 +73,9 @@ def main() -> None:
     assert len(workflow_execution_sha) == 40 and all(
         char in "0123456789abcdef" for char in workflow_execution_sha
     ), "GITHUB_WORKFLOW_SHA must be a full lowercase commit SHA"
+    assert len(attestation_source_digest) == 40 and all(
+        char in "0123456789abcdef" for char in attestation_source_digest
+    ), "GITHUB_SHA must be a full lowercase commit SHA"
     assert workflow_execution_ref.startswith(workflow_ref_prefix), (
         "GITHUB_WORKFLOW_REF must identify the D6U qualification workflow: "
         f"{workflow_execution_ref!r}"
@@ -123,6 +127,7 @@ def main() -> None:
         "workflow_execution_commit_sha": workflow_execution_sha,
         "workflow_execution_ref": workflow_execution_ref,
         "signer_workflow_digest": workflow_execution_sha,
+        "attestation_source_digest": attestation_source_digest,
         "workflow_sha": git_blob_sha(WORKFLOW),
         "d6s2_manifest_git_blob_sha": git_blob_sha(D6S2_MANIFEST),
         "d6s2_fixture_git_blob_sha": git_blob_sha(D6S2_FIXTURE),
