@@ -968,6 +968,45 @@ mod tests {
 
 
     #[test]
+    fn address_kind_mismatch_precedes_duplicate_provenance_binding_conflict() {
+        let mut bindings = HolochainDependencyBindingSet::new();
+        let first = identity("address-precedence-first");
+        let authority = identity("address-precedence-authority");
+        let first_provenance = binding_provenance_for_test(first.clone(), authority);
+        bindings
+            .bind(
+                first,
+                HolochainDependencyAddress::Action(action_hash(15)),
+                QualificationDependencyRetrievalKind::Action,
+                first_provenance.clone(),
+            )
+            .unwrap();
+
+        let second = identity("address-precedence-second");
+        let second_provenance = QualificationDependencyBindingProvenance {
+            logical_identity: second.clone(),
+            ..first_provenance
+        };
+        let error = bindings
+            .bind(
+                second,
+                HolochainDependencyAddress::Action(action_hash(16)),
+                QualificationDependencyRetrievalKind::Entry,
+                second_provenance,
+            )
+            .expect_err("candidate address typing must precede registry witness conflicts");
+
+        assert!(matches!(
+            error,
+            HolochainAdapterBoundaryError::AddressKindMismatch {
+                retrieval: QualificationDependencyRetrievalKind::Entry,
+                expected: "EntryHash",
+                actual: "ActionHash",
+            }
+        ));
+        assert_eq!(bindings.len(), 1);
+    }
+    #[test]
     fn duplicate_provenance_witness_is_an_adapter_contract_failure() {
         let mut bindings = HolochainDependencyBindingSet::new();
         let first = identity("first");
