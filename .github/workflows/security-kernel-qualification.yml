@@ -21,7 +21,7 @@ env:
 jobs:
   qualify:
     name: Bridge security kernel
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -60,6 +60,11 @@ jobs:
           # the visibility modifier and item name on separate lines.
           # The qualification lane is intentionally a low-trust pull_request workflow;
           # do not broaden it to a privileged pull_request_target trigger.
+          if ! grep -nF 'runs-on: ubuntu-24.04' .github/workflows/security-kernel-qualification.yml; then
+            echo "security-workflow regression: qualification runner must remain pinned to ubuntu-24.04" >&2
+            exit 1
+          fi
+
           if grep -nE '^[[:space:]]*pull_request_target[[:space:]]*:' .github/workflows/security-kernel-qualification.yml; then
             echo "security-workflow regression: privileged pull_request_target trigger is forbidden" >&2
             exit 1
