@@ -3702,6 +3702,42 @@ async fn dsid_041_w3c_jcs_presentation_is_challenge_bound() {
         "presentation verification must fail closed for a mismatched challenge"
     );
 
+    let _: Record = conductor
+        .call(
+            &holder.zome("did_registry"),
+            "deactivate_did",
+            "DSID holder deactivation qualification",
+        )
+        .await;
+
+    await_consistency(&[issuer.clone(), holder.clone()])
+        .await
+        .expect("holder deactivation must reach the verifier");
+
+    let deactivated_holder: serde_json::Value = conductor
+        .call(
+            &issuer.zome("verifiable_credential"),
+            "verify_presentation",
+            serde_json::json!({
+                "presentation_hash": presentation.action_address(),
+                "expected_challenge": challenge.clone(),
+                "expected_domain": "identity.mycelix.test"
+            }),
+        )
+        .await;
+    assert_eq!(
+        deactivated_holder["valid"], false,
+        "presentation must fail closed after holder DID deactivation"
+    );
+    assert!(
+        deactivated_holder["errors"]
+            .as_array()
+            .is_some_and(|errors| errors.iter().any(|error| {
+                error.as_str() == Some("Holder DID is not active")
+            })),
+        "deactivated holder must produce an explicit current-state failure: {deactivated_holder}"
+    );
+
     let mut agents = BTreeMap::new();
     agents.insert("issuer", issuer_app.agent().to_string());
     agents.insert("holder", holder_app.agent().to_string());
@@ -3713,19 +3749,21 @@ async fn dsid_041_w3c_jcs_presentation_is_challenge_bound() {
         &[&credential, &presentation],
         "New verifiable presentations use W3C eddsa-jcs-2022 proofs authorized by the holder's Multikey authentication method, carry the proof context, and fail closed on challenge mismatch.",
         format!(
-            "cryptosuite={} proof_context_bound={} authenticated_method={} matching_challenge_valid={} wrong_challenge_invalid={}",
+            "cryptosuite={} proof_context_bound={} authenticated_method={} matching_challenge_valid={} wrong_challenge_invalid={} deactivated_holder_invalid={}",
             presentation_value["proof"]["cryptosuite"].as_str().unwrap_or("missing"),
             presentation_value["proof"]["@context"] == presentation_value["@context"],
             presentation_value["proof"]["verificationMethod"].as_str()
                 == Some(format!("{}#keys-1-multikey", holder_did).as_str()),
             verified["valid"] == true,
-            wrong_challenge["valid"] == false
+            wrong_challenge["valid"] == false,
+            deactivated_holder["valid"] == false
         ),
         presentation_value["proof"]["cryptosuite"].as_str() == Some("eddsa-jcs-2022")
             && presentation_value["proof"]["@context"] == presentation_value["@context"]
             && presentation_value["proof"]["proofPurpose"].as_str() == Some("authentication")
             && verified["valid"] == true
-            && wrong_challenge["valid"] == false,
+            && wrong_challenge["valid"] == false
+            && deactivated_holder["valid"] == false,
     );
 }
 
