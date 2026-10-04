@@ -16,6 +16,7 @@
 //! scenario provisions fresh agents/conductors, so evidence is isolated
 //! without depending on a public Holochain network.
 
+use ed25519_dalek::{Signature as Ed25519Signature, Verifier, VerifyingKey};
 use holochain::prelude::*;
 use holochain::sweettest::*;
 use mycelix_crypto::{AlgorithmId, TaggedPublicKey};
@@ -3945,6 +3946,96 @@ async fn dsid_042_key_rotation_revokes_stale_presentation_authorization() {
             && stale_existing["valid"] == false
             && stale_presentation.is_err(),
     );
+}
+
+
+#[test]
+fn dsid_046_published_eddsa_jcs_2022_vector_verifies_end_to_end() {
+    // Independent interoperability vector from the Digital Bazaar reference
+    // implementation README for eddsa-jcs-2022.
+    let mut unsecured = serde_json::json!({
+        "@context": [
+            "https://www.w3.org/2018/credentials/v1",
+            {
+                "AlumniCredential": "https://schema.org#AlumniCredential",
+                "alumniOf": "https://schema.org#alumniOf"
+            }
+        ],
+        "id": "http://example.edu/credentials/1872",
+        "type": ["VerifiableCredential", "AlumniCredential"],
+        "issuer": "https://example.edu/issuers/565049",
+        "issuanceDate": "2010-01-01T19:23:24Z",
+        "credentialSubject": {
+            "id": "https://example.edu/students/alice",
+            "alumniOf": "Example University"
+        }
+    });
+
+    let full_context = serde_json::json!([
+        "https://www.w3.org/2018/credentials/v1",
+        {
+            "AlumniCredential": "https://schema.org#AlumniCredential",
+            "alumniOf": "https://schema.org#alumniOf"
+        },
+        "https://w3id.org/security/data-integrity/v2"
+    ]);
+    unsecured.as_object_mut().unwrap().insert(
+        "@context".into(),
+        full_context.clone(),
+    );
+
+    let proof_config = serde_json::json!({
+        "@context": full_context,
+        "type": "DataIntegrityProof",
+        "created": "2022-09-06T21:29:24Z",
+        "verificationMethod": "https://example.edu/issuers/565049#z6MkwXG2WjeQnNxSoynSGYU8V9j3QzP3JSqhdmkHc6SaVWoT",
+        "cryptosuite": "eddsa-jcs-2022",
+        "proofPurpose": "assertionMethod"
+    });
+
+    let canonical_document =
+        serde_json_canonicalizer::to_vec(&unsecured)
+            .expect("published JCS document must canonicalize");
+    let canonical_proof =
+        serde_json_canonicalizer::to_vec(&proof_config)
+            .expect("published JCS proof configuration must canonicalize");
+
+    let document_hash = sha2::Sha256::digest(&canonical_document);
+    let proof_hash = sha2::Sha256::digest(&canonical_proof);
+    let mut hash_data = Vec::with_capacity(64);
+    hash_data.extend_from_slice(&proof_hash);
+    hash_data.extend_from_slice(&document_hash);
+
+    let expected_hash =
+        "8c90672e61f82a6785f58bad89200c88b183bd80af88ad264f08165fa3e307aa817b37f3e0855fea4eadad6f0a34c10e774135c0ffc599a7410543b2d434cd51";
+    let observed_hash = hash_data
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
+    assert_eq!(observed_hash, expected_hash);
+
+    let public_key = TaggedPublicKey::from_multibase_strict(
+        "z6MkwXG2WjeQnNxSoynSGYU8V9j3QzP3JSqhdmkHc6SaVWoT"
+    ).expect("published Multikey must decode");
+    assert_eq!(public_key.algorithm, AlgorithmId::Ed25519);
+    let public_key_bytes: [u8; 32] = public_key
+        .key_bytes
+        .as_slice()
+        .try_into()
+        .expect("published Ed25519 public key must be 32 bytes");
+    let verifying_key =
+        VerifyingKey::from_bytes(&public_key_bytes).expect("published public key must be valid");
+
+    let proof = TaggedSignature::from_multibase(
+        "z3aKfEmARJBuiiBcmGtzPh5ZHaGm9EAehkyVRDJGRxnTJQwqpdoktM6CD8aJii1RobA34gjVcdSQ7cURYcXtEkav2"
+    ).expect("published proofValue must decode");
+    assert_eq!(proof.algorithm, AlgorithmId::Ed25519);
+    assert_eq!(proof.signature_bytes.len(), 64);
+    let signature =
+        Ed25519Signature::from_slice(&proof.signature_bytes).expect("signature must be 64 bytes");
+    verifying_key
+        .verify(&hash_data, &signature)
+        .expect("published Digital Bazaar eddsa-jcs-2022 proof must verify against Mycelix JCS hashData");
 }
 
 #[tokio::test(flavor = "multi_thread")]
