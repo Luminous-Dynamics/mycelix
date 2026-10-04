@@ -612,6 +612,37 @@ impl DebtWriteOff {
     }
 }
 
+/// Explicit bilateral debt forgiveness.
+///
+/// A negotiated debt-forgiveness agreement extinguishes the lender's claim and
+/// the borrower's matching liability without moving cash or deposits. Its SNA
+/// treatment is distinct from unilateral write-off: the capital-transfer side
+/// is represented in the transaction projection while the claim extinction is
+/// represented in the financial account.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DebtForgiveness {
+    pub lender: ActorId,
+    pub borrower: ActorId,
+    pub amount: i128,
+}
+
+impl DebtForgiveness {
+    pub fn new(
+        lender: impl Into<ActorId>,
+        borrower: impl Into<ActorId>,
+        amount: i128,
+    ) -> Result<Self, String> {
+        if amount <= 0 {
+            return Err("debt forgiveness amount must be positive".into());
+        }
+        Ok(Self {
+            lender: lender.into(),
+            borrower: borrower.into(),
+            amount,
+        })
+    }
+}
+
 /// Explicit debt repayment.
 ///
 /// Repayment retires the lender's financial asset and borrower's liability.
@@ -693,6 +724,10 @@ pub struct EconomicState {
     /// Period-specific debt write-offs are derived from `EconomicPeriodLedger`.
     #[serde(default)]
     pub debt_written_off: i128,
+    /// Cumulative bilateral debt forgiveness across the lifetime of this state.
+    /// Period-specific forgiveness is derived from `EconomicPeriodLedger`.
+    #[serde(default)]
+    pub debt_forgiven: i128,
 }
 
 impl EconomicState {
@@ -765,6 +800,7 @@ impl EconomicState {
             ("credit created", self.credit_created),
             ("debt repaid", self.debt_repaid),
             ("debt written off", self.debt_written_off),
+            ("debt forgiven", self.debt_forgiven),
         ] {
             if value < 0 {
                 return Err(format!("economic state contains negative {label}"));
@@ -1289,6 +1325,32 @@ impl EconomicState {
         Ok(())
     }
 
+    /// Extinguish an outstanding debt under a bilateral forgiveness agreement.
+    ///
+    /// No cash, deposit, or physical quantity moves. The lender's claim and the
+    /// borrower's liability are both extinguished, with the net-worth transfer
+    /// represented by the derived equity residual.
+    pub fn forgive_debt(&mut self, forgiveness: &DebtForgiveness) -> Result<(), String> {
+        Self::require_positive(forgiveness.amount, "debt forgiveness")?;
+        let next_debt_forgiven = self
+            .debt_forgiven
+            .checked_add(forgiveness.amount)
+            .ok_or_else(|| "debt forgiveness counter overflow".to_string())?;
+
+        let (lender, borrower) =
+            self.actor_pair_mut(&forgiveness.lender, &forgiveness.borrower)?;
+        if borrower.monetary.liabilities < forgiveness.amount
+            || lender.monetary.claims < forgiveness.amount
+        {
+            return Err("debt forgiveness exceeds outstanding debt claim".into());
+        }
+
+        borrower.monetary.liabilities -= forgiveness.amount;
+        lender.monetary.claims -= forgiveness.amount;
+        self.debt_forgiven = next_debt_forgiven;
+        Ok(())
+    }
+
     /// Retire a debt claim after receiving repayment.
     pub fn repay_debt(&mut self, repayment: &DebtRepayment) -> Result<(), String> {
         Self::require_positive(repayment.amount, "debt repayment")?;
@@ -1513,6 +1575,46 @@ mod tests {
 
         assert!(state.apply_real_asset_revaluation(&gain).is_err());
         assert_eq!(state.actors[0].inventory_carrying_value, 50);
+    }
+
+    #[test]
+    fn debt_forgiveness_extinguishes_claim_and_liability_without_cash() {
+        let mut bank = ActorBalanceSheet::new("bank");
+        bank.monetary.claims = 100;
+        let mut firm = ActorBalanceSheet::new("firm");
+        firm.monetary.liabilities = 100;
+        let mut state = EconomicState::new(vec![bank, firm]);
+
+        let forgiveness = DebtForgiveness::new("bank", "firm", 40).unwrap();
+        let before_liquidity = state.actors[0].monetary.cash
+            + state.actors[0].monetary.deposits
+            + state.actors[1].monetary.cash
+            + state.actors[1].monetary.deposits;
+        state.forgive_debt(&forgiveness).unwrap();
+
+        assert_eq!(state.actors[0].monetary.claims, 60);
+        assert_eq!(state.actors[1].monetary.liabilities, 60);
+        assert_eq!(state.debt_forgiven, 40);
+        let after_liquidity = state.actors[0].monetary.cash
+            + state.actors[0].monetary.deposits
+            + state.actors[1].monetary.cash
+            + state.actors[1].monetary.deposits;
+        assert_eq!(after_liquidity, before_liquidity);
+    }
+
+    #[test]
+    fn debt_forgiveness_rejects_excessive_extinguishment_atomically() {
+        let mut bank = ActorBalanceSheet::new("bank");
+        bank.monetary.claims = 10;
+        let mut firm = ActorBalanceSheet::new("firm");
+        firm.monetary.liabilities = 10;
+        let mut state = EconomicState::new(vec![bank, firm]);
+
+        let forgiveness = DebtForgiveness::new("bank", "firm", 11).unwrap();
+        assert!(state.forgive_debt(&forgiveness).is_err());
+        assert_eq!(state.actors[0].monetary.claims, 10);
+        assert_eq!(state.actors[1].monetary.liabilities, 10);
+        assert_eq!(state.debt_forgiven, 0);
     }
 
     #[test]
