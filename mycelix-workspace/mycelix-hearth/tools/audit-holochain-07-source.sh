@@ -1108,28 +1108,251 @@ if conflicting_uses:
 
 if not matching_uses:
     print(
-        f"FAIL: {integrity_source} does not directly import "
-        f"{imported_crate}::{validator_symbol} from the resolved dependency"
-    )
+        f"FAIL: {integrity_source} does not directly import json
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+validator_source = Path(sys.argv[1]).resolve()
+integrity_source = Path(sys.argv[2]).resolve()
+validator_symbol = sys.argv[3]
+integrity_manifest = integrity_source.parent.parent / "Cargo.toml"
+
+def fail(message):
+    print(f"FAIL: {message}")
     raise SystemExit(2)
+
+if not integrity_manifest.is_file():
+    fail(f"integrity source has no owning Cargo.toml: {integrity_manifest}")
+
+validator_manifest = validator_source.parent / "Cargo.toml"
+if not validator_manifest.is_file():
+    fail(f"external validator source has no owning Cargo.toml: {validator_source}")
+
+metadata_cmd = [
+    "cargo",
+    "metadata",
+    "--format-version",
+    "1",
+    "--locked",
+    "--manifest-path",
+    str(integrity_manifest),
+]
+try:
+    metadata_run = subprocess.run(
+        metadata_cmd,
+        cwd=Path.cwd(),
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+except OSError as exc:
+    fail(f"could not execute cargo metadata for validator provenance: {exc}")
+
+if metadata_run.returncode != 0:
+    diagnostic = (metadata_run.stderr or metadata_run.stdout or "").strip()
+    fail(
+        f"cargo metadata could not resolve {integrity_manifest} "
+        f"(exit={metadata_run.returncode}): {diagnostic[-1200:]}"
+    )
+
+try:
+    metadata = json.loads(metadata_run.stdout)
+except json.JSONDecodeError as exc:
+    fail(f"cargo metadata emitted invalid JSON: {exc}")
+
+packages = metadata.get("packages")
+resolve = metadata.get("resolve") or {}
+nodes = resolve.get("nodes")
+if not isinstance(packages, list) or not isinstance(nodes, list):
+    fail("cargo metadata output is missing packages/resolve.nodes")
+
+def canonical_manifest(pkg):
+    raw = pkg.get("manifest_path")
+    if not isinstance(raw, str):
+        return None
+    return Path(raw).resolve()
+
+integrity_packages = [
+    pkg for pkg in packages
+    if canonical_manifest(pkg) == integrity_manifest.resolve()
+]
+validator_packages = [
+    pkg for pkg in packages
+    if canonical_manifest(pkg) == validator_manifest.resolve()
+]
+
+if len(integrity_packages) != 1:
+    fail(
+        f"cargo metadata resolved {len(integrity_packages)} packages for "
+        f"{integrity_manifest}; expected exactly one"
+    )
+if len(validator_packages) != 1:
+    fail(
+        f"cargo metadata resolved {len(validator_packages)} packages for "
+        f"{validator_manifest}; expected exactly one"
+    )
+
+integrity_package = integrity_packages[0]
+validator_package = validator_packages[0]
+
+lib_targets = [
+    target for target in validator_package.get("targets", [])
+    if isinstance(target, dict) and "lib" in (target.get("kind") or [])
+]
+if len(lib_targets) != 1:
+    fail(
+        f"validator package {validator_package.get('name')} has "
+        f"{len(lib_targets)} library targets; expected exactly one"
+    )
+
+lib_target = lib_targets[0]
+lib_source = Path(lib_target.get("src_path", "")).resolve()
+if lib_source != validator_source:
+    fail(
+        f"declared validator source {validator_source} is not Cargo's library "
+        f"target source {lib_source}"
+    )
+
+validator_package_id = validator_package.get("id")
+integrity_package_id = integrity_package.get("id")
+if not isinstance(validator_package_id, str) or not isinstance(integrity_package_id, str):
+    fail("cargo metadata package IDs are missing")
+
+root_node = next(
+    (node for node in nodes if node.get("id") == integrity_package_id),
+    None,
+)
+if root_node is None:
+    fail(
+        f"cargo metadata resolve graph has no node for integrity package "
+        f"{integrity_package.get('name')}"
+    )
+
+normal_deps = []
+for dep in root_node.get("deps", []):
+    if not isinstance(dep, dict):
+        continue
+    dep_kinds = dep.get("dep_kinds") or []
+    if any(
+        isinstance(kind, dict) and kind.get("kind") in (None, "normal")
+        for kind in dep_kinds
+    ):
+        normal_deps.append(dep)
+
+matching = [
+    dep for dep in normal_deps
+    if dep.get("pkg") == validator_package_id
+]
+
+if len(matching) != 1:
+    fail(
+        f"validator package {validator_package.get('name')} is not a unique "
+        f"normal direct dependency of {integrity_package.get('name')}; "
+        f"matching dependency edges={len(matching)}"
+    )
+
+dependency = matching[0]
+imported_crate = dependency.get("name")
+cargo_crate_name = lib_target.get("name")
+if not isinstance(imported_crate, str) or not imported_crate:
+    fail("cargo metadata did not report the dependency library target name")
+if imported_crate != cargo_crate_name:
+    fail(
+        f"Cargo resolved dependency crate {imported_crate!r}, but validator "
+        f"library target is {cargo_crate_name!r}"
+    )
+
+integrity_text = integrity_source.read_text()
+integrity_prod = integrity_text.split("#[cfg(test)]", 1)[0]
+
+use_statements = re.findall(
+    r"(?ms)^[[:space:]]*(?:pub[[:space:]]+)?use[[:space:]]+[^;]+;",
+    integrity_prod,
+)
+crate_pattern = re.escape(imported_crate)
+symbol_pattern = re.escape(validator_symbol)
+
+direct_use = re.compile(
+    rf"(?ms)^[[:space:]]*(?:pub[[:space:]]+)?use[[:space:]]+"
+    rf"{crate_pattern}::{re.escape(validator_symbol)}[[:space:]]*;"
+)
+group_use = re.compile(
+    rf"(?ms)^[[:space:]]*(?:pub[[:space:]]+)?use[[:space:]]+"
+    rf"{crate_pattern}::\{{[^;]*\}}[[:space:]]*;"
+)
+
+matching_uses = []
+for statement in use_statements:
+    normalized = " ".join(statement.split())
+    if not re.search(rf"\b{crate_pattern}::", normalized):
+        continue
+
+    if direct_use.fullmatch(normalized):
+        matching_uses.append(normalized)
+        continue
+
+    group_match = group_use.fullmatch(normalized)
+    if not group_match:
+        continue
+
+    body = group_match.group(0)
+    brace_start = body.find("{")
+    brace_end = body.rfind("}")
+    items = [item.strip() for item in body[brace_start + 1:brace_end].split(",")]
+    exact = [item for item in items if item == validator_symbol]
+    aliases = [
+        item for item in items
+        if re.fullmatch(
+            rf"{re.escape(validator_symbol)}[[:space:]]+as[[:space:]]+[A-Za-z_][A-Za-z0-9_]*",
+            item,
+        )
+    ]
+    if aliases:
+        fail(
+            f"{integrity_source} aliases {validator_symbol} instead of directly "
+            "binding the validator symbol"
+        )
+    if exact:
+        matching_uses.append(normalized)
+
+if not matching_uses:
+    fail(
+        f"{integrity_source} does not directly import "
+        f"{imported_crate}::{validator_symbol} from Cargo's resolved dependency"
+    )
+
+conflicting_uses = []
+for statement in use_statements:
+    normalized = " ".join(statement.split())
+    if not re.search(rf"\b{re.escape(validator_symbol)}\b", normalized):
+        continue
+    if not re.search(rf"\b{crate_pattern}::", normalized):
+        conflicting_uses.append(normalized)
+
+if conflicting_uses:
+    fail(
+        f"{integrity_source} contains additional imports of validator symbol "
+        f"{validator_symbol} outside resolved provenance: {' | '.join(conflicting_uses)}"
+    )
 
 local_def_re = re.compile(
-    rf'(?m)^[[:space:]]*(?:pub[[:space:]]+)?'
-    rf'(?:async[[:space:]]+)?(?:fn|const|static|struct|enum|type|mod)[[:space:]]+'
-    rf'{re.escape(validator_symbol)}\b'
+    rf"(?m)^[[:space:]]*(?:pub[[:space:]]+)?"
+    rf"(?:async[[:space:]]+)?(?:fn|const|static|struct|enum|type|mod)[[:space:]]+"
+    rf"{re.escape(validator_symbol)}\b"
 )
 if local_def_re.search(integrity_prod):
-    print(
-        f"FAIL: {integrity_source} locally defines {validator_symbol}; "
+    fail(
+        f"{integrity_source} locally defines {validator_symbol}; "
         "external validator provenance would be ambiguous"
     )
-    raise SystemExit(2)
 
 print(
-    f"OK:   external validator {validator_package_name}::{validator_symbol} is bound "
-    f"to {validator_source}, local path {dependency_manifest}, "
-    f"and Rust import {imported_crate}::{validator_symbol}"
+    f"OK:   external validator {validator_package.get('name')}::{validator_symbol} "
+    f"is bound by Cargo to {validator_source} via crate {imported_crate}"
 )
+
 PY
         then
           echo "OK:   $id external validator ownership/import provenance"
