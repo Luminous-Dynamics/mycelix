@@ -80,7 +80,7 @@ jobs:
           assert lineage["profile_id"] == "mycelix.security.tpm.ak-ek-lineage"
           assert lineage["claim_ceiling"] == "ReferenceModelOnly"
           assert lineage["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"
-          assert len(lineage["vectors"]) == 22
+          assert len(lineage["vectors"]) == 27
           assert creation["profile_id"] == "mycelix.security.tpm.ak-creation-provenance"
           assert creation["claim_ceiling"] == "ReferenceModelOnly"
           assert creation["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"
