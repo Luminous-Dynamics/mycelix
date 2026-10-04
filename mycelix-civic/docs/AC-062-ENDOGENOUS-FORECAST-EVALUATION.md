@@ -27,7 +27,7 @@ A passive forecast score cannot distinguish those cases.
 - exact observed-outcome snapshot fingerprint;
 - information cutoff and outcome-capture timestamps;
 - evaluation timestamp;
-- intervention and governance references;
+- intervention and governance bindings with exact occurrence/decision times;
 - uncertainty and missing-data references.
 
 ## Separate causal dimensions
@@ -54,6 +54,8 @@ Validation rejects:
 - outcome capture before the evaluation horizon begins;
 - observation-only backtests carrying intervention/governance references;
 - `InterventionAffected` outcomes without intervention or decision evidence;
+- intervention or governance decisions occurring before horizon start or after outcome capture;
+- intervention or governance decisions occurring before the referenced analysis was generated;
 - `ScenarioOutcome` evaluations without exact scenario identity;
 - scenario bindings that differ from the analysis;
 - outcome snapshot fingerprints that do not match the supplied snapshot;
@@ -84,3 +86,7 @@ Repository CI is the qualification source. No local cargo test pass is claimed f
 Target native units are descriptive measurement metadata only; AC-062 does not perform unit conversion or valuation. The horizon is the period being evaluated, while `information_cutoff_at` is the latest information permitted to define the claim. Validation requires the information cutoff to be at or before horizon start and requires the referenced analysis to exist before horizon start, preventing an ex-post observation from masquerading as an ex-ante forecast.
 
 Measurement status is also semantic: `Complete` cannot carry missing-data references and requires capture at or after horizon end; `PartiallyObserved` requires explicit missing-data evidence; `Invalidated` requires an explicit uncertainty or missing-data limitation.
+
+## Reflexive event timing
+
+An intervention or governance decision is no longer represented as a bare reference. AC-062 binds its reference to an occurrence/decision timestamp and rejects events outside the interval from analysis generation through outcome capture (with horizon start as the earliest admissible intervention time). This is still not a causal-effect proof; it establishes the temporal evidence needed for later causal analysis and prevents a post-hoc event from being silently treated as an intervening cause.
