@@ -81,7 +81,11 @@ def derive_case_outcomes(fixture_cases: list[dict]) -> dict[str, str]:
             )
         elif boundary_result == "holochain-signature-authentication-rejection":
             outcomes[case_id] = "authentication-failed"
-        elif boundary_result == "holochain-authorization-rejection":
+        elif boundary_result in {
+            "holochain-authorization-rejection",
+            "holochain-nonce-rejection",
+            "holochain-expiry-rejection",
+        }:
             outcomes[case_id] = "authorization-failed"
         elif boundary_result in {
             "holochain-routing-or-binding-rejection",
