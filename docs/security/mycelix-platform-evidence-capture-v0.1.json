@@ -58,7 +58,8 @@
       "nonce.bin",
       "eventlog-parsed.yaml",
       "tool-versions.json",
-      "tss-version-evidence.txt"
+      "tss-version-evidence.txt",
+      "eventlog-reconstruction-input.json"
     ],
     "optional_artifacts": [
       "pcr-pre.yaml",
@@ -105,9 +106,13 @@
       "live_observation.pcr_values_sha256",
       "os_image_digest",
       "workload_digest",
-      "claim_ceiling"
+      "claim_ceiling",
+      "reconstruction.input_sha256",
+      "reconstruction.verifier_id",
+      "reconstruction.verifier_source_sha256",
+      "artifacts.reconstruction_input_sha256"
     ],
-    "session_binding": "The session_binding_sha256 covers the session/boot/TPM/EK/event-log/PCR selection/challenge/AK/toolchain/reference/trusted-time/reconstruction/profile inputs in canonical form.",
+    "session_binding": "The session_binding_sha256 covers the session/boot/TPM/EK/event-log/PCR selection/challenge/AK/toolchain/reference/trusted-time/reconstruction result, exact reconstruction input digest, verifier identifier, verifier source digest, and platform/workload inputs in canonical form.",
     "canonical_json": "Manifest semantic hashing uses UTF-8 JSON with sorted keys and no insignificant whitespace."
   },
   "coherence_rules": [
@@ -159,9 +164,18 @@
       "id": "CAP-012",
       "rule": "Any DENY anywhere outranks INDETERMINATE; any INDETERMINATE outranks PASS."
     },
-    "A reconstruction PASS must be backed by complete machine-readable PCR maps and state hashes",
-    "The reconstruction result is bound to an exact input artifact and verifier source provenance",
-    "The platform verifier independently executes the reconstruction theorem and rejects receipt substitution"
+    {
+      "id": "CAP-013",
+      "rule": "A reconstruction PASS must be backed by complete machine-readable PCR maps and state hashes"
+    },
+    {
+      "id": "CAP-014",
+      "rule": "The reconstruction result is bound to an exact input artifact and verifier source provenance"
+    },
+    {
+      "id": "CAP-015",
+      "rule": "The platform verifier independently executes the reconstruction theorem and rejects receipt substitution"
+    }
   ],
   "decision_algebra": "ANY DENY > ANY INDETERMINATE > ALL PASS",
   "vectors": [
