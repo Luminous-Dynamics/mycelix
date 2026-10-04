@@ -3178,9 +3178,23 @@ mod tests {
         capsule: &FederationStateMachineTraceCapsule,
     ) -> Vec<(FederationStateMachineOperation, u64)> {
         assert_eq!(
+            capsule.schema_version,
+            FEDERATION_STATE_MACHINE_TRACE_CAPSULE_SCHEMA_VERSION,
+            "successful trace capsule schema version must be supported"
+        );
+        assert_eq!(
             capsule.operations.len(),
             capsule.tokens.len(),
             "trace capsule operation/token lengths must match"
+        );
+        assert_eq!(
+            capsule.initial_state,
+            FederationStateMachineTraceBoundary {
+                admission_index: 0,
+                delivery_count: 0,
+                state_fingerprint: canonical_state_fingerprint(&nodes()),
+            },
+            "successful trace capsule initial state must match the canonical empty state"
         );
         let expected_seed = 0xD6E5_5EED_u64 ^ capsule.trace_index as u64;
         assert_eq!(
@@ -3207,7 +3221,16 @@ mod tests {
             "successful trace capsule evidence length must match its plan"
         );
 
-        for ((operation, token), evidence) in recorded_plan.iter().zip(&capsule.evidence) {
+        let mut expected_pre_state_fingerprint = capsule.initial_state.state_fingerprint.clone();
+        let mut expected_post_boundary = capsule.initial_state.clone();
+
+        for (step_index, ((operation, token), evidence)) in
+            recorded_plan.iter().zip(&capsule.evidence).enumerate()
+        {
+            assert_eq!(
+                evidence.step_index, step_index,
+                "trace capsule evidence step index must match its canonical position"
+            );
             assert_eq!(
                 evidence.operation, *operation,
                 "trace capsule evidence operation must match its canonical plan"
@@ -3215,6 +3238,10 @@ mod tests {
             assert_eq!(
                 evidence.token, *token,
                 "trace capsule evidence token must match its canonical plan"
+            );
+            assert_eq!(
+                evidence.pre_state_fingerprint, expected_pre_state_fingerprint,
+                "trace capsule evidence must preserve state-fingerprint continuity"
             );
             assert!(
                 evidence.post_admission_index >= evidence.pre_admission_index,
@@ -3248,6 +3275,12 @@ mod tests {
                 "trace capsule evidence must enumerate the exact consumed ordinal range"
             );
         }
+
+        assert_eq!(
+            capsule.final_state,
+            expected_post_boundary,
+            "successful trace capsule final state must match the final step boundary"
+        );
 
         let replayed_evidence = run_state_machine_trace_plan(&recorded_plan);
         assert_eq!(
@@ -3969,10 +4002,12 @@ mod tests {
             );
 
             evidence.push(FederationStateMachineEvidence {
+                step_index,
                 operation,
                 token,
                 decision,
                 authority,
+                pre_state_fingerprint: before,
                 state_fingerprint: canonical_state_fingerprint(&state),
                 pre_admission_index: before_admission_index,
                 post_admission_index,
