@@ -96,8 +96,8 @@ The command exits non-zero if any vector fails.
 
 There are **31 executable vectors**:
 
-- 13 evidence appraisal vectors;
-- 15 relying-party/local-authorization vectors.
+- 14 evidence appraisal vectors;
+- 17 relying-party/local-authorization vectors;
 
 The corpus includes signature, trust-anchor, nonce, audience, freshness, future-time, measurement-profile, domain, required-claim, verifier-profile, replay, verifier availability, Evidence→Result binding, result-substitution, policy-downgrade, resource authorization, purpose authorization, export-control authorization, delegation, and key-order invariants.
 
