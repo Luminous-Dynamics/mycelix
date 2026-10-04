@@ -3104,7 +3104,9 @@ mod tests {
         newly_admitted_deliveries: Vec<(String, u64)>,
     }
 
-    const FEDERATION_STATE_MACHINE_TRACE_CAPSULE_SCHEMA_VERSION: u16 = 3;
+    const FEDERATION_STATE_MACHINE_TRACE_CAPSULE_SCHEMA_VERSION: u16 = 4;
+    const FEDERATION_STATE_MACHINE_TRACE_VERIFICATION_PROFILE: &str =
+        "integral-federation-state-machine-trace-v1";
     const FEDERATION_STATE_MACHINE_TRACE_CAPSULE_HASH_ALGORITHM: &str = "sha-256";
     const FEDERATION_STATE_MACHINE_TRACE_CAPSULE_HASH_ENCODING: &str =
         "serde-json-struct-order-v1";
@@ -3140,6 +3142,7 @@ mod tests {
     #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
     struct FederationStateMachineTraceHashView {
         schema_version: u16,
+        verification_profile: String,
         trace_index: usize,
         initial_seed: u64,
         operations: Vec<FederationStateMachineOperation>,
@@ -3153,6 +3156,7 @@ mod tests {
     #[serde(deny_unknown_fields)]
     struct FederationStateMachineTraceCapsule {
         schema_version: u16,
+        verification_profile: String,
         trace_index: usize,
         initial_seed: u64,
         operations: Vec<FederationStateMachineOperation>,
@@ -3168,6 +3172,7 @@ mod tests {
     ) -> FederationStateMachineTraceHashView {
         FederationStateMachineTraceHashView {
             schema_version: capsule.schema_version,
+            verification_profile: capsule.verification_profile.clone(),
             trace_index: capsule.trace_index,
             initial_seed: capsule.initial_seed,
             operations: capsule.operations.clone(),
@@ -3287,6 +3292,7 @@ mod tests {
 
         let mut capsule = FederationStateMachineTraceCapsule {
             schema_version: FEDERATION_STATE_MACHINE_TRACE_CAPSULE_SCHEMA_VERSION,
+            verification_profile: FEDERATION_STATE_MACHINE_TRACE_VERIFICATION_PROFILE.into(),
             trace_index,
             initial_seed,
             operations: plan.iter().map(|(operation, _)| *operation).collect(),
@@ -3327,6 +3333,11 @@ mod tests {
         require!(
             capsule.schema_version == FEDERATION_STATE_MACHINE_TRACE_CAPSULE_SCHEMA_VERSION,
             "successful trace capsule schema version must be supported"
+        );
+        require!(
+            capsule.verification_profile
+                == FEDERATION_STATE_MACHINE_TRACE_VERIFICATION_PROFILE,
+            "successful trace capsule verification profile must be supported"
         );
         require!(
             capsule.integrity.algorithm
@@ -4496,6 +4507,12 @@ mod tests {
         let mut capsule =
             serde_json::from_str::<FederationStateMachineTraceCapsule>(&capsule_text)
                 .expect("capsule must deserialize");
+        capsule.verification_profile = "future-profile".into();
+        assert!(std::panic::catch_unwind(|| state_machine_plan_from_capsule(&capsule)).is_err());
+
+        let mut capsule =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&capsule_text)
+                .expect("capsule must deserialize");
         let original_operation = capsule.operations[3];
         capsule.operations[3] = match original_operation {
             FederationStateMachineOperation::AddRecognition => {
@@ -4731,7 +4748,10 @@ mod tests {
     #[test]
     fn state_machine_trace_capsule_is_a_self_validating_evidence_artifact() {
         let capsule_text = state_machine_trace_capsule(3, 8);
-        assert!(capsule_text.contains("\"schema_version\": 3"));
+        assert!(capsule_text.contains("\"schema_version\": 4"));
+        assert!(capsule_text.contains(
+            "\"verification_profile\": \"integral-federation-state-machine-trace-v1\""
+        ));
         assert!(capsule_text.contains("\"trace_index\": 3"));
         assert!(capsule_text.contains("\"initial_seed\":"));
         assert!(capsule_text.contains("\"operations\": ["));
