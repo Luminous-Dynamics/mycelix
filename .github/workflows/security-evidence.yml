@@ -62,6 +62,7 @@ jobs:
           lineage = json.loads(Path("docs/security/mycelix-ak-ek-lineage-v0.1.json").read_text())
           creation = json.loads(Path("docs/security/mycelix-ak-creation-provenance-v0.1.json").read_text())
           public_name = json.loads(Path("docs/security/mycelix-tpm-public-name-coherence-v0.1.json").read_text())
+          ek_template = json.loads(Path("docs/security/mycelix-ek-template-appraisal-v0.1.json").read_text())
           assert platform["profile_id"] == "mycelix.security.platform.evidence.capture"
           assert recon["profile_id"] == "mycelix.security.platform.eventlog.reconstruction"
           assert platform["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"
@@ -87,6 +88,10 @@ jobs:
           assert public_name["claim_ceiling"] == "ReferenceModelOnly"
           assert public_name["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"
           assert len(public_name["vectors"]) == 14
+          assert ek_template["profile_id"] == "mycelix.security.tpm.ek-template-appraisal"
+          assert ek_template["claim_ceiling"] == "ReferenceModelOnly"
+          assert ek_template["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"
+          assert len(ek_template["vectors"]) == 24
           PY
 
       - name: Compile security verifiers and bundle regression
@@ -126,6 +131,9 @@ jobs:
 
       - name: Run TPM public-name coherence semantic corpus
         run: python3 scripts/security/verify_mycelix_tpm_public_name_coherence_v0_1.py --self-test
+
+      - name: Run EK template appraisal semantic corpus
+        run: python3 scripts/security/verify_mycelix_ek_template_appraisal_v0_1.py --self-test
 
       - name: Run representation consistency regression
         run: python3 scripts/security/test_mycelix_raw_eventlog_yaml_crosscheck_v0_1.py
