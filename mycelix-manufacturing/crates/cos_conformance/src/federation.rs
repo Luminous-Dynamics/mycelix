@@ -3046,8 +3046,13 @@ mod tests {
         capsule.initial_seed = original_seed;
 
         let original_operation = capsule.operations[3];
-        capsule.operations[3] =
-            FederationStateMachineOperation::ConflictExistingDelivery;
+        capsule.operations[3] = match original_operation {
+            FederationStateMachineOperation::AddRecognition => {
+                FederationStateMachineOperation::DuplicateRecognition
+            }
+            _ => FederationStateMachineOperation::AddRecognition,
+        };
+        assert_ne!(capsule.operations[3], original_operation);
         assert!(std::panic::catch_unwind(|| state_machine_plan_from_capsule(&capsule)).is_err());
         capsule.operations[3] = original_operation;
 
