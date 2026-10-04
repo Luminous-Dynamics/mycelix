@@ -3227,6 +3227,93 @@ mod linux {
         }
 
         #[test]
+        fn v2_semantic_validator_never_panics_on_mutated_streams() {
+            // Exercise the policy-bound semantic parser on near-valid streams,
+            // not just arbitrary garbage. This keeps future refactors from
+            // accidentally making semantic validation rely on assumptions that
+            // structural validation no longer guarantees.
+            let arch = SeccompArchitecture::current().unwrap();
+            let policies = [
+                SeccompSyscallPolicyV2::new(
+                    arch,
+                    vec![SeccompSyscallRuleV2::new(libc::SYS_prctl, Vec::new()).unwrap()],
+                )
+                .unwrap(),
+                SeccompSyscallPolicyV2::new(
+                    arch,
+                    vec![SeccompSyscallRuleV2::new(
+                        libc::SYS_socket,
+                        vec![SeccompArgPredicateV1::new(
+                            0,
+                            u64::MAX,
+                            libc::AF_UNIX as u64,
+                        ).unwrap()],
+                    ).unwrap()],
+                )
+                .unwrap(),
+                SeccompSyscallPolicyV2::new(
+                    arch,
+                    vec![SeccompSyscallRuleV2::new(
+                        libc::SYS_socket,
+                        vec![SeccompArgPredicateV1::new_with_op(
+                            0,
+                            u64::MAX,
+                            0x0000_0001_0000_0001,
+                            SeccompArgPredicateOpV1::MaskedNotEqual,
+                        ).unwrap()],
+                    ).unwrap()],
+                )
+                .unwrap(),
+                SeccompSyscallPolicyV2::new(
+                    arch,
+                    vec![SeccompSyscallRuleV2::new_with_clauses(
+                        libc::SYS_socket,
+                        vec![
+                            SeccompSyscallClauseV2::new(vec![
+                                SeccompArgPredicateV1::new(
+                                    0,
+                                    u64::MAX,
+                                    libc::AF_UNIX as u64,
+                                ).unwrap(),
+                                SeccompArgPredicateV1::new(1, u64::MAX, 7).unwrap(),
+                            ]).unwrap(),
+                            SeccompSyscallClauseV2::new(vec![
+                                SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_NETLINK as u64).unwrap(),
+                            ]).unwrap(),
+                        ],
+                    ).unwrap()],
+                )
+                .unwrap(),
+            ];
+
+            for (policy_index, policy) in policies.iter().enumerate() {
+                let filter = compile_filter_v2(policy).unwrap();
+
+                for (instruction_index, instruction) in filter.iter().enumerate() {
+                    for mutation in 0..4u8 {
+                        let mut mutated = filter.clone();
+                        match mutation {
+                            0 => mutated[instruction_index].code ^= 1,
+                            1 => mutated[instruction_index].jt ^= 1,
+                            2 => mutated[instruction_index].jf ^= 1,
+                            _ => mutated[instruction_index].k ^= 1,
+                        }
+
+                        let result = std::panic::catch_unwind(
+                            std::panic::AssertUnwindSafe(|| {
+                                validate_v2_compiled_semantics(policy, &mutated)
+                            }),
+                        );
+                        assert!(
+                            result.is_ok(),
+                            "semantic validator panicked for policy {policy_index}, instruction {instruction_index}, mutation {mutation}"
+                        );
+                    }
+                }
+            }
+        }
+
+        #[test]
         fn compiled_filter_validator_never_panics_on_arbitrary_streams() {
             // Treat emitted bytecode as hostile input at the validator boundary:
             // malformed opcode/offset combinations must reject cleanly rather
