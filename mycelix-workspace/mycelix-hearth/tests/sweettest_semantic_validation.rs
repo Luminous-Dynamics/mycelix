@@ -485,6 +485,12 @@ fn test_semantic_case_manifest_is_structurally_valid() {
         let boundary = case["boundary"]
             .as_str()
             .expect("every semantic case needs a boundary");
+        let validator_source = case["validator_source"]
+            .as_str()
+            .expect("every semantic case needs a validator_source");
+        let validator_symbol = case["validator_symbol"]
+            .as_str()
+            .expect("every semantic case needs a validator_symbol");
 
         assert!(seen_ids.insert(case_id), "duplicate semantic case_id: {case_id}");
         assert!(seen_tests.insert(test), "duplicate semantic test name: {test}");
@@ -503,6 +509,12 @@ fn test_semantic_case_manifest_is_structurally_valid() {
             boundary, "integrity_validation",
             "{case_id} must target the integrity validation boundary"
         );
+        assert!(!validator_source.is_empty(), "{case_id} validator_source must not be empty");
+        assert!(
+            validator_source.ends_with("src/lib.rs"),
+            "{case_id} validator_source must point to a Rust source file"
+        );
+        assert!(!validator_symbol.is_empty(), "{case_id} validator_symbol must not be empty");
 
         let surfaces = case["operation_surface"]
             .as_array()
