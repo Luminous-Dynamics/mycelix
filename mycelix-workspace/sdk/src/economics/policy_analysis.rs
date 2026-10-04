@@ -230,6 +230,34 @@ mod tests {
     }
 
     #[test]
+    fn exact_scenario_binding_matches_analysis_context() {
+        let mut analysis = analysis();
+        let mut scenario = EconomicPolicyScenario {
+            scenario_id: "scenario:baseline:1".into(),
+            kind: crate::economics::scenario::EconomicScenarioKind::Baseline,
+            policy_profile_ref: analysis.policy_profile_ref.clone(),
+            policy_profile_fingerprint: analysis.policy_profile_fingerprint.clone(),
+            observation_snapshot_fingerprint: analysis.observation_snapshot_fingerprint.clone(),
+            model_refs: vec![analysis.model_ref.clone()],
+            assumption_refs: vec!["assumption:steady-state".into()],
+            intervention_refs: Vec::new(),
+            baseline_scenario_ref: None,
+            horizon_start: 1_000,
+            horizon_end: 2_000,
+            uncertainty_refs: analysis.uncertainty_refs.clone(),
+            backtest_refs: Vec::new(),
+            alternative_scenario_refs: Vec::new(),
+            generated_at: analysis.generated_at,
+        };
+        analysis.scenario.as_mut().unwrap().scenario_fingerprint = scenario.fingerprint().unwrap();
+
+        assert!(analysis.validate_against_scenario(&scenario).is_ok());
+
+        scenario.observation_snapshot_fingerprint = "d".repeat(64);
+        assert!(analysis.validate_against_scenario(&scenario).is_err());
+    }
+
+    #[test]
     fn scenario_binding_is_part_of_analysis_identity() {\n        let left = analysis();\n        let mut right = analysis();\n        right.scenario.as_mut().unwrap().scenario_fingerprint = "d".repeat(64);\n        assert_ne!(left.fingerprint().unwrap(), right.fingerprint().unwrap());\n    }\n\n    #[test]\n    fn reference_order_does_not_change_identity() {
         let left = analysis();
         let mut right = analysis();
