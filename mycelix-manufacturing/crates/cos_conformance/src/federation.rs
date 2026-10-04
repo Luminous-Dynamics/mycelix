@@ -2623,12 +2623,27 @@ mod tests {
             capsule.tokens.len(),
             "trace capsule operation/token lengths must match"
         );
-        capsule
+        let expected_seed = 0xD6E5_5EED_u64 ^ capsule.trace_index as u64;
+        assert_eq!(
+            capsule.initial_seed, expected_seed,
+            "trace capsule seed does not match canonical trace seed"
+        );
+
+        let (_, canonical_plan) =
+            state_machine_trace_plan(capsule.trace_index, capsule.operations.len());
+        let recorded_plan = capsule
             .operations
             .iter()
             .copied()
             .zip(capsule.tokens.iter().copied())
-            .collect()
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            recorded_plan, canonical_plan,
+            "trace capsule is not canonical for its trace index and length"
+        );
+
+        recorded_plan
     }
 
     fn state_machine_envelope(
