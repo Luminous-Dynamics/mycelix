@@ -17,6 +17,7 @@
 //! not a root of trust and cannot manufacture an authorization decision.
 
 use serde::{Deserialize, Serialize, de::Error as _, de::SeqAccess, de::Visitor};
+use std::io::{self, Read};
 
 #[cfg(feature = "identity")]
 use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
@@ -48,6 +49,58 @@ where
         )));
     }
     serde_json::from_slice(input)
+}
+
+/// Reader wrapper that prevents a security-domain JSON parser from consuming more than the
+/// configured outer input envelope. The extra-byte probe distinguishes exact-limit EOF from
+/// an oversized stream without buffering the whole source.
+struct BoundedSecurityReader<R> {
+    inner: R,
+    remaining: usize,
+}
+
+impl<R> BoundedSecurityReader<R> {
+    fn new(inner: R) -> Self {
+        Self {
+            inner,
+            remaining: MAX_SECURITY_WIRE_BYTES,
+        }
+    }
+}
+
+impl<R: Read> Read for BoundedSecurityReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        if buf.is_empty() {
+            return Ok(0);
+        }
+
+        if self.remaining == 0 {
+            let mut probe = [0u8; 1];
+            return match self.inner.read(&mut probe) {
+                Ok(0) => Ok(0),
+                Ok(_) => Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "security JSON input exceeds size limit",
+                )),
+                Err(error) => Err(error),
+            };
+        }
+
+        let allowed = buf.len().min(self.remaining);
+        let read = self.inner.read(&mut buf[..allowed])?;
+        self.remaining -= read;
+        Ok(read)
+    }
+}
+
+/// Deserialize a security-domain JSON payload from a reader only after enforcing the same
+/// outer input-size bound used by the slice helper.
+pub fn deserialize_bounded_security_json_reader<R, T>(reader: R) -> Result<T, serde_json::Error>
+where
+    R: Read,
+    T: serde::de::DeserializeOwned,
+{
+    serde_json::from_reader(BoundedSecurityReader::new(reader))
 }
 
 #[repr(u8)]
@@ -1101,6 +1154,48 @@ mod tests {
             deserialize_bounded_security_json::<AuthorizationRequest>(&input).unwrap_err();
 
         assert_eq!(error.classify(), serde_json::error::Category::Io);
+    }
+
+    #[test]
+    fn bounded_security_json_reader_accepts_exact_envelope_limit() {
+        let input = serde_json::to_vec(&serde_json::json!({
+            "subject": "did:mycelix:alice",
+            "resource": "resource:ledger",
+            "action": "Read",
+            "policy_version": 7
+        }))
+        .unwrap();
+        let mut padded = input;
+        padded.resize(MAX_SECURITY_WIRE_BYTES, b' ');
+
+        let cursor = std::io::Cursor::new(padded);
+        let decoded: AuthorizationRequest =
+            deserialize_bounded_security_json_reader(cursor).unwrap();
+        assert_eq!(decoded.subject(), "did:mycelix:alice");
+    }
+
+    #[test]
+    fn bounded_security_json_reader_rejects_oversized_stream() {
+        let input = serde_json::to_vec(&serde_json::json!({
+            "subject": "did:mycelix:alice",
+            "resource": "resource:ledger",
+            "action": "Read",
+            "policy_version": 7
+        }))
+        .unwrap();
+        let mut oversized = input;
+        oversized.resize(MAX_SECURITY_WIRE_BYTES + 1, b' ');
+
+        let cursor = std::io::Cursor::new(oversized);
+        let error =
+            deserialize_bounded_security_json_reader::<_, AuthorizationRequest>(cursor)
+                .unwrap_err();
+
+        assert_eq!(error.classify(), serde_json::error::Category::Io);
+        assert_eq!(
+            error.io_error_kind(),
+            Some(std::io::ErrorKind::InvalidData)
+        );
     }
 
     #[test]

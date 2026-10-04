@@ -15,8 +15,8 @@ use serde::{
 };
 
 use crate::security_kernel::{
-    AuthorizationDecision, AuthorizationRequest, EnforcementRequest,
-    MAX_SECURITY_WIRE_BYTES, deserialize_bounded_security_json,
+    AuthorizationDecision, AuthorizationRequest, EnforcementRequest, MAX_SECURITY_WIRE_BYTES,
+    deserialize_bounded_security_json, deserialize_bounded_security_json_reader,
 };
 
 pub const MAX_PROVENANCE_IDENTIFIER_BYTES: usize = 512;
@@ -541,6 +541,39 @@ mod tests {
 
         let decoded: SecurityEvent = deserialize_bounded_security_json(&input).unwrap();
         assert!(matches!(decoded.decision(), SecurityEventDecision::Deny(_)));
+    }
+
+    #[test]
+    fn bounded_security_json_reader_rejects_oversized_security_event() {
+        let input = serde_json::to_vec(&serde_json::json!({
+            "event_id": "event:bounded-reader",
+            "actor_id": "did:mycelix:alice",
+            "capability_ref": "capability:1",
+            "request": {
+                "subject": "did:mycelix:alice",
+                "resource": "resource:ledger",
+                "action": "Read",
+                "policy_version": 7
+            },
+            "decision": {"Deny": "ActionNotGranted"},
+            "policy_version": 7,
+            "timestamp_us": 151,
+            "provenance": [],
+            "recovery_correlation": null
+        }))
+        .unwrap();
+        let mut oversized = input;
+        oversized.resize(MAX_SECURITY_WIRE_BYTES + 1, b' ');
+
+        let cursor = std::io::Cursor::new(oversized);
+        let error =
+            deserialize_bounded_security_json_reader::<_, SecurityEvent>(cursor).unwrap_err();
+
+        assert_eq!(error.classify(), serde_json::error::Category::Io);
+        assert_eq!(
+            error.io_error_kind(),
+            Some(std::io::ErrorKind::InvalidData)
+        );
     }
 
     #[test]

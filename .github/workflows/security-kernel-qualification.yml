@@ -100,6 +100,20 @@ jobs:
             exit 1
           fi
 
+          if ! rg -n -F 'pub fn deserialize_bounded_security_json_reader' crates/mycelix-bridge-common/src/security_kernel.rs; then
+            echo "security-kernel regression: bounded security JSON reader helper disappeared" >&2
+            exit 1
+          fi
+          reader_calls="$(rg -n 'serde_json::from_reader(BoundedSecurityReader::new(reader))' crates/mycelix-bridge-common/src/security_kernel.rs | wc -l)"
+          if [[ "$reader_calls" -ne 1 ]]; then
+            echo "security-kernel regression: expected exactly one bounded from_reader call, found $reader_calls" >&2
+            exit 1
+          fi
+          if ! rg -n 'fn bounded_security_json_reader_rejects_oversized_stream' crates/mycelix-bridge-common/src/security_kernel.rs; then
+            echo "security-kernel regression: oversized reader coverage disappeared" >&2
+            exit 1
+          fi
+
           # Capability and AuthorizationRequest must remain constructor-gated when decoded from wire data.
           # Capability and AuthorizationRequest wire schemas must reject unknown fields.
           for pattern in             '#\[derive\([^]]*Deserialize[^]]*\)\][[:space:]]*#\[serde\(deny_unknown_fields\)\][[:space:]]*struct (CapabilityWire|AuthorizationRequestWire)'; do

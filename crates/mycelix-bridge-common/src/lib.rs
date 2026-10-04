@@ -106,7 +106,8 @@ pub use security_kernel::{
     AdvisoryResult, AuthorizationDecision, AuthorizationDenial, AuthorizationIndeterminacy,
     AuthorizationPermit, AuthorizationRequest, Capability, CapabilityAction, EnforcementRequest,
     MAX_AUTHORIZATION_PERMIT_LIFETIME_US, MAX_SECURITY_WIRE_BYTES, VerificationEvidence,
-    VerifiedCapability, authorize_permit, deserialize_bounded_security_json, verify_capability,
+    VerifiedCapability, authorize_permit, deserialize_bounded_security_json,
+    deserialize_bounded_security_json_reader, verify_capability,
 };
 
 pub mod security_events;
