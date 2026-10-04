@@ -49,6 +49,15 @@ def main() -> None:
     record = load_record(EVIDENCE)
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
     d6s2 = json.loads(D6S2_MANIFEST.read_text(encoding="utf-8"))
+    test_log_lines = TEST_LOG.read_text(encoding="utf-8").splitlines()
+    observed_case_count = sum(
+        1 for line in test_log_lines if line.startswith("D6U_CASE\t")
+    )
+    observed_supplemental_count = sum(
+        1
+        for line in test_log_lines
+        if line.startswith("D6U_SUBSTRATE_CHECK\t")
+    )
 
     expected = {
         "status": "runtime-reference-evidence",
@@ -72,13 +81,10 @@ def main() -> None:
             ROOT / manifest["evidence_verifier_path"]
         ),
         "case_coverage": (
-            f"{sum(1 for _ in TEST_LOG.read_text(encoding="utf-8").splitlines() "
-            f"if _.startswith("D6U_CASE\t"))}-of-"
-            f"{len(manifest["supported_reference_cases"])}"
+            f"{observed_case_count}-of-{len(manifest["supported_reference_cases"])}"
         ),
         "supplemental_coverage": (
-            f"{sum(1 for _ in TEST_LOG.read_text(encoding="utf-8").splitlines() "
-            f"if _.startswith("D6U_SUBSTRATE_CHECK\t"))}-of-"
+            f"{observed_supplemental_count}-of-"
             f"{len(manifest.get("supplemental_substrate_checks", []))}"
         ),
         "case_outcome_classes": ",".join(manifest["evidence_outcome_classes"]),
