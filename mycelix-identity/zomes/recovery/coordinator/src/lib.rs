@@ -1725,13 +1725,27 @@ pub fn add_verification_anchor(input: AddVerificationAnchorInput) -> ExternResul
         GetStrategy::default(),
     )?;
 
-    let link = links.into_iter().max_by_key(|link| link.timestamp).ok_or(
-        wasm_error!(WasmErrorInner::Guest(
-            "No self-recovery config found for this DID".into()
-        ))
-    )?;
-    let original_hash = ActionHash::try_from(link.target.clone())
-        .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
+    // Self-recovery configuration is security state. Duplicate legacy
+    // pointers are ambiguous and must not be resolved by mutable link timestamps.
+    let mut original_hash: Option<ActionHash> = None;
+    for link in links {
+        let target = ActionHash::try_from(link.target.clone())
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
+
+        if let Some(existing) = original_hash.as_ref() {
+            if existing != &target {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Ambiguous self-recovery config state: multiple distinct targets exist".into(),
+                )));
+            }
+        } else {
+            original_hash = Some(target);
+        }
+    }
+
+    let original_hash = original_hash.ok_or(wasm_error!(WasmErrorInner::Guest(
+        "No self-recovery config found for this DID".into()
+    )))?;
 
     let record = get_latest_record(original_hash.clone())?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Self-recovery config record not found".into())
