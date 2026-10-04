@@ -42,13 +42,61 @@ def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def git_blob_from_api(repo: str, path: str, ref: str, token: str) -> str:
-    payload = api_get(repo, path, ref, token)
-    observed = payload.get("sha")
-    assert re.fullmatch(r"[0-9a-f]{40}", observed or ""), (
-        f"GitHub contents API returned no valid blob SHA for {path!r}"
+def git_tree_from_api(repo: str, ref: str, token: str) -> dict:
+    url = (
+        f"https://api.github.com/repos/{repo}/git/trees/"
+        f"{urllib.parse.quote(ref, safe='')}"
     )
-    return observed
+    request = urllib.request.Request(
+        url,
+        headers={
+            "Accept": "application/vnd.github+json",
+            "Authorization": f"Bearer {token}",
+            "X-GitHub-Api-Version": "2022-11-28",
+            "User-Agent": "mycelix-d6u-trusted-builder",
+        },
+    )
+    with urllib.request.urlopen(request, timeout=30) as response:
+        return json.load(response)
+
+
+def verify_required_tracked_blobs(tree_payload: dict, required: dict[str, str]) -> None:
+    assert tree_payload.get("truncated") is False, (
+        "GitHub Git tree response was truncated; refusing incomplete source identity"
+    )
+
+    observed: dict[str, str] = {}
+    for entry in tree_payload.get("tree", []):
+        path = entry.get("path")
+        if path not in required:
+            continue
+
+        assert path not in observed, f"duplicate Git tree path: {path!r}"
+        assert entry.get("type") == "blob", (
+            f"trusted source path is not a regular Git blob: {path!r}"
+        )
+        assert entry.get("mode") in {"100644", "100755"}, (
+            f"trusted source path has unexpected Git mode: {path!r}: "
+            f"{entry.get('mode')!r}"
+        )
+        observed_sha = entry.get("sha")
+        assert re.fullmatch(r"[0-9a-f]{40}", observed_sha or ""), (
+            f"GitHub Git tree returned no valid blob SHA for {path!r}"
+        )
+        observed[path] = observed_sha
+
+    assert set(observed) == set(required), (
+        f"trusted source tree coverage mismatch: "
+        f"missing={sorted(set(required) - set(observed))!r}, "
+        f"unexpected={sorted(set(observed) - set(required))!r}"
+    )
+
+    mismatches = {
+        path: {"expected": expected, "observed": observed[path]}
+        for path, expected in required.items()
+        if observed[path] != expected
+    }
+    assert not mismatches, f"trusted source blob mismatch: {mismatches!r}"
 
 
 def file_bytes_from_api(repo: str, path: str, ref: str, token: str) -> bytes:
@@ -252,12 +300,11 @@ def main() -> None:
     verify_cases(test_log.read_text(encoding="utf-8"), policy)
     verify_lock(lockfile, policy)
 
-    for path, expected_blob in policy["required_tracked_blobs"].items():
-        observed_blob = git_blob_from_api(repo, path, head_sha, token)
-        assert observed_blob == expected_blob, (
-            f"trusted source blob mismatch for {path!r}: "
-            f"expected={expected_blob}, observed={observed_blob}"
-        )
+    tree_payload = git_tree_from_api(repo, head_sha, token)
+    verify_required_tracked_blobs(
+        tree_payload,
+        policy["required_tracked_blobs"],
+    )
 
     d6s1_bytes = file_bytes_from_api(
         repo,
