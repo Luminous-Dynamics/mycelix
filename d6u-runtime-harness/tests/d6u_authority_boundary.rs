@@ -573,6 +573,7 @@ async fn d6u_runtime_authority_boundary() {
         "Future",
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
+    println!("D6U_RUNTIME_WITNESS\tfuture-expiry-rejection\t{future_message}");
     println!("D6U_SUBSTRATE_CHECK\tfuture-expiry-rejection\t{future_message}\tPASS");
     let expired = params(
         &alice_cell,
@@ -608,6 +609,7 @@ async fn d6u_runtime_authority_boundary() {
         "Zome not found: Zome 'wrong-zome' not found",
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
+    println!("D6U_RUNTIME_WITNESS\twrong-zome-routing\t{wrong_zome_message}");
     println!("D6U_SUBSTRATE_CHECK\twrong-zome-routing\t{wrong_zome_message}\tPASS");
     record_case("wrong-zome", "routing-failed");
 
@@ -629,6 +631,7 @@ async fn d6u_runtime_authority_boundary() {
         "Attempted to call a zome function that doesn't exist: Zome: coordinator Fn no_such_function",
     );
     assert_eq!(reached.load(Ordering::SeqCst), before);
+    println!("D6U_RUNTIME_WITNESS\twrong-function-routing\t{wrong_function_message}");
     println!("D6U_SUBSTRATE_CHECK\twrong-function-routing\t{wrong_function_message}\tPASS");
     record_case("wrong-function", "routing-failed");
 
