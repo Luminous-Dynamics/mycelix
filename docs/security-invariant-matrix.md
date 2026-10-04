@@ -26,7 +26,7 @@ The kernel provides:
 - `ProvenanceRef` uses the same constructor-gated wire boundary, rejects unknown fields, and keeps its invariant-bearing fields private so callers cannot bypass `ProvenanceRef::new()` with a struct literal or mutation.
 - Security-event recovery correlations are also constructor-gated during wire decoding, and untrusted provenance sequences are bounded before retention to keep audit input fail-closed and resource-bounded.
 - `VerificationEvidence` as an opaque, non-serializable hand-off from an independent cryptographic/identity verifier; its trusted fields cannot be constructed or deserialized by downstream callers, and it intentionally does not implement `Debug`, `PartialEq`, or `Eq` so downstream code cannot turn trusted evidence into an observation/comparison surface.
-- `VerifiedCapability` as an opaque non-forgeable-in-module boundary object whose trust-bearing fields remain private; it is not serializable, `Debug`, `Clone`, `Copy`, or `PartialEq`/`Eq`, because it is the direct input to permit issuance.
+- `VerifiedCapability` as an opaque non-forgeable-in-module boundary object whose trust-bearing fields remain private; it is not serializable, `Debug`, `Clone`, `Copy`, or `PartialEq`/`Eq`, because it is the direct input to permit issuance and is marked `#[must_use]` so verification cannot be silently discarded.
 - `AuthorizationDecision` as failure-only authorization outcomes (`Deny | Indeterminate`); `SecurityEventDecision::Allow | Deny | Indeterminate` is reserved for audit records.
 - `AdvisoryResult` as a separate type with no conversion path to authorization.
 - Explicit denial for invalid, revoked, expired, subject-mismatched, action-mismatched, stale-policy, and evidence-mismatched capabilities.
