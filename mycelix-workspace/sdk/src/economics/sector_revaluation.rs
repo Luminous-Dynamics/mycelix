@@ -185,6 +185,70 @@ impl SectorRevaluationChangeMatrix {
         Ok(())
     }
 
+    /// Validate the valuation projection against the actual closing balance sheet.
+    ///
+    /// Other transition types may legitimately change the same balance-sheet
+    /// instruments (for example depreciation changes productive capital).
+    /// Therefore this isolates valuation by replaying every transition except
+    /// revaluation and comparing that counterfactual terminal state with the
+    /// supplied post-state. The residual must equal this matrix's asset and
+    /// equity deltas exactly.
+    pub fn validate_against_balance_sheet_delta(
+        &self,
+        pre_state: &EconomicState,
+        post_state: &EconomicState,
+        assignments: &[SectorAssignment],
+        transitions: &[EconomicTransition],
+    ) -> Result<(), String> {
+        SectorBalanceSheet::from_state(pre_state, assignments)?;
+        let post_balance = SectorBalanceSheet::from_state(post_state, assignments)?;
+
+        let non_revaluation = transitions
+            .iter()
+            .filter(|transition| {
+                !matches!(transition, EconomicTransition::RealAssetRevaluation(_))
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        let (without_revaluation, _) =
+            super::transition::apply_step(pre_state, 0, &non_revaluation, None)
+                .map_err(|error| {
+                    format!(
+                        "sector revaluation baseline replay failed: {error}"
+                    )
+                })?;
+
+        let baseline_balance = SectorBalanceSheet::from_state(&without_revaluation, assignments)?;
+        let mut sectors = self.changes.iter().map(|change| change.sector).collect::<Vec<_>>();
+        sectors.sort();
+        sectors.dedup();
+
+        for sector in sectors {
+            for instrument in [
+                BalanceSheetInstrument::ProductiveCapital,
+                BalanceSheetInstrument::InventoryCarryingValue,
+                BalanceSheetInstrument::Equity,
+            ] {
+                let actual = post_balance
+                    .sector_instrument_total_checked(sector, instrument)?
+                    .checked_sub(
+                        baseline_balance
+                            .sector_instrument_total_checked(sector, instrument)?,
+                    )
+                    .ok_or_else(|| "sector revaluation stock delta overflow".to_string())?;
+                let expected = self.instrument_delta(sector, instrument)?;
+                if actual != expected {
+                    return Err(format!(
+                        "sector {:?} {:?} revaluation delta mismatch: expected {}, actual {}",
+                        sector, instrument, expected, actual
+                    ));
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     /// Checked signed balance-sheet stock delta attributable to this valuation
     /// projection for one sector/instrument.
     ///
@@ -355,6 +419,75 @@ mod tests {
     }
 
 
+
+    #[test]
+    fn revaluation_residual_reconciles_against_mixed_nonvaluation_changes() {
+        let mut firm = ActorBalanceSheet::new("firm");
+        firm.real.productive_capital = 100;
+        let pre = EconomicState::new(vec![
+            ActorBalanceSheet::new("bank"),
+            firm,
+        ]);
+        let transitions = vec![
+            EconomicTransition::Depreciation(
+                crate::economics::stock_flow::Depreciation::new("firm", 20).unwrap(),
+            ),
+            EconomicTransition::RealAssetRevaluation(
+                RealAssetRevaluation::new(
+                    "firm",
+                    RealAssetRevaluationTarget::ProductiveCapital,
+                    15,
+                )
+                .unwrap(),
+            ),
+        ];
+        let (post, _) = super::super::transition::apply_step(&pre, 1, &transitions, None).unwrap();
+        let matrix =
+            SectorRevaluationChangeMatrix::from_transitions(&transitions, &assignments()).unwrap();
+
+        matrix
+            .validate_against_balance_sheet_delta(
+                &pre,
+                &post,
+                &assignments(),
+                &transitions,
+            )
+            .unwrap();
+    }
+
+    #[test]
+    fn revaluation_residual_rejects_tampered_post_state() {
+        let mut firm = ActorBalanceSheet::new("firm");
+        firm.real.productive_capital = 100;
+        let pre = EconomicState::new(vec![ActorBalanceSheet::new("bank"), firm]);
+        let transitions = vec![EconomicTransition::RealAssetRevaluation(
+            RealAssetRevaluation::new(
+                "firm",
+                RealAssetRevaluationTarget::ProductiveCapital,
+                10,
+            )
+            .unwrap(),
+        )];
+        let (mut post, _) =
+            super::super::transition::apply_step(&pre, 1, &transitions, None).unwrap();
+        post.actors
+            .iter_mut()
+            .find(|actor| actor.actor == "firm")
+            .unwrap()
+            .real
+            .productive_capital += 1;
+
+        let matrix =
+            SectorRevaluationChangeMatrix::from_transitions(&transitions, &assignments()).unwrap();
+        assert!(matrix
+            .validate_against_balance_sheet_delta(
+                &pre,
+                &post,
+                &assignments(),
+                &transitions,
+            )
+            .is_err());
+    }
 
     #[test]
     fn projection_rejects_unexecutable_inventory_revaluation() {
