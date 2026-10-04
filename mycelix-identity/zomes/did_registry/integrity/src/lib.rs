@@ -621,6 +621,22 @@ fn require_did_id_matches_author(did_id: &str, author_did: &str) -> ValidateCall
     ValidateCallbackResult::Valid
 }
 
+/// Application security timestamps are subordinate to the signed Holochain
+/// action clock. Future-dated DID state would otherwise allow metadata to claim
+/// authority at a time the protocol action has not reached.
+fn validate_timestamp_not_future(
+    field: &str,
+    value: Timestamp,
+    action_timestamp: Timestamp,
+) -> Result<(), String> {
+    if value > action_timestamp {
+        return Err(format!(
+            "{field} cannot be later than its signed Holochain action timestamp"
+        ));
+    }
+    Ok(())
+}
+
 fn validate_create_did_document(
     action: EntryCreationAction,
     did_doc: DidDocument,
@@ -656,6 +672,14 @@ fn validate_create_did_document(
     // integrity boundary, independent of the coordinator API used.
     if let Err(message) = validate_verification_method_set(&did_doc) {
         return Ok(ValidateCallbackResult::Invalid(message.into()));
+    }
+
+    if let Err(message) = validate_timestamp_not_future(
+        "DID created timestamp",
+        did_doc.created,
+        *action.timestamp(),
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(message));
     }
 
     // Validate version starts at 1
@@ -789,10 +813,19 @@ fn validate_update_did_document(
         return Ok(ValidateCallbackResult::Invalid(message.into()));
     }
 
-    // Updated timestamp must advance
-    if did_doc.updated <= original.updated {        return Ok(ValidateCallbackResult::Invalid(
+    // Updated timestamp must advance and cannot be future-dated relative
+    // to the signed update action.
+    if did_doc.updated <= original.updated {
+        return Ok(ValidateCallbackResult::Invalid(
             "DID updated timestamp must advance".into(),
         ));
+    }
+    if let Err(message) = validate_timestamp_not_future(
+        "DID updated timestamp",
+        did_doc.updated,
+        *action.timestamp(),
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(message));
     }
 
     // Must still have at least one verification method
@@ -875,6 +908,14 @@ fn validate_create_did_deactivation(
         require_did_id_matches_author(&deactivation.did, &author_did)
     {
         return Ok(ValidateCallbackResult::Invalid(msg));
+    }
+
+    if let Err(message) = validate_timestamp_not_future(
+        "DID deactivation timestamp",
+        deactivation.deactivated_at,
+        *action.timestamp(),
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(message));
     }
 
     // Validate reason provided
@@ -1092,6 +1133,29 @@ mod tests {
             Some(second)
         );
         assert_eq!(select_latest_action_hash(Vec::new()), None);
+    }
+
+    #[test]
+    fn security_timestamps_cannot_be_future_dated() {
+        let action_timestamp = Timestamp::from_micros(1_000_000);
+        assert!(validate_timestamp_not_future(
+            "DID created timestamp",
+            Timestamp::from_micros(1_000_000),
+            action_timestamp,
+        )
+        .is_ok());
+        assert!(validate_timestamp_not_future(
+            "DID updated timestamp",
+            Timestamp::from_micros(1_000_001),
+            action_timestamp,
+        )
+        .is_err());
+        assert!(validate_timestamp_not_future(
+            "DID deactivation timestamp",
+            Timestamp::from_micros(999_999),
+            action_timestamp,
+        )
+        .is_ok());
     }
 
     #[test]
