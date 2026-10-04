@@ -1635,6 +1635,16 @@ fn validate_issued_credential_binding(
             "Issued credential schema does not match the credential request schema".into(),
         ));
     }
+    if credential.proof.cryptosuite.as_deref() != Some("eddsa-jcs-2022") {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Request-bound issuance requires an eddsa-jcs-2022 credential proof".into(),
+        ));
+    }
+    if credential.proof.proof_type != "DataIntegrityProof" {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Request-bound issuance requires a DataIntegrityProof".into(),
+        ));
+    }
     if !credential_claims_satisfy_request(&req.provided_claims, &credential.credential_subject.claims) {
         return Ok(ValidateCallbackResult::Invalid(
             "Issued credential claims do not fulfill the claims supplied in the credential request".into(),
