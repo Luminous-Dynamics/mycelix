@@ -16,3 +16,4 @@ pub mod security_events;
 pub use security_events::{
     MAX_PROVENANCE_IDENTIFIER_BYTES, ProvenanceRef, ProvenanceRelation, SecurityEvent,
     SecurityEventDecision,
+};
