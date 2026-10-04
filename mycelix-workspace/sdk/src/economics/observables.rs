@@ -49,6 +49,9 @@ pub struct EconomicObservables {
     pub cost_of_goods_sold: i128,
     pub gross_operating_surplus: i128,
     pub depreciation: i128,
+    /// Signed non-cash revaluation of monetary-valued real assets during the period.
+    #[serde(default)]
+    pub real_asset_revaluation: i128,
     pub operating_surplus_after_depreciation: i128,
 }
 
@@ -177,6 +180,7 @@ impl EconomicObservables {
             cost_of_goods_sold: ledger.cost_of_goods_sold,
             gross_operating_surplus,
             depreciation: ledger.depreciation,
+            real_asset_revaluation: ledger.real_asset_revaluation,
             operating_surplus_after_depreciation,
         })
     }
