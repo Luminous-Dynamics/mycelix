@@ -2,11 +2,6 @@ name: D6U Exact-Head Runtime Qualification
 
 on:
   workflow_call:
-    inputs:
-      trusted_workflow_sha:
-        description: "Git blob SHA for the callable D6U workflow stored on the trusted caller revision"
-        required: true
-        type: string
 permissions:
   contents: read
 
@@ -206,10 +201,15 @@ PY
             echo "source_commit=$(git rev-parse HEAD)"
             echo "workflow_run_id=${{ github.run_id }}"
             echo "workflow_run_attempt=${{ github.run_attempt }}"
-            echo "workflow_execution_commit_sha=${{ github.workflow_sha }}"
-            echo "workflow_execution_ref=${{ github.workflow_ref }}"
+            echo "caller_workflow_commit_sha=${{ github.workflow_sha }}"
+            echo "caller_workflow_ref=${{ github.workflow_ref }}"
+            echo "workflow_definition_commit_sha=${{ job.workflow_sha }}"
+            echo "workflow_definition_ref=${{ job.workflow_ref }}"
+            echo "workflow_definition_repository=${{ job.workflow_repository }}"
+            echo "workflow_definition_file_path=${{ job.workflow_file_path }}"
+            echo "workflow_definition_blob_sha=$(git hash-object ../.github/workflows/d6u-exact-head-runtime.yml)"
+            echo "caller_workflow_blob_sha=$(git hash-object ../.github/workflows/d6s-canonical-qualification.yml)"
             echo "attestation_status=deferred-to-trusted-builder"
-            echo "workflow_sha=${TRUSTED_WORKFLOW_SHA}"
             echo "d6s2_manifest_git_blob_sha=$(git hash-object ../docs/integral/d6s-canon-2-manifest.json)"
             echo "d6s2_fixture_git_blob_sha=$(git hash-object ../docs/integral/d6s-canon-2-authority-boundary-fixture.json)"
             d6s2_ledger_version=$(python3 -c 'import json; print(json.load(open("../docs/integral/d6s-canon-2-manifest.json"))["version"])')
