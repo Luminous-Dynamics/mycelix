@@ -184,7 +184,7 @@ impl EconomicActionLifecycle {
             kind: EconomicActionChangeKind::Initial,
             predecessor_revision_id: None,
             predecessor_scope_id: None,
-            authority_ref: authority_ref.into(),
+            authority_ref: amendment_authority,
             evidence_refs,
             recorded_at,
         };
@@ -373,19 +373,41 @@ impl EconomicActionLifecycle {
     /// Amend the active scope without changing the stable action identity.
     pub fn amend_scope(
         &mut self,
+        previous_scope: &EconomicActionScope,
         new_scope: &EconomicActionScope,
         revision_id: impl Into<String>,
         authority_ref: impl Into<String>,
         evidence_refs: Vec<String>,
         recorded_at: u64,
     ) -> Result<(), String> {
+        previous_scope.validate()?;
         new_scope.validate()?;
+
+        if previous_scope.action_ref != self.action_ref {
+            return Err("Previous scope must retain the lifecycle action reference".into());
+        }
+        if previous_scope.scope_id != self.active_scope_id {
+            return Err("Previous scope ID does not match active lifecycle scope".into());
+        }
+        if previous_scope.fingerprint()? != self.active_scope_fingerprint {
+            return Err("Previous scope contents do not match active lifecycle fingerprint".into());
+        }
+
         let new_scope_fingerprint = new_scope.fingerprint()?;
+        let amendment_authority = authority_ref.into();
         if new_scope.action_ref != self.action_ref {
             return Err("Scope amendment must retain the lifecycle action reference".into());
         }
         if new_scope.scope_id == self.active_scope_id {
             return Err("Scope amendment must create a new scope ID".into());
+        }
+        if new_scope.reduces_coverage(previous_scope)
+            && amendment_authority == previous_scope.authority_ref
+        {
+            return Err(
+                "Coverage-reducing scope amendments require a different authority reference"
+                    .into(),
+            );
         }
         if matches!(
             self.current_stage,
@@ -403,7 +425,7 @@ impl EconomicActionLifecycle {
             kind: EconomicActionChangeKind::ScopeAmendment,
             predecessor_revision_id: Some(self.current_revision_id.clone()),
             predecessor_scope_id: Some(self.active_scope_id.clone()),
-            authority_ref: authority_ref.into(),
+            authority_ref: amendment_authority,
             evidence_refs,
             recorded_at,
         })
@@ -617,6 +639,7 @@ mod tests {
         let new_scope = scope("action:1", "scope:2");
         lifecycle
             .amend_scope(
+                &scope("action:1", "scope:1"),
                 &new_scope,
                 "revision:3",
                 "authority:independent-1",
@@ -708,6 +731,7 @@ mod tests {
             .unwrap();
 
         let result = lifecycle.amend_scope(
+            &scope("action:1", "scope:1"),
             &scope("action:1", "scope:2"),
             "revision:4",
             "authority:dao-1",
@@ -759,6 +783,116 @@ mod tests {
     }
 
     #[test]
+    fn coverage_reducing_amendment_requires_different_authority() {
+        let previous = EconomicActionScope {
+            scope_id: "scope:1".into(),
+            action_ref: "action:1".into(),
+            purpose: DistributionPurpose::Discretionary,
+            required_dimensions: vec![
+                SubstrateDimension::Financial,
+                SubstrateDimension::Ecological,
+            ],
+            policy_ref: "policy:action-scope:v1".into(),
+            authority_ref: "authority:dao-1".into(),
+            attestation_ref: "attestation:scope:1".into(),
+            evidence_refs: vec!["evidence:scope:1".into()],
+            declared_at: 1_000,
+        };
+        let mut reduced = previous.clone();
+        reduced.scope_id = "scope:2".into();
+        reduced.required_dimensions = vec![SubstrateDimension::Financial];
+        reduced.declared_at = 1_100;
+
+        let mut lifecycle = EconomicActionLifecycle::start(
+            &previous,
+            "revision:1",
+            "authority:dao-1",
+            vec!["evidence:revision-1".into()],
+            1_000,
+        )
+        .unwrap();
+
+        let result = lifecycle.amend_scope(
+            &previous,
+            &reduced,
+            "revision:2",
+            "authority:dao-1",
+            vec!["evidence:relaxation".into()],
+            1_100,
+        );
+
+        assert!(result.is_err());
+
+        let mut lifecycle = EconomicActionLifecycle::start(
+            &previous,
+            "revision:1b",
+            "authority:dao-1",
+            vec!["evidence:revision-1b".into()],
+            1_000,
+        )
+        .unwrap();
+
+        let result = lifecycle.amend_scope(
+            &previous,
+            &reduced,
+            "revision:2b",
+            "authority:independent-1",
+            vec!["evidence:relaxation-approved".into()],
+            1_100,
+        );
+
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn explicit_coverage_reduction_rejects_self_authorization() {
+        let previous = EconomicActionScope {
+            scope_id: "scope:1".into(),
+            action_ref: "action:1".into(),
+            purpose: DistributionPurpose::Discretionary,
+            required_dimensions: vec![
+                SubstrateDimension::Financial,
+                SubstrateDimension::Ecological,
+            ],
+            policy_ref: "policy:action-scope:v1".into(),
+            authority_ref: "authority:dao-1".into(),
+            attestation_ref: "attestation:scope:1".into(),
+            evidence_refs: vec!["evidence:scope:1".into()],
+            declared_at: 1_000,
+        };
+        let new_scope = EconomicActionScope {
+            scope_id: "scope:2".into(),
+            action_ref: "action:1".into(),
+            purpose: DistributionPurpose::Discretionary,
+            required_dimensions: vec![SubstrateDimension::Financial],
+            policy_ref: "policy:action-scope:v1".into(),
+            authority_ref: "authority:dao-1".into(),
+            attestation_ref: "attestation:scope:2".into(),
+            evidence_refs: vec!["evidence:scope:2".into()],
+            declared_at: 1_100,
+        };
+        let mut lifecycle = EconomicActionLifecycle::start(
+            &previous,
+            "revision:1",
+            "authority:dao-1",
+            vec!["evidence:revision-1".into()],
+            1_000,
+        )
+        .unwrap();
+
+        let result = lifecycle.amend_scope(
+            &previous,
+            &new_scope,
+            "revision:2",
+            "authority:dao-1",
+            vec!["evidence:relaxation".into()],
+            1_100,
+        );
+
+        assert!(result.is_err());
+    }
+
+    #[test]
     fn malformed_scope_fingerprint_is_rejected() {
         let mut lifecycle = start();
         lifecycle.revisions[0].scope_fingerprint = "not-a-hash".into();
@@ -786,6 +920,7 @@ mod tests {
     fn scope_must_retain_action_identity_on_amendment() {
         let mut lifecycle = start();
         let result = lifecycle.amend_scope(
+            &scope("action:1", "scope:1"),
             &scope("action:other", "scope:2"),
             "revision:2",
             "authority:dao-1",
