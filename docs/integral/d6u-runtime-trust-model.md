@@ -12,7 +12,7 @@ A future promotion from `ReferenceModelOnly` to a stronger qualification claim s
 
 ## Evidence chain
 
-The current chain is:
+The current PR-controlled chain is:
 
 1. Static manifest verification.
 2. Exact PR-head checkout assertion.
@@ -23,9 +23,11 @@ The current chain is:
 7. Per-case evidence verification against D6S-CANON-2.
 8. Runtime evidence-record reconstruction against repository state and workflow identity.
 9. Negative regression checks proving the evidence verifiers reject tampering.
-10. Build-provenance attestation for the three captured subjects.
-11. Post-attestation verification requiring the exact repository, signer workflow, signer workflow digest, workflow source digest, and GitHub-hosted execution.
-12. Explicit recording of the PR-head qualification subject separately from the `GITHUB_SHA` attestation source digest, because `pull_request` runs use the merge-context commit for `GITHUB_SHA`.
+10. Unprivileged upload of the captured runtime evidence artifacts.
+
+The PR-controlled workflow deliberately does **not** mint artifact attestations and does not request `id-token` or `attestations: write`. Signed provenance is deferred to a trusted default-branch builder that does not execute PR-controlled code.
+
+The exact PR-head qualification subject is recorded separately from GitHub's `GITHUB_SHA` merge-context digest; the former identifies what the runtime job actually checked out, while the latter is reserved as an input to a future trusted attestation workflow.
 
 ## Claim boundary
 
