@@ -87,7 +87,7 @@ The capsule is intentionally a self-validating evidence/debug surface, not an au
 52. The replay-independent evidence verifier also conserves admitted delivery identity: every recorded newly admitted delivery ID must be non-empty and unique across the entire trace. This prevents a self-consistently rehashed capsule from assigning two admission ordinals to the same logical delivery identity. The check is intentionally artifact-local; proving that the identities correspond to actual transition-created records still requires semantic replay.
 
 
-53. Schema \`5\` domain-separates the two SHA-256 constructions used by the trace artifact. The capsule-body digest and each evidence-chain digest carry distinct fixed hash domains both in their serialized hash views and at the hash-input boundary. The delimiter is explicit and the domain strings are constrained not to contain that delimiter byte. This prevents accidental cross-purpose reuse of one digest construction as another while keeping the profile/version boundary explicit.
+53. Schema `5` domain-separates the two SHA-256 constructions used by the trace artifact. The capsule-body digest and each evidence-chain digest carry distinct fixed hash domains both in their serialized hash views and at the hash-input boundary. The delimiter is explicit and the domain strings are constrained not to contain that delimiter byte. This prevents accidental cross-purpose reuse of one digest construction as another while keeping the profile/version boundary explicit.
 
 
 ## Future external checkpoint seam
