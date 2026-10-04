@@ -1,0 +1,17 @@
+# Mycelix tpm2_eventlog YAML v1 Adapter v0.1
+
+This adapter converts the exact tpm2_eventlog YAML version 1 representation into the canonical reconstruction input consumed by the independent PCR replay.
+
+The upstream utility supports YAML versions 1 and 2; this profile intentionally supports version 1 only. citeturn475700search0
+
+Each event preserves EventNum, PCRIndex, and EventType. For extending events, the adapter selects the SHA-256 measurement explicitly from Digests and rejects ambiguity. Real logs can contain multiple hash-bank digests in one event. citeturn475700search3
+
+EV_NO_ACTION records are emitted as non-extending controls. PCR0 StartupLocality is detected and surfaced explicitly; the replay layer then refuses to pretend that zero-state replay fully reconstructs a PCR whose initial state was modified by StartupLocality. HCRTM PCR0 handling is bounded the same way. citeturn475700search2
+
+The final pcrs.sha256 values are parsed independently from event replay. They are observations to compare against replay, not inputs to replay.
+
+Physical path:
+
+binary_bios_measurements → tpm2_eventlog v1 → bounded adapter → eventlog-reconstruction-input.json → independent PCR replay → platform Evidence verifier
+
+Claim ceiling remains ReferenceModelOnly.
