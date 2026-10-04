@@ -64,6 +64,20 @@ def main() -> None:
         if line.startswith("D6U_APPLICATION_CHECK\t")
     )
 
+    d6s2_ledger_schema = f"v{d6s2['version']}"
+    case_coverage = (
+        f"{observed_case_count}-of-{len(manifest['supported_reference_cases'])}"
+    )
+    supplemental_coverage = (
+        f"{observed_supplemental_count}-of-"
+        f"{len(manifest.get('supplemental_substrate_checks', []))}"
+    )
+    application_check_coverage = (
+        f"{observed_application_count}-of-"
+        f"{len(manifest.get('supplemental_application_checks', []))}"
+    )
+    runtime = f"holochain-{manifest['substrate']['holochain']}"
+
     expected = {
         "status": "runtime-reference-evidence",
         "source_commit": subprocess.run(
@@ -77,7 +91,7 @@ def main() -> None:
         "workflow_sha": git_blob_sha(WORKFLOW),
         "d6s2_manifest_git_blob_sha": git_blob_sha(D6S2_MANIFEST),
         "d6s2_fixture_git_blob_sha": git_blob_sha(D6S2_FIXTURE),
-        "d6s2_authority_ledger_schema": f"v{d6s2[\"version\"]}",
+        "d6s2_authority_ledger_schema": d6s2_ledger_schema,
         "d6s1_corpus_sha256": sha256(D6S1_CORPUS),
         "test_log_sha256": sha256(TEST_LOG),
         "manifest_version": str(manifest["version"]),
@@ -85,19 +99,11 @@ def main() -> None:
         "evidence_verifier_git_blob_sha": git_blob_sha(
             ROOT / manifest["evidence_verifier_path"]
         ),
-        "case_coverage": (
-            f"{observed_case_count}-of-{len(manifest["supported_reference_cases"])}"
-        ),
-        "supplemental_coverage": (
-            f"{observed_supplemental_count}-of-"
-            f"{len(manifest.get("supplemental_substrate_checks", []))}"
-        ),
-        "application_check_coverage": (
-            f"{observed_application_count}-of-"
-            f"{len(manifest.get("supplemental_application_checks", []))}"
-        ),
+        "case_coverage": case_coverage,
+        "supplemental_coverage": supplemental_coverage,
+        "application_check_coverage": application_check_coverage,
         "case_outcome_classes": ",".join(manifest["evidence_outcome_classes"]),
-        "runtime": f"holochain-{manifest["substrate"]["holochain"]}",
+        "runtime": runtime,
         "hdk": manifest["substrate"]["hdk"],
         "hdi": manifest["substrate"]["hdi"],
         "rust": subprocess.run(
