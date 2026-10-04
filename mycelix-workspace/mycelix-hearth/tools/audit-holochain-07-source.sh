@@ -841,6 +841,34 @@ check_qualification_workflow_provenance() {
     echo "FAIL: qualification workflow does not enforce exact candidate-SHA checkout provenance"
     fail=1
   fi
+  local expected_action_ref action_use_count pinned_action_count
+  local expected_action_refs=(
+    "actions/checkout@11d5960a326750d5838078e36cf38b85af677262"
+    "cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b"
+    "cachix/cachix-action@ad2ddac53f961de1989924296a1f236fcfbaa4fc"
+    "Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6"
+    "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02"
+  )
+  action_use_count="$(rg -n --pcre2 '^[[:space:]]*(?:-[[:space:]]+)?uses:' "$workflow" | wc -l)"
+  pinned_action_count="$(rg -n --pcre2 '^[[:space:]]*(?:-[[:space:]]+)?uses:[[:space:]]+[^[:space:]@]+@[0-9a-f]{40}[[:space:]]*(#.*)?$' "$workflow" | wc -l)"
+  if [[ "$action_use_count" -ne "${#expected_action_refs[@]}" ]]; then
+    echo "FAIL: qualification workflow action count changed: expected ${#expected_action_refs[@]}, got $action_use_count"
+    fail=1
+  elif [[ "$pinned_action_count" -ne "$action_use_count" ]]; then
+    echo "FAIL: qualification workflow contains unpinned action refs"
+    fail=1
+  else
+    echo "OK:   qualification workflow pins every action to a full commit SHA"
+  fi
+  for expected_action_ref in "${expected_action_refs[@]}"; do
+    if rg -n --fixed-strings "$expected_action_ref" "$workflow" >/dev/null 2>&1; then
+      echo "OK:   qualification workflow uses reviewed action ref $expected_action_ref"
+    else
+      echo "FAIL: qualification workflow is missing reviewed action ref $expected_action_ref"
+      fail=1
+    fi
+  done
+
   if rg -n --fixed-strings "cargo build --locked" "$workflow" >/dev/null 2>&1 \
     && rg -n --fixed-strings "cargo test --locked" "$workflow" >/dev/null 2>&1 \
     && rg -n --fixed-strings "cargo generate-lockfile" "$workflow" >/dev/null 2>&1; then
