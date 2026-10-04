@@ -3320,11 +3320,11 @@ mod tests {
                     );
 
                     if let Some(minimized_failure) = invariant_failure_from_plan(&minimized, trace_index) {
-                        panic_any_invariant_failure(minimized_failure);
+                        panic_invariant_failure(minimized_failure);
                     }
                 }
 
-                panic_any_invariant_failure(capsule);
+                panic_invariant_failure(capsule);
             }
 
             evidence.push(FederationStateMachineEvidence {
