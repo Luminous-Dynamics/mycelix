@@ -1,0 +1,294 @@
+{
+  "schema_version": 1,
+  "profile_id": "mycelix.security.comparative-benchmark",
+  "profile_version": "0.1.0",
+  "claim_ceiling": "ReferenceModelOnly",
+  "purpose": "Deterministic attack-reachability benchmark over explicit synthetic security topologies.",
+  "comparison_rule": {
+    "same_attacker": "attacker-001",
+    "same_resources": [
+      "resource-A",
+      "resource-B",
+      "resource-C",
+      "resource-D"
+    ],
+    "same_compromise_event_types": [
+      "stolen-credential",
+      "endpoint-compromise",
+      "workload-compromise",
+      "admin-compromise"
+    ],
+    "no_composite_score": true,
+    "external_deployment_required_for_real_world_claim": true
+  },
+  "metrics": [
+    "reachable_resources_after_compromise",
+    "max_boundary_depth",
+    "standing_privilege_count",
+    "revocation_latency_seconds",
+    "cross_domain_exposure_count"
+  ],
+  "architectures": {
+    "M-E1-reference": {
+      "kind": "mycelix-reference",
+      "nodes": [
+        "attacker",
+        "identity",
+        "device-posture",
+        "workload-posture",
+        "resource-A",
+        "resource-B",
+        "resource-C",
+        "resource-D",
+        "E1-policy"
+      ],
+      "protected_resource_requirements": {
+        "resource-A": [
+          "subject_identity",
+          "device_posture",
+          "workload_identity",
+          "security_domain",
+          "policy_version",
+          "purpose"
+        ],
+        "resource-B": [
+          "subject_identity",
+          "device_posture",
+          "workload_identity",
+          "security_domain",
+          "policy_version",
+          "purpose"
+        ],
+        "resource-C": [
+          "subject_identity",
+          "device_posture",
+          "workload_identity",
+          "security_domain",
+          "policy_version",
+          "purpose"
+        ],
+        "resource-D": [
+          "subject_identity",
+          "device_posture",
+          "workload_identity",
+          "security_domain",
+          "policy_version",
+          "purpose"
+        ]
+      },
+      "compromise_effects": {
+        "stolen-credential": [
+          "subject_identity"
+        ],
+        "endpoint-compromise": [
+          "device_posture"
+        ],
+        "workload-compromise": [
+          "workload_identity"
+        ],
+        "admin-compromise": [
+          "subject_identity",
+          "device_posture",
+          "workload_identity",
+          "security_domain",
+          "policy_version",
+          "purpose"
+        ],
+        "trust-root-compromise": [
+          "security_domain",
+          "policy_version"
+        ]
+      },
+      "trust_boundary_cost": {
+        "resource-A": 3,
+        "resource-B": 3,
+        "resource-C": 3,
+        "resource-D": 4
+      },
+      "standing_privilege_count": 0,
+      "revocation_latency_seconds": 30,
+      "cross_domain_exposure_count": 0
+    },
+    "B1-segmented-enterprise-reference": {
+      "kind": "synthetic-enterprise-reference",
+      "nodes": [
+        "attacker",
+        "identity",
+        "segment-gateway",
+        "admin-plane",
+        "resource-A",
+        "resource-B",
+        "resource-C",
+        "resource-D"
+      ],
+      "protected_resource_requirements": {
+        "resource-A": [
+          "subject_identity",
+          "network_segment"
+        ],
+        "resource-B": [
+          "subject_identity",
+          "network_segment"
+        ],
+        "resource-C": [
+          "subject_identity",
+          "network_segment",
+          "admin_plane"
+        ],
+        "resource-D": [
+          "subject_identity",
+          "network_segment",
+          "admin_plane"
+        ]
+      },
+      "compromise_effects": {
+        "stolen-credential": [
+          "subject_identity",
+          "network_segment"
+        ],
+        "endpoint-compromise": [
+          "network_segment"
+        ],
+        "workload-compromise": [
+          "network_segment"
+        ],
+        "admin-compromise": [
+          "subject_identity",
+          "network_segment",
+          "admin_plane"
+        ],
+        "trust-root-compromise": [
+          "subject_identity",
+          "network_segment",
+          "admin_plane"
+        ]
+      },
+      "trust_boundary_cost": {
+        "resource-A": 1,
+        "resource-B": 1,
+        "resource-C": 2,
+        "resource-D": 2
+      },
+      "standing_privilege_count": 2,
+      "revocation_latency_seconds": 300,
+      "cross_domain_exposure_count": 1
+    },
+    "B2-perimeter-reference": {
+      "kind": "synthetic-perimeter-reference",
+      "nodes": [
+        "attacker",
+        "identity",
+        "perimeter",
+        "resource-A",
+        "resource-B",
+        "resource-C",
+        "resource-D"
+      ],
+      "protected_resource_requirements": {
+        "resource-A": [
+          "subject_identity"
+        ],
+        "resource-B": [
+          "subject_identity"
+        ],
+        "resource-C": [
+          "subject_identity"
+        ],
+        "resource-D": [
+          "subject_identity"
+        ]
+      },
+      "compromise_effects": {
+        "stolen-credential": [
+          "subject_identity"
+        ],
+        "endpoint-compromise": [
+          "network_reachability"
+        ],
+        "workload-compromise": [
+          "network_reachability"
+        ],
+        "admin-compromise": [
+          "subject_identity",
+          "network_reachability"
+        ],
+        "trust-root-compromise": [
+          "subject_identity",
+          "network_reachability"
+        ]
+      },
+      "trust_boundary_cost": {
+        "resource-A": 1,
+        "resource-B": 1,
+        "resource-C": 1,
+        "resource-D": 1
+      },
+      "standing_privilege_count": 4,
+      "revocation_latency_seconds": 900,
+      "cross_domain_exposure_count": 3
+    }
+  },
+  "scenarios": [
+    {
+      "id": "BM-001",
+      "event": "stolen-credential"
+    },
+    {
+      "id": "BM-002",
+      "event": "endpoint-compromise"
+    },
+    {
+      "id": "BM-003",
+      "event": "workload-compromise"
+    },
+    {
+      "id": "BM-004",
+      "event": "admin-compromise"
+    },
+    {
+      "id": "BM-005",
+      "event": "revoked-credential"
+    },
+    {
+      "id": "BM-006",
+      "event": "stale-device-posture"
+    },
+    {
+      "id": "BM-007",
+      "event": "stale-policy"
+    },
+    {
+      "id": "BM-008",
+      "event": "trust-root-compromise"
+    }
+  ],
+  "expected_reference_results": {
+    "M-E1-reference": {
+      "stolen-credential": 0,
+      "endpoint-compromise": 0,
+      "workload-compromise": 0,
+      "admin-compromise": 4
+    },
+    "B1-segmented-enterprise-reference": {
+      "stolen-credential": 2,
+      "endpoint-compromise": 0,
+      "workload-compromise": 0,
+      "admin-compromise": 4
+    },
+    "B2-perimeter-reference": {
+      "stolen-credential": 4,
+      "endpoint-compromise": 4,
+      "workload-compromise": 4,
+      "admin-compromise": 4
+    }
+  },
+  "falsification_rules": [
+    "missing required authorization dimension is treated as satisfied",
+    "compromise state silently persists after revocation",
+    "different scenarios use different resource sets",
+    "benchmark harness has more authority than architecture under test",
+    "synthetic baseline is described as an observed real-world implementation",
+    "composite score hides metric regressions",
+    "trust boundary count is inferred from product name"
+  ]
+}

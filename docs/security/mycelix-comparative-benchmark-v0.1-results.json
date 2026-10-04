@@ -1,0 +1,196 @@
+{
+  "schema_version": 1,
+  "artifact_type": "comparative-security-reference-run",
+  "profile_id": "mycelix.security.comparative-benchmark",
+  "profile_version": "0.1.0",
+  "qualification_ceiling": "ReferenceModelOnly",
+  "source_branch": "security/comparative-benchmark-v0.1",
+  "source_head": "084c771b2a6329f60873ed3cad7129f0ce54f06e",
+  "execution_type": "independent-semantic-replay",
+  "real_world_baselines_used": false,
+  "composite_score": null,
+  "architectures": {
+    "M-E1-reference": {
+      "credential_compromise": {
+        "reachable_resources": 0,
+        "max_boundary_depth": 0,
+        "standing_privilege": 0,
+        "revocation_latency_seconds": 30,
+        "cross_domain_exposure": 0
+      },
+      "endpoint_compromise": {
+        "reachable_resources": 0,
+        "max_boundary_depth": 0,
+        "standing_privilege": 0,
+        "revocation_latency_seconds": 30,
+        "cross_domain_exposure": 0
+      },
+      "workload_compromise": {
+        "reachable_resources": 0,
+        "max_boundary_depth": 0,
+        "standing_privilege": 0,
+        "revocation_latency_seconds": 30,
+        "cross_domain_exposure": 0
+      },
+      "admin_compromise": {
+        "reachable_resources": 4,
+        "max_boundary_depth": 4,
+        "standing_privilege": 0,
+        "revocation_latency_seconds": 30,
+        "cross_domain_exposure": 0
+      },
+      "revoked_credential": {
+        "reachable_resources": 0,
+        "max_boundary_depth": 0,
+        "standing_privilege": 0,
+        "revocation_latency_seconds": 30,
+        "cross_domain_exposure": 0
+      },
+      "stale_device_posture": {
+        "reachable_resources": 0,
+        "max_boundary_depth": 0,
+        "standing_privilege": 0,
+        "revocation_latency_seconds": 30,
+        "cross_domain_exposure": 0
+      },
+      "stale_policy": {
+        "reachable_resources": 0,
+        "max_boundary_depth": 0,
+        "standing_privilege": 0,
+        "revocation_latency_seconds": 30,
+        "cross_domain_exposure": 0
+      },
+      "trust_root_compromise": {
+        "reachable_resources": 0,
+        "max_boundary_depth": 0,
+        "standing_privilege": 0,
+        "revocation_latency_seconds": 30,
+        "cross_domain_exposure": 0
+      }
+    },
+    "B1-segmented-enterprise-reference": {
+      "credential_compromise": {
+        "reachable_resources": 2,
+        "max_boundary_depth": 1,
+        "standing_privilege": 2,
+        "revocation_latency_seconds": 300,
+        "cross_domain_exposure": 1
+      },
+      "endpoint_compromise": {
+        "reachable_resources": 0,
+        "max_boundary_depth": 0,
+        "standing_privilege": 2,
+        "revocation_latency_seconds": 300,
+        "cross_domain_exposure": 1
+      },
+      "workload_compromise": {
+        "reachable_resources": 0,
+        "max_boundary_depth": 0,
+        "standing_privilege": 2,
+        "revocation_latency_seconds": 300,
+        "cross_domain_exposure": 1
+      },
+      "admin_compromise": {
+        "reachable_resources": 4,
+        "max_boundary_depth": 2,
+        "standing_privilege": 2,
+        "revocation_latency_seconds": 300,
+        "cross_domain_exposure": 1
+      },
+      "revoked_credential": {
+        "reachable_resources": 0,
+        "max_boundary_depth": 0,
+        "standing_privilege": 2,
+        "revocation_latency_seconds": 300,
+        "cross_domain_exposure": 1
+      },
+      "stale_device_posture": {
+        "reachable_resources": 0,
+        "max_boundary_depth": 0,
+        "standing_privilege": 2,
+        "revocation_latency_seconds": 300,
+        "cross_domain_exposure": 1
+      },
+      "stale_policy": {
+        "reachable_resources": 0,
+        "max_boundary_depth": 0,
+        "standing_privilege": 2,
+        "revocation_latency_seconds": 300,
+        "cross_domain_exposure": 1
+      },
+      "trust_root_compromise": {
+        "reachable_resources": 4,
+        "max_boundary_depth": 2,
+        "standing_privilege": 2,
+        "revocation_latency_seconds": 300,
+        "cross_domain_exposure": 1
+      }
+    },
+    "B2-perimeter-reference": {
+      "credential_compromise": {
+        "reachable_resources": 4,
+        "max_boundary_depth": 1,
+        "standing_privilege": 4,
+        "revocation_latency_seconds": 900,
+        "cross_domain_exposure": 3
+      },
+      "endpoint_compromise": {
+        "reachable_resources": 4,
+        "max_boundary_depth": 1,
+        "standing_privilege": 4,
+        "revocation_latency_seconds": 900,
+        "cross_domain_exposure": 3
+      },
+      "workload_compromise": {
+        "reachable_resources": 4,
+        "max_boundary_depth": 1,
+        "standing_privilege": 4,
+        "revocation_latency_seconds": 900,
+        "cross_domain_exposure": 3
+      },
+      "admin_compromise": {
+        "reachable_resources": 4,
+        "max_boundary_depth": 1,
+        "standing_privilege": 4,
+        "revocation_latency_seconds": 900,
+        "cross_domain_exposure": 3
+      },
+      "revoked_credential": {
+        "reachable_resources": 0,
+        "max_boundary_depth": 0,
+        "standing_privilege": 4,
+        "revocation_latency_seconds": 900,
+        "cross_domain_exposure": 3
+      },
+      "stale_device_posture": {
+        "reachable_resources": 0,
+        "max_boundary_depth": 0,
+        "standing_privilege": 4,
+        "revocation_latency_seconds": 900,
+        "cross_domain_exposure": 3
+      },
+      "stale_policy": {
+        "reachable_resources": 0,
+        "max_boundary_depth": 0,
+        "standing_privilege": 4,
+        "revocation_latency_seconds": 900,
+        "cross_domain_exposure": 3
+      },
+      "trust_root_compromise": {
+        "reachable_resources": 4,
+        "max_boundary_depth": 1,
+        "standing_privilege": 4,
+        "revocation_latency_seconds": 900,
+        "cross_domain_exposure": 3
+      }
+    }
+  },
+  "bounded_reference_observations": [
+    "Under this synthetic topology, stolen-credential reach is 0/2/4 across M-E1/B1/B2.",
+    "Under this synthetic topology, endpoint-compromise reach is 0/0/4 across M-E1/B1/B2.",
+    "Under this synthetic topology, workload-compromise reach is 0/0/4 across M-E1/B1/B2.",
+    "Under this synthetic topology, standing privilege is 0/2/4 across M-E1/B1/B2.",
+    "Under this synthetic topology, configured revocation latency is 30/300/900 seconds across M-E1/B1/B2.",
+    "These are reference-model outputs, not measurements of deployed systems."
+  ]
+}
