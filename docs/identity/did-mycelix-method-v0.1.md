@@ -132,6 +132,12 @@ New Mycelix credentials now default to the W3C Recommendation's
 `eddsa-jcs-2022` proof profile: RFC 8785 JSON Canonicalization Scheme,
 SHA-256 hashing of the canonical proof configuration and unsecured credential,
 followed by an Ed25519 signature encoded as base58-btc Multibase.
+The serialized JCS DataIntegrityProof also carries its `@context`, copied
+from the unsecured credential during proof creation. The integrity boundary
+requires that proof context to exactly match the credential context. Proof
+verification then resolves the issuer DID, requires the declared verification
+method to be an Ed25519 `Multikey` authorized by `assertionMethod`, and checks
+the current DID is active before treating the credential as currently valid.
 
 The older `mycelix-blake2b-ed25519-2026` profile remains available as an explicit
 compatibility mode for pre-standard records and controlled migration. Legacy
