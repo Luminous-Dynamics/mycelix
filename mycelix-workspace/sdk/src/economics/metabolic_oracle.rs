@@ -13,6 +13,7 @@
 //! - Counter-cyclical: When stressed, lower fees + expand TEND limits
 
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 /// Policy bounds preventing runaway self-modification
 /// These are constitutional constraints that cannot be modified by the oracle
@@ -196,6 +197,96 @@ pub struct PolicyAdjustment {
     pub requires_approval: bool,
 }
 
+/// A governed record authorizing application of a policy adjustment.
+///
+/// The oracle may recommend an adjustment from observed network vitality, but
+/// application becomes a separate governance event with explicit provenance.
+/// Observation references do not assert that the observations are sufficient
+/// for any universal monetary policy; they make the evidentiary basis auditable.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GovernedPolicyAdjustment {
+    /// Unique decision identifier.
+    pub decision_id: String,
+    /// References to the observations used in the decision.
+    pub observation_refs: Vec<String>,
+    /// Policy/rule reference authorizing the decision.
+    pub rule_ref: String,
+    /// Authority reference for the decision.
+    pub authority_ref: String,
+    /// Recommended adjustment being authorized.
+    pub adjustment: PolicyAdjustment,
+    /// Time at which the decision was authorized.
+    pub decided_at: u64,
+}
+
+impl GovernedPolicyAdjustment {
+    /// Validate the decision envelope before it can change policy state.
+    pub fn validate(&self) -> Result<(), String> {
+        if self.decision_id.trim().is_empty() {
+            return Err("Policy decision ID cannot be empty".into());
+        }
+        if self.observation_refs.is_empty() {
+            return Err("Policy decision requires at least one observation reference".into());
+        }
+        if self
+            .observation_refs
+            .iter()
+            .any(|reference| reference.trim().is_empty())
+        {
+            return Err("Policy observation references cannot be empty".into());
+        }
+        if self.rule_ref.trim().is_empty() {
+            return Err("Policy decision rule reference cannot be empty".into());
+        }
+        if self.authority_ref.trim().is_empty() {
+            return Err("Policy decision authority reference cannot be empty".into());
+        }
+        if self.adjustment.reason.trim().is_empty() {
+            return Err("Policy adjustment reason cannot be empty".into());
+        }
+
+        for (name, value) in [
+            ("fee rate factor", self.adjustment.fee_rate_factor),
+            ("demurrage rate factor", self.adjustment.demurrage_rate_factor),
+            ("velocity incentive", self.adjustment.velocity_incentive),
+        ] {
+            if !value.is_finite() || value < 0.0 {
+                return Err(format!(
+                    "Policy adjustment {name} must be finite and non-negative"
+                ));
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Return a deterministic content fingerprint for the governed decision.
+    ///
+    /// The fingerprint is a tamper-evident identifier, not a signature or proof
+    /// that the referenced authority actually authorized the decision.
+    pub fn fingerprint(&self) -> Result<String, String> {
+        self.validate()?;
+        let mut observation_refs = self.observation_refs.clone();
+        observation_refs.sort();
+
+        let payload = serde_json::json!({
+            "version": 1,
+            "decision_id": self.decision_id,
+            "observation_refs": observation_refs,
+            "rule_ref": self.rule_ref,
+            "authority_ref": self.authority_ref,
+            "adjustment": self.adjustment,
+            "decided_at": self.decided_at,
+        });
+        let canonical = serde_json::to_vec(&payload)
+            .map_err(|error| format!("Policy decision canonicalization failed: {error}"))?;
+        let mut hasher = Sha256::new();
+        hasher.update(b"MYCELIX-ECONOMIC-POLICY-DECISION-V1\\0");
+        hasher.update(canonical);
+        Ok(hex::encode(hasher.finalize()))
+    }
+}
+
 /// The Metabolic Oracle for autopoietic parameter adjustment
 #[derive(Debug, Clone)]
 pub struct MetabolicOracle {
@@ -205,8 +296,10 @@ pub struct MetabolicOracle {
     pub current_params: NetworkParameters,
     /// Historical vitality readings (365-day rolling)
     pub vitality_history: Vec<VitalityIndex>,
-    /// Adjustment history for audit
+    /// Adjustment history for audit and backwards-compatible inspection.
     pub adjustment_history: Vec<PolicyAdjustment>,
+    /// Explicit governance decisions authorizing parameter changes.
+    pub governed_decision_history: Vec<GovernedPolicyAdjustment>,
 }
 
 /// Current network economic parameters
@@ -244,6 +337,7 @@ impl MetabolicOracle {
             current_params: NetworkParameters::default(),
             vitality_history: Vec::new(),
             adjustment_history: Vec::new(),
+            governed_decision_history: Vec::new(),
         }
     }
 
@@ -381,12 +475,7 @@ impl MetabolicOracle {
         }
     }
 
-    /// Apply adjustment with bounds checking
-    pub fn apply_adjustment(&mut self, adjustment: &PolicyAdjustment) -> Result<(), String> {
-        if adjustment.requires_approval {
-            return Err("Adjustment requires governance approval".to_string());
-        }
-
+    fn apply_adjustment_unchecked(&mut self, adjustment: &PolicyAdjustment) {
         let new_fee = self.current_params.fee_rate * adjustment.fee_rate_factor;
         self.current_params.fee_rate =
             new_fee.clamp(self.bounds.fee_rate_min, self.bounds.fee_rate_max);
@@ -401,8 +490,44 @@ impl MetabolicOracle {
         self.current_params.tend_limit_tier = adjustment.tend_limit_tier;
 
         self.adjustment_history.push(adjustment.clone());
+    }
 
+    /// Apply an adjustment directly when the caller has already established
+    /// governance externally. This remains useful for deterministic simulation.
+    pub fn apply_adjustment(&mut self, adjustment: &PolicyAdjustment) -> Result<(), String> {
+        if adjustment.requires_approval {
+            return Err("Adjustment requires governance approval".to_string());
+        }
+        self.apply_adjustment_unchecked(adjustment);
         Ok(())
+    }
+
+    /// Apply a policy adjustment with explicit decision provenance.
+    ///
+    /// This is the governance-safe application path: the recommendation is
+    /// separated from the authorization event, and the authorization is kept
+    /// in an append-only in-memory history for later persistence by the host.
+    pub fn apply_governed_adjustment(
+        &mut self,
+        decision: GovernedPolicyAdjustment,
+    ) -> Result<String, String> {
+        decision.validate()?;
+
+        if self
+            .governed_decision_history
+            .iter()
+            .any(|existing| existing.decision_id == decision.decision_id)
+        {
+            return Err(format!(
+                "Duplicate policy decision ID: {}",
+                decision.decision_id
+            ));
+        }
+
+        let fingerprint = decision.fingerprint()?;
+        self.apply_adjustment_unchecked(&decision.adjustment);
+        self.governed_decision_history.push(decision);
+        Ok(fingerprint)
     }
 
     /// Get current vitality state
@@ -504,6 +629,77 @@ mod tests {
         assert_eq!(adjustment.tend_limit_tier, TendLimitTier::Elevated);
         assert!(adjustment.fee_rate_factor < 1.0);
         assert!(adjustment.velocity_incentive > 1.0);
+    }
+
+    #[test]
+    fn test_governed_policy_requires_observation_and_authority() {
+        let mut oracle = MetabolicOracle::new();
+        let adjustment = oracle.generate_adjustment();
+        let decision = GovernedPolicyAdjustment {
+            decision_id: "decision:1".into(),
+            observation_refs: Vec::new(),
+            rule_ref: "rule:countercyclical:v1".into(),
+            authority_ref: "authority:dao-1".into(),
+            adjustment,
+            decided_at: 1_000,
+        };
+
+        assert!(oracle.apply_governed_adjustment(decision).is_err());
+    }
+
+    #[test]
+    fn test_governed_policy_records_authorization_and_fingerprint() {
+        let mut oracle = MetabolicOracle::new();
+        let adjustment = oracle.generate_adjustment();
+        let decision = GovernedPolicyAdjustment {
+            decision_id: "decision:1".into(),
+            observation_refs: vec!["observation:vitality:1".into()],
+            rule_ref: "rule:countercyclical:v1".into(),
+            authority_ref: "authority:dao-1".into(),
+            adjustment,
+            decided_at: 1_000,
+        };
+
+        let fingerprint = decision.fingerprint().unwrap();
+        assert_eq!(fingerprint.len(), 64);
+        let applied = oracle.apply_governed_adjustment(decision).unwrap();
+        assert_eq!(applied.len(), 64);
+        assert_eq!(oracle.governed_decision_history.len(), 1);
+        assert_eq!(oracle.governed_decision_history[0].authority_ref, "authority:dao-1");
+    }
+
+    #[test]
+    fn test_governed_policy_rejects_duplicate_decision() {
+        let mut oracle = MetabolicOracle::new();
+        let decision = GovernedPolicyAdjustment {
+            decision_id: "decision:1".into(),
+            observation_refs: vec!["observation:vitality:1".into()],
+            rule_ref: "rule:countercyclical:v1".into(),
+            authority_ref: "authority:dao-1".into(),
+            adjustment: oracle.generate_adjustment(),
+            decided_at: 1_000,
+        };
+        let second = decision.clone();
+
+        oracle.apply_governed_adjustment(decision).unwrap();
+        assert!(oracle.apply_governed_adjustment(second).is_err());
+    }
+
+    #[test]
+    fn test_governed_policy_rejects_non_finite_factor() {
+        let mut oracle = MetabolicOracle::new();
+        let mut adjustment = oracle.generate_adjustment();
+        adjustment.fee_rate_factor = f64::NAN;
+        let decision = GovernedPolicyAdjustment {
+            decision_id: "decision:1".into(),
+            observation_refs: vec!["observation:vitality:1".into()],
+            rule_ref: "rule:countercyclical:v1".into(),
+            authority_ref: "authority:dao-1".into(),
+            adjustment,
+            decided_at: 1_000,
+        };
+
+        assert!(oracle.apply_governed_adjustment(decision).is_err());
     }
 
     #[test]
