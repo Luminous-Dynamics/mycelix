@@ -1102,11 +1102,11 @@ extinction of the financial claim. Unilateral writing-off/write-down outside a
 mutual agreement is recorded as an other change in the volume of assets and
 liabilities.
 
-The model therefore leaves a deliberate future boundary:
+The model therefore preserves a deliberate accounting boundary:
 
 `DebtWriteOff` -> other-volume adjustment
 
-future `DebtForgiveness` -> capital transfer + financial-account extinction
+`DebtForgiveness` -> capital transfer + financial-account extinction
 
 That prevents a negotiated transfer of wealth from being silently classified as
 a unilateral volume adjustment.
