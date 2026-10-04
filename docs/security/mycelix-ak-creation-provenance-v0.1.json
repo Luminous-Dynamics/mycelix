@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "artifact_type": "mycelix-ak-creation-provenance-v0.1",
+  "profile_id": "mycelix.security.tpm.ak-creation-provenance",
+  "profile_version": "0.1.0",
+  "status": "executable-reference-profile",
+  "claim_ceiling": "ReferenceModelOnly",
+  "decision_algebra": "ANY DENY > ANY INDETERMINATE > ALL PASS",
+  "states": ["PASS", "DENY", "INDETERMINATE"],
+  "theorem": {
+    "statement": "Creation provenance is admissible only when the TPM creation record, its parent identity, the created AK identity, the TPM-produced creation hash/ticket, and the CertifyCreation attestation all bind to the same session.",
+    "required_relations": [
+      "creation_data.parent_name_alg is explicit",
+      "creation_data.parent_name equals the observed EK Name",
+      "creation_data.parent_qualified_name equals the observed EK Qualified Name",
+      "creation_record.object_name equals the observed AK Name",
+      "creation_record.object_public_sha256 equals the observed AK public digest",
+      "creation_record.creation_hash binds the creation-data object",
+      "creation_record.creation_ticket is recorded as TPM-produced material",
+      "certification.attestation_type is TPM2_CREATION",
+      "certification.certified_object_name equals the created AK Name",
+      "certification.certified_creation_hash equals the creation hash",
+      "certification.signature verification is explicit",
+      "creation-data PCR/locality/outsideInfo context is retained rather than discarded"
+    ]
+  },
+  "wire_format_boundary": "v0.1 requires hashes and parsed fields from the TPM creation-data output; it does not claim to independently re-marshal and hash TPMS_CREATION_DATA from the JSON representation. The captured creation-data wire bytes remain the authoritative input for future wire-level parsing.",
+  "required_input": {
+    "session_id": "capture session identifier",
+    "tpm_identity_digest": "sha256 digest identifying the capture TPM context",
+    "ek": ["public_sha256", "name_hex", "qualified_name_hex"],
+    "ak": ["public_sha256", "name_hex"],
+    "signing_key": ["public_sha256", "role"],
+    "creation_data": ["state", "parent_name_alg_hex", "parent_name_hex", "parent_qualified_name_hex", "pcr_select", "pcr_digest_hex", "locality", "outside_info_sha256", "wire_sha256"],
+    "creation_record": ["state", "object_name_alg", "object_name_hex", "object_public_sha256", "creation_data_sha256", "creation_hash_hex", "creation_ticket_sha256", "creation_data_wire_sha256"],
+    "certification": ["state", "attestation_type", "session_id", "tpm_identity_digest", "certified_object_name_hex", "certified_creation_hash_hex", "signing_key_sha256", "qualifying_data_sha256", "signature_sha256", "signature_verification_scope", "ticket_validation_state", "creation_ticket_sha256"]
+  },
+  "non_equivalences": [
+    ["creation_hash_matches", "TPM_creation_ticket_validated"],
+    ["creation_certificate_signature_valid", "signing_key_is_TPM_resident"],
+    ["creation_parent_qname_matches", "live_EK_authenticity"],
+    ["creation_provenance_pass", "AK_EK_credential_activation"],
+    ["creation_provenance_pass", "platform_measured_boot_valid"]
+  ],
+  "vectors": [
+    {"id":"ACP-V01","mutation":"canonical-valid","expected":"PASS"},
+    {"id":"ACP-V02","mutation":"parent-name-substitution","expected":"DENY"},
+    {"id":"ACP-V03","mutation":"parent-qname-substitution","expected":"DENY"},
+    {"id":"ACP-V04","mutation":"parent-name-alg-substitution","expected":"DENY"},
+    {"id":"ACP-V05","mutation":"ak-name-substitution","expected":"DENY"},
+    {"id":"ACP-V06","mutation":"ak-public-substitution","expected":"DENY"},
+    {"id":"ACP-V07","mutation":"creation-data-hash-substitution","expected":"DENY"},
+    {"id":"ACP-V08","mutation":"creation-ticket-substitution","expected":"DENY"},
+    {"id":"ACP-V09","mutation":"certified-object-name-substitution","expected":"DENY"},
+    {"id":"ACP-V10","mutation":"certified-creation-hash-substitution","expected":"DENY"},
+    {"id":"ACP-V11","mutation":"certification-type-substitution","expected":"DENY"},
+    {"id":"ACP-V12","mutation":"signature-unverified","expected":"DENY"},
+    {"id":"ACP-V13","mutation":"ticket-validation-deny","expected":"DENY"},
+    {"id":"ACP-V14","mutation":"ticket-validation-indeterminate","expected":"INDETERMINATE"},
+    {"id":"ACP-V15","mutation":"creation-data-indeterminate","expected":"INDETERMINATE"},
+    {"id":"ACP-V16","mutation":"certification-indeterminate","expected":"INDETERMINATE"},
+    {"id":"ACP-V17","mutation":"session-substitution","expected":"DENY"},
+    {"id":"ACP-V18","mutation":"tpm-substitution","expected":"DENY"},
+    {"id":"ACP-V19","mutation":"signing-key-substitution","expected":"DENY"},
+    {"id":"ACP-V20","mutation":"wire-hash-substitution","expected":"DENY"},
+    {"id":"ACP-V21","mutation":"offline-bundle","expected":"INDETERMINATE"},
+    {"id":"ACP-V22","mutation":"creation-state-invalid","expected":"DENY"},
+    {"id":"ACP-V23","mutation":"key-order-permutation","expected":"PASS"}
+  ],
+  "future_live_capture_requirements": [
+    "use tpm2_create or an equivalent TPM2_Create path with --creation-data, --creation-hash and --creation-ticket outputs",
+    "retain the raw creation-data wire bytes and compute their SHA-256 independently of any rendered representation",
+    "read the created AK public area, Name and Qualified Name from the TPM",
+    "execute tpm2_certifycreation with an explicitly trusted signing-key lineage",
+    "retain the TPM2_CREATION attestation structure, signature, qualifying data, and ticket-validation result",
+    "bind the creation certificate to the same session and TPM identity as AK/EK credential activation and Quote"
+  ]
+}
