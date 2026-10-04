@@ -151,6 +151,25 @@ def build_bundle(bundle: Path) -> dict:
         raise RuntimeError(payload_proc.stdout + payload_proc.stderr)
     payload_coherence = json.loads(payload_coherence_path.read_text(encoding="utf-8"))
 
+    reference_appraisal_path = bundle / "reference-appraisal.json"
+    reference_proc = subprocess.run(
+        [
+            sys.executable,
+            str(SECURITY / "verify_mycelix_reference_value_appraisal_v0_1.py"),
+            "--appraise",
+            str(bundle / "reference-values.json"),
+            "--output",
+            str(reference_appraisal_path),
+        ],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if reference_proc.returncode != 0:
+        raise RuntimeError(reference_proc.stdout + reference_proc.stderr)
+    reference_appraisal = json.loads(reference_appraisal_path.read_text(encoding="utf-8"))
+
     values = reconstruction["observed_pcr_values"]
     (bundle / "pcr-post.yaml").write_text(
         "sha256:\n" + "".join(
@@ -199,6 +218,17 @@ def build_bundle(bundle: Path) -> dict:
         ),
         "input_sha256": platform.sha256_file(input_path),
     }
+    manifest["reference_appraisal"] = {
+        "status": reference_appraisal["state"],
+        "output_sha256": platform.sha256_file(reference_appraisal_path),
+        "source_sha256": platform.sha256_file(
+            SECURITY / "verify_mycelix_reference_value_appraisal_v0_1.py"
+        ),
+        "registry_sha256": platform.sha256_file(
+            ROOT / "docs/security/mycelix-reference-value-registry-v0.1.json"
+        ),
+        "input_sha256": platform.sha256_file(bundle / "reference-values.json"),
+    }
     manifest["live_observation"]["selection"] = reconstruction["pcr_selection"]
     manifest["live_observation"]["pcr_values_sha256"] = reconstruction["observed_pcrs_sha256"]
     manifest["live_observation"]["pcr_post_artifact_sha256"] = platform.sha256_file(bundle / "pcr-post.yaml")
@@ -219,6 +249,7 @@ def build_bundle(bundle: Path) -> dict:
     manifest["artifacts"]["observed_pcr_values_file_sha256"] = platform.sha256_file(observed_pcr_path)
     manifest["artifacts"]["raw_eventlog_output_sha256"] = platform.sha256_file(raw_eventlog_path)
     manifest["artifacts"]["payload_coherence_output_sha256"] = platform.sha256_file(payload_coherence_path)
+    manifest["artifacts"]["reference_appraisal_output_sha256"] = platform.sha256_file(reference_appraisal_path)
     manifest["artifacts"]["raw_eventlog_output_sha256"] = platform.sha256_file(raw_eventlog_path)
     manifest["artifacts"]["payload_coherence_output_sha256"] = platform.sha256_file(payload_coherence_path)
     manifest["artifacts"]["tss_version_evidence_sha256"] = platform.sha256_file(bundle / "tss-version-evidence.txt")
