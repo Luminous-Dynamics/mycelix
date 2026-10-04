@@ -556,6 +556,9 @@ pub fn verify_credential(credential_id: String) -> ExternResult<VerificationResu
 
     let now = sys_time()?;
     let mut errors = Vec::new();
+    let mut format_check_passed = true;
+    let mut proof_signature_passed = false;
+    let mut proof_purpose_passed = false;
 
     // Validate the full validity window using the issuer-declared temporal
     // semantics. New entries are checked again here so legacy records cannot
@@ -563,6 +566,7 @@ pub fn verify_credential(credential_id: String) -> ExternResult<VerificationResu
     let valid_from = match parse_iso8601_to_micros(&credential.valid_from) {
         Some(micros) => Some(Timestamp::from_micros(micros)),
         None => {
+            format_check_passed = false;
             errors.push(format!(
                 "Credential validFrom unparseable (fail-closed): '{}'",
                 credential.valid_from
@@ -580,15 +584,19 @@ pub fn verify_credential(credential_id: String) -> ExternResult<VerificationResu
                 Some(micros) => {
                     let valid_until = Timestamp::from_micros(micros);
                     if valid_from > valid_until {
+                        format_check_passed = false;
                         errors.push("Credential validity interval is inverted".to_string());
                     } else if now > valid_until {
                         errors.push("Credential has expired".to_string());
                     }
                 }
-                None => errors.push(format!(
-                    "Credential validUntil unparseable (fail-closed): '{}'",
-                    valid_until
-                )),
+                None => {
+                    format_check_passed = false;
+                    errors.push(format!(
+                        "Credential validUntil unparseable (fail-closed): '{}'",
+                        valid_until
+                    ));
+                },
             }
         }
     }
@@ -621,13 +629,14 @@ pub fn verify_credential(credential_id: String) -> ExternResult<VerificationResu
         &credential.proof.verification_method,
         credential.issuer.did(),
     ) {
+        format_check_passed = false;
         errors.push("Proof verification method does not belong to issuer DID".to_string());
     }
 
     // Verify ed25519 signature using HDK
     match verify_credential_signature(&credential) {
         Ok(true) => {
-            // Signature is valid
+            proof_signature_passed = true;
         }
         Ok(false) => {
             errors.push("Proof signature verification failed".to_string());
@@ -638,12 +647,15 @@ pub fn verify_credential(credential_id: String) -> ExternResult<VerificationResu
     }
 
     // Check proof purpose
-    if credential.proof.proof_purpose != "assertionMethod" {
+    if credential.proof.proof_purpose == "assertionMethod" {
+        proof_purpose_passed = true;
+    } else {
         errors.push("Invalid proof purpose".to_string());
     }
 
     // Check issuer DID format
     if !credential.issuer.did().starts_with("did:") {
+        format_check_passed = false;
         errors.push("Invalid issuer DID".into());
     }
 
@@ -665,14 +677,21 @@ pub fn verify_credential(credential_id: String) -> ExternResult<VerificationResu
         }
     }
 
+    let mut checks_passed = Vec::with_capacity(3);
+    if format_check_passed {
+        checks_passed.push("format".to_string());
+    }
+    if proof_signature_passed {
+        checks_passed.push("proof_signature".to_string());
+    }
+    if proof_purpose_passed {
+        checks_passed.push("proof_purpose".to_string());
+    }
+
     Ok(VerificationResult {
         credential_id,
         valid: errors.is_empty(),
-        checks_passed: vec![
-            "format".to_string(),
-            "proof_signature".to_string(),
-            "proof_purpose".to_string(),
-        ],
+        checks_passed,
         errors,
         verified_at: now,
     })
