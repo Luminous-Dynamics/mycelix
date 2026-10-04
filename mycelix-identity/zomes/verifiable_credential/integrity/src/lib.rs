@@ -1427,6 +1427,45 @@ mod tests {
     }
 
     #[test]
+    fn vc_validator_rejects_inverted_validity_interval() {
+        let mut vc = minimal_vc();
+        vc.valid_until = Some("2025-12-31T23:59:59Z".into());
+        let result = validate_create_verifiable_credential(
+            EntryCreationAction::Create(test_action(me())),
+            vc,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn vc_validator_rejects_malformed_validity_timestamp() {
+        let mut vc = minimal_vc();
+        vc.valid_from = "not-a-timestamp".into();
+        let result = validate_create_verifiable_credential(
+            EntryCreationAction::Create(test_action(me())),
+            vc,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn vc_validator_requires_base_context_first() {
+        let mut vc = minimal_vc();
+        vc.context = vec![
+            "https://example.invalid/context".into(),
+            "https://www.w3.org/ns/credentials/v2".into(),
+        ];
+        let result = validate_create_verifiable_credential(
+            EntryCreationAction::Create(test_action(me())),
+            vc,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
     fn vc_validity_interval_is_ordered() {
         let from = "2026-01-01T00:00:00Z".parse::<Timestamp>().unwrap();
         let until = "2026-01-02T00:00:00Z".parse::<Timestamp>().unwrap();
