@@ -671,8 +671,11 @@ mod linux {
                     instruction.code == BPF_RET | BPF_K
                         && instruction.k == SECCOMP_RET_ALLOW
                 });
+            let is_sole_unconditional_allow = body_start
+                .checked_add(1)
+                .is_some_and(|next| next == body_end);
             if !is_argument_load(body_start)
-                && (!starts_with_unconditional_allow || body_start + 1 != body_end)
+                && (!starts_with_unconditional_allow || !is_sole_unconditional_allow)
             {
                 return Err(SeccompError::CompilerInvariantViolation);
             }
