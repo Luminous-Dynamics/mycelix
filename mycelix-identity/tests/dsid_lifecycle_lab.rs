@@ -4134,7 +4134,10 @@ async fn dsid_043_request_bound_issuance_is_deterministically_idempotent() {
         )
         .await;
 
+    let domain = b"mycelix:vc-request-credential:v1";
     let mut material = Vec::new();
+    material.extend_from_slice(domain);
+    material.push(0);
     material.extend_from_slice(issuer_did.as_bytes());
     material.push(0);
     material.extend_from_slice(request_id.as_bytes());
