@@ -97,7 +97,7 @@ def main() -> None:
             f"{len(manifest.get("supplemental_application_checks", []))}"
         ),
         "case_outcome_classes": ",".join(manifest["evidence_outcome_classes"]),
-        "runtime": manifest["substrate"]["holochain"],
+        "runtime": f"holochain-{manifest["substrate"]["holochain"]}",
         "hdk": manifest["substrate"]["hdk"],
         "hdi": manifest["substrate"]["hdi"],
         "rust": subprocess.run(
