@@ -61,3 +61,10 @@ Each supplemental substrate check emits two separate records: a `D6U_RUNTIME_WIT
 A successful run is runtime evidence for the native Holochain cases and separately reported supplemental application/substrate checks for this fixture only. It does not establish Mycelix semantic truth, legal authority, production safety, physical outcomes, or actuation authority.
 
 Claim ceiling: ReferenceModelOnly.
+
+
+## Qualification trust model
+
+The explicit trust boundary for the runtime evidence chain is documented in [d6u-runtime-trust-model.md](../docs/integral/d6u-runtime-trust-model.md).
+
+The generated Cargo.lock is independently checked by scripts/integral/verify_d6u_runtime_lock.py for the exact Holochain substrate package versions, registry provenance, and checksums.
