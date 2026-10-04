@@ -181,12 +181,15 @@ jobs:
         id: source_audit
         working-directory: mycelix-workspace/mycelix-hearth
         run: |
-          set -euo pipefail
-          command -v git >/dev/null
-          command -v rg >/dev/null
-          command -v python3 >/dev/null
-          bash tools/audit-holochain-07-source.sh 2>&1 | tee qualification-source-audit.log
-
+          set +e
+          command -v git >/dev/null || exit 1
+          command -v rg >/dev/null || exit 1
+          command -v python3 >/dev/null || exit 1
+          bash tools/audit-holochain-07-source.sh > qualification-source-audit.log 2>&1
+          audit_status=$?
+          cat qualification-source-audit.log
+          echo "source_audit_exit_code=$audit_status" >> qualification-source-audit.log
+          exit "$audit_status"
       - name: Derive Hearth 0.7 operation matrix
         working-directory: mycelix-workspace/mycelix-hearth
         run: |
