@@ -165,6 +165,8 @@ def main() -> None:
     assert run["conclusion"] == "success"
     assert run["name"] == policy["workflow_name"]
     assert run["path"] == policy["workflow_path"]
+    assert run["head_repository"]["full_name"] == repo
+    assert event["repository"]["full_name"] == repo
 
     run_id = str(run["id"])
     run_attempt = str(run["run_attempt"])
