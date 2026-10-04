@@ -550,7 +550,7 @@ mod tests {
     #[test]
     fn emergency_requires_explicit_escalation_when_hard_boundary_breached() {
         let mut ledger = SubstrateLedger::new();
-        ledger.register_account(ecological_account(600));
+        ledger.register_account(ecological_account(600)).unwrap();
 
         let required = [SubstrateDimension::Ecological];
 
