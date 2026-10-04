@@ -3261,7 +3261,7 @@ mod tests {
         ];
 
         let payload = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            run_state_machine_trace_plan_core(&plan, true);
+            run_state_machine_trace_plan_core(&plan, 0, true);
         }))
         .expect_err("intentional invariant corruption must produce a typed failure");
 
@@ -3277,32 +3277,32 @@ mod tests {
             )]
         );
         assert_eq!(
-            failure.0.trace.operations,
+            failure.0.trace_prefix,
             vec![
-                FederationStateMachineOperation::AdmitLocal,
-                FederationStateMachineOperation::InjectDeliveryMapCorruption,
+                (FederationStateMachineOperation::AdmitLocal, 1),
+                (FederationStateMachineOperation::InjectDeliveryMapCorruption, 3),
             ]
-        );
-        assert_eq!(
-            failure.0.trace.tokens,
-            vec![1, 3]
         );
         assert_eq!(failure.0.failed_step_index, 1);
         assert_eq!(failure.0.operation, FederationStateMachineOperation::InjectDeliveryMapCorruption);
         assert_eq!(failure.0.token, 3);
+        assert!(failure.0.expected_state_valid);
+        assert!(!failure.0.observed_state_valid);
         assert!(failure.0.pre_state_fingerprint != failure.0.post_state_fingerprint);
 
-        for index in 0..failure.0.trace.operations.len() {
-            let mut reduced = failure.0.trace.operations.clone();
-            let mut tokens = failure.0.trace.tokens.clone();
+        for index in 0..failure.0.trace_prefix.len() {
+            let mut reduced = failure.0.trace_prefix.clone();
             reduced.remove(index);
-            tokens.remove(index);
-            let candidate = reduced.into_iter().zip(tokens.into_iter()).collect::<Vec<_>>();
             assert!(
-                invariant_failure_from_plan(&candidate).is_none(),
+                invariant_failure_from_plan(&reduced, 0).is_none(),
                 "capsule is not minimal after removing step {index}"
             );
         }
+        let json = failure.0.to_json();
+        let round_trip =
+            serde_json::from_str::<FederationStateMachineFailureCapsule>(&json)
+                .expect("failure capsule must deserialize");
+        assert_eq!(round_trip, failure.0);
     }
 
     #[test]
