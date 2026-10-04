@@ -996,10 +996,14 @@ actor/sector/aggregate observations, and stock-flow reconciliation postings.
 
 This follows the accounting distinction used in the System of National Accounts: holding gains and
 losses are valuation changes rather than transactions, and are tracked separately from transaction
-income. citeturn875360search34turn875360search6 It also keeps the ecological-SFC boundary
-clean: monetary valuation changes do not imply a physical material flow. Modern ecological SFC work
-continues to treat monetary and physical stocks/flows as distinct but jointly coherent dimensions.
-citeturn875360search1turn875360search2
+income (2025 SNA, paras. 4.192–4.194). It also keeps the ecological-SFC boundary clean: monetary
+valuation changes do not imply a physical material flow. Modern ecological SFC work likewise treats
+monetary and physical stocks/flows as distinct but jointly coherent dimensions.
+
+References:
+- United Nations Statistics Division, 2025 SNA, Chapter 4 (holding gains/losses and other changes in assets and liabilities).
+- DEFINE, Dynamic Ecosystem-FINance-Economy ecological SFC framework.
+- Dafermos, Nikolaidi & Galanis, A stock-flow-fund ecological macroeconomic model (2017).
 
 ## State-counter versus period-ledger semantics (implemented)
 
