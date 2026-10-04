@@ -1323,6 +1323,7 @@ pub fn canonical_state_fingerprint(state: &FederationState) -> Vec<u8> {
         &state.recognition_edges,
         &state.deliveries,
         &state.observations,
+        &state.next_admission_index,
     ))
     .expect("authoritative federation state is serializable")
 }
@@ -2229,6 +2230,160 @@ mod tests {
             }
             state
         }
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+    enum FederationAdmissionOrderMutation {
+        DuplicateOrdinal,
+        CounterGap,
+        FuturePredecessor,
+    }
+
+    impl FederationAdmissionOrderMutation {
+        const ALL: &[Self] = &[
+            Self::DuplicateOrdinal,
+            Self::CounterGap,
+            Self::FuturePredecessor,
+        ];
+
+        fn seed_state(self) -> FederationState {
+            let mut state = nodes();
+
+            for (logical_delivery_id, envelope_id, attempt_id, predecessor) in [
+                ("delivery-1", "env-1", "attempt-1", None),
+                ("delivery-order-two", "env-order-two", "attempt-order-two", None),
+                ("delivery-order-three", "env-order-three", "attempt-order-three", None),
+            ] {
+                let mut candidate = envelope();
+                candidate.logical_delivery_id = logical_delivery_id.into();
+                candidate.envelope_id = envelope_id.into();
+                candidate.attempt_id = attempt_id.into();
+                candidate.predecessor_delivery_id = predecessor.map(str::to_owned);
+                assert_eq!(
+                    deliver(&mut state, &candidate, 50, true).decision(),
+                    FederationDecision::AcceptedLocal
+                );
+            }
+
+            assert_eq!(state.next_admission_index, 3);
+            assert_eq!(
+                validate_state(&state),
+                Ok(()),
+                "admission-order mutation seed must satisfy every invariant"
+            );
+            state
+        }
+
+        fn mutate(self, state: &mut FederationState) {
+            let mut ids = state.deliveries.keys().cloned().collect::<Vec<_>>();
+            ids.sort();
+            let first = ids[0].clone();
+            let second = ids[1].clone();
+            let third = ids[2].clone();
+
+            match self {
+                Self::DuplicateOrdinal => {
+                    let second_index = state.deliveries.get(&second).unwrap().admission_index();
+                    state.deliveries.get_mut(&third).unwrap().admission_index = second_index;
+                }
+                Self::CounterGap => {
+                    state.next_admission_index += 1;
+                }
+                Self::FuturePredecessor => {
+                    state
+                        .deliveries
+                        .get_mut(&first)
+                        .unwrap()
+                        .contract
+                        .predecessor_delivery_id = Some(third);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn admission_order_mutation_corpus_separates_temporal_corruption_modes() {
+        let mut fingerprints = BTreeSet::new();
+
+        for mutation in FederationAdmissionOrderMutation::ALL {
+            let mut state = mutation.seed_state();
+            mutation.mutate(&mut state);
+
+            let expected = vec![(
+                FederationInvariantId::DeliveryAdmissionOrder,
+                FederationInvariantViolation::DeliveryAdmissionOrderMismatch,
+            )];
+            assert_eq!(
+                validate_state_all(&state),
+                expected,
+                "temporal mutation {:?} must isolate the admission-order invariant",
+                mutation
+            );
+            assert_eq!(
+                audit_state(&state)
+                    .into_iter()
+                    .filter_map(|entry| match entry.status {
+                        FederationInvariantAuditStatus::Passed => None,
+                        FederationInvariantAuditStatus::Violated(violation) => Some((entry.id, violation)),
+                    })
+                    .collect::<Vec<_>>(),
+                expected
+            );
+            assert!(
+                fingerprints.insert(canonical_state_fingerprint(&state)),
+                "temporal mutation {:?} must produce a distinct canonical fingerprint",
+                mutation
+            );
+        }
+
+        assert_eq!(fingerprints.len(), FederationAdmissionOrderMutation::ALL.len());
+    }
+
+    #[test]
+    fn admission_order_mutation_pair_matrix_is_deterministic_and_order_aware() {
+        let mutations = FederationAdmissionOrderMutation::ALL;
+        let mut pair_count = 0;
+
+        for (first_index, first) in mutations.iter().enumerate() {
+            for second in mutations.iter().skip(first_index + 1) {
+                pair_count += 1;
+
+                let mut forward = first.seed_state();
+                first.mutate(&mut forward);
+                second.mutate(&mut forward);
+
+                let mut reverse = second.seed_state();
+                second.mutate(&mut reverse);
+                first.mutate(&mut reverse);
+
+                let expected = vec![(
+                    FederationInvariantId::DeliveryAdmissionOrder,
+                    FederationInvariantViolation::DeliveryAdmissionOrderMismatch,
+                )];
+                assert_eq!(validate_state_all(&forward), expected);
+                assert_eq!(
+                    validate_state_all(&reverse),
+                    expected,
+                    "temporal mutation pair ({:?}, {:?}) must not depend on mutation order",
+                    first,
+                    second
+                );
+                assert_eq!(
+                    canonical_state_fingerprint(&forward),
+                    canonical_state_fingerprint(&forward.clone())
+                );
+                assert_eq!(
+                    canonical_state_fingerprint(&reverse),
+                    canonical_state_fingerprint(&reverse.clone())
+                );
+            }
+        }
+
+        assert_eq!(
+            pair_count,
+            mutations.len() * (mutations.len() - 1) / 2,
+            "temporal mutation corpus must cover every unordered pair"
+        );
     }
 
     #[test]
