@@ -3097,11 +3097,7 @@ mod tests {
             "cryptosuite": "eddsa-jcs-2022",
             "created": "2023-02-24T23:36:38Z",
             "verificationMethod": "did:key:z6MkrJVnaZkeFzdQyMZu1cgjg7k1pZZ6pvBQ7XJPt4swbTQ2#z6MkrJVnaZkeFzdQyMZu1cgjg7k1pZZ6pvBQ7XJPt4swbTQ2",
-            "proofPurpose": "assertionMethod",
-            "@context": [
-                "https://www.w3.org/ns/credentials/v2",
-                "https://www.w3.org/ns/credentials/examples/v2"
-            ]
+            "proofPurpose": "assertionMethod"
         });
 
         let hash_data = eddsa_jcs_hash_data_from_values(credential, proof_options).unwrap();
@@ -3617,8 +3613,20 @@ fn validate_w3c_assertion_method_binding(
 
 fn eddsa_jcs_hash_data_from_values(
     unsecured: Value,
-    proof_config: Value,
+    mut proof_config: Value,
 ) -> ExternResult<Vec<u8>> {
+    let context = unsecured
+        .get("@context")
+        .cloned()
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "JCS credential must contain an @context for proof configuration".into()
+        )))?;
+
+    let proof_config_map = proof_config.as_object_mut().ok_or(wasm_error!(
+        WasmErrorInner::Guest("JCS proof configuration must serialize to a JSON object".into())
+    ))?;
+    proof_config_map.insert("@context".to_string(), context);
+
     let canonical_document = serde_json_canonicalizer::to_vec(&unsecured).map_err(|e| {
         wasm_error!(WasmErrorInner::Guest(format!(
             "JCS credential canonicalization failed: {e}"
@@ -3660,17 +3668,6 @@ fn eddsa_jcs_hash_data(vc: &VerifiableCredential) -> ExternResult<Vec<u8>> {
         WasmErrorInner::Guest("Credential proof must serialize to a JSON object".into())
     ))?;
     proof_config.remove("proofValue");
-
-    let context = unsecured
-        .get("@context")
-        .cloned()
-        .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "JCS credential must contain an @context for proof configuration".into()
-        )))?;
-    // Data Integrity proof configuration always sets @context from the unsecured
-    // document before canonicalization. It is part of the signed proof config,
-    // not a nested @context property that needs to be serialized into proof.
-    proof_config.insert("@context".to_string(), context);
 
     eddsa_jcs_hash_data_from_values(unsecured, Value::Object(proof_config))
 }
