@@ -23,6 +23,7 @@ use super::{
     substrate::SubstrateLedger,
 };
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 /// Durable proof that one economic action was finalized from a fresh Ready
 /// assessment.
@@ -40,6 +41,8 @@ pub struct EconomicFinalizationCertificate {
     pub scope_fingerprint: String,
     /// Exact evidence snapshot fingerprint from AC-048.
     pub evidence_snapshot_fingerprint: String,
+    /// Content fingerprint of the certificate payload itself.
+    pub certificate_fingerprint: String,
     /// Authority reference that issued the certificate.
     pub authority_ref: String,
     /// Supporting issuance evidence.
@@ -49,8 +52,7 @@ pub struct EconomicFinalizationCertificate {
 }
 
 impl EconomicFinalizationCertificate {
-    /// Validate certificate structure without consulting external ledgers.
-    pub fn validate(&self) -> Result<(), String> {
+    fn validate_fields(&self, require_fingerprint: bool) -> Result<(), String> {
         if self.certificate_id.trim().is_empty() {
             return Err("Finalization certificate ID cannot be empty".into());
         }
@@ -76,6 +78,19 @@ impl EconomicFinalizationCertificate {
                 ));
             }
         }
+        if require_fingerprint
+            && (self.certificate_fingerprint.len() != 64
+                || !self
+                    .certificate_fingerprint
+                    .as_bytes()
+                    .iter()
+                    .all(u8::is_ascii_hexdigit))
+        {
+            return Err(
+                "Finalization certificate fingerprint must be a 64-character hexadecimal SHA-256"
+                    .into(),
+            );
+        }
         if self.authority_ref.trim().is_empty() {
             return Err("Finalization certificate authority reference cannot be empty".into());
         }
@@ -85,6 +100,45 @@ impl EconomicFinalizationCertificate {
             .any(|reference| reference.trim().is_empty())
         {
             return Err("Finalization certificate evidence references cannot be empty".into());
+        }
+        if self.finalized_at == 0 {
+            return Err("Finalization certificate timestamp must be greater than zero".into());
+        }
+        Ok(())
+    }
+
+    /// Return a deterministic SHA-256 fingerprint of the certificate payload.
+    ///
+    /// The fingerprint intentionally excludes itself. It is a tamper-evident
+    /// content identifier, not a proof of authorship.
+    pub fn fingerprint(&self) -> Result<String, String> {
+        self.validate_fields(false)?;
+        let payload = serde_json::json!({
+            "version": 1,
+            "certificate_id": self.certificate_id,
+            "action_ref": self.action_ref,
+            "lifecycle_revision_id": self.lifecycle_revision_id,
+            "scope_id": self.scope_id,
+            "scope_fingerprint": self.scope_fingerprint,
+            "evidence_snapshot_fingerprint": self.evidence_snapshot_fingerprint,
+            "authority_ref": self.authority_ref,
+            "evidence_refs": self.evidence_refs,
+            "finalized_at": self.finalized_at,
+        });
+        let canonical = serde_json::to_vec(&payload)
+            .map_err(|error| format!("Finalization certificate canonicalization failed: {error}"))?;
+        let mut hasher = Sha256::new();
+        hasher.update(b"MYCELIX-ECONOMIC-FINALIZATION-CERTIFICATE-V1\0");
+        hasher.update(canonical);
+        Ok(hex::encode(hasher.finalize()))
+    }
+
+    /// Validate certificate structure and its self-integrity fingerprint.
+    pub fn validate(&self) -> Result<(), String> {
+        self.validate_fields(true)?;
+        let expected = self.fingerprint()?;
+        if expected != self.certificate_fingerprint {
+            return Err("Finalization certificate fingerprint does not match its content".into());
         }
         Ok(())
     }
@@ -220,18 +274,20 @@ impl EconomicFinalizationLedger {
             ));
         }
 
-        let certificate = EconomicFinalizationCertificate {
+        let mut certificate = EconomicFinalizationCertificate {
             certificate_id: certificate_id.into(),
             action_ref: self.action_ref.clone(),
             lifecycle_revision_id: lifecycle.current_revision()?.revision_id.clone(),
             scope_id: scope.scope_id.clone(),
             scope_fingerprint: scope.fingerprint()?,
             evidence_snapshot_fingerprint: assessment.evidence_snapshot_fingerprint.clone(),
+            certificate_fingerprint: "0".repeat(64),
             authority_ref: authority_ref.into(),
             evidence_refs,
             finalized_at,
         };
 
+        certificate.certificate_fingerprint = certificate.fingerprint()?;
         certificate.validate()?;
 
         if finalized_at < lifecycle.current_revision()?.recorded_at {
@@ -526,6 +582,26 @@ mod tests {
     }
 
     #[test]
+    fn certificate_fingerprint_changes_when_content_changes() {
+        let (assessment, ..) = ready_assessment();
+        let mut certificate = EconomicFinalizationCertificate {
+            certificate_id: "finalization:1".into(),
+            action_ref: assessment.action_ref.clone(),
+            lifecycle_revision_id: assessment.lifecycle_revision_id.clone(),
+            scope_id: assessment.scope_id.clone(),
+            scope_fingerprint: assessment.scope_fingerprint.clone(),
+            evidence_snapshot_fingerprint: assessment.evidence_snapshot_fingerprint.clone(),
+            certificate_fingerprint: "0".repeat(64),
+            authority_ref: "authority:dao-1".into(),
+            evidence_refs: vec!["evidence:finalization".into()],
+            finalized_at: 1_700,
+        };
+        let original = certificate.fingerprint().unwrap();
+        certificate.authority_ref = "authority:dao-2".into();
+        assert_ne!(original, certificate.fingerprint().unwrap());
+    }
+
+    #[test]
     fn stale_assessment_cannot_issue_certificate() {
         let (assessment, lifecycle, scope, mut substrate, impacts, reconciliations, execution, constraints) =
             ready_assessment();
@@ -560,6 +636,34 @@ mod tests {
 
         assert!(result.is_err());
         assert!(!ledger.is_finalized());
+    }
+
+    #[test]
+    fn persisted_certificate_mutation_is_rejected_by_validation() {
+        let (assessment, lifecycle, scope, substrate, impacts, reconciliations, execution, constraints) =
+            ready_assessment();
+        let mut ledger = EconomicFinalizationLedger::new("action:1").unwrap();
+        let certificate = ledger
+            .issue(
+                &assessment,
+                &lifecycle,
+                &scope,
+                &substrate,
+                &impacts,
+                &reconciliations,
+                &execution,
+                &constraints,
+                "finalization:1",
+                "authority:dao-1",
+                vec!["evidence:finalization".into()],
+                1_700,
+            )
+            .unwrap();
+
+        let mut mutated = certificate;
+        mutated.authority_ref = "authority:tampered".into();
+
+        assert!(mutated.validate().is_err());
     }
 
     #[test]
@@ -616,6 +720,7 @@ mod tests {
             scope_id: assessment.scope_id.clone(),
             scope_fingerprint: assessment.scope_fingerprint.clone(),
             evidence_snapshot_fingerprint: assessment.evidence_snapshot_fingerprint.clone(),
+            certificate_fingerprint: "0".repeat(64),
             authority_ref: "authority:dao-1".into(),
             evidence_refs: vec!["evidence:forged".into()],
             finalized_at: 1_700,
