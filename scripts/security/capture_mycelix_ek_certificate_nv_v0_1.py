@@ -156,6 +156,14 @@ def capture(out: Path, env: dict[str, str]) -> int:
         }
 
     rsa2048 = artifacts.get("rsa-2048") or artifacts.get("rsa-legacy-2048")
+    selected_rsa_path = None
+    if rsa2048 and rsa2048["present"]:
+        selected_rsa_path = out / {
+            "0x01c00012": "ek-cert-rsa-2048.der",
+            "0x01c00002": "ek-cert-rsa-legacy-2048.der",
+        }.get(rsa2048["handle"], "")
+        if selected_rsa_path and selected_rsa_path.is_file():
+            shutil.copy2(selected_rsa_path, out / "ek-cert-rsa.der")
     transcript = {
         "inventory_command": ["tpm2_getcap", "handles-nv-index"],
         "inventory_returncode": inventory.returncode,
@@ -196,6 +204,8 @@ def capture(out: Path, env: dict[str, str]) -> int:
             "candidate_handles": classified["candidate_ek_certificate_handles"],
             "artifacts": artifacts,
             "rsa_certificate": rsa2048,
+            "rsa_certificate_present": bool(rsa2048 and rsa2048["present"]),
+            "rsa_certificate_sha256": sha256_file(out / "ek-cert-rsa.der") if (out / "ek-cert-rsa.der").is_file() else None,
         },
     )
     result_path.write_text(
