@@ -17,7 +17,7 @@ CONTRACT = ROOT / "docs/security/mycelix-comparative-benchmark-v0.1.json"
 
 def reachable_resources(profile: dict[str, Any], event: str) -> list[str]:
     compromised = set(profile["compromise_effects"].get(event, []))
-    if event in {"revoked-credential", "stale-device-posture", "stale-policy", "trust-root-compromise"}:
+    if event in {"revoked-credential", "stale-device-posture", "stale-policy"}:
         return []
 
     reached: list[str] = []
