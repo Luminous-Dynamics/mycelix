@@ -110,6 +110,11 @@ EXPECTED_BINDING_VECTORS = [
     ("EDT-184", "runtime_attestation_signature_host_failure_precedes_missing_authority_preflight", "adapter_boundary_error"),
     ("EDT-185", "authority_agent_payload_validation_precedes_signature_verification", "typed_structural_error"),
     ("EDT-186", "authority_agent_issuer_mismatch_precedes_signature_verification", "typed_structural_error"),
+    ("EDT-187", "malformed_authority_credential_precedes_duplicate_authority_admission", "typed_structural_error"),
+    ("EDT-188", "issuer_mismatch_precedes_duplicate_authority_admission", "typed_structural_error"),
+    ("EDT-189", "invalid_authority_credential_signature_precedes_duplicate_authority_admission", "typed_structural_error"),
+    ("EDT-190", "valid_duplicate_authority_is_adapter_rejection_and_state_preserving", "adapter_boundary_error"),
+    ("EDT-191", "valid_duplicate_provenance_witness_is_adapter_rejection_and_state_preserving", "adapter_boundary_error"),
 ]
 
 
