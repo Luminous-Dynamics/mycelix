@@ -93,9 +93,28 @@ def main() -> None:
 
     assert manifest["profile"] == "D6U-RUNTIME-1"
     assert manifest["kind"] == "holochain-0.7-authority-boundary-runtime-manifest"
-    assert manifest["version"] == 5
+    assert manifest["version"] == 6
     assert manifest["claim_ceiling"] == "ReferenceModelOnly"
     assert manifest["evidence_verifier_path"] == "scripts/integral/verify_d6u_runtime_evidence.py"
+    assert manifest["evidence_fields"] == [
+        "source_commit",
+        "workflow_run_id",
+        "workflow_run_attempt",
+        "runtime_version",
+        "hdk_version",
+        "hdi_version",
+        "fixture_identity",
+        "call_authentication",
+        "d6s_commitment_result",
+        "invocation_binding_result",
+        "capability_result",
+        "nonce_result",
+        "expiry_result",
+        "zome_reached",
+        "semantic_result",
+        "claim_ceiling",
+        "case_outcome",
+    ]
     assert manifest["evidence_status"] == "NotExecuted"
 
     substrate = manifest["substrate"]
