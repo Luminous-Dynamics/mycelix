@@ -199,7 +199,7 @@ impl EconomicActionLifecycle {
             kind: EconomicActionChangeKind::Initial,
             predecessor_revision_id: None,
             predecessor_scope_id: None,
-            authority_ref: amendment_authority,
+            authority_ref: authority_ref.into(),
             evidence_refs,
             recorded_at,
         };
