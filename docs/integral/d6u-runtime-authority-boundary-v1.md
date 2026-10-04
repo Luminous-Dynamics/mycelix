@@ -4,7 +4,7 @@ Status: **ReferenceModelOnly**
 
 D6U is the live-substrate companion to D6S-CANON-2.
 
-D6S-CANON-2 provides a deterministic 17-case reference matrix. D6U binds 15 of those cases to an actual Holochain 0.7 test conductor using the same protocol primitives exposed by Holochain's 0.7 test stack:
+D6S-CANON-2 provides a deterministic 17-case reference matrix. D6U binds 14 of those cases to native Holochain 0.7 runtime behavior using the same protocol primitives exposed by Holochain's 0.7 test stack:
 
 - Sweettest conductor;
 - inline zomes;
@@ -13,25 +13,26 @@ D6S-CANON-2 provides a deterministic 17-case reference matrix. D6U binds 15 of t
 - capability grant entries;
 - exact nonce and expiry construction.
 
-The two remaining D6S-CANON-2 cases stay outside this harness:
+Three D6S-CANON-2 cases stay outside native Holochain 0.7 execution in this harness:
 
 - isolated authenticated-but-not-yet-authorized state;
-- distinct stale/older-nonce state.
+- distinct stale/older-nonce state;
+- pre-zome D6S commitment-mismatch state.
 
-They require lower-level or system-policy instrumentation not needed by the ordinary application-call path, so the harness records them as unsupported rather than fabricating an observation.
+The first two require lower-level or system-policy instrumentation not exposed as standalone application-call results. The third is a D6S integrity property rather than a native Holochain invocation gate: the harness retains a probe-local commitment test but does not present it as Holochain enforcement.
 
 ## Boundary
 
 The harness distinguishes:
 
 1. wire authentication;
-2. D6S payload integrity;
-3. invocation routing/binding;
-4. capability authorization;
-5. nonce and expiry enforcement;
-6. zome entry;
-7. semantic validation.
+2. invocation routing/binding;
+3. capability authorization;
+4. nonce and expiry enforcement;
+5. zome entry;
+6. semantic validation;
 
+The D6S payload commitment test is recorded separately as application-level evidence and is not counted as native Holochain authority enforcement.
 A pre-zome failure is never represented as a semantic zome rejection.
 
 Holochain 0.7's application interface may return AppResponse::ZomeCalled even when authorization fails. A successful `AppResponse::ZomeCalled` contains the zome payload directly; authorization failures remain `AppResponse::Error` values. The harness inspects these separately.
@@ -50,7 +51,7 @@ These cases are observations of the pinned runtime behavior, not reimplementatio
 
 ## Evidence
 
-The runtime workflow records the exact source commit, workflow hash, Holochain/HDK/HDI versions, Rust identity, generated Cargo.lock hash, test result, supported/unsupported case sets, and claim ceiling.
+The runtime workflow records the exact source commit and GitHub workflow execution identity, workflow hash, Holochain/HDK/HDI versions, Rust identity, generated Cargo.lock hash, test result, native supported/unsupported case sets, supplemental substrate witnesses, the separate probe-local D6S application check, and claim ceiling.
 
 The artifact status is runtime-reference-evidence, not qualified. The D6U manifest freezes the exact D6S-CANON-2 manifest and fixture identities used by the runtime harness.
 
