@@ -903,28 +903,84 @@ pub fn get_vote_history(decision_hash: ActionHash) -> ExternResult<Vec<Record>> 
     Ok(votes)
 }
 
-/// Get the outcome of a finalized decision, if it exists.
-/// Follows DecisionToOutcome link — returns None if not yet finalized.
+/// Deterministic ordering key for competing outcome records.
+///
+/// Holochain can contain multiple concurrently-created candidates. The
+/// application must therefore not depend on DHT link iteration order.
+fn outcome_order_key(record: &Record) -> (Timestamp, Vec<u8>) {
+    (
+        record.action().timestamp(),
+        record.action_address().get_raw_36().to_vec(),
+    )
+}
+
+/// Return true when the candidate is the deterministic canonical choice.
+fn outcome_key_is_preferred(
+    candidate: &(Timestamp, Vec<u8>),
+    current: &(Timestamp, Vec<u8>),
+) -> bool {
+    candidate.0 < current.0
+        || (candidate.0 == current.0 && candidate.1 < current.1)
+}
+
+/// Get the deterministic canonical outcome of a finalized decision, if one exists.
+///
+/// Multiple concurrent finalizers may produce valid candidates. All candidates
+/// remain in the DHT for auditability; the canonical read path selects the
+/// earliest outcome action timestamp, breaking exact timestamp ties with the
+/// raw action hash. DHT link iteration order is never used as a semantic rule.
 #[hdk_extern]
 pub fn get_decision_outcome(decision_hash: ActionHash) -> ExternResult<Option<Record>> {
     let links = get_links(
-        LinkQuery::try_new(decision_hash, LinkTypes::DecisionToOutcome)?,
+        LinkQuery::try_new(decision_hash.clone(), LinkTypes::DecisionToOutcome)?,
         GetStrategy::default(),
     )?;
 
-    if let Some(link) = links.first() {
-        let target =
-            link.target
-                .clone()
-                .into_action_hash()
-                .ok_or(wasm_error!(WasmErrorInner::Guest(
-                    "Link target is not an ActionHash".into()
-                )))?;
+    let mut canonical: Option<(Record, (Timestamp, Vec<u8>))> = None;
 
-        return get_latest_record(target);
+    for link in links {
+        let target = link
+            .target
+            .clone()
+            .into_action_hash()
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "DecisionToOutcome target is not an ActionHash".into()
+            )))?;
+
+        let record = get_latest_record(target)?.ok_or(wasm_error!(
+            WasmErrorInner::Guest("Decision outcome record not found".into())
+        ))?;
+
+        let outcome: DecisionOutcome = record
+            .entry()
+            .to_app_option()
+            .map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Failed to deserialize DecisionOutcome: {e}"
+                )))
+            })?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Decision outcome entry is missing".into()
+            )))?;
+
+        if outcome.decision_hash != decision_hash {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "DecisionToOutcome link targets an outcome for another decision".into()
+            )));
+        }
+
+        let key = outcome_order_key(&record);
+        let replace = canonical
+            .as_ref()
+            .map(|(_, current_key)| outcome_key_is_preferred(&key, current_key))
+            .unwrap_or(true);
+
+        if replace {
+            canonical = Some((record, key));
+        }
     }
 
-    Ok(None)
+    Ok(canonical.map(|(record, _)| record))
 }
 
 /// Get decisions in a hearth where the calling agent has not yet voted.
@@ -1120,6 +1176,28 @@ mod tests {
         let json = serde_json::to_string(&input).unwrap();
         let back: CloseDecisionInput = serde_json::from_str(&json).unwrap();
         assert_eq!(back.decision_hash, input.decision_hash);
+    }
+
+    #[test]
+    fn outcome_key_prefers_earlier_timestamp() {
+        let earlier = (Timestamp::from_micros(10), vec![2u8]);
+        let later = (Timestamp::from_micros(20), vec![1u8]);
+        assert!(outcome_key_is_preferred(&earlier, &later));
+        assert!(!outcome_key_is_preferred(&later, &earlier));
+    }
+
+    #[test]
+    fn outcome_key_uses_action_hash_as_tiebreaker() {
+        let low_hash = (Timestamp::from_micros(10), vec![1u8, 2u8]);
+        let high_hash = (Timestamp::from_micros(10), vec![1u8, 3u8]);
+        assert!(outcome_key_is_preferred(&low_hash, &high_hash));
+        assert!(!outcome_key_is_preferred(&high_hash, &low_hash));
+    }
+
+    #[test]
+    fn outcome_key_same_timestamp_and_hash_is_not_preferred() {
+        let key = (Timestamp::from_micros(10), vec![1u8, 2u8]);
+        assert!(!outcome_key_is_preferred(&key, &key));
     }
 
     // ---- Pure helper: is_decision_closeable ----
