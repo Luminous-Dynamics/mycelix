@@ -1290,6 +1290,25 @@ PY
         fail=1
       fi
 
+      if [[ "$target_variant" == EntryTypes::* ]]; then
+        target_name="${target_variant#*::}"
+        if printf '%s\n' "$dispatch_block" | rg -nU --pcre2 "\\bEntryTypes::${target_name}[[:space:]]*\\([^)]*\\)[[:space:]]*=>[[:space:]]*(\\{|)[^\\n]{0,400}\\b${dispatch_symbol}[[:space:]]*\\(" >/dev/null 2>&1; then
+          echo "OK:   $id dispatcher binds $target_variant to $dispatch_symbol"
+        else
+          echo "FAIL: $id dispatcher does not bind $target_variant to $dispatch_symbol"
+          fail=1
+        fi
+        unset target_name
+      else
+        if [[ -n "$validator_block" ]] && printf '%s\n' "$validator_block" | rg -nU --pcre2 "\\b${target_variant//:/\\:}\\b" >/dev/null 2>&1; then
+          echo "OK:   $id validator $validator_symbol contains concrete link target $target_variant"
+        else
+          echo "FAIL: $id validator $validator_symbol does not contain concrete link target $target_variant"
+          fail=1
+        fi
+      fi
+
+
       if [[ "$validator_source" != "$integrity_file" ]]; then
         wrapper_block="$(awk -v symbol="$dispatch_symbol" '
           {
