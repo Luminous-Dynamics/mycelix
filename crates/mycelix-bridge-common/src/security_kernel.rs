@@ -49,6 +49,7 @@ pub struct Capability {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct CapabilityWire {
     subject: String,
     issuer: String,
@@ -372,6 +373,7 @@ pub struct AuthorizationRequest {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct AuthorizationRequestWire {
     subject: String,
     resource: String,
@@ -880,6 +882,18 @@ mod tests {
             "policy_version": 7
         });
         assert!(serde_json::from_value::<Capability>(invalid_window).is_err());
+
+        let unknown_field = serde_json::json!({
+            "subject": "did:mycelix:alice",
+            "issuer": "did:mycelix:issuer",
+            "resource": "resource:ledger",
+            "actions": ["Read"],
+            "not_before_us": 100,
+            "expires_at_us": 200,
+            "policy_version": 7,
+            "authority": "ignored-by-old-parser"
+        });
+        assert!(serde_json::from_value::<Capability>(unknown_field).is_err());
     }
 
     #[test]
@@ -1732,6 +1746,17 @@ mod tests {
             "x".repeat(MAX_SECURITY_IDENTIFIER_BYTES + 1)
         ));
         assert!(oversized_subject.is_err());
+
+        let unknown_field: Result<AuthorizationRequest, _> = serde_json::from_str(
+            r#"{
+                "subject":"did:mycelix:alice",
+                "resource":"ledger",
+                "action":"Read",
+                "policy_version":7,
+                "authority":"ignored-by-old-parser"
+            }"#,
+        );
+        assert!(unknown_field.is_err());
     }
 
     #[test]
