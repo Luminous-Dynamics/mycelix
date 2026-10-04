@@ -420,10 +420,7 @@ impl SecurityEvent {
         )
     }
 
-    pub fn with_provenance(
-        mut self,
-        provenance: Vec<ProvenanceRef>,
-    ) -> Result<Self, &'static str> {
+    pub fn with_provenance(mut self, provenance: Vec<ProvenanceRef>) -> Result<Self, &'static str> {
         if provenance.len() > MAX_SECURITY_EVENT_PROVENANCE_REFS {
             return Err("security event provenance exceeds size limit");
         }
@@ -576,10 +573,7 @@ mod tests {
             deserialize_bounded_security_json_reader::<_, SecurityEvent>(cursor).unwrap_err();
 
         assert_eq!(error.classify(), serde_json::error::Category::Io);
-        assert_eq!(
-            error.io_error_kind(),
-            Some(std::io::ErrorKind::InvalidData)
-        );
+        assert_eq!(error.io_error_kind(), Some(std::io::ErrorKind::InvalidData));
     }
 
     #[test]
@@ -635,11 +629,8 @@ mod tests {
 
         let provenance = (0..=MAX_SECURITY_EVENT_PROVENANCE_REFS)
             .map(|index| {
-                ProvenanceRef::new(
-                    format!("evidence:{index}"),
-                    ProvenanceRelation::References,
-                )
-                .unwrap()
+                ProvenanceRef::new(format!("evidence:{index}"), ProvenanceRelation::References)
+                    .unwrap()
             })
             .collect();
 
