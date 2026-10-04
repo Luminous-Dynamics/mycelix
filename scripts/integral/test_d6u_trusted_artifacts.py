@@ -120,6 +120,27 @@ def test_duplicate_record_key_is_rejected() -> None:
         raise AssertionError("duplicate record field was accepted")
 
 
+def test_truncated_source_tree_is_rejected() -> None:
+    try:
+        verify_required_tracked_blobs(
+            {
+                "truncated": True,
+                "tree": [
+                    {
+                        "path": "tracked.txt",
+                        "mode": "100644",
+                        "type": "blob",
+                        "sha": "a" * 40,
+                    }
+                ],
+            },
+            {"tracked.txt": "a" * 40},
+        )
+    except AssertionError:
+        return
+    raise AssertionError("truncated Git tree was accepted")
+
+
 def test_artifact_layout_rejects_symlink() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         artifact_dir = Path(tmp)
