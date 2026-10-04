@@ -186,6 +186,7 @@ impl EconomicOsEnvelope {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::economics::policy_context::EconomicPolicyContextRole;
 
     fn envelope() -> EconomicOsEnvelope {
         EconomicOsEnvelope {
@@ -220,6 +221,36 @@ mod tests {
         let mut right = envelope();
         right.evidence_refs.reverse();
         assert_eq!(left.fingerprint().unwrap(), right.fingerprint().unwrap());
+    }
+
+    #[test]
+    fn multiple_policy_contexts_preserve_cross_jurisdiction_semantics() {
+        let mut value = envelope();
+        value.policy_contexts.push(EconomicPolicyContext {
+            role: EconomicPolicyContextRole::Origin,
+            profile_ref: "profile:origin:v1".into(),
+            profile_fingerprint: "c".repeat(64),
+        });
+        value.policy_contexts.push(EconomicPolicyContext {
+            role: EconomicPolicyContextRole::Destination,
+            profile_ref: "profile:destination:v1".into(),
+            profile_fingerprint: "d".repeat(64),
+        });
+
+        assert!(value.validate().is_ok());
+        assert_ne!(value.fingerprint().unwrap(), envelope().fingerprint().unwrap());
+    }
+
+    #[test]
+    fn duplicate_structural_policy_roles_are_rejected() {
+        let mut value = envelope();
+        value.policy_contexts.push(EconomicPolicyContext {
+            role: EconomicPolicyContextRole::Settlement,
+            profile_ref: "profile:other:v1".into(),
+            profile_fingerprint: "c".repeat(64),
+        });
+
+        assert!(value.validate().is_err());
     }
 
     #[test]
