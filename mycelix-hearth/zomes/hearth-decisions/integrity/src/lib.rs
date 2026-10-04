@@ -1212,6 +1212,8 @@ mod tests {
         // This test ensures the struct fields are all set at creation time.
         let o = DecisionOutcome {
             decision_hash: fake_action_hash(),
+            finalization_basis_action: Some(fake_action_hash()),
+            resolved_by: Some(fake_agent()),
             chosen_option: 1,
             participation_rate_bp: 8500,
             resolved_at: fake_timestamp(),
