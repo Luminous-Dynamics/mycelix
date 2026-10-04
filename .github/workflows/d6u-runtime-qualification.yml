@@ -1,0 +1,24 @@
+name: D6U Holochain 0.7 Runtime Qualification
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+  workflow_dispatch:
+
+# Bootstrap-only copy. The full D6U runtime implementation remains in PR #3854.
+# This copy exists on the target integration branch so subsequent pull_request
+# updates to #3854 can be scheduled by GitHub.
+permissions:
+  contents: read
+
+jobs:
+  d6u-bootstrap:
+    if: github.head_ref == 'myc-int-demo-d6u-holochain-07-runtime'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Confirm workflow bootstrap
+        run: |
+          set -euo pipefail
+          echo "D6U runtime workflow bootstrap present on target branch"
+          echo "The PR head supplies the full unprivileged runtime workflow."
