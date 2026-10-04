@@ -3362,3 +3362,203 @@ async fn dsid_039_presigned_proof_admission_fails_closed() {
         native_tamper.is_err() && jcs_tamper.is_err() && unsupported_pqc.is_err(),
     );
 }
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_040_request_claims_are_bound_to_issued_credential() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let requester_app = conductor
+        .setup_app("dsid-vc-claims-requester", std::slice::from_ref(&dna))
+        .await
+        .unwrap();
+    let issuer_app = conductor
+        .setup_app("dsid-vc-claims-issuer", std::slice::from_ref(&dna))
+        .await
+        .unwrap();
+
+    let requester = requester_app.cells()[0].clone();
+    let issuer = issuer_app.cells()[0].clone();
+    let requester_did = format!("did:mycelix:{}", requester_app.agent());
+    let issuer_did = format!("did:mycelix:{}", issuer_app.agent());
+
+    let _: Record = conductor
+        .call(&requester.zome("did_registry"), "create_did", ())
+        .await;
+    let _: Record = conductor
+        .call(&issuer.zome("did_registry"), "create_did", ())
+        .await;
+
+    let request: Record = conductor
+        .call(
+            &requester.zome("verifiable_credential"),
+            "request_credential",
+            serde_json::json!({
+                "issuer_did": issuer_did,
+                "schema_id": "mycelix:schema:education:degree:v1",
+                "claims": {
+                    "degree": "DSID requested claim"
+                },
+                "evidence": []
+            }),
+        )
+        .await;
+
+    let request_value: serde_json::Value = request
+        .entry()
+        .to_app_option()
+        .unwrap()
+        .unwrap();
+    let request_id = request_value["id"]
+        .as_str()
+        .expect("credential request must have an ID")
+        .to_owned();
+
+    await_consistency(&[requester.clone(), issuer.clone()])
+        .await
+        .expect("requester and issuer must reach DHT consistency");
+
+    let _: Record = conductor
+        .call(
+            &issuer.zome("verifiable_credential"),
+            "update_request_status",
+            serde_json::json!({
+                "request_id": request_id.clone(),
+                "new_status": "UnderReview"
+            }),
+        )
+        .await;
+    let _: Record = conductor
+        .call(
+            &issuer.zome("verifiable_credential"),
+            "update_request_status",
+            serde_json::json!({
+                "request_id": request_id.clone(),
+                "new_status": "Approved"
+            }),
+        )
+        .await;
+
+    let mismatch: Result<Record, _> = conductor
+        .call_fallible(
+            &issuer.zome("verifiable_credential"),
+            "issue_credential_for_request",
+            serde_json::json!({
+                "request_id": request_id.clone(),
+                "claims": {
+                    "degree": "DSID forged claim"
+                },
+                "credential_types": ["QualificationCredential"],
+                "issuer_name": "DSID Claims Issuer",
+                "expiration_days": 365,
+                "enable_revocation": false,
+                "strict_schema": false
+            }),
+        )
+        .await;
+    assert!(
+        mismatch.is_err(),
+        "issuance must reject claims that do not satisfy the approved request"
+    );
+
+    let issued_after_mismatch: Vec<Record> = conductor
+        .call(
+            &issuer.zome("verifiable_credential"),
+            "get_my_issued_credentials",
+            (),
+        )
+        .await;
+    assert!(
+        issued_after_mismatch.is_empty(),
+        "claim mismatch must be rejected before an orphan credential is committed"
+    );
+
+    let credential: Record = conductor
+        .call(
+            &issuer.zome("verifiable_credential"),
+            "issue_credential_for_request",
+            serde_json::json!({
+                "request_id": request_id.clone(),
+                "claims": {
+                    "degree": "DSID requested claim",
+                    "issuer_note": "additional attestation"
+                },
+                "credential_types": ["QualificationCredential"],
+                "issuer_name": "DSID Claims Issuer",
+                "expiration_days": 365,
+                "enable_revocation": false,
+                "strict_schema": false
+            }),
+        )
+        .await;
+
+    await_consistency(&[requester.clone(), issuer.clone()])
+        .await
+        .expect("successful credential fulfillment must reach the requester");
+
+    let final_request: Option<Record> = conductor
+        .call(
+            &requester.zome("verifiable_credential"),
+            "get_credential_request",
+            serde_json::json!({
+                "issuer_did": issuer_did.clone(),
+                "request_id": request_id.clone()
+            }),
+        )
+        .await;
+    let final_request = final_request.expect("fulfilled request must resolve through issuer index");
+    let final_value: serde_json::Value = final_request
+        .entry()
+        .to_app_option()
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(final_value["status"], "Issued");
+    let expected_action = credential.action_address().to_string();
+    assert_eq!(
+        final_value["issued_credential"].as_str(),
+        Some(expected_action.as_str())
+    );
+
+    let credential_value: serde_json::Value = credential
+        .entry()
+        .to_app_option()
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        credential_value["credentialSubject"]["claims"]["degree"].as_str(),
+        Some("DSID requested claim")
+    );
+    assert_eq!(
+        credential_value["credentialSubject"]["claims"]["issuer_note"].as_str(),
+        Some("additional attestation")
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("requester", requester_app.agent().to_string());
+    agents.insert("issuer", issuer_app.agent().to_string());
+    emit_evidence(
+        "DSID-040",
+        "request-claims-are-bound-to-issued-credential",
+        &dna,
+        agents,
+        &[&request, &credential, &final_request],
+        "An Approved credential request is fulfilled only by a credential whose claims contain every requested claim/value; a rejected mismatch must not leave an orphan credential behind.",
+        format!(
+            "mismatch_rejected={} no_orphan_after_mismatch={} issued_status={} action_binding={} requested_claim_preserved={} extra_claim_preserved={}",
+            mismatch.is_err(),
+            issued_after_mismatch.is_empty(),
+            final_value["status"],
+            final_value["issued_credential"].as_str() == Some(expected_action.as_str()),
+            credential_value["credentialSubject"]["claims"]["degree"] == "DSID requested claim",
+            credential_value["credentialSubject"]["claims"]["issuer_note"] == "additional attestation"
+        ),
+        mismatch.is_err()
+            && issued_after_mismatch.is_empty()
+            && final_value["status"] == "Issued"
+            && final_value["issued_credential"].as_str() == Some(expected_action.as_str())
+            && credential_value["credentialSubject"]["claims"]["degree"] == "DSID requested claim"
+            && credential_value["credentialSubject"]["claims"]["issuer_note"] == "additional attestation",
+    );
+}
+
