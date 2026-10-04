@@ -787,7 +787,8 @@ check_semantic_case_entrypoints() {
     else
       echo "FAIL: semantic runtime witness ${test_name} does not assert repaired-input acceptance"
       fail=1
-    fi\n    # Bind the rejection reason to the same manifest case, including multiline formatting.
+    fi
+    # Bind the rejection reason to the same manifest case, including multiline formatting.
 
     if printf "%s\\n" "$test_block" | rg -nU --pcre2 "expected_reason\\([[:space:]]*\"${test_name}\"[[:space:]]*\\)" >/dev/null 2>&1; then
       echo "OK:   semantic runtime witness ${test_name} binds its rejection reason to the manifest case"
