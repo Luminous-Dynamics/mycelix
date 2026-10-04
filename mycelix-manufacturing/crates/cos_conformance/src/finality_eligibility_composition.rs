@@ -1116,7 +1116,7 @@ pub fn compose_finality_eligibility(
 
     let disposition = if preserved_contradictory_count > 0 {
         FinalityEligibilityDispositionV1::Contested
-    } else if eligible_count >= required_independent_observations {
+    } else if eligible_observer_ids.len() as u32 >= required_independent_observations {
         FinalityEligibilityDispositionV1::EligibleCurrent
     } else if distinct_blocking_dispositions.len() == 1 {
         distinct_blocking_dispositions[0]
