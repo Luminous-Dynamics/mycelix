@@ -798,6 +798,18 @@ fn thread_sync_divergent_filter_child() -> ! {
             unsafe { libc::_exit(185) };
         }
 
+        // The failed TSYNC must not replace the sibling's divergent filter either.
+        // The sibling's unconditional ALLOW therefore keeps getppid() operational.
+        let sibling_probe = unsafe { libc::syscall(libc::SYS_getppid) };
+        if sibling_probe <= 0 {
+            unsafe { libc::_exit(192) };
+        }
+
+        let byte = [1u8];
+        if !unsafe { write_exact(sibling_ready, &byte) } {
+            unsafe { libc::_exit(193) };
+        }
+
         unsafe { libc::_exit(0) }
     });
 
@@ -840,14 +852,19 @@ fn thread_sync_divergent_filter_child() -> ! {
     // new filter. Probe the calling thread with getppid(), which is absent from
     // the proposed allowlist: success proves no partial filter was installed.
     let caller_probe = unsafe { libc::syscall(libc::SYS_getppid) };
-    let caller_probe_errno = unsafe { *libc::__errno_location() };
-    if caller_probe <= 0 || caller_probe_errno == libc::EPERM {
+    if caller_probe <= 0 {
         unsafe { libc::_exit(191) };
     }
 
     let release_byte = [1u8];
     if !unsafe { write_exact(release[1], &release_byte) } {
         unsafe { libc::_exit(190) };
+    }
+
+    // Require the sibling's post-failure probe before allowing the child to exit.
+    let mut sibling_verified = [0u8; 1];
+    if !unsafe { read_exact(ready[0], &mut sibling_verified) } {
+        unsafe { libc::_exit(194) };
     }
 
     unsafe { libc::_exit(0) }
