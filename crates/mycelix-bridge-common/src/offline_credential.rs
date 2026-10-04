@@ -150,9 +150,7 @@ impl OfflineCredential {
         key: &[u8; 32],
     ) -> ConsciousnessTier {
         let reference_time = match &self.attestation {
-            Some(att)
-                if att.verify_blake3(key) && att.timestamp >= self.credential.issued_at =>
-            {
+            Some(att) if att.verify_blake3(key) && att.timestamp >= self.credential.issued_at => {
                 att.timestamp
             }
             _ => self.last_online_verification,
@@ -160,11 +158,7 @@ impl OfflineCredential {
         self.effective_tier_from_reference(now_us, reference_time)
     }
 
-    fn effective_tier_from_reference(
-        &self,
-        now_us: u64,
-        reference_time: u64,
-    ) -> ConsciousnessTier {
+    fn effective_tier_from_reference(&self, now_us: u64, reference_time: u64) -> ConsciousnessTier {
         if !self.degradation_enabled {
             return self.credential.tier;
         }
@@ -410,10 +404,7 @@ mod tests {
         offline.attestation = Some(attestation);
 
         assert_eq!(
-            offline.effective_tier_with_attestation_key(
-                48 * 3600 * 1_000_000,
-                &key,
-            ),
+            offline.effective_tier_with_attestation_key(48 * 3600 * 1_000_000, &key,),
             ConsciousnessTier::Guardian
         );
     }
@@ -429,10 +420,7 @@ mod tests {
             signature: vec![0; 32],
         });
         assert_eq!(
-            offline.effective_tier_with_attestation_key(
-                48 * 3600 * 1_000_000,
-                &[99u8; 32],
-            ),
+            offline.effective_tier_with_attestation_key(48 * 3600 * 1_000_000, &[99u8; 32],),
             ConsciousnessTier::Steward
         );
     }
