@@ -53,7 +53,7 @@ The runtime log binds each supported case to one expected protocol-level outcome
 
 These outcome classes are verified against the frozen manifest by `scripts/integral/verify_d6u_runtime_evidence.py`.
 
-The supplemental substrate checks also emit two separate records: a `D6U_RUNTIME_WITNESS` line containing the error returned by the Holochain runtime, and a `D6U_SUBSTRATE_CHECK` line asserting that the expected witness was observed. The verifier requires the witness and PASS records to cover the same declared checks.
+Each supplemental substrate check emits two separate records: a `D6U_RUNTIME_WITNESS` line containing the error returned by the Holochain runtime, and a `D6U_SUBSTRATE_CHECK` line asserting that the expected witness was observed. The verifier requires the witness and PASS records to cover the same declared checks.
 
 A successful run is runtime evidence for this fixture only. It does not establish Mycelix semantic truth, legal authority, production safety, physical outcomes, or actuation authority.
 
