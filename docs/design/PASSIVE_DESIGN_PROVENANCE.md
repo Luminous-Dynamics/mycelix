@@ -230,3 +230,8 @@ The research question to test is narrower and stronger:
 That question is experimentally tractable.
 
 It also gives us a clean route from the current fabrication kernel to a future autonomous engineering loop without pretending that generated geometry is already validated reality.
+
+
+## Machine-readable schema
+
+The initial machine-readable contract is maintained at `docs/design/passive-design-provenance-v1.schema.json`.
