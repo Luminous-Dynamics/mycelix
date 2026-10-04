@@ -92,6 +92,7 @@ def adapt(
     observed_pcr_json: Path,
     session_id: str,
     pcr_selection: str,
+    payload_json: Path | None = None,
 ) -> dict[str, Any]:
     version = VERSION_RE.search(yaml_text)
     if not version or int(version.group(1)) != 1:
