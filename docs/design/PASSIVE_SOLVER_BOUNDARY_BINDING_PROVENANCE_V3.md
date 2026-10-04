@@ -24,6 +24,13 @@ v3 records deterministic evidence for the selected patch:
 
 The certificate rejects selections that contain non-boundary edges, omit expected rim edges, fail the declared interface geometry, or do not form one connected closed loop.
 
+## Binding-set integrity
+
+The Symthaea binding registry enforces a one-to-one interface↔binding mapping,
+unique solver-boundary identities, and one common semantic geometry digest and
+exact mesh digest across the complete set. A deterministic binding-set digest
+then commits to the whole validated collection.
+
 ## Compatibility
 
 `passive-solver-boundary-binding-v2.schema.json` remains historical. New binding artifacts should use v3.
