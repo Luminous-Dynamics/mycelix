@@ -224,6 +224,10 @@ pub struct TrustPresentation {
     pub id: String,
     /// Reference to source credential
     pub credential_id: String,
+    /// Exact ActionHash of the source credential for new presentations.
+    /// Optional only for legacy records created before source binding existed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub credential_action_hash: Option<ActionHash>,
     /// Subject's DID
     pub subject_did: String,
     /// Disclosed trust tier (always disclosed)
@@ -955,6 +959,48 @@ fn validate_create_presentation(
         return Ok(ValidateCallbackResult::Invalid(
             "Subject must be a valid DID".into(),
         ));
+    }
+
+    // New presentations must bind to one concrete source credential.
+    // The credential ID alone is not authoritative because duplicate IDs can
+    // exist in legacy data or across issuers.
+    let credential_hash = pres.credential_action_hash.clone().ok_or(wasm_error!(
+        WasmErrorInner::Guest(
+            "New trust presentations must include the source credential ActionHash".into()
+        )
+    ))?;
+    let credential_record = must_get_valid_record(credential_hash)?;
+    let credential: TrustCredential = credential_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Presentation source hash must reference a TrustCredential".into()
+        )))?;
+
+    if credential.id != pres.credential_id
+        || credential.subject_did != pres.subject_did
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Presentation source credential does not match credential ID and subject".into(),
+        ));
+    }
+    if *credential_record.action().author() == action.author {
+        // The source credential issuer may also be the presenter only for
+        // self-issued credentials; this is allowed by the existing model.
+    }
+
+    if pres.disclosed_tier != credential.trust_tier {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Presentation disclosed tier must match the source credential".into(),
+        ));
+    }
+    if let Some(ref range) = pres.disclosed_range {
+        if *range != credential.trust_score_range {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Presentation disclosed range must match the source credential".into(),
+            ));
+        }
     }
 
     // Presentation proof must not be empty
