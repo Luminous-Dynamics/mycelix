@@ -302,7 +302,7 @@ impl EconomicActionFinalizationGate {
         semantic_mismatch_reconciliation_ids.dedup();
         nonconformant_reconciliation_ids.sort();
 
-        let exposure = impacts.exposure();
+        let exposure = impacts.exposure_for_action(lifecycle.action_ref());
 
         let decision = if integrity.assessment.decision
             == EconomicIntegrityDecision::EmergencyEscalationRequired
@@ -840,6 +840,55 @@ mod tests {
             &[constraint],
         )
         .is_err());
+    }
+
+    #[test]
+    fn unrelated_action_impact_does_not_block_finalization() {
+        let lifecycle = completed_lifecycle();
+        let constraint = completion_constraint(&lifecycle);
+        let receipt = completion_receipt(&lifecycle);
+        let reconciliations = reconciliation_ledger(vec![reconciliation(
+            "reconciliation:completion",
+            &receipt,
+            &constraint,
+            ExecutionConformance::Conformant,
+            1_600,
+        )]);
+        let execution = execution_ledger(vec![receipt]);
+
+        let mut impacts = ImpactLedger::new();
+        let mut unrelated = SubstrateImpact {
+            id: "impact:other".into(),
+            action_actor: "actor:other".into(),
+            action_ref: "action:other".into(),
+            dimension: SubstrateDimension::Financial,
+            unit: "sap".into(),
+            magnitude: 10,
+            direction: ImpactDirection::Depletion,
+            affected_ref: "commons:other".into(),
+            attributions: Vec::new(),
+            evidence_refs: vec!["evidence:other".into()],
+            status: ImpactStatus::Open,
+            obligation_id: None,
+            recorded_at: 1_300,
+        };
+        unrelated.action_ref = "action:other".into();
+        impacts.record_impact(unrelated).unwrap();
+
+        let assessment = EconomicActionFinalizationGate::assess(
+            &lifecycle,
+            &scope(),
+            &healthy_substrate(),
+            &impacts,
+            &reconciliations,
+            &execution,
+            &[constraint],
+        )
+        .unwrap();
+
+        assert_eq!(assessment.decision, EconomicFinalizationDecision::Ready);
+        assert!(assessment.open_impact_ids.is_empty());
+        assert_eq!(assessment.integrity.assessment.impact, super::super::integrity_gate::ImpactGateDecision::Allowed);
     }
 
     #[test]
