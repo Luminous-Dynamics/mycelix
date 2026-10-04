@@ -1081,13 +1081,13 @@ mod tests {
 
     #[test]
     fn bounded_security_json_accepts_exact_envelope_limit() {
-        let mut input = br#"{
-            \"subject\":\"did:mycelix:alice\",
-            \"resource\":\"resource:ledger\",
-            \"action\":\"Read\",
-            \"policy_version\":7
-        }"#
-        .to_vec();
+        let mut input = serde_json::to_vec(&serde_json::json!({
+            "subject": "did:mycelix:alice",
+            "resource": "resource:ledger",
+            "action": "Read",
+            "policy_version": 7
+        }))
+        .unwrap();
         input.resize(MAX_SECURITY_WIRE_BYTES, b' ');
 
         let decoded: AuthorizationRequest = deserialize_bounded_security_json(&input).unwrap();
