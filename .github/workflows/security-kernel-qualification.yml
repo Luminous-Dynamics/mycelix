@@ -85,7 +85,544 @@ jobs:
 
           # Security-domain JSON adapters must impose an outer parser/input-envelope bound
           # before Serde sees attacker-controlled bytes; field bounds alone are retention-only.
-          if ! rg -n '^pub const MAX_SECURITY_WIRE_BYTES: usize = 512 \* 1024;          # Capability and AuthorizationRequest wire schemas must reject unknown fields.
+          if ! rg -n '^pub const MAX_SECURITY_WIRE_BYTES: usize = 512 \\* 1024;          # Capability and AuthorizationRequest wire schemas must reject unknown fields.
+          for pattern in             '#\[derive\([^]]*Deserialize[^]]*\)\][[:space:]]*#\[serde\(deny_unknown_fields\)\][[:space:]]*struct (CapabilityWire|AuthorizationRequestWire)'; do
+            if ! rg -nU "$pattern" crates/mycelix-bridge-common/src/security_kernel.rs; then
+              echo "security-kernel regression: authorization wire schema lost deny_unknown_fields" >&2
+              exit 1
+            fi
+          done
+
+          if ! rg -nU '#\[derive\([^]]*Deserialize[^]]*\)\][[:space:]]*#\[serde\(try_from[[:space:]]*=[[:space:]]*"CapabilityWire"\)\][[:space:]]*pub struct Capability' crates/mycelix-bridge-common/src/security_kernel.rs; then
+            echo "security-kernel regression: Capability lost its Deserialize + serde constructor gate" >&2
+            exit 1
+          fi
+          if ! rg -nU '#\[derive\([^]]*Deserialize[^]]*\)\][[:space:]]*#\[serde\(try_from[[:space:]]*=[[:space:]]*"AuthorizationRequestWire"\)\][[:space:]]*pub struct AuthorizationRequest' crates/mycelix-bridge-common/src/security_kernel.rs; then
+            echo "security-kernel regression: AuthorizationRequest lost its Deserialize + serde constructor gate" >&2
+            exit 1
+          fi
+
+          # ProvenanceRef is constructor-gated in both directions: external callers must
+          # use ProvenanceRef::new(), and wire decoding must pass through that constructor.
+          for pattern in \
+            'pub([[:space:]]*\\([^)]*\\))?[[:space:]]+(artifact_id|relation)[[:space:]]*:'; do
+            if rg -nU "$pattern" crates/mycelix-bridge-common/src/security_events.rs; then
+              echo "security-event trust-surface regression: public ProvenanceRef field: $pattern" >&2
+              exit 1
+            fi
+          done
+
+          # Provenance identifiers must not bypass ProvenanceRef::new() during wire decoding.
+          if ! rg -nU '#\\[derive\\([^]]*Serialize[^]]*\\)\\][[:space:]]*#\\[serde\\(try_from[[:space:]]*=[[:space:]]*"ProvenanceRefWire"\\)\\][[:space:]]*pub struct ProvenanceRef' crates/mycelix-bridge-common/src/security_events.rs; then
+            echo "security-event regression: ProvenanceRef lost its constructor-gated deserialization" >&2
+            exit 1
+          fi
+          if ! rg -nU '#\\[derive\\([^]]*Deserialize[^]]*\\)\\][[:space:]]*#\\[serde\\(deny_unknown_fields\\)\\][[:space:]]*struct ProvenanceRefWire' crates/mycelix-bridge-common/src/security_events.rs; then
+            echo "security-event regression: ProvenanceRef wire schema lost deny_unknown_fields" >&2
+            exit 1
+          fi
+          if ! rg -nU '#\\[derive\\([^]]*Deserialize[^]]*\\)\\][[:space:]]*#\\[serde\\(deny_unknown_fields\\)\\][[:space:]]*struct SecurityEventWire' crates/mycelix-bridge-common/src/security_events.rs; then
+            echo "security-event regression: SecurityEvent wire schema lost deny_unknown_fields" >&2
+            exit 1
+          fi
+
+          # Untrusted wire sequences and security identifiers must be bounded before the kernel retains them.
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          kernel = Path("crates/mycelix-bridge-common/src/security_kernel.rs").read_text()
+          events = Path("crates/mycelix-bridge-common/src/security_events.rs").read_text()
+
+          capability_wire = re.search(
+              r"struct CapabilityWire\s*\{(?P<body>.*?)\n\}",
+              kernel,
+              re.DOTALL,
+          )
+          if not capability_wire or not re.search(
+              r'#\[serde\(deserialize_with\s*=\s*"deserialize_capability_actions"\)\]\s*'
+              r'actions:\s*Vec<CapabilityAction>',
+              capability_wire.group("body"),
+          ):
+              raise SystemExit("security-kernel regression: bounded action deserializer is not attached to CapabilityWire")
+
+          def require_wire_decoder(text, struct_name, fields, decoder):
+              match = re.search(
+                  rf"struct {struct_name}\s*\{{(?P<body>.*?)\n\}}",
+                  text,
+                  re.DOTALL,
+              )
+              if not match:
+                  raise SystemExit(f"security-wire regression: {struct_name} disappeared")
+              body = match.group("body")
+              for field in fields:
+                  expected = f'#[serde(deserialize_with = "{decoder}")]\n    {field}:'
+                  if expected not in body:
+                      raise SystemExit(
+                          f"security-wire regression: {struct_name}.{field} lost {decoder}"
+                      )
+
+          require_wire_decoder(
+              kernel,
+              "CapabilityWire",
+              ["subject", "issuer", "resource"],
+              "deserialize_security_identifier",
+          )
+          require_wire_decoder(
+              kernel,
+              "AuthorizationRequestWire",
+              ["subject", "resource"],
+              "deserialize_security_identifier",
+          )
+          require_wire_decoder(
+              events,
+              "ProvenanceRefWire",
+              ["artifact_id"],
+              "deserialize_provenance_identifier",
+          )
+          require_wire_decoder(
+              events,
+              "SecurityEventWire",
+              ["event_id", "actor_id", "capability_ref"],
+              "deserialize_provenance_identifier",
+          )
+          security_event_wire = re.search(
+              r"struct SecurityEventWire\s*\{(?P<body>.*?)\n\}",
+              events,
+              re.DOTALL,
+          )
+          if not security_event_wire:
+              raise SystemExit("security-event regression: SecurityEventWire disappeared")
+          security_event_wire_body = security_event_wire.group("body")
+          if not re.search(
+              r'decision:\s*SecurityEventDecision\s*,',
+              security_event_wire_body,
+          ):
+              raise SystemExit(
+                  "security-event regression: SecurityEventWire must use the audit-only SecurityEventDecision vocabulary"
+              )
+          if not re.search(
+              r'#[serde\(\s*default,\s*deserialize_with\s*=\s*'
+              r'"deserialize_optional_provenance_identifier"\s*\)]\s*'
+              r'recovery_correlation:',
+              security_event_wire_body,
+              re.DOTALL,
+          ):
+              raise SystemExit(
+                  "security-event regression: bounded recovery-correlation deserializer is not attached to SecurityEventWire"
+              )
+
+          if not re.search(
+              r'#\[serde\(deserialize_with\s*=\s*"deserialize_provenance_refs"\)\]\s*'
+              r'provenance:\s*Vec<ProvenanceRef>',
+              security_event_wire_body,
+          ):
+              raise SystemExit("security-event regression: bounded provenance deserializer is not attached to SecurityEventWire")
+          PY
+
+          if ! rg -n 'MAX_CAPABILITY_ACTIONS' crates/mycelix-bridge-common/src/security_kernel.rs; then
+            echo "security-kernel regression: capability action limit disappeared" >&2
+            exit 1
+          fi
+          if ! rg -n 'deserialize_with[[:space:]]*=[[:space:]]*"deserialize_provenance_refs"' crates/mycelix-bridge-common/src/security_events.rs; then
+            echo "security-event regression: provenance wire sequence lost bounded deserialization" >&2
+            exit 1
+          fi
+          if ! rg -nU 'pub[[:space:]]+enum[[:space:]]+SecurityEventDecision' crates/mycelix-bridge-common/src/security_events.rs; then
+            echo "security-event regression: SecurityEventDecision vocabulary disappeared" >&2
+            exit 1
+          fi
+
+          if ! rg -nU 'decision:[[:space:]]*SecurityEventDecision' crates/mycelix-bridge-common/src/security_events.rs; then
+            echo "security-event regression: SecurityEvent no longer uses the audit decision vocabulary" >&2
+            exit 1
+          fi
+
+          if ! rg -n 'deserialize_optional_provenance_identifier' crates/mycelix-bridge-common/src/security_events.rs; then
+            echo "security-event regression: recovery correlation bounded deserializer disappeared" >&2
+            exit 1
+          fi
+          if ! rg -n 'deserialize_with[[:space:]]*=[[:space:]]*"deserialize_security_identifier"' crates/mycelix-bridge-common/src/security_kernel.rs; then
+            echo "security-kernel regression: bounded identifier deserializer disappeared" >&2
+            exit 1
+          fi
+          if ! rg -nU 'fn authority_binding_from_freshness_digest\([^)]*\)[[:space:]]*->[[:space:]]*\[u8;[[:space:]]*32\][[:space:]]*\{' crates/mycelix-bridge-common/src/security_kernel.rs; then
+            echo "security-kernel regression: authority freshness binding helper disappeared" >&2
+            exit 1
+          fi
+          if ! rg -nU 'if freshness_digest[[:space:]]*==[[:space:]]*\[0;[[:space:]]*32\][[:space:]]*\{[^}]*return[[:space:]]+\[0;[[:space:]]*32\];' crates/mycelix-bridge-common/src/security_kernel.rs; then
+            echo "security-kernel regression: zero freshness sentinel is not preserved as missing authority binding" >&2
+            exit 1
+          fi
+
+          if ! rg -n 'deserialize_with[[:space:]]*=[[:space:]]*"deserialize_provenance_identifier"' crates/mycelix-bridge-common/src/security_events.rs; then
+            echo "security-event regression: bounded identifier deserializer disappeared" >&2
+            exit 1
+          fi
+
+          if ! rg -n 'MAX_SECURITY_EVENT_PROVENANCE_REFS' crates/mycelix-bridge-common/src/security_events.rs; then
+            echo "security-event regression: provenance sequence limit disappeared" >&2
+            exit 1
+          fi
+
+          # Recovery correlations carry a non-empty, bounded identifier invariant.
+          # Wire decoding must route them through the validating constructor.
+          if ! rg -nU 'with_recovery_correlation\([^)]*\)[[:space:]]*$' crates/mycelix-bridge-common/src/security_events.rs; then
+            echo "security-event regression: recovery correlation validation call disappeared" >&2
+            exit 1
+          fi
+          if rg -nU 'event\.recovery_correlation[[:space:]]*=[[:space:]]*wire\.recovery_correlation' crates/mycelix-bridge-common/src/security_events.rs; then
+            echo "security-event regression: recovery correlation is assigned directly from wire data" >&2
+            exit 1
+          fi
+          for pattern in \
+            '#\[derive\([^]]*(Serialize|Deserialize)[^]]*\)\][[:space:]]*(pub[[:space:]]+)?struct (VerificationEvidence|AuthorizationPermit|EnforcementRequest)' \
+            'impl[[:space:]]+(Serialize|Deserialize)[[:space:]]+for[[:space:]]+(VerificationEvidence|AuthorizationPermit|EnforcementRequest)' \
+            '#\[derive\([^]]*(Debug|PartialEq|Eq)[^]]*\)\][[:space:]]*pub struct VerificationEvidence' \
+            '#\[derive\([^]]*(Debug|Clone|Copy|PartialEq|Eq|Serialize|Deserialize)[^]]*\)\][[:space:]]*pub struct AuthorizationPermit' \
+            '#\[derive\([^]]*(Debug|Clone|Copy|PartialEq|Eq|Serialize|Deserialize)[^]]*\)\][[:space:]]*pub struct EnforcementRequest'; do
+            if rg -nU "$pattern" crates/mycelix-bridge-common/src/security_kernel.rs; then
+              echo "security-kernel serialization/linear-token regression: $pattern" >&2
+              exit 1
+            fi
+          done
+
+      - name: Assert authorization permits remain opaque
+        shell: bash
+        run: |
+          set -euo pipefail
+          awk '
+            BEGIN { in_impl = 0; depth = 0; found = 0 }
+            {
+              if (!in_impl && $0 ~ /^[[:space:]]*impl[[:space:]]+AuthorizationPermit[[:space:]]*\{[[:space:]]*$/) {
+                in_impl = 1
+              }
+              if (in_impl) {
+                if ($0 ~ /(^|[^[:alnum:]_])pub([[:space:]]*\([^)]*\))?[[:space:]]+fn[[:space:]]/) {
+                  print NR ": public AuthorizationPermit method: " $0
+                  found = 1
+                }
+                open_count = gsub(/\{/, "{", $0)
+                close_count = gsub(/\}/, "}", $0)
+                depth += open_count - close_count
+                if (depth <= 0) {
+                  exit found ? 1 : 0
+                }
+              }
+            }
+            END { if (in_impl && found == 0) exit 0 }
+          ' crates/mycelix-bridge-common/src/security_kernel.rs
+
+      - name: Test default feature set
+        run: cargo test --locked --manifest-path crates/mycelix-bridge-common/Cargo.toml
+
+      - name: Test identity feature set
+        run: cargo test --locked --manifest-path crates/mycelix-bridge-common/Cargo.toml --features identity
+
+      - name: Clippy default feature set
+        run: cargo clippy --locked --manifest-path crates/mycelix-bridge-common/Cargo.toml --all-targets -- -D warnings
+
+      - name: Clippy identity feature set
+        run: cargo clippy --locked --manifest-path crates/mycelix-bridge-common/Cargo.toml --all-targets --features identity -- -D warnings
+ crates/mycelix-bridge-common/src/security_kernel.rs; then
+            echo "security-kernel regression: outer security wire envelope limit disappeared or changed" >&2
+            exit 1
+          fi
+          if ! rg -nU 'pub fn deserialize_bounded_security_json<[[:space:]]*T>\(input:[[:space:]]*&\[u8\]\)[[:space:]]*->[[:space:]]*Result<T,[[:space:]]*serde_json::Error>' crates/mycelix-bridge-common/src/security_kernel.rs; then
+            echo "security-kernel regression: bounded security JSON adapter helper disappeared" >&2
+            exit 1
+          fi
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          kernel = Path("crates/mycelix-bridge-common/src/security_kernel.rs").read_text()
+          helper = re.search(
+              r"pub fn deserialize_bounded_security_json<(?P<generic>[^>]+)>\s*\(input:\s*&\[u8\]\).*?\n\s*T:\s*serde::de::DeserializeOwned,\s*\n\}\s*\{(?P<body>.*?)\n\}\n",
+              kernel,
+              re.DOTALL,
+          )
+          if not helper:
+              raise SystemExit("security-wire regression: bounded JSON helper shape disappeared")
+          body = helper.group("body")
+          limit_pos = body.find("input.len() > MAX_SECURITY_WIRE_BYTES")
+          parse_pos = body.find("serde_json::from_slice(input)")
+          if limit_pos < 0 or parse_pos < 0 or limit_pos > parse_pos:
+              raise SystemExit(
+                  "security-wire regression: parser must not run before the outer input-size check"
+              )
+          PY
+
+          # Capability and AuthorizationRequest must remain constructor-gated when decoded from wire data.
+          # Capability and AuthorizationRequest wire schemas must reject unknown fields.
+          for pattern in             '#\[derive\([^]]*Deserialize[^]]*\)\][[:space:]]*#\[serde\(deny_unknown_fields\)\][[:space:]]*struct (CapabilityWire|AuthorizationRequestWire)'; do
+            if ! rg -nU "$pattern" crates/mycelix-bridge-common/src/security_kernel.rs; then
+              echo "security-kernel regression: authorization wire schema lost deny_unknown_fields" >&2
+              exit 1
+            fi
+          done
+
+          if ! rg -nU '#\[derive\([^]]*Deserialize[^]]*\)\][[:space:]]*#\[serde\(try_from[[:space:]]*=[[:space:]]*"CapabilityWire"\)\][[:space:]]*pub struct Capability' crates/mycelix-bridge-common/src/security_kernel.rs; then
+            echo "security-kernel regression: Capability lost its Deserialize + serde constructor gate" >&2
+            exit 1
+          fi
+          if ! rg -nU '#\[derive\([^]]*Deserialize[^]]*\)\][[:space:]]*#\[serde\(try_from[[:space:]]*=[[:space:]]*"AuthorizationRequestWire"\)\][[:space:]]*pub struct AuthorizationRequest' crates/mycelix-bridge-common/src/security_kernel.rs; then
+            echo "security-kernel regression: AuthorizationRequest lost its Deserialize + serde constructor gate" >&2
+            exit 1
+          fi
+
+          # ProvenanceRef is constructor-gated in both directions: external callers must
+          # use ProvenanceRef::new(), and wire decoding must pass through that constructor.
+          for pattern in \
+            'pub([[:space:]]*\\([^)]*\\))?[[:space:]]+(artifact_id|relation)[[:space:]]*:'; do
+            if rg -nU "$pattern" crates/mycelix-bridge-common/src/security_events.rs; then
+              echo "security-event trust-surface regression: public ProvenanceRef field: $pattern" >&2
+              exit 1
+            fi
+          done
+
+          # Provenance identifiers must not bypass ProvenanceRef::new() during wire decoding.
+          if ! rg -nU '#\\[derive\\([^]]*Serialize[^]]*\\)\\][[:space:]]*#\\[serde\\(try_from[[:space:]]*=[[:space:]]*"ProvenanceRefWire"\\)\\][[:space:]]*pub struct ProvenanceRef' crates/mycelix-bridge-common/src/security_events.rs; then
+            echo "security-event regression: ProvenanceRef lost its constructor-gated deserialization" >&2
+            exit 1
+          fi
+          if ! rg -nU '#\\[derive\\([^]]*Deserialize[^]]*\\)\\][[:space:]]*#\\[serde\\(deny_unknown_fields\\)\\][[:space:]]*struct ProvenanceRefWire' crates/mycelix-bridge-common/src/security_events.rs; then
+            echo "security-event regression: ProvenanceRef wire schema lost deny_unknown_fields" >&2
+            exit 1
+          fi
+          if ! rg -nU '#\\[derive\\([^]]*Deserialize[^]]*\\)\\][[:space:]]*#\\[serde\\(deny_unknown_fields\\)\\][[:space:]]*struct SecurityEventWire' crates/mycelix-bridge-common/src/security_events.rs; then
+            echo "security-event regression: SecurityEvent wire schema lost deny_unknown_fields" >&2
+            exit 1
+          fi
+
+          # Untrusted wire sequences and security identifiers must be bounded before the kernel retains them.
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          kernel = Path("crates/mycelix-bridge-common/src/security_kernel.rs").read_text()
+          events = Path("crates/mycelix-bridge-common/src/security_events.rs").read_text()
+
+          capability_wire = re.search(
+              r"struct CapabilityWire\s*\{(?P<body>.*?)\n\}",
+              kernel,
+              re.DOTALL,
+          )
+          if not capability_wire or not re.search(
+              r'#\[serde\(deserialize_with\s*=\s*"deserialize_capability_actions"\)\]\s*'
+              r'actions:\s*Vec<CapabilityAction>',
+              capability_wire.group("body"),
+          ):
+              raise SystemExit("security-kernel regression: bounded action deserializer is not attached to CapabilityWire")
+
+          def require_wire_decoder(text, struct_name, fields, decoder):
+              match = re.search(
+                  rf"struct {struct_name}\s*\{{(?P<body>.*?)\n\}}",
+                  text,
+                  re.DOTALL,
+              )
+              if not match:
+                  raise SystemExit(f"security-wire regression: {struct_name} disappeared")
+              body = match.group("body")
+              for field in fields:
+                  expected = f'#[serde(deserialize_with = "{decoder}")]\n    {field}:'
+                  if expected not in body:
+                      raise SystemExit(
+                          f"security-wire regression: {struct_name}.{field} lost {decoder}"
+                      )
+
+          require_wire_decoder(
+              kernel,
+              "CapabilityWire",
+              ["subject", "issuer", "resource"],
+              "deserialize_security_identifier",
+          )
+          require_wire_decoder(
+              kernel,
+              "AuthorizationRequestWire",
+              ["subject", "resource"],
+              "deserialize_security_identifier",
+          )
+          require_wire_decoder(
+              events,
+              "ProvenanceRefWire",
+              ["artifact_id"],
+              "deserialize_provenance_identifier",
+          )
+          require_wire_decoder(
+              events,
+              "SecurityEventWire",
+              ["event_id", "actor_id", "capability_ref"],
+              "deserialize_provenance_identifier",
+          )
+          security_event_wire = re.search(
+              r"struct SecurityEventWire\s*\{(?P<body>.*?)\n\}",
+              events,
+              re.DOTALL,
+          )
+          if not security_event_wire:
+              raise SystemExit("security-event regression: SecurityEventWire disappeared")
+          security_event_wire_body = security_event_wire.group("body")
+          if not re.search(
+              r'decision:\s*SecurityEventDecision\s*,',
+              security_event_wire_body,
+          ):
+              raise SystemExit(
+                  "security-event regression: SecurityEventWire must use the audit-only SecurityEventDecision vocabulary"
+              )
+          if not re.search(
+              r'#[serde\(\s*default,\s*deserialize_with\s*=\s*'
+              r'"deserialize_optional_provenance_identifier"\s*\)]\s*'
+              r'recovery_correlation:',
+              security_event_wire_body,
+              re.DOTALL,
+          ):
+              raise SystemExit(
+                  "security-event regression: bounded recovery-correlation deserializer is not attached to SecurityEventWire"
+              )
+
+          if not re.search(
+              r'#\[serde\(deserialize_with\s*=\s*"deserialize_provenance_refs"\)\]\s*'
+              r'provenance:\s*Vec<ProvenanceRef>',
+              security_event_wire_body,
+          ):
+              raise SystemExit("security-event regression: bounded provenance deserializer is not attached to SecurityEventWire")
+          PY
+
+          if ! rg -n 'MAX_CAPABILITY_ACTIONS' crates/mycelix-bridge-common/src/security_kernel.rs; then
+            echo "security-kernel regression: capability action limit disappeared" >&2
+            exit 1
+          fi
+          if ! rg -n 'deserialize_with[[:space:]]*=[[:space:]]*"deserialize_provenance_refs"' crates/mycelix-bridge-common/src/security_events.rs; then
+            echo "security-event regression: provenance wire sequence lost bounded deserialization" >&2
+            exit 1
+          fi
+          if ! rg -nU 'pub[[:space:]]+enum[[:space:]]+SecurityEventDecision' crates/mycelix-bridge-common/src/security_events.rs; then
+            echo "security-event regression: SecurityEventDecision vocabulary disappeared" >&2
+            exit 1
+          fi
+
+          if ! rg -nU 'decision:[[:space:]]*SecurityEventDecision' crates/mycelix-bridge-common/src/security_events.rs; then
+            echo "security-event regression: SecurityEvent no longer uses the audit decision vocabulary" >&2
+            exit 1
+          fi
+
+          if ! rg -n 'deserialize_optional_provenance_identifier' crates/mycelix-bridge-common/src/security_events.rs; then
+            echo "security-event regression: recovery correlation bounded deserializer disappeared" >&2
+            exit 1
+          fi
+          if ! rg -n 'deserialize_with[[:space:]]*=[[:space:]]*"deserialize_security_identifier"' crates/mycelix-bridge-common/src/security_kernel.rs; then
+            echo "security-kernel regression: bounded identifier deserializer disappeared" >&2
+            exit 1
+          fi
+          if ! rg -nU 'fn authority_binding_from_freshness_digest\([^)]*\)[[:space:]]*->[[:space:]]*\[u8;[[:space:]]*32\][[:space:]]*\{' crates/mycelix-bridge-common/src/security_kernel.rs; then
+            echo "security-kernel regression: authority freshness binding helper disappeared" >&2
+            exit 1
+          fi
+          if ! rg -nU 'if freshness_digest[[:space:]]*==[[:space:]]*\[0;[[:space:]]*32\][[:space:]]*\{[^}]*return[[:space:]]+\[0;[[:space:]]*32\];' crates/mycelix-bridge-common/src/security_kernel.rs; then
+            echo "security-kernel regression: zero freshness sentinel is not preserved as missing authority binding" >&2
+            exit 1
+          fi
+
+          if ! rg -n 'deserialize_with[[:space:]]*=[[:space:]]*"deserialize_provenance_identifier"' crates/mycelix-bridge-common/src/security_events.rs; then
+            echo "security-event regression: bounded identifier deserializer disappeared" >&2
+            exit 1
+          fi
+
+          if ! rg -n 'MAX_SECURITY_EVENT_PROVENANCE_REFS' crates/mycelix-bridge-common/src/security_events.rs; then
+            echo "security-event regression: provenance sequence limit disappeared" >&2
+            exit 1
+          fi
+
+          # Recovery correlations carry a non-empty, bounded identifier invariant.
+          # Wire decoding must route them through the validating constructor.
+          if ! rg -nU 'with_recovery_correlation\([^)]*\)[[:space:]]*$' crates/mycelix-bridge-common/src/security_events.rs; then
+            echo "security-event regression: recovery correlation validation call disappeared" >&2
+            exit 1
+          fi
+          if rg -nU 'event\.recovery_correlation[[:space:]]*=[[:space:]]*wire\.recovery_correlation' crates/mycelix-bridge-common/src/security_events.rs; then
+            echo "security-event regression: recovery correlation is assigned directly from wire data" >&2
+            exit 1
+          fi
+          for pattern in \
+            '#\[derive\([^]]*(Serialize|Deserialize)[^]]*\)\][[:space:]]*(pub[[:space:]]+)?struct (VerificationEvidence|AuthorizationPermit|EnforcementRequest)' \
+            'impl[[:space:]]+(Serialize|Deserialize)[[:space:]]+for[[:space:]]+(VerificationEvidence|AuthorizationPermit|EnforcementRequest)' \
+            '#\[derive\([^]]*(Debug|PartialEq|Eq)[^]]*\)\][[:space:]]*pub struct VerificationEvidence' \
+            '#\[derive\([^]]*(Debug|Clone|Copy|PartialEq|Eq|Serialize|Deserialize)[^]]*\)\][[:space:]]*pub struct AuthorizationPermit' \
+            '#\[derive\([^]]*(Debug|Clone|Copy|PartialEq|Eq|Serialize|Deserialize)[^]]*\)\][[:space:]]*pub struct EnforcementRequest'; do
+            if rg -nU "$pattern" crates/mycelix-bridge-common/src/security_kernel.rs; then
+              echo "security-kernel serialization/linear-token regression: $pattern" >&2
+              exit 1
+            fi
+          done
+
+      - name: Assert authorization permits remain opaque
+        shell: bash
+        run: |
+          set -euo pipefail
+          awk '
+            BEGIN { in_impl = 0; depth = 0; found = 0 }
+            {
+              if (!in_impl && $0 ~ /^[[:space:]]*impl[[:space:]]+AuthorizationPermit[[:space:]]*\{[[:space:]]*$/) {
+                in_impl = 1
+              }
+              if (in_impl) {
+                if ($0 ~ /(^|[^[:alnum:]_])pub([[:space:]]*\([^)]*\))?[[:space:]]+fn[[:space:]]/) {
+                  print NR ": public AuthorizationPermit method: " $0
+                  found = 1
+                }
+                open_count = gsub(/\{/, "{", $0)
+                close_count = gsub(/\}/, "}", $0)
+                depth += open_count - close_count
+                if (depth <= 0) {
+                  exit found ? 1 : 0
+                }
+              }
+            }
+            END { if (in_impl && found == 0) exit 0 }
+          ' crates/mycelix-bridge-common/src/security_kernel.rs
+
+      - name: Test default feature set
+        run: cargo test --locked --manifest-path crates/mycelix-bridge-common/Cargo.toml
+
+      - name: Test identity feature set
+        run: cargo test --locked --manifest-path crates/mycelix-bridge-common/Cargo.toml --features identity
+
+      - name: Clippy default feature set
+        run: cargo clippy --locked --manifest-path crates/mycelix-bridge-common/Cargo.toml --all-targets -- -D warnings
+
+      - name: Clippy identity feature set
+        run: cargo clippy --locked --manifest-path crates/mycelix-bridge-common/Cargo.toml --all-targets --features identity -- -D warnings
+ crates/mycelix-bridge-common/src/security_kernel.rs; then
+            echo "security-kernel regression: outer security wire envelope limit disappeared or changed" >&2
+            exit 1
+          fi
+          if ! rg -nU 'pub fn deserialize_bounded_security_json<[[:space:]]*T>\\(input:[[:space:]]*&\\[u8\\]\\)[[:space:]]*->[[:space:]]*Result<T,[[:space:]]*serde_json::Error>' crates/mycelix-bridge-common/src/security_kernel.rs; then
+            echo "security-kernel regression: bounded security JSON adapter helper disappeared" >&2
+            exit 1
+          fi
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          kernel = Path("crates/mycelix-bridge-common/src/security_kernel.rs").read_text()
+          helper = re.search(
+              r"pub fn deserialize_bounded_security_json<(?P<generic>[^>]+)>\\s*\\(input:\\s*&\\[u8\\]\\).*?\\n\\s*T:\\s*serde::de::DeserializeOwned,\\s*\\n\\}\\s*\\{(?P<body>.*?)\\n\\}\\n",
+              kernel,
+              re.DOTALL,
+          )
+          if not helper:
+              raise SystemExit("security-wire regression: bounded JSON helper shape disappeared")
+          body = helper.group("body")
+          limit_pos = body.find("input.len() > MAX_SECURITY_WIRE_BYTES")
+          parse_pos = body.find("serde_json::from_slice(input)")
+          if limit_pos < 0 or parse_pos < 0 or limit_pos > parse_pos:
+              raise SystemExit(
+                  "security-wire regression: parser must not run before the outer input-size check"
+              )
+          PY
+
+          # Capability and AuthorizationRequest wire schemas must reject unknown fields.
           for pattern in             '#\[derive\([^]]*Deserialize[^]]*\)\][[:space:]]*#\[serde\(deny_unknown_fields\)\][[:space:]]*struct (CapabilityWire|AuthorizationRequestWire)'; do
             if ! rg -nU "$pattern" crates/mycelix-bridge-common/src/security_kernel.rs; then
               echo "security-kernel regression: authorization wire schema lost deny_unknown_fields" >&2

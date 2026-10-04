@@ -1082,10 +1082,10 @@ mod tests {
     #[test]
     fn bounded_security_json_accepts_exact_envelope_limit() {
         let mut input = br#"{
-            \"subject\":\"did:mycelix:alice\",
-            \"resource\":\"resource:ledger\",
-            \"action\":\"Read\",
-            \"policy_version\":7
+            "subject":"did:mycelix:alice",
+            "resource":"resource:ledger",
+            "action":"Read",
+            "policy_version":7
         }"#
         .to_vec();
         input.resize(MAX_SECURITY_WIRE_BYTES, b' ');
