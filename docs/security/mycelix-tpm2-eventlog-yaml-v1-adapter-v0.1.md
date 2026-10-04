@@ -8,7 +8,7 @@ Each event preserves EventNum, PCRIndex, and EventType. For extending events, th
 
 EV_NO_ACTION records are emitted as non-extending controls. PCR0 StartupLocality is detected and surfaced explicitly; the replay layer then refuses to pretend that zero-state replay fully reconstructs a PCR whose initial state was modified by StartupLocality. HCRTM PCR0 handling is bounded the same way. citeturn475700search2
 
-The final pcrs.sha256 values are parsed independently from event replay. They are observations to compare against replay, not inputs to replay.
+The final pcrs.sha256 values emitted by tpm2_eventlog are deliberately ignored as an observation source. The adapter instead requires a separate observed-PCR JSON artifact produced from tpm2_pcrread; that map is the observed side of the reconstruction theorem.
 
 Physical path:
 
