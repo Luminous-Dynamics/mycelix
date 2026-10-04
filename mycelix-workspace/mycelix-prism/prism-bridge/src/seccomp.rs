@@ -2694,6 +2694,24 @@ mod linux {
                 Err(SeccompError::CompilerInvariantViolation)
             ));
 
+            let predicate_policy = SeccompSyscallPolicyV2::new(
+                arch,
+                vec![SeccompSyscallRuleV2::new(
+                    libc::SYS_socket,
+                    vec![SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_UNIX as u64).unwrap()],
+                ).unwrap()],
+            ).unwrap();
+            let mut broken_triplet = compile_filter_v2(&predicate_policy).unwrap();
+            let arg_load = broken_triplet.iter().position(|instruction| {
+                instruction.code == BPF_LD | BPF_W | BPF_ABS
+                    && instruction.k == 16
+            }).unwrap();
+            broken_triplet[arg_load + 1].code = BPF_LD | BPF_W | BPF_ABS;
+            assert!(matches!(
+                validate_compiled_filter(&broken_triplet),
+                Err(SeccompError::CompilerInvariantViolation)
+            ));
+
             let mut unexpected_metadata = compile_filter_v2(&policy).unwrap();
             unexpected_metadata[3].jt = 1; // non-branch instructions may not carry jump metadata
             assert!(matches!(
