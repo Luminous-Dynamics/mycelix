@@ -3387,6 +3387,7 @@ mod tests {
         BodyDigestMismatch,
         ChainHeadMismatch,
         PublicationDigestMismatch,
+        UnsupportedTraceSchemaVersion,
         FirstPublicationPredecessorMismatch,
         SnapshotProfileMismatch,
         SnapshotTraceIndexMismatch,
@@ -3446,6 +3447,11 @@ mod tests {
         if publication.trace_verification_profile != capsule.verification_profile {
             return Err(
                 FederationStateMachineTraceCheckpointPublicationViolation::TraceVerificationProfileMismatch
+            );
+        }
+        if capsule.schema_version != FEDERATION_STATE_MACHINE_TRACE_CAPSULE_SCHEMA_VERSION {
+            return Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::UnsupportedTraceSchemaVersion
             );
         }
         if publication.trace_index != capsule.trace_index {
@@ -5621,6 +5627,24 @@ mod tests {
                 (&later, &later_publication),
             ])
             .is_ok()
+        );
+
+        let mut unsupported_later_schema = later.clone();
+        unsupported_later_schema.schema_version += 1;
+        reseal_state_machine_trace_for_test(&mut unsupported_later_schema);
+        let unsupported_schema_publication = state_machine_trace_checkpoint_publication(
+            &unsupported_later_schema,
+            12,
+            &earlier_publication.publication_sha256,
+        );
+        assert_eq!(
+            validate_state_machine_trace_checkpoint_publication(
+                &unsupported_later_schema,
+                &unsupported_schema_publication,
+            ),
+            Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::UnsupportedTraceSchemaVersion
+            )
         );
 
         let mut orphaned_earlier_publication = earlier_publication.clone();
