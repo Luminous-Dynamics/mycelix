@@ -3393,6 +3393,7 @@ mod tests {
         SnapshotPrefixMismatch,
         SnapshotRollback,
         PreviousPublicationMismatch,
+        PublicationChainEmpty,
         PublicationForkDetected,
     }
 
@@ -3540,6 +3541,47 @@ mod tests {
             return Err(
                 FederationStateMachineTraceCheckpointPublicationViolation::SnapshotPrefixMismatch
             );
+        }
+
+        Ok(())
+    }
+
+    /// Validates an ordered publication sequence, including the otherwise
+    /// unobservable root of the publication predecessor chain.
+    ///
+    /// Adjacent pairs prove snapshot prefix consistency; this wrapper additionally
+    /// requires the first publication to start from the publication genesis marker.
+    fn validate_state_machine_trace_checkpoint_publication_chain(
+        snapshots: &[(
+            &FederationStateMachineTraceCapsule,
+            &FederationStateMachineTraceCheckpointPublication,
+        )],
+    ) -> Result<(), FederationStateMachineTraceCheckpointPublicationViolation> {
+        if snapshots.is_empty() {
+            return Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::PublicationChainEmpty
+            );
+        }
+
+        for (capsule, publication) in snapshots {
+            validate_state_machine_trace_checkpoint_publication(capsule, publication)?;
+        }
+
+        if snapshots[0].1.previous_publication_sha256
+            != FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_GENESIS
+        {
+            return Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::FirstPublicationPredecessorMismatch
+            );
+        }
+
+        for pair in snapshots.windows(2) {
+            validate_state_machine_trace_checkpoint_publication_consistency(
+                pair[0].0,
+                pair[0].1,
+                pair[1].0,
+                pair[1].1,
+            )?;
         }
 
         Ok(())
@@ -5387,7 +5429,6 @@ mod tests {
     }
 
     #[test]
-    #[test]
     fn state_machine_trace_checkpoint_publication_hash_domain_is_distinct_from_other_receipts() {
         assert_ne!(
             FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_HASH_DOMAIN,
@@ -5407,6 +5448,7 @@ mod tests {
         );
     }
 
+    #[test]
     fn state_machine_trace_checkpoint_hash_domain_is_distinct_from_trace_hash_domains() {
         assert_ne!(
             FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_HASH_DOMAIN,
@@ -5574,13 +5616,28 @@ mod tests {
         );
 
         assert!(
-            validate_state_machine_trace_checkpoint_publication_consistency(
-                &earlier,
-                &earlier_publication,
-                &later,
-                &later_publication,
-            )
+            validate_state_machine_trace_checkpoint_publication_chain(&[
+                (&earlier, &earlier_publication),
+                (&later, &later_publication),
+            ])
             .is_ok()
+        );
+
+        let mut orphaned_earlier_publication = earlier_publication.clone();
+        orphaned_earlier_publication.previous_publication_sha256 =
+            "sha256:unexpected-publication-root".into();
+        orphaned_earlier_publication.publication_sha256 =
+            state_machine_trace_checkpoint_publication_sha256(
+                &orphaned_earlier_publication,
+            );
+        assert_eq!(
+            validate_state_machine_trace_checkpoint_publication_chain(&[(
+                &earlier,
+                &orphaned_earlier_publication,
+            )]),
+            Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::FirstPublicationPredecessorMismatch
+            )
         );
 
         let mut forged_later = later.clone();
@@ -5621,6 +5678,16 @@ mod tests {
             ),
             Err(
                 FederationStateMachineTraceCheckpointPublicationViolation::SnapshotRollback
+            )
+        );
+    }
+
+    #[test]
+    fn empty_publication_chain_is_rejected() {
+        assert_eq!(
+            validate_state_machine_trace_checkpoint_publication_chain(&[]),
+            Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::PublicationChainEmpty
             )
         );
     }
