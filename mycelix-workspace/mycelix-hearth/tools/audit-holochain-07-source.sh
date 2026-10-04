@@ -896,7 +896,14 @@ check_qualification_workflow_provenance() {
     "cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866"
     "actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f"
   )
-  if rg -n --fixed-strings 'install_url: https://releases.nixos.org/nix/nix-2.35.0/install' "$workflow" >/dev/null 2>&1; then\n    echo "OK:   qualification workflow pins the Nix installer to 2.35.0"\n  else\n    echo "FAIL: qualification workflow must pin the Nix installer to 2.35.0"\n    fail=1\n  fi\n\n  if rg -n --fixed-strings 'mycelix-health' "../../.gitmodules" >/dev/null 2>&1 \
+  if rg -n --fixed-strings 'installer-version: "2.35.1"' "$workflow" >/dev/null 2>&1     && ! rg -n --fixed-strings 'cachix/install-nix-action@' "$workflow" >/dev/null 2>&1; then
+    echo "OK:   qualification workflow pins the NixOS installer action and installer release to 2.35.1"
+  else
+    echo "FAIL: qualification workflow must use the pinned NixOS installer action and installer version 2.35.1"
+    fail=1
+  fi
+
+  if rg -n --fixed-strings 'mycelix-health' "../../.gitmodules" >/dev/null 2>&1 \
     && rg -n --fixed-strings 'https://github.com/Luminous-Dynamics/mycelix-health.git' "../../.gitmodules" >/dev/null 2>&1; then
     echo "OK:   qualification checkout declares the expected Hearth submodule source"
   else
