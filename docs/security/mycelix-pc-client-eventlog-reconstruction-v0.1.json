@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "artifact_type": "pc-client-eventlog-reconstruction-contract",
+  "profile_id": "mycelix.security.platform.eventlog.reconstruction",
+  "profile_version": "0.1.0",
+  "status": "executable-reference-profile",
+  "claim_ceiling": "ReferenceModelOnly",
+  "semantics": {
+    "hash_algorithm": "SHA-256",
+    "initial_pcr": "32 zero bytes for SHA-256 bank",
+    "extend": "PCR := SHA256(previous_PCR || event_digest)",
+    "ordering": "source-log order is authoritative; reconstruction must not reorder events",
+    "scope": "reconstruct recorded PCR evolution; event digest truth, reference appraisal, and platform authorization are separate decisions"
+  },
+  "event_schema": {
+    "sequence": "strictly increasing integer",
+    "pcr": "non-negative integer",
+    "event_type": "string",
+    "digest_sha256": "exactly 64 lowercase hexadecimal characters"
+  },
+  "invariants": [
+    "one PCR bank per reconstruction",
+    "event sequence is strictly increasing",
+    "each event has exactly one SHA-256 measurement digest for this profile",
+    "only events selecting the target PCR are applied to that PCR state",
+    "computed final PCR must equal the independently observed/quoted PCR",
+    "event-log parser success alone never establishes reconstruction PASS",
+    "reference-value appraisal is separate from digest replay",
+    "event metadata substitution with unchanged digest does not alter PCR replay but remains outside appraisal truth claims",
+    "missing or ambiguous observed PCR state is INDETERMINATE, not PASS"
+  ],
+  "vectors": [
+    {"id":"PLR-V01","mutation":"canonical-valid","expected":"PASS"},
+    {"id":"PLR-V02","mutation":"digest-substitution","expected":"DENY"},
+    {"id":"PLR-V03","mutation":"event-removal","expected":"DENY"},
+    {"id":"PLR-V04","mutation":"event-insertion","expected":"DENY"},
+    {"id":"PLR-V05","mutation":"event-reordering","expected":"DENY"},
+    {"id":"PLR-V06","mutation":"pcr-index-substitution","expected":"DENY"},
+    {"id":"PLR-V07","mutation":"sequence-duplicate","expected":"DENY"},
+    {"id":"PLR-V08","mutation":"malformed-digest","expected":"DENY"},
+    {"id":"PLR-V09","mutation":"wrong-bank","expected":"DENY"},
+    {"id":"PLR-V10","mutation":"expected-pcr-substitution","expected":"DENY"},
+    {"id":"PLR-V11","mutation":"missing-expected-pcr","expected":"INDETERMINATE"},
+    {"id":"PLR-V12","mutation":"empty-event-log","expected":"DENY"},
+    {"id":"PLR-V13","mutation":"key-order-permutation","expected":"PASS"},
+    {"id":"PLR-V14","mutation":"metadata-only-substitution","expected":"PASS"},
+    {"id":"PLR-V15","mutation":"reconstruction-unavailable","expected":"INDETERMINATE"},
+    {"id":"PLR-V16","mutation":"invalid-initial-pcr","expected":"DENY"},
+    {"id":"PLR-V17","mutation":"digest-algorithm-substitution","expected":"DENY"},
+    {"id":"PLR-V18","mutation":"target-pcr-missing-from-events","expected":"INDETERMINATE"},
+    {"id":"PLR-V19","mutation":"multi-pcr-canonical","expected":"PASS"},
+    {"id":"PLR-V20","mutation":"target-event-cross-session","expected":"DENY"},
+    {"id":"PLR-V21","mutation":"separator-event-canonical","expected":"PASS"},
+    {"id":"PLR-V22","mutation":"reconstructed-pcr-mismatch","expected":"DENY"}
+  ]
+}
