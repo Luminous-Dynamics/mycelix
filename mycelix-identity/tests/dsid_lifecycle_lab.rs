@@ -75,6 +75,8 @@ struct DidDocument {
     #[serde(rename = "verificationMethod", alias = "verification_method")]
     verification_method: Vec<VerificationMethod>,
     authentication: Vec<String>,
+    #[serde(rename = "assertionMethod", alias = "assertion_method", default)]
+    assertion_method: Vec<String>,
     #[serde(rename = "keyAgreement", alias = "key_agreement", default)]
     key_agreement: Vec<String>,
     service: Vec<ServiceEndpoint>,
@@ -109,6 +111,7 @@ struct DidDocumentView {
     id: String,
     controller: String,
     verification_methods: Vec<DidVerificationMethodView>,
+    assertion_methods: Vec<String>,
     key_agreements: Vec<String>,
     services: Vec<DidServiceView>,
     created: String,
@@ -219,6 +222,8 @@ struct DidDocumentWireView {
     #[serde(rename = "verificationMethod")]
     verification_methods: Vec<DidVerificationMethodWireView>,
     authentication: Vec<String>,
+    #[serde(rename = "assertionMethod", default)]
+    assertion_method: Vec<String>,
     #[serde(rename = "keyAgreement", default)]
     key_agreement: Vec<String>,
     service: Vec<DidServiceWireView>,
@@ -2996,5 +3001,70 @@ async fn dsid_036_issued_state_proves_credential_fulfillment() {
             && credential_value["proof"]["cryptosuite"].as_str() == Some("mycelix-blake2b-ed25519-2026")
             && verified["valid"] == true
             && duplicate_fulfillment.is_err(),
+    );
+}
+
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_037_assertion_method_authorizes_w3c_multikey() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let app = conductor
+        .setup_app("dsid-assertion-method", std::slice::from_ref(&dna))
+        .await
+        .unwrap();
+    let cell = app.cells()[0].clone();
+    let agent = app.agent().clone();
+
+    let created: Record = conductor
+        .call(&cell.zome("did_registry"), "create_did", ())
+        .await;
+    let did: DidDocument = decode_entry(&created).expect("DID entry must decode");
+
+    let multikey_id = format!("{}#keys-1-multikey", did.id);
+    let legacy_id = format!("{}#keys-1", did.id);
+
+    assert!(
+        did.assertion_method.contains(&multikey_id),
+        "W3C Multikey must be explicitly authorized for assertionMethod"
+    );
+    assert!(
+        did.assertion_method.contains(&legacy_id),
+        "Legacy assertion authorization must remain available for compatibility"
+    );
+
+    let multikey = did
+        .verification_method
+        .iter()
+        .find(|method| method.id == multikey_id)
+        .expect("W3C Multikey verification method must exist");
+    assert_eq!(multikey.type_, "Multikey");
+
+    let wire: DidDocumentWireView = conductor
+        .call(&cell.zome("did_registry"), "resolve_did_wire", did.id.clone())
+        .await;
+    assert!(wire.assertion_method.contains(&multikey_id));
+
+    let mut agents = BTreeMap::new();
+    agents.insert("alice", agent.to_string());
+    emit_evidence(
+        "DSID-037",
+        "assertion-method-authorizes-w3c-multikey",
+        &dna,
+        agents,
+        &[&created],
+        "A DID using W3C Data Integrity assertionMethod proofs must explicitly authorize the exact Multikey verification method in both canonical and wire document representations.",
+        format!(
+            "multikey_present={} assertion_authorized={} wire_assertion_authorized={} legacy_authorized={}",
+            did.verification_method.iter().any(|m| m.id == multikey_id),
+            did.assertion_method.contains(&multikey_id),
+            wire.assertion_method.contains(&multikey_id),
+            did.assertion_method.contains(&legacy_id)
+        ),
+        did.verification_method.iter().any(|m| m.id == multikey_id)
+            && did.assertion_method.contains(&multikey_id)
+            && wire.assertion_method.contains(&multikey_id)
+            && did.assertion_method.contains(&legacy_id),
     );
 }
