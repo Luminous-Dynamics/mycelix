@@ -2024,6 +2024,7 @@ pub fn issue_credential_for_request(
         expiration_days: input.expiration_days,
         enable_revocation: input.enable_revocation,
         strict_schema: input.strict_schema,
+        proof_profile: Some(CredentialProofProfile::W3cEddsaJcs2022),
     })?;
 
     let credential: VerifiableCredential = credential_record
