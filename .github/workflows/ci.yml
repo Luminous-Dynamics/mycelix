@@ -357,39 +357,66 @@ jobs:
       - name: Run DSID lifecycle lab
         run: |
           set -o pipefail
+          export DSID_INTEROP_FIXTURE_DIR="$GITHUB_WORKSPACE/dsid-interop-fixture"
           cd mycelix-identity
           nix develop .#ci --command bash -c '
             set -o pipefail
             cd tests
-            cargo test --test dsid_lifecycle_lab \
-              -- --include-ignored --nocapture --test-threads=1 \
-              | tee "$GITHUB_WORKSPACE/dsid-lifecycle-evidence.txt"
+            cargo test --test dsid_lifecycle_lab               -- --include-ignored --nocapture --test-threads=1               | tee "$GITHUB_WORKSPACE/dsid-lifecycle-evidence.txt"
           '
-          grep '^DSID_EVIDENCE ' "$GITHUB_WORKSPACE/dsid-lifecycle-evidence.txt" \
-            | cut -d ' ' -f2- \
-            > "$GITHUB_WORKSPACE/dsid-lifecycle-evidence.jsonl"
+          grep '^DSID_EVIDENCE ' "$GITHUB_WORKSPACE/dsid-lifecycle-evidence.txt"             | cut -d ' ' -f2-             > "$GITHUB_WORKSPACE/dsid-lifecycle-evidence.jsonl"
+          test -s "$GITHUB_WORKSPACE/dsid-interop-fixture/mycelix-eddsa-jcs-interop.json"
       - name: Validate evidence capsule
         run: |
           test -s dsid-lifecycle-evidence.jsonl
-          test "$(wc -l < dsid-lifecycle-evidence.jsonl)" -eq 14
+          test "$(wc -l < dsid-lifecycle-evidence.jsonl)" -eq 52
           python3 - <<'PY'
           import json
+          import os
+          from collections import Counter
           from pathlib import Path
-          rows = [json.loads(line) for line in Path("dsid-lifecycle-evidence.jsonl").read_text().splitlines()]
-          assert len(rows) == 14
+
+          rows = [
+              json.loads(line)
+              for line in Path("dsid-lifecycle-evidence.jsonl").read_text().splitlines()
+          ]
+          expected_ids = [f"DSID-{i:03d}" for i in range(1, 53)]
+          observed_ids = [row["scenario_id"] for row in rows]
+
+          # Qualify every checked-in lifecycle scenario, while remaining
+          # independent of test-harness execution order.
+          assert len(rows) == 52
+          assert Counter(observed_ids) == Counter(expected_ids)
+
           assert all(row["schema_version"] == 1 for row in rows)
           assert all(row["pass"] is True for row in rows)
-          assert len({row["scenario_id"] for row in rows}) == 14
           assert all(row["dna_hash"] for row in rows)
           assert len({row["dna_hash"] for row in rows}) == 1
-          assert all(row["commit_sha"] for row in rows)
-          assert len({row["commit_sha"] for row in rows}) == 1
+          expected_head = os.environ["GITHUB_SHA"]
+          assert all(row["commit_sha"] == expected_head for row in rows)
           assert all(row["agents"] for row in rows)
-          assert all(row["action_hashes"] for row in rows)
-          assert all(row["entry_hashes"] for row in rows)
+          assert all(row["expected"] for row in rows)
+          assert all(row["observed"] for row in rows)
+          assert all(row["evidence_scope"] in {"record-bound", "absence-bound"} for row in rows)
+
+          for row in rows:
+              if row["evidence_scope"] == "record-bound":
+                  assert row["action_hashes"], row["scenario_id"]
+                  assert row["entry_hashes"], row["scenario_id"]
+              else:
+                  # Pure/reference scenarios deliberately bind no Holochain record.
+                  assert row["action_hashes"] == [], row["scenario_id"]
+                  assert row["entry_hashes"] == [], row["scenario_id"]
+
+          fixture_path = Path("dsid-interop-fixture/mycelix-eddsa-jcs-interop.json")
+          fixture = json.loads(fixture_path.read_text())
+          assert fixture["qualifiedHeadCommit"] == expected_head
+          assert fixture["cryptosuite"] == "eddsa-jcs-2022"
           PY
-      - name: Hash DSID evidence
-        run: sha256sum dsid-lifecycle-evidence.jsonl > dsid-lifecycle-evidence.sha256
+      - name: Hash DSID evidence and interop fixture
+        run: |
+          sha256sum dsid-lifecycle-evidence.jsonl > dsid-lifecycle-evidence.sha256
+          sha256sum dsid-interop-fixture/mycelix-eddsa-jcs-interop.json > dsid-interop-fixture.sha256
       - name: Upload DSID evidence
         uses: actions/upload-artifact@v4
         with:
@@ -398,6 +425,8 @@ jobs:
             dsid-lifecycle-evidence.txt
             dsid-lifecycle-evidence.jsonl
             dsid-lifecycle-evidence.sha256
+            dsid-interop-fixture/mycelix-eddsa-jcs-interop.json
+            dsid-interop-fixture.sha256
 
   test-personal:
     needs: changes
