@@ -47,6 +47,7 @@ pub struct EconomicOutcomeEvaluation {
     pub outcome_captured_at: u64,
     pub evaluation_at: u64,
     pub outcome_influence: EconomicOutcomeInfluence,
+    pub measurement_status: EconomicMeasurementStatus,
     pub intervention_refs: Vec<String>,
     pub governance_decision_refs: Vec<String>,
     pub uncertainty_refs: Vec<String>,
@@ -100,10 +101,13 @@ impl EconomicOutcomeEvaluation {
                 return Err("ObservationalBacktest requires NoKnownIntervention influence".into());
             }
         }
-        if self.kind == EconomicEvaluationKind::ScenarioOutcome && self.missing_data_refs.is_empty()
-            && self.outcome_influence == EconomicOutcomeInfluence::InfluenceUnknown
+        if self.outcome_influence == EconomicOutcomeInfluence::InfluenceUnknown
+            && self.uncertainty_refs.is_empty()
+            && self.missing_data_refs.is_empty()
         {
-            return Err("ScenarioOutcome with unknown influence must carry uncertainty or missing-data evidence".into());
+            return Err(
+                "InfluenceUnknown must carry uncertainty or missing-data evidence".into(),
+            );
         }
         Ok(())
     }
@@ -182,6 +186,7 @@ impl EconomicOutcomeEvaluation {
             "outcome_captured_at": self.outcome_captured_at,
             "evaluation_at": self.evaluation_at,
             "outcome_influence": self.outcome_influence,
+            "measurement_status": self.measurement_status,
             "intervention_refs": intervention_refs,
             "governance_decision_refs": governance_decision_refs,
             "uncertainty_refs": uncertainty_refs,
@@ -255,6 +260,7 @@ mod tests {
             outcome_captured_at: 1_500,
             evaluation_at: 1_600,
             outcome_influence: EconomicOutcomeInfluence::NoKnownIntervention,
+            measurement_status: EconomicMeasurementStatus::Complete,
             intervention_refs: Vec::new(),
             governance_decision_refs: Vec::new(),
             uncertainty_refs: vec!["uncertainty:measurement".into()],
@@ -286,6 +292,28 @@ mod tests {
         value.kind=EconomicEvaluationKind::ScenarioOutcome;
         value.scenario=Some(EconomicScenarioBinding { scenario_ref:"scenario:policy:1".into(), scenario_fingerprint:"d".repeat(64) });
         assert!(value.validate().is_err());
+    }
+
+    #[test]
+    fn unknown_influence_requires_uncertainty_or_missing_data() {
+        let mut value = evaluation();
+        value.outcome_influence = EconomicOutcomeInfluence::InfluenceUnknown;
+        value.uncertainty_refs.clear();
+        assert!(value.validate().is_err());
+
+        value.missing_data_refs.push("missing:1".into());
+        assert!(value.validate().is_ok());
+    }
+
+    #[test]
+    fn measurement_status_changes_identity() {
+        let left = evaluation();
+        let mut right = left.clone();
+        right.measurement_status = EconomicMeasurementStatus::PartiallyObserved;
+        assert_ne!(left.fingerprint().unwrap(), right.fingerprint().unwrap());
+
+        right.measurement_status = EconomicMeasurementStatus::Invalidated;
+        assert_ne!(left.fingerprint().unwrap(), right.fingerprint().unwrap());
     }
 
     #[test] fn information_leakage_is_rejected() {
