@@ -926,10 +926,10 @@ check_qualification_workflow_provenance() {
     fail=1
   fi
 
-  if rg -n --fixed-strings 'GITHUB_TOKEN: ""' "$workflow" >/dev/null 2>&1     && rg -n --fixed-strings 'github_access_token: ""' "$workflow" >/dev/null 2>&1; then
-    echo "OK:   qualification workflow withholds the GitHub token from Nix"
+  if rg -n --fixed-strings 'GITHUB_SERVER_URL: ""' "$workflow" >/dev/null 2>&1     && rg -n --fixed-strings 'github_access_token: ""' "$workflow" >/dev/null 2>&1; then
+    echo "OK:   qualification workflow suppresses the install-nix-action token fallback"
   else
-    echo "FAIL: qualification workflow must not expose GITHUB_TOKEN to the Nix installer"
+    echo "FAIL: qualification workflow must suppress the install-nix-action GITHUB_TOKEN fallback"
     fail=1
   fi
 
