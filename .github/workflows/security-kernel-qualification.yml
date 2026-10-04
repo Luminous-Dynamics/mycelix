@@ -68,6 +68,11 @@ jobs:
             fi
           done
 
+          if rg -nU 'pub[[:space:]]+enum[[:space:]]+AuthorizationDecision[[:space:]]*\\{[^}]*\\bAllow\\b' crates/mycelix-bridge-common/src/security_kernel.rs; then
+            echo "security-kernel regression: AuthorizationDecision must remain failure-only; Allow belongs to SecurityEventDecision" >&2
+            exit 1
+          fi
+
           # Trust-sensitive SecurityEvent fields must remain module-private under
           # every Rust visibility form, not merely bare pub.
           for pattern in \
