@@ -46,6 +46,11 @@ pub fn register_name(entry: MeshNameEntry) -> ExternResult<Record> {
 }
 
 /// Resolve a mesh name.
+///
+/// NamePath is an append-only index and its DHT traversal order is not an
+/// authority clock. Return exactly one currently-unexpired registration; when
+/// more than one valid registration claims the name, fail closed instead of
+/// arbitrarily selecting whichever link the network returned first.
 #[hdk_extern]
 pub fn resolve_name(canonical: String) -> ExternResult<Option<MeshNameEntry>> {
     let segments: Vec<&str> = canonical
@@ -53,16 +58,27 @@ pub fn resolve_name(canonical: String) -> ExternResult<Option<MeshNameEntry>> {
         .unwrap_or(&canonical)
         .trim_matches('/')
         .split('/')
+        .filter(|segment| !segment.is_empty())
         .collect();
-    let anchor_str = format!("mesh_name/{}", segments.join("/"));
 
+    if segments.is_empty() || segments.len() > 5 {
+        return Ok(None);
+    }
+
+    let expected_canonical = format!("mycelix://{}", segments.join("/"));
+    if expected_canonical != canonical.trim_end_matches('/') {
+        return Ok(None);
+    }
+
+    let anchor_str = format!("mesh_name/{}", segments.join("/"));
     let links = get_links(
         LinkQuery::try_new(anchor_hash(&anchor_str)?, LinkTypes::NamePath)?,
         GetStrategy::default(),
     )?;
 
-    // Return the most recent registration
-    for link in links.into_iter().rev() {
+    let now = sys_time()?;
+    let mut candidates = Vec::new();
+    for link in links {
         if let Some(target) = link.target.into_action_hash() {
             if let Some(record) = get(target, GetOptions::default())? {
                 if let Some(entry) = record
@@ -71,12 +87,21 @@ pub fn resolve_name(canonical: String) -> ExternResult<Option<MeshNameEntry>> {
                     .ok()
                     .flatten()
                 {
-                    return Ok(Some(entry));
+                    if entry.canonical == expected_canonical && entry.expires_at > now.as_micros() as u64 {
+                        candidates.push(entry);
+                    }
                 }
             }
         }
     }
-    Ok(None)
+
+    match candidates.len() {
+        0 => Ok(None),
+        1 => Ok(candidates.into_iter().next()),
+        _ => Err(wasm_error!(WasmErrorInner::Guest(
+            "Ambiguous active mesh-name registrations; refusing nondeterministic resolution".into(),
+        ))),
+    }
 }
 
 /// Transfer name ownership (owner only, Citizen+).
