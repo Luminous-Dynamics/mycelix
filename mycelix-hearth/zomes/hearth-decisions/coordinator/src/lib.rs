@@ -463,7 +463,6 @@ fn collect_tally_evidence(
 
     let mut tallies: std::collections::HashMap<u32, u32> = std::collections::HashMap::new();
     let mut vote_refs = Vec::new();
-    let mut seen_vote_refs = std::collections::HashSet::new();
 
     for link in links {
         let target = link
@@ -472,14 +471,15 @@ fn collect_tally_evidence(
             .ok_or(wasm_error!(WasmErrorInner::Guest(
                 "Link target is not an ActionHash".into()
             )))?;
+        vote_refs.push(target);
+    }
 
-        // Holochain permits multiple identical links. Treat the vote action hash as
-        // the semantic identity of the evidence so duplicate CreateLink actions
-        // cannot amplify its weight or participation contribution.
-        if !seen_vote_refs.insert(target.clone()) {
-            continue;
-        }
+    // Holochain permits multiple identical links. Treat the Vote action hash as
+    // the semantic identity of evidence so duplicate CreateLink actions cannot
+    // amplify its weight or participation contribution.
+    deduplicate_vote_refs(&mut vote_refs);
 
+    for target in vote_refs.iter().cloned() {
         if let Some(record) = get_latest_record(target.clone())? {
             let entry_type = record.action().entry_type().ok_or(wasm_error!(
                 WasmErrorInner::Guest("Tally target has no application entry type".into())
@@ -534,11 +534,9 @@ fn collect_tally_evidence(
 }
 
 /// Deterministically remove duplicate vote action references before tallying.
-#[cfg(test)]
 fn deduplicate_vote_refs(refs: &mut Vec<ActionHash>) {
-    let mut seen = std::collections::HashSet::new();
-    refs.retain(|hash| seen.insert(hash.clone()));
     refs.sort_by_key(|hash| hash.get_raw_36().to_vec());
+    refs.dedup();
 }
 
 /// Tally all votes for a decision.
