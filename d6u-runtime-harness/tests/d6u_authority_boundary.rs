@@ -690,7 +690,7 @@ async fn d6u_runtime_authority_boundary() {
     assert_eq!(reached.load(Ordering::SeqCst), before);
     record_case("blocked-provenance", "authorization-failed");
 
-    assert!(reached.load(Ordering::SeqCst) >= 4);
+    assert_eq!(reached.load(Ordering::SeqCst), 5);
 }
 
 #[test]
