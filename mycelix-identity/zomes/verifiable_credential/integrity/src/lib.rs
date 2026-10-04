@@ -227,6 +227,9 @@ pub struct CredentialRequest {
     pub created: Timestamp,
     /// Status update timestamp
     pub updated: Timestamp,
+    /// Exact credential action that fulfilled this request once the request is Issued.
+    /// This makes the Issued state proof-carrying rather than a free-standing label.
+    pub issued_credential: Option<ActionHash>,
 }
 
 /// Evidence supporting a credential request
@@ -1056,6 +1059,12 @@ fn validate_create_credential_request(
         ));
     }
 
+    if req.issued_credential.is_some() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "A newly created credential request cannot already be marked as Issued".into(),
+        ));
+    }
+
     // Validate schema ID
     if !req.schema_id.starts_with("mycelix:schema:") {
         return Ok(ValidateCallbackResult::Invalid(
@@ -1081,6 +1090,54 @@ fn valid_request_status_transition(from: &RequestStatus, to: &RequestStatus) -> 
             | (RequestStatus::Rejected, RequestStatus::Rejected)
             | (RequestStatus::Issued, RequestStatus::Issued)
     )
+}
+
+fn validate_issued_credential_binding(
+    req: &CredentialRequest,
+) -> ExternResult<ValidateCallbackResult> {
+    let credential_hash = req.issued_credential.clone().ok_or(wasm_error!(
+        WasmErrorInner::Guest(
+            "Issued credential request must reference the credential action that fulfilled it".into(),
+        )
+    ))?;
+
+    let record = must_get_valid_record(credential_hash)?;
+    let credential: VerifiableCredential = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Issued credential reference must point to a VerifiableCredential".into(),
+        )))?;
+
+    let issuer = did_to_agent(&req.issuer_did).ok_or(wasm_error!(
+        WasmErrorInner::Guest(
+            "Issued credential request issuer must be a did:mycelix AgentPubKey".into(),
+        )
+    ))?;
+
+    if record.action().author() != &issuer {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Issued credential must be committed by the request's target issuer".into(),
+        ));
+    }
+    if credential.issuer.did() != req.issuer_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Issued credential issuer does not match the credential request issuer".into(),
+        ));
+    }
+    if credential.credential_subject.id != req.requester_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Issued credential subject does not match the credential requester".into(),
+        ));
+    }
+    if credential.mycelix_schema_id != req.schema_id {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Issued credential schema does not match the credential request schema".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
 }
 
 /// Validate credential request update.
@@ -1150,6 +1207,29 @@ fn validate_update_credential_request(
     if req.created != original.created {
         return Ok(ValidateCallbackResult::Invalid(
             "Credential request creation timestamp cannot be changed".into(),
+        ));
+    }
+    if req.status != RequestStatus::Issued
+        && req.issued_credential != original.issued_credential
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "The issued credential binding cannot change before the request reaches Issued".into(),
+        ));
+    }
+    if req.status == RequestStatus::Issued {
+        if original.status != RequestStatus::Approved {
+            // The transition helper below will reject other paths; this early
+            // branch gives the binding a precise, proof-oriented error.
+            if req.issued_credential.is_none() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Issued status requires a credential action reference".into(),
+                ));
+            }
+        }
+        validate_issued_credential_binding(&req)?;
+    } else if req.issued_credential.is_some() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Only an Issued request may carry an issued credential reference".into(),
         ));
     }
     if req.updated <= original.updated {
@@ -1962,6 +2042,7 @@ mod author_binding_tests {
             status: RequestStatus::Pending,
             created: Timestamp::from_micros(0),
             updated: Timestamp::from_micros(0),
+            issued_credential: None,
         }
     }
 
