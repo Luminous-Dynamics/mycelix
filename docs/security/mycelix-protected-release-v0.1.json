@@ -1,0 +1,132 @@
+{
+  "schema_version": 1,
+  "profile_id": "mycelix.security.protected-release",
+  "profile_version": "0.1.0",
+  "claim_ceiling": "ReferenceModelOnly",
+  "purpose": "Executable semantic contract for bounded cross-domain release and transfer evidence.",
+  "standards_basis": {
+    "nist_sp_800_53_ac4": "https://csrc.nist.gov/publications/detail/sp/800-53/rev-5/final",
+    "nist_sp_800_172r3": "https://csrc.nist.gov/pubs/sp/800/172/r3/final",
+    "rfc_9334": "https://www.rfc-editor.org/rfc/rfc9334.html"
+  },
+  "policy": {
+    "source_security_domain": "E1",
+    "destination_security_domain": "E0",
+    "source_policy_version": "e1-policy-2026-10-01",
+    "destination_policy_version": "e0-policy-2026-10-01",
+    "release_profile_id": "mycelix.release.e1-to-e0.v0.1",
+    "transform_profile_id": "mycelix.transform.redaction.v0.1",
+    "max_receipt_age_seconds": 60,
+    "require_source_authorization": true,
+    "require_destination_admission": true,
+    "require_transform_approval": true,
+    "require_export_control_check": true,
+    "require_releasability_check": true,
+    "require_purpose_check": true
+  },
+  "states": [
+    "DENY",
+    "INDETERMINATE",
+    "ELIGIBLE_FOR_RELEASE",
+    "TRANSFER_COMMITTED"
+  ],
+  "fixture": {
+    "now_unix": 1791115200,
+    "intent": {
+      "transfer_id": "transfer-001",
+      "source_security_domain": "E1",
+      "destination_security_domain": "E0",
+      "object_id": "object-001",
+      "source_object_digest": "sha256:source-001",
+      "classification_state": "CUI",
+      "compartment": "none",
+      "releasability_profile": "public-after-redaction",
+      "export_control_profile": "E1-default",
+      "purpose": "public-research-summary",
+      "subject_id": "did:example:release-subject",
+      "authorization_basis": "release-authority-001",
+      "source_policy_version": "e1-policy-2026-10-01",
+      "destination_policy_version": "e0-policy-2026-10-01",
+      "transform_profile_id": "mycelix.transform.redaction.v0.1"
+    },
+    "transform": {
+      "approved": true,
+      "transform_id": "transform-001",
+      "profile_id": "mycelix.transform.redaction.v0.1",
+      "transform_digest": "sha256:transform-001",
+      "output_payload_digest": "sha256:output-001",
+      "metadata_checked": true
+    },
+    "authorization": {
+      "source_authorized": true,
+      "releasability_authorized": true,
+      "export_control_authorized": true,
+      "purpose_authorized": true,
+      "fresh": true,
+      "expires_at_unix": 1791115230,
+      "policy_current": true
+    },
+    "destination": {
+      "admitted": true,
+      "security_domain": "E0",
+      "policy_version": "e0-policy-2026-10-01",
+      "resource_id": "public-research-drop-001"
+    },
+    "gateway": {
+      "available": true,
+      "profile_id": "independent-transfer-boundary.v0.1"
+    },
+    "receipt": {
+      "transfer_id": "transfer-001",
+      "source_security_domain": "E1",
+      "destination_security_domain": "E0",
+      "source_object_digest": "sha256:source-001",
+      "output_payload_digest": "sha256:output-001",
+      "transform_digest": "sha256:transform-001",
+      "source_policy_version": "e1-policy-2026-10-01",
+      "destination_policy_version": "e0-policy-2026-10-01",
+      "purpose": "public-research-summary",
+      "release_profile_id": "mycelix.release.e1-to-e0.v0.1",
+      "issued_at_unix": 1791115195,
+      "expires_at_unix": 1791115255,
+      "outcome": "TRANSFER_COMMITTED"
+    }
+  },
+  "non_equivalences": [
+    ["classification_label", "release_authorization"],
+    ["source_authorization", "destination_admission"],
+    ["transform_approval", "release_authorization"],
+    ["transfer_receipt", "transfer_authority"],
+    ["successful_transfer", "future_transfer_authority"],
+    ["public_output", "public_release_authorization"]
+  ],
+  "vectors": [
+    {"id":"REL-001","mutation":"canonical-valid","expected":"TRANSFER_COMMITTED"},
+    {"id":"REL-002","mutation":"source-destination-mismatch","expected":"DENY"},
+    {"id":"REL-003","mutation":"classification-mismatch","expected":"DENY"},
+    {"id":"REL-004","mutation":"releasability-failure","expected":"DENY"},
+    {"id":"REL-005","mutation":"export-control-mismatch","expected":"DENY"},
+    {"id":"REL-006","mutation":"purpose-mismatch","expected":"DENY"},
+    {"id":"REL-007","mutation":"stale-authorization","expected":"DENY"},
+    {"id":"REL-008","mutation":"revoked-authorization","expected":"DENY"},
+    {"id":"REL-009","mutation":"policy-version-mismatch","expected":"DENY"},
+    {"id":"REL-010","mutation":"hidden-metadata","expected":"DENY"},
+    {"id":"REL-011","mutation":"payload-substitution","expected":"DENY"},
+    {"id":"REL-012","mutation":"transform-digest-mismatch","expected":"DENY"},
+    {"id":"REL-013","mutation":"replay-transfer","expected":"DENY"},
+    {"id":"REL-014","mutation":"duplicate-transfer","expected":"DENY"},
+    {"id":"REL-015","mutation":"unapproved-transform","expected":"DENY"},
+    {"id":"REL-016","mutation":"destination-refuses-admission","expected":"DENY"},
+    {"id":"REL-017","mutation":"gateway-unavailable","expected":"INDETERMINATE"},
+    {"id":"REL-018","mutation":"receipt-substitution","expected":"DENY"},
+    {"id":"REL-019","mutation":"receipt-expired","expected":"DENY"},
+    {"id":"REL-020","mutation":"receipt-policy-substitution","expected":"DENY"},
+    {"id":"REL-021","mutation":"source-object-digest-substitution","expected":"DENY"},
+    {"id":"REL-022","mutation":"output-digest-substitution","expected":"DENY"},
+    {"id":"REL-023","mutation":"destination-policy-substitution","expected":"DENY"},
+    {"id":"REL-024","mutation":"classification-label-spoof","expected":"DENY"},
+    {"id":"REL-025","mutation":"valid-receipt-cannot-authorize-second-transfer","expected":"DENY"},
+    {"id":"REL-026","mutation":"attestation-does-not-authorize-release","expected":"DENY"},
+    {"id":"REL-027","mutation":"transform-created-new-output-requires-new-intent","expected":"DENY"}
+  ]
+}
