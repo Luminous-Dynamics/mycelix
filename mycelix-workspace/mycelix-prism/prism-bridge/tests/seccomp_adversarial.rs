@@ -908,6 +908,11 @@ fn thread_sync_strict_mode_child() -> ! {
 
     const SECCOMP_SET_MODE_STRICT: libc::c_uint = 0;
 
+    unsafe fn strict_exit(code: libc::c_int) -> ! {
+        libc::syscall(libc::SYS_exit, code);
+        std::hint::unreachable_unchecked();
+    }
+
     unsafe fn read_exact(fd: libc::c_int, bytes: &mut [u8]) -> bool {
         let mut offset = 0usize;
         while offset < bytes.len() {
@@ -974,15 +979,15 @@ fn thread_sync_strict_mode_child() -> ! {
 
         let byte = [1u8];
         if !unsafe { write_exact(sibling_ready, &byte) } {
-            unsafe { libc::_exit(203) };
+            unsafe { strict_exit(203) };
         }
 
         let mut release_byte = [0u8; 1];
         if !unsafe { read_exact(sibling_release, &mut release_byte) } {
-            unsafe { libc::_exit(204) };
+            unsafe { strict_exit(204) };
         }
 
-        unsafe { libc::_exit(0) }
+        unsafe { strict_exit(0) }
     });
 
     let mut ready_byte = [0u8; 1];
@@ -1017,8 +1022,9 @@ fn thread_sync_strict_mode_child() -> ! {
         unsafe { libc::_exit(208) };
     }
 
-    // Failed TSYNC must be atomic here too: the strict sibling stays strict,
-    // while the caller remains unrestricted and can execute getppid().
+    // A failed TSYNC must not attach or replace any seccomp filter on
+    // either thread. The caller therefore remains unrestricted and can execute
+    // getppid(), while the strict sibling remains governed by strict mode.
     let caller_probe = unsafe { libc::syscall(libc::SYS_getppid) };
     if caller_probe <= 0 {
         unsafe { libc::_exit(209) };
