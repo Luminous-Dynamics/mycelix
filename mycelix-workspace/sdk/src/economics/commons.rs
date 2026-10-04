@@ -213,20 +213,26 @@ impl CommonsPool {
 
     /// Receive compost (demurrage redistribution) into the pool.
     /// Compost goes entirely to the circulating zone (not reserve).
-    pub fn receive_compost(&mut self, amount: u64, timestamp: u64) -> CommonsResult {
-        match self.available_balance.checked_add(amount) {
-            Some(new_available) => {
-                self.available_balance = new_available;
-                self.last_activity = timestamp;
-                CommonsResult::Contributed {
-                    total: amount,
-                    to_reserve: 0,
-                    to_available: amount,
-                }
-            }
-            None => CommonsResult::Error {
-                message: "Available commons balance overflow while receiving compost".to_string(),
-            },
+    /// Checked compost delivery that preserves the historical unit-returning API
+    /// while exposing an explicit error path for new callers.
+    pub fn try_receive_compost(&mut self, amount: u64, timestamp: u64) -> Result<(), String> {
+        let new_available = self
+            .available_balance
+            .checked_add(amount)
+            .ok_or_else(|| "Available commons balance overflow while receiving compost".to_string())?;
+
+        self.available_balance = new_available;
+        self.last_activity = timestamp;
+        Ok(())
+    }
+
+    /// Receive compost using the historical API.
+    ///
+    /// Overflow indicates a corrupted/impossible state and therefore fails
+    /// closed rather than silently wrapping the available balance.
+    pub fn receive_compost(&mut self, amount: u64, timestamp: u64) {
+        if let Err(error) = self.try_receive_compost(amount, timestamp) {
+            panic!("{error}");
         }
     }
 
@@ -393,12 +399,9 @@ mod tests {
         let mut pool = CommonsPool::new("local-dao-1".to_string(), 1000);
         pool.available_balance = u64::MAX - 10;
 
-        match pool.receive_compost(11, 1001) {
-            CommonsResult::Error { message } => {
-                assert!(message.contains("overflow"));
-            }
-            _ => panic!("Expected compost overflow rejection"),
-        }
+        let result = pool.try_receive_compost(11, 1001);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("overflow"));
 
         assert_eq!(pool.available_balance, u64::MAX - 10);
         assert_eq!(pool.last_activity, 1000);
@@ -410,18 +413,7 @@ mod tests {
         pool.contribute("did:test:alice", 1_000, 1001);
 
         // Receive compost from demurrage
-        match pool.receive_compost(500, 1002) {
-            CommonsResult::Contributed {
-                total,
-                to_reserve,
-                to_available,
-            } => {
-                assert_eq!(total, 500);
-                assert_eq!(to_reserve, 0);
-                assert_eq!(to_available, 500);
-            }
-            _ => panic!("Expected compost acceptance"),
-        }
+        pool.receive_compost(500, 1002);
 
         // Compost goes to available, not reserve.
         assert_eq!(pool.inalienable_reserve, 250);
