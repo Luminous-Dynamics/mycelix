@@ -956,6 +956,14 @@ check_qualification_workflow_provenance() {
     return
   fi
   if rg -n --fixed-strings "runs-on: ubuntu-24.04" "$workflow" >/dev/null 2>&1; then
+  if rg -n --fixed-strings "runner_image_os=${ImageOS:-unknown}" "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings "runner_image_version=${ImageVersion:-unknown}" "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings "runner_arch=${RUNNER_ARCH:-unknown}" "$workflow" >/dev/null 2>&1; then
+    echo "OK:   qualification workflow captures resolved hosted-runner provenance"
+  else
+    echo "FAIL: qualification workflow must capture resolved hosted-runner provenance"
+    fail=1
+  fi
     echo "OK:   qualification workflow pins the GitHub-hosted runner image to Ubuntu 24.04"
   else
     echo "FAIL: qualification workflow must pin runs-on to ubuntu-24.04"
