@@ -1,9 +1,9 @@
 name: D6U Exact-Head Runtime Qualification
 
 on:
-  # Pull-request execution remains the primary qualification path. The exact
-  # branch push lane is retained as a deterministic fallback when repository
-  # workflow registration prevents a pull_request run from materializing.
+  workflow_call:
+  # Direct PR execution remains available, but the authoritative PR trigger
+  # is the known-good D6S workflow calling this file as a reusable workflow.
   pull_request:
     paths:
       - ".github/workflows/d6u-runtime-qualification.yml"
@@ -12,10 +12,6 @@ on:
       - "docs/integral/d6u-runtime-*.md"
       - "scripts/integral/verify_d6u_runtime_*.py"
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
-  push:
-    branches:
-      - myc-int-demo-d6u-holochain-07-runtime
-
 permissions:
   contents: read
 
