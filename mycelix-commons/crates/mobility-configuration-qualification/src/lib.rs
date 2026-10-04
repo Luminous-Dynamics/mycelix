@@ -374,7 +374,7 @@ pub fn qualify(corpus: &Corpus) -> QualificationResult {
         ));
     }
 
-    let ids: BTreeSet<_> = corpus.vectors.iter().map(|v| v.id.as_str()).collect();
+    let ids: BTreeSet<_> = corpus.vectors.iter().map(|v| v.id.clone()).collect();
     let expected_ids: BTreeSet<_> = (1..=EXPECTED_COUNT)
         .map(|n| format!("{EXPECTED_PREFIX}{n:03}"))
         .collect();
