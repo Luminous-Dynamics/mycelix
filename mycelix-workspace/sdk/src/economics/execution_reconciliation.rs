@@ -403,6 +403,52 @@ mod tests {
     }
 
     #[test]
+    fn receipt_fingerprint_changes_when_receipt_content_changes() {
+        let lifecycle = contracted_lifecycle();
+        let receipt = receipt(&lifecycle, Some(100));
+        let mut changed = receipt.clone();
+        changed.external_ref = "external:changed".into();
+
+        assert_ne!(receipt.fingerprint().unwrap(), changed.fingerprint().unwrap());
+    }
+
+    #[test]
+    fn constraint_fingerprint_changes_when_constraint_content_changes() {
+        let lifecycle = contracted_lifecycle();
+        let constraint = constraint(&lifecycle, 100);
+        let mut changed = constraint.clone();
+        changed.quantity = 101;
+
+        assert_ne!(constraint.fingerprint().unwrap(), changed.fingerprint().unwrap());
+    }
+
+    #[test]
+    fn persisted_reconciliation_rejects_missing_fingerprint_shape() {
+        let lifecycle = contracted_lifecycle();
+        let receipt = receipt(&lifecycle, Some(100));
+        let constraint = constraint(&lifecycle, 100);
+        let mut ledger = EconomicExecutionReconciliationLedger::new();
+
+        let result = serde_json::from_str::<EconomicExecutionReconciliation>(
+            &serde_json::to_string(&serde_json::json!({
+                "reconciliation_id": "reconciliation:invalid",
+                "execution_id": receipt.execution_id,
+                "constraint_id": constraint.constraint_id,
+                "result": "Conformant",
+                "evidence_refs": ["evidence:invalid"],
+                "recorded_at": 1_300
+            }))
+            .unwrap(),
+        );
+
+        assert!(result.is_err() || {
+            let record = result.unwrap();
+            ledger.reconciliations.push(record);
+            ledger.validate().is_err()
+        });
+    }
+
+    #[test]
     fn exact_quantity_is_conformant() {
         let lifecycle = contracted_lifecycle();
         let receipt = receipt(&lifecycle, Some(100));
@@ -531,7 +577,9 @@ mod tests {
         ledger.reconciliations.push(EconomicExecutionReconciliation {
             reconciliation_id: "reconciliation:one".into(),
             execution_id: "execution:one".into(),
+            execution_fingerprint: "a".repeat(64),
             constraint_id: "constraint:one".into(),
+            constraint_fingerprint: "b".repeat(64),
             result: ExecutionConformance::Conformant,
             evidence_refs: vec!["evidence:one".into()],
             recorded_at: 1_300,
@@ -539,7 +587,9 @@ mod tests {
         ledger.reconciliations.push(EconomicExecutionReconciliation {
             reconciliation_id: "reconciliation:one".into(),
             execution_id: "execution:two".into(),
+            execution_fingerprint: "c".repeat(64),
             constraint_id: "constraint:two".into(),
+            constraint_fingerprint: "d".repeat(64),
             result: ExecutionConformance::Conformant,
             evidence_refs: vec!["evidence:two".into()],
             recorded_at: 1_400,
