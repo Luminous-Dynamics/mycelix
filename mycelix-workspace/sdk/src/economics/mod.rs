@@ -15,6 +15,7 @@ pub mod commons;
 pub mod decay_garden;
 pub mod impact;
 pub mod integrity_gate;
+pub mod action_lifecycle;
 pub mod substrate;
 pub mod metabolic_oracle;
 pub mod poc;
@@ -36,7 +37,12 @@ pub use impact::{
     ImpactLedger, ImpactStatus, ObligationStatus, RestorationObligation, SubstrateImpact,
 };
 pub use integrity_gate::{
-    EconomicIntegrityAssessment, EconomicIntegrityDecision, EconomicIntegrityGate,
+    EconomicActionScope, EconomicIntegrityAssessment, EconomicIntegrityDecision,
+    EconomicIntegrityGate, ScopedEconomicIntegrityAssessment,
+};
+pub use action_lifecycle::{
+    stage_transition_allowed, EconomicActionChangeKind, EconomicActionLifecycle,
+    EconomicActionRevision, EconomicActionStage,
 };
 pub use substrate::{
     BoundaryDirection, DistributionPurpose, GateDecision, SubstrateAccount, SubstrateBoundary,
