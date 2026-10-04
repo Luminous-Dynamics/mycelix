@@ -1608,9 +1608,12 @@ mod linux {
             // MaskedEqual: equality continues to the clause ALLOW;
             // inequality skips that ALLOW and falls through to the next
             // alternative. There is no local EPERM in a disjunctive clause.
+            // The first predicate is full-width: a low-half mismatch skips
+            // the high-half load/AND/branch plus this clause's ALLOW.
             assert_eq!(first_predicate_jump.jt, 0);
-            assert_eq!(first_predicate_jump.jf, 1);
-            assert_eq!(filter[dispatch + 4].k, SECCOMP_RET_ALLOW);
+            assert_eq!(first_predicate_jump.jf, 4);
+            assert_eq!(filter[dispatch + 7].k, SECCOMP_RET_ALLOW);
+            assert_eq!(filter[dispatch + 8].code, BPF_LD | BPF_W | BPF_ABS);
         }
 
         #[test]
