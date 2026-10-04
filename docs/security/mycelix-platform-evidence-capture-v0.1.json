@@ -28,14 +28,15 @@
       "reference-values.json",
       "trusted-time.json",
       "eventlog-reconstruction.json",
-      "nonce.bin"
+      "nonce.bin",
+      "eventlog-parsed.yaml",
+      "tool-versions.json",
+      "tss-version-evidence.txt"
     ],
     "optional_artifacts": [
       "pcr-pre.yaml",
       "ek.pub",
       "swtpm-print-info.txt",
-      "tool-versions.json",
-      "eventlog-parsed.yaml",
       "os-image.digest",
       "workload-image.digest"
     ]
@@ -53,19 +54,23 @@
       "event_log.sha256",
       "event_log.parser_profile_id",
       "event_log.parser_profile_version",
+      "event_log.parser_status",
       "event_log.parser_output_sha256",
       "quote.pcr_selection",
       "quote.nonce_sha256",
       "quote.attestation_key_sha256",
       "quote.quoted_pcr_sha256",
       "challenge.sha256",
+      "challenge.origin",
       "toolchain.tpm2_tools_version",
+      "toolchain.observed_tool_versions_sha256",
       "toolchain.tss_version_evidence_sha256",
       "reference_values.version",
       "reference_values.sha256",
       "trusted_time.sha256",
       "reconstruction.event_log_sha256",
       "reconstruction.pcr_selection",
+      "reconstruction.reconstructed_pcr_sha256",
       "reconstruction.content_sha256",
       "artifacts.reconstruction_file_sha256",
       "live_observation.pcr_post_sha256",
@@ -79,10 +84,10 @@
     {"id":"CAP-002","rule":"The boot_id must be stable before and after all TPM capture operations."},
     {"id":"CAP-003","rule":"The event-log digest must match the event log named by the independent reconstruction result."},
     {"id":"CAP-004","rule":"Quote PCR selection, reconstruction PCR selection, and live-observation selection must be byte-for-byte identical."},
-    {"id":"CAP-005","rule":"Quote qualifying data must equal the verifier challenge file byte-for-byte; manifest challenge.sha256 and quote.nonce_sha256 must match that file."},
+    {"id":"CAP-005","rule":"Quote qualifying data must equal the verifier challenge file byte-for-byte; challenge.sha256 and quote.nonce_sha256 must match that file, and the challenge must not be represented as the local wall clock."},
     {"id":"CAP-006","rule":"The live post-quote PCR observation is supplied to tpm2_checkquote, so the quote's PCR values are compared with the live observation."},
     {"id":"CAP-007","rule":"Quote cryptographic verification, event-log parsing, event-log reconstruction, reference appraisal, trusted time, and authorization remain distinct observations."},
-    {"id":"CAP-008","rule":"A parser-success result is insufficient: event-log reconstruction must explicitly report PASS and bind the exact event-log digest and PCR selection."},
+    {"id":"CAP-008","rule":"A parser-success result is insufficient: event-log reconstruction must explicitly report PASS, bind the exact event-log digest and PCR selection, and bind the reconstructed PCR result to the live observation."},
     {"id":"CAP-009","rule":"Any unavailable or ambiguous trusted-time or reconstruction dependency is INDETERMINATE, never PASS."},
     {"id":"CAP-010","rule":"Reference-value rollback, profile substitution, artifact substitution, or session-binding mismatch is DENY."},
     {"id":"CAP-011","rule":"Any DENY anywhere outranks INDETERMINATE; any INDETERMINATE outranks PASS."}
@@ -112,7 +117,7 @@
   ],
   "execution_modes": {
     "self_test": "Deterministic semantic coherence vectors; no hardware claim.",
-    "verify": "Verify an existing bundle and cryptographically check the TPM Quote when tpm2_checkquote is available.",
+    "verify": "Verify an existing bundle, check artifact hashes, validate reconstruction bindings, and cryptographically check the TPM Quote when tpm2_checkquote is available.",
     "capture": "Capture raw physical TPM/PC-client artifacts when compatible hardware and tools exist. The result remains unqualified until independent reconstruction and trusted-time evidence are valid."
   },
   "capture_requirements": {
@@ -127,17 +132,5 @@
     "reference_values": "Reference values are identified by version and digest and remain an independent appraisal input.",
     "trusted_time": "Trusted time is an externally qualified evidence object; local wall-clock time is not authoritative.",
     "authorization": "Coherent platform Evidence remains evidence only and is consumed by the downstream RATS/Relying-Party/PEP chain."
-  },
-  "standards": {
-    "rfc_9334_rats": "https://www.rfc-editor.org/rfc/rfc9334.html",
-    "rfc_9711_eat": "https://www.rfc-editor.org/rfc/rfc9711.html",
-    "rfc_10013_measured_component": "https://www.rfc-editor.org/rfc/rfc10013.html",
-    "tcg_pc_client_ptp": "https://trustedcomputinggroup.org/resource/pc-client-platform-tpm-profile-ptp-specification/",
-    "tcg_pc_client_firmware_profile": "https://trustedcomputinggroup.org/resource/pc-client-specific-platform-firmware-profile-specification/",
-    "tcg_pc_client_rim": "https://trustedcomputinggroup.org/resource/tcg-pc-client-reference-integrity-manifest-specification/",
-    "tpm2_quote": "https://tpm2-tools.readthedocs.io/en/stable/man/tpm2_quote.1/",
-    "tpm2_checkquote": "https://tpm2-tools.readthedocs.io/en/latest/man/tpm2_checkquote.1/",
-    "tpm2_eventlog": "https://tpm2-tools.readthedocs.io/en/latest/man/tpm2_eventlog.1/",
-    "linux_tpm_event_log": "https://www.kernel.org/doc/html/latest/security/tpm/tpm_event_log.html"
   }
 }
