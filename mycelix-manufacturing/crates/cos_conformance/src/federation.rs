@@ -4726,13 +4726,23 @@ mod tests {
         let mut capsule =
             serde_json::from_str::<FederationStateMachineTraceCapsule>(&capsule_text)
                 .expect("capsule must deserialize");
-        let reused_identity = capsule.evidence[2].newly_admitted_deliveries
-            .first()
-            .map(|(id, _)| id.clone())
-            .or_else(|| capsule.evidence[1].newly_admitted_deliveries.first().map(|(id, _)| id.clone()))
-            .expect("test trace must contain an admitted delivery");
-        let duplicate_index = capsule.evidence.iter().position(|step| !step.newly_admitted_deliveries.is_empty())
-            .expect("test trace must contain an admitted delivery");
+        let admitted_steps = capsule
+            .evidence
+            .iter()
+            .enumerate()
+            .filter(|(_, step)| !step.newly_admitted_deliveries.is_empty())
+            .map(|(index, _)| index)
+            .collect::<Vec<_>>();
+        assert!(
+            admitted_steps.len() >= 2,
+            "test trace must contain two admitted-delivery steps"
+        );
+        let source_index = admitted_steps[0];
+        let duplicate_index = admitted_steps[1];
+        let reused_identity = capsule.evidence[source_index]
+            .newly_admitted_deliveries[0]
+            .0
+            .clone();
         capsule.evidence[duplicate_index].newly_admitted_deliveries[0].0 = reused_identity;
         reseal_state_machine_trace_for_test(&mut capsule);
         let error = validate_state_machine_trace_evidence(&capsule)
