@@ -1253,6 +1253,7 @@ def observed_tool_versions(out: Path, env: dict[str, str]) -> dict[str, str]:
         "tpm2_checkquote",
         "tpm2_eventlog",
         "tpm2_readpublic",
+        "tpm2_getekcertificate",
     )
     result: dict[str, str] = {}
     for name in names:
