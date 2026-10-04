@@ -509,13 +509,36 @@ impl ImpactLedger {
         Ok(obligation.status)
     }
 
-    /// Return unresolved exposure in deterministic ID order.
+    /// Return unresolved exposure across the complete impact ledger.
     pub fn exposure(&self) -> ImpactExposure {
+        self.exposure_matching(|_| true)
+    }
+
+    /// Return unresolved exposure belonging to one economic action.
+    ///
+    /// Action-level close-out must not inherit unresolved state belonging to
+    /// unrelated actions in the shared impact ledger.
+    pub fn exposure_for_action(&self, action_ref: &str) -> ImpactExposure {
+        if action_ref.trim().is_empty() {
+            return ImpactExposure {
+                open_impact_ids: Vec::new(),
+                remediation_impact_ids: Vec::new(),
+                blocking_obligation_ids: Vec::new(),
+            };
+        }
+
+        self.exposure_matching(|impact| impact.action_ref == action_ref)
+    }
+
+    fn exposure_matching<F>(&self, mut matches: F) -> ImpactExposure
+    where
+        F: FnMut(&SubstrateImpact) -> bool,
+    {
         let mut open_impact_ids = Vec::new();
         let mut remediation_impact_ids = Vec::new();
         let mut blocking_obligation_ids = Vec::new();
 
-        for impact in self.impacts.values() {
+        for impact in self.impacts.values().filter(|impact| matches(impact)) {
             if impact.direction != ImpactDirection::Depletion {
                 continue;
             }
@@ -532,7 +555,15 @@ impl ImpactLedger {
         }
 
         for obligation in self.obligations.values() {
-            if obligation.blocks_discretionary() {
+            if !obligation.blocks_discretionary() {
+                continue;
+            }
+
+            let Some(impact) = self.impacts.get(&obligation.impact_id) else {
+                continue;
+            };
+
+            if matches(impact) {
                 blocking_obligation_ids.push(obligation.id.clone());
             }
         }
@@ -544,10 +575,10 @@ impl ImpactLedger {
         }
     }
 
-    /// Gate economic action against the current impact/reciprocity state.
-    pub fn gate(&self, purpose: super::substrate::DistributionPurpose) -> ImpactGateDecision {
-        let exposure = self.exposure();
-
+    fn gate_from_exposure(
+        exposure: ImpactExposure,
+        purpose: super::substrate::DistributionPurpose,
+    ) -> ImpactGateDecision {
         match purpose {
             super::substrate::DistributionPurpose::Maintenance
             | super::substrate::DistributionPurpose::Restoration => {
@@ -576,6 +607,20 @@ impl ImpactLedger {
                 }
             }
         }
+    }
+
+    /// Gate economic action against the complete impact/reciprocity state.
+    pub fn gate(&self, purpose: super::substrate::DistributionPurpose) -> ImpactGateDecision {
+        Self::gate_from_exposure(self.exposure(), purpose)
+    }
+
+    /// Gate one economic action against only its own impact/reciprocity state.
+    pub fn gate_for_action(
+        &self,
+        action_ref: &str,
+        purpose: super::substrate::DistributionPurpose,
+    ) -> ImpactGateDecision {
+        Self::gate_from_exposure(self.exposure_for_action(action_ref), purpose)
     }
 
     /// Return the set of impacted dimensions represented by the ledger.
