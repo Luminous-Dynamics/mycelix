@@ -1340,6 +1340,14 @@ run_audit_check() {
   fi
   trace_file="${trace_dir}/predicate.log"
   fifo_file="${trace_dir}/predicate.fifo"
+  if ! mkfifo "${fifo_file}"; then
+    echo "FAIL: ${name} audit harness could not create its diagnostic FIFO"
+    rm -rf "${trace_dir}"
+    fail=1
+    finished="$(date +%s)"
+    echo "AUDIT_END ${name} status=1 duration=$((finished - started))s"
+    return 0
+  fi
 
   # Launch the tee directly; its exit status is made authoritative by wait.
   # This avoids racing the FIFO with a background if/then compound.
