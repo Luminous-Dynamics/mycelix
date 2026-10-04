@@ -145,12 +145,13 @@ fn validate_name_transfer_chain_uniqueness(
             )))
         })?;
 
-        if prior_transfer.name_hash != transfer.name_hash {
+        if &prior_transfer.name_hash != &transfer.name_hash {
             continue;
         }
 
         if transfer.previous_transfer_hash.is_none()
-            || prior_transfer.previous_transfer_hash == transfer.previous_transfer_hash
+            || prior_transfer.previous_transfer_hash.as_ref()
+                == transfer.previous_transfer_hash.as_ref()
         {
             return Ok(ValidateCallbackResult::Invalid(
                 "A source chain cannot create two transfers for the same ownership state".into(),
@@ -201,7 +202,7 @@ fn validate_create_name_transfer(
                     "previous_transfer_hash must reference a NameTransfer".into(),
                 )))?;
 
-            if previous.name_hash != transfer.name_hash {
+            if &previous.name_hash != &transfer.name_hash {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Previous transfer must reference the same MeshNameEntry".into(),
                 ));
