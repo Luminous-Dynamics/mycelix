@@ -4280,9 +4280,21 @@ fn verify_credential_signature(vc: &VerifiableCredential) -> ExternResult<bool> 
 
         if vc.proof.proof_type != "DataIntegrityProof"
             || vc.proof.algorithm.is_some()
-
         {
             return Ok(false);
+        }
+
+        if vc.proof.created.parse::<Timestamp>().is_err() {
+            return Ok(false);
+        }
+
+        if let Some(proof_context) = vc.proof.proof_context.as_ref() {
+            if proof_context.is_empty()
+                || proof_context.len() > vc.context.len()
+                || vc.context[..proof_context.len()] != proof_context[..]
+            {
+                return Ok(false);
+            }
         }
 
         let signature_bytes = multibase_decode(&vc.proof.proof_value).ok_or_else(|| {
