@@ -675,15 +675,28 @@ mod linux {
                                     i.code == BPF_RET | BPF_K
                                         && i.k == SECCOMP_RET_ERRNO | libc::EPERM as u32
                                 });
-                            let after_allow = target > 0
-                                && filter[target - 1].code == BPF_RET | BPF_K
-                                && filter[target - 1].k == SECCOMP_RET_ALLOW;
+                            let next_allow = filter
+                                .iter()
+                                .enumerate()
+                                .skip(index + 1)
+                                .find(|(_, instruction)| {
+                                    instruction.code == BPF_RET | BPF_K
+                                        && instruction.k == SECCOMP_RET_ALLOW
+                                })
+                                .map(|(allow_index, _)| allow_index);
+                            // A disjunctive predicate may fall through only to
+                            // the instruction immediately after its own clause's
+                            // ALLOW. Requiring the nearest subsequent ALLOW closes
+                            // a shape that could otherwise skip complete clauses.
+                            let after_immediate_allow = next_allow
+                                .and_then(|allow_index| allow_index.checked_add(1))
+                                == Some(target);
 
                             if offset != 0
                                 && !local_epem
                                 && !full_width_not_equal_shortcut
                                 && !single_clause_full_width_not_equal
-                                && !after_allow
+                                && !after_immediate_allow
                             {
                                 return Err(SeccompError::CompilerInvariantViolation);
                             }
@@ -3151,6 +3164,53 @@ mod linux {
             filter[first_predicate].jt = u8::try_from(
                 first_clause_allow - first_predicate - 1
             ).unwrap();
+
+            assert!(matches!(
+                validate_compiled_filter(&filter),
+                Err(SeccompError::CompilerInvariantViolation)
+            ));
+        }
+
+        #[test]
+        fn compiled_filter_rejects_predicate_jump_past_a_clause() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let rule = SeccompSyscallRuleV2::new_with_clauses(
+                libc::SYS_socket,
+                vec![
+                    SeccompSyscallClauseV2::new(vec![
+                        SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_UNIX as u64).unwrap(),
+                    ]).unwrap(),
+                    SeccompSyscallClauseV2::new(vec![
+                        SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_NETLINK as u64).unwrap(),
+                    ]).unwrap(),
+                    SeccompSyscallClauseV2::new(vec![
+                        SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_INET as u64).unwrap(),
+                    ]).unwrap(),
+                ],
+            ).unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+            let mut filter = compile_filter_v2(&policy).unwrap();
+
+            let first_predicate = filter.iter().position(|instruction| {
+                instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                    && instruction.k == libc::AF_UNIX as u32
+            }).unwrap();
+            let first_allow = filter.iter().enumerate().skip(first_predicate + 1).find_map(
+                |(index, instruction)| {
+                    (instruction.code == BPF_RET | BPF_K
+                        && instruction.k == SECCOMP_RET_ALLOW).then_some(index)
+                }
+            ).unwrap();
+            let second_allow = filter.iter().enumerate().skip(first_allow + 1).find_map(
+                |(index, instruction)| {
+                    (instruction.code == BPF_RET | BPF_K
+                        && instruction.k == SECCOMP_RET_ALLOW).then_some(index)
+                }
+            ).unwrap();
+
+            // Jump past the nearest ALLOW. The target remains an in-bounds clause
+            // boundary, but the mutation skips the second clause entirely.
+            filter[first_predicate].jf = u8::try_from(second_allow - first_predicate).unwrap();
 
             assert!(matches!(
                 validate_compiled_filter(&filter),
