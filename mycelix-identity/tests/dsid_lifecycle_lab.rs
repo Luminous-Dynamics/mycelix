@@ -4513,3 +4513,104 @@ async fn dsid_045_derived_credential_inherits_source_current_trust_state() {
     );
 }
 
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_047_deactivated_issuer_cannot_mint_new_credentials() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let issuer_app = conductor
+        .setup_app("dsid-deactivated-issuer", std::slice::from_ref(&dna))
+        .await
+        .unwrap();
+    let holder_app = conductor
+        .setup_app("dsid-deactivated-holder", std::slice::from_ref(&dna))
+        .await
+        .unwrap();
+
+    let issuer = issuer_app.cells()[0].clone();
+    let holder = holder_app.cells()[0].clone();
+    let issuer_did = format!("did:mycelix:{}", issuer_app.agent());
+    let holder_did = format!("did:mycelix:{}", holder_app.agent());
+
+    let _: Record = conductor
+        .call(&issuer.zome("did_registry"), "create_did", ())
+        .await;
+    let _: Record = conductor
+        .call(&holder.zome("did_registry"), "create_did", ())
+        .await;
+
+    let active_credential: Record = conductor
+        .call(
+            &issuer.zome("verifiable_credential"),
+            "issue_credential",
+            serde_json::json!({
+                "subject_did": holder_did.clone(),
+                "schema_id": "mycelix:schema:education:degree:v1",
+                "claims": {"degree": "DSID pre-deactivation issuance"},
+                "credential_types": ["QualificationCredential"],
+                "issuer_name": "DSID Active Issuer",
+                "expiration_days": 365,
+                "enable_revocation": false,
+                "strict_schema": false
+            }),
+        )
+        .await;
+
+    assert!(
+        active_credential.action_address() != holder.action_address(),
+        "active issuer should successfully mint a credential before deactivation"
+    );
+
+    let _: Record = conductor
+        .call(
+            &issuer.zome("did_registry"),
+            "deactivate_did",
+            "DSID issuer deactivation",
+        )
+        .await;
+
+    await_consistency(&[issuer.clone(), holder.clone()])
+        .await
+        .expect("issuer deactivation must reach holder");
+
+    let blocked: Result<Record, _> = conductor
+        .call_fallible(
+            &issuer.zome("verifiable_credential"),
+            "issue_credential",
+            serde_json::json!({
+                "subject_did": holder_did,
+                "schema_id": "mycelix:schema:education:degree:v1",
+                "claims": {"degree": "DSID post-deactivation issuance"},
+                "credential_types": ["QualificationCredential"],
+                "issuer_name": "DSID Deactivated Issuer",
+                "expiration_days": 365,
+                "enable_revocation": false,
+                "strict_schema": false
+            }),
+        )
+        .await;
+
+    assert!(
+        blocked.is_err(),
+        "deactivated issuer must not be able to mint a new credential"
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("issuer", issuer_app.agent().to_string());
+    agents.insert("holder", holder_app.agent().to_string());
+    emit_evidence(
+        "DSID-047",
+        "deactivated-issuer-cannot-mint-new-credentials",
+        &dna,
+        agents,
+        &[&active_credential],
+        "Credential issuance must require a currently active issuer DID; historical credentials remain distinct from new authority acts.",
+        format!(
+            "active_issuance_succeeded={} post_deactivation_issuance_rejected={}",
+            active_credential.action_address() != holder.action_address(),
+            blocked.is_err()
+        ),
+        active_credential.action_address() != holder.action_address() && blocked.is_err(),
+    );
+}
+
