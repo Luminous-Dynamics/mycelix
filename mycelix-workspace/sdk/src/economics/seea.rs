@@ -230,13 +230,23 @@ pub enum SeeaEvidenceInsertError {
     InvalidObservation(String),
 }
 
-/// Deterministic set of mutually non-conflicting SEEA observations.
+/// Deterministic SEEA evidence collection with explicit conflict history.
 ///
-/// This type does not select winners. Conflicts remain errors until an
-/// explicit reconciliation process records how they were resolved.
+/// This type does not select winners. Conflicts are retained as evidence and
+/// returned as errors until an explicit reconciliation process records how
+/// they were resolved.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SeeaConflictRecord {
+    /// Previously retained observation.
+    pub existing: SeeaObservation,
+    /// Newly submitted conflicting observation.
+    pub incoming: SeeaObservation,
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SeeaEvidenceSet {
     observations: Vec<SeeaObservation>,
+    conflicts: Vec<SeeaConflictRecord>,
 }
 
 impl SeeaEvidenceSet {
@@ -266,10 +276,16 @@ impl SeeaEvidenceSet {
             .find(|existing| existing.semantic_key() == key)
         {
             if existing.value != observation.value {
-                return Err(SeeaEvidenceInsertError::ConflictingObservation {
+                let error = SeeaEvidenceInsertError::ConflictingObservation {
                     existing_id: existing.id.clone(),
                     new_id: observation.id.clone(),
+                };
+                self.observations.push(observation.clone());
+                self.conflicts.push(SeeaConflictRecord {
+                    existing: existing.clone(),
+                    incoming: observation,
                 });
+                return Err(error);
             }
 
             if existing.provenance.source_ref == observation.provenance.source_ref
@@ -297,9 +313,14 @@ impl SeeaEvidenceSet {
         observations
     }
 
-    /// Return all retained observations.
+    /// Return all retained observations, including observations that are in conflict.
     pub fn observations(&self) -> &[SeeaObservation] {
         &self.observations
+    }
+
+    /// Return the explicit conflict history in deterministic insertion order.
+    pub fn conflicts(&self) -> &[SeeaConflictRecord] {
+        &self.conflicts
     }
 }
 
@@ -416,7 +437,10 @@ mod tests {
                 new_id: second.id,
             })
         );
-        assert_eq!(set.observations().len(), 1);
+        assert_eq!(set.observations().len(), 2);
+        assert_eq!(set.conflicts().len(), 1);
+        assert_eq!(set.conflicts()[0].existing.value, 760);
+        assert_eq!(set.conflicts()[0].incoming.value, 740);
     }
 
     #[test]
