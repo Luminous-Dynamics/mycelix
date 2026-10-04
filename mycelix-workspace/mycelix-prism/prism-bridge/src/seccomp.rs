@@ -1015,7 +1015,6 @@ mod linux {
         if filter.len() != instruction_count {
             return Err(SeccompError::CompilerInvariantViolation);
         }
-        validate_compiled_filter(&filter)?;
         validate_v2_compiled_semantics(policy, &filter)?;
         Ok(filter)
     }
@@ -1083,6 +1082,11 @@ mod linux {
         policy: &SeccompSyscallPolicyV2,
         filter: &[SockFilter],
     ) -> Result<(), SeccompError> {
+        // Keep the semantic backstop self-contained: callers cannot
+        // accidentally bypass the structural cBPF validator and receive a
+        // policy-bound success on an otherwise malformed stream.
+        validate_compiled_filter(filter)?;
+
         if SeccompArchitecture::current() != Some(policy.architecture) {
             return Err(SeccompError::ArchitectureMismatch);
         }
@@ -1385,11 +1389,12 @@ mod linux {
     ) -> [u8; 32] {
         let mut hasher = blake3::Hasher::new();
         if policy.rules.iter().any(SeccompSyscallRuleV2::is_disjunctive) {
-            hasher.update(b"PRISM-SECCOMP-SYSCALL-EVIDENCE-V5");
+            hasher.update(b"PRISM-SECCOMP-SYSCALL-EVIDENCE-V6");
             hasher.update(b"PRISM-SECCOMP-POLICY-SCHEMA-V2-CLAUSES-V1");
         } else {
-            hasher.update(b"PRISM-SECCOMP-SYSCALL-EVIDENCE-V4");
+            hasher.update(b"PRISM-SECCOMP-SYSCALL-EVIDENCE-V5");
         }
+        hasher.update(b"PRISM-SECCOMP-COMPILED-BYTECODE-SEMANTIC-VALIDATION-V1");
         hasher.update(&policy.digest());
         hasher.update(&(filter.len() as u32).to_le_bytes());
         for instruction in filter {
