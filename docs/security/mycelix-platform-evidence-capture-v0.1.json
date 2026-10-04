@@ -1,0 +1,179 @@
+{
+  "schema_version": 1,
+  "artifact_type": "platform-evidence-capture-contract",
+  "profile_id": "mycelix.security.platform.evidence.capture",
+  "profile_version": "0.1.0",
+  "status": "executable-reference-profile",
+  "claim_ceiling": "ReferenceModelOnly",
+  "theorem": {
+    "statement": "A platform Evidence bundle is admissible only when all security-relevant artifacts are bound to one capture session, one boot identity, one TPM identity, one PCR selection, one challenge nonce, one tool/profile snapshot, and one event-log reconstruction result.",
+    "non_equivalences": [
+      ["physical_tpm_present", "measured_boot_verified"],
+      ["quote_signature_valid", "reference_values_approved"],
+      ["quoted_pcr_matches_live_pcr", "event_log_reconstructed"],
+      ["event_log_parsed", "event_log_trusted"],
+      ["platform_evidence_valid", "local_resource_authorized"],
+      ["trusted_time_present", "freshness_approved"]
+    ]
+  },
+  "required_bundle": {
+    "manifest": "capture-session.json",
+    "artifacts": [
+      "tpm-properties.txt",
+      "eventlog.bin",
+      "quote.msg",
+      "quote.sig",
+      "pcr-post.yaml",
+      "ak.pub",
+      "reference-values.json",
+      "trusted-time.json",
+      "eventlog-reconstruction.json"
+    ],
+    "optional_artifacts": [
+      "pcr-pre.yaml",
+      "ek.pub",
+      "swtpm-print-info.txt",
+      "tool-versions.json",
+      "os-image.digest",
+      "workload-image.digest"
+    ]
+  },
+  "manifest_bindings": {
+    "exact_required": [
+      "profile_id",
+      "profile_version",
+      "session_id",
+      "boot_id",
+      "tpm.device_path",
+      "tpm.properties_sha256",
+      "event_log.sha256",
+      "event_log.parser_profile_id",
+      "event_log.parser_profile_version",
+      "quote.pcr_selection",
+      "quote.nonce_sha256",
+      "quote.attestation_key_sha256",
+      "toolchain.tpm2_tools_version",
+      "toolchain.tss_version_evidence_sha256",
+      "reference_values.version",
+      "reference_values.sha256",
+      "trusted_time.sha256",
+      "reconstruction.event_log_sha256",
+      "reconstruction.pcr_selection",
+      "reconstruction.result_sha256",
+      "claim_ceiling"
+    ],
+    "session_binding": "Every required artifact digest is interpreted in the context of the same session_id and boot_id.",
+    "canonical_json": "Manifest semantic hashing uses UTF-8 JSON with sorted keys and no insignificant whitespace."
+  },
+  "coherence_rules": [
+    {
+      "id": "CAP-001",
+      "rule": "The selected TPM device path and observed TPM properties digest must remain constant throughout the capture."
+    },
+    {
+      "id": "CAP-002",
+      "rule": "The boot_id must be captured from the same operating-system boot that owns the event log and PCR observations."
+    },
+    {
+      "id": "CAP-003",
+      "rule": "The binary event-log digest must exactly match the digest referenced by the reconstruction result."
+    },
+    {
+      "id": "CAP-004",
+      "rule": "The quote PCR selection must exactly equal the declared reconstruction PCR selection and the live PCR observation selection."
+    },
+    {
+      "id": "CAP-005",
+      "rule": "The quote qualifying data must equal the fresh verifier challenge byte-for-byte; only its SHA-256 digest is carried in the manifest."
+    },
+    {
+      "id": "CAP-006",
+      "rule": "The post-quote PCR observation must be the input supplied to tpm2_checkquote so the verifier checks equality against the quoted PCR values."
+    },
+    {
+      "id": "CAP-007",
+      "rule": "Quote cryptographic verification and event-log reconstruction are separate observations and neither silently implies the other."
+    },
+    {
+      "id": "CAP-008",
+      "rule": "Event-log reconstruction PASS is required before a platform-measurement claim can be classified as PASS."
+    },
+    {
+      "id": "CAP-009",
+      "rule": "Unavailable trusted time, unavailable reconstruction, or other ambiguous external observation produces INDETERMINATE, never PASS."
+    },
+    {
+      "id": "CAP-010",
+      "rule": "Reference-value rollback or profile substitution produces DENY."
+    }
+  ],
+  "decision_algebra": "DENY > INDETERMINATE > PASS",
+  "vectors": [
+    {"id":"CAP-V01","mutation":"canonical-valid","expected":"PASS"},
+    {"id":"CAP-V02","mutation":"session-id-substitution","expected":"DENY"},
+    {"id":"CAP-V03","mutation":"boot-id-substitution","expected":"DENY"},
+    {"id":"CAP-V04","mutation":"device-path-substitution","expected":"DENY"},
+    {"id":"CAP-V05","mutation":"tpm-properties-substitution","expected":"DENY"},
+    {"id":"CAP-V06","mutation":"event-log-digest-substitution","expected":"DENY"},
+    {"id":"CAP-V07","mutation":"parser-profile-substitution","expected":"DENY"},
+    {"id":"CAP-V08","mutation":"pcr-selection-substitution","expected":"DENY"},
+    {"id":"CAP-V09","mutation":"nonce-substitution","expected":"DENY"},
+    {"id":"CAP-V10","mutation":"attestation-key-substitution","expected":"DENY"},
+    {"id":"CAP-V11","mutation":"toolchain-substitution","expected":"DENY"},
+    {"id":"CAP-V12","mutation":"reference-version-rollback","expected":"DENY"},
+    {"id":"CAP-V13","mutation":"reconstruction-event-log-substitution","expected":"DENY"},
+    {"id":"CAP-V14","mutation":"reconstruction-pcr-selection-substitution","expected":"DENY"},
+    {"id":"CAP-V15","mutation":"reconstruction-result-substitution","expected":"DENY"},
+    {"id":"CAP-V16","mutation":"reconstruction-failure","expected":"DENY"},
+    {"id":"CAP-V17","mutation":"reconstruction-unavailable","expected":"INDETERMINATE"},
+    {"id":"CAP-V18","mutation":"trusted-time-unavailable","expected":"INDETERMINATE"},
+    {"id":"CAP-V19","mutation":"key-order-permutation","expected":"PASS"},
+    {"id":"CAP-V20","mutation":"post-quote-pcr-mismatch","expected":"DENY"}
+  ],
+  "execution_modes": {
+    "self_test": {
+      "purpose": "Run deterministic semantic coherence vectors without a TPM. This does not establish hardware or measured-boot security."
+    },
+    "verify": {
+      "purpose": "Verify an existing capture-session bundle and cryptographically check the TPM Quote when tpm2_checkquote is available."
+    },
+    "capture": {
+      "purpose": "Capture raw physical TPM/PC-client artifacts when a compatible Linux TPM device and toolchain exist. The capture is not a PASS unless all external inputs, including reconstruction and trusted time, are coherently bound."
+    }
+  },
+  "capture_requirements": {
+    "device_candidates": ["/dev/tpmrm0", "/dev/tpm0"],
+    "event_log_candidates": [
+      "/sys/kernel/security/tpm0/binary_bios_measurements"
+    ],
+    "required_tools": [
+      "tpm2_getcap",
+      "tpm2_pcrread",
+      "tpm2_quote",
+      "tpm2_createek",
+      "tpm2_createak",
+      "tpm2_checkquote",
+      "tpm2_eventlog"
+    ],
+    "quote_default_pcr_selection": "sha256:0,2,4,7",
+    "workload_pcr_note": "PCR16 remains available for workload-specific evidence but is not treated as a PC-client firmware event-log PCR by this profile."
+  },
+  "reference_boundary": {
+    "event_log_semantics": "The PC-client event log is evidence for reconstructing PCR state; it is not trusted merely because it parses.",
+    "reference_values": "Reference values are an independent appraisal input identified by version and digest.",
+    "trusted_time": "Trusted time is consumed as an externally qualified evidence object; local wall-clock output is not authoritative.",
+    "authorization": "A coherent platform Evidence bundle remains evidence only. Resource authorization is evaluated by the downstream RATS/Relying-Party/PEP chain."
+  },
+  "standards": {
+    "rfc_9334_rats": "https://www.rfc-editor.org/rfc/rfc9334.html",
+    "rfc_9711_eat": "https://www.rfc-editor.org/rfc/rfc9711.html",
+    "rfc_10013_measured_component": "https://www.rfc-editor.org/rfc/rfc10013.html",
+    "tcg_pc_client_ptp": "https://trustedcomputinggroup.org/resource/pc-client-platform-tpm-profile-ptp-specification/",
+    "tcg_pc_client_firmware_profile": "https://trustedcomputinggroup.org/resource/pc-client-specific-platform-firmware-profile-specification/",
+    "tcg_pc_client_rim": "https://trustedcomputinggroup.org/resource/tcg-pc-client-reference-integrity-manifest-specification/",
+    "tpm2_quote": "https://tpm2-tools.readthedocs.io/en/stable/man/tpm2_quote.1/",
+    "tpm2_checkquote": "https://tpm2-tools.readthedocs.io/en/latest/man/tpm2_checkquote.1/",
+    "tpm2_eventlog": "https://tpm2-tools.readthedocs.io/en/latest/man/tpm2_eventlog.1/",
+    "linux_tpm_event_log": "https://www.kernel.org/doc/html/latest/security/tpm/tpm_event_log.html"
+  }
+}
