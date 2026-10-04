@@ -759,12 +759,12 @@ impl AuthorizationRequest {
     }
 }
 
-#[cfg(test)]
-/// Test the checked conversion used by the future authority adapter boundary.
+/// Convert the authority stack's millisecond lease horizon into the bridge kernel's
+/// microsecond representation without permitting integer overflow.
 ///
-/// The authority stack uses milliseconds while the bridge kernel uses microseconds.
-/// Overflow is invalid and must be handled as missing/invalid evidence.
-fn authority_lease_until_us(lease_until_ms: u64) -> Option<u64> {
+/// `None` is a hard conversion failure: an adapter must not substitute a saturated,
+/// wrapped, or otherwise invented timestamp when the source value cannot be represented.
+pub fn checked_authority_lease_until_us(lease_until_ms: u64) -> Option<u64> {
     lease_until_ms.checked_mul(1_000)
 }
 
@@ -1316,10 +1316,10 @@ mod tests {
 
     #[test]
     fn authority_freshness_lease_conversion_is_checked() {
-        assert_eq!(authority_lease_until_us(42), Some(42_000));
+        assert_eq!(checked_authority_lease_until_us(42), Some(42_000));
         let boundary = u64::MAX / 1_000;
-        assert_eq!(authority_lease_until_us(boundary), Some(boundary * 1_000));
-        assert_eq!(authority_lease_until_us(boundary + 1), None);
+        assert_eq!(checked_authority_lease_until_us(boundary), Some(boundary * 1_000));
+        assert_eq!(checked_authority_lease_until_us(boundary + 1), None);
     }
 
     #[test]
