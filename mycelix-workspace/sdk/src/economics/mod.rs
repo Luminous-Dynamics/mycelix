@@ -16,6 +16,7 @@ pub mod decay_garden;
 pub mod substrate;
 pub mod metabolic_oracle;
 pub mod poc;
+pub mod procurement_guard;
 pub mod recognition;
 pub mod seea;
 
@@ -36,6 +37,9 @@ pub use substrate::{
     SubstrateState,
 };
 pub use seea::{SeeaAccountType, SeeaChangeKind, SeeaObservation, SeeaProvenance};
+pub use procurement_guard::{
+    assess_procurement_option, cheapest_eligible_procurement, ProcurementAssessment, ProcurementOption,
+};
 pub use recognition::{
     calculate_recognition_score, ContributionType, RecognitionConfig, RecognitionEvent,
 };
