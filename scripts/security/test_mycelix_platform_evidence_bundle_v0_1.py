@@ -102,6 +102,18 @@ def build_bundle(bundle: Path) -> dict:
     public_wrapper = len(public_body).to_bytes(2, "big") + public_body
     (bundle / "ak.pub").write_bytes(public_wrapper)
     (bundle / "ek.pub").write_bytes(public_wrapper)
+    (bundle / "ek-create-transcript.json").write_text(
+        json.dumps({
+            "command": ["tpm2_createek", "-Q", "-c", "ek.ctx", "-G", "rsa", "-u", "ek.pub"],
+            "tool_version": "5.8 fixture",
+            "returncode": 0,
+            "stdout": "",
+            "stderr": "",
+            "hierarchy": "TPM_RH_ENDORSEMENT",
+            "template_mode": "default-low-range",
+        }, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
     for role in ("ak", "ek"):
         (bundle / f"{role}.tpmt").write_bytes(public_body)

@@ -23,6 +23,8 @@ RAW_EVENTLOG_PARSER_SCRIPT = ROOT / "scripts/security/parse_mycelix_raw_tpm2_eve
 PAYLOAD_COHERENCE_SCRIPT = ROOT / "scripts/security/verify_mycelix_event_payload_digest_coherence_v0_1.py"
 PUBLIC_NAME_VERIFIER_SCRIPT = ROOT / "scripts/security/verify_mycelix_tpm_public_name_coherence_v0_1.py"
 PUBLIC_NAME_VERIFIER_ID = "mycelix.tpm.public-name-coherence.v0.1"
+EK_TEMPLATE_VERIFIER_SCRIPT = ROOT / "scripts/security/verify_mycelix_ek_template_appraisal_v0_1.py"
+EK_TEMPLATE_VERIFIER_ID = "mycelix.tpm.ek-template-appraisal.v0.1"
 RECONSTRUCTION_VERIFIER_ID = "mycelix.pc-client.eventlog-reconstruction.v0.1"
 
 
@@ -154,6 +156,13 @@ def session_binding(manifest: dict[str, Any]) -> str:
             "public_name_ek_name_sha256": manifest["public_name_coherence"]["ek"]["name_sha256"],
             "public_name_ek_qname_sha256": manifest["public_name_coherence"]["ek"]["qname_sha256"],
             "public_name_ek_source_sha256": manifest["public_name_coherence"]["ek"]["source_sha256"],
+            "ek_template_status": manifest["ek_template_appraisal"]["status"],
+            "ek_template_verifier_id": manifest["ek_template_appraisal"]["verifier_id"],
+            "ek_template_output_sha256": manifest["ek_template_appraisal"]["output_sha256"],
+            "ek_template_input_sha256": manifest["ek_template_appraisal"]["input_sha256"],
+            "ek_template_wire_sha256": manifest["ek_template_appraisal"]["wire_sha256"],
+            "ek_template_source_sha256": manifest["ek_template_appraisal"]["source_sha256"],
+            "ek_template_transcript_sha256": manifest["ek_template_appraisal"]["transcript_sha256"],
         }
     )
 
@@ -214,6 +223,7 @@ def fixture_manifest() -> dict[str, Any]:
             "ak": public_name_ak,
             "ek": public_name_ek,
         },
+        "ek_template_appraisal": ek_template_appraisal,
         "quote": {
             "pcr_selection": "sha256:0,2,4,7",
             "nonce_sha256": "d" * 64,
@@ -252,6 +262,15 @@ def fixture_manifest() -> dict[str, Any]:
             "output_sha256": "9" * 64,
             "source_sha256": sha256_file(PAYLOAD_COHERENCE_SCRIPT),
             "input_sha256": "3" * 64,
+        },
+        "ek_template_appraisal": {
+            "status": "INDETERMINATE",
+            "verifier_id": EK_TEMPLATE_VERIFIER_ID,
+            "output_sha256": "ca" * 32,
+            "input_sha256": "cb" * 32,
+            "wire_sha256": "cc" * 32,
+            "source_sha256": "cd" * 32,
+            "transcript_sha256": "ce" * 32,
         },
         "public_name_coherence": {
             "ak": {
@@ -296,6 +315,11 @@ def fixture_manifest() -> dict[str, Any]:
             "public_name_ek_name_sha256": "bd" * 32,
             "public_name_ek_qname_sha256": "be" * 32,
             "public_name_ek_source_sha256": "bf" * 32,
+            "ek_template_output_sha256": "ca" * 32,
+            "ek_template_input_sha256": "cb" * 32,
+            "ek_template_wire_sha256": "cc" * 32,
+            "ek_template_source_sha256": "cd" * 32,
+            "ek_template_transcript_sha256": "ce" * 32,
             "tss_version_evidence_sha256": "f" * 64,
             "ek_public_sha256": "b" * 64,
         },
@@ -492,6 +516,32 @@ def validate_semantics(manifest: dict[str, Any]) -> tuple[str, str]:
         ),
     }
 
+    ek_template = manifest.get("ek_template_appraisal")
+    if not isinstance(ek_template, dict):
+        denies.append("ek-template-appraisal-not-object")
+    else:
+        for field in ("status","verifier_id","output_sha256","input_sha256","wire_sha256","source_sha256","transcript_sha256"):
+            if field not in ek_template:
+                denies.append(f"missing-ek-template.{field}")
+        if ek_template.get("verifier_id") != EK_TEMPLATE_VERIFIER_ID:
+            denies.append("ek-template-verifier-id-mismatch")
+        if ek_template.get("status") not in {"PASS","INDETERMINATE"}:
+            denies.append("ek-template-invalid-state")
+        fields = ("output_sha256","input_sha256","wire_sha256","source_sha256","transcript_sha256")
+        if not all(valid_hash(ek_template.get(field)) for field in fields):
+            denies.append("ek-template-digest-invalid")
+        artifact_map = {
+            "output_sha256":"ek_template_output_sha256",
+            "input_sha256":"ek_template_input_sha256",
+            "wire_sha256":"ek_template_wire_sha256",
+            "source_sha256":"ek_template_source_sha256",
+            "transcript_sha256":"ek_template_transcript_sha256",
+        }
+        for field, artifact_key in artifact_map.items():
+            if valid_hash(ek_template.get(field)) and manifest["artifacts"].get(artifact_key) != ek_template[field]:
+                denies.append(f"ek-template-{field}-artifact-binding-mismatch")
+        if ek_template.get("wire_sha256") != manifest.get("public_name_coherence",{}).get("ek",{}).get("wire_sha256"):
+            denies.append("ek-template-public-name-wire-mismatch")
     public_name = manifest.get("public_name_coherence")
     if not isinstance(public_name, dict):
         denies.append("public-name-coherence-not-object")
@@ -868,6 +918,29 @@ def run_independent_raw_eventlog_parser(
     return "PASS", "independent-raw-eventlog-parser-executed"
 
 
+def run_ek_template_verifier(input_path: Path, output_path: Path, cwd: Path) -> tuple[str, str]:
+    if not EK_TEMPLATE_VERIFIER_SCRIPT.is_file():
+        return "DENY", "ek-template-verifier-missing"
+    proc = run(
+        [
+            sys.executable,
+            str(EK_TEMPLATE_VERIFIER_SCRIPT),
+            "--verify",
+            str(input_path),
+            "--output",
+            str(output_path),
+        ],
+        os.environ.copy(),
+        cwd,
+        check=False,
+    )
+    if proc.returncode == 0:
+        return "PASS", "ek-template-verifier-executed"
+    if proc.returncode == 2:
+        return "INDETERMINATE", "ek-template-verifier-indeterminate"
+    return "DENY", "ek-template-verifier-failed"
+
+
 def run_public_name_verifier(input_path: Path, output_path: Path, cwd: Path) -> tuple[str, str]:
     if not PUBLIC_NAME_VERIFIER_SCRIPT.is_file():
         return "DENY", "public-name-verifier-missing"
@@ -1033,6 +1106,28 @@ def verify_bundle(args: argparse.Namespace) -> int:
         if independent != reconstruction:
             print("PLATFORM EVIDENCE: DENY: supplied reconstruction differs from independent execution")
             return 1
+
+    ek_template_input = bundle / "ek-template-input.json"
+    ek_template_output = bundle / "ek-template-appraisal.json"
+    ek_template_state, ek_template_reason = run_ek_template_verifier(
+        ek_template_input, ek_template_output, bundle
+    )
+    print(f"Independent EK template appraisal: {ek_template_state} ({ek_template_reason})")
+    if ek_template_state == "DENY":
+        return 1
+    ek_template_result = load_json(ek_template_output)
+    if ek_template_result.get("verifier_id") != EK_TEMPLATE_VERIFIER_ID:
+        print("PLATFORM EVIDENCE: DENY: ek-template-verifier-id-mismatch")
+        return 1
+    if ek_template_result.get("state") != manifest["ek_template_appraisal"]["status"]:
+        print("PLATFORM EVIDENCE: DENY: ek-template-state-binding-mismatch")
+        return 1
+    if ek_template_result.get("input_sha256") != sha256_file(ek_template_input):
+        print("PLATFORM EVIDENCE: DENY: ek-template-input-mismatch")
+        return 1
+    if ek_template_result.get("content_sha256") != self_hash(ek_template_result, "content_sha256"):
+        print("PLATFORM EVIDENCE: DENY: ek-template-content-hash-mismatch")
+        return 1
 
     for role in ("ak", "ek"):
         role_input = bundle / f"{role}-public-name-input.json"
@@ -1269,6 +1364,73 @@ def capture_public_name_observation(
     }
 
 
+def capture_ek_template_observation(
+    ek_context: Path,
+    ek_public_wire: Path,
+    ek_name: Path,
+    ek_qname: Path,
+    create_transcript_path: Path,
+    out: Path,
+    env: dict[str, str],
+) -> dict[str, str]:
+    input_path = out / "ek-template-input.json"
+    result_path = out / "ek-template-appraisal.json"
+
+    public_input = {
+        "profile_id": "mycelix.security.tpm.ek-template-appraisal",
+        "profile_version": "0.1.0",
+        "verification_mode": "LiveVerifierSession",
+        "claim_ceiling": "ReferenceModelOnly",
+        "object_role": "EK",
+        "public_format": "TPMT_PUBLIC",
+        "public_wire_hex": ek_public_wire.read_bytes().hex(),
+        "public_wire_sha256": sha256_file(ek_public_wire),
+        "name_hex": ek_name.read_bytes().hex(),
+        "qualified_name_hex": ek_qname.read_bytes().hex(),
+        "creation_provenance": {
+            "state": "PASS",
+            "tool_id": "tpm2_createek",
+            "hierarchy": "TPM_RH_ENDORSEMENT",
+            "template_mode": "default-low-range",
+            "transcript_sha256": sha256_file(create_transcript_path),
+        },
+    }
+    input_path.write_text(
+        json.dumps(public_input, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    proc = run(
+        [
+            sys.executable,
+            str(EK_TEMPLATE_VERIFIER_SCRIPT),
+            "--verify",
+            str(input_path),
+            "--output",
+            str(result_path),
+        ],
+        env,
+        out,
+        check=False,
+    )
+    if proc.returncode not in (0, 2):
+        raise RuntimeError(
+            f"EK template verifier failed: {proc.stdout}{proc.stderr}"
+        )
+    verified = load_json(result_path)
+    if verified.get("state") not in {"PASS", "INDETERMINATE"}:
+        raise RuntimeError(
+            f"EK template verifier returned DENY: {verified.get('reason')}"
+        )
+    return {
+        "status": verified["state"],
+        "verifier_id": verified["verifier_id"],
+        "output_sha256": sha256_file(result_path),
+        "input_sha256": sha256_file(input_path),
+        "wire_sha256": sha256_file(ek_public_wire),
+        "source_sha256": sha256_file(EK_TEMPLATE_VERIFIER_SCRIPT),
+        "transcript_sha256": sha256_file(create_transcript_path),
+    }
+
 def capture(args: argparse.Namespace) -> int:
     missing = require_capture_tools()
     device = detect_device()
@@ -1351,6 +1513,16 @@ def capture(args: argparse.Namespace) -> int:
     )
     public_name_ek = capture_public_name_observation(
         "ek", out / "ek.ctx", out / "ek.pub", out, env, versions["tpm2_readpublic"]
+    )
+
+    ek_template_appraisal = capture_ek_template_observation(
+        out / "ek.ctx",
+        out / "ek.tpmt",
+        out / "ek.name.readpublic",
+        out / "ek.qname.readpublic",
+        out / "ek-create-transcript.json",
+        out,
+        env,
     )
 
     nonce = (out / "nonce.bin").read_bytes()
