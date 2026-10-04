@@ -55,6 +55,7 @@ jobs:
             scripts/security/adapt_mycelix_tpm2_eventlog_yaml_v1_v0_1.py \
             scripts/security/test_mycelix_eventlog_adapter_replay_v0_1.py \
             scripts/security/verify_mycelix_event_payload_digest_coherence_v0_1.py \
+            scripts/security/verify_mycelix_reference_value_appraisal_v0_1.py \
             scripts/security/parse_mycelix_raw_tpm2_eventlog_v0_1.py \
             scripts/security/test_mycelix_raw_eventlog_yaml_crosscheck_v0_1.py
 
@@ -69,6 +70,9 @@ jobs:
 
       - name: Run payload coherence semantic corpus
         run: python3 scripts/security/verify_mycelix_event_payload_digest_coherence_v0_1.py --self-test
+
+      - name: Run reference appraisal semantic corpus
+        run: python3 scripts/security/verify_mycelix_reference_value_appraisal_v0_1.py --self-test
 
       - name: Run raw parser semantic corpus
         run: python3 scripts/security/parse_mycelix_raw_tpm2_eventlog_v0_1.py --self-test
