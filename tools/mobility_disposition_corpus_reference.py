@@ -115,6 +115,7 @@ EXPECTED_BINDING_VECTORS = [
     ("EDT-189", "invalid_authority_credential_signature_precedes_duplicate_authority_admission", "typed_structural_error"),
     ("EDT-190", "valid_duplicate_authority_is_adapter_rejection_and_state_preserving", "adapter_boundary_error"),
     ("EDT-191", "valid_duplicate_provenance_witness_is_adapter_rejection_and_state_preserving", "adapter_boundary_error"),
+    ("EDT-192", "credential_signature_host_failure_precedes_duplicate_authority_admission", "adapter_boundary_error"),
 ]
 
 
