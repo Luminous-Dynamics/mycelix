@@ -98,6 +98,10 @@ jobs:
             if [[ -f "${RUNNER_TEMP}/prism-bridge-canonical-metadata.status" ]]; then
               metadata_status="$(cat "${RUNNER_TEMP}/prism-bridge-canonical-metadata.status")"
             fi
+            metadata_log="${RUNNER_TEMP}/prism-bridge-canonical-metadata.log"
+            if [[ ! -f "${metadata_log}" ]]; then
+              printf '%s\n' "canonical metadata step did not produce a transcript" >"${metadata_log}"
+            fi
             lock_sha="missing"
             if [[ -f Cargo.lock ]]; then
               lock_sha="$(sha256sum Cargo.lock | awk '{print $1}')"
