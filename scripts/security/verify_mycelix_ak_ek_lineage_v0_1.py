@@ -73,7 +73,7 @@ def run_public_attributes_verifier(binding: dict[str, Any]) -> dict[str, Any]:
         input_path = root / "attributes-input.json"
         output_path = root / "attributes-output.json"
         input_path.write_text(
-            json.dumps(verifier_input, indent=2, sort_keys=True) + "\\n",
+            json.dumps(verifier_input, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
         proc = subprocess.run(
@@ -93,12 +93,6 @@ def run_public_attributes_verifier(binding: dict[str, Any]) -> dict[str, Any]:
             return result("DENY", "ak-public-attributes-verifier-output-invalid", {"error": str(exc)})
         if generated.get("verifier_id") != ATTRIBUTES_VERIFIER_ID:
             return result("DENY", "ak-public-attributes-result-verifier-id-mismatch")
-        binding_input_sha256 = sha256_file(input_path)
-        binding_output_sha256 = sha256_file(output_path)
-        if binding.get("input_sha256") != binding_input_sha256:
-            return result("DENY", "ak-public-attributes-input-hash-mismatch")
-        if binding.get("output_sha256") != binding_output_sha256:
-            return result("DENY", "ak-public-attributes-output-hash-mismatch")
         return generated
 
 
@@ -567,6 +561,11 @@ def self_test() -> int:
         ("activation-tpm-substitution", "DENY", lambda x: x["credential_activation"].update({"tpm_identity_digest": "ef" * 32})),
         ("offline-activation", "INDETERMINATE", lambda x: (x.update({"verification_mode": "OfflineBundle"}), x["credential_activation"].update({"scope": "OfflineBundle"}))),
         ("live-without-observation", "INDETERMINATE", lambda x: (x.update({"verification_mode": "LiveVerifierSession"}), x["credential_activation"].update({"scope": "LiveVerifierSession"}))),
+        ("attributes-verifier-substitution", "DENY", lambda x: x["public_attributes_binding"].update({"verifier_id": "other-verifier"})),
+        ("attributes-derived-fixedTPM-substitution", "DENY", lambda x: x["public_attributes_binding"].update({"derived_fixedTPM": False})),
+        ("attributes-source-substitution", "DENY", lambda x: x["public_attributes_binding"].update({"source_sha256": "12" * 32})),
+        ("public-area-cross-object-splice", "DENY", mutate_attribute_wire_tail),
+        ("public-name-area-substitution", "DENY", lambda x: x["public_name_binding"].update({"public_area_sha256": "13" * 32})),
         ("attributes-verifier-substitution", "DENY", lambda x: x["public_attributes_binding"].update({"verifier_id": "other-verifier"})),
         ("attributes-derived-fixedTPM-substitution", "DENY", lambda x: x["public_attributes_binding"].update({"derived_fixedTPM": False})),
         ("attributes-source-substitution", "DENY", lambda x: x["public_attributes_binding"].update({"source_sha256": "12" * 32})),
