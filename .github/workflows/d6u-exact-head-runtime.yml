@@ -12,8 +12,6 @@ concurrency:
 jobs:
   d6u-runtime:
     name: D6U Holochain 0.7 runtime evidence
-    env:
-      TRUSTED_WORKFLOW_SHA: ${{ inputs.trusted_workflow_sha }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
