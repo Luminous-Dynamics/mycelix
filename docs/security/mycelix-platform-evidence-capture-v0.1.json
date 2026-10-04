@@ -61,7 +61,8 @@
       "tss-version-evidence.txt",
       "eventlog-reconstruction-input.json",
       "observed-pcr-values.json",
-      "raw-eventlog.json"
+      "raw-eventlog.json",
+      "payload-coherence.json"
     ],
     "optional_artifacts": [
       "pcr-pre.yaml",
@@ -120,7 +121,12 @@
       "raw_eventlog.output_sha256",
       "raw_eventlog.source_sha256",
       "raw_eventlog.binary_sha256",
-      "artifacts.raw_eventlog_output_sha256"
+      "artifacts.raw_eventlog_output_sha256",
+      "payload_coherence.status",
+      "payload_coherence.output_sha256",
+      "payload_coherence.source_sha256",
+      "payload_coherence.input_sha256",
+      "artifacts.payload_coherence_output_sha256"
     ],
     "session_binding": "The session_binding_sha256 covers the session/boot/TPM/EK/event-log/PCR selection/challenge/AK/toolchain/reference/trusted-time/reconstruction result, exact reconstruction input digest, verifier identifier, verifier source digest, and platform/workload inputs in canonical form.",
     "canonical_json": "Manifest semantic hashing uses UTF-8 JSON with sorted keys and no insignificant whitespace."
@@ -205,6 +211,14 @@
     {
       "id": "CAP-020",
       "rule": "The YAML adapter must cross-check EventNum/PCRIndex/EventType and selected SHA-256 digests against the independent raw parser before attaching exact payload bytes."
+    },
+    {
+      "id": "CAP-021",
+      "rule": "Payload-digest coherence DENY is a hard platform-evidence failure; INDETERMINATE remains explicit and never becomes PASS."
+    },
+    {
+      "id": "CAP-022",
+      "rule": "Payload coherence input and verifier source provenance must bind to the exact canonical reconstruction input and exact verifier source."
     }
   ],
   "decision_algebra": "ANY DENY > ANY INDETERMINATE > ALL PASS",
