@@ -275,7 +275,9 @@ async fn load_dna() -> DnaFile {
 }
 
 fn commit_sha() -> String {
-    std::env::var("GITHUB_SHA").unwrap_or_else(|_| "local-uncommitted".to_string())
+    std::env::var("DSID_QUALIFIED_HEAD_SHA")
+        .or_else(|_| std::env::var("GITHUB_SHA"))
+        .unwrap_or_else(|_| "local-uncommitted".to_string())
 }
 
 fn decode_entry<T: serde::de::DeserializeOwned>(record: &Record) -> Option<T> {
