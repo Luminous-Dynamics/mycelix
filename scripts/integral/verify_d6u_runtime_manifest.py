@@ -40,7 +40,6 @@ UNSUPPORTED = {
 CASE_OUTCOMES = {
     "canonical-payload-accepted": "accepted",
     "authorized-semantic-rejection": "semantic-rejected",
-    "payload-mutation": "d6s-commitment-mismatch",
     "wire-signature-invalid": "authentication-failed",
     "author-grant": "accepted",
     "valid-capability": "accepted",
@@ -171,8 +170,8 @@ def main() -> None:
     print("holochain=0.7.0")
     print("hdk=0.7.0")
     print("hdi=0.8.0")
-    print("supported_cases=15")
-    print("unsupported_cases=2")
+    print("supported_cases=14")
+    print("unsupported_cases=3")
     print("claim_ceiling=ReferenceModelOnly")
 
 
