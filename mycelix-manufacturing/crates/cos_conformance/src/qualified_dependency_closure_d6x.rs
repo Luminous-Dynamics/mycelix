@@ -1637,9 +1637,16 @@ mod tests {
                 "golden recipe rule must satisfy D6X rule shape: {}",
                 vector.id
             );
+            let mut mutation_edge_ids = BTreeSet::new();
             for mutation in &vector.recipe.projection_mutations {
                 match mutation.op.as_str() {
                     "add_edge" => {
+                        let edge_id = mutation.edge_id.as_deref().expect("validated add_edge edge_id");
+                        assert!(
+                            mutation_edge_ids.insert(edge_id),
+                            "golden recipe must not contain duplicate add_edge IDs: {}",
+                            vector.id
+                        );
                         assert!(mutation.edge_id.as_deref().is_some_and(non_empty));
                         assert!(mutation.from_node_id.as_deref().is_some_and(non_empty));
                         assert!(mutation.to_node_id.as_deref().is_some_and(non_empty));
@@ -1795,6 +1802,22 @@ mod tests {
                         .get_mut("edges")
                         .and_then(serde_json::Value::as_object_mut)
                         .expect("golden projection edges must be an object");
+                    assert!(
+                        edges.get(&edge_id).is_none(),
+                        "golden add_edge must not overwrite an existing edge: {edge_id}"
+                    );
+                    let nodes = projection_object
+                        .get("nodes")
+                        .and_then(serde_json::Value::as_object)
+                        .expect("golden projection nodes must be an object");
+                    assert!(
+                        nodes.contains_key(&from_node_id),
+                        "golden add_edge source node is missing: {from_node_id}"
+                    );
+                    assert!(
+                        nodes.contains_key(&to_node_id),
+                        "golden add_edge target node is missing: {to_node_id}"
+                    );
                     edges.insert(
                         edge_id.clone(),
                         serde_json::json!({
