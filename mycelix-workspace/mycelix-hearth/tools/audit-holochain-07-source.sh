@@ -773,7 +773,21 @@ check_semantic_case_entrypoints() {
       echo "FAIL: semantic runtime witness ${test_name} does not assert rejection of the result value"
       fail=1
     fi
-    # A negative-only witness can pass even if the validator rejects everything.\n    # Require a repaired-input control that invokes the same coordinator operation\n    # through call_fallible and explicitly observes success.\n    if printf "%s\\n" "$test_block" | rg -nU --pcre2 "let[[:space:]]+valid_result(?:[[:space:]]*:[^=;]+)?[[:space:]]*=[[:space:]]*conductor[[:space:]]*\\.[[:space:]]*call_fallible\\([[:space:]]*&alice\\.zome\\(\\\"\\${zome}\\\"\\\)[[:space:]]*,[[:space:]]*\\\"\\${operation}\\\"[[:space:]]*," >/dev/null 2>&1; then\n      echo "OK:   semantic runtime witness ${test_name} contains a repaired-input success control for ${zome}/${operation}"\n    else\n      echo "FAIL: semantic runtime witness ${test_name} lacks a repaired-input call_fallible success control for ${zome}/${operation}"\n      fail=1\n    fi\n    if printf "%s\\n" "$test_block" | rg -nU --pcre2 "assert\\!\\([[:space:]]*valid_result\\.is_ok\\(\\)" >/dev/null 2>&1; then\n      echo "OK:   semantic runtime witness ${test_name} asserts repaired-input acceptance"\n    else\n      echo "FAIL: semantic runtime witness ${test_name} does not assert repaired-input acceptance"\n      fail=1\n    fi\n    # Bind the rejection reason to the same manifest case, including multiline formatting.
+    # A negative-only witness can pass even if the validator rejects everything.
+    # Require a repaired-input control that invokes the same coordinator operation
+    # through call_fallible and explicitly observes success.
+    if printf "%s\\n" "$test_block" | rg -nU --pcre2 "let[[:space:]]+valid_result(?:[[:space:]]*:[^=;]+)?[[:space:]]*=[[:space:]]*conductor[[:space:]]*\\.[[:space:]]*call_fallible\\([[:space:]]*&alice\\.zome\\(\\\"\\${zome}\\\"\\\)[[:space:]]*,[[:space:]]*\\\"\\${operation}\\\"[[:space:]]*," >/dev/null 2>&1; then
+      echo "OK:   semantic runtime witness ${test_name} contains a repaired-input success control for ${zome}/${operation}"
+    else
+      echo "FAIL: semantic runtime witness ${test_name} lacks a repaired-input call_fallible success control for ${zome}/${operation}"
+      fail=1
+    fi
+    if printf "%s\\n" "$test_block" | rg -nU --pcre2 "assert\\!\\([[:space:]]*valid_result\\.is_ok\\(\\)" >/dev/null 2>&1; then
+      echo "OK:   semantic runtime witness ${test_name} asserts repaired-input acceptance"
+    else
+      echo "FAIL: semantic runtime witness ${test_name} does not assert repaired-input acceptance"
+      fail=1
+    fi\n    # Bind the rejection reason to the same manifest case, including multiline formatting.
 
     if printf "%s\\n" "$test_block" | rg -nU --pcre2 "expected_reason\\([[:space:]]*\"${test_name}\"[[:space:]]*\\)" >/dev/null 2>&1; then
       echo "OK:   semantic runtime witness ${test_name} binds its rejection reason to the manifest case"
