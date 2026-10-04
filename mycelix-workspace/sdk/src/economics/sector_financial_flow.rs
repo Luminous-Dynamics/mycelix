@@ -240,6 +240,36 @@ impl SectorFinancialFlowMatrix {
         Ok(())
     }
 
+    fn expected_instrument_delta(
+        &self,
+        sector: EconomicSector,
+        instrument: BalanceSheetInstrument,
+    ) -> Result<i128, String> {
+        self.flows.iter().try_fold(0i128, |sum, flow| {
+            let delta = match flow.category {
+                FinancialFlowCategory::LoanCreation | FinancialFlowCategory::DebtRepayment => {
+                    match instrument {
+                        BalanceSheetInstrument::Loans if flow.to == sector => flow.amount,
+                        BalanceSheetInstrument::Loans if flow.from == sector => -flow.amount,
+                        BalanceSheetInstrument::Debt if flow.to == sector => -flow.amount,
+                        BalanceSheetInstrument::Debt if flow.from == sector => flow.amount,
+                        _ => 0,
+                    }
+                }
+                FinancialFlowCategory::TradeCreditExtension
+                | FinancialFlowCategory::TradeCreditSettlement => match instrument {
+                    BalanceSheetInstrument::TradeReceivables if flow.to == sector => flow.amount,
+                    BalanceSheetInstrument::TradeReceivables if flow.from == sector => -flow.amount,
+                    BalanceSheetInstrument::TradePayables if flow.to == sector => -flow.amount,
+                    BalanceSheetInstrument::TradePayables if flow.from == sector => flow.amount,
+                    _ => 0,
+                },
+            };
+            sum.checked_add(delta)
+                .ok_or_else(|| "sector financial instrument delta overflow".to_string())
+        })
+    }
+
     /// Re-derive this matrix from the supplied transition sequence and require exact equality.
     ///
     /// This is stronger than checking only that the matrix clears: every serialized financial
@@ -557,5 +587,28 @@ mod tests {
         assert!(SectorFinancialFlowMatrix::default()
             .validate_against(&state, &assignments(), &transitions)
             .is_err());
+    }    #[test]
+    fn financial_matrix_reconciles_debt_extinction_deltas() {
+        let mut bank = ActorBalanceSheet::new("bank");
+        bank.monetary.claims = 40;
+        let mut firm = ActorBalanceSheet::new("firm");
+        firm.monetary.liabilities = 40;
+        let pre = EconomicState::new(vec![bank, firm]);
+        let transitions = vec![EconomicTransition::DebtRepayment(
+            DebtRepayment::new("bank", "firm", 10).unwrap(),
+        )];
+        let (post, _) =
+            crate::economics::transition::apply_step(&pre, 1, &transitions, None).unwrap();
+        let assignments = assignments();
+        let pre_sheet = SectorBalanceSheet::from_state(&pre, &assignments).unwrap();
+        let post_sheet = SectorBalanceSheet::from_state(&post, &assignments).unwrap();
+        let matrix =
+            SectorFinancialFlowMatrix::from_transitions(&transitions, &assignments).unwrap();
+
+        matrix
+            .validate_against_balance_sheet_delta(&pre_sheet, &post_sheet)
+            .unwrap();
     }
+
+
 }
