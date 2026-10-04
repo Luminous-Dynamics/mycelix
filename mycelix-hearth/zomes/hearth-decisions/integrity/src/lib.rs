@@ -276,6 +276,10 @@ fn validate_outcome_author(
 /// zome's registered Vote entry type. Application-entry serialization alone is not enough:
 /// different zomes can deserialize compatible bytes into different semantic entry types.
 fn decode_vote_record(record: &Record) -> Result<Vote, String> {
+    if !matches!(record.action().action(), Action::Create(_)) {
+        return Err("Tally evidence must reference the original Vote Create action".into());
+    }
+
     let entry_type = record
         .action()
         .entry_type()
@@ -329,6 +333,11 @@ fn validate_create_link_with_topology(
                 WasmErrorInner::Guest("HearthToDecisions target is not an ActionHash".into())
             ))?;
             let record = must_get_valid_record(target)?;
+            if !matches!(record.action().action(), Action::Create(_)) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "HearthToDecisions target must reference the original Decision Create action".into(),
+                ));
+            }
             let entry_type = record.action().entry_type().ok_or(wasm_error!(
                 WasmErrorInner::Guest("HearthToDecisions target has no application entry type".into())
             ))?;
@@ -377,6 +386,11 @@ fn validate_create_link_with_topology(
                 WasmErrorInner::Guest("DecisionToOutcome target is not an ActionHash".into())
             ))?;
             let record = must_get_valid_record(outcome_hash)?;
+            if !matches!(record.action().action(), Action::Create(_)) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "DecisionToOutcome target must reference the original Outcome Create action".into(),
+                ));
+            }
             let entry_type = record.action().entry_type().ok_or(wasm_error!(
                 WasmErrorInner::Guest("DecisionToOutcome target has no application entry type".into())
             ))?;
