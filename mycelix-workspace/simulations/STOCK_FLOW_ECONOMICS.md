@@ -1017,6 +1017,37 @@ References:
 - DEFINE, Dynamic Ecosystem-FINance-Economy ecological SFC framework.
 - Dafermos, Nikolaidi & Galanis, A stock-flow-fund ecological macroeconomic model (2017).
 
+## Explicit sector valuation-change projection (implemented)
+
+The sector accounting layer now gives valuation changes their own typed projection:
+`SectorRevaluationChangeMatrix`. It is derived directly from the authoritative transition
+sequence and currently contains only the narrow `RealAssetRevaluation` primitive for productive
+capital and inventory carrying value.
+
+This matrix is deliberately separate from both:
+
+- the financial-account matrix, which represents contractual claim creation/retirement or settlement;
+- the other-volume matrix, which represents changes such as debt write-off that extinguish an existing
+  claim without a transaction.
+
+Revaluation amounts remain signed. For a sector holding gain/loss of (V):
+
+- targeted real-asset carrying value: (+V);
+- signed equity residual: (-V).
+
+The dedicated projection is now hash-bound into `EconomicAccountingClosure`, so serialized
+valuation observations cannot be detached from the ordered transition program.
+
+This is intentionally **not** financial-instrument or FX revaluation yet. The current domain has no
+explicit financial-instrument identity or currency denomination from which an exchange-rate or
+market-price valuation change could be derived safely. The next valuation increment should add that
+identity first, then introduce financial/FX valuation changes as explicit signed valuation flows.
+
+This follows the standard stock-flow decomposition in which period-to-period stock changes are
+explained by transactions, revaluations/holding gains and losses, and other changes in volume. The
+2025 SNA and IMF monetary-statistics framework both maintain these categories separately rather than
+using a generic balance-sheet residual.
+
 ## Explicit debt write-off / other-volume adjustment (implemented)
 
 The accounting substrate now distinguishes explicit debt write-off from debt repayment and from

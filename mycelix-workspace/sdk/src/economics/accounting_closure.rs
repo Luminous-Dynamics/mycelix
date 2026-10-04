@@ -26,6 +26,7 @@ use super::sector_financial_flow::SectorFinancialFlowMatrix;
 use super::sector_flow::{EconomicSector, SectorTransactionMatrix};
 use super::sector_observables::SectorEconomicObservables;
 use super::sector_other_volume::SectorOtherVolumeChangeMatrix;
+use super::sector_revaluation::SectorRevaluationChangeMatrix;
 use super::stock_flow::{ActorId, EconomicState};
 use super::transition::{state_hash, transition_hash, EconomicTransition};
 
@@ -92,7 +93,10 @@ impl EconomicAccountingClosure {
 
         let other_volume_change =
             SectorOtherVolumeChangeMatrix::from_transitions(transitions, assignments)?;
+        let sector_revaluation_change =
+            SectorRevaluationChangeMatrix::from_transitions(transitions, assignments)?;
         other_volume_change.validate_against(pre_state, assignments, transitions)?;
+        sector_revaluation_change.validate_against(pre_state, assignments, transitions)?;
         other_volume_change
             .validate_against_balance_sheet_delta(&pre_balance, &post_balance)?;
 
@@ -130,6 +134,7 @@ impl EconomicAccountingClosure {
         let sector_transaction_hash = hash_json(&sector_transaction)?;
         let sector_financial_flow_hash = hash_json(&sector_financial_flow)?;
         let other_volume_change_hash = hash_json(&other_volume_change)?;
+        let sector_revaluation_change_hash = hash_json(&sector_revaluation_change)?;
         let sector_observations_hash = hash_json(&sector_observations)?;
 
         let binding = (
@@ -146,6 +151,7 @@ impl EconomicAccountingClosure {
             &sector_transaction_hash,
             &sector_financial_flow_hash,
             &other_volume_change_hash,
+            &sector_revaluation_change_hash,
             &sector_observations_hash,
         );
         let closure_hash = hash_json(&binding)?;
@@ -164,6 +170,7 @@ impl EconomicAccountingClosure {
             sector_transaction_hash,
             sector_financial_flow_hash,
             other_volume_change_hash,
+            sector_revaluation_change_hash,
             sector_observations_hash,
             closure_hash,
         })
@@ -209,6 +216,7 @@ impl EconomicAccountingClosure {
             &self.sector_transaction_hash,
             &self.sector_financial_flow_hash,
             &self.other_volume_change_hash,
+            &self.sector_revaluation_change_hash,
             &self.sector_observations_hash,
         );
         let expected = hash_json(&binding)?;
@@ -585,6 +593,7 @@ mod tests {
         assert!(!a.sector_transaction_hash.is_empty());
         assert!(!a.sector_financial_flow_hash.is_empty());
         assert!(!a.other_volume_change_hash.is_empty());
+        assert!(!a.sector_revaluation_change_hash.is_empty());
         assert!(!a.sector_observations_hash.is_empty());
     }
 
@@ -612,6 +621,8 @@ mod tests {
             closure.physical_posting_count,
             &closure.sector_transaction_hash,
             &closure.sector_financial_flow_hash,
+            &closure.other_volume_change_hash,
+            &closure.sector_revaluation_change_hash,
             &closure.sector_observations_hash,
         );
         closure.closure_hash = super::hash_json(&binding).unwrap();
@@ -646,7 +657,6 @@ mod tests {
     }
 
     #[test]
-    #[test]
     fn mixed_write_off_and_revaluation_share_one_closure_without_overlap() {
         let mut bank = ActorBalanceSheet::new("bank");
         bank.monetary.claims = 100;
@@ -680,13 +690,14 @@ mod tests {
             },
         ];
 
-        EconomicAccountingClosure::validate_and_seal(
+        let closure = EconomicAccountingClosure::validate_and_seal(
             &pre,
             &post,
             &assignments,
             &transitions,
         )
         .unwrap();
+        assert!(!closure.sector_revaluation_change_hash.is_empty());
     }
 
     #[test]
@@ -727,6 +738,7 @@ mod tests {
             .unwrap();
     }
 
+    #[test]
     fn closure_self_verification_rejects_tampering() {
         let (pre, assignments, transitions, post) = fixture();
         let mut closure = EconomicAccountingClosure::validate_and_seal(

@@ -29,6 +29,7 @@ pub mod sector_balance;
 pub mod sector_observables;
 pub mod sector_financial_flow;
 pub mod sector_other_volume;
+pub mod sector_revaluation;
 pub mod stock_flow;
 pub mod transition;
 pub mod trace;
@@ -52,6 +53,9 @@ pub use sector_financial_flow::{
 };
 pub use sector_other_volume::{
     OtherVolumeChangeCategory, SectorOtherVolumeChange, SectorOtherVolumeChangeMatrix,
+};
+pub use sector_revaluation::{
+    RevaluationChangeCategory, SectorRevaluationChange, SectorRevaluationChangeMatrix,
 };
 pub use reconciliation::{
     physical_postings_for_step, postings_for_step, reconcile_step, PhysicalStockMismatch,
