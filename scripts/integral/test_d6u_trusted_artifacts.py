@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Unit tests for the pure-data portions of the D6U trusted verifier."""
+"""Deterministic, read-only tests for the D6U trusted verifier."""
 
 import tempfile
 from pathlib import Path
@@ -9,6 +9,7 @@ from verify_d6u_trusted_artifacts import (
     verify_artifact_layout,
     verify_cases,
     verify_lock,
+    verify_required_tracked_blobs,
 )
 
 
@@ -41,6 +42,14 @@ def valid_log() -> str:
     )
 
 
+def assert_rejected(fn, message: str) -> None:
+    try:
+        fn()
+    except AssertionError:
+        return
+    raise AssertionError(message)
+
+
 def test_valid_log_is_accepted() -> None:
     verify_cases(valid_log(), base_policy())
 
@@ -50,22 +59,20 @@ def test_case_tampering_is_rejected() -> None:
         "canonical-payload-accepted\taccepted",
         "canonical-payload-accepted\tsemantic-rejected",
     )
-    try:
-        verify_cases(tampered, base_policy())
-    except AssertionError:
-        return
-    raise AssertionError("tampered D6U case was accepted")
+    assert_rejected(
+        lambda: verify_cases(tampered, base_policy()),
+        "tampered D6U case was accepted",
+    )
 
 
 def test_duplicate_case_is_rejected() -> None:
     tampered = valid_log() + "\n" + (
         "D6U_CASE\tcanonical-payload-accepted\taccepted\tzome-reached=true\tPASS"
     )
-    try:
-        verify_cases(tampered, base_policy())
-    except AssertionError:
-        return
-    raise AssertionError("duplicate D6U case was accepted")
+    assert_rejected(
+        lambda: verify_cases(tampered, base_policy()),
+        "duplicate D6U case was accepted",
+    )
 
 
 def test_lock_provenance_is_rejected_when_tampered() -> None:
@@ -97,11 +104,10 @@ def test_lock_provenance_is_rejected_when_tampered() -> None:
             ),
             encoding="utf-8",
         )
-        try:
-            verify_lock(lock, policy)
-        except AssertionError:
-            return
-        raise AssertionError("malformed lock checksum was accepted")
+        assert_rejected(
+            lambda: verify_lock(lock, policy),
+            "malformed lock checksum was accepted",
+        )
 
 
 def test_duplicate_record_key_is_rejected() -> None:
@@ -113,32 +119,92 @@ def test_duplicate_record_key_is_rejected() -> None:
             "status=runtime-reference-evidence\n",
             encoding="utf-8",
         )
-        try:
-            load_record(record)
-        except AssertionError:
-            return
-        raise AssertionError("duplicate record field was accepted")
+        assert_rejected(
+            lambda: load_record(record),
+            "duplicate evidence key was accepted",
+        )
+
+
+def test_tracked_source_tree_accepts_exact_blobs() -> None:
+    required = {
+        "tracked.txt": "a" * 40,
+        "script.sh": "b" * 40,
+    }
+    tree = {
+        "truncated": False,
+        "tree": [
+            {
+                "path": "tracked.txt",
+                "mode": "100644",
+                "type": "blob",
+                "sha": "a" * 40,
+            },
+            {
+                "path": "script.sh",
+                "mode": "100755",
+                "type": "blob",
+                "sha": "b" * 40,
+            },
+        ],
+    }
+    verify_required_tracked_blobs(tree, required)
+
+
+def test_tracked_source_tree_rejects_symlink_mode() -> None:
+    required = {"tracked.txt": "a" * 40}
+    tree = {
+        "truncated": False,
+        "tree": [
+            {
+                "path": "tracked.txt",
+                "mode": "120000",
+                "type": "blob",
+                "sha": "a" * 40,
+            }
+        ],
+    }
+    assert_rejected(
+        lambda: verify_required_tracked_blobs(tree, required),
+        "Git symlink mode was accepted",
+    )
+
+
+def test_tracked_source_tree_rejects_nonblob_entry() -> None:
+    required = {"tracked.txt": "a" * 40}
+    tree = {
+        "truncated": False,
+        "tree": [
+            {
+                "path": "tracked.txt",
+                "mode": "160000",
+                "type": "commit",
+                "sha": "a" * 40,
+            }
+        ],
+    }
+    assert_rejected(
+        lambda: verify_required_tracked_blobs(tree, required),
+        "Git submodule entry was accepted",
+    )
 
 
 def test_truncated_source_tree_is_rejected() -> None:
-    try:
-        verify_required_tracked_blobs(
+    required = {"tracked.txt": "a" * 40}
+    tree = {
+        "truncated": True,
+        "tree": [
             {
-                "truncated": True,
-                "tree": [
-                    {
-                        "path": "tracked.txt",
-                        "mode": "100644",
-                        "type": "blob",
-                        "sha": "a" * 40,
-                    }
-                ],
-            },
-            {"tracked.txt": "a" * 40},
-        )
-    except AssertionError:
-        return
-    raise AssertionError("truncated Git tree was accepted")
+                "path": "tracked.txt",
+                "mode": "100644",
+                "type": "blob",
+                "sha": "a" * 40,
+            }
+        ],
+    }
+    assert_rejected(
+        lambda: verify_required_tracked_blobs(tree, required),
+        "truncated Git tree was accepted",
+    )
 
 
 def test_artifact_layout_rejects_symlink() -> None:
@@ -153,18 +219,17 @@ def test_artifact_layout_rejects_symlink() -> None:
             artifact_dir / "Cargo.lock"
         )
 
-        try:
-            verify_artifact_layout(
+        assert_rejected(
+            lambda: verify_artifact_layout(
                 artifact_dir,
                 {
                     "d6u-runtime-evidence.txt",
                     "d6u-runtime-test.log",
                     "Cargo.lock",
                 },
-            )
-        except AssertionError:
-            return
-        raise AssertionError("symlinked trusted input was accepted")
+            ),
+            "symlinked trusted input was accepted",
+        )
 
 
 if __name__ == "__main__":
@@ -174,6 +239,10 @@ if __name__ == "__main__":
         test_duplicate_case_is_rejected,
         test_lock_provenance_is_rejected_when_tampered,
         test_duplicate_record_key_is_rejected,
+        test_tracked_source_tree_accepts_exact_blobs,
+        test_tracked_source_tree_rejects_symlink_mode,
+        test_tracked_source_tree_rejects_nonblob_entry,
+        test_truncated_source_tree_is_rejected,
         test_artifact_layout_rejects_symlink,
     ]
     for test in tests:
