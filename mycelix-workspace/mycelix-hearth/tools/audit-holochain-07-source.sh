@@ -732,7 +732,7 @@ check_qualification_workflow_provenance() {
     return
   fi
   if rg -n --fixed-strings "target_sha:" "$workflow" >/dev/null 2>&1 \
-    && rg -n --fixed-strings "ref: ${{ env.QUALIFY_SHA }}" "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings 'ref: ${{ env.QUALIFY_SHA }}' "$workflow" >/dev/null 2>&1 \
     && rg -n --fixed-strings "git rev-parse HEAD" "$workflow" >/dev/null 2>&1; then
     echo "OK:   qualification workflow binds execution to an exact candidate SHA"
   else
