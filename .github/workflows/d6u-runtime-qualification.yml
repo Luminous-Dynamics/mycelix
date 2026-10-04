@@ -46,7 +46,7 @@ jobs:
           rustfmt +1.96.1 --version
 
       - name: Preflight evidence verifiers
-        run: python3 -m py_compile scripts/integral/verify_d6u_runtime_manifest.py scripts/integral/verify_d6u_runtime_evidence.py scripts/integral/verify_d6u_runtime_record.py
+        run: python3 -m py_compile scripts/integral/verify_d6u_runtime_manifest.py scripts/integral/verify_d6u_runtime_evidence.py scripts/integral/verify_d6u_runtime_lock.py scripts/integral/verify_d6u_runtime_record.py
 
       - name: Verify D6U manifest
         run: python3 scripts/integral/verify_d6u_runtime_manifest.py
@@ -58,6 +58,10 @@ jobs:
       - name: Generate locked dependency graph
         working-directory: d6u-runtime-harness
         run: cargo generate-lockfile
+
+      - name: Verify resolved substrate lock
+        working-directory: d6u-runtime-harness
+        run: python3 ../scripts/integral/verify_d6u_runtime_lock.py Cargo.lock
 
       - name: Test D6U runtime boundary
         working-directory: d6u-runtime-harness
@@ -132,6 +136,7 @@ PY
             echo "manifest_version=$(python3 -c 'import json; print(json.load(open("../docs/integral/d6u-runtime-manifest.json"))["version"])')"
             echo "manifest_git_blob_sha=$(git hash-object ../docs/integral/d6u-runtime-manifest.json)"
             echo "evidence_verifier_git_blob_sha=$(git hash-object ../scripts/integral/verify_d6u_runtime_evidence.py)"
+            echo "lock_verifier_git_blob_sha=$(git hash-object ../scripts/integral/verify_d6u_runtime_lock.py)"
             supported_case_count=$(python3 -c 'import json; print(len(json.load(open("../docs/integral/d6u-runtime-manifest.json"))["supported_reference_cases"]))')
             observed_case_count=$(grep -c '^D6U_CASE' d6u-runtime-test.log)
             supplemental_case_count=$(python3 -c 'import json; print(len(json.load(open("../docs/integral/d6u-runtime-manifest.json")).get("supplemental_substrate_checks", [])))')
