@@ -15,6 +15,7 @@ pub mod accounting_closure;
 pub mod commons;
 pub mod actor_observables;
 pub mod decay_garden;
+pub mod debt_register;
 pub mod evidence;
 pub mod financial_commitment;
 pub mod metabolic_oracle;
@@ -38,6 +39,7 @@ pub use accounting_closure::{
     EconomicAccountingClosure, ECONOMIC_ACCOUNTING_CLOSURE_SCHEMA_VERSION,
 };
 pub use commons::{CommonsContribution, CommonsPool, CommonsResult};
+pub use debt_register::{CounterpartyDebtPosition, CounterpartyDebtRegister};
 pub use decay_garden::{
     calculate_demurrage, CompostAllocation, CompostDistribution, CompostEvent, DemurrageConfig,
 };
