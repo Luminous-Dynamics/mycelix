@@ -951,6 +951,43 @@ mod tests {
     }
 
     #[test]
+    fn receipt_authorization_mismatch_blocks_finalization() {
+        let lifecycle = completed_lifecycle();
+        let constraint = completion_constraint(&lifecycle);
+        let mut receipt = completion_receipt(&lifecycle);
+        receipt.lifecycle_revision_id = lifecycle.revisions()[2].revision_id.clone();
+
+        let reconciliations = reconciliation_ledger(vec![reconciliation(
+            "reconciliation:wrong-revision",
+            &receipt,
+            &constraint,
+            ExecutionConformance::Conformant,
+            1_600,
+        )]);
+        let execution = execution_ledger(vec![receipt]);
+
+        let assessment = EconomicActionFinalizationGate::assess(
+            &lifecycle,
+            &scope(),
+            &healthy_substrate(),
+            &ImpactLedger::new(),
+            &reconciliations,
+            &execution,
+            &[constraint],
+        )
+        .unwrap();
+
+        assert_eq!(
+            assessment.decision,
+            EconomicFinalizationDecision::BlockedByEvidenceBinding
+        );
+        assert_eq!(
+            assessment.binding_mismatch_reconciliation_ids,
+            vec!["reconciliation:wrong-revision"]
+        );
+    }
+
+    #[test]
     fn receipt_fingerprint_mismatch_blocks_finalization() {
         let lifecycle = completed_lifecycle();
         let constraint = completion_constraint(&lifecycle);
