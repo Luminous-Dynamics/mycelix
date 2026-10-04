@@ -252,10 +252,25 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 ));
             }
 
+            let did_document_entry_def: AppEntryDef = UnitEntryTypes::DidDocument
+                .try_into()
+                .map_err(|e| {
+                    wasm_error!(WasmErrorInner::Guest(format!(
+                        "Failed to resolve DidDocument entry definition: {e}"
+                    )))
+                })?;
+            let did_deactivation_entry_def: AppEntryDef = UnitEntryTypes::DidDeactivation
+                .try_into()
+                .map_err(|e| {
+                    wasm_error!(WasmErrorInner::Guest(format!(
+                        "Failed to resolve DidDeactivation entry definition: {e}"
+                    )))
+                })?;
+
             match original.action().entry_type() {
                 Some(EntryType::App(entry_def))
-                    if *entry_def == UnitEntryTypes::DidDocument.into()
-                        || *entry_def == UnitEntryTypes::DidDeactivation.into() =>
+                    if *entry_def == did_document_entry_def
+                        || *entry_def == did_deactivation_entry_def =>
                 {
                     Ok(ValidateCallbackResult::Invalid(
                         "DID security entries cannot be deleted".into(),
@@ -823,7 +838,7 @@ fn validate_update_did_document(
     if let Err(message) = validate_timestamp_not_future(
         "DID updated timestamp",
         did_doc.updated,
-        *action.timestamp(),
+        action.timestamp,
     ) {
         return Ok(ValidateCallbackResult::Invalid(message));
     }
