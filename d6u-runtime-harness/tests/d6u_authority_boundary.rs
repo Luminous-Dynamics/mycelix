@@ -315,7 +315,9 @@ async fn d6u_runtime_authority_boundary() {
         ProbeResult::D6sCommitmentMismatch,
     );
     assert_eq!(reached.load(Ordering::SeqCst), 3);
-    record_case("payload-mutation", "d6s-commitment-mismatch");
+    println!(
+        "D6U_APPLICATION_CHECK\tprobe-local-d6s-commitment-mutation\tresult=d6s-commitment-mismatch;zome-reached=true\tPASS"
+    );
 
     let alice_params = params(
         &alice_cell,
