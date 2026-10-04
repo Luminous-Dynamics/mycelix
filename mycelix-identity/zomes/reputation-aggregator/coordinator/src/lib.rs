@@ -217,7 +217,7 @@ pub fn report_domain_score(input: DomainScoreInput) -> ExternResult<ActionHash> 
         cluster: input.cluster.clone(),
         score,
         source_timestamp: now,
-        reporter_pubkey_b64: format!("{:?}", caller),
+        reporter_pubkey_b64: caller.to_string(),
     };
 
     let action_hash = create_entry(&EntryTypes::DomainScoreReport(report))?;
