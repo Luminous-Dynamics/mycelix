@@ -129,7 +129,7 @@ jobs:
       - name: Build Identity zomes
         run: |
           cd mycelix-identity
-          nix develop .#ci --impure --command \
+          nix develop .#ci --command \
             cargo build --release --target wasm32-unknown-unknown --workspace
 
       - name: Test Identity integrity invariants
@@ -141,7 +141,7 @@ jobs:
       - name: Pack Identity DNA
         run: |
           cd mycelix-identity
-          nix develop .#ci --impure --command hc dna pack dna/
+          nix develop .#ci --command hc dna pack dna/
           test -s dna/mycelix_identity_dna.dna
           sha256sum dna/mycelix_identity_dna.dna > "$GITHUB_WORKSPACE/dsid-dna.sha256"
           cat "$GITHUB_WORKSPACE/dsid-dna.sha256"
@@ -150,7 +150,7 @@ jobs:
         run: |
           set -o pipefail
           cd mycelix-identity/tests
-          nix develop ../.#ci --impure --command \
+          nix develop ../.#ci --command \
             cargo test --test dsid_lifecycle_lab \
               -- --include-ignored --nocapture --test-threads=1 \
             | tee "$GITHUB_WORKSPACE/dsid-lifecycle-evidence.txt"
