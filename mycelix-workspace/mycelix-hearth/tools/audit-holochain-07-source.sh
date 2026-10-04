@@ -761,13 +761,13 @@ check_semantic_case_entrypoints() {
     # Bind the manifest case to the result-producing call itself. Requiring the
     # exact zome/operation inside call_fallible prevents unrelated calls from
     # satisfying the witness.
-    if printf "%s\\n" "$test_block" | rg -nU --pcre2 "let[[:space:]]+result(?:[[:space:]]*:[^=;]+)?[[:space:]]*=[[:space:]]*conductor\\.call_fallible\\([[:space:]]*&alice\\.zome\\(\\\"\\${zome}\\\"\\)[[:space:]]*,[[:space:]]*\\\"\\${operation}\\\"[[:space:]]*," >/dev/null 2>&1; then
+    if printf "%s\\n" "$test_block" | rg -nU --pcre2 "let[[:space:]]+result(?:[[:space:]]*:[^=;]+)?[[:space:]]*=[[:space:]]*conductor[[:space:]]*\\.[[:space:]]*call_fallible\\([[:space:]]*&alice\\.zome\\(\\\"\\${zome}\\\"\\)[[:space:]]*,[[:space:]]*\\\"\\${operation}\\\"[[:space:]]*," >/dev/null 2>&1; then
       echo "OK:   semantic runtime witness ${test_name} binds ${zome}/${operation} to the asserted result call"
     else
       echo "FAIL: semantic runtime witness ${zome}/${operation} is not bound to a result-producing call_fallible expression in ${test_name}"
       fail=1
     fi
-    if printf "%s\\n" "$test_block" | rg -n --fixed-strings "assert_integrity_rejection(result," >/dev/null 2>&1; then
+    if printf "%s\\n" "$test_block" | rg -nU --pcre2 "assert_integrity_rejection\\([[:space:]]*result[[:space:]]*," >/dev/null 2>&1; then
       echo "OK:   semantic runtime witness ${test_name} asserts rejection of that result value"
     else
       echo "FAIL: semantic runtime witness ${test_name} does not assert rejection of the result value"
