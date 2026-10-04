@@ -20,6 +20,7 @@ The aggregate status distinguishes:
 - InvalidGraph
 - NoFlowPathsDeclared
 - AllDeclaredPathsConnected
+- TopologyDivergence
 - PartialRealization
 - NoDeclaredPathsConnected
 
@@ -50,3 +51,9 @@ its declared functional topology.
 
 That distinction supports search systems that learn from rejected candidates without
 silently rewriting the intended design graph to match what happened to be generated.
+
+
+TopologyDivergence is emitted when all declared FlowPath edges are geometrically
+connected but the realized mesh also connects a represented port pair that the intent
+graph does not connect in either direction. This prevents endpoint satisfaction from
+being mistaken for exact topology realization.
