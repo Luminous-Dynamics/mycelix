@@ -23,7 +23,9 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: identity-dsid-${{ github.workflow }}-${{ github.ref }}
+  # Normalize push + PR events for the same head so one qualification cannot
+  # consume two 90-minute runner slots concurrently.
+  group: identity-dsid-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}
   cancel-in-progress: true
 
 env:
