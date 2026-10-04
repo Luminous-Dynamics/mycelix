@@ -229,7 +229,7 @@ def main() -> int:
         raise SystemExit("signed payloads must expose canonical SerializedBytes round-trips")
     if "SerializedBytes::try_from(payload.clone())" not in source:
         raise SystemExit("canonical payload bytes must be produced through SerializedBytes TryFrom")
-    if ".try_from(encoded)" not in source:
+    if "::try_from(encoded)" not in source:
         raise SystemExit("canonical payload bytes must be decoded through the declared payload type")
     if "pub schema: String" not in source:
         raise SystemExit("signed payload schema identifiers must be owned Strings")
