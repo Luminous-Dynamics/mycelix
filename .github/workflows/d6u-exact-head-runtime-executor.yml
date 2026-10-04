@@ -29,11 +29,11 @@ jobs:
       - name: Checkout exact qualification subject
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ env.QUALIFIED_SHA }}
           persist-credentials: false
 
       - name: Assert exact qualification subject
-        run: test "$(git rev-parse HEAD)" = "${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}"
+        run: test "$(git rev-parse HEAD)" = "${{ env.QUALIFIED_SHA }}"
 
       - name: Install pinned Rust
         uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
