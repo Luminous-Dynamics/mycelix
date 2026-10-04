@@ -185,8 +185,11 @@ jobs:
           command -v git >/dev/null || exit 1
           command -v rg >/dev/null || exit 1
           command -v python3 >/dev/null || exit 1
-          bash tools/audit-holochain-07-source.sh > qualification-source-audit.log 2>&1
+          timeout --signal=TERM --kill-after=30s 15m bash tools/audit-holochain-07-source.sh > qualification-source-audit.log 2>&1
           audit_status=$?
+          if [[ "$audit_status" -eq 124 || "$audit_status" -eq 137 ]]; then
+            echo "source audit exceeded the 15-minute execution bound" >> qualification-source-audit.log
+          fi
           cat qualification-source-audit.log
           echo "source_audit_exit_code=$audit_status" >> qualification-source-audit.log
           exit "$audit_status"
