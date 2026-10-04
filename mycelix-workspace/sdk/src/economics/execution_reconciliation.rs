@@ -183,6 +183,15 @@ impl EconomicExecutionReconciliationLedger {
             return Err("Duplicate reconciliation ID".into());
         }
 
+        if recorded_at < receipt.recorded_at {
+            return Err("Reconciliation timestamp cannot precede execution".into());
+        }
+        if let Some(previous) = self.reconciliations.last() {
+            if recorded_at < previous.recorded_at {
+                return Err("Reconciliation timestamps cannot move backwards".into());
+            }
+        }
+
         if receipt.action_ref != constraint.action_ref
             || receipt.action_ref != lifecycle.action_ref()
         {
@@ -437,6 +446,56 @@ mod tests {
                 1_500,
             )
             .is_err());
+    }
+
+    #[test]
+    fn reconciliation_cannot_precede_execution() {
+        let lifecycle = contracted_lifecycle();
+        let receipt = receipt(&lifecycle, Some(100));
+        let constraint = constraint(&lifecycle, 100);
+        let mut ledger = EconomicExecutionReconciliationLedger::new();
+
+        let result = ledger.reconcile(
+            &lifecycle,
+            &receipt,
+            &constraint,
+            "reconciliation:temporal",
+            vec!["evidence:temporal".into()],
+            1_199,
+        );
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn reconciliation_history_is_monotonic() {
+        let lifecycle = contracted_lifecycle();
+        let receipt = receipt(&lifecycle, Some(100));
+        let constraint = constraint(&lifecycle, 100);
+        let mut ledger = EconomicExecutionReconciliationLedger::new();
+
+        ledger
+            .reconcile(
+                &lifecycle,
+                &receipt,
+                &constraint,
+                "reconciliation:first",
+                vec!["evidence:first".into()],
+                1_300,
+            )
+            .unwrap();
+
+        let result = ledger.reconcile(
+            &lifecycle,
+            &receipt,
+            &constraint,
+            "reconciliation:second",
+            vec!["evidence:second".into()],
+            1_299,
+        );
+
+        assert!(result.is_err());
+        assert_eq!(ledger.reconciliations().len(), 1);
     }
 
     #[test]
