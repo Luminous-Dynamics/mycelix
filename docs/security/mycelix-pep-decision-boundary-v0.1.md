@@ -81,7 +81,7 @@ The PEP therefore prevents trust evidence from becoming a universal bearer autho
 
 ## No reusable bearer output
 
-The v0.1 decision is a bounded evaluation result.
+The v0.1 decision is a bounded evaluation result. Its only permitted output mode is `evidence-only`; attempting to promote the decision into a bearer token is a DENY.
 
 It does not create:
 
