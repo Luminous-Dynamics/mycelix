@@ -4083,8 +4083,8 @@ async fn dsid_043_request_bound_issuance_is_deterministically_idempotent() {
         .await
         .expect("idempotent fulfillment must reach requester");
 
-    let final_request = conductor
-        .call::<Option<Record>, _>(
+    let final_request: Option<Record> = conductor
+        .call(
             &requester.zome("verifiable_credential"),
             "get_credential_request",
             serde_json::json!({
@@ -4092,9 +4092,8 @@ async fn dsid_043_request_bound_issuance_is_deterministically_idempotent() {
                 "request_id": request_id
             }),
         )
-        .await
-        .expect("fulfilled request lookup must succeed")
-        .expect("fulfilled request must resolve");
+        .await;
+    let final_request = final_request.expect("fulfilled request must resolve");
     let final_value: serde_json::Value = final_request
         .entry()
         .to_app_option()
