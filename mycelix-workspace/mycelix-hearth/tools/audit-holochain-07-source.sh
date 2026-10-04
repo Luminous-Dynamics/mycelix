@@ -779,7 +779,30 @@ for index, case in enumerate(cases, start=1):
 
     case_id = case["case_id"]
     test = case["test"]
-    entrypoint = (case["zome"], case["operation"])
+    zome = case["zome"]
+    operation = case["operation"]
+    validator_symbol = case["validator_symbol"]
+    validator_source = case["validator_source"]
+    if not re.fullmatch(r"SEM-[0-9]+", case_id):
+        reject(f"{case_id!r} is not a stable SEM-N numeric case identifier")
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", test):
+        reject(f"{case_id} test name is not a safe Rust identifier")
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", zome):
+        reject(f"{case_id} zome name is not a safe underscore identifier")
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", operation):
+        reject(f"{case_id} operation name is not a safe Rust identifier")
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", validator_symbol):
+        reject(f"{case_id} validator_symbol is not a safe Rust identifier")
+    if (
+        not (
+            validator_source.startswith("mycelix-workspace/mycelix-hearth/")
+            or validator_source.startswith("crates/")
+        )
+        or ".." in Path(validator_source).parts
+        or not validator_source.endswith(".rs")
+    ):
+        reject(f"{case_id} validator_source is outside the approved repository Rust source boundary")
+    entrypoint = (zome, operation)
     if case_id in seen_ids:
         reject(f"case_id {case_id!r} is duplicated")
     if test in seen_tests:
