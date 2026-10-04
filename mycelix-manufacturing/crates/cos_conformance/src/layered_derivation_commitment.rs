@@ -310,7 +310,7 @@ mod tests {
     use std::collections::{BTreeMap, BTreeSet};
     use crate::canonical_derivation_receipt::{QualifiedEdgeV1,QualifiedNodeV1};
     use crate::evidence_claim_graph::{ClaimGraphEdgeKindV1,ClaimGraphNodeKindV1};
-    use qualified_dependency_closure_d6x::{compute_dependency_closure,DependencyClosureProfileV1,DependencyRuleV1,DependencyCurrentnessV1};
+    use crate::qualified_dependency_closure_d6x::{compute_dependency_closure,DependencyClosureProfileV1,DependencyRuleV1,DependencyCurrentnessV1};
 
     fn closure_profile() -> DependencyClosureProfileV1 {
         DependencyClosureProfileV1 {
