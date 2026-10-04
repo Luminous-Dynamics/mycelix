@@ -871,7 +871,11 @@ token_re = re.compile(
     r'//[^\n]*'
     r'|/\*.*?\*/'
     r'|(?:br|rb|r)(#{0,255})"(?:.|\n)*?"\1'
-    r'|"(?:\\.|[^"\\])*"',
+    r'|"(?:\\.|[^"\\])*"'
+    # Mask character literals too: branch brace accounting must not treat
+    # Rust char literals such as '{' or '}' as syntax delimiters. The negative
+    # lookarounds keep Rust lifetimes like 'a from being classified as chars.
+    r"|b?'(?:\\\\.|[^'\\\\\n])'(?![A-Za-z0-9_])",
     re.S,
 )
 masked = token_re.sub(lambda m: "\n" * m.group(0).count("\n"), source)
@@ -934,6 +938,9 @@ fn validate_example(x: &Example) -> ExternResult<ValidateCallbackResult> {
 oracle_invalid = '''
 fn validate_example(x: &Example) -> ExternResult<ValidateCallbackResult> {
     if x.field.is_empty() {
+        let brace = '{';
+        let close = '}';
+        let _lifetime_marker = PhantomData::<&'a ()>;
         return Ok(ValidateCallbackResult::Invalid("field cannot be empty".into()));
     }
     if x.other_bad {
