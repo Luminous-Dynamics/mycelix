@@ -286,7 +286,8 @@ jobs:
             @digitalbazaar/security-document-loader@3.2.0 \
             @digitalbazaar/credentials-context@3.2.0 \
             @digitalbazaar/data-integrity-context@2.0.1 \
-            @digitalbazaar/multikey-context@2.0.1
+            @digitalbazaar/multikey-context@2.0.1 \
+            --ignore-scripts
 
           node --input-type=module <<'NODE'
           import fs from 'node:fs';
