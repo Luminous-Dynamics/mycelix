@@ -3292,7 +3292,8 @@ async fn dsid_039_presigned_proof_admission_fails_closed() {
                         "verificationMethod": format!("{}#keys-1-multikey", issuer_did),
                         "proofPurpose": "assertionMethod",
                         "proofValue": "z1",
-                        "cryptosuite": "eddsa-jcs-2022"
+                        "cryptosuite": "eddsa-jcs-2022",
+                        "@context": ["https://www.w3.org/ns/credentials/v2"]
                     },
                     "mycelix_schema_id": "mycelix:schema:test:v1",
                     "mycelix_created": 0
