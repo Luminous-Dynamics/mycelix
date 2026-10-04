@@ -911,10 +911,11 @@ check_qualification_workflow_provenance() {
     fail=1
   fi
 
-  if rg -n --fixed-strings 'group: hearth-07-qualification-${{ github.event.pull_request.head.ref || github.ref }}' "$workflow" >/dev/null 2>&1; then
-    echo "OK:   qualification workflow shares one cancellation domain across push/PR events"
+  if rg -n --fixed-strings 'group: hearth-07-qualification-${{ github.head_ref || github.ref_name }}' "$workflow" >/dev/null 2>&1
+    && ! rg -n --fixed-strings 'github.event.pull_request.head.ref || github.ref' "$workflow" >/dev/null 2>&1; then
+    echo "OK:   qualification workflow uses one branch-name cancellation domain across push/PR events"
   else
-    echo "FAIL: qualification workflow must use a branch-level shared concurrency key"
+    echo "FAIL: qualification workflow must normalize push/PR refs to the same branch-name concurrency key"
     fail=1
   fi
 
