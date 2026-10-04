@@ -2997,7 +2997,7 @@ async fn dsid_036_issued_state_proves_credential_fulfillment() {
         free_issued.is_err()
             && final_value["status"] == "Issued"
             && issued_action == credential.action_address().to_string()
-            && credential_value["proof"]["cryptosuite"].as_str() == Some("mycelix-blake2b-ed25519-2026")
+            && credential_value["proof"]["cryptosuite"].as_str() == Some("eddsa-jcs-2022")
             && verified["valid"] == true
             && duplicate_fulfillment.is_err(),
     );
