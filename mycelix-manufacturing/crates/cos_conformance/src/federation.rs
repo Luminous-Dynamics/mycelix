@@ -1059,7 +1059,7 @@ fn observation_map_keys_match_records(state: &FederationState) -> bool {
 /// This validator is observational only: it never repairs, normalizes, or mutates
 /// state. Callers can therefore use it as a qualification gate without granting
 /// the validator any authority to rewrite evidence.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FederationInvariantViolation {
     NodeMapKeyMismatch, RecognitionEdgeInvalid, RecognitionEdgeOrderMismatch,
     DeliveryMapKeyMismatch, DeliveryNodeReferenceMismatch, DeliveryPredecessorMismatch,
@@ -1068,7 +1068,7 @@ pub enum FederationInvariantViolation {
 }
 
 /// Stable identifiers for the authoritative federation invariant registry.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FederationInvariantId {
     NodeMapIdentity, RecognitionEdgeValidity, RecognitionEdgeCanonicalOrder,
     DeliveryMapIdentity, DeliveryNodeReferences, DeliveryPredecessorReferences,
@@ -1205,14 +1205,14 @@ pub fn validate_state_all(
 ///
 /// Violated means the predicate itself failed. The current audit evaluates
 /// every predicate so derived corruption remains observable.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FederationInvariantAuditStatus {
     Passed,
     Violated(FederationInvariantViolation),
 }
 
 /// One deterministic audit result for an invariant registry entry.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FederationInvariantAuditEntry {
     pub id: FederationInvariantId,
     pub status: FederationInvariantAuditStatus,
@@ -2557,6 +2557,85 @@ mod tests {
         ];
     }
 
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    struct FederationStateMachineFailureCapsule {
+        schema_version: u16,
+        trace: FederationStateMachineTraceCapsule,
+        failed_step_index: usize,
+        operation: FederationStateMachineOperation,
+        token: u64,
+        expected_state_valid: bool,
+        observed_violations:
+            Vec<(FederationInvariantId, FederationInvariantViolation)>,
+        audit: Vec<FederationInvariantAuditEntry>,
+        expected_decision: Option<FederationDecision>,
+        observed_decision: Option<FederationDecision>,
+        expected_authority: Option<AuthorityDisposition>,
+        observed_authority: Option<AuthorityDisposition>,
+        pre_state_fingerprint: Vec<u8>,
+        post_state_fingerprint: Vec<u8>,
+    }
+
+    impl FederationStateMachineFailureCapsule {
+        fn for_invariant_failure(
+            trace_index: usize,
+            plan: &[(FederationStateMachineOperation, u64)],
+            failed_step_index: usize,
+            operation: FederationStateMachineOperation,
+            token: u64,
+            audit: Vec<FederationInvariantAuditEntry>,
+            pre_state_fingerprint: Vec<u8>,
+            post_state_fingerprint: Vec<u8>,
+        ) -> Self {
+            let prefix = plan;
+            let trace = FederationStateMachineTraceCapsule {
+                trace_index,
+                initial_seed: 0xD6E5_5EED_u64 ^ trace_index as u64,
+                operations: prefix
+                    .iter()
+                    .take(failed_step_index + 1)
+                    .map(|(operation, _)| *operation)
+                    .collect(),
+                tokens: prefix
+                    .iter()
+                    .take(failed_step_index + 1)
+                    .map(|(_, token)| *token)
+                    .collect(),
+            };
+            let observed_violations = audit
+                .iter()
+                .filter_map(|entry| match entry.status {
+                    FederationInvariantAuditStatus::Passed => None,
+                    FederationInvariantAuditStatus::Violated(violation) => {
+                        Some((entry.id, violation))
+                    }
+                })
+                .collect();
+
+            Self {
+                schema_version: 1,
+                trace,
+                failed_step_index,
+                operation,
+                token,
+                expected_state_valid: true,
+                observed_violations,
+                audit,
+                expected_decision: None,
+                observed_decision: None,
+                expected_authority: None,
+                observed_authority: None,
+                pre_state_fingerprint,
+                post_state_fingerprint,
+            }
+        }
+
+        fn to_json(&self) -> String {
+            serde_json::to_string_pretty(self)
+                .expect("failure capsule is serializable")
+        }
+    }
+
     #[derive(Debug, Clone, PartialEq, Eq)]
     struct FederationStateMachineEvidence {
         operation: FederationStateMachineOperation,
@@ -2986,12 +3065,23 @@ mod tests {
                 }
             }
 
-            assert_eq!(
-                validate_state(&state),
-                Ok(()),
-                "state-machine trace {trace_index}, step {step_index}, operation {:?}",
-                operation
-            );
+            if validate_state(&state).is_err() {
+                let audit = audit_state(&state);
+                let capsule = FederationStateMachineFailureCapsule::for_invariant_failure(
+                    trace_index,
+                    &plan,
+                    step_index,
+                    operation,
+                    token,
+                    audit,
+                    before.clone(),
+                    canonical_state_fingerprint(&state),
+                );
+                panic!(
+                    "state-machine invariant failure; replay capsule follows:\n{}",
+                    capsule.to_json()
+                );
+            }
 
             evidence.push(FederationStateMachineEvidence {
                 operation,
@@ -3073,6 +3163,58 @@ mod tests {
         let replay = run_state_machine_trace_plan(&state_machine_plan_from_capsule(&capsule));
         assert_eq!(replay.len(), 8);
         assert!(replay.iter().all(|step| !step.state_fingerprint.is_empty()));
+    }
+
+    #[test]
+    fn state_machine_failure_capsule_round_trips_and_is_deterministic() {
+        let (initial_seed, plan) = state_machine_trace_plan(11, 6);
+        let audit = vec![
+            FederationInvariantAuditEntry {
+                id: FederationInvariantId::SourceObservationBijection,
+                status: FederationInvariantAuditStatus::Violated(
+                    FederationInvariantViolation::SourceObservationSetMismatch,
+                ),
+            },
+        ];
+        let capsule = FederationStateMachineFailureCapsule {
+            schema_version: 1,
+            trace: FederationStateMachineTraceCapsule {
+                trace_index: 11,
+                initial_seed,
+                operations: plan.iter().map(|(operation, _)| *operation).collect(),
+                tokens: plan.iter().map(|(_, token)| *token).collect(),
+            },
+            failed_step_index: 5,
+            operation: plan[5].0,
+            token: plan[5].1,
+            expected_state_valid: true,
+            observed_violations: vec![(
+                FederationInvariantId::SourceObservationBijection,
+                FederationInvariantViolation::SourceObservationSetMismatch,
+            )],
+            audit,
+            expected_decision: Some(FederationDecision::AcceptedLocal),
+            observed_decision: Some(FederationDecision::AcceptedLocal),
+            expected_authority: Some(AuthorityDisposition::LocalAuthority),
+            observed_authority: Some(AuthorityDisposition::LocalAuthority),
+            pre_state_fingerprint: b"pre-state".to_vec(),
+            post_state_fingerprint: b"post-state".to_vec(),
+        };
+
+        let json = capsule.to_json();
+        let round_trip =
+            serde_json::from_str::<FederationStateMachineFailureCapsule>(&json)
+                .expect("failure capsule must deserialize");
+        assert_eq!(round_trip, capsule);
+        assert_eq!(json, round_trip.to_json());
+        assert_eq!(
+            capsule.trace.operations.len(),
+            capsule.trace.tokens.len()
+        );
+        assert_eq!(
+            capsule.trace.operations.len(),
+            capsule.failed_step_index + 1
+        );
     }
 
     #[test]
