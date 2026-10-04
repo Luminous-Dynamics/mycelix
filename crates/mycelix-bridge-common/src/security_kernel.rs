@@ -248,9 +248,9 @@ where
 #[cfg(feature = "identity")]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SignedCapability {
-    pub capability: Capability,
-    pub issuer_public_key: [u8; 32],
-    pub signature: [u8; 64],
+    capability: Capability,
+    issuer_public_key: [u8; 32],
+    signature: [u8; 64],
 }
 
 #[cfg(feature = "identity")]
@@ -281,6 +281,21 @@ impl SignedCapability {
     #[must_use = "issuer-bound signature verification results must be checked before accepting a capability"]
     pub fn verify_signature_from(&self, expected_public_key: [u8; 32]) -> bool {
         self.issuer_public_key == expected_public_key && self.verify_signature()
+    }
+
+    /// Return the capability covered by this signed credential.
+    pub fn capability(&self) -> &Capability {
+        &self.capability
+    }
+
+    /// Return the issuer public key carried by this signed credential.
+    pub fn issuer_public_key(&self) -> [u8; 32] {
+        self.issuer_public_key
+    }
+
+    /// Return the raw Ed25519 signature bytes carried by this signed credential.
+    pub fn signature(&self) -> [u8; 64] {
+        self.signature
     }
 }
 
