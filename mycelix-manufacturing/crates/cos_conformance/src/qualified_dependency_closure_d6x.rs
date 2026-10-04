@@ -548,7 +548,6 @@ pub fn compute_dependency_closure_from_authoritative_d6p_at_frontier(
         || !derivation_profile.structurally_valid()
         || !profile.structurally_valid()
         || current_frontier_root.is_some_and(|root| root.trim().is_empty())
-        || (!profile.required_d6p_receipt_commitments.is_empty() && current_frontier_root.is_none())
         || current_frontier_root.is_some_and(|root| environment.current_frontier_root.as_deref() != Some(root))
     {
         return None;
@@ -896,6 +895,117 @@ mod tests {
             derivation_profile_commitment:dp.commitment(), claim_ceiling:D6S_CLAIM_CEILING.into(),
         };
         (p, env, dp)
+    }
+
+    fn valid_authoritative_d6p_fixture() -> (
+        CurrentFinalityEligibilityReceiptV1,
+        FinalityEligibilityCompositionV1,
+    ) {
+        let mut witness = crate::finality_eligibility_composition::FinalityWitnessEligibilityV1 {
+            observation_id: "obs-1".into(),
+            observer_id: "observer-1".into(),
+            observer_generation_id: Some("gen-1".into()),
+            d6n_observation_set_id: "set-1".into(),
+            d6n_observation_set_commitment: "set-commit".into(),
+            d6n_assessment_item_commitment: "assessment-item-1".into(),
+            d6n_classification: crate::contestable_finality::ObservationClassificationV1::CorroboratingIndependent,
+            d6o_eligibility_id: Some("elig-1".into()),
+            d6o_disposition: Some(crate::observer_lifecycle::EvidenceEligibilityDispositionV1::EligibleCurrent),
+            d6o_dependency_snapshot_id: Some("snapshot".into()),
+            observation_frontier_root: "frontier".into(),
+            current_frontier_root: "frontier".into(),
+            lifecycle_profile_id: "lifecycle".into(),
+            witness_commitment: String::new(),
+            claim_ceiling: crate::finality_eligibility_composition::FINALITY_ELIGIBILITY_COMPOSITION_CLAIM_CEILING.into(),
+        };
+        witness.witness_commitment = witness.recomputed_commitment();
+
+        let mut composition = FinalityEligibilityCompositionV1 {
+            composition_id: "composition:set-1".into(),
+            effect_id: "effect".into(),
+            effect_lineage_id: "lineage".into(),
+            lifecycle_generation_id: "gen-lifecycle".into(),
+            route_id: "route".into(),
+            provider_id: "provider".into(),
+            provider_operation_id: "operation".into(),
+            provider_profile_root: "provider-profile".into(),
+            semantic_environment_root: "env".into(),
+            observation_set_id: "set-1".into(),
+            observation_set_commitment: "set-commit".into(),
+            d6n_assessment_commitment: "assessment".into(),
+            lifecycle_profile_id: "lifecycle".into(),
+            current_frontier_root: "frontier".into(),
+            eligible_independent_count: 1,
+            required_independent_observations: 1,
+            preserved_contradictory_count: 0,
+            witnesses: vec![witness],
+            disposition: crate::finality_eligibility_composition::FinalityEligibilityDispositionV1::EligibleCurrent,
+            qualification_transition_id: Some("transition".into()),
+            composition_commitment: String::new(),
+            claim_ceiling: crate::finality_eligibility_composition::FINALITY_ELIGIBILITY_COMPOSITION_CLAIM_CEILING.into(),
+        };
+        composition.composition_commitment = composition.recomputed_commitment();
+
+        let mut receipt = CurrentFinalityEligibilityReceiptV1 {
+            receipt_id: "receipt-1".into(),
+            effect_id: "effect".into(),
+            effect_lineage_id: "lineage".into(),
+            lifecycle_generation_id: "gen-lifecycle".into(),
+            route_id: "route".into(),
+            provider_id: "provider".into(),
+            provider_operation_id: "operation".into(),
+            provider_profile_root: "provider-profile".into(),
+            semantic_environment_root: "env".into(),
+            observation_set_id: "set-1".into(),
+            observation_set_commitment: "set-commit".into(),
+            d6n_assessment_commitment: "assessment".into(),
+            composition_commitment: composition.composition_commitment.clone(),
+            witness_eligibility_ids: ["elig-1".into()].into_iter().collect(),
+            observer_generation_ids: ["gen-1".into()].into_iter().collect(),
+            current_frontier_root: "frontier".into(),
+            lifecycle_profile_id: "lifecycle".into(),
+            eligible_independent_count: 1,
+            preserved_contradictory_count: 0,
+            disposition: crate::finality_eligibility_composition::FinalityEligibilityDispositionV1::EligibleCurrent,
+            qualification_transition_id: "transition".into(),
+            receipt_commitment: String::new(),
+            claim_ceiling: crate::finality_eligibility_composition::FINALITY_ELIGIBILITY_COMPOSITION_CLAIM_CEILING.into(),
+        };
+        receipt.receipt_commitment = receipt.recomputed_commitment();
+
+        (receipt, composition)
+    }
+
+    #[test]
+    fn authoritative_d6p_accepts_bound_receipt_without_explicit_frontier() {
+        let (mut projection, environment, derivation_profile) = projection(false);
+        let receipt_commitment;
+        let (receipt, composition) = valid_authoritative_d6p_fixture();
+        receipt_commitment = receipt.receipt_commitment.clone();
+        projection
+            .d6p_current_receipt_commitments
+            .insert(receipt_commitment.clone());
+
+        let mut profile = profile(BTreeSet::new());
+        profile
+            .required_d6p_receipt_commitments
+            .insert(receipt_commitment);
+
+        let closure = compute_dependency_closure_from_authoritative_d6p(
+            &projection,
+            &environment,
+            &derivation_profile,
+            &profile,
+            std::slice::from_ref(&receipt),
+            std::slice::from_ref(&composition),
+        )
+        .expect("non-strict authoritative D6P path must accept a bound receipt");
+
+        assert_eq!(closure.status, DependencyClosureStatusV1::Complete);
+        assert_eq!(
+            closure.included_d6p_receipt_commitments,
+            [receipt.receipt_commitment.clone()].into_iter().collect()
+        );
     }
 
     #[test]
