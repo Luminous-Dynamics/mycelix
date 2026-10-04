@@ -1492,7 +1492,7 @@ def require_capture_tools() -> list[str]:
         "tpm2_checkquote",
         "tpm2_eventlog",
         "tpm2_readpublic",
-        "tpm2_getekcertificate",
+        "tpm2_nvread",
     )
     return [name for name in names if shutil.which(name) is None]
 
@@ -1507,7 +1507,7 @@ def observed_tool_versions(out: Path, env: dict[str, str]) -> dict[str, str]:
         "tpm2_checkquote",
         "tpm2_eventlog",
         "tpm2_readpublic",
-        "tpm2_getekcertificate",
+        "tpm2_nvread",
     )
     result: dict[str, str] = {}
     for name in names:
