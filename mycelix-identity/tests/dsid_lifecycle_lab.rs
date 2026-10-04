@@ -3090,7 +3090,6 @@ async fn dsid_038_deactivated_issuer_fails_closed_in_credential_verification() {
 
     let issuer = issuer_app.cells()[0].clone();
     let holder = holder_app.cells()[0].clone();
-    let issuer_did = format!("did:mycelix:{}", issuer_app.agent());
     let holder_did = format!("did:mycelix:{}", holder_app.agent());
 
     let _: Record = conductor
@@ -3831,12 +3830,9 @@ async fn dsid_042_key_rotation_revokes_stale_presentation_authorization() {
         .expect("initial Ed25519 key must exist");
     let new_key_id = format!("{}#keys-2", holder_did);
     let raw_key = [42u8; 32];
-    let new_public_key = format!(
-        "z{}",
-        bs58::encode(raw_key)
-            .with_alphabet(bs58::Alphabet::BITCOIN)
-            .into_string()
-    );
+    let new_public_key = TaggedPublicKey::new(AlgorithmId::Ed25519, raw_key.to_vec())
+        .expect("synthetic Ed25519 key must have a valid Multikey encoding")
+        .to_multibase();
 
     let rotated: Record = conductor
         .call(
