@@ -10,6 +10,7 @@
       "version": "0.10.1",
       "library_backend": "libtpms",
       "library_version": "0.10.2",
+      "library_version_runtime_verification": "not_available_in_swtpm_profile_v0.1; requires package/build provenance evidence",
       "transport": "TCTI swtpm over local Unix-domain socket"
     },
     "tooling": {
