@@ -288,7 +288,12 @@ impl SeeaEvidenceSet {
                 return Err(error);
             }
 
+            // Redundancy is stronger than value equality: it requires
+            // cryptographic/content identity from the same source. When no
+            // content hash exists, identical values do not prove identical
+            // published content, so retain both observations.
             if existing.provenance.source_ref == observation.provenance.source_ref
+                && existing.provenance.content_hash.is_some()
                 && existing.provenance.content_hash == observation.provenance.content_hash
             {
                 return Err(SeeaEvidenceInsertError::RedundantObservation {
@@ -458,6 +463,22 @@ mod tests {
                 new_id: second.id,
             })
         );
+    }
+
+    #[test]
+    fn identical_values_without_content_hash_are_not_declared_redundant() {
+        let mut set = SeeaEvidenceSet::new();
+        let first = condition_observation(760);
+        let mut second = first.clone();
+        second.id = "seea:condition:river-1:2026:republished-no-hash".into();
+        second.provenance.content_hash = None;
+
+        let mut first_without_hash = first.clone();
+        first_without_hash.provenance.content_hash = None;
+
+        set.insert(first_without_hash).unwrap();
+        assert!(set.insert(second).is_ok());
+        assert_eq!(set.observations().len(), 2);
     }
 
     #[test]
