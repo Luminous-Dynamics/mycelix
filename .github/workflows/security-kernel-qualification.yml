@@ -497,6 +497,19 @@ jobs:
             exit 1
           fi
 
+          for method_guard in \
+            'verify_signature|signature verification results must be checked before accepting a capability' \
+            'verify_signature_from|issuer-bound signature verification results must be checked before accepting a capability'; do
+            method_name="${method_guard%%|*}"
+            must_use_message="${method_guard#*|}"
+            must_use_line="$(grep -nF "#[must_use = \"$must_use_message\"]" crates/mycelix-bridge-common/src/security_kernel.rs | cut -d: -f1 | head -n1)"
+            method_line="$(grep -nE "pub fn $method_name\\(" crates/mycelix-bridge-common/src/security_kernel.rs | cut -d: -f1 | head -n1)"
+            if [[ -z "$must_use_line" || -z "$method_line" || "$must_use_line" -ge "$method_line" ]]; then
+              echo "security-kernel regression: SignedCapability::$method_name lost its compiler-visible must-use boundary" >&2
+              exit 1
+            fi
+          done
+
           # A VerifiedCapability can mint permits; exposing its trust-bearing fields or
           # serialization would let downstream callers forge the verification hand-off.
           for pattern in \
