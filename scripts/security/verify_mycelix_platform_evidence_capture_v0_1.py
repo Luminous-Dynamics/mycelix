@@ -22,6 +22,7 @@ ADAPTER_SCRIPT = ROOT / "scripts/security/adapt_mycelix_tpm2_eventlog_yaml_v1_v0
 RAW_EVENTLOG_PARSER_SCRIPT = ROOT / "scripts/security/parse_mycelix_raw_tpm2_eventlog_v0_1.py"
 PAYLOAD_COHERENCE_SCRIPT = ROOT / "scripts/security/verify_mycelix_event_payload_digest_coherence_v0_1.py"
 REFERENCE_APPRAISAL_SCRIPT = ROOT / "scripts/security/verify_mycelix_reference_value_appraisal_v0_1.py"
+REFERENCE_REGISTRY = ROOT / "docs/security/mycelix-reference-value-registry-v0.1.json"
 RECONSTRUCTION_VERIFIER_ID = "mycelix.pc-client.eventlog-reconstruction.v0.1"
 
 
