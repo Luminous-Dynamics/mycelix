@@ -18,7 +18,13 @@ use std::collections::{BTreeMap, BTreeSet};
 
 pub const D6S_CLAIM_CEILING: &str =
     "ReferenceModelOnly; canonical derivation integrity semantics only; no truth, causality, authority, or actuation claim.";
-pub const D6S_REFERENCE_CANONICALIZATION_VERSION: &str = "D6S-RUST-REF-1";
+pub const D6S_REFERENCE_CANONICALIZATION_VERSION: &str = "D6S-CANON-1";
+pub const D6S_HASH_DOMAIN: &[u8] = b"MYCELIX-INTEGRAL-D6S-RECEIPT-V1\0";
+pub const D6S_DOMAIN_ENVIRONMENT: &str = "environment";
+pub const D6S_DOMAIN_DERIVATION_PROFILE: &str = "derivation-profile";
+pub const D6S_DOMAIN_PROJECTION: &str = "qualified-projection";
+pub const D6S_DOMAIN_RECEIPT: &str = "canonical-receipt";
+pub const D6S_DOMAIN_D6P_CONTEXT_SET: &str = "d6p-context-set";
 
 fn non_empty(value: &str) -> bool {
     !value.trim().is_empty()
@@ -63,7 +69,7 @@ impl SemanticEnvironmentV1 {
     }
 
     pub fn commitment(&self) -> String {
-        canonical_sha256(self)
+        canonical_sha256(D6S_DOMAIN_ENVIRONMENT, self)
     }
 }
 
@@ -86,7 +92,7 @@ impl DerivationProfileV1 {
     }
 
     pub fn commitment(&self) -> String {
-        canonical_sha256(self)
+        canonical_sha256(D6S_DOMAIN_DERIVATION_PROFILE, self)
     }
 }
 
@@ -215,7 +221,7 @@ impl QualifiedProjectionV1 {
     }
 
     pub fn commitment(&self) -> String {
-        canonical_sha256(self)
+        canonical_sha256(D6S_DOMAIN_PROJECTION, self)
     }
 }
 
@@ -275,13 +281,13 @@ impl CanonicalDerivationReceiptV1 {
     }
 
     pub fn canonical_bytes(&self) -> Vec<u8> {
-        serde_json::to_vec(self).expect("D6S reference values are serializable")
+        canonical_bytes(self).expect("D6S-CANON-1 receipt is serializable")
     }
 
     pub fn recomputed_commitment(&self) -> String {
         let mut unsigned = self.clone();
         unsigned.receipt_commitment.clear();
-        sha256_hex(&unsigned.canonical_bytes())
+        canonical_sha256(D6S_DOMAIN_RECEIPT, &unsigned)
     }
 
     pub fn commitment_matches(&self) -> bool {
@@ -289,13 +295,101 @@ impl CanonicalDerivationReceiptV1 {
     }
 }
 
-pub fn canonical_sha256<T: Serialize>(value: &T) -> String {
-    let bytes = serde_json::to_vec(value).expect("D6S reference values are serializable");
-    sha256_hex(&bytes)
+/// D6S-CANON-1 canonical JSON bytes.
+pub fn canonical_bytes<T: Serialize>(value: &T) -> Result<Vec<u8>, String> {
+    let value = serde_json::to_value(value).map_err(|e| e.to_string())?;
+    let mut out = Vec::new();
+    write_canonical_json(&value, &mut out)?;
+    Ok(out)
+}
+
+/// D6S-CANON-1 commitment with an explicit domain separator.
+pub fn canonical_sha256<T: Serialize>(domain: &str, value: &T) -> String {
+    assert!(!domain.is_empty(), "D6S commitment domain must be non-empty");
+    let bytes = canonical_bytes(value).expect("D6S-CANON-1 values are serializable");
+    let mut input = Vec::with_capacity(D6S_HASH_DOMAIN.len() + domain.len() + bytes.len() + 1);
+    input.extend_from_slice(D6S_HASH_DOMAIN);
+    input.extend_from_slice(domain.as_bytes());
+    input.push(0);
+    input.extend_from_slice(&bytes);
+    sha256_hex(&input)
+}
+
+fn utf16_sort_key(value: &str) -> Vec<u16> {
+    value.encode_utf16().collect()
+}
+
+fn write_canonical_json(value: &serde_json::Value, out: &mut Vec<u8>) -> Result<(), String> {
+    match value {
+        serde_json::Value::Null => out.extend_from_slice(b"null"),
+        serde_json::Value::Bool(v) => out.extend_from_slice(if *v { b"true" } else { b"false" }),
+        serde_json::Value::Number(number) => {
+            // D6S-CANON-1 deliberately admits integers only. All current D6S
+            // schema numerics are integral, so this removes float/runtime
+            // differences instead of pretending to canonicalize them.
+            if let Some(v) = number.as_i64() {
+                out.extend_from_slice(v.to_string().as_bytes());
+            } else if let Some(v) = number.as_u64() {
+                out.extend_from_slice(v.to_string().as_bytes());
+            } else {
+                return Err("D6S-CANON-1 rejects non-integral numeric values".into());
+            }
+        }
+        serde_json::Value::String(value) => write_canonical_string(value, out),
+        serde_json::Value::Array(values) => {
+            out.push(b'[');
+            for (index, value) in values.iter().enumerate() {
+                if index != 0 {
+                    out.push(b',');
+                }
+                write_canonical_json(value, out)?;
+            }
+            out.push(b']');
+        }
+        serde_json::Value::Object(map) => {
+            let mut entries: Vec<_> = map.iter().collect();
+            entries.sort_by(|(left, _), (right, _)| utf16_sort_key(left).cmp(&utf16_sort_key(right)));
+            out.push(b'{');
+            for (index, (key, value)) in entries.iter().enumerate() {
+                if index != 0 {
+                    out.push(b',');
+                }
+                write_canonical_string(key, out);
+                out.push(b':');
+                write_canonical_json(value, out)?;
+            }
+            out.push(b'}');
+        }
+    }
+    Ok(())
+}
+
+fn write_canonical_string(value: &str, out: &mut Vec<u8>) {
+    out.push(b'"');
+    for ch in value.chars() {
+        match ch {
+            '"' => out.extend_from_slice(br#"\""#),
+            '\\' => out.extend_from_slice(br#"\\"#),
+            '\u{0008}' => out.extend_from_slice(br#"\b"#),
+            '\t' => out.extend_from_slice(br#"\t"#),
+            '\n' => out.extend_from_slice(br#"\n"#),
+            '\u{000C}' => out.extend_from_slice(br#"\f"#),
+            '\r' => out.extend_from_slice(br#"\r"#),
+            ch if (ch as u32) <= 0x1F => {
+                let escaped = format!("\\u{:04x}", ch as u32);
+                out.extend_from_slice(escaped.as_bytes());
+            }
+            ch => {
+                let mut buf = [0u8; 4];
+                out.extend_from_slice(ch.encode_utf8(&mut buf).as_bytes());
+            }
+        }
+    }
+    out.push(b'"');
 }
 
 pub fn commitment_set_digest(values: &BTreeSet<String>) -> String {
-    canonical_sha256(values)
+    canonical_sha256(D6S_DOMAIN_D6P_CONTEXT_SET, values)
 }
 
 fn result_flags_are_consistent(
@@ -520,10 +614,141 @@ mod tests {
     }
 
     #[test]
+    fn d6t_golden_vectors_are_stable() {
+        let cases = [
+            (serde_json::json!({}), "{}"),
+            (serde_json::json!([]), "[]"),
+            (serde_json::json!({"b": 2, "a": 1}), r#"{"a":1,"b":2}"#),
+            (serde_json::json!({"nested": {"z": true, "a": null}, "items": [3, 2, 1]}), r#"{"items":[3,2,1],"nested":{"a":null,"z":true}}"#),
+            (serde_json::json!({"text": "quote"}), r#"{"text":"quote"}"#),
+            (serde_json::json!({"control": "\u{0000}\n\t"}), r#"{"control":"\u0000\n\t"}"#),
+        ];
+        for (value, expected) in cases {
+            assert_eq!(String::from_utf8(canonical_bytes(&value).unwrap()).unwrap(), expected);
+        }
+    }
+
+    #[test]
+    fn d6t_uses_utf16_property_order() {
+        let value = serde_json::json!({
+            "\u{10000}": 1,
+            "\u{e000}": 2
+        });
+        let bytes = canonical_bytes(&value).unwrap();
+        assert_eq!(
+            String::from_utf8(bytes).unwrap(),
+            "{\"\u{10000}\":1,\"\u{e000}\":2}"
+        );
+    }
+
+    #[test]
+    fn d6t_rejects_non_integral_numbers() {
+        let value = serde_json::json!({"fraction": 1.5});
+        assert!(canonical_bytes(&value).is_err());
+    }
+
+    #[test]
+    fn d6t_hash_domain_is_not_plain_sha256_of_json() {
+        let value = serde_json::json!({"a": 1});
+        let bytes = canonical_bytes(&value).unwrap();
+        assert_ne!(canonical_sha256(D6S_DOMAIN_PROJECTION, &value), sha256_hex(&bytes));
+    }
+
+    #[test]
+    fn d6t_domain_separation_vector_is_frozen() {
+        let value = serde_json::json!({"a": 1});
+        assert_eq!(
+            canonical_sha256(D6S_DOMAIN_PROJECTION, &value),
+            "8672b6e3d69e4dffb5d88ba51f789cbabbead62fd14246d1c5d5322973001ab8"
+        );
+        assert_ne!(
+            canonical_sha256(D6S_DOMAIN_PROJECTION, &value),
+            canonical_sha256(D6S_DOMAIN_RECEIPT, &value)
+        );
+    }
+
+    #[test]
+    fn d6t_mutating_a_material_field_changes_commitment() {
+        let mut value = serde_json::json!({"environment": "env-1", "result": "result-1"});
+        let before = canonical_sha256(D6S_DOMAIN_PROJECTION, &value);
+        value["environment"] = serde_json::json!("env-2");
+        assert_ne!(before, canonical_sha256(D6S_DOMAIN_PROJECTION, &value));
+    }
+
+    #[test]
+    fn d6t_receipt_material_field_mutations_change_commitment() {
+        let receipt = build_canonical_receipt(
+            &projection(), &env(), &profile(), &[d6p_receipt()],
+            DerivationResultStatusV1::Supported, "result-1".into(), false, false
+        ).unwrap();
+        let baseline = receipt.recomputed_commitment();
+
+        let mut mutated = receipt.clone();
+        mutated.schema_version = "D6S-2".into();
+        assert_ne!(baseline, mutated.recomputed_commitment());
+
+        let mut mutated = receipt.clone();
+        mutated.projection_version = "2".into();
+        assert_ne!(baseline, mutated.recomputed_commitment());
+
+        let mut mutated = receipt.clone();
+        mutated.canonicalization_version = "D6S-CANON-2".into();
+        assert_ne!(baseline, mutated.recomputed_commitment());
+
+        let mut mutated = receipt.clone();
+        mutated.source_dkg_snapshot_commitment = "dkg-snapshot-2".into();
+        assert_ne!(baseline, mutated.recomputed_commitment());
+
+        let mut mutated = receipt.clone();
+        mutated.projection_commitment = "projection-2".into();
+        assert_ne!(baseline, mutated.recomputed_commitment());
+
+        let mut mutated = receipt.clone();
+        mutated.semantic_environment_commitment = "environment-2".into();
+        assert_ne!(baseline, mutated.recomputed_commitment());
+
+        let mut mutated = receipt.clone();
+        mutated.derivation_profile_commitment = "profile-2".into();
+        assert_ne!(baseline, mutated.recomputed_commitment());
+
+        let mut mutated = receipt.clone();
+        mutated.input_node_commitments.insert("node-new".into());
+        assert_ne!(baseline, mutated.recomputed_commitment());
+
+        let mut mutated = receipt.clone();
+        mutated.input_edge_commitments.insert("edge-new".into());
+        assert_ne!(baseline, mutated.recomputed_commitment());
+
+        let mut mutated = receipt.clone();
+        mutated.d6p_current_receipt_commitments.insert("d6p-new".into());
+        assert_ne!(baseline, mutated.recomputed_commitment());
+
+        let mut mutated = receipt.clone();
+        mutated.result_status = DerivationResultStatusV1::Rejected;
+        assert_ne!(baseline, mutated.recomputed_commitment());
+
+        let mut mutated = receipt.clone();
+        mutated.result_commitment = "result-2".into();
+        assert_ne!(baseline, mutated.recomputed_commitment());
+
+        let mut mutated = receipt.clone();
+        mutated.contradiction_preserved = true;
+        assert_ne!(baseline, mutated.recomputed_commitment());
+
+        let mut mutated = receipt.clone();
+        mutated.unresolved_preserved = true;
+        assert_ne!(baseline, mutated.recomputed_commitment());
+
+        let mut mutated = receipt;
+        mutated.claim_ceiling = "different-claim-ceiling".into();
+        assert_ne!(baseline, mutated.recomputed_commitment());
+    }
+
+    #[test]
     fn canonical_bytes_are_deterministic() {
         let a = projection();
         let b = projection();
-        assert_eq!(a.canonical_bytes_for_test(), b.canonical_bytes_for_test());
+        assert_eq!(canonical_bytes(&a).unwrap(), canonical_bytes(&b).unwrap());
     }
 
     #[test]

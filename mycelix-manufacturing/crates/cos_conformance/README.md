@@ -128,9 +128,58 @@ D6S rejects dangling or type-incompatible edges, semantic derivation/support cyc
 
 Current D6P receipts are bound to the exact environment frontier and exact D6P context commitment set. Contradiction/unresolved flags must agree with the result disposition.
 
-The receipt uses deterministic Rust `serde_json` encoding and SHA-256 only as a ReferenceModelOnly integrity commitment. This is **not** a cross-language canonicalization claim; D6T #3464 freezes that protocol boundary.
+D6T now freezes `D6S-CANON-1`: recursive UTF-16 property ordering, preserved array order, deterministic string escaping without Unicode normalization, integer-only numbers, exact UTF-8 output, explicit SHA-256 domain separation, and per-object commitment labels. The profile is a D6S-specific canonical JSON subset and is **not** described as RFC 8785/JCS-compatible.
 
 See `docs/integral/canonical-derivation-receipt-v1.md`.
 
 Claim ceiling: **ReferenceModelOnly**.
 
+## D6T — cross-language canonical encoding profile
+
+D6T freezes the byte representation used by D6S commitments as `D6S-CANON-1`.
+
+The reference implementation defines:
+
+- recursive UTF-16 code-unit property ordering;
+- insertion-order-independent objects;
+- preserved array order;
+- deterministic control-character escaping and raw Unicode scalar preservation;
+- integer-only numeric values; non-integral numbers are rejected;
+- null/boolean spellings and exact UTF-8 output;
+- explicit domain-separated SHA-256 commitments with per-object labels;
+- receipt self-commitment that excludes `receipt_commitment` from its own preimage.
+
+The current vector suite covers empty/nested values, property ordering, UTF-16 ordering, controls, integer rejection, domain separation, and material-field mutation.
+
+D6S-CANON-1 is intentionally **not** called RFC 8785/JCS-compatible. Independent implementations must reproduce the frozen vectors and primitive rules before interoperability is claimed.
+
+See `docs/integral/canonical-encoding-profile-d6t-v1.md`.
+
+Claim ceiling: **ReferenceModelOnly**.
+
+## D6S-CANON-2 authority boundary
+
+The frozen authority matrix at docs/integral/d6s-canon-2-authority-boundary-fixture.json contains 17 cases for the boundary between:
+
+wire authentication -> D6S integrity -> invocation routing/binding -> capability authorization -> zome semantic validation.
+
+Each case carries explicit terminal_gate and authority_state fields, making the fixture usable as an authority ledger rather than a prose-only checklist.
+
+docs/integral/d6s-canon-2-manifest.json freezes:
+
+- the exact D6S-CANON-2 fixture identity;
+- the exact D6S-CANON-1 manifest/corpus identities;
+- the authority-ledger vocabulary;
+- the Holochain 0.7 reference mapping;
+- the runtime-evidence contract;
+- the ReferenceModelOnly claim ceiling.
+
+The Rust integration test consumes the same fixture and independently checks the D6S-CANON-1 corpus hash plus the full terminal-gate/authority-state matrix.
+
+The Holochain 0.7 runtime mapping is deliberately not treated as executed runtime evidence. The live conductor harness is tracked separately in Mycelix issue #3851.
+
+## Qualification semantics
+
+The D6S workflow emits reference-gate-passed, not qualified. A successful run proves only that the pinned reference corpus, independent verifier, authority fixture, and claim-bounded evidence contract passed their automated checks.
+
+Runtime authentication, capability authorization, nonce enforcement, expiry enforcement, and zome execution remain unqualified until the dedicated 0.7 harness produces observed evidence.
