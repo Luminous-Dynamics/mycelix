@@ -43,6 +43,7 @@ jobs:
 
       - name: Compare conservative and full lockfile regeneration
         run: |
+          set -euo pipefail
           cd mycelix-identity
           cp Cargo.lock Cargo.lock.committed
 
@@ -88,6 +89,7 @@ jobs:
           if-no-files-found: error
           path: |
             mycelix-identity/Cargo.lock.committed
+            mycelix-identity/Cargo.lock.workspace
             mycelix-identity/Cargo.lock
             identity-cargo-lock-workspace-update.txt
             identity-cargo-lock-workspace.diff
