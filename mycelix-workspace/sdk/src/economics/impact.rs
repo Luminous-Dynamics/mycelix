@@ -102,6 +102,15 @@ impl ImpactAttribution {
         if self.share_bps > 10_000 {
             return Err("Attribution share exceeds 10,000 basis points".into());
         }
+        match &self.evidence_ref {
+            Some(reference) if !reference.trim().is_empty() => {}
+            Some(_) => {
+                return Err("Attribution evidence reference cannot be empty".into());
+            }
+            None => {
+                return Err("Attribution requires an evidence reference".into());
+            }
+        }
         Ok(())
     }
 }
@@ -567,6 +576,18 @@ mod tests {
             share_bps,
             evidence_ref: Some(format!("evidence:{actor}")),
         }
+    }
+
+    #[test]
+    fn attribution_without_evidence_is_rejected() {
+        let attribution = ImpactAttribution {
+            actor: "did:example:actor".into(),
+            basis: AttributionBasis::Direct,
+            share_bps: 10_000,
+            evidence_ref: None,
+        };
+
+        assert!(attribution.validate().is_err());
     }
 
     #[test]
