@@ -2085,6 +2085,55 @@ mod tests {
     }
 
     #[test]
+    fn golden_authoritative_d6p_rejects_self_consistent_receipt_substitution() {
+        let corpus_text = include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/testdata/d6x_qualified_closure_golden_vectors.json"
+        ));
+        let corpus: GoldenCorpusV1 =
+            serde_json::from_str(corpus_text).expect("D6X golden vector corpus must parse");
+
+        let fixture = &corpus.fixtures.authoritative_d6p;
+        let mut forged_receipt = fixture.receipt.clone();
+        forged_receipt.composition_commitment = "different-composition".into();
+        forged_receipt.receipt_commitment = forged_receipt.recomputed_commitment();
+
+        assert!(
+            forged_receipt.commitment_matches(),
+            "adversarial receipt should remain internally self-consistent for this regression"
+        );
+        assert!(
+            !verify_current_receipt_provenance_from_composition(
+                &forged_receipt,
+                &fixture.composition,
+            ),
+            "D6P provenance verification must reject self-consistent cross-composition substitution"
+        );
+
+        let (mut projection, environment, derivation_profile) = projection(false);
+        projection
+            .d6p_current_receipt_commitments
+            .insert(forged_receipt.receipt_commitment.clone());
+        let mut profile = profile(BTreeSet::new());
+        profile
+            .required_d6p_receipt_commitments
+            .insert(forged_receipt.receipt_commitment.clone());
+
+        assert!(
+            compute_dependency_closure_from_authoritative_d6p(
+                &projection,
+                &environment,
+                &derivation_profile,
+                &profile,
+                std::slice::from_ref(&forged_receipt),
+                std::slice::from_ref(&fixture.composition),
+            )
+            .is_none(),
+            "authoritative D6P admission must reject a self-consistent forged receipt"
+        );
+    }
+
+    #[test]
     fn golden_authoritative_d6p_fixture_executes_against_d6x_admission() {
         let corpus_text = include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
