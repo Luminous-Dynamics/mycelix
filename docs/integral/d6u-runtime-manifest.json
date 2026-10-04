@@ -1,7 +1,7 @@
 {
   "profile": "D6U-RUNTIME-1",
   "kind": "holochain-0.7-authority-boundary-runtime-manifest",
-  "version": 9,
+  "version": 10,
   "substrate": {
     "holochain": "0.7.0",
     "hdk": "0.7.0",
@@ -14,6 +14,7 @@
   "qualification_workflow": ".github/workflows/d6u-runtime-qualification.yml",
   "evidence_verifier_path": "scripts/integral/verify_d6u_runtime_evidence.py",
   "evidence_record_verifier_path": "scripts/integral/verify_d6u_runtime_record.py",
+  "lock_verifier_path": "scripts/integral/verify_d6u_runtime_lock.py",
   "supported_reference_cases": [
     "canonical-payload-accepted",
     "authorized-semantic-rejection",
