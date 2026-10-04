@@ -1510,7 +1510,7 @@ fn validate_create_derived_credential(
             let source_valid_until = source_valid_until.parse::<Timestamp>().map_err(|e| {
                 wasm_error!(WasmErrorInner::Guest(format!(
                     "Pinned source validUntil is not parseable: {e}"
-                ))
+                )))
             })?;
             if expires > source_valid_until {
                 return Ok(ValidateCallbackResult::Invalid(
