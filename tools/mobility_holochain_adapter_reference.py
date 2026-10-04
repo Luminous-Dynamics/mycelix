@@ -88,6 +88,7 @@ def main() -> int:
         "registered_credential_basis_is_minimum_runtime_basis": True,
         "runtime_binding_witness_must_differ_from_authority_credential_witness": True,
         "provenance_witness_unique_per_registry_binding": True,
+        "authority_agent_witness_cannot_be_reused_by_runtime_binding": True,
         "preflight_missing_is_not_protocol_unresolved": True,
         "missing_binding_stops_before_host_calls": True,
         "runtime_binding_payload_validation_precedes_authority_preflight": True,
@@ -184,6 +185,12 @@ def main() -> int:
         raise SystemExit("authority-agent registry must remain immutable per authority")
     if "an authority-agent provenance witness may justify only one registry binding" not in source:
         raise SystemExit("authority-agent registry must reject provenance witness reuse")
+    if "contains_provenance_witness" not in source:
+        raise SystemExit("authority-agent registry must expose cross-registry witness lookup")
+    if "a provenance witness admitted by the authority-agent registry may not be reused for a runtime binding" not in source:
+        raise SystemExit("runtime binding must reject witnesses already admitted by another authority credential")
+    if "dependency_binding_rejects_provenance_witness_from_other_authority_registry_binding" not in source:
+        raise SystemExit("cross-registry provenance witness reuse must have a regression test")
     if ".values().any(|existing|" not in compact_source:
         raise SystemExit("authority-agent registry must inspect existing credentials for witness reuse")
 
