@@ -3,8 +3,13 @@
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Verifiable Credential Integrity Zome
 //!
-//! W3C Verifiable Credentials Data Model 2.0 validation with Mycelix-specific integrity extensions
+//! Mycelix's VC 2.0 application profile with W3C Data Integrity support.
+//!
+//! The wire model follows the VC Data Model 2.0 security model and implements
+//! the W3C eddsa-jcs-2022 cryptosuite, while intentionally constraining
+//! @context entries to string-valued terms in the Holochain entry schema.
 //! <https://www.w3.org/TR/vc-data-model-2.0/>
+//! <https://www.w3.org/TR/vc-di-eddsa-1.1/>
 
 use hdi::prelude::*;
 
