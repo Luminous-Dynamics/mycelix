@@ -2538,6 +2538,22 @@ mod author_binding_tests {
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
+    #[test]
+    fn presentation_validator_rejects_future_proof_creation() {
+        let mut vp = valid_presentation(format!("did:mycelix:{}", me()));
+        vp.proof.created = "2100-01-01T00:00:00Z".into();
+
+        let result = validate_create_verifiable_presentation(
+            EntryCreationAction::Create(test_action(me())),
+            vp,
+        )
+        .unwrap();
+
+        assert!(
+            matches!(result, ValidateCallbackResult::Invalid(message) if message.contains("proof created"))
+        );
+    }
+
     fn derived_for_integrity_tests(holder: String, original: &VerifiableCredential) -> DerivedCredential {
         let original_hash = compute_credential_content_hash(original);
         DerivedCredential {
