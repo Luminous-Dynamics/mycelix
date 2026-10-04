@@ -140,10 +140,9 @@ pub struct SubstrateImpact {
 impl SubstrateImpact {
     /// Sum explicitly attributed share in basis points.
     pub fn attribution_bps(&self) -> u32 {
-        self.attributions
-            .iter()
-            .map(|item| u32::from(item.share_bps))
-            .sum()
+        self.attributions.iter().fold(0_u32, |total, item| {
+            total.saturating_add(u32::from(item.share_bps))
+        })
     }
 
     /// Return the still-unattributed portion in basis points.
@@ -354,9 +353,13 @@ impl ImpactLedger {
             }
         }
 
-        let total_bps: u32 = attributions
+        // Keep the accumulator wider than the public u32 reporting helper.
+        // Inputs are individually bounded, but the vector length is not a
+        // fixed protocol constant. A malformed oversized set must fail closed
+        // rather than wrapping in release builds.
+        let total_bps: u64 = attributions
             .iter()
-            .map(|item| u32::from(item.share_bps))
+            .map(|item| u64::from(item.share_bps))
             .sum();
 
         if total_bps != 10_000 {
@@ -752,6 +755,37 @@ mod tests {
             ledger.gate(DistributionPurpose::Discretionary),
             ImpactGateDecision::Allowed
         );
+    }
+
+
+    #[test]
+    fn attribution_bps_reporting_fails_closed_on_malformed_oversized_state() {
+        let impact = SubstrateImpact {
+            id: "impact-oversized".into(),
+            action_actor: "did:example:actor".into(),
+            action_ref: "action:oversized".into(),
+            dimension: SubstrateDimension::Ecological,
+            unit: "m3".into(),
+            magnitude: 1_000,
+            direction: ImpactDirection::Depletion,
+            affected_ref: "river:1".into(),
+            attributions: vec![
+                ImpactAttribution {
+                    actor: "did:example:a".into(),
+                    basis: AttributionBasis::Direct,
+                    share_bps: u16::MAX,
+                    evidence_ref: None,
+                };
+                65_536
+            ],
+            evidence_refs: vec!["evidence:oversized".into()],
+            status: ImpactStatus::Open,
+            obligation_id: None,
+            recorded_at: 1_000,
+        };
+
+        assert_eq!(impact.attribution_bps(), u32::MAX);
+        assert_eq!(impact.unattributed_bps(), 0);
     }
 
     #[test]
