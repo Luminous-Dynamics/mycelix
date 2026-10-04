@@ -325,7 +325,7 @@ const FORBIDDEN_RENDERER_SYSCALLS: &[i64] = &[
     libc::SYS_setfsuid,
     libc::SYS_setfsgid,
     libc::SYS_kexec_load,
-    libc::SYS_kexec_file_load,
+    KEXEC_FILE_LOAD_SYSCALL,
     libc::SYS_init_module,
     libc::SYS_finit_module,
     libc::SYS_delete_module,
@@ -337,6 +337,20 @@ const FORBIDDEN_RENDERER_SYSCALLS: &[i64] = &[
     libc::SYS_setdomainname,
     libc::SYS_syslog,
 ];
+// Linux assigns kexec_file_load the generic syscall number 294 on
+// AArch64 and RISC-V, while x86_64 uses its arch-specific 320. The libc
+// crate does not currently expose SYS_kexec_file_load on RISC-V, so keep
+// the seccomp ABI mapping explicit and portable instead of making the
+// renderer deny contract depend on a libc symbol that is absent on one
+// supported target.
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+const KEXEC_FILE_LOAD_SYSCALL: i64 = 320;
+#[cfg(all(
+    target_os = "linux",
+    any(target_arch = "aarch64", target_arch = "riscv64")
+))]
+const KEXEC_FILE_LOAD_SYSCALL: i64 = 294;
+
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 const FORBIDDEN_X86_PROCESS_CREATION_SYSCALLS: &[i64] = &[
     libc::SYS_fork,
@@ -768,7 +782,7 @@ mod linux {
                                         .copied()
                                         .find(|&candidate| candidate > dispatch)
                                 });
-                            let allow_count_before_next_dispatch = next_allow.map_or(0, |allow_index| {
+                            let allow_count_before_next_dispatch = next_allow.map_or(0, |_| {
                                 filter
                                     .iter()
                                     .take(next_dispatch.unwrap_or(filter.len()))
