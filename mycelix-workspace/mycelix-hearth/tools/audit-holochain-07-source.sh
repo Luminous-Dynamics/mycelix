@@ -705,6 +705,7 @@ expected_case_keys = {
     "validator_source",
     "validator_symbol",
     "dispatch_symbol",
+    "target_variant",
     "invariant_code",
 }
 expected_top_keys = {"schema_version", "claim_ceiling", "cases"}
@@ -785,6 +786,7 @@ for index, case in enumerate(cases, start=1):
     validator_symbol = case["validator_symbol"]
     validator_source = case["validator_source"]
     dispatch_symbol = case["dispatch_symbol"]
+    target_variant = case["target_variant"]
     if not re.fullmatch(r"SEM-[0-9]+", case_id):
         reject(f"{case_id!r} is not a stable SEM-N numeric case identifier")
     if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", test):
@@ -797,6 +799,8 @@ for index, case in enumerate(cases, start=1):
         reject(f"{case_id} validator_symbol is not a safe Rust identifier")
     if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", dispatch_symbol):
         reject(f"{case_id} dispatch_symbol is not a safe Rust identifier")
+    if not re.fullmatch(r"(?:EntryTypes|LinkTypes)::[A-Za-z_][A-Za-z0-9_]*", target_variant):
+        reject(f"{case_id} target_variant must be EntryTypes::<Name> or LinkTypes::<Name>")
     if (
         not (
             validator_source.startswith("mycelix-workspace/mycelix-hearth/")
@@ -967,7 +971,7 @@ check_semantic_case_entrypoints() {
 # from drifting away from the validator it claims to witness.
 check_semantic_case_integrity_bindings() {
   local manifest="mycelix-workspace/mycelix-hearth/tests/hearth-07-semantic-validation-cases.json"
-  local ids tests zomes operations invariants rejection_reasons invariant_codes surfaces results validator_sources validator_symbols dispatch_symbols
+  local ids tests zomes operations invariants rejection_reasons invariant_codes surfaces results validator_sources validator_symbols dispatch_symbols target_variants
   mapfile -t ids < <(sed -n 's/^[[:space:]]*"case_id"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
   mapfile -t tests < <(sed -n 's/^[[:space:]]*"test"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
   mapfile -t zomes < <(sed -n 's/^[[:space:]]*"zome"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
@@ -980,15 +984,16 @@ check_semantic_case_integrity_bindings() {
   mapfile -t validator_sources < <(sed -n 's/^[[:space:]]*"validator_source"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
   mapfile -t validator_symbols < <(sed -n 's/^[[:space:]]*"validator_symbol"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
   mapfile -t dispatch_symbols < <(sed -n 's/^[[:space:]]*"validator_symbol"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
+  mapfile -t target_variants < <(sed -n 's/^[[:space:]]*"validator_symbol"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
 
   local count="${#ids[@]}"
-  if [[ "$count" -eq 0 || "$count" -ne "${#tests[@]}" || "$count" -ne "${#zomes[@]}" || "$count" -ne "${#operations[@]}" || "$count" -ne "${#invariants[@]}" || "$count" -ne "${#rejection_reasons[@]}" || "$count" -ne "${#invariant_codes[@]}" || "$count" -ne "${#surfaces[@]}" || "$count" -ne "${#results[@]}" || "$count" -ne "${#validator_sources[@]}" || "$count" -ne "${#validator_symbols[@]}" || "$count" -ne "${#dispatch_symbols[@]}" ]]; then
+  if [[ "$count" -eq 0 || "$count" -ne "${#tests[@]}" || "$count" -ne "${#zomes[@]}" || "$count" -ne "${#operations[@]}" || "$count" -ne "${#invariants[@]}" || "$count" -ne "${#rejection_reasons[@]}" || "$count" -ne "${#invariant_codes[@]}" || "$count" -ne "${#surfaces[@]}" || "$count" -ne "${#results[@]}" || "$count" -ne "${#validator_sources[@]}" || "$count" -ne "${#validator_symbols[@]}" || "$count" -ne "${#dispatch_symbols[@]}" || "$count" -ne "${#target_variants[@]}" ]]; then
     echo "FAIL: semantic manifest fields are not structurally aligned"
     fail=1
     return
   fi
 
-  local i id zome operation invariant rejection_reason invariant_code expected_result surface integrity_file validator_source validator_symbol dispatch_symbol
+  local i id zome operation invariant rejection_reason invariant_code expected_result surface integrity_file validator_source validator_symbol dispatch_symbol target_variant
   for i in "${!ids[@]}"; do
     id="${ids[$i]}"
     zome="${zomes[$i]}"
@@ -1011,7 +1016,49 @@ check_semantic_case_integrity_bindings() {
     validator_source="${validator_sources[$i]}"
     validator_symbol="${validator_symbols[$i]}"
     dispatch_symbol="${dispatch_symbols[$i]}"
+    target_variant="${target_variants[$i]}"
     integrity_file="mycelix-workspace/mycelix-hearth/zomes/${zome//_/-}/integrity/src/lib.rs"
+
+    coord_file="mycelix-workspace/mycelix-hearth/zomes/${zome//_/-}/coordinator/src/lib.rs"
+    coord_block="$(awk -v operation="$operation" '
+      /^[[:space:]]*#\[hdk_extern\][[:space:]]*$/ { pending_extern=1; next }
+      pending_extern && $0 ~ "^[[:space:]]*(pub[[:space:]]+)?(async[[:space:]]+)?fn[[:space:]]+" operation "[[:space:]]*\\(" {
+        in_block=1
+        print
+        pending_extern=0
+        next
+      }
+      pending_extern=0
+      in_block && /^[[:space:]]*(pub[[:space:]]+)?(async[[:space:]]+)?fn[[:space:]]+[A-Za-z0-9_]+[[:space:]]*\(/ { exit }
+      in_block { print }
+    ' "$coord_file")"
+    if [[ -z "$coord_block" ]]; then
+      echo "FAIL: $id could not isolate coordinator operation $operation for typed target binding"
+      fail=1
+    elif printf "%s\n" "$coord_block" | rg -nU --fixed-strings "$target_variant" >/dev/null 2>&1; then
+      echo "OK:   $id coordinator $operation binds concrete target $target_variant"
+    else
+      echo "FAIL: $id coordinator $operation does not bind declared target $target_variant"
+      fail=1
+    fi
+    target_name="${target_variant#*::}"
+    if [[ "$target_variant" == EntryTypes::* ]]; then
+      if rg -nU --pcre2 "\bEntryTypes::${target_name}[[:space:]]*\(" "$integrity_file" >/dev/null 2>&1; then
+        echo "OK:   $id integrity source contains concrete entry target $target_variant"
+      else
+        echo "FAIL: $id integrity source does not contain concrete entry target $target_variant"
+        fail=1
+      fi
+    else
+      if rg -nU --pcre2 "\bLinkTypes::${target_name}\b" "$integrity_file" >/dev/null 2>&1; then
+        echo "OK:   $id integrity source contains concrete link target $target_variant"
+      else
+        echo "FAIL: $id integrity source does not contain concrete link target $target_variant"
+        fail=1
+      fi
+    fi
+    unset target_name
+
 
     if [[ ! -f "$integrity_file" ]]; then
       echo "FAIL: $id references missing integrity source: $integrity_file"
