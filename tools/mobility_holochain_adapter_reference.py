@@ -106,6 +106,7 @@ def main() -> int:
         "malformed_authority_credential_precedes_duplicate_authority_admission",
         "issuer_mismatch_precedes_duplicate_authority_admission",
         "invalid_authority_credential_signature_precedes_duplicate_authority_admission",
+        "valid_duplicate_authority_is_adapter_rejection_and_state_preserving",
     ):
         if test_name not in source:
             raise SystemExit(f"missing authority credential precedence regression: {test_name}")
