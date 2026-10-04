@@ -3077,8 +3077,6 @@ mod tests {
         }
     }
 
-    const FEDERATION_STATE_MACHINE_TRACE_CAPSULE_SCHEMA_VERSION: u16 = 1;
-
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
     #[serde(deny_unknown_fields)]
     struct FederationStateMachineTraceBoundary {
