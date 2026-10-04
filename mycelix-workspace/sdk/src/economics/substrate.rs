@@ -274,9 +274,24 @@ impl SubstrateLedger {
         Self::default()
     }
 
-    /// Register or replace an account definition for a dimension.
-    pub fn register_account(&mut self, account: SubstrateAccount) {
+    /// Register an account definition for a dimension.
+    ///
+    /// Existing definitions cannot be silently replaced. A boundary change is
+    /// a governance event in production systems and must therefore be modeled
+    /// explicitly rather than smuggled in through account registration.
+    pub fn register_account(&mut self, account: SubstrateAccount) -> Result<(), String> {
+        if let Some(existing) = self.accounts.get(&account.dimension) {
+            if existing == &account {
+                return Ok(());
+            }
+            return Err(format!(
+                "Substrate account {:?} already exists; boundary changes require explicit versioning",
+                account.dimension
+            ));
+        }
+
         self.accounts.insert(account.dimension, account);
+        Ok(())
     }
 
     /// Read an account by dimension.
@@ -300,11 +315,15 @@ impl SubstrateLedger {
             .get_mut(&event.dimension)
             .ok_or_else(|| format!("No substrate account for {:?}", event.dimension))?;
 
+        if self.events.iter().any(|existing| existing.id == event.id) {
+            return Err(format!("Duplicate substrate event id: {}", event.id));
+        }
+
         account.current = account
             .current
             .checked_add(event.delta)
             .ok_or_else(|| "Substrate account overflow".to_string())?;
-        account.updated_at = event.timestamp;
+        account.updated_at = account.updated_at.max(event.timestamp);
         self.events.push(event);
 
         Ok(())
@@ -317,8 +336,10 @@ impl SubstrateLedger {
         let mut hard_breaches = 0;
         let mut warnings = 0;
 
+        let required: BTreeSet<SubstrateDimension> = required.iter().copied().collect();
+
         for dimension in required {
-            match self.accounts.get(dimension) {
+            match self.accounts.get(&dimension) {
                 Some(account) => {
                     let state = account.state();
                     if state == SubstrateState::Warning {
@@ -422,8 +443,8 @@ mod tests {
     #[test]
     fn hard_breach_is_non_compensable() {
         let mut ledger = SubstrateLedger::new();
-        ledger.register_account(financial_account(1_000));
-        ledger.register_account(ecological_account(600));
+        ledger.register_account(financial_account(1_000)).unwrap();
+        ledger.register_account(ecological_account(600)).unwrap();
 
         let required = [
             SubstrateDimension::Financial,
@@ -450,7 +471,7 @@ mod tests {
     #[test]
     fn warning_does_not_become_a_hidden_block() {
         let mut ledger = SubstrateLedger::new();
-        ledger.register_account(financial_account(850));
+        ledger.register_account(financial_account(850)).unwrap();
 
         let required = [SubstrateDimension::Financial];
         assert_eq!(
@@ -462,7 +483,7 @@ mod tests {
     #[test]
     fn breached_state_is_recorded_instead_of_hidden() {
         let mut ledger = SubstrateLedger::new();
-        ledger.register_account(financial_account(900));
+        ledger.register_account(financial_account(900)).unwrap();
 
         ledger
             .record_event(SubstrateEvent {
@@ -496,7 +517,7 @@ mod tests {
     #[test]
     fn missing_required_dimension_blocks_discretionary_action() {
         let mut ledger = SubstrateLedger::new();
-        ledger.register_account(financial_account(1_000));
+        ledger.register_account(financial_account(1_000)).unwrap();
 
         let required = [
             SubstrateDimension::Financial,
@@ -512,7 +533,7 @@ mod tests {
     #[test]
     fn maintenance_and_restoration_remain_possible_during_breach() {
         let mut ledger = SubstrateLedger::new();
-        ledger.register_account(ecological_account(600));
+        ledger.register_account(ecological_account(600)).unwrap();
 
         let required = [SubstrateDimension::Ecological];
 
@@ -557,5 +578,153 @@ mod tests {
             ..account
         };
         assert_eq!(breached.state(), SubstrateState::Breached);
+    }
+
+    #[test]
+    fn required_dimensions_are_set_semantically() {
+        let mut ledger = SubstrateLedger::new();
+        ledger.register_account(financial_account(750)).unwrap();
+
+        let required = [
+            SubstrateDimension::Financial,
+            SubstrateDimension::Financial,
+        ];
+        let report = ledger.report(&required);
+
+        assert_eq!(report.warnings, 1);
+        assert_eq!(report.hard_breaches, 1);
+    }
+
+    #[test]
+    fn boundary_definition_cannot_be_silently_replaced() {
+        let mut ledger = SubstrateLedger::new();
+        ledger.register_account(financial_account(1_000)).unwrap();
+
+        let changed = financial_account(1_000);
+        assert!(ledger.register_account(changed).is_ok());
+
+        let mut altered = financial_account(1_000);
+        altered.boundary = SubstrateBoundary::minimum(500, 50, false);
+
+        let result = ledger.register_account(altered);
+        assert!(result.is_err());
+        assert_eq!(
+            ledger
+                .account(SubstrateDimension::Financial)
+                .unwrap()
+                .boundary
+                .boundary,
+            800
+        );
+    }
+
+    #[test]
+    fn duplicate_event_ids_are_rejected_without_mutation() {
+        let mut ledger = SubstrateLedger::new();
+        ledger.register_account(financial_account(1_000)).unwrap();
+
+        let event = SubstrateEvent {
+            id: "evt-duplicate".into(),
+            dimension: SubstrateDimension::Financial,
+            delta: -50,
+            kind: SubstrateEventKind::Depletion,
+            actor: "did:example:actor".into(),
+            timestamp: 2_000,
+            evidence_ref: None,
+        };
+
+        ledger.record_event(event.clone()).unwrap();
+        let second = ledger.record_event(event);
+        assert!(second.is_err());
+        assert_eq!(
+            ledger
+                .account(SubstrateDimension::Financial)
+                .unwrap()
+                .current,
+            950
+        );
+        assert_eq!(ledger.events().len(), 1);
+    }
+
+    #[test]
+    fn latest_timestamp_is_processing_order_invariant() {
+        let mut first = SubstrateLedger::new();
+        let mut second = SubstrateLedger::new();
+        first.register_account(financial_account(1_000)).unwrap();
+        second.register_account(financial_account(1_000)).unwrap();
+
+        let earlier = SubstrateEvent {
+            id: "evt-earlier".into(),
+            dimension: SubstrateDimension::Financial,
+            delta: -10,
+            kind: SubstrateEventKind::Depletion,
+            actor: "did:example:a".into(),
+            timestamp: 2_000,
+            evidence_ref: None,
+        };
+        let later = SubstrateEvent {
+            id: "evt-later".into(),
+            dimension: SubstrateDimension::Financial,
+            delta: 20,
+            kind: SubstrateEventKind::Regeneration,
+            actor: "did:example:b".into(),
+            timestamp: 3_000,
+            evidence_ref: None,
+        };
+
+        first.record_event(earlier.clone()).unwrap();
+        first.record_event(later.clone()).unwrap();
+
+        second.record_event(later).unwrap();
+        second.record_event(earlier).unwrap();
+
+        let a = first.account(SubstrateDimension::Financial).unwrap();
+        let b = second.account(SubstrateDimension::Financial).unwrap();
+        assert_eq!(a.current, b.current);
+        assert_eq!(a.updated_at, b.updated_at);
+    }
+
+    proptest::proptest! {
+        #[test]
+        fn signed_event_addition_is_order_invariant(deltas in proptest::collection::vec(-100i64..=100i64, 0..32)) {
+            let mut forward = SubstrateLedger::new();
+            let mut reverse = SubstrateLedger::new();
+            forward.register_account(financial_account(10_000)).unwrap();
+            reverse.register_account(financial_account(10_000)).unwrap();
+
+            let events: Vec<SubstrateEvent> = deltas
+                .iter()
+                .enumerate()
+                .map(|(i, delta)| SubstrateEvent {
+                    id: format!("evt-{i}"),
+                    dimension: SubstrateDimension::Financial,
+                    delta: *delta as i128,
+                    kind: if *delta < 0 {
+                        SubstrateEventKind::Depletion
+                    } else {
+                        SubstrateEventKind::Regeneration
+                    },
+                    actor: format!("did:example:{i}"),
+                    timestamp: 2_000 + i as u64,
+                    evidence_ref: None,
+                })
+                .collect();
+
+            for event in &events {
+                forward.record_event(event.clone()).unwrap();
+            }
+            for event in events.iter().rev() {
+                reverse.record_event(event.clone()).unwrap();
+            }
+
+            proptest::prop_assert_eq!(
+                forward.account(SubstrateDimension::Financial).unwrap().current,
+                reverse.account(SubstrateDimension::Financial).unwrap().current
+            );
+            proptest::prop_assert_eq!(
+                forward.account(SubstrateDimension::Financial).unwrap().updated_at,
+                reverse.account(SubstrateDimension::Financial).unwrap().updated_at
+            );
+        }
     }
 }
