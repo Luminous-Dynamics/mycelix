@@ -4900,3 +4900,184 @@ async fn dsid_049_default_credential_proof_profile_is_w3c_jcs() {
     );
 }
 
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_050_issuer_key_rotation_invalidates_current_vc_authorization() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let issuer_app = conductor
+        .setup_app("dsid-vc-rotation-current-issuer", std::slice::from_ref(&dna))
+        .await
+        .unwrap();
+    let holder_app = conductor
+        .setup_app("dsid-vc-rotation-current-holder", std::slice::from_ref(&dna))
+        .await
+        .unwrap();
+
+    let issuer = issuer_app.cells()[0].clone();
+    let holder = holder_app.cells()[0].clone();
+    let holder_did = format!("did:mycelix:{}", holder_app.agent());
+    let issuer_did = format!("did:mycelix:{}", issuer_app.agent());
+
+    let created_issuer: Record = conductor
+        .call(&issuer.zome("did_registry"), "create_did", ())
+        .await;
+    let _: Record = conductor
+        .call(&holder.zome("did_registry"), "create_did", ())
+        .await;
+
+    let credential: Record = conductor
+        .call(
+            &issuer.zome("verifiable_credential"),
+            "issue_credential",
+            serde_json::json!({
+                "subject_did": holder_did,
+                "schema_id": "mycelix:schema:education:degree:v1",
+                "claims": {"degree": "DSID current assertion rotation"},
+                "credential_types": ["QualificationCredential"],
+                "issuer_name": "DSID Current Assertion Issuer",
+                "expiration_days": 365,
+                "enable_revocation": false,
+                "strict_schema": false
+            }),
+        )
+        .await;
+
+    await_consistency(&[issuer.clone(), holder.clone()])
+        .await
+        .expect("credential must reach holder");
+
+    let before: serde_json::Value = conductor
+        .call(
+            &holder.zome("verifiable_credential"),
+            "verify_credential",
+            {
+                let value: serde_json::Value = credential
+                    .entry()
+                    .to_app_option()
+                    .unwrap()
+                    .unwrap();
+                value["id"].as_str().unwrap().to_owned()
+            },
+        )
+        .await;
+    assert_eq!(
+        before["valid"], true,
+        "credential must verify while its assertion key is currently authorized: {before}"
+    );
+
+    let issuer_doc: DidDocument = decode_entry(&created_issuer)
+        .expect("issuer DID document must decode before rotation");
+    let old_key_id = issuer_doc
+        .verification_method
+        .iter()
+        .find(|method| method.id.ends_with("#keys-1"))
+        .map(|method| method.id.clone())
+        .expect("issuer must have an initial Ed25519 key");
+
+    let raw_key = [77u8; 32];
+    let new_public_key = TaggedPublicKey::new(AlgorithmId::Ed25519, raw_key.to_vec())
+        .expect("synthetic Ed25519 key must have canonical Multikey encoding")
+        .to_multibase();
+
+    let rotated: Record = conductor
+        .call(
+            &issuer.zome("did_registry"),
+            "rotate_key",
+            serde_json::json!({
+                "old_key_id": old_key_id,
+                "new_method": {
+                    "id": format!("{}#keys-2", issuer_did),
+                    "type": "Ed25519VerificationKey2020",
+                    "controller": issuer_did,
+                    "publicKeyMultibase": new_public_key,
+                    "algorithm": 0xed01
+                }
+            }),
+        )
+        .await;
+
+    let rotated_doc: DidDocument = decode_entry(&rotated)
+        .expect("rotated issuer DID document must decode");
+    assert!(
+        !rotated_doc
+            .assertion_method
+            .iter()
+            .any(|reference| reference.ends_with("#keys-1"))
+    );
+
+    await_consistency(&[issuer.clone(), holder.clone()])
+        .await
+        .expect("issuer rotation must reach holder");
+
+    let after: serde_json::Value = conductor
+        .call(
+            &holder.zome("verifiable_credential"),
+            "verify_credential",
+            credential
+                .entry()
+                .to_app_option::<serde_json::Value>()
+                .unwrap()
+                .unwrap()["id"]
+                .as_str()
+                .unwrap()
+                .to_owned(),
+        )
+        .await;
+    assert_eq!(
+        after["valid"], false,
+        "current VC verification must fail after the signing key leaves issuer assertionMethod"
+    );
+    assert!(
+        after["errors"]
+            .as_array()
+            .is_some_and(|errors| errors.iter().any(|error| {
+                error
+                    .as_str()
+                    .is_some_and(|message| message.contains("currently authorized by issuer DID assertionMethod"))
+            })),
+        "verification must expose the current authorization failure: {after}"
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("issuer", issuer_app.agent().to_string());
+    agents.insert("holder", holder_app.agent().to_string());
+    emit_evidence(
+        "DSID-050",
+        "issuer-key-rotation-invalidates-current-vc-authorization",
+        &dna,
+        agents,
+        &[&credential, &created_issuer, &rotated],
+        "Current VC verification requires the proof verification method to remain authorized by the issuer DID assertionMethod relationship; rotating the signing method out of that relationship invalidates current verification.",
+        format!(
+            "valid_before_rotation={} old_assertion_removed={} invalid_after_rotation={} explicit_authorization_failure={}",
+            before["valid"] == true,
+            !rotated_doc
+                .assertion_method
+                .iter()
+                .any(|reference| reference.ends_with("#keys-1")),
+            after["valid"] == false,
+            after["errors"].as_array().is_some_and(|errors| {
+                errors.iter().any(|error| {
+                    error
+                        .as_str()
+                        .is_some_and(|message| message.contains("currently authorized by issuer DID assertionMethod"))
+                })
+            })
+        ),
+        before["valid"] == true
+            && !rotated_doc
+                .assertion_method
+                .iter()
+                .any(|reference| reference.ends_with("#keys-1"))
+            && after["valid"] == false
+            && after["errors"].as_array().is_some_and(|errors| {
+                errors.iter().any(|error| {
+                    error
+                        .as_str()
+                        .is_some_and(|message| message.contains("currently authorized by issuer DID assertionMethod"))
+                })
+            }),
+    );
+}
+
