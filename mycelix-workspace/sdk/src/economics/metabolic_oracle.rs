@@ -396,7 +396,7 @@ impl GovernedPolicyAdjustment {
         let canonical = serde_json::to_vec(&payload)
             .map_err(|error| format!("Policy decision canonicalization failed: {error}"))?;
         let mut hasher = Sha256::new();
-        hasher.update(b"MYCELIX-ECONOMIC-POLICY-DECISION-V1\\0");
+        hasher.update(b"MYCELIX-ECONOMIC-POLICY-DECISION-V2\0");
         hasher.update(canonical);
         Ok(hex::encode(hasher.finalize()))
     }
@@ -845,6 +845,114 @@ mod tests {
         };
 
         assert_eq!(left.fingerprint().unwrap(), right.fingerprint().unwrap());
+    }
+
+    fn advisory_analysis(id: &str, model: &str) -> EconomicPolicyAnalysis {
+        EconomicPolicyAnalysis {
+            analysis_id: id.into(),
+            policy_profile_ref: "profile:za:reference:v1".into(),
+            policy_profile_fingerprint: "a".repeat(64),
+            model_ref: model.into(),
+            observation_refs: vec!["observation:vitality:1".into()],
+            observation_snapshot_fingerprint: "b".repeat(64),
+            scenario: None,
+            proposed_adjustment: None,
+            confidence_bps: 8_000,
+            uncertainty_refs: vec!["uncertainty:test".into()],
+            alternative_analysis_bindings: Vec::new(),
+            rationale_refs: vec!["evidence:test".into()],
+            generated_at: 1_000,
+        }
+    }
+
+    #[test]
+    fn governed_decision_binds_exact_analysis_content() {
+        let oracle = MetabolicOracle::new();
+        let adjustment = oracle.generate_adjustment();
+        let analysis = advisory_analysis("analysis:one", "model:one:v1");
+        let fingerprint = analysis.fingerprint().unwrap();
+
+        let decision = GovernedPolicyAdjustment {
+            decision_id: "decision:analysis-bound".into(),
+            policy_profile_ref: "profile:za:reference:v1".into(),
+            policy_profile_fingerprint: "a".repeat(64),
+            observation_refs: vec!["observation:vitality:1".into()],
+            analysis_evidence: vec![EconomicAnalysisBinding {
+                analysis_ref: analysis.analysis_id.clone(),
+                analysis_fingerprint: fingerprint,
+            }],
+            rule_ref: "rule:countercyclical:v1".into(),
+            authority_ref: "authority:dao-1".into(),
+            adjustment,
+            decided_at: 1_000,
+        };
+
+        let mut analyses = BTreeMap::new();
+        analyses.insert(analysis.analysis_id.clone(), analysis.clone());
+        assert!(decision.validate_against_analyses(&analyses).is_ok());
+
+        let mut changed = analysis;
+        changed.generated_at = 1_001;
+        analyses.insert(changed.analysis_id.clone(), changed);
+        assert!(decision.validate_against_analyses(&analyses).is_err());
+    }
+
+    #[test]
+    fn duplicate_model_and_input_provenance_is_not_counted_twice() {
+        let oracle = MetabolicOracle::new();
+        let adjustment = oracle.generate_adjustment();
+        let first = advisory_analysis("analysis:first", "model:shared:v1");
+        let second = advisory_analysis("analysis:second", "model:shared:v1");
+
+        let first_fingerprint = first.fingerprint().unwrap();
+        let second_fingerprint = second.fingerprint().unwrap();
+
+        let decision = GovernedPolicyAdjustment {
+            decision_id: "decision:provenance-groups".into(),
+            policy_profile_ref: "profile:za:reference:v1".into(),
+            policy_profile_fingerprint: "a".repeat(64),
+            observation_refs: vec!["observation:vitality:1".into()],
+            analysis_evidence: vec![
+                EconomicAnalysisBinding {
+                    analysis_ref: first.analysis_id.clone(),
+                    analysis_fingerprint: first_fingerprint,
+                },
+                EconomicAnalysisBinding {
+                    analysis_ref: second.analysis_id.clone(),
+                    analysis_fingerprint: second_fingerprint,
+                },
+            ],
+            rule_ref: "rule:countercyclical:v1".into(),
+            authority_ref: "authority:dao-1".into(),
+            adjustment,
+            decided_at: 1_000,
+        };
+
+        let mut analyses = BTreeMap::new();
+        analyses.insert(first.analysis_id.clone(), first.clone());
+        analyses.insert(second.analysis_id.clone(), second.clone());
+        assert_eq!(
+            decision
+                .distinct_analysis_provenance_count(&analyses)
+                .unwrap(),
+            1
+        );
+
+        let independent = advisory_analysis("analysis:independent", "model:independent:v1");
+        let independent_fingerprint = independent.fingerprint().unwrap();
+        analyses.insert(independent.analysis_id.clone(), independent.clone());
+
+        let mut expanded = decision;
+        expanded.analysis_evidence.push(EconomicAnalysisBinding {
+            analysis_ref: independent.analysis_id,
+            analysis_fingerprint: independent_fingerprint,
+        });
+        assert_eq!(
+            expanded
+                .distinct_analysis_provenance_count(&analyses)
+                .unwrap(),
+            2
+        );
     }
 
     fn policy_profile() -> EconomicPolicyProfile {
