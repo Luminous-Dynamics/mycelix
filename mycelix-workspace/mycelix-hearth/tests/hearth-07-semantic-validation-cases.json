@@ -7,10 +7,7 @@
       "test": "test_invalid_decision_entry_reaches_integrity_validation",
       "zome": "hearth_decisions",
       "operation": "create_decision",
-      "operation_surface": [
-        "CreateEntry",
-        "CreateRecord"
-      ],
+      "operation_surface": ["CreateEntry", "CreateRecord"],
       "invariant": "Decision title cannot be empty",
       "expected_result": "Invalid",
       "boundary": "integrity_validation",
@@ -23,10 +20,7 @@
       "test": "test_invalid_resource_entry_reaches_integrity_validation",
       "zome": "hearth_resources",
       "operation": "register_resource",
-      "operation_surface": [
-        "CreateEntry",
-        "CreateRecord"
-      ],
+      "operation_surface": ["CreateEntry", "CreateRecord"],
       "invariant": "Resource name cannot be empty",
       "expected_result": "Invalid",
       "boundary": "integrity_validation",
@@ -39,10 +33,7 @@
       "test": "test_invalid_story_entry_reaches_integrity_validation",
       "zome": "hearth_stories",
       "operation": "create_story",
-      "operation_surface": [
-        "CreateEntry",
-        "CreateRecord"
-      ],
+      "operation_surface": ["CreateEntry", "CreateRecord"],
       "invariant": "Story title cannot be empty",
       "expected_result": "Invalid",
       "boundary": "integrity_validation",
@@ -55,9 +46,7 @@
       "test": "test_cross_hearth_collection_story_link_reaches_integrity_validation",
       "zome": "hearth_stories",
       "operation": "add_to_collection",
-      "operation_surface": [
-        "Link.CreateLink"
-      ],
+      "operation_surface": ["Link.CreateLink"],
       "invariant": "CollectionToStories story belongs to a different hearth",
       "expected_result": "Invalid",
       "boundary": "integrity_validation",
@@ -70,10 +59,7 @@
       "test": "test_invalid_bridge_notification_reaches_integrity_validation",
       "zome": "hearth_bridge",
       "operation": "receive_notification",
-      "operation_surface": [
-        "CreateEntry",
-        "CreateRecord"
-      ],
+      "operation_surface": ["CreateEntry", "CreateRecord"],
       "invariant": "source_cluster cannot be empty",
       "expected_result": "Invalid",
       "boundary": "integrity_validation",
@@ -86,11 +72,7 @@
       "test": "test_invalid_story_update_reaches_integrity_validation",
       "zome": "hearth_stories",
       "operation": "update_story",
-      "operation_surface": [
-        "CreateEntry",
-        "CreateRecord",
-        "Update"
-      ],
+      "operation_surface": ["CreateEntry", "CreateRecord", "Update"],
       "invariant": "Story title cannot be empty",
       "expected_result": "Invalid",
       "boundary": "integrity_validation",
