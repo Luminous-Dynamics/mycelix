@@ -199,6 +199,8 @@ def main() -> int:
         raise SystemExit("runtime binding must expose authority-agent lookup")
     if "credential_for(&authority)" not in source:
         raise SystemExit("runtime binding must consult the retained authority-agent credential")
+    if "address_kind_mismatch_precedes_duplicate_provenance_binding_conflict" not in source:
+        raise SystemExit("candidate address validation must have a precedence regression")
     if "authority_agent_registry_rejects_duplicate_provenance_witness" not in source:
         raise SystemExit("registry witness reuse must have a regression test")
     if "missing authority-agent registration must stop before DHT retrieval" not in source:
@@ -371,8 +373,11 @@ def main() -> int:
 
     provenance_validation = bind_body.index("provenance\n            .validate()")
     address_validation = bind_body.index("validate_address_kind(&address, retrieval)")
+    witness_conflict = bind_body.index("a provenance witness identity may justify only one runtime binding")
     if provenance_validation > address_validation:
         raise SystemExit("provenance validation must precede protocol address validation")
+    if address_validation > witness_conflict:
+        raise SystemExit("candidate address-kind validation must precede binding conflicts")
 
     print("mobility Holochain adapter independent reference qualification: PASS")
     return 0
