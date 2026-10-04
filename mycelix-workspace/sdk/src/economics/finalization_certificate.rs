@@ -258,6 +258,21 @@ impl EconomicFinalizationLedger {
         self.validate()?;
         certificate.validate()?;
 
+        let stored = self
+            .certificates
+            .iter()
+            .find(|stored| stored.certificate_id == certificate.certificate_id)
+            .ok_or_else(|| {
+                format!(
+                    "Finalization certificate is not present in this ledger: {}",
+                    certificate.certificate_id
+                )
+            })?;
+
+        if stored != certificate {
+            return Ok(false);
+        }
+
         let assessment = EconomicActionFinalizationGate::assess(
             lifecycle,
             scope,
@@ -582,6 +597,38 @@ mod tests {
 
         assert!(result.is_err());
         assert_eq!(ledger.certificates().len(), 1);
+    }
+
+    #[test]
+    fn unrecorded_certificate_cannot_verify_as_current() {
+        let (assessment, lifecycle, scope, substrate, impacts, reconciliations, execution, constraints) =
+            ready_assessment();
+        let mut ledger = EconomicFinalizationLedger::new("action:1").unwrap();
+
+        let certificate = EconomicFinalizationCertificate {
+            certificate_id: "finalization:forged".into(),
+            action_ref: "action:1".into(),
+            lifecycle_revision_id: assessment.lifecycle_revision_id.clone(),
+            scope_id: assessment.scope_id.clone(),
+            scope_fingerprint: assessment.scope_fingerprint.clone(),
+            evidence_snapshot_fingerprint: assessment.evidence_snapshot_fingerprint.clone(),
+            authority_ref: "authority:dao-1".into(),
+            evidence_refs: vec!["evidence:forged".into()],
+            finalized_at: 1_700,
+        };
+
+        assert!(!ledger
+            .verify_certificate(
+                &certificate,
+                &lifecycle,
+                &scope,
+                &substrate,
+                &impacts,
+                &reconciliations,
+                &execution,
+                &constraints,
+            )
+            .is_ok());
     }
 
     #[test]
