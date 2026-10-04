@@ -104,8 +104,8 @@ def main() -> None:
         f"supplemental coverage mismatch: "
         f"{set(supplemental_observed) ^ expected_supplemental}"
     )
-    assert set(supplemental_observed) == set(witness_observed), (
-        "supplemental checks and runtime witnesses must cover the same cases"
+    assert supplemental_observed == witness_observed, (
+        "substrate PASS records must exactly match observed runtime witnesses"
     )
     print(
         f"verified D6U runtime case coverage and outcomes: "
