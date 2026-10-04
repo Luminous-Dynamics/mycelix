@@ -255,6 +255,8 @@ def main() -> int:
             raise SystemExit(f"machine determinism contract drift for {key}: expected {expected!r}")
     if "fn canonicalize_retrieval_order" not in source:
         raise SystemExit("runtime retrieval must canonicalize caller-supplied dependency order")
+    if "canonical.sort_by(|left, right| left.identity.cmp(&right.identity));" not in source:
+        raise SystemExit("runtime retrieval canonicalizer must sort by logical identity")
     if "retrieve_resolved_canonicalizes_caller_supplied_order" not in source:
         raise SystemExit("runtime retrieval order must have a regression test")
     if "inductive-validity dependency" not in source:
