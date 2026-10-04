@@ -33,6 +33,8 @@ The OECD's July 2026 assessment highlights concentration across compute, data, c
 
 BIS analysis likewise emphasizes that AI simultaneously shifts supply, demand, and financial conditions, making economic state estimation harder and increasing uncertainty around monetary-policy transmission.
 
+A provenance group is deliberately narrower than an accuracy claim: two independent model groups can still be wrong in the same direction, while repeated wrappers around one model do not become independent merely through naming.
+
 The architecture response is pluralism made machine-checkable:
 
 observations → snapshots → scenarios → competing analyses → governed decision → authorized action → outcome.
