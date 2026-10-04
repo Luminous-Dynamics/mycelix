@@ -59,7 +59,8 @@
       "eventlog-parsed.yaml",
       "tool-versions.json",
       "tss-version-evidence.txt",
-      "eventlog-reconstruction-input.json"
+      "eventlog-reconstruction-input.json",
+      "observed-pcr-values.json"
     ],
     "optional_artifacts": [
       "pcr-pre.yaml",
@@ -110,7 +111,9 @@
       "reconstruction.input_sha256",
       "reconstruction.verifier_id",
       "reconstruction.verifier_source_sha256",
-      "artifacts.reconstruction_input_sha256"
+      "artifacts.reconstruction_input_sha256",
+      "live_observation.pcr_values_file_sha256",
+      "artifacts.observed_pcr_values_file_sha256"
     ],
     "session_binding": "The session_binding_sha256 covers the session/boot/TPM/EK/event-log/PCR selection/challenge/AK/toolchain/reference/trusted-time/reconstruction result, exact reconstruction input digest, verifier identifier, verifier source digest, and platform/workload inputs in canonical form.",
     "canonical_json": "Manifest semantic hashing uses UTF-8 JSON with sorted keys and no insignificant whitespace."
@@ -175,6 +178,10 @@
     {
       "id": "CAP-015",
       "rule": "The platform verifier independently executes the reconstruction theorem and rejects receipt substitution"
+    },
+    {
+      "id": "CAP-016",
+      "rule": "PCR values used as the observed side of reconstruction must originate from the independently captured tpm2_pcrread artifact, never from tpm2_eventlog's parser-generated trailing pcrs section"
     }
   ],
   "decision_algebra": "ANY DENY > ANY INDETERMINATE > ALL PASS",
