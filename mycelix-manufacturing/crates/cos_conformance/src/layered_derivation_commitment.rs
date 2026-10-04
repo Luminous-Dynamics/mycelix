@@ -9,6 +9,7 @@ use crate::finality_eligibility_composition::{
 };
 use serde::{Deserialize, Serialize};
 
+use crate::qualified_dependency_closure_d6x as qualified_dependency_closure_d6x;
 use crate::qualified_dependency_closure_d6x::{
     DependencyClosureCertificateV1, DependencyClosureProfileV1,
 };
