@@ -980,6 +980,21 @@ This establishes a useful invariant for transported evidence:
 A recomputed hash is therefore not sufficient to make malformed evidence acceptable at the chain
 boundary; the structure must also satisfy the same identity rules used by normal construction.
 
+## State-counter versus period-ledger semantics (implemented)
+
+`EconomicState::monetary_flow_volume`, `credit_created`, and `debt_repaid` are lifetime-cumulative
+counters carried forward through multi-period replay. They are state variables and therefore remain
+part of the state hash. They are deliberately not used as substitutes for a single period's flow
+totals.
+
+For period-specific reporting, `EconomicPeriodLedger` remains authoritative and is derived from the
+ordered transitions belonging to that period. This separation prevents a multi-period trace from
+mistaking cumulative state counters for current-period credit impulse, debt repayment, or monetary
+flow volume.
+
+This is a semantic clarification rather than a behavior change: existing replay behavior already
+carried the counters cumulatively, and the documentation/tests now make that contract explicit.
+
 ## Exhaustive projection boundaries (implemented)
 
 The physical-stock reconciliation and sector financial-claim projection no longer use catch-all
