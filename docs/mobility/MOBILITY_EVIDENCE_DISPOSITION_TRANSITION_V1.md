@@ -214,3 +214,10 @@ This preserves a single semantic interpretation layer: the witness explains prov
 ### Authority-agent credential continuity
 
 The concrete authority-agent registry retains the full verified signed credential rather than reducing it to an `AgentPubKey`. This keeps the exact signed authority provenance auditable after admission. A runtime binding must also carry the exact `authority_scope` and `authority_delegation` identities named by the registered credential; authority-key control is therefore not detached from the provenance chain that justified the mapping. `EDT-159`–`EDT-162` pin credential retention, exact scope/delegation continuity, and the accepted continuous path.
+
+
+## Latest concrete adapter hardening: credential admission precedence
+
+The authority-agent registry now pins a four-stage admission law: payload structure → issuer/agent match → cryptographic signature validity → immutable registry conflict checks, followed by state insertion. A credential cannot be reclassified as a duplicate-binding adapter conflict until its own validity is established.
+
+The new regressions cover malformed payload, issuer mismatch, and invalid signature against an already-occupied authority, plus fully valid duplicate authority and duplicate provenance-witness cases. Semantic-invalid credentials leave the existing registry untouched; verified conflicts remain adapter-boundary rejections and also leave the existing credential untouched. The machine corpus is contiguous through EDT-191.
