@@ -184,6 +184,22 @@ The runtime binding must also carry the exact same authority_scope and authority
 
 The retained credential's entire `basis` is also a minimum provenance set for the runtime binding: the runtime binding may add basis witnesses, but it may not silently drop one carried by the authority credential. The runtime binding uses a distinct provenance witness identity from the authority credential, preventing one witness record from being reused as evidence for two separate claims. `EDT-163`–`EDT-165` pin basis-loss rejection, complete-basis acceptance, and witness-role separation. The precedence invariants are pinned separately by `EDT-179` for payload structure, `EDT-183` for runtime signature validity, `EDT-184` for runtime signature-host failure, `EDT-185` for authority credential payload validation, and `EDT-186` for authority issuer/agent mismatch.
 
+### Authority credential admission precedence
+
+Credential admission is split into semantic verification and registry-state admission. The registry MUST evaluate the credential's own definitive validity before consulting duplicate-authority or duplicate-witness conflicts.
+
+The order is:
+
+1. signed payload structural validation;
+2. issuer/agent identity match;
+3. cryptographic signature verification;
+4. immutable registry admission checks for duplicate authority and duplicate provenance witness;
+5. state insertion.
+
+A malformed credential or issuer mismatch therefore remains semantic invalidity even when it targets an authority that is already registered. A signature-invalid credential likewise remains semantic invalidity after deterministic signature verification. Only a fully verified credential can produce a duplicate-authority or duplicate-witness adapter rejection.
+
+Rejected admissions are state-preserving: the existing verified credential remains the sole registry entry for the conflicting authority or witness. Corpus vectors EDT-187–EDT-191 pin both precedence and non-mutation.
+
 The authority-agent credential itself follows the same local-definitive-before-crypto rule used by runtime attestations: validate the signed payload first, then require the credential issuer to equal the exact agent key named by the payload, and only then call `verify_signature`. A malformed credential payload or issuer mismatch therefore cannot be masked by, or cause, signature-verification host activity. This ordering is a semantic safety boundary as well as an efficiency boundary: Holochain permits deterministic Ed25519 verification during validation, but definitive invalidity should remain distinct from runtime failures and unavailable DHT dependencies.
 
 This establishes a protocol-level identity binding, not a claim about a real-world person's or institution's legal identity. The semantic authority determination remains in the pure provenance graph.
