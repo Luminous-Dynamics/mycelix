@@ -355,22 +355,24 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink { link_type, tag, .. } => {
+        FlatOp::RegisterCreateLink {
+            base_address,
+            target_address,
+            link_type,
+            tag,
+            action,
+        } => {
             if tag.0.len() > 1024 {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Link tag exceeds maximum length of 1024 bytes".into(),
                 ));
             }
-            match link_type {
-                LinkTypes::IssuerToCredential => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::SubjectToCredential => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::HolderToPresentation => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::CredentialToDerived => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::SchemaToCredential => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::IssuerToRequest => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::RequesterToRequest => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::CredentialIdToCredential => Ok(ValidateCallbackResult::Valid),
-            }
+            validate_credential_link(
+                link_type,
+                &base_address,
+                &target_address,
+                &action,
+            )
         }
         FlatOp::RegisterDeleteLink {
             original_action,
@@ -382,7 +384,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     "Only the link creator can delete their links".into(),
                 ));
             }
-            Ok(ValidateCallbackResult::Valid)
+            Ok(ValidateCallbackResult::Invalid(
+                "Credential indexes and lineage links cannot be deleted".into(),
+            ))
         }
         FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
@@ -434,6 +438,163 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             Ok(ValidateCallbackResult::Valid)
         }
     }
+}
+
+fn string_to_entry_hash(value: &str) -> EntryHash {
+    let bytes = holo_hash::blake2b_256(value.as_bytes())
+        .into_iter()
+        .chain([0u8; 4])
+        .collect::<Vec<u8>>();
+    EntryHash::from_raw_36(bytes)
+}
+
+fn did_to_agent(did: &str) -> Option<AgentPubKey> {
+    did.strip_prefix("did:mycelix:")
+        .and_then(|value| AgentPubKey::try_from(value).ok())
+}
+
+fn action_target(
+    target_address: &AnyLinkableHash,
+    label: &str,
+) -> ExternResult<ActionHash> {
+    target_address.clone().into_action_hash().ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "{label} target must be an ActionHash"
+        )))
+    })
+}
+
+fn validate_credential_link(
+    link_type: LinkTypes,
+    base_address: &AnyLinkableHash,
+    target_address: &AnyLinkableHash,
+    action: &CreateLink,
+) -> ExternResult<ValidateCallbackResult> {
+    let target = action_target(target_address, "Credential link")?;
+    let record = must_get_valid_record(target)?;
+
+    match link_type {
+        LinkTypes::IssuerToCredential
+        | LinkTypes::SubjectToCredential
+        | LinkTypes::SchemaToCredential
+        | LinkTypes::CredentialIdToCredential => {
+            let vc: VerifiableCredential = record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Credential index target must contain a VerifiableCredential".into(),
+                )))?;
+            let issuer = did_to_agent(vc.issuer.did()).ok_or(wasm_error!(
+                WasmErrorInner::Guest("Credential issuer must be a did:mycelix AgentPubKey".into())
+            ))?;
+            if action.author != issuer {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Credential index link must be authored by the credential issuer".into(),
+                ));
+            }
+
+            let expected_base = match link_type {
+                LinkTypes::IssuerToCredential => string_to_entry_hash(vc.issuer.did()),
+                LinkTypes::SubjectToCredential => string_to_entry_hash(&vc.credential_subject.id),
+                LinkTypes::SchemaToCredential => string_to_entry_hash(&vc.mycelix_schema_id),
+                LinkTypes::CredentialIdToCredential => string_to_entry_hash(&vc.id),
+                _ => unreachable!(),
+            };
+            let actual_base = base_address.clone().into_entry_hash().ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "Credential index link base must be an EntryHash".into(),
+                ))
+            })?;
+            if actual_base != expected_base {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Credential index link base does not match the target credential".into(),
+                ));
+            }
+        }
+        LinkTypes::HolderToPresentation => {
+            let vp: VerifiablePresentation = record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "HolderToPresentation target must contain a VerifiablePresentation".into(),
+                )))?;
+            if vp.holder != format!("did:mycelix:{}", action.author) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "HolderToPresentation link must be authored by the presentation holder".into(),
+                ));
+            }
+            let actual_base = base_address.clone().into_entry_hash().ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "HolderToPresentation base must be an EntryHash".into(),
+                ))
+            })?;
+            if actual_base != string_to_entry_hash(&vp.holder) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "HolderToPresentation base does not match the presentation holder".into(),
+                ));
+            }
+        }
+        LinkTypes::CredentialToDerived => {
+            let dc: DerivedCredential = record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "CredentialToDerived target must contain a DerivedCredential".into(),
+                )))?;
+            if dc.holder != format!("did:mycelix:{}", action.author) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "CredentialToDerived link must be authored by the derived-credential holder".into(),
+                ));
+            }
+            let actual_base = base_address.clone().into_entry_hash().ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "CredentialToDerived base must be an EntryHash".into(),
+                ))
+            })?;
+            if actual_base != string_to_entry_hash(&dc.original_credential_id) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "CredentialToDerived base does not match the original credential ID".into(),
+                ));
+            }
+        }
+        LinkTypes::IssuerToRequest | LinkTypes::RequesterToRequest => {
+            let req: CredentialRequest = record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Credential request link target must contain a CredentialRequest".into(),
+                )))?;
+            let requester = did_to_agent(&req.requester_did).ok_or(wasm_error!(
+                WasmErrorInner::Guest("Credential requester must be a did:mycelix AgentPubKey".into())
+            ))?;
+            if action.author != requester {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Credential request index link must be authored by the requester".into(),
+                ));
+            }
+            let actual_base = base_address.clone().into_entry_hash().ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "Credential request link base must be an EntryHash".into(),
+                ))
+            })?;
+            let expected_base = match link_type {
+                LinkTypes::IssuerToRequest => string_to_entry_hash(&req.issuer_did),
+                LinkTypes::RequesterToRequest => string_to_entry_hash(&req.requester_did),
+                _ => unreachable!(),
+            };
+            if actual_base != expected_base {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Credential request link base does not match the target request".into(),
+                ));
+            }
+        }
+    }
+
+    Ok(ValidateCallbackResult::Valid)
 }
 
 /// The DID that a self-issued entry's issuer/owner field must equal, derived
