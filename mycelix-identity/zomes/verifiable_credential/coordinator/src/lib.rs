@@ -3475,6 +3475,31 @@ mod tests {
 /// The proof configuration contains the proof fields except proofValue, plus
 /// the proof-level @context when present. Both are JCS canonicalized (RFC 8785),
 /// SHA-256 hashed, and concatenated as proofConfigHash || documentHash.
+fn eddsa_jcs_hash_data_from_values(
+    unsecured: Value,
+    proof_config: Value,
+) -> ExternResult<Vec<u8>> {
+    let canonical_document = serde_json_canonicalizer::to_vec(&unsecured).map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "JCS credential canonicalization failed: {e}"
+        )))
+    })?;
+    let canonical_proof_config =
+        serde_json_canonicalizer::to_vec(&proof_config).map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "JCS proof configuration canonicalization failed: {e}"
+            )))
+        })?;
+
+    let transformed_document_hash = Sha256::digest(&canonical_document);
+    let proof_config_hash = Sha256::digest(&canonical_proof_config);
+
+    let mut hash_data = Vec::with_capacity(64);
+    hash_data.extend_from_slice(&proof_config_hash);
+    hash_data.extend_from_slice(&transformed_document_hash);
+    Ok(hash_data)
+}
+
 fn eddsa_jcs_hash_data(vc: &VerifiableCredential) -> ExternResult<Vec<u8>> {
     let mut unsecured = serde_json::to_value(vc).map_err(|e| {
         wasm_error!(WasmErrorInner::Guest(format!(
@@ -3496,27 +3521,8 @@ fn eddsa_jcs_hash_data(vc: &VerifiableCredential) -> ExternResult<Vec<u8>> {
     ))?;
     proof_config.remove("proofValue");
 
-    let canonical_document = serde_json_canonicalizer::to_vec(&unsecured).map_err(|e| {
-        wasm_error!(WasmErrorInner::Guest(format!(
-            "JCS credential canonicalization failed: {e}"
-        )))
-    })?;
-    let canonical_proof_config =
-        serde_json_canonicalizer::to_vec(&Value::Object(proof_config)).map_err(|e| {
-            wasm_error!(WasmErrorInner::Guest(format!(
-                "JCS proof configuration canonicalization failed: {e}"
-            )))
-        })?;
-
-    let transformed_document_hash = Sha256::digest(&canonical_document);
-    let proof_config_hash = Sha256::digest(&canonical_proof_config);
-
-    let mut hash_data = Vec::with_capacity(64);
-    hash_data.extend_from_slice(&proof_config_hash);
-    hash_data.extend_from_slice(&transformed_document_hash);
-    Ok(hash_data)
+    eddsa_jcs_hash_data_from_values(unsecured, Value::Object(proof_config))
 }
-
 /// Encode a raw Ed25519 signature as base58-btc Multibase, as required by
 /// W3C Data Integrity EdDSA cryptosuites.
 fn encode_raw_ed25519_multibase(signature: &[u8]) -> ExternResult<String> {
