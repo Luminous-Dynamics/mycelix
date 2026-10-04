@@ -3104,7 +3104,11 @@ mod tests {
         newly_admitted_deliveries: Vec<(String, u64)>,
     }
 
-    const FEDERATION_STATE_MACHINE_TRACE_CAPSULE_SCHEMA_VERSION: u16 = 4;
+    const FEDERATION_STATE_MACHINE_TRACE_CAPSULE_SCHEMA_VERSION: u16 = 5;
+    const FEDERATION_STATE_MACHINE_TRACE_BODY_HASH_DOMAIN: &str =
+        "integral-federation-trace-body-sha256-v1";
+    const FEDERATION_STATE_MACHINE_TRACE_EVIDENCE_CHAIN_HASH_DOMAIN: &str =
+        "integral-federation-trace-evidence-chain-sha256-v1";
     const FEDERATION_STATE_MACHINE_TRACE_VERIFICATION_PROFILE: &str =
         "integral-federation-state-machine-trace-v1";
     const FEDERATION_STATE_MACHINE_TRACE_CAPSULE_HASH_ALGORITHM: &str = "sha-256";
@@ -3124,6 +3128,7 @@ mod tests {
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
     struct FederationStateMachineEvidenceHashView {
+        hash_domain: String,
         step_index: usize,
         operation: FederationStateMachineOperation,
         token: u64,
@@ -3141,6 +3146,7 @@ mod tests {
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
     struct FederationStateMachineTraceHashView {
+        hash_domain: String,
         schema_version: u16,
         verification_profile: String,
         trace_index: usize,
@@ -3171,6 +3177,7 @@ mod tests {
         capsule: &FederationStateMachineTraceCapsule,
     ) -> FederationStateMachineTraceHashView {
         FederationStateMachineTraceHashView {
+            hash_domain: FEDERATION_STATE_MACHINE_TRACE_BODY_HASH_DOMAIN.into(),
             schema_version: capsule.schema_version,
             verification_profile: capsule.verification_profile.clone(),
             trace_index: capsule.trace_index,
@@ -3187,6 +3194,7 @@ mod tests {
         evidence: &FederationStateMachineEvidence,
     ) -> String {
         let view = FederationStateMachineEvidenceHashView {
+            hash_domain: FEDERATION_STATE_MACHINE_TRACE_EVIDENCE_CHAIN_HASH_DOMAIN.into(),
             step_index: evidence.step_index,
             operation: evidence.operation,
             token: evidence.token,
@@ -4701,6 +4709,38 @@ mod tests {
     }
 
     #[test]
+    fn state_machine_trace_hash_purposes_are_domain_separated() {
+        let capsule_text = state_machine_trace_capsule(21, 6);
+        let capsule =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&capsule_text)
+                .expect("capsule must deserialize");
+        let evidence = capsule.evidence.first().expect("trace must contain evidence");
+
+        assert_ne!(
+            FEDERATION_STATE_MACHINE_TRACE_BODY_HASH_DOMAIN,
+            FEDERATION_STATE_MACHINE_TRACE_EVIDENCE_CHAIN_HASH_DOMAIN
+        );
+        assert!(FEDERATION_STATE_MACHINE_TRACE_BODY_HASH_DOMAIN
+            .bytes()
+            .all(|byte| byte != 0));
+        assert!(FEDERATION_STATE_MACHINE_TRACE_EVIDENCE_CHAIN_HASH_DOMAIN
+            .bytes()
+            .all(|byte| byte != 0));
+
+        let chain_digest = state_machine_evidence_chain_sha256(evidence);
+        assert_ne!(
+            capsule.integrity.body_sha256, chain_digest,
+            "distinct hash purposes must not share an undifferentiated digest domain"
+        );
+        assert!(
+            capsule_text.contains(
+                "\"hash_domain\": \"integral-federation-trace-body-sha256-v1\""
+            ),
+            "serialized trace hash view must expose the body domain identity indirectly through the authenticated record"
+        );
+    }
+
+    #[test]
     fn state_machine_trace_evidence_verifier_is_replay_independent_and_rejects_resealed_boundary_forgery() {
         let capsule_text = state_machine_trace_capsule(18, 10);
         let mut capsule =
@@ -4847,7 +4887,7 @@ mod tests {
     #[test]
     fn state_machine_trace_capsule_is_a_self_validating_evidence_artifact() {
         let capsule_text = state_machine_trace_capsule(3, 8);
-        assert!(capsule_text.contains("\"schema_version\": 4"));
+        assert!(capsule_text.contains("\"schema_version\": 5"));
         assert!(capsule_text.contains(
             "\"verification_profile\": \"integral-federation-state-machine-trace-v1\""
         ));
