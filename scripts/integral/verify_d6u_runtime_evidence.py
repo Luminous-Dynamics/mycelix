@@ -7,6 +7,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).parents[2]
 MANIFEST = ROOT / "docs/integral/d6u-runtime-manifest.json"
+D6S2_FIXTURE = ROOT / "docs/integral/d6s-canon-2-authority-boundary-fixture.json"
 
 
 def main() -> None:
@@ -16,7 +17,10 @@ def main() -> None:
     log_path = Path(sys.argv[1])
     log = log_path.read_text(encoding="utf-8")
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    fixture = json.loads(D6S2_FIXTURE.read_text(encoding="utf-8"))
+    fixture_cases = {case["case_id"]: case for case in fixture["boundary"]}
     expected = set(manifest["supported_reference_cases"])
+    expected_zome_reached = {case_id: fixture_cases[case_id]["zome_reached"] for case_id in expected}
     expected_outcomes = manifest["case_outcomes"]
     assert set(expected_outcomes) == expected
     assert set(expected_outcomes.values()) <= set(manifest["evidence_outcome_classes"])
@@ -26,13 +30,25 @@ def main() -> None:
         if not line.startswith("D6U_CASE\t"):
             continue
         parts = line.split("\t")
-        assert len(parts) == 4 and parts[3] == "PASS", f"malformed case line: {line!r}"
-        case_id, outcome = parts[1], parts[2]
+        assert len(parts) == 5 and parts[4] == "PASS", f"malformed case line: {line!r}"
+        case_id, outcome, reachability = parts[1], parts[2], parts[3]
         assert case_id not in observed, f"duplicate D6U_CASE observation: {case_id}"
-        observed[case_id] = outcome
+        assert reachability in {"zome-reached=true", "zome-reached=false"}, (
+            f"malformed zome reachability for {case_id!r}: {reachability!r}"
+        )
+        observed[case_id] = {
+            "outcome": outcome,
+            "zome_reached": reachability == "zome-reached=true",
+        }
 
     assert set(observed) == expected, f"coverage mismatch: {set(observed) ^ expected}"
-    assert observed == expected_outcomes, f"outcome mismatch: {observed}"
+    observed_outcomes = {case_id: data["outcome"] for case_id, data in observed.items()}
+    observed_reachability = {case_id: data["zome_reached"] for case_id, data in observed.items()}
+    assert observed_outcomes == expected_outcomes, f"outcome mismatch: {observed_outcomes}"
+    assert observed_reachability == expected_zome_reached, (
+        f"zome reachability mismatch: expected={expected_zome_reached}, "
+        f"observed={observed_reachability}"
+    )
 
     expected_application = set(manifest.get("supplemental_application_checks", []))
     application_expected_fragments = {
