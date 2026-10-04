@@ -3227,6 +3227,41 @@ mod linux {
         }
 
         #[test]
+        fn compiled_filter_validator_never_panics_on_arbitrary_streams() {
+            // Treat emitted bytecode as hostile input at the validator boundary:
+            // malformed opcode/offset combinations must reject cleanly rather
+            // than triggering a Rust panic while proving the fail-closed claim.
+            fn next_u32(state: &mut u64) -> u32 {
+                *state = state
+                    .wrapping_mul(6364136223846793005)
+                    .wrapping_add(1442695040888963407);
+                (*state >> 32) as u32
+            }
+
+            let mut state = 0x4d59_4345_4c49_5801u64;
+            for case_index in 0..4096usize {
+                let length = 1 + (next_u32(&mut state) as usize % 96);
+                let mut filter = Vec::with_capacity(length);
+                for _ in 0..length {
+                    filter.push(SockFilter {
+                        code: next_u32(&mut state) as u16,
+                        jt: next_u32(&mut state) as u8,
+                        jf: next_u32(&mut state) as u8,
+                        k: next_u32(&mut state),
+                    });
+                }
+
+                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    validate_compiled_filter(&filter)
+                }));
+                assert!(
+                    result.is_ok(),
+                    "validator panicked on malformed stream case {case_index}"
+                );
+            }
+        }
+
+        #[test]
         fn compiled_filter_rejects_filter_length_above_kernel_bounds() {
             let mut filter = Vec::with_capacity(4097);
             for _ in 0..4096 {
