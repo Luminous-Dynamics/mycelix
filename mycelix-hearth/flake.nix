@@ -15,7 +15,7 @@
     flake-utils.url = "github:numtide/flake-utils";
 
     holonix = {
-      url = "github:holochain/holonix/d21b3543"; # pinned to fixed commit, matches mycelix-workspace root (was moving branch main-0.6)
+      url = "github:holochain/holonix/d21b3543";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
@@ -36,70 +36,86 @@
 
         holochainPackages = holonix.packages.${system};
 
-        holochainBase = import ../../nix/modules/holochain-base.nix {
-          inherit pkgs system;
-          holochainPackages = holochainPackages;
+        rustToolchain = pkgs.rust-bin.stable."1.96.0".default.override {
+          targets = [ "wasm32-unknown-unknown" ];
+          extensions = [ "rust-src" "rust-analyzer" "clippy" ];
         };
+
+        libclangPath = "${pkgs.llvmPackages.libclang.lib}/lib";
+        clangResourceDir =
+          "${pkgs.llvmPackages.clang.cc}/lib/clang/${pkgs.lib.versions.major pkgs.llvmPackages.clang.version}/include";
+        bindgenArgs = builtins.concatStringsSep " " [
+          "-I${pkgs.glibc.dev}/include"
+          "-I${clangResourceDir}"
+        ];
+
+        commonBuildInputs = with pkgs; [
+          rustToolchain
+          holochainPackages.holochain
+          holochainPackages.hc
+          pkg-config
+          openssl
+          openssl.dev
+          cmake
+          gnumake
+          llvmPackages.libclang
+          llvmPackages.clang
+          glibc.dev
+        ];
+
+        hearthEnv = {
+          LIBCLANG_PATH = libclangPath;
+          BINDGEN_EXTRA_CLANG_ARGS = bindgenArgs;
+          OPENSSL_DIR = "${pkgs.openssl.dev}";
+          OPENSSL_LIB_DIR = "${pkgs.openssl.out}/lib";
+          OPENSSL_INCLUDE_DIR = "${pkgs.openssl.dev}/include";
+          PKG_CONFIG_PATH = "${pkgs.openssl.dev}/lib/pkgconfig";
+          RUST_BACKTRACE = "1";
+          RUST_LOG = "info";
+        };
+
+        shellHook = ''
+          echo "Mycelix Hearth — Family/Household/Kinship Coordination"
+          echo "Holochain: $(holochain --version 2>/dev/null || echo 'loading...')"
+          echo "hc:        $(hc --version 2>/dev/null || echo 'loading...')"
+          echo "Rust:      $(rustc --version)"
+        '';
 
       in {
         devShells = {
-          default = holochainBase.mkHolochainShell {
-            name = "hearth";
-            extraBuildInputs = with pkgs; [ nodejs_20 ];
-            extraShellHook = ''
-              echo "Mycelix Hearth — Family/Household/Kinship Coordination"
-              echo ""
-              echo "Domains:"
-              echo "  hearth-kinship/     - Core membership + kinship bonds"
-              echo "  hearth-gratitude/   - Gratitude expressions + circles"
-              echo "  hearth-stories/     - Family stories + traditions"
-              echo "  hearth-care/        - Care schedules + meal plans"
-              echo "  hearth-autonomy/    - Graduated autonomy for minors"
-              echo "  hearth-emergency/   - Emergency plans + alerts"
-              echo "  hearth-decisions/   - Family decisions + voting"
-              echo "  hearth-resources/   - Shared resources + budgets"
-              echo "  hearth-milestones/  - Life milestones + transitions"
-              echo "  hearth-rhythms/     - Daily/weekly rhythms + presence"
-              echo "  hearth-bridge/      - Cross-cluster integration"
-              echo ""
-              echo "Commands:"
-              echo "  cargo build                                     - Build library crates"
-              echo "  cargo build --release --target wasm32-unknown-unknown - Build WASM zomes"
-              echo "  cargo test                                      - Run unit tests"
-              echo ""
-            '';
-          };
-
-          ci = pkgs.mkShell {
-            name = "mycelix-hearth-ci";
-            buildInputs = with pkgs; [
-              holochainPackages.holochain
-              holochainPackages.hc
-              holochainBase.rustToolchain
-              pkg-config
-              openssl
-              openssl.dev
-            ];
-
-            inherit (holochainBase.envVars)
+          default = pkgs.mkShell ({
+            name = "mycelix-hearth";
+            buildInputs = commonBuildInputs ++ [ pkgs.nodejs_20 ];
+            inherit (hearthEnv)
               LIBCLANG_PATH BINDGEN_EXTRA_CLANG_ARGS
-              OPENSSL_DIR OPENSSL_LIB_DIR OPENSSL_INCLUDE_DIR;
-          };
+              OPENSSL_DIR OPENSSL_LIB_DIR OPENSSL_INCLUDE_DIR
+              PKG_CONFIG_PATH RUST_BACKTRACE RUST_LOG;
+            inherit shellHook;
+          });
+
+          ci = pkgs.mkShell ({
+            name = "mycelix-hearth-ci";
+            buildInputs = commonBuildInputs;
+            inherit (hearthEnv)
+              LIBCLANG_PATH BINDGEN_EXTRA_CLANG_ARGS
+              OPENSSL_DIR OPENSSL_LIB_DIR OPENSSL_INCLUDE_DIR
+              PKG_CONFIG_PATH RUST_BACKTRACE RUST_LOG;
+          });
         };
 
         packages = {
           zomes = pkgs.stdenv.mkDerivation {
             name = "mycelix-hearth-zomes";
             src = ./.;
-            nativeBuildInputs = [ holochainBase.rustToolchain pkgs.pkg-config ];
-            buildInputs = [ pkgs.openssl ];
+            nativeBuildInputs = [ rustToolchain pkgs.pkg-config ];
+            buildInputs = [ pkgs.openssl pkgs.openssl.dev ];
             buildPhase = ''
               export HOME=$TMPDIR
-              cargo build --release --target wasm32-unknown-unknown
+              cargo build --release --target wasm32-unknown-unknown --workspace
             '';
             installPhase = ''
               mkdir -p $out/lib
-              find target/wasm32-unknown-unknown/release -name "*.wasm" -exec cp {} $out/lib/ \;
+              find target/wasm32-unknown-unknown/release -name "*.wasm" -exec cp {} $out/lib/ ;
             '';
           };
         };
