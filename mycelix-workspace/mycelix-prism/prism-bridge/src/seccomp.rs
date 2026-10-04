@@ -710,13 +710,42 @@ mod linux {
                                         && instruction.k == SECCOMP_RET_ALLOW
                                 })
                                 .map(|(allow_index, _)| allow_index);
-                            // A disjunctive predicate may fall through only to
-                            // the instruction immediately after its own clause's
-                            // ALLOW. Requiring the nearest subsequent ALLOW closes
-                            // a shape that could otherwise skip complete clauses.
-                            let after_immediate_allow = next_allow
-                                .and_then(|allow_index| allow_index.checked_add(1))
-                                == Some(target);
+
+                            // The "after ALLOW" edge belongs only to a
+                            // disjunctive clause: its ALLOW is the clause
+                            // boundary and the next instruction is the next
+                            // alternative/rule dispatch. A single-clause rule
+                            // must fail through its local EPERM path instead;
+                            // otherwise a forged predicate edge could turn a
+                            // single-clause denial into a fall-through allow.
+                            let containing_dispatch = dispatch_indices
+                                .iter()
+                                .rev()
+                                .find(|&&dispatch| dispatch < index)
+                                .copied();
+                            let next_dispatch = containing_dispatch
+                                .and_then(|dispatch| {
+                                    dispatch_indices
+                                        .iter()
+                                        .copied()
+                                        .find(|&candidate| candidate > dispatch)
+                                });
+                            let allow_count_before_next_dispatch = next_allow.map_or(0, |allow_index| {
+                                filter
+                                    .iter()
+                                    .take(next_dispatch.unwrap_or(filter.len()))
+                                    .enumerate()
+                                    .skip(containing_dispatch.unwrap_or(0) + 1)
+                                    .filter(|(_, instruction)| {
+                                        instruction.code == BPF_RET | BPF_K
+                                            && instruction.k == SECCOMP_RET_ALLOW
+                                    })
+                                    .count()
+                            });
+                            let after_immediate_allow = allow_count_before_next_dispatch > 1
+                                && next_allow
+                                    .and_then(|allow_index| allow_index.checked_add(1))
+                                    == Some(target);
 
                             if offset != 0
                                 && !local_epem
@@ -3190,6 +3219,41 @@ mod linux {
             filter[first_predicate].jt = u8::try_from(
                 first_clause_allow - first_predicate - 1
             ).unwrap();
+
+            assert!(matches!(
+                validate_compiled_filter(&filter),
+                Err(SeccompError::CompilerInvariantViolation)
+            ));
+        }
+
+        #[test]
+        fn compiled_filter_rejects_single_clause_predicate_jump_past_allow() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let rule = SeccompSyscallRuleV2::new(
+                libc::SYS_socket,
+                vec![
+                    SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_UNIX as u64).unwrap(),
+                    SeccompArgPredicateV1::new(1, u64::MAX, 7).unwrap(),
+                ],
+            ).unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+            let mut filter = compile_filter_v2(&policy).unwrap();
+
+            let predicate = filter.iter().position(|instruction| {
+                instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                    && instruction.k == libc::AF_UNIX as u32
+            }).unwrap();
+            let allow = filter.iter().enumerate().skip(predicate + 1).find_map(
+                |(index, instruction)| {
+                    (instruction.code == BPF_RET | BPF_K
+                        && instruction.k == SECCOMP_RET_ALLOW).then_some(index)
+                }
+            ).unwrap();
+
+            // A single-clause predicate cannot use the disjunctive "next
+            // clause" edge. Jumping directly after this rule's ALLOW would
+            // bypass the remaining predicate and is therefore invalid.
+            filter[predicate].jf = u8::try_from(allow + 1 - predicate - 1).unwrap();
 
             assert!(matches!(
                 validate_compiled_filter(&filter),
