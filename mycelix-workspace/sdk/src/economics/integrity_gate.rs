@@ -53,6 +53,20 @@ pub struct EconomicActionScope {
 }
 
 impl EconomicActionScope {
+    /// Return true when the new scope removes previously required dimensions.
+    ///
+    /// This is a conservative coverage test only. It intentionally does not
+    /// attempt to decide whether changes to policy text or purpose are tighter
+    /// or looser.
+    pub fn reduces_coverage(&self, previous: &Self) -> bool {
+        let previous: std::collections::BTreeSet<_> =
+            previous.required_dimensions.iter().copied().collect();
+        let current: std::collections::BTreeSet<_> =
+            self.required_dimensions.iter().copied().collect();
+
+        current.is_subset(&previous) && current.len() < previous.len()
+    }
+
     /// Return a deterministic SHA-256 fingerprint of the complete scope.
     ///
     /// The version prefix makes the canonicalization scheme explicit. All
