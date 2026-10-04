@@ -128,14 +128,28 @@ await mustReject('tampered presentation proof', () => vc.verify({
   documentLoader
 }));
 
-const issuerKeyMethod = fixture.issuerDidDocument?.verificationMethod?.[0];
+const credentialVerificationMethodId = fixture.credential?.proof?.verificationMethod;
+if(typeof credentialVerificationMethodId !== 'string' || !credentialVerificationMethodId) {
+  throw new Error('fixture credential proof.verificationMethod is required');
+}
+const issuerKeyMethod = fixture.issuerDidDocument?.verificationMethod?.find(
+  method => method.id === credentialVerificationMethodId
+);
 if(!issuerKeyMethod?.publicKeyMultibase) {
-  throw new Error('fixture issuer verification method publicKeyMultibase is required');
+  throw new Error(
+    'fixture issuer verification method for credential proof.verificationMethod is required'
+  );
+}
+const issuerKeyIndex = fixture.issuerDidDocument.verificationMethod.findIndex(
+  method => method.id === credentialVerificationMethodId
+);
+if(issuerKeyIndex < 0) {
+  throw new Error('credential proof verification method is absent from issuer DID document');
 }
 const tamperedIssuerDocument = structuredClone(fixture.issuerDidDocument);
-tamperedIssuerDocument.verificationMethod[0].publicKeyMultibase =
-  tamperedIssuerDocument.verificationMethod[0].publicKeyMultibase.slice(0, -1) +
-  (tamperedIssuerDocument.verificationMethod[0].publicKeyMultibase.endsWith('A') ? 'B' : 'A');
+tamperedIssuerDocument.verificationMethod[issuerKeyIndex].publicKeyMultibase =
+  tamperedIssuerDocument.verificationMethod[issuerKeyIndex].publicKeyMultibase.slice(0, -1) +
+  (tamperedIssuerDocument.verificationMethod[issuerKeyIndex].publicKeyMultibase.endsWith('A') ? 'B' : 'A');
 
 const tamperedLoader = securityLoader();
 for(const [url, document] of credentialContexts) tamperedLoader.addStatic(url, document);
