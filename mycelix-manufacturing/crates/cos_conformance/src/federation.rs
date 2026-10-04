@@ -2530,6 +2530,7 @@ mod tests {
         Absent,
         ForgedSourceObservation,
         ConflictExistingDelivery,
+        InjectDeliveryMapCorruption,
     }
 
     impl FederationStateMachineOperation {
@@ -2809,7 +2810,7 @@ mod tests {
         plan: &[(FederationStateMachineOperation, u64)],
     ) -> Option<FederationStateMachineFailureCapsule> {
         let payload = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            run_state_machine_trace_plan_unshrunk(plan)
+            run_state_machine_trace_plan_core(plan, false)
         }))
         .err()?;
 
@@ -2831,7 +2832,7 @@ mod tests {
         plan: &[(FederationStateMachineOperation, u64)],
     ) -> Vec<FederationStateMachineEvidence> {
         match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            run_state_machine_trace_plan_unshrunk(plan)
+            run_state_machine_trace_plan_core(plan, true)
         })) {
             Ok(evidence) => evidence,
             Err(payload) => match payload.downcast::<FederationStateMachineInvariantFailure>() {
@@ -2841,8 +2842,9 @@ mod tests {
         }
     }
 
-    fn run_state_machine_trace_plan_unshrunk(
+    fn run_state_machine_trace_plan_core(
         plan: &[(FederationStateMachineOperation, u64)],
+        shrink_on_failure: bool,
     ) -> Vec<FederationStateMachineEvidence> {
         let mut state = nodes();
         let mut admitted = Vec::<FederationEnvelope>::new();
@@ -3151,13 +3153,17 @@ mod tests {
                     authority = Some(outcome.authority());
                     assert_eq!(canonical_state_fingerprint(&state), before_conflict);
                 }
+                FederationStateMachineOperation::InjectDeliveryMapCorruption => {
+                    let record = state.deliveries.remove("sm-delivery-AdmitLocal-1").unwrap();
+                    state.deliveries.insert("corrupt-delivery-key".into(), record);
+                }
             }
 
             if validate_state(&state).is_err() {
                 let audit = audit_state(&state);
-                let capsule = FederationStateMachineFailureCapsule::for_invariant_failure(
+                let mut capsule = FederationStateMachineFailureCapsule::for_invariant_failure(
                     trace_index,
-                    &plan,
+                    plan,
                     step_index,
                     operation,
                     token,
@@ -3165,7 +3171,6 @@ mod tests {
                     before.clone(),
                     canonical_state_fingerprint(&state),
                 );
-                let mut capsule = capsule;
                 capsule.expected_decision = match operation {
                     FederationStateMachineOperation::AdmitLocal
                     | FederationStateMachineOperation::AdmitWithPredecessor => {
@@ -3210,11 +3215,29 @@ mod tests {
                 };
                 capsule.observed_decision = decision;
                 capsule.observed_authority = authority;
-                panic!(
-                    "state-machine invariant failure; replay capsule follows:\\n{}",
-                    capsule.to_json()
-                );
 
+                if shrink_on_failure {
+                    let failing_prefix = &plan[..=step_index];
+                    let target_violations = capsule.observed_violations.clone();
+                    let target_operation = capsule.operation;
+                    let target_token = capsule.token;
+                    let minimized = shrink_failing_state_machine_plan(
+                        failing_prefix,
+                        |candidate| {
+                            invariant_failure_from_plan(candidate).is_some_and(|candidate_failure| {
+                                candidate_failure.observed_violations == target_violations
+                                    && candidate_failure.operation == target_operation
+                                    && candidate_failure.token == target_token
+                            })
+                        },
+                    );
+
+                    if let Some(minimized_failure) = invariant_failure_from_plan(&minimized) {
+                        panic_any_invariant_failure(minimized_failure);
+                    }
+                }
+
+                panic_any_invariant_failure(capsule);
             }
 
             evidence.push(FederationStateMachineEvidence {
@@ -3226,6 +3249,60 @@ mod tests {
         }
 
         evidence
+    }
+
+    #[test]
+    fn state_machine_invariant_failure_path_emits_a_minimal_capsule() {
+        let plan = vec![
+            (FederationStateMachineOperation::AdmitLocal, 1),
+            (FederationStateMachineOperation::RecordObservation, 2),
+            (FederationStateMachineOperation::InjectDeliveryMapCorruption, 3),
+            (FederationStateMachineOperation::Partition, 4),
+        ];
+
+        let payload = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            run_state_machine_trace_plan_core(&plan, true);
+        }))
+        .expect_err("intentional invariant corruption must produce a typed failure");
+
+        let failure = payload
+            .downcast::<FederationStateMachineInvariantFailure>()
+            .expect("failure path must preserve the typed capsule");
+
+        assert_eq!(
+            failure.0.observed_violations,
+            vec![(
+                FederationInvariantId::DeliveryMapIdentity,
+                FederationInvariantViolation::DeliveryMapKeyMismatch,
+            )]
+        );
+        assert_eq!(
+            failure.0.trace.operations,
+            vec![
+                FederationStateMachineOperation::AdmitLocal,
+                FederationStateMachineOperation::InjectDeliveryMapCorruption,
+            ]
+        );
+        assert_eq!(
+            failure.0.trace.tokens,
+            vec![1, 3]
+        );
+        assert_eq!(failure.0.failed_step_index, 1);
+        assert_eq!(failure.0.operation, FederationStateMachineOperation::InjectDeliveryMapCorruption);
+        assert_eq!(failure.0.token, 3);
+        assert!(failure.0.pre_state_fingerprint != failure.0.post_state_fingerprint);
+
+        for index in 0..failure.0.trace.operations.len() {
+            let mut reduced = failure.0.trace.operations.clone();
+            let mut tokens = failure.0.trace.tokens.clone();
+            reduced.remove(index);
+            tokens.remove(index);
+            let candidate = reduced.into_iter().zip(tokens.into_iter()).collect::<Vec<_>>();
+            assert!(
+                invariant_failure_from_plan(&candidate).is_none(),
+                "capsule is not minimal after removing step {index}"
+            );
+        }
     }
 
     #[test]
