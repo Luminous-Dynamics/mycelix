@@ -673,6 +673,37 @@ mod tests {
     }
 
     #[test]
+    fn forged_vote_entry_timestamp_does_not_bypass_deadline() {
+        let mut decision = make_decision("Test", vec!["A", "B"]);
+        decision.deadline = Timestamp::from_micros(2_000_000);
+
+        let mut vote = make_vote(0, 10000);
+        vote.created_at = Timestamp::from_micros(99_000_000);
+
+        assert!(matches!(
+            validate_vote_against_decision(
+                &vote,
+                &decision,
+                decision.created_at,
+                Timestamp::from_micros(1_500_000),
+            )
+            .unwrap(),
+            ValidateCallbackResult::Valid
+        ));
+
+        assert!(matches!(
+            validate_vote_against_decision(
+                &vote,
+                &decision,
+                decision.created_at,
+                Timestamp::from_micros(2_000_001),
+            )
+            .unwrap(),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
     fn valid_decision_passes() {
         let d = make_decision("Where to eat?", vec!["Pizza", "Tacos"]);
         assert!(matches!(
