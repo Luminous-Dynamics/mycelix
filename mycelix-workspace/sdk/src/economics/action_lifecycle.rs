@@ -184,7 +184,7 @@ impl EconomicActionLifecycle {
             kind: EconomicActionChangeKind::Initial,
             predecessor_revision_id: None,
             predecessor_scope_id: None,
-            authority_ref: authority_ref.into(),
+            authority_ref: amendment_authority,
             evidence_refs,
             recorded_at,
         };
@@ -394,6 +394,7 @@ impl EconomicActionLifecycle {
         }
 
         let new_scope_fingerprint = new_scope.fingerprint()?;
+        let amendment_authority = authority_ref.into();
         if new_scope.action_ref != self.action_ref {
             return Err("Scope amendment must retain the lifecycle action reference".into());
         }
@@ -401,7 +402,7 @@ impl EconomicActionLifecycle {
             return Err("Scope amendment must create a new scope ID".into());
         }
         if new_scope.reduces_coverage(previous_scope)
-            && authority_ref.into() == previous_scope.authority_ref
+            && amendment_authority == previous_scope.authority_ref
         {
             return Err(
                 "Coverage-reducing scope amendments require a different authority reference"
@@ -783,10 +784,33 @@ mod tests {
 
     #[test]
     fn coverage_reducing_amendment_requires_different_authority() {
-        let mut lifecycle = start();
-        let previous = scope("action:1", "scope:1");
+        let previous = EconomicActionScope {
+            scope_id: "scope:1".into(),
+            action_ref: "action:1".into(),
+            purpose: DistributionPurpose::Discretionary,
+            required_dimensions: vec![
+                SubstrateDimension::Financial,
+                SubstrateDimension::Ecological,
+            ],
+            policy_ref: "policy:action-scope:v1".into(),
+            authority_ref: "authority:dao-1".into(),
+            attestation_ref: "attestation:scope:1".into(),
+            evidence_refs: vec!["evidence:scope:1".into()],
+            declared_at: 1_000,
+        };
         let mut reduced = previous.clone();
         reduced.scope_id = "scope:2".into();
+        reduced.required_dimensions = vec![SubstrateDimension::Financial];
+        reduced.declared_at = 1_100;
+
+        let mut lifecycle = EconomicActionLifecycle::start(
+            &previous,
+            "revision:1",
+            "authority:dao-1",
+            vec!["evidence:revision-1".into()],
+            1_000,
+        )
+        .unwrap();
 
         let result = lifecycle.amend_scope(
             &previous,
@@ -797,8 +821,26 @@ mod tests {
             1_100,
         );
 
-        // One-dimensional fixture cannot reduce coverage; the explicit rule is
-        // exercised by a two-dimensional scope in the next test.
+        assert!(result.is_err());
+
+        let mut lifecycle = EconomicActionLifecycle::start(
+            &previous,
+            "revision:1b",
+            "authority:dao-1",
+            vec!["evidence:revision-1b".into()],
+            1_000,
+        )
+        .unwrap();
+
+        let result = lifecycle.amend_scope(
+            &previous,
+            &reduced,
+            "revision:2b",
+            "authority:independent-1",
+            vec!["evidence:relaxation-approved".into()],
+            1_100,
+        );
+
         assert!(result.is_ok());
     }
 
