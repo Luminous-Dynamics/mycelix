@@ -483,10 +483,9 @@ fn collect_tally_evidence(
         let record = get_latest_record(target.clone())?.ok_or(wasm_error!(
             WasmErrorInner::Guest("Tally vote evidence record not found".into())
         ))?;
-        {
-            let entry_type = record.action().entry_type().ok_or(wasm_error!(
-                WasmErrorInner::Guest("Tally target has no application entry type".into())
-            ))?;
+        let entry_type = record.action().entry_type().ok_or(wasm_error!(
+            WasmErrorInner::Guest("Tally target has no application entry type".into())
+        ))?;
             let EntryType::App(app_entry_def) = entry_type else {
                 return Err(wasm_error!(WasmErrorInner::Guest(
                     "Tally target must be an application Vote entry".into()
@@ -523,9 +522,8 @@ fn collect_tally_evidence(
                 )));
             }
 
-            let current = tallies.entry(vote.choice).or_insert(0);
-            *current = current.saturating_add(vote.weight_bp);
-        }
+        let current = tallies.entry(vote.choice).or_insert(0);
+        *current = current.saturating_add(vote.weight_bp);
     }
 
     vote_refs.sort_by_key(|hash| hash.get_raw_36().to_vec());
