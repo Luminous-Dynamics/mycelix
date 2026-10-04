@@ -1563,6 +1563,7 @@ mod tests {
     }
 
     #[derive(Debug, Deserialize)]
+    #[serde(deny_unknown_fields)]
     struct GoldenExpectedV1 {
         status: DependencyClosureStatusV1,
         included_node_ids: Vec<String>,
@@ -1609,6 +1610,11 @@ mod tests {
             .iter()
             .map(|vector| vector.id.as_str())
             .collect::<BTreeSet<_>>();
+        assert_eq!(
+            ids.len(),
+            corpus.vectors.len(),
+            "D6X golden vector IDs must be unique; duplicate IDs would be order-dependent"
+        );
 
         for vector in &corpus.vectors {
             assert!(!vector.id.is_empty());
