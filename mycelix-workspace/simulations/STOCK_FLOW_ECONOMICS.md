@@ -1475,6 +1475,39 @@ This is an integrity constraint only. It does not add behavioral equations or im
 particular sector should hold a particular amount of debt or liquidity.
 
 
+## Counterparty debt provenance overlay (implemented)
+
+The aggregate economic state deliberately stores loan claims and debt liabilities as actor-level
+stocks, but those totals do not by themselves prove the creditor/debtor relationship behind each
+outstanding amount. The opt-in CounterpartyDebtRegister closes that narrower provenance gap without
+pretending that the existing state schema already contains full debt contracts.
+
+A register contains explicit lender/borrower positions and outstanding principal. It can be checked
+against an opening EconomicState so every actor's outgoing positions equal its loan claims and every
+actor's incoming positions equal its debt liabilities. It can then replay the ordered debt-affecting
+transition subset, requiring repayment, unilateral write-off, and bilateral forgiveness to extinguish
+principal from the exact stated counterparties.
+
+This catches a class of errors that aggregate accounting cannot: a repayment can no longer be
+accepted merely because the lender has enough total claims and the borrower has enough total debt;
+the corresponding counterparty position must actually exist in the supplied provenance register.
+
+The register is intentionally an overlay at this stage. It is not yet embedded in EconomicState,
+because doing so would require a deliberate state-schema migration for historical debt positions.
+It also does not provide a full contract identity: instrument identifiers, maturity, interest rate,
+currency, collateral, and other terms remain future fields required for rescheduling, refinancing,
+and debt-assumption semantics. The 2025 SNA treats rescheduling as extinction of the old contract and
+creation of a new debt contract with new terms, so aggregate debt totals are not an adequate model
+for that phase. 
+
+The provenance path is now:
+
+ordered transitions + opening debt register + opening state
+-> exact counterparty replay
+-> actor-level loan/debt stock agreement
+
+This is an accounting-integrity layer, not a behavioral rule.
+
 ## Canonical transition mutation dispatch (implemented)
 
 Transition mutation is now dispatched through one canonical `EconomicTransition::apply_to_state`
