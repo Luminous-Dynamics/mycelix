@@ -2338,21 +2338,21 @@ mod tests {
         let _ = set_hdi(ErrHdi);
 
         assert!(result.is_err(), "recording HDI intentionally stops the call");
-        assert_eq!(calls.lock().unwrap().as_slice(), [address]);
-        assert_eq!(calls.lock().unwrap().len(), 1);
-        assert_eq!(expected_call_for(&calls.lock().unwrap()[0]), expected_call);
+        let recorded = calls.lock().unwrap();
+        assert_eq!(recorded.len(), 1);
+        assert_eq!(recorded[0].function, expected_call);
+        assert_eq!(recorded[0].address, address);
     }
 
-    fn expected_call_for(call: &HolochainDependencyAddress) -> &'static str {
-        match call {
-            HolochainDependencyAddress::Action(_) => "must_get_action",
-            HolochainDependencyAddress::Entry(_) => "must_get_entry",
-        }
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    struct RecordedDispatch {
+        function: &'static str,
+        address: HolochainDependencyAddress,
     }
 
     #[derive(Debug)]
     struct DispatchRecordingHdi {
-        calls: Arc<Mutex<Vec<HolochainDependencyAddress>>>,
+        calls: Arc<Mutex<Vec<RecordedDispatch>>>,
     }
 
     #[test]
@@ -2392,9 +2392,12 @@ mod tests {
         let _ = set_hdi(ErrHdi);
 
         assert!(result.is_err(), "recording HDI intentionally stops the first host call");
+        let recorded = calls.lock().unwrap();
+        assert_eq!(recorded.len(), 1);
+        assert_eq!(recorded[0].function, "must_get_action");
         assert_eq!(
-            calls.lock().unwrap().as_slice(),
-            [HolochainDependencyAddress::Action(action_hash(60))]
+            recorded[0].address,
+            HolochainDependencyAddress::Action(action_hash(60))
         );
     }
 
@@ -2409,10 +2412,10 @@ mod tests {
         }
 
         fn must_get_entry(&self, input: MustGetEntryInput) -> ExternResult<EntryHashed> {
-            self.calls
-                .lock()
-                .unwrap()
-                .push(HolochainDependencyAddress::Entry(input.into_inner()));
+            self.calls.lock().unwrap().push(RecordedDispatch {
+                function: "must_get_entry",
+                address: HolochainDependencyAddress::Entry(input.into_inner()),
+            });
             panic!("test stop after recording must_get_entry");
         }
 
@@ -2420,10 +2423,10 @@ mod tests {
             &self,
             input: MustGetActionInput,
         ) -> ExternResult<SignedActionHashed> {
-            self.calls
-                .lock()
-                .unwrap()
-                .push(HolochainDependencyAddress::Action(input.into_inner()));
+            self.calls.lock().unwrap().push(RecordedDispatch {
+                function: "must_get_action",
+                address: HolochainDependencyAddress::Action(input.into_inner()),
+            });
             panic!("test stop after recording must_get_action");
         }
 
@@ -2431,10 +2434,10 @@ mod tests {
             &self,
             input: MustGetValidRecordInput,
         ) -> ExternResult<Record> {
-            self.calls
-                .lock()
-                .unwrap()
-                .push(HolochainDependencyAddress::Action(input.into_inner()));
+            self.calls.lock().unwrap().push(RecordedDispatch {
+                function: "must_get_valid_record",
+                address: HolochainDependencyAddress::Action(input.into_inner()),
+            });
             panic!("test stop after recording must_get_valid_record");
         }
 
