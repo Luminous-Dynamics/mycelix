@@ -49,7 +49,7 @@ The losing candidate is preserved rather than erased.
 
 ## Validation boundary
 
-The integrity callback uses deterministic, hash-addressed dependencies only: `must_get_valid_record` and `must_get_action`. Holochain documents these as deterministic validation dependencies, while collection-style reads are not suitable for validation because they can change over time. citeturn643763search1turn643763search3
+The integrity callback uses deterministic, hash-addressed dependencies only: `must_get_valid_record` and `must_get_action`. Holochain documents these as deterministic validation dependencies, while collection-style reads are not suitable for validation because they can change over time.
 
 The update lineage is followed from the declared basis action back through `Update.original_action_address` until the root `Create` action. The root must equal `DecisionOutcome.decision_hash`.
 
