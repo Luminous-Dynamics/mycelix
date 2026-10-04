@@ -477,7 +477,7 @@ jobs:
             'impl[[:space:]]+(Debug|Clone|Copy|PartialEq|Eq|Serialize|Deserialize)[[:space:]]+for[[:space:]]+(VerificationEvidence|VerifiedCapability|AuthorizationPermit|EnforcementRequest)' \
             '#\[derive\([^]]*(Debug|PartialEq|Eq)[^]]*\)\][[:space:]]*pub struct VerificationEvidence' \
             '#\[derive\([^]]*(Debug|Clone|Copy|PartialEq|Eq|Serialize|Deserialize)[^]]*\)\][[:space:]]*pub struct AuthorizationPermit' \
-            '#\[derive\([^]]*(Debug|Clone|Copy|PartialEq|Eq|Serialize|Deserialize)[^]]*\)\][[:space:]]*pub struct EnforcementRequest'
+            '#\[derive\([^]]*(Debug|Clone|Copy|PartialEq|Eq|Serialize|Deserialize)[^]]*\)\][[:space:]]*pub struct EnforcementRequest' \
             '#\[derive\([^]]*(Debug|Clone|Copy|PartialEq|Eq|Serialize|Deserialize)[^]]*\)\][[:space:]]*pub struct VerifiedCapability'; do
             if grep -nzE "$pattern" crates/mycelix-bridge-common/src/security_kernel.rs; then
               echo "security-kernel serialization/linear-token regression: $pattern" >&2
