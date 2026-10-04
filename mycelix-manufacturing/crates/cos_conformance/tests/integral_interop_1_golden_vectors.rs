@@ -1,6 +1,6 @@
 use cos_conformance::canonical_derivation_receipt::{canonical_bytes, canonical_sha256, D6S_REFERENCE_CANONICALIZATION_VERSION};
 use cos_conformance::contestable_finality::{
-    ObservationAssessmentV1, ObservationIndependenceV1, ObservationClassificationV1,
+    ObservationAssessmentV1, ObservationIndependenceV1,
     ExternalObserverProfileV1, ExternalObservationSetV1, ExternalObservedEvidenceV1,
     ExternalObserverRoleV1,
 };
@@ -142,7 +142,7 @@ fn upstream_hash(domain_id: &str, payload: &[u8]) -> String {
     format!("{:x}", hasher.finalize())
 }
 
-fn vector(fixture: &UpstreamFixture, id: &str) -> &UpstreamVector {
+fn vector<'a>(fixture: &'a UpstreamFixture, id: &str) -> &'a UpstreamVector {
     fixture
         .vectors
         .iter()
@@ -215,25 +215,34 @@ fn upstream_d6m_to_d6p_golden_vectors_are_exact_and_linked() {
 
     let d6m = vector(&fixture, "d6m-observation");
     let observation = golden_d6m_observation();
-    let d6m_payload = serde_json::to_vec(&(
-        &observation.observation_id,
-        &observation.effect_id,
-        &observation.effect_lineage_id,
-        &observation.lifecycle_generation_id,
-        &observation.route_id,
-        &observation.provider_id,
-        &observation.provider_operation_id,
-        &observation.provider_profile_root,
-        &observation.provider_outcome_id,
-        &observation.request_commitment,
-        &observation.idempotency_key,
-        &observation.semantic_environment_root,
-        &observation.observed_frontier_root,
-        &observation.observed_state,
-        &observation.source,
-        &observation.evidence_root,
-        &observation.claim_ceiling,
-    )).expect("D6M tuple serialization must succeed");
+    let d6m_payload = serde_json::to_vec(&vec![
+        serde_json::to_value(&observation.observation_id).expect("observation id must serialize"),
+        serde_json::to_value(&observation.effect_id).expect("effect id must serialize"),
+        serde_json::to_value(&observation.effect_lineage_id)
+            .expect("effect lineage id must serialize"),
+        serde_json::to_value(&observation.lifecycle_generation_id)
+            .expect("lifecycle generation id must serialize"),
+        serde_json::to_value(&observation.route_id).expect("route id must serialize"),
+        serde_json::to_value(&observation.provider_id).expect("provider id must serialize"),
+        serde_json::to_value(&observation.provider_operation_id)
+            .expect("provider operation id must serialize"),
+        serde_json::to_value(&observation.provider_profile_root)
+            .expect("provider profile root must serialize"),
+        serde_json::to_value(&observation.provider_outcome_id)
+            .expect("provider outcome id must serialize"),
+        serde_json::to_value(&observation.request_commitment)
+            .expect("request commitment must serialize"),
+        serde_json::to_value(&observation.idempotency_key)
+            .expect("idempotency key must serialize"),
+        serde_json::to_value(&observation.semantic_environment_root)
+            .expect("semantic environment root must serialize"),
+        serde_json::to_value(&observation.observed_frontier_root)
+            .expect("observed frontier root must serialize"),
+        serde_json::to_value(&observation.observed_state).expect("observed state must serialize"),
+        serde_json::to_value(&observation.source).expect("source must serialize"),
+        serde_json::to_value(&observation.evidence_root).expect("evidence root must serialize"),
+        serde_json::to_value(&observation.claim_ceiling).expect("claim ceiling must serialize"),
+    ]).expect("D6M array serialization must succeed");
     assert_eq!(
         String::from_utf8(d6m_payload).expect("D6M payload must be UTF-8"),
         d6m.preimage_payload_utf8
