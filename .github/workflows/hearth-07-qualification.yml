@@ -280,7 +280,7 @@ jobs:
           nix develop .#ci --command bash -c             'set -o pipefail; cd tests && cargo test --locked --release --test sweettest_semantic_validation -- --include-ignored --test-threads=1 2>&1 | tee ../qualification-sweettest.log'
 
       - name: Capture immutable qualification evidence
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           set -u
 
@@ -460,7 +460,7 @@ PY
           echo "evidence_capture_status=${evidence_status}"
 
       - name: Capture qualification metadata
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           root="${GITHUB_WORKSPACE}"
           hearth="${root}/mycelix-workspace/mycelix-hearth"
@@ -496,7 +496,7 @@ PY
           } > "${hearth}/qualification-metadata.txt"
 
       - name: Upload qualification evidence
-        if: always()
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         with:
           name: hearth-07-qualification-${{ env.QUALIFY_SHA }}
