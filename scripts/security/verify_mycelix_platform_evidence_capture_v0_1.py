@@ -388,6 +388,7 @@ def validate_semantics(manifest: dict[str, Any]) -> tuple[str, str]:
             "reconstruction_file_sha256",
             "reconstruction_input_sha256",
             "observed_pcr_values_file_sha256",
+            "raw_eventlog_output_sha256",
             "tss_version_evidence_sha256",
             "ek_public_sha256",
         ),
