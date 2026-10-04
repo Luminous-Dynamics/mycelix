@@ -1644,6 +1644,57 @@ mod tests {
     }
 
     #[test]
+    fn admission_ordinal_advances_only_for_successful_new_deliveries() {
+        let mut state = nodes();
+        assert_eq!(state.next_admission_index, 0);
+
+        let first = envelope();
+        assert_eq!(
+            deliver(&mut state, &first, 50, true).decision(),
+            FederationDecision::AcceptedLocal
+        );
+        assert_eq!(state.next_admission_index, 1);
+        assert_eq!(
+            state.delivery("delivery-1").unwrap().admission_index(),
+            0
+        );
+
+        let mut retry = first.clone();
+        retry.attempt_id = "attempt-admission-retry".into();
+        assert_eq!(
+            deliver(&mut state, &retry, 50, true).decision(),
+            FederationDecision::Duplicate
+        );
+        assert_eq!(state.next_admission_index, 1);
+
+        let mut expired = envelope();
+        expired.envelope_id = "env-admission-expired".into();
+        expired.logical_delivery_id = "delivery-admission-expired".into();
+        expired.attempt_id = "attempt-admission-expired".into();
+        expired.expires_at = Some(50);
+        assert_eq!(
+            deliver(&mut state, &expired, 50, true).decision(),
+            FederationDecision::ExpiredAuthorization
+        );
+        assert_eq!(state.next_admission_index, 1);
+
+        let mut second = envelope();
+        second.envelope_id = "env-admission-second".into();
+        second.logical_delivery_id = "delivery-admission-second".into();
+        second.attempt_id = "attempt-admission-second".into();
+        assert_eq!(
+            deliver(&mut state, &second, 50, true).decision(),
+            FederationDecision::AcceptedLocal
+        );
+        assert_eq!(state.next_admission_index, 2);
+        assert_eq!(
+            state.delivery("delivery-admission-second").unwrap().admission_index(),
+            1
+        );
+        assert_eq!(validate_state(&state), Ok(()));
+    }
+
+    #[test]
     fn validate_state_accepts_admitted_state_and_canonical_fingerprint_is_stable() {
         let mut state = nodes();
         assert_eq!(validate_state(&state), Ok(()));
