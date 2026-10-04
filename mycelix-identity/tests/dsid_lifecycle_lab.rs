@@ -3562,3 +3562,170 @@ async fn dsid_040_request_claims_are_bound_to_issued_credential() {
     );
 }
 
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_041_w3c_jcs_presentation_is_challenge_bound() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let issuer_app = conductor
+        .setup_app("dsid-vp-jcs-issuer", std::slice::from_ref(&dna))
+        .await
+        .unwrap();
+    let holder_app = conductor
+        .setup_app("dsid-vp-jcs-holder", std::slice::from_ref(&dna))
+        .await
+        .unwrap();
+
+    let issuer = issuer_app.cells()[0].clone();
+    let holder = holder_app.cells()[0].clone();
+    let issuer_did = format!("did:mycelix:{}", issuer_app.agent());
+    let holder_did = format!("did:mycelix:{}", holder_app.agent());
+
+    let _: Record = conductor
+        .call(&issuer.zome("did_registry"), "create_did", ())
+        .await;
+    let _: Record = conductor
+        .call(&holder.zome("did_registry"), "create_did", ())
+        .await;
+
+    let credential: Record = conductor
+        .call(
+            &issuer.zome("verifiable_credential"),
+            "issue_credential",
+            serde_json::json!({
+                "subject_did": holder_did,
+                "schema_id": "mycelix:schema:education:degree:v1",
+                "claims": {
+                    "degree": "DSID VP challenge binding"
+                },
+                "credential_types": ["QualificationCredential"],
+                "issuer_name": "DSID VP Issuer",
+                "expiration_days": 365,
+                "enable_revocation": false,
+                "strict_schema": false
+            }),
+        )
+        .await;
+    let credential_value: serde_json::Value = credential
+        .entry()
+        .to_app_option()
+        .unwrap()
+        .unwrap();
+    let credential_id = credential_value["id"]
+        .as_str()
+        .expect("credential must expose an ID")
+        .to_owned();
+
+    await_consistency(&[issuer.clone(), holder.clone()])
+        .await
+        .expect("issuer and holder must reach DHT consistency");
+
+    let challenge = "dsid-041-challenge".to_string();
+    let domain = "identity.mycelix.test".to_string();
+    let presentation: Record = conductor
+        .call(
+            &holder.zome("verifiable_credential"),
+            "create_presentation",
+            serde_json::json!({
+                "credential_ids": [credential_id.clone()],
+                "challenge": challenge.clone(),
+                "domain": domain.clone()
+            }),
+        )
+        .await;
+
+    let presentation_value: serde_json::Value = presentation
+        .entry()
+        .to_app_option()
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(
+        presentation_value["proof"]["cryptosuite"].as_str(),
+        Some("eddsa-jcs-2022")
+    );
+    assert_eq!(
+        presentation_value["proof"]["verificationMethod"].as_str(),
+        Some(format!("{}#keys-1-multikey", holder_did).as_str())
+    );
+    assert_eq!(
+        presentation_value["proof"]["@context"],
+        presentation_value["@context"],
+        "JCS presentation proof must carry the presentation @context"
+    );
+    assert_eq!(
+        presentation_value["proof"]["proofPurpose"].as_str(),
+        Some("authentication")
+    );
+    assert_eq!(
+        presentation_value["proof"]["challenge"].as_str(),
+        Some(challenge.as_str())
+    );
+    assert_eq!(
+        presentation_value["proof"]["domain"].as_str(),
+        Some(domain.as_str())
+    );
+
+    await_consistency(&[issuer.clone(), holder.clone()])
+        .await
+        .expect("presentation must reach verifier peer");
+
+    let verified: serde_json::Value = conductor
+        .call(
+            &issuer.zome("verifiable_credential"),
+            "verify_presentation",
+            serde_json::json!({
+                "presentation_hash": presentation.action_address(),
+                "expected_challenge": challenge.clone(),
+                "expected_domain": domain.clone()
+            }),
+        )
+        .await;
+    assert_eq!(
+        verified["valid"], true,
+        "W3C JCS presentation must verify with the matching challenge and domain: {verified}"
+    );
+
+    let wrong_challenge: serde_json::Value = conductor
+        .call(
+            &issuer.zome("verifiable_credential"),
+            "verify_presentation",
+            serde_json::json!({
+                "presentation_hash": presentation.action_address(),
+                "expected_challenge": "wrong-challenge",
+                "expected_domain": domain
+            }),
+        )
+        .await;
+    assert_eq!(
+        wrong_challenge["valid"], false,
+        "presentation verification must fail closed for a mismatched challenge"
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("issuer", issuer_app.agent().to_string());
+    agents.insert("holder", holder_app.agent().to_string());
+    emit_evidence(
+        "DSID-041",
+        "w3c-jcs-presentation-is-challenge-bound",
+        &dna,
+        agents,
+        &[&credential, &presentation],
+        "New verifiable presentations use W3C eddsa-jcs-2022 proofs authorized by the holder's Multikey authentication method, carry the proof context, and fail closed on challenge mismatch.",
+        format!(
+            "cryptosuite={} proof_context_bound={} authenticated_method={} matching_challenge_valid={} wrong_challenge_invalid={}",
+            presentation_value["proof"]["cryptosuite"].as_str().unwrap_or("missing"),
+            presentation_value["proof"]["@context"] == presentation_value["@context"],
+            presentation_value["proof"]["verificationMethod"].as_str()
+                == Some(format!("{}#keys-1-multikey", holder_did).as_str()),
+            verified["valid"] == true,
+            wrong_challenge["valid"] == false
+        ),
+        presentation_value["proof"]["cryptosuite"].as_str() == Some("eddsa-jcs-2022")
+            && presentation_value["proof"]["@context"] == presentation_value["@context"]
+            && presentation_value["proof"]["proofPurpose"].as_str() == Some("authentication")
+            && verified["valid"] == true
+            && wrong_challenge["valid"] == false,
+    );
+}
+
