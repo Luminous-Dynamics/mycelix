@@ -1709,6 +1709,26 @@ mod tests {
     }
 
     #[test]
+    fn malformed_authority_credential_precedes_duplicate_authority_admission() {
+        let _guard = host_test_lock().lock().expect("HDI test lock is not poisoned");
+        let calls = Arc::new(Mutex::new(Vec::new()));
+        let _previous = set_hdi(RecordingHdi { calls: Arc::clone(&calls), verify_result: true });
+        let authority = identity("invalid-credential-duplicate-authority");
+        let first = authority_credential(authority.clone(), action_agent_key(72), "admission-first");
+        let expected = first.clone();
+        let mut registry = HolochainAuthorityAgentBindingSet::new();
+        assert!(matches!(registry.bind_attested(first), Ok(Ok(()))));
+        let mut malformed = authority_credential(authority.clone(), action_agent_key(73), "admission-second");
+        malformed.payload.schema = "mycelix.mobility.holochain_authority_agent_binding.v2".into();
+        let result = registry.bind_attested(malformed);
+        let _ = set_hdi(ErrHdi);
+        assert!(matches!(result, Ok(Err(HolochainAdapterBoundaryError::SemanticInvalid { reason }))
+            if reason == "authority-agent binding uses an unexpected schema"));
+        assert_eq!(registry.len(), 1);
+        assert_eq!(registry.credential_for(&authority), Some(&expected));
+        assert_eq!(calls.lock().unwrap().as_slice(), ["verify_signature"]);
+    }
+    #[test]
     fn authority_agent_registry_rejects_duplicate_authority() {
         let _guard = host_test_lock().lock().expect("HDI test lock is not poisoned");
         let calls = Arc::new(Mutex::new(Vec::new()));
