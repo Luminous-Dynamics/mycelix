@@ -4418,6 +4418,20 @@ mod tests {
             serde_json::from_str::<FederationStateMachineTraceCapsule>(&tampered).is_err(),
             "successful trace capsule must reject unknown evidence fields"
         );
+
+        let mut value =
+            serde_json::from_str::<serde_json::Value>(&capsule_text)
+                .expect("generated trace capsule JSON must parse");
+        value["integrity"]
+            .as_object_mut()
+            .expect("integrity must serialize as an object")
+            .insert("unexpected_integrity_field".into(), serde_json::Value::Bool(true));
+        let tampered = serde_json::to_string_pretty(&value)
+            .expect("tampered integrity JSON must serialize");
+        assert!(
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&tampered).is_err(),
+            "successful trace capsule must reject unknown integrity fields"
+        );
     }
 
     #[test]
@@ -4434,6 +4448,26 @@ mod tests {
     }
 
     #[test]
+    fn state_machine_trace_capsule_hash_changes_with_authenticated_body_mutation() {
+        let capsule_text = state_machine_trace_capsule(12, 9);
+        let mut capsule =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&capsule_text)
+                .expect("capsule must deserialize");
+        let original_digest = capsule.integrity.body_sha256.clone();
+
+        capsule.final_state.delivery_count ^= 1;
+
+        assert_ne!(
+            original_digest,
+            state_machine_trace_body_sha256(&capsule),
+            "authenticated body mutations must change the body digest"
+        );
+        assert!(
+            std::panic::catch_unwind(|| state_machine_plan_from_capsule(&capsule)).is_err(),
+            "authenticated body mutations must invalidate the capsule"
+        );
+    }
+
     fn state_machine_trace_capsule_hash_is_stable_across_json_reformatting() {
         let capsule_text = state_machine_trace_capsule(4, 7);
         let capsule =
