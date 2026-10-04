@@ -13,6 +13,7 @@ This document records the behavior currently implemented by the Mycelix Identity
 - The method-specific identifier is the canonical Holochain `AgentPubKey` textual form.
 - The integrity layer rejects empty identifiers, URI delimiters, whitespace, non-ASCII characters, and other characters outside the canonical AgentPubKey textual alphabet before accepting a DID document.
 - DID URLs containing query, path, or fragment components are not accepted by the current DID-only resolver; DID URL dereferencing remains a separate protocol feature.
+- Security-relevant DID creation, update, and deactivation timestamps are bounded by the signed Holochain action timestamp; application metadata cannot claim a future protocol state.
 - The current Identity DNA declares network seed \`mycelix-identity-v1\`.
 
 ### Deployment scope decision
