@@ -28,6 +28,7 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
+  DSID_INTEROP_FIXTURE_DIR: ${{ github.workspace }}/interop-fixtures
   DSID_QUALIFIED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
   DSID_QUALIFIED_HEAD_REF: ${{ github.event.pull_request.head.ref || github.ref_name }}
 
@@ -161,7 +162,7 @@ jobs:
         run: |
           grep '^DSID_EVIDENCE ' dsid-lifecycle-evidence.txt | cut -d ' ' -f2- \
             > dsid-lifecycle-evidence.jsonl
-          test "$(wc -l < dsid-lifecycle-evidence.jsonl)" -eq 51
+          test "$(wc -l < dsid-lifecycle-evidence.jsonl)" -eq 52
           python3 - <<'PY'
           import json
           from pathlib import Path
@@ -223,6 +224,7 @@ jobs:
               "DSID-049",
               "DSID-050",
               "DSID-051",
+              "DSID-052",
           }
 
           assert len(rows) == len(expected_ids)
@@ -252,6 +254,25 @@ jobs:
 
           sha256sum dsid-lifecycle-evidence.jsonl > dsid-lifecycle-evidence.sha256
           sha256sum dsid-scenario-set.txt > dsid-scenario-set.sha256
+
+      - name: Verify Mycelix fixture with independent Digital Bazaar implementation
+        run: |
+          corepack enable
+          mkdir -p "$RUNNER_TEMP/mycelix-interop"
+          cd "$RUNNER_TEMP/mycelix-interop"
+          npm init -y >/dev/null 2>&1
+          npm install --no-save \
+            @digitalbazaar/vc@7.3.0 \
+            @digitalbazaar/data-integrity@2.5.0 \
+            @digitalbazaar/eddsa-jcs-2022-cryptosuite \
+            @digitalbazaar/security-document-loader \
+            @digitalbazaar/credentials-context@3.2.0 \
+            @digitalbazaar/data-integrity-context@2.0.1 \
+            @digitalbazaar/multikey-context@2.0.1
+          node "$GITHUB_WORKSPACE/mycelix-identity/tests/interop_verify.mjs" \
+            "$GITHUB_WORKSPACE/interop-fixtures/mycelix-eddsa-jcs-interop.json" \
+            | tee "$GITHUB_WORKSPACE/dsid-independent-interop.json"
+          npm list --json --depth=0 > "$GITHUB_WORKSPACE/dsid-independent-interop-packages.json"
 
       - name: Build qualification manifest
         run: |
@@ -328,6 +349,9 @@ jobs:
             identity-dsid-qualification-manifest.json
             identity-dsid-qualification-manifest.sha256
             mycelix-identity/dna/mycelix_identity_dna.dna
+            interop-fixtures/mycelix-eddsa-jcs-interop.json
+            dsid-independent-interop.json
+            dsid-independent-interop-packages.json
       - name: Check Identity UI
         run: |
           cargo check \
