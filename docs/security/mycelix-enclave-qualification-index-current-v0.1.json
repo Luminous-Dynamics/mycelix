@@ -7,78 +7,18 @@
   "claim_ceiling": "ReferenceModelOnly",
   "note": "PR heads are exact immutable Git identities at snapshot time; child PRs may still change afterward.",
   "boundaries": [
-    {
-      "pr": 3976,
-      "issue": 3968,
-      "name": "sovereign enclave profile",
-      "head": "358e7bd40f1dadec0b9c6316c608414b51f0fcad",
-      "execution": "reference-model / structural JSON validation",
-      "qualification": "ReferenceModelOnly"
-    },
-    {
-      "pr": 3977,
-      "issue": 3977,
-      "name": "RATS Evidence/appraisal",
-      "head": "bc28a1aa13048ce60757cce10fc168cb0db73d7",
-      "execution": "31/31 independent semantic vectors",
-      "qualification": "ReferenceModelOnly"
-    },
-    {
-      "pr": 3982,
-      "issue": 3982,
-      "name": "trusted-time freshness",
-      "head": "3a06e6a5410e3b068fb2c18ccf5355f2efbbec77",
-      "execution": "17/17 independent interval vectors",
-      "qualification": "ReferenceModelOnly"
-    },
-    {
-      "pr": 3983,
-      "issue": 3983,
-      "name": "TPM 2.0 Evidence",
-      "head": "2373c05347c32dbcad54621c6238a72e13a8e0cf",
-      "execution": "NOT EXECUTED: no /dev/tpm*, swtpm, or tpm2-tools in current environment",
-      "qualification": "ReferenceModelOnly"
-    },
-    {
-      "pr": 3994,
-      "issue": 3994,
-      "name": "EAT measured component",
-      "head": "506f6598d92796be101f62cb2a7ea46613c0192b",
-      "execution": "16/16 independent semantic vectors",
-      "qualification": "ReferenceModelOnly"
-    },
-    {
-      "pr": 3973,
-      "issue": 3973,
-      "name": "protected release",
-      "head": "2127b5c3087f107a9121d536a48c93b5f57dbacf",
-      "execution": "33/33 independent semantic vectors",
-      "qualification": "ReferenceModelOnly"
-    },
-    {
-      "pr": 3974,
-      "issue": 3974,
-      "name": "comparative benchmark",
-      "head": "d387a233732c83ffb519c82874caf1b7037e8190",
-      "execution": "24/24 independent reference-model executions",
-      "qualification": "ReferenceModelOnly"
-    },
-    {
-      "pr": 4001,
-      "issue": 4001,
-      "name": "PEP decision boundary",
-      "head": "690073394f3685bd8a28dd5f573a9b9925b0364d",
-      "execution": "24/24 independent decision-algebra vectors",
-      "qualification": "ReferenceModelOnly"
-    },
-    {
-      "pr": 3975,
-      "issue": 3975,
-      "name": "E1 CUI/CMMC revision boundary",
-      "head": "31b00430affc7909e6776e74b5dbb590a700ab3f",
-      "execution": "12/12 structural revision-boundary vectors",
-      "qualification": "ReferenceModelOnly"
-    }
+    {"pr":3976,"issue":3968,"name":"sovereign enclave profile","head":"358e7bd40f1dadec0b9c6316c608414b51f0fcad","execution":"reference-model / structural JSON validation","qualification":"ReferenceModelOnly"},
+    {"pr":3977,"issue":3977,"name":"RATS Evidence/appraisal","head":"bc28a1aa13048ce60757cce10fc168cb0db73d7","execution":"31/31 independent semantic vectors","qualification":"ReferenceModelOnly"},
+    {"pr":3982,"issue":3982,"name":"trusted-time freshness","head":"3a06e6a5410e3b068fb2c18ccf5355f2efbbec77","execution":"17/17 independent interval vectors","qualification":"ReferenceModelOnly"},
+    {"pr":3983,"issue":3983,"name":"TPM 2.0 Evidence","head":"2373c05347c32dbcad54621c6238a72e13a8e0cf","execution":"NOT EXECUTED: no /dev/tpm*, swtpm, or tpm2-tools in current environment","qualification":"ReferenceModelOnly"},
+    {"pr":3994,"issue":3994,"name":"EAT measured component","head":"506f6598d92796be101f62cb2a7ea46613c0192b","execution":"16/16 independent semantic vectors","qualification":"ReferenceModelOnly"},
+    {"pr":3973,"issue":3973,"name":"protected release","head":"2127b5c3087f107a9121d536a48c93b5f57dbacf","execution":"33/33 independent semantic vectors","qualification":"ReferenceModelOnly"},
+    {"pr":3974,"issue":3974,"name":"comparative benchmark","head":"d387a233732c83ffb519c82874caf1b7037e8190","execution":"24/24 independent reference-model executions","qualification":"ReferenceModelOnly"},
+    {"pr":4001,"issue":4001,"name":"PEP decision boundary","head":"690073394f3685bd8a28dd5f573a9b9925b0364d","execution":"24/24 independent decision-algebra vectors","qualification":"ReferenceModelOnly"},
+    {"pr":3975,"issue":3975,"name":"E1 CUI/CMMC revision boundary","head":"31b00430affc7909e6776e74b5dbb590a700ab3f","execution":"12/12 structural revision-boundary vectors","qualification":"ReferenceModelOnly"},
+    {"pr":4011,"issue":4006,"name":"physical platform Evidence capture/coherence","head":"f7c38bbd6bcdce89180e6130450609df068cc1a6","execution":"22-vector semantic corpus defined; exact-head hosted security workflow awaits base-branch availability","qualification":"ReferenceModelOnly"},
+    {"pr":4013,"issue":4006,"name":"platform Evidence exact-head validation","head":"f7c38bbd6bcdce89180e6130450609df068cc1a6","execution":"CI-only validation PR; no hosted security-evidence result yet","qualification":"EvidenceGatePending"},
+    {"pr":4016,"issue":4006,"name":"security-evidence CI gate","head":"40413a45472c61ed9814b6b8daccb38f7bd20076","execution":"CI infrastructure only; workflow becomes authoritative after merge to main","qualification":"EvidenceGatePending"}
   ],
   "executed_invariants": [
     "raw Evidence != Attestation Result != Authorization",
@@ -87,7 +27,10 @@
     "measured component != policy approval",
     "transfer receipt != reusable release authority",
     "ANY DENY > ANY INDETERMINATE > ALL PASS",
-    "comparative benchmark has no composite security score"
+    "comparative benchmark has no composite security score",
+    "platform parser success != event-log reconstruction",
+    "observed TPM identity != manufacturer trust",
+    "one capture session != mix-and-match evidence"
   ],
   "current_execution_environment": {
     "tpm_device": false,
@@ -97,7 +40,8 @@
     "tpm2_pcrread": false,
     "tpm2_pcrextend": false,
     "tpm2_eventlog": false,
-    "nix_available": false
+    "nix_available": false,
+    "hosted_security_evidence_workflow": "not yet active on main"
   },
   "current_external_compliance_boundary": {
     "cmmc_phase_two_status": "suspended-2026-07-13",
@@ -108,6 +52,7 @@
   "blockers": [
     "Real TPM/vTPM execution is unavailable in the current environment.",
     "Physical PC-client measured-boot and event-log reconstruction remain unexecuted.",
+    "The new security-evidence workflow is present in feature stacks but is not yet authoritative from main because it has not been merged.",
     "CMMC/NIST semantic mapping is not certification evidence.",
     "Independent assessment, organizational controls, physical/personnel controls, and contract applicability remain external."
   ],
