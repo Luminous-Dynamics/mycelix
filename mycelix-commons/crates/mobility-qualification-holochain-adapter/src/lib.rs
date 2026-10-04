@@ -1016,6 +1016,40 @@ mod tests {
         assert_eq!(bindings.len(), 1);
     }
     #[test]
+    fn address_kind_mismatch_precedes_logical_and_duplicate_provenance_binding_conflicts() {
+        let mut bindings = HolochainDependencyBindingSet::new();
+        let logical = identity("three-way-conflict-precedence");
+        let authority = identity("three-way-conflict-authority");
+        let first = binding_provenance_for_test(logical.clone(), authority);
+        bindings
+            .bind(
+                logical.clone(),
+                HolochainDependencyAddress::Action(action_hash(19)),
+                QualificationDependencyRetrievalKind::Action,
+                first.clone(),
+            )
+            .unwrap();
+
+        let error = bindings
+            .bind(
+                logical,
+                HolochainDependencyAddress::Action(action_hash(20)),
+                QualificationDependencyRetrievalKind::Entry,
+                first,
+            )
+            .expect_err("candidate address typing must win over simultaneous binding conflicts");
+
+        assert!(matches!(
+            error,
+            HolochainAdapterBoundaryError::AddressKindMismatch {
+                retrieval: QualificationDependencyRetrievalKind::Entry,
+                expected: "EntryHash",
+                actual: "ActionHash",
+            }
+        ));
+        assert_eq!(bindings.len(), 1);
+    }
+    #[test]
     fn logical_rebinding_precedes_duplicate_provenance_binding_conflict() {
         let mut bindings = HolochainDependencyBindingSet::new();
         let logical = identity("logical-conflict-precedence");
