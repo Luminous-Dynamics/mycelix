@@ -162,6 +162,8 @@
     {"id":"REL-024","mutation":"classification-label-spoof","expected":"DENY"},
     {"id":"REL-025","mutation":"valid-receipt-cannot-authorize-second-transfer","expected":"DENY"},
     {"id":"REL-026","mutation":"attestation-does-not-authorize-release","expected":"DENY"},
-    {"id":"REL-027","mutation":"transform-created-new-output-requires-new-intent","expected":"DENY"}
+    {"id":"REL-027","mutation":"transform-created-new-output-requires-new-intent","expected":"DENY"},
+    {"id":"REL-032","mutation":"compartment-mismatch","expected":"DENY"},
+    {"id":"REL-033","mutation":"receipt-outcome-substitution","expected":"DENY"}
   ]
 }
