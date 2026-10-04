@@ -521,20 +521,20 @@ mod tests {
     #[test]
     fn bounded_security_json_accepts_exact_security_event_envelope_limit() {
         let mut input = br#"{
-            "event_id":"event:bounded-json",
-            "actor_id":"did:mycelix:alice",
-            "capability_ref":"capability:1",
-            "request":{
-                "subject":"did:mycelix:alice",
-                "resource":"resource:ledger",
-                "action":"Read",
-                "policy_version":7
+            \"event_id\":\"event:bounded-json\",
+            \"actor_id\":\"did:mycelix:alice\",
+            \"capability_ref\":\"capability:1\",
+            \"request\":{
+                \"subject\":\"did:mycelix:alice\",
+                \"resource\":\"resource:ledger\",
+                \"action\":\"Read\",
+                \"policy_version\":7
             },
-            "decision":{"Deny":"ActionNotGranted"},
-            "policy_version":7,
-            "timestamp_us":151,
-            "provenance":[],
-            "recovery_correlation":null
+            \"decision\":{\"Deny\":\"ActionNotGranted\"},
+            \"policy_version\":7,
+            \"timestamp_us\":151,
+            \"provenance\":[],
+            \"recovery_correlation\":null
         }"#
         .to_vec();
         input.resize(MAX_SECURITY_WIRE_BYTES, b' ');
