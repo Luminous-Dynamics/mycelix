@@ -2019,20 +2019,30 @@ mod linux {
         #[test]
         fn v2_forbidden_renderer_syscall_cannot_be_hidden_in_a_disjunctive_rule() {
             let arch = SeccompArchitecture::current().unwrap();
-            let tracer = SeccompSyscallClauseV2::new(vec![
-                SeccompArgPredicateV1::new(0, u64::MAX, 0).unwrap(),
-            ])
-            .unwrap();
-            let forbidden =
-                SeccompSyscallRuleV2::new_with_clauses(libc::SYS_ptrace, vec![tracer])
-                    .unwrap();
-            let policy = SeccompSyscallPolicyV2::new(arch, vec![forbidden]).unwrap();
 
-            assert!(matches!(
-                validate_v2_renderer_policy(&policy),
-                Err(SeccompError::ForbiddenRendererSyscall(syscall))
-                    if syscall == libc::SYS_ptrace
-            ));
+            let assert_forbidden = |syscall: i64| {
+                let clause = SeccompSyscallClauseV2::new(vec![
+                    SeccompArgPredicateV1::new(0, u64::MAX, 0).unwrap(),
+                ])
+                .unwrap();
+                let forbidden =
+                    SeccompSyscallRuleV2::new_with_clauses(syscall, vec![clause]).unwrap();
+                let policy = SeccompSyscallPolicyV2::new(arch, vec![forbidden]).unwrap();
+
+                assert!(matches!(
+                    validate_v2_renderer_policy(&policy),
+                    Err(SeccompError::ForbiddenRendererSyscall(rejected))
+                        if rejected == syscall
+                ));
+            };
+
+            for syscall in FORBIDDEN_RENDERER_SYSCALLS.iter().copied() {
+                assert_forbidden(syscall);
+            }
+            #[cfg(target_arch = "x86_64")]
+            for syscall in FORBIDDEN_X86_PROCESS_CREATION_SYSCALLS.iter().copied() {
+                assert_forbidden(syscall);
+            }
         }
 
         #[test]
@@ -3226,18 +3236,20 @@ mod linux {
                 ).unwrap()],
             ).unwrap();
             let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
-            let mut filter = compile_filter_v2(&policy).unwrap();
 
-            let predicate_load = filter.iter().position(|instruction| {
-                instruction.code == BPF_LD | BPF_W | BPF_ABS
-                    && instruction.k == 16
-            }).unwrap();
+            for forbidden_offset in [SECCOMP_DATA_ARCH_OFFSET, SECCOMP_DATA_NR_OFFSET] {
+                let mut filter = compile_filter_v2(&policy).unwrap();
+                let predicate_load = filter.iter().position(|instruction| {
+                    instruction.code == BPF_LD | BPF_W | BPF_ABS
+                        && instruction.k == 16
+                }).unwrap();
 
-            filter[predicate_load].k = SECCOMP_DATA_NR_OFFSET;
-            assert!(matches!(
-                validate_compiled_filter(&filter),
-                Err(SeccompError::CompilerInvariantViolation)
-            ));
+                filter[predicate_load].k = forbidden_offset;
+                assert!(matches!(
+                    validate_compiled_filter(&filter),
+                    Err(SeccompError::CompilerInvariantViolation)
+                ));
+            }
         }
 
         #[test]
