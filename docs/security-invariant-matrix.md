@@ -12,7 +12,7 @@ This matrix turns the Security & Sovereignty Model into an implementation/test b
 | I-6 | Recovery | rollback destroys evidence | append-only security events | partition + conflicting recovery | reconciliation artifact |
 | I-7 | Agency | autonomous privilege escalation | bounded signed capabilities | model requests capability expansion | authorization trace |
 | I-8 | Authority | ambiguous authorization accepted | fail-closed policy | stale/revoked/missing credential | denial evidence |
-| I-9 | Temporal integrity | unit confusion or lease extension | checked ms→µs conversion; exclusive freshness bound; permit expiry is the minimum of capability, evidence lease, and kernel maximum | conversion overflow, cross-unit comparison, lease refresh after permit, generation change after permit | qualification trace |
+| I-9 | Temporal integrity | unit confusion or lease extension | exported overflow-checked ms→µs conversion; exclusive freshness bound; permit expiry is the minimum of capability, evidence lease, and kernel maximum | conversion overflow, cross-unit comparison, lease refresh after permit, generation change after permit | qualification trace |
 
 ## Current implementation
 

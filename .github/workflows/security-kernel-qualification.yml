@@ -139,6 +139,15 @@ jobs:
           done
 
 
+          if ! rg -n -F 'pub fn checked_authority_lease_until_us' crates/mycelix-bridge-common/src/security_kernel.rs; then
+            echo "security-kernel regression: checked authority lease conversion helper disappeared" >&2
+            exit 1
+          fi
+          if ! rg -n -F 'lease_until_ms.checked_mul(1_000)' crates/mycelix-bridge-common/src/security_kernel.rs; then
+            echo "security-kernel regression: authority lease conversion is no longer overflow-checked" >&2
+            exit 1
+          fi
+
           # Capability and AuthorizationRequest must remain constructor-gated when decoded from wire data.
           # Capability and AuthorizationRequest wire schemas must reject unknown fields.
           for pattern in             '#\[derive\([^]]*Deserialize[^]]*\)\][[:space:]]*#\[serde\(deny_unknown_fields\)\][[:space:]]*struct (CapabilityWire|AuthorizationRequestWire)'; do
