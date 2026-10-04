@@ -206,7 +206,7 @@ def fixture_manifest() -> dict[str, Any]:
             "observed_tool_versions_sha256": "0" * 64,
             "tss_version_evidence_sha256": "f" * 64,
         },
-        "reference_values": {"version": "pc-client-rim-2026.1", "sha256": "1" * 64},
+        "reference_values": {"version": "pc-client-rim-2026.1", "sha256": "9790c201e1f46f8494e3c42835f08c9e4eb410180b163efc86013dfa97ae7923"},
         "trusted_time": {
             "sha256": "2" * 64,
             "available": True,
@@ -238,8 +238,8 @@ def fixture_manifest() -> dict[str, Any]:
             "status": "PASS",
             "output_sha256": "0" * 64,
             "source_sha256": sha256_file(REFERENCE_APPRAISAL_SCRIPT),
-            "registry_sha256": "1" * 64,
-            "input_sha256": "2" * 64,
+            "registry_sha256": "28730695c1398a8133e5e7d0e1d89cdb84fca582b2186814c39f91121afc8ce1",
+            "input_sha256": "9790c201e1f46f8494e3c42835f08c9e4eb410180b163efc86013dfa97ae7923",
         },
         "artifacts": {
             "quote_message_sha256": "5" * 64,
