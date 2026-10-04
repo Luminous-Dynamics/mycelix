@@ -77,19 +77,37 @@ def test_duplicate_case_is_rejected() -> None:
 
 
 def test_workflow_identity_tampering_is_rejected() -> None:
-    policy = {"workflow_path": ".github/workflows/d6u-exact-head-runtime.yml",
-              "required_tracked_blobs": {
-                  ".github/workflows/d6u-exact-head-runtime.yml": "a" * 40,
-              }}
-    valid = {"workflow_sha": "a" * 40}
+    policy = {
+        "workflow_path": ".github/workflows/d6u-exact-head-runtime.yml",
+        "caller_workflow_path": ".github/workflows/d6s-canonical-qualification.yml",
+        "required_tracked_blobs": {
+            ".github/workflows/d6u-exact-head-runtime.yml": "a" * 40,
+            ".github/workflows/d6s-canonical-qualification.yml": "b" * 40,
+        },
+    }
+    valid = {
+        "caller_workflow_commit_sha": "c" * 40,
+        "caller_workflow_ref": "Luminous-Dynamics/mycelix/.github/workflows/d6s-canonical-qualification.yml@refs/heads/main",
+        "workflow_definition_commit_sha": "d" * 40,
+        "workflow_definition_ref": "Luminous-Dynamics/mycelix/.github/workflows/d6u-exact-head-runtime.yml@refs/heads/main",
+        "workflow_definition_repository": "Luminous-Dynamics/mycelix",
+        "workflow_definition_file_path": ".github/workflows/d6u-exact-head-runtime.yml",
+        "workflow_definition_blob_sha": "a" * 40,
+        "caller_workflow_blob_sha": "b" * 40,
+    }
     verify_workflow_identity(valid, policy)
 
-    tampered = {"workflow_sha": "b" * 40}
+    tampered_definition = {**valid, "workflow_definition_blob_sha": "e" * 40}
     assert_rejected(
-        lambda: verify_workflow_identity(tampered, policy),
-        "tampered workflow identity was accepted",
+        lambda: verify_workflow_identity(tampered_definition, policy),
+        "tampered called-workflow identity was accepted",
     )
 
+    tampered_caller = {**valid, "caller_workflow_blob_sha": "f" * 40}
+    assert_rejected(
+        lambda: verify_workflow_identity(tampered_caller, policy),
+        "tampered caller-workflow identity was accepted",
+    )
 
 
 def test_lock_provenance_is_rejected_when_tampered() -> None:
