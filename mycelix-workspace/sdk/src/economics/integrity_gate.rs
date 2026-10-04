@@ -127,6 +127,8 @@ impl EconomicActionScope {
 pub struct ScopedEconomicIntegrityAssessment {
     /// Scope declaration identifier.
     pub scope_id: String,
+    /// SHA-256 fingerprint of the exact scope contents evaluated.
+    pub scope_fingerprint: String,
     /// Action identifier covered by the scope.
     pub action_ref: String,
     /// Known impact IDs covered by the scope declaration.
@@ -244,6 +246,7 @@ impl EconomicIntegrityGate {
 
         Ok(ScopedEconomicIntegrityAssessment {
             scope_id: scope.scope_id.clone(),
+            scope_fingerprint: scope.fingerprint()?,
             action_ref: scope.action_ref.clone(),
             covered_impact_ids,
             assessment,
@@ -401,6 +404,7 @@ mod tests {
         .unwrap();
 
         assert_eq!(assessment.scope_id, "scope-1");
+        assert_eq!(assessment.scope_fingerprint, valid_scope("action:1", DistributionPurpose::Discretionary).fingerprint().unwrap());
         assert_eq!(assessment.action_ref, "action:1");
         assert_eq!(assessment.covered_impact_ids, vec!["impact-1"]);
         assert_eq!(
