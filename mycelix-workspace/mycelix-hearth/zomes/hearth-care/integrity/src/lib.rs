@@ -166,7 +166,8 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             ..
         }) => {
             let original_record = must_get_valid_record(action.link_add_address.clone())?;
-            Ok(check_link_author_match(original_record.action().author(), action.author()))
+            let original_create_link = TypedAction::<CreateLinkData>::try_from_action(original_record.action().clone())?;
+            Ok(check_link_author_match(original_create_link.author(), action.author()))
         }
         FlatOp::CreateRecord(OpRecord::CreateEntry { app_entry, .. }) => match app_entry {
                 EntryTypes::CareSchedule(schedule) => validate_schedule(&schedule),
