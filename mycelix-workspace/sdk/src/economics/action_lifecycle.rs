@@ -196,11 +196,63 @@ impl EconomicActionLifecycle {
         &self.active_scope_id
     }
 
-    /// Read the current revision.
-    pub fn current_revision(&self) -> &EconomicActionRevision {
+    /// Validate the lifecycle's internal consistency.
+    pub fn validate(&self) -> Result<(), String> {
+        if self.action_ref.trim().is_empty() {
+            return Err("Lifecycle action reference cannot be empty".into());
+        }
+        if self.active_scope_id.trim().is_empty() {
+            return Err("Lifecycle active scope ID cannot be empty".into());
+        }
+        if self.current_revision_id.trim().is_empty() {
+            return Err("Lifecycle current revision ID cannot be empty".into());
+        }
+        if self.revisions.is_empty() {
+            return Err("Lifecycle must contain at least one revision".into());
+        }
+
+        let first = &self.revisions[0];
+        first.validate()?;
+        if first.action_ref != self.action_ref {
+            return Err("Lifecycle action reference does not match first revision".into());
+        }
+        if first.kind != EconomicActionChangeKind::Initial {
+            return Err("Lifecycle first revision must be Initial".into());
+        }
+
+        for window in self.revisions.windows(2) {
+            let previous = &window[0];
+            let current = &window[1];
+            if current.predecessor_revision_id.as_deref() != Some(previous.revision_id.as_str()) {
+                return Err("Lifecycle revision chain is not linear".into());
+            }
+            if current.recorded_at < previous.recorded_at {
+                return Err("Lifecycle timestamps are not monotonic".into());
+            }
+            if current.action_ref != self.action_ref {
+                return Err("Lifecycle action reference changed in history".into());
+            }
+            current.validate()?;
+        }
+
+        let last = self.revisions.last().unwrap();
+        if self.current_revision_id != last.revision_id {
+            return Err("Lifecycle current revision does not match history".into());
+        }
+        if self.current_stage != last.stage {
+            return Err("Lifecycle current stage does not match history".into());
+        }
+        if self.active_scope_id != last.scope_id {
+            return Err("Lifecycle active scope does not match history".into());
+        }
+        Ok(())
+    }
+
+    /// Read the current revision when the lifecycle is structurally valid.
+    pub fn current_revision(&self) -> Result<&EconomicActionRevision, String> {
         self.revisions
             .last()
-            .expect("lifecycle always contains its initial revision")
+            .ok_or_else(|| "Lifecycle has no revisions".to_string())
     }
 
     /// Read the current stage.
@@ -298,7 +350,7 @@ impl EconomicActionLifecycle {
         if revision.predecessor_revision_id.as_deref() != Some(self.current_revision_id.as_str()) {
             return Err("Lifecycle revision predecessor does not match current revision".into());
         }
-        if revision.recorded_at < self.current_revision().recorded_at {
+        if revision.recorded_at < self.current_revision()?.recorded_at {
             return Err("Lifecycle timestamp cannot move backwards".into());
         }
         if matches!(
@@ -399,6 +451,13 @@ mod tests {
             1_000,
         )
         .unwrap()
+    }
+
+    #[test]
+    fn invalid_deserialized_shape_is_rejected_without_panic() {
+        let mut lifecycle = start();
+        lifecycle.revisions.clear();
+        assert!(lifecycle.validate().is_err());
     }
 
     #[test]
