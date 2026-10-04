@@ -125,7 +125,7 @@ def main() -> None:
         for key, value in expected.items()
         if record[key] != value
     }
-    assert not mismatches, f"evidence record mismatch: {mismatches}"
+    assert not mismatches, "evidence record mismatch: " + repr(mismatches)
 
     assert d6s2["profile"] == "D6S-CANON-2"
     assert d6s2["claim_ceiling"] == "ReferenceModelOnly"
