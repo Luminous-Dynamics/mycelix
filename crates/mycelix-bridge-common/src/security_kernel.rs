@@ -2176,6 +2176,7 @@ mod tests {
         );
         assert!(malformed.is_err());
     }
+
     #[test]
     fn malformed_capability_rejected() {
         assert!(
