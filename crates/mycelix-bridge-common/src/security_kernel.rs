@@ -174,9 +174,11 @@ enum AuthorityResolution {
     Ambiguous,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct VerificationEvidence {
     // Deliberately non-Copy: trusted verification evidence should not be implicitly duplicated.
+    // Intentionally no Debug/PartialEq/Eq: downstream code should treat verification evidence
+    // as an opaque trust hand-off rather than a value to inspect or compare outside the kernel.
     // Reuse across independent checks must be explicit (`Clone`) so evidence flow remains visible.
     // Intentionally private: callers must obtain these propositions from an
     // in-crate verifier boundary rather than constructing trusted evidence
