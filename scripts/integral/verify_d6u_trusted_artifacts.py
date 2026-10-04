@@ -215,6 +215,10 @@ def verify_cases(log: str, policy: dict) -> None:
     assert len(application) == 1
 
 
+def verify_workflow_identity(record: dict[str, str], policy: dict) -> None:
+    verify_workflow_identity(record, policy)
+
+
 def verify_lock(path: Path, policy: dict) -> None:
     import tomllib
 
