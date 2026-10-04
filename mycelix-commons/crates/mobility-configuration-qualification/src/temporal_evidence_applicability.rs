@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::qualification::{
-    QualificationOutcome, QualificationStatus, QualificationValidationError,
+    QualificationOutcome, QualificationOutcomeExt, QualificationStatus, QualificationValidationError,
 };
 
 use crate::identity_lineage::{
