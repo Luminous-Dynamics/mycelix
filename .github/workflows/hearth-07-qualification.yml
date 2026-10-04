@@ -92,7 +92,9 @@ jobs:
             echo "OK: submodule $submodule_path matches gitlink $gitlink_sha"
           done < qualification-submodules.txt
 
-      - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24\n        with:\n          install_url: https://releases.nixos.org/nix/nix-2.35.0/install
+      - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24
+        with:
+          install_url: https://releases.nixos.org/nix/nix-2.35.0/install
 
       - uses: cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866
         with:
