@@ -29,15 +29,28 @@ use super::sector_other_volume::SectorOtherVolumeChangeMatrix;
 use super::sector_revaluation::SectorRevaluationChangeMatrix;
 use super::stock_flow::{ActorId, EconomicState};
 use super::transition::{state_hash, transition_hash, EconomicTransition};
+/// Current serialized schema for an EconomicAccountingClosure.
+///
+/// Version zero is reserved for unversioned legacy receipts. Such receipts
+/// remain deserializable for archival/migration tooling, but are not accepted
+/// by verify() because their hash was created without an explicit schema
+/// discriminator.
+pub const ECONOMIC_ACCOUNTING_CLOSURE_SCHEMA_VERSION: u16 = 1;
+
 
 /// Deterministic cross-layer accounting closure receipt for one economic step.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EconomicAccountingClosure {
+    /// Explicitly bound serialization/hash schema. Zero denotes an unversioned legacy receipt.
+    #[serde(default)]
+    pub closure_schema_version: u16,
     pub pre_state_hash: String,
     pub post_state_hash: String,
     pub transition_hash: String,
     pub transition_count: u64,
     pub actor_observations_hash: String,
+    #[serde(default)]
+    pub aggregate_observations_hash: String,
     pub stock_flow_posting_hash: String,
     pub stock_flow_posting_count: u64,
     pub physical_posting_hash: String,
@@ -143,7 +156,9 @@ impl EconomicAccountingClosure {
         let sector_revaluation_change_hash = hash_json(&sector_revaluation_change)?;
         let sector_observations_hash = hash_json(&sector_observations)?;
 
-        let binding = (
+        let closure_schema_version = ECONOMIC_ACCOUNTING_CLOSURE_SCHEMA_VERSION;
+        let closure_hash = hash_json(&(
+            closure_schema_version,
             &pre_state_hash,
             &post_state_hash,
             &transition_hash,
@@ -159,10 +174,10 @@ impl EconomicAccountingClosure {
             &other_volume_change_hash,
             &sector_revaluation_change_hash,
             &sector_observations_hash,
-        );
-        let closure_hash = hash_json(&binding)?;
+        ))?;
 
         Ok(Self {
+            closure_schema_version,
             pre_state_hash,
             post_state_hash,
             transition_hash,
@@ -208,7 +223,21 @@ impl EconomicAccountingClosure {
 
     /// Verify that the receipt's closure hash matches all bound material.
     pub fn verify(&self) -> Result<(), String> {
-        let binding = (
+        if self.closure_schema_version == 0 {
+            return Err(
+                "unversioned accounting closure is legacy/readable but not hash-verifiable"
+                    .into(),
+            );
+        }
+        if self.closure_schema_version != ECONOMIC_ACCOUNTING_CLOSURE_SCHEMA_VERSION {
+            return Err(format!(
+                "unsupported accounting closure schema version {}",
+                self.closure_schema_version
+            ));
+        }
+
+        let expected = hash_json(&(
+            self.closure_schema_version,
             &self.pre_state_hash,
             &self.post_state_hash,
             &self.transition_hash,
@@ -224,8 +253,7 @@ impl EconomicAccountingClosure {
             &self.other_volume_change_hash,
             &self.sector_revaluation_change_hash,
             &self.sector_observations_hash,
-        );
-        let expected = hash_json(&binding)?;
+        ))?;
         if self.closure_hash != expected {
             return Err("accounting closure hash mismatch".into());
         }
@@ -679,6 +707,7 @@ mod tests {
         .unwrap();
         closure.post_state_hash = "rehashed-but-wrong".into();
         let binding = (
+            closure.closure_schema_version,
             &closure.pre_state_hash,
             &closure.post_state_hash,
             &closure.transition_hash,
@@ -806,6 +835,52 @@ mod tests {
         closure
             .verify_against(&pre, &post, &assignments, &transitions)
             .unwrap();
+    }
+
+    #[test]
+    fn closure_schema_version_is_explicitly_bound() {
+        let (pre, assignments, transitions, post) = fixture();
+        let closure = EconomicAccountingClosure::validate_and_seal(
+            &pre,
+            &post,
+            &assignments,
+            &transitions,
+        )
+        .unwrap();
+
+        assert_eq!(
+            closure.closure_schema_version,
+            ECONOMIC_ACCOUNTING_CLOSURE_SCHEMA_VERSION
+        );
+        closure.verify().unwrap();
+
+        let mut wrong_version = closure.clone();
+        wrong_version.closure_schema_version = 2;
+        assert!(wrong_version.verify().is_err());
+    }
+
+    #[test]
+    fn unversioned_legacy_closure_remains_deserializable_but_not_verifiable() {
+        let (pre, assignments, transitions, post) = fixture();
+        let closure = EconomicAccountingClosure::validate_and_seal(
+            &pre,
+            &post,
+            &assignments,
+            &transitions,
+        )
+        .unwrap();
+
+        let mut legacy = serde_json::to_value(&closure)
+            .unwrap()
+            .as_object()
+            .cloned()
+            .unwrap();
+        legacy.remove("closure_schema_version");
+
+        let legacy: EconomicAccountingClosure =
+            serde_json::from_value(serde_json::Value::Object(legacy)).unwrap();
+        assert_eq!(legacy.closure_schema_version, 0);
+        assert!(legacy.verify().is_err());
     }
 
     #[test]
