@@ -89,7 +89,15 @@ jobs:
             echo "d6s2_authority_ledger_schema=v1"
             echo "d6s1_corpus_sha256=$(sha256sum ../docs/integral/d6s-canon-1-golden-vectors.json | cut -d' ' -f1)"
             echo "test_log_sha256=$(sha256sum d6u-runtime-test.log | cut -d' ' -f1)"
-            echo "case_coverage=15-of-15"
+            echo "manifest_version=$(python3 -c 'import json; print(json.load(open(\"../docs/integral/d6u-runtime-manifest.json\"))[\"version\"])')"
+            echo "manifest_git_blob_sha=$(git hash-object ../docs/integral/d6u-runtime-manifest.json)"
+            echo "evidence_verifier_git_blob_sha=$(git hash-object ../scripts/integral/verify_d6u_runtime_evidence.py)"
+            supported_case_count=$(python3 -c 'import json; print(len(json.load(open(\"../docs/integral/d6u-runtime-manifest.json\"))[\"supported_reference_cases\"]))')
+            observed_case_count=$(grep -c '^D6U_CASE' d6u-runtime-test.log)
+            supplemental_case_count=$(python3 -c 'import json; print(len(json.load(open(\"../docs/integral/d6u-runtime-manifest.json\")).get(\"supplemental_substrate_checks\", [])))')
+            observed_supplemental_count=$(grep -c '^D6U_SUBSTRATE_CHECK' d6u-runtime-test.log)
+            echo "case_coverage=${observed_case_count}-of-${supported_case_count}"
+            echo "supplemental_coverage=${observed_supplemental_count}-of-${supplemental_case_count}"
             echo "case_outcome_classes=accepted,semantic-rejected,d6s-commitment-mismatch,authentication-failed,authorization-failed,routing-failed"
             echo "runtime=holochain-0.7.0"
             echo "hdk=0.7.0"
