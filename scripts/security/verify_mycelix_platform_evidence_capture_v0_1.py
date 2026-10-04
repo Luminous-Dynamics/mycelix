@@ -264,6 +264,7 @@ def fixture_manifest() -> dict[str, Any]:
             "observed_pcr_values_file_sha256": "a" * 64,
             "raw_eventlog_output_sha256": "8" * 64,
             "payload_coherence_output_sha256": "9" * 64,
+            "time_appraisal_output_sha256": "3" * 64,
             "tss_version_evidence_sha256": "f" * 64,
             "ek_public_sha256": "b" * 64,
         },
