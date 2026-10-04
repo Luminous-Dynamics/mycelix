@@ -79,14 +79,10 @@ impl HolochainAuthorityAgentBindingSet {
             }));
         }
 
-        if self
-            .bindings
-            .values()
-            .any(|existing| {
-                existing.payload.provenance.witness_identity
-                    == credential.payload.provenance.witness_identity
-            })
-        {
+        if self.bindings.values().any(|existing| {
+            existing.payload.provenance.witness_identity
+                == credential.payload.provenance.witness_identity
+        }) {
             return Ok(Err(HolochainAdapterBoundaryError::BindingRejected {
                 reason:
                     "an authority-agent provenance witness may justify only one registry binding"
@@ -474,7 +470,9 @@ impl HolochainDependencyBindingSet {
     ) -> ExternResult<Result<(), HolochainAdapterBoundaryError>> {
         match attestation.verify()? {
             HolochainBindingAttestationVerification::Invalid { reason } => {
-                return Ok(Err(HolochainAdapterBoundaryError::SemanticInvalid { reason }));
+                return Ok(Err(HolochainAdapterBoundaryError::SemanticInvalid {
+                    reason,
+                }));
             }
             HolochainBindingAttestationVerification::Valid => {}
         }
@@ -713,7 +711,8 @@ impl HolochainDependencyBindingSet {
         retrieval: QualificationDependencyRetrievalKind,
     ) -> Result<(), HolochainAdapterBoundaryError> {
         let authority = IdentityRef {
-            kind: mobility_configuration_qualification::identity_lineage::IdentityKind::EvidenceRecord,
+            kind:
+                mobility_configuration_qualification::identity_lineage::IdentityKind::EvidenceRecord,
             namespace: "mobility".into(),
             id: format!("authority-{}", identity.id),
         };
