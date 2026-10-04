@@ -1026,7 +1026,7 @@ creditor is exactly offset by the debtor's liability extinguishment. The event i
 lifetime state counter, period ledger, actor/sector observations, and financial-claim projection,
 but is excluded from the monetary transaction-flow matrix.
 
-The financial-claim matrix uses the creditor/debtor pair for this category; its direction identifies
+The other-volume matrix uses the creditor/debtor pair for this category; its direction identifies
 the contractual counterpart relationship and does **not** imply a payment. This keeps a write-off
 from being misreported as cash settlement.
 
