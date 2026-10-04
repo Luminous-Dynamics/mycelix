@@ -30,7 +30,8 @@ pub use decay_garden::{
     calculate_demurrage, CompostAllocation, CompostDistribution, CompostEvent, DemurrageConfig,
 };
 pub use metabolic_oracle::{
-    MetabolicOracle, MetabolicState, PolicyAdjustment, PolicyBounds, TendLimitTier, VitalityIndex,
+    GovernedPolicyAdjustment, MetabolicOracle, MetabolicState, PolicyAdjustment, PolicyBounds,
+    TendLimitTier, VitalityIndex,
 };
 pub use poc::{
     calculate_mycel_score, jubilee_normalize, GamingDetection, GamingRecommendation,
