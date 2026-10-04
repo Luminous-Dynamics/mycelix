@@ -3311,6 +3311,36 @@ mod tests {
         serde_json::to_string_pretty(&capsule).expect("trace capsule is serializable")
     }
 
+    /// Stable diagnostic classifications for replay-independent trace-evidence verification.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+    enum FederationStateMachineTraceEvidenceViolation {
+        UnsupportedSchemaVersion,
+        UnsupportedVerificationProfile,
+        UnsupportedIntegrityAlgorithm,
+        UnsupportedIntegrityEncoding,
+        BodyDigestMismatch,
+        ChainHeadMismatch,
+        PlanLengthMismatch,
+        InitialStateMismatch,
+        InitialSeedMismatch,
+        CanonicalPlanMismatch,
+        EvidenceLengthMismatch,
+        StepIndexMismatch,
+        OperationMismatch,
+        TokenMismatch,
+        PreStateContinuityMismatch,
+        PreAdmissionContinuityMismatch,
+        PreDeliveryContinuityMismatch,
+        ChainContinuityMismatch,
+        StepChainDigestMismatch,
+        AdmissionRegression,
+        DeliveryRegression,
+        AdmissionDeliveryDeltaMismatch,
+        AdmissionEnumerationLengthMismatch,
+        AdmissionOrdinalRangeMismatch,
+        FinalStateMismatch,
+    }
+
     /// Validates the persisted trace capsule without executing any state-machine
     /// transition. This verifies the artifact's schema, canonical plan descriptor,
     /// state/temporal boundary continuity, and hash-chain/body integrity.
@@ -3321,38 +3351,38 @@ mod tests {
     /// the model-coupled semantic oracle.
     fn validate_state_machine_trace_evidence(
         capsule: &FederationStateMachineTraceCapsule,
-    ) -> Result<(), String> {
+    ) -> Result<(), FederationStateMachineTraceEvidenceViolation> {
         macro_rules! require {
-            ($condition:expr, $message:expr) => {
+            ($condition:expr, $violation:expr) => {
                 if !$condition {
-                    return Err($message.to_owned());
+                    return Err($violation);
                 }
             };
         }
 
         require!(
             capsule.schema_version == FEDERATION_STATE_MACHINE_TRACE_CAPSULE_SCHEMA_VERSION,
-            "successful trace capsule schema version must be supported"
+                FederationStateMachineTraceEvidenceViolation::UnsupportedSchemaVersion
         );
         require!(
             capsule.verification_profile
                 == FEDERATION_STATE_MACHINE_TRACE_VERIFICATION_PROFILE,
-            "successful trace capsule verification profile must be supported"
+                FederationStateMachineTraceEvidenceViolation::UnsupportedVerificationProfile
         );
         require!(
             capsule.integrity.algorithm
                 == FEDERATION_STATE_MACHINE_TRACE_CAPSULE_HASH_ALGORITHM,
-            "successful trace capsule integrity algorithm must be supported"
+                FederationStateMachineTraceEvidenceViolation::UnsupportedIntegrityAlgorithm
         );
         require!(
             capsule.integrity.encoding
                 == FEDERATION_STATE_MACHINE_TRACE_CAPSULE_HASH_ENCODING,
-            "successful trace capsule integrity encoding must be supported"
+                FederationStateMachineTraceEvidenceViolation::UnsupportedIntegrityEncoding
         );
         require!(
             capsule.integrity.body_sha256
                 == state_machine_trace_body_sha256(capsule),
-            "successful trace capsule body digest must match its serialized hash view"
+                FederationStateMachineTraceEvidenceViolation::BodyDigestMismatch
         );
         let expected_chain_head = capsule
             .evidence
@@ -3361,11 +3391,11 @@ mod tests {
             .unwrap_or(FEDERATION_STATE_MACHINE_TRACE_CHAIN_GENESIS);
         require!(
             capsule.integrity.chain_head_sha256 == expected_chain_head,
-            "successful trace capsule integrity must bind its terminal evidence chain head"
+                FederationStateMachineTraceEvidenceViolation::ChainHeadMismatch
         );
         require!(
             capsule.operations.len() == capsule.tokens.len(),
-            "trace capsule operation/token lengths must match"
+                FederationStateMachineTraceEvidenceViolation::PlanLengthMismatch
         );
         require!(
             capsule.initial_state
@@ -3374,13 +3404,13 @@ mod tests {
                     delivery_count: 0,
                     state_fingerprint: canonical_state_fingerprint(&nodes()),
                 },
-            "successful trace capsule initial state must match the canonical empty state"
+                FederationStateMachineTraceEvidenceViolation::InitialStateMismatch
         );
 
         let expected_seed = 0xD6E5_5EED_u64 ^ capsule.trace_index as u64;
         require!(
             capsule.initial_seed == expected_seed,
-            "trace capsule seed does not match canonical trace seed"
+                FederationStateMachineTraceEvidenceViolation::InitialSeedMismatch
         );
 
         let (_, canonical_plan) =
@@ -3393,11 +3423,11 @@ mod tests {
             .collect::<Vec<_>>();
         require!(
             recorded_plan == canonical_plan,
-            "trace capsule is not canonical for its trace index and length"
+                FederationStateMachineTraceEvidenceViolation::CanonicalPlanMismatch
         );
         require!(
             capsule.evidence.len() == recorded_plan.len(),
-            "successful trace capsule evidence length must match its plan"
+                FederationStateMachineTraceEvidenceViolation::EvidenceLengthMismatch
         );
 
         let mut expected_pre_state_fingerprint =
@@ -3411,43 +3441,43 @@ mod tests {
         {
             require!(
                 evidence.step_index == step_index,
-                "trace capsule evidence step index must match its canonical position"
+                FederationStateMachineTraceEvidenceViolation::StepIndexMismatch
             );
             require!(
                 evidence.operation == *operation,
-                "trace capsule evidence operation must match its canonical plan"
+                FederationStateMachineTraceEvidenceViolation::OperationMismatch
             );
             require!(
                 evidence.token == *token,
-                "trace capsule evidence token must match its canonical plan"
+                FederationStateMachineTraceEvidenceViolation::TokenMismatch
             );
             require!(
                 evidence.pre_state_fingerprint == expected_pre_state_fingerprint,
-                "trace capsule evidence must preserve state-fingerprint continuity"
+                FederationStateMachineTraceEvidenceViolation::PreStateContinuityMismatch
             );
             require!(
                 evidence.pre_admission_index == expected_post_boundary.admission_index,
-                "trace capsule evidence must preserve admission-index boundary continuity"
+                FederationStateMachineTraceEvidenceViolation::PreAdmissionContinuityMismatch
             );
             require!(
                 evidence.pre_delivery_count == expected_post_boundary.delivery_count,
-                "trace capsule evidence must preserve delivery-count boundary continuity"
+                FederationStateMachineTraceEvidenceViolation::PreDeliveryContinuityMismatch
             );
             require!(
                 evidence.chain_prev_sha256 == expected_chain_prev_sha256,
-                "trace capsule evidence must preserve chain continuity"
+                FederationStateMachineTraceEvidenceViolation::ChainContinuityMismatch
             );
             require!(
                 evidence.chain_sha256 == state_machine_evidence_chain_sha256(evidence),
-                "trace capsule evidence chain digest must match its step body"
+                FederationStateMachineTraceEvidenceViolation::StepChainDigestMismatch
             );
             require!(
                 evidence.post_admission_index >= evidence.pre_admission_index,
-                "trace capsule evidence cannot regress the admission counter"
+                FederationStateMachineTraceEvidenceViolation::AdmissionRegression
             );
             require!(
                 evidence.post_delivery_count >= evidence.pre_delivery_count,
-                "trace capsule evidence cannot regress admitted-delivery count"
+                FederationStateMachineTraceEvidenceViolation::DeliveryRegression
             );
             let admission_delta =
                 evidence.post_admission_index - evidence.pre_admission_index;
@@ -3455,11 +3485,11 @@ mod tests {
                 (evidence.post_delivery_count - evidence.pre_delivery_count) as u64;
             require!(
                 admission_delta == delivery_delta,
-                "trace capsule evidence admission/delivery deltas must agree"
+                FederationStateMachineTraceEvidenceViolation::AdmissionDeliveryDeltaMismatch
             );
             require!(
                 evidence.newly_admitted_deliveries.len() as u64 == admission_delta,
-                "trace capsule evidence must enumerate every consumed admission ordinal"
+                FederationStateMachineTraceEvidenceViolation::AdmissionEnumerationLengthMismatch
             );
             require!(
                 evidence
@@ -3493,7 +3523,7 @@ mod tests {
         capsule: &FederationStateMachineTraceCapsule,
     ) -> Vec<(FederationStateMachineOperation, u64)> {
         validate_state_machine_trace_evidence(capsule)
-            .unwrap_or_else(|message| panic!("{message}"));
+            .unwrap_or_else(|violation| panic!("trace evidence verification failed: {violation:?}"));
 
         let recorded_plan = capsule
             .operations
