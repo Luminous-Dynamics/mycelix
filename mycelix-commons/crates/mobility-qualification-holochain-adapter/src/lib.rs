@@ -1749,6 +1749,26 @@ mod tests {
         assert_eq!(calls.lock().unwrap().as_slice(), ["verify_signature"]);
     }
     #[test]
+    fn invalid_authority_credential_signature_precedes_duplicate_authority_admission() {
+        let _guard = host_test_lock().lock().expect("HDI test lock is not poisoned");
+        let calls = Arc::new(Mutex::new(Vec::new()));
+        let _previous = set_hdi(RecordingHdi { calls: Arc::clone(&calls), verify_result: true });
+        let authority = identity("signature-duplicate-authority");
+        let first = authority_credential(authority.clone(), action_agent_key(77), "signature-admission-first");
+        let expected = first.clone();
+        let mut registry = HolochainAuthorityAgentBindingSet::new();
+        assert!(matches!(registry.bind_attested(first), Ok(Ok(()))));
+        let _previous = set_hdi(RecordingHdi { calls: Arc::clone(&calls), verify_result: false });
+        let conflicting = authority_credential(authority.clone(), action_agent_key(78), "signature-admission-second");
+        let result = registry.bind_attested(conflicting);
+        let _ = set_hdi(ErrHdi);
+        assert!(matches!(result, Ok(Err(HolochainAdapterBoundaryError::SemanticInvalid { reason }))
+            if reason == "authority-agent binding signature did not verify"));
+        assert_eq!(registry.len(), 1);
+        assert_eq!(registry.credential_for(&authority), Some(&expected));
+        assert_eq!(calls.lock().unwrap().as_slice(), ["verify_signature", "verify_signature"]);
+    }
+    #[test]
     fn authority_agent_registry_rejects_duplicate_authority() {
         let _guard = host_test_lock().lock().expect("HDI test lock is not poisoned");
         let calls = Arc::new(Mutex::new(Vec::new()));
