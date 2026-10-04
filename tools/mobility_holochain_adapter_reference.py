@@ -107,6 +107,7 @@ def main() -> int:
         "issuer_mismatch_precedes_duplicate_authority_admission",
         "invalid_authority_credential_signature_precedes_duplicate_authority_admission",
         "valid_duplicate_authority_is_adapter_rejection_and_state_preserving",
+        "valid_duplicate_provenance_witness_is_adapter_rejection_and_state_preserving",
     ):
         if test_name not in source:
             raise SystemExit(f"missing authority credential precedence regression: {test_name}")
