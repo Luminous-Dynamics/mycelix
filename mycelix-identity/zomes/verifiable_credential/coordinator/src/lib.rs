@@ -3053,6 +3053,7 @@ fn w3c_assertion_binding_rejects_wrong_controller_key() {
     let doc = DidDocumentProofMirror {
         id: "did:mycelix:issuer".into(),
         verification_method: vec![method],
+        authentication: vec![],
         assertion_method: vec!["did:mycelix:issuer#keys-1-multikey".into()],
     };
     assert!(!validate_w3c_assertion_method_binding(
@@ -3065,6 +3066,54 @@ fn w3c_assertion_binding_rejects_wrong_controller_key() {
 
 mod tests {
     use super::*;
+
+
+    #[test]
+    fn eddsa_jcs_hash_matches_published_digitalbazaar_vector() {
+        // Published by Digital Bazaar in the eddsa-jcs-2022 cryptosuite README.
+        // This locks the implementation to an independent ecosystem example:
+        // the expected value below is proofConfigHash || documentHash.
+        let document = serde_json::json!({
+            "@context": [
+                "https://www.w3.org/2018/credentials/v1",
+                {
+                    "AlumniCredential": "https://schema.org#AlumniCredential",
+                    "alumniOf": "https://schema.org#alumniOf"
+                },
+                "https://w3id.org/security/data-integrity/v2"
+            ],
+            "id": "http://example.edu/credentials/1872",
+            "type": ["VerifiableCredential", "AlumniCredential"],
+            "issuer": "https://example.edu/issuers/565049",
+            "issuanceDate": "2010-01-01T19:23:24Z",
+            "credentialSubject": {
+                "id": "https://example.edu/students/alice",
+                "alumniOf": "Example University"
+            }
+        });
+        let proof_config = serde_json::json!({
+            "@context": [
+                "https://www.w3.org/2018/credentials/v1",
+                {
+                    "AlumniCredential": "https://schema.org#AlumniCredential",
+                    "alumniOf": "https://schema.org#alumniOf"
+                },
+                "https://w3id.org/security/data-integrity/v2"
+            ],
+            "type": "DataIntegrityProof",
+            "created": "2022-09-06T21:29:24Z",
+            "verificationMethod": "https://example.edu/issuers/565049#z6MkwXG2WjeQnNxSoynSGYU8V9j3QzP3JSqhdmkHc6SaVWoT",
+            "cryptosuite": "eddsa-jcs-2022",
+            "proofPurpose": "assertionMethod"
+        });
+
+        let hash_data = eddsa_jcs_hash_data_from_values(document, proof_config)
+            .expect("published Digital Bazaar JCS vector must canonicalize");
+        assert_eq!(
+            hex::encode(hash_data),
+            "8c90672e61f82a6785f58bad89200c88b183bd80af88ad264f08165fa3e307aa817b37f3e0855fea4eadad6f0a34c10e774135c0ffc599a7410543b2d434cd51"
+        );
+    }
 
     #[test]
     fn proof_verification_method_must_bind_to_did() {
