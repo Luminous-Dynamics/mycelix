@@ -105,9 +105,21 @@ impl CommonsPool {
         }
     }
 
-    /// Total SAP in the pool (reserve + available)
+    /// Checked total SAP in the pool (reserve + available).
+    pub fn try_total_sap(&self) -> Result<u64, String> {
+        self.inalienable_reserve
+            .checked_add(self.available_balance)
+            .ok_or_else(|| "Total commons balance overflow".to_string())
+    }
+
+    /// Total SAP in the pool (reserve + available).
+    ///
+    /// An impossible overflow state is treated as corruption and fails closed
+    /// rather than wrapping in release builds. New callers that need explicit
+    /// error handling should use try_total_sap().
     pub fn total_sap(&self) -> u64 {
-        self.inalienable_reserve + self.available_balance
+        self.try_total_sap()
+            .expect("Total commons balance overflow")
     }
 
     /// Contribute SAP to the commons pool.
@@ -240,7 +252,10 @@ impl CommonsPool {
     ///
     /// A value of 2,500 means exactly 25%. Zero means an empty pool.
     pub fn reserve_ratio_bps(&self) -> u16 {
-        let total = u128::from(self.total_sap());
+        let total = match self.try_total_sap() {
+            Ok(total) => u128::from(total),
+            Err(_) => return 0,
+        };
         if total == 0 {
             return 0;
         }
@@ -253,7 +268,10 @@ impl CommonsPool {
     /// Returns true if the current ratio meets the existing constitutional
     /// minimum with its historical 0.1 percentage-point tolerance.
     pub fn reserve_ratio_valid(&self) -> bool {
-        let total = u128::from(self.total_sap());
+        let total = match self.try_total_sap() {
+            Ok(total) => u128::from(total),
+            Err(_) => return false,
+        };
         if total == 0 {
             return true;
         }
@@ -316,7 +334,6 @@ mod tests {
         assert_eq!(pool.available_balance, 0);
     }
 
-    #[test]
     #[test]
     fn test_reserve_ratio_bps_uses_integer_arithmetic() {
         let mut pool = CommonsPool::new("local-dao-1".to_string(), 1000);
@@ -405,6 +422,17 @@ mod tests {
 
         assert_eq!(pool.available_balance, u64::MAX - 10);
         assert_eq!(pool.last_activity, 1000);
+    }
+
+    #[test]
+    fn test_total_sap_overflow_is_explicit_and_fail_closed() {
+        let mut pool = CommonsPool::new("local-dao-overflow".to_string(), 1000);
+        pool.inalienable_reserve = u64::MAX;
+        pool.available_balance = 1;
+
+        assert!(pool.try_total_sap().is_err());
+        assert_eq!(pool.reserve_ratio_bps(), 0);
+        assert!(!pool.reserve_ratio_valid());
     }
 
     #[test]
