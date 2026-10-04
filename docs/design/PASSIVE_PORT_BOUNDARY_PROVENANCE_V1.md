@@ -20,3 +20,8 @@ must remain queryable rather than being rewritten into a successful passive reco
 
 This separation is intentional: a topology constraint should be capable of failing
 without corrupting the underlying design intent.
+
+A required_open_ports entry is stronger than merely permitting an opening: the
+record is non-admissible when a required port has no observed boundary edge associated
+with its anchor. This prevents an internal anchor from being mistaken for an external
+interface merely because it lies inside a connected mesh.
