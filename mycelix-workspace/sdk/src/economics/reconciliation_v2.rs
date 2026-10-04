@@ -369,6 +369,7 @@ pub fn postings_for_step(
     Ok(postings)
 }
 
+/// The non-physical arms are listed explicitly so adding a new transition variant forces a compile-time review of its physical-accounting treatment.
 /// Derive physical quantity postings from the authoritative transition log.
 pub fn physical_postings_for_step(
     pre_state: &EconomicState,
@@ -446,8 +447,15 @@ pub fn physical_postings_for_step(
                     sale.quantity,
                 ));
             }
-            EconomicTransition::TradeCreditSettlement(_) => {}
-            _ => {}
+            EconomicTransition::TradeCreditSettlement(_)
+            | EconomicTransition::MonetaryTransfer(_)
+            | EconomicTransition::IncomeTransfer(_)
+            | EconomicTransition::CapitalInvestment(_)
+            | EconomicTransition::InventoryCostAddition(_)
+            | EconomicTransition::InventoryCostRelief(_)
+            | EconomicTransition::Depreciation(_)
+            | EconomicTransition::CreditCreation(_)
+            | EconomicTransition::DebtRepayment(_) => {}
         }
 
         transition.apply_to_state(&mut working)?;
