@@ -439,7 +439,7 @@ def fixture() -> dict[str, Any]:
         "ak": {
             "public_sha256": ak_public,
             "public_area_sha256": hashlib.sha256(
-                bytes.fromhex("0001000b00000032") + (b"\\x00" * 64)
+                bytes.fromhex("0001000b00000032") + bytes(64)
             ).hexdigest(),
             "name_hex": ak_name.hex(),
             "qualified_name_hex": ak_qname.hex(),
@@ -455,7 +455,7 @@ def fixture() -> dict[str, Any]:
             "public_sha256": ak_public,
             "name_sha256": hashlib.sha256(ak_name).hexdigest(),
             "public_area_sha256": hashlib.sha256(
-                bytes.fromhex("0001000b00000032") + (b"\\x00" * 64)
+                bytes.fromhex("0001000b00000032") + bytes(64)
             ).hexdigest(),
             "verifier_id": "mycelix.tpm.public-name-coherence.v0.1",
         },
@@ -463,7 +463,7 @@ def fixture() -> dict[str, Any]:
             "state": "PASS",
             "verifier_id": ATTRIBUTES_VERIFIER_ID,
             "public_area_sha256": hashlib.sha256(
-                bytes.fromhex("0001000b00000032") + (b"\\x00" * 64)
+                bytes.fromhex("0001000b00000032") + bytes(64)
             ).hexdigest(),
             "derived_fixedTPM": True,
             "derived_fixedParent": True,
@@ -475,14 +475,14 @@ def fixture() -> dict[str, Any]:
                 "claim_ceiling": "ReferenceModelOnly",
                 "object_role": "AK",
                 "public_format": "TPMT_PUBLIC",
-                "public_wire_hex": (bytes.fromhex("0001000b00000032") + (b"\\x00" * 64)).hex(),
+                "public_wire_hex": (bytes.fromhex("0001000b00000032") + bytes(64)).hex(),
                 "public_wire_sha256": hashlib.sha256(
-                    bytes.fromhex("0001000b00000032") + (b"\\x00" * 64)
+                    bytes.fromhex("0001000b00000032") + bytes(64)
                 ).hexdigest(),
                 "name_hex": (
                     SHA256_ALG_ID
                     + hashlib.sha256(
-                        bytes.fromhex("0001000b00000032") + (b"\\x00" * 64)
+                        bytes.fromhex("0001000b00000032") + bytes(64)
                     ).digest()
                 ).hex(),
                 "readpublic_state": "PASS",
