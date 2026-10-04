@@ -784,7 +784,7 @@ check_coordinator_symbol_parity() {
         fail=1
       fi
     done < <(rg -o --pcre2 'LinkTypes::[A-Za-z_][A-Za-z0-9_]*' "$coordinator" | sed 's/.*LinkTypes:://' | sort -u)
-  done < <(git ls-files -z -- "mycelix-workspace/mycelix-hearth/zomes/*/coordinator/src/lib.rs")
+  done < <(git ls-files -z -- "mycelix-workspace/mycelix-hearth/zomes/*/coordinator/src/**/*.rs")
 }
 
 check_coordinator_operation_bindings() {
@@ -850,7 +850,7 @@ check_coordinator_operation_bindings() {
         fail=1
       fi
     fi
-  done < <(git ls-files -z -- "mycelix-workspace/mycelix-hearth/zomes/*/coordinator/src/lib.rs")
+  done < <(git ls-files -z -- "mycelix-workspace/mycelix-hearth/zomes/*/coordinator/src/**/*.rs")
 }
 
 check_dna_source_completeness() {
