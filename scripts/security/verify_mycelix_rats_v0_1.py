@@ -38,6 +38,9 @@ def verify_evidence(
     if missing:
         return decision("DENY", "missing-required-claim")
 
+    if evidence.get("verifier_available") is False:
+        return decision("INDETERMINATE", "verifier-unavailable")
+
     if not evidence["signature_valid"]:
         return decision("DENY", "bad-signature")
 
@@ -92,6 +95,9 @@ def verify_attestation_result(
 
     if not result["result_signature_valid"]:
         return decision("DENY", "result-bad-signature")
+
+    if result["evidence_digest"] != policy["expected_evidence_digest"]:
+        return decision("DENY", "evidence-binding-mismatch")
 
     if result["verifier_profile_id"] != policy["verifier_profile_id"]:
         return decision("DENY", "verifier-profile-substitution")
@@ -180,6 +186,7 @@ def mutate_evidence(base: dict[str, Any], mutation: str) -> dict[str, Any]:
             verifier_profile_id="other-verifier"
         ),
         "exact-replay": lambda x: x,
+        "verifier-unavailable": lambda x: x.update(verifier_available=False),
         "key-order-permutation": lambda x: dict(reversed(list(x.items()))),
     }
     mutations[mutation](value)
@@ -210,6 +217,8 @@ def mutate_result(base: dict[str, Any], mutation: str) -> dict[str, Any]:
         "attestation-does-not-grant-subject-authority": lambda x: None,
         "cross-domain-result": lambda x: x.update(security_domain="E2"),
         "missing-result-binding": lambda x: x.pop("evidence_digest"),
+        "result-evidence-substitution": lambda x: x.update(evidence_digest="sha256:evidence-other"),
+        "future-dated-result": lambda x: x.update(issued_at="2026-10-04T13:00:00Z", expires_at="2026-10-04T13:01:00Z"),
         "result-replay-with-new-request-nonce": lambda x: x,
         "unauthorized-delegation": lambda x: None,
     }
