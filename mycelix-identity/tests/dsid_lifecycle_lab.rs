@@ -5081,3 +5081,100 @@ async fn dsid_050_issuer_key_rotation_invalidates_current_vc_authorization() {
     );
 }
 
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_051_w3c_1_1_eddsa_jcs_vector_verifies_end_to_end() {
+    let dna = load_dna().await;
+
+    let document = serde_json::json!({
+        "@context": [
+            "https://www.w3.org/ns/credentials/v2",
+            "https://www.w3.org/ns/credentials/examples/v2"
+        ],
+        "id": "urn:uuid:58172aac-d8ba-11ed-83dd-0b3aef56cc33",
+        "type": ["VerifiableCredential", "AlumniCredential"],
+        "name": "Alumni Credential",
+        "description": "A minimum viable example of an Alumni Credential.",
+        "issuer": "https://vc.example/issuers/5678",
+        "validFrom": "2023-01-01T00:00:00Z",
+        "credentialSubject": {
+            "id": "did:example:abcdefgh",
+            "alumniOf": "The School of Examples"
+        }
+    });
+
+    let proof_config = serde_json::json!({
+        "@context": [
+            "https://www.w3.org/ns/credentials/v2",
+            "https://www.w3.org/ns/credentials/examples/v2"
+        ],
+        "type": "DataIntegrityProof",
+        "cryptosuite": "eddsa-jcs-2022",
+        "created": "2023-02-24T23:36:38Z",
+        "verificationMethod": "did:key:z6MkrJVnaZkeFzdQyMZu1cgjg7k1pZZ6pvBQ7XJPt4swbTQ2#z6MkrJVnaZkeFzdQyMZu1cgjg7k1pZZ6pvBQ7XJPt4swbTQ2",
+        "proofPurpose": "assertionMethod"
+    });
+
+    let canonical_document =
+        serde_json_canonicalizer::to_vec(&document).expect("W3C JCS document must canonicalize");
+    let canonical_proof =
+        serde_json_canonicalizer::to_vec(&proof_config).expect("W3C JCS proof must canonicalize");
+
+    let document_hash = Sha256::digest(&canonical_document);
+    let proof_hash = Sha256::digest(&canonical_proof);
+    let mut hash_data = Vec::with_capacity(64);
+    hash_data.extend_from_slice(&proof_hash);
+    hash_data.extend_from_slice(&document_hash);
+
+    let observed_hash = hash_data
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
+    let expected_hash =
+        "66ab154f5c2890a140cb8388a22a160454f80575f6eae09e5a097cabe539a1db59b7cb6251b8991add1ce0bc83107e3db9dbbab5bd2c28f687db1a03abc92f19";
+    assert_eq!(observed_hash, expected_hash);
+
+    let public_key = TaggedPublicKey::from_multibase_strict(
+        "z6MkrJVnaZkeFzdQyMZu1cgjg7k1pZZ6pvBQ7XJPt4swbTQ2"
+    )
+    .expect("W3C published Multikey must decode");
+    assert_eq!(public_key.algorithm, AlgorithmId::Ed25519);
+    let public_key_bytes: [u8; 32] = public_key
+        .key_bytes
+        .as_slice()
+        .try_into()
+        .expect("published Ed25519 key must be 32 bytes");
+    let verifying_key =
+        VerifyingKey::from_bytes(&public_key_bytes).expect("published key must be valid");
+
+    let signature_multibase =
+        "z2HnFSSPPBzR36zdDgK8PbEHeXbR56YF24jwMpt3R1eHXQzJDMWS93FCzpvJpwTWd3GAVFuUfjoJdcnTMuVor51aX";
+    let signature = TaggedSignature::from_multibase(signature_multibase)
+        .expect("W3C published proofValue must decode");
+    assert_eq!(signature.algorithm, AlgorithmId::Ed25519);
+    let signature =
+        Ed25519Signature::from_slice(&signature.signature_bytes).expect("signature must be 64 bytes");
+    verifying_key
+        .verify(&hash_data, &signature)
+        .expect("W3C published eddsa-jcs-2022 signature must verify");
+
+    let mut agents = BTreeMap::new();
+    agents.insert("interop_reference", "W3C-vc-di-eddsa-1.1".into());
+    emit_evidence(
+        "DSID-051",
+        "w3c-1-1-eddsa-jcs-vector-verifies-end-to-end",
+        &dna,
+        agents,
+        &[],
+        "Mycelix must reproduce W3C Data Integrity EdDSA Cryptosuites v1.1 Example 36 hashData and verify Example 38's published Ed25519 signature.",
+        format!(
+            "hash_matches={} signature_verifies={} hash={}",
+            observed_hash == expected_hash,
+            verifying_key.verify(&hash_data, &signature).is_ok(),
+            observed_hash
+        ),
+        observed_hash == expected_hash
+            && verifying_key.verify(&hash_data, &signature).is_ok(),
+    );
+}
+
