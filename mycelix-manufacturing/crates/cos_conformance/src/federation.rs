@@ -2508,7 +2508,7 @@ mod tests {
         assert_eq!(validate_state(&state), Ok(()));
     }
 
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
     enum FederationStateMachineOperation {
         AddRecognition,
         DuplicateRecognition,
@@ -2565,21 +2565,70 @@ mod tests {
         state_fingerprint: Vec<u8>,
     }
 
-    fn state_machine_step_operation(
-        seed: &mut u64,
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    struct FederationStateMachineTraceCapsule {
         trace_index: usize,
-        step_index: usize,
-    ) -> FederationStateMachineOperation {
+        initial_seed: u64,
+        operations: Vec<FederationStateMachineOperation>,
+        tokens: Vec<u64>,
+    }
+
+    fn state_machine_next_seed(seed: &mut u64) -> u64 {
         *seed = seed
             .wrapping_mul(6_364_136_223_846_793_005)
             .wrapping_add(1_442_695_040_888_963_407);
-        let selector = (*seed >> 60) as usize;
-        let index = (trace_index
-            .wrapping_mul(FederationStateMachineOperation::ALL.len())
-            .wrapping_add(step_index)
-            .wrapping_add(selector))
-            % FederationStateMachineOperation::ALL.len();
-        FederationStateMachineOperation::ALL[index]
+        *seed
+    }
+
+    fn state_machine_trace_plan(
+        trace_index: usize,
+        steps: usize,
+    ) -> (u64, Vec<(FederationStateMachineOperation, u64)>) {
+        let initial_seed = 0xD6E5_5EED_u64 ^ trace_index as u64;
+        let mut seed = initial_seed;
+        let mut plan = Vec::with_capacity(steps);
+
+        for step_index in 0..steps {
+            let next_seed = state_machine_next_seed(&mut seed);
+            let selector = (next_seed >> 60) as usize;
+            let index = (trace_index
+                .wrapping_mul(FederationStateMachineOperation::ALL.len())
+                .wrapping_add(step_index)
+                .wrapping_add(selector))
+                % FederationStateMachineOperation::ALL.len();
+            let operation = FederationStateMachineOperation::ALL[index];
+            let token = next_seed ^ ((trace_index as u64) << 32) ^ step_index as u64;
+            plan.push((operation, token));
+        }
+
+        (initial_seed, plan)
+    }
+
+    fn state_machine_trace_capsule(trace_index: usize, steps: usize) -> String {
+        let (initial_seed, plan) = state_machine_trace_plan(trace_index, steps);
+        let capsule = FederationStateMachineTraceCapsule {
+            trace_index,
+            initial_seed,
+            operations: plan.iter().map(|(operation, _)| *operation).collect(),
+            tokens: plan.iter().map(|(_, token)| *token).collect(),
+        };
+        serde_json::to_string_pretty(&capsule).expect("trace capsule is serializable")
+    }
+
+    fn state_machine_plan_from_capsule(
+        capsule: &FederationStateMachineTraceCapsule,
+    ) -> Vec<(FederationStateMachineOperation, u64)> {
+        assert_eq!(
+            capsule.operations.len(),
+            capsule.tokens.len(),
+            "trace capsule operation/token lengths must match"
+        );
+        capsule
+            .operations
+            .iter()
+            .copied()
+            .zip(capsule.tokens.iter().copied())
+            .collect()
     }
 
     fn state_machine_envelope(
@@ -2606,15 +2655,18 @@ mod tests {
         trace_index: usize,
         steps: usize,
     ) -> Vec<FederationStateMachineEvidence> {
-        let mut state = nodes();
-        let mut seed = 0xD6E5_5EED_u64 ^ trace_index as u64;
-        let mut admitted = Vec::<FederationEnvelope>::new();
-        let mut evidence = Vec::with_capacity(steps);
+        let (_, plan) = state_machine_trace_plan(trace_index, steps);
+        run_state_machine_trace_plan(&plan)
+    }
 
-        for step_index in 0..steps {
-            let operation =
-                state_machine_step_operation(&mut seed, trace_index, step_index);
-            let token = seed ^ ((trace_index as u64) << 32) ^ step_index as u64;
+    fn run_state_machine_trace_plan(
+        plan: &[(FederationStateMachineOperation, u64)],
+    ) -> Vec<FederationStateMachineEvidence> {
+        let mut state = nodes();
+        let mut admitted = Vec::<FederationEnvelope>::new();
+        let mut evidence = Vec::with_capacity(plan.len());
+
+        for (step_index, (operation, token)) in plan.iter().copied().enumerate() {
             let before = canonical_state_fingerprint(&state);
             let mut decision = None;
             let mut authority = None;
@@ -2935,6 +2987,50 @@ mod tests {
         }
 
         evidence
+    }
+
+    #[test]
+    fn state_machine_trace_capsule_round_trips_and_replays_exactly() {
+        let capsule_text = state_machine_trace_capsule(17, 32);
+        let capsule = serde_json::from_str::<FederationStateMachineTraceCapsule>(&capsule_text)
+            .expect("deterministic trace capsule must deserialize");
+
+        assert_eq!(
+            capsule.initial_seed,
+            0xD6E5_5EED_u64 ^ capsule.trace_index as u64
+        );
+        assert_eq!(capsule.operations.len(), 32);
+        assert_eq!(capsule.operations.len(), capsule.tokens.len());
+
+        let (_, generated_plan) = state_machine_trace_plan(capsule.trace_index, 32);
+        let capsule_plan = state_machine_plan_from_capsule(&capsule);
+        assert_eq!(generated_plan, capsule_plan);
+
+        assert_eq!(
+            state_machine_trace_capsule(capsule.trace_index, 32),
+            serde_json::to_string_pretty(&capsule)
+                .expect("trace capsule serialization must be deterministic")
+        );
+
+        assert_eq!(
+            run_state_machine_trace_plan(&generated_plan),
+            run_state_machine_trace_plan(&capsule_plan)
+        );
+    }
+
+    #[test]
+    fn state_machine_trace_capsule_is_a_compact_reproduction_descriptor() {
+        let capsule_text = state_machine_trace_capsule(3, 8);
+        assert!(capsule_text.contains(""trace_index": 3"));
+        assert!(capsule_text.contains(""initial_seed":"));
+        assert!(capsule_text.contains(""operations": ["));
+        assert!(capsule_text.contains(""tokens": ["));
+
+        let capsule = serde_json::from_str::<FederationStateMachineTraceCapsule>(&capsule_text)
+            .expect("capsule must remain self-describing");
+        let replay = run_state_machine_trace_plan(&state_machine_plan_from_capsule(&capsule));
+        assert_eq!(replay.len(), 8);
+        assert!(replay.iter().all(|step| !step.state_fingerprint.is_empty()));
     }
 
     #[test]
