@@ -4,7 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    # Run against every PR target, including stacked/dependent review branches.
+    # Job-level admission below still controls draft/publication semantics.
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
   workflow_dispatch:
 
