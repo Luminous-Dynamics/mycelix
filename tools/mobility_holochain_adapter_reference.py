@@ -90,8 +90,9 @@ def main() -> int:
         "provenance_witness_unique_per_registry_binding": True,
         "authority_agent_witness_cannot_be_reused_by_runtime_binding": True,
         "preflight_missing_is_not_protocol_unresolved": True,
-        "missing_binding_stops_before_host_calls": True,
+        "missing_binding_stops_before_dht_retrieval": True,
         "runtime_binding_payload_validation_precedes_authority_preflight": True,
+        "runtime_binding_signature_verification_precedes_authority_preflight": True,
     }
     for key, expected in expected_authority_contract.items():
         if authority_contract.get(key) != expected:
@@ -154,8 +155,8 @@ def main() -> int:
         raise SystemExit("runtime binding must consult the retained authority-agent credential")
     if "authority_agent_registry_rejects_duplicate_provenance_witness" not in source:
         raise SystemExit("registry witness reuse must have a regression test")
-    if "missing authority-agent registration must stop before host calls" not in source:
-        raise SystemExit("missing authority-agent registration must stop before host calls")
+    if "missing authority-agent registration must stop before DHT retrieval" not in source:
+        raise SystemExit("missing authority-agent registration must stop before DHT retrieval")
     if "binding.signer != authorized_credential.payload.agent" not in source:
         raise SystemExit("runtime binding signer must match the registered authority agent")
     bind_attested_with_authority_start = source.index("pub fn bind_attested_with_authority(")
@@ -170,6 +171,15 @@ def main() -> int:
     if payload_validation > authority_lookup:
         raise SystemExit(
             "runtime binding payload validation must precede missing authority preflight"
+        )
+
+    signature_verification = source.index(
+        "match binding.verify()?",
+        bind_attested_with_authority_start,
+    )
+    if signature_verification > authority_lookup:
+        raise SystemExit(
+            "runtime binding signature verification must precede missing authority preflight"
         )
 
     if "authorized_credential.payload.provenance.authority_scope" not in compact_source:
