@@ -855,9 +855,8 @@ code_pattern, human_invariant, source = sys.argv[1:]
 token_re = re.compile(
     r'//[^\n]*'
     r'|/\*.*?\*/'
-    r'|r(#+)"(?:.|\n)*?"\1'
-    r'|"(?:\\.|[^"\\])*"'
-    r"|'(?:\\.|[^'\\])*'",
+    r'|(?:br|rb|r)(#{0,255})"(?:.|\n)*?"\1'
+    r'|"(?:\\.|[^"\\])*"',
     re.S,
 )
 masked = token_re.sub(lambda m: "\n" * m.group(0).count("\n"), source)
