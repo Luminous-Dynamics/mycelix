@@ -3230,54 +3230,59 @@ mod tests {
     }
 
     #[test]
-    fn eddsa_jcs_hash_matches_published_digitalbazaar_vector() {
-        // Published by Digital Bazaar in the eddsa-jcs-2022 cryptosuite README.
-        // This locks the implementation to an independent ecosystem example:
-        // the expected value below is proofConfigHash || documentHash.
+    fn eddsa_jcs_hash_matches_w3c_1_1_vector() {
+        // W3C Data Integrity EdDSA Cryptosuites v1.1, Examples 30-36.
+        // Example 36 is proofConfigHash || transformedDocumentHash.
         let document = serde_json::json!({
             "@context": [
-                "https://www.w3.org/2018/credentials/v1",
-                {
-                    "AlumniCredential": "https://schema.org#AlumniCredential",
-                    "alumniOf": "https://schema.org#alumniOf"
-                },
-                "https://w3id.org/security/data-integrity/v2"
+                "https://www.w3.org/ns/credentials/v2",
+                "https://www.w3.org/ns/credentials/examples/v2"
             ],
-            "id": "http://example.edu/credentials/1872",
+            "id": "urn:uuid:58172aac-d8ba-11ed-83dd-0b3aef56cc33",
             "type": ["VerifiableCredential", "AlumniCredential"],
-            "issuer": "https://example.edu/issuers/565049",
-            "issuanceDate": "2010-01-01T19:23:24Z",
+            "name": "Alumni Credential",
+            "description": "A minimum viable example of an Alumni Credential.",
+            "issuer": "https://vc.example/issuers/5678",
+            "validFrom": "2023-01-01T00:00:00Z",
             "credentialSubject": {
-                "id": "https://example.edu/students/alice",
-                "alumniOf": "Example University"
+                "id": "did:example:abcdefgh",
+                "alumniOf": "The School of Examples"
             }
         });
         let proof_config = serde_json::json!({
             "@context": [
-                "https://www.w3.org/2018/credentials/v1",
-                {
-                    "AlumniCredential": "https://schema.org#AlumniCredential",
-                    "alumniOf": "https://schema.org#alumniOf"
-                },
-                "https://w3id.org/security/data-integrity/v2"
+                "https://www.w3.org/ns/credentials/v2",
+                "https://www.w3.org/ns/credentials/examples/v2"
             ],
             "type": "DataIntegrityProof",
-            "created": "2022-09-06T21:29:24Z",
-            "verificationMethod": "https://example.edu/issuers/565049#z6MkwXG2WjeQnNxSoynSGYU8V9j3QzP3JSqhdmkHc6SaVWoT",
             "cryptosuite": "eddsa-jcs-2022",
+            "created": "2023-02-24T23:36:38Z",
+            "verificationMethod": "did:key:z6MkrJVnaZkeFzdQyMZu1cgjg7k1pZZ6pvBQ7XJPt4swbTQ2#z6MkrJVnaZkeFzdQyMZu1cgjg7k1pZZ6pvBQ7XJPt4swbTQ2",
             "proofPurpose": "assertionMethod"
         });
 
         let hash_data = eddsa_jcs_hash_data_from_values(document, proof_config)
-            .expect("published Digital Bazaar JCS vector must canonicalize");
+            .expect("W3C 1.1 JCS vector must canonicalize");
+
+        let hex = hash_data
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>();
+
         assert_eq!(
-            hash_data
-                .iter()
-                .map(|byte| format!("{byte:02x}"))
-                .collect::<String>(),
-            "8c90672e61f82a6785f58bad89200c88b183bd80af88ad264f08165fa3e307aa817b37f3e0855fea4eadad6f0a34c10e774135c0ffc599a7410543b2d434cd51"
+            &hex[..64],
+            "66ab154f5c2890a140cb8388a22a160454f80575f6eae09e5a097cabe539a1db"
+        );
+        assert_eq!(
+            &hex[64..],
+            "59b7cb6251b8991add1ce0bc83107e3db9dbbab5bd2c28f687db1a03abc92f19"
+        );
+        assert_eq!(
+            hex,
+            "66ab154f5c2890a140cb8388a22a160454f80575f6eae09e5a097cabe539a1db59b7cb6251b8991add1ce0bc83107e3db9dbbab5bd2c28f687db1a03abc92f19"
         );
     }
+
 
     #[test]
     fn proof_verification_method_must_bind_to_did() {
