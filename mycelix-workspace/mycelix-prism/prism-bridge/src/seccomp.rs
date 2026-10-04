@@ -3048,6 +3048,24 @@ mod linux {
                 Err(SeccompError::CompilerInvariantViolation)
             ));
 
+            let mut wrong_dispatch = compile_filter_v2(&predicate_policy).unwrap();
+            let dispatch = wrong_dispatch.iter().position(|instruction| {
+                instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                    && instruction.k == libc::SYS_socket as u32
+            }).unwrap();
+            wrong_dispatch[dispatch].k = libc::SYS_prctl as u32;
+            assert!(matches!(
+                validate_v2_compiled_semantics(&predicate_policy, &wrong_dispatch),
+                Err(SeccompError::CompilerInvariantViolation)
+            ));
+
+            let mut wrong_mask = compile_filter_v2(&predicate_policy).unwrap();
+            wrong_mask[arg_load + 1].k = 0x7f;
+            assert!(matches!(
+                validate_v2_compiled_semantics(&predicate_policy, &wrong_mask),
+                Err(SeccompError::CompilerInvariantViolation)
+            ));
+
             let mut unexpected_metadata = compile_filter_v2(&policy).unwrap();
             unexpected_metadata[3].jt = 1; // non-branch instructions may not carry jump metadata
             assert!(matches!(
