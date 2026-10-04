@@ -1501,7 +1501,7 @@ mod tests {
         recipe_contract: GoldenRecipeContractV1,
     }
 
-    #[derive(Debug, Deserialize)]
+    #[derive(Debug, Clone, Deserialize)]
     #[serde(deny_unknown_fields)]
     struct GoldenVectorV1 {
         id: String,
@@ -1529,18 +1529,22 @@ mod tests {
         derivation_profile: serde_json::Value,
     }
 
-    #[derive(Debug, Deserialize)]
+    #[derive(Debug, Clone, Deserialize)]
     #[serde(deny_unknown_fields)]
     struct GoldenRecipeV1 {
         root_node_ids: Vec<String>,
         required_node_ids: Vec<String>,
+        #[serde(default)]
+        required_d6p_receipt_commitments: Vec<String>,
+        #[serde(default)]
+        projection_d6p_receipt_commitments: Vec<String>,
         rule: GoldenRuleV1,
         max_nodes: u32,
         max_edges: u32,
         projection_mutations: Vec<GoldenProjectionMutationV1>,
     }
 
-    #[derive(Debug, Deserialize)]
+    #[derive(Debug, Clone, Deserialize)]
     #[serde(deny_unknown_fields)]
     struct GoldenRuleV1 {
         edge_kind: ClaimGraphEdgeKindV1,
@@ -1549,7 +1553,7 @@ mod tests {
         currentness: DependencyCurrentnessV1,
     }
 
-    #[derive(Debug, Deserialize)]
+    #[derive(Debug, Clone, Deserialize)]
     #[serde(deny_unknown_fields)]
     struct GoldenProjectionMutationV1 {
         op: String,
@@ -1624,6 +1628,20 @@ mod tests {
             assert!(!vector.recipe.root_node_ids.is_empty());
             assert!(vector.recipe.root_node_ids.iter().all(|id| !id.is_empty()));
             assert!(vector.recipe.required_node_ids.iter().all(|id| !id.is_empty()));
+            assert!(vector.recipe.required_d6p_receipt_commitments.iter().all(|id| !id.is_empty()));
+            assert_eq!(
+                vector.recipe.required_d6p_receipt_commitments.iter().collect::<BTreeSet<_>>().len(),
+                vector.recipe.required_d6p_receipt_commitments.len(),
+                "duplicate required D6P receipt commitments are ambiguous: {}",
+                vector.id
+            );
+            assert!(vector.recipe.projection_d6p_receipt_commitments.iter().all(|id| !id.is_empty()));
+            assert_eq!(
+                vector.recipe.projection_d6p_receipt_commitments.iter().collect::<BTreeSet<_>>().len(),
+                vector.recipe.projection_d6p_receipt_commitments.len(),
+                "duplicate projected D6P receipt commitments are ambiguous: {}",
+                vector.id
+            );
             assert!(vector.recipe.max_nodes > 0);
             assert!(vector.recipe.max_edges > 0);
             let declared_rule = DependencyRuleV1 {
@@ -1787,6 +1805,31 @@ mod tests {
             serde_json::Value::String(derivation_profile.commitment()),
         );
 
+        let mut projection_d6p_receipt_ids = BTreeSet::new();
+        for receipt in &vector.recipe.projection_d6p_receipt_commitments {
+            assert!(
+                projection_d6p_receipt_ids.insert(receipt.as_str()),
+                "duplicate projected D6P receipt commitment: {receipt}"
+            );
+            assert!(
+                corpus.fixtures.baseline_projection
+                    .get("d6p_current_receipt_commitments")
+                    .and_then(serde_json::Value::as_array)
+                    .is_some(),
+                "baseline projection must expose d6p_current_receipt_commitments"
+            );
+        }
+
+        if !vector.recipe.projection_d6p_receipt_commitments.is_empty() {
+            let receipts = projection_object
+                .get_mut("d6p_current_receipt_commitments")
+                .and_then(serde_json::Value::as_array_mut)
+                .expect("golden projection receipt commitments must be an array");
+            for receipt in &vector.recipe.projection_d6p_receipt_commitments {
+                receipts.push(serde_json::Value::String(receipt.clone()));
+            }
+        }
+
         for mutation in &vector.recipe.projection_mutations {
             match mutation.op.as_str() {
                 "add_edge" => {
@@ -1869,7 +1912,12 @@ mod tests {
             version: "1".into(),
             root_node_ids: vector.recipe.root_node_ids.iter().cloned().collect(),
             required_node_ids: vector.recipe.required_node_ids.iter().cloned().collect(),
-            required_d6p_receipt_commitments: BTreeSet::new(),
+            required_d6p_receipt_commitments: vector
+                .recipe
+                .required_d6p_receipt_commitments
+                .iter()
+                .cloned()
+                .collect(),
             rules: [rule].into_iter().collect(),
             excluded_boundary_policy: "Only rule-matched semantic edges expand closure.".into(),
             max_nodes: vector.recipe.max_nodes,
@@ -1878,6 +1926,56 @@ mod tests {
         };
 
         (projection, environment, derivation_profile, profile)
+    }
+
+    #[test]
+    fn golden_recipe_d6p_requirement_is_executable() {
+        let corpus: GoldenCorpusV1 = serde_json::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/testdata/d6x_qualified_closure_golden_vectors.json"
+        )))
+        .expect("D6X golden vector corpus must parse");
+
+        let mut missing = corpus
+            .vectors
+            .iter()
+            .find(|vector| vector.id == "baseline-complete")
+            .expect("baseline golden vector")
+            .clone();
+        missing.recipe.required_d6p_receipt_commitments = vec!["receipt-required".into()];
+
+        let (projection, environment, derivation_profile, profile) =
+            execute_golden_recipe(&corpus, &missing);
+        let blocked = compute_dependency_closure(
+            &projection,
+            &environment,
+            &derivation_profile,
+            &profile,
+        )
+        .expect("missing D6P receipt should still yield a blocked closure certificate");
+        assert_eq!(blocked.status, DependencyClosureStatusV1::BlockedMissingDependency);
+        let receipt = SemanticDependencyReferenceV1::d6p_receipt("receipt-required");
+        assert_eq!(
+            blocked.dependency_resolutions.get(&receipt),
+            Some(&SemanticDependencyResolutionV1::Missing)
+        );
+
+        missing.recipe.projection_d6p_receipt_commitments = vec!["receipt-required".into()];
+        let (projection, environment, derivation_profile, profile) =
+            execute_golden_recipe(&corpus, &missing);
+        let complete = compute_dependency_closure(
+            &projection,
+            &environment,
+            &derivation_profile,
+            &profile,
+        )
+        .expect("present D6P receipt should yield a complete closure");
+        assert_eq!(complete.status, DependencyClosureStatusV1::Complete);
+        assert!(complete.included_d6p_receipt_commitments.contains("receipt-required"));
+        assert_ne!(
+            blocked.closure_identity_commitment,
+            complete.closure_identity_commitment
+        );
     }
 
     #[test]
