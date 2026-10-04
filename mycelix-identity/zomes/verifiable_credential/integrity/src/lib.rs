@@ -1407,6 +1407,79 @@ fn validate_create_derived_credential(
         ));
     }
 
+    // The entry itself must carry complete source lineage; link validation is
+    // an additional integrity layer, not the primary admission boundary.
+    let source_record = must_get_valid_record(dc.original_credential_action.clone())?;
+    let source: VerifiableCredential = source_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Derived credential source action must reference a VerifiableCredential".into(),
+        )))?;
+
+    if dc.original_credential_id != source.id {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Derived credential original_credential_id does not match the pinned source".into(),
+        ));
+    }
+    if dc.original_issuer != source.issuer.did() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Derived credential original_issuer does not match the pinned source".into(),
+        ));
+    }
+    if dc.holder != source.credential_subject.id || dc.derived_content.id != dc.holder {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Derived credential holder/subject lineage does not match the pinned source".into(),
+        ));
+    }
+
+    let source_hash = compute_credential_content_hash(&source);
+    if dc.derivation_proof.original_credential_hash != source_hash {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Derived credential proof hash does not match the pinned source content".into(),
+        ));
+    }
+
+    match source.valid_from.parse::<Timestamp>() {
+        Ok(source_valid_from) if dc.created < source_valid_from => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Derived credential cannot be created before the source credential becomes valid".into(),
+            ));
+        }
+        Ok(_) => {}
+        Err(e) => {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Pinned source validFrom is not parseable: {e}"
+            ))));
+        }
+    }
+
+    if let Some(expires) = dc.expires {
+        if expires <= dc.created {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Derived credential expiration must be after creation".into(),
+            ));
+        }
+
+        if let Some(source_valid_until) = source.valid_until.as_deref() {
+            let source_valid_until = source_valid_until.parse::<Timestamp>().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Pinned source validUntil is not parseable: {e}"
+                ))
+            })?;
+            if expires > source_valid_until {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Derived credential expiration exceeds source credential expiration".into(),
+                ));
+            }
+        }
+    } else if source.valid_until.is_some() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Derived credential must carry an expiration when the source credential expires".into(),
+        ));
+    }
+
     Ok(ValidateCallbackResult::Valid)
 }
 
