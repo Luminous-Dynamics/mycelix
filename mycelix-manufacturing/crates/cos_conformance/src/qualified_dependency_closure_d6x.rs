@@ -1638,6 +1638,7 @@ mod tests {
                 vector.id
             );
             let mut mutation_edge_ids = BTreeSet::new();
+            let mut mutation_field_targets = BTreeSet::new();
             for mutation in &vector.recipe.projection_mutations {
                 match mutation.op.as_str() {
                     "add_edge" => {
@@ -1668,6 +1669,11 @@ mod tests {
                             .filter(|fields| !fields.is_empty())
                             .unwrap_or_else(|| panic!("set_node mutation must declare fields: {}", vector.id));
                         for (field, value) in fields {
+                            assert!(
+                                mutation_field_targets.insert((node_id, field)),
+                                "golden recipe must not assign the same node field twice: {}:{field}",
+                                vector.id
+                            );
                             match field.as_str() {
                                 "historical_only" => {
                                     assert!(value.is_boolean(), "historical_only must be boolean: {}", vector.id);
