@@ -115,11 +115,27 @@ def main() -> None:
 
     substrate = manifest["substrate"]
     deps = cargo["dependencies"]
-    assert deps["holochain"]["version"] == f"={substrate['holochain']}"
-    assert deps["hdk"] == f"={substrate['hdk']}"
-    assert deps["holochain_serialized_bytes"] == (
-        f"={substrate['holochain_serialized_bytes']}"
-    )
+    direct_substrate_versions = {
+        "holochain": "holochain",
+        "hdk": "hdk",
+        "holochain_keystore": "holochain",
+        "holochain_nonce": "holochain",
+        "holochain_types": "holochain",
+        "holochain_serialized_bytes": "holochain_serialized_bytes",
+    }
+    forbidden_dependency_sources = {"git", "branch", "rev", "tag", "path", "registry"}
+    for dependency, substrate_key in direct_substrate_versions.items():
+        spec = deps[dependency]
+        if isinstance(spec, dict):
+            assert not forbidden_dependency_sources.intersection(spec), (
+                f"{dependency} must resolve from the declared registry dependency, "
+                f"not an alternate source: {sorted(spec)}"
+            )
+            version = spec["version"]
+        else:
+            version = spec
+        assert version == f"={substrate[substrate_key]}"
+
     assert rust_toolchain["toolchain"]["channel"] == substrate["rust"]
 
     assert substrate["holochain"] == "0.7.0"
