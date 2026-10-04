@@ -2759,9 +2759,9 @@ async fn dsid_035_request_status_update_is_cross_agent_and_dht_indexed() {
             pending_after_approval.len()
         ),
         pending_before.len() == 1
-            && under_review_status.as_deref() == Some(&serde_json::Value::String("UnderReview".into()))
+            && under_review_status.as_ref() == Some(&serde_json::Value::String("UnderReview".into()))
             && pending_after_review.len() == 1
-            && approved_status.as_deref() == Some(&serde_json::Value::String("Approved".into()))
+            && approved_status.as_ref() == Some(&serde_json::Value::String("Approved".into()))
             && pending_after_approval.is_empty(),
     );
 }
