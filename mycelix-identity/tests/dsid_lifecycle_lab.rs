@@ -2615,3 +2615,153 @@ async fn dsid_034_canonical_did_reads_follow_latest_update_chain() {
         true,
     );
 }
+
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_035_request_status_update_is_cross_agent_and_dht_indexed() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let requester_app = conductor
+        .setup_app("dsid-vc-requester", std::slice::from_ref(&dna))
+        .await
+        .unwrap();
+    let issuer_app = conductor
+        .setup_app("dsid-vc-issuer", std::slice::from_ref(&dna))
+        .await
+        .unwrap();
+
+    let requester = requester_app.cells()[0].clone();
+    let issuer = issuer_app.cells()[0].clone();
+    let requester_did = format!("did:mycelix:{}", requester_app.agent());
+    let issuer_did = format!("did:mycelix:{}", issuer_app.agent());
+
+    let _: Record = conductor
+        .call(&requester.zome("did_registry"), "create_did", ())
+        .await;
+    let _: Record = conductor
+        .call(&issuer.zome("did_registry"), "create_did", ())
+        .await;
+
+    let request: Record = conductor
+        .call(
+            &requester.zome("verifiable_credential"),
+            "request_credential",
+            serde_json::json!({
+                "issuer_did": issuer_did,
+                "schema_id": "mycelix:schema:education:degree:v1",
+                "claims": {
+                    "degree": "DSID cross-agent request"
+                },
+                "evidence": []
+            }),
+        )
+        .await;
+
+    let request_id = request
+        .entry()
+        .to_app_option::<serde_json::Value>()
+        .ok()
+        .flatten()
+        .and_then(|v| v.get("id").and_then(serde_json::Value::as_str).map(str::to_owned))
+        .expect("credential request entry must expose its ID");
+
+    await_consistency(&[requester.clone(), issuer.clone()])
+        .await
+        .expect("requester and issuer must reach DHT consistency");
+
+    let pending_before: Vec<Record> = conductor
+        .call(
+            &issuer.zome("verifiable_credential"),
+            "get_pending_requests",
+            format!("did:mycelix:{}", issuer_app.agent()),
+        )
+        .await;
+    assert_eq!(pending_before.len(), 1);
+
+    let under_review: Record = conductor
+        .call(
+            &issuer.zome("verifiable_credential"),
+            "update_request_status",
+            serde_json::json!({
+                "request_id": request_id,
+                "new_status": "UnderReview"
+            }),
+        )
+        .await;
+
+    await_consistency(&[requester.clone(), issuer.clone()])
+        .await
+        .expect("updated request must reach the requester after issuer commit");
+
+    let pending_after_review: Vec<Record> = conductor
+        .call(
+            &issuer.zome("verifiable_credential"),
+            "get_pending_requests",
+            format!("did:mycelix:{}", issuer_app.agent()),
+        )
+        .await;
+    assert_eq!(pending_after_review.len(), 1);
+
+    let approved: Record = conductor
+        .call(
+            &issuer.zome("verifiable_credential"),
+            "update_request_status",
+            serde_json::json!({
+                "request_id": request_id,
+                "new_status": "Approved"
+            }),
+        )
+        .await;
+
+    await_consistency(&[requester.clone(), issuer.clone()])
+        .await
+        .expect("approved request must reach DHT consistency");
+
+    let pending_after_approval: Vec<Record> = conductor
+        .call(
+            &issuer.zome("verifiable_credential"),
+            "get_pending_requests",
+            format!("did:mycelix:{}", issuer_app.agent()),
+        )
+        .await;
+    assert!(pending_after_approval.is_empty());
+
+    let under_review_status = under_review
+        .entry()
+        .to_app_option::<serde_json::Value>()
+        .ok()
+        .flatten()
+        .and_then(|v| v.get("status").cloned());
+    let approved_status = approved
+        .entry()
+        .to_app_option::<serde_json::Value>()
+        .ok()
+        .flatten()
+        .and_then(|v| v.get("status").cloned());
+
+    let mut agents = BTreeMap::new();
+    agents.insert("requester", requester_app.agent().to_string());
+    agents.insert("issuer", issuer_app.agent().to_string());
+    emit_evidence(
+        "DSID-035",
+        "request-status-update-is-cross-agent-and-dht-indexed",
+        &dna,
+        agents,
+        &[&request, &under_review, &approved],
+        "A requester-owned credential request must be discoverable by its target issuer through the DHT index, and the issuer must be able to append authorized status transitions without source-chain confusion.",
+        format!(
+            "pending_before={} under_review_status={} pending_after_review={} approved_status={} pending_after_approval={}",
+            pending_before.len(),
+            under_review_status.map(|v| v.to_string()).unwrap_or_else(|| "missing".into()),
+            pending_after_review.len(),
+            approved_status.map(|v| v.to_string()).unwrap_or_else(|| "missing".into()),
+            pending_after_approval.len()
+        ),
+        pending_before.len() == 1
+            && under_review_status.as_deref() == Some(&serde_json::Value::String("UnderReview".into()))
+            && pending_after_review.len() == 1
+            && approved_status.as_deref() == Some(&serde_json::Value::String("Approved".into()))
+            && pending_after_approval.is_empty(),
+    );
+}
