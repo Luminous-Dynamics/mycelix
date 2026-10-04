@@ -13,6 +13,7 @@
 
 pub mod commons;
 pub mod decay_garden;
+pub mod economic_os;
 pub mod impact;
 pub mod integrity_gate;
 pub mod action_lifecycle;
@@ -34,6 +35,7 @@ pub use metabolic_oracle::{
     GovernedPolicyAdjustment, MetabolicOracle, MetabolicState, PolicyAdjustment, PolicyBounds,
     TendLimitTier, VitalityIndex,
 };
+pub use economic_os::EconomicOsEnvelope;
 pub use policy_profile::{EconomicOsOperation, EconomicPolicyProfile};
 pub use poc::{
     calculate_mycel_score, jubilee_normalize, GamingDetection, GamingRecommendation,
