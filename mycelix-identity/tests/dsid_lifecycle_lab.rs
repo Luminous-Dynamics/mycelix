@@ -4132,3 +4132,128 @@ async fn dsid_043_request_bound_issuance_is_deterministically_idempotent() {
     );
 }
 
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_044_derived_credential_temporal_lineage_fails_closed() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let issuer_app = conductor
+        .setup_app("dsid-derived-temporal-issuer", std::slice::from_ref(&dna))
+        .await
+        .unwrap();
+    let holder_app = conductor
+        .setup_app("dsid-derived-temporal-holder", std::slice::from_ref(&dna))
+        .await
+        .unwrap();
+
+    let issuer = issuer_app.cells()[0].clone();
+    let holder = holder_app.cells()[0].clone();
+    let issuer_did = format!("did:mycelix:{}", issuer_app.agent());
+    let holder_did = format!("did:mycelix:{}", holder_app.agent());
+
+    let _: Record = conductor
+        .call(&issuer.zome("did_registry"), "create_did", ())
+        .await;
+    let _: Record = conductor
+        .call(&holder.zome("did_registry"), "create_did", ())
+        .await;
+
+    let credential: Record = conductor
+        .call(
+            &issuer.zome("verifiable_credential"),
+            "issue_credential",
+            serde_json::json!({
+                "subject_did": holder_did.clone(),
+                "schema_id": "mycelix:schema:education:degree:v1",
+                "claims": {
+                    "degree": "DSID derived temporal lineage"
+                },
+                "credential_types": ["QualificationCredential"],
+                "issuer_name": "DSID Derived Issuer",
+                "expiration_days": 365,
+                "enable_revocation": false,
+                "strict_schema": false
+            }),
+        )
+        .await;
+
+    let credential_value: serde_json::Value = credential
+        .entry()
+        .to_app_option()
+        .unwrap()
+        .unwrap();
+    let credential_id = credential_value["id"]
+        .as_str()
+        .expect("credential ID must exist")
+        .to_owned();
+
+    await_consistency(&[issuer.clone(), holder.clone()])
+        .await
+        .expect("credential must reach holder");
+
+    let immediate: Result<Record, _> = conductor
+        .call_fallible(
+            &holder.zome("verifiable_credential"),
+            "create_derived_credential",
+            serde_json::json!({
+                "credential_id": credential_id.clone(),
+                "selected_claims": ["degree"],
+                "expires_hours": 0
+            }),
+        )
+        .await;
+    assert!(
+        immediate.is_err(),
+        "a derived credential whose expiry is at creation must be rejected at admission"
+    );
+
+    let valid: Record = conductor
+        .call(
+            &holder.zome("verifiable_credential"),
+            "create_derived_credential",
+            serde_json::json!({
+                "credential_id": credential_id,
+                "selected_claims": ["degree"],
+                "expires_hours": 24
+            }),
+        )
+        .await;
+
+    let derived_value: serde_json::Value = valid
+        .entry()
+        .to_app_option()
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        derived_value["holder"].as_str(),
+        Some(holder_did.as_str())
+    );
+    assert_eq!(
+        derived_value["original_issuer"].as_str(),
+        Some(issuer_did.as_str())
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("issuer", issuer_app.agent().to_string());
+    agents.insert("holder", holder_app.agent().to_string());
+    emit_evidence(
+        "DSID-044",
+        "derived-credential-temporal-lineage-fails-closed",
+        &dna,
+        agents,
+        &[&credential, &valid],
+        "Derived credentials must preserve complete source lineage and must not admit an expiration at or before their creation time; a normal shorter-lived derivation remains admissible.",
+        format!(
+            "immediate_expiry_rejected={} valid_derivation_committed={} holder_bound={} issuer_bound={}",
+            immediate.is_err(),
+            valid.action_address() != credential.action_address(),
+            derived_value["holder"].as_str() == Some(holder_did.as_str()),
+            derived_value["original_issuer"].as_str() == Some(issuer_did.as_str())
+        ),
+        immediate.is_err()
+            && valid.action_address() != credential.action_address()
+            && derived_value["holder"].as_str() == Some(holder_did.as_str())
+            && derived_value["original_issuer"].as_str() == Some(issuer_did.as_str()),
+    );
+}
+
