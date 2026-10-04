@@ -300,6 +300,15 @@ jobs:
           } > qualification-toolchain.txt
 
           build_conclusion="${{ steps.build_zomes.conclusion || 'unknown' }}"
+          if [[ "${{ steps.source_audit.conclusion || 'unknown' }}" != "skipped" ]]; then
+            [[ -s qualification-source-audit.log ]] || {
+              echo "source audit ran but produced no diagnostic log" >&2
+              exit 1
+            }
+            echo "source_audit_log=present"
+          else
+            echo "source_audit_log=not_applicable_skipped"
+          fi
           dna_pack_conclusion="${{ steps.dna_pack.conclusion || 'unknown' }}"
           source_audit_conclusion="${{ steps.source_audit.conclusion || 'unknown' }}"
           sweettest_conclusion="${{ steps.sweettest.conclusion || 'unknown' }}"
