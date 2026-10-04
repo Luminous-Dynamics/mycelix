@@ -472,6 +472,79 @@
       ],
       "permits_recursive_fixpoint": false,
       "claim_ceiling": "ReferenceModelOnly; canonical derivation integrity semantics only; no truth, causality, authority, or actuation claim."
+    },
+    "authoritative_d6p": {
+      "receipt": {
+        "receipt_id": "receipt-1",
+        "effect_id": "effect",
+        "effect_lineage_id": "lineage",
+        "lifecycle_generation_id": "gen-lifecycle",
+        "route_id": "route",
+        "provider_id": "provider",
+        "provider_operation_id": "operation",
+        "provider_profile_root": "provider-profile",
+        "semantic_environment_root": "env",
+        "observation_set_id": "set-1",
+        "observation_set_commitment": "set-commit",
+        "d6n_assessment_commitment": "assessment",
+        "composition_commitment": "14840768915fabe0b8c8a91ccd8025dec618b5b4147dc9bc9a8a220a014799fb",
+        "witness_eligibility_ids": [
+          "elig-1"
+        ],
+        "observer_generation_ids": [
+          "gen-1"
+        ],
+        "current_frontier_root": "frontier",
+        "lifecycle_profile_id": "lifecycle",
+        "eligible_independent_count": 1,
+        "preserved_contradictory_count": 0,
+        "disposition": "EligibleCurrent",
+        "qualification_transition_id": "transition",
+        "receipt_commitment": "0cbe1d801c4cbbaeab62f298ec85842bc02fc7a7c04370fee546451c8ad5a3a3",
+        "claim_ceiling": "D6N/D6O finality-eligibility composition reference semantics only; no semantic authority or actuation claim."
+      },
+      "composition": {
+        "composition_id": "composition:set-1",
+        "effect_id": "effect",
+        "effect_lineage_id": "lineage",
+        "lifecycle_generation_id": "gen-lifecycle",
+        "route_id": "route",
+        "provider_id": "provider",
+        "provider_operation_id": "operation",
+        "provider_profile_root": "provider-profile",
+        "semantic_environment_root": "env",
+        "observation_set_id": "set-1",
+        "observation_set_commitment": "set-commit",
+        "d6n_assessment_commitment": "assessment",
+        "lifecycle_profile_id": "lifecycle",
+        "current_frontier_root": "frontier",
+        "eligible_independent_count": 1,
+        "required_independent_observations": 1,
+        "preserved_contradictory_count": 0,
+        "witnesses": [
+          {
+            "observation_id": "obs-1",
+            "observer_id": "observer-1",
+            "observer_generation_id": "gen-1",
+            "d6n_observation_set_id": "set-1",
+            "d6n_observation_set_commitment": "set-commit",
+            "d6n_assessment_item_commitment": "assessment-item-1",
+            "d6n_classification": "CorroboratingIndependent",
+            "d6o_eligibility_id": "elig-1",
+            "d6o_disposition": "EligibleCurrent",
+            "d6o_dependency_snapshot_id": "snapshot",
+            "observation_frontier_root": "frontier",
+            "current_frontier_root": "frontier",
+            "lifecycle_profile_id": "lifecycle",
+            "witness_commitment": "08423df065d2428482770b8d93fb5343861b0b1c464ed99c7ef1c4860e2cf449",
+            "claim_ceiling": "D6N/D6O finality-eligibility composition reference semantics only; no semantic authority or actuation claim."
+          }
+        ],
+        "disposition": "EligibleCurrent",
+        "qualification_transition_id": "transition",
+        "composition_commitment": "14840768915fabe0b8c8a91ccd8025dec618b5b4147dc9bc9a8a220a014799fb",
+        "claim_ceiling": "D6N/D6O finality-eligibility composition reference semantics only; no semantic authority or actuation claim."
+      }
     }
   }
 }
