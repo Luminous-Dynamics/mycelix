@@ -10,7 +10,8 @@ The provenance record links:
 2. exact TriangleMesh identity presented to the adapter;
 3. typed interface identity;
 4. independently certified realized boundary-patch identity;
-5. solver adapter and external boundary handle.
+5. solver adapter and external boundary handle;
+6. sealed evidence level indicating what was actually established.
 
 ## Boundary-patch certificate
 
@@ -20,7 +21,9 @@ v3 records deterministic evidence for the selected patch:
 - boundary perimeter in micrometers;
 - maximum interface-plane residual in micrometers;
 - maximum aperture-radial residual in micrometers;
-- boundary patch digest derived from interface identity, exact mesh identity, selection, perimeter, and residuals.
+- boundary patch digest derived from interface identity, exact mesh identity, selection, perimeter, and residuals;
+- `evidence_level=AdapterAttested`.
+
 
 The certificate rejects selections that contain non-boundary edges, omit expected rim edges, fail the declared interface geometry, or do not form one connected closed loop.
 
@@ -50,7 +53,11 @@ the opaque external solver handle records that separate adapter mapping.
 
 ## Verification boundary
 
-`solver_binding_verified=true` means the checked binding constructor verified the typed interface, exact candidate mesh, and complete realized boundary selection.
+`solver_binding_verified=true` together with `evidence_level=AdapterAttested` means the
+sealed adapter orchestration path accepted the adapter's mapping draft after
+checking the typed interface, exact candidate mesh, and complete candidate-surface
+interface rim. It does not mean the solver itself accepted or executed the
+boundary condition.
 
 `physical_transport_unproven=true` remains mandatory. The artifact does not establish solver convergence, numerical correctness, physical transport, manufacturing fidelity, or experimental agreement.
 
