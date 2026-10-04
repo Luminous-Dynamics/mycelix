@@ -400,7 +400,7 @@ pub enum CredentialProofProfile {
 
 impl Default for CredentialProofProfile {
     fn default() -> Self {
-        Self::MycelixBlake2bEd25519
+        Self::W3cEddsaJcs2022
     }
 }
 
