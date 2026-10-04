@@ -901,6 +901,11 @@
       "id": "EDT-178",
       "case": "must_get_valid_record_upstream_invalidity_remains_protocol_unresolved_not_transport_absence",
       "expected": "unresolved_at_protocol_layer"
+    },
+    {
+      "id": "EDT-179",
+      "case": "malformed_runtime_binding_payload_precedes_missing_authority_preflight",
+      "expected": "typed_structural_error"
     }
   ],
   "outcome_classes": [
