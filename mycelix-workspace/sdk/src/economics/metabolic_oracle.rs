@@ -13,6 +13,7 @@
 //! - Counter-cyclical: When stressed, lower fees + expand TEND limits
 
 use serde::{Deserialize, Serialize};
+use super::policy_profile::EconomicPolicyProfile;
 use sha2::{Digest, Sha256};
 
 /// Policy bounds preventing runaway self-modification
@@ -528,6 +529,33 @@ impl MetabolicOracle {
         Ok(())
     }
 
+    /// Apply a governed adjustment only when its policy profile matches
+    /// the exact profile content supplied by the caller.
+    ///
+    /// This closes the distinction between "profile reference" and "the exact
+    /// profile that was actually active". A human-readable profile ID is not
+    /// sufficient to establish historical policy context.
+    pub fn apply_governed_adjustment_for_profile(
+        &mut self,
+        decision: GovernedPolicyAdjustment,
+        profile: &EconomicPolicyProfile,
+    ) -> Result<String, String> {
+        profile.validate()?;
+
+        let profile_fingerprint = profile.fingerprint()?;
+        if decision.policy_profile_ref != profile.profile_id {
+            return Err("Policy decision profile reference does not match supplied profile".into());
+        }
+        if decision.policy_profile_fingerprint != profile_fingerprint {
+            return Err(
+                "Policy decision profile fingerprint does not match supplied profile content"
+                    .into(),
+            );
+        }
+
+        self.apply_governed_adjustment(decision)
+    }
+
     /// Apply a policy adjustment with explicit decision provenance.
     ///
     /// This is the governance-safe application path: the recommendation is
@@ -682,6 +710,7 @@ mod tests {
         let decision = GovernedPolicyAdjustment {
             decision_id: "decision:1".into(),
             policy_profile_ref: "profile:za:reference:v1".into(),
+            policy_profile_fingerprint: "a".repeat(64),
             observation_refs: vec!["observation:vitality:1".into()],
             rule_ref: "rule:countercyclical:v1".into(),
             authority_ref: "authority:dao-1".into(),
@@ -715,6 +744,54 @@ mod tests {
         };
 
         assert_eq!(left.fingerprint().unwrap(), right.fingerprint().unwrap());
+    }
+
+    fn policy_profile() -> EconomicPolicyProfile {
+        EconomicPolicyProfile {
+            profile_id: "profile:za:reference:v1".into(),
+            jurisdiction_ref: "jurisdiction:ZA".into(),
+            regime_ref: "regime:national-fiat".into(),
+            policy_version: "1.0.0".into(),
+            currency_refs: vec!["ZAR".into()],
+            authority_refs: vec!["authority:dao-1".into()],
+            policy_rule_refs: vec!["rule:countercyclical:v1".into()],
+            interoperability_profile_refs: vec!["standard:SDMX-3.1".into()],
+            effective_from: 1_000,
+            effective_until: None,
+            evidence_refs: vec!["evidence:profile".into()],
+            supersedes_profile_ref: None,
+            declared_at: 1_000,
+        }
+    }
+
+    #[test]
+    fn test_governed_policy_must_match_exact_profile() {
+        let mut oracle = MetabolicOracle::new();
+        let profile = policy_profile();
+        let decision = GovernedPolicyAdjustment {
+            decision_id: "decision:exact-profile".into(),
+            policy_profile_ref: profile.profile_id.clone(),
+            policy_profile_fingerprint: profile.fingerprint().unwrap(),
+            observation_refs: vec!["observation:vitality:1".into()],
+            rule_ref: "rule:countercyclical:v1".into(),
+            authority_ref: "authority:dao-1".into(),
+            adjustment: oracle.generate_adjustment(),
+            decided_at: 1_000,
+        };
+
+        assert!(oracle
+            .apply_governed_adjustment_for_profile(decision.clone(), &profile)
+            .is_ok());
+
+        let mut altered = profile.clone();
+        altered.policy_version = "1.0.1".into();
+        let second = GovernedPolicyAdjustment {
+            decision_id: "decision:altered-profile".into(),
+            ..decision
+        };
+        assert!(oracle
+            .apply_governed_adjustment_for_profile(second, &altered)
+            .is_err());
     }
 
     #[test]
