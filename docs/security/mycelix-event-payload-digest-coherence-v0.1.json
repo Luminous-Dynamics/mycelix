@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "artifact_type": "mycelix-event-payload-digest-coherence-v0.1",
+  "verifier_id": "mycelix.pc-client.event-payload-digest-coherence.v0.1",
+  "directly_verifiable_event_types": [
+    "EV_S_CRTM_VERSION",
+    "EV_SEPARATOR",
+    "EV_EFI_VARIABLE_DRIVER_CONFIG",
+    "EV_EFI_GPT_EVENT"
+  ],
+  "states": [
+    "PASS",
+    "DENY",
+    "INDETERMINATE"
+  ],
+  "rules": [
+    "For directly verifiable event types, SHA-256(payload bytes) must equal the recorded SHA-256 digest.",
+    "Missing canonical payload bytes are INDETERMINATE, never PASS.",
+    "Mismatch between recomputed and recorded digest is DENY.",
+    "Event types outside the directly verifiable set are INDETERMINATE under this profile.",
+    "EV_NO_ACTION is a non-extending control and is INDETERMINATE for payload-digest coherence.",
+    "Payload-digest coherence does not prove that firmware measured the intended underlying object."
+  ],
+  "result_bindings": [
+    "input_sha256 binds the result to the exact canonical event stream",
+    "verifier_source_sha256 binds the executing verifier source",
+    "content_sha256 is the canonical self-hash of the result"
+  ],
+  "expected_vectors": [
+    {
+      "id": "EPD-V01",
+      "case": "known-payload-match",
+      "expected": "PASS"
+    },
+    {
+      "id": "EPD-V02",
+      "case": "recorded-digest-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EPD-V03",
+      "case": "canonical-payload-unavailable",
+      "expected": "INDETERMINATE"
+    },
+    {
+      "id": "EPD-V04",
+      "case": "out-of-scope-event-type",
+      "expected": "INDETERMINATE"
+    },
+    {
+      "id": "EPD-V05",
+      "case": "EV_NO_ACTION-control",
+      "expected": "INDETERMINATE"
+    },
+    {
+      "id": "EPD-V06",
+      "case": "malformed-payload-hex",
+      "expected": "DENY"
+    }
+  ]
+}
