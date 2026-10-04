@@ -424,6 +424,20 @@ impl ImpactLedger {
             return Err("Restoration amount must be greater than zero".into());
         }
 
+        let impact_id = self
+            .obligations
+            .get(obligation_id)
+            .ok_or_else(|| format!("Obligation not found: {obligation_id}"))?
+            .impact_id
+            .clone();
+
+        // Validate the cross-reference before mutating either side. A corrupt
+        // obligation/impact relationship must not produce a half-applied
+        // restoration update.
+        if !self.impacts.contains_key(&impact_id) {
+            return Err(format!("Impact not found: {impact_id}"));
+        }
+
         let obligation = self
             .obligations
             .get_mut(obligation_id)
@@ -436,30 +450,33 @@ impl ImpactLedger {
             return Err("Obligation is already closed".into());
         }
 
-        obligation.completed_amount = obligation
+        let new_completed = obligation
             .completed_amount
             .checked_add(amount)
             .ok_or_else(|| "Restoration amount overflow".to_string())?
             .min(obligation.required_amount);
 
-        obligation.status = if obligation.completed_amount == obligation.required_amount {
+        let new_status = if new_completed == obligation.required_amount {
             ObligationStatus::Restored
         } else {
             ObligationStatus::InProgress
         };
 
+        obligation.completed_amount = new_completed;
+        obligation.status = new_status;
+
         let impact = self
             .impacts
-            .get_mut(&obligation.impact_id)
-            .ok_or_else(|| format!("Impact not found: {}", obligation.impact_id))?;
+            .get_mut(&impact_id)
+            .ok_or_else(|| format!("Impact not found: {impact_id}"))?;
 
-        impact.status = if obligation.status == ObligationStatus::Restored {
+        impact.status = if new_status == ObligationStatus::Restored {
             ImpactStatus::Restored
         } else {
             ImpactStatus::Remediating
         };
 
-        Ok(obligation.status)
+        Ok(new_status)
     }
 
     /// Return unresolved exposure in deterministic ID order.
@@ -732,6 +749,31 @@ mod tests {
             ledger.impact("impact-1").unwrap().evidence_refs,
             vec!["evidence:1".to_string()]
         );
+    }
+
+    #[test]
+    fn missing_impact_reference_does_not_partially_mutate_obligation() {
+        let mut ledger = ImpactLedger::new();
+        ledger.obligations.insert(
+            "obligation-corrupt".into(),
+            RestorationObligation {
+                id: "obligation-corrupt".into(),
+                impact_id: "missing-impact".into(),
+                dimension: SubstrateDimension::Ecological,
+                unit: "m3".into(),
+                target_ref: "river:1".into(),
+                required_amount: 1_000,
+                completed_amount: 100,
+                status: ObligationStatus::InProgress,
+                due_at: 5_000,
+            },
+        );
+
+        let result = ledger.record_restoration("obligation-corrupt", 100);
+        assert!(result.is_err());
+        let obligation = ledger.obligation("obligation-corrupt").unwrap();
+        assert_eq!(obligation.completed_amount, 100);
+        assert_eq!(obligation.status, ObligationStatus::InProgress);
     }
 
     #[test]
