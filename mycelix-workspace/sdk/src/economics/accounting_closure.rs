@@ -349,6 +349,11 @@ fn validate_projection_closure(
             sum_actor(actors, "depreciation", |o| o.depreciation)?,
             aggregate.depreciation,
         ),
+        (
+            "real-asset revaluation",
+            sum_actor(actors, "real-asset revaluation", |o| o.real_asset_revaluation)?,
+            aggregate.real_asset_revaluation,
+        ),
     ];
     for (label, actor_value, aggregate_value) in actor_checks {
         require_equal(label, actor_value, aggregate_value)?;
