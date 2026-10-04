@@ -189,6 +189,7 @@ Attempt a physical capture:
 python3 scripts/security/verify_mycelix_platform_evidence_capture_v0_1.py --capture \
   --reference-values /path/to/reference-values.json \
   --trusted-time /path/to/trusted-time.json \
+  --tss-version-evidence-file /path/to/tss-version-evidence.txt \
   --os-image-digest sha256:<digest> \
   --workload-digest sha256:<digest> \
   --nonce-file /path/to/fresh-verifier-nonce.bin
