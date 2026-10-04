@@ -149,6 +149,7 @@ def main() -> int:
     expected_identity_contract = {
         "retrieval_kind_mismatch_is_adapter_boundary_error": True,
         "candidate_address_kind_validation_precedes_binding_conflicts": True,
+        "candidate_address_kind_precedes_logical_and_provenance_conflicts": True,
         "logical_identity_conflict_precedes_provenance_conflict": True,
     }
     for key, expected in expected_identity_contract.items():
@@ -212,6 +213,8 @@ def main() -> int:
         raise SystemExit("runtime binding must consult the retained authority-agent credential")
     if "address_kind_mismatch_precedes_duplicate_provenance_binding_conflict" not in source:
         raise SystemExit("candidate address validation must have a precedence regression")
+    if "address_kind_mismatch_precedes_logical_and_duplicate_provenance_binding_conflicts" not in source:
+        raise SystemExit("three-way candidate conflict precedence must have a regression")
     if "authority_agent_registry_rejects_duplicate_provenance_witness" not in source:
         raise SystemExit("registry witness reuse must have a regression test")
     if "missing authority-agent registration must stop before DHT retrieval" not in source:
