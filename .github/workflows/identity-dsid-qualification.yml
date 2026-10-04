@@ -452,6 +452,14 @@ jobs:
             --manifest-path mycelix-identity/apps/leptos/Cargo.toml \
             --target wasm32-unknown-unknown
 
+      - name: Remove only generated excluded-workspace lockfiles
+        run: |
+          for path in mycelix-identity/tests/Cargo.lock mycelix-identity/apps/leptos/Cargo.lock; do
+            if ! git ls-files --error-unmatch "$path" >/dev/null 2>&1; then
+              rm -f "$path"
+            fi
+          done
+
       - name: Assert qualification workspace is clean
         run: |
           git status --short
