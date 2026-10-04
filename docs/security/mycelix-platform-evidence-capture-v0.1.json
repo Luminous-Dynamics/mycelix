@@ -74,7 +74,10 @@
       "ek.tpmt",
       "ek.name.readpublic",
       "ek.qname.readpublic",
-      "ek.readpublic-transcript.json"
+      "ek.readpublic-transcript.json",
+      "ek-template-input.json",
+      "ek-template-appraisal.json",
+      "ek-create-transcript.json"
     ],
     "optional_artifacts": [
       "pcr-pre.yaml",
@@ -166,7 +169,19 @@
       "artifacts.public_name_ek_wire_sha256",
       "artifacts.public_name_ek_name_sha256",
       "artifacts.public_name_ek_qname_sha256",
-      "artifacts.public_name_ek_source_sha256"
+      "artifacts.public_name_ek_source_sha256",
+      "ek_template_appraisal.status",
+      "ek_template_appraisal.verifier_id",
+      "ek_template_appraisal.output_sha256",
+      "ek_template_appraisal.input_sha256",
+      "ek_template_appraisal.wire_sha256",
+      "ek_template_appraisal.source_sha256",
+      "ek_template_appraisal.transcript_sha256",
+      "artifacts.ek_template_output_sha256",
+      "artifacts.ek_template_input_sha256",
+      "artifacts.ek_template_wire_sha256",
+      "artifacts.ek_template_source_sha256",
+      "artifacts.ek_template_transcript_sha256"
     ],
     "session_binding": "The session_binding_sha256 covers the session/boot/TPM/EK/event-log/PCR selection/challenge/AK/toolchain/reference/trusted-time/reconstruction result, exact reconstruction input digest, verifier identifier, verifier source digest, and platform/workload inputs in canonical form.",
     "canonical_json": "Manifest semantic hashing uses UTF-8 JSON with sorted keys and no insignificant whitespace."
@@ -259,6 +274,14 @@
     {
       "id": "CAP-022",
       "rule": "Payload coherence input and verifier source provenance must bind to the exact canonical reconstruction input and exact verifier source."
+    },
+    {
+      "id": "CAP-029",
+      "rule": "The EK template appraisal must consume the same EK TPMT_PUBLIC wire bytes already bound to ReadPublic and must bind its creation provenance to the exact tpm2_createek execution transcript."
+    },
+    {
+      "id": "CAP-030",
+      "rule": "Manufacturer-defined EK templates are not authorized by the default ReferenceModelOnly registry and remain INDETERMINATE unless a separate manufacturer-template authorization theorem is present."
     },
     {
       "id": "CAP-026",
@@ -441,7 +464,8 @@
       "tpm2_createak",
       "tpm2_checkquote",
       "tpm2_eventlog",
-      "tpm2_readpublic"
+      "tpm2_readpublic",
+      "tpm2_createek"
     ],
     "quote_default_pcr_selection": "sha256:0,2,4,7",
     "workload_pcr_note": "PCR16 remains a separate workload-specific measurement surface and is not silently treated as a PC-client firmware event-log PCR."

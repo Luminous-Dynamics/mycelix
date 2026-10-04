@@ -96,6 +96,7 @@ jobs:
 
       - name: Compile security verifiers and bundle regression
         run: |
+          set -euo pipefail
           python3 -m py_compile \
             scripts/security/verify_mycelix_platform_evidence_capture_v0_1.py \
             scripts/security/reconstruct_mycelix_pc_client_eventlog_v0_1.py \
@@ -104,9 +105,12 @@ jobs:
             scripts/security/test_mycelix_eventlog_adapter_replay_v0_1.py \
             scripts/security/verify_mycelix_event_payload_digest_coherence_v0_1.py \
             scripts/security/parse_mycelix_raw_tpm2_eventlog_v0_1.py \
-            scripts/security/test_mycelix_raw_eventlog_yaml_crosscheck_v0_1.py \\
-            scripts/security/verify_mycelix_ak_ek_lineage_v0_1.py \\
-            scripts/security/verify_mycelix_ak_creation_provenance_v0_1.py
+            scripts/security/test_mycelix_raw_eventlog_yaml_crosscheck_v0_1.py \
+            scripts/security/verify_mycelix_ak_ek_lineage_v0_1.py \
+            scripts/security/verify_mycelix_ak_creation_provenance_v0_1.py \
+            scripts/security/verify_mycelix_tpm_public_name_coherence_v0_1.py \
+            scripts/security/verify_mycelix_ek_template_appraisal_v0_1.py \
+            scripts/security/verify_mycelix_ak_public_attributes_v0_1.py
 
       - name: Run platform Evidence semantic corpus
         run: python3 scripts/security/verify_mycelix_platform_evidence_capture_v0_1.py --self-test
