@@ -141,7 +141,7 @@ Current authority status belongs in the runtime/application authority provider. 
 
 `VerificationEvidence` remains opaque and non-serializable outside the bridge crate. It intentionally does not implement `Debug`, `PartialEq`, or `Eq`; downstream code may explicitly clone evidence where a fresh validation pass requires it, but cannot turn the trust object into an ordinary formatting or equality observation surface.
 
-- `VerifiedCapability` is likewise an opaque post-verification hand-off: its trust-bearing fields remain private and it must not implement `Debug`, `Clone`, `Copy`, `PartialEq`, `Eq`, `Serialize`, or `Deserialize`. The adapter should pass it directly to `authorize_permit()` rather than extracting or reconstructing its state.
+- `VerifiedCapability` is likewise an opaque post-verification hand-off: its trust-bearing fields remain private and it must not implement `Debug`, `Clone`, `Copy`, `PartialEq`, `Eq`, `Serialize`, or `Deserialize`. The adapter should pass it directly to `authorize_permit()` rather than extracting or reconstructing its state. It is marked `#[must_use]`, making accidental loss of the verified hand-off compiler-visible.
 
 
 The integration must therefore create trusted evidence only inside the bridge's verifier boundary. The proposition types and evidence constructors are private to `security_kernel`; they are not crate-wide construction APIs. Public callers must not receive a constructor that accepts arbitrary booleans such as `verified: true`. Production bridge evidence construction derives its opaque authority binding from the canonical freshness digest; the raw authority-binding constructor is test-only and exists solely to exercise mismatch/fail-closed paths.
