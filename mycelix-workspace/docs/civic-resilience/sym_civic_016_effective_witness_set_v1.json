@@ -1,0 +1,322 @@
+{
+  "schema": "mycelix.sym-civic.effective-witness-set-preflight.v1",
+  "program": "SYM-CIVIC-016",
+  "parent_subject": "ed66bf43ac498316da53386752e9db7efb07a0ab",
+  "analysis_role": "research_only",
+  "cases": [
+    {
+      "id": "E-01",
+      "family": "identical_agreements",
+      "mutations": []
+    },
+    {
+      "id": "E-02",
+      "family": "disjoint_sets",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "agreements.1.witnesses.0.operating_party_id",
+          "value": "https://other-a.example",
+          "reseal": true
+        },
+        {
+          "op": "replace",
+          "path": "agreements.1.witnesses.1.operating_party_id",
+          "value": "https://other-b.example",
+          "reseal": true
+        },
+        {
+          "op": "replace",
+          "path": "agreements.1.witnesses.2.operating_party_id",
+          "value": "https://other-c.example",
+          "reseal": true
+        }
+      ]
+    },
+    {
+      "id": "E-03",
+      "family": "same_party_different_method",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "agreements.1.witnesses.1.verification_method_ref",
+          "value": "vm-key-9",
+          "reseal": true
+        },
+        {
+          "op": "replace",
+          "path": "agreements.1.witnesses.1.public_key_digest",
+          "value": "sha256:key-9",
+          "reseal": true
+        }
+      ]
+    },
+    {
+      "id": "E-04",
+      "family": "same_pair_different_audience",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "agreements.1.witnesses.0.audience_member_id",
+          "value": "member-b-shadow",
+          "reseal": true
+        }
+      ]
+    },
+    {
+      "id": "E-05",
+      "family": "normalized_origin_equivalence",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "agreements.1.witnesses.0.operating_party_id",
+          "value": "https://ALPHA.EXAMPLE:443/",
+          "reseal": true
+        }
+      ]
+    },
+    {
+      "id": "E-06",
+      "family": "effective_quorum_escalation",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "agreements.1.quorum",
+          "value": 3,
+          "reseal": true
+        }
+      ]
+    },
+    {
+      "id": "E-07",
+      "family": "conforming_agreements_unsatisfiable_intersection",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "agreements.1.witnesses.0.operating_party_id",
+          "value": "https://delta.example",
+          "reseal": true
+        },
+        {
+          "op": "replace",
+          "path": "agreements.1.witnesses.1.operating_party_id",
+          "value": "https://echo.example",
+          "reseal": true
+        },
+        {
+          "op": "replace",
+          "path": "agreements.1.witnesses.2.operating_party_id",
+          "value": "https://foxtrot.example",
+          "reseal": true
+        }
+      ]
+    },
+    {
+      "id": "E-08",
+      "family": "source_duplicate_operating_party",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "agreements.0.witnesses.1.operating_party_id",
+          "value": "https://alpha.example",
+          "reseal": true
+        },
+        {
+          "op": "replace",
+          "path": "agreements.0.witnesses.2.operating_party_id",
+          "value": "https://alpha.example",
+          "reseal": true
+        }
+      ]
+    },
+    {
+      "id": "E-09",
+      "family": "source_duplicate_verification_method",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "agreements.0.witnesses.1.verification_method_ref",
+          "value": "vm-key-1",
+          "reseal": true
+        }
+      ]
+    },
+    {
+      "id": "E-10",
+      "family": "source_duplicate_key",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "agreements.0.witnesses.1.public_key_digest",
+          "value": "sha256:key-1",
+          "reseal": true
+        }
+      ]
+    },
+    {
+      "id": "E-11",
+      "family": "missing_identity",
+      "mutations": [
+        {
+          "op": "remove",
+          "path": "agreements.0.witnesses.1.verification_method_ref",
+          "reseal": true
+        }
+      ]
+    },
+    {
+      "id": "E-12",
+      "family": "unknown_critical_extension",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "agreements.0.extensions.critical_namespaces",
+          "value": {
+            "effective-witness-v1": {
+              "mode": "INTERSECTION_MAX_QUORUM"
+            },
+            "future-v2": {
+              "mode": "OTHER"
+            }
+          },
+          "reseal": true
+        }
+      ]
+    },
+    {
+      "id": "E-13",
+      "family": "noncritical_extension_mutation",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "agreements.0.extensions.noncritical",
+          "value": {
+            "trace": "synthetic-2"
+          }
+        }
+      ]
+    },
+    {
+      "id": "E-14",
+      "family": "agreement_input_order_permutation",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "agreement_order",
+          "value": [
+            1,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "id": "E-15",
+      "family": "witness_input_order_permutation",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "agreements.0.witness_order",
+          "value": [
+            2,
+            0,
+            1
+          ]
+        },
+        {
+          "op": "replace",
+          "path": "agreements.1.witness_order",
+          "value": [
+            1,
+            2,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "id": "E-16",
+      "family": "agreement_hash_selection_change",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "agreements.0.agreement_hash",
+          "value": "sha256:z-agreement-a",
+          "reseal": true
+        },
+        {
+          "op": "replace",
+          "path": "agreements.1.agreement_hash",
+          "value": "sha256:a-agreement-b",
+          "reseal": true
+        }
+      ]
+    },
+    {
+      "id": "E-17",
+      "family": "zero_quorum_effective_set",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "agreements.0.quorum",
+          "value": 0,
+          "reseal": true
+        },
+        {
+          "op": "replace",
+          "path": "agreements.1.quorum",
+          "value": 0,
+          "reseal": true
+        },
+        {
+          "op": "remove",
+          "path": "agreements.0.witnesses.2",
+          "reseal": true
+        },
+        {
+          "op": "remove",
+          "path": "agreements.0.witnesses.1",
+          "reseal": true
+        },
+        {
+          "op": "remove",
+          "path": "agreements.0.witnesses.0",
+          "reseal": true
+        },
+        {
+          "op": "remove",
+          "path": "agreements.1.witnesses.2",
+          "reseal": true
+        },
+        {
+          "op": "remove",
+          "path": "agreements.1.witnesses.1",
+          "reseal": true
+        },
+        {
+          "op": "remove",
+          "path": "agreements.1.witnesses.0",
+          "reseal": true
+        }
+      ]
+    },
+    {
+      "id": "E-18",
+      "family": "two_party_quorum_boundary",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "agreements.0.quorum",
+          "value": 2,
+          "reseal": true
+        },
+        {
+          "op": "replace",
+          "path": "agreements.1.quorum",
+          "value": 2,
+          "reseal": true
+        }
+      ]
+    }
+  ]
+}
