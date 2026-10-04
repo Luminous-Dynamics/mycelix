@@ -18,7 +18,7 @@ EVENT_RE = re.compile(
 PCR_RE = re.compile(r"^\s*PCRIndex:\s*(\d+)\s*$", re.MULTILINE)
 TYPE_RE = re.compile(r"^\s*EventType:\s*([^\s#]+)\s*$", re.MULTILINE)
 SHA256_DIGEST_RE = re.compile(
-    r"^\s*AlgorithmId:\s*sha256\s*$\n\s*Digest:\s*[\"']?([0-9A-Fa-fx]+)[\"']?\s*$",
+    r"^\s*-?\s*AlgorithmId:\s*sha256\s*$\n\s*Digest:\s*[\"']?([0-9A-Fa-fx]+)[\"']?\s*$",
     re.MULTILINE,
 )
 STARTUP_HEX_RE = re.compile(r"537461727475704c6f63616c69747900([0-9A-Fa-f]{2})")
