@@ -83,7 +83,10 @@
     "serialization_order_independent": true,
     "batching_partition_independent": true,
     "wall_clock_independent": true,
-    "peer_identity_independent": true
+    "peer_identity_independent": true,
+    "caller_supplied_retrieval_order_canonicalized": true,
+    "canonical_retrieval_sort_key": "ResolvedHolochainDependency.identity",
+    "retrieval_canonicalization_function": "canonicalize_retrieval_order"
   },
   "compatibility": {
     "pure_layer_holochain_dependency": null,
