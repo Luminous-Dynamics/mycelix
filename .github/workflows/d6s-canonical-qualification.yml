@@ -19,6 +19,15 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  d6u-runtime-reference:
+    name: D6U exact-head runtime evidence
+    if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
+    permissions:
+      contents: read
+    uses: ./.github/workflows/d6u-exact-head-runtime.yml
+    with:
+      trusted_workflow_sha: a1815b155717773e4662eae4a5fa44226bfe39ba
+
   d6s-canon-reference:
     name: D6S canonical reference qualification
     runs-on: ubuntu-24.04
