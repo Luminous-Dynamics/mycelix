@@ -49,6 +49,92 @@ check_present_file() {
   fi
 }
 
+# Extract a Rust enum without truncating on nested struct-variant braces or
+# braces embedded in comments/string literals. This is intentionally a lexical
+# helper, not a full Rust parser; it only establishes the enum text boundary.
+extract_rust_enum_block() {
+  local source="$1"
+  local enum_name="$2"
+  printf '%s\n' "$source" | python3 - "$enum_name" <<'PY'
+import re, sys
+enum_name = sys.argv[1]
+source = sys.stdin.read()
+token_re = re.compile(
+    r'//[^\n]*'
+    r'|/\*.*?\*/'
+    r'|(?:br|rb|r)(#{0,255})"(?:.|\n)*?"\1'
+    r'|b?"(?:\\.|[^"\\])*"'
+    r'|\'(?:\\.|[^\'\\])*\'',
+    re.S,
+)
+masked = token_re.sub(lambda m: " " * len(m.group(0)), source)
+pattern = re.compile(rf'(?m)^\\s*(?:pub\\s+)?enum\\s+{re.escape(enum_name)}\\s*\\{{')
+match = pattern.search(masked)
+if not match:
+    raise SystemExit(1)
+depth = 0
+for index in range(match.start(), len(masked)):
+    char = masked[index]
+    if char == "{":
+        depth += 1
+    elif char == "}":
+        depth -= 1
+        if depth == 0:
+            print(source[match.start():index + 1], end="")
+            raise SystemExit(0)
+raise SystemExit(1)
+PY
+}!/usr/bin/env bash
+# HEARTH-0.7 source migration audit.
+# Deterministic, read-only: exits non-zero on any known 0.6 API/config residue.
+set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+
+fail=0
+check_absent() {
+  local label="$1"
+  local pattern="$2"
+  if git grep -nE -- "$pattern" -- mycelix-workspace/mycelix-hearth >/dev/null 2>&1; then
+    echo "FAIL: $label"
+    fail=1
+  else
+    echo "OK:   $label"
+  fi
+}
+check_present() {
+  local label="$1"
+  local pattern="$2"
+  if git grep -nE -- "$pattern" -- mycelix-workspace/mycelix-hearth >/dev/null 2>&1; then
+    echo "OK:   $label"
+  else
+    echo "FAIL: $label"
+    fail=1
+  fi
+}
+check_present_any() {
+  local label="$1"
+  local pattern="$2"
+  if git grep -nE -- "$pattern" -- mycelix-workspace/mycelix-hearth >/dev/null 2>&1; then
+    echo "OK:   $label"
+  else
+    echo "FAIL: $label"
+    fail=1
+  fi
+}
+check_present_file() {
+  local label="$1"
+  local file="$2"
+  local pattern="$3"
+  if rg -nU --pcre2 "$pattern" "$file" >/dev/null 2>&1; then
+    echo "OK:   $label"
+  else
+    echo "FAIL: $label"
+    fail=1
+  fi
+}
+
 # Extract a Rust enum without truncating on a struct-variant's closing brace.
 # This is intentionally a small lexical brace counter, not a Rust parser; enum
 # variant declarations cannot contain ordinary item-level function bodies.
