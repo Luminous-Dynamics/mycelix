@@ -106,6 +106,8 @@ def main() -> None:
         ).stdout.strip(),
         "workflow_run_id": os.environ["GITHUB_RUN_ID"],
         "workflow_run_attempt": os.environ["GITHUB_RUN_ATTEMPT"],
+        "workflow_execution_commit_sha": os.environ["GITHUB_WORKFLOW_SHA"],
+        "workflow_execution_ref": os.environ["GITHUB_WORKFLOW_REF"],
         "workflow_sha": git_blob_sha(WORKFLOW),
         "d6s2_manifest_git_blob_sha": git_blob_sha(D6S2_MANIFEST),
         "d6s2_fixture_git_blob_sha": git_blob_sha(D6S2_FIXTURE),
