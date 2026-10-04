@@ -425,7 +425,7 @@ impl EconomicActionLifecycle {
             kind: EconomicActionChangeKind::ScopeAmendment,
             predecessor_revision_id: Some(self.current_revision_id.clone()),
             predecessor_scope_id: Some(self.active_scope_id.clone()),
-            authority_ref: authority_ref.into(),
+            authority_ref: amendment_authority,
             evidence_refs,
             recorded_at,
         })
