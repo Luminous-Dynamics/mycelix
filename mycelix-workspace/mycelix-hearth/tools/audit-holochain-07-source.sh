@@ -833,282 +833,7 @@ check_semantic_case_integrity_bindings() {
 
       if [[ "$validator_source" != "$integrity_file" ]]; then
         if python3 - "$validator_source" "$integrity_file" "$validator_symbol" <<'PY'
-import re
-import sys
-import tomllib
-from pathlib import Path
-
-validator_source = Path(sys.argv[1]).resolve()
-integrity_source = Path(sys.argv[2]).resolve()
-validator_symbol = sys.argv[3]
-
-if sys.version_info < (3, 11):
-    print("FAIL: external validator provenance requires Python 3.11+ (tomllib)")
-    raise SystemExit(2)
-
-
-def load_manifest(path: Path):
-    try:
-        with path.open("rb") as handle:
-            return tomllib.load(handle)
-    except Exception as exc:
-        print(f"FAIL: could not parse Cargo manifest {path}: {exc}")
-        raise SystemExit(2)
-
-
-def nearest_manifest(path: Path):
-    for parent in [path.parent, *path.parents]:
-        candidate = parent / "Cargo.toml"
-        if candidate.is_file():
-            return candidate
-    return None
-
-
-def find_workspace_root(manifest: Path):
-    for parent in [manifest.parent, *manifest.parent.parents]:
-        candidate = parent / "Cargo.toml"
-        if not candidate.is_file():
-            continue
-        try:
-            data = load_manifest(candidate)
-        except SystemExit:
-            continue
-        if "workspace" in data:
-            return candidate
-    return None
-
-
-def path_from_spec(base_dir: Path, spec):
-    if not isinstance(spec, dict):
-        return None
-    raw_path = spec.get("path")
-    if not isinstance(raw_path, str):
-        return None
-    candidate = (base_dir / raw_path).resolve()
-    if candidate.is_dir():
-        candidate /= "Cargo.toml"
-    return candidate
-
-
-def direct_dependencies(manifest: Path):
-    data = load_manifest(manifest)
-    tables = []
-    deps = data.get("dependencies", {})
-    if isinstance(deps, dict):
-        tables.append(("dependencies", deps))
-    target_tables = data.get("target", {})
-    if isinstance(target_tables, dict):
-        for target_name, target_table in target_tables.items():
-            if not isinstance(target_table, dict):
-                continue
-            deps = target_table.get("dependencies", {})
-            if isinstance(deps, dict):
-                tables.append((f"target.{target_name}.dependencies", deps))
-
-    workspace_root = find_workspace_root(manifest)
-    workspace_data = load_manifest(workspace_root) if workspace_root else {}
-    workspace_deps = (
-        workspace_data.get("workspace", {}).get("dependencies", {})
-        if isinstance(workspace_data.get("workspace", {}), dict)
-        else {}
-    )
-    if not isinstance(workspace_deps, dict):
-        workspace_deps = {}
-
-    resolved = []
-    for table_name, table in tables:
-        for dep_key, raw_spec in table.items():
-            spec = raw_spec
-            base_dir = manifest.parent
-            inherited = isinstance(raw_spec, dict) and raw_spec.get("workspace") is True
-            if inherited:
-                workspace_spec = workspace_deps.get(dep_key)
-                if workspace_spec is None:
-                    print(
-                        f"FAIL: dependency {dep_key} in {manifest} uses workspace = true "
-                        "but no matching [workspace.dependencies] entry exists"
-                    )
-                    raise SystemExit(2)
-                if isinstance(workspace_spec, dict):
-                    spec = dict(workspace_spec)
-                    member_overrides = {
-                        key: value for key, value in raw_spec.items() if key != "workspace"
-                    }
-                    spec.update(member_overrides)
-                else:
-                    spec = workspace_spec
-                base_dir = workspace_root.parent if workspace_root else manifest.parent
-
-            if isinstance(spec, str):
-                actual_package = dep_key
-                has_explicit_package = False
-            elif isinstance(spec, dict):
-                actual_package = spec.get("package", dep_key)
-                has_explicit_package = "package" in spec
-            else:
-                actual_package = dep_key
-                has_explicit_package = False
-
-            resolved.append(
-                {
-                    "table": table_name,
-                    "dependency_key": dep_key,
-                    "actual_package": actual_package,
-                    "explicit_package": has_explicit_package,
-                    "path": path_from_spec(base_dir, spec),
-                }
-            )
-    return data, workspace_root, resolved
-
-
-validator_manifest = nearest_manifest(validator_source)
-if validator_manifest is None:
-    print(f"FAIL: external validator source has no owning Cargo.toml: {validator_source}")
-    raise SystemExit(2)
-
-validator_data = load_manifest(validator_manifest)
-validator_package = validator_data.get("package", {})
-validator_package_name = (
-    validator_package.get("name") if isinstance(validator_package, dict) else None
-)
-if not isinstance(validator_package_name, str) or not validator_package_name:
-    print(f"FAIL: validator package name is missing from {validator_manifest}")
-    raise SystemExit(2)
-
-lib_data = validator_data.get("lib", {})
-if not isinstance(lib_data, dict):
-    lib_data = {}
-crate_name = lib_data.get("name", validator_package_name.replace("-", "_"))
-lib_path = lib_data.get("path", "src/lib.rs")
-if not isinstance(crate_name, str) or not crate_name:
-    print(f"FAIL: validator library crate name is missing from {validator_manifest}")
-    raise SystemExit(2)
-if not isinstance(lib_path, str) or not lib_path:
-    print(f"FAIL: validator library path is missing from {validator_manifest}")
-    raise SystemExit(2)
-
-expected_validator_source = (validator_manifest.parent / lib_path).resolve()
-if validator_source != expected_validator_source:
-    print(
-        f"FAIL: declared validator source {validator_source} is not the package's "
-        f"lib target source {expected_validator_source}"
-    )
-    raise SystemExit(2)
-
-integrity_manifest = integrity_source.parent.parent / "Cargo.toml"
-_, _, dependencies = direct_dependencies(integrity_manifest)
-
-matching = [
-    dep
-    for dep in dependencies
-    if dep["actual_package"] == validator_package_name
-]
-
-if len(matching) != 1:
-    if not matching:
-        print(
-            f"FAIL: external validator package {validator_package_name} is not a unique "
-            f"direct normal dependency of {integrity_manifest}"
-        )
-    else:
-        print(
-            f"FAIL: external validator package {validator_package_name} resolves through "
-            f"{len(matching)} direct dependency declarations in {integrity_manifest}; "
-            "provenance is ambiguous"
-        )
-    raise SystemExit(2)
-
-dependency = matching[0]
-dependency_manifest = dependency["path"]
-if dependency_manifest is None:
-    print(
-        f"FAIL: external validator package {validator_package_name} has no repository-local "
-        "path provenance in its direct dependency declaration"
-    )
-    raise SystemExit(2)
-
-dependency_manifest = dependency_manifest.resolve()
-if dependency_manifest != validator_manifest:
-    print(
-        f"FAIL: dependency {dependency['dependency_key']} resolves to {dependency_manifest}, "
-        f"not the declared validator manifest {validator_manifest}"
-    )
-    raise SystemExit(2)
-
-if dependency["explicit_package"]:
-    imported_crate = dependency["dependency_key"].replace("-", "_")
-else:
-    imported_crate = crate_name.replace("-", "_")
-
-integrity_text = integrity_source.read_text()
-integrity_prod = integrity_text.split("#[cfg(test)]", 1)[0]
-
-use_statements = re.findall(
-    r"(?ms)^[[:space:]]*(?:pub[[:space:]]+)?use[[:space:]]+[^;]+;",
-    integrity_prod,
-)
-crate_pattern = re.escape(imported_crate)
-
-expected_direct = re.compile(
-    rf"(?ms)^[[:space:]]*(?:pub[[:space:]]+)?use[[:space:]]+"
-    rf"{crate_pattern}::{re.escape(validator_symbol)}[[:space:]]*;"
-)
-expected_group = re.compile(
-    rf"(?ms)^[[:space:]]*(?:pub[[:space:]]+)?use[[:space:]]+"
-    rf"{crate_pattern}::\{[^;]*\}[[:space:]]*;"
-)
-
-matching_uses = []
-for statement in use_statements:
-    normalized = " ".join(statement.split())
-    if not re.search(rf"\b{crate_pattern}::", normalized):
-        continue
-
-    if expected_direct.fullmatch(normalized):
-        matching_uses.append(normalized)
-        continue
-
-    group_match = expected_group.fullmatch(normalized)
-    if group_match:
-        body = group_match.group(0)
-        brace_start = body.find("{")
-        brace_end = body.rfind("}")
-        items = [item.strip() for item in body[brace_start + 1:brace_end].split(",")]
-        symbol_items = [
-            item for item in items
-            if re.search(
-                rf"^(?:{re.escape(validator_symbol)}(?:$|\s+as\s+)|.*\bas\s+{re.escape(validator_symbol)}$)",
-                item,
-            )
-        ]
-        if any(item == validator_symbol for item in symbol_items):
-            matching_uses.append(normalized)
-            continue
-        if symbol_items:
-            print(
-                f"FAIL: {integrity_source} imports {validator_symbol} through an alias "
-                "instead of a direct validator symbol binding"
-            )
-            raise SystemExit(2)
-
-conflicting_uses = []
-for statement in use_statements:
-    normalized = " ".join(statement.split())
-    if not re.search(rf"\b{re.escape(validator_symbol)}\b", normalized):
-        continue
-    if not re.search(rf"\b{crate_pattern}::", normalized):
-        conflicting_uses.append(normalized)
-
-if conflicting_uses:
-    print(
-        f"FAIL: {integrity_source} contains additional imports of validator symbol "
-        f"{validator_symbol} outside resolved provenance: {' | '.join(conflicting_uses)}"
-    )
-    raise SystemExit(2)
-
-if not matching_uses:
-    print(
-        f"FAIL: {integrity_source} does not directly import json
+import json
 import re
 import subprocess
 import sys
@@ -1196,6 +921,10 @@ if len(validator_packages) != 1:
 
 integrity_package = integrity_packages[0]
 validator_package = validator_packages[0]
+validator_package_id = validator_package.get("id")
+integrity_package_id = integrity_package.get("id")
+if not isinstance(validator_package_id, str) or not isinstance(integrity_package_id, str):
+    fail("cargo metadata package IDs are missing")
 
 lib_targets = [
     target for target in validator_package.get("targets", [])
@@ -1214,11 +943,6 @@ if lib_source != validator_source:
         f"declared validator source {validator_source} is not Cargo's library "
         f"target source {lib_source}"
     )
-
-validator_package_id = validator_package.get("id")
-integrity_package_id = integrity_package.get("id")
-if not isinstance(validator_package_id, str) or not isinstance(integrity_package_id, str):
-    fail("cargo metadata package IDs are missing")
 
 root_node = next(
     (node for node in nodes if node.get("id") == integrity_package_id),
@@ -1301,7 +1025,6 @@ for statement in use_statements:
     brace_start = body.find("{")
     brace_end = body.rfind("}")
     items = [item.strip() for item in body[brace_start + 1:brace_end].split(",")]
-    exact = [item for item in items if item == validator_symbol]
     aliases = [
         item for item in items
         if re.fullmatch(
@@ -1314,7 +1037,7 @@ for statement in use_statements:
             f"{integrity_source} aliases {validator_symbol} instead of directly "
             "binding the validator symbol"
         )
-    if exact:
+    if validator_symbol in items:
         matching_uses.append(normalized)
 
 if not matching_uses:
@@ -1352,7 +1075,6 @@ print(
     f"OK:   external validator {validator_package.get('name')}::{validator_symbol} "
     f"is bound by Cargo to {validator_source} via crate {imported_crate}"
 )
-
 PY
         then
           echo "OK:   $id external validator ownership/import provenance"
