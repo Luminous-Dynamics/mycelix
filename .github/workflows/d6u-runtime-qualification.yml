@@ -5,9 +5,12 @@ on:
   # Keeping a push trigger here would duplicate every PR update and cause the
   # concurrency group to cancel one of the two identical runtime jobs.
   pull_request:
-    branches:
-      - main
-      - myc-int-demo-d6t-canonical-encoding
+    paths:
+      - ".github/workflows/d6u-runtime-qualification.yml"
+      - "d6u-runtime-harness/**"
+      - "docs/integral/d6u-runtime-*.json"
+      - "docs/integral/d6u-runtime-*.md"
+      - "scripts/integral/verify_d6u_runtime_*.py"
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
 
 permissions:
@@ -19,9 +22,6 @@ concurrency:
 
 jobs:
   d6u-runtime:
-    if: >-
-      github.head_ref == 'myc-int-demo-d6u-holochain-07-runtime' ||
-      github.head_ref == 'myc-int-demo-d6u-exact-head-mirror'
     name: D6U Holochain 0.7 runtime evidence
     runs-on: ubuntu-24.04
     timeout-minutes: 45
