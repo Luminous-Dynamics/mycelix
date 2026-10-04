@@ -273,6 +273,10 @@ impl EconomicFinalizationLedger {
             return Ok(false);
         }
 
+        if certificate.finalized_at < lifecycle.current_revision()?.recorded_at {
+            return Ok(false);
+        }
+
         let assessment = EconomicActionFinalizationGate::assess(
             lifecycle,
             scope,
@@ -629,6 +633,47 @@ mod tests {
                 &constraints,
             )
             .is_ok());
+    }
+
+    #[test]
+    fn certificate_verification_rejects_pre_completion_timestamp() {
+        let (assessment, lifecycle, scope, substrate, impacts, reconciliations, execution, constraints) =
+            ready_assessment();
+        let mut ledger = EconomicFinalizationLedger::new("action:1").unwrap();
+
+        let certificate = ledger
+            .issue(
+                &assessment,
+                &lifecycle,
+                &scope,
+                &substrate,
+                &impacts,
+                &reconciliations,
+                &execution,
+                &constraints,
+                "finalization:1",
+                "authority:dao-1",
+                vec!["evidence:finalization".into()],
+                1_700,
+            )
+            .unwrap();
+
+        let mut persisted = certificate.clone();
+        persisted.finalized_at = 1_399;
+        ledger.certificates[0] = persisted.clone();
+
+        assert!(!ledger
+            .verify_certificate(
+                &persisted,
+                &lifecycle,
+                &scope,
+                &substrate,
+                &impacts,
+                &reconciliations,
+                &execution,
+                &constraints,
+            )
+            .unwrap());
     }
 
     #[test]
