@@ -821,6 +821,16 @@ impl EconomicState {
             ));
         }
 
+        // Aggregate equality alone can hide cross-instrument compensation
+        // (for example, a deposit asset offset by an unrelated debt
+        // liability). The closed-model invariant requires each modeled
+        // financial instrument family to reconcile independently.
+        if !self.closed_financial_rows_clear() {
+            return Err(
+                "economic state financial instrument rows do not reconcile".into(),
+            );
+        }
+
         Ok(())
     }
 
@@ -1536,7 +1546,7 @@ impl EconomicState {
     /// requiring aggregate net financial assets to equal zero, because cash
     /// can be backed by an issuer or external sector not represented here.
     pub fn claims_liabilities_identity_holds(&self) -> bool {
-        self.aggregate_claims() == self.aggregate_liabilities()
+        self.closed_financial_rows_clear()
     }
 
     /// Backward-compatible accounting check. New code should prefer the
@@ -1559,6 +1569,40 @@ mod tests {
         }"#;
         let state: EconomicState = serde_json::from_str(json).unwrap();
         assert_eq!(state.debt_written_off, 0);
+    }
+
+    #[test]
+    fn state_validation_rejects_cross_instrument_claim_compensation() {
+        let mut state = EconomicState::new(vec![
+            ActorBalanceSheet::new("depositor"),
+            ActorBalanceSheet::new("borrower"),
+        ]);
+        // Aggregate claims == aggregate liabilities, but the instrument
+        // families do not reconcile: a deposit claim is being offset by
+        // unrelated loan debt.
+        state.actors[0].monetary.deposits = 10;
+        state.actors[1].monetary.liabilities = 10;
+
+        assert_eq!(state.try_aggregate_claims().unwrap(), 10);
+        assert_eq!(state.try_aggregate_liabilities().unwrap(), 10);
+        assert!(!state.closed_financial_rows_clear());
+        assert!(!state.claims_liabilities_identity_holds());
+        assert!(state.validate().is_err());
+    }
+
+    #[test]
+    fn state_validation_accepts_pairwise_closed_financial_rows() {
+        let mut bank = ActorBalanceSheet::new("bank");
+        let mut firm = ActorBalanceSheet::new("firm");
+        bank.monetary.claims = 10;
+        bank.monetary.deposit_liabilities = 25;
+        firm.monetary.liabilities = 10;
+        firm.monetary.deposits = 25;
+        let state = EconomicState::new(vec![bank, firm]);
+
+        assert!(state.closed_financial_rows_clear());
+        assert!(state.claims_liabilities_identity_holds());
+        state.validate().unwrap();
     }
 
     #[test]
