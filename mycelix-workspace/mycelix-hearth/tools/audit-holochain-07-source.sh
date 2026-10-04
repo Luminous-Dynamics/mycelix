@@ -197,7 +197,7 @@ fi
 check_validation_determinism() {
   local file="$1"
   local source diagnostic_dir forbidden_log random_log
-  source="$(sed '/^\\#\\[cfg(test)\\]/,$d' "$file")"
+  source="$(sed '/^\#\[cfg(test)\]/,$d' "$file")"
   diagnostic_dir="$(mktemp -d)"
   forbidden_log="${diagnostic_dir}/forbidden.log"
   random_log="${diagnostic_dir}/random.log"
