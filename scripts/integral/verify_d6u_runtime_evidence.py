@@ -42,6 +42,7 @@ def main() -> None:
             "Attempted to call a zome function that doesn't exist: "
             "Zome: coordinator Fn no_such_function"
         ),
+        "wrong-cell-routing": "",
     }
     assert expected_supplemental == set(supplemental_expected_fragments)
 
@@ -60,10 +61,12 @@ def main() -> None:
             f"unexpected D6U_RUNTIME_WITNESS observation: {witness_id}"
         )
         expected_fragment = witness_expected_fragments[witness_id]
-        assert expected_fragment in witness, (
-            f"runtime witness for {witness_id!r} does not contain the expected "
-            f"substrate fragment {expected_fragment!r}: {witness!r}"
-        )
+        assert witness.strip(), f"runtime witness for {witness_id!r} must be non-empty"
+        if expected_fragment:
+            assert expected_fragment in witness, (
+                f"runtime witness for {witness_id!r} does not contain the expected "
+                f"substrate fragment {expected_fragment!r}: {witness!r}"
+            )
         witness_observed[witness_id] = witness
 
     assert set(witness_observed) == expected_supplemental, (
@@ -85,14 +88,16 @@ def main() -> None:
         )
         assert "\t" not in reason, f"substrate witness must be a single field: {line!r}"
         expected_fragment = supplemental_expected_fragments[check_id]
-        assert expected_fragment in log, (
-            f"raw runtime log is missing substrate witness for {check_id!r}: "
-            f"{expected_fragment!r}"
-        )
-        assert expected_fragment in reason, (
-            f"substrate witness for {check_id!r} does not contain the expected "
-            f"runtime fragment {expected_fragment!r}: {reason!r}"
-        )
+        assert reason.strip(), f"substrate witness for {check_id!r} must be non-empty"
+        if expected_fragment:
+            assert expected_fragment in log, (
+                f"raw runtime log is missing substrate witness for {check_id!r}: "
+                f"{expected_fragment!r}"
+            )
+            assert expected_fragment in reason, (
+                f"substrate witness for {check_id!r} does not contain the expected "
+                f"runtime fragment {expected_fragment!r}: {reason!r}"
+            )
         supplemental_observed[check_id] = reason
 
     assert set(supplemental_observed) == expected_supplemental, (
