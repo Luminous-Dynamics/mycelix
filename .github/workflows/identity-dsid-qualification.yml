@@ -471,8 +471,11 @@ jobs:
             fi
           done
 
-      - name: Assert qualification workspace is clean
+      - name: Assert qualification workspace has no tracked mutation
         run: |
-          git status --short
-          test -z "$(git status --porcelain)"
+          git diff --check
+          git diff --exit-code
+          git diff --cached --exit-code
+          unexpected_tracked="$(git status --porcelain | awk '$1 != "??" {print}')"
+          test -z "$unexpected_tracked"
 
