@@ -586,18 +586,20 @@ check_semantic_validation_suite_wiring() {
 check_semantic_case_entrypoints() {
   local manifest="mycelix-workspace/mycelix-hearth/tests/hearth-07-semantic-validation-cases.json"
   local rust_test="mycelix-workspace/mycelix-hearth/tests/sweettest_semantic_validation.rs"
-  local zomes operations
-  mapfile -t zomes < <(sed -n 's/^[[:space:]]*"zome"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest")
-  mapfile -t operations < <(sed -n 's/^[[:space:]]*"operation"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest")
+  local tests zomes operations
+  mapfile -t tests < <(sed -n 's/^[[:space:]]*"test"[[:space:]]*:[[:space:]]*"\\([^"]*\\)".*/\\1/p' "$manifest")
+  mapfile -t zomes < <(sed -n 's/^[[:space:]]*"zome"[[:space:]]*:[[:space:]]*"\\([^"]*\\)".*/\\1/p' "$manifest")
+  mapfile -t operations < <(sed -n 's/^[[:space:]]*"operation"[[:space:]]*:[[:space:]]*"\\([^"]*\\)".*/\\1/p' "$manifest")
 
-  if [[ "${#zomes[@]}" -eq 0 || "${#zomes[@]}" -ne "${#operations[@]}" ]]; then
-    echo "FAIL: semantic manifest zome/operation declaration counts differ"
+  if [[ "${#tests[@]}" -eq 0 || "${#tests[@]}" -ne "${#zomes[@]}" || "${#tests[@]}" -ne "${#operations[@]}" ]]; then
+    echo "FAIL: semantic manifest test/zome/operation declaration counts differ"
     fail=1
     return
   fi
 
-  local i zome operation coord_file
-  for i in "${!zomes[@]}"; do
+  local i test_name zome operation coord_file
+  for i in "${!tests[@]}"; do
+    test_name="${tests[$i]}"
     zome="${zomes[$i]}"
     operation="${operations[$i]}"
     coord_file="mycelix-workspace/mycelix-hearth/zomes/${zome//_/-}/coordinator/src/lib.rs"
@@ -618,12 +620,12 @@ check_semantic_case_entrypoints() {
     fi
 
     mapfile -t test_fn_lines < <(
-      rg -n --fixed-strings "async fn ${operation}" "$rust_test" |
+      rg -n --fixed-strings "async fn ${test_name}" "$rust_test" |
         cut -d: -f1
     )
     local test_start test_next test_end test_block
     if [[ "${#test_fn_lines[@]}" -ne 1 ]]; then
-      echo "FAIL: semantic runtime witness must contain exactly one async test function named ${operation}"
+      echo "FAIL: semantic case ${zome}/${operation} must map to exactly one test function: ${test_name}"
       fail=1
       continue
     fi
@@ -634,7 +636,7 @@ check_semantic_case_entrypoints() {
         test_next="$test_line"
         break
       fi
-    done < <(rg -n '^async fn [A-Za-z_][A-Za-z0-9_]*' "$rust_test" | cut -d: -f1 | sort -n)
+    done < <(rg -n "^async fn [A-Za-z_][A-Za-z0-9_]*" "$rust_test" | cut -d: -f1 | sort -n)
     if [[ -n "$test_next" ]]; then
       test_end=$((test_next - 1))
     else
@@ -642,10 +644,10 @@ check_semantic_case_entrypoints() {
     fi
     test_block="$(sed -n "${test_start},${test_end}p" "$rust_test")"
 
-    if printf '%s\n' "$test_block" | rg -n --fixed-strings ".zome(\"${zome}\")" >/dev/null 2>&1       && printf '%s\n' "$test_block" | rg -n --fixed-strings "\"${operation}" >/dev/null 2>&1; then
-      echo "OK:   semantic runtime witness ${operation} is bound to ${zome}/${operation}'s own test body"
+    if printf "%s\\n" "$test_block" | rg -n --fixed-strings ".zome(\"${zome}\")" >/dev/null 2>&1       && printf "%s\\n" "$test_block" | rg -n --fixed-strings "\"${operation}\"" >/dev/null 2>&1; then
+      echo "OK:   semantic runtime witness ${test_name} is bound to ${zome}/${operation}'s own test body"
     else
-      echo "FAIL: semantic runtime witness ${zome}/${operation} is not invoked by its own test body"
+      echo "FAIL: semantic runtime witness ${zome}/${operation} is not invoked by ${test_name}'s own test body"
       fail=1
     fi
   done
