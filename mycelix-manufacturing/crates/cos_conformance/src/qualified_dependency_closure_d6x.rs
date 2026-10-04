@@ -2200,6 +2200,39 @@ mod tests {
     }
 
     #[test]
+    fn golden_authoritative_d6n_d6o_rejects_unregistered_receipt() {
+        let corpus_text = include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/testdata/d6x_qualified_closure_golden_vectors.json"
+        ));
+        let corpus: GoldenCorpusV1 =
+            serde_json::from_str(corpus_text).expect("D6X golden vector corpus must parse");
+
+        let mut fixture = corpus.fixtures.authoritative_d6n_d6o.clone();
+        fixture.d6o_ledger.eligibility_receipts.clear();
+
+        let rejected = compose_finality_eligibility_from_authoritative_d6n_d6o(
+            &fixture.effect,
+            &fixture.route,
+            &fixture.profile,
+            &fixture.set,
+            &fixture.assessment,
+            &fixture.evidence,
+            std::slice::from_ref(&fixture.eligibility_receipt),
+            &fixture.lifecycle_profile,
+            &fixture.d6o_ledger,
+            &fixture.current_frontier_root,
+            &fixture.live_generation_id,
+            fixture.required_independent_observations,
+        );
+
+        assert!(
+            rejected.is_none(),
+            "D6X's authoritative reconstruction must reject a valid-looking D6O receipt absent from the authoritative ledger registry"
+        );
+    }
+
+    #[test]
     fn golden_authoritative_d6n_d6o_rejects_self_consistent_upstream_mutations() {
         let corpus_text = include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
