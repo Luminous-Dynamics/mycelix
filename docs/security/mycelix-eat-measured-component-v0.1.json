@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "profile_id": "mycelix.security.eat.measured-component",
+  "profile_version": "0.1.0",
+  "claim_ceiling": "ReferenceModelOnly",
+  "purpose": "Profile-level semantic contract for representing TPM/platform measured state as RFC 10013 measured components before wrapping as EAT Evidence.",
+  "standards_basis": {
+    "rfc_9711": "https://www.rfc-editor.org/rfc/rfc9711.html",
+    "rfc_10013": "https://www.rfc-editor.org/rfc/rfc10013.html"
+  },
+  "semantics": {
+    "serialization": "JSON profile fixture shaped after RFC 10013 measured-component data model",
+    "digest_algorithm": "sha-256",
+    "authorities_used": false,
+    "flags_used": false,
+    "component_identity_required": true,
+    "digest_required": true,
+    "enclosing_eat_signer_separate_from_component_authority": true
+  },
+  "canonical_component": {
+    "id": ["mycelix-workload-manifest"],
+    "measurement": {
+      "digested-measurement": {
+        "alg": "sha-256",
+        "val": "K_Lhc68lYlJAJyzfyBrptoJSBp4MIc9ykkElRe4lDaQ"
+      }
+    }
+  },
+  "context": {
+    "measurement_profile_id": "mycelix.security.tpm2.evidence.vptm@0.1.0",
+    "component_role": "workload-manifest",
+    "pcr_binding": {
+      "bank": "sha256",
+      "index": 16,
+      "binding_type": "quoted-pcr-reference"
+    },
+    "eat_attester_id": "vptm-attester-fixture-001",
+    "component_authority_id": null
+  },
+  "non_equivalences": [
+    ["component_authority", "enclosing_eat_attester_identity"],
+    ["component_digest", "security_policy_approval"],
+    ["measured_component", "eat_evidence_signature"],
+    ["eat_evidence", "attestation_result"],
+    ["attestation_result", "local_authorization"]
+  ],
+  "vectors": [
+    {"id":"MC-001","mutation":"canonical-valid","expected":"PASS"},
+    {"id":"MC-002","mutation":"component-name-substitution","expected":"DENY"},
+    {"id":"MC-003","mutation":"component-digest-substitution","expected":"DENY"},
+    {"id":"MC-004","mutation":"wrong-digest-algorithm","expected":"DENY"},
+    {"id":"MC-005","mutation":"malformed-base64url","expected":"DENY"},
+    {"id":"MC-006","mutation":"digest-wrong-length","expected":"DENY"},
+    {"id":"MC-007","mutation":"unknown-measured-component-profile","expected":"DENY"},
+    {"id":"MC-008","mutation":"serialization-profile-substitution","expected":"DENY"},
+    {"id":"MC-009","mutation":"unexpected-authorities-field","expected":"DENY"},
+    {"id":"MC-010","mutation":"unexpected-flags-field","expected":"DENY"},
+    {"id":"MC-011","mutation":"authority-confused-with-eat-signer","expected":"DENY"},
+    {"id":"MC-012","mutation":"pcr-reference-substitution","expected":"DENY"},
+    {"id":"MC-013","mutation":"wrong-security-domain-profile","expected":"DENY"},
+    {"id":"MC-014","mutation":"duplicate-component-conflict","expected":"DENY"},
+    {"id":"MC-015","mutation":"raw-measurement-accepted-without-profile","expected":"DENY"},
+    {"id":"MC-016","mutation":"digest-value-semantic-preserved-under-key-order-permutation","expected":"PASS"}
+  ]
+}
