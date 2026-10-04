@@ -2,7 +2,7 @@ name: D6U Trusted Evidence Attestation
 
 on:
   workflow_run:
-    workflows: ["D6U Holochain 0.7 Runtime Qualification"]
+    workflows: ["D6U Exact-Head Runtime Qualification"]
     types: [completed]
 
 jobs:
