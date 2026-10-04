@@ -48,6 +48,14 @@
         "tolerance_mm": {
           "type": "number",
           "minimum": 0
+        },
+        "required_open_ports": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "uniqueItems": true
         }
       }
     },
@@ -58,7 +66,8 @@
         "ExpectedOpeningsOnly",
         "UnexpectedOpenings",
         "MissingPortAnchor",
-        "AmbiguousOpening"
+        "AmbiguousOpening",
+        "MissingPortOpening"
       ]
     },
     "boundary_edges": {
