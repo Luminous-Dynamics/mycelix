@@ -603,6 +603,11 @@ mod linux {
             return Err(SeccompError::CompilerInvariantViolation);
         }
 
+        let default_deny_index = filter
+            .len()
+            .checked_sub(1)
+            .ok_or(SeccompError::CompilerInvariantViolation)?;
+
         // The syscall dispatch chain has one canonical shape: a matching
         // dispatch enters its rule body at the immediately following
         // instruction, while a mismatch jumps directly to the next dispatch
@@ -614,24 +619,29 @@ mod linux {
         loop {
             dispatch_indices.push(dispatch_index);
             let dispatch = &filter[dispatch_index];
-            let next = dispatch_index
+            let after_dispatch = dispatch_index
                 .checked_add(1)
-                .and_then(|pc| pc.checked_add(usize::from(dispatch.jf)))
                 .ok_or(SeccompError::CompilerInvariantViolation)?;
-            if dispatch.jt != 0 || next <= dispatch_index + 1 {
+            let next = after_dispatch
+                .checked_add(usize::from(dispatch.jf))
+                .ok_or(SeccompError::CompilerInvariantViolation)?;
+            if dispatch.jt != 0 || next <= after_dispatch {
                 return Err(SeccompError::CompilerInvariantViolation);
             }
 
             if next >= filter.len() {
                 return Err(SeccompError::CompilerInvariantViolation);
             }
-            if next == filter.len() - 1 {
+            if next == default_deny_index {
                 break;
             }
 
-            if filter[next].code != BPF_JMP | BPF_JEQ | BPF_K
-                || filter[next].jt != 0
-                || filter[next].jf == 0
+            let next_dispatch = filter
+                .get(next)
+                .ok_or(SeccompError::CompilerInvariantViolation)?;
+            if next_dispatch.code != BPF_JMP | BPF_JEQ | BPF_K
+                || next_dispatch.jt != 0
+                || next_dispatch.jf == 0
             {
                 return Err(SeccompError::CompilerInvariantViolation);
             }
@@ -650,7 +660,7 @@ mod linux {
             let body_end = dispatch_indices
                 .get(rule_index + 1)
                 .copied()
-                .unwrap_or(filter.len() - 1);
+                .unwrap_or(default_deny_index);
             let body_start = dispatch
                 .checked_add(1)
                 .ok_or(SeccompError::CompilerInvariantViolation)?;
@@ -687,8 +697,10 @@ mod linux {
 
             let allow_indices: Vec<usize> = (body_start..body_end)
                 .filter(|&pc| {
-                    filter[pc].code == BPF_RET | BPF_K
-                        && filter[pc].k == SECCOMP_RET_ALLOW
+                    filter.get(pc).is_some_and(|instruction| {
+                        instruction.code == BPF_RET | BPF_K
+                            && instruction.k == SECCOMP_RET_ALLOW
+                    })
                 })
                 .collect();
             if allow_indices.is_empty()
@@ -766,8 +778,11 @@ mod linux {
                     let valid_argument_load = preceding.code == BPF_LD | BPF_W | BPF_ABS
                         && (16..=60).contains(&preceding.k)
                         && (preceding.k - 16) % 4 == 0;
+                    let following_index = index
+                        .checked_add(1)
+                        .ok_or(SeccompError::CompilerInvariantViolation)?;
                     let following = filter
-                        .get(index + 1)
+                        .get(following_index)
                         .ok_or(SeccompError::CompilerInvariantViolation)?;
                     if !valid_argument_load
                         || following.code != BPF_JMP | BPF_JEQ | BPF_K
@@ -800,10 +815,21 @@ mod linux {
                     // above, not by predicate topology.
                     if index != 1 && !dispatch_indices.contains(&index) {
                         for offset in [instruction.jt, instruction.jf] {
-                            let target = index + 1 + usize::from(offset);
-                            let local_epem = target == index + 2
-                                && filter[index + 1].code == BPF_RET | BPF_K
-                                && filter[index + 1].k == SECCOMP_RET_ERRNO | libc::EPERM as u32;
+                            let target = index
+                                .checked_add(1)
+                                .and_then(|pc| pc.checked_add(usize::from(offset)))
+                                .ok_or(SeccompError::CompilerInvariantViolation)?;
+                            let local_epem = index
+                                .checked_add(2)
+                                .is_some_and(|local_target| target == local_target)
+                                && index
+                                    .checked_add(1)
+                                    .and_then(|pc| filter.get(pc))
+                                    .is_some_and(|instruction| {
+                                        instruction.code == BPF_RET | BPF_K
+                                            && instruction.k
+                                                == SECCOMP_RET_ERRNO | libc::EPERM as u32
+                                    });
                             let full_width_not_equal_shortcut = index >= 2
                                 && target == index + 4
                                 && filter.get(index - 2).is_some_and(|i| i.code == BPF_LD | BPF_W | BPF_ABS)
@@ -951,19 +977,39 @@ mod linux {
             let instruction = &filter[index];
             match instruction.code {
                 code if code == BPF_JMP | BPF_JEQ | BPF_K => {
-                    let true_target = index + 1 + usize::from(instruction.jt);
-                    let false_target = index + 1 + usize::from(instruction.jf);
+                    let true_target = index
+                        .checked_add(1)
+                        .and_then(|pc| pc.checked_add(usize::from(instruction.jt)))
+                        .ok_or(SeccompError::CompilerInvariantViolation)?;
+                    let false_target = index
+                        .checked_add(1)
+                        .and_then(|pc| pc.checked_add(usize::from(instruction.jf)))
+                        .ok_or(SeccompError::CompilerInvariantViolation)?;
                     work.push(true_target);
                     work.push(false_target);
                 }
                 code if code == BPF_JMP | BPF_JGE | BPF_K => {
-                    let true_target = index + 1 + usize::from(instruction.jt);
-                    let false_target = index + 1 + usize::from(instruction.jf);
+                    let true_target = index
+                        .checked_add(1)
+                        .and_then(|pc| pc.checked_add(usize::from(instruction.jt)))
+                        .ok_or(SeccompError::CompilerInvariantViolation)?;
+                    let false_target = index
+                        .checked_add(1)
+                        .and_then(|pc| pc.checked_add(usize::from(instruction.jf)))
+                        .ok_or(SeccompError::CompilerInvariantViolation)?;
                     work.push(true_target);
                     work.push(false_target);
                 }
                 code if code == BPF_RET | BPF_K => {}
-                _ => work.push(index + 1),
+                _ => {
+                    let next = index
+                        .checked_add(1)
+                        .ok_or(SeccompError::CompilerInvariantViolation)?;
+                    if next >= filter.len() {
+                        return Err(SeccompError::CompilerInvariantViolation);
+                    }
+                    work.push(next);
+                }
             }
         }
         if reachable.iter().any(|seen| !seen) {
@@ -1548,9 +1594,11 @@ mod linux {
                 .get(rule_index + 1)
                 .copied()
                 .unwrap_or(default_deny_index);
-            if pc != expected_next
-                || filter[dispatch].jf as usize != expected_next - dispatch - 1
-            {
+            let expected_jump = expected_next
+                .checked_sub(dispatch)
+                .and_then(|distance| distance.checked_sub(1))
+                .ok_or(SeccompError::CompilerInvariantViolation)?;
+            if pc != expected_next || usize::from(filter[dispatch].jf) != expected_jump {
                 return Err(SeccompError::CompilerInvariantViolation);
             }
         }
