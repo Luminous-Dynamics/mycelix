@@ -1327,6 +1327,19 @@ fn valid_request_status_transition(from: &RequestStatus, to: &RequestStatus) -> 
     )
 }
 
+
+fn credential_claims_satisfy_request(
+    requested: &serde_json::Value,
+    issued: &serde_json::Value,
+) -> bool {
+    match (requested.as_object(), issued.as_object()) {
+        (Some(requested), Some(issued)) => requested
+            .iter()
+            .all(|(key, value)| issued.get(key) == Some(value)),
+        _ => requested == issued,
+    }
+}
+
 fn validate_issued_credential_binding(
     req: &CredentialRequest,
 ) -> ExternResult<ValidateCallbackResult> {
@@ -1369,6 +1382,11 @@ fn validate_issued_credential_binding(
     if credential.mycelix_schema_id != req.schema_id {
         return Ok(ValidateCallbackResult::Invalid(
             "Issued credential schema does not match the credential request schema".into(),
+        ));
+    }
+    if !credential_claims_satisfy_request(&req.provided_claims, &credential.credential_subject.claims) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Issued credential claims do not fulfill the claims supplied in the credential request".into(),
         ));
     }
 
@@ -1444,6 +1462,13 @@ fn validate_update_credential_request(
             "Credential request creation timestamp cannot be changed".into(),
         ));
     }
+    if original.status == RequestStatus::Issued
+        && req.issued_credential != original.issued_credential
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "An Issued request's credential binding is immutable".into(),
+        ));
+    }
     if req.status != RequestStatus::Issued
         && req.issued_credential != original.issued_credential
     {
@@ -1461,7 +1486,10 @@ fn validate_update_credential_request(
                 ));
             }
         }
-        validate_issued_credential_binding(&req)?;
+        match validate_issued_credential_binding(&req)? {
+            ValidateCallbackResult::Valid => {}
+            invalid @ ValidateCallbackResult::Invalid(_) => return Ok(invalid),
+        }
     } else if req.issued_credential.is_some() {
         return Ok(ValidateCallbackResult::Invalid(
             "Only an Issued request may carry an issued credential reference".into(),
