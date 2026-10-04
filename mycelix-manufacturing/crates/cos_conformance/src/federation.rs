@@ -1313,9 +1313,10 @@ fn federation_state_invariants_hold(state: &FederationState) -> bool { validate_
 
 /// Canonical, order-independent representation of authoritative federation state.
 ///
-/// The representation intentionally includes semantic state and provenance ledgers,
-/// while relying on BTreeMap ordering and the already-normalized recognition edge
-/// ordering to eliminate incidental container ordering from qualification evidence.
+/// The representation intentionally includes semantic state, provenance ledgers,
+/// and the admission-order witness, while relying on BTreeMap ordering and the
+/// already-normalized recognition edge ordering to eliminate incidental container
+/// ordering from qualification evidence.
 /// It is a representation for deterministic comparison, not a cryptographic hash.
 pub fn canonical_state_fingerprint(state: &FederationState) -> Vec<u8> {
     serde_json::to_vec(&(
@@ -2368,13 +2369,22 @@ mod tests {
                     first,
                     second
                 );
+                let mut repeated_forward = first.seed_state();
+                first.mutate(&mut repeated_forward);
+                second.mutate(&mut repeated_forward);
+                let mut repeated_reverse = second.seed_state();
+                second.mutate(&mut repeated_reverse);
+                first.mutate(&mut repeated_reverse);
+
                 assert_eq!(
                     canonical_state_fingerprint(&forward),
-                    canonical_state_fingerprint(&forward.clone())
+                    canonical_state_fingerprint(&repeated_forward),
+                    "forward temporal mutation order must be deterministic"
                 );
                 assert_eq!(
                     canonical_state_fingerprint(&reverse),
-                    canonical_state_fingerprint(&reverse.clone())
+                    canonical_state_fingerprint(&repeated_reverse),
+                    "reverse temporal mutation order must be deterministic"
                 );
             }
         }
