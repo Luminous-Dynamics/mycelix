@@ -346,13 +346,48 @@ pub fn resolve_substrate(role: String) -> ExternResult<Vec<AgentPubKey>> {
         };
 
         // A discovery advertisement is not sufficient by itself. Do not
-        // return providers whose canonical Mycelix DID is deactivated.
+        // return providers whose canonical Mycelix DID is deactivated or whose
+        // current DID no longer carries the matching substrate service.
         let did = format!("did:mycelix:{}", agent);
-        if is_did_active(did)? {
+        if !is_did_active(did.clone())? {
+            continue;
+        }
+
+        let Ok(Some(record)) = get_did_document(agent.clone()) else {
+            // Ambiguous, missing, or otherwise unresolvable legacy DID state
+            // must not become trusted discovery output.
+            continue;
+        };
+        let Ok(Some(document)) = record
+            .entry()
+            .to_app_option::<DidDocument>()
+        else {
+            continue;
+        };
+
+        let expected_service_id = format!("{}#substrate", did);
+        let service_matches = document.service.iter().any(|service| {
+            if service.id != expected_service_id || service.type_ != SUBSTRATE_SERVICE_TYPE {
+                return false;
+            }
+            let Ok(metadata) = serde_json::from_str::<serde_json::Value>(&service.service_endpoint)
+            else {
+                return false;
+            };
+            metadata
+                .get("role")
+                .and_then(serde_json::Value::as_str)
+                .is_some_and(|service_role| service_role == role)
+        });
+
+        if service_matches && !providers.contains(&agent) {
             providers.push(agent);
         }
     }
 
+    // Link traversal order is DHT-dependent. Canonicalize the public result so
+    // callers never observe a different provider order for the same state.
+    providers.sort_by_key(|agent| agent.to_string());
     Ok(providers)
 }
 
