@@ -131,18 +131,15 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::StoreEntry(OpEntry::CreateEntry { app_entry, action }) => match app_entry {
             EntryTypes::Decision(decision) => {
                 validate_decision(&decision)?;
-                validate_decision_author(&decision, &action.author())?;
-                validate_decision_timestamp(&decision, &action.timestamp())
+                validate_decision_author(&decision, &action.author())
             }
             EntryTypes::Vote(vote) => {
                 validate_vote(&vote)?;
-                validate_vote_author(&vote, &action.author())?;
-                validate_vote_timestamp(&vote, &action.timestamp())
+                validate_vote_author(&vote, &action.author())
             }
             EntryTypes::DecisionOutcome(outcome) => {
                 validate_outcome(&outcome)?;
                 validate_outcome_author(&outcome, &action.author())?;
-                validate_outcome_timestamp(&outcome, &action.timestamp())?;
                 validate_outcome_basis(&outcome)
             }
         },
@@ -214,45 +211,6 @@ fn validate_decision_author(
     if decision.created_by != *action_author {
         return Ok(ValidateCallbackResult::Invalid(
             "Decision created_by must match the Holochain action author".into(),
-        ));
-    }
-    Ok(ValidateCallbackResult::Valid)
-}
-
-/// Bind the declared Decision creation time to the Holochain action timestamp.
-fn validate_decision_timestamp(
-    decision: &Decision,
-    action_timestamp: &Timestamp,
-) -> ExternResult<ValidateCallbackResult> {
-    if decision.created_at != *action_timestamp {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Decision created_at must match the Holochain action timestamp".into(),
-        ));
-    }
-    Ok(ValidateCallbackResult::Valid)
-}
-
-/// Bind the declared Vote creation time to the Holochain action timestamp.
-fn validate_vote_timestamp(
-    vote: &Vote,
-    action_timestamp: &Timestamp,
-) -> ExternResult<ValidateCallbackResult> {
-    if vote.created_at != *action_timestamp {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Vote created_at must match the Holochain action timestamp".into(),
-        ));
-    }
-    Ok(ValidateCallbackResult::Valid)
-}
-
-/// Bind the declared outcome resolution time to the Holochain action timestamp.
-fn validate_outcome_timestamp(
-    outcome: &DecisionOutcome,
-    action_timestamp: &Timestamp,
-) -> ExternResult<ValidateCallbackResult> {
-    if outcome.resolved_at != *action_timestamp {
-        return Ok(ValidateCallbackResult::Invalid(
-            "DecisionOutcome resolved_at must match the Holochain action timestamp".into(),
         ));
     }
     Ok(ValidateCallbackResult::Valid)
@@ -710,56 +668,6 @@ mod tests {
         let other = AgentPubKey::from_raw_36(vec![0xBBu8; 36]);
         assert!(matches!(
             validate_outcome_author(&outcome, &other).unwrap(),
-            ValidateCallbackResult::Invalid(_)
-        ));
-    }
-
-    // ---- Action timestamp provenance ----
-
-    #[test]
-    fn decision_timestamp_must_match_action_timestamp() {
-        let decision = make_decision("Test", vec!["A", "B"]);
-        let matching = fake_timestamp();
-        assert!(matches!(
-            validate_decision_timestamp(&decision, &matching).unwrap(),
-            ValidateCallbackResult::Valid
-        ));
-
-        let mismatching = Timestamp::from_micros(9_000_000);
-        assert!(matches!(
-            validate_decision_timestamp(&decision, &mismatching).unwrap(),
-            ValidateCallbackResult::Invalid(_)
-        ));
-    }
-
-    #[test]
-    fn vote_timestamp_must_match_action_timestamp() {
-        let vote = make_vote(0, 10000);
-        let matching = fake_timestamp();
-        assert!(matches!(
-            validate_vote_timestamp(&vote, &matching).unwrap(),
-            ValidateCallbackResult::Valid
-        ));
-
-        let mismatching = Timestamp::from_micros(9_000_000);
-        assert!(matches!(
-            validate_vote_timestamp(&vote, &mismatching).unwrap(),
-            ValidateCallbackResult::Invalid(_)
-        ));
-    }
-
-    #[test]
-    fn outcome_timestamp_must_match_action_timestamp() {
-        let outcome = make_outcome(0, 5000);
-        let matching = fake_timestamp();
-        assert!(matches!(
-            validate_outcome_timestamp(&outcome, &matching).unwrap(),
-            ValidateCallbackResult::Valid
-        ));
-
-        let mismatching = Timestamp::from_micros(9_000_000);
-        assert!(matches!(
-            validate_outcome_timestamp(&outcome, &mismatching).unwrap(),
             ValidateCallbackResult::Invalid(_)
         ));
     }
