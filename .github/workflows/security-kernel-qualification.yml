@@ -96,6 +96,19 @@ jobs:
             exit 1
           fi
 
+          # Provenance identifiers must not bypass ProvenanceRef::new() during wire decoding.
+          if ! rg -nU '#\\[derive\\([^]]*Serialize[^]]*\\)\\][[:space:]]*#\\[serde\\(try_from[[:space:]]*=[[:space:]]*"ProvenanceRefWire"\\)\\][[:space:]]*pub struct ProvenanceRef' crates/mycelix-bridge-common/src/security_events.rs; then
+            echo "security-event regression: ProvenanceRef lost its constructor-gated deserialization" >&2
+            exit 1
+          fi
+          if ! rg -nU '#\\[derive\\([^]]*Deserialize[^]]*\\)\\][[:space:]]*#\\[serde\\(deny_unknown_fields\\)\\][[:space:]]*struct ProvenanceRefWire' crates/mycelix-bridge-common/src/security_events.rs; then
+            echo "security-event regression: ProvenanceRef wire schema lost deny_unknown_fields" >&2
+            exit 1
+          fi
+          if ! rg -nU '#\\[derive\\([^]]*Deserialize[^]]*\\)\\][[:space:]]*#\\[serde\\(deny_unknown_fields\\)\\][[:space:]]*struct SecurityEventWire' crates/mycelix-bridge-common/src/security_events.rs; then
+            echo "security-event regression: SecurityEvent wire schema lost deny_unknown_fields" >&2
+            exit 1
+          fi
           for pattern in \
             '#\[derive\([^]]*(Serialize|Deserialize)[^]]*\)\][[:space:]]*(pub[[:space:]]+)?struct (VerificationEvidence|AuthorizationPermit|EnforcementRequest)' \
             'impl[[:space:]]+(Serialize|Deserialize)[[:space:]]+for[[:space:]]+(VerificationEvidence|AuthorizationPermit|EnforcementRequest)' \
