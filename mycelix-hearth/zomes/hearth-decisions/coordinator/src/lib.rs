@@ -625,65 +625,10 @@ pub fn close_decision(input: CloseDecisionInput) -> ExternResult<Record> {
     decision.status = DecisionStatus::Closed;
     update_entry(input.decision_hash.clone(), &decision)?;
 
-    // 4. Snapshot current tally as audit trail (if any votes were cast)
-    let vote_links = get_links(
-        LinkQuery::try_new(input.decision_hash.clone(), LinkTypes::DecisionToVotes)?,
-        GetStrategy::default(),
-    )?;
-
-    if !vote_links.is_empty() {
-        let now = sys_time()?;
-        let tallies = tally_votes(input.decision_hash.clone())?;
-
-        // A closed decision may preserve a snapshot outcome only when there
-        // was a substantive positive-weight choice.
-        if !has_positive_weight(&tallies) {
-            emit_signal(&HearthSignal::DecisionClosed {
-                decision_hash: input.decision_hash.clone(),
-                closed_by: agent.clone(),
-            })?;
-
-            let record = get(input.decision_hash, GetOptions::default())?.ok_or(wasm_error!(
-                WasmErrorInner::Guest("Could not find the updated Decision".into())
-            ))?;
-
-            return Ok(record);
-        }
-
-        let chosen_option = winning_option(&tallies);
-
-        let voter_count = vote_links.len() as u32;
-        let active_members: u32 = decode_zome_response(
-            call(
-                CallTargetCell::Local,
-                ZomeName::new("hearth_kinship"),
-                FunctionName::new("get_active_member_count"),
-                None,
-                decision.hearth_hash,
-            )?,
-            "get_active_member_count",
-        )?;
-
-        let participation = participation_rate_bp(voter_count, active_members);
-
-        let outcome = DecisionOutcome {
-            decision_hash: input.decision_hash.clone(),
-            resolved_by: agent.clone(),
-            chosen_option,
-            participation_rate_bp: participation,
-            resolved_at: now,
-            quorum_bp: decision.quorum_bp,
-        };
-
-        let outcome_hash = create_entry(&EntryTypes::DecisionOutcome(outcome))?;
-        create_link(
-            input.decision_hash.clone(),
-            outcome_hash,
-            LinkTypes::DecisionToOutcome,
-            (),
-        )?;
-    }
-
+    // Closure terminates the decision process without creating a substantive outcome.
+    // DecisionOutcome is reserved for finalize_decision, which enforces deadline,
+    // authorization, quorum, and positive-weight choice semantics.
+    
     emit_signal(&HearthSignal::DecisionClosed {
         decision_hash: input.decision_hash.clone(),
         closed_by: agent,
