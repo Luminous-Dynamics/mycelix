@@ -32,7 +32,7 @@
         "profile_id": "closure",
         "profile_version": "1",
         "excluded_boundary_policy": "Only rule-matched semantic edges expand closure.",
-        "claim_ceiling": "ReferenceModelOnly",
+        "claim_ceiling": "ReferenceModelOnly; canonical derivation integrity semantics only; no truth, causality, authority, or actuation claim.",
         "root_node_ids": [
           "root"
         ],
@@ -68,7 +68,7 @@
         "profile_id": "closure",
         "profile_version": "1",
         "excluded_boundary_policy": "Only rule-matched semantic edges expand closure.",
-        "claim_ceiling": "ReferenceModelOnly",
+        "claim_ceiling": "ReferenceModelOnly; canonical derivation integrity semantics only; no truth, causality, authority, or actuation claim.",
         "root_node_ids": [
           "root"
         ],
@@ -109,7 +109,7 @@
         "profile_id": "closure",
         "profile_version": "1",
         "excluded_boundary_policy": "Only rule-matched semantic edges expand closure.",
-        "claim_ceiling": "ReferenceModelOnly",
+        "claim_ceiling": "ReferenceModelOnly; canonical derivation integrity semantics only; no truth, causality, authority, or actuation claim.",
         "root_node_ids": [
           "root"
         ],
@@ -151,7 +151,7 @@
         "profile_id": "closure",
         "profile_version": "1",
         "excluded_boundary_policy": "Only rule-matched semantic edges expand closure.",
-        "claim_ceiling": "ReferenceModelOnly",
+        "claim_ceiling": "ReferenceModelOnly; canonical derivation integrity semantics only; no truth, causality, authority, or actuation claim.",
         "root_node_ids": [
           "root"
         ],
@@ -199,7 +199,7 @@
         "profile_id": "closure",
         "profile_version": "1",
         "excluded_boundary_policy": "Only rule-matched semantic edges expand closure.",
-        "claim_ceiling": "ReferenceModelOnly",
+        "claim_ceiling": "ReferenceModelOnly; canonical derivation integrity semantics only; no truth, causality, authority, or actuation claim.",
         "root_node_ids": [
           "root"
         ],
@@ -246,7 +246,7 @@
         "profile_id": "closure",
         "profile_version": "1",
         "excluded_boundary_policy": "Only rule-matched semantic edges expand closure.",
-        "claim_ceiling": "ReferenceModelOnly",
+        "claim_ceiling": "ReferenceModelOnly; canonical derivation integrity semantics only; no truth, causality, authority, or actuation claim.",
         "root_node_ids": [
           "root"
         ],
@@ -293,7 +293,7 @@
         "profile_id": "closure",
         "profile_version": "1",
         "excluded_boundary_policy": "Only rule-matched semantic edges expand closure.",
-        "claim_ceiling": "ReferenceModelOnly",
+        "claim_ceiling": "ReferenceModelOnly; canonical derivation integrity semantics only; no truth, causality, authority, or actuation claim.",
         "root_node_ids": [
           "root"
         ],
@@ -337,7 +337,7 @@
         "profile_id": "closure",
         "profile_version": "1",
         "excluded_boundary_policy": "Only rule-matched semantic edges expand closure.",
-        "claim_ceiling": "ReferenceModelOnly",
+        "claim_ceiling": "ReferenceModelOnly; canonical derivation integrity semantics only; no truth, causality, authority, or actuation claim.",
         "root_node_ids": [
           "root"
         ],
@@ -376,7 +376,7 @@
         "profile_id": "closure",
         "profile_version": "1",
         "excluded_boundary_policy": "Only rule-matched semantic edges expand closure.",
-        "claim_ceiling": "ReferenceModelOnly",
+        "claim_ceiling": "ReferenceModelOnly; canonical derivation integrity semantics only; no truth, causality, authority, or actuation claim.",
         "root_node_ids": [
           "root"
         ],
