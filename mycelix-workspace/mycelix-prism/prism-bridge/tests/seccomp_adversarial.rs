@@ -836,6 +836,15 @@ fn thread_sync_divergent_filter_child() -> ! {
         unsafe { libc::_exit(189) };
     }
 
+    // Linux guarantees that a failed TSYNC synchronization does not attach the
+    // new filter. Probe the calling thread with getppid(), which is absent from
+    // the proposed allowlist: success proves no partial filter was installed.
+    let caller_probe = unsafe { libc::syscall(libc::SYS_getppid) };
+    let caller_probe_errno = unsafe { *libc::__errno_location() };
+    if caller_probe <= 0 || caller_probe_errno == libc::EPERM {
+        unsafe { libc::_exit(191) };
+    }
+
     let release_byte = [1u8];
     if !unsafe { write_exact(release[1], &release_byte) } {
         unsafe { libc::_exit(190) };
