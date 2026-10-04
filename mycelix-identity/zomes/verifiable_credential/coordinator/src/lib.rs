@@ -945,9 +945,9 @@ pub fn verify_presentation(
                     errors.push(
                         "W3C presentation proof configuration is invalid".to_string(),
                     );
-                } else if !is_date_time_stamp(&vp.proof.created) {
+                } else if vp.proof.created.parse::<Timestamp>().is_err() {
                     errors.push(
-                        "W3C presentation proof created value is not a valid dateTimeStamp"
+                        "W3C presentation proof created value is not a valid RFC3339 timestamp"
                             .to_string(),
                     );
                 } else {
