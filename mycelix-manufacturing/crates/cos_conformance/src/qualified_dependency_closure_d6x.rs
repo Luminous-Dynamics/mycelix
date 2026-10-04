@@ -1566,7 +1566,7 @@ mod tests {
         fields: Option<BTreeMap<String, serde_json::Value>>,
     }
 
-    #[derive(Debug, Deserialize)]
+    #[derive(Debug, Clone, Deserialize)]
     #[serde(deny_unknown_fields)]
     struct GoldenExpectedV1 {
         status: DependencyClosureStatusV1,
