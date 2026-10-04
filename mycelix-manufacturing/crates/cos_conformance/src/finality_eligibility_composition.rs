@@ -211,7 +211,7 @@ impl FinalityEligibilityCompositionV1 {
         }
 
         let mut observation_ids = BTreeSet::new();
-        let mut derived_eligible_count = 0u32;
+        let mut eligible_observer_ids = BTreeSet::new();
         let mut derived_contradictory_count = 0u32;
 
         for witness in &self.witnesses {
@@ -256,7 +256,7 @@ impl FinalityEligibilityCompositionV1 {
             }
 
             if witness.counts_as_current_independent_witness() {
-                derived_eligible_count += 1;
+                eligible_observer_ids.insert(witness.observer_id.clone());
             }
 
             if matches!(
@@ -268,7 +268,7 @@ impl FinalityEligibilityCompositionV1 {
             }
         }
 
-        if self.eligible_independent_count != derived_eligible_count
+        if self.eligible_independent_count != eligible_observer_ids.len() as u32
             || self.preserved_contradictory_count != derived_contradictory_count
         {
             return false;
@@ -1048,7 +1048,7 @@ pub fn compose_finality_eligibility(
     }
 
     let mut witnesses = Vec::with_capacity(assessment.assessments.len());
-    let mut eligible_count = 0u32;
+    let mut eligible_observer_ids = BTreeSet::new();
     let mut preserved_contradictory_count = 0u32;
     let mut blocking_dispositions = Vec::new();
 
@@ -1099,7 +1099,7 @@ pub fn compose_finality_eligibility(
                 ) {
                     blocking_dispositions.push(failure);
                 } else {
-                    eligible_count += 1;
+                    eligible_observer_ids.insert(item.observer_id.clone());
                 }
             }
         }
@@ -1139,7 +1139,7 @@ pub fn compose_finality_eligibility(
         d6n_assessment_commitment: assessment.assessment_commitment.clone(),
         lifecycle_profile_id: lifecycle_profile_id.to_owned(),
         current_frontier_root: current_frontier_root.to_owned(),
-        eligible_independent_count: eligible_count,
+        eligible_independent_count: eligible_observer_ids.len() as u32,
         required_independent_observations,
         preserved_contradictory_count,
         witnesses,
@@ -3787,6 +3787,40 @@ mod tests {
         };
         witness.witness_commitment = witness.recomputed_commitment();
         assert!(!witness.counts_as_current_independent_witness());
+    }
+
+    #[test]
+    fn same_observer_cannot_inflate_independent_witness_threshold() {
+        let generation = generation("observer-A");
+        let e1 = observation("obs-1", &generation, ExternalObservedStateV1::Applied);
+        let e2 = observation("obs-2", &generation, ExternalObservedStateV1::Applied);
+        let s = set(&["obs-1", "obs-2"]);
+        let a = d6n_assessment(
+            &s,
+            &[
+                ("obs-1".into(), "observer-A".into(), ObservationClassificationV1::CorroboratingIndependent),
+                ("obs-2".into(), "observer-A".into(), ObservationClassificationV1::CorroboratingIndependent),
+            ],
+        );
+        let (_, r1) = ledger_and_receipt(&generation, &e1);
+        let (_, r2) = ledger_and_receipt(&generation, &e2);
+
+        let composition = compose_finality_eligibility(
+            &s,
+            &a,
+            &[e1, e2],
+            &[r1, r2],
+            "life-profile-1",
+            "frontier-1",
+            2,
+        );
+
+        assert_eq!(composition.eligible_independent_count, 1);
+        assert_eq!(
+            composition.disposition,
+            FinalityEligibilityDispositionV1::InsufficientEligibleWitnesses
+        );
+        assert!(composition.semantically_valid());
     }
 
     #[test]
