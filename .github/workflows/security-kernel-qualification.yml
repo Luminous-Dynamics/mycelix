@@ -184,6 +184,19 @@ jobs:
             exit 1
           fi
 
+          if ! rg -n 'fn security_event_programmatic_provenance_is_bounded' crates/mycelix-bridge-common/src/security_events.rs; then
+            echo "security-event regression: programmatic provenance bound coverage disappeared" >&2
+            exit 1
+          fi
+          if ! rg -nU 'pub[[:space:]]+fn[[:space:]]+with_provenance[[:space:]]*\(' crates/mycelix-bridge-common/src/security_events.rs; then
+            echo "security-event regression: provenance enrichment API disappeared unexpectedly" >&2
+            exit 1
+          fi
+          if ! rg -nU 'if[[:space:]]+provenance\.len\(\)[[:space:]]*>[[:space:]]*MAX_SECURITY_EVENT_PROVENANCE_REFS' crates/mycelix-bridge-common/src/security_events.rs; then
+            echo "security-event regression: programmatic provenance retention is no longer bounded" >&2
+            exit 1
+          fi
+
           # ProvenanceRef is constructor-gated in both directions: external callers must
           # use ProvenanceRef::new(), and wire decoding must pass through that constructor.
           for pattern in \
