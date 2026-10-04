@@ -1291,6 +1291,7 @@ pub fn create_derived_credential(input: CreateDerivedInput) -> ExternResult<Reco
     };
 
     let derived = DerivedCredential {
+        original_credential_action: original_record.action_address().clone(),
         original_credential_id: input.credential_id.clone(),
         original_issuer: original_vc.issuer.did().to_string(),
         holder: holder_did,
@@ -1371,11 +1372,12 @@ pub fn verify_derived_credential(
         }
     }
 
-    // Fetch original credential
-    let original_record = match get_credential(derived.original_credential_id.clone())? {
+    // Resolve the exact source ActionHash pinned into the derived credential.
+    // This avoids trusting a mutable/non-unique human-readable ID for lineage.
+    let original_record = match get(derived.original_credential_action.clone(), GetOptions::default())? {
         Some(rec) => rec,
         None => {
-            errors.push("Original credential not found".to_string());
+            errors.push("Pinned original credential action could not be resolved".to_string());
             return Ok(DerivedVerificationResult {
                 valid: false,
                 errors,
