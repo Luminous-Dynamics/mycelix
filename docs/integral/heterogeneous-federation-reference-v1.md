@@ -1,4 +1,57 @@
-# Deterministic heterogeneous federation reference model v1\n\nStatus: **ReferenceModelOnly**\n\nThis tranche extends the Integral/Mycelix semantic seam from a single node to a small heterogeneous federation oracle. It is deliberately independent of transport, Holochain, storage, network timing, and UI implementation.\n\n## Semantic boundary\n\nThe model treats these as distinct facts:\n\n- local authority;\n- foreign evidence;\n- explicit recognition of foreign evidence;\n- explicitly delegated foreign authority;\n- logical delivery identity;\n- transport attempt identity;\n- claimed origin identity;\n- model-known origin identity;\n- schema generation;\n- authorization generation;\n- authorization expiry;\n- source observation;\n- privacy-minimized projection.\n\nA foreign artifact never becomes local authority merely because a local node receives, recognizes, summarizes, or displays it. Authority crosses the node boundary only through an explicit `RecognitionEdge` whose mode is `DelegatedAuthority`.\n\nThe pure model assumes its caller has already bound the envelope's claimed origin to an authenticated sender identity, the target to the actual receiving node, and the authorization fact to the applicable authorization generation. The envelope fields alone are not authentication evidence. Recognition edges are trusted model inputs, not proof of production governance or authorization. `FederationState::try_new` rejects empty or duplicate node IDs rather than silently selecting one profile, while `new` retains the fixture-convenience API and fails loudly on that malformed input. Recognition edges have an explicit fallible insertion path that rejects empty or unknown identities; exact duplicate edges normalize away.\n\n## Delivery rules\n\nThe oracle enforces:\n\n1. transport unavailability produces `PartitionUnknown`, never success;\n2. a stale schema or authorization generation fails closed;\n3. a duplicate logical delivery is idempotent only when its complete immutable contract matches; transport attempt identity is excluded from that contract;\n4. the immutable contract binds logical delivery ID, origin, target, semantic subject, payload commitment, schema generation, authorization generation, predecessor, and expiry;\n5. reusing a logical delivery identity with a changed payload or origin is a conflict;\n6. reusing a logical delivery identity with any other changed contract field (including target) is a contract conflict and returns no authority; identity conflict classification takes precedence over unknown current target/origin lookup for an already-admitted logical delivery;\n7. delayed/reordered causal children remain pending until their predecessor is admitted;\n8. exact duplicate recognition edges are canonicalized away, while distinct recognition modes remain a conflict rather than being silently collapsed;\n9. reconnect is ordinary replay of the exact logical delivery, not a new authority grant;\n10. replay remains subject to the current node activity, schema/authorization generation, and expiry gates, so reconnect cannot revive a deactivated, stale, or expired delivery;\n11. an `expires_at` instant is exclusive: delivery is valid strictly before that instant;\n12. expired authorization remains expired across reconnect;\n13. recognition changes after admission do not retroactively rewrite the authority bound to an existing logical delivery;\n14. foreign receipt does not by itself populate `recognized_by`; that field is populated only when a matching recognition edge exists;\n15. foreign observations retain their origin node;\n16. observation IDs are insert-only: an exact record replay is Duplicate, while reuse with changed fields is Conflict and never overwrites; distinct IDs remain separate observations; a changed logical delivery ID cannot reuse the same observation identity to mint another delivery;\n17. the generic observation-write API cannot self-assert `source_observation`; source-observation provenance is minted only by the delivery admission transition;\n18. generic observation writes also reject empty identity-bearing fields, preventing empty observation keys from aliasing the ledger;\n19. generic observation writes cannot self-assert recognition provenance; recognition provenance is produced only by the federation admission transition;\n20. privacy projections are explicitly non-authoritative and cannot become source observations; they preserve whether the displayed origin is only a claim or a model-known node identity. Empty envelope identity fields fail closed before admission and cannot alias the delivery or observation ledgers;\n21. federation outcomes, privacy projections, and cockpit projections are reporting outputs only: they serialize for external use but are not deserializable back into the reference model; `FederationOutcome` is additionally opaque outside its accessor API.\n22. `ObservationRecord` distinguishes a claimed origin from a model-known origin, and generic observation writes cannot self-assert the known-origin flag.
+# Deterministic heterogeneous federation reference model v1
+
+Status: **ReferenceModelOnly**
+
+This tranche extends the Integral/Mycelix semantic seam from a single node to a small heterogeneous federation oracle. It is deliberately independent of transport, Holochain, storage, network timing, and UI implementation.
+
+## Semantic boundary
+
+The model treats these as distinct facts:
+
+- local authority;
+- foreign evidence;
+- explicit recognition of foreign evidence;
+- explicitly delegated foreign authority;
+- logical delivery identity;
+- transport attempt identity;
+- claimed origin identity;
+- model-known origin identity;
+- schema generation;
+- authorization generation;
+- authorization expiry;
+- source observation;
+- privacy-minimized projection.
+
+A foreign artifact never becomes local authority merely because a local node receives, recognizes, summarizes, or displays it. Authority crosses the node boundary only through an explicit `RecognitionEdge` whose mode is `DelegatedAuthority`.
+
+The pure model assumes its caller has already bound the envelope's claimed origin to an authenticated sender identity, the target to the actual receiving node, and the authorization fact to the applicable authorization generation. The envelope fields alone are not authentication evidence. Recognition edges are trusted model inputs, not proof of production governance or authorization. `FederationState::try_new` rejects empty or duplicate node IDs rather than silently selecting one profile, while `new` retains the fixture-convenience API and fails loudly on that malformed input. Recognition edges have an explicit fallible insertion path that rejects empty or unknown identities; exact duplicate edges normalize away.
+
+## Delivery rules
+
+The oracle enforces:
+
+1. transport unavailability produces `PartitionUnknown`, never success;
+2. a stale schema or authorization generation fails closed;
+3. a duplicate logical delivery is idempotent only when its complete immutable contract matches; transport attempt identity is excluded from that contract;
+4. the immutable contract binds logical delivery ID, origin, target, semantic subject, payload commitment, schema generation, authorization generation, predecessor, and expiry;
+5. reusing a logical delivery identity with a changed payload or origin is a conflict;
+6. reusing a logical delivery identity with any other changed contract field (including target) is a contract conflict and returns no authority; identity conflict classification takes precedence over unknown current target/origin lookup for an already-admitted logical delivery;
+7. delayed/reordered causal children remain pending until their predecessor is admitted;
+8. exact duplicate recognition edges are canonicalized away, while distinct recognition modes remain a conflict rather than being silently collapsed;
+9. reconnect is ordinary replay of the exact logical delivery, not a new authority grant;
+10. replay remains subject to the current node activity, schema/authorization generation, and expiry gates, so reconnect cannot revive a deactivated, stale, or expired delivery;
+11. an `expires_at` instant is exclusive: delivery is valid strictly before that instant;
+12. expired authorization remains expired across reconnect;
+13. recognition changes after admission do not retroactively rewrite the authority bound to an existing logical delivery;
+14. foreign receipt does not by itself populate `recognized_by`; that field is populated only when a matching recognition edge exists;
+15. foreign observations retain their origin node;
+16. observation IDs are insert-only: an exact record replay is Duplicate, while reuse with changed fields is Conflict and never overwrites; distinct IDs remain separate observations; a changed logical delivery ID cannot reuse the same observation identity to mint another delivery;
+17. the generic observation-write API cannot self-assert `source_observation`; source-observation provenance is minted only by the delivery admission transition;
+18. generic observation writes also reject empty identity-bearing fields, preventing empty observation keys from aliasing the ledger;
+19. generic observation writes cannot self-assert recognition provenance; recognition provenance is produced only by the federation admission transition;
+20. privacy projections are explicitly non-authoritative and cannot become source observations; they preserve whether the displayed origin is only a claim or a model-known node identity. Empty envelope identity fields fail closed before admission and cannot alias the delivery or observation ledgers;
+21. federation outcomes, privacy projections, and cockpit projections are reporting outputs only: they serialize for external use but are not deserializable back into the reference model; `FederationOutcome` is additionally opaque outside its accessor API.
+22. `ObservationRecord` distinguishes a claimed origin from a model-known origin, and generic observation writes cannot self-assert the known-origin flag.
 23. rejected identity and immutable-contract mutations are side-effect-free: they do not append delivery attempts, replace admitted delivery identity/authority, or overwrite the observation ledger;
 24. `FederationOutcome.origin_node_known` reflects actual model knowledge, not merely the decision enum: malformed input and an unknown origin remain unproven, while an unknown target does not erase knowledge of an otherwise known origin.
 25. a delivery cannot name its own logical delivery identity as a predecessor; self-referential causal edges are rejected before ledger mutation rather than remaining permanently pending.
@@ -51,7 +104,22 @@ The executable invariant layer is exposed as a typed, observational qualificatio
 
 The executable invariant layer is exposed as a typed, observational qualification boundary. `validate_state` rejects the first detected invariant violation without mutating state, allowing callers to distinguish a valid admitted state from specific classes of cross-ledger corruption. `validate_state_all` provides the corresponding compact audit form: it still evaluates every predicate and returns every violated invariant in deterministic registry order. `audit_state` additionally returns a fixed-length status vector covering every registered invariant, including explicit `Passed` entries, making complete qualification evidence stable even when the corruption surface changes. Dependency metadata documents and regression-tests semantic ordering without suppressing derived diagnostics; this preserves the useful distinction between independent corruption and corruption that cascades into a derived check. `canonical_state_fingerprint` provides a deterministic comparison representation over the authoritative node, recognition, delivery, observation, and admission-order witness state; it intentionally does not claim cryptographic properties.
 
-## Cockpit seam\n\n`CockpitProjection` is intentionally a projection DTO rather than a source of truth. It exposes enough information for a Leptos cockpit to distinguish:\n\n- local authority;\n- foreign evidence;\n- explicitly delegated foreign authority;\n- origin;\n- logical delivery identity;\n- transport attempt identity;\n- semantic decision;\n- the reason for the decision.\n\nA future UI adapter must render these distinctions without collapsing them into a single status, trust score, or authority indicator.\n\n## Transition preservation evidence
+## Cockpit seam
+
+`CockpitProjection` is intentionally a projection DTO rather than a source of truth. It exposes enough information for a Leptos cockpit to distinguish:
+
+- local authority;
+- foreign evidence;
+- explicitly delegated foreign authority;
+- origin;
+- logical delivery identity;
+- transport attempt identity;
+- semantic decision;
+- the reason for the decision.
+
+A future UI adapter must render these distinctions without collapsing them into a single status, trust score, or authority indicator.
+
+## Transition preservation evidence
 
 The executable transition corpus validates the authoritative state immediately after each exercised public state transition. It covers successful recognition insertion, exact duplicate recognition, rejected unknown-node recognition, ordinary observation insertion/duplication/conflict, local admission, a duplicate replay with a new transport attempt, attempt/envelope rebinding rejection, partition uncertainty, stale generation, expiry, revoked and absent authorization, and a forged source-observation claim. Each transition is followed by the full invariant gate; rejected paths additionally require the canonical authoritative-state fingerprint to remain unchanged. This establishes transition-level preservation for the encoded corpus rather than relying only on post-hoc corruption detection.
 
@@ -103,12 +171,29 @@ The evidence harness now has a separate checkpoint-publication seam for that cas
 
 This distinction mirrors the stronger append-only property sought by transparency logs: Certificate Transparency uses consistency proofs between tree heads so a later tree can be checked against an earlier advertised tree, rather than trusting a newly recomputed digest in isolation. The current Mycelix receipt is intentionally simpler and explicit about that boundary. A later transparency service can publish these receipts or replace/augment them with a Merkle structure without changing the core trace evidence contract. W3C PROV's treatment of provenance records as things that can themselves have provenance is a useful conceptual parallel for this separation of evidence from its independent provenance.
 
-## Qualification boundary\n\nThe tests prove only the deterministic behavior of this reference model for the encoded fixtures. They do not prove:\n\n- transport reliability;\n- Holochain correctness;\n- production federation safety;\n- privacy compliance;\n- real-world authority;\n- economic, ecological, safety, or human outcomes;\n- Integral governance validity.\n\nThe model is an executable semantic oracle that runtime adapters can be tested against. It is not a ratification mechanism.\n
+## Qualification boundary
+
+The tests prove only the deterministic behavior of this reference model for the encoded fixtures. They do not prove:
+
+- transport reliability;
+- Holochain correctness;
+- production federation safety;
+- privacy compliance;
+- real-world authority;
+- economic, ecological, safety, or human outcomes;
+- Integral governance validity.
+
+The model is an executable semantic oracle that runtime adapters can be tested against. It is not a ratification mechanism.
+
 
 ## Delivery record observability
 
 `DeliveryRecord` keeps its authority and provenance bindings private while exposing read-only accessors for the source-observation identifier, admission-time recognition provenance, and attempt-to-envelope mapping. This lets runtime adapters inspect the admitted history without gaining a mutation or construction path.
 
-## Output boundary\n\n`FederationOutcome`, `PrivacyProjection`, and `CockpitProjection` are one-way reporting types. They can be serialized for transport or display, but the Rust API also omits `Deserialize` for these report types, so the one-way boundary is enforced at compile time rather than relying only on caller convention. `FederationOutcome` also keeps its authority-bearing fields private and exposes read-only accessors, so an external caller cannot mint or rewrite an authority-bearing result by constructing the struct directly. Authority must therefore continue to originate in the transition function and admitted state rather than in a rehydrated or fabricated report.\n\n## Deterministic scenario oracle
+## Output boundary
+
+`FederationOutcome`, `PrivacyProjection`, and `CockpitProjection` are one-way reporting types. They can be serialized for transport or display, but the Rust API also omits `Deserialize` for these report types, so the one-way boundary is enforced at compile time rather than relying only on caller convention. `FederationOutcome` also keeps its authority-bearing fields private and exposes read-only accessors, so an external caller cannot mint or rewrite an authority-bearing result by constructing the struct directly. Authority must therefore continue to originate in the transition function and admitted state rather than in a rehydrated or fabricated report.
+
+## Deterministic scenario oracle
 
 The executable authorization corpus also covers each explicit non-active authorization state on both fresh admission and replay, proving that generation equality cannot upgrade an `Expired`, `Revoked`, or `Absent` claim. The executable causal model also checks a multi-generation delivery chain and verifies that an attempted back-edge cannot rewrite an admitted predecessor contract. The executable scenario model contains all 22 declared federation mutation variants. Existing logical delivery identities are checked for immutable-contract conflicts before dependency admission, while delayed/reordered cases use distinct child identities; this keeps replay identity classification stable under missing dependencies. The mutation declaration and scenario corpus are generated from one canonical list, while the expected-decision function is exhaustive, so adding a new variant cannot silently bypass scenario classification; the attempt-identity mutation explicitly exercises the `AttemptConflict` decision path. Repeated execution of the same initial state, envelope, and ordered corpus must produce identical scenario results. Rejected identity and contract mutations are also checked against delivery-identity, delivery-attempt, and observation-ledger snapshots, making the no-side-effect boundary executable rather than merely descriptive. Exact attempt replay receives the same three-ledger snapshot treatment, making the distinction between semantic idempotency and new transport attempts explicit. Each attempt is also bound to the envelope identity that carried it; changing only `envelope_id` while reusing an existing `attempt_id` therefore cannot silently create a new transport identity. The executable invariant additionally checks that recorded attempt IDs and their envelope bindings cannot drift out of one-to-one alignment. Recognition-edge insertion order is also non-semantic because the state canonicalizes recognition edges before evaluation; the oracle tests this with an actual foreign-recognition admission path. Rejected mutations must preserve the delivery-identity ledger, delivery-attempt ledger, and observation ledger, while exact retries may change only attempt history and genuinely new logical deliveries create distinct records. Each admitted delivery also carries the exact source-observation identifier and admission-time recognition provenance minted by that admission, and the executable invariant checks that the linked observation matches the delivery's immutable semantic fields and that captured provenance. The source-observation identity is insert-only, so the same `envelope_id` cannot be reused to alias a different logical delivery. The executable bijection check also rejects orphaned source observations that have no admitted delivery link. Later recognition changes do not invalidate or rewrite this historical admission fact. This keeps transport retry state observable without treating it as part of immutable logical identity.
