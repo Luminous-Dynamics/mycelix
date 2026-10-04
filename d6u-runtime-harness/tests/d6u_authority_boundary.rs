@@ -67,8 +67,7 @@ fn canon1_corpus_path() -> PathBuf {
 }
 
 fn load_probe_vector() -> (Vec<u8>, String, Vec<u8>) {
-    let corpus_bytes =
-        std::fs::read(canon1_corpus_path()).expect("D6S-CANON-1 corpus must exist");
+    let corpus_bytes = std::fs::read(canon1_corpus_path()).expect("D6S-CANON-1 corpus must exist");
     let corpus: Canon1Corpus =
         serde_json::from_slice(&corpus_bytes).expect("D6S-CANON-1 corpus must parse");
     let vector = corpus
@@ -111,10 +110,7 @@ fn assert_frozen_d6s_identity() {
     assert_eq!(commitment(&domain, &canonical), expected_commitment);
 }
 
-fn authority_probe_zome(
-    reached: Arc<AtomicUsize>,
-    d6s_domain: Vec<u8>,
-) -> SweetInlineZomes {
+fn authority_probe_zome(reached: Arc<AtomicUsize>, d6s_domain: Vec<u8>) -> SweetInlineZomes {
     SweetInlineZomes::new(Vec::new(), 0)
         .function("probe", move |_api, input: ProbeInput| {
             reached.fetch_add(1, Ordering::SeqCst);
