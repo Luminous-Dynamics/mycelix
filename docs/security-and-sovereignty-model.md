@@ -141,7 +141,9 @@ The intended layering is:
 7. Human or constitutionally authorized policy decision
 
 Symthaea may identify anomalies, contradictions, missing evidence, or suspicious patterns. It must not manufacture authorization, signatures, provenance, or policy exceptions.
-The bridge's public API preserves this ordering: verification yields a `VerifiedCapability`, `authorize_permit()` is the public authorization entry point and yields the bounded `AuthorizationPermit`, and `EnforcementRequest::from_permit()` is the only public path into enforcement. A free-standing public `Allow` helper is intentionally not exposed.
+The bridge's public API preserves this ordering: verification yields a `VerifiedCapability`, `authorize_permit()` is the public authorization entry point and yields the bounded `AuthorizationPermit`, and `EnforcementRequest::from_permit()` is the only public path into enforcement.
+
+`AuthorizationDecision` is failure-only; there is no public `AuthorizationDecision::Allow` value. Successful authorization is represented by the opaque permit. `SecurityEventDecision::Allow` exists only in the audit-record vocabulary and is admitted into a `SecurityEvent` through a live `EnforcementRequest`. A free-standing public `Allow` helper is intentionally not exposed.
 
 ## Cross-property invariants
 
