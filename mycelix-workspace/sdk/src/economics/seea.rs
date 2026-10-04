@@ -173,6 +173,157 @@ pub struct SeeaObservation {
     pub provenance: SeeaProvenance,
 }
 
+/// Semantic identity for one SEEA observation slot.
+///
+/// Two observations with the same key describe the same accounting fact:
+/// same account family, accounting area, ecosystem type, unit, and period.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct SeeaObservationKey {
+    /// Account family.
+    pub account_type: SeeaAccountType,
+    /// Ecosystem accounting area.
+    pub accounting_area_ref: String,
+    /// Ecosystem type.
+    pub ecosystem_type_ref: String,
+    /// Native unit.
+    pub unit: String,
+    /// Accounting period start.
+    pub period_start: u64,
+    /// Accounting period end.
+    pub period_end: u64,
+}
+
+impl SeeaObservation {
+    /// Return the semantic key for conflict detection.
+    pub fn semantic_key(&self) -> SeeaObservationKey {
+        SeeaObservationKey {
+            account_type: self.account_type,
+            accounting_area_ref: self.accounting_area_ref.clone(),
+            ecosystem_type_ref: self.ecosystem_type_ref.clone(),
+            unit: self.unit.clone(),
+            period_start: self.period_start,
+            period_end: self.period_end,
+        }
+    }
+}
+
+/// Result of inserting an observation into a conflict-detecting evidence set.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SeeaEvidenceInsertError {
+    /// Observation ID already exists in the set.
+    DuplicateObservationId,
+    /// Another observation for the same semantic slot reports a different value.
+    ConflictingObservation {
+        /// Existing observation ID.
+        existing_id: String,
+        /// Newly submitted observation ID.
+        new_id: String,
+    },
+    /// Same semantic observation and source content were submitted twice.
+    RedundantObservation {
+        /// Existing observation ID.
+        existing_id: String,
+        /// Newly submitted observation ID.
+        new_id: String,
+    },
+    /// Structural validation failed.
+    InvalidObservation(String),
+}
+
+/// Deterministic SEEA evidence collection with explicit conflict history.
+///
+/// This type does not select winners. Conflicts are retained as evidence and
+/// returned as errors until an explicit reconciliation process records how
+/// they were resolved.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SeeaConflictRecord {
+    /// Previously retained observation.
+    pub existing: SeeaObservation,
+    /// Newly submitted conflicting observation.
+    pub incoming: SeeaObservation,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct SeeaEvidenceSet {
+    observations: Vec<SeeaObservation>,
+    conflicts: Vec<SeeaConflictRecord>,
+}
+
+impl SeeaEvidenceSet {
+    /// Create an empty evidence set.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Insert a validated observation.
+    pub fn insert(&mut self, observation: SeeaObservation) -> Result<(), SeeaEvidenceInsertError> {
+        observation
+            .validate()
+            .map_err(SeeaEvidenceInsertError::InvalidObservation)?;
+
+        if self
+            .observations
+            .iter()
+            .any(|existing| existing.id == observation.id)
+        {
+            return Err(SeeaEvidenceInsertError::DuplicateObservationId);
+        }
+
+        let key = observation.semantic_key();
+        if let Some(existing) = self
+            .observations
+            .iter()
+            .find(|existing| existing.semantic_key() == key)
+        {
+            if existing.value != observation.value {
+                let error = SeeaEvidenceInsertError::ConflictingObservation {
+                    existing_id: existing.id.clone(),
+                    new_id: observation.id.clone(),
+                };
+                self.observations.push(observation.clone());
+                self.conflicts.push(SeeaConflictRecord {
+                    existing: existing.clone(),
+                    incoming: observation,
+                });
+                return Err(error);
+            }
+
+            if existing.provenance.source_ref == observation.provenance.source_ref
+                && existing.provenance.content_hash == observation.provenance.content_hash
+            {
+                return Err(SeeaEvidenceInsertError::RedundantObservation {
+                    existing_id: existing.id.clone(),
+                    new_id: observation.id.clone(),
+                });
+            }
+        }
+
+        self.observations.push(observation);
+        Ok(())
+    }
+
+    /// Return observations in canonical semantic order.
+    pub fn canonical_observations(&self) -> Vec<SeeaObservation> {
+        let mut observations = self.observations.clone();
+        observations.sort_by(|left, right| {
+            left.semantic_key()
+                .cmp(&right.semantic_key())
+                .then_with(|| left.id.cmp(&right.id))
+        });
+        observations
+    }
+
+    /// Return all retained observations, including observations that are in conflict.
+    pub fn observations(&self) -> &[SeeaObservation] {
+        &self.observations
+    }
+
+    /// Return the explicit conflict history in deterministic insertion order.
+    pub fn conflicts(&self) -> &[SeeaConflictRecord] {
+        &self.conflicts
+    }
+}
+
 impl SeeaObservation {
     /// Validate structural integrity without judging substantive correctness.
     pub fn validate(&self) -> Result<(), String> {
@@ -268,6 +419,85 @@ mod tests {
                 source_timestamp: Some(1_801),
             },
         }
+    }
+
+    #[test]
+    fn conflicting_sources_are_preserved_as_conflict_not_resolved_by_guessing() {
+        let mut set = SeeaEvidenceSet::new();
+        let first = condition_observation(760);
+        let mut second = condition_observation(740);
+        second.id = "seea:condition:river-1:2026:source-b".into();
+        second.provenance.source_ref = "stats:alternate-account".into();
+
+        set.insert(first.clone()).unwrap();
+        assert_eq!(
+            set.insert(second.clone()),
+            Err(SeeaEvidenceInsertError::ConflictingObservation {
+                existing_id: first.id,
+                new_id: second.id,
+            })
+        );
+        assert_eq!(set.observations().len(), 2);
+        assert_eq!(set.conflicts().len(), 1);
+        assert_eq!(set.conflicts()[0].existing.value, 760);
+        assert_eq!(set.conflicts()[0].incoming.value, 740);
+    }
+
+    #[test]
+    fn identical_republished_content_is_redundant() {
+        let mut set = SeeaEvidenceSet::new();
+        let first = condition_observation(760);
+        let mut second = first.clone();
+        second.id = "seea:condition:river-1:2026:copy".into();
+
+        set.insert(first.clone()).unwrap();
+        assert_eq!(
+            set.insert(second.clone()),
+            Err(SeeaEvidenceInsertError::RedundantObservation {
+                existing_id: first.id,
+                new_id: second.id,
+            })
+        );
+    }
+
+    #[test]
+    fn same_fact_from_independent_sources_can_coexist_when_values_agree() {
+        let mut set = SeeaEvidenceSet::new();
+        let first = condition_observation(760);
+        let mut second = first.clone();
+        second.id = "seea:condition:river-1:2026:source-b".into();
+        second.provenance.source_ref = "stats:independent-account".into();
+        second.provenance.content_hash = Some("sha256:def".into());
+
+        set.insert(first).unwrap();
+        set.insert(second).unwrap();
+
+        assert_eq!(set.observations().len(), 2);
+        assert_eq!(
+            set.canonical_observations()[0].semantic_key(),
+            set.canonical_observations()[1].semantic_key()
+        );
+    }
+
+    #[test]
+    fn semantic_identity_is_independent_of_submission_order() {
+        let mut first = SeeaEvidenceSet::new();
+        let mut second = SeeaEvidenceSet::new();
+
+        let mut a = condition_observation(760);
+        a.id = "seea:a".into();
+        let mut b = condition_observation(760);
+        b.id = "seea:b".into();
+        b.provenance.source_ref = "stats:independent".into();
+        b.provenance.content_hash = Some("sha256:def".into());
+
+        first.insert(a.clone()).unwrap();
+        first.insert(b.clone()).unwrap();
+
+        second.insert(b).unwrap();
+        second.insert(a).unwrap();
+
+        assert_eq!(first.canonical_observations(), second.canonical_observations());
     }
 
     #[test]

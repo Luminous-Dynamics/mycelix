@@ -37,8 +37,9 @@ pub use substrate::{
     SubstrateState,
 };
 pub use seea::{
-    SeeaAccountType, SeeaChangeKind, SeeaFreshness, SeeaFreshnessError, SeeaFreshnessPolicy,
-    SeeaObservation, SeeaProvenance,
+    SeeaAccountType, SeeaChangeKind, SeeaEvidenceInsertError, SeeaEvidenceSet, SeeaFreshness,
+    SeeaFreshnessError, SeeaFreshnessPolicy, SeeaObservation, SeeaObservationKey,
+    SeeaConflictRecord, SeeaProvenance,
 };
 pub use procurement_guard::{
     assess_procurement_option, cheapest_eligible_procurement, ProcurementAssessment, ProcurementOption,
