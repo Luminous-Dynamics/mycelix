@@ -86,6 +86,30 @@ jobs:
             fi
           done
 
+          # This security PR must not silently replace the existing bridge-common public surface.
+          # A prior truncation of lib.rs removed almost the entire shared API; keep a small set of
+          # stable core module anchors here so the qualification lane catches that class of damage.
+          for anchor in \
+            'pub mod constitutional_envelope;' \
+            'pub mod consciousness_thresholds;' \
+            'pub mod consciousness_profile;' \
+            'pub mod collective_phi;' \
+            'pub mod routing;' \
+            'pub mod routing_registry;' \
+            'pub mod metrics;' \
+            'pub mod notifications;'; do
+            if ! rg -n -F "$anchor" crates/mycelix-bridge-common/src/lib.rs; then
+              echo "bridge-common surface regression: required core module anchor disappeared: $anchor" >&2
+              exit 1
+            fi
+          done
+
+          line_count="$(wc -l < crates/mycelix-bridge-common/src/lib.rs)"
+          if [[ "$line_count" -lt 1800 ]]; then
+            echo "bridge-common surface regression: lib.rs unexpectedly shrank to $line_count lines" >&2
+            exit 1
+          fi
+
           if rg -nU 'pub[[:space:]]+enum[[:space:]]+AuthorizationDecision[[:space:]]*\\{[^}]*\\bAllow\\b' crates/mycelix-bridge-common/src/security_kernel.rs; then
             echo "security-kernel regression: AuthorizationDecision must remain failure-only; Allow belongs to SecurityEventDecision" >&2
             exit 1
