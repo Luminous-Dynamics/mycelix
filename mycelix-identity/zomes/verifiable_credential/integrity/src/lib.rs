@@ -1134,6 +1134,15 @@ fn validate_create_verifiable_credential(
         ));
     }
 
+    // The Mycelix creation timestamp is provenance metadata, not an issuer-
+    // controlled validity date. It must not claim a time after the actual
+    // Holochain create action.
+    if vc.mycelix_created > action.timestamp() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Credential mycelix_created timestamp cannot be in the future relative to its create action".into(),
+        ));
+    }
+
     // Validate the W3C temporal fields before accepting them into the DHT.
     // Holochain Timestamp parsing gives us a concrete temporal value, allowing
     // us to enforce the VC validity interval rather than trusting arbitrary text.
@@ -1269,6 +1278,11 @@ fn validate_create_verifiable_presentation(
             "Presentation holder DID must correspond to the committing agent".into(),
         ));
     }
+    if vp.mycelix_created > action.timestamp() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Presentation mycelix_created timestamp cannot be in the future relative to its create action".into(),
+        ));
+    }
 
     if vp.context.first().map(String::as_str) != Some("https://www.w3.org/ns/credentials/v2") {
         return Ok(ValidateCallbackResult::Invalid(
@@ -1385,6 +1399,11 @@ fn validate_create_derived_credential(
             "Derived credential holder DID must correspond to the committing agent".into(),
         ));
     }
+    if dc.created > action.timestamp() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Derived credential created timestamp cannot be in the future relative to its create action".into(),
+        ));
+    }
 
     // Validate holder is a DID
     if !dc.holder.starts_with("did:") {
@@ -1488,6 +1507,12 @@ fn validate_create_credential_request(
     action: EntryCreationAction,
     req: CredentialRequest,
 ) -> ExternResult<ValidateCallbackResult> {
+    if req.created > action.timestamp() || req.updated > action.timestamp() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Credential request timestamps cannot be in the future relative to its create action".into(),
+        ));
+    }
+
     // Validate requester DID
     if !req.requester_did.starts_with("did:") {
         return Ok(ValidateCallbackResult::Invalid(
@@ -1719,6 +1744,11 @@ fn validate_update_credential_request(
     if req.updated <= original.updated {
         return Ok(ValidateCallbackResult::Invalid(
             "Credential request updated timestamp must advance monotonically".into(),
+        ));
+    }
+    if req.updated > action.timestamp() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Credential request updated timestamp cannot be in the future relative to its update action".into(),
         ));
     }
 
