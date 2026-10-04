@@ -11,6 +11,7 @@
     "statement": "An AK/EK lineage claim is admissible only when the observed EK, observed AK, AK parent Qualified Name, non-migratable AK attributes, independently bound EK credential material, and TPM credential activation evidence all agree on one session and one TPM identity.",
     "steps": [
       "The AK Qualified Name is recomputed from the observed EK Qualified Name and observed AK Name using the AK Name algorithm.",
+      "The public-name coherence verifier and AK public-attributes verifier are independent prerequisites; lineage re-executes the latter and requires its exact public-area digest and Name to agree with the AK identity."
       "AK fixedTPM and fixedParent must both be SET; a migratable AK is not platform lineage evidence.",
       "AK public material and AK Name must be recorded from the same TPM ReadPublic context observation; this is a composition binding, not a claim that the verifier independently re-marshals the complete TPMT_PUBLIC structure.",
       "EK credential material must be independently appraised and explicitly bound to the exact observed EK public digest.",
@@ -27,9 +28,10 @@
   "required_input": {
     "tpm_identity_digest": "sha256 digest identifying the capture TPM context",
     "ek": ["public_sha256", "name_hex", "qualified_name_hex"],
-    "ak": ["public_sha256", "name_hex", "qualified_name_hex", "name_alg", "fixedTPM", "fixedParent"],
+    "ak": ["public_sha256", "public_area_sha256", "name_hex", "qualified_name_hex", "name_alg"],
     "parentage": ["parent_type", "parent_qualified_name_hex"],
-    "public_name_binding": ["state", "method", "public_sha256", "name_sha256"],
+    "public_name_binding": ["state", "method", "verifier_id", "public_sha256", "name_sha256", "public_area_sha256"],
+    "public_attributes_binding": ["state", "verifier_id", "public_area_sha256", "derived_fixedTPM", "derived_fixedParent", "source_sha256", "verifier_input"],
     "ek_credential": ["state", "mode", "material_sha256", "bound_ek_public_sha256"],
     "credential_activation": ["protocol", "state", "scope", "session_id", "tpm_identity_digest", "challenge_origin", "challenge_sha256", "credential_blob_sha256", "ek_public_sha256", "ak_name_hex"]
   },
