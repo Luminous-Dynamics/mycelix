@@ -100,17 +100,41 @@ pub fn get_composite_reputation(agent_b64: String) -> ExternResult<AggregatedRep
         GetStrategy::Local,
     )?;
 
-    if let Some(link) = links.last() {
+    let mut cached: Vec<Record> = Vec::new();
+    for link in links {
         let hash = ActionHash::try_from(link.target.clone())
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
         if let Some(record) = get(hash, GetOptions::default())? {
-            let rep: AggregatedReputation = record
+            if let Some(rep) = record
                 .entry()
-                .to_app_option()
+                .to_app_option::<AggregatedReputation>()
                 .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-                .ok_or(wasm_error!(WasmErrorInner::Guest("No entry".into())))?;
-            return Ok(rep);
+            {
+                if rep.agent_pubkey_b64 == agent_b64 {
+                    cached.push(record);
+                }
+            }
         }
+    }
+
+    // Link traversal order is not authoritative. These cached aggregations are
+    // produced on the caller's source chain, so the source-chain action sequence
+    // is the deterministic freshness signal; the ActionHash is the tie-breaker
+    // for pathological legacy duplicates.
+    cached.sort_by(|a, b| {
+        a.action()
+            .action_seq()
+            .cmp(&b.action().action_seq())
+            .then_with(|| a.action_address().cmp(b.action_address()))
+    });
+
+    if let Some(record) = cached.last() {
+        let rep: AggregatedReputation = record
+            .entry()
+            .to_app_option()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            .ok_or(wasm_error!(WasmErrorInner::Guest("No entry".into())))?;
+        return Ok(rep);
     }
 
     // No cached reputation — compute fresh
@@ -186,13 +210,28 @@ pub fn get_reputation_history(input: PaginatedAgentInput) -> ExternResult<Vec<Re
 
     let limit = input.limit.unwrap_or(20).min(100);
     let mut records = Vec::new();
-    for link in links.iter().rev().take(limit) {
+    for link in links {
         let hash = ActionHash::try_from(link.target.clone())
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
         if let Some(record) = get(hash, GetOptions::default())? {
-            records.push(record);
+            if record
+                .entry()
+                .to_app_option::<AggregatedReputation>()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .is_some()
+            {
+                records.push(record);
+            }
         }
     }
+
+    records.sort_by(|a, b| {
+        b.action()
+            .action_seq()
+            .cmp(&a.action().action_seq())
+            .then_with(|| b.action_address().cmp(a.action_address()))
+    });
+    records.truncate(limit);
     Ok(records)
 }
 
