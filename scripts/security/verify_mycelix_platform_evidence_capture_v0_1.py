@@ -850,6 +850,38 @@ def verify_bundle(args: argparse.Namespace) -> int:
         print("PLATFORM EVIDENCE: DENY: payload-coherence-manifest-state-mismatch")
         return 1
 
+    reference_result = load_json(bundle / "reference-appraisal.json")
+    if reference_result.get("profile_id") != "mycelix.reference-value.appraisal":
+        print("PLATFORM EVIDENCE: DENY: reference-appraisal-profile-mismatch")
+        return 1
+    if reference_result.get("verifier_id") != "mycelix.reference-value.appraisal.v0.1":
+        print("PLATFORM EVIDENCE: DENY: reference-appraisal-verifier-id-mismatch")
+        return 1
+    if reference_result.get("verifier_source_sha256") != sha256_file(REFERENCE_APPRAISAL_SCRIPT):
+        print("PLATFORM EVIDENCE: DENY: reference-appraisal-source-mismatch")
+        return 1
+    if reference_result.get("registry_sha256") != sha256_file(REFERENCE_REGISTRY):
+        print("PLATFORM EVIDENCE: DENY: reference-appraisal-registry-mismatch")
+        return 1
+    if reference_result.get("reference_sha256") != manifest["reference_values"]["sha256"]:
+        print("PLATFORM EVIDENCE: DENY: reference-appraisal-input-mismatch")
+        return 1
+    if reference_result.get("content_sha256") != self_hash(reference_result, "content_sha256"):
+        print("PLATFORM EVIDENCE: DENY: reference-appraisal-self-hash-mismatch")
+        return 1
+    reference_state = reference_result.get("state")
+    if reference_state == "DENY":
+        print("PLATFORM EVIDENCE: DENY: reference-appraisal-denied")
+        return 1
+    if reference_state not in {"PASS", "INDETERMINATE"}:
+        print("PLATFORM EVIDENCE: DENY: reference-appraisal-state-invalid")
+        return 1
+    if manifest["reference_appraisal"]["status"] != reference_state:
+        print("PLATFORM EVIDENCE: DENY: reference-appraisal-manifest-state-mismatch")
+        return 1
+    if reference_state == "INDETERMINATE":
+        print("Reference appraisal: INDETERMINATE (reference set not approved)")
+        return 2
     quote_state, quote_reason = run_quote_check(bundle)
     print(f"TPM Quote verification: {quote_state} ({quote_reason})")
     if quote_state != "PASS":
