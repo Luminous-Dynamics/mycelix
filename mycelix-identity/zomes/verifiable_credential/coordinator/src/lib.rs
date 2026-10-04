@@ -424,6 +424,17 @@ pub fn verify_credential(credential_id: String) -> ExternResult<VerificationResu
         }
     }
 
+    // The declared verification method must be controlled by the same DID
+    // whose AgentPubKey is used to verify the signature. Without this check,
+    // proof metadata could name an unrelated DID while the cryptographic
+    // verifier silently uses the issuer DID instead.
+    if !proof_verification_method_matches_did(
+        &credential.proof.verification_method,
+        credential.issuer.did(),
+    ) {
+        errors.push("Proof verification method does not belong to issuer DID".to_string());
+    }
+
     // Verify ed25519 signature using HDK
     match verify_credential_signature(&credential) {
         Ok(true) => {
@@ -476,6 +487,15 @@ pub fn verify_credential(credential_id: String) -> ExternResult<VerificationResu
         errors,
         verified_at: now,
     })
+}
+
+/// Check that a proof's verification-method DID is the same DID whose
+/// AgentPubKey is used for cryptographic verification.
+fn proof_verification_method_matches_did(verification_method: &str, did: &str) -> bool {
+    let method_did = verification_method
+        .split_once('#')
+        .map_or(verification_method, |(base, _)| base);
+    method_did == did && !verification_method.is_empty()
 }
 
 /// Result of credential verification
@@ -805,6 +825,13 @@ pub fn verify_presentation(
     }
 
     // 3. Verify holder's proof signature
+    if !proof_verification_method_matches_did(
+        &vp.proof.verification_method,
+        &vp.holder,
+    ) {
+        errors.push("Presentation proof verification method does not belong to holder DID".to_string());
+    }
+
     let holder_pubkey_str = vp.holder.strip_prefix("did:mycelix:");
     if let Some(pubkey_str) = holder_pubkey_str {
         if let Ok(holder_pubkey) = AgentPubKey::try_from(pubkey_str.to_string()) {
