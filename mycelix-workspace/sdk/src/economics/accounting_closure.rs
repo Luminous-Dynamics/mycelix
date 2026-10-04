@@ -99,6 +99,12 @@ impl EconomicAccountingClosure {
         sector_revaluation_change.validate_against(pre_state, assignments, transitions)?;
         other_volume_change
             .validate_against_balance_sheet_delta(&pre_balance, &post_balance)?;
+        sector_revaluation_change.validate_against_balance_sheet_delta(
+            pre_state,
+            post_state,
+            assignments,
+            transitions,
+        )?;
 
         sector_financial_flow
             .validate_against_balance_sheet_delta_with_other_volume(
