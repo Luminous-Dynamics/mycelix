@@ -14,7 +14,8 @@ MANIFEST = ROOT / "docs/integral/d6u-runtime-manifest.json"
 D6S2_MANIFEST = ROOT / "docs/integral/d6s-canon-2-manifest.json"
 D6S2_FIXTURE = ROOT / "docs/integral/d6s-canon-2-authority-boundary-fixture.json"
 D6S1_CORPUS = ROOT / "docs/integral/d6s-canon-1-golden-vectors.json"
-WORKFLOW = ROOT / ".github/workflows/d6u-runtime-qualification.yml"
+WORKFLOW = ROOT / ".github/workflows/d6u-exact-head-runtime.yml"
+CALLER_WORKFLOW = ROOT / ".github/workflows/d6s-canonical-qualification.yml"
 EVIDENCE = ROOT / "d6u-runtime-harness/d6u-runtime-evidence.txt"
 TEST_LOG = ROOT / "d6u-runtime-harness/d6u-runtime-test.log"
 LOCKFILE = ROOT / "d6u-runtime-harness/Cargo.lock"
@@ -63,20 +64,7 @@ def load_record(path: Path) -> dict[str, str]:
 def main() -> None:
     assert len(sys.argv) == 1, "usage: verify_d6u_runtime_record.py"
     record = load_record(EVIDENCE)
-    workflow_execution_sha = os.environ["GITHUB_WORKFLOW_SHA"]
-    workflow_execution_ref = os.environ["GITHUB_WORKFLOW_REF"]
-    workflow_ref_prefix = (
-        f"{os.environ['GITHUB_REPOSITORY']}/"
-        ".github/workflows/d6u-runtime-qualification.yml@"
-    )
-    assert len(workflow_execution_sha) == 40 and all(
-        char in "0123456789abcdef" for char in workflow_execution_sha
-    ), "GITHUB_WORKFLOW_SHA must be a full lowercase commit SHA"
-    assert workflow_execution_ref.startswith(workflow_ref_prefix), (
-        "GITHUB_WORKFLOW_REF must identify the D6U qualification workflow: "
-        f"{workflow_execution_ref!r}"
-    )
-
+    repository = os.environ["GITHUB_REPOSITORY"]
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
     d6s2 = json.loads(D6S2_MANIFEST.read_text(encoding="utf-8"))
     test_log_lines = TEST_LOG.read_text(encoding="utf-8").splitlines()
@@ -120,10 +108,15 @@ def main() -> None:
         ).stdout.strip(),
         "workflow_run_id": os.environ["GITHUB_RUN_ID"],
         "workflow_run_attempt": os.environ["GITHUB_RUN_ATTEMPT"],
-        "workflow_execution_commit_sha": workflow_execution_sha,
-        "workflow_execution_ref": workflow_execution_ref,
+        "caller_workflow_commit_sha": record["caller_workflow_commit_sha"],
+        "caller_workflow_ref": record["caller_workflow_ref"],
+        "workflow_definition_commit_sha": record["workflow_definition_commit_sha"],
+        "workflow_definition_ref": record["workflow_definition_ref"],
+        "workflow_definition_repository": record["workflow_definition_repository"],
+        "workflow_definition_file_path": record["workflow_definition_file_path"],
+        "workflow_definition_blob_sha": git_blob_sha(WORKFLOW),
+        "caller_workflow_blob_sha": git_blob_sha(CALLER_WORKFLOW),
         "attestation_status": manifest["attestation_policy"]["mode"],
-        "workflow_sha": git_blob_sha(WORKFLOW),
         "d6s2_manifest_git_blob_sha": git_blob_sha(D6S2_MANIFEST),
         "d6s2_fixture_git_blob_sha": git_blob_sha(D6S2_FIXTURE),
         "d6s2_authority_ledger_schema": d6s2_ledger_schema,
@@ -184,6 +177,21 @@ def main() -> None:
         if record[key] != value
     }
     assert not mismatches, "evidence record mismatch: " + repr(mismatches)
+
+    assert re.fullmatch(r"[0-9a-f]{40}", record["caller_workflow_commit_sha"])
+    assert record["caller_workflow_ref"].startswith(
+        f"{repository}/.github/workflows/d6s-canonical-qualification.yml@"
+    )
+    assert re.fullmatch(r"[0-9a-f]{40}", record["workflow_definition_commit_sha"])
+    assert record["workflow_definition_ref"].startswith(
+        f"{repository}/.github/workflows/d6u-exact-head-runtime.yml@"
+    )
+    assert record["workflow_definition_repository"] == repository
+    assert record["workflow_definition_file_path"] == (
+        ".github/workflows/d6u-exact-head-runtime.yml"
+    )
+    assert record["workflow_definition_blob_sha"] == git_blob_sha(WORKFLOW)
+    assert record["caller_workflow_blob_sha"] == git_blob_sha(CALLER_WORKFLOW)
 
     assert d6s2["profile"] == "D6S-CANON-2"
     assert d6s2["claim_ceiling"] == "ReferenceModelOnly"
