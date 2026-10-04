@@ -758,13 +758,19 @@ check_semantic_case_entrypoints() {
     fi
     test_block="$(sed -n "${test_start},${test_end}p" "$rust_test")"
 
-    # Bind the operation to the same call expression, rather than merely
-    # requiring the zome name and operation string to coexist somewhere in the
-    # test body. This prevents unrelated calls from satisfying the witness.
-    if printf "%s\\n" "$test_block" | rg -nU --pcre2 "&alice\\.zome\\(\\\"\\${zome}\\\"\\)[[:space:]]*,[[:space:]]*\\\"\\${operation}\\\"[[:space:]]*," >/dev/null 2>&1; then
-      echo "OK:   semantic runtime witness ${test_name} is bound to ${zome}/${operation} call expression"
+    # Bind the manifest case to the result-producing call itself. Requiring the
+    # exact zome/operation inside call_fallible prevents unrelated calls from
+    # satisfying the witness.
+    if printf "%s\\n" "$test_block" | rg -nU --pcre2 "let[[:space:]]+result(?:[[:space:]]*:[^=;]+)?[[:space:]]*=[[:space:]]*conductor\\.call_fallible\\([[:space:]]*&alice\\.zome\\(\\\"\\${zome}\\\"\\)[[:space:]]*,[[:space:]]*\\\"\\${operation}\\\"[[:space:]]*," >/dev/null 2>&1; then
+      echo "OK:   semantic runtime witness ${test_name} binds ${zome}/${operation} to the asserted result call"
     else
-      echo "FAIL: semantic runtime witness ${zome}/${operation} is not invoked by ${test_name} matching call expression"
+      echo "FAIL: semantic runtime witness ${zome}/${operation} is not bound to a result-producing call_fallible expression in ${test_name}"
+      fail=1
+    fi
+    if printf "%s\\n" "$test_block" | rg -n --fixed-strings "assert_integrity_rejection(result," >/dev/null 2>&1; then
+      echo "OK:   semantic runtime witness ${test_name} asserts rejection of that result value"
+    else
+      echo "FAIL: semantic runtime witness ${test_name} does not assert rejection of the result value"
       fail=1
     fi
     # The witness must prove rejection, not merely execute the coordinator call.
