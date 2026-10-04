@@ -80,7 +80,7 @@ def start_swtpm(state_dir: Path, socket_dir: Path, env: dict[str, str]) -> subpr
         "socket",
         "--tpm2",
         "--tpmstate",
-        f"dir={state_dir},mode=0600,lock,fsync",
+        f"dir={state_dir},mode=0600,lock",
         "--server",
         f"type=unixio,path={server},mode=0600",
         "--ctrl",
