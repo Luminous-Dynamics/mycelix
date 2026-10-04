@@ -158,6 +158,7 @@ jobs:
             gh attestation verify "$subject" \
               --repo "$GITHUB_REPOSITORY" \
               --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/d6u-runtime-qualification.yml" \
+              --source-digest "$GITHUB_SHA" \
               --deny-self-hosted-runners
           done
 
