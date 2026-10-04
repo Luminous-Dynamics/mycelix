@@ -347,18 +347,18 @@ jobs:
       - name: Build identity zomes
         run: |
           cd mycelix-identity
-          nix develop .#ci --impure --command \
+          nix develop .#ci --command \
             cargo build --release --target wasm32-unknown-unknown --workspace
       - name: Pack identity DNA
         run: |
           cd mycelix-identity
-          nix develop .#ci --impure --command hc dna pack dna/
+          nix develop .#ci --command hc dna pack dna/
           test -s dna/mycelix_identity_dna.dna
       - name: Run DSID lifecycle lab
         run: |
           set -o pipefail
           cd mycelix-identity
-          nix develop .#ci --impure --command bash -c '
+          nix develop .#ci --command bash -c '
             set -o pipefail
             cd tests
             cargo test --test dsid_lifecycle_lab \
