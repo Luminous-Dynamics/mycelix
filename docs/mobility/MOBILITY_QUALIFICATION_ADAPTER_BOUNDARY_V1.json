@@ -48,7 +48,8 @@
     ],
     "retrieval_kind_required": true,
     "retrieval_kind_mapping_runtime_owned": true,
-    "retrieval_kind_mismatch_is_adapter_boundary_error": true
+    "retrieval_kind_mismatch_is_adapter_boundary_error": true,
+    "candidate_address_kind_validation_precedes_binding_conflicts": true
   },
   "dependency_retrieval": {
     "deterministic_host_function_family": "must_get_*",
