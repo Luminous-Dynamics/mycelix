@@ -922,10 +922,15 @@ check_qualification_workflow_provenance() {
     "cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866"
     "actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f"
   )
-  if rg -n --fixed-strings 'installer-version: "2.35.1"' "$workflow" >/dev/null 2>&1     && ! rg -n --fixed-strings 'cachix/install-nix-action@' "$workflow" >/dev/null 2>&1; then
-    echo "OK:   qualification workflow pins the NixOS installer action and installer release to 2.35.1"
+  if rg -n --fixed-strings 'NixOS/nix-installer-action@62c1943b776c509394b550f3f983adc14e9212d6' "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings 'dogfood: "true"' "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings 'dogfood-path: "/tmp/nix-installer"' "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings 'releases/download/2.35.2/nix-installer-x86_64-linux' "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings '5448a1cd70ad945cb4d36365defbaf3731eba38e23859f3dc8bd7418e1946acc' "$workflow" >/dev/null 2>&1 \
+    && ! rg -n --fixed-strings 'cachix/install-nix-action@' "$workflow" >/dev/null 2>&1; then
+    echo "OK:   qualification workflow pins and hash-locks the Nix installer binary"
   else
-    echo "FAIL: qualification workflow must use the pinned NixOS installer action and installer version 2.35.1"
+    echo "FAIL: qualification workflow must pin and hash-lock the Nix installer binary"
     fail=1
   fi
 
