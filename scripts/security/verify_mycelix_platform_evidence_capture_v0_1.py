@@ -25,6 +25,10 @@ PUBLIC_NAME_VERIFIER_SCRIPT = ROOT / "scripts/security/verify_mycelix_tpm_public
 PUBLIC_NAME_VERIFIER_ID = "mycelix.tpm.public-name-coherence.v0.1"
 EK_TEMPLATE_VERIFIER_SCRIPT = ROOT / "scripts/security/verify_mycelix_ek_template_appraisal_v0_1.py"
 EK_TEMPLATE_VERIFIER_ID = "mycelix.tpm.ek-template-appraisal.v0.1"
+EK_CERTIFICATE_CAPTURE_SCRIPT = ROOT / "scripts/security/capture_mycelix_ek_certificate_nv_v0_1.py"
+EK_CERTIFICATE_CAPTURE_ID = "mycelix.tpm.ek-certificate-nv-capture.v0.1"
+EK_CERT_SPki_VERIFIER_SCRIPT = ROOT / "scripts/security/verify_mycelix_ek_cert_spki_binding_v0_1.py"
+EK_CERT_SPki_VERIFIER_ID = "mycelix.tpm.ek-cert-spki-binding.v0.1"
 RECONSTRUCTION_VERIFIER_ID = "mycelix.pc-client.eventlog-reconstruction.v0.1"
 
 
@@ -1234,6 +1238,7 @@ def require_capture_tools() -> list[str]:
         "tpm2_checkquote",
         "tpm2_eventlog",
         "tpm2_readpublic",
+        "tpm2_getekcertificate",
     )
     return [name for name in names if shutil.which(name) is None]
 
