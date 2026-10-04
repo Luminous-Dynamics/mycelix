@@ -711,7 +711,10 @@ behavioral assumption by itself.
 
 ## Trade-credit settlement cross-matrix closure (implemented)
 
-Trade-credit timing is now represented orthogonally across the two sector-flow projections:
+Trade-credit timing is now represented orthogonally across the transaction and financial-claim
+projections. Debt write-offs are deliberately kept in a third, other-volume projection because
+they alter claim/liability stocks without representing settlement.
+
 
 - `TradeCreditSale` is omitted from the monetary transaction matrix because it creates a
   receivable/payable without moving cash or deposits, but it appears in the financial-claim
@@ -1003,6 +1006,12 @@ income (2025 SNA, paras. 4.192–4.194). It also keeps the ecological-SFC bounda
 valuation changes do not imply a physical material flow. Modern ecological SFC work likewise treats
 monetary and physical stocks/flows as distinct but jointly coherent dimensions.
 
+Debt write-off follows the corresponding SNA distinction for other changes in the volume of
+financial assets and liabilities. The sector accounting layer therefore keeps three separate
+reconciliation explanations available: financial-account transactions, other-volume adjustments,
+and revaluations. The closure combines the relevant stock deltas without collapsing those
+categories into one generic flow.
+
 References:
 - United Nations Statistics Division, 2025 SNA, Chapter 4 (holding gains/losses and other changes in assets and liabilities).
 - DEFINE, Dynamic Ecosystem-FINance-Economy ecological SFC framework.
@@ -1023,7 +1032,7 @@ For a write-off amount (W):
 
 The aggregate financial claim/liability identity therefore remains closed, while the loss of the
 creditor is exactly offset by the debtor's liability extinguishment. The event is visible in the
-lifetime state counter, period ledger, actor/sector observations, and financial-claim projection,
+lifetime state counter, period ledger, actor/sector observations, and other-volume-change projection,
 but is excluded from the monetary transaction-flow matrix.
 
 The other-volume matrix uses the creditor/debtor pair for this category; its direction identifies
