@@ -495,6 +495,53 @@ fn dependency_order<'a>(
 }
 
 impl ObserverLifecycleLedgerV1 {
+    /// Validate the complete lifecycle state before treating the ledger as
+    /// authoritative input. Recording APIs normally enforce these invariants,
+    /// but a deserialized ledger can bypass them, so qualified consumers must
+    /// re-check the whole committed object graph at the authority boundary.
+    pub fn authoritative_state_valid(&self) -> bool {
+        self.generations.values().all(ObserverGenerationV1::commitment_matches)
+            && self
+                .generations
+                .keys()
+                .all(|id| self.validate_transition_chain(id))
+            && self
+                .transitions
+                .values()
+                .all(ObserverStatusTransitionV1::commitment_matches)
+            && self.dependency_snapshots.values().all(|snapshot| {
+                snapshot.commitment_matches() && self.dependency_chain_complete(&snapshot.snapshot_id)
+            })
+            && self.rotations.values().all(|rotation| {
+                if !rotation.commitment_matches() || !rotation.continuity_root_matches() {
+                    return false;
+                }
+                let Some(predecessor) =
+                    self.generations.get(&rotation.predecessor_generation_id)
+                else {
+                    return false;
+                };
+                let Some(successor) =
+                    self.generations.get(&rotation.successor_generation_id)
+                else {
+                    return false;
+                };
+                let Some(transition) =
+                    self.transitions.get(&rotation.predecessor_transition_id)
+                else {
+                    return false;
+                };
+                matches!(
+                    assess_observer_rotation(predecessor, successor, transition, rotation),
+                    ObserverRotationDispositionV1::Accepted
+                )
+            })
+            && self
+                .eligibility_receipts
+                .values()
+                .all(EvidenceEligibilityReceiptV1::commitment_matches)
+    }
+
     pub fn record_generation(
         &mut self,
         generation: ObserverGenerationV1,
@@ -1297,6 +1344,9 @@ pub fn verify_eligibility_receipt_provenance(
     profile: &ObserverLifecycleProfileV1,
     ledger: &ObserverLifecycleLedgerV1,
 ) -> bool {
+    if !ledger.authoritative_state_valid() {
+        return false;
+    }
     if !receipt.commitment_matches() {
         return false;
     }
@@ -1601,6 +1651,57 @@ mod tests {
             certificate_commitment: "rotation-commitment-1".into(),
             claim_ceiling: OBSERVER_LIFECYCLE_CLAIM_CEILING.into(),
         }
+    }
+
+    #[test]
+    fn authoritative_ledger_rejects_self_consistent_rotation_tampering() {
+        let predecessor = generation("observer-A-g1", 1, None);
+        let successor = generation(
+            "observer-A-g2",
+            2,
+            Some(predecessor.generation_id.as_str()),
+        );
+        let transition = transition(
+            &predecessor,
+            "transition-rotation",
+            ObserverStatusV1::Superseded,
+            2,
+            Some(successor.generation_id.as_str()),
+        );
+        let mut ledger = ObserverLifecycleLedgerV1::default();
+        assert_eq!(
+            ledger.record_generation(predecessor.clone()),
+            LifecycleRecordDispositionV1::Recorded
+        );
+        assert_eq!(
+            ledger.record_generation(successor.clone()),
+            LifecycleRecordDispositionV1::Recorded
+        );
+        assert_eq!(
+            ledger.record_transition(transition.clone()),
+            LifecycleRecordDispositionV1::Recorded
+        );
+        let rotation = rotation_certificate(&predecessor, &successor, &transition);
+        let mut rotation = rotation;
+        rotation.continuity_root = rotation.recomputed_continuity_root();
+        rotation.certificate_commitment = rotation.recomputed_commitment();
+        assert_eq!(
+            ledger.record_rotation(rotation.clone()),
+            ObserverRotationDispositionV1::Accepted
+        );
+        assert!(ledger.authoritative_state_valid());
+
+        rotation.effective_frontier_root = "frontier-attacker".into();
+        rotation.continuity_root = rotation.recomputed_continuity_root();
+        rotation.certificate_commitment = rotation.recomputed_commitment();
+        assert!(rotation.commitment_matches());
+        assert!(rotation.continuity_root_matches());
+        ledger.rotations.insert(rotation.certificate_id.clone(), rotation);
+
+        assert!(
+            !ledger.authoritative_state_valid(),
+            "a self-consistent but semantically inconsistent rotation must not survive the authoritative ledger boundary"
+        );
     }
 
     #[test]
