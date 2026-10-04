@@ -270,6 +270,35 @@ pub fn issue_credential(input: IssueCredentialInput) -> ExternResult<Record> {
     let now = sys_time()?;
     let now_iso = format_timestamp_iso8601(now);
 
+    // Issuance is an authority act. A deactivated issuer must not be able
+    // to mint new credentials even if its historical signing key remains valid.
+    let active_response = call(
+        CallTargetCell::Local,
+        ZomeName::new("did_registry"),
+        FunctionName::new("is_did_active"),
+        None,
+        issuer_did.clone(),
+    )?;
+    match active_response {
+        ZomeCallResponse::Ok(result) => {
+            let active = result.decode::<bool>().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Failed to decode issuer DID active state: {e:?}"
+                )))
+            })?;
+            if !active {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Deactivated issuer DID cannot issue new credentials".into()
+                )));
+            }
+        }
+        _ => {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Issuer DID active state could not be established".into()
+            )));
+        }
+    }
+
     // Validate claims against schema if a schema is specified
     let schema_validation = validate_claims_against_schema(&input.schema_id, &input.claims)?;
     match &schema_validation {
