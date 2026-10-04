@@ -23,6 +23,8 @@ def verify(c: dict[str, Any], mutation: str, seen: set[str]) -> tuple[str, str]:
         i["destination_security_domain"] = "E2"
     elif mutation == "classification-mismatch":
         i["classification_state"] = "SECRET"
+    elif mutation == "compartment-mismatch":
+        i["compartment"] = "other-compartment"
     elif mutation == "releasability-failure":
         a["releasability_authorized"] = False
     elif mutation == "export-control-mismatch":
@@ -59,6 +61,8 @@ def verify(c: dict[str, Any], mutation: str, seen: set[str]) -> tuple[str, str]:
         r["subject_id"] = "did:example:other-subject"
     elif mutation == "receipt-gateway-profile-substitution":
         r["gateway_profile_id"] = "other-gateway-profile"
+    elif mutation == "receipt-outcome-substitution":
+        r["outcome"] = "DENY"
     elif mutation == "receipt-expired":
         r["expires_at_unix"] = f["now_unix"]
     elif mutation == "receipt-policy-substitution":
@@ -100,6 +104,10 @@ def verify(c: dict[str, Any], mutation: str, seen: set[str]) -> tuple[str, str]:
     if not a["fresh"] or not a["policy_current"] or a["expires_at_unix"] <= f["now_unix"]:
         return deny("stale-or-revoked-authorization")
 
+    if i["compartment"] != "none":
+        return deny("compartment-mismatch")
+    if i["transform_profile_id"] != p["transform_profile_id"] or t["profile_id"] != p["transform_profile_id"]:
+        return deny("transform-profile-mismatch")
     if not t["approved"]:
         return deny("unapproved-transform")
     if not t["metadata_checked"]:
