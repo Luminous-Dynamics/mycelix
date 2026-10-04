@@ -248,6 +248,13 @@ def fixture_manifest() -> dict[str, Any]:
             "registry_sha256": "28730695c1398a8133e5e7d0e1d89cdb84fca582b2186814c39f91121afc8ce1",
             "input_sha256": "9790c201e1f46f8494e3c42835f08c9e4eb410180b163efc86013dfa97ae7923",
         },
+        "time_appraisal": {
+            "status": "PASS",
+            "output_sha256": "3" * 64,
+            "source_sha256": sha256_file(TIME_APPRAISAL_SCRIPT),
+            "registry_sha256": "451ca270db7b95ac12fda9ef96ba536cefe243c43068e1320cf93e21d2a7acf7",
+            "input_sha256": "4" * 64,
+        },
         "artifacts": {
             "quote_message_sha256": "5" * 64,
             "quote_signature_sha256": "6" * 64,
