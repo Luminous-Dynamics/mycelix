@@ -590,6 +590,106 @@ pub enum LinkTypes {
     SubjectToEpistemicClaim,
 }
 
+fn did_to_agent(did: &str) -> Option<AgentPubKey> {
+    did.strip_prefix("did:mycelix:")
+        .and_then(|value| AgentPubKey::try_from(value.to_string()).ok())
+}
+
+fn validate_education_link(
+    link_type: LinkTypes,
+    target_address: &AnyLinkableHash,
+    action: &CreateLink,
+) -> ExternResult<ValidateCallbackResult> {
+    let target = target_address.clone().into_action_hash().ok_or_else(|| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Education link target must be an ActionHash".into(),
+        ))
+    })?;
+    let record = must_get_valid_record(target)?;
+
+    match link_type {
+        LinkTypes::InstitutionToCredential | LinkTypes::SubjectToCredential => {
+            let credential: AcademicCredential = record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Credential index target must be an AcademicCredential".into(),
+                )))?;
+            let issuer = did_to_agent(&credential.issuer.id).ok_or(wasm_error!(
+                WasmErrorInner::Guest("Academic credential issuer must be a did:mycelix AgentPubKey".into())
+            ))?;
+            if action.author != issuer || *record.action().author() != issuer {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Academic credential index must be authored by the credential issuer".into(),
+                ));
+            }
+        }
+        LinkTypes::CredentialToRevocation => {
+            let request: AcademicRevocationRequest = record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "CredentialToRevocation target must be an AcademicRevocationRequest".into(),
+                )))?;
+            let requester = did_to_agent(&request.requester_did).ok_or(wasm_error!(
+                WasmErrorInner::Guest("Revocation requester must be a did:mycelix AgentPubKey".into())
+            ))?;
+            if action.author != requester || *record.action().author() != requester {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "CredentialToRevocation link must be authored by the revocation requester".into(),
+                ));
+            }
+        }
+        LinkTypes::CredentialToEpistemicClaim | LinkTypes::SubjectToEpistemicClaim => {
+            let claim: EpistemicClaimReference = record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Epistemic claim index target must be an EpistemicClaimReference".into(),
+                )))?;
+            let credential_record = must_get_valid_record(claim.credential_hash.clone())?;
+            let credential: AcademicCredential = credential_record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Epistemic claim credential_hash must reference an AcademicCredential".into(),
+                )))?;
+            if credential.id != claim.credential_id
+                || credential.credential_subject.id != claim.subject
+                || claim.predicate != "hasAcademicAchievement"
+                || claim.source_happ != "mycelix-identity"
+            {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Epistemic claim reference does not match its source credential projection".into(),
+                ));
+            }
+
+            let issuer = did_to_agent(&credential.issuer.id).ok_or(wasm_error!(
+                WasmErrorInner::Guest("Academic credential issuer must be a did:mycelix AgentPubKey".into())
+            ))?;
+            if action.author != issuer || *record.action().author() != issuer {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Epistemic claim index must be authored by the credential issuer".into(),
+                ));
+            }
+        }
+        LinkTypes::DomainToDidVerification
+        | LinkTypes::ImportToCredential
+        | LinkTypes::RevocationRegistryToCredential => {
+            // These indexes are defined for bridge/future workflows whose
+            // target-specific authority is not currently exercised by the
+            // coordinator. Keep creation permissive, but make the indexes
+            // append-only below so canonical history cannot be hidden.
+        }
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
 // ============================================================================
 // Validation
 // ============================================================================
@@ -633,35 +733,23 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink { link_type, tag, .. } => {
+        FlatOp::RegisterCreateLink {
+            base_address: _,
+            target_address,
+            link_type,
+            tag,
+            action,
+        } => {
             if tag.0.len() > 1024 {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Link tag exceeds maximum length of 1024 bytes".into(),
                 ));
             }
-            match link_type {
-                LinkTypes::InstitutionToCredential => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::SubjectToCredential => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::DomainToDidVerification => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::CredentialToRevocation => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::ImportToCredential => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::RevocationRegistryToCredential => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::CredentialToEpistemicClaim => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::SubjectToEpistemicClaim => Ok(ValidateCallbackResult::Valid),
-            }
+            validate_education_link(link_type, &target_address, &action)
         }
-        FlatOp::RegisterDeleteLink {
-            original_action,
-            action,
-            ..
-        } => {
-            if action.author != original_action.author {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Only the link creator can delete their links".into(),
-                ));
-            }
-            Ok(ValidateCallbackResult::Valid)
-        }
+        FlatOp::RegisterDeleteLink { .. } => Ok(ValidateCallbackResult::Invalid(
+            "Education credential and claim indexes cannot be deleted".into(),
+        ))
         FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterUpdate(update) => {
