@@ -699,10 +699,71 @@ fn validate_create_recovery_config(
 /// crate's `FlatOp::RegisterUpdate` arm in `validate()` (checks
 /// `original.action().author() == action.author` for every entry type), so
 /// this function only needs to check content invariants, not identity.
+fn latest_recovery_state_action(
+    author: AgentPubKey,
+    chain_top: ActionHash,
+    entry_type: UnitEntryTypes,
+) -> ExternResult<Option<ActionHash>> {
+    let activity = must_get_agent_activity(author, ChainFilter::new(chain_top))?;
+    let entry_type = EntryType::App(AppEntryDef::try_from(entry_type)?);
+    let mut latest: Option<(u32, ActionHash)> = None;
+
+    for item in activity {
+        let prior_action = item.action.action();
+        if prior_action.entry_type() != Some(&entry_type) {
+            continue;
+        }
+        if !matches!(prior_action, Action::Create(_) | Action::Update(_)) {
+            continue;
+        }
+        let candidate = (
+            prior_action.action_seq(),
+            hdi::hash::hash_action(prior_action.clone())?,
+        );
+        if latest.as_ref().is_none_or(|(seq, _)| candidate.0 > *seq) {
+            latest = Some(candidate);
+        }
+    }
+
+    Ok(latest.map(|(_, hash)| hash))
+}
+
+fn validate_recovery_update_targets_latest(
+    action: &Update,
+    entry_type: UnitEntryTypes,
+    label: &str,
+) -> ExternResult<ValidateCallbackResult> {
+    match latest_recovery_state_action(
+        action.author.clone(),
+        action.prev_action.clone(),
+        entry_type,
+    )? {
+        Some(latest_hash) if latest_hash == action.original_action_address => {
+            Ok(ValidateCallbackResult::Valid)
+        }
+        Some(_) => Ok(ValidateCallbackResult::Invalid(format!(
+            "{label} update must target the latest state on the author's source chain"
+        ))),
+        None => Ok(ValidateCallbackResult::Invalid(format!(
+            "{label} update has no prior canonical state"
+        ))),
+    }
+}
+
 fn validate_update_recovery_config(
     action: Update,
     config: RecoveryConfig,
 ) -> ExternResult<ValidateCallbackResult> {
+    match validate_recovery_update_targets_latest(
+        &action,
+        UnitEntryTypes::RecoveryConfig,
+        "Recovery config",
+    )? {
+        ValidateCallbackResult::Valid => {}
+        invalid => return Ok(invalid),
+    }
+
+
     // Validate trustee count (3-7)
     if config.trustees.len() < 3 || config.trustees.len() > 7 {
         return Ok(ValidateCallbackResult::Invalid(
@@ -1115,6 +1176,16 @@ fn validate_update_recovery_request(
     action: Update,
     request: RecoveryRequest,
 ) -> ExternResult<ValidateCallbackResult> {
+    match validate_recovery_update_targets_latest(
+        &action,
+        UnitEntryTypes::RecoveryRequest,
+        "Recovery request",
+    )? {
+        ValidateCallbackResult::Valid => {}
+        invalid => return Ok(invalid),
+    }
+
+
     // Validate DID format
     if !request.did.starts_with("did:mycelix:") {
         return Ok(ValidateCallbackResult::Invalid(
@@ -1375,6 +1446,16 @@ fn validate_update_self_recovery_config(
     action: Update,
     config: SelfRecoveryConfig,
 ) -> ExternResult<ValidateCallbackResult> {
+    match validate_recovery_update_targets_latest(
+        &action,
+        UnitEntryTypes::SelfRecoveryConfig,
+        "Self-recovery config",
+    )? {
+        ValidateCallbackResult::Valid => {}
+        invalid => return Ok(invalid),
+    }
+
+
     let original_record = must_get_valid_record(action.original_action_address.clone())?;
     let original: SelfRecoveryConfig = original_record
         .entry()
@@ -1506,6 +1587,16 @@ fn validate_update_self_recovery_request(
     action: Update,
     request: SelfRecoveryRequest,
 ) -> ExternResult<ValidateCallbackResult> {
+    match validate_recovery_update_targets_latest(
+        &action,
+        UnitEntryTypes::SelfRecoveryRequest,
+        "Self-recovery request",
+    )? {
+        ValidateCallbackResult::Valid => {}
+        invalid => return Ok(invalid),
+    }
+
+
     let original_record = must_get_valid_record(action.original_action_address.clone())?;
     let original: SelfRecoveryRequest = original_record
         .entry()
@@ -1571,6 +1662,17 @@ mod tests {
             Just(VoteDecision::Reject),
             Just(VoteDecision::Abstain),
         ]
+    }
+
+    #[test]
+    fn latest_recovery_state_selector_uses_source_chain_sequence() {
+        let first = ActionHash::from_raw_36(vec![1; 36]);
+        let second = ActionHash::from_raw_36(vec![2; 36]);
+        let selected = vec![(4u32, first), (5u32, second.clone())]
+            .into_iter()
+            .max_by_key(|(seq, _)| *seq)
+            .map(|(_, hash)| hash);
+        assert_eq!(selected, Some(second));
     }
 
     /// Generate a valid trustee list (3-7 unique DID strings).
