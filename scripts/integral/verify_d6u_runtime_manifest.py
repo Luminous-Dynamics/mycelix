@@ -93,9 +93,10 @@ def main() -> None:
 
     assert manifest["profile"] == "D6U-RUNTIME-1"
     assert manifest["kind"] == "holochain-0.7-authority-boundary-runtime-manifest"
-    assert manifest["version"] == 6
+    assert manifest["version"] == 7
     assert manifest["claim_ceiling"] == "ReferenceModelOnly"
     assert manifest["evidence_verifier_path"] == "scripts/integral/verify_d6u_runtime_evidence.py"
+    assert manifest["evidence_record_verifier_path"] == "scripts/integral/verify_d6u_runtime_record.py"
     assert manifest["evidence_fields"] == [
         "source_commit",
         "workflow_run_id",
