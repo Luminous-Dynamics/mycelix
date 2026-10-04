@@ -51,6 +51,14 @@ def verify(c: dict[str, Any], mutation: str, seen: set[str]) -> tuple[str, str]:
         g["available"] = False
     elif mutation == "receipt-substitution":
         r["source_object_digest"] = "sha256:other-source"
+    elif mutation == "receipt-transfer-id-substitution":
+        r["transfer_id"] = "transfer-other"
+    elif mutation == "receipt-resource-substitution":
+        r["resource_id"] = "different-resource"
+    elif mutation == "receipt-subject-substitution":
+        r["subject_id"] = "did:example:other-subject"
+    elif mutation == "receipt-gateway-profile-substitution":
+        r["gateway_profile_id"] = "other-gateway-profile"
     elif mutation == "receipt-expired":
         r["expires_at_unix"] = f["now_unix"]
     elif mutation == "receipt-policy-substitution":
@@ -110,16 +118,33 @@ def verify(c: dict[str, Any], mutation: str, seen: set[str]) -> tuple[str, str]:
     if i["transfer_id"] in seen:
         return deny("replay-or-duplicate-transfer")
 
-    if r["source_object_digest"] != i["source_object_digest"]:
-        return deny("source-object-digest-substitution")
-    if r["output_payload_digest"] != t["output_payload_digest"]:
-        return deny("output-digest-substitution")
-    if r["transform_digest"] != t["transform_digest"]:
-        return deny("transform-digest-mismatch")
-    if r["source_policy_version"] != i["source_policy_version"] or r["destination_policy_version"] != i["destination_policy_version"]:
-        return deny("receipt-policy-substitution")
-    if r["release_profile_id"] != p["release_profile_id"]:
-        return deny("receipt-substitution")
+    # The receipt is evidence about exactly one transfer. Every
+    # security-relevant identity/context value must match the intent,
+    # transform, destination, and selected gateway profile.
+    receipt_bindings = {
+        "transfer_id": i["transfer_id"],
+        "source_security_domain": i["source_security_domain"],
+        "destination_security_domain": i["destination_security_domain"],
+        "resource_id": d["resource_id"],
+        "subject_id": i["subject_id"],
+        "source_object_digest": i["source_object_digest"],
+        "output_payload_digest": t["output_payload_digest"],
+        "transform_digest": t["transform_digest"],
+        "classification_state": i["classification_state"],
+        "compartment": i["compartment"],
+        "releasability_profile": i["releasability_profile"],
+        "export_control_profile": i["export_control_profile"],
+        "authorization_basis": i["authorization_basis"],
+        "source_policy_version": i["source_policy_version"],
+        "destination_policy_version": i["destination_policy_version"],
+        "purpose": i["purpose"],
+        "release_profile_id": p["release_profile_id"],
+        "gateway_profile_id": g["profile_id"],
+    }
+    for field, expected in receipt_bindings.items():
+        if r.get(field) != expected:
+            return deny("receipt-binding-mismatch:" + field)
+
     if r["expires_at_unix"] <= f["now_unix"] or f["now_unix"] - r["issued_at_unix"] > p["max_receipt_age_seconds"]:
         return deny("receipt-expired")
 
