@@ -85,6 +85,8 @@ For the bridge hand-off, the authority-freshness commitment should be the existi
 
 Only after this chain is established may the bridge kernel receive trusted verification evidence.
 
+The bridge authorization result is intentionally failure-only: `AuthorizationDecision` can express `Deny` or `Indeterminate`, but not `Allow`. Successful authorization crosses the boundary as an opaque `AuthorizationPermit`; an `Allow` value exists only in `SecurityEventDecision` for audit records created from a live enforcement hand-off.
+
 The bridge binding is derived deterministically from that stable freshness commitment. The `mycelix-bridge-common::authority_binding_from_freshness_digest` helper is private to `security_kernel` so the derivation domain is not part of the bridge's crate-wide API; it commits the authority-binding domain separator, the bridge's pinned canonical freshness protocol/profile, and the exact `CurrentAuthorityFreshness.freshness_digest`. The protocol/profile are not caller-supplied, preventing an adapter from accidentally interpreting a digest under a different freshness identity scheme. The helper does not include `verified_at_ms`, `lease_until_ms`, transport metadata, or other dynamic proof fields.
 
 Therefore:
