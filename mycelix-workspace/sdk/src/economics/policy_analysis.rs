@@ -8,6 +8,7 @@
 
 use super::{
     metabolic_oracle::PolicyAdjustment,
+    model_provenance::EconomicModelProvenance,
     scenario::{EconomicPolicyScenario, EconomicScenarioBinding},
 };
 use serde::{Deserialize, Serialize};
@@ -54,8 +55,11 @@ pub struct EconomicPolicyAnalysis {
     pub policy_profile_ref: String,
     /// Exact profile content identity.
     pub policy_profile_fingerprint: String,
-    /// Cognitive/reasoning engine identifier and version.
+    /// Legacy/stable model identifier retained for migration compatibility.
     pub model_ref: String,
+    /// Structured model provenance when the producer can disclose it.
+    #[serde(default)]
+    pub model_provenance: Option<EconomicModelProvenance>,
     /// Observation IDs considered by the analysis.
     pub observation_refs: Vec<String>,
     /// Identity of the observation snapshot used by the model.
@@ -151,6 +155,13 @@ impl EconomicPolicyAnalysis {
                 return Err(
                     "Economic policy analysis cannot reference itself as an alternative".into(),
                 );
+            }
+        }
+
+        if let Some(provenance) = &self.model_provenance {
+            provenance.validate()?;
+            if provenance.model_ref != self.model_ref {
+                return Err("Economic policy analysis model reference does not match structured provenance".into());
             }
         }
 
@@ -275,11 +286,12 @@ impl EconomicPolicyAnalysis {
         rationale_refs.sort();
 
         let payload = serde_json::json!({
-            "version": 2,
+            "version": 3,
             "analysis_id": self.analysis_id,
             "policy_profile_ref": self.policy_profile_ref,
             "policy_profile_fingerprint": self.policy_profile_fingerprint,
             "model_ref": self.model_ref,
+            "model_provenance": self.model_provenance,
             "observation_refs": observation_refs,
             "observation_snapshot_fingerprint": self.observation_snapshot_fingerprint,
             "scenario": self.scenario,
@@ -311,6 +323,7 @@ mod tests {
             policy_profile_ref: "profile:za:v1".into(),
             policy_profile_fingerprint: "a".repeat(64),
             model_ref: "symthaea:economic:2026-10".into(),
+            model_provenance: None,
             observation_refs: vec!["observation:capacity", "observation:price"]
                 .into_iter()
                 .map(str::to_string)
