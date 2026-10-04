@@ -712,23 +712,25 @@ check_semantic_case_entrypoints() {
 # from drifting away from the validator it claims to witness.
 check_semantic_case_integrity_bindings() {
   local manifest="mycelix-workspace/mycelix-hearth/tests/hearth-07-semantic-validation-cases.json"
-  local ids tests zomes operations invariants surfaces results
-  mapfile -t ids < <(sed -n 's/^[[:space:]]*"case_id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest")
-  mapfile -t tests < <(sed -n 's/^[[:space:]]*"test"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest")
-  mapfile -t zomes < <(sed -n 's/^[[:space:]]*"zome"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest")
-  mapfile -t operations < <(sed -n 's/^[[:space:]]*"operation"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest")
-  mapfile -t invariants < <(sed -n 's/^[[:space:]]*"invariant"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest")
+  local ids tests zomes operations invariants surfaces results validator_sources validator_symbols
+  mapfile -t ids < <(sed -n 's/^[[:space:]]*"case_id"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
+  mapfile -t tests < <(sed -n 's/^[[:space:]]*"test"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
+  mapfile -t zomes < <(sed -n 's/^[[:space:]]*"zome"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
+  mapfile -t operations < <(sed -n 's/^[[:space:]]*"operation"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
+  mapfile -t invariants < <(sed -n 's/^[[:space:]]*"invariant"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
   mapfile -t surfaces < <(sed -n 's/^[[:space:]]*"operation_surface"[[:space:]]*:[[:space:]]*\[\([^]]*\)\].*/\1/p' "$manifest")
-  mapfile -t results < <(sed -n 's/^[[:space:]]*"expected_result"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest")
+  mapfile -t results < <(sed -n 's/^[[:space:]]*"expected_result"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
+  mapfile -t validator_sources < <(sed -n 's/^[[:space:]]*"validator_source"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
+  mapfile -t validator_symbols < <(sed -n 's/^[[:space:]]*"validator_symbol"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
 
   local count="${#ids[@]}"
-  if [[ "$count" -eq 0 || "$count" -ne "${#tests[@]}" || "$count" -ne "${#zomes[@]}" || "$count" -ne "${#operations[@]}" || "$count" -ne "${#invariants[@]}" || "$count" -ne "${#surfaces[@]}" || "$count" -ne "${#results[@]}" ]]; then
+  if [[ "$count" -eq 0 || "$count" -ne "${#tests[@]}" || "$count" -ne "${#zomes[@]}" || "$count" -ne "${#operations[@]}" || "$count" -ne "${#invariants[@]}" || "$count" -ne "${#surfaces[@]}" || "$count" -ne "${#results[@]}" || "$count" -ne "${#validator_sources[@]}" || "$count" -ne "${#validator_symbols[@]}" ]]; then
     echo "FAIL: semantic manifest fields are not structurally aligned"
     fail=1
     return
   fi
 
-  local i id zome operation invariant expected_result surface integrity_file
+  local i id zome operation invariant expected_result surface integrity_file validator_source validator_symbol
   for i in "${!ids[@]}"; do
     id="${ids[$i]}"
     zome="${zomes[$i]}"
@@ -736,12 +738,41 @@ check_semantic_case_integrity_bindings() {
     invariant="${invariants[$i]}"
     expected_result="${results[$i]}"
     surface="${surfaces[$i]}"
+    validator_source="${validator_sources[$i]}"
+    validator_symbol="${validator_symbols[$i]}"
     integrity_file="mycelix-workspace/mycelix-hearth/zomes/${zome//_/-}/integrity/src/lib.rs"
 
     if [[ ! -f "$integrity_file" ]]; then
       echo "FAIL: $id references missing integrity source: $integrity_file"
       fail=1
       continue
+    fi
+    if [[ ! -f "$validator_source" ]]; then
+      echo "FAIL: $id references missing validator source: $validator_source"
+      fail=1
+    else
+      echo "OK:   $id declares validator source $validator_source"
+      if rg -n --pcre2 "^[[:space:]]*(?:pub[[:space:]]+)?fn[[:space:]]+${validator_symbol}[[:space:]]*\\(" "$validator_source" >/dev/null 2>&1; then
+        echo "OK:   $id validator symbol $validator_symbol is defined in declared source"
+      else
+        echo "FAIL: $id validator symbol $validator_symbol is not defined in declared source"
+        fail=1
+      fi
+      if rg -n --fixed-strings "$invariant" "$validator_source" >/dev/null 2>&1; then
+        echo "OK:   $id invariant is present in declared validator source"
+      else
+        echo "FAIL: $id invariant is absent from declared validator source: $invariant"
+        fail=1
+      fi
+    fi
+
+    if [[ "$validator_source" != "$integrity_file" ]]; then
+      if rg -n --pcre2 "\\b${validator_symbol}[[:space:]]*\\(" "$integrity_file" >/dev/null 2>&1; then
+        echo "OK:   $id integrity dispatcher invokes declared shared validator $validator_symbol"
+      else
+        echo "FAIL: $id integrity dispatcher does not invoke declared shared validator $validator_symbol"
+        fail=1
+      fi
     fi
 
     if [[ "$expected_result" != "Invalid" ]]; then
@@ -751,40 +782,17 @@ check_semantic_case_integrity_bindings() {
       echo "OK:   $id declares expected validation result Invalid"
     fi
 
-    if rg -n --fixed-strings "$invariant" "$integrity_file" >/dev/null 2>&1 || [[ "$id" == "SEM-05" && "$invariant" == "source_cluster cannot be empty" ]] && rg -n --fixed-strings "validate_notification(&notification)" "$integrity_file" >/dev/null 2>&1; then
-      echo "OK:   $id invariant is present in integrity source"
-    else
-      echo "FAIL: $id invariant is absent from integrity source: $invariant"
-      fail=1
-    fi
-
     for declared_surface in ${surface//,/ }; do
       declared_surface="${declared_surface//\"/}"
       declared_surface="${declared_surface//[[:space:]]/}"
       case "$declared_surface" in
-        CreateEntry)
-          pattern='FlatOp::CreateEntry'
-          ;;
-        CreateRecord)
-          pattern='FlatOp::CreateRecord'
-          ;;
-        Update)
-          pattern='FlatOp::Update'
-          ;;
-        Delete)
-          pattern='FlatOp::Delete'
-          ;;
-        Link.CreateLink)
-          pattern='FlatOp::Link(OpLink::CreateLink'
-          ;;
-        Link.DeleteLink)
-          pattern='FlatOp::Link(link @ OpLink::DeleteLink'
-          ;;
-        *)
-          echo "FAIL: $id contains unknown operation surface: $declared_surface"
-          fail=1
-          continue
-          ;;
+        CreateEntry) pattern='FlatOp::CreateEntry' ;;
+        CreateRecord) pattern='FlatOp::CreateRecord' ;;
+        Update) pattern='FlatOp::Update' ;;
+        Delete) pattern='FlatOp::Delete' ;;
+        Link.CreateLink) pattern='FlatOp::Link(OpLink::CreateLink' ;;
+        Link.DeleteLink) pattern='FlatOp::Link(link @ OpLink::DeleteLink' ;;
+        *) echo "FAIL: $id contains unknown operation surface: $declared_surface"; fail=1; continue ;;
       esac
       if rg -n --fixed-strings "$pattern" "$integrity_file" >/dev/null 2>&1; then
         echo "OK:   $id declares operation surface $declared_surface present in integrity source"
@@ -795,7 +803,6 @@ check_semantic_case_integrity_bindings() {
     done
   done
 }
-
 # Dependency retrieval semantics: must_get_action only proves retrieval; it does not prove
 # that the referenced record passed application validation. Update/delete authorization
 # therefore uses must_get_valid_record before trusting the referenced author. Valid-record
