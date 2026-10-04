@@ -35,6 +35,11 @@ The boundary matching tolerance is recorded as part of the realized-boundary
 identity. The current connectivity default is 50 micrometers (0.05 mm), and
 provenance consumers must not silently substitute a different tolerance.
 
+The recommended pre-dispatch gate validates the complete binding set against one
+semantic candidate geometry digest and one exact candidate mesh before a solver
+adapter is allowed to proceed. This makes candidate drift an explicit provenance
+failure, not a convention left to individual callers.
+
 The mesh-side boundary selection represents the typed interface rim on the
 candidate surface. It is distinct from the solver's own face/patch topology;
 the opaque external solver handle records that separate adapter mapping.
