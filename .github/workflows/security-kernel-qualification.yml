@@ -490,7 +490,9 @@ jobs:
             fi
           done
 
-          if ! grep -nzE '#\\[must_use[[:space:]]*=[[:space:]]*"verified capabilities must be passed to authorize_permit"\\]\\s*pub struct VerifiedCapability' crates/mycelix-bridge-common/src/security_kernel.rs; then
+          must_use_line="$(grep -nF '#[must_use = "verified capabilities must be passed to authorize_permit"]' crates/mycelix-bridge-common/src/security_kernel.rs | cut -d: -f1 | head -n1)"
+          verified_capability_line="$(grep -nF 'pub struct VerifiedCapability {' crates/mycelix-bridge-common/src/security_kernel.rs | cut -d: -f1 | head -n1)"
+          if [[ -z "$must_use_line" || -z "$verified_capability_line" || "$must_use_line" -ge "$verified_capability_line" ]]; then
             echo "security-kernel regression: VerifiedCapability lost its compiler-visible must-use boundary" >&2
             exit 1
           fi
