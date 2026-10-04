@@ -10,8 +10,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
-  attestations: write
 
 concurrency:
   group: d6u-runtime-reference-${{ github.head_ref || github.ref_name }}
@@ -209,8 +207,7 @@ PY
             echo "workflow_run_attempt=${{ github.run_attempt }}"
             echo "workflow_execution_commit_sha=${{ github.workflow_sha }}"
             echo "workflow_execution_ref=${{ github.workflow_ref }}"
-            echo "signer_workflow_digest=${{ github.workflow_sha }}"
-            echo "attestation_source_digest=${{ github.sha }}"
+            echo "attestation_status=deferred-to-trusted-builder"
             echo "workflow_sha=$(git hash-object ../.github/workflows/d6u-runtime-qualification.yml)"
             echo "d6s2_manifest_git_blob_sha=$(git hash-object ../docs/integral/d6s-canon-2-manifest.json)"
             echo "d6s2_fixture_git_blob_sha=$(git hash-object ../docs/integral/d6s-canon-2-authority-boundary-fixture.json)"
@@ -269,32 +266,9 @@ PY
             exit 1
           fi
 
-      - name: Attest runtime evidence
+      - name: Mark attestation as deferred to trusted builder
         if: success()
-        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
-        with:
-          subject-path: |
-            d6u-runtime-harness/d6u-runtime-evidence.txt
-            d6u-runtime-harness/d6u-runtime-test.log
-            d6u-runtime-harness/Cargo.lock
-
-      - name: Verify runtime evidence attestations
-        if: success()
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          for subject in \
-            d6u-runtime-harness/d6u-runtime-evidence.txt \
-            d6u-runtime-harness/d6u-runtime-test.log \
-            d6u-runtime-harness/Cargo.lock; do
-            gh attestation verify "$subject" \
-              --repo "$GITHUB_REPOSITORY" \
-              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/d6u-runtime-qualification.yml" \
-              --signer-digest "$GITHUB_WORKFLOW_SHA" \
-              --source-digest "$GITHUB_SHA" \
-              --deny-self-hosted-runners
-          done
+        run: echo "attestation is intentionally deferred from this PR-controlled workflow"
 
       - name: Upload runtime evidence
         if: always()
