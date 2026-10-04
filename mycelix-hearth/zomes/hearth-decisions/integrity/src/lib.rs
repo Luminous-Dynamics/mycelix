@@ -67,6 +67,12 @@ pub struct Vote {
 pub struct DecisionOutcome {
     /// The decision this outcome is for.
     pub decision_hash: ActionHash,
+    /// Exact Decision action/version observed and finalized.
+    ///
+    /// Optional only for legacy outcomes created before AC-072. New outcomes
+    /// must contain the exact finalization basis and are rejected otherwise.
+    #[serde(default)]
+    pub finalization_basis_action: Option<ActionHash>,
     /// The Holochain agent that authored the resolution action.
     ///
     /// Optional only for legacy outcomes created before AC-068. New outcomes
@@ -133,7 +139,8 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             }
             EntryTypes::DecisionOutcome(outcome) => {
                 validate_outcome(&outcome)?;
-                validate_outcome_author(&outcome, &action.author())
+                validate_outcome_author(&outcome, &action.author())?;
+                validate_outcome_basis(&outcome)
             }
         },
         FlatOp::StoreEntry(OpEntry::UpdateEntry {
@@ -243,6 +250,67 @@ fn validate_outcome_author(
     Ok(ValidateCallbackResult::Valid)
 }
 
+/// Bind a new DecisionOutcome to the exact Decision action/version it resolved.
+///
+/// The basis must be a valid Decision record whose update lineage terminates at the
+/// same root Decision action named by decision_hash. Only an Open basis may produce
+/// a new outcome. Legacy outcomes without a basis remain readable as unknown.
+fn validate_outcome_basis(outcome: &DecisionOutcome) -> ExternResult<ValidateCallbackResult> {
+    let basis = match &outcome.finalization_basis_action {
+        Some(basis) => basis.clone(),
+        None => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "New DecisionOutcome must contain a finalization basis".into(),
+            ));
+        }
+    };
+
+    let basis_record = must_get_valid_record(basis.clone())?;
+    let basis_decision: Decision = basis_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Failed to deserialize finalization basis Decision: {e}"
+            )))
+        })?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Finalization basis does not reference a Decision entry".into()
+        )))?;
+
+    if basis_decision.status != DecisionStatus::Open {
+        return Ok(ValidateCallbackResult::Invalid(
+            "New DecisionOutcome finalization basis must reference an Open Decision".into(),
+        ));
+    }
+
+    // Walk the immutable update lineage back to its creation action. Each Update
+    // names its immediate predecessor, so the root is bound to decision_hash.
+    let mut cursor = basis.clone();
+    loop {
+        let action = must_get_action(cursor.clone())?;
+        match action.action() {
+            Action::Create(_) => {
+                if cursor != outcome.decision_hash {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "DecisionOutcome finalization basis belongs to a different Decision lineage".into(),
+                    ));
+                }
+                break;
+            }
+            Action::Update(update) => {
+                cursor = update.original_action_address.clone();
+            }
+            _ => {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "DecisionOutcome finalization basis must resolve through Decision Create/Update actions".into(),
+                ));
+            }
+        }
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
 pub fn validate_decision(decision: &Decision) -> ExternResult<ValidateCallbackResult> {
     if decision.title.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
@@ -516,6 +584,7 @@ mod tests {
     fn make_outcome(chosen: u32, participation_bp: u32) -> DecisionOutcome {
         DecisionOutcome {
             decision_hash: fake_action_hash(),
+            finalization_basis_action: Some(fake_action_hash()),
             resolved_by: Some(fake_agent()),
             chosen_option: chosen,
             participation_rate_bp: participation_bp,
@@ -572,6 +641,20 @@ mod tests {
     }
 
     // ---- Decision Validation ----
+
+    #[test]
+    fn outcome_finalization_basis_legacy_field_defaults_to_unknown() {
+        let o = make_outcome(0, 5000);
+        assert_eq!(o.finalization_basis_action, Some(fake_action_hash()));
+
+        let mut json_val: serde_json::Value = serde_json::to_value(&o).unwrap();
+        json_val
+            .as_object_mut()
+            .unwrap()
+            .remove("finalization_basis_action");
+        let legacy: DecisionOutcome = serde_json::from_value(json_val).unwrap();
+        assert_eq!(legacy.finalization_basis_action, None);
+    }
 
     #[test]
     fn valid_decision_passes() {
@@ -953,6 +1036,7 @@ mod tests {
     fn outcome_with_quorum_serde_roundtrip() {
         let o = DecisionOutcome {
             decision_hash: fake_action_hash(),
+            finalization_basis_action: Some(fake_action_hash()),
             chosen_option: 1,
             participation_rate_bp: 8500,
             resolved_at: fake_timestamp(),
