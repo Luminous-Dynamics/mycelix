@@ -138,7 +138,8 @@
       "time_appraisal.status",
       "time_appraisal.output_sha256",
       "time_appraisal.source_sha256",
-      "time_appraisal.registry_sha256"
+      "time_appraisal.registry_sha256",
+      "time_appraisal.input_sha256"
     ],
     "session_binding": "The session_binding_sha256 covers the session/boot/TPM/EK/event-log/PCR selection/challenge/AK/toolchain/reference/trusted-time/reconstruction result, exact reconstruction input digest, verifier identifier, verifier source digest, and platform/workload inputs in canonical form.",
     "canonical_json": "Manifest semantic hashing uses UTF-8 JSON with sorted keys and no insignificant whitespace."
