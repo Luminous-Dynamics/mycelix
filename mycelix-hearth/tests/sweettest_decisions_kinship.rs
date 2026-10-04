@@ -912,8 +912,7 @@ async fn test_concurrent_finalization_canonical_outcome() {
             "get_decision",
             decision_hash.clone(),
         )
-        .await
-        .expect("get_decision should return a current Decision record");
+        .await;
     let current_decision: Decision = current
         .entry()
         .to_app_option()
