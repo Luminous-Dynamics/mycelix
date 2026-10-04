@@ -155,5 +155,6 @@
     "scripts/integral/verify_d6u_runtime_record.py": "1587b0d02e3fde30a112069af24b22d58cb74027",
     "docs/integral/d6s-canon-2-manifest.json": "4353b9aed545c7762d6f8f73bc551e4c008271a9",
     "docs/integral/d6s-canon-2-authority-boundary-fixture.json": "0b4c5b924bc3b807c556ef92cc869d66f7cc97a1"
-  }
+  },
+  "origin_policy": "same-repository-only"
 }
