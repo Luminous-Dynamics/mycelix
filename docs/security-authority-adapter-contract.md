@@ -99,6 +99,8 @@ This wrapper is not a second authority identity. The authoritative semantic iden
 
 ## Fail-closed rules
 
+Legacy offline credential state, self-reported freshness, or an unverified freshness attestation is presented as a substitute for the authoritative current-generation freshness record.
+
 The adapter must return no positive current-authority evidence when:
 
 - the issuer key is not authorized for the required institutional authority;
