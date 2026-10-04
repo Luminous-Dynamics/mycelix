@@ -427,7 +427,7 @@ mod linux {
     use super::*;
 
     #[repr(C)]
-    #[derive(Clone, Copy)]
+    #[derive(Clone, Copy, PartialEq, Eq)]
     struct SockFilter {
         code: u16,
         jt: u8,
@@ -1016,6 +1016,7 @@ mod linux {
             return Err(SeccompError::CompilerInvariantViolation);
         }
         validate_compiled_filter(&filter)?;
+        validate_v2_compiled_semantics(policy, &filter)?;
         Ok(filter)
     }
 
@@ -1076,6 +1077,280 @@ mod linux {
         }
         validate_compiled_filter(&filter)?;
         Ok(filter)
+    }
+
+    fn validate_v2_compiled_semantics(
+        policy: &SeccompSyscallPolicyV2,
+        filter: &[SockFilter],
+    ) -> Result<(), SeccompError> {
+        if SeccompArchitecture::current() != Some(policy.architecture) {
+            return Err(SeccompError::ArchitectureMismatch);
+        }
+
+        let first_rule_index = if policy.architecture == SeccompArchitecture::X86_64 {
+            6usize
+        } else {
+            4usize
+        };
+        let mut dispatch_indices = Vec::with_capacity(policy.rules.len());
+        let mut dispatch_index = first_rule_index;
+        for rule in &policy.rules {
+            let dispatch = filter
+                .get(dispatch_index)
+                .ok_or(SeccompError::CompilerInvariantViolation)?;
+            if dispatch.code != BPF_JMP | BPF_JEQ | BPF_K
+                || dispatch.k != rule.syscall as u32
+                || dispatch.jt != 0
+                || dispatch.jf == 0
+            {
+                return Err(SeccompError::CompilerInvariantViolation);
+            }
+            dispatch_indices.push(dispatch_index);
+            if let Some(next_dispatch_index) = dispatch_indices.last().copied().and_then(|current| {
+                let next = current
+                    .checked_add(1)
+                    .and_then(|pc| pc.checked_add(usize::from(filter[current].jf)))?;
+                (next < filter.len() - 1).then_some(next)
+            }) {
+                dispatch_index = next_dispatch_index;
+            }
+        }
+        if dispatch_indices.len() != policy.rules.len() {
+            return Err(SeccompError::CompilerInvariantViolation);
+        }
+
+        let default_deny_index = filter
+            .len()
+            .checked_sub(1)
+            .ok_or(SeccompError::CompilerInvariantViolation)?;
+
+        let expect = |filter: &[SockFilter], pc: &mut usize, expected: SockFilter| {
+            let actual = filter.get(*pc).copied();
+            if actual != Some(expected) {
+                return Err(SeccompError::CompilerInvariantViolation);
+            }
+            *pc = pc
+                .checked_add(1)
+                .ok_or(SeccompError::CompilerInvariantViolation)?;
+            Ok(())
+        };
+
+        for (rule_index, rule) in policy.rules.iter().enumerate() {
+            let dispatch = dispatch_indices[rule_index];
+            let mut pc = dispatch
+                .checked_add(1)
+                .ok_or(SeccompError::CompilerInvariantViolation)?;
+
+            if !rule.is_disjunctive() {
+                for predicate in rule.predicates() {
+                    let base = 16u32 + u32::from(predicate.arg_index) * 8;
+                    let low_mask = predicate.mask as u32;
+                    let low_value = predicate.value as u32;
+                    let high_mask = (predicate.mask >> 32) as u32;
+                    let high_value = (predicate.value >> 32) as u32;
+
+                    if low_mask != 0 {
+                        expect(
+                            filter,
+                            &mut pc,
+                            stmt(BPF_LD | BPF_W | BPF_ABS, base),
+                        )?;
+                        expect(
+                            filter,
+                            &mut pc,
+                            stmt(BPF_ALU | BPF_AND | BPF_K, low_mask),
+                        )?;
+                        match predicate.op {
+                            SeccompArgPredicateOpV1::MaskedEqual => {
+                                expect(filter, &mut pc, jump_eq(low_value, 1, 0))?;
+                            }
+                            SeccompArgPredicateOpV1::MaskedNotEqual => {
+                                expect(
+                                    filter,
+                                    &mut pc,
+                                    if high_mask != 0 {
+                                        jump_eq(low_value, 0, 4)
+                                    } else {
+                                        jump_eq(low_value, 0, 1)
+                                    },
+                                )?;
+                            }
+                        }
+                        if predicate.op == SeccompArgPredicateOpV1::MaskedEqual
+                            || high_mask == 0
+                        {
+                            expect(
+                                filter,
+                                &mut pc,
+                                stmt(
+                                    BPF_RET | BPF_K,
+                                    SECCOMP_RET_ERRNO | libc::EPERM as u32,
+                                ),
+                            )?;
+                        }
+                    }
+
+                    if high_mask != 0 {
+                        expect(
+                            filter,
+                            &mut pc,
+                            stmt(BPF_LD | BPF_W | BPF_ABS, base + 4),
+                        )?;
+                        expect(
+                            filter,
+                            &mut pc,
+                            stmt(BPF_ALU | BPF_AND | BPF_K, high_mask),
+                        )?;
+                        match predicate.op {
+                            SeccompArgPredicateOpV1::MaskedEqual => {
+                                expect(filter, &mut pc, jump_eq(high_value, 1, 0))?;
+                            }
+                            SeccompArgPredicateOpV1::MaskedNotEqual => {
+                                expect(filter, &mut pc, jump_eq(high_value, 0, 1))?;
+                            }
+                        }
+                        expect(
+                            filter,
+                            &mut pc,
+                            stmt(
+                                BPF_RET | BPF_K,
+                                SECCOMP_RET_ERRNO | libc::EPERM as u32,
+                            ),
+                        )?;
+                    }
+                }
+
+                expect(
+                    filter,
+                    &mut pc,
+                    stmt(BPF_RET | BPF_K, SECCOMP_RET_ALLOW),
+                )?;
+            } else {
+                for clause in &rule.clauses {
+                    for (predicate_index, predicate) in clause.predicates.iter().enumerate() {
+                        let later_in_predicates = clause
+                            .predicates
+                            .iter()
+                            .skip(predicate_index + 1)
+                            .map(disjunctive_predicate_instruction_count)
+                            .sum::<usize>();
+                        let clause_mismatch_skip = u8::try_from(
+                            later_in_predicates
+                                .checked_add(1)
+                                .ok_or(SeccompError::FilterTooLarge)?,
+                        )
+                        .map_err(|_| SeccompError::FilterTooLarge)?;
+
+                        let base = 16u32 + u32::from(predicate.arg_index) * 8;
+                        let low_mask = predicate.mask as u32;
+                        let low_value = predicate.value as u32;
+                        let high_mask = (predicate.mask >> 32) as u32;
+                        let high_value = (predicate.value >> 32) as u32;
+
+                        if low_mask != 0 {
+                            expect(
+                                filter,
+                                &mut pc,
+                                stmt(BPF_LD | BPF_W | BPF_ABS, base),
+                            )?;
+                            expect(
+                                filter,
+                                &mut pc,
+                                stmt(BPF_ALU | BPF_AND | BPF_K, low_mask),
+                            )?;
+                            match predicate.op {
+                                SeccompArgPredicateOpV1::MaskedEqual => {
+                                    let high_tail = if high_mask != 0 { 3 } else { 0 };
+                                    let mismatch_skip = u8::try_from(
+                                        high_tail
+                                            .checked_add(later_in_predicates)
+                                            .and_then(|n| n.checked_add(1))
+                                            .ok_or(SeccompError::FilterTooLarge)?,
+                                    )
+                                    .map_err(|_| SeccompError::FilterTooLarge)?;
+                                    expect(
+                                        filter,
+                                        &mut pc,
+                                        jump_eq(low_value, 0, mismatch_skip),
+                                    )?;
+                                }
+                                SeccompArgPredicateOpV1::MaskedNotEqual => {
+                                    if high_mask != 0 {
+                                        expect(
+                                            filter,
+                                            &mut pc,
+                                            jump_eq(low_value, 0, 3),
+                                        )?;
+                                    } else {
+                                        expect(
+                                            filter,
+                                            &mut pc,
+                                            jump_eq(low_value, clause_mismatch_skip, 0),
+                                        )?;
+                                    }
+                                }
+                            }
+                        }
+
+                        if high_mask != 0 {
+                            expect(
+                                filter,
+                                &mut pc,
+                                stmt(BPF_LD | BPF_W | BPF_ABS, base + 4),
+                            )?;
+                            expect(
+                                filter,
+                                &mut pc,
+                                stmt(BPF_ALU | BPF_AND | BPF_K, high_mask),
+                            )?;
+                            match predicate.op {
+                                SeccompArgPredicateOpV1::MaskedEqual => {
+                                    expect(
+                                        filter,
+                                        &mut pc,
+                                        jump_eq(high_value, 0, clause_mismatch_skip),
+                                    )?;
+                                }
+                                SeccompArgPredicateOpV1::MaskedNotEqual => {
+                                    expect(
+                                        filter,
+                                        &mut pc,
+                                        jump_eq(high_value, clause_mismatch_skip, 0),
+                                    )?;
+                                }
+                            }
+                        }
+                    }
+
+                    expect(
+                        filter,
+                        &mut pc,
+                        stmt(BPF_RET | BPF_K, SECCOMP_RET_ALLOW),
+                    )?;
+                }
+            }
+
+            let expected_next = dispatch_indices
+                .get(rule_index + 1)
+                .copied()
+                .unwrap_or(default_deny_index);
+            if pc != expected_next
+                || filter[dispatch].jf as usize != expected_next - dispatch - 1
+            {
+                return Err(SeccompError::CompilerInvariantViolation);
+            }
+        }
+
+        if filter[default_deny_index]
+            != stmt(
+                BPF_RET | BPF_K,
+                SECCOMP_RET_ERRNO | libc::EPERM as u32,
+            )
+        {
+            return Err(SeccompError::CompilerInvariantViolation);
+        }
+
+        Ok(())
     }
 
     fn seccomp_evidence_digest(
@@ -2747,6 +3022,24 @@ mod linux {
             invalid_predicate_value[arg_load + 2].k = 0x100;
             assert!(matches!(
                 validate_compiled_filter(&invalid_predicate_value),
+                Err(SeccompError::CompilerInvariantViolation)
+            ));
+
+            let mut inverted_predicate = compile_filter_v2(&predicate_policy).unwrap();
+            inverted_predicate[arg_load + 2] = jump_eq(
+                libc::AF_UNIX as u32,
+                0,
+                1,
+            );
+            assert!(matches!(
+                validate_v2_compiled_semantics(&predicate_policy, &inverted_predicate),
+                Err(SeccompError::CompilerInvariantViolation)
+            ));
+
+            let mut wrong_argument = compile_filter_v2(&predicate_policy).unwrap();
+            wrong_argument[arg_load].k = 24;
+            assert!(matches!(
+                validate_v2_compiled_semantics(&predicate_policy, &wrong_argument),
                 Err(SeccompError::CompilerInvariantViolation)
             ));
 
