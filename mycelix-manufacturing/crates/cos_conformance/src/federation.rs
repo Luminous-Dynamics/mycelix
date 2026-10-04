@@ -2639,8 +2639,9 @@ mod tests {
                         mode: RecognitionMode::EvidenceOnly,
                     };
                     let _ = state.try_add_recognition(edge.clone()).unwrap();
+                    let before_duplicate = canonical_state_fingerprint(&state);
                     assert_eq!(state.try_add_recognition(edge), Ok(false));
-                    assert_eq!(canonical_state_fingerprint(&state), before);
+                    assert_eq!(canonical_state_fingerprint(&state), before_duplicate);
                 }
                 FederationStateMachineOperation::RecordObservation => {
                     let observation = ObservationRecord {
@@ -2716,11 +2717,12 @@ mod tests {
                         admitted.push(candidate);
                     }
                     let candidate = admitted.first().cloned().unwrap();
+                    let before_replay = canonical_state_fingerprint(&state);
                     let outcome = deliver(&mut state, &candidate, 100, true);
                     assert_eq!(outcome.decision(), FederationDecision::Duplicate);
                     decision = Some(outcome.decision());
                     authority = Some(outcome.authority());
-                    assert_eq!(canonical_state_fingerprint(&state), before);
+                    assert_eq!(canonical_state_fingerprint(&state), before_replay);
                 }
                 FederationStateMachineOperation::RetryExisting => {
                     if admitted.is_empty() {
@@ -2757,11 +2759,12 @@ mod tests {
                     let candidate = admitted.first().cloned().unwrap();
                     let mut rebound = candidate.clone();
                     rebound.envelope_id = format!("sm-rebound-envelope-{token}");
+                    let before_rebind = canonical_state_fingerprint(&state);
                     let outcome = deliver(&mut state, &rebound, 100, true);
                     assert_eq!(outcome.decision(), FederationDecision::AttemptConflict);
                     decision = Some(outcome.decision());
                     authority = Some(outcome.authority());
-                    assert_eq!(canonical_state_fingerprint(&state), before);
+                    assert_eq!(canonical_state_fingerprint(&state), before_rebind);
                 }
                 FederationStateMachineOperation::AdmitForeign => {
                     let mut candidate = state_machine_envelope(operation, token);
@@ -2904,6 +2907,7 @@ mod tests {
                     }
                     let mut candidate = admitted.first().cloned().unwrap();
                     candidate.payload_commitment = format!("sha256:conflict-{token}");
+                    let before_conflict = canonical_state_fingerprint(&state);
                     let outcome = deliver(&mut state, &candidate, 100, true);
                     assert_eq!(
                         outcome.decision(),
@@ -2911,7 +2915,7 @@ mod tests {
                     );
                     decision = Some(outcome.decision());
                     authority = Some(outcome.authority());
-                    assert_eq!(canonical_state_fingerprint(&state), before);
+                    assert_eq!(canonical_state_fingerprint(&state), before_conflict);
                 }
             }
 
