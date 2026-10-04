@@ -389,7 +389,17 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             ))
         }
         FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::RegisterAgentActivity(activity) => match activity {
+            OpActivity::CreateEntry {
+                app_entry_type: Some(UnitEntryTypes::VerifiableCredential),
+                action,
+            } => validate_credential_id_chain_uniqueness(action),
+            OpActivity::CreateEntry {
+                app_entry_type: Some(UnitEntryTypes::CredentialRequest),
+                action,
+            } => validate_request_id_chain_uniqueness(action),
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
         FlatOp::RegisterUpdate(update) => match update {
             OpUpdate::Entry {
                 app_entry,
@@ -623,6 +633,93 @@ fn require_issuer_is_author(issuer_did: &str, author_did: &str) -> ValidateCallb
         ));
     }
     ValidateCallbackResult::Valid
+}
+
+fn validate_credential_id_chain_uniqueness(
+    action: Create,
+) -> ExternResult<ValidateCallbackResult> {
+    let current_entry = must_get_entry(action.entry_hash.clone())?;
+    let current: VerifiableCredential = current_entry.try_into().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "VerifiableCredential entry could not be decoded: {e}"
+        )))
+    })?;
+
+    let activity = must_get_agent_activity(
+        action.author.clone(),
+        ChainFilter::new(action.prev_action.clone()),
+    )?;
+    let entry_type =
+        EntryType::App(AppEntryDef::try_from(UnitEntryTypes::VerifiableCredential)?);
+
+    for prior in activity {
+        let prior_action = prior.action.action();
+        let Action::Create(prior_create) = prior_action else {
+            continue;
+        };
+        if prior_create.entry_type != entry_type {
+            continue;
+        }
+
+        let prior_entry = must_get_entry(prior_create.entry_hash.clone())?;
+        let prior: VerifiableCredential = prior_entry.try_into().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Credential ID history entry could not be decoded: {e}"
+            )))
+        })?;
+
+        if prior.id == current.id {
+            return Ok(ValidateCallbackResult::Invalid(
+                "A credential ID may only have one creation on an issuer source chain".into(),
+            ));
+        }
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_request_id_chain_uniqueness(
+    action: Create,
+) -> ExternResult<ValidateCallbackResult> {
+    let current_entry = must_get_entry(action.entry_hash.clone())?;
+    let current: CredentialRequest = current_entry.try_into().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "CredentialRequest entry could not be decoded: {e}"
+        )))
+    })?;
+
+    let activity = must_get_agent_activity(
+        action.author.clone(),
+        ChainFilter::new(action.prev_action.clone()),
+    )?;
+    let entry_type =
+        EntryType::App(AppEntryDef::try_from(UnitEntryTypes::CredentialRequest)?);
+
+    for prior in activity {
+        let prior_action = prior.action.action();
+        let Action::Create(prior_create) = prior_action else {
+            continue;
+        };
+        if prior_create.entry_type != entry_type {
+            continue;
+        }
+
+        let prior_entry = must_get_entry(prior_create.entry_hash.clone())?;
+        let prior: CredentialRequest = prior_entry.try_into().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Credential request ID history entry could not be decoded: {e}"
+            )))
+        })?;
+
+        if prior.id == current.id {
+            return Ok(ValidateCallbackResult::Invalid(
+                "A credential request ID may only have one creation on a requester source chain"
+                    .into(),
+            ));
+        }
+    }
+
+    Ok(ValidateCallbackResult::Valid)
 }
 
 /// Validate verifiable credential creation
