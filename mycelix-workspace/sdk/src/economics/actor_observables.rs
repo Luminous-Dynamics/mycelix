@@ -100,6 +100,12 @@ pub struct ActorEconomicObservables {
     /// Signed non-cash revaluation of monetary-valued real assets during the period.
     #[serde(default)]
     pub real_asset_revaluation: i128,
+    /// Signed revaluation attributed specifically to productive capital.
+    #[serde(default)]
+    pub productive_capital_revaluation: i128,
+    /// Signed revaluation attributed specifically to inventory carrying value.
+    #[serde(default)]
+    pub inventory_carrying_value_revaluation: i128,
 }
 
 impl ActorEconomicObservables {
@@ -305,11 +311,28 @@ impl ActorEconomicObservables {
                 }
                 EconomicTransition::RealAssetRevaluation(revaluation) => {
                     ensure_actor(&revaluation.actor)?;
+                    let observation = observations.get_mut(&revaluation.actor).unwrap();
                     add_checked(
-                        &mut observations.get_mut(&revaluation.actor).unwrap().real_asset_revaluation,
+                        &mut observation.real_asset_revaluation,
                         revaluation.amount,
                         "actor real-asset revaluation",
                     )?;
+                    match revaluation.target {
+                        super::stock_flow::RealAssetRevaluationTarget::ProductiveCapital => {
+                            add_checked(
+                                &mut observation.productive_capital_revaluation,
+                                revaluation.amount,
+                                "actor productive-capital revaluation",
+                            )?;
+                        }
+                        super::stock_flow::RealAssetRevaluationTarget::InventoryCarryingValue => {
+                            add_checked(
+                                &mut observation.inventory_carrying_value_revaluation,
+                                revaluation.amount,
+                                "actor inventory carrying-value revaluation",
+                            )?;
+                        }
+                    }
                 }
                 EconomicTransition::MonetaryTransfer(flow) => {
                     ensure_actor(&flow.from)?;
@@ -632,6 +655,40 @@ fn affected_actors(transition: &EconomicTransition) -> Vec<ActorId> {
     };
     ids.dedup();
     ids
+    #[test]
+    fn actor_revaluation_preserves_target_specific_signed_components() {
+        let mut firm = ActorBalanceSheet::new("firm");
+        firm.real.productive_capital = 100;
+        firm.real.inventories = 10;
+        firm.inventory_carrying_value = 100;
+        let state = EconomicState::new(vec![firm]);
+        let transitions = vec![
+            EconomicTransition::RealAssetRevaluation(
+                crate::economics::stock_flow::RealAssetRevaluation::new(
+                    "firm",
+                    crate::economics::stock_flow::RealAssetRevaluationTarget::ProductiveCapital,
+                    50,
+                )
+                .unwrap(),
+            ),
+            EconomicTransition::RealAssetRevaluation(
+                crate::economics::stock_flow::RealAssetRevaluation::new(
+                    "firm",
+                    crate::economics::stock_flow::RealAssetRevaluationTarget::InventoryCarryingValue,
+                    -50,
+                )
+                .unwrap(),
+            ),
+        ];
+
+        let observations =
+            ActorEconomicObservables::from_state_and_transitions(&state, &transitions).unwrap();
+        let observation = &observations["firm"];
+        assert_eq!(observation.real_asset_revaluation, 0);
+        assert_eq!(observation.productive_capital_revaluation, 50);
+        assert_eq!(observation.inventory_carrying_value_revaluation, -50);
+    }
+
 }
 
 #[cfg(test)]

@@ -90,6 +90,12 @@ pub struct SectorEconomicObservables {
     /// Signed non-cash revaluation of monetary-valued real assets during the period.
     #[serde(default)]
     pub real_asset_revaluation: i128,
+    /// Signed revaluation attributed specifically to productive capital.
+    #[serde(default)]
+    pub productive_capital_revaluation: i128,
+    /// Signed revaluation attributed specifically to inventory carrying value.
+    #[serde(default)]
+    pub inventory_carrying_value_revaluation: i128,
 }
 
 impl Default for SectorEconomicObservables {
@@ -141,6 +147,8 @@ impl Default for SectorEconomicObservables {
             cost_of_goods_sold: 0,
             depreciation: 0,
             real_asset_revaluation: 0,
+            productive_capital_revaluation: 0,
+            inventory_carrying_value_revaluation: 0,
         }
     }
 }
@@ -234,6 +242,15 @@ impl SectorEconomicObservables {
                     "actor opening/closing working capital does not reconcile for {actor_id}"
                 ));
             }
+            let revaluation_components = observation
+                .productive_capital_revaluation
+                .checked_add(observation.inventory_carrying_value_revaluation)
+                .ok_or_else(|| format!("actor revaluation component overflow for {actor_id}"))?;
+            if revaluation_components != observation.real_asset_revaluation {
+                return Err(format!(
+                    "actor revaluation components do not reconcile for {actor_id}"
+                ));
+            }
 
             add_checked(
                 &mut sector_observation.opening_liquidity,
@@ -321,6 +338,16 @@ impl SectorEconomicObservables {
                     &mut sector_observation.real_asset_revaluation,
                     observation.real_asset_revaluation,
                     "sector real-asset revaluation",
+                ),
+                (
+                    &mut sector_observation.productive_capital_revaluation,
+                    observation.productive_capital_revaluation,
+                    "sector productive-capital revaluation",
+                ),
+                (
+                    &mut sector_observation.inventory_carrying_value_revaluation,
+                    observation.inventory_carrying_value_revaluation,
+                    "sector inventory carrying-value revaluation",
                 ),
             ] {
                 add_checked(slot, value, label)?;

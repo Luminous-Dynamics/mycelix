@@ -55,6 +55,12 @@ pub struct EconomicObservables {
     /// Signed non-cash revaluation of monetary-valued real assets during the period.
     #[serde(default)]
     pub real_asset_revaluation: i128,
+    /// Signed revaluation attributed specifically to productive capital.
+    #[serde(default)]
+    pub productive_capital_revaluation: i128,
+    /// Signed revaluation attributed specifically to inventory carrying value.
+    #[serde(default)]
+    pub inventory_carrying_value_revaluation: i128,
     pub operating_surplus_after_depreciation: i128,
 }
 
@@ -185,6 +191,8 @@ impl EconomicObservables {
             gross_operating_surplus,
             depreciation: ledger.depreciation,
             real_asset_revaluation: ledger.real_asset_revaluation,
+            productive_capital_revaluation: ledger.productive_capital_revaluation,
+            inventory_carrying_value_revaluation: ledger.inventory_carrying_value_revaluation,
             operating_surplus_after_depreciation,
         })
     }
@@ -426,4 +434,37 @@ mod tests {
         );
         assert!(classify_financing_regime(10, -1, 2).is_err());
     }
+    #[test]
+    fn aggregate_observations_preserve_target_specific_revaluation_components() {
+        let mut firm = ActorBalanceSheet::new("firm");
+        firm.real.productive_capital = 100;
+        firm.real.inventories = 10;
+        firm.inventory_carrying_value = 100;
+        let state = EconomicState::new(vec![firm]);
+        let transitions = vec![
+            EconomicTransition::RealAssetRevaluation(
+                crate::economics::stock_flow::RealAssetRevaluation::new(
+                    "firm",
+                    crate::economics::stock_flow::RealAssetRevaluationTarget::ProductiveCapital,
+                    50,
+                )
+                .unwrap(),
+            ),
+            EconomicTransition::RealAssetRevaluation(
+                crate::economics::stock_flow::RealAssetRevaluation::new(
+                    "firm",
+                    crate::economics::stock_flow::RealAssetRevaluationTarget::InventoryCarryingValue,
+                    -50,
+                )
+                .unwrap(),
+            ),
+        ];
+        let observations =
+            EconomicObservables::try_from_state_and_transitions(&state, &transitions).unwrap();
+
+        assert_eq!(observations.real_asset_revaluation, 0);
+        assert_eq!(observations.productive_capital_revaluation, 50);
+        assert_eq!(observations.inventory_carrying_value_revaluation, -50);
+    }
+
 }

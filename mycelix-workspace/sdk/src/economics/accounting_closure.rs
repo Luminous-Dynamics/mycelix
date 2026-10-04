@@ -396,6 +396,24 @@ fn validate_projection_closure(
             sum_actor(actors, "real-asset revaluation", |o| o.real_asset_revaluation)?,
             aggregate.real_asset_revaluation,
         ),
+        (
+            "productive-capital revaluation",
+            sum_actor(
+                actors,
+                "productive-capital revaluation",
+                |o| o.productive_capital_revaluation,
+            )?,
+            aggregate.productive_capital_revaluation,
+        ),
+        (
+            "inventory carrying-value revaluation",
+            sum_actor(
+                actors,
+                "inventory carrying-value revaluation",
+                |o| o.inventory_carrying_value_revaluation,
+            )?,
+            aggregate.inventory_carrying_value_revaluation,
+        ),
     ];
     for (label, actor_value, aggregate_value) in actor_checks {
         require_equal(label, actor_value, aggregate_value)?;
@@ -498,6 +516,24 @@ fn validate_projection_closure(
                 |o| o.real_asset_revaluation,
             )?,
             aggregate.real_asset_revaluation,
+        ),
+        (
+            "sector productive-capital revaluation",
+            sum_sector(
+                sectors,
+                "productive-capital revaluation",
+                |o| o.productive_capital_revaluation,
+            )?,
+            aggregate.productive_capital_revaluation,
+        ),
+        (
+            "sector inventory carrying-value revaluation",
+            sum_sector(
+                sectors,
+                "inventory carrying-value revaluation",
+                |o| o.inventory_carrying_value_revaluation,
+            )?,
+            aggregate.inventory_carrying_value_revaluation,
         ),
     ];
     for (label, sector_value, aggregate_value) in sector_checks {
