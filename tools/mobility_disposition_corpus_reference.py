@@ -99,7 +99,7 @@ EXPECTED_BINDING_VECTORS = [
     ("EDT-173", "binding_attestation_payload_rejects_schema_identifier_change", "typed_structural_error"),
     ("EDT-174", "valid_record_retrieval_is_explicitly_inductive_and_does_not_prove_later_operations", "accepted"),
     ("EDT-175", "authority_agent_registry_rejects_reuse_of_the_same_provenance_witness", "adapter_boundary_error"),
-    ("EDT-176", "missing_authority_agent_binding_is_preflight_only_and_makes_no_host_calls", "unresolved_at_protocol_layer"),
+    ("EDT-176", "missing_authority_agent_binding_is_preflight_only_and_stops_before_dht_retrieval", "unresolved_at_protocol_layer"),
     ("EDT-177", "caller_supplied_runtime_dependency_order_is_canonicalized_before_host_retrieval", "accepted"),
     ("EDT-178", "must_get_valid_record_upstream_invalidity_remains_protocol_unresolved_not_transport_absence", "unresolved_at_protocol_layer"),
     ("EDT-179", "malformed_runtime_binding_payload_precedes_missing_authority_preflight", "typed_structural_error"),
