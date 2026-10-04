@@ -189,11 +189,17 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::StoreEntry(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterCreateLink {
             link_type,
-            base_address: _,
-            target_address: _,
+            base_address,
+            target_address,
             tag,
-            action: _,
-        } => validate_create_link(link_type, &tag),
+            action,
+        } => validate_create_link(
+            link_type,
+            &base_address,
+            &target_address,
+            &action.author,
+            &tag,
+        ),
         FlatOp::RegisterDeleteLink {
             link_type, action, ..
         } => {
@@ -266,6 +272,134 @@ fn validate_outcome_author(
     Ok(ValidateCallbackResult::Valid)
 }
 
+/// Decode a record only when its authenticated application entry definition is this
+/// zome's registered Vote entry type. Application-entry serialization alone is not enough:
+/// different zomes can deserialize compatible bytes into different semantic entry types.
+fn decode_vote_record(record: &Record) -> Result<Vote, String> {
+    let entry_type = record
+        .action()
+        .entry_type()
+        .ok_or_else(|| "Tally evidence action does not contain an application entry type".to_string())?;
+    let EntryType::App(app_entry_def) = entry_type else {
+        return Err("Tally evidence must reference an application Vote entry".into());
+    };
+
+    let entry = match record.entry() {
+        RecordEntry::Present(entry) => entry,
+        _ => return Err("Tally evidence record does not contain entry data".into()),
+    };
+
+    match EntryTypes::deserialize_from_type(
+        app_entry_def.zome_index,
+        app_entry_def.entry_index,
+        entry,
+    )
+    .map_err(|error| format!("Failed to identify tally Vote entry type: {error:?}"))? {
+        Some(EntryTypes::Vote(vote)) => Ok(vote),
+        Some(_) => Err("Tally evidence action is not a Vote entry".into()),
+        None => Err("Tally evidence action belongs to another zome or entry definition".into()),
+    }
+}
+
+/// Validate the target and semantic bindings of a Decision create-link action.
+///
+/// Link collections are mutable DHT state. The integrity boundary therefore validates
+/// both sides of the topology rather than trusting the coordinator's call path.
+fn validate_create_link(
+    link_type: LinkTypes,
+    base_address: &AnyLinkableHash,
+    target_address: &AnyLinkableHash,
+    action_author: &AgentPubKey,
+    tag: &LinkTag,
+) -> ExternResult<ValidateCallbackResult> {
+    let max_len = link_tag_max_len(&link_type);
+    if tag.0.len() > max_len {
+        return Ok(ValidateCallbackResult::Invalid(format!(
+            "{:?} link tag too long (max {} bytes, got {})",
+            link_type, max_len, tag.0.len()
+        )));
+    }
+
+    match link_type {
+        LinkTypes::HearthToDecisions => {
+            let hearth_hash = base_address.clone().into_action_hash().ok_or(wasm_error!(
+                WasmErrorInner::Guest("HearthToDecisions base is not an ActionHash".into())
+            ))?;
+            let target = target_address.clone().into_action_hash().ok_or(wasm_error!(
+                WasmErrorInner::Guest("HearthToDecisions target is not an ActionHash".into())
+            ))?;
+            let record = must_get_valid_record(target)?;
+            let entry_type = record.action().entry_type().ok_or(wasm_error!(
+                WasmErrorInner::Guest("HearthToDecisions target has no application entry type".into())
+            ))?;
+            let EntryType::App(app_entry_def) = entry_type else {
+                return Ok(ValidateCallbackResult::Invalid("HearthToDecisions target must be an application Decision entry".into()));
+            };
+            let entry = match record.entry() {
+                RecordEntry::Present(entry) => entry,
+                _ => return Ok(ValidateCallbackResult::Invalid("HearthToDecisions target has no entry data".into())),
+            };
+            match EntryTypes::deserialize_from_type(app_entry_def.zome_index, app_entry_def.entry_index, entry).map_err(|error|
+                wasm_error!(WasmErrorInner::Guest(format!("Failed to identify HearthToDecisions target entry type: {error:?}")))
+            )? {
+                Some(EntryTypes::Decision(decision)) if decision.hearth_hash == hearth_hash && decision.created_by == *action_author =>
+                    Ok(ValidateCallbackResult::Valid),
+                Some(EntryTypes::Decision(_)) => Ok(ValidateCallbackResult::Invalid("HearthToDecisions link base/author does not match the Decision".into())),
+                Some(_) => Ok(ValidateCallbackResult::Invalid("HearthToDecisions target is not a Decision entry".into())),
+                None => Ok(ValidateCallbackResult::Invalid("HearthToDecisions target belongs to another zome or entry definition".into())),
+            }
+        }
+        LinkTypes::DecisionToVotes | LinkTypes::DecisionToVoteHistory => {
+            let decision_hash = base_address.clone().into_action_hash().ok_or(wasm_error!(
+                WasmErrorInner::Guest("Decision vote-link base is not an ActionHash".into())
+            ))?;
+            let target = target_address.clone().into_action_hash().ok_or(wasm_error!(
+                WasmErrorInner::Guest("Decision vote-link target is not an ActionHash".into())
+            ))?;
+            let record = must_get_valid_record(target)?;
+            let vote = match decode_vote_record(&record) {
+                Ok(vote) => vote,
+                Err(reason) => return Ok(ValidateCallbackResult::Invalid(reason)),
+            };
+            if vote.decision_hash != decision_hash {
+                return Ok(ValidateCallbackResult::Invalid("Decision vote-link target belongs to another Decision".into()));
+            }
+            if vote.voter != *action_author {
+                return Ok(ValidateCallbackResult::Invalid("Decision vote-link author must match Vote voter".into()));
+            }
+            Ok(ValidateCallbackResult::Valid)
+        }
+        LinkTypes::DecisionToOutcome => {
+            let decision_hash = base_address.clone().into_action_hash().ok_or(wasm_error!(
+                WasmErrorInner::Guest("DecisionToOutcome base is not an ActionHash".into())
+            ))?;
+            let outcome_hash = target_address.clone().into_action_hash().ok_or(wasm_error!(
+                WasmErrorInner::Guest("DecisionToOutcome target is not an ActionHash".into())
+            ))?;
+            let record = must_get_valid_record(outcome_hash)?;
+            let entry_type = record.action().entry_type().ok_or(wasm_error!(
+                WasmErrorInner::Guest("DecisionToOutcome target has no application entry type".into())
+            ))?;
+            let EntryType::App(app_entry_def) = entry_type else {
+                return Ok(ValidateCallbackResult::Invalid("DecisionToOutcome target must be an application DecisionOutcome entry".into()));
+            };
+            let entry = match record.entry() {
+                RecordEntry::Present(entry) => entry,
+                _ => return Ok(ValidateCallbackResult::Invalid("DecisionToOutcome target has no entry data".into())),
+            };
+            match EntryTypes::deserialize_from_type(app_entry_def.zome_index, app_entry_def.entry_index, entry).map_err(|error|
+                wasm_error!(WasmErrorInner::Guest(format!("Failed to identify DecisionToOutcome target entry type: {error:?}")))
+            )? {
+                Some(EntryTypes::DecisionOutcome(outcome)) if outcome.decision_hash == decision_hash && outcome.resolved_by.as_ref() == Some(action_author) =>
+                    Ok(ValidateCallbackResult::Valid),
+                Some(EntryTypes::DecisionOutcome(_)) => Ok(ValidateCallbackResult::Invalid("DecisionToOutcome link base/author does not match the Outcome".into())),
+                Some(_) => Ok(ValidateCallbackResult::Invalid("DecisionToOutcome target is not a DecisionOutcome entry".into())),
+                None => Ok(ValidateCallbackResult::Invalid("DecisionToOutcome target belongs to another zome or entry definition".into())),
+            }
+        }
+        LinkTypes::AgentToVotes => Ok(ValidateCallbackResult::Valid),
+    }
+}
 /// Compute a deterministic fingerprint for explicit tally evidence.
 pub fn tally_evidence_fingerprint(
     vote_refs: &[ActionHash],
@@ -347,17 +481,10 @@ fn validate_tally_evidence(
         }
 
         let record = must_get_valid_record(vote_hash.clone())?;
-        let vote: Vote = record
-            .entry()
-            .to_app_option()
-            .map_err(|e| {
-                wasm_error!(WasmErrorInner::Guest(format!(
-                    "Failed to deserialize tally Vote evidence: {e}"
-                )))
-            })?
-            .ok_or(wasm_error!(WasmErrorInner::Guest(
-                "Tally vote evidence is missing".into()
-            )))?;
+        let vote = match decode_vote_record(&record) {
+            Ok(vote) => vote,
+            Err(reason) => return Ok(ValidateCallbackResult::Invalid(reason)),
+        };
 
         if vote.decision_hash != outcome.decision_hash {
             return Ok(ValidateCallbackResult::Invalid(
