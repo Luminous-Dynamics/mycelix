@@ -576,6 +576,51 @@ fn validate_create_did_document(
     Ok(ValidateCallbackResult::Valid)
 }
 
+/// Validate that a DID update targets the current DID-document state on
+/// the author's source chain rather than a stale ancestor.
+///
+/// Holochain source-chain ordering is deterministic for validation, while DHT
+/// link traversal is not. A coordinator that updates an older DID document
+/// could otherwise create a second record at the same version and force every
+/// resolver into an ambiguity/DoS condition.
+fn validate_did_update_targets_latest(action: &Update) -> ExternResult<ValidateCallbackResult> {
+    let activity = must_get_agent_activity(
+        action.author.clone(),
+        ChainFilter::new(action.prev_action.clone()),
+    )?;
+    let entry_type =
+        EntryType::App(AppEntryDef::try_from(UnitEntryTypes::DidDocument)?);
+
+    let mut latest: Option<(u32, ActionHash)> = None;
+    for item in activity {
+        let prior_action = item.action.action();
+        if prior_action.entry_type() != Some(&entry_type) {
+            continue;
+        }
+        if !matches!(prior_action, Action::Create(_) | Action::Update(_)) {
+            continue;
+        }
+
+        let hash = hdi::hash::hash_action(prior_action.clone())?;
+        let seq = prior_action.action_seq();
+        if latest.as_ref().is_none_or(|(latest_seq, _)| seq > *latest_seq) {
+            latest = Some((seq, hash));
+        }
+    }
+
+    match latest {
+        Some((_, latest_hash)) if latest_hash == action.original_action_address => {
+            Ok(ValidateCallbackResult::Valid)
+        }
+        Some(_) => Ok(ValidateCallbackResult::Invalid(
+            "DID update must target the latest DID document on the author's source chain".into(),
+        )),
+        None => Ok(ValidateCallbackResult::Invalid(
+            "DID update has no prior canonical DID document".into(),
+        )),
+    }
+}
+
 /// Validate DID document update
 fn validate_update_did_document(
     action: Update,
@@ -586,6 +631,14 @@ fn validate_update_did_document(
         return Ok(ValidateCallbackResult::Invalid(
             "Only controller can update DID".into(),
         ));
+    }
+
+    // The original action must be the current canonical DID document state.
+    // This prevents stale-ancestor updates from manufacturing a second branch
+    // of the version sequence.
+    match validate_did_update_targets_latest(&action)? {
+        ValidateCallbackResult::Valid => {}
+        invalid => return Ok(invalid),
     }
 
     // Fetch original to enforce invariants
@@ -878,6 +931,28 @@ mod tests {
         let error = validate_verification_method_set(&document)
             .expect_err("signing key cannot be used for keyAgreement");
         assert!(error.contains("ML-KEM algorithm"));
+    }
+
+    #[test]
+    fn latest_did_update_guard_selects_by_source_chain_sequence() {
+        let first = ActionHash::from_raw_36(vec![1; 36]);
+        let second = ActionHash::from_raw_36(vec![2; 36]);
+
+        fn select_latest(candidates: Vec<(u32, ActionHash)>) -> Option<ActionHash> {
+            candidates
+                .into_iter()
+                .max_by_key(|(seq, _)| *seq)
+                .map(|(_, hash)| hash)
+        }
+
+        assert_eq!(
+            select_latest(vec![(4, first.clone()), (5, second.clone())]),
+            Some(second.clone())
+        );
+        assert_eq!(
+            select_latest(vec![(5, second.clone()), (4, first)]),
+            Some(second)
+        );
     }
 
     #[test]
