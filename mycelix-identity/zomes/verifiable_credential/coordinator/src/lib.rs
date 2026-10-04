@@ -2219,14 +2219,12 @@ pub struct IssueCredentialWithProofInput {
     pub credential: VerifiableCredential,
 }
 
-/// Issue a credential with a pre-signed proof (PQC or hybrid).
+/// Issue a credential with a pre-signed proof that the WASM integrity boundary
+/// can verify locally.
 ///
-/// This extern accepts a fully-formed VerifiableCredential whose `proof.proof_value`
-/// was produced off-chain by a PQC-capable signer. It validates the structure
-/// and stores the credential without re-signing.
-///
-/// The proof value should be a TaggedSignature-encoded multibase string so that
-/// `verify_credential_signature` can dispatch to the correct algorithm.
+/// The current admission boundary supports legacy Mycelix Ed25519 proofs and the
+/// W3C eddsa-jcs-2022 profile. PQC/hybrid proofs remain intentionally blocked here:
+/// the WASM verifier cannot independently establish their full cryptographic validity.
 #[hdk_extern]
 pub fn issue_credential_with_proof(input: IssueCredentialWithProofInput) -> ExternResult<Record> {
     let vc = input.credential;
@@ -2263,6 +2261,16 @@ pub fn issue_credential_with_proof(input: IssueCredentialWithProofInput) -> Exte
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Pre-signed credential must have a non-empty proof value".into()
         )));
+    }
+
+    match vc.proof.cryptosuite.as_deref() {
+        None | Some("mycelix-blake2b-ed25519-2026") | Some("eddsa-jcs-2022") => {}
+        Some(suite) => {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Pre-signed credential cryptosuite '{}' is not independently verifiable in the WASM admission boundary",
+                suite
+            ))));
+        }
     }
 
     // Validate that the proof value is parseable as a tagged signature
