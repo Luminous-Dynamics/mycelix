@@ -582,6 +582,18 @@ mod tests {
     }
 
     #[test]
+    fn security_event_wire_identifier_exact_limit_is_accepted() {
+        let boundary = "x".repeat(MAX_PROVENANCE_IDENTIFIER_BYTES);
+        let json = format!(
+            r#"{{"event_id":"{id}","actor_id":"did:mycelix:alice","capability_ref":"capability:1","request":{{"subject":"did:mycelix:alice","resource":"resource:ledger","action":"Read","policy_version":7}},"decision":{{"Deny":"ActionNotGranted"}},"policy_version":7,"timestamp_us":151,"provenance":[],"recovery_correlation":null}}"#,
+            id = boundary,
+        );
+
+        let event: SecurityEvent = serde_json::from_str(&json).unwrap();
+        assert_eq!(event.event_id().len(), MAX_PROVENANCE_IDENTIFIER_BYTES);
+    }
+
+    #[test]
     fn security_event_deserialization_rejects_invalid_recovery_correlation() {
         let base = |correlation: &str| {
             format!(
