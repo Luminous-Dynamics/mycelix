@@ -393,6 +393,18 @@ impl HolochainDependencyBindingSet {
             return Ok(Err(error));
         }
 
+        // Signature validity is a definitive local protocol check. It must
+        // precede authority-agent dependency preflight so a bad attestation
+        // cannot be masked as an unresolved domain-authority dependency.
+        match binding.verify()? {
+            HolochainBindingAttestationVerification::Invalid { reason } => {
+                return Ok(Err(HolochainAdapterBoundaryError::SemanticInvalid {
+                    reason,
+                }));
+            }
+            HolochainBindingAttestationVerification::Valid => {}
+        }
+
         let authority = binding.payload.provenance.authority.clone();
         let Some(authorized_credential) = authority_bindings.credential_for(&authority) else {
             return Ok(Err(
@@ -461,15 +473,6 @@ impl HolochainDependencyBindingSet {
                 reason: "runtime binding authority delegation does not match the registered authority credential delegation"
                     .into(),
             }));
-        }
-
-        match binding.verify()? {
-            HolochainBindingAttestationVerification::Invalid { reason } => {
-                return Ok(Err(HolochainAdapterBoundaryError::SemanticInvalid {
-                    reason,
-                }));
-            }
-            HolochainBindingAttestationVerification::Valid => {}
         }
 
         Ok(self.bind(
@@ -1460,7 +1463,7 @@ mod tests {
     }
 
     #[test]
-    fn dependency_binding_without_authority_agent_mapping_is_unresolved() {
+    fn dependency_binding_without_authority_agent_mapping_is_preflight_unresolved() {
         let _guard = host_test_lock().lock().expect("HDI test lock is not poisoned");
         let calls = Arc::new(Mutex::new(Vec::new()));
         let _previous = set_hdi(RecordingHdi {
@@ -1493,10 +1496,85 @@ mod tests {
                 if missing == vec![authority]
         ));
         assert!(bindings.is_empty());
-        assert!(
-            calls.lock().unwrap().is_empty(),
-            "missing authority-agent registration must stop before host calls"
+        assert_eq!(
+            calls.lock().unwrap().as_slice(),
+            ["verify_signature"],
+            "missing authority-agent registration must stop before DHT retrieval but may not mask signature validation"
         );
+    }
+
+
+    #[test]
+    fn invalid_attestation_signature_precedes_missing_authority_preflight() {
+        let _guard = host_test_lock().lock().expect("HDI test lock is not poisoned");
+        let calls = Arc::new(Mutex::new(Vec::new()));
+        let _previous = set_hdi(RecordingHdi {
+            calls: Arc::clone(&calls),
+            verify_result: false,
+        });
+
+        let authority = identity("invalid-signature-precedence-authority");
+        let logical = identity("invalid-signature-precedence-logical");
+        let binding = SignedHolochainBindingAttestation {
+            signer: action_agent_key(55),
+            signature: Signature([0u8; 64]),
+            payload: HolochainBindingAttestationPayload {
+                schema: HOLOCHAIN_BINDING_ATTESTATION_SCHEMA.into(),
+                provenance: binding_provenance_for_test(logical, authority),
+                address: HolochainDependencyAddress::Action(action_hash(55)),
+                retrieval: QualificationDependencyRetrievalKind::Action,
+            },
+        };
+
+        let registry = HolochainAuthorityAgentBindingSet::new();
+        let mut bindings = HolochainDependencyBindingSet::new();
+        let result = bindings.bind_attested_with_authority(binding, &registry);
+
+        let _ = set_hdi(ErrHdi);
+
+        assert!(
+            matches!(
+                result,
+                Ok(Err(HolochainAdapterBoundaryError::SemanticInvalid { reason }))
+                    if reason == "binding attestation signature did not verify"
+            ),
+            "invalid signature must remain definitive even when authority registration is absent"
+        );
+        assert_eq!(calls.lock().unwrap().as_slice(), ["verify_signature"]);
+        assert!(bindings.is_empty());
+    }
+
+    #[test]
+    fn signature_verification_host_failure_precedes_missing_authority_preflight() {
+        let _guard = host_test_lock().lock().expect("HDI test lock is not poisoned");
+        let _previous = set_hdi(ErrHdi);
+
+        let authority = identity("signature-host-error-precedence-authority");
+        let binding = SignedHolochainBindingAttestation {
+            signer: action_agent_key(56),
+            signature: Signature([0u8; 64]),
+            payload: HolochainBindingAttestationPayload {
+                schema: HOLOCHAIN_BINDING_ATTESTATION_SCHEMA.into(),
+                provenance: binding_provenance_for_test(
+                    identity("signature-host-error-precedence-logical"),
+                    authority,
+                ),
+                address: HolochainDependencyAddress::Action(action_hash(56)),
+                retrieval: QualificationDependencyRetrievalKind::Action,
+            },
+        };
+
+        let registry = HolochainAuthorityAgentBindingSet::new();
+        let mut bindings = HolochainDependencyBindingSet::new();
+        let result = bindings.bind_attested_with_authority(binding, &registry);
+
+        let _ = set_hdi(ErrHdi);
+
+        assert!(
+            result.is_err(),
+            "a signature-verification host failure must not be collapsed into missing authority"
+        );
+        assert!(bindings.is_empty());
     }
 
     #[test]
