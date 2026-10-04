@@ -647,7 +647,10 @@ async fn d6u_runtime_authority_boundary() {
     let wrong_cell_message =
         expect_internal_error(call(&app_api, "d6u-bob", &conductor.keystore(), wrong_cell).await);
     assert_eq!(reached.load(Ordering::SeqCst), before);
-    assert!(!wrong_cell_message.is_empty(), "wrong-cell runtime witness must be non-empty");
+    assert!(
+        !wrong_cell_message.is_empty(),
+        "wrong-cell runtime witness must be non-empty"
+    );
     println!("D6U_RUNTIME_WITNESS\twrong-cell-routing\t{wrong_cell_message}");
     println!("D6U_SUBSTRATE_CHECK\twrong-cell-routing\t{wrong_cell_message}\tPASS");
     record_case("wrong-cell", "routing-failed");
