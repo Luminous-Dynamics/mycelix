@@ -2684,10 +2684,14 @@ dependencies = [
 name = "verifiable_credential_integrity"
 version = "0.1.0"
 dependencies = [
+ "bs58",
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-crypto",
  "serde",
  "serde_json",
+ "serde_json_canonicalizer",
+ "sha2",
 ]
 
 [[package]]
