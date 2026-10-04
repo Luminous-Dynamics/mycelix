@@ -11,7 +11,7 @@ use crate::canonical_derivation_receipt::{
     D6S_CLAIM_CEILING,
 };
 use crate::evidence_claim_graph::{ClaimGraphEdgeKindV1, ClaimGraphNodeKindV1};
-use crate::finality_eligibility_composition::{verify_current_receipt_provenance_from_composition, CurrentFinalityEligibilityReceiptV1, FinalityEligibilityCompositionV1};
+use crate::finality_eligibility_composition::{compose_finality_eligibility_from_authoritative_d6n_d6o, verify_current_receipt_provenance_from_composition, CurrentFinalityEligibilityReceiptV1, FinalityEligibilityCompositionV1};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
@@ -1639,6 +1639,7 @@ mod tests {
         semantic_environment: SemanticEnvironmentV1,
         derivation_profile: DerivationProfileV1,
         authoritative_d6p: GoldenAuthoritativeD6PFixtureV1,
+        authoritative_d6n_d6o: GoldenAuthoritativeD6ND6OFixtureV1,
     }
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1646,6 +1647,23 @@ mod tests {
     struct GoldenAuthoritativeD6PFixtureV1 {
         receipt: CurrentFinalityEligibilityReceiptV1,
         composition: FinalityEligibilityCompositionV1,
+    }
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct GoldenAuthoritativeD6ND6OFixtureV1 {
+        effect: crate::substitution_continuity::SemanticEffectV1,
+        route: crate::substitution_continuity::ProviderRouteV1,
+        profile: crate::contestable_finality::FinalityQualificationProfileV1,
+        set: crate::contestable_finality::ExternalObservationSetV1,
+        assessment: crate::contestable_finality::ObservationSetAssessmentV1,
+        evidence: Vec<crate::contestable_finality::ExternalObservedEvidenceV1>,
+        eligibility_receipt: crate::observer_lifecycle::EvidenceEligibilityReceiptV1,
+        lifecycle_profile: crate::observer_lifecycle::ObserverLifecycleProfileV1,
+        d6o_ledger: crate::observer_lifecycle::ObserverLifecycleLedgerV1,
+        current_frontier_root: String,
+        live_generation_id: String,
+        required_independent_observations: u32,
     }
 
     #[derive(Debug, Clone, Deserialize)]
@@ -2082,6 +2100,185 @@ mod tests {
         };
 
         (projection, environment, derivation_profile, profile)
+    }
+
+    #[test]
+    fn golden_authoritative_d6n_d6o_reconstructs_exact_committed_d6p_fixture() {
+        let corpus_text = include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/testdata/d6x_qualified_closure_golden_vectors.json"
+        ));
+        let corpus: GoldenCorpusV1 =
+            serde_json::from_str(corpus_text).expect("D6X golden vector corpus must parse");
+
+        let upstream = &corpus.fixtures.authoritative_d6n_d6o;
+        let expected = &corpus.fixtures.authoritative_d6p;
+
+        let reconstructed = compose_finality_eligibility_from_authoritative_d6n_d6o(
+            &upstream.effect,
+            &upstream.route,
+            &upstream.profile,
+            &upstream.set,
+            &upstream.assessment,
+            &upstream.evidence,
+            std::slice::from_ref(&upstream.eligibility_receipt),
+            &upstream.lifecycle_profile,
+            &upstream.d6o_ledger,
+            &upstream.current_frontier_root,
+            &upstream.live_generation_id,
+            upstream.required_independent_observations,
+        )
+        .expect("authoritative D6N/D6O source fixture must reconstruct D6P");
+
+        assert_eq!(
+            reconstructed, expected.composition,
+            "authoritative D6N/D6O reconstruction must equal the committed D6P corpus object"
+        );
+        assert!(
+            verify_current_receipt_provenance_from_composition(
+                &expected.receipt,
+                &reconstructed,
+            ),
+            "committed D6P receipt must project the independently reconstructed composition"
+        );
+
+        let mut vector = corpus
+            .vectors
+            .iter()
+            .find(|vector| vector.id == "baseline-complete")
+            .expect("baseline golden vector")
+            .clone();
+        vector.recipe.required_d6p_receipt_commitments =
+            vec![expected.receipt.receipt_commitment.clone()];
+        vector.recipe.projection_d6p_receipt_commitments =
+            vec![expected.receipt.receipt_commitment.clone()];
+
+        let (projection, environment, derivation_profile, profile) =
+            execute_golden_recipe(&corpus, &vector);
+        let closure = compute_dependency_closure_from_authoritative_d6p(
+            &projection,
+            &environment,
+            &derivation_profile,
+            &profile,
+            std::slice::from_ref(&expected.receipt),
+            std::slice::from_ref(&reconstructed),
+        )
+        .expect("D6X must consume the independently reconstructed D6P");
+
+        assert_eq!(closure.status, DependencyClosureStatusV1::Complete);
+        assert_eq!(
+            closure.included_d6p_receipt_commitments,
+            [expected.receipt.receipt_commitment.clone()]
+                .into_iter()
+                .collect()
+        );
+
+        let strict = compute_dependency_closure_from_authoritative_d6p_at_frontier(
+            &projection,
+            &environment,
+            &derivation_profile,
+            &profile,
+            std::slice::from_ref(&expected.receipt),
+            std::slice::from_ref(&reconstructed),
+            Some(&upstream.current_frontier_root),
+        )
+        .expect("matching current frontier must remain consumable");
+
+        assert_eq!(
+            strict.closure_identity_commitment,
+            closure.closure_identity_commitment
+        );
+    }
+
+    #[test]
+    fn golden_authoritative_d6n_d6o_rejects_self_consistent_upstream_mutations() {
+        let corpus_text = include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/testdata/d6x_qualified_closure_golden_vectors.json"
+        ));
+        let corpus: GoldenCorpusV1 =
+            serde_json::from_str(corpus_text).expect("D6X golden vector corpus must parse");
+
+        let baseline = &corpus.fixtures.authoritative_d6n_d6o;
+
+        let mut forged_d6m = baseline.clone();
+        {
+            let observation = &mut forged_d6m.evidence[0].observation;
+            observation.observed_state =
+                crate::effect_finality::ExternalObservedStateV1::NotApplied;
+            observation.observation_commitment = observation.recomputed_commitment();
+        }
+        assert!(forged_d6m.evidence[0].observation.commitment_matches());
+        assert!(
+            compose_finality_eligibility_from_authoritative_d6n_d6o(
+                &forged_d6m.effect,
+                &forged_d6m.route,
+                &forged_d6m.profile,
+                &forged_d6m.set,
+                &forged_d6m.assessment,
+                &forged_d6m.evidence,
+                std::slice::from_ref(&forged_d6m.eligibility_receipt),
+                &forged_d6m.lifecycle_profile,
+                &forged_d6m.d6o_ledger,
+                &forged_d6m.current_frontier_root,
+                &forged_d6m.live_generation_id,
+                forged_d6m.required_independent_observations,
+            )
+            .is_none(),
+            "self-consistent D6M substitution must be rejected by authoritative D6N reconstruction"
+        );
+
+        let mut forged_d6n = baseline.clone();
+        {
+            let assessment = &mut forged_d6n.assessment.assessments[0];
+            assessment.classification =
+                crate::contestable_finality::ObservationClassificationV1::CorroboratingDependent;
+            assessment.assessment_commitment = assessment.recomputed_commitment();
+        }
+        assert!(forged_d6n.assessment.assessments[0].commitment_matches());
+        assert!(
+            compose_finality_eligibility_from_authoritative_d6n_d6o(
+                &forged_d6n.effect,
+                &forged_d6n.route,
+                &forged_d6n.profile,
+                &forged_d6n.set,
+                &forged_d6n.assessment,
+                &forged_d6n.evidence,
+                std::slice::from_ref(&forged_d6n.eligibility_receipt),
+                &forged_d6n.lifecycle_profile,
+                &forged_d6n.d6o_ledger,
+                &forged_d6n.current_frontier_root,
+                &forged_d6n.live_generation_id,
+                forged_d6n.required_independent_observations,
+            )
+            .is_none(),
+            "self-consistent D6N substitution must be rejected by authoritative assessment reconstruction"
+        );
+
+        let mut forged_d6o = baseline.clone();
+        forged_d6o.eligibility_receipt.disposition =
+            crate::observer_lifecycle::EvidenceEligibilityDispositionV1::BlockedCurrentness;
+        forged_d6o.eligibility_receipt.eligibility_commitment =
+            forged_d6o.eligibility_receipt.recomputed_commitment();
+        assert!(forged_d6o.eligibility_receipt.commitment_matches());
+        assert!(
+            compose_finality_eligibility_from_authoritative_d6n_d6o(
+                &forged_d6o.effect,
+                &forged_d6o.route,
+                &forged_d6o.profile,
+                &forged_d6o.set,
+                &forged_d6o.assessment,
+                &forged_d6o.evidence,
+                std::slice::from_ref(&forged_d6o.eligibility_receipt),
+                &forged_d6o.lifecycle_profile,
+                &forged_d6o.d6o_ledger,
+                &forged_d6o.current_frontier_root,
+                &forged_d6o.live_generation_id,
+                forged_d6o.required_independent_observations,
+            )
+            .is_none(),
+            "self-consistent D6O substitution must be rejected by authoritative lifecycle reconstruction"
+        );
     }
 
     #[test]

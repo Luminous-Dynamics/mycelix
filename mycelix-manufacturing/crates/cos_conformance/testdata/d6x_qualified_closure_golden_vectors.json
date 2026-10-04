@@ -7,7 +7,7 @@
   "closure_identity_domain": "d6x-closure-identity",
   "certificate_domain": "d6x-dependency-closure",
   "claim_ceiling": "ReferenceModelOnly; canonical derivation integrity semantics only; no truth, causality, authority, or actuation claim.",
-  "generation_note": "Hash values independently reconstructed from the exact D6X-CANON-1 reference encoding and cross-checked against the repository D6S-CANON-1 vectors; the Rust reference model and authoritative D6P admission paths are now exercised from declared corpus fixtures.",
+  "generation_note": "D6X-GOLDEN-1 includes a typed authoritative D6N/D6O source corpus so the D6P object consumed by D6X is independently reconstructed before admission.",
   "vectors": [
     {
       "id": "baseline-complete",
@@ -407,7 +407,7 @@
     "cross_runtime_rule": "The recipe is intentionally declarative: another implementation may construct equivalent typed objects rather than depending on Rust test-helper names.",
     "baseline_projection": "Use fixtures.baseline_projection, fixtures.semantic_environment, and fixtures.derivation_profile as the exact canonical baseline inputs.",
     "semantic_derivation": "Derived commitments are computed with D6S-CANON-1 and the D6X domains declared above. Apply each vector recipe to the baseline projection/profile, then evaluate D6X.",
-    "authoritative_d6p": "fixtures.authoritative_d6p contains a committed D6P composition and receipt. An implementation MUST verify receipt-to-composition binding before consuming the receipt as a qualified D6X dependency; the optional frontier-specific path additionally requires the exact expected frontier."
+    "authoritative_d6p": "D6X must consume a D6P receipt whose composition is both committed and exactly reconstructible from the typed authoritative D6N/D6O source fixture; receipt/composition equality alone is insufficient."
   },
   "fixtures": {
     "baseline_projection": {
@@ -479,7 +479,7 @@
         "receipt_id": "receipt-1",
         "effect_id": "effect",
         "effect_lineage_id": "lineage",
-        "lifecycle_generation_id": "gen-lifecycle",
+        "lifecycle_generation_id": "gen-1",
         "route_id": "route",
         "provider_id": "provider",
         "provider_operation_id": "operation",
@@ -487,8 +487,8 @@
         "semantic_environment_root": "env",
         "observation_set_id": "set-1",
         "observation_set_commitment": "set-commit",
-        "d6n_assessment_commitment": "assessment",
-        "composition_commitment": "14840768915fabe0b8c8a91ccd8025dec618b5b4147dc9bc9a8a220a014799fb",
+        "d6n_assessment_commitment": "assessment:set-commit",
+        "composition_commitment": "ecdcc990d7e1e524dc06dba051e493c4bdb4c336a63cc07de25f08aa60112625",
         "witness_eligibility_ids": [
           "elig-1"
         ],
@@ -500,15 +500,15 @@
         "eligible_independent_count": 1,
         "preserved_contradictory_count": 0,
         "disposition": "EligibleCurrent",
-        "qualification_transition_id": "transition",
-        "receipt_commitment": "0cbe1d801c4cbbaeab62f298ec85842bc02fc7a7c04370fee546451c8ad5a3a3",
+        "qualification_transition_id": "qualified-finality-eligibility-transition",
+        "receipt_commitment": "87497695bac8f0d53fafa79df9724491c8b7dadc99f87ff614038770d5b3156b",
         "claim_ceiling": "D6N/D6O finality-eligibility composition reference semantics only; no semantic authority or actuation claim."
       },
       "composition": {
         "composition_id": "composition:set-1",
         "effect_id": "effect",
         "effect_lineage_id": "lineage",
-        "lifecycle_generation_id": "gen-lifecycle",
+        "lifecycle_generation_id": "gen-1",
         "route_id": "route",
         "provider_id": "provider",
         "provider_operation_id": "operation",
@@ -516,7 +516,7 @@
         "semantic_environment_root": "env",
         "observation_set_id": "set-1",
         "observation_set_commitment": "set-commit",
-        "d6n_assessment_commitment": "assessment",
+        "d6n_assessment_commitment": "assessment:set-commit",
         "lifecycle_profile_id": "lifecycle",
         "current_frontier_root": "frontier",
         "eligible_independent_count": 1,
@@ -529,7 +529,7 @@
             "observer_generation_id": "gen-1",
             "d6n_observation_set_id": "set-1",
             "d6n_observation_set_commitment": "set-commit",
-            "d6n_assessment_item_commitment": "assessment-item-1",
+            "d6n_assessment_item_commitment": "827b5926c08379853f1c994618eac9f529e6a4d336d1633577396e205e6548",
             "d6n_classification": "CorroboratingIndependent",
             "d6o_eligibility_id": "elig-1",
             "d6o_disposition": "EligibleCurrent",
@@ -537,15 +537,250 @@
             "observation_frontier_root": "frontier",
             "current_frontier_root": "frontier",
             "lifecycle_profile_id": "lifecycle",
-            "witness_commitment": "08423df065d2428482770b8d93fb5343861b0b1c464ed99c7ef1c4860e2cf449",
+            "witness_commitment": "30d1ab4468bfaf44a46ce53fa8da1a1214f799ca210d5d958cdaafc5c7a8a555",
             "claim_ceiling": "D6N/D6O finality-eligibility composition reference semantics only; no semantic authority or actuation claim."
           }
         ],
         "disposition": "EligibleCurrent",
-        "qualification_transition_id": "transition",
-        "composition_commitment": "14840768915fabe0b8c8a91ccd8025dec618b5b4147dc9bc9a8a220a014799fb",
+        "qualification_transition_id": "qualified-finality-eligibility-transition",
+        "composition_commitment": "ecdcc990d7e1e524dc06dba051e493c4bdb4c336a63cc07de25f08aa60112625",
         "claim_ceiling": "D6N/D6O finality-eligibility composition reference semantics only; no semantic authority or actuation claim."
       }
+    },
+    "authoritative_d6n_d6o": {
+      "effect": {
+        "effect_id": "effect",
+        "lineage_id": "lineage",
+        "generation_id": "gen-1",
+        "request_commitment": "request-1",
+        "semantic_environment_root": "env",
+        "effect_class": "finality-test",
+        "resource_id": "resource-1",
+        "tenant_id": "tenant-1",
+        "amount": "1",
+        "unit": "unit",
+        "authority_claim_id": "authority-1",
+        "consent_claim_id": "consent-1",
+        "idempotency_key": "idempotency-1"
+      },
+      "route": {
+        "route_id": "route",
+        "effect_id": "effect",
+        "substitution_profile_id": "substitution-profile",
+        "provider_id": "provider",
+        "provider_profile_root": "provider-profile",
+        "provider_operation_id": "operation",
+        "route_generation": 1,
+        "lifecycle_generation_id": "gen-1",
+        "request_commitment": "request-1",
+        "semantic_environment_root": "env",
+        "effect_class": "finality-test",
+        "resource_id": "resource-1",
+        "tenant_id": "tenant-1",
+        "amount": "1",
+        "unit": "unit",
+        "authority_claim_id": "authority-1",
+        "consent_claim_id": "consent-1",
+        "idempotency_key": "idempotency-1",
+        "route_frontier_root": "frontier"
+      },
+      "profile": {
+        "profile_id": "finality-profile",
+        "semantic_environment_root": "env",
+        "allowed_observation_sources": [
+          "IndependentObserver"
+        ],
+        "required_independent_observations": 1,
+        "current_frontier_required": true,
+        "provider_reports_may_satisfy_independence": false,
+        "allow_explicit_conflict_resolution": false,
+        "profile_commitment": "finality-profile-commitment",
+        "claim_ceiling": "Contestable external-finality reference evidence only; no physical truth, settlement, or actuation authorization claim."
+      },
+      "set": {
+        "set_id": "set-1",
+        "effect_id": "effect",
+        "effect_lineage_id": "lineage",
+        "lifecycle_generation_id": "gen-1",
+        "route_id": "route",
+        "provider_id": "provider",
+        "provider_operation_id": "operation",
+        "provider_profile_root": "provider-profile",
+        "semantic_environment_root": "env",
+        "observation_frontier_root": "frontier",
+        "qualification_profile_id": "finality-profile",
+        "observation_ids": [
+          "obs-1"
+        ],
+        "target_state": "Applied",
+        "set_commitment": "set-commit",
+        "claim_ceiling": "Contestable external-finality reference evidence only; no physical truth, settlement, or actuation authorization claim."
+      },
+      "assessment": {
+        "set_id": "set-1",
+        "disposition": "QualifiedEvidence",
+        "independent_count": 1,
+        "contradictory_independent_count": 0,
+        "dependent_count": 0,
+        "assessments": [
+          {
+            "observation_id": "obs-1",
+            "observer_id": "observer-1",
+            "independence": "DeclaredIndependent",
+            "classification": "CorroboratingIndependent",
+            "evidence_root": "evidence-1",
+            "custody_root": "custody-1",
+            "observation_commitment": "2f400ae9565dd674322b03c64a54f4ccf780c6942d143c53e3641a4b8a3288f3",
+            "assessment_commitment": "827b5926c08379853f1c994618eac9f529e6a4d336d1633577396e205e6548",
+            "claim_ceiling": "Contestable external-finality reference evidence only; no physical truth, settlement, or actuation authorization claim."
+          }
+        ],
+        "assessment_commitment": "assessment:set-commit",
+        "claim_ceiling": "Contestable external-finality reference evidence only; no physical truth, settlement, or actuation authorization claim."
+      },
+      "evidence": [
+        {
+          "observation": {
+            "observation_id": "obs-1",
+            "effect_id": "effect",
+            "effect_lineage_id": "lineage",
+            "lifecycle_generation_id": "gen-1",
+            "route_id": "route",
+            "provider_id": "provider",
+            "provider_operation_id": "operation",
+            "provider_profile_root": "provider-profile",
+            "provider_outcome_id": "outcome-1",
+            "request_commitment": "request-1",
+            "idempotency_key": "idempotency-1",
+            "semantic_environment_root": "env",
+            "observed_frontier_root": "frontier",
+            "observed_state": "Applied",
+            "source": "IndependentObserver",
+            "evidence_root": "evidence-1",
+            "observation_commitment": "2f400ae9565dd674322b03c64a54f4ccf780c6942d143c53e3641a4b8a3288f3",
+            "claim_ceiling": "External-effect finality evidence only; no provider truth, legal settlement, or actuation authorization claim."
+          },
+          "observer_id": "observer-1",
+          "observer": {
+            "observer_id": "observer-1",
+            "role": "IndependentObserver",
+            "observation_method": "independent-state-read",
+            "provider_relationship": "external",
+            "evidence_root": "evidence-1",
+            "custody_root": "custody-1",
+            "upstream_observer_ids": [],
+            "upstream_evidence_roots": [],
+            "semantic_environment_root": "env",
+            "observation_profile_id": "obs-profile",
+            "independence": "DeclaredIndependent",
+            "independence_commitment": "independence-1",
+            "claim_ceiling": "Contestable external-finality reference evidence only; no physical truth, settlement, or actuation authorization claim."
+          }
+        }
+      ],
+      "eligibility_receipt": {
+        "eligibility_id": "elig-1",
+        "observation_id": "obs-1",
+        "observer_id": "observer-1",
+        "observer_generation_id": "gen-1",
+        "observation_profile_id": "obs-profile",
+        "semantic_environment_root": "env",
+        "dependency_snapshot_id": "snapshot",
+        "observation_frontier_root": "frontier",
+        "observation_frontier_sequence": 1,
+        "current_frontier_root": "frontier",
+        "current_frontier_sequence": 1,
+        "current_generation_id": "gen-1",
+        "qualification_profile_id": "lifecycle",
+        "provenance": "Live",
+        "classification": "CorroboratingIndependent",
+        "disposition": "EligibleCurrent",
+        "lifecycle_transition_ids": [],
+        "eligibility_commitment": "de735c0f8275c665f8c3c8cd24b9f22f3223c7202352da289ffc6831fd16dcec",
+        "claim_ceiling": "Observer/evidence lifecycle reference semantics only; no real-world trust, revocation infrastructure, or authority claim."
+      },
+      "lifecycle_profile": {
+        "profile_id": "lifecycle",
+        "semantic_environment_root": "env",
+        "observation_profile_id": "obs-profile",
+        "allowed_roles": [
+          "IndependentObserver"
+        ],
+        "current_frontier_required": true,
+        "historical_evidence_allowed": true,
+        "profile_commitment": "lifecycle-profile-commitment",
+        "claim_ceiling": "Observer/evidence lifecycle reference semantics only; no real-world trust, revocation infrastructure, or authority claim."
+      },
+      "d6o_ledger": {
+        "generations": {
+          "gen-1": {
+            "generation_id": "gen-1",
+            "observer_id": "observer-1",
+            "generation_sequence": 1,
+            "predecessor_generation_id": null,
+            "role": "IndependentObserver",
+            "observation_method": "independent-state-read",
+            "provider_relationship": "external",
+            "evidence_root": "evidence-1",
+            "custody_root": "custody-1",
+            "upstream_observer_ids": [],
+            "upstream_evidence_roots": [],
+            "semantic_environment_root": "env",
+            "observation_profile_id": "obs-profile",
+            "created_frontier_root": "frontier",
+            "created_frontier_sequence": 1,
+            "initial_status": "Active",
+            "generation_commitment": "generation:gen-1",
+            "claim_ceiling": "Observer/evidence lifecycle reference semantics only; no real-world trust, revocation infrastructure, or authority claim."
+          }
+        },
+        "transitions": {},
+        "dependency_snapshots": {
+          "snapshot": {
+            "snapshot_id": "snapshot",
+            "observer_generation_id": "gen-1",
+            "observation_profile_id": "obs-profile",
+            "semantic_environment_root": "env",
+            "evidence_root": "evidence-1",
+            "custody_root": "custody-1",
+            "upstream_observer_ids": [],
+            "upstream_evidence_roots": [],
+            "independence": "DeclaredIndependent",
+            "effective_frontier_root": "frontier",
+            "effective_frontier_sequence": 1,
+            "predecessor_snapshot_id": null,
+            "snapshot_commitment": "snapshot:snapshot",
+            "claim_ceiling": "Observer/evidence lifecycle reference semantics only; no real-world trust, revocation infrastructure, or authority claim."
+          }
+        },
+        "rotations": {},
+        "eligibility_receipts": {
+          "elig-1": {
+            "eligibility_id": "elig-1",
+            "observation_id": "obs-1",
+            "observer_id": "observer-1",
+            "observer_generation_id": "gen-1",
+            "observation_profile_id": "obs-profile",
+            "semantic_environment_root": "env",
+            "dependency_snapshot_id": "snapshot",
+            "observation_frontier_root": "frontier",
+            "observation_frontier_sequence": 1,
+            "current_frontier_root": "frontier",
+            "current_frontier_sequence": 1,
+            "current_generation_id": "gen-1",
+            "qualification_profile_id": "lifecycle",
+            "provenance": "Live",
+            "classification": "CorroboratingIndependent",
+            "disposition": "EligibleCurrent",
+            "lifecycle_transition_ids": [],
+            "eligibility_commitment": "de735c0f8275c665f8c3c8cd24b9f22f3223c7202352da289ffc6831fd16dcec",
+            "claim_ceiling": "Observer/evidence lifecycle reference semantics only; no real-world trust, revocation infrastructure, or authority claim."
+          }
+        }
+      },
+      "current_frontier_root": "frontier",
+      "live_generation_id": "gen-1",
+      "required_independent_observations": 1
     }
   }
 }
