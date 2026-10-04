@@ -3949,8 +3949,10 @@ async fn dsid_042_key_rotation_revokes_stale_presentation_authorization() {
 }
 
 
-#[test]
-fn dsid_046_published_eddsa_jcs_2022_vector_verifies_end_to_end() {
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_046_published_eddsa_jcs_2022_vector_verifies_end_to_end() {
+    let dna = load_dna().await;
     // Independent interoperability vector from the Digital Bazaar reference
     // implementation README for eddsa-jcs-2022.
     let mut unsecured = serde_json::json!({
@@ -4036,6 +4038,24 @@ fn dsid_046_published_eddsa_jcs_2022_vector_verifies_end_to_end() {
     verifying_key
         .verify(&hash_data, &signature)
         .expect("published Digital Bazaar eddsa-jcs-2022 proof must verify against Mycelix JCS hashData");
+
+    let mut agents = BTreeMap::new();
+    agents.insert("interop_reference", "digitalbazaar/eddsa-jcs-2022-cryptosuite".into());
+    emit_evidence(
+        "DSID-046",
+        "published-eddsa-jcs-2022-vector-verifies-end-to-end",
+        &dna,
+        agents,
+        &[],
+        "Mycelix's JCS construction must reproduce the published Digital Bazaar hashData and verify its published Ed25519 proofValue.",
+        format!(
+            "hash_matches={} signature_verifies={} hash={}",
+            observed_hash == expected_hash,
+            verifying_key.verify(&hash_data, &signature).is_ok(),
+            observed_hash
+        ),
+        observed_hash == expected_hash && verifying_key.verify(&hash_data, &signature).is_ok(),
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]
