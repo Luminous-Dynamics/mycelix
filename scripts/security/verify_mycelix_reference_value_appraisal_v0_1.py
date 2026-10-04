@@ -11,6 +11,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[2]
 REGISTRY = ROOT / "docs/security/mycelix-reference-value-registry-v0.1.json"
 VERIFIER_ID = "mycelix.reference-value.appraisal.v0.1"
+APPROVED_REGISTRY_SHA256 = "28730695c1398a8133e5e7d0e1d89cdb84fca582b2186814c39f91121afc8ce1"
 
 
 def sha256_file(path: Path) -> str:
@@ -66,6 +67,19 @@ def load_registry() -> dict[str, Any]:
 def appraise(reference_path: Path) -> dict[str, Any]:
     reference_sha = sha256_file(reference_path)
     registry_sha = sha256_file(REGISTRY)
+    if registry_sha != APPROVED_REGISTRY_SHA256:
+        result = {
+            "profile_id": "mycelix.reference-value.appraisal",
+            "profile_version": "0.1.0",
+            "verifier_id": VERIFIER_ID,
+            "verifier_source_sha256": sha256_file(Path(__file__).resolve()),
+            "registry_sha256": registry_sha,
+            "reference_sha256": reference_sha,
+            "state": "DENY",
+            "reason": "registry-integrity-mismatch",
+        }
+        result["content_sha256"] = self_hash(result)
+        return result
     try:
         reference = load_object(reference_path)
         registry = load_registry()
