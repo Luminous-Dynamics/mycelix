@@ -5925,6 +5925,74 @@ mod tests {
     }
 
     #[test]
+    fn checkpoint_consistency_receipt_binds_both_publications_and_rejects_unknown_fields() {
+        let earlier_text = state_machine_trace_capsule(34, 8);
+        let later_text = state_machine_trace_capsule(34, 12);
+        let earlier =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&earlier_text)
+                .expect("earlier capsule must deserialize");
+        let later =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&later_text)
+                .expect("later capsule must deserialize");
+
+        let earlier_publication = state_machine_trace_checkpoint_publication(
+            &earlier,
+            8,
+            FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_GENESIS,
+        );
+        let later_publication = state_machine_trace_checkpoint_publication(
+            &later,
+            12,
+            &earlier_publication.publication_sha256,
+        );
+        let receipt = state_machine_trace_checkpoint_consistency_receipt(
+            &earlier_publication,
+            &later_publication,
+        );
+
+        assert_eq!(
+            validate_state_machine_trace_checkpoint_consistency_receipt(
+                &earlier,
+                &earlier_publication,
+                &later,
+                &later_publication,
+                &receipt,
+            ),
+            Ok(())
+        );
+
+        let mut forged_digest = receipt.clone();
+        forged_digest.later_publication_sha256 = earlier_publication.publication_sha256.clone();
+        assert_eq!(
+            validate_state_machine_trace_checkpoint_consistency_receipt(
+                &earlier,
+                &earlier_publication,
+                &later,
+                &later_publication,
+                &forged_digest,
+            ),
+            Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::ConsistencyReceiptPublicationBindingMismatch
+            )
+        );
+
+        let mut unknown = serde_json::to_value(&receipt)
+            .expect("consistency receipt must serialize");
+        unknown
+            .as_object_mut()
+            .expect("consistency receipt must serialize as an object")
+            .insert("unexpected_consistency_field".into(), serde_json::Value::Bool(true));
+        let unknown_json =
+            serde_json::to_string_pretty(&unknown).expect("unknown-field JSON must serialize");
+        assert!(
+            serde_json::from_str::<FederationStateMachineTraceCheckpointConsistencyReceipt>(
+                &unknown_json
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
     fn empty_publication_chain_is_rejected() {
         assert_eq!(
             validate_state_machine_trace_checkpoint_publication_chain(&[]),
