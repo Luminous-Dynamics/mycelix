@@ -166,7 +166,9 @@ def main() -> int:
             failures.append(line)
 
     print()
-    print(f"RATS trusted-time qualification: {len(contract["vectors"]) - len(failures)}/{len(contract["vectors"])} vectors passed")
+    passed = len(contract["vectors"]) - len(failures)
+    total = len(contract["vectors"])
+    print(f"RATS trusted-time qualification: {passed}/{total} vectors passed")
     print("Qualification ceiling: ReferenceModelOnly")
     return 1 if failures else 0
 
