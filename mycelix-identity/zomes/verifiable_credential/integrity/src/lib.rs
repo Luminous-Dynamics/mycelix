@@ -535,6 +535,105 @@ fn is_date_time_stamp(value: &str) -> bool {
         && value.parse::<Timestamp>().is_ok()
 }
 
+fn eddsa_jcs_hash_data(vc: &VerifiableCredential) -> ExternResult<Vec<u8>> {
+    let mut unsecured = serde_json::to_value(vc).map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Credential JSON serialization failed: {e}"
+        )))
+    })?;
+    let unsecured_map = unsecured.as_object_mut().ok_or(wasm_error!(
+        WasmErrorInner::Guest("Credential must serialize to a JSON object".into())
+    ))?;
+    unsecured_map.remove("proof");
+
+    let proof_value = serde_json::to_value(&vc.proof).map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Proof JSON serialization failed: {e}"
+        )))
+    })?;
+    let mut proof_config = proof_value.as_object().cloned().ok_or(wasm_error!(
+        WasmErrorInner::Guest("Credential proof must serialize to a JSON object".into())
+    ))?;
+    proof_config.remove("proofValue");
+
+    let context = unsecured
+        .get("@context")
+        .cloned()
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "JCS credential must contain an @context for proof configuration".into()
+        )))?;
+    proof_config.insert("@context".to_string(), context);
+
+    let canonical_document = serde_json_canonicalizer::to_vec(&unsecured).map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "JCS credential canonicalization failed: {e}"
+        )))
+    })?;
+    let canonical_proof_config =
+        serde_json_canonicalizer::to_vec(&Value::Object(proof_config)).map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "JCS proof configuration canonicalization failed: {e}"
+            )))
+        })?;
+
+    let transformed_document_hash = Sha256::digest(&canonical_document);
+    let proof_config_hash = Sha256::digest(&canonical_proof_config);
+
+    let mut hash_data = Vec::with_capacity(64);
+    hash_data.extend_from_slice(&proof_config_hash);
+    hash_data.extend_from_slice(&transformed_document_hash);
+    Ok(hash_data)
+}
+
+fn decode_raw_jcs_signature(value: &str) -> Result<[u8; 64], String> {
+    if !value.starts_with('z') || value.len() <= 1 {
+        return Err("W3C JCS proofValue must use base58-btc Multibase (z prefix)".into());
+    }
+    let decoded = bs58::decode(&value[1..])
+        .with_alphabet(bs58::Alphabet::BITCOIN)
+        .into_vec()
+        .map_err(|e| format!("Invalid proofValue base58-btc payload: {e}"))?;
+    <[u8; 64]>::try_from(decoded.as_slice())
+        .map_err(|_| "W3C JCS proofValue must decode to exactly 64 Ed25519 bytes".into())
+}
+
+fn verify_credential_signature_at_validation(
+    action_author: &AgentPubKey,
+    vc: &VerifiableCredential,
+) -> ExternResult<bool> {
+    let hash_data = match vc.proof.cryptosuite.as_deref() {
+        None | Some("mycelix-blake2b-ed25519-2026") => compute_credential_content_hash(vc),
+        Some("eddsa-jcs-2022") => eddsa_jcs_hash_data(vc)?,
+        Some(_) => return Ok(false),
+    };
+
+    if vc.proof.cryptosuite.as_deref() == Some("eddsa-jcs-2022") {
+        let raw = decode_raw_jcs_signature(&vc.proof.proof_value).map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(e))
+        })?;
+        return verify_signature(
+            action_author.clone(),
+            Signature::from(raw),
+            hash_data,
+        );
+    }
+
+    let tagged = TaggedSignature::from_multibase(&vc.proof.proof_value)
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?;
+    if tagged.algorithm != AlgorithmId::Ed25519 {
+        return Ok(false);
+    }
+    if tagged.signature_bytes.len() != 64 {
+        return Ok(false);
+    }
+    let raw = <[u8; 64]>::try_from(tagged.signature_bytes.as_slice())
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+            "Ed25519 proofValue must decode to exactly 64 bytes".into()
+        )))?;
+
+    verify_signature(action_author.clone(), Signature::from(raw), hash_data)
+}
+
 fn compute_credential_content_hash(vc: &VerifiableCredential) -> Vec<u8> {
     let mut content = Vec::new();
     content.extend(vc.id.as_bytes());
@@ -1012,6 +1111,13 @@ fn validate_create_verifiable_credential(
 
     // The proof verification method must belong to the same DID whose key
     // authenticates the credential signature. The fragment is an identifier
+    let signature_valid = verify_credential_signature_at_validation(&action.author(), &vc)?;
+    if !signature_valid {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Credential proof signature does not verify against the committing agent".into(),
+        ));
+    }
+
     // within that DID document; the verifier's cryptographic key is derived
     // from the issuer DID itself.
     if !verification_method_matches_did(&vc.proof.verification_method, vc.issuer.did()) {
