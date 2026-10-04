@@ -181,6 +181,13 @@ def fixture_manifest() -> dict[str, Any]:
             "parser_status": "PASS",
             "parser_output_sha256": "7" * 64,
         },
+        "raw_eventlog": {
+            "status": "PASS",
+            "parser_id": "mycelix.pc-client.raw-tpm2-eventlog-parser.v0.1",
+            "output_sha256": "8" * 64,
+            "source_sha256": sha256_file(RAW_EVENTLOG_PARSER_SCRIPT),
+            "binary_sha256": "c" * 64,
+        },
         "quote": {
             "pcr_selection": "sha256:0,2,4,7",
             "nonce_sha256": "d" * 64,
