@@ -259,7 +259,7 @@ check_update_delete_authorization() {
   local file="$1"
   if grep -Fq "FlatOp::Update(OpUpdate::Entry { action" "$file"; then
     local update_block
-    update_block="$(awk '/FlatOp::Update(OpUpdate::Entry/{in_block=1} /FlatOp::Update(_)/{if(in_block){in_block=0}} in_block' "$file")"
+    update_block="$(awk 'index($0, "FlatOp::Update(OpUpdate::Entry") { in_block=1 } index($0, "FlatOp::Update(_)") && in_block { in_block=0 } in_block' "$file")"
     if printf '%s\n' "$update_block" | grep -Fq "must_get_valid_record(action.original_action_address"; then
       echo "OK:   $file Update path validates the original record"
     else
@@ -278,7 +278,7 @@ check_update_delete_authorization() {
 
   if grep -Fq "FlatOp::Delete(OpDelete { action" "$file"; then
     local delete_block
-    delete_block="$(awk '/FlatOp::Delete(OpDelete/{in_block=1} /FlatOp::Update/{if(in_block){in_block=0}} in_block' "$file")"
+    delete_block="$(awk 'index($0, "FlatOp::Delete(OpDelete") { in_block=1 } index($0, "FlatOp::Update") && in_block { in_block=0 } in_block' "$file")"
     if printf '%s\n' "$delete_block" | grep -Fq "must_get_valid_record(action.deletes_address"; then
       echo "OK:   $file Delete path validates the original record"
     else
