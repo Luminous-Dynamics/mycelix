@@ -958,6 +958,23 @@ def capture(args: argparse.Namespace) -> int:
         raise RuntimeError("independent raw event-log parser failed; raw evidence preserved but not qualified")
     trusted = load_json(out / "trusted-time.json")
     input_path = out / "eventlog-reconstruction-input.json"
+    payload_coherence_path = out / "payload-coherence.json"
+    payload_proc = run(
+        [
+            sys.executable,
+            str(PAYLOAD_COHERENCE_SCRIPT),
+            "--verify",
+            str(input_path),
+            "--output",
+            str(payload_coherence_path),
+        ],
+        env,
+        out,
+        check=False,
+    )
+    if payload_proc.returncode not in (0, 2) and not payload_coherence_path.is_file():
+        raise RuntimeError("payload coherence verifier failed without producing a result")
+    payload_coherence = load_json(payload_coherence_path)
     reconstruction_path = out / "eventlog-reconstruction.json"
     adapter = run(
         [
@@ -1067,6 +1084,12 @@ def capture(args: argparse.Namespace) -> int:
             "source_sha256": sha256_file(RAW_EVENTLOG_PARSER_SCRIPT),
             "binary_sha256": sha256_file(out / "eventlog.bin"),
         },
+        "payload_coherence": {
+            "status": payload_coherence.get("state", "DENY"),
+            "output_sha256": sha256_file(payload_coherence_path),
+            "source_sha256": sha256_file(PAYLOAD_COHERENCE_SCRIPT),
+            "input_sha256": sha256_file(input_path),
+        },
         "quote": {
             "pcr_selection": args.pcr_selection,
             "nonce_sha256": sha256_file(out / "nonce.bin"),
@@ -1133,6 +1156,7 @@ def capture(args: argparse.Namespace) -> int:
     print("Event-log parser: PASS")
     print(f"Event-log reconstruction: {reconstruction.get('status', 'INDETERMINATE')}")
     print(f"Event-log reconstruction reason: {reconstruction.get('reason', 'unknown')}")
+    print(f"Payload coherence: {payload_coherence.get('state', 'DENY')} ({payload_coherence.get('reason', 'unknown')})")
     print("Claim ceiling: ReferenceModelOnly")
     return 0
 
