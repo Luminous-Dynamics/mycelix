@@ -350,9 +350,9 @@ pub fn issue_credential(input: IssueCredentialInput) -> ExternResult<Record> {
             now.as_micros()
         )
     });
-    if credential_id.is_empty() || credential_id.len() > 512 {
+    if credential_id.is_empty() || credential_id.len() > 256 {
         return Err(wasm_error!(WasmErrorInner::Guest(
-            "Credential ID must be 1-512 characters".into()
+            "Credential ID must be 1-256 characters".into()
         )));
     }
 
