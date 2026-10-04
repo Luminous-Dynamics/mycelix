@@ -842,11 +842,10 @@ check_qualification_workflow_provenance() {
   fi
   local expected_action_ref action_use_count pinned_action_count
   local expected_action_refs=(
-    "actions/checkout@11d5960a326750d5838078e36cf38b85af677262"
-    "cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b"
-    "cachix/cachix-action@ad2ddac53f961de1989924296a1f236fcfbaa4fc"
-    "Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6"
-    "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02"
+    "actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803"
+    "cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24"
+    "cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866"
+    "actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f"
   )
   if rg -n --fixed-strings 'mycelix-health' "../../.gitmodules" >/dev/null 2>&1 \
     && rg -n --fixed-strings 'https://github.com/Luminous-Dynamics/mycelix-health.git' "../../.gitmodules" >/dev/null 2>&1; then
