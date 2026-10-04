@@ -45,7 +45,7 @@ def sha256(path: Path) -> str:
 def git_tree_from_api(repo: str, ref: str, token: str) -> dict:
     url = (
         f"https://api.github.com/repos/{repo}/git/trees/"
-        f"{urllib.parse.quote(ref, safe='')}"
+        f"{urllib.parse.quote(ref, safe='')}?recursive=1"
     )
     request = urllib.request.Request(
         url,
@@ -216,7 +216,23 @@ def verify_cases(log: str, policy: dict) -> None:
 
 
 def verify_workflow_identity(record: dict[str, str], policy: dict) -> None:
-    verify_workflow_identity(record, policy)
+    repo = os.environ["GITHUB_REPOSITORY"]
+    workflow_path = policy["workflow_path"]
+    caller_path = policy["caller_workflow_path"]
+
+    assert re.fullmatch(r"[0-9a-f]{40}", record["caller_workflow_commit_sha"])
+    assert record["caller_workflow_ref"].startswith(f"{repo}/{caller_path}@")
+    assert re.fullmatch(r"[0-9a-f]{40}", record["workflow_definition_commit_sha"])
+    assert record["workflow_definition_ref"].startswith(f"{repo}/{workflow_path}@")
+    assert record["workflow_definition_repository"] == repo
+    assert record["workflow_definition_file_path"] == workflow_path
+
+    expected_d6u_blob = policy["required_tracked_blobs"][workflow_path]
+    expected_caller_blob = policy["required_tracked_blobs"][caller_path]
+    assert re.fullmatch(r"[0-9a-f]{40}", record["workflow_definition_blob_sha"])
+    assert record["workflow_definition_blob_sha"] == expected_d6u_blob
+    assert re.fullmatch(r"[0-9a-f]{40}", record["caller_workflow_blob_sha"])
+    assert record["caller_workflow_blob_sha"] == expected_caller_blob
 
 
 def verify_lock(path: Path, policy: dict) -> None:
@@ -253,8 +269,8 @@ def main() -> None:
 
     assert run["event"] == "pull_request"
     assert run["conclusion"] == "success"
-    assert run["name"] == policy["workflow_name"]
-    assert run["path"] == policy["workflow_path"]
+    assert run["name"] == policy["trigger_workflow_name"]
+    assert run["path"] == policy["trigger_workflow_path"]
     assert run["head_repository"]["full_name"] == repo
     assert event["repository"]["full_name"] == repo
 
@@ -280,13 +296,8 @@ def main() -> None:
     assert record["source_commit"] == head_sha
     assert record["workflow_run_id"] == run_id
     assert record["workflow_run_attempt"] == run_attempt
-    assert record["workflow_execution_ref"].startswith(
-        f"{repo}/{policy['workflow_path']}@"
-    )
+    verify_workflow_identity(record, policy)
     assert record["attestation_status"] == "deferred-to-trusted-builder"
-    expected_workflow_sha = policy["required_tracked_blobs"][policy["workflow_path"]]
-    assert re.fullmatch(r"[0-9a-f]{40}", record["workflow_sha"])
-    assert record["workflow_sha"] == expected_workflow_sha
     assert record["claim_ceiling"] == policy["claim_ceiling"]
     assert record["manifest_version"] == str(policy["manifest_version"])
     assert record["d6s2_authority_ledger_schema"] == policy["d6s2_authority_ledger_schema"]
