@@ -58,6 +58,7 @@ jobs:
         run: |
           python3 - <<'PY'
           import json
+          import os
           from pathlib import Path
 
           path = Path("docs/identity/did-mycelix-conformance-vectors-v0.1.json")
@@ -289,13 +290,13 @@ jobs:
           # set is the sorted set of IDs, which is recorded in the manifest.
           scenario_set = "\n".join(sorted(expected_ids)) + "\n"
           Path("dsid-scenario-set.txt").write_text(scenario_set)
-          PY
 
           fixture_path = Path(os.environ["DSID_INTEROP_FIXTURE_DIR"]) / "mycelix-eddsa-jcs-interop.json"
           fixture = json.loads(fixture_path.read_text())
           assert fixture["qualifiedHeadCommit"] == os.environ["DSID_QUALIFIED_HEAD_SHA"]
           assert fixture["schema_version"] == 1
           assert fixture["cryptosuite"] == "eddsa-jcs-2022"
+          PY
 
           sha256sum dsid-lifecycle-evidence.jsonl > dsid-lifecycle-evidence.sha256
           sha256sum dsid-scenario-set.txt > dsid-scenario-set.sha256
