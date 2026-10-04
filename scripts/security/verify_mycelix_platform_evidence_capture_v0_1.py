@@ -877,7 +877,7 @@ def capture(args: argparse.Namespace) -> int:
     post = run(["tpm2_pcrread", args.pcr_selection], env, out)
     (out / "pcr-post.yaml").write_text(post.stdout, encoding="utf-8")
     live_values = parse_pcrread_sha256(post.stdout, args.pcr_selection)
-
+    (out / "observed-pcr-values.json").write_text(\n        json.dumps(live_values, indent=2, sort_keys=True) + "\n", encoding="utf-8"\n    )\n
     props_after = run(["tpm2_getcap", "properties-fixed"], env, out)
     if sha256_bytes(props_after.stdout.encode()) != prop_hash:
         raise RuntimeError("TPM fixed properties changed during capture")
