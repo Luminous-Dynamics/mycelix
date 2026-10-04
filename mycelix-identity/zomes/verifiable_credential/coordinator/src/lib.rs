@@ -1233,10 +1233,28 @@ pub fn create_derived_credential(input: CreateDerivedInput) -> ExternResult<Reco
         holder_signature: holder_signature.as_ref().to_vec(),
     };
 
-    // Calculate expiration
-    let expires = input.expires_hours.map(|hours| {
-        Timestamp::from_micros(now.as_micros() as i64 + (hours as i64 * 3600 * 1_000_000))
+    // Derived credentials may never outlive their source credential.
+    // With no requested expiry, inherit the source credential's expiry when one
+    // exists; with a requested expiry, clamp it to the source expiry.
+    let requested_expires = input.expires_hours.map(|hours| {
+        Timestamp::from_micros(now.as_micros() + (hours as i64 * 3600 * 1_000_000))
     });
+    let source_expires = match original_vc.valid_until.as_deref() {
+        Some(value) => Some(Timestamp::from_micros(
+            parse_iso8601_to_micros(value).ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Original credential validUntil is not parseable: {value}"
+                )))
+            })?,
+        )),
+        None => None,
+    };
+    let expires = match (requested_expires, source_expires) {
+        (Some(requested), Some(source)) => Some(std::cmp::min(requested, source)),
+        (Some(requested), None) => Some(requested),
+        (None, Some(source)) => Some(source),
+        (None, None) => None,
+    };
 
     let derived = DerivedCredential {
         original_credential_id: input.credential_id.clone(),
@@ -1340,13 +1358,40 @@ pub fn verify_derived_credential(
             "Invalid original credential".into()
         )))?;
 
-    // Verify the original credential hash matches
+    // The derived credential is meaningful only for the exact original
+    // issuer/subject it claims to derive from.
+    if derived.original_issuer != original_vc.issuer.did() {
+        errors.push("Derived credential original issuer does not match source credential".to_string());
+    }
+    if derived.holder != original_vc.credential_subject.id {
+        errors.push("Derived credential holder does not match source credential subject".to_string());
+    }
+    if derived.derived_content.id != derived.holder {
+        errors.push("Derived credential subject ID does not match holder".to_string());
+    }
+
+    // Verify the original credential hash matches.
     let recomputed_hash = compute_credential_hash(&original_vc);
     if recomputed_hash != derived.derivation_proof.original_credential_hash {
         errors.push("Original credential hash does not match derivation proof".to_string());
     }
 
-    // Verify the original credential's own signature
+    // A derived credential may never extend the source credential's validity.
+    if let Some(source_until) = original_vc.valid_until.as_deref() {
+        match parse_iso8601_to_micros(source_until) {
+            Some(source_micros) => {
+                let source_until = Timestamp::from_micros(source_micros);
+                if derived.expires.is_none() {
+                    errors.push("Derived credential must inherit the source credential expiration".to_string());
+                } else if derived.expires > Some(source_until) {
+                    errors.push("Derived credential expiration exceeds source credential expiration".to_string());
+                }
+            }
+            None => errors.push("Source credential validUntil is not parseable".to_string()),
+        }
+    }
+
+    // Verify the original credential's own signature.
     match verify_credential_signature(&original_vc) {
         Ok(true) => {
             original_issuer_verified = true;
@@ -1359,15 +1404,46 @@ pub fn verify_derived_credential(
         }
     }
 
-    // Verify selected claims are a subset of the original
+    // Verify the selected claims are an exact subset of the original
+    // content represented by the derived credential; duplicates and extra
+    // derived claims are invalid.
     let original_claims = &original_vc.credential_subject.claims;
-    for claim_key in &derived.selected_claims {
-        if original_claims.get(claim_key).is_none() {
-            errors.push(format!(
-                "Claim '{}' not present in original credential",
-                claim_key
-            ));
+    match (
+        original_claims.as_object(),
+        derived.derived_content.claims.as_object(),
+    ) {
+        (Some(original_obj), Some(derived_obj)) => {
+            for (i, claim_key) in derived.selected_claims.iter().enumerate() {
+                if derived.selected_claims.iter().skip(i + 1).any(|other| other == claim_key) {
+                    errors.push(format!("Claim '{}' appears more than once in selected_claims", claim_key));
+                    continue;
+                }
+                match (original_obj.get(claim_key), derived_obj.get(claim_key)) {
+                    (Some(original_value), Some(derived_value)) if original_value == derived_value => {}
+                    (None, _) => errors.push(format!(
+                        "Claim '{}' not present in original credential",
+                        claim_key
+                    )),
+                    (Some(_), None) => errors.push(format!(
+                        "Claim '{}' not present in derived credential",
+                        claim_key
+                    )),
+                    (Some(_), Some(_)) => errors.push(format!(
+                        "Derived claim '{}' does not match the original credential",
+                        claim_key
+                    )),
+                }
+            }
+            for key in derived_obj.keys() {
+                if !derived.selected_claims.iter().any(|selected| selected == key) {
+                    errors.push(format!(
+                        "Derived credential contains unselected claim '{}'",
+                        key
+                    ));
+                }
+            }
         }
+        _ => errors.push("Original and derived credential claims must be JSON objects".to_string()),
     }
 
     // Verify Merkle proofs if present
