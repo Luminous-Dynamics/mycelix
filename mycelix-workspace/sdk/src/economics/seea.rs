@@ -195,7 +195,8 @@ impl SeeaObservation {
     }
 
     /// Convert a condition observation into an AC-017 substrate account after
-    /// explicit freshness qualification.
+    /// structural validation. Freshness is enforced by the explicit
+    /// to_ecological_substrate_if_current method.
     ///
     /// Only condition accounts map directly to the ecological substrate
     /// dimension. Extent/services/asset accounts remain typed observations
