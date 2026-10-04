@@ -19,6 +19,7 @@ pub mod action_lifecycle;
 pub mod execution_receipt;
 pub mod execution_reconciliation;
 pub mod action_finalization;
+pub mod finalization_certificate;
 pub mod substrate;
 pub mod metabolic_oracle;
 pub mod poc;
@@ -57,6 +58,9 @@ pub use execution_reconciliation::{
 pub use action_finalization::{
     EconomicActionFinalizationGate, EconomicFinalizationAssessment,
     EconomicFinalizationDecision,
+};
+pub use finalization_certificate::{
+    EconomicFinalizationCertificate, EconomicFinalizationLedger,
 };
 pub use substrate::{
     BoundaryDirection, DistributionPurpose, GateDecision, SubstrateAccount, SubstrateBoundary,
