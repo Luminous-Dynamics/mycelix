@@ -3499,6 +3499,29 @@ mod tests {
                 );
             }
         }
+
+        for candidate_token in state_machine_token_shrink_candidates(shrunk[0].1) {
+            if candidate_token >= shrunk[0].1 {
+                continue;
+            }
+            let candidate = shrunk
+                .iter()
+                .map(|(operation, token)| {
+                    (
+                        *operation,
+                        if *token == shrunk[0].1 {
+                            candidate_token
+                        } else {
+                            *token
+                        },
+                    )
+                })
+                .collect::<Vec<_>>();
+            assert!(
+                !fails(&candidate),
+                "parameter-shrunk sequence is not at a fixed point for linked token replacement"
+            );
+        }
     }
 
     #[test]
