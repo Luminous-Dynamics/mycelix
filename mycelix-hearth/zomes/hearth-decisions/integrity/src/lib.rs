@@ -68,7 +68,11 @@ pub struct DecisionOutcome {
     /// The decision this outcome is for.
     pub decision_hash: ActionHash,
     /// The Holochain agent that authored the resolution action.
-    pub resolved_by: AgentPubKey,
+    ///
+    /// Optional only for legacy outcomes created before AC-068. New outcomes
+    /// must contain the action author and are rejected otherwise.
+    #[serde(default)]
+    pub resolved_by: Option<AgentPubKey>,
     /// Index of the winning option.
     pub chosen_option: u32,
     /// Participation rate in basis points (0-10000).
@@ -223,10 +227,18 @@ fn validate_outcome_author(
     outcome: &DecisionOutcome,
     action_author: &AgentPubKey,
 ) -> ExternResult<ValidateCallbackResult> {
-    if outcome.resolved_by != *action_author {
-        return Ok(ValidateCallbackResult::Invalid(
-            "DecisionOutcome resolved_by must match the Holochain action author".into(),
-        ));
+    match &outcome.resolved_by {
+        Some(resolved_by) if resolved_by == action_author => {}
+        Some(_) => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "DecisionOutcome resolved_by must match the Holochain action author".into(),
+            ));
+        }
+        None => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "New DecisionOutcome must contain a resolver identity".into(),
+            ));
+        }
     }
     Ok(ValidateCallbackResult::Valid)
 }
@@ -504,7 +516,7 @@ mod tests {
     fn make_outcome(chosen: u32, participation_bp: u32) -> DecisionOutcome {
         DecisionOutcome {
             decision_hash: fake_action_hash(),
-            resolved_by: fake_agent(),
+            resolved_by: Some(fake_agent()),
             chosen_option: chosen,
             participation_rate_bp: participation_bp,
             resolved_at: fake_timestamp(),
