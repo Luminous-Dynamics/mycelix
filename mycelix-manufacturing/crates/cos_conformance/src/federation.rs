@@ -2560,7 +2560,7 @@ mod tests {
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
     struct FederationStateMachineFailureCapsule {
         schema_version: u16,
-        failure_kind: &'static str,
+        failure_kind: String,
         trace: FederationStateMachineTraceCapsule,
         failed_step_index: usize,
         operation: FederationStateMachineOperation,
@@ -2615,7 +2615,7 @@ mod tests {
 
             Self {
                 schema_version: 1,
-                failure_kind: "invariant-violation",
+                failure_kind: "invariant-violation".into(),
                 trace,
                 failed_step_index,
                 operation,
@@ -3226,7 +3226,7 @@ mod tests {
         ];
         let capsule = FederationStateMachineFailureCapsule {
             schema_version: 1,
-            failure_kind: "invariant-violation",
+            failure_kind: "invariant-violation".into(),
             trace: FederationStateMachineTraceCapsule {
                 trace_index: 11,
                 initial_seed,
@@ -3257,13 +3257,18 @@ mod tests {
         assert_eq!(round_trip, capsule);
         assert_eq!(round_trip.failure_kind, "invariant-violation");
         assert_eq!(json, round_trip.to_json());
+        let replay_plan = state_machine_plan_from_capsule(&round_trip.trace);
         assert_eq!(
-            capsule.trace.operations.len(),
-            capsule.trace.tokens.len()
+            replay_plan.len(),
+            round_trip.failed_step_index + 1
         );
         assert_eq!(
-            capsule.trace.operations.len(),
-            capsule.failed_step_index + 1
+            replay_plan[round_trip.failed_step_index],
+            (round_trip.operation, round_trip.token)
+        );
+        assert_eq!(
+            round_trip.trace.operations.len(),
+            round_trip.trace.tokens.len()
         );
     }
 
