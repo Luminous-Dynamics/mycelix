@@ -696,14 +696,17 @@ pub fn deliver(
         source_observation: true,
     };
 
-    if state.next_admission_index == u64::MAX {
-        return FederationOutcome::known_origin(
-            FederationDecision::Rejected,
-            AuthorityDisposition::NoAuthority,
-            envelope,
-            "The reference federation has exhausted its admission ordinal space.",
-        );
-    }
+    let next_admission_index = match state.next_admission_index.checked_add(1) {
+        Some(next) => next,
+        None => {
+            return FederationOutcome::known_origin(
+                FederationDecision::Rejected,
+                AuthorityDisposition::NoAuthority,
+                envelope,
+                "The reference federation has exhausted its admission ordinal space.",
+            );
+        }
+    };
 
     if !matches!(
         record_source_observation(state, observation),
@@ -738,7 +741,7 @@ pub fn deliver(
         },
     );
     debug_assert!(prior.is_none());
-    state.next_admission_index += 1;
+    state.next_admission_index = next_admission_index;
 
     FederationOutcome::known_origin(
         decision,
@@ -1697,6 +1700,26 @@ mod tests {
     }
 
     #[test]
+    fn admission_ordinal_exhaustion_is_fail_closed() {
+        let mut state = nodes();
+        state.next_admission_index = u64::MAX;
+
+        let before = canonical_state_fingerprint(&state);
+        let before_audit = audit_state(&state);
+        let before_delivery_count = state.delivery_count();
+        let before_observation_count = state.observation_count();
+
+        let outcome = deliver(&mut state, &envelope(), 50, true);
+
+        assert_eq!(outcome.decision(), FederationDecision::Rejected);
+        assert_eq!(state.next_admission_index, u64::MAX);
+        assert_eq!(state.delivery_count(), before_delivery_count);
+        assert_eq!(state.observation_count(), before_observation_count);
+        assert_eq!(canonical_state_fingerprint(&state), before);
+        assert_eq!(audit_state(&state), before_audit);
+    }
+
+    #[test]
     fn validate_state_accepts_admitted_state_and_canonical_fingerprint_is_stable() {
         let mut state = nodes();
         assert_eq!(validate_state(&state), Ok(()));
@@ -2613,12 +2636,68 @@ mod tests {
     ) where
         F: FnOnce(&mut FederationState),
     {
+        assert_eq!(
+            state.next_admission_index,
+            state.delivery_count() as u64,
+            "transition fixture must begin from a valid admission-ordinal state: {transition}"
+        );
+        assert!(validate_state(state).is_ok(), "transition precondition invalid: {transition}");
+
         let before = canonical_state_fingerprint(state);
+        let before_delivery_ids = state.deliveries.keys().cloned().collect::<BTreeSet<_>>();
+        let before_delivery_count = state.delivery_count();
+        let before_admission_index = state.next_admission_index;
+
         transition_fn(state);
+
         assert!(
             validate_state(state).is_ok(),
             "public transition produced invalid state: {transition}"
         );
+        assert_eq!(
+            state.next_admission_index,
+            state.delivery_count() as u64,
+            "valid transition state must keep admission counter equal to admitted delivery count: {transition}"
+        );
+        assert!(
+            state.delivery_count() >= before_delivery_count,
+            "public transition unexpectedly deleted an admitted delivery: {transition}"
+        );
+
+        if state.delivery_count() == before_delivery_count {
+            assert_eq!(
+                state.next_admission_index,
+                before_admission_index,
+                "a transition without a new delivery must not consume an admission ordinal: {transition}"
+            );
+        } else {
+            assert_eq!(
+                state.delivery_count(),
+                before_delivery_count + 1,
+                "each transition can admit at most one new logical delivery: {transition}"
+            );
+            assert_eq!(
+                state.next_admission_index,
+                before_admission_index + 1,
+                "a new logical delivery must consume exactly one admission ordinal: {transition}"
+            );
+
+            let new_ids = state
+                .deliveries
+                .keys()
+                .filter(|id| !before_delivery_ids.contains(*id))
+                .collect::<Vec<_>>();
+            assert_eq!(
+                new_ids.len(),
+                1,
+                "exactly one new delivery identity must appear: {transition}"
+            );
+            assert_eq!(
+                state.delivery(new_ids[0]).unwrap().admission_index(),
+                before_admission_index,
+                "the new delivery must receive the next available admission ordinal: {transition}"
+            );
+        }
 
         let after = canonical_state_fingerprint(state);
         assert_eq!(
