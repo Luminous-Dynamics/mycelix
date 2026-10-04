@@ -170,6 +170,13 @@ impl SectorRevaluationChangeMatrix {
     ) -> Result<(), String> {
         SectorBalanceSheet::from_state(state, assignments)?;
 
+        // Re-run the authoritative transition semantics so reporting cannot
+        // accept a valuation that is structurally well formed but impossible
+        // against the supplied opening state (for example, inventory
+        // carrying-value revaluation with no physical inventory).
+        super::transition::apply_step(state, 0, transitions, None)
+            .map_err(|error| format!("sector revaluation state replay failed: {error}"))?;
+
         let expected = Self::from_transitions(transitions, assignments)?;
         if self.changes != expected.changes {
             return Err("sector revaluation projection does not match transition projection".into());
@@ -345,6 +352,30 @@ mod tests {
             10,
         )
         .is_err());
+    }
+
+
+
+    #[test]
+    fn projection_rejects_unexecutable_inventory_revaluation() {
+        let state = EconomicState::new(vec![
+            ActorBalanceSheet::new("bank"),
+            ActorBalanceSheet::new("firm"),
+        ]);
+        let transitions = vec![EconomicTransition::RealAssetRevaluation(
+            RealAssetRevaluation::new(
+                "firm",
+                RealAssetRevaluationTarget::InventoryCarryingValue,
+                10,
+            )
+            .unwrap(),
+        )];
+        let matrix =
+            SectorRevaluationChangeMatrix::from_transitions(&transitions, &assignments()).unwrap();
+
+        assert!(matrix
+            .validate_against(&state, &assignments(), &transitions)
+            .is_err());
     }
 
     #[test]
