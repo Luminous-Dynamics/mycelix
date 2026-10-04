@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     # Run against every PR target, including stacked/dependent review branches.
+    # This preserves CI evidence for dependent changes before their parent merges.
     # Job-level admission below still controls draft/publication semantics.
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
   workflow_dispatch:
