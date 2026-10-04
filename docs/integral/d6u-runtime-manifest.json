@@ -1,7 +1,7 @@
 {
   "profile": "D6U-RUNTIME-1",
   "kind": "holochain-0.7-authority-boundary-runtime-manifest",
-  "version": 5,
+  "version": 6,
   "substrate": {
     "holochain": "0.7.0",
     "hdk": "0.7.0",
@@ -36,6 +36,8 @@
   ],
   "evidence_fields": [
     "source_commit",
+    "workflow_run_id",
+    "workflow_run_attempt",
     "runtime_version",
     "hdk_version",
     "hdi_version",
