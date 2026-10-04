@@ -20,7 +20,7 @@ pub use binding_provenance::{
 
 pub use qualification::{
     QualificationDecision, QualificationDependencyBinding, QualificationDependencyBindingSet,
-    QualificationDependencyRetrievalKind, QualificationOutcome,
+    QualificationDependencyRetrievalKind, QualificationOutcome, QualificationOutcomeExt,
     QualificationStatus, QualificationValidationError,
 };
 
