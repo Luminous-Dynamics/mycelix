@@ -1245,6 +1245,10 @@ pub fn compose_finality_eligibility_from_authoritative_d6n_d6o(
     live_generation_id: &str,
     required_independent_observations: u32,
 ) -> Option<FinalityEligibilityCompositionV1> {
+    if profile.required_independent_observations != required_independent_observations {
+        return None;
+    }
+
     if !verify_observation_set_provenance(
         set,
         effect,
@@ -2073,6 +2077,89 @@ mod tests {
             crate::observer_lifecycle::LifecycleRecordDispositionV1::Recorded
         );
         (ledger, receipt)
+    }
+
+    #[test]
+    fn authoritative_d6n_d6o_rejects_threshold_parameter_substitution() {
+        let generation = generation("observer-A");
+        let evidence = observation("obs-1", &generation, ExternalObservedStateV1::Applied);
+        let (ledger, receipt) = ledger_and_receipt(&generation, &evidence);
+        let set = set(&["obs-1"]);
+        let assessment = d6n_assessment(
+            &set,
+            &[(
+                "obs-1".into(),
+                "observer-A".into(),
+                ObservationClassificationV1::CorroboratingIndependent,
+            )],
+        );
+        let mut finality_profile = FinalityQualificationProfileV1 {
+            profile_id: "finality-profile-1".into(),
+            semantic_environment_root: "env-1".into(),
+            allowed_observation_sources: [ExternalObservationSourceV1::IndependentObserver]
+                .into_iter()
+                .collect(),
+            required_independent_observations: 2,
+            current_frontier_required: true,
+            provider_reports_may_satisfy_independence: false,
+            allow_explicit_conflict_resolution: false,
+            profile_commitment: "finality-profile-commitment".into(),
+            claim_ceiling: CONTESTABLE_FINALITY_CLAIM_CEILING.into(),
+        };
+        assert!(finality_profile.structurally_valid());
+
+        let rejected = compose_finality_eligibility_from_authoritative_d6n_d6o(
+            &SemanticEffectV1 {
+                effect_id: "effect-1".into(),
+                lineage_id: "lineage-1".into(),
+                generation_id: "effect-generation-1".into(),
+                request_commitment: "request-1".into(),
+                semantic_environment_root: "env-1".into(),
+                effect_class: "class".into(),
+                resource_id: "resource".into(),
+                tenant_id: "tenant".into(),
+                amount: "1".into(),
+                unit: "unit".into(),
+                authority_claim_id: "authority".into(),
+                consent_claim_id: "consent".into(),
+                idempotency_key: "idem".into(),
+            },
+            &ProviderRouteV1 {
+                route_id: "route-1".into(),
+                effect_id: "effect-1".into(),
+                substitution_profile_id: "profile".into(),
+                provider_id: "provider-1".into(),
+                provider_profile_root: "provider-profile-1".into(),
+                provider_operation_id: "operation-1".into(),
+                route_generation: 1,
+                lifecycle_generation_id: "effect-generation-1".into(),
+                request_commitment: "request-1".into(),
+                semantic_environment_root: "env-1".into(),
+                effect_class: "class".into(),
+                resource_id: "resource".into(),
+                tenant_id: "tenant".into(),
+                amount: "1".into(),
+                unit: "unit".into(),
+                authority_claim_id: "authority".into(),
+                consent_claim_id: "consent".into(),
+                idempotency_key: "idem".into(),
+                route_frontier_root: "frontier-1".into(),
+            },
+            &finality_profile,
+            &set,
+            &assessment,
+            std::slice::from_ref(&evidence),
+            std::slice::from_ref(&receipt),
+            &lifecycle_profile(),
+            &ledger,
+            "frontier-1",
+            1,
+        );
+
+        assert!(
+            rejected.is_none(),
+            "authoritative D6P reconstruction must not accept a caller-supplied threshold lower than the qualification profile"
+        );
     }
 
     #[test]
