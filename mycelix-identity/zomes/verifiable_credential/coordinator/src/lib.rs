@@ -3062,8 +3062,8 @@ fn sign_credential(vc: &VerifiableCredential) -> ExternResult<String> {
 /// Parses the proof value as a `TaggedSignature` to detect the algorithm,
 /// then dispatches:
 /// - Ed25519 → HDK verify_signature
-/// - Hybrid → verify the Ed25519 component (PQC verification requires native)
-/// - Pure PQC → structural accept in WASM (real verification off-chain)
+/// - Hybrid/Pure PQC → fail closed in WASM because full PQC verification is
+///   unavailable here; native/off-chain verification must establish validity.
 ///
 /// Falls back to legacy 64-byte raw Ed25519 for old credentials.
 fn verify_credential_signature(vc: &VerifiableCredential) -> ExternResult<bool> {
@@ -3106,29 +3106,17 @@ fn verify_credential_signature(vc: &VerifiableCredential) -> ExternResult<bool> 
                     );
                     verify_signature(pubkey, sig, content_hash)
                 }
-                AlgorithmId::HybridEd25519MlDsa65 => {
-                    // Verify Ed25519 component; PQC component verified off-chain
-                    let ed_bytes = tagged_sig.ed25519_component().ok_or_else(|| {
-                        wasm_error!(WasmErrorInner::Guest(
-                            "Hybrid signature missing Ed25519 component".into()
-                        ))
-                    })?;
-                    if ed_bytes.len() != 64 {
-                        return Ok(false);
-                    }
-                    let sig = Signature::from(<[u8; 64]>::try_from(ed_bytes).map_err(|_| {
-                        wasm_error!(WasmErrorInner::Guest("Invalid Ed25519 component".into()))
-                    })?);
-                    verify_signature(pubkey, sig, content_hash)
-                }
-                AlgorithmId::MlDsa65
+                AlgorithmId::HybridEd25519MlDsa65
+                | AlgorithmId::MlDsa65
                 | AlgorithmId::MlDsa87
                 | AlgorithmId::SlhDsaSha2_128s
                 | AlgorithmId::SlhDsaShake128s => {
-                    // Pure PQC: WASM cannot verify, accept structurally.
-                    // Real verification happens via CLI/SDK (off-chain).
-                    let expected_size = tagged_sig.algorithm.signature_size();
-                    Ok(tagged_sig.signature_bytes.len() == expected_size)
+                    // SECURITY: Do not claim cryptographic validity when the
+                    // WASM runtime cannot fully verify the declared algorithm.
+                    // Hybrid verification requires the PQC component too; pure
+                    // PQC verification is also unavailable here. Native/off-chain
+                    // verification is required before accepting these credentials.
+                    Ok(false)
                 }
                 _ => {
                     // Non-signature algorithm used as signature → reject
