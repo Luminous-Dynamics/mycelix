@@ -14,6 +14,7 @@ ROOT = Path(__file__).parents[2]
 MANIFEST = ROOT / "docs/integral/d6u-runtime-manifest.json"
 D6S2_MANIFEST = ROOT / "docs/integral/d6s-canon-2-manifest.json"
 D6S2_FIXTURE = ROOT / "docs/integral/d6s-canon-2-authority-boundary-fixture.json"
+D6S1_MANIFEST = ROOT / "docs/integral/d6s-canon-1-manifest.json"
 
 SUPPLEMENTAL_SUBSTRATE_CHECKS = {
     "future-expiry-rejection",
@@ -98,6 +99,7 @@ def derive_case_outcomes(fixture_cases: list[dict]) -> dict[str, str]:
 def main() -> None:
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
     d6s2 = json.loads(D6S2_MANIFEST.read_text(encoding="utf-8"))
+    d6s1 = json.loads(D6S1_MANIFEST.read_text(encoding="utf-8"))
     fixture = json.loads(D6S2_FIXTURE.read_text(encoding="utf-8"))
 
     assert manifest["profile"] == "D6U-RUNTIME-1"
@@ -169,14 +171,16 @@ def main() -> None:
     assert set(manifest["supplemental_application_checks"]) == SUPPLEMENTAL_APPLICATION_CHECKS
     assert set(manifest["evidence_artifact_files"]) == EVIDENCE_ARTIFACT_FILES
 
+    assert d6s1["profile"] == "D6S-CANON-1"
+    assert d6s1["corpus_path"] == "docs/integral/d6s-canon-1-golden-vectors.json"
+    assert d6s1["corpus_sha256"] == sha256(ROOT / d6s1["corpus_path"])
+
     deps = manifest["dependencies"]
     assert deps["d6s_canon_2_manifest_path"] == "docs/integral/d6s-canon-2-manifest.json"
     assert deps["d6s_canon_2_manifest_blob_sha"] == git_blob_sha(D6S2_MANIFEST)
     assert deps["d6s_canon_2_fixture_path"] == "docs/integral/d6s-canon-2-authority-boundary-fixture.json"
     assert deps["d6s_canon_2_fixture_blob_sha"] == git_blob_sha(D6S2_FIXTURE)
-    assert deps["d6s_canon_1_corpus_sha256"] == (
-        "9d61cdb2e625c13c5813fffb7cceea4af2f93ed60d7d64c068dc6d3f6f6b614d"
-    )
+    assert deps["d6s_canon_1_corpus_sha256"] == d6s1["corpus_sha256"]
 
     assert d6s2["profile"] == "D6S-CANON-2"
     assert d6s2["claim_ceiling"] == "ReferenceModelOnly"
