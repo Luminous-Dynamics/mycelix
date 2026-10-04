@@ -186,6 +186,7 @@ pub fn conformance_report_json() -> String {
         records: Vec<Record<'a>>,
         untested_formal_obligations: Vec<&'a str>,
         claim_ceiling: &'a str,
+        claim_scope: &'a str,
     }
 
     let current = Evidence::current_local("report-current", 100);
@@ -266,7 +267,8 @@ pub fn conformance_report_json() -> String {
         case_count: CASES.len() * 2,
         records,
         untested_formal_obligations,
-        claim_ceiling: "Semantic conformance of this reference harness only; no physical, safety, economic, ecological, or Integral-validation claim.",
+        claim_ceiling: "ReferenceModelOnly",
+        claim_scope: "Semantic conformance of this reference harness only; no physical, safety, economic, ecological, or Integral-validation claim.",
     }).expect("report serialization is infallible for these static values")
 }
 
@@ -359,10 +361,11 @@ mod tests {
             value["untested_formal_obligations"],
             serde_json::json!([])
         );
+        assert_eq!(value["claim_ceiling"], "ReferenceModelOnly");
         assert!(
-            value["claim_ceiling"]
+            value["claim_scope"]
                 .as_str()
-                .is_some_and(|ceiling| ceiling.contains("no physical, safety, economic, ecological"))
+                .is_some_and(|scope| scope.contains("no physical, safety, economic, ecological"))
         );
         assert!(value["records"].as_array().is_some_and(|records| {
             records.iter().all(|record| {
