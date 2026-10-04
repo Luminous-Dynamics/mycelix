@@ -681,6 +681,142 @@ PY
   # mapping; do not maintain a second hard-coded list that can drift.
 }
 
+# The semantic manifest is itself a qualification input. Parse it as JSON before
+# using line-oriented extraction so malformed structure, duplicate keys, or repeated
+# case identities cannot silently produce a different audit meaning.
+check_semantic_manifest_schema() {
+  local manifest="mycelix-workspace/mycelix-hearth/tests/hearth-07-semantic-validation-cases.json"
+  if python3 - "$manifest" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+expected_case_keys = {
+    "case_id",
+    "test",
+    "zome",
+    "operation",
+    "operation_surface",
+    "invariant",
+    "rejection_reason",
+    "expected_result",
+    "boundary",
+    "validator_source",
+    "validator_symbol",
+    "invariant_code",
+}
+expected_top_keys = {"schema_version", "claim_ceiling", "cases"}
+allowed_surfaces = {
+    "CreateEntry",
+    "CreateRecord",
+    "Update",
+    "Delete",
+    "Link.CreateLink",
+    "Link.DeleteLink",
+}
+
+def reject(message):
+    print(f"FAIL: semantic manifest {message}")
+    raise SystemExit(2)
+
+def no_duplicate_pairs(pairs):
+    obj = {}
+    for key, value in pairs:
+        if key in obj:
+            reject(f"contains duplicate JSON key {key!r}")
+        obj[key] = value
+    return obj
+
+try:
+    data = json.loads(path.read_text(), object_pairs_hook=no_duplicate_pairs)
+except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+    reject(f"cannot be parsed as valid UTF-8 JSON: {exc}")
+
+if not isinstance(data, dict):
+    reject("top level must be an object")
+if set(data) != expected_top_keys:
+    reject(
+        f"top-level keys mismatch: expected {sorted(expected_top_keys)}, "
+        f"got {sorted(data)}"
+    )
+if data.get("schema_version") != "HEARTH-SEMANTIC-0.7-CASESET-1":
+    reject(
+        "schema_version is not HEARTH-SEMANTIC-0.7-CASESET-1: "
+        f"{data.get('schema_version')!r}"
+    )
+claim = data.get("claim_ceiling")
+if not isinstance(claim, str) or "RuntimeQualificationPending" not in claim:
+    reject("claim_ceiling must retain the RuntimeQualificationPending evidence ceiling")
+if not isinstance(claim, str) or "do not constitute observed runtime results" not in claim:
+    reject("claim_ceiling must explicitly deny observed runtime qualification")
+
+cases = data.get("cases")
+if not isinstance(cases, list) or not cases:
+    reject("cases must be a non-empty array")
+
+seen_ids = set()
+seen_tests = set()
+seen_entrypoints = set()
+for index, case in enumerate(cases, start=1):
+    if not isinstance(case, dict):
+        reject(f"case #{index} must be an object")
+    if set(case) != expected_case_keys:
+        reject(
+            f"case #{index} keys mismatch: expected {sorted(expected_case_keys)}, "
+            f"got {sorted(case)}"
+        )
+    for key in expected_case_keys:
+        value = case[key]
+        expected_type = list if key == "operation_surface" else str
+        if not isinstance(value, expected_type):
+            reject(f"case #{index} field {key!r} has the wrong JSON type")
+        if isinstance(value, str):
+            if not value.strip():
+                reject(f"case #{index} field {key!r} is empty")
+            if "\\n" in value or "\\r" in value:
+                reject(f"case #{index} field {key!r} contains a newline")
+
+    case_id = case["case_id"]
+    test = case["test"]
+    entrypoint = (case["zome"], case["operation"])
+    if case_id in seen_ids:
+        reject(f"case_id {case_id!r} is duplicated")
+    if test in seen_tests:
+        reject(f"test {test!r} is duplicated")
+    if entrypoint in seen_entrypoints:
+        reject(f"zome/operation entrypoint {entrypoint!r} is duplicated")
+    seen_ids.add(case_id)
+    seen_tests.add(test)
+    seen_entrypoints.add(entrypoint)
+
+    if case["boundary"] != "integrity_validation":
+        reject(f"{case_id} boundary must be integrity_validation")
+    if case["expected_result"] != "Invalid":
+        reject(f"{case_id} expected_result must be Invalid")
+    if case["invariant_code"].strip() == case["invariant"].strip():
+        reject(f"{case_id} invariant_code must remain executable code, not prose copied from invariant")
+    surfaces = case["operation_surface"]
+    if not surfaces or any(not isinstance(surface, str) for surface in surfaces):
+        reject(f"{case_id} operation_surface must be a non-empty string array")
+    unknown = [surface for surface in surfaces if surface not in allowed_surfaces]
+    if unknown:
+        reject(f"{case_id} contains unknown operation surfaces: {unknown}")
+    if case["rejection_reason"].strip() != case["rejection_reason"]:
+        reject(f"{case_id} rejection_reason has leading/trailing whitespace")
+
+print(
+    f"OK:   semantic manifest schema is valid, duplicate-free, and fail-closed "
+    f"({len(cases)} cases)"
+)
+PY
+  then
+    return
+  else
+    fail=1
+  fi
+}
+
 # Semantic cases must resolve to real coordinator entrypoints and the runtime
 # witness must actually name the same zome/function. This closes the gap between
 # a declarative case manifest and executable source.
@@ -1870,6 +2006,7 @@ run_audit_check check_coordinator_operation_bindings check_coordinator_operation
 run_audit_check check_coordinator_symbol_parity check_coordinator_symbol_parity
 run_audit_check check_dna_source_completeness check_dna_source_completeness
 run_audit_check check_semantic_validation_suite_wiring check_semantic_validation_suite_wiring
+run_audit_check check_semantic_manifest_schema check_semantic_manifest_schema
 run_audit_check check_semantic_case_entrypoints check_semantic_case_entrypoints
 run_audit_check check_semantic_case_integrity_bindings check_semantic_case_integrity_bindings
 
