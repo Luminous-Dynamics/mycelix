@@ -2,7 +2,9 @@
 """End-to-end reference-model test for the platform Evidence bundle boundary."""
 from __future__ import annotations
 
+import hashlib
 import json
+import struct
 import os
 import subprocess
 import sys
@@ -14,6 +16,41 @@ ROOT = SECURITY.parents[1]
 sys.path.insert(0, str(SECURITY))
 
 import verify_mycelix_platform_evidence_capture_v0_1 as platform  # noqa: E402
+
+
+
+def make_valid_eventlog() -> tuple[bytes, list[tuple[int, int, bytes]]]:
+    signature = b"Spec ID Event03" + b"\x00"
+    spec = (
+        signature
+        + struct.pack("<I", 0)
+        + bytes([0, 2, 0, 2])
+        + struct.pack("<I", 2)
+        + struct.pack("<HH", 0x0004, 20)
+        + struct.pack("<HH", 0x000B, 32)
+        + bytes([0])
+    )
+    legacy = (
+        struct.pack("<II", 0, 0x00000003)
+        + b"\x00" * 20
+        + struct.pack("<I", len(spec))
+        + spec
+    )
+    events = [
+        (4, 0x80000003, b"firmware-app"),
+        (4, 0x00000004, b"\x00\x00\x00\x00"),
+        (7, 0x800000E0, b"variable-authority"),
+        (0, 0x00000005, b"action-zero"),
+        (2, 0x00000005, b"action-two"),
+    ]
+    encoded = bytearray(legacy)
+    for pcr, event_type, payload in events:
+        encoded.extend(struct.pack("<III", pcr, event_type, 1))
+        encoded.extend(struct.pack("<H", 0x000B))
+        encoded.extend(hashlib.sha256(payload).digest())
+        encoded.extend(struct.pack("<I", len(payload)))
+        encoded.extend(payload)
+    return bytes(encoded), events
 
 
 def run_reconstruction(input_path: Path, output_path: Path) -> None:
@@ -53,7 +90,8 @@ def build_bundle(bundle: Path) -> dict:
         "TPM2_PT_MANUFACTURER: FIXTURE\nTPM2_PT_VENDOR_STRING_1: MODEL\n",
         encoding="utf-8",
     )
-    (bundle / "eventlog.bin").write_bytes(b"PC-CLIENT-EVENTLOG-FIXTURE-V1\n")
+    eventlog_bytes, encoded_events = make_valid_eventlog()
+    (bundle / "eventlog.bin").write_bytes(eventlog_bytes)
     (bundle / "eventlog-parsed.yaml").write_text(
         "fixture: parser-pass\n",
         encoding="utf-8",
@@ -87,11 +125,11 @@ def build_bundle(bundle: Path) -> dict:
         "pcr_bank": "sha256",
         "pcr_selection": "sha256:0,2,4,7",
         "events": [
-            {"sequence": 1, "pcr": 4, "event_type": "EV_EFI_BOOT_SERVICES_APPLICATION", "digest_sha256": "11" * 32, "session_id": "self-test-session"},
-            {"sequence": 2, "pcr": 4, "event_type": "EV_SEPARATOR", "digest_sha256": "22" * 32, "session_id": "self-test-session"},
-            {"sequence": 3, "pcr": 7, "event_type": "EV_EFI_VARIABLE_AUTHORITY", "digest_sha256": "33" * 32, "session_id": "self-test-session"},
-            {"sequence": 4, "pcr": 0, "event_type": "EV_ACTION", "digest_sha256": "44" * 32, "session_id": "self-test-session"},
-            {"sequence": 5, "pcr": 2, "event_type": "EV_ACTION", "digest_sha256": "55" * 32, "session_id": "self-test-session"},
+            {"sequence": 1, "pcr": encoded_events[0][0], "event_type": "EV_EFI_BOOT_SERVICES_APPLICATION", "digest_sha256": hashlib.sha256(encoded_events[0][2]).hexdigest(), "session_id": "self-test-session"},
+            {"sequence": 2, "pcr": encoded_events[1][0], "event_type": "EV_SEPARATOR", "digest_sha256": hashlib.sha256(encoded_events[1][2]).hexdigest(), "session_id": "self-test-session"},
+            {"sequence": 3, "pcr": encoded_events[2][0], "event_type": "EV_EFI_VARIABLE_AUTHORITY", "digest_sha256": hashlib.sha256(encoded_events[2][2]).hexdigest(), "session_id": "self-test-session"},
+            {"sequence": 4, "pcr": encoded_events[3][0], "event_type": "EV_ACTION", "digest_sha256": hashlib.sha256(encoded_events[3][2]).hexdigest(), "session_id": "self-test-session"},
+            {"sequence": 5, "pcr": encoded_events[4][0], "event_type": "EV_ACTION", "digest_sha256": hashlib.sha256(encoded_events[4][2]).hexdigest(), "session_id": "self-test-session"},
         ],
     }
     input_path = bundle / "eventlog-reconstruction-input.json"
@@ -107,39 +145,22 @@ def build_bundle(bundle: Path) -> dict:
     )
 
     raw_eventlog_path = bundle / "raw-eventlog.json"
-    raw_eventlog_data = {
-        "profile_id": "mycelix.security.platform.binary-eventlog.extraction",
-        "profile_version": "0.1.0",
-        "parser_id": "mycelix.pc-client.raw-tpm2-eventlog-parser.v0.1",
-        "parser_source_sha256": platform.sha256_file(
-            SECURITY / "parse_mycelix_raw_tpm2_eventlog_v0_1.py"
-        ),
-        "binary_sha256": platform.sha256_file(bundle / "eventlog.bin"),
-        "specid_event_size": 0,
-        "algorithms": {"sha256": 32},
-        "events": [
-            {
-                "sequence": event["sequence"],
-                "pcr": event["pcr"],
-                "event_type": event["event_type"],
-                "digest_sha256": event.get("digest_sha256"),
-                "digests": (
-                    {"sha256": event["digest_sha256"]}
-                    if event.get("digest_sha256") is not None
-                    else {}
-                ),
-                "payload_hex": "",
-            }
-            for event in event_stream["events"]
+    raw_proc = subprocess.run(
+        [
+            sys.executable,
+            str(SECURITY / "parse_mycelix_raw_tpm2_eventlog_v0_1.py"),
+            "--parse",
+            str(bundle / "eventlog.bin"),
+            "--output",
+            str(raw_eventlog_path),
         ],
-    }
-    raw_eventlog_data["content_sha256"] = platform.self_hash(
-        raw_eventlog_data, "content_sha256"
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
     )
-    raw_eventlog_path.write_text(
-        json.dumps(raw_eventlog_data, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    if raw_proc.returncode != 0:
+        raise RuntimeError(raw_proc.stdout + raw_proc.stderr)
 
     payload_coherence_path = bundle / "payload-coherence.json"
     payload_proc = subprocess.run(
@@ -277,6 +298,7 @@ def main() -> int:
                 print("End-to-end reference-model bundle: FAIL")
                 return 1
 
+            raw_path = bundle / "raw-eventlog.json"
             reconstruction_path = bundle / "eventlog-reconstruction.json"
             pcr_path = bundle / "pcr-post.yaml"
             manifest_path = bundle / "capture-session.json"
@@ -316,6 +338,25 @@ def main() -> int:
             second = platform.verify_bundle(type("Args", (), {"bundle": str(bundle)})())
             if second == 0:
                 print("False-green independent-reconstruction regression: FAIL")
+                return 1
+
+            # The raw sidecar must not be able to self-certify. Re-hash an altered
+            # sidecar so manifest/file-digest checks still pass; re-execution must
+            # nevertheless detect that it differs from the binary parser result.
+            raw = json.loads(raw_path.read_text(encoding="utf-8"))
+            raw["events"][1]["payload_hex"] = "deadbeef"
+            raw["events"][1]["digest_sha256"] = hashlib.sha256(bytes.fromhex("deadbeef")).hexdigest()
+            raw["events"][1]["digests"]["sha256"] = raw["events"][1]["digest_sha256"]
+            raw["content_sha256"] = platform.self_hash(raw, "content_sha256")
+            raw_path.write_text(json.dumps(raw, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["raw_eventlog"]["output_sha256"] = platform.sha256_file(raw_path)
+            manifest["artifacts"]["raw_eventlog_output_sha256"] = platform.sha256_file(raw_path)
+            manifest["session_binding_sha256"] = platform.session_binding(manifest)
+            manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+            third = platform.verify_bundle(type("Args", (), {"bundle": str(bundle)})())
+            if third == 0:
+                print("False-green raw-parser replay regression: FAIL")
                 return 1
 
             print("End-to-end reference-model bundle: PASS")
