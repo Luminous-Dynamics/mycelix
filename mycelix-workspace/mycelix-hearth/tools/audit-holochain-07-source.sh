@@ -196,22 +196,30 @@ fi
 # the test module so test-only helpers do not create false positives.
 check_validation_determinism() {
   local file="$1"
-  local source
-  source="$(sed '/^\#\[cfg(test)\]/,$d' "$file")"
-  if printf '%s\n' "$source" | rg -n --pcre2 '(?<![A-Za-z0-9_.])(?:get|get_links|get_details|get_agent_activity|create_entry|update_entry|delete_entry|create_link|delete_link|call|call_remote|send_remote_signal|emit_signal|sys_time|random_bytes)\s*\(' >/tmp/hearth07_validation_forbidden.$ 2>/dev/null; then
-    echo "FAIL: $file contains non-deterministic validation host API usage"
-    cat /tmp/hearth07_validation_forbidden.$$
-    fail=1
-  fi
-  if printf '%s\n' "$source" | rg -n --pcre2 '\b(?:SystemTime|Instant|thread_rng|random::<|rand::|getrandom::)\b' >/tmp/hearth07_validation_random.$$ 2>/dev/null; then
-    echo "FAIL: $file contains non-deterministic time/random source in validation production code"
-    cat /tmp/hearth07_validation_random.$$
-    fail=1
-  fi
-  rm -f /tmp/hearth07_validation_forbidden.$$ /tmp/hearth07_validation_random.$$
-  echo "OK:   $file validation determinism surface"
-}
+  local source diagnostic_dir forbidden_log random_log
+  source="$(sed '/^\\#\\[cfg(test)\\]/,$d' "$file")"
+  diagnostic_dir="$(mktemp -d)"
+  forbidden_log="${diagnostic_dir}/forbidden.log"
+  random_log="${diagnostic_dir}/random.log"
 
+  if printf '%s\n' "$source" | rg -n --pcre2 '(?<![A-Za-z0-9_.])(?:get|get_links|get_details|get_agent_activity|create_entry|update_entry|delete_entry|create_link|delete_link|call|call_remote|send_remote_signal|emit_signal|sys_time|random_bytes)\s*\(' >"$forbidden_log" 2>&1; then
+    echo "FAIL: $file contains non-deterministic validation host API usage"
+    cat "$forbidden_log"
+    fail=1
+  else
+    echo "OK:   $file validation host API surface is deterministic"
+  fi
+
+  if printf '%s\n' "$source" | rg -n --pcre2 '\b(?:SystemTime|Instant|thread_rng|random::<|rand::|getrandom::)\b' >"$random_log" 2>&1; then
+    echo "FAIL: $file contains non-deterministic time/random source in validation production code"
+    cat "$random_log"
+    fail=1
+  else
+    echo "OK:   $file validation time/random surface is deterministic"
+  fi
+
+  rm -rf "$diagnostic_dir"
+}
 # Link deletion is its own 0.7 operation family. Require an explicit
 # DeleteLink arm and an author comparison between the deleting action and the
 # original CreateLink action. A terminal catch-all must never silently accept
@@ -777,25 +785,49 @@ check_semantic_case_integrity_bindings() {
       fail=1
     else
       echo "OK:   $id declares validator source $validator_source"
-      if rg -n --pcre2 "^[[:space:]]*(?:pub[[:space:]]+)?fn[[:space:]]+${validator_symbol}[[:space:]]*\\(" "$validator_source" >/dev/null 2>&1; then
+      local validator_block dispatch_block
+      validator_block="$(awk -v symbol="$validator_symbol" '
+        {
+          pattern = "^[[:space:]]*(pub[[:space:]]+)?fn[[:space:]]+" symbol "[[:space:]]*\\\\("
+          if (!in_block && $0 ~ pattern) {
+            in_block = 1
+            print
+            next
+          }
+          if (in_block && /^[[:space:]]*(pub[[:space:]]+)?fn[[:space:]]+[A-Za-z0-9_]+[[:space:]]*\\\\(/) {
+            exit
+          }
+          if (in_block) print
+        }
+      ' "$validator_source")"
+      if [[ -n "$validator_block" ]]; then
         echo "OK:   $id validator symbol $validator_symbol is defined in declared source"
       else
         echo "FAIL: $id validator symbol $validator_symbol is not defined in declared source"
         fail=1
       fi
-      if rg -n --fixed-strings "$invariant" "$validator_source" >/dev/null 2>&1; then
-        echo "OK:   $id invariant is present in declared validator source"
+      if [[ -n "$validator_block" ]] && printf '%s\n' "$validator_block" | rg -n --fixed-strings "$invariant" >/dev/null 2>&1; then
+        echo "OK:   $id invariant is present inside declared validator $validator_symbol"
       else
-        echo "FAIL: $id invariant is absent from declared validator source: $invariant"
+        echo "FAIL: $id invariant is absent from declared validator $validator_symbol: $invariant"
         fail=1
       fi
-    fi
 
-    if [[ "$validator_source" != "$integrity_file" ]]; then
-      if rg -n --pcre2 "\\b${validator_symbol}[[:space:]]*\\(" "$integrity_file" >/dev/null 2>&1; then
-        echo "OK:   $id integrity dispatcher invokes declared shared validator $validator_symbol"
+      dispatch_block="$(awk '
+        /^[[:space:]]*pub[[:space:]]+fn[[:space:]]+validate[[:space:]]*\\\\(/ {
+          in_block=1
+          print
+          next
+        }
+        in_block && /^[[:space:]]*(pub[[:space:]]+)?fn[[:space:]]+[A-Za-z0-9_]+[[:space:]]*\\\\(/ {
+          exit
+        }
+        in_block { print }
+      ' "$integrity_file")"
+      if [[ -n "$dispatch_block" ]] && printf '%s\n' "$dispatch_block" | rg -n --pcre2 "\\b${validator_symbol}[[:space:]]*\\(" >/dev/null 2>&1; then
+        echo "OK:   $id integrity validate dispatcher invokes declared validator $validator_symbol"
       else
-        echo "FAIL: $id integrity dispatcher does not invoke declared shared validator $validator_symbol"
+        echo "FAIL: $id integrity validate dispatcher does not invoke declared validator $validator_symbol"
         fail=1
       fi
     fi
