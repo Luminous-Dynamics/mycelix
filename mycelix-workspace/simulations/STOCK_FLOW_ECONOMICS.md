@@ -1111,6 +1111,30 @@ future `DebtForgiveness` -> capital transfer + financial-account extinction
 That prevents a negotiated transfer of wealth from being silently classified as
 a unilateral volume adjustment.
 
+### Bilateral debt forgiveness — implemented
+
+`DebtForgiveness` now encodes the bilateral-agreement case as a distinct transition.
+
+For a forgiveness amount (F), the canonical state mutation extinguishes:
+
+- lender loan claim: (-F);
+- borrower debt liability: (-F);
+
+with no cash, deposit, or physical-stock movement. The derived equity residual transfers net worth from
+the creditor to the debtor.
+
+The event is projected twice, deliberately:
+
+- **capital/transaction account:** lender -> borrower, `CapitalTransfer`;
+- **financial account:** borrower -> lender, `DebtForgiveness`, representing the simultaneous claim/liability extinction rather than a payment.
+
+It is explicitly excluded from the `DebtWriteOff` other-volume projection and from physical postings. Period, actor,
+sector, aggregate-observation, and accounting-closure layers preserve it as a separate forgiveness measure.
+
+This matches the 2025 SNA distinction: bilateral debt forgiveness records a capital transfer together with
+simultaneous financial-claim extinction, while unilateral write-offs/write-downs without mutual agreement
+belong to other changes in volume.
+
 ## State-counter versus period-ledger semantics (implemented)
 
 `EconomicState::monetary_flow_volume`, `credit_created`, and `debt_repaid` are lifetime-cumulative
