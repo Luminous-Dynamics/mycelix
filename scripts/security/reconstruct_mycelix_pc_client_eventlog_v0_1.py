@@ -122,7 +122,7 @@ def reconstruct(stream: dict[str, Any]) -> tuple[str, str, dict[str, str] | None
                 return "DENY", "malformed-no-action-digest", None
             if pcr == 0 and "startup_locality" in event and not hcrtm_seen:
                 locality = event["startup_locality"]
-                if locality not in (0, 3, 4):
+                if locality not in (0, 1, 2, 3, 4):
                     return "DENY", "reserved-startup-locality", None
                 if "0" in states and locality > 0:
                     states["0"] = bytes(31) + bytes([locality])
