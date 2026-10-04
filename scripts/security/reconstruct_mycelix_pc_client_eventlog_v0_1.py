@@ -116,6 +116,9 @@ def reconstruct(stream: dict[str, Any]) -> tuple[str, str, dict[str, str] | None
         if event.get("session_id", stream["session_id"]) != stream["session_id"]:
             return "DENY", "cross-session-event", None
 
+        if event["event_type"] == "EV_NO_ACTION":
+            continue
+
         key = str(pcr)
         if key in states:
             states[key] = hashlib.sha256(
