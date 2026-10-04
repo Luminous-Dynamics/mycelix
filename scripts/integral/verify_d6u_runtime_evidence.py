@@ -54,6 +54,7 @@ def main() -> None:
         parts = line.split("\t", 2)
         assert len(parts) == 3, f"malformed runtime witness line: {line!r}"
         witness_id, witness = parts[1], parts[2]
+        assert "\t" not in witness, f"runtime witness must be a single field: {line!r}"
         assert witness_id not in witness_observed, (
             f"duplicate D6U_RUNTIME_WITNESS observation: {witness_id}"
         )
