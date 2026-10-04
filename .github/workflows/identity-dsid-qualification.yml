@@ -132,10 +132,10 @@ jobs:
         run: |
           nix_version="$(nix --version | awk '{print $3}')"
           cd mycelix-identity
-          node_version="$(nix develop .#ci --command node --version)"
-          npm_version="$(nix develop .#ci --command npm --version)"
-          cargo_version="$(nix develop .#ci --command cargo --version)"
-          hc_version="$(nix develop .#ci --command hc --version)"
+          node_version="$(nix develop --no-update-lock-file --no-write-lock-file .#ci --command node --version)"
+          npm_version="$(nix develop --no-update-lock-file --no-write-lock-file .#ci --command npm --version)"
+          cargo_version="$(nix develop --no-update-lock-file --no-write-lock-file .#ci --command cargo --version)"
+          hc_version="$(nix develop --no-update-lock-file --no-write-lock-file .#ci --command hc --version)"
           printf '%s\n' "$nix_version" > "$GITHUB_WORKSPACE/dsid-nix-version.txt"
           printf '%s\n' "$node_version" > "$GITHUB_WORKSPACE/dsid-node-version.txt"
           printf '%s\n' "$npm_version" > "$GITHUB_WORKSPACE/dsid-npm-version.txt"
@@ -160,21 +160,27 @@ jobs:
       - name: Build Identity zomes
         run: |
           cd mycelix-identity
-          nix develop .#ci --command \
-            cargo build --release --target wasm32-unknown-unknown --workspace
+          nix develop --no-update-lock-file --no-write-lock-file .#ci --command \
+            cargo build --locked --release --target wasm32-unknown-unknown --workspace
+
+      - name: Assert qualified lockfiles are unchanged
+        run: |
+          test "$(git diff --numstat -- mycelix-identity/flake.lock mycelix-identity/Cargo.lock | wc -l)" -eq 0
+          git diff --check -- mycelix-identity/flake.lock mycelix-identity/Cargo.lock
+          echo "Qualified Nix and Cargo lockfiles remained unchanged."
 
       - name: Test Identity integrity invariants
         run: |
           cd mycelix-identity
-          cargo test -p did_registry_integrity --lib
-          cargo test -p recovery_integrity --lib
-          cargo test -p verifiable_credential_integrity --lib
-          cargo test -p verifiable_credential_coordinator --lib
+          cargo test --locked -p did_registry_integrity --lib
+          cargo test --locked -p recovery_integrity --lib
+          cargo test --locked -p verifiable_credential_integrity --lib
+          cargo test --locked -p verifiable_credential_coordinator --lib
 
       - name: Pack Identity DNA
         run: |
           cd mycelix-identity
-          nix develop .#ci --command hc dna pack dna/
+          nix develop --no-update-lock-file --no-write-lock-file .#ci --command hc dna pack dna/
           test -s dna/mycelix_identity_dna.dna
           sha256sum dna/mycelix_identity_dna.dna > "$GITHUB_WORKSPACE/dsid-dna.sha256"
           cat "$GITHUB_WORKSPACE/dsid-dna.sha256"
@@ -183,9 +189,9 @@ jobs:
         run: |
           set -o pipefail
           cd mycelix-identity/tests
-          nix develop ../.#ci --command \
+          nix develop --no-update-lock-file --no-write-lock-file ../.#ci --command \
             cargo test --test dsid_lifecycle_lab \
-              -- --include-ignored --nocapture --test-threads=1 \
+              --locked -- --include-ignored --nocapture --test-threads=1 \
             | tee "$GITHUB_WORKSPACE/dsid-lifecycle-evidence.txt"
 
       - name: Extract and validate evidence
@@ -289,8 +295,8 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/mycelix-interop"
           cd "$RUNNER_TEMP/mycelix-interop"
-          nix develop "$GITHUB_WORKSPACE/mycelix-identity#ci" --command npm init -y >/dev/null 2>&1
-          nix develop "$GITHUB_WORKSPACE/mycelix-identity#ci" --command npm install --no-save \
+          nix develop --no-update-lock-file --no-write-lock-file "$GITHUB_WORKSPACE/mycelix-identity#ci" --command npm init -y >/dev/null 2>&1
+          nix develop --no-update-lock-file --no-write-lock-file "$GITHUB_WORKSPACE/mycelix-identity#ci" --command npm install --no-save \
             @digitalbazaar/vc@7.3.0 \
             @digitalbazaar/data-integrity@2.5.0 \
             @digitalbazaar/eddsa-jcs-2022-cryptosuite@1.0.0 \
@@ -300,7 +306,7 @@ jobs:
             @digitalbazaar/multikey-context@2.0.1 \
             --ignore-scripts
 
-          nix develop "$GITHUB_WORKSPACE/mycelix-identity#ci" --command node --input-type=module <<'NODE'
+          nix develop --no-update-lock-file --no-write-lock-file "$GITHUB_WORKSPACE/mycelix-identity#ci" --command node --input-type=module <<'NODE'
           import fs from 'node:fs';
           const pkg = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
           const expected = {
@@ -322,10 +328,10 @@ jobs:
           console.log('Pinned Digital Bazaar dependency set verified.');
           NODE
 
-          nix develop "$GITHUB_WORKSPACE/mycelix-identity#ci" --command node "$GITHUB_WORKSPACE/mycelix-identity/tests/interop_verify.mjs" \
+          nix develop --no-update-lock-file --no-write-lock-file "$GITHUB_WORKSPACE/mycelix-identity#ci" --command node "$GITHUB_WORKSPACE/mycelix-identity/tests/interop_verify.mjs" \
             "$GITHUB_WORKSPACE/interop-fixtures/mycelix-eddsa-jcs-interop.json" \
             | tee "$GITHUB_WORKSPACE/dsid-independent-interop.json"
-          nix develop "$GITHUB_WORKSPACE/mycelix-identity#ci" --command npm list --json --depth=0 > "$GITHUB_WORKSPACE/dsid-independent-interop-packages.json"
+          nix develop --no-update-lock-file --no-write-lock-file "$GITHUB_WORKSPACE/mycelix-identity#ci" --command npm list --json --depth=0 > "$GITHUB_WORKSPACE/dsid-independent-interop-packages.json"
           cp package-lock.json "$GITHUB_WORKSPACE/dsid-independent-interop-package-lock.json"
           sha256sum "$GITHUB_WORKSPACE/dsid-independent-interop-package-lock.json"             > "$GITHUB_WORKSPACE/dsid-independent-interop-package-lock.sha256"
 
