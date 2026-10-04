@@ -37,3 +37,35 @@ impl EconomicPolicyContext {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn context() -> EconomicPolicyContext {
+        EconomicPolicyContext {
+            role: EconomicPolicyContextRole::Settlement,
+            profile_ref: "profile:settlement:v1".into(),
+            profile_fingerprint: "a".repeat(64),
+        }
+    }
+
+    #[test]
+    fn validates_context() {
+        assert!(context().validate().is_ok());
+    }
+
+    #[test]
+    fn rejects_empty_profile() {
+        let mut value = context();
+        value.profile_ref.clear();
+        assert!(value.validate().is_err());
+    }
+
+    #[test]
+    fn rejects_malformed_profile_fingerprint() {
+        let mut value = context();
+        value.profile_fingerprint = "bad".into();
+        assert!(value.validate().is_err());
+    }
+}
