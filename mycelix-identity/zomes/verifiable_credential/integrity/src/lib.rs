@@ -1244,6 +1244,16 @@ fn validate_create_verifiable_credential(
             "Credential proof created value must be an explicit dateTimeStamp with timezone".into(),
         ));
     }
+    let proof_created = vc.proof.created.parse::<Timestamp>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Credential proof created value must parse as a timestamp: {e}"
+        )))
+    })?;
+    if proof_created > action.timestamp() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Credential proof created value cannot be in the future relative to its create action".into(),
+        ));
+    }
 
     // The proof verification method must belong to the same DID whose key
     // authenticates the credential signature. The fragment is an identifier
@@ -1374,6 +1384,16 @@ fn validate_create_verifiable_presentation(
     if !is_date_time_stamp(&vp.proof.created) {
         return Ok(ValidateCallbackResult::Invalid(
             "Presentation proof created value must be an explicit dateTimeStamp with timezone".into(),
+        ));
+    }
+    let proof_created = vp.proof.created.parse::<Timestamp>().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Presentation proof created value must parse as a timestamp: {e}"
+        )))
+    })?;
+    if proof_created > action.timestamp() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Presentation proof created value cannot be in the future relative to its create action".into(),
         ));
     }
 
