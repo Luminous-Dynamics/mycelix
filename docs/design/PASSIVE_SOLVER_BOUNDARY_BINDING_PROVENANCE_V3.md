@@ -40,6 +40,8 @@ The boundary matching tolerance is recorded as part of the realized-boundary
 identity. The current connectivity default is 50 micrometers (0.05 mm), and
 provenance consumers must not silently substitute a different tolerance.
 
+Boundary matching fails closed when the supplied tolerance is greater than or equal to the declared aperture radius, preventing a broad annulus from being mistaken for the typed aperture rim.
+
 The recommended pre-dispatch gate validates the complete binding set against one
 semantic candidate geometry digest and one exact candidate mesh before a solver
 adapter is allowed to proceed. This makes candidate drift an explicit provenance
