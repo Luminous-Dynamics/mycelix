@@ -111,7 +111,7 @@ impl SubstrateBoundary {
         let headroom = self.headroom(current);
         if headroom < 0 {
             SubstrateState::Breached
-        } else if headroom <= self.warning_buffer as i128 {
+        } else if (headroom as u128) <= self.warning_buffer {
             SubstrateState::Warning
         } else {
             SubstrateState::Healthy
@@ -558,6 +558,20 @@ mod tests {
             ledger.gate(&required, DistributionPurpose::Emergency),
             GateDecision::EmergencyEscalationRequired
         );
+    }
+
+    #[test]
+    fn oversized_warning_buffer_remains_a_warning() {
+        let account = SubstrateAccount::new(
+            SubstrateDimension::Ecological,
+            "index",
+            0,
+            1,
+            SubstrateBoundary::minimum(0, u128::MAX, true),
+            1_000,
+        );
+
+        assert_eq!(account.state(), SubstrateState::Warning);
     }
 
     #[test]
