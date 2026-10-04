@@ -1909,6 +1909,7 @@ pub fn issue_credential_for_request(
     )?;
 
     let mut request_record: Option<Record> = None;
+    let mut request_action: Option<ActionHash> = None;
     let mut request: Option<CredentialRequest> = None;
 
     for link in links {
@@ -1939,12 +1940,16 @@ pub fn issue_credential_for_request(
             )));
         }
 
-        if request_record.is_some() {
-            return Err(wasm_error!(WasmErrorInner::Guest(
-                "Ambiguous credential request ID: multiple current request records exist".into(),
-            )));
+        if let Some(existing) = request_action.as_ref() {
+            if existing != &action_hash {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Ambiguous credential request ID: multiple current request records exist".into(),
+                )));
+            }
+            continue;
         }
 
+        request_action = Some(action_hash);
         request_record = Some(record);
         request = Some(req);
     }
