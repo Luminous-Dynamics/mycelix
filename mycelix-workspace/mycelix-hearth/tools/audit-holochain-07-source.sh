@@ -1092,6 +1092,33 @@ from pathlib import Path
 
 path = Path(sys.argv[1])
 source = path.read_text()
+push_start = source.find("  push:")
+pr_start = source.find("  pull_request:")
+wd_start = source.find("  workflow_dispatch:")
+if min(push_start, pr_start, wd_start) < 0:
+    print("FAIL: qualification workflow trigger sections are incomplete")
+    raise SystemExit(2)
+push_block = source[push_start:pr_start]
+pr_block = source[pr_start:wd_start]
+for label, block in [("push", push_block), ("pull_request", pr_block)]:
+    for required in ['      - ".gitmodules"', '      - "mycelix-health/**"']:
+        if required not in block:
+            print(f"FAIL: qualification {label} trigger omits provenance-sensitive path {required}")
+            raise SystemExit(2)
+print("OK: qualification workflow triggers on .gitmodules and mycelix-health gitlink changes")
+PY
+  then
+    true
+  else
+    fail=1
+  fi
+
+  if python3 - "$workflow" <<'PY'
+import re, sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+source = path.read_text()
 start = source.find("      - name: Capture immutable qualification evidence")
 end = source.find("      - name: Capture qualification metadata", start)
 if start < 0 or end < 0:
