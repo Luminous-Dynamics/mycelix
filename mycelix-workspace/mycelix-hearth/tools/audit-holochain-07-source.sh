@@ -1079,7 +1079,7 @@ check_qualification_workflow_provenance() {
     fail=1
   fi
 
-  if rg -n --fixed-strings "Capture immutable qualification evidence" "$workflow" >/dev/null 2>&1     && rg -n --fixed-strings "if: always()" "$workflow" >/dev/null 2>&1     && rg -n --fixed-strings "unavailable_source_audit_not_reached" "$workflow" >/dev/null 2>&1     && rg -n --fixed-strings "qualification-evidence-status.txt" "$workflow" >/dev/null 2>&1     && rg -n --fixed-strings "source_contract_digest=unavailable" "$workflow" >/dev/null 2>&1; then
+  if rg -n --fixed-strings "Capture immutable qualification evidence" "$workflow" >/dev/null 2>&1     && rg -n --fixed-strings "if: ${{ !cancelled() }}" "$workflow" >/dev/null 2>&1     && rg -n --fixed-strings "unavailable_source_audit_not_reached" "$workflow" >/dev/null 2>&1     && rg -n --fixed-strings "qualification-evidence-status.txt" "$workflow" >/dev/null 2>&1     && rg -n --fixed-strings "source_contract_digest=unavailable" "$workflow" >/dev/null 2>&1; then
     echo "OK:   qualification evidence capture is failure-monotonic with explicit unavailable markers"
   else
     echo "FAIL: qualification evidence capture must preserve artifacts across early failures"
@@ -1100,6 +1100,7 @@ block = source[start:end]
 
 checks = [
     ('root workspace capture', r'root="\$\{GITHUB_WORKSPACE\}"'),
+    ('non-cancelled evidence condition', r'if: \$\{\{ !cancelled\(\) \}\}'),
     ('marker helper', r'ensure_marker\(\)'),
     ('non-destructive marker creation', r'if \[\[ ! -s "\$path" \]\]'),
     ('root-level source-contract verification', r'\(cd "\$\{root\}" && sha256sum -c mycelix-workspace/mycelix-hearth/qualification-source-contract-sha256\.txt\)'),
