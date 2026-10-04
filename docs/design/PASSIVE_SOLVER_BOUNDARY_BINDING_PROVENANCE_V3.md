@@ -31,6 +31,14 @@ unique solver-boundary identities, and one common semantic geometry digest and
 exact mesh digest across the complete set. A deterministic binding-set digest
 then commits to the whole validated collection.
 
+The boundary matching tolerance is recorded as part of the realized-boundary
+identity. The current connectivity default is 50 micrometers (0.05 mm), and
+provenance consumers must not silently substitute a different tolerance.
+
+The mesh-side boundary selection represents the typed interface rim on the
+candidate surface. It is distinct from the solver's own face/patch topology;
+the opaque external solver handle records that separate adapter mapping.
+
 ## Compatibility
 
 `passive-solver-boundary-binding-v2.schema.json` remains historical. New binding artifacts should use v3.
