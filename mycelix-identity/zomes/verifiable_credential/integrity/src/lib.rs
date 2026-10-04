@@ -134,9 +134,9 @@ pub struct CredentialProof {
     /// When present, the verifier MUST supply the same domain to verify.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub domain: Option<String>,
-    /// Proof-level @context required by W3C Data Integrity JCS proof
-    /// serialization. For eddsa-jcs-2022 Mycelix requires exact equality with
-    /// the credential's @context.
+    /// Proof-level @context used by W3C Data Integrity JCS proofs.
+    /// When present for eddsa-jcs-2022, it must be an ordered prefix of the
+    /// secured document's @context as defined by the W3C suite.
     #[serde(
         rename = "@context",
         default,
