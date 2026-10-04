@@ -577,6 +577,35 @@ impl CreditCreation {
     }
 }
 
+/// Explicit debt write-off outside a settlement transaction.
+///
+/// A write-off extinguishes an outstanding lender claim and the matching
+/// borrower liability without moving cash or deposits. The lender's derived
+/// equity falls while the borrower's derived equity rises by the same amount.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DebtWriteOff {
+    pub lender: ActorId,
+    pub borrower: ActorId,
+    pub amount: i128,
+}
+
+impl DebtWriteOff {
+    pub fn new(
+        lender: impl Into<ActorId>,
+        borrower: impl Into<ActorId>,
+        amount: i128,
+    ) -> Result<Self, String> {
+        if amount <= 0 {
+            return Err("debt write-off amount must be positive".into());
+        }
+        Ok(Self {
+            lender: lender.into(),
+            borrower: borrower.into(),
+            amount,
+        })
+    }
+}
+
 /// Explicit debt repayment.
 ///
 /// Repayment retires the lender's financial asset and borrower's liability.
@@ -654,6 +683,9 @@ pub struct EconomicState {
     /// Cumulative debt repayment across the lifetime of this state.
     /// Period-specific debt repayment is derived from `EconomicPeriodLedger`.
     pub debt_repaid: i128,
+    /// Cumulative debt write-offs across the lifetime of this state.
+    /// Period-specific debt write-offs are derived from `EconomicPeriodLedger`.
+    pub debt_written_off: i128,
 }
 
 impl EconomicState {
@@ -1227,6 +1259,28 @@ impl EconomicState {
         Ok(())
     }
 
+    /// Extinguish a debt claim and matching liability without settlement.
+    pub fn write_off_debt(&mut self, write_off: &DebtWriteOff) -> Result<(), String> {
+        Self::require_positive(write_off.amount, "debt write-off")?;
+        let next_debt_written_off = self
+            .debt_written_off
+            .checked_add(write_off.amount)
+            .ok_or_else(|| "write-off counter overflow".to_string())?;
+
+        let (lender, borrower) =
+            self.actor_pair_mut(&write_off.lender, &write_off.borrower)?;
+        if borrower.monetary.liabilities < write_off.amount
+            || lender.monetary.claims < write_off.amount
+        {
+            return Err("debt write-off exceeds outstanding debt claim".into());
+        }
+
+        borrower.monetary.liabilities -= write_off.amount;
+        lender.monetary.claims -= write_off.amount;
+        self.debt_written_off = next_debt_written_off;
+        Ok(())
+    }
+
     /// Retire a debt claim after receiving repayment.
     pub fn repay_debt(&mut self, repayment: &DebtRepayment) -> Result<(), String> {
         Self::require_positive(repayment.amount, "debt repayment")?;
@@ -1439,6 +1493,46 @@ mod tests {
 
         assert!(state.apply_real_asset_revaluation(&gain).is_err());
         assert_eq!(state.actors[0].inventory_carrying_value, 50);
+    }
+
+    #[test]
+    fn debt_write_off_extinguishes_claim_and_liability_without_cash() {
+        let mut bank = ActorBalanceSheet::new("bank");
+        bank.monetary.claims = 100;
+        let mut firm = ActorBalanceSheet::new("firm");
+        firm.monetary.liabilities = 100;
+        let mut state = EconomicState::new(vec![bank, firm]);
+
+        let write_off = DebtWriteOff::new("bank", "firm", 40).unwrap();
+        let before_liquidity = state.actors[0].monetary.cash
+            + state.actors[0].monetary.deposits
+            + state.actors[1].monetary.cash
+            + state.actors[1].monetary.deposits;
+        state.write_off_debt(&write_off).unwrap();
+
+        assert_eq!(state.actors[0].monetary.claims, 60);
+        assert_eq!(state.actors[1].monetary.liabilities, 60);
+        assert_eq!(state.debt_written_off, 40);
+        let after_liquidity = state.actors[0].monetary.cash
+            + state.actors[0].monetary.deposits
+            + state.actors[1].monetary.cash
+            + state.actors[1].monetary.deposits;
+        assert_eq!(after_liquidity, before_liquidity);
+    }
+
+    #[test]
+    fn debt_write_off_rejects_excessive_extinguishment_atomically() {
+        let mut bank = ActorBalanceSheet::new("bank");
+        bank.monetary.claims = 10;
+        let mut firm = ActorBalanceSheet::new("firm");
+        firm.monetary.liabilities = 10;
+        let mut state = EconomicState::new(vec![bank, firm]);
+
+        let write_off = DebtWriteOff::new("bank", "firm", 11).unwrap();
+        assert!(state.write_off_debt(&write_off).is_err());
+        assert_eq!(state.actors[0].monetary.claims, 10);
+        assert_eq!(state.actors[1].monetary.liabilities, 10);
+        assert_eq!(state.debt_written_off, 0);
     }
 
     #[test]
