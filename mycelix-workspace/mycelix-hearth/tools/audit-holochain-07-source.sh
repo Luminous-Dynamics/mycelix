@@ -41,7 +41,7 @@ check_present_file() {
   local label="$1"
   local file="$2"
   local pattern="$3"
-  if rg -n --pcre2 "$pattern" "$file" >/dev/null 2>&1; then
+  if rg -nU --pcre2 "$pattern" "$file" >/dev/null 2>&1; then
     echo "OK:   $label"
   else
     echo "FAIL: $label"
@@ -77,7 +77,7 @@ check_absent_file() {
   local label="$1"
   local file="$2"
   local pattern="$3"
-  if rg -n --pcre2 "$pattern" "$file" >/dev/null 2>&1; then
+  if rg -nU --pcre2 "$pattern" "$file" >/dev/null 2>&1; then
     echo "FAIL: $label"
     fail=1
   else
@@ -162,17 +162,17 @@ if ((${#integrity_files[@]} == 0)); then
   fail=1
 else
   for file in "${integrity_files[@]}"; do
-    if rg -n --pcre2 '\bfn\s+validate\s*\(\s*(?:op\s*:\s*)?Op\b|\bvalidate\s*\(\s*op\s*:\s*Op\b' "$file" >/dev/null; then
+    if rg -nU --pcre2 '\bfn\s+validate\s*\(\s*(?:op\s*:\s*)?Op\b|\bvalidate\s*\(\s*op\s*:\s*Op\b' "$file" >/dev/null; then
       echo "OK:   $file exposes validate(Op)"
     else
       echo "FAIL: $file missing validate(Op) semantic seam"; fail=1
     fi
-    if rg -n --pcre2 '\bFlatOp::|flattened\s*<[^>]*>\s*\(' "$file" >/dev/null; then
+    if rg -nU --pcre2 '\bFlatOp::|flattened\s*<[^>]*>\s*\(' "$file" >/dev/null; then
       echo "OK:   $file handles flattened 0.7 operations"
     else
       echo "FAIL: $file missing FlatOp/flattened 0.7 operation handling"; fail=1
     fi
-    if rg -n --pcre2 'ActionData::|action\.(?:author|timestamp)\s*\(|\.header\.(?:author|timestamp)\b' "$file" >/dev/null; then
+    if rg -nU --pcre2 'ActionData::|action\.(?:author|timestamp)\s*\(|\.header\.(?:author|timestamp)\b' "$file" >/dev/null; then
       echo "OK:   $file inspects 0.7 action semantics"
     else
       echo "FAIL: $file missing explicit 0.7 action semantic access"; fail=1
@@ -181,7 +181,7 @@ else
     # explicitly handle a family or intentionally cover it with a terminal
     # catch-all, but silently dropping a family is a migration defect.
     for family in CreateEntry CreateRecord Update Delete Link AgentActivity; do
-      if rg -n --pcre2 "\bFlatOp::${family}\b|\b_\s*=>\s*Ok\s*\(" "$file" >/dev/null; then
+      if rg -nU --pcre2 "\bFlatOp::${family}\b|\b_\s*=>\s*Ok\s*\(" "$file" >/dev/null; then
         echo "OK:   $file covers FlatOp::$family (explicit or catch-all)"
       else
         echo "FAIL: $file has no FlatOp::$family or terminal catch-all coverage"; fail=1
@@ -210,7 +210,7 @@ check_validation_determinism() {
     echo "OK:   $file validation host API surface is deterministic"
   fi
 
-  if printf '%s\n' "$source" | rg -n --pcre2 '\b(?:SystemTime|Instant|thread_rng|random::<|rand::|getrandom::)\b' >"$random_log" 2>&1; then
+  if printf '%s\n' "$source" | rg -nU --pcre2 '\b(?:SystemTime|Instant|thread_rng|random::<|rand::|getrandom::)\b' >"$random_log" 2>&1; then
     echo "FAIL: $file contains non-deterministic time/random source in validation production code"
     cat "$random_log"
     fail=1
@@ -245,14 +245,14 @@ check_delete_link_authorization() {
     return
   fi
 
-  if printf '%s\n' "$delete_link_block" | rg -n --pcre2 'check_link_author_match|original_record\.action\(\)\.author\(\)|original_action\.author\(\)|original_action\\(\\).*author' >/dev/null 2>&1; then
+  if printf '%s\n' "$delete_link_block" | rg -nU --pcre2 'check_link_author_match|original_record\.action\(\)\.author\(\)|original_action\.author\(\)|original_action\\(\\).*author' >/dev/null 2>&1; then
     echo "OK:   $file DeleteLink authorization compares original and deleting authors"
   else
     echo "FAIL: $file DeleteLink path lacks an explicit original/deleting author comparison"
     fail=1
   fi
 
-  if printf '%s\n' "$delete_link_block" | rg -n --pcre2 'must_get_valid_record\s*\(\s*action\.link_add_address' >/dev/null 2>&1; then
+  if printf '%s\n' "$delete_link_block" | rg -nU --pcre2 'must_get_valid_record\s*\(\s*action\.link_add_address' >/dev/null 2>&1; then
     echo "OK:   $file DeleteLink retrieves the original CreateLink through must_get_valid_record"
   else
     echo "FAIL: $file DeleteLink path does not establish original CreateLink validity with must_get_valid_record"
@@ -272,8 +272,8 @@ check_delete_link_authorization() {
 # authorization. Holochain validation can receive these operations separately.
 check_update_action_coverage() {
   local file="$1"
-  if rg -n --pcre2 'FlatOp::CreateEntry\s*\(\s*OpEntry::UpdateEntry' "$file" >/dev/null 2>&1; then
-    if rg -n --pcre2 'FlatOp::Update\s*\(\s*OpUpdate::Entry' "$file" >/dev/null 2>&1; then
+  if rg -nU --pcre2 'FlatOp::CreateEntry\s*\(\s*OpEntry::UpdateEntry' "$file" >/dev/null 2>&1; then
+    if rg -nU --pcre2 'FlatOp::Update\s*\(\s*OpUpdate::Entry' "$file" >/dev/null 2>&1; then
       echo "OK:   $file has explicit FlatOp::Update(OpUpdate::Entry) coverage"
     else
       echo "FAIL: $file validates UpdateEntry data but has no explicit Update action coverage"
@@ -366,7 +366,7 @@ check_entry_type_dispatch() {
 
   while IFS= read -r variant; do
     [[ -z "$variant" ]] && continue
-    if printf '%s\n' "$dispatch_block" | rg -n --pcre2 "\\bEntryTypes::${variant}\\b" >/dev/null 2>&1; then
+    if printf '%s\n' "$dispatch_block" | rg -nU --pcre2 "\\bEntryTypes::${variant}\\b" >/dev/null 2>&1; then
       echo "OK:   $file EntryTypes::$variant has validate dispatcher coverage"
     else
       echo "FAIL: $file EntryTypes::$variant has no validate dispatcher reference"
@@ -435,21 +435,21 @@ check_link_type_policy() {
 check_link_tag_contract() {
   local file="$1"
   if [[ "$file" == *"/hearth-bridge/"* ]]; then
-    if rg -n --pcre2 '!matches!\(link_type,\s*LinkTypes::DispatchRateLimit\s*\|\s*LinkTypes::NotificationSubscription\)' "$file" >/dev/null 2>&1; then
+    if rg -nU --pcre2 '!matches!\(link_type,\s*LinkTypes::DispatchRateLimit\s*\|\s*LinkTypes::NotificationSubscription\)' "$file" >/dev/null 2>&1; then
       echo "OK:   $file constrains Bridge link tags except intentional dispatch-rate-limit/subscription cases"
     else
       echo "FAIL: $file missing Bridge empty-tag contract"
       fail=1
     fi
   elif [[ "$file" == *"/hearth-stories/"* ]]; then
-    if rg -n --pcre2 '!matches!\(link_type,\s*LinkTypes::TagToStories\)' "$file" >/dev/null 2>&1; then
+    if rg -nU --pcre2 '!matches!\(link_type,\s*LinkTypes::TagToStories\)' "$file" >/dev/null 2>&1; then
       echo "OK:   $file constrains Stories link tags except TagToStories"
     else
       echo "FAIL: $file missing Stories empty-tag contract"
       fail=1
     fi
   else
-    if rg -n --pcre2 'if !tag\.0\.is_empty\(\)' "$file" >/dev/null 2>&1; then
+    if rg -nU --pcre2 'if !tag\.0\.is_empty\(\)' "$file" >/dev/null 2>&1; then
       echo "OK:   $file constrains ordinary LinkTypes to empty tags"
     else
       echo "FAIL: $file missing ordinary empty-tag contract"
@@ -464,14 +464,14 @@ check_link_tag_contract() {
 # without the application-level entry policy. Updates are checked the same way.
 check_create_record_coverage() {
   local file="$1"
-  if ! rg -n --pcre2 'FlatOp::CreateRecord\s*\(\s*OpRecord::CreateEntry' "$file" >/dev/null 2>&1; then
+  if ! rg -nU --pcre2 'FlatOp::CreateRecord\s*\(\s*OpRecord::CreateEntry' "$file" >/dev/null 2>&1; then
     echo "FAIL: $file has no explicit FlatOp::CreateRecord(OpRecord::CreateEntry) validation"
     fail=1
   else
     echo "OK:   $file explicitly validates CreateRecord entry creation"
   fi
-  if rg -n --pcre2 'FlatOp::CreateEntry\s*\(\s*OpEntry::UpdateEntry' "$file" >/dev/null 2>&1; then
-    if rg -n --pcre2 'FlatOp::CreateRecord\s*\(\s*OpRecord::UpdateEntry' "$file" >/dev/null 2>&1; then
+  if rg -nU --pcre2 'FlatOp::CreateEntry\s*\(\s*OpEntry::UpdateEntry' "$file" >/dev/null 2>&1; then
+    if rg -nU --pcre2 'FlatOp::CreateRecord\s*\(\s*OpRecord::UpdateEntry' "$file" >/dev/null 2>&1; then
       echo "OK:   $file explicitly validates CreateRecord update data"
     else
       echo "FAIL: $file has UpdateEntry validation but no CreateRecord update validation"
@@ -505,7 +505,7 @@ check_create_record_entry_dispatch() {
   ')"
   while IFS= read -r variant; do
     [[ -z "$variant" ]] && continue
-    if printf '%s\n' "$create_block" | rg -n --pcre2 "\bEntryTypes::${variant}\b" >/dev/null 2>&1; then
+    if printf '%s\n' "$create_block" | rg -nU --pcre2 "\bEntryTypes::${variant}\b" >/dev/null 2>&1; then
       echo "OK:   $file CreateRecord create dispatch covers EntryTypes::$variant"
     else
       echo "FAIL: $file CreateRecord create dispatch misses EntryTypes::$variant"
@@ -515,7 +515,7 @@ check_create_record_entry_dispatch() {
       echo "FAIL: $file CreateRecord accepts non-anchor EntryTypes::$variant without application validation"
       fail=1
     fi
-    if printf '%s\n' "$update_block" | rg -n --pcre2 "\bEntryTypes::${variant}\b" >/dev/null 2>&1; then
+    if printf '%s\n' "$update_block" | rg -nU --pcre2 "\bEntryTypes::${variant}\b" >/dev/null 2>&1; then
       echo "OK:   $file CreateRecord update dispatch covers EntryTypes::$variant"
     else
       echo "FAIL: $file CreateRecord update dispatch misses EntryTypes::$variant"
@@ -544,7 +544,7 @@ check_create_entry_entry_dispatch() {
   fi
   while IFS= read -r variant; do
     [[ -z "$variant" ]] && continue
-    if printf '%s\n' "$create_block" | rg -n --pcre2 "\\bEntryTypes::\${variant}\\b" >/dev/null 2>&1; then
+    if printf '%s\n' "$create_block" | rg -nU --pcre2 "\\bEntryTypes::\${variant}\\b" >/dev/null 2>&1; then
       echo "OK:   $file CreateEntry dispatch covers EntryTypes::\${variant}"
     else
       echo "FAIL: $file CreateEntry dispatch misses EntryTypes::\${variant}"
@@ -560,7 +560,7 @@ check_create_entry_entry_dispatch() {
 check_dangerous_operation_catchalls() {
   local file="$1"
   for family in Delete Link; do
-    if rg -n --pcre2 "FlatOp::${family}\s*\(\s*_\s*\)\s*=>\s*Ok\s*\(\s*ValidateCallbackResult::Valid" "$file" >/dev/null 2>&1; then
+    if rg -nU --pcre2 "FlatOp::${family}\s*\(\s*_\s*\)\s*=>\s*Ok\s*\(\s*ValidateCallbackResult::Valid" "$file" >/dev/null 2>&1; then
       echo "FAIL: $file has permissive FlatOp::$family(_) => Valid catch-all"
       fail=1
     else
@@ -607,13 +607,13 @@ PY
       echo "FAIL: Hearth semantic-validation manifest contains duplicate or invalid JSON object keys"
       fail=1
     fi
-    if rg -n --pcre2 '"schema_version"[[:space:]]*:[[:space:]]*"HEARTH-SEMANTIC-0.7-CASESET-1"' "$manifest" >/dev/null 2>&1; then
+    if rg -nU --pcre2 '"schema_version"[[:space:]]*:[[:space:]]*"HEARTH-SEMANTIC-0.7-CASESET-1"' "$manifest" >/dev/null 2>&1; then
       echo "OK:   Hearth semantic-validation case schema is pinned"
     else
       echo "FAIL: Hearth semantic-validation case schema is missing or changed"
       fail=1
     fi
-    if rg -n --pcre2 'RuntimeQualificationPending' "$manifest" >/dev/null 2>&1; then
+    if rg -nU --pcre2 'RuntimeQualificationPending' "$manifest" >/dev/null 2>&1; then
       echo "OK:   Hearth semantic-validation runtime claim ceiling remains pending"
     else
       echo "FAIL: Hearth semantic-validation manifest must retain RuntimeQualificationPending ceiling"
@@ -669,7 +669,7 @@ PY
   fi
 
   if [[ -f "$cargo_manifest" ]]; then
-    if rg -n --pcre2 'name[[:space:]]*=[[:space:]]*"sweettest_semantic_validation"' "$cargo_manifest" >/dev/null 2>&1; then
+    if rg -nU --pcre2 'name[[:space:]]*=[[:space:]]*"sweettest_semantic_validation"' "$cargo_manifest" >/dev/null 2>&1; then
       echo "OK:   semantic-validation Sweettest is registered in tests/Cargo.toml"
     else
       echo "FAIL: semantic-validation Sweettest is not registered in tests/Cargo.toml"
@@ -854,7 +854,7 @@ check_semantic_case_integrity_bindings() {
         }
         in_block { print }
       ' "$integrity_file")"
-      if [[ -n "$dispatch_block" ]] && printf '%s\n' "$dispatch_block" | rg -n --pcre2 "\\b${validator_symbol}[[:space:]]*\\(" >/dev/null 2>&1; then
+      if [[ -n "$dispatch_block" ]] && printf '%s\n' "$dispatch_block" | rg -nU --pcre2 "\\b${validator_symbol}[[:space:]]*\\(" >/dev/null 2>&1; then
         echo "OK:   $id integrity validate dispatcher invokes declared validator $validator_symbol"
       else
         echo "FAIL: $id integrity validate dispatcher does not invoke declared validator $validator_symbol"
@@ -1371,8 +1371,8 @@ check_qualification_workflow_provenance() {
     fail=1
   fi
 
-  action_use_count="$(rg -n --pcre2 '^[[:space:]]*(?:-[[:space:]]+)?uses:' "$workflow" | wc -l)"
-  pinned_action_count="$(rg -n --pcre2 '^[[:space:]]*(?:-[[:space:]]+)?uses:[[:space:]]+[^[:space:]@]+@[0-9a-f]{40}[[:space:]]*(#.*)?$' "$workflow" | wc -l)"
+  action_use_count="$(rg -nU --pcre2 '^[[:space:]]*(?:-[[:space:]]+)?uses:' "$workflow" | wc -l)"
+  pinned_action_count="$(rg -nU --pcre2 '^[[:space:]]*(?:-[[:space:]]+)?uses:[[:space:]]+[^[:space:]@]+@[0-9a-f]{40}[[:space:]]*(#.*)?$' "$workflow" | wc -l)"
   if [[ "$action_use_count" -ne "${#expected_action_refs[@]}" ]]; then
     echo "FAIL: qualification workflow action count changed: expected ${#expected_action_refs[@]}, got $action_use_count"
     fail=1
@@ -1530,9 +1530,9 @@ check_coordinator_operation_bindings() {
     source="$(sed '/^\#\[cfg(test)\]/,$d' "$coordinator")"
 
     # Entry creation is paired with both 0.7 validation surfaces.
-    if printf '%s\n' "$source" | rg -n --pcre2 '\bcreate_entry\s*\(' >/dev/null 2>&1; then
-      if rg -n --pcre2 'FlatOp::CreateEntry\s*\(' "$file" >/dev/null 2>&1 \
-        && rg -n --pcre2 'FlatOp::CreateRecord\s*\(\s*OpRecord::CreateEntry' "$file" >/dev/null 2>&1; then
+    if printf '%s\n' "$source" | rg -nU --pcre2 '\bcreate_entry\s*\(' >/dev/null 2>&1; then
+      if rg -nU --pcre2 'FlatOp::CreateEntry\s*\(' "$file" >/dev/null 2>&1 \
+        && rg -nU --pcre2 'FlatOp::CreateRecord\s*\(\s*OpRecord::CreateEntry' "$file" >/dev/null 2>&1; then
         echo "OK:   $zome coordinator entry writes map to CreateEntry + CreateRecord validation"
       else
         echo "FAIL: $zome coordinator calls create_entry but integrity lacks paired 0.7 create validation"
@@ -1542,10 +1542,10 @@ check_coordinator_operation_bindings() {
 
     # Mutable entry writes need content validation, CreateRecord parity, and
     # action-level author authorization.
-    if printf '%s\n' "$source" | rg -n --pcre2 '\bupdate_entry\s*\(' >/dev/null 2>&1; then
-      if rg -n --pcre2 'FlatOp::CreateEntry\s*\(\s*OpEntry::UpdateEntry' "$file" >/dev/null 2>&1 \
-        && rg -n --pcre2 'FlatOp::CreateRecord\s*\(\s*OpRecord::UpdateEntry' "$file" >/dev/null 2>&1 \
-        && rg -n --pcre2 'FlatOp::Update\s*\(\s*OpUpdate::Entry' "$file" >/dev/null 2>&1; then
+    if printf '%s\n' "$source" | rg -nU --pcre2 '\bupdate_entry\s*\(' >/dev/null 2>&1; then
+      if rg -nU --pcre2 'FlatOp::CreateEntry\s*\(\s*OpEntry::UpdateEntry' "$file" >/dev/null 2>&1 \
+        && rg -nU --pcre2 'FlatOp::CreateRecord\s*\(\s*OpRecord::UpdateEntry' "$file" >/dev/null 2>&1 \
+        && rg -nU --pcre2 'FlatOp::Update\s*\(\s*OpUpdate::Entry' "$file" >/dev/null 2>&1; then
         echo "OK:   $zome coordinator update_entry maps to content + CreateRecord + Update authorization"
       else
         echo "FAIL: $zome coordinator calls update_entry without complete 0.7 update validation coverage"
@@ -1553,9 +1553,9 @@ check_coordinator_operation_bindings() {
       fi
     fi
 
-    if printf '%s\n' "$source" | rg -n --pcre2 '\bdelete_entry\s*\(' >/dev/null 2>&1; then
-      if rg -n --pcre2 'FlatOp::Delete\s*\(\s*OpDelete\s*\{\s*action' "$file" >/dev/null 2>&1 \
-        && rg -n --pcre2 'must_get_valid_record\s*\(\s*action\.deletes_address' "$file" >/dev/null 2>&1; then
+    if printf '%s\n' "$source" | rg -nU --pcre2 '\bdelete_entry\s*\(' >/dev/null 2>&1; then
+      if rg -nU --pcre2 'FlatOp::Delete\s*\(\s*OpDelete\s*\{\s*action' "$file" >/dev/null 2>&1 \
+        && rg -nU --pcre2 'must_get_valid_record\s*\(\s*action\.deletes_address' "$file" >/dev/null 2>&1; then
         echo "OK:   $zome coordinator delete_entry maps to validated Delete authorization"
       else
         echo "FAIL: $zome coordinator calls delete_entry without validated Delete authorization coverage"
@@ -1563,8 +1563,8 @@ check_coordinator_operation_bindings() {
       fi
     fi
 
-    if printf '%s\n' "$source" | rg -n --pcre2 '\bcreate_link\s*\(' >/dev/null 2>&1; then
-      if rg -n --pcre2 'FlatOp::Link\s*\(\s*OpLink::CreateLink' "$file" >/dev/null 2>&1; then
+    if printf '%s\n' "$source" | rg -nU --pcre2 '\bcreate_link\s*\(' >/dev/null 2>&1; then
+      if rg -nU --pcre2 'FlatOp::Link\s*\(\s*OpLink::CreateLink' "$file" >/dev/null 2>&1; then
         echo "OK:   $zome coordinator create_link maps to explicit CreateLink validation"
       else
         echo "FAIL: $zome coordinator calls create_link but integrity lacks explicit CreateLink validation"
@@ -1572,9 +1572,9 @@ check_coordinator_operation_bindings() {
       fi
     fi
 
-    if printf '%s\n' "$source" | rg -n --pcre2 '\bdelete_link\s*\(' >/dev/null 2>&1; then
-      if rg -n --pcre2 'FlatOp::Link\s*\([^)]*OpLink::DeleteLink' "$file" >/dev/null 2>&1 \
-        && rg -n --pcre2 'must_get_valid_record\s*\(\s*action\.link_add_address' "$file" >/dev/null 2>&1; then
+    if printf '%s\n' "$source" | rg -nU --pcre2 '\bdelete_link\s*\(' >/dev/null 2>&1; then
+      if rg -nU --pcre2 'FlatOp::Link\s*\([^)]*OpLink::DeleteLink' "$file" >/dev/null 2>&1 \
+        && rg -nU --pcre2 'must_get_valid_record\s*\(\s*action\.link_add_address' "$file" >/dev/null 2>&1; then
         echo "OK:   $zome coordinator delete_link maps to validated DeleteLink authorization"
       else
         echo "FAIL: $zome coordinator calls delete_link without validated DeleteLink authorization coverage"
