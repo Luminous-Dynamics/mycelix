@@ -55,6 +55,18 @@ def sha256_file(path: Path) -> str:
     return h.hexdigest()
 
 
+def canonical_hash(value: Any) -> str:
+    return hashlib.sha256(
+        json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+    ).hexdigest()
+
+
+def self_hash(value: dict[str, Any]) -> str:
+    clone = dict(value)
+    clone.pop("content_sha256", None)
+    return canonical_hash(clone)
+
+
 def need(data: bytes, offset: int, size: int, reason: str) -> bytes:
     if offset < 0 or size < 0 or offset + size > len(data):
         raise ValueError(reason)
@@ -185,7 +197,7 @@ def parse(binary: bytes) -> dict[str, Any]:
     if offset != len(binary):
         raise ValueError("unconsumed event-log bytes")
 
-    return {
+    result = {
         "profile_id": "mycelix.security.platform.binary-eventlog.extraction",
         "profile_version": "0.1.0",
         "parser_id": PARSER_ID,
@@ -195,6 +207,8 @@ def parse(binary: bytes) -> dict[str, Any]:
         "algorithms": algorithms,
         "events": events,
     }
+    result["content_sha256"] = self_hash(result)
+    return result
 
 
 def self_test() -> int:
@@ -232,6 +246,9 @@ def self_test() -> int:
     binary = legacy + event1 + event2
     parsed = parse(binary)
 
+    if parsed["content_sha256"] != self_hash(parsed):
+        print("raw receipt self-hash: FAIL")
+        return 1
     if parsed["events"][1]["payload_hex"] != payload1.hex():
         print("payload extraction: FAIL")
         return 1
