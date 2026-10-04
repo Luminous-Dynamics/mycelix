@@ -207,6 +207,10 @@ pub struct PolicyAdjustment {
 pub struct GovernedPolicyAdjustment {
     /// Unique decision identifier.
     pub decision_id: String,
+    /// Versioned economic-policy profile under which the decision is interpreted.
+    pub policy_profile_ref: String,
+    /// Content fingerprint of the exact policy profile used for the decision.
+    pub policy_profile_fingerprint: String,
     /// References to the observations used in the decision.
     pub observation_refs: Vec<String>,
     /// Policy/rule reference authorizing the decision.
@@ -224,6 +228,21 @@ impl GovernedPolicyAdjustment {
     pub fn validate(&self) -> Result<(), String> {
         if self.decision_id.trim().is_empty() {
             return Err("Policy decision ID cannot be empty".into());
+        }
+        if self.policy_profile_ref.trim().is_empty() {
+            return Err("Policy decision policy profile reference cannot be empty".into());
+        }
+        if self.policy_profile_fingerprint.len() != 64
+            || !self
+                .policy_profile_fingerprint
+                .as_bytes()
+                .iter()
+                .all(u8::is_ascii_hexdigit)
+        {
+            return Err(
+                "Policy decision policy profile fingerprint must be a 64-character hexadecimal SHA-256"
+                    .into(),
+            );
         }
         if self.observation_refs.is_empty() {
             return Err("Policy decision requires at least one observation reference".into());
@@ -272,6 +291,8 @@ impl GovernedPolicyAdjustment {
         let payload = serde_json::json!({
             "version": 1,
             "decision_id": self.decision_id,
+            "policy_profile_ref": self.policy_profile_ref,
+            "policy_profile_fingerprint": self.policy_profile_fingerprint,
             "observation_refs": observation_refs,
             "rule_ref": self.rule_ref,
             "authority_ref": self.authority_ref,
@@ -642,6 +663,8 @@ mod tests {
         let adjustment = oracle.generate_adjustment();
         let decision = GovernedPolicyAdjustment {
             decision_id: "decision:1".into(),
+            policy_profile_ref: "profile:za:reference:v1".into(),
+            policy_profile_fingerprint: "a".repeat(64),
             observation_refs: Vec::new(),
             rule_ref: "rule:countercyclical:v1".into(),
             authority_ref: "authority:dao-1".into(),
@@ -658,6 +681,7 @@ mod tests {
         let adjustment = oracle.generate_adjustment();
         let decision = GovernedPolicyAdjustment {
             decision_id: "decision:1".into(),
+            policy_profile_ref: "profile:za:reference:v1".into(),
             observation_refs: vec!["observation:vitality:1".into()],
             rule_ref: "rule:countercyclical:v1".into(),
             authority_ref: "authority:dao-1".into(),

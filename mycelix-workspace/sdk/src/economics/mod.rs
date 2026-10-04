@@ -22,6 +22,7 @@ pub mod action_finalization;
 pub mod finalization_certificate;
 pub mod substrate;
 pub mod metabolic_oracle;
+pub mod policy_profile;
 pub mod poc;
 pub mod recognition;
 
@@ -33,6 +34,7 @@ pub use metabolic_oracle::{
     GovernedPolicyAdjustment, MetabolicOracle, MetabolicState, PolicyAdjustment, PolicyBounds,
     TendLimitTier, VitalityIndex,
 };
+pub use policy_profile::{EconomicOsOperation, EconomicPolicyProfile};
 pub use poc::{
     calculate_mycel_score, jubilee_normalize, GamingDetection, GamingRecommendation,
     MycelCalculation, MycelComponent, MycelScore,
