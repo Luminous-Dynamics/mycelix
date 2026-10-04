@@ -176,7 +176,8 @@ pub struct SeeaObservation {
 /// Semantic identity for one SEEA observation slot.
 ///
 /// Two observations with the same key describe the same accounting fact:
-/// same account family, accounting area, ecosystem type, unit, and period.
+/// same account family, accounting area, ecosystem type, economic unit,
+/// change semantics, native unit, and period.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct SeeaObservationKey {
     /// Account family.
@@ -185,6 +186,10 @@ pub struct SeeaObservationKey {
     pub accounting_area_ref: String,
     /// Ecosystem type.
     pub ecosystem_type_ref: String,
+    /// Economic or institutional unit, when the account is unit-specific.
+    pub economic_unit_ref: Option<String>,
+    /// Stock/increase/decrease semantic.
+    pub change_kind: SeeaChangeKind,
     /// Native unit.
     pub unit: String,
     /// Accounting period start.
@@ -200,6 +205,8 @@ impl SeeaObservation {
             account_type: self.account_type,
             accounting_area_ref: self.accounting_area_ref.clone(),
             ecosystem_type_ref: self.ecosystem_type_ref.clone(),
+            economic_unit_ref: self.economic_unit_ref.clone(),
+            change_kind: self.change_kind,
             unit: self.unit.clone(),
             period_start: self.period_start,
             period_end: self.period_end,
@@ -498,6 +505,26 @@ mod tests {
         second.insert(a).unwrap();
 
         assert_eq!(first.canonical_observations(), second.canonical_observations());
+    }
+
+    #[test]
+    fn semantic_identity_distinguishes_economic_units() {
+        let first = condition_observation(760);
+        let mut second = first.clone();
+        second.id = "seea:condition:river-1:2026:economic-unit".into();
+        second.economic_unit_ref = Some("sector:households".into());
+
+        assert_ne!(first.semantic_key(), second.semantic_key());
+    }
+
+    #[test]
+    fn semantic_identity_distinguishes_change_semantics() {
+        let first = condition_observation(760);
+        let mut second = first.clone();
+        second.id = "seea:condition:river-1:2026:decrease".into();
+        second.change_kind = SeeaChangeKind::Decrease;
+
+        assert_ne!(first.semantic_key(), second.semantic_key());
     }
 
     #[test]
