@@ -2562,11 +2562,13 @@ mod tests {
     struct FederationStateMachineFailureCapsule {
         schema_version: u16,
         failure_kind: String,
-        trace: FederationStateMachineTraceCapsule,
+        trace_index: usize,
+        trace_prefix: Vec<(FederationStateMachineOperation, u64)>,
         failed_step_index: usize,
         operation: FederationStateMachineOperation,
         token: u64,
         expected_state_valid: bool,
+        observed_state_valid: bool,
         observed_violations:
             Vec<(FederationInvariantId, FederationInvariantViolation)>,
         audit: Vec<FederationInvariantAuditEntry>,
@@ -2589,21 +2591,7 @@ mod tests {
             pre_state_fingerprint: Vec<u8>,
             post_state_fingerprint: Vec<u8>,
         ) -> Self {
-            let prefix = plan;
-            let trace = FederationStateMachineTraceCapsule {
-                trace_index,
-                initial_seed: 0xD6E5_5EED_u64 ^ trace_index as u64,
-                operations: prefix
-                    .iter()
-                    .take(failed_step_index + 1)
-                    .map(|(operation, _)| *operation)
-                    .collect(),
-                tokens: prefix
-                    .iter()
-                    .take(failed_step_index + 1)
-                    .map(|(_, token)| *token)
-                    .collect(),
-            };
+            let trace_prefix = plan[..=failed_step_index].to_vec();
             let observed_violations = audit
                 .iter()
                 .filter_map(|entry| match entry.status {
@@ -2617,11 +2605,13 @@ mod tests {
             Self {
                 schema_version: 1,
                 failure_kind: "invariant-violation".into(),
-                trace,
+                trace_index,
+                trace_prefix,
                 failed_step_index,
                 operation,
                 token,
                 expected_state_valid: true,
+                observed_state_valid: false,
                 observed_violations,
                 audit,
                 expected_decision: None,
@@ -2808,9 +2798,10 @@ mod tests {
 
     fn invariant_failure_from_plan(
         plan: &[(FederationStateMachineOperation, u64)],
+        trace_index: usize,
     ) -> Option<FederationStateMachineFailureCapsule> {
         let payload = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            run_state_machine_trace_plan_core(plan, false)
+            run_state_machine_trace_plan_core(plan, trace_index, false)
         }))
         .err()?;
 
@@ -2825,14 +2816,22 @@ mod tests {
         steps: usize,
     ) -> Vec<FederationStateMachineEvidence> {
         let (_, plan) = state_machine_trace_plan(trace_index, steps);
-        run_state_machine_trace_plan(&plan)
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            run_state_machine_trace_plan_core(&plan, trace_index, true)
+        })) {
+            Ok(evidence) => evidence,
+            Err(payload) => match payload.downcast::<FederationStateMachineInvariantFailure>() {
+                Ok(failure) => panic!("{}", failure.0.to_json()),
+                Err(payload) => std::panic::resume_unwind(payload),
+            },
+        }
     }
 
     fn run_state_machine_trace_plan(
         plan: &[(FederationStateMachineOperation, u64)],
     ) -> Vec<FederationStateMachineEvidence> {
         match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            run_state_machine_trace_plan_core(plan, true)
+            run_state_machine_trace_plan_core(plan, 0, true)
         })) {
             Ok(evidence) => evidence,
             Err(payload) => match payload.downcast::<FederationStateMachineInvariantFailure>() {
@@ -2844,6 +2843,7 @@ mod tests {
 
     fn run_state_machine_trace_plan_core(
         plan: &[(FederationStateMachineOperation, u64)],
+        trace_index: usize,
         shrink_on_failure: bool,
     ) -> Vec<FederationStateMachineEvidence> {
         let mut state = nodes();
