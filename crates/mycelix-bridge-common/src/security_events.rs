@@ -148,7 +148,11 @@ impl<'de> serde::Deserialize<'de> for SecurityEvent {
         event.capability_binding = wire.capability_binding;
         event.authority_binding = wire.authority_binding;
         event.provenance = wire.provenance;
-        event.recovery_correlation = wire.recovery_correlation;
+        if let Some(correlation) = wire.recovery_correlation {
+            event = event
+                .with_recovery_correlation(correlation)
+                .map_err(D::Error::custom)?;
+        }
         Ok(event)
     }
 }
@@ -381,6 +385,59 @@ mod tests {
             "authority":"ignored"
         }"#;
         assert!(serde_json::from_str::<SecurityEvent>(json).is_err());
+    }
+
+    #[test]
+    fn security_event_deserialization_preserves_recovery_correlation() {
+        let json = r#"{
+            "event_id":"event:recovery",
+            "actor_id":"did:mycelix:alice",
+            "capability_ref":"capability:1",
+            "request":{
+                "subject":"did:mycelix:alice",
+                "resource":"resource:ledger",
+                "action":"Read",
+                "policy_version":7
+            },
+            "decision":{"Deny":"ActionNotGranted"},
+            "policy_version":7,
+            "timestamp_us":151,
+            "provenance":[],
+            "recovery_correlation":"recovery:1"
+        }"#;
+
+        let event: SecurityEvent = serde_json::from_str(json).unwrap();
+        assert_eq!(event.recovery_correlation(), Some("recovery:1"));
+    }
+
+    #[test]
+    fn security_event_deserialization_rejects_invalid_recovery_correlation() {
+        let base = |correlation: &str| {
+            format!(
+                r#"{{
+                    "event_id":"event:recovery-invalid",
+                    "actor_id":"did:mycelix:alice",
+                    "capability_ref":"capability:1",
+                    "request":{{
+                        "subject":"did:mycelix:alice",
+                        "resource":"resource:ledger",
+                        "action":"Read",
+                        "policy_version":7
+                    }},
+                    "decision":{{"Deny":"ActionNotGranted"}},
+                    "policy_version":7,
+                    "timestamp_us":151,
+                    "provenance":[],
+                    "recovery_correlation":{correlation}
+                }}"#,
+                correlation = serde_json::to_string(correlation).unwrap()
+            )
+        };
+
+        assert!(serde_json::from_str::<SecurityEvent>(&base("")).is_err());
+
+        let oversized = "x".repeat(MAX_PROVENANCE_IDENTIFIER_BYTES + 1);
+        assert!(serde_json::from_str::<SecurityEvent>(&base(&oversized)).is_err());
     }
 
     #[test]
