@@ -249,7 +249,7 @@ struct SecurityEventWire {
     #[serde(deserialize_with = "deserialize_provenance_identifier")]
     capability_ref: String,
     request: AuthorizationRequest,
-    decision: AuthorizationDecision,
+    decision: SecurityEventDecision,
     policy_version: u64,
     timestamp_us: u64,
     #[serde(default)]
@@ -401,7 +401,7 @@ impl SecurityEvent {
         timestamp_us: u64,
     ) -> Result<Self, &'static str> {
         let decision = match decision {
-            SecurityEventDecision::Deny(reason) => SecurityEventDecision::Deny(reason),
+            AuthorizationDecision::Deny(reason) => SecurityEventDecision::Deny(reason),
             AuthorizationDecision::Indeterminate(reason) => {
                 SecurityEventDecision::Indeterminate(reason)
             }
