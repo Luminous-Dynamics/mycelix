@@ -437,7 +437,10 @@ impl VerificationEvidence {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// Opaque result of capability verification. Its trust-bearing state is intentionally
+/// neither inspectable through derived formatting/equality nor duplicable through Clone;
+/// callers cross the authorization boundary only by passing the verified value to the
+/// kernel-owned permit issuer.
 pub struct VerifiedCapability {
     capability: Capability,
     verification_valid_until_us: u64,
