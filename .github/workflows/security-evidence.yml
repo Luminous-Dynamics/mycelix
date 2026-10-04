@@ -31,6 +31,7 @@ jobs:
           platform = json.loads(Path("docs/security/mycelix-platform-evidence-capture-v0.1.json").read_text())
           recon = json.loads(Path("docs/security/mycelix-pc-client-eventlog-reconstruction-v0.1.json").read_text())
           payload = json.loads(Path("docs/security/mycelix-event-payload-digest-coherence-v0.1.json").read_text())
+          raw_parser = json.loads(Path("docs/security/mycelix-raw-tpm2-eventlog-parser-v0.1.json").read_text())
           assert platform["profile_id"] == "mycelix.security.platform.evidence.capture"
           assert recon["profile_id"] == "mycelix.security.platform.eventlog.reconstruction"
           assert platform["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"
@@ -41,6 +42,8 @@ jobs:
           assert payload["artifact_type"] == "mycelix-event-payload-digest-coherence-v0.1"
           assert payload["states"] == ["PASS", "DENY", "INDETERMINATE"]
           assert len(payload["expected_vectors"]) == 6
+          assert raw_parser["parser_id"] == "mycelix.pc-client.raw-tpm2-eventlog-parser.v0.1"
+          assert "payload_hex" in raw_parser["output"]
           PY
 
       - name: Compile security verifiers and bundle regression

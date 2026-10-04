@@ -101,6 +101,7 @@ def adapt(
         raise ValueError("only tpm2_eventlog YAML version 1 is supported")
 
     payloads: dict[int, dict[str, Any]] = {}
+    raw_payload_metadata: dict[str, Any] = {}
     if payload_json is not None:
         raw = json.loads(payload_json.read_text(encoding="utf-8"))
         if not isinstance(raw, dict):
@@ -111,6 +112,11 @@ def adapt(
             raise ValueError("raw payload parser binary binding mismatch")
         if raw.get("parser_source_sha256") != sha256_file(RAW_PAYLOAD_PARSER_SCRIPT):
             raise ValueError("raw payload parser source binding mismatch")
+        raw_payload_metadata = {
+            "parser_id": raw["parser_id"],
+            "binary_sha256": raw["binary_sha256"],
+            "source_sha256": raw["parser_source_sha256"],
+        }
         raw_clone = dict(raw)
         supplied_raw_hash = raw_clone.pop("content_sha256", None)
         if not isinstance(supplied_raw_hash, str) or supplied_raw_hash != hashlib.sha256(
@@ -190,6 +196,7 @@ def adapt(
         "observed_pcr_values_source": observed_pcr_json.name,
         "payload_parser_source": payload_json.name if payload_json is not None else None,
         "payload_parser_sha256": sha256_file(payload_json) if payload_json is not None else None,
+        "payload_parser_metadata": raw_payload_metadata,
     }
 
 

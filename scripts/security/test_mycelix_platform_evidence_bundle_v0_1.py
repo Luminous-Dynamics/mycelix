@@ -100,6 +100,66 @@ def build_bundle(bundle: Path) -> dict:
     run_reconstruction(input_path, reconstruction_path)
     reconstruction = json.loads(reconstruction_path.read_text(encoding="utf-8"))
 
+    observed_pcr_path = bundle / "observed-pcr-values.json"
+    observed_pcr_path.write_text(
+        json.dumps(reconstruction["observed_pcr_values"], indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    raw_eventlog_path = bundle / "raw-eventlog.json"
+    raw_eventlog_data = {
+        "profile_id": "mycelix.security.platform.binary-eventlog.extraction",
+        "profile_version": "0.1.0",
+        "parser_id": "mycelix.pc-client.raw-tpm2-eventlog-parser.v0.1",
+        "parser_source_sha256": platform.sha256_file(
+            SECURITY / "parse_mycelix_raw_tpm2_eventlog_v0_1.py"
+        ),
+        "binary_sha256": platform.sha256_file(bundle / "eventlog.bin"),
+        "specid_event_size": 0,
+        "algorithms": {"sha256": 32},
+        "events": [
+            {
+                "sequence": event["sequence"],
+                "pcr": event["pcr"],
+                "event_type": event["event_type"],
+                "digest_sha256": event.get("digest_sha256"),
+                "digests": (
+                    {"sha256": event["digest_sha256"]}
+                    if event.get("digest_sha256") is not None
+                    else {}
+                ),
+                "payload_hex": "",
+            }
+            for event in event_stream["events"]
+        ],
+    }
+    raw_eventlog_data["content_sha256"] = platform.self_hash(
+        raw_eventlog_data, "content_sha256"
+    )
+    raw_eventlog_path.write_text(
+        json.dumps(raw_eventlog_data, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    payload_coherence_path = bundle / "payload-coherence.json"
+    payload_proc = subprocess.run(
+        [
+            sys.executable,
+            str(SECURITY / "verify_mycelix_event_payload_digest_coherence_v0_1.py"),
+            "--verify",
+            str(input_path),
+            "--output",
+            str(payload_coherence_path),
+        ],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if payload_proc.returncode not in (0, 2):
+        raise RuntimeError(payload_proc.stdout + payload_proc.stderr)
+    payload_coherence = json.loads(payload_coherence_path.read_text(encoding="utf-8"))
+
     values = reconstruction["observed_pcr_values"]
     (bundle / "pcr-post.yaml").write_text(
         "sha256:\n" + "".join(
@@ -115,6 +175,15 @@ def build_bundle(bundle: Path) -> dict:
     manifest["tpm"]["ek_public_sha256"] = platform.sha256_file(bundle / "ek.pub")
     manifest["event_log"]["sha256"] = platform.sha256_file(bundle / "eventlog.bin")
     manifest["event_log"]["parser_output_sha256"] = platform.sha256_file(bundle / "eventlog-parsed.yaml")
+    manifest["raw_eventlog"] = {
+        "status": "PASS",
+        "parser_id": "mycelix.pc-client.raw-tpm2-eventlog-parser.v0.1",
+        "output_sha256": platform.sha256_file(raw_eventlog_path),
+        "source_sha256": platform.sha256_file(
+            SECURITY / "parse_mycelix_raw_tpm2_eventlog_v0_1.py"
+        ),
+        "binary_sha256": platform.sha256_file(bundle / "eventlog.bin"),
+    }
     manifest["quote"]["nonce_sha256"] = platform.sha256_file(bundle / "nonce.bin")
     manifest["quote"]["attestation_key_sha256"] = platform.sha256_file(bundle / "ak.pub")
     manifest["challenge"]["sha256"] = platform.sha256_file(bundle / "nonce.bin")
@@ -131,14 +200,36 @@ def build_bundle(bundle: Path) -> dict:
         "verifier_id": reconstruction["verifier_id"],
         "verifier_source_sha256": reconstruction["verifier_source_sha256"],
     }
+    manifest["payload_coherence"] = {
+        "status": payload_coherence["state"],
+        "output_sha256": platform.sha256_file(payload_coherence_path),
+        "source_sha256": platform.sha256_file(
+            SECURITY / "verify_mycelix_event_payload_digest_coherence_v0_1.py"
+        ),
+        "input_sha256": platform.sha256_file(input_path),
+    }
     manifest["live_observation"]["selection"] = reconstruction["pcr_selection"]
     manifest["live_observation"]["pcr_values_sha256"] = reconstruction["observed_pcrs_sha256"]
     manifest["live_observation"]["pcr_post_artifact_sha256"] = platform.sha256_file(bundle / "pcr-post.yaml")
+    manifest["live_observation"]["pcr_values_file_sha256"] = platform.sha256_file(observed_pcr_path)
+    manifest["payload_coherence"] = {
+        "status": payload_coherence["state"],
+        "output_sha256": platform.sha256_file(payload_coherence_path),
+        "source_sha256": platform.sha256_file(
+            SECURITY / "verify_mycelix_event_payload_digest_coherence_v0_1.py"
+        ),
+        "input_sha256": platform.sha256_file(input_path),
+    }
     manifest["artifacts"]["quote_message_sha256"] = platform.sha256_file(bundle / "quote.msg")
     manifest["artifacts"]["quote_signature_sha256"] = platform.sha256_file(bundle / "quote.sig")
     manifest["artifacts"]["attestation_key_sha256"] = platform.sha256_file(bundle / "ak.pub")
     manifest["artifacts"]["reconstruction_file_sha256"] = platform.sha256_file(reconstruction_path)
     manifest["artifacts"]["reconstruction_input_sha256"] = platform.sha256_file(input_path)
+    manifest["artifacts"]["observed_pcr_values_file_sha256"] = platform.sha256_file(observed_pcr_path)
+    manifest["artifacts"]["raw_eventlog_output_sha256"] = platform.sha256_file(raw_eventlog_path)
+    manifest["artifacts"]["payload_coherence_output_sha256"] = platform.sha256_file(payload_coherence_path)
+    manifest["artifacts"]["raw_eventlog_output_sha256"] = platform.sha256_file(raw_eventlog_path)
+    manifest["artifacts"]["payload_coherence_output_sha256"] = platform.sha256_file(payload_coherence_path)
     manifest["artifacts"]["tss_version_evidence_sha256"] = platform.sha256_file(bundle / "tss-version-evidence.txt")
     manifest["artifacts"]["ek_public_sha256"] = platform.sha256_file(bundle / "ek.pub")
     manifest["os_image_digest"] = "sha256:" + "a1" * 32
