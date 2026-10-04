@@ -647,6 +647,42 @@ mod tests {
     }
 
     #[test]
+    fn security_event_programmatic_provenance_accepts_exact_limit() {
+        let request = crate::security_kernel::AuthorizationRequest::new(
+            "did:mycelix:alice",
+            "resource:ledger",
+            CapabilityAction::Read,
+            7,
+        )
+        .unwrap();
+        let event = SecurityEvent::new(
+            "event:provenance-programmatic-boundary",
+            "did:mycelix:alice",
+            "capability:1",
+            request,
+            AuthorizationDecision::Deny(
+                crate::security_kernel::AuthorizationDenial::ActionNotGranted,
+            ),
+            7,
+            151,
+        )
+        .unwrap();
+
+        let provenance = (0..MAX_SECURITY_EVENT_PROVENANCE_REFS)
+            .map(|index| {
+                ProvenanceRef::new(
+                    format!("evidence:{index}"),
+                    ProvenanceRelation::References,
+                )
+                .unwrap()
+            })
+            .collect();
+
+        let event = event.with_provenance(provenance).unwrap();
+        assert_eq!(event.provenance().len(), MAX_SECURITY_EVENT_PROVENANCE_REFS);
+    }
+
+    #[test]
     fn security_event_rejects_unknown_wire_fields() {
         let json = r#"{
             "event_id":"event:unknown",
