@@ -104,6 +104,120 @@ pub fn resolve_name(canonical: String) -> ExternResult<Option<MeshNameEntry>> {
     }
 }
 
+fn current_name_owner(
+    name_hash: &ActionHash,
+) -> ExternResult<(AgentPubKey, Option<ActionHash>, MeshNameEntry)> {
+    let name_record = get(name_hash.clone(), GetOptions::default())?
+        .ok_or(wasm_error!(WasmErrorInner::Guest("Name not found".into())))?;
+    let name = name_record
+        .entry()
+        .to_app_option::<MeshNameEntry>()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Name hash does not reference a MeshNameEntry".into(),
+        )))?;
+
+    let links = get_links(
+        LinkQuery::try_new(name_hash.clone(), LinkTypes::NameToTransfers)?,
+        GetStrategy::default(),
+    )?;
+
+    let mut transfers: Vec<(ActionHash, Record, NameTransfer)> = Vec::new();
+    for link in links {
+        let hash = link
+            .target
+            .into_action_hash()
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "NameToTransfers target must be an ActionHash".into(),
+            )))?;
+        if let Some(record) = get(hash.clone(), GetOptions::default())? {
+            if let Some(transfer) = record
+                .entry()
+                .to_app_option::<NameTransfer>()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            {
+                if transfer.name_hash == *name_hash {
+                    transfers.push((hash, record, transfer));
+                }
+            }
+        }
+    }
+
+    if transfers.is_empty() {
+        return Ok((name_record.action().author().clone(), None, name));
+    }
+
+    let child_hashes: std::collections::HashSet<ActionHash> = transfers
+        .iter()
+        .filter_map(|(_, _, transfer)| transfer.previous_transfer_hash.clone())
+        .collect();
+
+    let tips: Vec<_> = transfers
+        .iter()
+        .filter(|(hash, _, _)| !child_hashes.contains(hash))
+        .collect();
+
+    if tips.len() != 1 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Ambiguous name ownership history; refusing nondeterministic transfer resolution".into(),
+        )));
+    }
+
+    let (tip_hash, tip_record, tip) = tips[0];
+
+    // Walk the explicit ownership chain back to the original registration.
+    // This verifies that every successor was authorized by the owner established
+    // by its predecessor rather than merely trusting a root-index link.
+    let mut seen = std::collections::HashSet::new();
+    let mut current_hash = tip_hash.clone();
+    let mut current_record = tip_record.clone();
+    let mut current = tip.clone();
+
+    loop {
+        if !seen.insert(current_hash.clone()) {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Cyclic name ownership history".into(),
+            )));
+        }
+
+        match current.previous_transfer_hash.clone() {
+            None => {
+                if *current_record.action().author() != *name_record.action().author() {
+                    return Err(wasm_error!(WasmErrorInner::Guest(
+                        "First transfer is not authorized by the original name owner".into(),
+                    )));
+                }
+                break;
+            }
+            Some(previous_hash) => {
+                let previous_record = get(previous_hash.clone(), GetOptions::default())?
+                    .ok_or(wasm_error!(WasmErrorInner::Guest(
+                        "Previous name transfer not found".into(),
+                    )))?;
+                let previous = previous_record
+                    .entry()
+                    .to_app_option::<NameTransfer>()
+                    .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                    .ok_or(wasm_error!(WasmErrorInner::Guest(
+                        "Previous transfer hash does not reference a NameTransfer".into(),
+                    )))?;
+                if previous.name_hash != *name_hash
+                    || previous.new_owner != *current_record.action().author()
+                {
+                    return Err(wasm_error!(WasmErrorInner::Guest(
+                        "Name ownership chain contains an unauthorized successor".into(),
+                    )));
+                }
+                current_hash = previous_hash;
+                current_record = previous_record;
+                current = previous;
+            }
+        }
+    }
+
+    Ok((tip.new_owner.clone(), Some(tip_hash.clone()), name))
+}
+
 /// Transfer name ownership (owner only, Citizen+).
 #[hdk_extern]
 pub fn transfer_name(transfer: NameTransfer) -> ExternResult<Record> {
@@ -113,16 +227,35 @@ pub fn transfer_name(transfer: NameTransfer) -> ExternResult<Record> {
         "transfer_name",
     )?;
 
-    // Verify caller owns the name
-    let name_record = get(transfer.name_hash.clone(), GetOptions::default())?
-        .ok_or(wasm_error!(WasmErrorInner::Guest("Name not found".into())))?;
-    let owner = name_record.action().author().clone();
     let caller = agent_info()?.agent_initial_pubkey;
-    if owner != caller {
+    let now = sys_time()?;
+    let (owner, previous_transfer_hash, name) = current_name_owner(&transfer.name_hash)?;
+
+    if name.expires_at <= now.as_micros() as u64 {
         return Err(wasm_error!(WasmErrorInner::Guest(
-            "Only owner can transfer".into()
+            "Expired names cannot be transferred".into()
         )));
     }
+    if owner != caller {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only the current owner can transfer".into()
+        )));
+    }
+    if transfer.new_owner == caller {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Name transfer must specify a different owner".into()
+        )));
+    }
+
+    // The previous state is derived from canonical ownership history rather
+    // than trusted from caller input. This makes transfer succession ergonomic
+    // while preserving an explicit, auditable chain for integrity validation.
+    let transfer = NameTransfer {
+        name_hash: transfer.name_hash,
+        previous_transfer_hash,
+        new_owner: transfer.new_owner,
+        timestamp_us: now.as_micros() as u64,
+    };
 
     let action_hash = create_entry(&EntryTypes::NameTransfer(transfer.clone()))?;
     create_link(
