@@ -51,11 +51,21 @@ jobs:
 
           cargo update --workspace --dry-run 2>&1 | tee "$GITHUB_WORKSPACE/identity-cargo-lock-workspace-update.txt"
 
-          cp Cargo.lock.committed Cargo.lock.workspace
           cargo update --workspace --manifest-path Cargo.toml
+          cp Cargo.lock Cargo.lock.workspace
           sha256sum Cargo.lock.workspace > "$GITHUB_WORKSPACE/identity-cargo-lock-workspace.sha256"
-          sha256sum Cargo.lock > "$GITHUB_WORKSPACE/identity-cargo-lock-workspace-candidate.sha256"
-          git diff --no-index -- Cargo.lock.workspace Cargo.lock > "$GITHUB_WORKSPACE/identity-cargo-lock-workspace.diff" || true
+          sha256sum Cargo.lock.workspace > "$GITHUB_WORKSPACE/identity-cargo-lock-workspace-candidate.sha256"
+          git diff --no-index -- Cargo.lock.committed Cargo.lock.workspace > "$GITHUB_WORKSPACE/identity-cargo-lock-workspace.diff" || true
+
+          # The dry-run is a diagnostic, but the generated candidate is the
+          # authoritative conservative artifact. Fail closed if Cargo reports
+          # a resolution change while the candidate remains byte-identical.
+          if cmp -s Cargo.lock.committed Cargo.lock.workspace &&
+             grep -Eq '^[[:space:]]*(Adding|Updating|Removing|Downgrading|Locking)[[:space:]]'                "$GITHUB_WORKSPACE/identity-cargo-lock-workspace-update.txt"; then
+            echo "ERROR: Cargo reported resolver changes but conservative lock candidate is unchanged."
+            exit 1
+          fi
+          cargo metadata --locked --no-deps --manifest-path Cargo.toml >/dev/null
 
           cp Cargo.lock.committed Cargo.lock
           cargo generate-lockfile --manifest-path Cargo.toml
