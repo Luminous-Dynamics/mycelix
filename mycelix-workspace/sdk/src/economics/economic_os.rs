@@ -13,7 +13,7 @@
 //! other rails while preserving the Mycelix event identity and declaring any
 //! representation loss.
 
-use super::policy_profile::EconomicOsOperation;
+use super::{policy_context::EconomicPolicyContext, policy_profile::EconomicOsOperation};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
@@ -27,10 +27,9 @@ pub struct EconomicOsEnvelope {
     pub operation: EconomicOsOperation,
     /// Domain-specific semantic event type.
     pub semantic_type: String,
-    /// Versioned policy profile under which the event is interpreted.
-    pub policy_profile_ref: String,
-    /// Exact policy-profile content identity.
-    pub policy_profile_fingerprint: String,
+    /// Policy contexts governing this event. Multiple contexts are supported
+    /// for cross-jurisdiction activity.
+    pub policy_contexts: Vec<EconomicPolicyContext>,
     /// Actor/entity associated with the event.
     pub actor_ref: String,
     /// Authority reference when an authoritative decision is involved.
@@ -65,19 +64,6 @@ impl EconomicOsEnvelope {
             }
         }
 
-        if self.policy_profile_fingerprint.len() != 64
-            || !self
-                .policy_profile_fingerprint
-                .as_bytes()
-                .iter()
-                .all(u8::is_ascii_hexdigit)
-        {
-            return Err(
-                "Economic OS policy profile fingerprint must be a 64-character hexadecimal SHA-256"
-                    .into(),
-            );
-        }
-
         if self.payload_fingerprint.len() != 64
             || !self
                 .payload_fingerprint
@@ -100,6 +86,23 @@ impl EconomicOsEnvelope {
         if let Some(scope) = &self.scope_ref {
             if scope.trim().is_empty() {
                 return Err("Economic OS scope reference cannot be empty".into());
+            }
+        }
+
+        if self.policy_contexts.is_empty() {
+            return Err("Economic OS envelope requires at least one policy context".into());
+        }
+
+        let mut unique_roles = BTreeSet::new();
+        for context in &self.policy_contexts {
+            context.validate()?;
+            if context.role != super::policy_context::EconomicPolicyContextRole::Other
+                && !unique_roles.insert(context.role)
+            {
+                return Err(format!(
+                    "Duplicate Economic OS policy context role: {:?}",
+                    context.role
+                ));
             }
         }
 
@@ -144,13 +147,21 @@ impl EconomicOsEnvelope {
         evidence_refs.sort();
         causation_refs.sort();
 
+        let mut policy_contexts = self.policy_contexts.clone();
+        policy_contexts.sort_by_key(|context| {
+            (
+                context.role,
+                context.profile_ref.clone(),
+                context.profile_fingerprint.clone(),
+            )
+        });
+
         let payload = serde_json::json!({
-            "version": 1,
+            "version": 2,
             "event_id": self.event_id,
             "operation": self.operation,
             "semantic_type": self.semantic_type,
-            "policy_profile_ref": self.policy_profile_ref,
-            "policy_profile_fingerprint": self.policy_profile_fingerprint,
+            "policy_contexts": policy_contexts,
             "actor_ref": self.actor_ref,
             "authority_ref": self.authority_ref,
             "scope_ref": self.scope_ref,
@@ -166,7 +177,7 @@ impl EconomicOsEnvelope {
             .map_err(|error| format!("Economic OS envelope canonicalization failed: {error}"))?;
 
         let mut hasher = Sha256::new();
-        hasher.update(b"MYCELIX-ECONOMIC-OS-ENVELOPE-V1\0");
+        hasher.update(b"MYCELIX-ECONOMIC-OS-ENVELOPE-V2\0");
         hasher.update(canonical);
         Ok(hex::encode(hasher.finalize()))
     }
@@ -181,8 +192,11 @@ mod tests {
             event_id: "event:1".into(),
             operation: EconomicOsOperation::Authorize,
             semantic_type: "economic-policy-decision".into(),
-            policy_profile_ref: "profile:za:reference:v1".into(),
-            policy_profile_fingerprint: "a".repeat(64),
+            policy_contexts: vec![EconomicPolicyContext {
+                role: super::policy_context::EconomicPolicyContextRole::Settlement,
+                profile_ref: "profile:za:reference:v1".into(),
+                profile_fingerprint: "a".repeat(64),
+            }],
             actor_ref: "did:mycelix:actor".into(),
             authority_ref: Some("authority:dao-1".into()),
             scope_ref: Some("scope:1".into()),
