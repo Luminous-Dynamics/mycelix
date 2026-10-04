@@ -3044,6 +3044,10 @@ async fn dsid_037_assertion_method_authorizes_w3c_multikey() {
         .call(&cell.zome("did_registry"), "resolve_did_wire", did.id.clone())
         .await;
     assert!(wire.assertion_method.contains(&multikey_id));
+    assert!(
+        wire.context.contains(&"https://w3id.org/security/multikey/v1".to_string()),
+        "DID wire output must declare the Multikey vocabulary context"
+    );
 
     let mut agents = BTreeMap::new();
     agents.insert("alice", agent.to_string());
