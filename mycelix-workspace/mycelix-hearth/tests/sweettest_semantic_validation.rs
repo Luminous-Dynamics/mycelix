@@ -625,6 +625,7 @@ fn test_semantic_case_manifest_is_structurally_valid() {
             .expect("every semantic case needs a validator_source");
         let validator_symbol = case["validator_symbol"]
         let dispatch_symbol = case["dispatch_symbol"]
+        let target_variant = case["target_variant"]
             .as_str()
             .expect("every semantic case needs a validator_symbol");
 
@@ -673,6 +674,17 @@ fn test_semantic_case_manifest_is_structurally_valid() {
         );
         assert!(!validator_symbol.is_empty(), "{case_id} validator_symbol must not be empty");
         assert!(!dispatch_symbol.is_empty(), "{case_id} dispatch_symbol must not be empty");
+        assert!(
+            target_variant.starts_with("EntryTypes::") || target_variant.starts_with("LinkTypes::"),
+            "{case_id} target_variant must identify an EntryTypes or LinkTypes variant"
+        );
+        assert!(
+            target_variant
+                .split_once("::")
+                .map(|(_, name)| !name.is_empty())
+                .unwrap_or(false),
+            "{case_id} target_variant must include a concrete variant name"
+        );
 
         let surfaces = case["operation_surface"]
             .as_array()
