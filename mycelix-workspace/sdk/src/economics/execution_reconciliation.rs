@@ -174,10 +174,11 @@ impl EconomicExecutionReconciliationLedger {
         receipt.validate()?;
         constraint.validate()?;
 
+        let reconciliation_id = reconciliation_id.into();
         if self
             .reconciliations
             .iter()
-            .any(|record| record.reconciliation_id == reconciliation_id.into())
+            .any(|record| record.reconciliation_id == reconciliation_id)
         {
             return Err("Duplicate reconciliation ID".into());
         }
@@ -222,7 +223,7 @@ impl EconomicExecutionReconciliationLedger {
         };
 
         let reconciliation = EconomicExecutionReconciliation {
-            reconciliation_id: reconciliation_id.into(),
+            reconciliation_id,
             execution_id: receipt.execution_id.clone(),
             constraint_id: constraint.constraint_id.clone(),
             result,
