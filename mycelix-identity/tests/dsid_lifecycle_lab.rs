@@ -2938,9 +2938,10 @@ async fn dsid_036_issued_state_proves_credential_fulfillment() {
         ).as_str()),
         "JCS credentials must resolve their W3C proof through the DID's Multikey representation"
     );
-    assert!(
-        credential_value["proof"].get("@context").is_none(),
-        "W3C JCS proof context is injected into the proof configuration, not serialized as a nested context"
+    assert_eq!(
+        credential_value["proof"]["@context"],
+        credential_value["@context"],
+        "W3C JCS proof must serialize the credential @context in its proof configuration"
     );
     assert!(credential_value["proof"].get("algorithm").is_none());
 
