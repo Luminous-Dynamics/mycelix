@@ -46,7 +46,8 @@
         "InvalidMesh",
         "UndeclaredPath",
         "AnchorNotRepresented",
-        "AmbiguousAnchor"
+        "AmbiguousAnchor",
+        "BoundaryPolicyRejected"
       ]
     },
     "from_component": {
