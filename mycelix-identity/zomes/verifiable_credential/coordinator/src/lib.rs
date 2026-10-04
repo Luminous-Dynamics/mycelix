@@ -889,6 +889,29 @@ pub fn verify_presentation(
     let mut errors = Vec::new();
     let mut credential_results = Vec::new();
 
+    // A presentation is a current statement by its holder, so a holder DID
+    // that has since been deactivated must fail current-state verification.
+    let holder_active_response = call(
+        CallTargetCell::Local,
+        ZomeName::new("did_registry"),
+        FunctionName::new("is_did_active"),
+        None,
+        vp.holder.clone(),
+    )?;
+    match holder_active_response {
+        ZomeCallResponse::Ok(result) => {
+            let holder_active = result.decode::<bool>().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Failed to decode holder DID active state: {e:?}"
+                )))
+            })?;
+            if !holder_active {
+                errors.push("Holder DID is not active".to_string());
+            }
+        }
+        _ => errors.push("Holder DID active state could not be established".to_string()),
+    }
+
     // 1. Verify proof purpose
     if vp.proof.proof_purpose != "authentication" {
         errors.push("Presentation proof purpose must be 'authentication'".to_string());
