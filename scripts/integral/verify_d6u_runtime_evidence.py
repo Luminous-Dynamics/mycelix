@@ -34,6 +34,12 @@ def main() -> None:
     assert set(observed) == expected, f"coverage mismatch: {set(observed) ^ expected}"
     assert observed == expected_outcomes, f"outcome mismatch: {observed}"
 
+    expected_application = set(manifest.get("supplemental_application_checks", []))
+    application_expected_fragments = {
+        "probe-local-d6s-commitment-mutation": "result=d6s-commitment-mismatch;zome-reached=true",
+    }
+    assert expected_application == set(application_expected_fragments)
+
     expected_supplemental = set(manifest.get("supplemental_substrate_checks", []))
     supplemental_expected_fragments = {
         "future-expiry-rejection": "Future",
@@ -111,10 +117,39 @@ def main() -> None:
     assert supplemental_observed == witness_observed, (
         "substrate PASS records must exactly match observed runtime witnesses"
     )
+
+    application_observed = {}
+    for line in log.splitlines():
+        if not line.startswith("D6U_APPLICATION_CHECK\t"):
+            continue
+        parts = line.split("\t")
+        assert len(parts) == 4 and parts[3] == "PASS", (
+            f"malformed application-check line: {line!r}"
+        )
+        check_id, evidence = parts[1], parts[2]
+        assert check_id not in application_observed, (
+            f"duplicate D6U_APPLICATION_CHECK observation: {check_id}"
+        )
+        assert check_id in application_expected_fragments, (
+            f"unexpected D6U_APPLICATION_CHECK observation: {check_id}"
+        )
+        assert "\t" not in evidence
+        expected_fragment = application_expected_fragments[check_id]
+        assert expected_fragment in evidence, (
+            f"application check {check_id!r} missing expected evidence "
+            f"{expected_fragment!r}: {evidence!r}"
+        )
+        application_observed[check_id] = evidence
+
+    assert set(application_observed) == expected_application, (
+        f"application-check coverage mismatch: "
+        f"{set(application_observed) ^ expected_application}"
+    )
     print(
         f"verified D6U runtime case coverage and outcomes: "
         f"{len(observed)}/{len(expected)}; "
-        f"supplemental={len(supplemental_observed)}"
+        f"supplemental={len(supplemental_observed)}; "
+        f"application={len(application_observed)}"
     )
 
 
