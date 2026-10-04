@@ -1806,6 +1806,24 @@ mod tests {
         assert_eq!(calls.lock().unwrap().as_slice(), ["verify_signature", "verify_signature"]);
     }
     #[test]
+    fn credential_signature_host_failure_precedes_duplicate_authority_admission() {
+        let _guard = host_test_lock().lock().expect("HDI test lock is not poisoned");
+        let calls = Arc::new(Mutex::new(Vec::new()));
+        let _previous = set_hdi(RecordingHdi { calls: Arc::clone(&calls), verify_result: true });
+        let authority = identity("signature-host-duplicate-authority");
+        let first = authority_credential(authority.clone(), action_agent_key(83), "signature-host-admission-first");
+        let expected = first.clone();
+        let mut registry = HolochainAuthorityAgentBindingSet::new();
+        assert!(matches!(registry.bind_attested(first), Ok(Ok(()))));
+        let _previous = set_hdi(ErrHdi);
+        let conflicting = authority_credential(authority.clone(), action_agent_key(84), "signature-host-admission-second");
+        let result = registry.bind_attested(conflicting);
+        assert!(result.is_err(), "signature host failure must remain an ExternResult error");
+        assert_eq!(registry.len(), 1);
+        assert_eq!(registry.credential_for(&authority), Some(&expected));
+        assert_eq!(calls.lock().unwrap().as_slice(), ["verify_signature"]);
+    }
+    #[test]
     fn authority_agent_registry_rejects_duplicate_authority() {
         let _guard = host_test_lock().lock().expect("HDI test lock is not poisoned");
         let calls = Arc::new(Mutex::new(Vec::new()));
