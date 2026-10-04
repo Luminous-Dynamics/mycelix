@@ -603,17 +603,29 @@ mod tests {
         let decision = make_decision("Test", option_refs);
         let vote = make_vote(19, 10000);
         assert!(matches!(
-            validate_vote_against_decision(&vote, &decision).unwrap(),
+            validate_vote_against_decision(
+                &vote,
+                &decision,
+                decision.created_at,
+                vote.created_at,
+            )
+            .unwrap(),
             ValidateCallbackResult::Valid
         ));
     }
 
     #[test]
-    fn vote_must_not_precede_decision_creation() {
+    fn vote_action_timestamp_must_not_precede_decision_action() {
         let decision = make_decision("Test", vec!["A", "B"]);
-        let mut vote = make_vote(0, 10000);
-        vote.created_at = Timestamp::from_micros(999_999);
-        match validate_vote_against_decision(&vote, &decision).unwrap() {
+        let vote = make_vote(0, 10000);
+        let vote_action_timestamp = Timestamp::from_micros(999_999);
+        match validate_vote_against_decision(
+            &vote,
+            &decision,
+            decision.created_at,
+            vote_action_timestamp,
+        )
+        .unwrap() {
             ValidateCallbackResult::Invalid(message) => {
                 assert!(message.contains("action timestamp cannot precede"))
             }
@@ -622,13 +634,19 @@ mod tests {
     }
 
     #[test]
-    fn vote_must_not_follow_decision_deadline() {
+    fn vote_action_timestamp_must_not_follow_decision_deadline() {
         let mut decision = make_decision("Test", vec!["A", "B"]);
         decision.deadline = Timestamp::from_micros(2_000_000);
 
-        let mut vote = make_vote(0, 10000);
-        vote.created_at = Timestamp::from_micros(2_000_001);
-        match validate_vote_against_decision(&vote, &decision).unwrap() {
+        let vote = make_vote(0, 10000);
+        let vote_action_timestamp = Timestamp::from_micros(2_000_001);
+        match validate_vote_against_decision(
+            &vote,
+            &decision,
+            decision.created_at,
+            vote_action_timestamp,
+        )
+        .unwrap() {
             ValidateCallbackResult::Invalid(message) => {
                 assert!(message.contains("action timestamp cannot be after the referenced Decision deadline"))
             }
@@ -637,14 +655,19 @@ mod tests {
     }
 
     #[test]
-    fn vote_at_decision_deadline_is_valid() {
+    fn vote_action_timestamp_at_decision_deadline_is_valid() {
         let mut decision = make_decision("Test", vec!["A", "B"]);
         decision.deadline = Timestamp::from_micros(2_000_000);
 
-        let mut vote = make_vote(0, 10000);
-        vote.created_at = decision.deadline;
+        let vote = make_vote(0, 10000);
         assert!(matches!(
-            validate_vote_against_decision(&vote, &decision).unwrap(),
+            validate_vote_against_decision(
+                &vote,
+                &decision,
+                decision.created_at,
+                decision.deadline,
+            )
+            .unwrap(),
             ValidateCallbackResult::Valid
         ));
     }
