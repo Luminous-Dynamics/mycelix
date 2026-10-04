@@ -1,0 +1,90 @@
+name: Hearth Exact-Head Qualification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'mycelix-hearth/**'
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Never supersede a qualification run for a distinct exact commit.
+  group: hearth-exact-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  qualify:
+    # Explicitly admit ready_for_review because generic CI admission has
+    # historically produced skipped exact-head runs for Hearth changes.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.action == 'ready_for_review' ||
+      (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout exact qualification head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Assert exact-head checkout
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          ACTUAL_HEAD="$(git rev-parse HEAD)"
+          echo "Expected qualification head: $EXPECTED_HEAD"
+          echo "Checked out head:             $ACTUAL_HEAD"
+          test "$ACTUAL_HEAD" = "$EXPECTED_HEAD"
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Enable Holochain CI cache
+        uses: cachix/cachix-action@v15
+        with:
+          name: holochain-ci
+
+      - name: Check Hearth formatting
+        run: >-
+          nix develop ./mycelix-hearth#ci --impure --command
+          bash -lc 'cd mycelix-hearth && cargo fmt --all --check'
+
+      - name: Run Hearth workspace tests
+        run: >-
+          nix develop ./mycelix-hearth#ci --impure --command
+          bash -lc 'cd mycelix-hearth && cargo test --workspace'
+
+      - name: Build Hearth WASM zomes
+        run: >-
+          nix develop ./mycelix-hearth#ci --impure --command
+          bash -lc 'cd mycelix-hearth && cargo build --release --target wasm32-unknown-unknown --workspace'
+
+      - name: Pack Hearth DNA
+        run: >-
+          nix develop ./mycelix-hearth#ci --impure --command
+          bash -lc 'cd mycelix-hearth && hc dna pack dna/'
+
+      - name: Run Decision/Kinship Sweettests
+        run: >-
+          nix develop ./mycelix-hearth#ci --impure --command
+          bash -lc 'cd mycelix-hearth/tests && cargo test --release --test sweettest_decisions_kinship -- --ignored --test-threads=2'
+
+      - name: Emit qualification identity
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          echo "QUALIFIED_HEAD=$EXPECTED_HEAD"
+          echo "QUALIFIED_WORKFLOW=${{ github.workflow }}"
+          echo "QUALIFIED_RUN=${{ github.run_id }}"
+          echo "QUALIFIED_EVENT=${{ github.event_name }}:${{ github.event.action }}"
