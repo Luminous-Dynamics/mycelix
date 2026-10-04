@@ -965,7 +965,7 @@ fn thread_sync_strict_mode_child() -> ! {
 
     std::thread::spawn(move || {
         // Strict mode is a distinct kernel reason for TSYNC refusal from a
-        // divergent filter tree. After entry, only raw read/write/_exit are
+        // divergent filter tree. After entry, only raw read/write/exit are
         // used, which are the operations permitted by SECCOMP_MODE_STRICT.
         let rc = unsafe {
             libc::syscall(
@@ -981,15 +981,15 @@ fn thread_sync_strict_mode_child() -> ! {
 
         let byte = [1u8];
         if !unsafe { write_exact(sibling_ready, &byte) } {
-            unsafe { strict_exit(203) };
+            strict_exit(203);
         }
 
         let mut release_byte = [0u8; 1];
         if !unsafe { read_exact(sibling_release, &mut release_byte) } {
-            unsafe { strict_exit(204) };
+            strict_exit(204);
         }
 
-        unsafe { strict_exit(0) }
+        strict_exit(0)
     });
 
     let mut ready_byte = [0u8; 1];
