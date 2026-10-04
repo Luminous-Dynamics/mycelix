@@ -23,7 +23,7 @@
   },
   "metrics": [
     "reachable_resources_after_compromise",
-    "trust_boundaries_crossed",
+    "max_boundary_depth",
     "standing_privilege_count",
     "revocation_latency_seconds",
     "cross_domain_exposure_count"
