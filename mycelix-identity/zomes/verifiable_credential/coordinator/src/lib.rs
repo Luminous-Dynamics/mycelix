@@ -3651,6 +3651,17 @@ fn eddsa_jcs_hash_data(vc: &VerifiableCredential) -> ExternResult<Vec<u8>> {
     ))?;
     proof_config.remove("proofValue");
 
+    let context = unsecured
+        .get("@context")
+        .cloned()
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "JCS credential must contain an @context for proof configuration".into()
+        )))?;
+    // Data Integrity proof configuration always sets @context from the unsecured
+    // document before canonicalization. It is part of the signed proof config,
+    // not a nested @context property that needs to be serialized into proof.
+    proof_config.insert("@context".to_string(), context);
+
     eddsa_jcs_hash_data_from_values(unsecured, Value::Object(proof_config))
 }
 /// Encode a raw Ed25519 signature as base58-btc Multibase, as required by
@@ -3773,7 +3784,6 @@ fn verify_credential_signature(vc: &VerifiableCredential) -> ExternResult<bool> 
 
         if vc.proof.proof_type != "DataIntegrityProof"
             || vc.proof.algorithm.is_some()
-            || vc.proof.proof_context.as_deref() != Some(vc.context.as_slice())
         {
             return Ok(false);
         }
