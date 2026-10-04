@@ -2328,6 +2328,30 @@ pub fn verify_selective_disclosure(
 mod tests {
     use super::*;
 
+    #[test]
+    fn proof_verification_method_must_bind_to_did() {
+        assert!(proof_verification_method_matches_did(
+            "did:mycelix:issuer#keys-1",
+            "did:mycelix:issuer"
+        ));
+        assert!(proof_verification_method_matches_did(
+            "did:mycelix:holder#key-7",
+            "did:mycelix:holder"
+        ));
+        assert!(proof_verification_method_matches_did(
+            "did:mycelix:issuer",
+            "did:mycelix:issuer"
+        ));
+        assert!(!proof_verification_method_matches_did(
+            "did:mycelix:other#keys-1",
+            "did:mycelix:issuer"
+        ));
+        assert!(!proof_verification_method_matches_did(
+            "#keys-1",
+            "did:mycelix:issuer"
+        ));
+    }
+
     // --- is_leap_year ---
 
     #[test]
