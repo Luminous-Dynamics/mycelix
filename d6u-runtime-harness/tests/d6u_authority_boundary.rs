@@ -16,11 +16,8 @@ use std::sync::{
     Arc,
 };
 
-const D6S_DOMAIN: &[u8] = b"MYCELIX-INTEGRAL-D6S-RECEIPT-V1\0";
-const D6S_CANON1_CORPUS_SHA256: &str =
-    "9d61cdb2e625c13c5813fffb7cceea4af2f93ed60d7d64c068dc6d3f6f6b614d";
-const FROZEN_CANONICAL: &[u8] = br#"{"a":1,"b":2}"#;
-const FROZEN_COMMITMENT: &str = "6e2d6dcd7ab2bc1bd2a1f7be2b45e735202775da406edafc0b30719b09b1a363";
+const CANON1_CORPUS_PATH: &str = "../docs/integral/d6s-canon-1-golden-vectors.json";
+const CANON1_PROBE_CASE: &str = "reordered-properties";
 
 #[derive(Debug, Clone, Serialize, Deserialize, SerializedBytes)]
 struct ProbeInput {
@@ -42,9 +39,9 @@ struct GrantMaterial {
     secret: CapSecret,
 }
 
-fn commitment(bytes: &[u8]) -> String {
-    let mut preimage = Vec::with_capacity(D6S_DOMAIN.len() + bytes.len());
-    preimage.extend_from_slice(D6S_DOMAIN);
+fn commitment(domain: &[u8], bytes: &[u8]) -> String {
+    let mut preimage = Vec::with_capacity(domain.len() + bytes.len());
+    preimage.extend_from_slice(domain);
     preimage.extend_from_slice(bytes);
     Sha256::digest(preimage)
         .iter()
@@ -52,9 +49,43 @@ fn commitment(bytes: &[u8]) -> String {
         .collect()
 }
 
+#[derive(Debug, Deserialize)]
+struct Canon1Vector {
+    name: String,
+    canonical: String,
+    commitment: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct Canon1Corpus {
+    hash_domain: String,
+    cases: Vec<Canon1Vector>,
+}
+
 fn canon1_corpus_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../docs/integral/d6s-canon-1-golden-vectors.json")
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(CANON1_CORPUS_PATH)
+}
+
+fn load_probe_vector() -> (Vec<u8>, String, Vec<u8>) {
+    let corpus_bytes =
+        std::fs::read(canon1_corpus_path()).expect("D6S-CANON-1 corpus must exist");
+    let corpus: Canon1Corpus =
+        serde_json::from_slice(&corpus_bytes).expect("D6S-CANON-1 corpus must parse");
+    let vector = corpus
+        .cases
+        .iter()
+        .find(|case| case.name == CANON1_PROBE_CASE)
+        .expect("D6S-CANON-1 probe vector must exist");
+    let commitment = commitment(corpus.hash_domain.as_bytes(), vector.canonical.as_bytes());
+    assert_eq!(
+        commitment, vector.commitment,
+        "D6S-CANON-1 probe vector commitment must match the corpus"
+    );
+    (
+        vector.canonical.as_bytes().to_vec(),
+        vector.commitment.clone(),
+        corpus.hash_domain.into_bytes(),
+    )
 }
 
 fn assert_frozen_d6s_identity() {
@@ -63,15 +94,31 @@ fn assert_frozen_d6s_identity() {
         .iter()
         .map(|b| format!("{b:02x}"))
         .collect::<String>();
-    assert_eq!(actual, D6S_CANON1_CORPUS_SHA256);
-    assert_eq!(commitment(FROZEN_CANONICAL), FROZEN_COMMITMENT);
+    let manifest = std::fs::read_to_string(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../docs/integral/d6s-canon-1-manifest.json"),
+    )
+    .expect("D6S-CANON-1 manifest must exist");
+    let manifest: serde_json::Value =
+        serde_json::from_str(&manifest).expect("D6S-CANON-1 manifest must parse");
+    assert_eq!(
+        actual,
+        manifest["corpus_sha256"]
+            .as_str()
+            .expect("manifest corpus_sha256 must be a string")
+    );
+    let (canonical, expected_commitment, domain) = load_probe_vector();
+    assert_eq!(commitment(&domain, &canonical), expected_commitment);
 }
 
-fn authority_probe_zome(reached: Arc<AtomicUsize>) -> SweetInlineZomes {
+fn authority_probe_zome(
+    reached: Arc<AtomicUsize>,
+    d6s_domain: Vec<u8>,
+) -> SweetInlineZomes {
     SweetInlineZomes::new(Vec::new(), 0)
         .function("probe", move |_api, input: ProbeInput| {
             reached.fetch_add(1, Ordering::SeqCst);
-            let actual = commitment(&input.canonical_bytes);
+            let actual = commitment(&d6s_domain, &input.canonical_bytes);
             if actual != input.expected_commitment {
                 return Ok(ProbeResult::D6sCommitmentMismatch);
             }
@@ -213,7 +260,8 @@ async fn d6u_runtime_authority_boundary() {
     assert_frozen_d6s_identity();
 
     let reached = Arc::new(AtomicUsize::new(0));
-    let zome = authority_probe_zome(reached.clone());
+    let (frozen_canonical, frozen_commitment, d6s_domain) = load_probe_vector();
+    let zome = authority_probe_zome(reached.clone(), d6s_domain);
     let (dna, _, _) = SweetDnaFile::unique_from_inline_zomes(zome).await;
 
     let mut conductor = SweetConductor::standard().await;
@@ -235,8 +283,8 @@ async fn d6u_runtime_authority_boundary() {
     let app_api = AppInterfaceApi::new(conductor.clone());
 
     let base = ProbeInput {
-        canonical_bytes: FROZEN_CANONICAL.to_vec(),
-        expected_commitment: FROZEN_COMMITMENT.into(),
+        canonical_bytes: frozen_canonical,
+        expected_commitment: frozen_commitment,
         semantic_valid: true,
     };
 
