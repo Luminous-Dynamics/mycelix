@@ -124,7 +124,7 @@ Successful DID Document resolution currently advertises \`contentType = applicat
 
 A missing DID is represented as a method-level \`notFound\` resolution error in the typed metadata API.
 
-The current resolver obtains the DID's controller agent key from the method-specific identifier and resolves the canonical DHT state through the agent-to-DID index.
+The current resolver obtains the DID's controller agent key from the method-specific identifier and resolves the canonical DHT state through the agent-to-DID index. The resolver also preserves the DID document's `assertionMethod` relationship so external verifiers can determine whether an `assertionMethod` proof is authorized by the DID controller.
 
 ### Credential proof profile
 
