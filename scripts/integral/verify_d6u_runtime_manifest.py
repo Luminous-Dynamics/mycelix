@@ -37,6 +37,37 @@ UNSUPPORTED = {
     "nonce-stale",
 }
 
+CASE_OUTCOMES = {
+    "canonical-payload-accepted": "accepted",
+    "authorized-semantic-rejection": "semantic-rejected",
+    "payload-mutation": "d6s-commitment-mismatch",
+    "wire-signature-invalid": "authentication-failed",
+    "author-grant": "accepted",
+    "valid-capability": "accepted",
+    "wrong-capability": "authorization-failed",
+    "revoked-capability": "authorization-failed",
+    "provenance-mismatch": "authorization-failed",
+    "nonce-replay": "authorization-failed",
+    "expired-invocation": "authorization-failed",
+    "wrong-zome": "routing-failed",
+    "wrong-function": "routing-failed",
+    "wrong-cell": "routing-failed",
+    "blocked-provenance": "authorization-failed",
+}
+
+SUPPLEMENTAL_SUBSTRATE_CHECKS = {
+    "future-expiry-rejection",
+    "wrong-zome-routing",
+    "wrong-function-routing",
+    "wrong-cell-routing",
+}
+
+EVIDENCE_ARTIFACT_FILES = {
+    "d6u-runtime-evidence.txt",
+    "d6u-runtime-test.log",
+    "Cargo.lock",
+}
+
 UNSUPPORTED_REASONS = {
     "wire-signature-valid": "The isolated authenticated-but-not-yet-authorized intermediate state is not exposed as a standalone Holochain 0.7 app-interface result.",
     "nonce-stale": "Holochain 0.7 uses random 256-bit nonces and witnesses Fresh, Duplicate, Expired, or Future; the D6S stale/older-nonce state is not independently reproducible on this substrate.",
@@ -84,6 +115,18 @@ def main() -> None:
     assert len(supported) == 15
     assert len(unsupported) == 2
     assert supported.isdisjoint(unsupported)
+    assert manifest["case_outcomes"] == CASE_OUTCOMES
+    assert set(manifest["case_outcomes"]) == supported
+    assert manifest["evidence_outcome_classes"] == [
+        "accepted",
+        "semantic-rejected",
+        "d6s-commitment-mismatch",
+        "authentication-failed",
+        "authorization-failed",
+        "routing-failed",
+    ]
+    assert set(manifest["supplemental_substrate_checks"]) == SUPPLEMENTAL_SUBSTRATE_CHECKS
+    assert set(manifest["evidence_artifact_files"]) == EVIDENCE_ARTIFACT_FILES
 
     deps = manifest["dependencies"]
     assert deps["d6s_canon_2_manifest_path"] == "docs/integral/d6s-canon-2-manifest.json"
