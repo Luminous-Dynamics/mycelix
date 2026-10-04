@@ -1221,16 +1221,21 @@ check_dna_source_completeness() {
 run_audit_check() {
   local name="$1"
   shift
-  local started finished status
+  local started finished status=0
   started="$(date +%s)"
   echo "AUDIT_START ${name} epoch=${started}"
-  "$@"
-  status=$?
+  if "$@"; then
+    status=0
+  else
+    status=$?
+    fail=1
+  fi
   finished="$(date +%s)"
   echo "AUDIT_END ${name} status=${status} duration=$((finished - started))s"
-  return "$status"
+  # Individual predicate failures are aggregated through the global 'fail'
+  # accumulator; they must not trigger errexit before later diagnostics run.
+  return 0
 }
-
 run_audit_check check_standalone_tests_workspace_boundary check_standalone_tests_workspace_boundary
 run_audit_check check_qualification_workflow_provenance check_qualification_workflow_provenance
 run_audit_check check_coordinator_operation_bindings check_coordinator_operation_bindings
