@@ -981,6 +981,11 @@
       "id": "EDT-194",
       "case": "logical_rebinding_precedes_duplicate_provenance_binding_conflict",
       "expected": "adapter_boundary_error"
+    },
+    {
+      "id": "EDT-195",
+      "case": "duplicate_authority_precedes_duplicate_provenance_conflict",
+      "expected": "adapter_boundary_error"
     }
   ],
   "outcome_classes": [
