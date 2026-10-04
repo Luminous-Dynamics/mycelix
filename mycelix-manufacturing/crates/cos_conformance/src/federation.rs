@@ -2727,6 +2727,53 @@ mod tests {
         recorded_plan
     }
 
+    fn shrink_failing_state_machine_plan<F>(
+        plan: &[(FederationStateMachineOperation, u64)],
+        mut fails: F,
+    ) -> Vec<(FederationStateMachineOperation, u64)>
+    where
+        F: FnMut(&[(FederationStateMachineOperation, u64)]) -> bool,
+    {
+        assert!(
+            fails(plan),
+            "sequence shrinker requires an initially failing plan"
+        );
+
+        let mut current = plan.to_vec();
+        let mut granularity = 2usize;
+
+        while current.len() >= 2 {
+            let chunk_size = current.len().div_ceil(granularity);
+            let mut reduced = false;
+            let mut start = 0usize;
+
+            while start < current.len() {
+                let end = (start + chunk_size).min(current.len());
+                let mut candidate = Vec::with_capacity(current.len() - (end - start));
+                candidate.extend_from_slice(&current[..start]);
+                candidate.extend_from_slice(&current[end..]);
+
+                if !candidate.is_empty() && fails(&candidate) {
+                    current = candidate;
+                    granularity = granularity.saturating_sub(1).max(2);
+                    reduced = true;
+                    break;
+                }
+
+                start = end;
+            }
+
+            if !reduced {
+                if granularity >= current.len() {
+                    break;
+                }
+                granularity = (granularity * 2).min(current.len());
+            }
+        }
+
+        current
+    }
+
     fn state_machine_envelope(
         operation: FederationStateMachineOperation,
         token: u64,
@@ -3140,6 +3187,56 @@ mod tests {
         }
 
         evidence
+    }
+
+    #[test]
+    fn state_machine_failure_sequence_shrinker_finds_minimal_reproduction() {
+        let (_, plan) = state_machine_trace_plan(23, 16);
+        let mut failing = vec![
+            (FederationStateMachineOperation::AddRecognition, 1),
+            (FederationStateMachineOperation::RecordObservation, 2),
+            (FederationStateMachineOperation::AdmitLocal, 3),
+            (FederationStateMachineOperation::RetryExisting, 4),
+            (FederationStateMachineOperation::Partition, 5),
+            (FederationStateMachineOperation::Expired, 6),
+            (FederationStateMachineOperation::Revoked, 7),
+            (FederationStateMachineOperation::Absent, 8),
+            (FederationStateMachineOperation::ConflictObservation, 9),
+            (FederationStateMachineOperation::AddRecognition, 10),
+            (FederationStateMachineOperation::RecordObservation, 11),
+            (FederationStateMachineOperation::Partition, 12),
+            (FederationStateMachineOperation::StaleSchema, 13),
+            (FederationStateMachineOperation::AddRecognition, 14),
+            (FederationStateMachineOperation::PendingDependency, 15),
+            (FederationStateMachineOperation::AdmitForeign, 16),
+        ];
+        failing[2].1 = plan[2].1;
+        failing[3].1 = plan[3].1;
+
+        let fails = |candidate: &[(FederationStateMachineOperation, u64)]| {
+            let has_admission = candidate
+                .iter()
+                .any(|(operation, _)| *operation == FederationStateMachineOperation::AdmitLocal);
+            let has_retry = candidate
+                .iter()
+                .any(|(operation, _)| *operation == FederationStateMachineOperation::RetryExisting);
+            has_admission && has_retry
+        };
+
+        assert!(fails(&failing));
+        let shrunk = shrink_failing_state_machine_plan(&failing, fails);
+        assert_eq!(
+            shrunk,
+            vec![
+                (FederationStateMachineOperation::AdmitLocal, plan[2].1),
+                (FederationStateMachineOperation::RetryExisting, plan[3].1),
+            ]
+        );
+        assert!(fails(&shrunk));
+        assert!(
+            shrunk.len() < failing.len(),
+            "shrinker must reduce a non-minimal failing sequence"
+        );
     }
 
     #[test]
