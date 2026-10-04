@@ -11,6 +11,7 @@
 //! Anti-reflexivity: SAP value never depends on MYCEL, MYCEL never computed
 //! from SAP balance, TEND never convertible to SAP at fixed rate.
 
+pub mod boundary_policy;
 pub mod commons;
 pub mod decay_garden;
 pub mod substrate;
