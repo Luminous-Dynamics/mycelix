@@ -403,9 +403,24 @@ pub fn get_revocations_by_issuer(issuer_did: String) -> ExternResult<Vec<Record>
         let action_hash = ActionHash::try_from(link.target)
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
         if let Some(record) = get(action_hash, GetOptions::default())? {
-            revocations.push(record);
+            if let Some(entry) = record
+                .entry()
+                .to_app_option::<RevocationEntry>()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            {
+                if entry.issuer == issuer_did {
+                    revocations.push(record);
+                }
+            }
         }
     }
+
+    revocations.sort_by(|a, b| {
+        b.action()
+            .action_seq()
+            .cmp(&a.action().action_seq())
+            .then_with(|| b.action_address().cmp(a.action_address()))
+    });
 
     Ok(revocations)
 }
@@ -553,9 +568,24 @@ pub fn get_issuer_revocation_lists(issuer_did: String) -> ExternResult<Vec<Recor
         let action_hash = ActionHash::try_from(link.target)
             .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
         if let Some(record) = get(action_hash, GetOptions::default())? {
-            lists.push(record);
+            if let Some(list) = record
+                .entry()
+                .to_app_option::<RevocationList>()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            {
+                if list.issuer == issuer_did {
+                    lists.push(record);
+                }
+            }
         }
     }
+
+    lists.sort_by(|a, b| {
+        b.action()
+            .action_seq()
+            .cmp(&a.action().action_seq())
+            .then_with(|| b.action_address().cmp(a.action_address()))
+    });
 
     Ok(lists)
 }
