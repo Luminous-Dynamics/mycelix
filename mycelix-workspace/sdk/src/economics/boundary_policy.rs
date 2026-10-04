@@ -320,6 +320,14 @@ impl BoundaryLedger {
             return Err(BoundaryGovernanceError::DuplicateRevision);
         }
 
+        if self.revisions.values().any(|existing| {
+            existing.scope_ref == revision.scope_ref
+                && existing.dimension == revision.dimension
+                && existing.effective_at == revision.effective_at
+        }) {
+            return Err(BoundaryGovernanceError::DuplicateEffectiveTime);
+        }
+
         match revision.previous_revision_id.as_deref() {
             None => BoundaryGovernanceContract::validate_initial(&revision)?,
             Some(previous_id) => {
@@ -329,13 +337,6 @@ impl BoundaryLedger {
                     .ok_or(BoundaryGovernanceError::MissingPredecessor)?;
                 BoundaryGovernanceContract::validate_successor(previous, &revision, policy)?;
 
-                if self.revisions.values().any(|existing| {
-                    existing.scope_ref == revision.scope_ref
-                        && existing.dimension == revision.dimension
-                        && existing.effective_at == revision.effective_at
-                }) {
-                    return Err(BoundaryGovernanceError::DuplicateEffectiveTime);
-                }
             }
         }
 
@@ -505,14 +506,17 @@ mod tests {
         left.insert(second.clone(), &policy).unwrap();
 
         let mut right = BoundaryLedger::new();
-        right.insert(second, &policy).unwrap_err();
         right.insert(first.clone(), &policy).unwrap();
+        right.insert(second.clone(), &policy).unwrap();
 
         assert_eq!(
             left.current("river:1", SubstrateDimension::Ecological, 1_000)
                 .unwrap()
                 .id,
-            first.id
+            right
+                .current("river:1", SubstrateDimension::Ecological, 1_000)
+                .unwrap()
+                .id
         );
         assert_eq!(
             left.current(
@@ -522,7 +526,32 @@ mod tests {
             )
             .unwrap()
             .id,
-            "b-2"
+            right
+                .current(
+                    "river:1",
+                    SubstrateDimension::Ecological,
+                    2_000 + 7 * 24 * 3600 * 1_000_000
+                )
+                .unwrap()
+                .id
         );
+    }
+
+    #[test]
+    fn duplicate_initial_effective_time_is_rejected() {
+        let policy = BoundaryGovernancePolicy::default();
+        let mut ledger = BoundaryLedger::new();
+        ledger.insert(initial(), &policy).unwrap();
+
+        let duplicate_scope = BoundaryRevision {
+            id: "b-duplicate".into(),
+            ..initial()
+        };
+
+        assert_eq!(
+            ledger.insert(duplicate_scope, &policy),
+            Err(BoundaryGovernanceError::DuplicateEffectiveTime)
+        );
+    }
     }
 }
