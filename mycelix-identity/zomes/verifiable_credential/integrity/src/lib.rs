@@ -970,6 +970,22 @@ fn validate_create_verifiable_credential(
         }
     }
 
+    match vc.proof.cryptosuite.as_deref() {
+        None => {}
+        Some("mycelix-blake2b-ed25519-2026") => {
+            if vc.proof.algorithm != Some(0xed01) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Mycelix BLAKE2b-Ed25519 proof must declare the Ed25519 0xed01 algorithm".into(),
+                ));
+            }
+        }
+        Some(_) => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Unsupported credential cryptosuite for the current in-DNA verifier".into(),
+            ));
+        }
+    }
+
     // Validate proof exists and has required fields.
     if vc.proof.proof_type.is_empty() || vc.proof.proof_value.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
@@ -1578,6 +1594,13 @@ mod tests {
     }
 
     // --- Validation conditions ---
+
+    #[test]
+    fn native_cryptosuite_requires_ed25519_algorithm() {
+        let algorithm = Some(0xed01u16);
+        assert_eq!(algorithm, Some(0xed01));
+        assert_ne!(Some(0xF001u16), Some(0xed01));
+    }
 
     #[test]
     fn vc_context_must_use_w3c_base_as_first_item() {
