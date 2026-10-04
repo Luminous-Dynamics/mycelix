@@ -182,6 +182,14 @@
     {
       "id": "CAP-016",
       "rule": "PCR values used as the observed side of reconstruction must originate from the independently captured tpm2_pcrread artifact, never from tpm2_eventlog's parser-generated trailing pcrs section"
+    },
+    {
+      "id": "CAP-017",
+      "rule": "The canonical replay observed-PCR map must be sourced from the separately captured TPM pcrread artifact; tpm2_eventlog trailing pcrs output is not an observation source."
+    },
+    {
+      "id": "CAP-018",
+      "rule": "The capture command invokes the bounded tpm2_eventlog adapter and independent reconstruction executable; no manually supplied reconstruction receipt is required for the physical capture path."
     }
   ],
   "decision_algebra": "ANY DENY > ANY INDETERMINATE > ALL PASS",
