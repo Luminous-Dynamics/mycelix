@@ -291,8 +291,11 @@ impl<T> QualificationStatus<T> {
                     partial: left,
                 },
                 Self::Complete(right),
-            )
-            | (
+            ) => QualificationStatus::Unresolved {
+                missing: canonicalize_missing(missing),
+                partial: (left, right),
+            },
+            (
                 Self::Complete(left),
                 Self::Unresolved {
                     missing,
@@ -348,13 +351,20 @@ impl<T> QualificationStatus<T> {
     }
 }
 
-impl<T> QualificationOutcome<T> {
+pub trait QualificationOutcomeExt<T> {
     /// Adds unavailable dependencies to a successful qualification result.
     ///
     /// Structural validation errors are preserved unchanged; only the
     /// Complete/Unresolved status is enriched with additional missing
     /// addressable dependencies.
-    pub fn require_missing(
+    fn require_missing(
+        self,
+        additional: impl IntoIterator<Item = IdentityRef>,
+    ) -> Self;
+}
+
+impl<T> QualificationOutcomeExt<T> for QualificationOutcome<T> {
+    fn require_missing(
         self,
         additional: impl IntoIterator<Item = IdentityRef>,
     ) -> Self {
