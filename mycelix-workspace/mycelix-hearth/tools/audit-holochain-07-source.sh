@@ -123,7 +123,7 @@ check_present_file "Hearth Sweettest uses wasmer-sys-cranelift" "mycelix-workspa
 check_present_file "Hearth uses SweetConductor::standard" "mycelix-workspace/mycelix-hearth/tests/sweettest_semantic_validation.rs" 'SweetConductor::standard[[:space:]]*\('
 check_present_file "Hearth dev shell provides Node.js 24" "mycelix-workspace/mycelix-hearth/flake.nix" 'nodejs_24'
 check_present_file "Hearth dev shell provides Perl" "mycelix-workspace/mycelix-hearth/flake.nix" '\bperl\b'
-check_present_file "Hearth flake uses Holonix main-0.7" "mycelix-workspace/mycelix-hearth/flake.nix" 'holonix[[:space:]]*=.*ref=main-0\.7'
+check_present_file "Hearth flake uses Holonix main-0.7" "mycelix-workspace/mycelix-hearth/flake.nix" 'github:holochain/holonix\?ref=main-0\.7'
 check_present_file "Hearth package builds use Holonix Rust" "mycelix-workspace/mycelix-hearth/flake.nix" 'nativeBuildInputs[[:space:]]*=[[:space:]]*\[[[:space:]]*holochainPackages\.rust[[:space:]]'
 check_absent_file "Hearth package builds do not use shared Rust toolchain" "mycelix-workspace/mycelix-hearth/flake.nix" 'holochainBase\.rustToolchain'
 check_present_file "Hearth default shell prepends Holonix Rust" "mycelix-workspace/mycelix-hearth/flake.nix" 'export PATH="\$\{holochainPackages\.rust\}/bin:\$PATH'
