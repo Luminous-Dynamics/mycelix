@@ -172,7 +172,6 @@ def main() -> int:
             "runtime binding payload validation must precede missing authority preflight"
         )
 
-    compact_source = "".join(source.split())
     if "authorized_credential.payload.provenance.authority_scope" not in compact_source:
         raise SystemExit("runtime binding must preserve exact authority scope continuity")
     if "authorized_credential.payload.provenance.authority_delegation" not in compact_source:
@@ -246,8 +245,9 @@ def main() -> int:
 
     if "provenance: QualificationDependencyBindingProvenance" not in source:
         raise SystemExit("resolved dependencies must carry their provenance witness")
-    if "provenance.validate()" not in source:
-        raise SystemExit("binding must structurally validate provenance before accepting the address")
+    compact_source = "".join(source.split())
+    if "self.provenance.validate()" not in compact_source:
+        raise SystemExit("binding payload validation must structurally validate its provenance")
     if "matches_logical_identity(&identity)" not in source:
         raise SystemExit("binding provenance must name the exact logical identity")
     if "finalize_callback" not in source:
