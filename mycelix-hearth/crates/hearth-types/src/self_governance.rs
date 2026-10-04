@@ -8,7 +8,6 @@
 //! person's inner life a governance data source.
 
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
 
 /// Kind of self-governed decision being recorded.
@@ -145,56 +144,15 @@ impl SelfGovernanceEnvelope {
         Ok(())
     }
 
-    /// Deterministic content identity.
+    /// Serialize the validated envelope in a stable field order.
     ///
-    /// Visibility, commitments, evidence, and lineage all participate in the
-    /// identity. This does not reveal the committed reflective content.
-    pub fn fingerprint(&self) -> Result<String, String> {
+    /// Reflective content is represented only through opaque commitments.
+    /// Holochain entry/action identity can provide the higher-level content
+    /// identity when this envelope is persisted by a zome.
+    pub fn canonical_bytes(&self) -> Result<Vec<u8>, String> {
         self.validate()?;
-
-        let mut evidence_refs = self.evidence_refs.clone();
-        evidence_refs.sort();
-
-        let visibility = match &self.visibility {
-            SelfGovernanceVisibility::CommitmentOnly => {
-                serde_json::json!({"kind": "CommitmentOnly"})
-            }
-            SelfGovernanceVisibility::HearthMembers => {
-                serde_json::json!({"kind": "HearthMembers"})
-            }
-            SelfGovernanceVisibility::Specified(agents) => {
-                let mut agents = agents.clone();
-                agents.sort();
-                serde_json::json!({"kind": "Specified", "agents": agents})
-            }
-        };
-
-        let payload = serde_json::json!({
-            "version": 1,
-            "envelope_id": self.envelope_id,
-            "subject_ref": self.subject_ref,
-            "decision_kind": self.decision_kind,
-            "decision_ref": self.decision_ref,
-            "intention_commitment": self.intention_commitment,
-            "declared_values_commitment": self.declared_values_commitment,
-            "alternatives_commitment": self.alternatives_commitment,
-            "expected_consequences_commitment": self.expected_consequences_commitment,
-            "reflection_commitment": self.reflection_commitment,
-            "evidence_refs": evidence_refs,
-            "reversibility": self.reversibility,
-            "visibility": visibility,
-            "supersedes_ref": self.supersedes_ref,
-            "outcome_ref": self.outcome_ref,
-            "created_at": self.created_at,
-        });
-
-        let canonical = serde_json::to_vec(&payload)
-            .map_err(|error| format!("Self-governance canonicalization failed: {error}"))?;
-
-        let mut hasher = Sha256::new();
-        hasher.update(b"MYCELIX-HEARTH-SELF-GOVERNANCE-V1\0");
-        hasher.update(canonical);
-        Ok(hex::encode(hasher.finalize()))
+        serde_json::to_vec(self)
+            .map_err(|error| format!("Self-governance canonicalization failed: {error}"))
     }
 }
 
@@ -250,7 +208,7 @@ mod tests {
     fn valid_envelope_passes_without_exposing_reflection_content() {
         let value = envelope();
         assert!(value.validate().is_ok());
-        assert_eq!(value.fingerprint().unwrap().len(), 64);
+        assert!(value.canonical_bytes().is_ok());
     }
 
     #[test]
@@ -284,15 +242,21 @@ mod tests {
     }
 
     #[test]
-    fn visibility_and_commitments_change_identity() {
+    fn visibility_and_commitments_change_canonical_bytes() {
         let left = envelope();
         let mut right = left.clone();
         right.visibility = SelfGovernanceVisibility::HearthMembers;
-        assert_ne!(left.fingerprint().unwrap(), right.fingerprint().unwrap());
+        assert_ne!(
+            left.canonical_bytes().unwrap(),
+            right.canonical_bytes().unwrap()
+        );
 
         right = left.clone();
         right.reflection_commitment = Some("f".repeat(64));
-        assert_ne!(left.fingerprint().unwrap(), right.fingerprint().unwrap());
+        assert_ne!(
+            left.canonical_bytes().unwrap(),
+            right.canonical_bytes().unwrap()
+        );
     }
 
     #[test]
