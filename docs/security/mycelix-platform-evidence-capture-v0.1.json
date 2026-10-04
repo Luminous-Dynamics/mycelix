@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "artifact_type": "platform-evidence-capture-contract",
+  "profile_id": "mycelix.security.platform.evidence.capture",
+  "profile_version": "0.1.0",
+  "status": "executable-reference-profile",
+  "claim_ceiling": "ReferenceModelOnly",
+  "theorem": {
+    "statement": "A platform Evidence bundle is admissible only when all security-relevant artifacts are cross-bound to one capture session, one boot identity, one TPM identity including observed EK public material, one PCR selection, one challenge, one toolchain snapshot, one reference-value version, one trusted-time object, and one event-log reconstruction result.",
+    "non_equivalences": [
+      ["observed_pcr_values", "pcr_artifact_file_digest"],
+      ["observed_tpm_identity", "manufacturer_trust"],
+      ["physical_tpm_present", "measured_boot_verified"],
+      ["quote_signature_valid", "reference_values_approved"],
+      ["quoted_pcr_matches_live_pcr", "event_log_reconstructed"],
+      ["event_log_parsed", "event_log_trusted"],
+      ["platform_evidence_valid", "local_resource_authorized"],
+      ["trusted_time_present", "freshness_approved"]
+    ]
+  },
+  "required_bundle": {
+    "manifest": "capture-session.json",
+    "artifacts": ["tpm-properties.txt","ek.pub","eventlog.bin","quote.msg","quote.sig","pcr-post.yaml","ak.pub","reference-values.json","trusted-time.json","eventlog-reconstruction.json","nonce.bin","eventlog-parsed.yaml","tool-versions.json","tss-version-evidence.txt"],
+    "optional_artifacts": ["pcr-pre.yaml","swtpm-print-info.txt","os-image.digest","workload-image.digest"]
+  },
+  "manifest_bindings": {
+    "exact_required": [
+      "profile_id","profile_version","session_id","boot_id","session_binding_sha256",
+      "tpm.device_path","tpm.properties_sha256","tpm.ek_public_sha256","tpm.identity_digest",
+      "event_log.sha256","event_log.parser_profile_id","event_log.parser_profile_version","event_log.parser_status","event_log.parser_output_sha256",
+      "quote.pcr_selection","quote.nonce_sha256","quote.attestation_key_sha256",
+      "challenge.sha256","challenge.origin",
+      "toolchain.tpm2_tools_version","toolchain.observed_tool_versions_sha256","toolchain.tss_version_evidence_sha256",
+      "reference_values.version","reference_values.sha256",
+      "trusted_time.sha256",
+      "reconstruction.event_log_sha256","reconstruction.pcr_selection","reconstruction.reconstructed_pcrs_sha256","reconstruction.content_sha256",
+      "artifacts.reconstruction_file_sha256","artifacts.ek_public_sha256",
+      "live_observation.selection","live_observation.pcr_post_artifact_sha256","live_observation.pcr_values_sha256",
+      "os_image_digest","workload_digest","claim_ceiling"
+    ],
+    "session_binding": "The session_binding_sha256 covers the session/boot/TPM/EK/event-log/PCR selection/challenge/AK/toolchain/reference/trusted-time/reconstruction/profile inputs in canonical form.",
+    "canonical_json": "Manifest semantic hashing uses UTF-8 JSON with sorted keys and no insignificant whitespace."
+  },
+  "coherence_rules": [
+    {"id":"CAP-001","rule":"The selected TPM device path, fixed properties, and observed EK public material remain constant throughout the capture."},
+    {"id":"CAP-002","rule":"The boot_id must be stable before and after all TPM capture operations."},
+    {"id":"CAP-003","rule":"The event-log digest must match the event log named by the independent reconstruction result."},
+    {"id":"CAP-004","rule":"Quote PCR selection, reconstruction PCR selection, and live-observation selection must be byte-for-byte identical."},
+    {"id":"CAP-005","rule":"Quote qualifying data must equal the verifier challenge file byte-for-byte; challenge.sha256 and quote.nonce_sha256 must match that file, and challenge origin must not be a local wall-clock claim."},
+    {"id":"CAP-006","rule":"The live PCR values are parsed from the pcr-post artifact and are distinct from the pcr-post file digest."},
+    {"id":"CAP-007","rule":"The live PCR value-set hash must equal the independently reconstructed PCR value-set hash when reconstruction status is PASS."},
+    {"id":"CAP-008","rule":"Quote cryptographic verification, event-log parsing, event-log reconstruction, reference appraisal, trusted time, and authorization remain distinct observations."},
+    {"id":"CAP-009","rule":"Parser success is insufficient: reconstruction must report PASS, bind the exact event-log digest and PCR selection, and bind the reconstructed PCR values to the live PCR values."},
+    {"id":"CAP-010","rule":"Any unavailable or ambiguous trusted-time or reconstruction dependency is INDETERMINATE, never PASS."},
+    {"id":"CAP-011","rule":"Reference-value rollback, profile substitution, artifact substitution, EK substitution, PCR-state substitution, or session-binding mismatch is DENY."},
+    {"id":"CAP-012","rule":"Any DENY anywhere outranks INDETERMINATE; any INDETERMINATE outranks PASS."}
+  ],
+  "decision_algebra": "ANY DENY > ANY INDETERMINATE > ALL PASS",
+  "vectors": [
+    {"id":"CAP-V01","mutation":"canonical-valid","expected":"PASS"},
+    {"id":"CAP-V02","mutation":"session-id-substitution","expected":"DENY"},
+    {"id":"CAP-V03","mutation":"boot-id-substitution","expected":"DENY"},
+    {"id":"CAP-V04","mutation":"device-path-substitution","expected":"DENY"},
+    {"id":"CAP-V05","mutation":"tpm-properties-substitution","expected":"DENY"},
+    {"id":"CAP-V06","mutation":"ek-substitution","expected":"DENY"},
+    {"id":"CAP-V07","mutation":"event-log-digest-substitution","expected":"DENY"},
+    {"id":"CAP-V08","mutation":"parser-profile-substitution","expected":"DENY"},
+    {"id":"CAP-V09","mutation":"pcr-selection-substitution","expected":"DENY"},
+    {"id":"CAP-V10","mutation":"nonce-substitution","expected":"DENY"},
+    {"id":"CAP-V11","mutation":"attestation-key-substitution","expected":"DENY"},
+    {"id":"CAP-V12","mutation":"toolchain-substitution","expected":"DENY"},
+    {"id":"CAP-V13","mutation":"reference-version-rollback","expected":"DENY"},
+    {"id":"CAP-V14","mutation":"reconstruction-event-log-substitution","expected":"DENY"},
+    {"id":"CAP-V15","mutation":"reconstruction-pcr-selection-substitution","expected":"DENY"},
+    {"id":"CAP-V16","mutation":"reconstruction-result-substitution","expected":"DENY"},
+    {"id":"CAP-V17","mutation":"reconstruction-failure","expected":"DENY"},
+    {"id":"CAP-V18","mutation":"reconstruction-unavailable","expected":"INDETERMINATE"},
+    {"id":"CAP-V19","mutation":"trusted-time-unavailable","expected":"INDETERMINATE"},
+    {"id":"CAP-V20","mutation":"key-order-permutation","expected":"PASS"},
+    {"id":"CAP-V21","mutation":"post-quote-pcr-value-mismatch","expected":"DENY"},
+    {"id":"CAP-V22","mutation":"deny-over-indeterminate","expected":"DENY"}
+  ],
+  "execution_modes": {
+    "self_test":"Deterministic semantic coherence vectors; no hardware claim.",
+    "verify":"Verify an existing bundle, check artifact hashes, parse exact SHA-256 PCR values from pcr-post.yaml, validate reconstruction bindings, and cryptographically check the TPM Quote when tpm2_checkquote is available.",
+    "capture":"Capture raw physical TPM/PC-client artifacts when compatible hardware and tools exist. The result remains unqualified until independent reconstruction and trusted-time evidence are valid."
+  },
+  "capture_requirements": {
+    "device_candidates":["/dev/tpmrm0","/dev/tpm0"],
+    "event_log_candidates":["/sys/kernel/security/tpm0/binary_bios_measurements"],
+    "required_tools":["tpm2_getcap","tpm2_pcrread","tpm2_quote","tpm2_createek","tpm2_createak","tpm2_checkquote","tpm2_eventlog"],
+    "quote_default_pcr_selection":"sha256:0,2,4,7",
+    "workload_pcr_note":"PCR16 remains a separate workload-specific measurement surface and is not silently treated as a PC-client firmware event-log PCR."
+  },
+  "reference_boundary": {
+    "event_log_semantics":"The PC-client event log is an input to reconstruction; parsing alone is not a trust decision.",
+    "reference_values":"Reference values are identified by version and digest and remain an independent appraisal input.",
+    "trusted_time":"Trusted time is an externally qualified evidence object; local wall-clock time is not authoritative.",
+    "authorization":"Coherent platform Evidence remains evidence only and is consumed by the downstream RATS/Relying-Party/PEP chain."
+  }
+}
