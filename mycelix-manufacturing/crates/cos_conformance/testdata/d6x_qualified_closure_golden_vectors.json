@@ -447,6 +447,8 @@
       "d6p_current_receipt_commitments": [],
       "d6n_context_commitment": null,
       "d6o_context_commitment": null,
+      "semantic_environment_commitment": "6a3bf6b680d06b58fcdffa74ecc0e0e0a95982c4a072199c5e70831d3d068bd6",
+      "derivation_profile_commitment": "fadf919bce634bd56f53eb6ccd47e51654dd1c505fc4a529616efec8dcc206bc",
       "claim_ceiling": "ReferenceModelOnly; canonical derivation integrity semantics only; no truth, causality, authority, or actuation claim."
     },
     "semantic_environment": {
