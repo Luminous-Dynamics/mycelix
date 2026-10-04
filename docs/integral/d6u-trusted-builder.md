@@ -8,7 +8,7 @@ The D6U runtime workflow executes pull-request code and therefore must be treate
 
 The trusted workflow in `.github/workflows/d6u-trusted-evidence-attestation.yml` is triggered by completion of the D6U runtime workflow through `workflow_run`. It runs from `main`, downloads the completed run's artifact into the runner's temporary directory, and validates the artifact as data only.
 
-It does not check out the pull-request head, execute files from the downloaded artifact, import pull-request Python or Rust modules, or use pull-request code as its policy root.
+It does not check out the pull-request head, execute files from the downloaded artifact, import pull-request Python or Rust modules, or use pull-request code as its policy root. It also rejects fork-origin runs; the signing boundary is same-repository only.
 
 ## Trusted policy
 
