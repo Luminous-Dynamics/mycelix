@@ -22,9 +22,9 @@ The integrity zome now rejects:
 
 - a `Decision` whose `created_by` differs from the creating action author;
 - a `Vote` whose `voter` differs from the creating action author;
-- a `DecisionOutcome` whose `resolved_by` differs from the creating action author.
+- a new `DecisionOutcome` whose `resolved_by` is missing or differs from the creating action author.
 
-The coordinator explicitly populates `resolved_by` from its authenticated agent identity.
+The coordinator explicitly populates `resolved_by` from its authenticated agent identity. Legacy outcomes may decode with an unknown resolver for schema-compatibility, but new outcomes cannot omit the resolver.
 
 ## Why this matters
 
