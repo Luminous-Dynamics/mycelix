@@ -14,7 +14,7 @@
 
 use hdk::prelude::*;
 use mycelix_crypto::{AlgorithmId, TaggedSignature};
-use mycelix_zome_helpers as _;
+use mycelix_zome_helpers::{get_latest_record, records_from_links_strict};
 use verifiable_credential_integrity::*;
 
 /// Mirror type for credential_schema deserialization (cross-zome)
@@ -1561,24 +1561,32 @@ pub fn get_pending_requests(issuer_did: String) -> ExternResult<Vec<Record>> {
     )?;
 
     let mut requests = Vec::new();
-    for link in links {
-        let action_hash = ActionHash::try_from(link.target)
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        if let Some(record) = get(action_hash, GetOptions::default())? {
-            if let Some(req) = record
-                .entry()
-                .to_app_option::<CredentialRequest>()
-                .ok()
-                .flatten()
-            {
-                if matches!(
-                    req.status,
-                    RequestStatus::Pending | RequestStatus::UnderReview
-                ) {
-                    requests.push(record);
-                }
-            }
+    let mut seen = std::collections::HashSet::new();
+    for record in records_from_links_strict(links)? {
+        let Some(req) = record
+            .entry()
+            .to_app_option::<CredentialRequest>()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        else {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Credential request index contains a non-request record".into()
+            )));
+        };
+
+        if !matches!(
+            req.status,
+            RequestStatus::Pending | RequestStatus::UnderReview
+        ) {
+            continue;
         }
+
+        if !seen.insert(req.id.clone()) {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Ambiguous pending credential request index: duplicate request ID".into()
+            )));
+        }
+
+        requests.push(record);
     }
     Ok(requests)
 }
@@ -1586,48 +1594,79 @@ pub fn get_pending_requests(issuer_did: String) -> ExternResult<Vec<Record>> {
 /// Update credential request status
 #[hdk_extern]
 pub fn update_request_status(input: UpdateRequestStatusInput) -> ExternResult<Record> {
-    // Capability guard: only the target issuer can approve/reject requests
+    // Only the target issuer may publish a request status transition.
     let caller = agent_info()?.agent_initial_pubkey;
     let caller_did = format!("did:mycelix:{}", caller);
+    let issuer_hash = string_to_entry_hash(&caller_did);
 
-    // Find the request
-    let filter = ChainQueryFilter::new()
-        .entry_type(EntryType::App(AppEntryDef::try_from(
-            UnitEntryTypes::CredentialRequest,
-        )?))
-        .include_entries(true);
+    // Requests are authored by the requester, so a source-chain query from the
+    // issuer can never reliably find them. Resolve through the issuer index
+    // instead, then follow the Holochain update chain to the current record.
+    let links = get_links(
+        LinkQuery::try_new(issuer_hash, LinkTypes::IssuerToRequest)?,
+        GetStrategy::default(),
+    )?;
 
-    // Find the latest version of this request (update_entry appends newer versions)
-    let mut found_record: Option<Record> = None;
-    let mut found_req: Option<CredentialRequest> = None;
-    for record in query(filter)? {
-        if let Some(req) = record
-            .entry()
-            .to_app_option::<CredentialRequest>()
-            .ok()
-            .flatten()
-        {
-            if req.id == input.request_id {
-                found_req = Some(req);
-                found_record = Some(record);
+    let mut request_action: Option<ActionHash> = None;
+    for link in links {
+        let action_hash = ActionHash::try_from(link.target)
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+                "Invalid credential request link target".into(),
+            )))?;
+
+        if let Some(record) = get_latest_record(action_hash.clone())? {
+            let Some(req) = record
+                .entry()
+                .to_app_option::<CredentialRequest>()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+            else {
+                continue;
+            };
+
+            if req.id != input.request_id {
+                continue;
+            }
+
+            if req.issuer_did != caller_did {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Credential request index returned a request for a different issuer".into(),
+                )));
+            }
+
+            if let Some(existing) = request_action.as_ref() {
+                if existing != &action_hash {
+                    return Err(wasm_error!(WasmErrorInner::Guest(
+                        "Ambiguous credential request ID: multiple distinct requests exist".into(),
+                    )));
+                }
+            } else {
+                request_action = Some(action_hash);
             }
         }
     }
 
-    let (record, req) = match (found_record, found_req) {
-        (Some(r), Some(q)) => (r, q),
-        _ => {
-            return Err(wasm_error!(WasmErrorInner::Guest(
-                "Request not found".into()
-            )));
-        }
-    };
+    let request_action = request_action.ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Request not found".into()
+    )))?;
+
+    let record = get_latest_record(request_action)?.ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Credential request record not found".into()
+    )))?;
+
+    let req: CredentialRequest = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Credential request entry is invalid".into()
+        )))?;
 
     if req.issuer_did != caller_did {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Only the target issuer can update request status".into()
         )));
     }
+
     let now = sys_time()?;
     let updated_req = CredentialRequest {
         status: input.new_status,
