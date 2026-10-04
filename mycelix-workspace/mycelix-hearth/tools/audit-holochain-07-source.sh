@@ -927,6 +927,7 @@ check_qualification_workflow_provenance() {
     && rg -n --fixed-strings 'dogfood-path: "/tmp/nix-installer"' "$workflow" >/dev/null 2>&1 \
     && rg -n --fixed-strings 'releases/download/2.35.2/nix-installer-x86_64-linux' "$workflow" >/dev/null 2>&1 \
     && rg -n --fixed-strings '5448a1cd70ad945cb4d36365defbaf3731eba38e23859f3dc8bd7418e1946acc' "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings 'sha256sum --check --status -' "$workflow" >/dev/null 2>&1 \
     && ! rg -n --fixed-strings 'cachix/install-nix-action@' "$workflow" >/dev/null 2>&1; then
     echo "OK:   qualification workflow pins and hash-locks the Nix installer binary"
   else
@@ -965,17 +966,13 @@ check_qualification_workflow_provenance() {
     fail=1
   fi
 
-  if rg -n --fixed-strings 'Verify Nix credential isolation' "$workflow" >/dev/null 2>&1; then
-    echo "OK:   qualification workflow verifies that Nix configuration contains no GitHub access token"
+  if rg -n --fixed-strings "Verify Nix credential isolation" "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings "sudo grep -Eq 'access-tokens[[:space:]]*=.*github\\.com' /etc/nix/nix.conf" "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings "Nix configuration unexpectedly contains a GitHub access token" "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings "exit 1" "$workflow" >/dev/null 2>&1; then
+    echo "OK:   qualification workflow enforces Nix credential isolation with an executable guard"
   else
-    echo "FAIL: qualification workflow must verify Nix credential isolation"
-    fail=1
-  fi
-
-  if rg -n --fixed-strings "Verify Nix credential isolation" "$workflow" >/dev/null 2>&1     && rg -n --fixed-strings "access-tokens[[:space:]]*=.*github\\.com" "$workflow" >/dev/null 2>&1; then
-    echo "OK:   qualification workflow verifies Nix credential isolation after installation"
-  else
-    echo "FAIL: qualification workflow must verify that Nix did not persist a GitHub access token"
+    echo "FAIL: qualification workflow must contain an executable Nix credential-isolation guard"
     fail=1
   fi
 
