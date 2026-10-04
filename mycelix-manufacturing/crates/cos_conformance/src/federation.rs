@@ -3313,6 +3313,16 @@ mod tests {
             state_machine_trace_body_sha256(capsule),
             "successful trace capsule body digest must match its serialized hash view"
         );
+        let expected_chain_head = capsule
+            .evidence
+            .last()
+            .map(|evidence| evidence.chain_sha256.as_str())
+            .unwrap_or(FEDERATION_STATE_MACHINE_TRACE_CHAIN_GENESIS);
+        assert_eq!(
+            capsule.integrity.chain_head_sha256,
+            expected_chain_head,
+            "successful trace capsule integrity must bind its terminal evidence chain head"
+        );
         assert_eq!(
             capsule.operations.len(),
             capsule.tokens.len(),
@@ -4617,12 +4627,19 @@ mod tests {
                 .expect("capsule must deserialize");
         capsule.final_state.admission_index ^= 1;
         assert!(std::panic::catch_unwind(|| state_machine_plan_from_capsule(&capsule)).is_err());
+
+        let mut capsule =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&capsule_text)
+                .expect("capsule must deserialize");
+        capsule.integrity.chain_head_sha256 =
+            FEDERATION_STATE_MACHINE_TRACE_CHAIN_GENESIS.into();
+        assert!(std::panic::catch_unwind(|| state_machine_plan_from_capsule(&capsule)).is_err());
     }
 
     #[test]
     fn state_machine_trace_capsule_is_a_self_validating_evidence_artifact() {
         let capsule_text = state_machine_trace_capsule(3, 8);
-        assert!(capsule_text.contains("\"schema_version\": 2"));
+        assert!(capsule_text.contains("\"schema_version\": 3"));
         assert!(capsule_text.contains("\"trace_index\": 3"));
         assert!(capsule_text.contains("\"initial_seed\":"));
         assert!(capsule_text.contains("\"operations\": ["));
@@ -4632,6 +4649,7 @@ mod tests {
         assert!(capsule_text.contains("\"final_state\": {"));
         assert!(capsule_text.contains("\"integrity\": {"));
         assert!(capsule_text.contains("\"body_sha256\": \"sha256:"));
+        assert!(capsule_text.contains("\"chain_head_sha256\": \"sha256:"));
 
         let capsule = serde_json::from_str::<FederationStateMachineTraceCapsule>(&capsule_text)
             .expect("capsule must remain self-describing");
@@ -4647,6 +4665,15 @@ mod tests {
                 delivery_count: 0,
                 state_fingerprint: canonical_state_fingerprint(&nodes()),
             }
+        );
+        assert_eq!(
+            capsule.integrity.chain_head_sha256,
+            capsule
+                .evidence
+                .last()
+                .map(|evidence| evidence.chain_sha256.as_str())
+                .unwrap_or(FEDERATION_STATE_MACHINE_TRACE_CHAIN_GENESIS),
+            "successful trace capsule chain head must match its final evidence"
         );
         assert_eq!(
             capsule.final_state,
