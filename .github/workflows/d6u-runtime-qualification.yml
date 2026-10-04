@@ -43,6 +43,9 @@ jobs:
           test "$(rustc +1.96.1 --version --verbose | sed -n 's/^commit-hash: //p')" = "31fca3adb283cc9dfd56b49cdee9a96eb9c96ffd"
           rustfmt +1.96.1 --version
 
+      - name: Preflight evidence verifiers
+        run: python3 -m py_compile scripts/integral/verify_d6u_runtime_manifest.py scripts/integral/verify_d6u_runtime_evidence.py scripts/integral/verify_d6u_runtime_record.py
+
       - name: Verify D6U manifest
         run: python3 scripts/integral/verify_d6u_runtime_manifest.py
 
