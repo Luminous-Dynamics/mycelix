@@ -10,7 +10,19 @@
       "operation_surface": ["CreateEntry", "CreateRecord"],
       "invariant": "Decision title cannot be empty",
       "expected_result": "Invalid",
-      "boundary": "integrity_validation"
+      "boundary": "integrity_validation",
+      "validator_source": "mycelix-workspace/mycelix-hearth/zomes/hearth-stories/integrity/src/lib.rs",
+      "validator_symbol": "validate_story_update",
+      "validator_source": "crates/mycelix-bridge-entry-types/src/lib.rs",
+      "validator_symbol": "validate_notification",
+      "validator_source": "mycelix-workspace/mycelix-hearth/zomes/hearth-stories/integrity/src/lib.rs",
+      "validator_symbol": "validate_create_link",
+      "validator_source": "mycelix-workspace/mycelix-hearth/zomes/hearth-stories/integrity/src/lib.rs",
+      "validator_symbol": "validate_story",
+      "validator_source": "mycelix-workspace/mycelix-hearth/zomes/hearth-resources/integrity/src/lib.rs",
+      "validator_symbol": "validate_resource",
+      "validator_source": "mycelix-workspace/mycelix-hearth/zomes/hearth-decisions/integrity/src/lib.rs",
+      "validator_symbol": "validate_decision"
     },
     {
       "case_id": "SEM-02",
