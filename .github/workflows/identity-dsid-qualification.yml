@@ -138,6 +138,7 @@ jobs:
           cargo test -p did_registry_integrity --lib
           cargo test -p recovery_integrity --lib
           cargo test -p verifiable_credential_integrity --lib
+          cargo test -p verifiable_credential_coordinator --lib
 
       - name: Pack Identity DNA
         run: |
