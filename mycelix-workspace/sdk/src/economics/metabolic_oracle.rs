@@ -13,6 +13,13 @@
 //! - Counter-cyclical: When stressed, lower fees + expand TEND limits
 
 use serde::{Deserialize, Serialize};
+use super::{
+    model_provenance::EconomicModelProvenance,
+    policy_analysis::{EconomicAnalysisBinding, EconomicPolicyAnalysis},
+    policy_profile::EconomicPolicyProfile,
+};
+use sha2::{Digest, Sha256};
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Policy bounds preventing runaway self-modification
 /// These are constitutional constraints that cannot be modified by the oracle
@@ -196,6 +203,239 @@ pub struct PolicyAdjustment {
     pub requires_approval: bool,
 }
 
+/// A governed record authorizing application of a policy adjustment.
+///
+/// The oracle may recommend an adjustment from observed network vitality, but
+/// application becomes a separate governance event with explicit provenance.
+/// Observation references do not assert that the observations are sufficient
+/// for any universal monetary policy; they make the evidentiary basis auditable.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GovernedPolicyAdjustment {
+    /// Unique decision identifier.
+    pub decision_id: String,
+    /// Versioned economic-policy profile under which the decision is interpreted.
+    pub policy_profile_ref: String,
+    /// Content fingerprint of the exact policy profile used for the decision.
+    pub policy_profile_fingerprint: String,
+    /// References to the observations used in the decision.
+    pub observation_refs: Vec<String>,
+    /// Exact advisory analyses considered by governance, when applicable.
+    /// An empty set is valid for regimes that permit non-model-based decisions.
+    pub analysis_evidence: Vec<EconomicAnalysisBinding>,
+    /// Policy/rule reference authorizing the decision.
+    pub rule_ref: String,
+    /// Authority reference for the decision.
+    pub authority_ref: String,
+    /// Recommended adjustment being authorized.
+    pub adjustment: PolicyAdjustment,
+    /// Time at which the decision was authorized.
+    pub decided_at: u64,
+}
+
+impl GovernedPolicyAdjustment {
+    /// Validate the decision envelope before it can change policy state.
+    pub fn validate(&self) -> Result<(), String> {
+        if self.decision_id.trim().is_empty() {
+            return Err("Policy decision ID cannot be empty".into());
+        }
+        if self.policy_profile_ref.trim().is_empty() {
+            return Err("Policy decision policy profile reference cannot be empty".into());
+        }
+        if self.policy_profile_fingerprint.len() != 64
+            || !self
+                .policy_profile_fingerprint
+                .as_bytes()
+                .iter()
+                .all(u8::is_ascii_hexdigit)
+        {
+            return Err(
+                "Policy decision policy profile fingerprint must be a 64-character hexadecimal SHA-256"
+                    .into(),
+            );
+        }
+        if self.observation_refs.is_empty() {
+            return Err("Policy decision requires at least one observation reference".into());
+        }
+        if self
+            .observation_refs
+            .iter()
+            .any(|reference| reference.trim().is_empty())
+        {
+            return Err("Policy observation references cannot be empty".into());
+        }
+
+        let mut analysis_ids = BTreeSet::new();
+        for binding in &self.analysis_evidence {
+            binding.validate()?;
+            if !analysis_ids.insert(&binding.analysis_ref) {
+                return Err(format!(
+                    "Duplicate policy decision analysis reference: {}",
+                    binding.analysis_ref
+                ));
+            }
+        }
+        if self.rule_ref.trim().is_empty() {
+            return Err("Policy decision rule reference cannot be empty".into());
+        }
+        if self.authority_ref.trim().is_empty() {
+            return Err("Policy decision authority reference cannot be empty".into());
+        }
+        if self.adjustment.reason.trim().is_empty() {
+            return Err("Policy adjustment reason cannot be empty".into());
+        }
+
+        for (name, value) in [
+            ("fee rate factor", self.adjustment.fee_rate_factor),
+            ("demurrage rate factor", self.adjustment.demurrage_rate_factor),
+            ("velocity incentive", self.adjustment.velocity_incentive),
+        ] {
+            if !value.is_finite() || value < 0.0 {
+                return Err(format!(
+                    "Policy adjustment {name} must be finite and non-negative"
+                ));
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Validate exact advisory analyses referenced by this decision.
+    ///
+    /// The analyses remain advisory. This method only proves that the decision
+    /// points to the exact analysis content it claims to have considered and
+    /// that those analyses share the decision's policy-profile context.
+    pub fn validate_against_analyses(
+        &self,
+        analyses: &BTreeMap<String, EconomicPolicyAnalysis>,
+    ) -> Result<(), String> {
+        self.validate()?;
+
+        for binding in &self.analysis_evidence {
+            let analysis = analyses.get(&binding.analysis_ref).ok_or_else(|| {
+                format!(
+                    "Policy decision analysis evidence is not available: {}",
+                    binding.analysis_ref
+                )
+            })?;
+            let fingerprint = analysis.fingerprint()?;
+            if fingerprint != binding.analysis_fingerprint {
+                return Err(format!(
+                    "Policy decision analysis fingerprint does not match supplied analysis: {}",
+                    binding.analysis_ref
+                ));
+            }
+            if analysis.policy_profile_ref != self.policy_profile_ref
+                || analysis.policy_profile_fingerprint != self.policy_profile_fingerprint
+            {
+                return Err(format!(
+                    "Policy decision analysis uses a different policy profile: {}",
+                    binding.analysis_ref
+                ));
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Return the number of distinct model/input provenance groups among the
+    /// analyses considered by this decision. Different analysis IDs do not
+    /// automatically imply independent analyses.
+    ///
+    /// This is an informational measurement. It does not impose a universal
+    /// minimum diversity requirement on any policy regime.
+    pub fn distinct_analysis_provenance_count(
+        &self,
+        analyses: &BTreeMap<String, EconomicPolicyAnalysis>,
+    ) -> Result<usize, String> {
+        self.validate_against_analyses(analyses)?;
+
+        let mut groups = BTreeSet::new();
+        for binding in &self.analysis_evidence {
+            let analysis = analyses
+                .get(&binding.analysis_ref)
+                .expect("validated analysis binding must resolve");
+            let provenance = match &analysis.model_provenance {
+                Some(value) => value,
+                None => continue,
+            };
+            let comparison_key = match provenance.comparison_key()? {
+                Some(value) => value,
+                None => continue,
+            };
+            let scenario_fingerprint = analysis
+                .scenario
+                .as_ref()
+                .map(|scenario| scenario.scenario_fingerprint.as_str())
+                .unwrap_or("scenario:none");
+            groups.insert((
+                comparison_key,
+                analysis.observation_snapshot_fingerprint.clone(),
+                scenario_fingerprint.to_owned(),
+            ));
+        }
+        Ok(groups.len())
+    }
+
+    /// Return the number of analyses whose model provenance is not sufficient
+    /// to establish a conservative comparison identity.
+    pub fn unresolved_analysis_provenance_count(
+        &self,
+        analyses: &BTreeMap<String, EconomicPolicyAnalysis>,
+    ) -> Result<usize, String> {
+        self.validate_against_analyses(analyses)?;
+
+        let mut unresolved = 0;
+        for binding in &self.analysis_evidence {
+            let analysis = analyses
+                .get(&binding.analysis_ref)
+                .expect("validated analysis binding must resolve");
+            let comparable = analysis
+                .model_provenance
+                .as_ref()
+                .map(|provenance| provenance.has_comparable_identity())
+                .unwrap_or(false);
+            if !comparable {
+                unresolved += 1;
+            }
+        }
+        Ok(unresolved)
+    }
+
+    /// Return a deterministic content fingerprint for the governed decision.
+    ///
+    /// The fingerprint is a tamper-evident identifier, not a signature or proof
+    /// that the referenced authority actually authorized the decision.
+    pub fn fingerprint(&self) -> Result<String, String> {
+        self.validate()?;
+        let mut observation_refs = self.observation_refs.clone();
+        observation_refs.sort();
+
+        let mut analysis_evidence = self.analysis_evidence.clone();
+        analysis_evidence.sort_by_key(|binding| {
+            (binding.analysis_ref.clone(), binding.analysis_fingerprint.clone())
+        });
+
+        let payload = serde_json::json!({
+            "version": 2,
+            "decision_id": self.decision_id,
+            "policy_profile_ref": self.policy_profile_ref,
+            "policy_profile_fingerprint": self.policy_profile_fingerprint,
+            "observation_refs": observation_refs,
+            "analysis_evidence": analysis_evidence,
+            "rule_ref": self.rule_ref,
+            "authority_ref": self.authority_ref,
+            "adjustment": self.adjustment,
+            "decided_at": self.decided_at,
+        });
+        let canonical = serde_json::to_vec(&payload)
+            .map_err(|error| format!("Policy decision canonicalization failed: {error}"))?;
+        let mut hasher = Sha256::new();
+        hasher.update(b"MYCELIX-ECONOMIC-POLICY-DECISION-V2\0");
+        hasher.update(canonical);
+        Ok(hex::encode(hasher.finalize()))
+    }
+}
+
 /// The Metabolic Oracle for autopoietic parameter adjustment
 #[derive(Debug, Clone)]
 pub struct MetabolicOracle {
@@ -205,8 +445,10 @@ pub struct MetabolicOracle {
     pub current_params: NetworkParameters,
     /// Historical vitality readings (365-day rolling)
     pub vitality_history: Vec<VitalityIndex>,
-    /// Adjustment history for audit
+    /// Adjustment history for audit and backwards-compatible inspection.
     pub adjustment_history: Vec<PolicyAdjustment>,
+    /// Explicit governance decisions authorizing parameter changes.
+    governed_decision_history: Vec<GovernedPolicyAdjustment>,
 }
 
 /// Current network economic parameters
@@ -244,6 +486,7 @@ impl MetabolicOracle {
             current_params: NetworkParameters::default(),
             vitality_history: Vec::new(),
             adjustment_history: Vec::new(),
+            governed_decision_history: Vec::new(),
         }
     }
 
@@ -381,12 +624,7 @@ impl MetabolicOracle {
         }
     }
 
-    /// Apply adjustment with bounds checking
-    pub fn apply_adjustment(&mut self, adjustment: &PolicyAdjustment) -> Result<(), String> {
-        if adjustment.requires_approval {
-            return Err("Adjustment requires governance approval".to_string());
-        }
-
+    fn apply_adjustment_unchecked(&mut self, adjustment: &PolicyAdjustment) {
         let new_fee = self.current_params.fee_rate * adjustment.fee_rate_factor;
         self.current_params.fee_rate =
             new_fee.clamp(self.bounds.fee_rate_min, self.bounds.fee_rate_max);
@@ -401,8 +639,79 @@ impl MetabolicOracle {
         self.current_params.tend_limit_tier = adjustment.tend_limit_tier;
 
         self.adjustment_history.push(adjustment.clone());
+    }
 
+    /// Return governance decisions in append-only insertion order.
+    pub fn governed_decisions(&self) -> &[GovernedPolicyAdjustment] {
+        &self.governed_decision_history
+    }
+
+    /// Apply an adjustment directly when the caller has already established
+    /// governance externally. This remains useful for deterministic simulation.
+    pub fn apply_adjustment(&mut self, adjustment: &PolicyAdjustment) -> Result<(), String> {
+        if adjustment.requires_approval {
+            return Err("Adjustment requires governance approval".to_string());
+        }
+        self.apply_adjustment_unchecked(adjustment);
         Ok(())
+    }
+
+    /// Apply a governed adjustment only when its policy profile matches
+    /// the exact profile content supplied by the caller.
+    ///
+    /// This closes the distinction between "profile reference" and "the exact
+    /// profile that was actually active". A human-readable profile ID is not
+    /// sufficient to establish historical policy context.
+    pub fn apply_governed_adjustment_for_profile(
+        &mut self,
+        decision: GovernedPolicyAdjustment,
+        profile: &EconomicPolicyProfile,
+    ) -> Result<String, String> {
+        profile.validate()?;
+
+        let profile_fingerprint = profile.fingerprint()?;
+        if decision.policy_profile_ref != profile.profile_id {
+            return Err("Policy decision profile reference does not match supplied profile".into());
+        }
+        if decision.policy_profile_fingerprint != profile_fingerprint {
+            return Err(
+                "Policy decision profile fingerprint does not match supplied profile content"
+                    .into(),
+            );
+        }
+        if !profile.is_active_at(decision.decided_at) {
+            return Err("Policy profile is not active at policy decision timestamp".into());
+        }
+
+        self.apply_governed_adjustment(decision)
+    }
+
+    /// Apply a policy adjustment with explicit decision provenance.
+    ///
+    /// This is the governance-safe application path: the recommendation is
+    /// separated from the authorization event, and the authorization is kept
+    /// in an append-only in-memory history for later persistence by the host.
+    pub fn apply_governed_adjustment(
+        &mut self,
+        decision: GovernedPolicyAdjustment,
+    ) -> Result<String, String> {
+        decision.validate()?;
+
+        if self
+            .governed_decision_history
+            .iter()
+            .any(|existing| existing.decision_id == decision.decision_id)
+        {
+            return Err(format!(
+                "Duplicate policy decision ID: {}",
+                decision.decision_id
+            ));
+        }
+
+        let fingerprint = decision.fingerprint()?;
+        self.apply_adjustment_unchecked(&decision.adjustment);
+        self.governed_decision_history.push(decision);
+        Ok(fingerprint)
     }
 
     /// Get current vitality state
@@ -504,6 +813,311 @@ mod tests {
         assert_eq!(adjustment.tend_limit_tier, TendLimitTier::Elevated);
         assert!(adjustment.fee_rate_factor < 1.0);
         assert!(adjustment.velocity_incentive > 1.0);
+    }
+
+    #[test]
+    fn test_governed_policy_requires_observation_and_authority() {
+        let mut oracle = MetabolicOracle::new();
+        let adjustment = oracle.generate_adjustment();
+        let decision = GovernedPolicyAdjustment {
+            decision_id: "decision:1".into(),
+            policy_profile_ref: "profile:za:reference:v1".into(),
+            policy_profile_fingerprint: "a".repeat(64),
+            observation_refs: Vec::new(),
+            analysis_evidence: Vec::new(),
+            rule_ref: "rule:countercyclical:v1".into(),
+            authority_ref: "authority:dao-1".into(),
+            adjustment,
+            decided_at: 1_000,
+        };
+
+        assert!(oracle.apply_governed_adjustment(decision).is_err());
+    }
+
+    #[test]
+    fn test_governed_policy_records_authorization_and_fingerprint() {
+        let mut oracle = MetabolicOracle::new();
+        let adjustment = oracle.generate_adjustment();
+        let decision = GovernedPolicyAdjustment {
+            decision_id: "decision:1".into(),
+            policy_profile_ref: "profile:za:reference:v1".into(),
+            policy_profile_fingerprint: "a".repeat(64),
+            observation_refs: vec!["observation:vitality:1".into()],
+            analysis_evidence: Vec::new(),
+            rule_ref: "rule:countercyclical:v1".into(),
+            authority_ref: "authority:dao-1".into(),
+            adjustment,
+            decided_at: 1_000,
+        };
+
+        let fingerprint = decision.fingerprint().unwrap();
+        assert_eq!(fingerprint.len(), 64);
+        let applied = oracle.apply_governed_adjustment(decision).unwrap();
+        assert_eq!(applied.len(), 64);
+        assert_eq!(oracle.governed_decisions().len(), 1);
+        assert_eq!(oracle.governed_decisions()[0].authority_ref, "authority:dao-1");
+    }
+
+    #[test]
+    fn test_governed_policy_fingerprint_is_order_independent_for_observations() {
+        let oracle = MetabolicOracle::new();
+        let adjustment = oracle.generate_adjustment();
+        let left = GovernedPolicyAdjustment {
+            decision_id: "decision:1".into(),
+            policy_profile_ref: "profile:za:reference:v1".into(),
+            policy_profile_fingerprint: "a".repeat(64),
+            observation_refs: vec!["observation:b".into(), "observation:a".into()],
+            analysis_evidence: Vec::new(),
+            rule_ref: "rule:countercyclical:v1".into(),
+            authority_ref: "authority:dao-1".into(),
+            adjustment: adjustment.clone(),
+            decided_at: 1_000,
+        };
+        let right = GovernedPolicyAdjustment {
+            observation_refs: vec!["observation:a".into(), "observation:b".into()],
+            ..left.clone()
+        };
+
+        assert_eq!(left.fingerprint().unwrap(), right.fingerprint().unwrap());
+    }
+
+    fn advisory_analysis(id: &str, model: &str) -> EconomicPolicyAnalysis {
+        EconomicPolicyAnalysis {
+            analysis_id: id.into(),
+            policy_profile_ref: "profile:za:reference:v1".into(),
+            policy_profile_fingerprint: "a".repeat(64),
+            model_ref: model.into(),
+            model_provenance: Some(EconomicModelProvenance {
+                model_ref: model.into(),
+                model_version: "v1".into(),
+                model_family_ref: Some(format!("family:{model}")),
+                provider_ref: Some("provider:test".into()),
+                implementation_fingerprint: Some("c".repeat(64)),
+                deployment_ref: Some(format!("deployment:{id}")),
+                training_data_refs: vec!["dataset:test".into()],
+                evaluation_data_refs: vec!["dataset:test-holdout".into()],
+                declared_at: 1_000,
+            }),
+            observation_refs: vec!["observation:vitality:1".into()],
+            observation_snapshot_fingerprint: "b".repeat(64),
+            scenario: None,
+            proposed_adjustment: None,
+            confidence_bps: 8_000,
+            uncertainty_refs: vec!["uncertainty:test".into()],
+            alternative_analysis_bindings: Vec::new(),
+            rationale_refs: vec!["evidence:test".into()],
+            generated_at: 1_000,
+        }
+    }
+
+    #[test]
+    fn governed_decision_binds_exact_analysis_content() {
+        let oracle = MetabolicOracle::new();
+        let adjustment = oracle.generate_adjustment();
+        let analysis = advisory_analysis("analysis:one", "model:one:v1");
+        let fingerprint = analysis.fingerprint().unwrap();
+
+        let decision = GovernedPolicyAdjustment {
+            decision_id: "decision:analysis-bound".into(),
+            policy_profile_ref: "profile:za:reference:v1".into(),
+            policy_profile_fingerprint: "a".repeat(64),
+            observation_refs: vec!["observation:vitality:1".into()],
+            analysis_evidence: vec![EconomicAnalysisBinding {
+                analysis_ref: analysis.analysis_id.clone(),
+                analysis_fingerprint: fingerprint,
+            }],
+            rule_ref: "rule:countercyclical:v1".into(),
+            authority_ref: "authority:dao-1".into(),
+            adjustment,
+            decided_at: 1_000,
+        };
+
+        let mut analyses = BTreeMap::new();
+        analyses.insert(analysis.analysis_id.clone(), analysis.clone());
+        assert!(decision.validate_against_analyses(&analyses).is_ok());
+
+        let mut changed = analysis;
+        changed.generated_at = 1_001;
+        analyses.insert(changed.analysis_id.clone(), changed);
+        assert!(decision.validate_against_analyses(&analyses).is_err());
+    }
+
+    #[test]
+    fn duplicate_model_and_input_provenance_is_not_counted_twice() {
+        let oracle = MetabolicOracle::new();
+        let adjustment = oracle.generate_adjustment();
+        let first = advisory_analysis("analysis:first", "model:shared:v1");
+        let second = advisory_analysis("analysis:second", "model:shared:v1");
+
+        let first_fingerprint = first.fingerprint().unwrap();
+        let second_fingerprint = second.fingerprint().unwrap();
+
+        let decision = GovernedPolicyAdjustment {
+            decision_id: "decision:provenance-groups".into(),
+            policy_profile_ref: "profile:za:reference:v1".into(),
+            policy_profile_fingerprint: "a".repeat(64),
+            observation_refs: vec!["observation:vitality:1".into()],
+            analysis_evidence: vec![
+                EconomicAnalysisBinding {
+                    analysis_ref: first.analysis_id.clone(),
+                    analysis_fingerprint: first_fingerprint,
+                },
+                EconomicAnalysisBinding {
+                    analysis_ref: second.analysis_id.clone(),
+                    analysis_fingerprint: second_fingerprint,
+                },
+            ],
+            rule_ref: "rule:countercyclical:v1".into(),
+            authority_ref: "authority:dao-1".into(),
+            adjustment,
+            decided_at: 1_000,
+        };
+
+        let mut analyses = BTreeMap::new();
+        analyses.insert(first.analysis_id.clone(), first.clone());
+        analyses.insert(second.analysis_id.clone(), second.clone());
+        assert_eq!(
+            decision
+                .distinct_analysis_provenance_count(&analyses)
+                .unwrap(),
+            1
+        );
+
+        let independent = advisory_analysis("analysis:independent", "model:independent:v1");
+        let independent_fingerprint = independent.fingerprint().unwrap();
+        analyses.insert(independent.analysis_id.clone(), independent.clone());
+
+        let mut expanded = decision;
+        expanded.analysis_evidence.push(EconomicAnalysisBinding {
+            analysis_ref: independent.analysis_id,
+            analysis_fingerprint: independent_fingerprint,
+        });
+        assert_eq!(
+            expanded
+                .distinct_analysis_provenance_count(&analyses)
+                .unwrap(),
+            2
+        );        assert_eq!(expanded.unresolved_analysis_provenance_count(&analyses).unwrap(), 0);
+
+        let mut opaque = advisory_analysis("analysis:opaque", "model:opaque");
+        opaque.model_provenance = None;
+        analyses.insert(opaque.analysis_id.clone(), opaque.clone());
+        expanded.analysis_evidence.push(EconomicAnalysisBinding {
+            analysis_ref: opaque.analysis_id,
+            analysis_fingerprint: opaque.fingerprint().unwrap(),
+        });
+        assert_eq!(expanded.unresolved_analysis_provenance_count(&analyses).unwrap(), 1);
+    }
+
+    fn policy_profile() -> EconomicPolicyProfile {
+        EconomicPolicyProfile {
+            profile_id: "profile:za:reference:v1".into(),
+            jurisdiction_ref: "jurisdiction:ZA".into(),
+            regime_ref: "regime:national-fiat".into(),
+            policy_version: "1.0.0".into(),
+            currency_refs: vec!["ZAR".into()],
+            authority_refs: vec!["authority:dao-1".into()],
+            policy_rule_refs: vec!["rule:countercyclical:v1".into()],
+            interoperability_profile_refs: vec!["standard:SDMX-3.1".into()],
+            effective_from: 1_000,
+            effective_until: None,
+            evidence_refs: vec!["evidence:profile".into()],
+            supersedes_profile_ref: None,
+            declared_at: 1_000,
+        }
+    }
+
+    #[test]
+    fn test_governed_policy_must_use_active_profile_interval() {
+        let mut oracle = MetabolicOracle::new();
+        let mut profile = policy_profile();
+        profile.effective_until = Some(900);
+        let decision = GovernedPolicyAdjustment {
+            decision_id: "decision:inactive-profile".into(),
+            policy_profile_ref: profile.profile_id.clone(),
+            policy_profile_fingerprint: profile.fingerprint().unwrap(),
+            observation_refs: vec!["observation:vitality:1".into()],
+            analysis_evidence: Vec::new(),
+            rule_ref: "rule:countercyclical:v1".into(),
+            authority_ref: "authority:dao-1".into(),
+            adjustment: oracle.generate_adjustment(),
+            decided_at: 1_000,
+        };
+
+        assert!(oracle
+            .apply_governed_adjustment_for_profile(decision, &profile)
+            .is_err());
+    }
+
+    #[test]
+    fn test_governed_policy_must_match_exact_profile() {
+        let mut oracle = MetabolicOracle::new();
+        let profile = policy_profile();
+        let decision = GovernedPolicyAdjustment {
+            decision_id: "decision:exact-profile".into(),
+            policy_profile_ref: profile.profile_id.clone(),
+            policy_profile_fingerprint: profile.fingerprint().unwrap(),
+            observation_refs: vec!["observation:vitality:1".into()],
+            analysis_evidence: Vec::new(),
+            rule_ref: "rule:countercyclical:v1".into(),
+            authority_ref: "authority:dao-1".into(),
+            adjustment: oracle.generate_adjustment(),
+            decided_at: 1_000,
+        };
+
+        assert!(oracle
+            .apply_governed_adjustment_for_profile(decision.clone(), &profile)
+            .is_ok());
+
+        let mut altered = profile.clone();
+        altered.policy_version = "1.0.1".into();
+        let second = GovernedPolicyAdjustment {
+            decision_id: "decision:altered-profile".into(),
+            ..decision
+        };
+        assert!(oracle
+            .apply_governed_adjustment_for_profile(second, &altered)
+            .is_err());
+    }
+
+    #[test]
+    fn test_governed_policy_rejects_duplicate_decision() {
+        let mut oracle = MetabolicOracle::new();
+        let decision = GovernedPolicyAdjustment {
+            decision_id: "decision:1".into(),
+            policy_profile_ref: "profile:za:reference:v1".into(),
+            policy_profile_fingerprint: "a".repeat(64),
+            observation_refs: vec!["observation:vitality:1".into()],
+            analysis_evidence: Vec::new(),
+            rule_ref: "rule:countercyclical:v1".into(),
+            authority_ref: "authority:dao-1".into(),
+            adjustment: oracle.generate_adjustment(),
+            decided_at: 1_000,
+        };
+        let second = decision.clone();
+
+        oracle.apply_governed_adjustment(decision).unwrap();
+        assert!(oracle.apply_governed_adjustment(second).is_err());
+    }
+
+    #[test]
+    fn test_governed_policy_rejects_non_finite_factor() {
+        let mut oracle = MetabolicOracle::new();
+        let mut adjustment = oracle.generate_adjustment();
+        adjustment.fee_rate_factor = f64::NAN;
+        let decision = GovernedPolicyAdjustment {
+            decision_id: "decision:1".into(),
+            policy_profile_ref: "profile:za:reference:v1".into(),
+            policy_profile_fingerprint: "a".repeat(64),
+            observation_refs: vec!["observation:vitality:1".into()],
+            analysis_evidence: Vec::new(),
+            rule_ref: "rule:countercyclical:v1".into(),
+            authority_ref: "authority:dao-1".into(),
+            adjustment,
+            decided_at: 1_000,
+        };
+
+        assert!(oracle.apply_governed_adjustment(decision).is_err());
     }
 
     #[test]
