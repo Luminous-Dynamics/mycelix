@@ -13,11 +13,12 @@ ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = ROOT / "mycelix-workspace/docs/civic-resilience/sym_civic_018_sealing_key_chain_v1.json"
 PROGRAM = "SYM-CIVIC-018"
 SCHEMA = "mycelix.sym-civic.sealing-key-chain-preflight.v1"
-PARENT_SUBJECT = "fe82a004c30165affa77b9172d6b44fcd80a41f3"
+PARENT_SUBJECT = "1e34a2ed7ac42d373e6fdbc2fc54956e4c3bfc33"
 
 REJECT = "REJECT_SEALING_KEY_CHAIN"
 SUFFICIENT = "SEALING_KEY_CHAIN_SUFFICIENT"
 UNRESOLVED = "SEALING_KEY_CHAIN_UNRESOLVED"
+INTERNAL_ERROR = "SEALING_KEY_CHAIN_INTERNAL_ERROR"
 
 def canon(value):
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
@@ -240,8 +241,63 @@ def usable_at(key, timestamp):
     except Exception:
         return False
 
-def validate_primary(candidate):
-    output = candidate["output"]
+def structural_valid(candidate):
+    if not isinstance(candidate, dict):
+        return False
+    output = candidate.get("output")
+    agreements = candidate.get("agreements")
+    registers = candidate.get("registers")
+    if not isinstance(output, dict) or not isinstance(agreements, list) or not isinstance(registers, list):
+        return False
+    if any(not isinstance(a, dict) for a in agreements):
+        return False
+    if any(not isinstance(r, dict) for r in registers):
+        return False
+    addressed = output.get("addressed_registers")
+    if not isinstance(addressed, list) or any(not isinstance(v, str) for v in addressed):
+        return False
+    signature = output.get("synthetic_sealing_signature", {})
+    if not isinstance(signature, dict):
+        return False
+    for register in registers:
+        if not isinstance(register.get("register_origin"), str):
+            return False
+        register_keys = register.get("register_keys")
+        if not isinstance(register_keys, list) or any(not isinstance(k, dict) for k in register_keys):
+            return False
+        auth = register.get("auth")
+        if not isinstance(auth, dict):
+            return False
+        entries = auth.get("entries")
+        if not isinstance(entries, list):
+            return False
+        if any(
+            not isinstance(entry, list)
+            or len(entry) != 3
+            or any(not isinstance(value, str) for value in entry)
+            for entry in entries
+        ):
+            return False
+        keyset = register.get("sealing_keys")
+        if not isinstance(keyset, dict):
+            return False
+        keyset_keys = keyset.get("keys")
+        if not isinstance(keyset_keys, list) or any(not isinstance(k, dict) for k in keyset_keys):
+            return False
+    return True
+
+def _validate_primary(candidate):
+    if not isinstance(candidate, dict):
+        return REJECT
+    output = candidate.get("output")
+    agreements = candidate.get("agreements")
+    registers = candidate.get("registers")
+    if not isinstance(output, dict) or not isinstance(agreements, list) or not isinstance(registers, list):
+        return REJECT
+    if any(not isinstance(a, dict) for a in agreements):
+        return REJECT
+    if any(not isinstance(r, dict) for r in registers):
+        return REJECT
     try:
         authority = normalize_origin(output["authority_origin"])
         when(output["reconciliation_timestamp"])
@@ -375,7 +431,7 @@ def validate_primary(candidate):
 
     return SUFFICIENT
 
-def validate_reference(candidate):
+def validate_reference_impl(candidate):
     output = candidate["output"]
     try:
         authority = normalize_origin(output["authority_origin"])
@@ -503,6 +559,22 @@ def validate_reference(candidate):
 
     return SUFFICIENT
 
+def validate_primary(candidate):
+    try:
+        if not structural_valid(candidate):
+            return REJECT
+        return _validate_primary(candidate)
+    except Exception:
+        return INTERNAL_ERROR
+
+def validate_reference(candidate):
+    try:
+        if not structural_valid(candidate):
+            return REJECT
+        return validate_reference_impl(candidate)
+    except Exception:
+        return INTERNAL_ERROR
+
 def candidate_for(case):
     candidate = base()
     for mutation in case.get("mutations", []):
@@ -514,6 +586,8 @@ def candidate_for(case):
 def verdict(candidate):
     primary = validate_primary(candidate)
     reference = validate_reference(candidate)
+    if INTERNAL_ERROR in (primary, reference):
+        return UNRESOLVED, primary, reference
     if primary != reference:
         return UNRESOLVED, primary, reference
     return primary, primary, reference
@@ -526,7 +600,7 @@ def main():
     assert document["parent_subject"] == PARENT_SUBJECT
 
     cases = document["cases"]
-    assert [case["id"] for case in cases] == [f"C-{i:02d}" for i in range(1, 35)]
+    assert [case["id"] for case in cases] == [f"C-{i:02d}" for i in range(1, 49)]
     for case in cases:
         assert set(case) == {"id", "family", "mutations"}
         lowered = canon(case).lower()
@@ -559,12 +633,20 @@ def main():
     }
     assert not disagreements, disagreements
     assert census == {
-        REJECT: 29,
+        REJECT: 43,
         SUFFICIENT: 5,
         UNRESOLVED: 0,
     }, census
 
     assert verdict(candidate_for(cases[0]))[0] == SUFFICIENT
+
+    class ExplodingDict(dict):
+        def get(self, *args, **kwargs):
+            raise RuntimeError("synthetic unexpected verifier failure")
+
+    exploding = ExplodingDict()
+    assert verdict(exploding)[0] == UNRESOLVED
+    assert verdict(None)[0] == REJECT
 
     variant = clone(candidate_for(cases[0]))
     variant["output"]["authority_origin"] = "https://SERVER.EXAMPLE:443/"
@@ -589,6 +671,23 @@ def main():
     reordered = clone(candidate_for(cases[0]))
     reordered["output"]["addressed_registers"] = list(reversed(reordered["output"]["addressed_registers"]))
     assert verdict(reordered)[0] == REJECT
+
+    structural = [
+        {"agreements": None},
+        {"registers": None},
+        {"agreements.0": "malformed"},
+        {"registers.0": "malformed"},
+        {"registers.0.auth": []},
+        {"registers.0.sealing_keys": "malformed"},
+        {"registers.0.sealing_keys.keys": None},
+        {"registers.0.register_keys.0": "malformed"},
+    ]
+    for patch in structural:
+        malformed = clone(candidate_for(cases[0]))
+        for path, value in patch.items():
+            mutation = {"op": "replace", "path": path, "value": value}
+            mutate(malformed, mutation)
+        assert verdict(malformed)[0] == REJECT
 
     print("SYM-CIVIC-018 DERIVED=" + canon(census))
     print("SYM-CIVIC-018 METAMORPHIC=PASS")

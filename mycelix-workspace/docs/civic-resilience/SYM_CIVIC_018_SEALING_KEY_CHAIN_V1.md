@@ -1,8 +1,8 @@
 # SYM-CIVIC-018 — sealing-key discovery trust-chain preflight v1
 
-Status: design/research preflight only; v2 repair candidate — not qualified.
+Status: design/research preflight only; v3 structural fail-closed candidate — not qualified.
 
-Parent subject: `fe82a004c30165affa77b9172d6b44fcd80a41f3`
+Parent subject: `1e34a2ed7ac42d373e6fdbc2fc54956e4c3bfc33`
 
 ## Boundary
 
@@ -41,9 +41,9 @@ ARP-04 also requires the sealing key set to be published and notarised with a Pu
 
 ## Corpus
 
-Exactly 34 adversarial cases; no expected-verdict fields.
+Exactly 48 adversarial cases; no expected-verdict fields.
 
-The v2 repair adds fail-closed malformed-origin cases at nested authorization, key-set, and register-origin boundaries, plus an explicit byte-order case for the Output's Addressed-Registers Identifier Set.
+The v2 repair adds fail-closed malformed-origin cases at nested authorization, key-set, and register-origin boundaries, plus an explicit byte-order case for the Output's Addressed-Registers Identifier Set. The v3 candidate adds structural/type-shape cases and an explicit exception-to-REJECT safety boundary in both validation paths.
 
 Coverage includes authorization mismatch and omission, signed-document binding drift, bytewise ordering, signer resolution, key-set signer binding, sealing-key deletion, JWK-thumbprint drift, payload/COSE/path `kid` drift, Sealing-Key Identifier origin drift, not-yet-valid and expired keys, retired-key acceptance and boundary rejection, revoked-key historical acceptance and boundary rejection, missing revocation time, key-set signer validity failure, duplicate addressed registers, and RFC 3986-equivalent origin spellings.
 
@@ -59,9 +59,9 @@ RFC 3986 treats scheme and host as case-insensitive normalization targets but st
 
 RFC 9052 independently requires unique COSE header-map labels and rejection of duplicate labels. 018 leaves duplicate-CBOR-map parsing to a future encoding-focused boundary instead of pretending the JSON fixture already implements it. citeturn104151search1
 
-## v2 repair rule
+## v3 structural repair rule
 
-`Malformed origin data is untrusted input: parser failure becomes REJECT, never an uncaught verifier exception; canonical output ordering is checked as part of the representation boundary.`
+`Malformed untrusted evidence, including malformed container/type structure, becomes controlled REJECT rather than an uncaught verifier exception; canonical output ordering remains part of the representation boundary.`
 
 ## Design rule
 
