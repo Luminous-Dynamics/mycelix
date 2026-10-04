@@ -58,6 +58,23 @@ The identity layer therefore consumes external posture/attestation evidence rath
 
 ## Hardware/workload admission
 
+The attestation model follows the role separation described by IETF RFC 9334 RATS:
+
+```
+Attester
+ -> Evidence
+ -> Verifier
+ -> Attestation Result
+ -> Relying Party
+ -> local authorization
+```
+
+This prevents a raw device quote, software measurement, or Mycelix DID from being treated as authorization by itself. Evidence is appraised by a verifier under an explicit policy and reference-value set; the relying party then applies its own resource policy.
+
+The repository contains an initial machine-readable adversarial corpus at `docs/security/mycelix-enclave-attestation-v0.1.json`.
+
+## Hardware/workload admission
+
 The target chain is:
 
 ```
