@@ -95,7 +95,10 @@ jobs:
         run: |
           set -euo pipefail
           root="${RUNNER_TEMP}/prism-bridge-qualification"
-          evidence="${RUNNER_TEMP}/prism-bridge-qualification-evidence.txt"
+          evidence_dir="${RUNNER_TEMP}/prism-bridge-qualification-evidence"
+          evidence="${evidence_dir}/qualification-evidence.txt"
+          rm -rf "${evidence_dir}"
+          mkdir -p "${evidence_dir}"
           expected_head="${{ github.event.pull_request.head.sha || github.sha }}"
           checked_out_head="$(git rev-parse HEAD)"
           job_status="${{ job.status }}"
@@ -120,6 +123,7 @@ jobs:
             if [[ -f "${root}/Cargo.lock" ]]; then
               echo -n "workspace_lock_sha256="
               sha256sum "${root}/Cargo.lock" | cut -d ' ' -f1
+              cp "${root}/Cargo.lock" "${evidence_dir}/Cargo.lock"
             else
               echo "workspace_lock_sha256=unavailable"
             fi
@@ -135,6 +139,6 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: prism-bridge-qualification-evidence-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/prism-bridge-qualification-evidence.txt
+          path: ${{ runner.temp }}/prism-bridge-qualification-evidence
           if-no-files-found: error
           retention-days: 90
