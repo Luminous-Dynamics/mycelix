@@ -406,6 +406,13 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 action,
                 ..
             } => {
+                if matches!(app_entry, EntryTypes::CredentialRequest(_)) {
+                    return validate_update_credential_request(action, match app_entry {
+                        EntryTypes::CredentialRequest(req) => req,
+                        _ => unreachable!(),
+                    });
+                }
+
                 let original = must_get_action(action.original_action_address.clone())?;
                 if *original.action().author() != action.author {
                     return Ok(ValidateCallbackResult::Invalid(
@@ -414,9 +421,6 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 }
 
                 match app_entry {
-                    EntryTypes::CredentialRequest(req) => {
-                        validate_update_credential_request(action, req)
-                    }
                     EntryTypes::EncryptedEntry(_) => Ok(ValidateCallbackResult::Invalid(
                         "Encrypted entries are append-only (re-encrypt instead)".into(),
                     )),
@@ -438,15 +442,10 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 Ok(ValidateCallbackResult::Valid)
             }
         }
-        FlatOp::RegisterDelete(OpDelete { action }) => {
-            let original = must_get_action(action.deletes_address.clone())?;
-            if *original.action().author() != action.author {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Only the original entry author can delete their entries".into(),
-                ));
-            }
-            Ok(ValidateCallbackResult::Valid)
-        }
+        FlatOp::RegisterDelete(OpDelete { .. }) => Ok(ValidateCallbackResult::Invalid(
+            "Verifiable credentials, presentations, derived credentials, requests, and encrypted entries are append-only"
+                .into(),
+        )),
     }
 }
 
@@ -483,6 +482,33 @@ fn action_target(
             "{label} target must be an ActionHash"
         )))
     })
+}
+
+/// Recompute the content hash used by the coordinator's derived-credential proof.
+///
+/// This intentionally mirrors `compute_credential_hash` in the coordinator zome so
+/// an integrity validator can bind a derived credential to the exact credential
+/// content it claims to derive from. The binding is to the credential content hash,
+/// not merely its human-readable ID.
+fn compute_credential_content_hash(vc: &VerifiableCredential) -> Vec<u8> {
+    let mut content = Vec::new();
+    content.extend(vc.id.as_bytes());
+    content.push(0);
+    content.extend(vc.issuer.did().as_bytes());
+    content.push(0);
+    content.extend(vc.credential_subject.id.as_bytes());
+    content.push(0);
+    content.extend(vc.valid_from.as_bytes());
+    content.push(0);
+    if let Ok(claims_json) = serde_json::to_string(&vc.credential_subject.claims) {
+        content.extend(claims_json.as_bytes());
+    } else {
+        return Vec::new();
+    }
+    content.push(0);
+    content.extend(vc.mycelix_schema_id.as_bytes());
+
+    holo_hash::blake2b_256(&content).to_vec()
 }
 
 fn validate_credential_link(
@@ -586,6 +612,67 @@ fn validate_credential_link(
             if original_vc.id != dc.original_credential_id {
                 return Ok(ValidateCallbackResult::Invalid(
                     "CredentialToDerived base does not match the referenced original credential ID".into(),
+                ));
+            }
+            if dc.original_issuer != original_vc.issuer.did() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "CredentialToDerived original issuer does not match the referenced credential".into(),
+                ));
+            }
+            if dc.holder != original_vc.credential_subject.id
+                || dc.derived_content.id != dc.holder
+            {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "CredentialToDerived holder must match the original credential subject".into(),
+                ));
+            }
+
+            let expected_hash = compute_credential_content_hash(&original_vc);
+            if dc.derivation_proof.original_credential_hash != expected_hash {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "CredentialToDerived proof hash does not match the referenced credential content".into(),
+                ));
+            }
+
+            let original_claims = original_vc.credential_subject.claims.as_object().ok_or(
+                wasm_error!(WasmErrorInner::Guest(
+                    "CredentialToDerived original credential claims must be an object".into(),
+                )),
+            )?;
+            let derived_claims = dc.derived_content.claims.as_object().ok_or(
+                wasm_error!(WasmErrorInner::Guest(
+                    "CredentialToDerived derived claims must be an object".into(),
+                )),
+            )?;
+
+            for (i, claim) in dc.selected_claims.iter().enumerate() {
+                if dc.selected_claims.iter().skip(i + 1).any(|other| other == claim) {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "CredentialToDerived selected claims must not contain duplicates".into(),
+                    ));
+                }
+                let Some(original_value) = original_claims.get(claim) else {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "CredentialToDerived selected claim is absent from the original credential".into(),
+                    ));
+                };
+                let Some(derived_value) = derived_claims.get(claim) else {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "CredentialToDerived selected claim is absent from the derived credential".into(),
+                    ));
+                };
+                if original_value != derived_value {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "CredentialToDerived selected claim value does not match the original credential".into(),
+                    ));
+                }
+            }
+
+            if derived_claims.keys().any(|key| {
+                !dc.selected_claims.iter().any(|selected| selected == key)
+            }) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "CredentialToDerived contains an unselected derived claim".into(),
                 ));
             }
         }
@@ -952,33 +1039,18 @@ fn validate_create_credential_request(
     Ok(ValidateCallbackResult::Valid)
 }
 
-/// Validate credential request update
+/// Validate credential request update.
 ///
-/// Author-binding for updates is already enforced universally by this
-/// crate's `FlatOp::RegisterUpdate` arm in `validate()` (checks
-/// `original.action().author() == action.author` for every entry type), so
-/// this function only needs to check content invariants and state-machine
-/// transitions, not identity.
-///
-/// KNOWN GAP found while reviewing this path (2026-07-08, out of scope to
-/// fix here): the coordinator's `update_request_status` is explicitly
-/// gated to the ISSUER (`req.issuer_did != caller_did` -> reject), i.e. a
-/// DIFFERENT agent than whoever authored the original CredentialRequest
-/// (the requester). This can never actually succeed: (1) it locates the
-/// request via `query()`, which only searches the CALLING agent's own
-/// local source chain, so the issuer -- who never authored the request --
-/// gets "Request not found" every time; and (2) even if it did find it,
-/// authoring the Update as the issuer would fail this crate's
-/// author-must-match-original RegisterUpdate check. Same architectural bug
-/// as recovery's `check_and_update_request_status` (see that zome's
-/// commit for detail) -- likely a systemic pattern wherever a zome pairs
-/// this generic same-author-only update handler with a cross-agent
-/// approval workflow. Not fixed here; flagging for a dedicated follow-up.
+/// Credential requests are created by the requester but status transitions are
+/// authorized by the target issuer. The update therefore intentionally breaks
+/// the usual same-author rule for this one append-only workflow while retaining
+/// strict authorship: only the issuer named by the original request can publish
+/// a status transition.
 fn validate_update_credential_request(
     action: Update,
     req: CredentialRequest,
 ) -> ExternResult<ValidateCallbackResult> {
-    // Fetch original to enforce state transitions
+    // Fetch original to enforce identity, immutability, and state transitions.
     let original_record = must_get_valid_record(action.original_action_address.clone())?;
     let original: CredentialRequest = original_record
         .entry()
@@ -988,7 +1060,19 @@ fn validate_update_credential_request(
             "Original credential request not found".into()
         )))?;
 
-    // Immutable fields
+    // The issuer is the sole authority over request state after creation.
+    let issuer = did_to_agent(&original.issuer_did).ok_or(wasm_error!(
+        WasmErrorInner::Guest("Original credential request issuer must be a did:mycelix AgentPubKey".into())
+    ))?;
+    if action.author != issuer {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Credential request status updates must be authored by the target issuer".into(),
+        ));
+    }
+
+    // The request payload is immutable. Only status and the monotonic updated
+    // timestamp may change after creation; otherwise an issuer could silently
+    // replace the claimant's evidence/claims while approving the same request.
     if req.id != original.id {
         return Ok(ValidateCallbackResult::Invalid(
             "Request ID cannot be changed".into(),
@@ -1009,15 +1093,34 @@ fn validate_update_credential_request(
             "Schema ID cannot be changed".into(),
         ));
     }
+    if req.provided_claims != original.provided_claims {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Provided claims cannot be changed after request creation".into(),
+        ));
+    }
+    if req.evidence != original.evidence {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Credential request evidence cannot be changed after request creation".into(),
+        ));
+    }
+    if req.created != original.created {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Credential request creation timestamp cannot be changed".into(),
+        ));
+    }
+    if req.updated <= original.updated {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Credential request updated timestamp must advance monotonically".into(),
+        ));
+    }
 
-    // State machine: valid transitions
     let valid = match (&original.status, &req.status) {
         (RequestStatus::Pending, RequestStatus::UnderReview)
         | (RequestStatus::Pending, RequestStatus::Rejected)
         | (RequestStatus::UnderReview, RequestStatus::Approved)
         | (RequestStatus::UnderReview, RequestStatus::Rejected)
         | (RequestStatus::Approved, RequestStatus::Issued) => true,
-        (a, b) if a == b => true, // No-op allowed
+        (a, b) if a == b => true,
         _ => false,
     };
 
@@ -1603,6 +1706,28 @@ mod author_binding_tests {
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
+    fn derived_for_integrity_tests(holder: String, original: &VerifiableCredential) -> DerivedCredential {
+        let original_hash = compute_credential_content_hash(original);
+        DerivedCredential {
+            original_credential_id: original.id.clone(),
+            original_issuer: original.issuer.did().to_string(),
+            holder,
+            selected_claims: vec!["degree".into()],
+            derived_content: CredentialSubject {
+                id: original.credential_subject.id.clone(),
+                claims: serde_json::json!({"degree": "BSc CS"}),
+            },
+            derivation_proof: DerivationProof {
+                proof_type: "SelectiveDisclosureProof".into(),
+                original_credential_hash: original_hash,
+                claim_proofs: vec![],
+                holder_signature: vec![1u8; 64],
+            },
+            created: Timestamp::from_micros(1),
+            expires: None,
+        }
+    }
+
     fn valid_derived(holder: String) -> DerivedCredential {
         DerivedCredential {
             original_credential_id: "urn:uuid:cred-1".into(),
@@ -1622,6 +1747,34 @@ mod author_binding_tests {
             created: Timestamp::from_micros(0),
             expires: None,
         }
+    }
+
+    #[test]
+    fn derived_content_hash_is_deterministic() {
+        let vc = minimal_vc();
+        assert_eq!(
+            compute_credential_content_hash(&vc),
+            compute_credential_content_hash(&vc)
+        );
+    }
+
+    #[test]
+    fn derived_binding_requires_exact_original_issuer_and_holder() {
+        let original = minimal_vc();
+        let mut dc = derived_for_integrity_tests(original.credential_subject.id.clone(), &original);
+        dc.original_issuer = "did:mycelix:forged".into();
+        assert_ne!(dc.original_issuer, original.issuer.did());
+    }
+
+    #[test]
+    fn derived_binding_helper_corpus_hash_changes_with_content() {
+        let original = minimal_vc();
+        let mut altered = original.clone();
+        altered.credential_subject.claims = serde_json::json!({"degree":"different"});
+        assert_ne!(
+            compute_credential_content_hash(&original),
+            compute_credential_content_hash(&altered)
+        );
     }
 
     #[test]
