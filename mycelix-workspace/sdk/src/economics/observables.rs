@@ -263,6 +263,31 @@ mod tests {
     use crate::economics::transition::EconomicTransition;
 
     #[test]
+    fn revaluation_changes_wealth_without_operating_surplus_or_cash_flow() {
+        let mut firm = crate::economics::stock_flow::ActorBalanceSheet::new("firm");
+        firm.real.productive_capital = 100;
+        let state = EconomicState::new(vec![firm]);
+        let transitions = vec![EconomicTransition::RealAssetRevaluation(
+            crate::economics::stock_flow::RealAssetRevaluation::new(
+                "firm",
+                crate::economics::stock_flow::RealAssetRevaluationTarget::ProductiveCapital,
+                25,
+            )
+            .unwrap(),
+        )];
+
+        let observations =
+            EconomicObservables::try_from_state_and_transitions(&state, &transitions).unwrap();
+
+        assert_eq!(observations.real_asset_revaluation, 25);
+        assert_eq!(observations.liquidity, 0);
+        assert_eq!(observations.gross_operating_surplus, 0);
+        assert_eq!(observations.operating_surplus_after_depreciation, 0);
+        assert_eq!(observations.credit_created, 0);
+        assert_eq!(observations.debt_repaid, 0);
+    }
+
+    #[test]
     fn aggregate_observations_reject_invalid_state() {
         let mut state = EconomicState::new(vec![
             ActorBalanceSheet::new("household"),
