@@ -130,26 +130,44 @@ impl OfflineCredential {
         }
     }
 
-    /// Compute the effective tier at the given time.
+    /// Compute the effective tier using only locally retained verification state.
     ///
-    /// Deterministic: any verifier can compute this independently
-    /// from the credential timestamps and the current time.
+    /// An attached freshness attestation is deliberately ignored here: an attestation
+    /// is untrusted data until its MAC is actually verified against a key that the caller
+    /// has independently associated with the attester identity.
     pub fn effective_tier(&self, now_us: u64) -> ConsciousnessTier {
-        if !self.degradation_enabled {
-            return self.credential.tier;
-        }
+        self.effective_tier_from_reference(now_us, self.last_online_verification)
+    }
 
-        // Prefer attestation timestamp when attestation is present and signed
+    /// Compute the effective tier using an externally verified attestation MAC.
+    ///
+    /// The supplied key must be independently established as belonging to the attester;
+    /// this method verifies the cryptographic MAC but does not establish attester identity
+    /// or institutional authority. An invalid attestation falls back to local freshness.
+    pub fn effective_tier_with_attestation_key(
+        &self,
+        now_us: u64,
+        key: &[u8; 32],
+    ) -> ConsciousnessTier {
         let reference_time = match &self.attestation {
-            Some(att) if !att.signature.is_empty() => {
-                // Causality check: attestation cannot predate credential issuance
-                if att.timestamp < self.credential.issued_at {
-                    return self.credential.tier.degrade(2);
-                }
+            Some(att)
+                if att.verify_blake3(key) && att.timestamp >= self.credential.issued_at =>
+            {
                 att.timestamp
             }
             _ => self.last_online_verification,
         };
+        self.effective_tier_from_reference(now_us, reference_time)
+    }
+
+    fn effective_tier_from_reference(
+        &self,
+        now_us: u64,
+        reference_time: u64,
+    ) -> ConsciousnessTier {
+        if !self.degradation_enabled {
+            return self.credential.tier;
+        }
 
         // Future-dated reference times: tolerate up to 15 minutes of clock skew
         // (common during South African loadshedding recovery when NTP hasn't synced).
@@ -167,16 +185,12 @@ impl OfflineCredential {
         let grace = self.custom_grace_period.unwrap_or(HOURS_24);
 
         if elapsed <= grace {
-            // Within grace period: full tier
             self.credential.tier
         } else if elapsed <= HOURS_72 {
-            // 24h-72h: drop one level
             self.credential.tier.degrade(1)
         } else if elapsed <= HOURS_168 {
-            // 72h-168h: drop two levels
             self.credential.tier.degrade(2)
         } else {
-            // >7 days: Observer only
             ConsciousnessTier::Observer
         }
     }
@@ -365,42 +379,60 @@ mod tests {
     }
 
     #[test]
-    fn attestation_overrides_self_reported() {
+    fn unverified_attestation_does_not_override_self_reported() {
         let cred = make_credential(ConsciousnessTier::Guardian, 0);
         let mut offline = OfflineCredential::new(cred);
-        // Self-reported: t=0. At t=48h, would degrade.
-        assert_eq!(
-            offline.effective_tier(48 * 3600 * 1_000_000),
-            ConsciousnessTier::Steward
-        );
-        // Add attestation at t=47h with signature
         offline.attestation = Some(FreshnessAttestation {
             attester_did: "did:mycelix:peer".into(),
             timestamp: 47 * 3600 * 1_000_000,
             tier_at_attestation: ConsciousnessTier::Guardian,
-            signature: vec![1], // non-empty = "signed"
+            signature: vec![1],
         });
-        // Now at t=48h, only 1h since attestation — full tier
+
         assert_eq!(
             offline.effective_tier(48 * 3600 * 1_000_000),
+            ConsciousnessTier::Steward
+        );
+    }
+
+    #[test]
+    fn verified_attestation_can_override_self_reported() {
+        let key = [99u8; 32];
+        let cred = make_credential(ConsciousnessTier::Guardian, 0);
+        let mut offline = OfflineCredential::new(cred);
+        let mut attestation = FreshnessAttestation {
+            attester_did: "did:mycelix:peer".into(),
+            timestamp: 47 * 3600 * 1_000_000,
+            tier_at_attestation: ConsciousnessTier::Guardian,
+            signature: vec![],
+        };
+        attestation.sign_blake3(&key);
+        offline.attestation = Some(attestation);
+
+        assert_eq!(
+            offline.effective_tier_with_attestation_key(
+                48 * 3600 * 1_000_000,
+                &key,
+            ),
             ConsciousnessTier::Guardian
         );
     }
 
     #[test]
-    fn unsigned_attestation_treated_as_self_reported() {
+    fn invalid_attestation_mac_treated_as_self_reported() {
         let cred = make_credential(ConsciousnessTier::Guardian, 0);
         let mut offline = OfflineCredential::new(cred);
-        // Add attestation at t=47h but with empty signature
         offline.attestation = Some(FreshnessAttestation {
             attester_did: "did:mycelix:peer".into(),
             timestamp: 47 * 3600 * 1_000_000,
             tier_at_attestation: ConsciousnessTier::Guardian,
-            signature: vec![], // unsigned
+            signature: vec![0; 32],
         });
-        // Should fall back to self-reported (t=0), so at t=48h: degraded
         assert_eq!(
-            offline.effective_tier(48 * 3600 * 1_000_000),
+            offline.effective_tier_with_attestation_key(
+                48 * 3600 * 1_000_000,
+                &[99u8; 32],
+            ),
             ConsciousnessTier::Steward
         );
     }
