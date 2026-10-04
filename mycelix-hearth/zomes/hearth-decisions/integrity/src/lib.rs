@@ -119,7 +119,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::StoreEntry(OpEntry::CreateEntry { app_entry, action }) => match app_entry {
             EntryTypes::Decision(decision) => {
                 validate_decision(&decision)?;
-                validate_decision_deadline(&decision, action.timestamp())
+                validate_decision_deadline(&decision, action.timestamp)
             }
             EntryTypes::Vote(vote) => validate_vote(&vote),
             EntryTypes::DecisionOutcome(outcome) => validate_outcome(&outcome),
