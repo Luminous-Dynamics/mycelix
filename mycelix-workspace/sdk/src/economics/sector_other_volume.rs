@@ -178,10 +178,9 @@ impl SectorOtherVolumeChangeMatrix {
             EconomicSector::Public,
             EconomicSector::External,
         ];
-        const INSTRUMENTS: [BalanceSheetInstrument; 3] = [
+        const INSTRUMENTS: [BalanceSheetInstrument; 2] = [
             BalanceSheetInstrument::Loans,
             BalanceSheetInstrument::Debt,
-            BalanceSheetInstrument::Equity,
         ];
 
         for sector in SECTORS {
@@ -200,6 +199,15 @@ impl SectorOtherVolumeChangeMatrix {
             }
         }
         Ok(())
+    }
+
+    /// Checked equity residual delta attributable to this other-volume projection.
+    ///
+    /// This is exposed for diagnostics but is not used by the stock-delta validator,
+    /// because other non-transaction changes (such as asset revaluation) may affect
+    /// total sector equity in the same period.
+    pub fn equity_delta(&self, sector: EconomicSector) -> Result<i128, String> {
+        self.expected_instrument_delta(sector, BalanceSheetInstrument::Equity)
     }
 
     /// Checked stock delta attributable to this other-volume projection.
@@ -327,16 +335,7 @@ mod tests {
         matrix
             .validate_against_balance_sheet_delta(&pre_sheet, &post_sheet)
             .unwrap();
-        assert_eq!(
-            post_sheet.sector_instrument_total(
-                EconomicSector::Bank,
-                BalanceSheetInstrument::Equity
-            ),
-            pre_sheet.sector_instrument_total(
-                EconomicSector::Bank,
-                BalanceSheetInstrument::Equity
-            )
-        );
+        assert_eq!(matrix.equity_delta(EconomicSector::Bank).unwrap(), 0);
     }
 
     #[test]
