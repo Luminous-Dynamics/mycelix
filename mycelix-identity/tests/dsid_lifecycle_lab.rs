@@ -4257,3 +4257,148 @@ async fn dsid_044_derived_credential_temporal_lineage_fails_closed() {
     );
 }
 
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_045_derived_credential_inherits_source_current_trust_state() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let issuer_app = conductor
+        .setup_app("dsid-derived-current-issuer", std::slice::from_ref(&dna))
+        .await
+        .unwrap();
+    let holder_app = conductor
+        .setup_app("dsid-derived-current-holder", std::slice::from_ref(&dna))
+        .await
+        .unwrap();
+
+    let issuer = issuer_app.cells()[0].clone();
+    let holder = holder_app.cells()[0].clone();
+    let issuer_did = format!("did:mycelix:{}", issuer_app.agent());
+    let holder_did = format!("did:mycelix:{}", holder_app.agent());
+
+    let _: Record = conductor
+        .call(&issuer.zome("did_registry"), "create_did", ())
+        .await;
+    let _: Record = conductor
+        .call(&holder.zome("did_registry"), "create_did", ())
+        .await;
+
+    let credential: Record = conductor
+        .call(
+            &issuer.zome("verifiable_credential"),
+            "issue_credential",
+            serde_json::json!({
+                "subject_did": holder_did.clone(),
+                "schema_id": "mycelix:schema:education:degree:v1",
+                "claims": {
+                    "degree": "DSID derived current-state"
+                },
+                "credential_types": ["QualificationCredential"],
+                "issuer_name": "DSID Current-State Issuer",
+                "expiration_days": 365,
+                "enable_revocation": true,
+                "strict_schema": false
+            }),
+        )
+        .await;
+
+    let credential_value: serde_json::Value = credential
+        .entry()
+        .to_app_option()
+        .unwrap()
+        .unwrap();
+    let credential_id = credential_value["id"]
+        .as_str()
+        .expect("source credential ID must exist")
+        .to_owned();
+
+    await_consistency(&[issuer.clone(), holder.clone()])
+        .await
+        .expect("source credential must reach holder");
+
+    let derived: Record = conductor
+        .call(
+            &holder.zome("verifiable_credential"),
+            "create_derived_credential",
+            serde_json::json!({
+                "credential_id": credential_id.clone(),
+                "selected_claims": ["degree"],
+                "expires_hours": 24
+            }),
+        )
+        .await;
+
+    let valid: serde_json::Value = conductor
+        .call(
+            &holder.zome("verifiable_credential"),
+            "verify_derived_credential",
+            derived.action_address(),
+        )
+        .await;
+    assert_eq!(
+        valid["valid"], true,
+        "derived credential must verify while its source issuer is active: {valid}"
+    );
+
+    let _: Record = conductor
+        .call(
+            &issuer.zome("did_registry"),
+            "deactivate_did",
+            "DSID source issuer deactivation",
+        )
+        .await;
+
+    await_consistency(&[issuer.clone(), holder.clone()])
+        .await
+        .expect("issuer deactivation must reach holder");
+
+    let invalid: serde_json::Value = conductor
+        .call(
+            &holder.zome("verifiable_credential"),
+            "verify_derived_credential",
+            derived.action_address(),
+        )
+        .await;
+    assert_eq!(
+        invalid["valid"], false,
+        "derived credential must fail when its source issuer is deactivated"
+    );
+    assert!(
+        invalid["errors"]
+            .as_array()
+            .is_some_and(|errors| errors.iter().any(|error| {
+                error.as_str() == Some("Original credential issuer DID is not active")
+            })),
+        "derived verification must expose the source issuer current-state failure: {invalid}"
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("issuer", issuer_app.agent().to_string());
+    agents.insert("holder", holder_app.agent().to_string());
+    emit_evidence(
+        "DSID-045",
+        "derived-credential-inherits-source-current-trust-state",
+        &dna,
+        agents,
+        &[&credential, &derived],
+        "A derived credential is not more authoritative than its source: source issuer deactivation invalidates the derived credential even when the historical source signature remains cryptographically sound.",
+        format!(
+            "valid_before_deactivation={} invalid_after_deactivation={} explicit_issuer_inactive_error={}",
+            valid["valid"] == true,
+            invalid["valid"] == false,
+            invalid["errors"].as_array().is_some_and(|errors| {
+                errors.iter().any(|error| {
+                    error.as_str() == Some("Original credential issuer DID is not active")
+                })
+            })
+        ),
+        valid["valid"] == true
+            && invalid["valid"] == false
+            && invalid["errors"].as_array().is_some_and(|errors| {
+                errors.iter().any(|error| {
+                    error.as_str() == Some("Original credential issuer DID is not active")
+                })
+            }),
+    );
+}
+
