@@ -200,6 +200,8 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
     for field in ("public_area_sha256", "source_sha256"):
         if not valid_hash(attributes_binding[field]):
             return result("DENY", "public-attributes-digest-invalid", {"field": field})
+    if attributes_binding["source_sha256"] != sha256_file(ATTRIBUTES_VERIFIER_SCRIPT):
+        return result("DENY", "public-attributes-verifier-source-mismatch")
     generated_attributes = run_public_attributes_verifier(attributes_binding)
     if generated_attributes.get("verifier_id") != ATTRIBUTES_VERIFIER_ID:
         return generated_attributes
@@ -257,6 +259,8 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
 
     if public_name.get("verifier_id") != "mycelix.tpm.public-name-coherence.v0.1":
         return result("DENY", "ak-public-name-verifier-id-mismatch")
+    if public_name.get("public_area_sha256") != ak["public_area_sha256"]:
+        return result("DENY", "ak-public-name-area-digest-mismatch")
     if not valid_hash(public_name.get("public_sha256")) or public_name["public_sha256"] != ak["public_sha256"]:
         return result("DENY", "ak-public-name-binding-public-digest-mismatch")
 
@@ -586,7 +590,7 @@ def self_test() -> int:
         return 1
 
     print("AK/EK lineage semantic corpus: PASS")
-    print("20 adversarial mutations plus canonical case: PASS")
+    print("27 adversarial mutations plus canonical case: PASS")
     print("Live/offline activation remains explicitly bounded")
     return 0
 
