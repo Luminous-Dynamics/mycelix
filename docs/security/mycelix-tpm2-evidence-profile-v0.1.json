@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "profile_id": "mycelix.security.tpm2.evidence.vptm",
+  "profile_version": "0.1.0",
+  "status": "executable-reference-profile",
+  "claim_ceiling": "ReferenceModelOnly",
+  "selected_implementation": {
+    "tpm": {
+      "implementation": "swtpm",
+      "version": "0.10.1",
+      "library_backend": "libtpms",
+      "library_version": "0.10.2",
+      "transport": "TCTI swtpm over local Unix-domain socket"
+    },
+    "tooling": {
+      "tpm2_tools": "5.8",
+      "hash_algorithm": "SHA-256"
+    },
+    "profile_basis": {
+      "tpm_library": "TCG TPM 2.0 Library Specification Version 185, March 2026",
+      "pc_client_tpm_profile": "TCG PC Client Platform TPM Profile for TPM 2.0 Version 1.07, March 23, 2026"
+    }
+  },
+  "important_scope": {
+    "platform_measurement": false,
+    "measured_boot": false,
+    "workload_measurement_pcr": 16,
+    "workload_pcr_semantics": "application-controlled fixture PCR extension; not a claim about PC-client boot PCR semantics",
+    "manufacturer_ek_trust": false,
+    "physical_tpm_security": false
+  },
+  "attestation_key": {
+    "hierarchy": "endorsement",
+    "algorithm": "RSA-2048",
+    "name_hash": "SHA-256",
+    "signing_scheme": "RSASSA-SHA256",
+    "persistent_handle": false,
+    "ek_certificate_required": false,
+    "ek_manufacturer_trust_established": false
+  },
+  "quote": {
+    "pcr_selection": "sha256:16",
+    "qualifying_data": "32-byte challenge nonce",
+    "freshness_rule": "quote is accepted only when qualifying data exactly equals the verifier challenge",
+    "required_output": [
+      "quote_message",
+      "quote_signature",
+      "quoted_pcr_values",
+      "attestation_key_public"
+    ]
+  },
+  "workload_measurement": {
+    "input": "exact UTF-8 workload-manifest bytes",
+    "digest": "SHA-256",
+    "pcr_extend": "PCR16 := SHA256(previous_PCR16 || workload_digest)",
+    "reference_check": "the captured post-extension PCR must equal the independently recomputed extend result"
+  },
+  "transport_boundary": {
+    "server_socket": "local Unix-domain socket",
+    "control_socket": "local Unix-domain socket",
+    "network_listener": false,
+    "state_lock": true,
+    "state_mode": "0600",
+    "state_fsync": true
+  },
+  "required_qualifications": [
+    "exact-tool-version-check",
+    "TPM2-quote-signature-verification",
+    "qualifying-data-nonce-binding",
+    "PCR-extension-reconstruction",
+    "PCR-substitution-negative",
+    "wrong-nonce-negative",
+    "state-restart-capture",
+    "evidence-envelope-provenance"
+  ],
+  "negative_cases": [
+    "wrong-nonce",
+    "quote-signature-tamper",
+    "quoted-PCR substitution",
+    "workload-digest substitution",
+    "second-extension invalidates previous PCR quote",
+    "verifier unavailable",
+    "wrong security-domain at Relying Party",
+    "valid quote without local resource authorization"
+  ],
+  "non_equivalences": [
+    ["TPM_present", "measured_boot_verified"],
+    ["TPM_quote_valid", "reference_values_approved"],
+    ["PCR_match", "full_platform_integrity"],
+    ["attestation_key_authenticated", "workload_authorized"],
+    ["vTPM_security", "physical_TPM_security"],
+    ["verified_evidence", "local_resource_authorization"]
+  ],
+  "standards": {
+    "rfc_9334": "https://www.rfc-editor.org/rfc/rfc9334.html",
+    "tcg_tpm_library": "https://trustedcomputinggroup.org/resource/tpm-library-specification/",
+    "tcg_pc_client_tpm_profile": "https://trustedcomputinggroup.org/resource/pc-client-platform-tpm-profile-ptp-specification/",
+    "tpm2_quote": "https://tpm2-tools.readthedocs.io/en/stable/man/tpm2_quote.1/",
+    "tpm2_checkquote": "https://tpm2-tools.readthedocs.io/en/latest/man/tpm2_checkquote.1/",
+    "tpm2_pcrextend": "https://tpm2-tools.readthedocs.io/en/latest/man/tpm2_pcrextend.1/"
+  }
+}
