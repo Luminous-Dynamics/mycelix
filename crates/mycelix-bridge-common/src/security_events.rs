@@ -845,7 +845,7 @@ mod tests {
         assert_eq!(decoded, event);
         assert_eq!(
             decoded.decision(),
-            &AuthorizationDecision::Deny(
+            &SecurityEventDecision::Deny(
                 crate::security_kernel::AuthorizationDenial::ActionNotGranted
             )
         );
