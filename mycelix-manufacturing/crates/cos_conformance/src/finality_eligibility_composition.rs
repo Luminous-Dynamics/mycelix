@@ -1339,7 +1339,11 @@ pub fn compose_finality_eligibility_from_authoritative_d6o(
             return None;
         };
 
-        if receipt.qualification_profile_id != lifecycle_profile.profile_id
+        if d6o_ledger
+            .eligibility_receipts
+            .get(&receipt.eligibility_id)
+            != Some(receipt)
+            || receipt.qualification_profile_id != lifecycle_profile.profile_id
             || !verify_eligibility_receipt_provenance(
                 receipt,
                 observation,
@@ -2064,7 +2068,48 @@ mod tests {
         };
         let mut receipt = receipt;
         receipt.eligibility_commitment = receipt.recomputed_commitment();
+        assert_eq!(
+            ledger.record_eligibility_receipt(receipt.clone()),
+            crate::observer_lifecycle::LifecycleRecordDispositionV1::Recorded
+        );
         (ledger, receipt)
+    }
+
+    #[test]
+    fn authoritative_d6o_boundary_rejects_unregistered_self_consistent_receipt() {
+        let generation = generation("observer-A");
+        let evidence = observation("obs-1", &generation, ExternalObservedStateV1::Applied);
+        let (mut ledger, receipt) = ledger_and_receipt(&generation, &evidence);
+        ledger.eligibility_receipts.clear();
+
+        let set = set(&["obs-1"]);
+        let assessment = d6n_assessment(
+            &set,
+            &[(
+                "obs-1".into(),
+                "observer-A".into(),
+                ObservationClassificationV1::CorroboratingIndependent,
+            )],
+        );
+
+        assert!(
+            receipt.commitment_matches(),
+            "the adversarial D6O receipt must remain internally self-consistent"
+        );
+        let rejected = compose_finality_eligibility_from_authoritative_d6o(
+            &set,
+            &assessment,
+            std::slice::from_ref(&evidence),
+            std::slice::from_ref(&receipt),
+            &lifecycle_profile(),
+            &ledger,
+            "frontier-1",
+            1,
+        );
+        assert!(
+            rejected.is_none(),
+            "authoritative D6O admission must require the exact receipt registered by the lifecycle ledger"
+        );
     }
 
     #[test]
