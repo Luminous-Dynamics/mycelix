@@ -37,7 +37,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # pinned action commit
         with:
-          toolchain: stable
+          toolchain: 1.99.0
 
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
@@ -147,6 +147,7 @@ jobs:
             "workflow": "${{ github.workflow }}",
             "workflow_file_blob_sha": "$(cat evidence/workflow-file-blob-sha.txt 2>/dev/null || printf %s null)",
             "workflow_action_refs": $workflow_action_refs,
+            "rust_toolchain_input": "1.99.0",
             "run_id": ${{ github.run_id }},
             "run_attempt": ${{ github.run_attempt }},
             "event": "${{ github.event_name }}",
@@ -172,6 +173,7 @@ jobs:
           assert envelope["claim_ceiling"] == "ReferenceModelOnly"
           assert envelope["workflow_action_refs"]
           assert all(sha_re.fullmatch(sha) for sha in envelope["workflow_action_refs"].values())
+          assert envelope["rust_toolchain_input"] == "1.99.0"
           assert sha_re.fullmatch(envelope["requested_head_sha"])
           assert sha_re.fullmatch(envelope["tested_commit_sha"])
           assert sha_re.fullmatch(envelope["workflow_file_blob_sha"])
