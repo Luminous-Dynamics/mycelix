@@ -90,7 +90,7 @@ fn authority_probe_zome(reached: Arc<AtomicUsize>) -> SweetInlineZomes {
                 EntryVisibility::Private,
                 Entry::CapGrant(CapGrantEntry {
                     tag: "d6u-probe".into(),
-                    access: (secret.clone(), agent).into(),
+                    access: (secret, agent).into(),
                     functions: GrantedFunctions::Listed(functions),
                 }),
                 ChainTopOrdering::default(),
@@ -105,6 +105,7 @@ fn authority_probe_zome(reached: Arc<AtomicUsize>) -> SweetInlineZomes {
         })
 }
 
+#[allow(clippy::too_many_arguments)]
 fn params<P: Serialize + std::fmt::Debug>(
     cell_id: &CellId,
     provenance: &AgentPubKey,
@@ -408,7 +409,7 @@ async fn d6u_runtime_authority_boundary() {
                 &bob,
                 SweetInlineZomes::COORDINATOR.into(),
                 "probe".into(),
-                Some(grant_material.secret.clone()),
+                Some(grant_material.secret),
                 base.clone(),
                 n,
                 exp,
