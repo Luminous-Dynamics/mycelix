@@ -24,8 +24,11 @@ jobs:
       - name: Checkout trusted policy root
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
-          ref: refs/heads/main
+          ref: ${{ github.workflow_sha }}
           persist-credentials: false
+
+      - name: Assert trusted workflow root
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_WORKFLOW_SHA"
 
       - name: Preflight trusted verifier
         run: python3 -m py_compile scripts/integral/verify_d6u_trusted_artifacts.py
