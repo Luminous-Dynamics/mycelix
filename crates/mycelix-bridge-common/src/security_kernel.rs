@@ -1193,10 +1193,12 @@ mod tests {
         let mut reader = BoundedSecurityReader::new(std::io::Cursor::new(input));
         let mut output = vec![0u8; MAX_SECURITY_WIRE_BYTES + 1];
 
-        let error = reader.read_exact(&mut output).unwrap_err();
-        assert_eq!(error.kind(), std::io::ErrorKind::InvalidData);
+        let bytes_read = reader.read(&mut output).unwrap();
+        assert_eq!(bytes_read, MAX_SECURITY_WIRE_BYTES);
         assert_eq!(reader.remaining, 0);
-        assert_eq!(output[..MAX_SECURITY_WIRE_BYTES], vec![b'x'; MAX_SECURITY_WIRE_BYTES]);
+
+        let error = reader.read(&mut output[..1]).unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::InvalidData);
     }
 
     #[test]

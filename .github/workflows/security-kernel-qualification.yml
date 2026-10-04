@@ -114,6 +114,17 @@ jobs:
             exit 1
           fi
 
+          for test_name in \
+            bounded_security_reader_accepts_exact_budget_and_then_eof \
+            bounded_security_reader_rejects_first_byte_over_budget \
+            bounded_security_reader_zero_length_read_does_not_consume_input; do
+            if ! rg -n "fn ${test_name}" crates/mycelix-bridge-common/src/security_kernel.rs; then
+              echo "security-kernel regression: direct bounded-reader contract test disappeared: $test_name" >&2
+              exit 1
+            fi
+          done
+
+
           # Capability and AuthorizationRequest must remain constructor-gated when decoded from wire data.
           # Capability and AuthorizationRequest wire schemas must reject unknown fields.
           for pattern in             '#\[derive\([^]]*Deserialize[^]]*\)\][[:space:]]*#\[serde\(deny_unknown_fields\)\][[:space:]]*struct (CapabilityWire|AuthorizationRequestWire)'; do
