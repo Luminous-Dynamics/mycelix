@@ -1,7 +1,7 @@
 {
   "profile": "D6U-RUNTIME-1",
   "kind": "holochain-0.7-authority-boundary-runtime-manifest",
-  "version": 4,
+  "version": 5,
   "substrate": {
     "holochain": "0.7.0",
     "hdk": "0.7.0",
@@ -101,6 +101,7 @@
   "supplemental_substrate_checks": [
     "future-expiry-rejection",
     "wrong-zome-routing",
-    "wrong-function-routing"
+    "wrong-function-routing",
+    "wrong-cell-routing"
   ]
 }
