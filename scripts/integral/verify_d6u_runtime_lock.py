@@ -2,6 +2,7 @@
 """Verify the resolved D6U substrate packages in the generated Cargo.lock."""
 
 import json
+import re
 import sys
 import tomllib
 from pathlib import Path
@@ -41,8 +42,9 @@ def main() -> None:
             assert package.get("source") == "registry+https://github.com/rust-lang/crates.io-index", (
                 f"Cargo.lock substrate package {package_name!r} must resolve from the crates.io index"
             )
-            assert package.get("checksum"), (
-                f"Cargo.lock substrate package {package_name!r} must include a checksum"
+            checksum = package.get("checksum", "")
+            assert re.fullmatch(r"[0-9a-f]{64}", checksum), (
+                f"Cargo.lock substrate package {package_name!r} must include a 64-hex checksum"
             )
 
     print(
