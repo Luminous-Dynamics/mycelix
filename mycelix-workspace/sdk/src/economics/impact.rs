@@ -695,6 +695,33 @@ mod tests {
     }
 
     #[test]
+    fn action_scoped_exposure_excludes_unrelated_restoration_obligation() {
+        let mut ledger = ImpactLedger::new();
+
+        let mut unrelated = depletion();
+        unrelated.id = "impact:other".into();
+        unrelated.action_ref = "action:other".into();
+        ledger.record_impact(unrelated).unwrap();
+        ledger
+            .attribute_impact(
+                "impact:other",
+                vec![attribution("actor:other", 10_000)],
+                Some("obligation:other".into()),
+                Some(5_000),
+            )
+            .unwrap();
+
+        let local = ledger.exposure_for_action("action:local");
+        assert!(local.open_impact_ids.is_empty());
+        assert!(local.remediation_impact_ids.is_empty());
+        assert!(local.blocking_obligation_ids.is_empty());
+
+        let other = ledger.exposure_for_action("action:other");
+        assert_eq!(other.remediation_impact_ids, vec!["impact:other"]);
+        assert_eq!(other.blocking_obligation_ids, vec!["obligation:other"]);
+    }
+
+    #[test]
     fn unknown_or_partial_attribution_cannot_close_depletion() {
         let mut ledger = ImpactLedger::new();
         ledger.record_impact(depletion()).unwrap();
