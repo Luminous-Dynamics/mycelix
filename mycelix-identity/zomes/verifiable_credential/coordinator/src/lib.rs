@@ -2753,6 +2753,27 @@ pub fn verify_selective_disclosure(
 }
 
 #[cfg(test)]
+#[test]
+fn w3c_assertion_binding_rejects_wrong_controller_key() {
+    let method = DidVerificationMethodProofMirror {
+        id: "did:mycelix:issuer#keys-1-multikey".into(),
+        type_: "Multikey".into(),
+        controller: "did:mycelix:other".into(),
+        public_key_multibase: "zKey".into(),
+    };
+    let doc = DidDocumentProofMirror {
+        id: "did:mycelix:issuer".into(),
+        verification_method: vec![method],
+        assertion_method: vec!["did:mycelix:issuer#keys-1-multikey".into()],
+    };
+    assert!(!validate_w3c_assertion_method_binding(
+        &doc,
+        "did:mycelix:issuer",
+        "did:mycelix:issuer#keys-1-multikey",
+        "zKey",
+    ));
+}
+
 mod tests {
     use super::*;
 
