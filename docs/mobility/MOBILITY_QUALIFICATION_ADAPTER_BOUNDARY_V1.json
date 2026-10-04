@@ -185,6 +185,7 @@
     "runtime_binding_witness_must_differ_from_authority_credential_witness": true,
     "provenance_witness_unique_per_registry_binding": true,
     "duplicate_provenance_witness_in_registry": "rejected",
+    "authority_agent_witness_cannot_be_reused_by_runtime_binding": true,
     "preflight_missing_is_not_protocol_unresolved": true,
     "missing_binding_stops_before_host_calls": true,
     "runtime_binding_payload_validation_precedes_authority_preflight": true
