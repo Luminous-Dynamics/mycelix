@@ -869,6 +869,12 @@ check_qualification_workflow_provenance() {
     fail=1
     return
   fi
+  if rg -n --fixed-strings "runs-on: ubuntu-24.04" "$workflow" >/dev/null 2>&1; then
+    echo "OK:   qualification workflow pins the GitHub-hosted runner image to Ubuntu 24.04"
+  else
+    echo "FAIL: qualification workflow must pin runs-on to ubuntu-24.04"
+    fail=1
+  fi
   if rg -n --fixed-strings "target_sha:" "$workflow" >/dev/null 2>&1 \
     && rg -n --fixed-strings 'ref: ${{ env.QUALIFY_SHA }}' "$workflow" >/dev/null 2>&1 \
     && rg -n --fixed-strings "git rev-parse HEAD" "$workflow" >/dev/null 2>&1; then
