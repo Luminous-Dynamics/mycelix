@@ -544,7 +544,7 @@ mod tests {
             "revision:2",
             EconomicActionStage::Tendering,
             EconomicActionChangeKind::Update,
-            "scope:2",
+            &scope("action:1", "scope:2"),
             "authority:dao-1",
             vec!["evidence:bad-change".into()],
             1_100,
@@ -628,7 +628,7 @@ mod tests {
             "revision:3",
             EconomicActionStage::Planning,
             EconomicActionChangeKind::Update,
-            "scope:1",
+            &scope("action:1", "scope:1"),
             "authority:dao-1",
             vec!["evidence:bad-regression".into()],
             1_200,
@@ -675,13 +675,34 @@ mod tests {
     }
 
     #[test]
+    fn same_scope_id_with_changed_contents_is_rejected() {
+        let mut lifecycle = start();
+        let mut changed = scope("action:1", "scope:1");
+        changed.authority_ref = "authority:changed".into();
+
+        let result = lifecycle.record(
+            "revision:2",
+            EconomicActionStage::Tendering,
+            EconomicActionChangeKind::Update,
+            &changed,
+            "authority:dao-1",
+            vec!["evidence:changed-scope".into()],
+            1_100,
+        );
+
+        assert!(result.is_err());
+        assert_eq!(lifecycle.revisions().len(), 1);
+        assert_eq!(lifecycle.active_scope_id(), "scope:1");
+    }
+
+    #[test]
     fn lifecycle_timestamps_are_monotonic() {
         let mut lifecycle = start();
         let result = lifecycle.record(
             "revision:2",
             EconomicActionStage::Tendering,
             EconomicActionChangeKind::Update,
-            "scope:1",
+            &scope("action:1", "scope:1"),
             "authority:dao-1",
             vec!["evidence:revision-2".into()],
             999,
