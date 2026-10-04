@@ -3,6 +3,8 @@
 **As of:** 2026-10-04  
 **Claim ceiling:** `ReferenceModelOnly`
 
+This is a point-in-time snapshot; PR heads below are the measured heads recorded when the snapshot was assembled.
+
 This index records the current executable/reference-model state of the sovereign enclave qualification program.
 
 ## Chain
@@ -16,7 +18,7 @@ This index records the current executable/reference-model state of the sovereign
 | #3994 | EAT measured component | `865d9cbc3712...` | **16/16** independent semantic vectors |
 | #3973 | protected release | `2127b5c3087f...` | **33/33** independent semantic vectors |
 | #3974 | comparative benchmark | `d387a233732c...` | **24/24** independent reference-model checks |
-| #4001 | policy enforcement decision | `12cff4a51f86...` | **24/24** independent decision-algebra vectors |
+| #4001 | policy enforcement decision | `a0e933ba6ecd...` | **24/24** independent decision-algebra vectors |
 
 ## Proven invariants
 
