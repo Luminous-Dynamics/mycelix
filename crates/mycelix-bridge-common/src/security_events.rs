@@ -383,10 +383,9 @@ mod tests {
 
     #[test]
     fn provenance_ref_deserialization_is_constructor_gated() {
-        let valid: ProvenanceRef = serde_json::from_str(
-            r#"{"artifact_id":"evidence:source-1","relation":"DerivedFrom"}"#,
-        )
-        .unwrap();
+        let valid: ProvenanceRef =
+            serde_json::from_str(r#"{"artifact_id":"evidence:source-1","relation":"DerivedFrom"}"#)
+                .unwrap();
         assert_eq!(valid.artifact_id, "evidence:source-1");
 
         let empty: Result<ProvenanceRef, _> =
