@@ -486,7 +486,7 @@ mod tests {
     use super::*;
     use crate::economics::sector_balance::SectorAssignment;
     use crate::economics::stock_flow::{
-        ActorBalanceSheet, CreditCreation, EconomicState, TradeCreditSale,
+        ActorBalanceSheet, CreditCreation, DebtWriteOff, EconomicState, TradeCreditSale,
         TradeCreditSettlement,
     };
     use crate::economics::transition::{apply_step, EconomicTransition};
@@ -627,6 +627,44 @@ mod tests {
     }
 
     #[test]
+    #[test]
+    fn closure_binds_debt_write_off_counterparts() {
+        let mut bank = ActorBalanceSheet::new("bank");
+        bank.monetary.claims = 100;
+        let mut firm = ActorBalanceSheet::new("firm");
+        firm.monetary.liabilities = 100;
+        let pre = EconomicState::new(vec![bank, firm]);
+
+        let transitions = vec![EconomicTransition::DebtWriteOff(
+            DebtWriteOff::new("bank", "firm", 40).unwrap(),
+        )];
+        let (post, _) = apply_step(&pre, 1, &transitions, None).unwrap();
+        let assignments = vec![
+            SectorAssignment {
+                actor: "bank".into(),
+                sector: EconomicSector::Bank,
+            },
+            SectorAssignment {
+                actor: "firm".into(),
+                sector: EconomicSector::Firm,
+            },
+        ];
+
+        let closure = EconomicAccountingClosure::validate_and_seal(
+            &pre,
+            &post,
+            &assignments,
+            &transitions,
+        )
+        .unwrap();
+
+        assert_eq!(post.debt_written_off, 40);
+        assert_eq!(closure.transition_count, 1);
+        closure
+            .verify_against(&pre, &post, &assignments, &transitions)
+            .unwrap();
+    }
+
     fn closure_self_verification_rejects_tampering() {
         let (pre, assignments, transitions, post) = fixture();
         let mut closure = EconomicAccountingClosure::validate_and_seal(
