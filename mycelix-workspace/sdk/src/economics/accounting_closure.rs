@@ -357,6 +357,16 @@ fn validate_projection_closure(
             aggregate.debt_written_off,
         ),
         (
+            "debt forgiven as lender",
+            sum_actor(actors, "debt forgiven as lender", |o| o.debt_forgiven_as_lender)?,
+            aggregate.debt_forgiven,
+        ),
+        (
+            "debt forgiven as borrower",
+            sum_actor(actors, "debt forgiven as borrower", |o| o.debt_forgiven_as_borrower)?,
+            aggregate.debt_forgiven,
+        ),
+        (
             "debt written off as borrower",
             sum_actor(actors, "debt written off as borrower", |o| o.debt_written_off_as_borrower)?,
             aggregate.debt_written_off,
@@ -468,6 +478,24 @@ fn validate_projection_closure(
                 |o| o.debt_written_off_as_lender,
             )?,
             aggregate.debt_written_off,
+        ),
+        (
+            "sector debt forgiven as lender",
+            sum_sector(
+                sectors,
+                "debt forgiven as lender",
+                |o| o.debt_forgiven_as_lender,
+            )?,
+            aggregate.debt_forgiven,
+        ),
+        (
+            "sector debt forgiven as borrower",
+            sum_sector(
+                sectors,
+                "debt forgiven as borrower",
+                |o| o.debt_forgiven_as_borrower,
+            )?,
+            aggregate.debt_forgiven,
         ),
         (
             "sector debt written off as borrower",
@@ -824,5 +852,34 @@ mod tests {
             &transitions,
         )
         .is_err());
+    }    #[test]
+    fn closure_binds_bilateral_forgiveness_across_all_layers() {
+        let mut bank = ActorBalanceSheet::new("bank");
+        bank.monetary.claims = 40;
+        let mut firm = ActorBalanceSheet::new("firm");
+        firm.monetary.liabilities = 40;
+        let pre = EconomicState::new(vec![bank, firm]);
+        let assignments = vec![
+            SectorAssignment { actor: "bank".into(), sector: EconomicSector::Bank },
+            SectorAssignment { actor: "firm".into(), sector: EconomicSector::Firm },
+        ];
+        let transitions = vec![EconomicTransition::DebtForgiveness(
+            crate::economics::stock_flow::DebtForgiveness::new("bank", "firm", 20).unwrap(),
+        )];
+        let (post, _) =
+            crate::economics::transition::apply_step(&pre, 1, &transitions, None).unwrap();
+
+        let closure = EconomicAccountingClosure::validate_and_seal(
+            &pre,
+            &post,
+            &assignments,
+            &transitions,
+        )
+        .unwrap();
+        closure
+            .verify_against(&pre, &post, &assignments, &transitions)
+            .unwrap();
     }
+
+
 }
