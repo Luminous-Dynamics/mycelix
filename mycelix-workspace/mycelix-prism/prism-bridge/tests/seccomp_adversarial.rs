@@ -908,9 +908,11 @@ fn thread_sync_strict_mode_child() -> ! {
 
     const SECCOMP_SET_MODE_STRICT: libc::c_uint = 0;
 
-    unsafe fn strict_exit(code: libc::c_int) -> ! {
-        libc::syscall(libc::SYS_exit, code);
-        std::hint::unreachable_unchecked();
+    fn strict_exit(code: libc::c_int) -> ! {
+        unsafe {
+            libc::syscall(libc::SYS_exit, code);
+        }
+        std::process::abort();
     }
 
     unsafe fn read_exact(fd: libc::c_int, bytes: &mut [u8]) -> bool {
