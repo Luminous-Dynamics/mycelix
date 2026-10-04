@@ -1292,7 +1292,7 @@ PY
 
       if [[ "$target_variant" == EntryTypes::* ]]; then
         target_name="${target_variant#*::}"
-        if printf '%s\n' "$dispatch_block" | rg -nU --pcre2 "\\bEntryTypes::${target_name}[[:space:]]*\\([^)]*\\)[[:space:]]*=>[[:space:]]*(\\{|)[^\\n]{0,400}\\b${dispatch_symbol}[[:space:]]*\\(" >/dev/null 2>&1; then
+        if printf '%s\n' "$dispatch_block" | rg -nU --pcre2 "\\bEntryTypes::${target_name}[[:space:]]*\\([^)]*\\)[[:space:]]*=>[[:space:]]*(?:\\{[[:space:]]*)?\\b${dispatch_symbol}[[:space:]]*\\(" >/dev/null 2>&1; then
           echo "OK:   $id dispatcher binds $target_variant to $dispatch_symbol"
         else
           echo "FAIL: $id dispatcher does not bind $target_variant to $dispatch_symbol"
