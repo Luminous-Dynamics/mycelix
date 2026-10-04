@@ -871,6 +871,137 @@ fn thread_sync_divergent_filter_child() -> ! {
 }
 
 #[cfg(target_os = "linux")]
+fn thread_sync_strict_mode_child() -> ! {
+    use prism_bridge::process::{RendererProcessAssignmentId, SandboxProfileV1};
+    use prism_bridge::seccomp::{install, SeccompArchitecture, SeccompError, SeccompSyscallPolicyV1};
+
+    const SECCOMP_SET_MODE_STRICT: libc::c_uint = 0;
+
+    unsafe fn read_exact(fd: libc::c_int, bytes: &mut [u8]) -> bool {
+        let mut offset = 0usize;
+        while offset < bytes.len() {
+            let rc = libc::syscall(
+                libc::SYS_read,
+                fd,
+                bytes[offset..].as_mut_ptr(),
+                bytes.len() - offset,
+            );
+            if rc <= 0 {
+                return false;
+            }
+            offset += rc as usize;
+        }
+        true
+    }
+
+    unsafe fn write_exact(fd: libc::c_int, bytes: &[u8]) -> bool {
+        let mut offset = 0usize;
+        while offset < bytes.len() {
+            let rc = libc::syscall(
+                libc::SYS_write,
+                fd,
+                bytes[offset..].as_ptr(),
+                bytes.len() - offset,
+            );
+            if rc <= 0 {
+                return false;
+            }
+            offset += rc as usize;
+        }
+        true
+    }
+
+    let architecture =
+        SeccompArchitecture::current().unwrap_or_else(|| unsafe { libc::_exit(200) });
+
+    let mut ready = [-1; 2];
+    let mut release = [-1; 2];
+    if unsafe { libc::pipe2(ready.as_mut_ptr(), libc::O_CLOEXEC) } != 0
+        || unsafe { libc::pipe2(release.as_mut_ptr(), libc::O_CLOEXEC) } != 0
+    {
+        unsafe { libc::_exit(201) };
+    }
+
+    let sibling_ready = ready[1];
+    let sibling_release = release[0];
+
+    std::thread::spawn(move || {
+        // Strict mode is a distinct kernel reason for TSYNC refusal from a
+        // divergent filter tree. After entry, only raw read/write/_exit are
+        // used, which are the operations permitted by SECCOMP_MODE_STRICT.
+        let rc = unsafe {
+            libc::syscall(
+                libc::SYS_seccomp,
+                SECCOMP_SET_MODE_STRICT,
+                0,
+                std::ptr::null::<libc::c_void>(),
+            )
+        };
+        if rc != 0 {
+            unsafe { libc::_exit(202) };
+        }
+
+        let byte = [1u8];
+        if !unsafe { write_exact(sibling_ready, &byte) } {
+            unsafe { libc::_exit(203) };
+        }
+
+        let mut release_byte = [0u8; 1];
+        if !unsafe { read_exact(sibling_release, &mut release_byte) } {
+            unsafe { libc::_exit(204) };
+        }
+
+        unsafe { libc::_exit(0) }
+    });
+
+    let mut ready_byte = [0u8; 1];
+    if !unsafe { read_exact(ready[0], &mut ready_byte) } {
+        unsafe { libc::_exit(205) };
+    }
+
+    let policy = SeccompSyscallPolicyV1::new(
+        architecture,
+        vec![
+            libc::SYS_getpid,
+            libc::SYS_read,
+            libc::SYS_write,
+            libc::SYS_exit_group,
+        ],
+    )
+    .unwrap_or_else(|_| unsafe { libc::_exit(206) });
+    let profile = SandboxProfileV1::renderer_default()
+        .with_syscall_policy_digest(policy.digest())
+        .unwrap_or_else(|_| unsafe { libc::_exit(207) });
+
+    let result = install(
+        RendererProcessAssignmentId::new(8).unwrap(),
+        profile,
+        &policy,
+    );
+
+    if !matches!(
+        result,
+        Err(SeccompError::InstallationFailed(errno)) if errno == libc::ESRCH
+    ) {
+        unsafe { libc::_exit(208) };
+    }
+
+    // Failed TSYNC must be atomic here too: the strict sibling stays strict,
+    // while the caller remains unrestricted and can execute getppid().
+    let caller_probe = unsafe { libc::syscall(libc::SYS_getppid) };
+    if caller_probe <= 0 {
+        unsafe { libc::_exit(209) };
+    }
+
+    let release_byte = [1u8];
+    if !unsafe { write_exact(release[1], &release_byte) } {
+        unsafe { libc::_exit(210) };
+    }
+
+    unsafe { libc::_exit(0) }
+}
+
+#[cfg(target_os = "linux")]
 #[test]
 fn seccomp_tsync_esrch_normalizes_divergent_filter_failure() {
     if std::env::var_os("PRISM_SECCOMP_DIVERGENT_TSYNC_CHILD").is_some() {
@@ -1055,6 +1186,28 @@ fn thread_sync_child() -> ! {
     }
 
     unsafe { libc::_exit(0) }
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn seccomp_tsync_esrch_normalizes_strict_mode_failure() {
+    if std::env::var_os("PRISM_SECCOMP_STRICT_TSYNC_CHILD").is_some() {
+        thread_sync_strict_mode_child();
+    }
+
+    let status = std::process::Command::new(std::env::current_exe().unwrap())
+        .arg("--exact")
+        .arg("seccomp_tsync_esrch_normalizes_strict_mode_failure")
+        .arg("--nocapture")
+        .env("RUST_TEST_THREADS", "1")
+        .env("PRISM_SECCOMP_STRICT_TSYNC_CHILD", "1")
+        .status()
+        .expect("failed to launch strict-mode TSYNC child");
+
+    assert!(
+        status.success(),
+        "strict-mode TSYNC child failed: {status}"
+    );
 }
 
 #[cfg(target_os = "linux")]
