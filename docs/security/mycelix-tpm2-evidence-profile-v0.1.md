@@ -159,7 +159,7 @@ The qualifier exits with:
 - `2` when the required TPM/vTPM toolchain is unavailable, which is **NOT EXECUTED** rather than PASS;
 - `1` for an executed qualification failure.
 
-The current development environment does not contain `swtpm` or `tpm2-tools`, so no physical or vTPM execution claim is made from this environment.
+The current development environment does not contain `swtpm` or `tpm2-tools`, so no physical or vTPM execution claim is made from this environment. When available, the qualifier also captures `swtpm --print-info` as provenance evidence; the selected libtpms version remains an external package/build provenance requirement.
 
 ## Next hardware transition
 
