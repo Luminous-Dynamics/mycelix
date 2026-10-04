@@ -301,6 +301,53 @@ impl ImpactLedger {
         Ok(())
     }
 
+    /// Return impact IDs linked to a specific action in deterministic order.
+    pub fn impact_ids_for_action(&self, action_ref: &str) -> Vec<String> {
+        if action_ref.trim().is_empty() {
+            return Vec::new();
+        }
+
+        self.impacts
+            .values()
+            .filter(|impact| impact.action_ref == action_ref)
+            .map(|impact| impact.id.clone())
+            .collect()
+    }
+
+    /// Verify that an action scope does not omit any known impact dimension.
+    ///
+    /// This protects the execution path against a caller declaring a narrower
+    /// scope than the impacts already recorded for the action. Unknown future
+    /// impacts still require ordinary evidence/discovery processes; this method
+    /// only makes the known-impacts boundary explicit and fail closed.
+    pub fn validate_action_scope(
+        &self,
+        action_ref: &str,
+        required_dimensions: &[SubstrateDimension],
+    ) -> Result<Vec<String>, String> {
+        if action_ref.trim().is_empty() {
+            return Err("Action reference cannot be empty".into());
+        }
+
+        let required: BTreeSet<SubstrateDimension> =
+            required_dimensions.iter().copied().collect();
+        if required.is_empty() {
+            return Err("Action scope must declare at least one substrate dimension".into());
+        }
+
+        let impact_ids = self.impact_ids_for_action(action_ref);
+        for impact in self.impacts.values().filter(|impact| impact.action_ref == action_ref) {
+            if !required.contains(&impact.dimension) {
+                return Err(format!(
+                    "Action scope omits known impact dimension {:?} for impact {}",
+                    impact.dimension, impact.id
+                ));
+            }
+        }
+
+        Ok(impact_ids)
+    }
+
     /// Challenge an impact while preserving its evidence and history.
     pub fn challenge_impact(&mut self, impact_id: &str) -> Result<(), String> {
         let impact = self
@@ -752,6 +799,34 @@ mod tests {
             ledger.gate(DistributionPurpose::Discretionary),
             ImpactGateDecision::Allowed
         );
+    }
+
+    #[test]
+    fn scope_validation_isolated_between_actions() {
+        let mut ledger = ImpactLedger::new();
+        ledger.record_impact(SubstrateImpact {
+            id: "impact-other-action".into(),
+            action_actor: "did:example:other".into(),
+            action_ref: "action:other".into(),
+            dimension: SubstrateDimension::Ecological,
+            unit: "m3".into(),
+            magnitude: 500,
+            direction: ImpactDirection::Depletion,
+            affected_ref: "river:other".into(),
+            attributions: vec![],
+            evidence_refs: vec!["evidence:other".into()],
+            status: ImpactStatus::Open,
+            obligation_id: None,
+            recorded_at: 1_000,
+        }).unwrap();
+
+        let result = ledger.validate_action_scope(
+            "action:1",
+            &[SubstrateDimension::Financial],
+        );
+
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_empty());
     }
 
     #[test]

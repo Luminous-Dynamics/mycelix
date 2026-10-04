@@ -23,6 +23,88 @@ use super::{
 };
 use serde::{Deserialize, Serialize};
 
+/// Versioned declaration of the integrity scope an action claims to operate under.
+///
+/// Scope is an explicit policy artifact, not an implicit argument assembled at
+/// each call site. The attestation reference can point to an externally signed
+/// or otherwise governed record; this reference model does not prescribe a
+/// particular signature system.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EconomicActionScope {
+    /// Stable scope declaration identifier.
+    pub scope_id: String,
+    /// Stable action/procurement/payment identifier.
+    pub action_ref: String,
+    /// Intended action purpose.
+    pub purpose: DistributionPurpose,
+    /// Required substrate dimensions, in strict canonical order.
+    pub required_dimensions: Vec<SubstrateDimension>,
+    /// Policy defining why these dimensions are in scope.
+    pub policy_ref: String,
+    /// Authority responsible for the scope declaration.
+    pub authority_ref: String,
+    /// External attestation/proof reference.
+    pub attestation_ref: String,
+    /// Evidence references supporting scope selection.
+    pub evidence_refs: Vec<String>,
+    /// Declaration timestamp.
+    pub declared_at: u64,
+}
+
+impl EconomicActionScope {
+    /// Validate the scope declaration without inventing missing policy.
+    pub fn validate(&self) -> Result<(), String> {
+        if self.scope_id.trim().is_empty() {
+            return Err("Economic scope ID cannot be empty".into());
+        }
+        if self.action_ref.trim().is_empty() {
+            return Err("Economic scope action reference cannot be empty".into());
+        }
+        if self.required_dimensions.is_empty() {
+            return Err("Economic scope requires at least one substrate dimension".into());
+        }
+        if self
+            .required_dimensions
+            .windows(2)
+            .any(|pair| pair[0] >= pair[1])
+        {
+            return Err(
+                "Economic scope dimensions must be strictly sorted and unique".into()
+            );
+        }
+        if self.policy_ref.trim().is_empty() {
+            return Err("Economic scope policy reference cannot be empty".into());
+        }
+        if self.authority_ref.trim().is_empty() {
+            return Err("Economic scope authority reference cannot be empty".into());
+        }
+        if self.attestation_ref.trim().is_empty() {
+            return Err("Economic scope attestation reference cannot be empty".into());
+        }
+        if self
+            .evidence_refs
+            .iter()
+            .any(|reference| reference.trim().is_empty())
+        {
+            return Err("Economic scope evidence references cannot be empty".into());
+        }
+        Ok(())
+    }
+}
+
+/// Auditable result of evaluating a declared action scope.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ScopedEconomicIntegrityAssessment {
+    /// Scope declaration identifier.
+    pub scope_id: String,
+    /// Action identifier covered by the scope.
+    pub action_ref: String,
+    /// Known impact IDs covered by the scope declaration.
+    pub covered_impact_ids: Vec<String>,
+    /// The underlying AC-017/AC-018 assessment.
+    pub assessment: EconomicIntegrityAssessment,
+}
+
 /// Combined result of evaluating both economic integrity layers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum EconomicIntegrityDecision {
@@ -107,6 +189,35 @@ impl EconomicIntegrityGate {
             impact,
             decision,
         }
+    }
+
+    /// Evaluate an explicitly attested action scope.
+    ///
+    /// The scope is validated first, then checked against known impacts for the
+    /// action. A known impacted dimension cannot be omitted from the declaration.
+    pub fn assess_scoped(
+        substrate: &SubstrateLedger,
+        impacts: &ImpactLedger,
+        scope: &EconomicActionScope,
+    ) -> Result<ScopedEconomicIntegrityAssessment, String> {
+        scope.validate()?;
+
+        let covered_impact_ids =
+            impacts.validate_action_scope(&scope.action_ref, &scope.required_dimensions)?;
+
+        let assessment = Self::assess(
+            substrate,
+            impacts,
+            &scope.required_dimensions,
+            scope.purpose,
+        );
+
+        Ok(ScopedEconomicIntegrityAssessment {
+            scope_id: scope.scope_id.clone(),
+            action_ref: scope.action_ref.clone(),
+            covered_impact_ids,
+            assessment,
+        })
     }
 
     /// Combine independently evaluated decisions without losing their detail.
@@ -228,6 +339,89 @@ mod tests {
             )
             .unwrap();
         ledger
+    }
+
+    fn valid_scope(action_ref: &str, purpose: DistributionPurpose) -> EconomicActionScope {
+        EconomicActionScope {
+            scope_id: "scope-1".into(),
+            action_ref: action_ref.into(),
+            purpose,
+            required_dimensions: vec![SubstrateDimension::Financial, SubstrateDimension::Ecological],
+            policy_ref: "policy:scope-v1".into(),
+            authority_ref: "authority:dao-1".into(),
+            attestation_ref: "attestation:scope-1".into(),
+            evidence_refs: vec!["evidence:scope-1".into()],
+            declared_at: 1_000,
+        }
+    }
+
+    #[test]
+    fn scoped_assessment_preserves_scope_and_known_impact_coverage() {
+        let substrate = warning_substrate();
+        let impacts = {
+            let mut ledger = ImpactLedger::new();
+            ledger.record_impact(open_depletion()).unwrap();
+            ledger
+        };
+        let assessment = EconomicIntegrityGate::assess_scoped(
+            &substrate,
+            &impacts,
+            &valid_scope("action:1", DistributionPurpose::Discretionary),
+        )
+        .unwrap();
+
+        assert_eq!(assessment.scope_id, "scope-1");
+        assert_eq!(assessment.action_ref, "action:1");
+        assert_eq!(assessment.covered_impact_ids, vec!["impact-1"]);
+        assert_eq!(
+            assessment.assessment.decision,
+            EconomicIntegrityDecision::InsufficientEvidence
+        );
+    }
+
+    #[test]
+    fn scoped_assessment_rejects_omitted_known_impact_dimension() {
+        let substrate = healthy_substrate();
+        let mut impacts = ImpactLedger::new();
+        impacts.record_impact(open_depletion()).unwrap();
+
+        let mut scope = valid_scope("action:1", DistributionPurpose::Discretionary);
+        scope.required_dimensions = vec![SubstrateDimension::Financial];
+
+        let result = EconomicIntegrityGate::assess_scoped(&substrate, &impacts, &scope);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .contains("omits known impact dimension"));
+    }
+
+    #[test]
+    fn malformed_scope_is_rejected_before_assessment() {
+        let substrate = healthy_substrate();
+        let impacts = ImpactLedger::new();
+        let mut scope = valid_scope("action:empty", DistributionPurpose::Discretionary);
+        scope.attestation_ref.clear();
+
+        let result = EconomicIntegrityGate::assess_scoped(&substrate, &impacts, &scope);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("attestation reference"));
+    }
+
+    #[test]
+    fn scope_dimension_order_is_semantically_strict() {
+        let mut scope = valid_scope("action:order", DistributionPurpose::Discretionary);
+        scope.required_dimensions = vec![
+            SubstrateDimension::Ecological,
+            SubstrateDimension::Financial,
+        ];
+
+        assert!(scope.validate().is_err());
+
+        scope.required_dimensions = vec![
+            SubstrateDimension::Financial,
+            SubstrateDimension::Financial,
+        ];
+        assert!(scope.validate().is_err());
     }
 
     #[test]
