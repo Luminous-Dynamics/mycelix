@@ -41,7 +41,18 @@ def build_bundle(bundle: Path) -> dict:
         encoding="utf-8",
     )
     (bundle / "trusted-time.json").write_text(
-        '{"available":true,"policy_trusted":true,"local_clock_only":false}\n',
+        json.dumps(
+            {
+                "source_id": "mycelix.reference-model.trusted-time",
+                "asserted_unix": 1800000000,
+                "valid_until_unix": 1800000060,
+                "nonce_sha256": hashlib.sha256(b"external-verifier-nonce-v1").hexdigest(),
+                "policy_trusted": True,
+                "local_clock_only": False,
+            },
+            indent=2,
+            sort_keys=True,
+        ) + "\n",
         encoding="utf-8",
     )
     (bundle / "nonce.bin").write_bytes(b"external-verifier-nonce-v1")
@@ -170,6 +181,29 @@ def build_bundle(bundle: Path) -> dict:
         raise RuntimeError(reference_proc.stdout + reference_proc.stderr)
     reference_appraisal = json.loads(reference_appraisal_path.read_text(encoding="utf-8"))
 
+    time_appraisal_path = bundle / "time-appraisal.json"
+    time_proc = subprocess.run(
+        [
+            sys.executable,
+            str(SECURITY / "verify_mycelix_trusted_time_appraisal_v0_1.py"),
+            "--appraise",
+            str(bundle / "trusted-time.json"),
+            "--nonce-file",
+            str(bundle / "nonce.bin"),
+            "--now-unix",
+            "1800000030",
+            "--output",
+            str(time_appraisal_path),
+        ],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if time_proc.returncode != 0:
+        raise RuntimeError(time_proc.stdout + time_proc.stderr)
+    time_appraisal = json.loads(time_appraisal_path.read_text(encoding="utf-8"))
+
     values = reconstruction["observed_pcr_values"]
     (bundle / "pcr-post.yaml").write_text(
         "sha256:\n" + "".join(
@@ -229,6 +263,17 @@ def build_bundle(bundle: Path) -> dict:
         ),
         "input_sha256": platform.sha256_file(bundle / "reference-values.json"),
     }
+    manifest["time_appraisal"] = {
+        "status": time_appraisal["state"],
+        "output_sha256": platform.sha256_file(time_appraisal_path),
+        "source_sha256": platform.sha256_file(
+            SECURITY / "verify_mycelix_trusted_time_appraisal_v0_1.py"
+        ),
+        "registry_sha256": platform.sha256_file(
+            ROOT / "docs/security/mycelix-trusted-time-registry-v0.1.json"
+        ),
+        "input_sha256": platform.sha256_file(bundle / "trusted-time.json"),
+    }
     manifest["live_observation"]["selection"] = reconstruction["pcr_selection"]
     manifest["live_observation"]["pcr_values_sha256"] = reconstruction["observed_pcrs_sha256"]
     manifest["live_observation"]["pcr_post_artifact_sha256"] = platform.sha256_file(bundle / "pcr-post.yaml")
@@ -250,6 +295,7 @@ def build_bundle(bundle: Path) -> dict:
     manifest["artifacts"]["raw_eventlog_output_sha256"] = platform.sha256_file(raw_eventlog_path)
     manifest["artifacts"]["payload_coherence_output_sha256"] = platform.sha256_file(payload_coherence_path)
     manifest["artifacts"]["reference_appraisal_output_sha256"] = platform.sha256_file(reference_appraisal_path)
+    manifest["artifacts"]["time_appraisal_output_sha256"] = platform.sha256_file(time_appraisal_path)
     manifest["artifacts"]["raw_eventlog_output_sha256"] = platform.sha256_file(raw_eventlog_path)
     manifest["artifacts"]["payload_coherence_output_sha256"] = platform.sha256_file(payload_coherence_path)
     manifest["artifacts"]["tss_version_evidence_sha256"] = platform.sha256_file(bundle / "tss-version-evidence.txt")
