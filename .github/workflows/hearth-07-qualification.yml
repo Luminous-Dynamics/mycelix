@@ -92,11 +92,22 @@ jobs:
             echo "OK: submodule $submodule_path matches gitlink $gitlink_sha"
           done < qualification-submodules.txt
 
+      - name: Fetch and verify pinned Nix installer
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/nix-installer
+          curl --fail --silent --show-error --location             https://github.com/NixOS/nix-installer/releases/download/2.35.2/nix-installer-x86_64-linux             --output /tmp/nix-installer/nix-installer-x86_64-linux
+          printf '%s  %s\n'             '5448a1cd70ad945cb4d36365defbaf3731eba38e23859f3dc8bd7418e1946acc'             '/tmp/nix-installer/nix-installer-x86_64-linux' |
+            sha256sum --check --status -
+          chmod +x /tmp/nix-installer/nix-installer-x86_64-linux
+          echo "OK: Nix installer x86_64-linux 2.35.2 matches the pinned SHA-256"
+
       - uses: NixOS/nix-installer-action@62c1943b776c509394b550f3f983adc14e9212d6
         with:
-          # Pin the NixOS-maintained installer action and its embedded Nix
-          # release; neither uses the ambient GitHub token for installation.
-          installer-version: "2.35.1"
+          # Reuse the exact binary whose release digest was verified above.
+          dogfood: "true"
+          dogfood-path: "/tmp/nix-installer"
 
       - name: Verify Nix credential isolation
         run: |
