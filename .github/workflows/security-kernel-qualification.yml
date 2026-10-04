@@ -220,6 +220,16 @@ jobs:
             echo "security-event regression: provenance wire sequence lost bounded deserialization" >&2
             exit 1
           fi
+          if ! rg -nU 'pub[[:space:]]+enum[[:space:]]+SecurityEventDecision' crates/mycelix-bridge-common/src/security_events.rs; then
+            echo "security-event regression: SecurityEventDecision vocabulary disappeared" >&2
+            exit 1
+          fi
+
+          if ! rg -nU 'decision:[[:space:]]*SecurityEventDecision' crates/mycelix-bridge-common/src/security_events.rs; then
+            echo "security-event regression: SecurityEvent no longer uses the audit decision vocabulary" >&2
+            exit 1
+          fi
+
           if ! rg -n 'deserialize_optional_provenance_identifier' crates/mycelix-bridge-common/src/security_events.rs; then
             echo "security-event regression: recovery correlation bounded deserializer disappeared" >&2
             exit 1
