@@ -36,6 +36,8 @@ impl EconomicTransition {
     /// This is the single canonical mutation dispatcher used by execution and
     /// observation replay so those paths cannot silently diverge in the future.
     pub(crate) fn apply_to_state(&self, state: &mut EconomicState) -> Result<(), String> {
+        self.validate()?;
+
         match self {
             Self::MonetaryTransfer(flow) => state.apply_flow(flow),
             Self::IncomeTransfer(flow) => state.apply_income_transfer(flow),
@@ -412,6 +414,9 @@ mod tests {
             amount: 0,
         });
         assert!(transition.validate().is_err());
+
+        let mut state = initial_state();
+        assert!(transition.apply_to_state(&mut state).is_err());
     }
 
     #[test]
