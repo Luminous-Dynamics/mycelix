@@ -616,7 +616,9 @@ pub fn retrieve_one(
 pub fn retrieve_resolved(
     dependencies: &[ResolvedHolochainDependency],
 ) -> ExternResult<Vec<HolochainRetrievedDependency>> {
-    dependencies.iter().map(retrieve_one).collect()
+    let mut canonical = dependencies.to_vec();
+    canonical.sort_by(|left, right| left.identity.cmp(&right.identity));
+    canonical.iter().map(retrieve_one).collect()
 }
 
 /// Map the pure decision or an adapter-side semantic-invalidity finding into
@@ -2099,6 +2101,45 @@ mod tests {
         let _ = set_hdi(ErrHdi);
 
         assert!(result.is_err(), "host signature verification failure must remain an ExternResult error");
+    }
+
+    #[test]
+    fn retrieve_resolved_canonicalizes_caller_supplied_order() {
+        let mut bindings = HolochainDependencyBindingSet::new();
+        for (value, byte) in [("b", 62u8), ("a", 61u8), ("c", 63u8)] {
+            bindings
+                .bind_for_test(
+                    identity(value),
+                    HolochainDependencyAddress::Action(action_hash(byte)),
+                    QualificationDependencyRetrievalKind::Action,
+                )
+                .unwrap();
+        }
+
+        let QualificationDecision::Valid(resolved) =
+            bindings.resolve_required(vec![identity("c"), identity("b"), identity("a")])
+        else {
+            panic!("bindings should resolve");
+        };
+
+        let reversed: Vec<_> = resolved.into_iter().rev().collect();
+        let mut canonical = reversed.clone();
+        canonical.sort_by(|left, right| left.identity.cmp(&right.identity));
+
+        assert_eq!(
+            canonical
+                .iter()
+                .map(|dependency| dependency.identity.id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["a", "b", "c"]
+        );
+        assert_eq!(
+            reversed
+                .iter()
+                .map(|dependency| dependency.identity.id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["a", "b", "c"].into_iter().rev().collect::<Vec<_>>()
+        );
     }
 
     #[test]
