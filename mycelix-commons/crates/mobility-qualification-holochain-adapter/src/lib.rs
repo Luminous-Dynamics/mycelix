@@ -613,11 +613,18 @@ pub fn retrieve_one(
 /// Call this only after resolve_required returned Valid. An unbound logical
 /// identity has no protocol address and therefore cannot be represented as a
 /// Holochain unresolved-hash dependency yet.
+fn canonicalize_retrieval_order(
+    dependencies: &[ResolvedHolochainDependency],
+) -> Vec<ResolvedHolochainDependency> {
+    let mut canonical = dependencies.to_vec();
+    canonical.sort_by(|left, right| left.identity.cmp(&right.identity));
+    canonical
+}
+
 pub fn retrieve_resolved(
     dependencies: &[ResolvedHolochainDependency],
 ) -> ExternResult<Vec<HolochainRetrievedDependency>> {
-    let mut canonical = dependencies.to_vec();
-    canonical.sort_by(|left, right| left.identity.cmp(&right.identity));
+    let canonical = canonicalize_retrieval_order(dependencies);
     canonical.iter().map(retrieve_one).collect()
 }
 
@@ -2123,8 +2130,7 @@ mod tests {
         };
 
         let reversed: Vec<_> = resolved.into_iter().rev().collect();
-        let mut canonical = reversed.clone();
-        canonical.sort_by(|left, right| left.identity.cmp(&right.identity));
+        let canonical = canonicalize_retrieval_order(&reversed);
 
         assert_eq!(
             canonical
@@ -2138,8 +2144,9 @@ mod tests {
                 .iter()
                 .map(|dependency| dependency.identity.id.as_str())
                 .collect::<Vec<_>>(),
-            vec!["a", "b", "c"].into_iter().rev().collect::<Vec<_>>()
+            vec!["c", "b", "a"]
         );
+        assert_ne!(canonical, reversed);
     }
 
     #[test]
