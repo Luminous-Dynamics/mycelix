@@ -97,7 +97,6 @@ pub struct SecurityEvent {
     /// that qualified a successful enforcement request.
     #[serde(default)]
     authority_binding: Option<[u8; 32]>,
-    #[serde(deserialize_with = "deserialize_provenance_refs")]
     provenance: Vec<ProvenanceRef>,
     recovery_correlation: Option<String>,
 }
@@ -153,6 +152,7 @@ struct SecurityEventWire {
     capability_binding: Option<[u8; 32]>,
     #[serde(default)]
     authority_binding: Option<[u8; 32]>,
+    #[serde(deserialize_with = "deserialize_provenance_refs")]
     provenance: Vec<ProvenanceRef>,
     recovery_correlation: Option<String>,
 }

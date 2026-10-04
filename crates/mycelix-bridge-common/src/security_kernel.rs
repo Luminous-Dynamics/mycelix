@@ -44,7 +44,6 @@ pub struct Capability {
     subject: String,
     issuer: String,
     resource: String,
-    #[serde(deserialize_with = "deserialize_capability_actions")]
     actions: Vec<CapabilityAction>,
     not_before_us: u64,
     expires_at_us: u64,
@@ -57,6 +56,7 @@ struct CapabilityWire {
     subject: String,
     issuer: String,
     resource: String,
+    #[serde(deserialize_with = "deserialize_capability_actions")]
     actions: Vec<CapabilityAction>,
     not_before_us: u64,
     expires_at_us: u64,

@@ -121,10 +121,38 @@ jobs:
           fi
 
           # Untrusted sequence lengths must be bounded before the kernel retains them.
-          if ! rg -n 'deserialize_with[[:space:]]*=[[:space:]]*"deserialize_capability_actions"' crates/mycelix-bridge-common/src/security_kernel.rs; then
-            echo "security-kernel regression: capability action wire sequence lost bounded deserialization" >&2
-            exit 1
-          fi
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          kernel = Path("crates/mycelix-bridge-common/src/security_kernel.rs").read_text()
+          events = Path("crates/mycelix-bridge-common/src/security_events.rs").read_text()
+
+          capability_wire = re.search(
+              r"struct CapabilityWire\s*\{(?P<body>.*?)\n\}",
+              kernel,
+              re.DOTALL,
+          )
+          if not capability_wire or not re.search(
+              r'#\[serde\(deserialize_with\s*=\s*"deserialize_capability_actions"\)\]\s*'
+              r'actions:\s*Vec<CapabilityAction>',
+              capability_wire.group("body"),
+          ):
+              raise SystemExit("security-kernel regression: bounded action deserializer is not attached to CapabilityWire")
+
+          security_event_wire = re.search(
+              r"struct SecurityEventWire\s*\{(?P<body>.*?)\n\}",
+              events,
+              re.DOTALL,
+          )
+          if not security_event_wire or not re.search(
+              r'#\[serde\(deserialize_with\s*=\s*"deserialize_provenance_refs"\)\]\s*'
+              r'provenance:\s*Vec<ProvenanceRef>',
+              security_event_wire.group("body"),
+          ):
+              raise SystemExit("security-event regression: bounded provenance deserializer is not attached to SecurityEventWire")
+          PY
+
           if ! rg -n 'MAX_CAPABILITY_ACTIONS' crates/mycelix-bridge-common/src/security_kernel.rs; then
             echo "security-kernel regression: capability action limit disappeared" >&2
             exit 1
