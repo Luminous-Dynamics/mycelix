@@ -120,7 +120,7 @@ jobs:
             exit 1
           fi
 
-          # Untrusted sequence lengths must be bounded before the kernel retains them.
+          # Untrusted wire sequences and security identifiers must be bounded before the kernel retains them.
           python3 - <<'PY'
           from pathlib import Path
           import re
@@ -142,7 +142,7 @@ jobs:
 
           def require_wire_decoder(text, struct_name, fields, decoder):
               match = re.search(
-                  rf"struct {struct_name}\\s*\\{{(?P<body>.*?)\\n\\}}",
+                  rf"struct {struct_name}\s*\{{(?P<body>.*?)\n\}}",
                   text,
                   re.DOTALL,
               )
