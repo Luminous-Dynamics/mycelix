@@ -14,6 +14,7 @@ use super::{
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::collections::BTreeSet;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum EconomicEvaluationKind {
@@ -35,15 +36,28 @@ pub enum EconomicMeasurementStatus {
     Invalidated,
 }
 
+/// A forecast target with its native reporting unit.
+///
+/// Units are descriptive evidence, not a conversion or valuation rule.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EconomicOutcomeTarget {
+    pub target_ref: String,
+    pub native_unit: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EconomicOutcomeEvaluation {
     pub evaluation_id: String,
     pub kind: EconomicEvaluationKind,
     pub analysis: EconomicAnalysisBinding,
     pub scenario: Option<EconomicScenarioBinding>,
-    pub target_refs: Vec<String>,
+    pub targets: Vec<EconomicOutcomeTarget>,
     pub outcome_snapshot_fingerprint: String,
+    /// Latest information timestamp permitted to contribute to the evaluated claim.
     pub information_cutoff_at: u64,
+    /// Start and end of the forecast/scenario evaluation horizon.
+    pub horizon_start_at: u64,
+    pub horizon_end_at: u64,
     pub outcome_captured_at: u64,
     pub evaluation_at: u64,
     pub outcome_influence: EconomicOutcomeInfluence,
@@ -66,7 +80,27 @@ impl EconomicOutcomeEvaluation {
                 return Err(format!("Economic outcome evaluation {name} fingerprint must be a 64-character hexadecimal SHA-256"));
             }
         }
-        validate_unique_nonempty_refs("target", &self.target_refs, true)?;
+        if self.targets.is_empty() {
+            return Err("Economic outcome evaluation requires at least one target".into());
+        }
+        let mut target_refs = BTreeSet::new();
+        for target in &self.targets {
+            if target.target_ref.trim().is_empty() {
+                return Err("Economic outcome evaluation target references cannot be empty".into());
+            }
+            if target.native_unit.trim().is_empty() {
+                return Err(format!(
+                    "Economic outcome evaluation native unit cannot be empty for target: {}",
+                    target.target_ref
+                ));
+            }
+            if !target_refs.insert(&target.target_ref) {
+                return Err(format!(
+                    "Duplicate economic outcome evaluation target reference: {}",
+                    target.target_ref
+                ));
+            }
+        }
         validate_unique_nonempty_refs("intervention", &self.intervention_refs, false)?;
         validate_unique_nonempty_refs("governance decision", &self.governance_decision_refs, false)?;
         validate_unique_nonempty_refs("uncertainty", &self.uncertainty_refs, false)?;
@@ -75,8 +109,19 @@ impl EconomicOutcomeEvaluation {
         if self.evaluation_at < self.outcome_captured_at {
             return Err("Economic outcome evaluation time cannot precede outcome capture time".into());
         }
-        if self.information_cutoff_at > self.outcome_captured_at {
-            return Err("Economic outcome evaluation information cutoff cannot follow outcome capture time".into());
+        if self.horizon_end_at < self.horizon_start_at {
+            return Err("Economic outcome evaluation horizon-end cannot precede horizon-start".into());
+        }
+        if self.information_cutoff_at > self.horizon_start_at {
+            return Err(
+                "Economic outcome evaluation information cutoff cannot follow horizon start"
+                    .into(),
+            );
+        }
+        if self.outcome_captured_at < self.horizon_start_at {
+            return Err(
+                "Economic outcome evaluation outcome capture cannot precede horizon start".into(),
+            );
         }
 
         if self.outcome_influence == EconomicOutcomeInfluence::NoKnownIntervention
@@ -108,6 +153,36 @@ impl EconomicOutcomeEvaluation {
             return Err(
                 "InfluenceUnknown must carry uncertainty or missing-data evidence".into(),
             );
+        }
+        match self.measurement_status {
+            EconomicMeasurementStatus::Complete => {
+                if !self.missing_data_refs.is_empty() {
+                    return Err(
+                        "Complete measurement cannot carry missing-data references".into(),
+                    );
+                }
+                if self.outcome_captured_at < self.horizon_end_at {
+                    return Err(
+                        "Complete measurement requires outcome capture at or after horizon end"
+                            .into(),
+                    );
+                }
+            }
+            EconomicMeasurementStatus::PartiallyObserved => {
+                if self.missing_data_refs.is_empty() {
+                    return Err(
+                        "PartiallyObserved measurement requires missing-data evidence".into(),
+                    );
+                }
+            }
+            EconomicMeasurementStatus::Invalidated => {
+                if self.uncertainty_refs.is_empty() && self.missing_data_refs.is_empty() {
+                    return Err(
+                        "Invalidated measurement requires uncertainty or missing-data evidence"
+                            .into(),
+                    );
+                }
+            }
         }
         Ok(())
     }
@@ -150,6 +225,11 @@ impl EconomicOutcomeEvaluation {
         if analysis.generated_at > self.outcome_captured_at {
             return Err("Economic analysis was generated after the evaluated outcome was captured".into());
         }
+        if analysis.generated_at > self.horizon_start_at {
+            return Err(
+                "Economic analysis was generated after the evaluation horizon started".into(),
+            );
+        }
         match (&self.scenario, &analysis.scenario) {
             (Some(evaluation), Some(analysis_scenario)) if evaluation == analysis_scenario => {}
             (Some(_), Some(_)) => return Err("Economic outcome evaluation scenario does not match analysis scenario".into()),
@@ -164,12 +244,12 @@ impl EconomicOutcomeEvaluation {
 
     pub fn fingerprint(&self) -> Result<String, String> {
         self.validate()?;
-        let mut target_refs = self.target_refs.clone();
+        let mut targets = self.targets.clone();
         let mut intervention_refs = self.intervention_refs.clone();
         let mut governance_decision_refs = self.governance_decision_refs.clone();
         let mut uncertainty_refs = self.uncertainty_refs.clone();
         let mut missing_data_refs = self.missing_data_refs.clone();
-        target_refs.sort();
+        targets.sort_by_key(|target| (target.target_ref.clone(), target.native_unit.clone()));
         intervention_refs.sort();
         governance_decision_refs.sort();
         uncertainty_refs.sort();
@@ -180,7 +260,7 @@ impl EconomicOutcomeEvaluation {
             "kind": self.kind,
             "analysis": self.analysis,
             "scenario": self.scenario,
-            "target_refs": target_refs,
+            "targets": targets,
             "outcome_snapshot_fingerprint": self.outcome_snapshot_fingerprint,
             "information_cutoff_at": self.information_cutoff_at,
             "outcome_captured_at": self.outcome_captured_at,
@@ -255,8 +335,14 @@ mod tests {
             },
             scenario: None,
             target_refs: vec!["target:gdp-growth".into()],
+            targets: vec![EconomicOutcomeTarget {
+                target_ref: "target:gdp-growth".into(),
+                native_unit: "percent-per-year".into(),
+            }],
             outcome_snapshot_fingerprint: "c".repeat(64),
             information_cutoff_at: 900,
+            horizon_start_at: 1_100,
+            horizon_end_at: 1_400,
             outcome_captured_at: 1_500,
             evaluation_at: 1_600,
             outcome_influence: EconomicOutcomeInfluence::NoKnownIntervention,
@@ -325,6 +411,73 @@ mod tests {
     #[test] fn post_outcome_analysis_is_rejected() {
         let mut value=evaluation();
         value.outcome_captured_at=900;
+        assert!(value.validate_against_analysis(&analysis()).is_err());
+    }
+
+
+    #[test]
+    fn target_native_units_are_required_and_identity_bearing() {
+        let mut value = evaluation();
+        value.targets[0].native_unit = "index-points".into();
+        assert_ne!(evaluation().fingerprint().unwrap(), value.fingerprint().unwrap());
+
+        value.targets[0].native_unit.clear();
+        assert!(value.validate().is_err());
+    }
+
+    #[test]
+    fn duplicate_targets_are_rejected() {
+        let mut value = evaluation();
+        value.targets.push(value.targets[0].clone());
+        assert!(value.validate().is_err());
+    }
+
+    #[test]
+    fn horizon_and_information_boundary_are_fail_closed() {
+        let mut value = evaluation();
+        value.horizon_end_at = value.horizon_start_at - 1;
+        assert!(value.validate().is_err());
+
+        let mut value = evaluation();
+        value.information_cutoff_at = value.horizon_start_at + 1;
+        assert!(value.validate().is_err());
+
+        let mut value = evaluation();
+        value.horizon_start_at = value.outcome_captured_at + 1;
+        assert!(value.validate().is_err());
+    }
+
+    #[test]
+    fn complete_measurement_cannot_claim_missing_data_or_end_before_horizon() {
+        let mut value = evaluation();
+        value.missing_data_refs.push("missing:revision".into());
+        assert!(value.validate().is_err());
+
+        let mut value = evaluation();
+        value.horizon_end_at = value.outcome_captured_at + 1;
+        assert!(value.validate().is_err());
+    }
+
+    #[test]
+    fn partial_and_invalidated_measurements_require_limitation_evidence() {
+        let mut value = evaluation();
+        value.measurement_status = EconomicMeasurementStatus::PartiallyObserved;
+        assert!(value.validate().is_err());
+        value.missing_data_refs.push("missing:final-quarter".into());
+        assert!(value.validate().is_ok());
+
+        let mut value = evaluation();
+        value.measurement_status = EconomicMeasurementStatus::Invalidated;
+        value.uncertainty_refs.clear();
+        assert!(value.validate().is_err());
+        value.uncertainty_refs.push("uncertainty:definition-change".into());
+        assert!(value.validate().is_ok());
+    }
+
+    #[test]
+    fn analysis_must_precede_horizon_start() {
+        let mut value = evaluation();
+        value.horizon_start_at = 900;
         assert!(value.validate_against_analysis(&analysis()).is_err());
     }
 
