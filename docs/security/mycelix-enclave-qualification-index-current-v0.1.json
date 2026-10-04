@@ -1,0 +1,127 @@
+{
+  "schema_version": 1,
+  "artifact_type": "current-enclave-qualification-index",
+  "profile_id": "mycelix.security.enclave",
+  "profile_version": "0.1.0",
+  "snapshot_date": "2026-10-04",
+  "claim_ceiling": "ReferenceModelOnly",
+  "note": "PR heads are exact immutable Git identities at snapshot time; child PRs may still change afterward.",
+  "boundaries": [
+    {
+      "pr": 3976,
+      "issue": 3968,
+      "name": "sovereign enclave profile",
+      "head": "358e7bd40f1dadec0b9c6316c608414b51f0fcad",
+      "execution": "reference-model / structural JSON validation",
+      "qualification": "ReferenceModelOnly"
+    },
+    {
+      "pr": 3977,
+      "issue": 3977,
+      "name": "RATS Evidence/appraisal",
+      "head": "bc28a1aa13048ce60757cce10fc168cb0db73d7",
+      "execution": "31/31 independent semantic vectors",
+      "qualification": "ReferenceModelOnly"
+    },
+    {
+      "pr": 3982,
+      "issue": 3982,
+      "name": "trusted-time freshness",
+      "head": "3a06e6a5410e3b068fb2c18ccf5355f2efbbec77",
+      "execution": "17/17 independent interval vectors",
+      "qualification": "ReferenceModelOnly"
+    },
+    {
+      "pr": 3983,
+      "issue": 3983,
+      "name": "TPM 2.0 Evidence",
+      "head": "2373c05347c32dbcad54621c6238a72e13a8e0cf",
+      "execution": "NOT EXECUTED: no /dev/tpm*, swtpm, or tpm2-tools in current environment",
+      "qualification": "ReferenceModelOnly"
+    },
+    {
+      "pr": 3994,
+      "issue": 3994,
+      "name": "EAT measured component",
+      "head": "506f6598d92796be101f62cb2a7ea46613c0192b",
+      "execution": "16/16 independent semantic vectors",
+      "qualification": "ReferenceModelOnly"
+    },
+    {
+      "pr": 3973,
+      "issue": 3973,
+      "name": "protected release",
+      "head": "2127b5c3087f107a9121d536a48c93b5f57dbacf",
+      "execution": "33/33 independent semantic vectors",
+      "qualification": "ReferenceModelOnly"
+    },
+    {
+      "pr": 3974,
+      "issue": 3974,
+      "name": "comparative benchmark",
+      "head": "d387a233732c83ffb519c82874caf1b7037e8190",
+      "execution": "24/24 independent reference-model executions",
+      "qualification": "ReferenceModelOnly"
+    },
+    {
+      "pr": 4001,
+      "issue": 4001,
+      "name": "PEP decision boundary",
+      "head": "690073394f3685bd8a28dd5f573a9b9925b0364d",
+      "execution": "24/24 independent decision-algebra vectors",
+      "qualification": "ReferenceModelOnly"
+    },
+    {
+      "pr": 3975,
+      "issue": 3975,
+      "name": "E1 CUI/CMMC revision boundary",
+      "head": "31b00430affc7909e6776e74b5dbb590a700ab3f",
+      "execution": "12/12 structural revision-boundary vectors",
+      "qualification": "ReferenceModelOnly"
+    }
+  ],
+  "executed_invariants": [
+    "raw Evidence != Attestation Result != Authorization",
+    "trusted-time interval != perfect wall clock",
+    "vTPM Evidence != physical TPM security",
+    "measured component != policy approval",
+    "transfer receipt != reusable release authority",
+    "ANY DENY > ANY INDETERMINATE > ALL PASS",
+    "comparative benchmark has no composite security score"
+  ],
+  "current_execution_environment": {
+    "tpm_device": false,
+    "swtpm": false,
+    "tpm2_quote": false,
+    "tpm2_checkquote": false,
+    "tpm2_pcrread": false,
+    "tpm2_pcrextend": false,
+    "tpm2_eventlog": false,
+    "nix_available": false
+  },
+  "current_external_compliance_boundary": {
+    "cmmc_phase_two_status": "suspended-2026-07-13",
+    "cmmc_level_2_during_pause": "DoW CIO current public guidance states 110 NIST SP 800-171 Rev.2 requirements apply through self-assessment and selected government-led assessment paths during the suspension.",
+    "engineering_target": "NIST SP 800-171 Rev.3 and related Rev.3 publications remain the repository engineering target.",
+    "contract_surface": "DFARS 252.204-7021 remains contract/solicitation specific; required CMMC level is inserted by the Contracting Officer."
+  },
+  "blockers": [
+    "Real TPM/vTPM execution is unavailable in the current environment.",
+    "Physical PC-client measured-boot and event-log reconstruction remain unexecuted.",
+    "CMMC/NIST semantic mapping is not certification evidence.",
+    "Independent assessment, organizational controls, physical/personnel controls, and contract applicability remain external."
+  ],
+  "unproven": [
+    "physical TPM security",
+    "measured boot",
+    "firmware correctness",
+    "kernel integrity",
+    "manufacturer/EK trust",
+    "FIPS 140-3 validation",
+    "CMMC status",
+    "classified authorization",
+    "CDS approval",
+    "legal export-control authorization",
+    "system-wide superiority over SIPRNet/NIPRNet"
+  ]
+}
