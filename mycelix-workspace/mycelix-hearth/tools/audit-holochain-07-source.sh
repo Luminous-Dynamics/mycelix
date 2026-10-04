@@ -849,6 +849,13 @@ check_qualification_workflow_provenance() {
     "Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6"
     "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02"
   )
+  if ! rg -n --fixed-strings "nix develop .#ci --impure" "$workflow" >/dev/null 2>&1; then
+    echo "OK:   qualification workflow uses pure flake evaluation"
+  else
+    echo "FAIL: qualification workflow must not use --impure flake evaluation"
+    fail=1
+  fi
+
   if rg -n --fixed-strings "persist-credentials: false" "$workflow" >/dev/null 2>&1; then
     echo "OK:   qualification workflow does not persist the GitHub token after checkout"
   else

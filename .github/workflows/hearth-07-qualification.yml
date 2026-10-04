@@ -128,7 +128,7 @@ jobs:
         working-directory: mycelix-workspace/mycelix-hearth
         run: |
           set -o pipefail
-          nix develop .#ci --impure --command             bash tools/audit-holochain-07-source.sh 2>&1 | tee qualification-source-audit.log
+          nix develop .#ci --command             bash tools/audit-holochain-07-source.sh 2>&1 | tee qualification-source-audit.log
 
       - name: Derive Hearth 0.7 operation matrix
         working-directory: mycelix-workspace/mycelix-hearth
@@ -174,14 +174,14 @@ jobs:
         working-directory: mycelix-workspace/mycelix-hearth
         run: |
           set -o pipefail
-          nix develop .#ci --impure --command             cargo fmt --manifest-path tests/Cargo.toml --check 2>&1 | tee qualification-format.log
+          nix develop .#ci --command             cargo fmt --manifest-path tests/Cargo.toml --check 2>&1 | tee qualification-format.log
 
       - name: Generate exact Rust dependency locks
         working-directory: mycelix-workspace/mycelix-hearth
         run: |
           set -euo pipefail
-          nix develop .#ci --impure --command cargo generate-lockfile
-          nix develop .#ci --impure --command bash -c 'cd tests && cargo generate-lockfile'
+          nix develop .#ci --command cargo generate-lockfile
+          nix develop .#ci --command bash -c 'cd tests && cargo generate-lockfile'
           test -s Cargo.lock
           test -s tests/Cargo.lock
           sha256sum Cargo.lock tests/Cargo.lock > qualification-cargo-lock-sha256.txt
@@ -189,8 +189,8 @@ jobs:
             echo "hearth_cargo_lock=$(sha256sum Cargo.lock | awk '{print $1}')"
             echo "tests_cargo_lock=$(sha256sum tests/Cargo.lock | awk '{print $1}')"
           } > qualification-cargo-lock-summary.txt
-          nix develop .#ci --impure --command cargo metadata --locked --format-version 1 > qualification-cargo-metadata.json
-          nix develop .#ci --impure --command bash -c 'cd tests && cargo metadata --locked --format-version 1' > tests/qualification-cargo-metadata.json
+          nix develop .#ci --command cargo metadata --locked --format-version 1 > qualification-cargo-metadata.json
+          nix develop .#ci --command bash -c 'cd tests && cargo metadata --locked --format-version 1' > tests/qualification-cargo-metadata.json
 
       - name: Build Hearth 0.7 zomes
         id: build_zomes
@@ -200,21 +200,21 @@ jobs:
           # Prevent a removed/renamed zome from being silently packed from a
           # stale prior build artifact in the runner workspace.
           rm -f target/wasm32-unknown-unknown/release/*.wasm
-          nix develop .#ci --impure --command             cargo build --locked --release --target wasm32-unknown-unknown --workspace 2>&1 | tee qualification-build.log
+          nix develop .#ci --command             cargo build --locked --release --target wasm32-unknown-unknown --workspace 2>&1 | tee qualification-build.log
 
       - name: Pack Hearth 0.7 DNA
         id: dna_pack
         working-directory: mycelix-workspace/mycelix-hearth
         run: |
           set -o pipefail
-          nix develop .#ci --impure --command             hc dna pack dna/ 2>&1 | tee qualification-dna-pack.log
+          nix develop .#ci --command             hc dna pack dna/ 2>&1 | tee qualification-dna-pack.log
 
       - name: Run Hearth 0.7 SweetConductor qualification
         id: sweettest
         working-directory: mycelix-workspace/mycelix-hearth
         run: |
           set -o pipefail
-          nix develop .#ci --impure --command bash -c             'set -o pipefail; cd tests && cargo test --locked --release -- --include-ignored --test-threads=1 2>&1 | tee ../qualification-sweettest.log'
+          nix develop .#ci --command bash -c             'set -o pipefail; cd tests && cargo test --locked --release -- --include-ignored --test-threads=1 2>&1 | tee ../qualification-sweettest.log'
 
       - name: Capture immutable qualification evidence
         if: always()
@@ -225,10 +225,10 @@ jobs:
             echo "tested_sha=$QUALIFY_SHA"
             echo "checked_out_sha=$(git rev-parse HEAD)"
             echo "qualification_source=exact_candidate_sha"
-            echo "holochain_version=$(nix develop .#ci --impure --command holochain --version 2>/dev/null || true)"
-            echo "hc_version=$(nix develop .#ci --impure --command hc --version 2>/dev/null || true)"
-            echo "rust_version=$(nix develop .#ci --impure --command rustc --version 2>/dev/null || true)"
-            echo "cargo_version=$(nix develop .#ci --impure --command cargo --version 2>/dev/null || true)"
+            echo "holochain_version=$(nix develop .#ci --command holochain --version 2>/dev/null || true)"
+            echo "hc_version=$(nix develop .#ci --command hc --version 2>/dev/null || true)"
+            echo "rust_version=$(nix develop .#ci --command rustc --version 2>/dev/null || true)"
+            echo "cargo_version=$(nix develop .#ci --command cargo --version 2>/dev/null || true)"
             echo "dna_present=$(test -s dna/mycelix_hearth.dna && echo true || echo false)"
           } > qualification-toolchain.txt
 
