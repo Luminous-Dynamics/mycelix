@@ -1450,6 +1450,31 @@ fabricated terminal state that happens to satisfy the currently observed account
 This is an integrity boundary, not a behavioral assumption and does not change the transition
 semantics themselves.
 
+
+## Pairwise financial-instrument closure (implemented)
+
+The economic-state validation boundary now requires the modeled financial instrument families to
+reconcile independently rather than relying on a single aggregate claims-equals-liabilities test.
+
+Deposits must reconcile to deposit liabilities, loan claims to debt liabilities, and trade
+receivables to trade payables. Aggregate equality by itself is insufficient because unrelated
+instrument families could otherwise offset one another and produce a superficially balanced state.
+
+The canonical state invariant is now:
+
+`deposit claims = deposit liabilities`
+`loan claims = debt liabilities`
+`trade receivables = trade payables`
+
+The existing `closed_financial_rows_clear` predicate is part of the canonical validation path, and
+`claims_liabilities_identity_holds` now uses that same pairwise definition. This preserves the
+issuer-backed-cash boundary: cash remains outside these internal instrument rows, while modeled
+deposit, loan, and trade-credit claims require explicit counterpart liabilities.
+
+This is an integrity constraint only. It does not add behavioral equations or imply that any
+particular sector should hold a particular amount of debt or liquidity.
+
+
 ## Canonical transition mutation dispatch (implemented)
 
 Transition mutation is now dispatched through one canonical `EconomicTransition::apply_to_state`
