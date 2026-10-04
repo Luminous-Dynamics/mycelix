@@ -511,7 +511,10 @@ pub fn create_did() -> ExternResult<Record> {
         id: did_id.clone(),
         controller: agent_pub_key.clone(),
         verification_method: vec![verification_method.clone(), w3c_multikey],
-        authentication: vec![format!("{}#keys-1", did_id)],
+        authentication: vec![
+            format!("{}#keys-1", did_id),
+            format!("{}#keys-1-multikey", did_id),
+        ],
         assertion_method: vec![
             format!("{}#keys-1", did_id),
             format!("{}#keys-1-multikey", did_id),
