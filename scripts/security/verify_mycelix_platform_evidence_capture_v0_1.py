@@ -21,6 +21,7 @@ RECONSTRUCTION_SCRIPT = ROOT / "scripts/security/reconstruct_mycelix_pc_client_e
 ADAPTER_SCRIPT = ROOT / "scripts/security/adapt_mycelix_tpm2_eventlog_yaml_v1_v0_1.py"
 RAW_EVENTLOG_PARSER_SCRIPT = ROOT / "scripts/security/parse_mycelix_raw_tpm2_eventlog_v0_1.py"
 PAYLOAD_COHERENCE_SCRIPT = ROOT / "scripts/security/verify_mycelix_event_payload_digest_coherence_v0_1.py"
+REFERENCE_APPRAISAL_SCRIPT = ROOT / "scripts/security/verify_mycelix_reference_value_appraisal_v0_1.py"
 RECONSTRUCTION_VERIFIER_ID = "mycelix.pc-client.eventlog-reconstruction.v0.1"
 
 
@@ -132,6 +133,11 @@ def session_binding(manifest: dict[str, Any]) -> str:
             "payload_coherence_output_sha256": manifest["payload_coherence"]["output_sha256"],
             "payload_coherence_source_sha256": manifest["payload_coherence"]["source_sha256"],
             "payload_coherence_input_sha256": manifest["payload_coherence"]["input_sha256"],
+            "reference_appraisal_status": manifest["reference_appraisal"]["status"],
+            "reference_appraisal_output_sha256": manifest["reference_appraisal"]["output_sha256"],
+            "reference_appraisal_source_sha256": manifest["reference_appraisal"]["source_sha256"],
+            "reference_appraisal_registry_sha256": manifest["reference_appraisal"]["registry_sha256"],
+            "reference_appraisal_input_sha256": manifest["reference_appraisal"]["input_sha256"],
         }
     )
 
@@ -387,6 +393,13 @@ def validate_semantics(manifest: dict[str, Any]) -> tuple[str, str]:
             "source_sha256",
             "input_sha256",
         ),
+        "reference_appraisal": (
+            "status",
+            "output_sha256",
+            "source_sha256",
+            "registry_sha256",
+            "input_sha256",
+        ),
         "quote": ("pcr_selection", "nonce_sha256", "attestation_key_sha256"),
         "challenge": ("sha256", "origin"),
         "toolchain": (
@@ -416,6 +429,7 @@ def validate_semantics(manifest: dict[str, Any]) -> tuple[str, str]:
             "observed_pcr_values_file_sha256",
             "raw_eventlog_output_sha256",
             "payload_coherence_output_sha256",
+            "reference_appraisal_output_sha256",
             "tss_version_evidence_sha256",
             "ek_public_sha256",
         ),
@@ -480,6 +494,14 @@ def validate_semantics(manifest: dict[str, Any]) -> tuple[str, str]:
         denies.append("payload-coherence-source-binding-mismatch")
     if manifest["payload_coherence"]["input_sha256"] != manifest["reconstruction"]["input_sha256"]:
         denies.append("payload-coherence-input-binding-mismatch")
+    if manifest["reference_appraisal"]["source_sha256"] != sha256_file(REFERENCE_APPRAISAL_SCRIPT):
+        denies.append("reference-appraisal-source-binding-mismatch")
+    if manifest["reference_appraisal"]["input_sha256"] != manifest["reference_values"]["sha256"]:
+        denies.append("reference-appraisal-input-binding-mismatch")
+    if manifest["reference_appraisal"]["status"] == "DENY":
+        denies.append("reference-appraisal-denied")
+    elif manifest["reference_appraisal"]["status"] != "PASS":
+        indeterminate.append("reference-appraisal-unavailable-or-unapproved")
 
     if (
         manifest["reconstruction"]["status"] == "PASS"
