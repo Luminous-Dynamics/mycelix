@@ -157,7 +157,7 @@ These types prevent category confusion, but they are not provenance attestations
 
 ## Required qualification scenarios
 
-A zero authority-freshness commitment is treated as missing authority evidence and fails closed.
+A zero authority-freshness digest is treated as missing authority evidence: the bridge binding helper preserves the all-zero sentinel rather than hashing it into a non-zero binding, and the kernel therefore fails closed as `Indeterminate(AmbiguousAuthority)`.
 
 The integration tranche is not complete until deterministic tests cover:
 
