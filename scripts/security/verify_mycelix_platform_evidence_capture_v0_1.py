@@ -477,6 +477,8 @@ def mutate(value: dict[str, Any], name: str) -> dict[str, Any]:
             "live_observation",
             "artifacts",
             "public_name_coherence",
+            "ek_certificate_capture",
+            "ek_cert_spki_binding",
         ):
             out[key] = dict(reversed(list(out[key].items())))
     elif name == "post-quote-pcr-value-mismatch":
@@ -491,6 +493,25 @@ def mutate(value: dict[str, Any], name: str) -> dict[str, Any]:
         out["public_name_coherence"]["ak"]["wire_sha256"] = out["public_name_coherence"]["ek"]["wire_sha256"]
     elif name == "public-name-ak-source-substitution":
         out["public_name_coherence"]["ak"]["source_sha256"] = "13" * 32
+    elif name == "ek-cert-source-mode-substitution":
+        out["ek_certificate_capture"]["source_mode"] = "NETWORK"
+    elif name == "ek-cert-result-substitution":
+        out["ek_certificate_capture"]["result_sha256"] = "14" * 32
+    elif name == "ek-cert-spki-source-substitution":
+        out["ek_cert_spki_binding"]["certificate_source_sha256"] = "15" * 32
+    elif name == "ek-cert-spki-wire-substitution":
+        out["ek_cert_spki_binding"]["ek_public_wire_sha256"] = "16" * 32
+    elif name == "ek-cert-absent":
+        out["ek_certificate_capture"]["status"] = "INDETERMINATE"
+        out["ek_certificate_capture"]["candidate_handles"] = []
+        out["ek_certificate_capture"]["rsa_certificate_present"] = False
+        out["ek_certificate_capture"]["rsa_certificate_sha256"] = None
+        out["ek_cert_spki_binding"]["status"] = "INDETERMINATE"
+        out["ek_cert_spki_binding"]["reason"] = "rsa-ek-certificate-not-present"
+        out["ek_cert_spki_binding"]["input_sha256"] = None
+        out["ek_cert_spki_binding"]["output_sha256"] = None
+        out["ek_cert_spki_binding"]["certificate_sha256"] = None
+        out["session_binding_sha256"] = session_binding(out)
     elif name == "deny-over-indeterminate":
         out["event_log"]["parser_status"] = "FAIL"
         out["reconstruction"]["status"] = "INDETERMINATE"
@@ -650,9 +671,20 @@ def validate_semantics(manifest: dict[str, Any]) -> tuple[str, str]:
             denies.append(f"ek-certificate-{field}-invalid")
     if ek_certificate_capture.get("script_sha256") != sha256_file(EK_CERTIFICATE_CAPTURE_SCRIPT):
         denies.append("ek-certificate-capture-script-source-mismatch")
+    cert_artifact_map = {
+        "result_sha256": "ek_certificate_capture_result_sha256",
+        "inventory_sha256": "ek_certificate_capture_inventory_sha256",
+        "transcript_sha256": "ek_certificate_capture_transcript_sha256",
+        "script_sha256": "ek_certificate_capture_script_sha256",
+    }
+    for field, artifact_key in cert_artifact_map.items():
+        if valid_hash(ek_certificate_capture.get(field)) and manifest["artifacts"].get(artifact_key) != ek_certificate_capture[field]:
+            denies.append(f"ek-certificate-{field}-artifact-binding-mismatch")
     if ek_certificate_capture.get("rsa_certificate_present"):
         if not valid_hash(ek_certificate_capture.get("rsa_certificate_sha256")):
             denies.append("ek-certificate-rsa-digest-invalid")
+        elif manifest["artifacts"].get("ek_certificate_rsa_sha256") != ek_certificate_capture["rsa_certificate_sha256"]:
+            denies.append("ek-certificate-rsa-artifact-binding-mismatch")
     elif ek_certificate_capture.get("rsa_certificate_sha256") is not None:
         denies.append("ek-certificate-rsa-absent-with-digest")
 
@@ -685,6 +717,10 @@ def validate_semantics(manifest: dict[str, Any]) -> tuple[str, str]:
         denies.append("ek-cert-spki-ek-public-source-mismatch")
     if ek_cert_spki.get("status") == "PASS" and not ek_certificate_capture.get("rsa_certificate_present"):
         denies.append("ek-cert-spki-pass-without-rsa-certificate")
+    if ek_cert_spki.get("input_sha256") is not None and manifest["artifacts"].get("ek_cert_spki_input_sha256") != ek_cert_spki["input_sha256"]:
+        denies.append("ek-cert-spki-input-artifact-binding-mismatch")
+    if ek_cert_spki.get("output_sha256") is not None and manifest["artifacts"].get("ek_cert_spki_output_sha256") != ek_cert_spki["output_sha256"]:
+        denies.append("ek-cert-spki-output-artifact-binding-mismatch")
 
     public_name = manifest.get("public_name_coherence")
     if not isinstance(public_name, dict):
