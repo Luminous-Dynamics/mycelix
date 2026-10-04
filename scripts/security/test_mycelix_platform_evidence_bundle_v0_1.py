@@ -98,8 +98,66 @@ def build_bundle(bundle: Path) -> dict:
     )
     (bundle / "quote.msg").write_bytes(b"quote-message-fixture")
     (bundle / "quote.sig").write_bytes(b"quote-signature-fixture")
-    (bundle / "ak.pub").write_bytes(b"ak-public-fixture")
-    (bundle / "ek.pub").write_bytes(b"ek-public-fixture")
+    public_body = bytes.fromhex("0001000b") + bytes(range(1, 65))
+    public_wrapper = len(public_body).to_bytes(2, "big") + public_body
+    (bundle / "ak.pub").write_bytes(public_wrapper)
+    (bundle / "ek.pub").write_bytes(public_wrapper)
+
+    for role in ("ak", "ek"):
+        (bundle / f"{role}.tpmt").write_bytes(public_body)
+        (bundle / f"{role}.name.readpublic").write_bytes(
+            b"\x00\x0b" + hashlib.sha256(public_body).digest()
+        )
+        (bundle / f"{role}.qname.readpublic").write_bytes(
+            b"\x00\x0b" + hashlib.sha256(b"qname:" + public_body).digest()
+        )
+        transcript = {
+            "role": role,
+            "command": [
+                "tpm2_readpublic", "-Q", "-c", f"{role}.ctx", "-f", "tpmt",
+                "-o", f"{role}.tpmt", "-n", f"{role}.name.readpublic",
+                "-q", f"{role}.qname.readpublic",
+            ],
+            "tool_version": "5.8 fixture",
+            "returncode": 0,
+            "stdout": "",
+            "stderr": "",
+        }
+        (bundle / f"{role}.readpublic-transcript.json").write_text(
+            json.dumps(transcript, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        public_input = {
+            "profile_id": "mycelix.security.tpm.public-name-coherence",
+            "profile_version": "0.1.0",
+            "verification_mode": "LiveVerifierSession",
+            "claim_ceiling": "ReferenceModelOnly",
+            "object_role": role.upper(),
+            "public_format": "TPMT_PUBLIC",
+            "public_wire_hex": public_body.hex(),
+            "public_wire_sha256": hashlib.sha256(public_body).hexdigest(),
+            "name_hex": (b"\x00\x0b" + hashlib.sha256(public_body).digest()).hex(),
+            "readpublic_state": "PASS",
+            "readpublic_source_sha256": hashlib.sha256(
+                (bundle / f"{role}.readpublic-transcript.json").read_bytes()
+            ).hexdigest(),
+        }
+        (bundle / f"{role}-public-name-input.json").write_text(
+            json.dumps(public_input, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        public_result = subprocess.run(
+            [
+                sys.executable,
+                str(SECURITY / "verify_mycelix_tpm_public_name_coherence_v0_1.py"),
+                "--verify", str(bundle / f"{role}-public-name-input.json"),
+                "--output", str(bundle / f"{role}-public-name-coherence.json"),
+            ],
+            text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
+        )
+        if public_result.returncode != 2:
+            raise RuntimeError(
+                f"public-name fixture for {role} returned {public_result.returncode}: "
+                f"{public_result.stdout}{public_result.stderr}"
+            )
     (bundle / "tool-versions.json").write_text(
         json.dumps(
             {name: "5.8 fixture" for name in (
@@ -110,6 +168,7 @@ def build_bundle(bundle: Path) -> dict:
                 "tpm2_createak",
                 "tpm2_checkquote",
                 "tpm2_eventlog",
+                "tpm2_readpublic",
             )},
             indent=2,
             sort_keys=True,
@@ -190,6 +249,17 @@ def build_bundle(bundle: Path) -> dict:
     )
 
     manifest = platform.fixture_manifest()
+    for role in ("ak", "ek"):
+        manifest["public_name_coherence"][role] = {
+            "status": "INDETERMINATE",
+            "verifier_id": "mycelix.tpm.public-name-coherence.v0.1",
+            "output_sha256": platform.sha256_file(bundle / f"{role}-public-name-coherence.json"),
+            "input_sha256": platform.sha256_file(bundle / f"{role}-public-name-input.json"),
+            "wire_sha256": platform.sha256_file(bundle / f"{role}.tpmt"),
+            "name_sha256": platform.sha256_file(bundle / f"{role}.name.readpublic"),
+            "qname_sha256": platform.sha256_file(bundle / f"{role}.qname.readpublic"),
+            "source_sha256": platform.sha256_file(bundle / f"{role}.readpublic-transcript.json"),
+        }
     manifest["session_id"] = event_stream["session_id"]
     manifest["boot_id"] = "self-test-boot"
     manifest["tpm"]["properties_sha256"] = platform.sha256_file(bundle / "tpm-properties.txt")
@@ -245,6 +315,18 @@ def build_bundle(bundle: Path) -> dict:
     manifest["artifacts"]["quote_signature_sha256"] = platform.sha256_file(bundle / "quote.sig")
     manifest["artifacts"]["attestation_key_sha256"] = platform.sha256_file(bundle / "ak.pub")
     manifest["artifacts"]["reconstruction_file_sha256"] = platform.sha256_file(reconstruction_path)
+    manifest["artifacts"]["public_name_ak_output_sha256"] = platform.sha256_file(bundle / "ak-public-name-coherence.json")
+    manifest["artifacts"]["public_name_ak_input_sha256"] = platform.sha256_file(bundle / "ak-public-name-input.json")
+    manifest["artifacts"]["public_name_ak_wire_sha256"] = platform.sha256_file(bundle / "ak.tpmt")
+    manifest["artifacts"]["public_name_ak_name_sha256"] = platform.sha256_file(bundle / "ak.name.readpublic")
+    manifest["artifacts"]["public_name_ak_qname_sha256"] = platform.sha256_file(bundle / "ak.qname.readpublic")
+    manifest["artifacts"]["public_name_ak_source_sha256"] = platform.sha256_file(bundle / "ak.readpublic-transcript.json")
+    manifest["artifacts"]["public_name_ek_source_sha256"] = platform.sha256_file(bundle / "ek.readpublic-transcript.json")
+    manifest["artifacts"]["public_name_ek_output_sha256"] = platform.sha256_file(bundle / "ek-public-name-coherence.json")
+    manifest["artifacts"]["public_name_ek_input_sha256"] = platform.sha256_file(bundle / "ek-public-name-input.json")
+    manifest["artifacts"]["public_name_ek_wire_sha256"] = platform.sha256_file(bundle / "ek.tpmt")
+    manifest["artifacts"]["public_name_ek_name_sha256"] = platform.sha256_file(bundle / "ek.name.readpublic")
+    manifest["artifacts"]["public_name_ek_qname_sha256"] = platform.sha256_file(bundle / "ek.qname.readpublic")
     manifest["artifacts"]["reconstruction_input_sha256"] = platform.sha256_file(input_path)
     manifest["artifacts"]["observed_pcr_values_file_sha256"] = platform.sha256_file(observed_pcr_path)
     manifest["artifacts"]["raw_eventlog_output_sha256"] = platform.sha256_file(raw_eventlog_path)
