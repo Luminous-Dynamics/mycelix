@@ -8,7 +8,7 @@ Each event preserves EventNum, PCRIndex, and EventType. For extending events, th
 
 EV_NO_ACTION records are emitted as non-extending controls. PCR0 StartupLocality is detected and surfaced explicitly; the replay layer initializes PCR0 with the locality semantics required by the PC-client profile. HCRTM PCR0 likewise initializes locality 4 before its digest extension. citeturn152665search0turn805127search25
 
-The final pcrs.sha256 values emitted by tpm2_eventlog are deliberately ignored as an observation source. The adapter instead requires a separate observed-PCR JSON artifact produced from tpm2_pcrread; that map is the observed side of the reconstruction theorem.
+The final pcrs.sha256 values emitted by tpm2_eventlog are deliberately ignored as an observation source. The adapter instead requires a separate observed-PCR JSON artifact produced from tpm2_pcrread. When available, an independent raw-binary parser sidecar supplies exact payload bytes; YAML is used only for semantic identity and human-readable cross-checking.
 
 Physical path:
 
