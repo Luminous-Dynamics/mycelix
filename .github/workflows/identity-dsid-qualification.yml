@@ -62,20 +62,34 @@ jobs:
           assert corpus["schema_version"] == 1
           assert corpus["method"] == "mycelix"
 
-          for section in (
-              "did_vectors",
-              "resolution_vectors",
-              "wire_vectors",
-              "verification_method_vectors",
-              "version_vectors",
-              "recovery_vectors",
-              "authority_vectors",
-              "deployment_vectors",
-          ):
+          expected_ids = {
+              "did_vectors": [
+                  "DID-001", "DID-002", "DID-003", "DID-004",
+                  "DID-005", "DID-006", "DID-007", "DID-008",
+              ],
+              "resolution_vectors": ["RES-001", "RES-002", "RES-003", "RES-004"],
+              "wire_vectors": [
+                  "WIRE-001", "WIRE-002", "WIRE-003",
+                  "WIRE-004", "WIRE-005", "WIRE-006",
+              ],
+              "verification_method_vectors": ["VM-001", "VM-003", "VM-002"],
+              "version_vectors": ["VER-001", "VER-002", "VER-003"],
+              "recovery_vectors": [
+                  "REC-001", "REC-002", "REC-003", "REC-004", "REC-005",
+                  "REC-006", "REC-007", "REC-008", "REC-009", "REC-010",
+                  "REC-011", "REC-012", "REC-013", "RES-006", "RES-005",
+              ],
+              "authority_vectors": ["AUTH-001", "AUTH-002", "AUTH-003", "AUTH-004", "AUTH-005"],
+              "deployment_vectors": ["DEP-001", "DEP-002", "DEP-003"],
+          }
+
+          for section, ids in expected_ids.items():
               rows = corpus[section]
-              assert rows, section
-              ids = [row["id"] for row in rows]
-              assert len(ids) == len(set(ids)), f"duplicate vector id in {section}"
+              assert [row["id"] for row in rows] == ids, (
+                  f"conformance corpus drift in {section}: "
+                  f"expected exact ordered IDs, got {[row['id'] for row in rows]}"
+              )
+              assert len(rows) == len(ids)
               assert all(row["id"] for row in rows)
 
           assert corpus["identifier_scope"]["mode"] == "canonical-production-identity-dna"
@@ -268,8 +282,8 @@ jobs:
           npm install --no-save \
             @digitalbazaar/vc@7.3.0 \
             @digitalbazaar/data-integrity@2.5.0 \
-            @digitalbazaar/eddsa-jcs-2022-cryptosuite \
-            @digitalbazaar/security-document-loader \
+            @digitalbazaar/eddsa-jcs-2022-cryptosuite@1.0.0 \
+            @digitalbazaar/security-document-loader@3.2.0 \
             @digitalbazaar/credentials-context@3.2.0 \
             @digitalbazaar/data-integrity-context@2.0.1 \
             @digitalbazaar/multikey-context@2.0.1
