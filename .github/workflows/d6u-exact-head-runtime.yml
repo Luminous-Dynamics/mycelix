@@ -213,7 +213,7 @@ PY
             echo "workflow_execution_commit_sha=${{ github.workflow_sha }}"
             echo "workflow_execution_ref=${{ github.workflow_ref }}"
             echo "attestation_status=deferred-to-trusted-builder"
-            echo "workflow_sha=$(git hash-object ../.github/workflows/d6u-runtime-qualification.yml)"
+            echo "workflow_sha=$(git hash-object ../.github/workflows/d6u-exact-head-runtime.yml)"
             echo "d6s2_manifest_git_blob_sha=$(git hash-object ../docs/integral/d6s-canon-2-manifest.json)"
             echo "d6s2_fixture_git_blob_sha=$(git hash-object ../docs/integral/d6s-canon-2-authority-boundary-fixture.json)"
             d6s2_ledger_version=$(python3 -c 'import json; print(json.load(open("../docs/integral/d6s-canon-2-manifest.json"))["version"])')
