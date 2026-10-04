@@ -18,7 +18,8 @@
       "validator_source": "mycelix-workspace/mycelix-hearth/zomes/hearth-decisions/integrity/src/lib.rs",
       "validator_symbol": "validate_decision",
       "invariant_code": "decision.title.is_empty()",
-      "dispatch_symbol": "validate_decision"
+      "dispatch_symbol": "validate_decision",
+      "target_variant": "EntryTypes::Decision"
     },
     {
       "case_id": "SEM-02",
@@ -36,7 +37,8 @@
       "validator_source": "mycelix-workspace/mycelix-hearth/zomes/hearth-resources/integrity/src/lib.rs",
       "validator_symbol": "validate_resource",
       "invariant_code": "resource.name.is_empty()",
-      "dispatch_symbol": "validate_resource"
+      "dispatch_symbol": "validate_resource",
+      "target_variant": "EntryTypes::SharedResource"
     },
     {
       "case_id": "SEM-03",
@@ -54,7 +56,8 @@
       "validator_source": "mycelix-workspace/mycelix-hearth/zomes/hearth-stories/integrity/src/lib.rs",
       "validator_symbol": "validate_story",
       "invariant_code": "story.title.is_empty()",
-      "dispatch_symbol": "validate_story"
+      "dispatch_symbol": "validate_story",
+      "target_variant": "EntryTypes::FamilyStory"
     },
     {
       "case_id": "SEM-04",
@@ -71,7 +74,8 @@
       "validator_source": "mycelix-workspace/mycelix-hearth/zomes/hearth-stories/integrity/src/lib.rs",
       "validator_symbol": "validate_create_link",
       "invariant_code": "story_entry.hearth_hash != collection_entry.hearth_hash",
-      "dispatch_symbol": "validate_create_link"
+      "dispatch_symbol": "validate_create_link",
+      "target_variant": "LinkTypes::CollectionToStories"
     },
     {
       "case_id": "SEM-05",
@@ -89,7 +93,8 @@
       "validator_source": "crates/mycelix-bridge-entry-types/src/lib.rs",
       "validator_symbol": "validate_notification",
       "invariant_code": "entry.source_cluster.is_empty()",
-      "dispatch_symbol": "validate_notification_entry"
+      "dispatch_symbol": "validate_notification_entry",
+      "target_variant": "EntryTypes::Notification"
     },
     {
       "case_id": "SEM-06",
@@ -108,7 +113,8 @@
       "validator_source": "mycelix-workspace/mycelix-hearth/zomes/hearth-stories/integrity/src/lib.rs",
       "validator_symbol": "validate_story_update",
       "invariant_code": "story.title.is_empty()",
-      "dispatch_symbol": "validate_story_update"
+      "dispatch_symbol": "validate_story_update",
+      "target_variant": "EntryTypes::FamilyStory"
     }
   ]
 }
