@@ -1175,6 +1175,43 @@ mod tests {
     }
 
     #[test]
+    fn bounded_security_reader_accepts_exact_budget_and_then_eof() {
+        let input = vec![b'x'; MAX_SECURITY_WIRE_BYTES];
+        let mut reader = BoundedSecurityReader::new(std::io::Cursor::new(input));
+        let mut output = Vec::new();
+
+        reader.read_to_end(&mut output).unwrap();
+        assert_eq!(output.len(), MAX_SECURITY_WIRE_BYTES);
+
+        let mut probe = [0u8; 1];
+        assert_eq!(reader.read(&mut probe).unwrap(), 0);
+    }
+
+    #[test]
+    fn bounded_security_reader_rejects_first_byte_over_budget() {
+        let input = vec![b'x'; MAX_SECURITY_WIRE_BYTES + 1];
+        let mut reader = BoundedSecurityReader::new(std::io::Cursor::new(input));
+        let mut output = vec![0u8; MAX_SECURITY_WIRE_BYTES + 1];
+
+        let error = reader.read_exact(&mut output).unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::InvalidData);
+        assert_eq!(reader.remaining, 0);
+        assert_eq!(output[..MAX_SECURITY_WIRE_BYTES], vec![b'x'; MAX_SECURITY_WIRE_BYTES]);
+    }
+
+    #[test]
+    fn bounded_security_reader_zero_length_read_does_not_consume_input() {
+        let input = vec![b'x'; 1];
+        let mut reader = BoundedSecurityReader::new(std::io::Cursor::new(input));
+        let mut empty = [];
+        assert_eq!(reader.read(&mut empty).unwrap(), 0);
+
+        let mut byte = [0u8; 1];
+        assert_eq!(reader.read(&mut byte).unwrap(), 1);
+        assert_eq!(byte[0], b'x');
+    }
+
+    #[test]
     fn bounded_security_json_reader_rejects_oversized_stream() {
         let input = serde_json::to_vec(&serde_json::json!({
             "subject": "did:mycelix:alice",
