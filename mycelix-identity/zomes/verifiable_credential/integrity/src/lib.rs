@@ -1926,6 +1926,58 @@ mod tests {
 
     // --- Validation conditions ---
 
+
+    #[test]
+    fn jcs_proof_context_must_be_ordered_prefix() {
+        let mut document = serde_json::json!({
+            "@context": [
+                "https://www.w3.org/ns/credentials/v2",
+                "https://w3id.org/security/data-integrity/v2"
+            ],
+            "id": "urn:uuid:jcs-context-prefix-test"
+        });
+        let proof_prefix = serde_json::json!({
+            "@context": ["https://www.w3.org/ns/credentials/v2"],
+            "type": "DataIntegrityProof"
+        });
+        assert!(eddsa_jcs_hash_data_from_values(
+            document.clone(),
+            proof_prefix
+        ).is_ok());
+
+        let bad_proof = serde_json::json!({
+            "@context": ["https://w3id.org/security/data-integrity/v2"],
+            "type": "DataIntegrityProof"
+        });
+        assert!(eddsa_jcs_hash_data_from_values(document.clone(), bad_proof).is_err());
+
+        document["@context"] = serde_json::json!("https://www.w3.org/ns/credentials/v2");
+        let array_proof = serde_json::json!({
+            "@context": ["https://www.w3.org/ns/credentials/v2"],
+            "type": "DataIntegrityProof"
+        });
+        assert!(eddsa_jcs_hash_data_from_values(document, array_proof).is_err());
+    }
+
+    #[test]
+    fn jcs_presentation_hash_uses_unsecured_document_and_proof_configuration() {
+        let mut vp = valid_presentation(format!("did:mycelix:{}", me()));
+        vp.proof.cryptosuite = Some("eddsa-jcs-2022".into());
+        vp.proof.proof_context = Some(vp.context.clone());
+        vp.proof.verification_method =
+            format!("{}#keys-1-multikey", vp.holder);
+        vp.proof.proof_value = String::new();
+
+        let first = eddsa_jcs_hash_data_for_presentation(&vp)
+            .expect("JCS presentation hash must be constructible");
+        vp.proof.challenge = Some("challenge-2".into());
+        let second = eddsa_jcs_hash_data_for_presentation(&vp)
+            .expect("JCS presentation hash must remain constructible");
+        assert_ne!(first, second, "challenge is part of the secured presentation");
+        assert_eq!(first.len(), 64);
+        assert_eq!(second.len(), 64);
+    }
+
     #[test]
     fn native_cryptosuite_requires_ed25519_algorithm() {
         let algorithm = Some(0xed01u16);
