@@ -122,6 +122,7 @@ def main() -> None:
         "workflow_run_attempt": os.environ["GITHUB_RUN_ATTEMPT"],
         "workflow_execution_commit_sha": workflow_execution_sha,
         "workflow_execution_ref": workflow_execution_ref,
+        "signer_workflow_digest": workflow_execution_sha,
         "workflow_sha": git_blob_sha(WORKFLOW),
         "d6s2_manifest_git_blob_sha": git_blob_sha(D6S2_MANIFEST),
         "d6s2_fixture_git_blob_sha": git_blob_sha(D6S2_FIXTURE),
