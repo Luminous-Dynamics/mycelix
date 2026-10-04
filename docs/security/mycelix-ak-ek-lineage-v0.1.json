@@ -52,8 +52,8 @@
     {"id":"AKQ-V02","mutation":"ak-qualified-name-substitution","expected":"DENY"},
     {"id":"AKQ-V03","mutation":"parent-qname-substitution","expected":"DENY"},
     {"id":"AKQ-V04","mutation":"parent-type-substitution","expected":"DENY"},
-    {"id":"AKQ-V05","mutation":"fixedTPM-cleared","expected":"DENY"},
-    {"id":"AKQ-V06","mutation":"fixedParent-cleared","expected":"DENY"},
+    {"id":"AKQ-V05","mutation":"fixedTPM-cleared-in-derived-input","expected":"DENY"},
+    {"id":"AKQ-V06","mutation":"fixedParent-cleared-in-derived-input","expected":"DENY"},
     {"id":"AKQ-V07","mutation":"name-algorithm-substitution","expected":"DENY"},
     {"id":"AKQ-V08","mutation":"public-name-public-substitution","expected":"DENY"},
     {"id":"AKQ-V09","mutation":"public-name-name-substitution","expected":"DENY"},
@@ -69,7 +69,13 @@
     {"id":"AKQ-V19","mutation":"offline-activation","expected":"INDETERMINATE"},
     {"id":"AKQ-V20","mutation":"live-without-observation","expected":"INDETERMINATE"},
     {"id":"AKQ-V21","mutation":"activation-secret-substitution","expected":"DENY"},
-    {"id":"AKQ-V22","mutation":"key-order-permutation","expected":"PASS"}
+    {"id":"AKQ-V22","mutation":"attributes-verifier-substitution","expected":"DENY"},
+    {"id":"AKQ-V23","mutation":"attributes-derived-fixedTPM-substitution","expected":"DENY"},
+    {"id":"AKQ-V24","mutation":"attributes-source-substitution","expected":"DENY"},
+    {"id":"AKQ-V25","mutation":"public-area-cross-object-splice","expected":"DENY"},
+    {"id":"AKQ-V26","mutation":"public-name-area-substitution","expected":"DENY"},
+    {"id":"AKQ-V27","mutation":"public-name-verifier-substitution","expected":"DENY"},
+    {"id":"AKQ-V28","mutation":"key-order-permutation","expected":"PASS"}
   ],
   "future_live_capture_requirements": [
     "capture EK public, EK Name, and EK Qualified Name from the same TPM context",
