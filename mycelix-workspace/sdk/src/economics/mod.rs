@@ -44,6 +44,9 @@ pub use action_lifecycle::{
     stage_transition_allowed, EconomicActionChangeKind, EconomicActionLifecycle,
     EconomicActionRevision, EconomicActionStage,
 };
+pub use execution_receipt::{
+    EconomicExecutionKind, EconomicExecutionLedger, EconomicExecutionReceipt,
+};
 pub use substrate::{
     BoundaryDirection, DistributionPurpose, GateDecision, SubstrateAccount, SubstrateBoundary,
     SubstrateDimension, SubstrateEvent, SubstrateEventKind, SubstrateLedger, SubstrateReport,
