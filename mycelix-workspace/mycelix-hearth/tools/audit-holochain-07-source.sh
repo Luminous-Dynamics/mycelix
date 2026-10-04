@@ -767,6 +767,22 @@ check_semantic_case_entrypoints() {
       echo "FAIL: semantic runtime witness ${zome}/${operation} is not invoked by ${test_name} matching call expression"
       fail=1
     fi
+    # The witness must prove rejection, not merely execute the coordinator call.
+    # Bind the manifest case to the shared rejection helper and its exact
+    # manifest-derived reason so a no-op / success-only test cannot qualify.
+    if printf "%s\\n" "$test_block" | rg -n --fixed-strings "assert_integrity_rejection(" >/dev/null 2>&1; then
+      echo "OK:   semantic runtime witness ${test_name} contains an integrity rejection assertion"
+    else
+      echo "FAIL: semantic runtime witness ${test_name} has no integrity rejection assertion"
+      fail=1
+    fi
+    expected_reason_call="expected_reason(\"${test_name}\")"
+    if printf "%s\\n" "$test_block" | rg -n --fixed-strings "$expected_reason_call" >/dev/null 2>&1; then
+      echo "OK:   semantic runtime witness ${test_name} binds its rejection reason to the manifest case"
+    else
+      echo "FAIL: semantic runtime witness ${test_name} does not bind expected_reason to the manifest case"
+      fail=1
+    fi
   done
 }
 
