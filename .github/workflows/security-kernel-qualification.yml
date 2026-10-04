@@ -96,6 +96,16 @@ jobs:
             exit 1
           fi
 
+          # ProvenanceRef is constructor-gated in both directions: external callers must
+          # use ProvenanceRef::new(), and wire decoding must pass through that constructor.
+          for pattern in \
+            'pub([[:space:]]*\\([^)]*\\))?[[:space:]]+(artifact_id|relation)[[:space:]]*:'; do
+            if rg -nU "$pattern" crates/mycelix-bridge-common/src/security_events.rs; then
+              echo "security-event trust-surface regression: public ProvenanceRef field: $pattern" >&2
+              exit 1
+            fi
+          done
+
           # Provenance identifiers must not bypass ProvenanceRef::new() during wire decoding.
           if ! rg -nU '#\\[derive\\([^]]*Serialize[^]]*\\)\\][[:space:]]*#\\[serde\\(try_from[[:space:]]*=[[:space:]]*"ProvenanceRefWire"\\)\\][[:space:]]*pub struct ProvenanceRef' crates/mycelix-bridge-common/src/security_events.rs; then
             echo "security-event regression: ProvenanceRef lost its constructor-gated deserialization" >&2
