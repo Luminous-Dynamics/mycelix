@@ -116,14 +116,11 @@ pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateC
 #[hdk_extern]
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
-        FlatOp::StoreEntry(OpEntry::CreateEntry {
-            app_entry,
-            action: _,
-        }) => match app_entry {
+        FlatOp::StoreEntry(OpEntry::CreateEntry { app_entry, action }) => match app_entry {
             EntryTypes::Decision(decision) => validate_decision(&decision),
             EntryTypes::Vote(vote) => {
                 validate_vote(&vote)?;
-                validate_vote_decision_reference(&vote)
+                validate_vote_decision_reference(&vote, action.timestamp)
             }
             EntryTypes::DecisionOutcome(outcome) => validate_outcome(&outcome),
         },
@@ -188,9 +185,14 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 // ============================================================================
 
 /// Validate a Vote against the immutable Decision constraints it references.
+///
+/// The timestamp arguments are Holochain action timestamps, not entry fields.
+/// This keeps deadline enforcement tied to authoritative source-chain metadata.
 fn validate_vote_against_decision(
     vote: &Vote,
     decision: &Decision,
+    decision_action_timestamp: Timestamp,
+    vote_action_timestamp: Timestamp,
 ) -> ExternResult<ValidateCallbackResult> {
     if vote.choice as usize >= decision.options.len() {
         return Ok(ValidateCallbackResult::Invalid(format!(
@@ -200,15 +202,15 @@ fn validate_vote_against_decision(
         )));
     }
 
-    if vote.created_at < decision.created_at {
+    if vote_action_timestamp < decision_action_timestamp {
         return Ok(ValidateCallbackResult::Invalid(
-            "Vote created_at cannot precede the referenced Decision created_at".into(),
+            "Vote action timestamp cannot precede the referenced Decision action timestamp".into(),
         ));
     }
 
-    if vote.created_at > decision.deadline {
+    if vote_action_timestamp > decision.deadline {
         return Ok(ValidateCallbackResult::Invalid(
-            "Vote created_at cannot be after the referenced Decision deadline".into(),
+            "Vote action timestamp cannot be after the referenced Decision deadline".into(),
         ));
     }
 
@@ -222,6 +224,7 @@ fn validate_vote_against_decision(
 /// Decision arrives rather than disagreeing about incomplete DHT state.
 fn validate_vote_decision_reference(
     vote: &Vote,
+    vote_action_timestamp: Timestamp,
 ) -> ExternResult<ValidateCallbackResult> {
     let record = must_get_valid_record(vote.decision_hash.clone())?;
 
@@ -265,7 +268,12 @@ fn validate_vote_decision_reference(
 
     match decision {
         Some(EntryTypes::Decision(decision)) => {
-            validate_vote_against_decision(vote, &decision)
+            validate_vote_against_decision(
+                vote,
+                &decision,
+                record.action().timestamp(),
+                vote_action_timestamp,
+            )
         }
         Some(_) => Ok(ValidateCallbackResult::Invalid(
             "Vote decision_hash does not reference a Decision entry".into(),
@@ -563,12 +571,24 @@ mod tests {
         let decision = make_decision("Test", vec!["A", "B"]);
         let mut vote = make_vote(1, 10000);
         assert!(matches!(
-            validate_vote_against_decision(&vote, &decision).unwrap(),
+            validate_vote_against_decision(
+                &vote,
+                &decision,
+                decision.created_at,
+                vote.created_at,
+            )
+            .unwrap(),
             ValidateCallbackResult::Valid
         ));
 
         vote.choice = 2;
-        match validate_vote_against_decision(&vote, &decision).unwrap() {
+        match validate_vote_against_decision(
+                &vote,
+                &decision,
+                decision.created_at,
+                vote.created_at,
+            )
+            .unwrap() {
             ValidateCallbackResult::Invalid(message) => {
                 assert!(message.contains("outside Decision option range"))
             }
@@ -595,7 +615,7 @@ mod tests {
         vote.created_at = Timestamp::from_micros(999_999);
         match validate_vote_against_decision(&vote, &decision).unwrap() {
             ValidateCallbackResult::Invalid(message) => {
-                assert!(message.contains("cannot precede"))
+                assert!(message.contains("action timestamp cannot precede"))
             }
             other => panic!("expected Invalid, got {:?}", other),
         }
@@ -610,7 +630,7 @@ mod tests {
         vote.created_at = Timestamp::from_micros(2_000_001);
         match validate_vote_against_decision(&vote, &decision).unwrap() {
             ValidateCallbackResult::Invalid(message) => {
-                assert!(message.contains("after the referenced Decision deadline"))
+                assert!(message.contains("action timestamp cannot be after the referenced Decision deadline"))
             }
             other => panic!("expected Invalid, got {:?}", other),
         }
