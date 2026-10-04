@@ -1085,6 +1085,42 @@ check_qualification_workflow_provenance() {
     echo "FAIL: qualification evidence capture must preserve artifacts across early failures"
     fail=1
   fi
+
+  if python3 - "$workflow" <<'PY'
+import re, sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+source = path.read_text()
+start = source.find("      - name: Capture immutable qualification evidence")
+end = source.find("      - name: Capture qualification metadata", start)
+if start < 0 or end < 0:
+    raise SystemExit("capture step boundaries not found")
+block = source[start:end]
+
+checks = [
+    ('root workspace capture', r'root="\$\{GITHUB_WORKSPACE\}"'),
+    ('marker helper', r'ensure_marker\(\)'),
+    ('non-destructive marker creation', r'if \[\[ ! -s "\$path" \]\]'),
+    ('root-level source-contract verification', r'\(cd "\$\{root\}" && sha256sum -c mycelix-workspace/mycelix-hearth/qualification-source-contract-sha256\.txt\)'),
+    ('evidence status artifact', r'qualification-evidence-status\.txt'),
+]
+for label, pattern in checks:
+    if not re.search(pattern, block):
+        print(f"FAIL: qualification evidence capture missing {label}")
+        raise SystemExit(2)
+
+if re.search(r'working-directory:\s*mycelix-workspace/mycelix-hearth', block):
+    print("FAIL: evidence capture must not depend on Hearth working-directory existing")
+    raise SystemExit(2)
+
+print("OK: qualification evidence capture is root-anchored and non-destructive")
+PY
+  then
+    true
+  else
+    fail=1
+  fi
   if rg -n --fixed-strings "cargo build --locked" "$workflow" >/dev/null 2>&1 \
     && rg -n --fixed-strings "cargo test --locked" "$workflow" >/dev/null 2>&1 \
     && rg -n --fixed-strings "cargo generate-lockfile" "$workflow" >/dev/null 2>&1; then
