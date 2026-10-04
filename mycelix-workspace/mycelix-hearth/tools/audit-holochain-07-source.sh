@@ -478,7 +478,7 @@ check_create_record_coverage() {
       fail=1
     fi
   fi
-  if rg -n --pcre2 'FlatOp::CreateRecord\s*\(\)\s*=>\s*Ok\s*\(\s*ValidateCallbackResult::Valid' "$file" >/dev/null 2>&1; then
+  if rg -nU --pcre2 'FlatOp::CreateRecord\(\s*_\s*\)\s*=>\s*Ok\s*\(\s*ValidateCallbackResult::Valid' "$file" >/dev/null 2>&1; then
     echo "FAIL: $file has permissive CreateRecord(_) => Valid catch-all"
     fail=1
   fi
@@ -523,6 +523,36 @@ check_create_record_entry_dispatch() {
     fi
   done < <(printf '%s\n' "$enum_block" | rg --pcre2 -o '^\s*[A-Za-z_][A-Za-z0-9_]*\s*\(' | sed -E 's/^\s*([A-Za-z_][A-Za-z0-9_]*).*$/\1/')
 }
+# CreateEntry dispatch must preserve the EntryTypes policy at the first validation surface.
+# A permissive FlatOp::CreateEntry(_) => Valid arm can otherwise swallow a newly
+# introduced entry variant even when CreateRecord validation remains exhaustive.
+check_create_entry_entry_dispatch() {
+  local file="$1"
+  local source enum_block variant create_block
+  source="$(sed '/^\#\[cfg(test)\]/,$d' "$file")"
+  enum_block="$(printf '%s\n' "$source" | sed -n '/^pub enum EntryTypes[[:space:]]*{/,/^}/p')"
+  create_block="$(printf '%s\n' "$source" | awk '
+    index($0, "FlatOp::CreateEntry") { in_block=1 }
+    in_block && /^        FlatOp::CreateRecord/ { in_block=0 }
+    in_block
+  ')"
+  if printf '%s\n' "$create_block" | rg -nU --pcre2 'FlatOp::CreateEntry\(\s*_\s*\)\s*=>\s*Ok\s*\(\s*ValidateCallbackResult::Valid' >/dev/null 2>&1; then
+    echo "FAIL: $file has permissive FlatOp::CreateEntry(_) => Valid catch-all"
+    fail=1
+  else
+    echo "OK:   $file has no permissive CreateEntry catch-all"
+  fi
+  while IFS= read -r variant; do
+    [[ -z "$variant" ]] && continue
+    if printf '%s\n' "$create_block" | rg -n --pcre2 "\\bEntryTypes::\${variant}\\b" >/dev/null 2>&1; then
+      echo "OK:   $file CreateEntry dispatch covers EntryTypes::\${variant}"
+    else
+      echo "FAIL: $file CreateEntry dispatch misses EntryTypes::\${variant}"
+      fail=1
+    fi
+  done < <(printf '%s\n' "$enum_block" | rg --pcre2 -o '^\s*[A-Za-z_][A-Za-z0-9_]*\s*\(' | sed -E 's/^\s*([A-Za-z_][A-Za-z0-9_]*).*$/\1/')
+}
+
 # Dangerous operation families must never be accepted solely by a terminal
 # wildcard. Delete and Link carry authorization/state semantics of their own;
 # CreateRecord is guarded above, and Update is paired with explicit action-level
@@ -1660,6 +1690,10 @@ done
 
 for file in "${integrity_files[@]}"; do
   run_audit_check "check_dangerous_operation_catchalls:$(basename "$(dirname "$(dirname "$(dirname "$file")")")")" check_dangerous_operation_catchalls "$file"
+done
+
+for file in "${integrity_files[@]}"; do
+  run_audit_check "check_create_entry_entry_dispatch:$(basename "$(dirname "$(dirname "$(dirname "$file")")")")" check_create_entry_entry_dispatch "$file"
 done
 
 for file in "${integrity_files[@]}"; do
