@@ -49,6 +49,27 @@ check_present_file() {
   fi
 }
 
+# Extract a Rust enum without truncating on a struct-variant's closing brace.
+# This is intentionally a small lexical brace counter, not a Rust parser; enum
+# variant declarations cannot contain ordinary item-level function bodies.
+extract_rust_enum_block() {
+  local source="$1"
+  local enum_name="$2"
+  printf '%s\n' "$source" | awk -v enum_name="$enum_name" '
+    !in_enum && $0 ~ "^[[:space:]]*(pub[[:space:]]+)?enum[[:space:]]+" enum_name "[[:space:]]*\\{" {
+      in_enum=1
+    }
+    in_enum {
+      line=$0
+      opens=gsub(/\{/, "{", line)
+      closes=gsub(/\}/, "}", line)
+      print
+      depth += opens - closes
+      if (depth <= 0) exit
+    }
+  '
+}
+
 check_lock_ref() {
   local label="$1" node="$2" owner="$3" repo="$4" ref="$5"
   if python3 - "$node" "$owner" "$repo" "$ref" <<'PY'
@@ -339,7 +360,7 @@ check_entry_type_dispatch() {
   local file="$1"
   local source enum_block dispatch_block variant
   source="$(sed '/^\#\[cfg(test)\]/,$d' "$file")"
-  enum_block="$(printf '%s\n' "$source" | sed -n '/^pub enum EntryTypes[[:space:]]*{/,/^}/p')"
+  enum_block="$(extract_rust_enum_block "$source" EntryTypes)"
   if [[ -z "$enum_block" ]]; then
     echo "FAIL: $file has no parseable EntryTypes enum"
     fail=1
@@ -381,7 +402,7 @@ check_link_type_policy() {
   local file="$1"
   local source enum_block policy_block variant
   source="$(sed '/^#\[cfg(test)\]/,$d' "$file")"
-  enum_block="$(printf '%s\n' "$source" | sed -n '/^pub enum LinkTypes[[:space:]]*{/,/^}/p')"
+  enum_block="$(extract_rust_enum_block "$source" LinkTypes)"
   if [[ -z "$enum_block" ]]; then
     echo "FAIL: $file has no parseable LinkTypes enum"
     fail=1
@@ -492,7 +513,7 @@ check_create_record_entry_dispatch() {
   local file="$1"
   local source enum_block variant create_block update_block
   source="$(sed '/^\#\[cfg(test)\]/,$d' "$file")"
-  enum_block="$(printf '%s\n' "$source" | sed -n '/^pub enum EntryTypes[[:space:]]*{/,/^}/p')"
+  enum_block="$(extract_rust_enum_block "$source" EntryTypes)"
   create_block="$(printf '%s\n' "$source" | awk '
     index($0, "FlatOp::CreateRecord(OpRecord::CreateEntry") { in_block=1 }
     index($0, "FlatOp::CreateRecord(OpRecord::UpdateEntry") { in_block=0 }
@@ -530,7 +551,7 @@ check_create_entry_entry_dispatch() {
   local file="$1"
   local source enum_block variant create_block
   source="$(sed '/^\#\[cfg(test)\]/,$d' "$file")"
-  enum_block="$(printf '%s\n' "$source" | sed -n '/^pub enum EntryTypes[[:space:]]*{/,/^}/p')"
+  enum_block="$(extract_rust_enum_block "$source" EntryTypes)"
   create_block="$(printf '%s\n' "$source" | awk '
     index($0, "FlatOp::CreateEntry") { in_block=1 }
     in_block && /^        FlatOp::CreateRecord/ { in_block=0 }
