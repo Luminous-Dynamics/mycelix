@@ -58,6 +58,11 @@ def main() -> None:
         for line in test_log_lines
         if line.startswith("D6U_SUBSTRATE_CHECK\t")
     )
+    observed_application_count = sum(
+        1
+        for line in test_log_lines
+        if line.startswith("D6U_APPLICATION_CHECK\t")
+    )
 
     expected = {
         "status": "runtime-reference-evidence",
@@ -86,6 +91,10 @@ def main() -> None:
         "supplemental_coverage": (
             f"{observed_supplemental_count}-of-"
             f"{len(manifest.get("supplemental_substrate_checks", []))}"
+        ),
+        "application_check_coverage": (
+            f"{observed_application_count}-of-"
+            f"{len(manifest.get("supplemental_application_checks", []))}"
         ),
         "case_outcome_classes": ",".join(manifest["evidence_outcome_classes"]),
         "runtime": manifest["substrate"]["holochain"],
