@@ -25,8 +25,11 @@ pub struct MeshNameEntry {
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
 pub struct NameTransfer {
-    /// Action hash of the MeshNameEntry being transferred.
+    /// Action hash of the original MeshNameEntry being transferred.
     pub name_hash: ActionHash,
+    /// Previous transfer in the ownership chain. None only for the first transfer.
+    #[serde(default)]
+    pub previous_transfer_hash: Option<ActionHash>,
     /// New owner agent.
     pub new_owner: AgentPubKey,
     /// Transfer timestamp.
@@ -117,6 +120,47 @@ fn validate_mesh_name(entry: &MeshNameEntry) -> Result<(), String> {
     Ok(())
 }
 
+fn validate_name_transfer_chain_uniqueness(
+    action: &Create,
+    transfer: &NameTransfer,
+) -> ExternResult<ValidateCallbackResult> {
+    let activity = must_get_agent_activity(
+        action.author.clone(),
+        ChainFilter::new(action.prev_action.clone()),
+    )?;
+    let entry_type = EntryType::App(AppEntryDef::try_from(UnitEntryTypes::NameTransfer)?);
+
+    for prior in activity {
+        let prior_action = prior.action.action();
+        let Action::Create(prior_create) = prior_action else {
+            continue;
+        };
+        if prior_create.entry_type != entry_type {
+            continue;
+        }
+        let prior_entry = must_get_entry(prior_create.entry_hash.clone())?;
+        let prior_transfer: NameTransfer = prior_entry.try_into().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Name transfer history entry could not be decoded: {e}"
+            )))
+        })?;
+
+        if prior_transfer.name_hash != transfer.name_hash {
+            continue;
+        }
+
+        if transfer.previous_transfer_hash.is_none()
+            || prior_transfer.previous_transfer_hash == transfer.previous_transfer_hash
+        {
+            return Ok(ValidateCallbackResult::Invalid(
+                "A source chain cannot create two transfers for the same ownership state".into(),
+            ));
+        }
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
 fn validate_create_name_transfer(
     action: EntryCreationAction,
     transfer: NameTransfer,
@@ -139,18 +183,49 @@ fn validate_create_name_transfer(
         ));
     }
 
-    if *name_record.action().author() != *action.author() {
-        return Ok(ValidateCallbackResult::Invalid(
-            "Only the MeshNameEntry author may transfer this name".into(),
-        ));
+    match transfer.previous_transfer_hash.clone() {
+        None => {
+            if *name_record.action().author() != *action.author() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Only the original MeshNameEntry owner may create the first transfer".into(),
+                ));
+            }
+        }
+        Some(previous_hash) => {
+            let previous_record = must_get_valid_record(previous_hash.clone())?;
+            let previous: NameTransfer = previous_record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "previous_transfer_hash must reference a NameTransfer".into(),
+                )))?;
+
+            if previous.name_hash != transfer.name_hash {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Previous transfer must reference the same MeshNameEntry".into(),
+                ));
+            }
+            if previous.new_owner != *action.author() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Only the current owner may continue the transfer chain".into(),
+                ));
+            }
+        }
     }
+
     if transfer.new_owner == *action.author() {
         return Ok(ValidateCallbackResult::Invalid(
             "Name transfer must specify a different owner".into(),
         ));
     }
 
-    Ok(ValidateCallbackResult::Valid)
+    validate_name_transfer_chain_uniqueness(
+        match action {
+            EntryCreationAction::Create(create) => create,
+        },
+        &transfer,
+    )
 }
 
 fn validate_create_link(
@@ -330,7 +405,21 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             "Name registry indexes cannot be deleted".into(),
         )),
         FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
-        FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
+        FlatOp::RegisterAgentActivity(activity) => match activity {
+            OpActivity::CreateEntry {
+                app_entry_type: Some(UnitEntryTypes::NameTransfer),
+                action,
+            } => {
+                let entry = must_get_entry(action.entry_hash.clone())?;
+                let transfer: NameTransfer = entry.try_into().map_err(|e| {
+                    wasm_error!(WasmErrorInner::Guest(format!(
+                        "NameTransfer activity entry could not be decoded: {e}"
+                    )))
+                })?;
+                validate_name_transfer_chain_uniqueness(action, &transfer)
+            }
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
         FlatOp::RegisterUpdate(update) => {
             let action = match &update {
                 OpUpdate::Entry { action, .. }
