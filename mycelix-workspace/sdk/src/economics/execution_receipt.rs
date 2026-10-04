@@ -16,6 +16,7 @@ use super::action_lifecycle::{
     EconomicActionLifecycle, EconomicActionStage,
 };
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 /// Type of execution evidence attached to an economic action.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -104,6 +105,21 @@ impl EconomicExecutionReceipt {
             (None, None) => {}
         }
         Ok(())
+    }
+
+    /// Return a deterministic SHA-256 fingerprint of the complete receipt.
+    ///
+    /// The domain/version prefix prevents this digest from being confused with
+    /// fingerprints from other Mycelix artifacts. The encoding scheme is the
+    /// same serde-json based reference canonicalization used by AC-036.
+    pub fn fingerprint(&self) -> Result<String, String> {
+        self.validate()?;
+        let canonical = serde_json::to_vec(self)
+            .map_err(|error| format!("Economic execution receipt canonicalization failed: {error}"))?;
+        let mut hasher = Sha256::new();
+        hasher.update(b"MYCELIX-ECONOMIC-EXECUTION-RECEIPT-V1\0");
+        hasher.update(canonical);
+        Ok(hex::encode(hasher.finalize()))
     }
 }
 
