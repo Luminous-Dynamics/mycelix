@@ -26,6 +26,7 @@ v3 records deterministic evidence for the selected patch:
 - `solver_entity_fingerprint` and `solver_entity_mapping_digest` when the binding is promoted to `SolverEntityAttested` after concrete solver-side entity introspection.
 - `solver_entity_observation_digest`, the digest of the adapter-owned canonical introspection observation from which that fingerprint was derived.
 - `solver_entity_observation_kind` and `solver_entity_observation_source_digest`, preserving the semantic kind and source-artifact lineage of that observation.
+- `SolverInputEntityAttested` is intentionally intermediate: it records a concrete solver-input entity such as an OpenFOAM boundary patch, while remaining below live `SolverEntityAttested` evidence.
 - the solver-entity mapping digest is adapter-specific, preventing an attestation receipt from being transplanted between adapter implementations.
 
 
