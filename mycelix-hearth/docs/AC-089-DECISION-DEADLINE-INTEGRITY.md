@@ -8,13 +8,13 @@ AC-089 binds a newly created Decision's immutable deadline to the authoritative 
 
 `Decision.deadline >= Create action timestamp`.
 
-This prevents a structurally impossible Decision whose voting deadline has already elapsed at the moment of publication.
+This prevents a Decision from declaring a deadline earlier than its own claimed Create action timestamp. It does not prove that the deadline has not already elapsed in external wall-clock time because Holochain action timestamps are self-reported.
 
 AC-089 does not require `Decision.created_at == action.timestamp`. The entry field remains non-authoritative, consistent with the existing timestamp-provenance boundary.
 
 ## Determinism
 
-The validator compares immutable entry data against the timestamp carried by the validated Create action. It does not inspect current wall-clock time or mutable DHT collections.
+The validator compares immutable deadline data against the timestamp carried by the validated Create action. It does not inspect current wall-clock time or mutable DHT collections.
 
 ## Test coverage
 
