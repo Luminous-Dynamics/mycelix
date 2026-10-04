@@ -1,0 +1,30 @@
+name: D6U Trusted Builder Self-Test
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/d6u-trusted-evidence-attestation.yml"
+      - "docs/integral/d6u-trusted-builder-policy.json"
+      - "scripts/integral/verify_d6u_trusted_artifacts.py"
+      - "scripts/integral/test_d6u_trusted_artifacts.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  self-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+
+      - name: Compile trusted verifier
+        run: python3 -m py_compile scripts/integral/verify_d6u_trusted_artifacts.py scripts/integral/test_d6u_trusted_artifacts.py
+
+      - name: Run trusted verifier self-tests
+        working-directory: scripts/integral
+        run: python3 test_d6u_trusted_artifacts.py
