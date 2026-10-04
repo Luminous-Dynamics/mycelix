@@ -1063,8 +1063,8 @@ fn observation_map_keys_match_records(state: &FederationState) -> bool {
 pub enum FederationInvariantViolation {
     NodeMapKeyMismatch, RecognitionEdgeInvalid, RecognitionEdgeOrderMismatch,
     DeliveryMapKeyMismatch, DeliveryNodeReferenceMismatch, DeliveryPredecessorMismatch,
-    ObservationMapKeyMismatch, SourceObservationSetMismatch, DeliveryMissingAttemptHistory,
-    AttemptBindingMismatch, SourceObservationMismatch,
+    DeliveryPredecessorCycle, ObservationMapKeyMismatch, SourceObservationSetMismatch,
+    DeliveryMissingAttemptHistory, AttemptBindingMismatch, SourceObservationMismatch,
 }
 
 /// Stable identifiers for the authoritative federation invariant registry.
@@ -1072,8 +1072,8 @@ pub enum FederationInvariantViolation {
 pub enum FederationInvariantId {
     NodeMapIdentity, RecognitionEdgeValidity, RecognitionEdgeCanonicalOrder,
     DeliveryMapIdentity, DeliveryNodeReferences, DeliveryPredecessorReferences,
-    ObservationMapIdentity, SourceObservationBijection, DeliveryAttemptHistory,
-    AttemptEnvelopeBindings, DeliverySourceObservationProvenance,
+    DeliveryPredecessorAcyclic, ObservationMapIdentity, SourceObservationBijection,
+    DeliveryAttemptHistory, AttemptEnvelopeBindings, DeliverySourceObservationProvenance,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1120,6 +1120,10 @@ pub const FEDERATION_INVARIANT_REGISTRY: &[FederationInvariantSpec] = &[
     FederationInvariantSpec::new(FederationInvariantId::DeliveryPredecessorReferences, "delivery-predecessor-references",
         "Every predecessor reference exists and no delivery points to itself.",
         &[FederationInvariantId::DeliveryMapIdentity], delivery_predecessors_match, FederationInvariantViolation::DeliveryPredecessorMismatch),
+    FederationInvariantSpec::new(FederationInvariantId::DeliveryPredecessorAcyclic, "delivery-predecessor-acyclic",
+        "Existing predecessor references form an acyclic admission-history graph.",
+        &[FederationInvariantId::DeliveryMapIdentity, FederationInvariantId::DeliveryPredecessorReferences],
+        delivery_predecessor_graph_is_acyclic, FederationInvariantViolation::DeliveryPredecessorCycle),
     FederationInvariantSpec::new(FederationInvariantId::ObservationMapIdentity, "observation-map-identity",
         "Every observation map key equals its observation identity.",
         &[], observation_map_keys_match_records, FederationInvariantViolation::ObservationMapKeyMismatch),
@@ -1171,6 +1175,35 @@ fn delivery_predecessors_match(state: &FederationState) -> bool {
         None => true,
         Some(predecessor) => predecessor != record.contract.logical_delivery_id && state.deliveries.contains_key(predecessor),
     })
+}
+
+fn delivery_predecessor_graph_is_acyclic(state: &FederationState) -> bool {
+    for start in state.deliveries.keys() {
+        let mut current = start.as_str();
+        let mut visited = BTreeSet::new();
+
+        loop {
+            if !visited.insert(current) {
+                return false;
+            }
+
+            let Some(record) = state.deliveries.get(current) else {
+                break;
+            };
+
+            let Some(predecessor) = record.contract.predecessor_delivery_id.as_deref() else {
+                break;
+            };
+
+            if predecessor == current || !state.deliveries.contains_key(predecessor) {
+                break;
+            }
+
+            current = predecessor;
+        }
+    }
+
+    true
 }
 
 fn deliveries_have_attempt_history(state: &FederationState) -> bool {
@@ -1551,6 +1584,31 @@ mod tests {
             validate_state(&state),
             Err(FederationInvariantViolation::DeliveryPredecessorMismatch)
         );
+
+        let mut cyclic = nodes();
+        assert_eq!(
+            deliver(&mut cyclic, &envelope(), 50, true).decision(),
+            FederationDecision::AcceptedLocal
+        );
+        let mut child = envelope();
+        child.envelope_id = "env-cycle-validation".into();
+        child.logical_delivery_id = "delivery-cycle-validation".into();
+        child.attempt_id = "attempt-cycle-validation".into();
+        child.predecessor_delivery_id = Some("delivery-1".into());
+        assert_eq!(
+            deliver(&mut cyclic, &child, 50, true).decision(),
+            FederationDecision::AcceptedLocal
+        );
+        cyclic
+            .deliveries
+            .get_mut("delivery-1")
+            .unwrap()
+            .contract
+            .predecessor_delivery_id = Some("delivery-cycle-validation".into());
+        assert_eq!(
+            validate_state(&cyclic),
+            Err(FederationInvariantViolation::DeliveryPredecessorCycle)
+        );
     }
 
     #[test]
@@ -1734,7 +1792,7 @@ mod tests {
     #[test]
     fn invariant_registry_is_unique_documented_and_covers_valid_state() {
         let mut ids = BTreeSet::new();
-        assert_eq!(FEDERATION_INVARIANT_REGISTRY.len(), 11);
+        assert_eq!(FEDERATION_INVARIANT_REGISTRY.len(), 12);
 
         for spec in FEDERATION_INVARIANT_REGISTRY {
             assert!(ids.insert(spec.id), "duplicate invariant id: {:?}", spec.id);
@@ -1803,6 +1861,7 @@ mod tests {
         DeliveryMapIdentity,
         DeliveryNodeReferences,
         DeliveryPredecessorReferences,
+        DeliveryPredecessorAcyclic,
         ObservationMapIdentity,
         SourceObservationBijection,
         DeliveryAttemptHistory,
@@ -1818,6 +1877,7 @@ mod tests {
             Self::DeliveryMapIdentity,
             Self::DeliveryNodeReferences,
             Self::DeliveryPredecessorReferences,
+            Self::DeliveryPredecessorAcyclic,
             Self::ObservationMapIdentity,
             Self::SourceObservationBijection,
             Self::DeliveryAttemptHistory,
@@ -1852,6 +1912,10 @@ mod tests {
                 Self::DeliveryPredecessorReferences => &[(
                     FederationInvariantId::DeliveryPredecessorReferences,
                     FederationInvariantViolation::DeliveryPredecessorMismatch,
+                )],
+                Self::DeliveryPredecessorAcyclic => &[(
+                    FederationInvariantId::DeliveryPredecessorAcyclic,
+                    FederationInvariantViolation::DeliveryPredecessorCycle,
                 )],
                 Self::ObservationMapIdentity => &[(
                     FederationInvariantId::ObservationMapIdentity,
@@ -1888,6 +1952,7 @@ mod tests {
                 Self::DeliveryPredecessorReferences => {
                     FederationInvariantId::DeliveryPredecessorReferences
                 }
+                Self::DeliveryPredecessorAcyclic => FederationInvariantId::DeliveryPredecessorAcyclic,
                 Self::ObservationMapIdentity => FederationInvariantId::ObservationMapIdentity,
                 Self::SourceObservationBijection => FederationInvariantId::SourceObservationBijection,
                 Self::DeliveryAttemptHistory => FederationInvariantId::DeliveryAttemptHistory,
@@ -1947,6 +2012,26 @@ mod tests {
                         .unwrap()
                         .contract
                         .predecessor_delivery_id = Some("missing-predecessor".into());
+                }
+                Self::DeliveryPredecessorAcyclic => {
+                    let mut delivery_ids = state.deliveries.keys().cloned().collect::<Vec<_>>();
+                    delivery_ids.sort();
+                    assert!(delivery_ids.len() >= 2);
+                    let first = delivery_ids[0].clone();
+                    let second = delivery_ids[1].clone();
+
+                    state
+                        .deliveries
+                        .get_mut(&first)
+                        .unwrap()
+                        .contract
+                        .predecessor_delivery_id = Some(second.clone());
+                    state
+                        .deliveries
+                        .get_mut(&second)
+                        .unwrap()
+                        .contract
+                        .predecessor_delivery_id = Some(first);
                 }
                 Self::ObservationMapIdentity => {
                     state.observations.insert(
@@ -2010,6 +2095,7 @@ mod tests {
                 Self::DeliveryMapIdentity
                     | Self::DeliveryNodeReferences
                     | Self::DeliveryPredecessorReferences
+                    | Self::DeliveryPredecessorAcyclic
                     | Self::DeliveryAttemptHistory
                     | Self::AttemptEnvelopeBindings
                     | Self::DeliverySourceObservationProvenance
@@ -2019,7 +2105,21 @@ mod tests {
 
         fn seed_state(self) -> FederationState {
             let mut state = nodes();
-            if self.requires_delivery() {
+            if self == Self::DeliveryPredecessorAcyclic {
+                assert_eq!(
+                    deliver(&mut state, &envelope(), 50, true).decision(),
+                    FederationDecision::AcceptedLocal
+                );
+                let mut child = envelope();
+                child.envelope_id = "env-cycle-seed".into();
+                child.logical_delivery_id = "delivery-cycle-seed".into();
+                child.attempt_id = "attempt-cycle-seed".into();
+                child.predecessor_delivery_id = Some("delivery-1".into());
+                assert_eq!(
+                    deliver(&mut state, &child, 50, true).decision(),
+                    FederationDecision::AcceptedLocal
+                );
+            } else if self.requires_delivery() {
                 assert_eq!(
                     deliver(&mut state, &envelope(), 50, true).decision(),
                     FederationDecision::AcceptedLocal
@@ -2033,7 +2133,23 @@ mod tests {
             second: FederationInvariantMutation,
         ) -> FederationState {
             let mut state = nodes();
-            if first.requires_delivery() || second.requires_delivery() {
+            if first == FederationInvariantMutation::DeliveryPredecessorAcyclic
+                || second == FederationInvariantMutation::DeliveryPredecessorAcyclic
+            {
+                assert_eq!(
+                    deliver(&mut state, &envelope(), 50, true).decision(),
+                    FederationDecision::AcceptedLocal
+                );
+                let mut child = envelope();
+                child.envelope_id = "env-cycle-seed".into();
+                child.logical_delivery_id = "delivery-cycle-seed".into();
+                child.attempt_id = "attempt-cycle-seed".into();
+                child.predecessor_delivery_id = Some("delivery-1".into());
+                assert_eq!(
+                    deliver(&mut state, &child, 50, true).decision(),
+                    FederationDecision::AcceptedLocal
+                );
+            } else if first.requires_delivery() || second.requires_delivery() {
                 assert_eq!(
                     deliver(&mut state, &envelope(), 50, true).decision(),
                     FederationDecision::AcceptedLocal
