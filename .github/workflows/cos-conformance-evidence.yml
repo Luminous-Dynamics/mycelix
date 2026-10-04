@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           submodules: recursive
@@ -111,7 +111,7 @@ jobs:
             "workflow": "${{ github.workflow }}",
             "workflow_file_blob_sha": "$(cat evidence/workflow-file-blob-sha.txt 2>/dev/null || printf %s null)",
             "workflow_action_refs": {
-              "actions/checkout": "fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09",
+              "actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",
               "dtolnay/rust-toolchain": "02cb101ec7c40f2c49e1d9714d64511d8e1b74de",
               "Swatinem/rust-cache": "6323deb102c322ba6fcbdcafc7e3dddab59af2b6",
               "actions/upload-artifact": "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
