@@ -4557,7 +4557,7 @@ async fn dsid_047_deactivated_issuer_cannot_mint_new_credentials() {
         .await;
 
     assert!(
-        active_credential.action_address() != holder.action_address(),
+        active_credential.entry().as_option().is_some(),
         "active issuer should successfully mint a credential before deactivation"
     );
 
@@ -4607,10 +4607,10 @@ async fn dsid_047_deactivated_issuer_cannot_mint_new_credentials() {
         "Credential issuance must require a currently active issuer DID; historical credentials remain distinct from new authority acts.",
         format!(
             "active_issuance_succeeded={} post_deactivation_issuance_rejected={}",
-            active_credential.action_address() != holder.action_address(),
+            active_credential.entry().as_option().is_some(),
             blocked.is_err()
         ),
-        active_credential.action_address() != holder.action_address() && blocked.is_err(),
+        active_credential.entry().as_option().is_some() && blocked.is_err(),
     );
 }
 
