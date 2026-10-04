@@ -145,6 +145,19 @@ jobs:
             d6u-runtime-harness/d6u-runtime-test.log
             d6u-runtime-harness/Cargo.lock
 
+      - name: Verify runtime evidence attestations
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for subject in \
+            d6u-runtime-harness/d6u-runtime-evidence.txt \
+            d6u-runtime-harness/d6u-runtime-test.log \
+            d6u-runtime-harness/Cargo.lock; do
+            gh attestation verify "$subject" --repo "$GITHUB_REPOSITORY"
+          done
+
       - name: Upload runtime evidence
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
