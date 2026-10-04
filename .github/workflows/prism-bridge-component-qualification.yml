@@ -81,6 +81,12 @@ jobs:
 
           cd "${root}"
           cargo +1.96.0 generate-lockfile
+
+          # Fast-fail the most recently security-relevant compiler regression
+          # before entering the long exhaustive test suite. This preserves the
+          # full suite while preventing an obvious structural mismatch from
+          # consuming the ~15-minute exhaustive execution first.
+          cargo +1.96.0 test --locked -p prism-bridge v2_disjunctive_masked_equal_branch_polarity_is_explicit
           cargo +1.96.0 test --locked -p prism-bridge
 
       - name: Emit qualification identity
