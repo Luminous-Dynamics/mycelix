@@ -413,7 +413,7 @@ fn link_tag_max_len(link_type: &LinkTypes) -> usize {
 }
 
 /// Validate link creation: enforce tag length limits.
-pub pub fn validate_create_link(
+pub fn validate_create_link(
     link_type: LinkTypes,
     base_address: AnyLinkableHash,
     target_address: AnyLinkableHash,
