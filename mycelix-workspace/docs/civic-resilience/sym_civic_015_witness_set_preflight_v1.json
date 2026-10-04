@@ -1,0 +1,275 @@
+{
+  "schema": "mycelix.sym-civic.witness-set-preflight.v1",
+  "program": "SYM-CIVIC-015",
+  "parent_subject": "38218c2cdebb520b32cf908166d3f4177a7976a5",
+  "analysis_role": "research_only",
+  "cases": [
+    {
+      "id": "W-01",
+      "family": "valid_two_of_three",
+      "mutations": []
+    },
+    {
+      "id": "W-02",
+      "family": "only_one_matching_witness",
+      "mutations": [
+        {
+          "op": "remove",
+          "path": "witness_set.witnesses.1",
+          "reseal": true
+        },
+        {
+          "op": "remove",
+          "path": "witness_set.witnesses.1",
+          "reseal": true
+        }
+      ]
+    },
+    {
+      "id": "W-03",
+      "family": "same_independence_group",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "witness_set.witnesses.1.independence_group",
+          "value": "group-1",
+          "reseal": true
+        },
+        {
+          "op": "replace",
+          "path": "witness_set.witnesses.2.independence_group",
+          "value": "group-1",
+          "reseal": true
+        }
+      ]
+    },
+    {
+      "id": "W-04",
+      "family": "stale_quorum",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "witness_set.witnesses.0.witnessed_at",
+          "value": "2026-10-03T23:00:00Z",
+          "reseal": true
+        },
+        {
+          "op": "replace",
+          "path": "witness_set.witnesses.1.witnessed_at",
+          "value": "2026-10-03T23:00:00Z",
+          "reseal": true
+        }
+      ]
+    },
+    {
+      "id": "W-05",
+      "family": "producer_operated_quorum",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "witness_set.witnesses.0.operating_party_id",
+          "value": "producer-a",
+          "reseal": true
+        },
+        {
+          "op": "replace",
+          "path": "witness_set.witnesses.1.operating_party_id",
+          "value": "producer-a",
+          "reseal": true
+        }
+      ]
+    },
+    {
+      "id": "W-06",
+      "family": "wrong_universe_binding",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "witness_set.witnesses.0.universe_identity_digest",
+          "value": "sha256:wrong"
+        },
+        {
+          "op": "replace",
+          "path": "witness_set.witnesses.1.universe_identity_digest",
+          "value": "sha256:wrong"
+        }
+      ]
+    },
+    {
+      "id": "W-07",
+      "family": "duplicate_witness_id",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "witness_set.witnesses.1.witness_id",
+          "value": "w1",
+          "reseal": true
+        }
+      ]
+    },
+    {
+      "id": "W-08",
+      "family": "duplicate_public_key",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "witness_set.witnesses.1.public_key_digest",
+          "value": "sha256:key-1",
+          "reseal": true
+        }
+      ]
+    },
+    {
+      "id": "W-09",
+      "family": "unknown_critical_extension",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "witness_set.extensions.critical_namespaces",
+          "value": {
+            "witness-set-v1": {
+              "mode": "K_OF_N_INDEPENDENT_GROUPS"
+            },
+            "future-v2": {
+              "mode": "OTHER"
+            }
+          },
+          "reseal": true
+        }
+      ]
+    },
+    {
+      "id": "W-10",
+      "family": "quorum_policy_change",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "witness_set.policy.required_witness_count",
+          "value": 4,
+          "reseal": true
+        }
+      ]
+    },
+    {
+      "id": "W-11",
+      "family": "same_witness_conflicting_attestation",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "witness_set.witnesses.1.witness_id",
+          "value": "w1",
+          "reseal": true
+        }
+      ]
+    },
+    {
+      "id": "W-12",
+      "family": "quorum_preserving_conflict",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "witness_set.witnesses.2.accepted_terminal_checkpoint_id",
+          "value": "checkpoint-other",
+          "reseal": true
+        },
+        {
+          "op": "replace",
+          "path": "witness_set.witnesses.2.accepted_terminal_checkpoint_digest",
+          "value": "sha256:other",
+          "reseal": true
+        }
+      ]
+    },
+    {
+      "id": "W-13",
+      "family": "quorum_breaking_conflict",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "witness_set.witnesses.1.accepted_terminal_checkpoint_id",
+          "value": "checkpoint-other",
+          "reseal": true
+        },
+        {
+          "op": "replace",
+          "path": "witness_set.witnesses.2.accepted_terminal_checkpoint_id",
+          "value": "checkpoint-other",
+          "reseal": true
+        }
+      ]
+    },
+    {
+      "id": "W-14",
+      "family": "claim_beyond_last_witnessed_checkpoint",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "frontier.terminal_checkpoint_id",
+          "value": "checkpoint-future",
+          "reseal": true
+        }
+      ]
+    },
+    {
+      "id": "W-15",
+      "family": "policy_identity_tamper",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "witness_set.policy.identity_digest",
+          "value": "sha256:tampered"
+        }
+      ]
+    },
+    {
+      "id": "W-16",
+      "family": "noncritical_extension_mutation",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "witness_set.extensions.noncritical",
+          "value": {
+            "trace": "synthetic",
+            "trace2": "synthetic"
+          }
+        }
+      ]
+    },
+    {
+      "id": "W-17",
+      "family": "same_operating_party_quorum",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "witness_set.witnesses.1.operating_party_id",
+          "value": "party-a",
+          "reseal": true
+        },
+        {
+          "op": "replace",
+          "path": "witness_set.witnesses.2.accepted_terminal_checkpoint_id",
+          "value": "checkpoint-other",
+          "reseal": true
+        },
+        {
+          "op": "replace",
+          "path": "witness_set.witnesses.2.accepted_terminal_checkpoint_digest",
+          "value": "sha256:other",
+          "reseal": true
+        }
+      ]
+    },
+    {
+      "id": "W-18",
+      "family": "duplicate_verification_method",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "witness_set.witnesses.1.verification_method_ref",
+          "value": "vm-key-1",
+          "reseal": true
+        }
+      ]
+    }
+  ]
+}
