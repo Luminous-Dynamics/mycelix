@@ -1038,6 +1038,11 @@ Revaluation amounts remain signed. For a sector holding gain/loss of (V):
 The dedicated projection is now hash-bound into `EconomicAccountingClosure`, so serialized
 valuation observations cannot be detached from the ordered transition program.
 
+The period ledger also retains target-specific signed totals for productive capital and inventory
+carrying value alongside the backward-compatible aggregate revaluation total. Thus a +50 capital
+holding gain and -50 inventory holding loss still produce a net revaluation of zero without erasing
+the composition of the valuation event.
+
 The closure now also validates the projection against the actual terminal balance sheet by replaying
 all non-revaluation transitions as a baseline and requiring the remaining stock/equity residual to
 equal the typed revaluation projection. This prevents valuation deltas from being accepted merely
