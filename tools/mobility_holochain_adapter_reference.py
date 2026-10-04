@@ -77,10 +77,42 @@ def main() -> int:
     if "one AgentPubKey in an immutable binding set" not in source:
         raise SystemExit("authority-agent registry must reject duplicate authority bindings")
 
+    authority_verify_start = source.index(
+        "pub fn verify(&self) -> ExternResult<HolochainAuthorityAgentBindingVerification>",
+    )
+    authority_signature_call = source.index(
+        "hdi::ed25519::verify_signature(",
+        authority_verify_start,
+    )
+    authority_payload_validation = source.index(
+        "self.payload.validate()",
+        authority_verify_start,
+    )
+    authority_issuer_check = source.index(
+        "self.issuer != self.payload.agent",
+        authority_verify_start,
+    )
+    if authority_payload_validation > authority_signature_call:
+        raise SystemExit(
+            "authority credential payload validation must precede signature verification"
+        )
+    if authority_issuer_check > authority_signature_call:
+        raise SystemExit(
+            "authority credential issuer/agent matching must precede signature verification"
+        )
+    for test_name in (
+        "authority_agent_payload_validation_precedes_signature_verification",
+        "authority_agent_issuer_mismatch_precedes_signature_verification",
+    ):
+        if test_name not in source:
+            raise SystemExit(f"missing authority credential precedence regression: {test_name}")
+
     authority_contract = contract.get("authority_agent_binding")
     if not isinstance(authority_contract, dict):
         raise SystemExit("machine contract missing authority_agent_binding object")
     expected_authority_contract = {
+        "credential_payload_validation_precedes_signature_verification": True,
+        "credential_issuer_match_precedes_signature_verification": True,
         "registry_retains_verified_credential": True,
         "audit_credential_accessor": "HolochainAuthorityAgentBindingSet::credential_for",
         "runtime_binding_requires_exact_authority_scope_match": True,
