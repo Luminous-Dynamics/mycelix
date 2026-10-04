@@ -385,6 +385,16 @@ pub fn postings_for_step(
                     StockPosting::new(borrower, BalanceSheetInstrument::Equity, -write_off.amount),
                 ]
             }
+            EconomicTransition::DebtForgiveness(forgiveness) => {
+                let lender = sector_for(assignments, &forgiveness.lender)?;
+                let borrower = sector_for(assignments, &forgiveness.borrower)?;
+                vec![
+                    StockPosting::new(lender, BalanceSheetInstrument::Loans, -forgiveness.amount),
+                    StockPosting::new(lender, BalanceSheetInstrument::Equity, forgiveness.amount),
+                    StockPosting::new(borrower, BalanceSheetInstrument::Debt, forgiveness.amount),
+                    StockPosting::new(borrower, BalanceSheetInstrument::Equity, -forgiveness.amount),
+                ]
+            }
         };
 
         transition.apply_to_state(&mut working)?;
@@ -482,7 +492,8 @@ pub fn physical_postings_for_step(
             | EconomicTransition::RealAssetRevaluation(_)
             | EconomicTransition::CreditCreation(_)
             | EconomicTransition::DebtRepayment(_)
-            | EconomicTransition::DebtWriteOff(_) => {}
+            | EconomicTransition::DebtWriteOff(_)
+            | EconomicTransition::DebtForgiveness(_) => {}
         }
 
         transition.apply_to_state(&mut working)?;
@@ -1097,5 +1108,29 @@ mod tests {
         post.actors[1].monetary.deposits += 1;
         let error = reconcile_step(&pre, &post, &assignments, &transitions).unwrap_err();
         assert!(error.contains("expected"));
+    }    #[test]
+    fn forgiveness_stock_postings_match_claim_extinction_and_net_worth_transfer() {
+        let mut bank = ActorBalanceSheet::new("bank");
+        bank.monetary.claims = 40;
+        let mut firm = ActorBalanceSheet::new("firm");
+        firm.monetary.liabilities = 40;
+        let pre = EconomicState::new(vec![bank, firm]);
+        let assignments = vec![
+            SectorAssignment { actor: "bank".into(), sector: EconomicSector::Bank },
+            SectorAssignment { actor: "firm".into(), sector: EconomicSector::Firm },
+        ];
+        let transitions = vec![EconomicTransition::DebtForgiveness(
+            crate::economics::stock_flow::DebtForgiveness::new("bank", "firm", 20).unwrap(),
+        )];
+        let (post, _) =
+            crate::economics::transition::apply_step(&pre, 1, &transitions, None).unwrap();
+        let postings = postings_for_step(&pre, &assignments, &transitions).unwrap();
+        let deltas = aggregate_postings(&postings).unwrap();
+        assert_eq!(deltas.get(&(EconomicSector::Bank, BalanceSheetInstrument::Loans)), Some(&-20));
+        assert_eq!(deltas.get(&(EconomicSector::Firm, BalanceSheetInstrument::Debt)), Some(&20));
+        assert_eq!(deltas.get(&(EconomicSector::Bank, BalanceSheetInstrument::Equity)), Some(&20));
+        assert_eq!(deltas.get(&(EconomicSector::Firm, BalanceSheetInstrument::Equity)), Some(&-20));
     }
+
+
 }
