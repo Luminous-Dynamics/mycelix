@@ -425,6 +425,15 @@ fn validate_projection_closure(
             sum_sector(sectors, "depreciation", |o| o.depreciation)?,
             aggregate.depreciation,
         ),
+        (
+            "sector real-asset revaluation",
+            sum_sector(
+                sectors,
+                "real-asset revaluation",
+                |o| o.real_asset_revaluation,
+            )?,
+            aggregate.real_asset_revaluation,
+        ),
     ];
     for (label, sector_value, aggregate_value) in sector_checks {
         require_equal(label, sector_value, aggregate_value)?;
