@@ -1621,6 +1621,7 @@ pub fn request_credential(input: RequestCredentialInput) -> ExternResult<Record>
         status: RequestStatus::Pending,
         created: now,
         updated: now,
+        issued_credential: None,
     };
 
     let action_hash = create_entry(&EntryTypes::CredentialRequest(request))?;
