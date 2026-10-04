@@ -26,6 +26,9 @@ pub struct EconomicPeriodLedger {
     pub credit_created: i128,
     /// Gross debt repayment.
     pub debt_repaid: i128,
+    /// Gross debt extinguished through explicit write-off.
+    #[serde(default)]
+    pub debt_written_off: i128,
     /// Gross capital formation settled during the period.
     pub investment: i128,
     /// Physical output added to inventories during the period.
@@ -194,6 +197,14 @@ impl EconomicPeriodLedger {
                         .checked_add(repayment.amount)
                         .ok_or_else(|| EconomicStepError::Serialization(
                             "period repayment total overflow".into(),
+                        ))?;
+                }
+                EconomicTransition::DebtWriteOff(write_off) => {
+                    ledger.debt_written_off = ledger
+                        .debt_written_off
+                        .checked_add(write_off.amount)
+                        .ok_or_else(|| EconomicStepError::Serialization(
+                            "period debt write-off total overflow".into(),
                         ))?;
                 }
             }
