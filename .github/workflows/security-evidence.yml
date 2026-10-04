@@ -109,7 +109,7 @@ jobs:
             scripts/security/verify_mycelix_ak_ek_lineage_v0_1.py \
             scripts/security/verify_mycelix_ak_creation_provenance_v0_1.py \
             scripts/security/verify_mycelix_tpm_public_name_coherence_v0_1.py \
-            scripts/security/verify_mycelix_ek_template_appraisal_v0_1.py
+            scripts/security/verify_mycelix_ek_template_appraisal_v0_1.py \
             scripts/security/verify_mycelix_ak_public_attributes_v0_1.py
 
       - name: Run platform Evidence semantic corpus
