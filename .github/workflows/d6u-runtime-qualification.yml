@@ -1,0 +1,22 @@
+name: D6U Holochain 0.7 Runtime Qualification
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+  workflow_dispatch:
+
+# Bootstrap-only copy on the default branch.
+# The specialized D6U PR supplies the full unprivileged workflow.
+permissions:
+  contents: read
+
+jobs:
+  d6u-bootstrap:
+    if: github.head_ref == 'myc-int-demo-d6u-exact-head-mirror'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Confirm workflow bootstrap
+        run: |
+          set -euo pipefail
+          echo "D6U default-branch workflow bootstrap present"
