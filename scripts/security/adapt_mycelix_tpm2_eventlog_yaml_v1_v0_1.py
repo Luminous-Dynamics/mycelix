@@ -171,6 +171,8 @@ def adapt(
         "adapter_source_sha256": sha256_file(Path(__file__).resolve()),
         "adapter_yaml_version": 1,
         "observed_pcr_values_source": observed_pcr_json.name,
+        "payload_parser_source": payload_json.name if payload_json is not None else None,
+        "payload_parser_sha256": sha256_file(payload_json) if payload_json is not None else None,
     }
 
 
@@ -292,6 +294,7 @@ def main() -> int:
     mode.add_argument("--adapt", metavar="YAML")
     parser.add_argument("--binary-eventlog", metavar="BINARY_EVENTLOG")
     parser.add_argument("--observed-pcr-json", metavar="OBSERVED_PCR_JSON")
+    parser.add_argument("--payload-json", metavar="PAYLOAD_JSON")
     parser.add_argument("--session-id")
     parser.add_argument("--pcr-selection", default="sha256:0,2,4,7")
     parser.add_argument("--output")
@@ -311,6 +314,7 @@ def main() -> int:
         Path(args.observed_pcr_json),
         args.session_id,
         args.pcr_selection,
+        Path(args.payload_json) if args.payload_json else None,
     )
     if args.output:
         Path(args.output).write_text(
