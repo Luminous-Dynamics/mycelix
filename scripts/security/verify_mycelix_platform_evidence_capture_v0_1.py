@@ -20,6 +20,7 @@ CONTRACT = ROOT / "docs/security/mycelix-platform-evidence-capture-v0.1.json"
 RECONSTRUCTION_SCRIPT = ROOT / "scripts/security/reconstruct_mycelix_pc_client_eventlog_v0_1.py"
 ADAPTER_SCRIPT = ROOT / "scripts/security/adapt_mycelix_tpm2_eventlog_yaml_v1_v0_1.py"
 RAW_EVENTLOG_PARSER_SCRIPT = ROOT / "scripts/security/parse_mycelix_raw_tpm2_eventlog_v0_1.py"
+PAYLOAD_COHERENCE_SCRIPT = ROOT / "scripts/security/verify_mycelix_event_payload_digest_coherence_v0_1.py"
 RECONSTRUCTION_VERIFIER_ID = "mycelix.pc-client.eventlog-reconstruction.v0.1"
 
 
@@ -127,6 +128,10 @@ def session_binding(manifest: dict[str, Any]) -> str:
             "raw_eventlog_parser_status": manifest["raw_eventlog"]["status"],
             "raw_eventlog_parser_output_sha256": manifest["raw_eventlog"]["output_sha256"],
             "raw_eventlog_parser_source_sha256": manifest["raw_eventlog"]["source_sha256"],
+            "payload_coherence_status": manifest["payload_coherence"]["status"],
+            "payload_coherence_output_sha256": manifest["payload_coherence"]["output_sha256"],
+            "payload_coherence_source_sha256": manifest["payload_coherence"]["source_sha256"],
+            "payload_coherence_input_sha256": manifest["payload_coherence"]["input_sha256"],
         }
     )
 
@@ -361,6 +366,12 @@ def validate_semantics(manifest: dict[str, Any]) -> tuple[str, str]:
             "source_sha256",
             "binary_sha256",
         ),
+        "payload_coherence": (
+            "status",
+            "output_sha256",
+            "source_sha256",
+            "input_sha256",
+        ),
         "quote": ("pcr_selection", "nonce_sha256", "attestation_key_sha256"),
         "challenge": ("sha256", "origin"),
         "toolchain": (
@@ -389,6 +400,7 @@ def validate_semantics(manifest: dict[str, Any]) -> tuple[str, str]:
             "reconstruction_input_sha256",
             "observed_pcr_values_file_sha256",
             "raw_eventlog_output_sha256",
+            "payload_coherence_output_sha256",
             "tss_version_evidence_sha256",
             "ek_public_sha256",
         ),
@@ -449,6 +461,10 @@ def validate_semantics(manifest: dict[str, Any]) -> tuple[str, str]:
         denies.append("raw-eventlog-parser-id-mismatch")
     if manifest["raw_eventlog"]["binary_sha256"] != manifest["event_log"]["sha256"]:
         denies.append("raw-eventlog-binary-binding-mismatch")
+    if manifest["payload_coherence"]["source_sha256"] != sha256_file(PAYLOAD_COHERENCE_SCRIPT):
+        denies.append("payload-coherence-source-binding-mismatch")
+    if manifest["payload_coherence"]["input_sha256"] != manifest["reconstruction"]["input_sha256"]:
+        denies.append("payload-coherence-input-binding-mismatch")
 
     if (
         manifest["reconstruction"]["status"] == "PASS"
@@ -699,6 +715,7 @@ def verify_bundle(args: argparse.Namespace) -> int:
         "eventlog-reconstruction-input.json": manifest["reconstruction"]["input_sha256"],
         "observed-pcr-values.json": manifest["live_observation"]["pcr_values_file_sha256"],
         "raw-eventlog.json": manifest["raw_eventlog"]["output_sha256"],
+        "payload-coherence.json": manifest["payload_coherence"]["output_sha256"],
         "eventlog-reconstruction.json": manifest["artifacts"]["reconstruction_file_sha256"],
     }
     for relative, expected in checks.items():
