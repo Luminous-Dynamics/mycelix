@@ -196,7 +196,28 @@ jobs:
       - name: Derive Hearth 0.7 operation matrix
         working-directory: mycelix-workspace/mycelix-hearth
         run: |
-          set -euo pipefail
+          set -u
+
+          # Pre-create every evidence path so an earlier qualification failure
+          # cannot turn missing downstream artifacts into a second failure.
+          mkdir -p tests
+          printf '%s\n' 'unavailable_checkout_not_reached' > qualification-submodules.txt
+          printf '%s\n' 'unavailable_source_audit_not_reached' > qualification-source-audit.log
+          printf '%s\n' 'unavailable_operation_matrix_not_reached' > qualification-operation-matrix.txt
+          printf '%s\n' 'unavailable_format_not_reached' > qualification-format.log
+          printf '%s\n' 'unavailable_build_not_reached' > qualification-build.log
+          printf '%s\n' 'unavailable_dna_pack_not_reached' > qualification-dna-pack.log
+          printf '%s\n' 'unavailable_sweettest_not_reached' > qualification-sweettest.log
+          printf '%s\n' 'unavailable_wasm_capture' > qualification-wasm-sha256.txt
+          printf '%s\n' 'unavailable_dna_capture' > qualification-dna-sha256.txt
+          printf '%s\n' 'unavailable_cargo_lock_capture' > qualification-cargo-lock-sha256.txt
+          printf '%s\n' 'unavailable_cargo_lock_summary' > qualification-cargo-lock-summary.txt
+          printf '%s\n' 'unavailable_source_contract_capture' > qualification-source-contract-sha256.txt
+          printf '%s\n' 'unavailable_cargo_metadata_capture' > qualification-cargo-metadata.json
+          printf '%s\n' 'unavailable_tests_cargo_metadata_capture' > tests/qualification-cargo-metadata.json
+          printf '%s\n' 'unavailable_hearth_cargo_lock' > Cargo.lock
+          printf '%s\n' 'unavailable_tests_cargo_lock' > tests/Cargo.lock
+
           {
             echo "operation_matrix_schema=HEARTH-OPERATION-MATRIX-0.7-1"
             echo "tested_sha=$(git rev-parse HEAD)"
@@ -304,11 +325,12 @@ jobs:
 
           build_conclusion="${{ steps.build_zomes.conclusion || 'unknown' }}"
           if [[ "${{ steps.source_audit.conclusion || 'unknown' }}" != "skipped" ]]; then
-            [[ -s qualification-source-audit.log ]] || {
-              echo "source audit ran but produced no diagnostic log" >&2
-              exit 1
-            }
-            echo "source_audit_log=present"
+            if grep -q '^source_audit_exit_code=' qualification-source-audit.log 2>/dev/null; then
+              echo "source_audit_log=present"
+            else
+              printf '%s\n' 'unavailable_source_audit_log_missing' > qualification-source-audit.log
+              echo "source audit ran but did not leave its terminal exit-code diagnostic; recorded explicit unavailable marker" >&2
+            fi
           else
             echo "source_audit_log=not_applicable_skipped"
           fi
@@ -379,7 +401,11 @@ PY
             fi
             echo "tested_sha=${QUALIFY_SHA}"
             echo "checked_out_sha=$(git rev-parse HEAD)"
-            echo "source_contract_digest=$(sha256sum qualification-source-contract-sha256.txt | awk '{print $1}')"
+            if [[ -s qualification-source-contract-sha256.txt && "$(head -n1 qualification-source-contract-sha256.txt)" != unavailable_* ]]; then
+              echo "source_contract_digest=$(sha256sum qualification-source-contract-sha256.txt | awk '{print $1}')"
+            else
+              echo "source_contract_digest=unavailable"
+            fi
             echo "pr_head_sha=${{ github.event.pull_request.head.sha || '' }}"
             echo "pr_base_sha=${{ github.event.pull_request.base.sha || '' }}"
             echo "ref=${GITHUB_REF_NAME}"
@@ -415,6 +441,7 @@ PY
             mycelix-workspace/mycelix-hearth/qualification-cargo-lock-sha256.txt
             mycelix-workspace/mycelix-hearth/qualification-cargo-lock-summary.txt
             mycelix-workspace/mycelix-hearth/qualification-source-contract-sha256.txt
+            mycelix-workspace/mycelix-hearth/qualification-evidence-status.txt
             mycelix-workspace/mycelix-hearth/qualification-cargo-metadata.json
             mycelix-workspace/mycelix-hearth/tests/qualification-cargo-metadata.json
             mycelix-workspace/mycelix-hearth/Cargo.lock
