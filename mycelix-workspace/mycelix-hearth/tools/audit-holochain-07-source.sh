@@ -783,7 +783,7 @@ check_semantic_case_entrypoints() {
       fail=1
     fi
     expected_reason_call="expected_reason(\"${test_name}\")"
-    if printf "%s\\n" "$test_block" | rg -n --fixed-strings "$expected_reason_call" >/dev/null 2>&1; then
+    if printf "%s\\n" "$test_block" | rg -nU --pcre2 "expected_reason\\([[:space:]]*\"${test_name}\"[[:space:]]*\\)" >/dev/null 2>&1; then
       echo "OK:   semantic runtime witness ${test_name} binds its rejection reason to the manifest case"
     else
       echo "FAIL: semantic runtime witness ${test_name} does not bind expected_reason to the manifest case"
@@ -1754,9 +1754,6 @@ for file in "${integrity_files[@]}"; do
   run_audit_check "check_dangerous_operation_catchalls:$(basename "$(dirname "$(dirname "$(dirname "$file")")")")" check_dangerous_operation_catchalls "$file"
 done
 
-for file in "${integrity_files[@]}"; do
-  run_audit_check "check_create_entry_entry_dispatch:$(basename "$(dirname "$(dirname "$(dirname "$file")")")")" check_create_entry_entry_dispatch "$file"
-done
 
 for file in "${integrity_files[@]}"; do
   run_audit_check "check_create_entry_entry_dispatch:$(basename "$(dirname "$(dirname "$(dirname "$file")")")")" check_create_entry_entry_dispatch "$file"
