@@ -128,7 +128,7 @@
         "type": "string"
       }
     },
-    "unexpected_connectivity": {
+    "unexpected_flow_connectivity": {
       "type": "array",
       "items": {
         "type": "object",
