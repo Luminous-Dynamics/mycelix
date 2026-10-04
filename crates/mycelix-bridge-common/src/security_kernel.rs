@@ -264,6 +264,7 @@ impl SignedCapability {
         }
     }
 
+    #[must_use = "signature verification results must be checked before accepting a capability"]
     pub fn verify_signature(&self) -> bool {
         let Ok(key) = VerifyingKey::from_bytes(&self.issuer_public_key) else {
             return false;
@@ -277,6 +278,7 @@ impl SignedCapability {
     ///
     /// Key possession is not institutional authorization; the caller must
     /// independently establish that this key is authorized for the issuer.
+    #[must_use = "issuer-bound signature verification results must be checked before accepting a capability"]
     pub fn verify_signature_from(&self, expected_public_key: [u8; 32]) -> bool {
         self.issuer_public_key == expected_public_key && self.verify_signature()
     }
