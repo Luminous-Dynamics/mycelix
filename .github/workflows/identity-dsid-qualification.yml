@@ -41,6 +41,14 @@ jobs:
         with:
           submodules: recursive
           fetch-depth: 1
+          ref: ${{ env.DSID_QUALIFIED_HEAD_SHA }}
+
+      - name: Assert exact qualified head checkout
+        run: |
+          checked_out="$(git rev-parse HEAD)"
+          test "$checked_out" = "$DSID_QUALIFIED_HEAD_SHA"
+          echo "Qualified head: $DSID_QUALIFIED_HEAD_SHA"
+          echo "Checked out:    $checked_out"
 
       - name: Validate DID conformance vectors
         run: |
@@ -232,8 +240,10 @@ jobs:
           manifest = {
               "schema_version": 1,
               "qualification": "identity-dsid",
-              "execution_commit": os.environ["GITHUB_SHA"],
-              "execution_ref": os.environ["GITHUB_REF"],
+              "workflow_event_commit": os.environ["GITHUB_SHA"],
+              "workflow_event_ref": os.environ["GITHUB_REF"],
+              "execution_commit": os.environ["DSID_QUALIFIED_HEAD_SHA"],
+              "execution_ref": os.environ["DSID_QUALIFIED_HEAD_REF"],
               "qualified_head_commit": os.environ["DSID_QUALIFIED_HEAD_SHA"],
               "qualified_head_ref": os.environ["DSID_QUALIFIED_HEAD_REF"],
               "event": os.environ["GITHUB_EVENT_NAME"],
@@ -248,8 +258,12 @@ jobs:
               "evidence_commit_shas": sorted({row["commit_sha"] for row in rows}),
           }
 
+          assert manifest["workflow_event_commit"]
+          assert manifest["workflow_event_ref"]
           assert manifest["execution_commit"]
           assert manifest["qualified_head_commit"]
+          assert manifest["execution_commit"] == manifest["qualified_head_commit"]
+          assert manifest["execution_ref"] == manifest["qualified_head_ref"]
           assert len(manifest["scenario_ids"]) == 34
           assert manifest["evidence_schema_versions"] == [1]
           assert len(manifest["dna_hashes"]) == 1
