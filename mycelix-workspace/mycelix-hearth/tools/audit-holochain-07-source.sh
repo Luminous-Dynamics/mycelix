@@ -958,17 +958,25 @@ check_qualification_workflow_provenance() {
     return
   fi
   if rg -n --fixed-strings "runs-on: ubuntu-24.04" "$workflow" >/dev/null 2>&1; then
-  if rg -n --fixed-strings "runner_image_os=${ImageOS:-unknown}" "$workflow" >/dev/null 2>&1 \
-    && rg -n --fixed-strings "runner_image_version=${ImageVersion:-unknown}" "$workflow" >/dev/null 2>&1 \
-    && rg -n --fixed-strings "runner_arch=${RUNNER_ARCH:-unknown}" "$workflow" >/dev/null 2>&1; then
+    echo "OK:   qualification workflow pins the GitHub-hosted runner image to Ubuntu 24.04"
+  else
+    echo "FAIL: qualification workflow must pin runs-on to ubuntu-24.04"
+    fail=1
+  fi
+  if rg -n --fixed-strings 'echo "runner_image_os=\${ImageOS:-unknown}"' "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings 'echo "runner_image_version=\${ImageVersion:-unknown}"' "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings 'echo "runner_arch=\${RUNNER_ARCH:-unknown}"' "$workflow" >/dev/null 2>&1; then
     echo "OK:   qualification workflow captures resolved hosted-runner provenance"
   else
     echo "FAIL: qualification workflow must capture resolved hosted-runner provenance"
     fail=1
   fi
-    echo "OK:   qualification workflow pins the GitHub-hosted runner image to Ubuntu 24.04"
+  if rg -n --fixed-strings 'mapfile -t semantic_validator_sources' "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings 'tests/hearth-07-semantic-validation-cases.json' "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings '"\${semantic_validator_sources[@]}"' "$workflow" >/dev/null 2>&1; then
+    echo "OK:   qualification workflow hashes every manifest-declared semantic validator source"
   else
-    echo "FAIL: qualification workflow must pin runs-on to ubuntu-24.04"
+    echo "FAIL: qualification workflow must hash every manifest-declared semantic validator source"
     fail=1
   fi
   if rg -n --fixed-strings "target_sha:" "$workflow" >/dev/null 2>&1 \
