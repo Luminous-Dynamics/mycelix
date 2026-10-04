@@ -39,6 +39,20 @@ jobs:
       - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d
         with:
           toolchain: 1.96.0
+
+      # Fail fast on canonical workspace-resolution defects before spending
+      # the full Prism test-suite runtime. This is intentionally diagnostic:
+      # it does not substitute an isolated workspace for canonical evidence.
+      - name: Check canonical workspace resolution
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! cargo +1.96.0 metadata --no-deps --format-version 1 >/dev/null; then
+            echo "ERROR: canonical mycelix-workspace does not resolve under Rust 1.96.0" >&2
+            echo "This lane remains a strict full-workspace qualification gate." >&2
+            exit 1
+          fi
+
       - run: cargo +1.96.0 test -p prism-bridge --locked
 
       - name: Emit qualification identity
