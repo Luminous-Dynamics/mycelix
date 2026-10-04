@@ -1066,6 +1066,23 @@ fn validate_create_credential_request(
     Ok(ValidateCallbackResult::Valid)
 }
 
+fn valid_request_status_transition(from: &RequestStatus, to: &RequestStatus) -> bool {
+    matches!(
+        (from, to),
+        (RequestStatus::Pending, RequestStatus::UnderReview)
+            | (RequestStatus::Pending, RequestStatus::Rejected)
+            | (RequestStatus::UnderReview, RequestStatus::Approved)
+            | (RequestStatus::UnderReview, RequestStatus::Rejected)
+            | (RequestStatus::Approved, RequestStatus::Issued)
+            // Re-publishing the exact same state is intentionally idempotent.
+            | (RequestStatus::Pending, RequestStatus::Pending)
+            | (RequestStatus::UnderReview, RequestStatus::UnderReview)
+            | (RequestStatus::Approved, RequestStatus::Approved)
+            | (RequestStatus::Rejected, RequestStatus::Rejected)
+            | (RequestStatus::Issued, RequestStatus::Issued)
+    )
+}
+
 /// Validate credential request update.
 ///
 /// Credential requests are created by the requester but status transitions are
@@ -1141,15 +1158,7 @@ fn validate_update_credential_request(
         ));
     }
 
-    let valid = match (&original.status, &req.status) {
-        (RequestStatus::Pending, RequestStatus::UnderReview)
-        | (RequestStatus::Pending, RequestStatus::Rejected)
-        | (RequestStatus::UnderReview, RequestStatus::Approved)
-        | (RequestStatus::UnderReview, RequestStatus::Rejected)
-        | (RequestStatus::Approved, RequestStatus::Issued) => true,
-        (a, b) if a == b => true,
-        _ => false,
-    };
+    let valid = valid_request_status_transition(&original.status, &req.status);
 
     if !valid {
         return Ok(ValidateCallbackResult::Invalid(
@@ -1835,6 +1844,62 @@ mod author_binding_tests {
             },
             created: Timestamp::from_micros(0),
             expires: None,
+        }
+    }
+
+    #[test]
+    fn credential_request_state_machine_accepts_only_forward_or_idempotent_transitions() {
+        use RequestStatus::*;
+
+        let valid = [
+            (Pending, UnderReview),
+            (Pending, Rejected),
+            (UnderReview, Approved),
+            (UnderReview, Rejected),
+            (Approved, Issued),
+            (Pending, Pending),
+            (UnderReview, UnderReview),
+            (Approved, Approved),
+            (Rejected, Rejected),
+            (Issued, Issued),
+        ];
+        for (from, to) in valid {
+            assert!(
+                valid_request_status_transition(&from, &to),
+                "expected transition {:?} -> {:?} to be valid",
+                from,
+                to
+            );
+        }
+    }
+
+    #[test]
+    fn credential_request_state_machine_rejects_resurrection_and_skips() {
+        use RequestStatus::*;
+
+        let invalid = [
+            (Rejected, Pending),
+            (Rejected, UnderReview),
+            (Rejected, Approved),
+            (Rejected, Issued),
+            (Issued, Pending),
+            (Issued, UnderReview),
+            (Issued, Approved),
+            (Issued, Rejected),
+            (Approved, UnderReview),
+            (Approved, Rejected),
+            (Pending, Approved),
+            (Pending, Issued),
+            (UnderReview, Pending),
+            (UnderReview, Issued),
+        ];
+        for (from, to) in invalid {
+            assert!(
+                !valid_request_status_transition(&from, &to),
+                "unexpected transition {:?} -> {:?} accepted",
+                from,
+                to
+            );
         }
     }
 
