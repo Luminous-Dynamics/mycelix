@@ -17,6 +17,7 @@ pub mod substrate;
 pub mod metabolic_oracle;
 pub mod poc;
 pub mod recognition;
+pub mod seea;
 
 pub use commons::{CommonsContribution, CommonsPool, CommonsResult};
 pub use decay_garden::{
@@ -34,6 +35,7 @@ pub use substrate::{
     SubstrateDimension, SubstrateEvent, SubstrateEventKind, SubstrateLedger, SubstrateReport,
     SubstrateState,
 };
+pub use seea::{SeeaAccountType, SeeaChangeKind, SeeaObservation, SeeaProvenance};
 pub use recognition::{
     calculate_recognition_score, ContributionType, RecognitionConfig, RecognitionEvent,
 };
