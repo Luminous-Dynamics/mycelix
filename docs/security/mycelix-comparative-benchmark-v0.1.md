@@ -52,7 +52,7 @@ purpose
 
 A stolen credential therefore supplies only one required dimension. An endpoint or workload compromise supplies only one other dimension.
 
-The synthetic model intentionally gives a full administrator compromise the remaining dimensions so that the benchmark can measure catastrophic-root scenarios separately.
+The synthetic model makes A/B reachable with subject identity plus segment access, while C/D additionally require the admin-plane dimension. A full administrator compromise therefore reaches all four resources, while a stolen credential reaches only two.
 
 ### B1-segmented-enterprise-reference
 
