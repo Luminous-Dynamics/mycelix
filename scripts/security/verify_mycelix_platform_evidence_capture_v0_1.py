@@ -29,12 +29,9 @@ def sha256_file(path: Path) -> str:
     return h.hexdigest()
 
 
-def canonical_json_bytes(value: Any) -> bytes:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
-
-
 def canonical_hash(value: Any) -> str:
-    return sha256_bytes(canonical_json_bytes(value))
+    payload = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+    return sha256_bytes(payload)
 
 
 def self_hash(value: dict[str, Any], field: str) -> str:
@@ -48,15 +45,21 @@ def session_binding(manifest: dict[str, Any]) -> str:
         "session_id": manifest["session_id"],
         "boot_id": manifest["boot_id"],
         "tpm_identity_digest": manifest["tpm"]["identity_digest"],
+        "ek_public_sha256": manifest["tpm"]["ek_public_sha256"],
         "event_log_sha256": manifest["event_log"]["sha256"],
         "pcr_selection": manifest["quote"]["pcr_selection"],
         "nonce_sha256": manifest["quote"]["nonce_sha256"],
+        "challenge_origin": manifest["challenge"]["origin"],
         "attestation_key_sha256": manifest["quote"]["attestation_key_sha256"],
         "tpm2_tools_version": manifest["toolchain"]["tpm2_tools_version"],
+        "observed_tool_versions_sha256": manifest["toolchain"]["observed_tool_versions_sha256"],
+        "tss_version_evidence_sha256": manifest["toolchain"]["tss_version_evidence_sha256"],
         "reference_version": manifest["reference_values"]["version"],
         "reference_sha256": manifest["reference_values"]["sha256"],
         "trusted_time_sha256": manifest["trusted_time"]["sha256"],
         "reconstruction_content_sha256": manifest["reconstruction"]["content_sha256"],
+        "os_image_digest": manifest["os_image_digest"],
+        "workload_digest": manifest["workload_digest"],
     })
 
 
@@ -92,6 +95,7 @@ def fixture_manifest() -> dict[str, Any]:
         "tpm": {
             "device_path": "/dev/tpmrm0",
             "properties_sha256": "a" * 64,
+            "ek_public_sha256": "b" * 64,
             "identity_digest": "",
         },
         "event_log": {
@@ -128,6 +132,7 @@ def fixture_manifest() -> dict[str, Any]:
             "attestation_key_sha256": "e" * 64,
             "reconstruction_file_sha256": "8" * 64,
             "tss_version_evidence_sha256": "f" * 64,
+            "ek_public_sha256": "b" * 64,
         },
         "os_image_digest": "sha256:" + "9" * 64,
         "workload_digest": "sha256:" + "a" * 64,
@@ -136,6 +141,7 @@ def fixture_manifest() -> dict[str, Any]:
     value["tpm"]["identity_digest"] = canonical_hash({
         "device_path": value["tpm"]["device_path"],
         "properties_sha256": value["tpm"]["properties_sha256"],
+        "ek_public_sha256": value["tpm"]["ek_public_sha256"],
     })
     value["session_binding_sha256"] = session_binding(value)
     return value
@@ -153,6 +159,8 @@ def mutate(value: dict[str, Any], name: str) -> dict[str, Any]:
         out["tpm"]["device_path"] = "/dev/tpm0"
     elif name == "tpm-properties-substitution":
         out["tpm"]["properties_sha256"] = "0" * 64
+    elif name == "ek-substitution":
+        out["tpm"]["ek_public_sha256"] = "f" * 64
     elif name == "event-log-digest-substitution":
         out["event_log"]["sha256"] = "1" * 64
     elif name == "parser-profile-substitution":
@@ -187,6 +195,11 @@ def mutate(value: dict[str, Any], name: str) -> dict[str, Any]:
             out[key] = dict(reversed(list(out[key].items())))
     elif name == "post-quote-pcr-mismatch":
         out["live_observation"]["pcr_post_sha256"] = "6" * 64
+    elif name == "deny-over-indeterminate":
+        out["event_log"]["parser_status"] = "FAIL"
+        out["reconstruction"]["status"] = "INDETERMINATE"
+        out["reconstruction"]["content_sha256"] = self_hash(out["reconstruction"], "content_sha256")
+        out["session_binding_sha256"] = session_binding(out)
     else:
         raise KeyError(name)
     return out
@@ -215,7 +228,7 @@ def validate_semantics(manifest: dict[str, Any]) -> tuple[str, str]:
         denies.append("claim-ceiling-mismatch")
 
     fields_by_section = {
-        "tpm": ("device_path","properties_sha256","identity_digest"),
+        "tpm": ("device_path","properties_sha256","ek_public_sha256","identity_digest"),
         "event_log": ("sha256","parser_profile_id","parser_profile_version","parser_status","parser_output_sha256"),
         "quote": ("pcr_selection","nonce_sha256","attestation_key_sha256","quoted_pcr_sha256"),
         "challenge": ("sha256","origin"),
@@ -224,7 +237,7 @@ def validate_semantics(manifest: dict[str, Any]) -> tuple[str, str]:
         "trusted_time": ("sha256","available","policy_trusted","local_clock_only"),
         "reconstruction": ("status","event_log_sha256","pcr_selection","reconstructed_pcr_sha256","content_sha256"),
         "live_observation": ("pcr_post_sha256","selection"),
-        "artifacts": ("quote_message_sha256","quote_signature_sha256","attestation_key_sha256","reconstruction_file_sha256","tss_version_evidence_sha256"),
+        "artifacts": ("quote_message_sha256","quote_signature_sha256","attestation_key_sha256","reconstruction_file_sha256","tss_version_evidence_sha256","ek_public_sha256"),
     }
     for section, fields in fields_by_section.items():
         value = manifest.get(section)
@@ -237,18 +250,19 @@ def validate_semantics(manifest: dict[str, Any]) -> tuple[str, str]:
 
     if not manifest["session_id"] or not manifest["boot_id"]:
         denies.append("empty-session-or-boot-id")
+
     if manifest["tpm"]["identity_digest"] != canonical_hash({
         "device_path": manifest["tpm"]["device_path"],
         "properties_sha256": manifest["tpm"]["properties_sha256"],
+        "ek_public_sha256": manifest["tpm"]["ek_public_sha256"],
     }):
         denies.append("tpm-identity-binding-mismatch")
 
-    event_log = manifest["event_log"]
-    if event_log["parser_profile_id"] != "tcg.pc-client.event-log":
+    if manifest["event_log"]["parser_profile_id"] != "tcg.pc-client.event-log":
         denies.append("event-log-parser-profile-mismatch")
-    if event_log["parser_profile_version"] != "1.0":
+    if manifest["event_log"]["parser_profile_version"] != "1.0":
         denies.append("event-log-parser-version-mismatch")
-    if event_log["parser_status"] != "PASS":
+    if manifest["event_log"]["parser_status"] != "PASS":
         denies.append("event-log-parser-failed")
 
     selection = manifest["quote"]["pcr_selection"]
@@ -258,17 +272,24 @@ def validate_semantics(manifest: dict[str, Any]) -> tuple[str, str]:
         denies.append("quote-reconstruction-pcr-selection-mismatch")
     if selection != manifest["live_observation"]["selection"]:
         denies.append("quote-live-pcr-selection-mismatch")
+
     if manifest["quote"]["nonce_sha256"] != manifest["challenge"]["sha256"]:
         denies.append("nonce-challenge-binding-mismatch")
     if manifest["challenge"]["origin"] in {"local-wall-clock","local-generated-clock","wall-clock"}:
         denies.append("non-authoritative-challenge-origin")
     if manifest["quote"]["attestation_key_sha256"] != manifest["artifacts"]["attestation_key_sha256"]:
         denies.append("attestation-key-artifact-binding-mismatch")
+    if manifest["tpm"]["ek_public_sha256"] != manifest["artifacts"]["ek_public_sha256"]:
+        denies.append("ek-artifact-binding-mismatch")
+
     if manifest["quote"]["quoted_pcr_sha256"] != manifest["live_observation"]["pcr_post_sha256"]:
         denies.append("quoted-live-pcr-binding-mismatch")
-    if manifest["reconstruction"]["reconstructed_pcr_sha256"] != manifest["live_observation"]["pcr_post_sha256"]:
-        if manifest["reconstruction"]["status"] == "PASS":
-            denies.append("reconstructed-live-pcr-mismatch")
+    if (
+        manifest["reconstruction"]["status"] == "PASS"
+        and manifest["reconstruction"]["reconstructed_pcr_sha256"] != manifest["live_observation"]["pcr_post_sha256"]
+    ):
+        denies.append("reconstructed-live-pcr-mismatch")
+
     if manifest["event_log"]["sha256"] != manifest["reconstruction"]["event_log_sha256"]:
         denies.append("event-log-reconstruction-digest-mismatch")
 
@@ -353,6 +374,7 @@ def verify_bundle(args: argparse.Namespace) -> int:
 
     artifact_checks = {
         "tpm-properties.txt": manifest["tpm"]["properties_sha256"],
+        "ek.pub": manifest["tpm"]["ek_public_sha256"],
         "eventlog.bin": manifest["event_log"]["sha256"],
         "eventlog-parsed.yaml": manifest["event_log"]["parser_output_sha256"],
         "reference-values.json": manifest["reference_values"]["sha256"],
@@ -420,10 +442,10 @@ def observed_tool_versions(out: Path, env: dict[str, str]) -> dict[str, str]:
     result: dict[str, str] = {}
     for name in names:
         proc = run([name, "--version"], env, out, check=False)
-        text = (proc.stdout + proc.stderr).strip().splitlines()
-        if not text:
+        lines = (proc.stdout + proc.stderr).strip().splitlines()
+        if not lines:
             raise RuntimeError(f"no version output for {name}")
-        result[name] = text[0]
+        result[name] = lines[0]
     return result
 
 
@@ -448,6 +470,8 @@ def capture(args: argparse.Namespace) -> int:
         blockers.append("tss-version-evidence.txt not supplied")
     if not args.os_image_digest or not args.workload_digest:
         blockers.append("exact OS-image and workload digests not supplied")
+    if args.pcr_selection != "sha256:0,2,4,7":
+        blockers.append("qualified PCR selection is fixed to sha256:0,2,4,7")
     if blockers:
         print("TPM PLATFORM CAPTURE: NOT EXECUTED")
         for blocker in blockers:
@@ -513,6 +537,7 @@ def capture(args: argparse.Namespace) -> int:
     reconstruction["content_sha256"] = self_hash(reconstruction,"content_sha256")
     (out/"eventlog-reconstruction.json").write_text(json.dumps(reconstruction,indent=2,sort_keys=True)+"\n",encoding="utf-8")
 
+    ek_hash = sha256_file(out/"ek.pub")
     manifest = {
         "profile_id":"mycelix.security.platform.evidence.capture",
         "profile_version":"0.1.0",
@@ -521,6 +546,7 @@ def capture(args: argparse.Namespace) -> int:
         "tpm":{
             "device_path":str(device),
             "properties_sha256":prop_hash,
+            "ek_public_sha256":ek_hash,
             "identity_digest":""
         },
         "event_log":{
@@ -565,7 +591,8 @@ def capture(args: argparse.Namespace) -> int:
             "quote_signature_sha256":sha256_file(out/"quote.sig"),
             "attestation_key_sha256":sha256_file(out/"ak.pub"),
             "reconstruction_file_sha256":sha256_file(out/"eventlog-reconstruction.json"),
-            "tss_version_evidence_sha256":sha256_file(out/"tss-version-evidence.txt")
+            "tss_version_evidence_sha256":sha256_file(out/"tss-version-evidence.txt"),
+            "ek_public_sha256":ek_hash
         },
         "os_image_digest":args.os_image_digest,
         "workload_digest":args.workload_digest,
@@ -574,7 +601,8 @@ def capture(args: argparse.Namespace) -> int:
     }
     manifest["tpm"]["identity_digest"]=canonical_hash({
         "device_path":manifest["tpm"]["device_path"],
-        "properties_sha256":manifest["tpm"]["properties_sha256"]
+        "properties_sha256":manifest["tpm"]["properties_sha256"],
+        "ek_public_sha256":manifest["tpm"]["ek_public_sha256"]
     })
     manifest["session_binding_sha256"]=session_binding(manifest)
     (out/"capture-session.json").write_text(json.dumps(manifest,indent=2,sort_keys=True)+"\n",encoding="utf-8")
