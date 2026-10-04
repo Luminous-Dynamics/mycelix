@@ -45,6 +45,22 @@ pub struct EconomicOutcomeTarget {
     pub native_unit: String,
 }
 
+/// Exact identity and occurrence time for an intervention that may have altered
+/// the evaluated path.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EconomicInterventionBinding {
+    pub intervention_ref: String,
+    pub occurred_at: u64,
+}
+
+/// Exact identity and decision time for a governance decision that may have
+/// altered the evaluated path.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EconomicGovernanceDecisionBinding {
+    pub decision_ref: String,
+    pub decided_at: u64,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EconomicOutcomeEvaluation {
     pub evaluation_id: String,
@@ -62,8 +78,8 @@ pub struct EconomicOutcomeEvaluation {
     pub evaluation_at: u64,
     pub outcome_influence: EconomicOutcomeInfluence,
     pub measurement_status: EconomicMeasurementStatus,
-    pub intervention_refs: Vec<String>,
-    pub governance_decision_refs: Vec<String>,
+    pub interventions: Vec<EconomicInterventionBinding>,
+    pub governance_decisions: Vec<EconomicGovernanceDecisionBinding>,
     pub uncertainty_refs: Vec<String>,
     pub missing_data_refs: Vec<String>,
 }
@@ -101,8 +117,59 @@ impl EconomicOutcomeEvaluation {
                 ));
             }
         }
-        validate_unique_nonempty_refs("intervention", &self.intervention_refs, false)?;
-        validate_unique_nonempty_refs("governance decision", &self.governance_decision_refs, false)?;
+        let mut intervention_refs = BTreeSet::new();
+        for intervention in &self.interventions {
+            if intervention.intervention_ref.trim().is_empty() {
+                return Err(
+                    "Economic outcome evaluation intervention references cannot be empty".into(),
+                );
+            }
+            if !intervention_refs.insert(&intervention.intervention_ref) {
+                return Err(format!(
+                    "Duplicate economic outcome evaluation intervention reference: {}",
+                    intervention.intervention_ref
+                ));
+            }
+            if intervention.occurred_at < self.horizon_start_at {
+                return Err(format!(
+                    "Economic outcome evaluation intervention occurred before horizon start: {}",
+                    intervention.intervention_ref
+                ));
+            }
+            if intervention.occurred_at > self.outcome_captured_at {
+                return Err(format!(
+                    "Economic outcome evaluation intervention occurred after outcome capture: {}",
+                    intervention.intervention_ref
+                ));
+            }
+        }
+        let mut decision_refs = BTreeSet::new();
+        for decision in &self.governance_decisions {
+            if decision.decision_ref.trim().is_empty() {
+                return Err(
+                    "Economic outcome evaluation governance decision references cannot be empty"
+                        .into(),
+                );
+            }
+            if !decision_refs.insert(&decision.decision_ref) {
+                return Err(format!(
+                    "Duplicate economic outcome evaluation governance decision reference: {}",
+                    decision.decision_ref
+                ));
+            }
+            if decision.decided_at < self.horizon_start_at {
+                return Err(format!(
+                    "Economic outcome evaluation governance decision occurred before horizon start: {}",
+                    decision.decision_ref
+                ));
+            }
+            if decision.decided_at > self.outcome_captured_at {
+                return Err(format!(
+                    "Economic outcome evaluation governance decision occurred after outcome capture: {}",
+                    decision.decision_ref
+                ));
+            }
+        }
         validate_unique_nonempty_refs("uncertainty", &self.uncertainty_refs, false)?;
         validate_unique_nonempty_refs("missing-data", &self.missing_data_refs, false)?;
 
@@ -125,13 +192,13 @@ impl EconomicOutcomeEvaluation {
         }
 
         if self.outcome_influence == EconomicOutcomeInfluence::NoKnownIntervention
-            && (!self.intervention_refs.is_empty() || !self.governance_decision_refs.is_empty())
+            && (!self.interventions.is_empty() || !self.governance_decisions.is_empty())
         {
             return Err("NoKnownIntervention cannot carry intervention or governance decision references".into());
         }
         if self.outcome_influence == EconomicOutcomeInfluence::InterventionAffected
-            && self.intervention_refs.is_empty()
-            && self.governance_decision_refs.is_empty()
+            && self.interventions.is_empty()
+            && self.governance_decisions.is_empty()
         {
             return Err("InterventionAffected requires intervention or governance decision evidence".into());
         }
@@ -139,7 +206,7 @@ impl EconomicOutcomeEvaluation {
             return Err("ScenarioOutcome requires an exact scenario binding".into());
         }
         if self.kind == EconomicEvaluationKind::ObservationalBacktest {
-            if !self.intervention_refs.is_empty() || !self.governance_decision_refs.is_empty() {
+            if !self.interventions.is_empty() || !self.governance_decisions.is_empty() {
                 return Err("ObservationalBacktest cannot contain intervention or governance decision references".into());
             }
             if self.outcome_influence != EconomicOutcomeInfluence::NoKnownIntervention {
@@ -230,6 +297,22 @@ impl EconomicOutcomeEvaluation {
                 "Economic analysis was generated after the evaluation horizon started".into(),
             );
         }
+        for intervention in &self.interventions {
+            if intervention.occurred_at < analysis.generated_at {
+                return Err(format!(
+                    "Economic intervention occurred before the referenced analysis was generated: {}",
+                    intervention.intervention_ref
+                ));
+            }
+        }
+        for decision in &self.governance_decisions {
+            if decision.decided_at < analysis.generated_at {
+                return Err(format!(
+                    "Economic governance decision occurred before the referenced analysis was generated: {}",
+                    decision.decision_ref
+                ));
+            }
+        }
         match (&self.scenario, &analysis.scenario) {
             (Some(evaluation), Some(analysis_scenario)) if evaluation == analysis_scenario => {}
             (Some(_), Some(_)) => return Err("Economic outcome evaluation scenario does not match analysis scenario".into()),
@@ -245,13 +328,17 @@ impl EconomicOutcomeEvaluation {
     pub fn fingerprint(&self) -> Result<String, String> {
         self.validate()?;
         let mut targets = self.targets.clone();
-        let mut intervention_refs = self.intervention_refs.clone();
-        let mut governance_decision_refs = self.governance_decision_refs.clone();
+        let mut interventions = self.interventions.clone();
+        let mut governance_decisions = self.governance_decisions.clone();
         let mut uncertainty_refs = self.uncertainty_refs.clone();
         let mut missing_data_refs = self.missing_data_refs.clone();
         targets.sort_by_key(|target| (target.target_ref.clone(), target.native_unit.clone()));
-        intervention_refs.sort();
-        governance_decision_refs.sort();
+        interventions.sort_by_key(|binding| {
+            (binding.intervention_ref.clone(), binding.occurred_at)
+        });
+        governance_decisions.sort_by_key(|binding| {
+            (binding.decision_ref.clone(), binding.decided_at)
+        });
         uncertainty_refs.sort();
         missing_data_refs.sort();
         let payload = serde_json::json!({
@@ -267,8 +354,8 @@ impl EconomicOutcomeEvaluation {
             "evaluation_at": self.evaluation_at,
             "outcome_influence": self.outcome_influence,
             "measurement_status": self.measurement_status,
-            "intervention_refs": intervention_refs,
-            "governance_decision_refs": governance_decision_refs,
+            "interventions": interventions,
+            "governance_decisions": governance_decisions,
             "uncertainty_refs": uncertainty_refs,
             "missing_data_refs": missing_data_refs,
         });
@@ -347,8 +434,8 @@ mod tests {
             evaluation_at: 1_600,
             outcome_influence: EconomicOutcomeInfluence::NoKnownIntervention,
             measurement_status: EconomicMeasurementStatus::Complete,
-            intervention_refs: Vec::new(),
-            governance_decision_refs: Vec::new(),
+            interventions: Vec::new(),
+            governance_decisions: Vec::new(),
             uncertainty_refs: vec!["uncertainty:measurement".into()],
             missing_data_refs: Vec::new(),
         }
@@ -373,7 +460,10 @@ mod tests {
         let mut value=evaluation();
         value.outcome_influence=EconomicOutcomeInfluence::InterventionAffected;
         assert!(value.validate().is_err());
-        value.intervention_refs.push("action:stimulus-1".into());
+        value.interventions.push(EconomicInterventionBinding {
+            intervention_ref: "action:stimulus-1".into(),
+            occurred_at: 1_200,
+        });
         assert!(value.validate().is_err());
         value.kind=EconomicEvaluationKind::ScenarioOutcome;
         value.scenario=Some(EconomicScenarioBinding { scenario_ref:"scenario:policy:1".into(), scenario_fingerprint:"d".repeat(64) });
@@ -414,6 +504,48 @@ mod tests {
         assert!(value.validate_against_analysis(&analysis()).is_err());
     }
 
+
+
+    #[test]
+    fn intervention_and_decision_times_are_bound_to_the_evaluation_window() {
+        let mut value = evaluation();
+        value.interventions.push(EconomicInterventionBinding {
+            intervention_ref: "action:stimulus-1".into(),
+            occurred_at: 1_200,
+        });
+        value.governance_decisions.push(EconomicGovernanceDecisionBinding {
+            decision_ref: "decision:stimulus-approval".into(),
+            decided_at: 1_150,
+        });
+        value.outcome_influence = EconomicOutcomeInfluence::InterventionAffected;
+        assert!(value.validate().is_ok());
+        assert!(value.validate_against_analysis(&analysis()).is_ok());
+
+        let mut before_horizon = value.clone();
+        before_horizon.interventions[0].occurred_at = 1_099;
+        assert!(before_horizon.validate().is_err());
+
+        let mut after_capture = value.clone();
+        after_capture.governance_decisions[0].decided_at = 1_501;
+        assert!(after_capture.validate().is_err());
+
+        let mut before_analysis = value;
+        before_analysis.interventions[0].occurred_at = 999;
+        assert!(before_analysis.validate_against_analysis(&analysis()).is_err());
+    }
+
+    #[test]
+    fn intervention_timing_changes_identity() {
+        let mut left = evaluation();
+        left.outcome_influence = EconomicOutcomeInfluence::InterventionAffected;
+        left.interventions.push(EconomicInterventionBinding {
+            intervention_ref: "action:stimulus-1".into(),
+            occurred_at: 1_200,
+        });
+        let mut right = left.clone();
+        right.interventions[0].occurred_at = 1_250;
+        assert_ne!(left.fingerprint().unwrap(), right.fingerprint().unwrap());
+    }
 
     #[test]
     fn target_native_units_are_required_and_identity_bearing() {
