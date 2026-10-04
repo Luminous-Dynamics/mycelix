@@ -53,7 +53,7 @@ jobs:
           metadata_status_file="${RUNNER_TEMP}/prism-bridge-canonical-metadata.status"
 
           set +e
-          cargo +1.96.0 metadata --locked --format-version 1 >"${metadata_log}" 2>&1
+          cargo +1.96.0 metadata --locked --format-version 1 >/dev/null 2>"${metadata_log}"
           metadata_status=$?
           set -e
 
