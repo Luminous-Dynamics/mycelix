@@ -2053,6 +2053,49 @@ mod tests {
 
 
     #[test]
+    fn jcs_hash_matches_w3c_1_1_vector() {
+        // W3C Data Integrity EdDSA Cryptosuites v1.1, Examples 30-36.
+        let document = serde_json::json!({
+            "@context": [
+                "https://www.w3.org/ns/credentials/v2",
+                "https://www.w3.org/ns/credentials/examples/v2"
+            ],
+            "id": "urn:uuid:58172aac-d8ba-11ed-83dd-0b3aef56cc33",
+            "type": ["VerifiableCredential", "AlumniCredential"],
+            "name": "Alumni Credential",
+            "description": "A minimum viable example of an Alumni Credential.",
+            "issuer": "https://vc.example/issuers/5678",
+            "validFrom": "2023-01-01T00:00:00Z",
+            "credentialSubject": {
+                "id": "did:example:abcdefgh",
+                "alumniOf": "The School of Examples"
+            }
+        });
+        let proof_config = serde_json::json!({
+            "@context": [
+                "https://www.w3.org/ns/credentials/v2",
+                "https://www.w3.org/ns/credentials/examples/v2"
+            ],
+            "type": "DataIntegrityProof",
+            "cryptosuite": "eddsa-jcs-2022",
+            "created": "2023-02-24T23:36:38Z",
+            "verificationMethod": "did:key:z6MkrJVnaZkeFzdQyMZu1cgjg7k1pZZ6pvBQ7XJPt4swbTQ2#z6MkrJVnaZkeFzdQyMZu1cgjg7k1pZZ6pvBQ7XJPt4swbTQ2",
+            "proofPurpose": "assertionMethod"
+        });
+
+        let hash_data = eddsa_jcs_hash_data_from_values(document, proof_config)
+            .expect("W3C 1.1 JCS vector must canonicalize");
+        let hex = hash_data
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>();
+        assert_eq!(
+            hex,
+            "66ab154f5c2890a140cb8388a22a160454f80575f6eae09e5a097cabe539a1db59b7cb6251b8991add1ce0bc83107e3db9dbbab5bd2c28f687db1a03abc92f19"
+        );
+    }
+
+    #[test]
     fn jcs_proof_context_must_be_ordered_prefix() {
         let mut document = serde_json::json!({
             "@context": [
