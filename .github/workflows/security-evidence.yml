@@ -41,7 +41,10 @@ jobs:
 
       - name: Compile security verifiers and bundle regression
         run: |
-          python3 -m py_compile             scripts/security/verify_mycelix_platform_evidence_capture_v0_1.py             scripts/security/reconstruct_mycelix_pc_client_eventlog_v0_1.py             scripts/security/test_mycelix_platform_evidence_bundle_v0_1.py \
+          python3 -m py_compile \
+            scripts/security/verify_mycelix_platform_evidence_capture_v0_1.py \
+            scripts/security/reconstruct_mycelix_pc_client_eventlog_v0_1.py \
+            scripts/security/test_mycelix_platform_evidence_bundle_v0_1.py \
             scripts/security/adapt_mycelix_tpm2_eventlog_yaml_v1_v0_1.py \
             scripts/security/test_mycelix_eventlog_adapter_replay_v0_1.py
 
