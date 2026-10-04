@@ -1585,7 +1585,7 @@ mod tests {
             );
         assert_eq!(
             revalidate_permit(&permit, missing_evidence, 151),
-            AuthorizationDecision::Indeterminate(AuthorizationIndeterminacy::AmbiguousAuthority)
+            AuthorizationOutcome::Indeterminate(AuthorizationIndeterminacy::AmbiguousAuthority)
         );
     }
 
@@ -1655,7 +1655,7 @@ mod tests {
             );
         assert_eq!(
             revalidate_permit(&permit, refreshed_evidence, 175),
-            AuthorizationDecision::Deny(AuthorizationDenial::OutsideValidityWindow)
+            AuthorizationOutcome::Deny(AuthorizationDenial::OutsideValidityWindow)
         );
 
         let refreshed_verified = verify_capability(
@@ -1703,7 +1703,7 @@ mod tests {
             );
         assert_eq!(
             revalidate_permit(&permit, evidence_b, 151),
-            AuthorizationDecision::Deny(AuthorizationDenial::AuthorityBindingMismatch)
+            AuthorizationOutcome::Deny(AuthorizationDenial::AuthorityBindingMismatch)
         );
     }
     #[test]
