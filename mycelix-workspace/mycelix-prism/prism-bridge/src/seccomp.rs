@@ -2003,6 +2003,48 @@ mod linux {
         }
 
         #[test]
+        fn v2_evidence_digest_commits_structural_validation_domain() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let rule = SeccompSyscallRuleV2::new(
+                libc::SYS_prctl,
+                vec![SeccompArgPredicateV1::new(
+                    0,
+                    u64::MAX,
+                    libc::PR_GET_NO_NEW_PRIVS as u64,
+                )
+                .unwrap()],
+            )
+            .unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+            let filter = compile_filter_v2(&policy).unwrap();
+            let current = seccomp_evidence_digest_v2(&policy, &filter);
+
+            // Reconstruct the pre-structural-validation evidence transcript
+            // exactly, but omit the new structural contract domain. The digest
+            // must differ, proving the validator contract is actually committed
+            // rather than merely documented beside the digest implementation.
+            let mut legacy = blake3::Hasher::new();
+            legacy.update(b"PRISM-SECCOMP-SYSCALL-EVIDENCE-V5");
+            legacy.update(b"PRISM-SECCOMP-COMPILED-BYTECODE-SEMANTIC-VALIDATION-V1");
+            legacy.update(&policy.digest());
+            legacy.update(&(filter.len() as u32).to_le_bytes());
+            for instruction in &filter {
+                legacy.update(&instruction.code.to_le_bytes());
+                legacy.update(&[instruction.jt, instruction.jf]);
+                legacy.update(&instruction.k.to_le_bytes());
+            }
+            legacy.update(b"PRISM-SECCOMP-RENDERER-POLICY-VALIDATION-V3");
+            legacy.update(b"PRISM-SECCOMP-NO-NEW-PRIVS-REQUIRED-V1");
+            legacy.update(&SECCOMP_RET_ERRNO.to_le_bytes());
+            legacy.update(&(libc::EPERM as u32).to_le_bytes());
+            legacy.update(&SECCOMP_RET_KILL_PROCESS.to_le_bytes());
+            legacy.update(&SECCOMP_RET_ALLOW.to_le_bytes());
+            legacy.update(&(SECCOMP_FILTER_FLAG_TSYNC | SECCOMP_FILTER_FLAG_TSYNC_ESRCH).to_le_bytes());
+
+            assert_ne!(current, *legacy.finalize().as_bytes());
+        }
+
+        #[test]
         fn v2_policy_digest_commits_endian_domain() {
             let arch = SeccompArchitecture::current().unwrap();
             let rule = SeccompSyscallRuleV2::new(
