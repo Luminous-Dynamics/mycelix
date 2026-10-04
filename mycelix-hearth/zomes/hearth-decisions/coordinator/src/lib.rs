@@ -535,7 +535,8 @@ pub fn finalize_decision(input: FinalizeDecisionInput) -> ExternResult<Record> {
     // Create the outcome
     let outcome = DecisionOutcome {
         decision_hash: input.decision_hash.clone(),
-        resolved_by: agent.clone(),
+        finalization_basis_action: Some(decision_record.action_address().clone()),
+        resolved_by: Some(agent.clone()),
         chosen_option,
         participation_rate_bp,
         resolved_at: now,
