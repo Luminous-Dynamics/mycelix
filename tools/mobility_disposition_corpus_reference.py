@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 
 EXPECTED_SCHEMA = "mycelix.mobility.evidence_disposition_transition.v1"
-EXPECTED_COUNT = 191
+EXPECTED_COUNT = 192
 EXPECTED_OUTCOME_CLASSES = [
     "accepted",
     "rejected",
