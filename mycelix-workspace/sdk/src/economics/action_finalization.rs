@@ -1057,6 +1057,64 @@ mod tests {
     }
 
     #[test]
+    fn constraint_input_order_does_not_change_freshness_fingerprint() {
+        let lifecycle = completed_lifecycle();
+        let constraint_a = completion_constraint(&lifecycle);
+        let mut constraint_b = constraint_a.clone();
+        constraint_b.constraint_id = "constraint:zzz".into();
+
+        let receipt = completion_receipt(&lifecycle);
+        let reconciliations = reconciliation_ledger(vec![
+            reconciliation(
+                "reconciliation:a",
+                &receipt,
+                &constraint_b,
+                ExecutionConformance::Conformant,
+                1_600,
+            ),
+            reconciliation(
+                "reconciliation:b",
+                &receipt,
+                &constraint_a,
+                ExecutionConformance::Conformant,
+                1_601,
+            ),
+        ]);
+        let execution = execution_ledger(vec![receipt]);
+
+        let mut first_constraints = vec![constraint_b.clone(), constraint_a.clone()];
+        let second_constraints = vec![constraint_a, constraint_b];
+
+        let first = EconomicActionFinalizationGate::assess(
+            &lifecycle,
+            &scope(),
+            &healthy_substrate(),
+            &ImpactLedger::new(),
+            &reconciliations,
+            &execution,
+            &first_constraints,
+        )
+        .unwrap();
+
+        first_constraints.reverse();
+        let second = EconomicActionFinalizationGate::assess(
+            &lifecycle,
+            &scope(),
+            &healthy_substrate(),
+            &ImpactLedger::new(),
+            &reconciliations,
+            &execution,
+            &second_constraints,
+        )
+        .unwrap();
+
+        assert_eq!(
+            first.evidence_snapshot_fingerprint,
+            second.evidence_snapshot_fingerprint
+        );
+    }
+
+    #[test]
     fn substrate_change_invalidates_finalization_freshness() {
         let lifecycle = completed_lifecycle();
         let constraint = completion_constraint(&lifecycle);
@@ -1100,6 +1158,61 @@ mod tests {
             &scope(),
             &changed,
             &ImpactLedger::new(),
+            &reconciliations,
+            &execution,
+            &[constraint],
+        ).unwrap());
+    }
+
+    #[test]
+    fn action_impact_change_invalidates_finalization_freshness() {
+        let lifecycle = completed_lifecycle();
+        let constraint = completion_constraint(&lifecycle);
+        let receipt = completion_receipt(&lifecycle);
+        let reconciliations = reconciliation_ledger(vec![reconciliation(
+            "reconciliation:completion",
+            &receipt,
+            &constraint,
+            ExecutionConformance::Conformant,
+            1_600,
+        )]);
+        let execution = execution_ledger(vec![receipt]);
+
+        let assessment = EconomicActionFinalizationGate::assess(
+            &lifecycle,
+            &scope(),
+            &healthy_substrate(),
+            &ImpactLedger::new(),
+            &reconciliations,
+            &execution,
+            &[constraint.clone()],
+        )
+        .unwrap();
+
+        let mut impacts = ImpactLedger::new();
+        impacts
+            .record_impact(SubstrateImpact {
+                id: "impact:local".into(),
+                action_actor: "actor:dao".into(),
+                action_ref: "action:1".into(),
+                dimension: SubstrateDimension::Financial,
+                unit: "sap".into(),
+                magnitude: 1,
+                direction: ImpactDirection::Depletion,
+                affected_ref: "commons:1".into(),
+                attributions: Vec::new(),
+                evidence_refs: vec!["evidence:local".into()],
+                status: ImpactStatus::Open,
+                obligation_id: None,
+                recorded_at: 1_700,
+            })
+            .unwrap();
+
+        assert!(!assessment.verify_freshness(
+            &lifecycle,
+            &scope(),
+            &healthy_substrate(),
+            &impacts,
             &reconciliations,
             &execution,
             &[constraint],
