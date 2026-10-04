@@ -3388,6 +3388,37 @@ mod tests {
         SnapshotPrefixMismatch,
         SnapshotRollback,
         PreviousPublicationMismatch,
+        PublicationForkDetected,
+    }
+
+    fn validate_state_machine_trace_checkpoint_publication_set(
+        publications: &[FederationStateMachineTraceCheckpointPublication],
+    ) -> Result<(), FederationStateMachineTraceCheckpointPublicationViolation> {
+        let mut successors = BTreeMap::<
+            (&str, usize, &str, &str),
+            &str,
+        >::new();
+
+        for publication in publications {
+            let key = (
+                publication.publication_profile.as_str(),
+                publication.trace_index,
+                publication.previous_publication_sha256.as_str(),
+                publication.body_sha256.as_str(),
+            );
+            if let Some(existing) = successors.insert(
+                key,
+                publication.publication_sha256.as_str(),
+            ) {
+                if existing != publication.publication_sha256.as_str() {
+                    return Err(
+                        FederationStateMachineTraceCheckpointPublicationViolation::PublicationForkDetected
+                    );
+                }
+            }
+        }
+
+        Ok(())
     }
 
     fn validate_state_machine_trace_checkpoint_publication(
@@ -5384,6 +5415,83 @@ mod tests {
         assert_ne!(
             FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PROFILE,
             FEDERATION_STATE_MACHINE_TRACE_VERIFICATION_PROFILE
+        );
+    }
+
+    #[test]
+    fn state_machine_trace_checkpoint_publications_detect_equivocation() {
+        let base_text = state_machine_trace_capsule(32, 8);
+        let fork_a_text = state_machine_trace_capsule(32, 12);
+        let fork_b_text = state_machine_trace_capsule(32, 12);
+
+        let base =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&base_text)
+                .expect("base capsule must deserialize");
+        let fork_a =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&fork_a_text)
+                .expect("fork-a capsule must deserialize");
+        let mut fork_b =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&fork_b_text)
+                .expect("fork-b capsule must deserialize");
+
+        fork_b.evidence[10].token ^= 1;
+        reseal_state_machine_trace_for_test(&mut fork_b);
+
+        let base_publication = state_machine_trace_checkpoint_publication(
+            &base,
+            8,
+            FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_GENESIS,
+        );
+        let fork_a_publication = state_machine_trace_checkpoint_publication(
+            &fork_a,
+            12,
+            &base_publication.publication_sha256,
+        );
+        let fork_b_publication = state_machine_trace_checkpoint_publication(
+            &fork_b,
+            12,
+            &base_publication.publication_sha256,
+        );
+
+        assert_ne!(
+            fork_a_publication.publication_sha256,
+            fork_b_publication.publication_sha256,
+            "the divergent successor publications must have distinct digests"
+        );
+        assert_eq!(
+            validate_state_machine_trace_checkpoint_publication_set(
+                &[
+                    base_publication.clone(),
+                    fork_a_publication.clone(),
+                    fork_b_publication.clone(),
+                ]
+            ),
+            Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::PublicationForkDetected
+            )
+        );
+
+        let duplicate_set = vec![base_publication.clone(), base_publication];
+        assert!(
+            validate_state_machine_trace_checkpoint_publication_set(&duplicate_set).is_ok(),
+            "exact publication replay is not a fork"
+        );
+
+        let other_trace = state_machine_trace_capsule(33, 12);
+        let other_trace =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&other_trace)
+                .expect("independent trace capsule must deserialize");
+        let other_publication = state_machine_trace_checkpoint_publication(
+            &other_trace,
+            12,
+            FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_GENESIS,
+        );
+        assert!(
+            validate_state_machine_trace_checkpoint_publication_set(
+                &[fork_a_publication, other_publication]
+            )
+            .is_ok(),
+            "independent trace identities must not be classified as a fork"
         );
     }
 
