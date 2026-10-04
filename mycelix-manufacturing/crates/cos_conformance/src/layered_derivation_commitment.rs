@@ -30,7 +30,11 @@ pub struct InputCommitmentV1 {
     pub commitment: String,
 }
 impl InputCommitmentV1 {
-    pub fn from_projection(
+    /// Internal constructor used only after the caller has selected the
+    /// appropriate provenance boundary. The public generic constructor below
+    /// deliberately forbids D6P-bearing closures; authoritative D6P admission
+    /// uses this helper only after the strict D6N -> D6O -> D6P checks succeed.
+    fn from_projection_internal(
         p: &QualifiedProjectionV1,
         e: &SemanticEnvironmentV1,
         closure: &DependencyClosureCertificateV1,
@@ -40,16 +44,9 @@ impl InputCommitmentV1 {
         if closure.status != qualified_dependency_closure_d6x::DependencyClosureStatusV1::Complete || !closure.valid() {
             return None;
         }
-        // Do not accept a merely self-consistent closure certificate. Re-execute
-        // the exact D6X profile against the exact projection/environment/profile
-        // and bind D6W to the resulting semantic closure identity. Runtime
-        // evidence is intentionally excluded from this identity comparison.
         if !closure.verifies_against_sources(p, e, derivation_profile, closure_profile) {
             return None;
         }
-        // D6W must consume the exact projection that D6X qualified. In
-        // particular, a caller cannot substitute a different source snapshot,
-        // environment, derivation profile, or stale selected graph binding.
         if !p.structurally_valid()
             || !is_canonical_sha256_commitment(&p.source_dkg_snapshot_commitment)
             || !e.structurally_valid()
@@ -81,15 +78,12 @@ impl InputCommitmentV1 {
                         && is_canonical_sha256_commitment(&edge.edge_commitment)
                 })
             })
-            || closure
-                .included_d6p_receipt_commitments
+            || closure.included_d6p_receipt_commitments
                 .iter()
                 .any(|commitment| !is_canonical_sha256_commitment(commitment))
         {
             return None;
         }
-        // The certificate must describe exactly the selected source objects,
-        // not merely a self-consistent certificate carrying the same projection.
         let selected_node_bindings = closure
             .included_nodes
             .iter()
@@ -121,8 +115,27 @@ impl InputCommitmentV1 {
             claim_ceiling: D6S_CLAIM_CEILING.into(),
             commitment: String::new(),
         };
-        v.commitment = v.recompute(); Some(v)
+        v.commitment = v.recompute();
+        Some(v)
     }
+
+    /// Generic D6W construction is intentionally D6P-free. Any D6P-bearing
+    /// closure must cross the authoritative D6N -> D6O -> D6P adapter below;
+    /// otherwise a self-consistent closure certificate could launder an
+    /// unverified D6P commitment into downstream D6W semantics.
+    pub fn from_projection(
+        p: &QualifiedProjectionV1,
+        e: &SemanticEnvironmentV1,
+        closure: &DependencyClosureCertificateV1,
+        closure_profile: &DependencyClosureProfileV1,
+        derivation_profile: &DerivationProfileV1,
+    ) -> Option<Self> {
+        if !closure.included_d6p_receipt_commitments.is_empty() {
+            return None;
+        }
+        Self::from_projection_internal(p, e, closure, closure_profile, derivation_profile)
+    }
+
     /// Strict D6W entrypoint for callers that can supply the qualified D6P
     /// composition set. Every D6P receipt named by the projection is checked
     /// against its committed composition before the ordinary D6W identity is
@@ -151,10 +164,6 @@ impl InputCommitmentV1 {
                 current_frontier_root,
             )?;
 
-        // Only D6P receipts selected by the D6X closure profile cross the
-        // strict D6W provenance gate. Projection-wide candidate receipts are
-        // retained as source/audit material and must not become implicit D6W
-        // dependencies.
         for expected in &closure.included_d6p_receipt_commitments {
             let receipt = d6p_receipts
                 .iter()
@@ -167,7 +176,7 @@ impl InputCommitmentV1 {
             }
         }
 
-        Self::from_projection(p, e, &closure, closure_profile, derivation_profile)
+        Self::from_projection_internal(p, e, &closure, closure_profile, derivation_profile)
     }
 
     pub fn recompute(&self) -> String {
@@ -180,11 +189,6 @@ impl InputCommitmentV1 {
         }
 
         self.schema_version == D6W_SCHEMA_VERSION
-            // D6W is the first stricter downstream boundary: a source
-            // snapshot identifier must be a canonical D6S commitment, not an
-            // opaque symbolic label. This does not prove the underlying DKG
-            // snapshot is authoritative; it only prevents an unauthenticated
-            // textual identifier from crossing the qualified-consumption gate.
             && is_canonical_sha256_commitment(&self.source_snapshot)
             && is_canonical_sha256_commitment(&self.projection)
             && is_canonical_sha256_commitment(&self.environment)
@@ -194,10 +198,6 @@ impl InputCommitmentV1 {
             && strictly_sorted_unique(&self.nodes)
             && self.edges.iter().all(|v| is_canonical_sha256_commitment(v))
             && strictly_sorted_unique(&self.edges)
-            // Qualified consumption does not accept opaque D6P receipt identifiers.
-            // A receipt set can be perfectly sorted and self-consistent while still
-            // naming substituted evidence; the receipt commitment must therefore be
-            // a canonical D6P cryptographic commitment before it crosses D6W.
             && self.d6p_receipts.iter().all(|v| is_canonical_sha256_commitment(v))
             && strictly_sorted_unique(&self.d6p_receipts)
             && self.claim_ceiling == D6S_CLAIM_CEILING
@@ -668,6 +668,54 @@ mod tests {
         assert!(!is_canonical_sha256_commitment(&p.nodes["dep"].node_commitment));
         assert!(InputCommitmentV1::from_projection(&p, &e, &c, &closure_profile(), &d).is_none());
         let _ = d;
+    }
+
+    #[test]
+    fn d6w_generic_constructor_rejects_d6p_bearing_closure_without_authoritative_path() {
+        let (mut p, e, d, _) = fixture(false);
+        let d6p_commitment = canonical_sha256(
+            "test-d6p-receipt",
+            &serde_json::json!({"receipt": "fixture"}),
+        );
+        let profile = DependencyClosureProfileV1 {
+            required_d6p_receipt_commitments: BTreeSet::from([d6p_commitment.clone()]),
+            ..closure_profile()
+        };
+        p.d6p_current_receipt_commitments.insert(d6p_commitment);
+
+        let closure = compute_dependency_closure(&p, &e, &d, &profile)
+            .expect("generic D6X closure may model the selected D6P dependency");
+        assert_eq!(
+            closure.status,
+            qualified_dependency_closure_d6x::DependencyClosureStatusV1::Complete
+        );
+        assert!(closure.valid());
+
+        assert!(
+            InputCommitmentV1::from_projection(
+                &p,
+                &e,
+                &closure,
+                &profile,
+                &d,
+            )
+            .is_none(),
+            "generic D6W input must not launder a D6P commitment without the authoritative adapter"
+        );
+
+        assert!(
+            InputCommitmentV1::from_projection_with_authoritative_d6p(
+                &p,
+                &e,
+                &profile,
+                &d,
+                &[],
+                &[],
+                Some("frontier"),
+            )
+            .is_none(),
+            "authoritative D6P consumption must also require the actual selected receipt/composition"
+        );
     }
 
     #[test]
