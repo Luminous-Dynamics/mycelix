@@ -985,11 +985,6 @@ fn validate_create_presentation(
             "Presentation source credential does not match credential ID and subject".into(),
         ));
     }
-    if *credential_record.action().author() == action.author {
-        // The source credential issuer may also be the presenter only for
-        // self-issued credentials; this is allowed by the existing model.
-    }
-
     if pres.disclosed_tier != credential.trust_tier {
         return Ok(ValidateCallbackResult::Invalid(
             "Presentation disclosed tier must match the source credential".into(),
