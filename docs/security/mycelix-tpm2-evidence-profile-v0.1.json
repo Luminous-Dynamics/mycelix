@@ -27,7 +27,8 @@
     "workload_measurement_pcr": 16,
     "workload_pcr_semantics": "application-controlled fixture PCR extension; not a claim about PC-client boot PCR semantics",
     "manufacturer_ek_trust": false,
-    "physical_tpm_security": false
+    "physical_tpm_security": false,
+    "eat_measured_component_mapping": false
   },
   "attestation_key": {
     "hierarchy": "endorsement",
@@ -98,6 +99,8 @@
     "tcg_pc_client_tpm_profile": "https://trustedcomputinggroup.org/resource/pc-client-platform-tpm-profile-ptp-specification/",
     "tpm2_quote": "https://tpm2-tools.readthedocs.io/en/stable/man/tpm2_quote.1/",
     "tpm2_checkquote": "https://tpm2-tools.readthedocs.io/en/latest/man/tpm2_checkquote.1/",
-    "tpm2_pcrextend": "https://tpm2-tools.readthedocs.io/en/latest/man/tpm2_pcrextend.1/"
+    "tpm2_pcrextend": "https://tpm2-tools.readthedocs.io/en/latest/man/tpm2_pcrextend.1/",
+    "rfc_9711_eat": "https://www.rfc-editor.org/rfc/rfc9711.html",
+    "rfc_10013_eat_measured_component": "https://www.rfc-editor.org/rfc/rfc10013.html"
   }
 }
