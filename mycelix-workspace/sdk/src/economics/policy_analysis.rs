@@ -295,7 +295,7 @@ impl EconomicPolicyAnalysis {
             .map_err(|error| format!("Economic policy analysis canonicalization failed: {error}"))?;
 
         let mut hasher = Sha256::new();
-        hasher.update(b"MYCELIX-ECONOMIC-POLICY-ANALYSIS-V2\\0");
+        hasher.update(b"MYCELIX-ECONOMIC-POLICY-ANALYSIS-V2\0");
         hasher.update(canonical);
         Ok(hex::encode(hasher.finalize()))
     }
