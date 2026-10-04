@@ -575,6 +575,24 @@ mod linux {
                     if !valid_offset {
                         return Err(SeccompError::CompilerInvariantViolation);
                     }
+
+                    if (16..=60).contains(&instruction.k)
+                        && (instruction.k - 16) % 4 == 0
+                    {
+                        let and_index = index
+                            .checked_add(1)
+                            .ok_or(SeccompError::CompilerInvariantViolation)?;
+                        let branch_index = and_index
+                            .checked_add(1)
+                            .ok_or(SeccompError::CompilerInvariantViolation)?;
+                        if filter.get(and_index).map(|i| i.code)
+                            != Some(BPF_ALU | BPF_AND | BPF_K)
+                            || filter.get(branch_index).map(|i| i.code)
+                                != Some(BPF_JMP | BPF_JEQ | BPF_K)
+                        {
+                            return Err(SeccompError::CompilerInvariantViolation);
+                        }
+                    }
                 }
                 code if code == BPF_ALU | BPF_AND | BPF_K => {
                     if instruction.jt != 0 || instruction.jf != 0 {
@@ -606,7 +624,11 @@ mod linux {
                                 && filter[index + 1].code == BPF_RET | BPF_K
                                 && filter[index + 1].k == SECCOMP_RET_ERRNO | libc::EPERM as u32;
                             let full_width_not_equal_shortcut = target == index + 4
-                                && filter.get(index + 1).is_some_and(|i| i.code == BPF_LD | BPF_W | BPF_ABS)
+                                && filter.get(index - 2).is_some_and(|i| i.code == BPF_LD | BPF_W | BPF_ABS)
+                                && filter.get(index + 1).is_some_and(|i| {
+                                    i.code == BPF_LD | BPF_W | BPF_ABS
+                                        && i.k == filter[index - 2].k + 4
+                                })
                                 && filter.get(index + 2).is_some_and(|i| i.code == BPF_ALU | BPF_AND | BPF_K)
                                 && filter.get(index + 3).is_some_and(|i| i.code == BPF_JMP | BPF_JEQ | BPF_K);
                             let after_allow = target > 0
