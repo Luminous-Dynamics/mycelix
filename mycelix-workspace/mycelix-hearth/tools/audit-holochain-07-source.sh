@@ -862,10 +862,11 @@ check_qualification_workflow_provenance() {
     fail=1
   fi
 
-  if ! rg -n --fixed-strings "nix develop .#ci --impure" "$workflow" >/dev/null 2>&1; then
-    echo "OK:   qualification workflow uses pure flake evaluation"
+  if ! rg -n --fixed-strings "nix develop .#ci --impure" "$workflow" >/dev/null 2>&1 \
+    && ! rg -n --fixed-strings "nix_path:" "$workflow" >/dev/null 2>&1; then
+    echo "OK:   qualification workflow uses pure flake evaluation without mutable NIX_PATH channels"
   else
-    echo "FAIL: qualification workflow must not use --impure flake evaluation"
+    echo "FAIL: qualification workflow must not use --impure evaluation or mutable NIX_PATH channels"
     fail=1
   fi
 
