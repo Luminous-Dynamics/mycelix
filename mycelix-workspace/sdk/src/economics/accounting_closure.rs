@@ -320,6 +320,16 @@ fn validate_projection_closure(
             aggregate.debt_repaid,
         ),
         (
+            "debt written off as lender",
+            sum_actor(actors, "debt written off as lender", |o| o.debt_written_off_as_lender)?,
+            aggregate.debt_written_off,
+        ),
+        (
+            "debt written off as borrower",
+            sum_actor(actors, "debt written off as borrower", |o| o.debt_written_off_as_borrower)?,
+            aggregate.debt_written_off,
+        ),
+        (
             "trade credit extended",
             sum_actor(actors, "trade credit extended", |o| o.trade_credit_extended)?,
             aggregate.trade_credit_extended,
@@ -399,6 +409,24 @@ fn validate_projection_closure(
             "sector debt repaid",
             sum_sector(sectors, "debt repaid", |o| o.debt_repaid)?,
             aggregate.debt_repaid,
+        ),
+        (
+            "sector debt written off as lender",
+            sum_sector(
+                sectors,
+                "debt written off as lender",
+                |o| o.debt_written_off_as_lender,
+            )?,
+            aggregate.debt_written_off,
+        ),
+        (
+            "sector debt written off as borrower",
+            sum_sector(
+                sectors,
+                "debt written off as borrower",
+                |o| o.debt_written_off_as_borrower,
+            )?,
+            aggregate.debt_written_off,
         ),
         (
             "sector trade credit extended",
