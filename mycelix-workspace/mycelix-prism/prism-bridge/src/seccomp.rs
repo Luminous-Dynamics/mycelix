@@ -331,7 +331,12 @@ const FORBIDDEN_RENDERER_SYSCALLS: &[i64] = &[
     libc::SYS_syslog,
 ];
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
-const FORBIDDEN_X86_PROCESS_CREATION_SYSCALLS: &[i64] = &[libc::SYS_fork, libc::SYS_vfork];
+const FORBIDDEN_X86_PROCESS_CREATION_SYSCALLS: &[i64] = &[
+    libc::SYS_fork,
+    libc::SYS_vfork,
+    libc::SYS_ioperm,
+    libc::SYS_iopl,
+];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SeccompSyscallPolicyV2 {
@@ -619,6 +624,15 @@ mod linux {
                         || (16..=60).contains(&instruction.k)
                             && (instruction.k - 16) % 4 == 0;
                     if !valid_offset {
+                        return Err(SeccompError::CompilerInvariantViolation);
+                    }
+
+                    // Architecture and syscall-number loads are confined to
+                    // the fixed safety prefix. Rule bodies only load arguments.
+                    if index >= first_rule_index
+                        && (instruction.k == SECCOMP_DATA_ARCH_OFFSET
+                            || instruction.k == SECCOMP_DATA_NR_OFFSET)
+                    {
                         return Err(SeccompError::CompilerInvariantViolation);
                     }
 
@@ -3194,6 +3208,32 @@ mod linux {
         }
 
         #[test]
+        fn compiled_filter_rejects_stray_arch_or_syscall_load_inside_rule() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let rule = SeccompSyscallRuleV2::new(
+                libc::SYS_socket,
+                vec![SeccompArgPredicateV1::new(
+                    0,
+                    u64::MAX,
+                    libc::AF_UNIX as u64,
+                ).unwrap()],
+            ).unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+            let mut filter = compile_filter_v2(&policy).unwrap();
+
+            let predicate_load = filter.iter().position(|instruction| {
+                instruction.code == BPF_LD | BPF_W | BPF_ABS
+                    && instruction.k == 16
+            }).unwrap();
+
+            filter[predicate_load].k = SECCOMP_DATA_NR_OFFSET;
+            assert!(matches!(
+                validate_compiled_filter(&filter),
+                Err(SeccompError::CompilerInvariantViolation)
+            ));
+        }
+
+        #[test]
         fn compiled_filter_rejects_predicate_jump_over_later_checks() {
             let arch = SeccompArchitecture::current().unwrap();
             let rule = SeccompSyscallRuleV2::new_with_clauses(
@@ -4032,6 +4072,8 @@ mod linux {
                 forbidden.extend([
                     libc::SYS_fork,
                     libc::SYS_vfork,
+                    libc::SYS_ioperm,
+                    libc::SYS_iopl,
                 ]);
             }
 
