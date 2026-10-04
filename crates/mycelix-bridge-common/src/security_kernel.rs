@@ -441,6 +441,7 @@ impl VerificationEvidence {
 /// neither inspectable through derived formatting/equality nor duplicable through Clone;
 /// callers cross the authorization boundary only by passing the verified value to the
 /// kernel-owned permit issuer.
+#[must_use = "verified capabilities must be passed to authorize_permit"]
 pub struct VerifiedCapability {
     capability: Capability,
     verification_valid_until_us: u64,
