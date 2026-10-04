@@ -893,7 +893,12 @@ token_re = re.compile(
     r"|b?'(?:\\\\.|[^'\\\\\n])'(?![A-Za-z0-9_])",
     re.S,
 )
-masked = token_re.sub(lambda m: "\n" * m.group(0).count("\n"), source)
+# Preserve source length while masking comments, strings, and chars so indices
+# in the masked source can safely slice the corresponding raw source branch.
+masked = token_re.sub(
+    lambda m: "".join("\n" if c == "\n" else " " for c in m.group(0)),
+    source,
+)
 
 predicate = re.escape(code_pattern)
 predicate_match = re.search(rf'\bif\s+{predicate}\s*\{{', masked)
@@ -930,10 +935,25 @@ if close_brace is None:
     raise SystemExit(2)
 
 predicate_branch = masked[open_brace + 1 : close_brace]
-if not re.search(r'ValidateCallbackResult::Invalid|\breturn\s+Err\s*\(', predicate_branch):
+raw_predicate_branch = source[open_brace + 1 : close_brace]
+
+# For these qualification cases, the manifest claims a definitive validation
+# rejection, not a host failure. Require the predicate branch itself to return
+# the Holochain Invalid result, and bind the exact rejection text to the manifest.
+if not re.search(
+    r'\breturn\s+Ok\s*\(\s*ValidateCallbackResult::Invalid\s*\(',
+    predicate_branch,
+):
     print(
-        f"FAIL: executable invariant predicate {code_pattern!r} has no "
-        "branch-local Invalid/Err rejection path"
+        f"FAIL: executable invariant predicate {code_pattern!r} does not "
+        "return ValidateCallbackResult::Invalid from its own branch"
+    )
+    raise SystemExit(2)
+
+if not re.search(rf'"{re.escape(human_invariant)}"', raw_predicate_branch):
+    print(
+        f"FAIL: executable invariant predicate {code_pattern!r} does not "
+        f"emit the exact manifest rejection reason {human_invariant!r}"
     )
     raise SystemExit(2)
 
