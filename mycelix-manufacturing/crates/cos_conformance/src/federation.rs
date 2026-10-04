@@ -3499,7 +3499,7 @@ mod tests {
                     .collect::<BTreeSet<_>>()
                     == (evidence.pre_admission_index..evidence.post_admission_index)
                         .collect::<BTreeSet<_>>(),
-                "trace capsule evidence must enumerate the exact consumed ordinal range"
+                FederationStateMachineTraceEvidenceViolation::AdmissionOrdinalRangeMismatch
             );
 
             expected_post_boundary = FederationStateMachineTraceBoundary {
@@ -3513,7 +3513,7 @@ mod tests {
 
         require!(
             capsule.final_state == expected_post_boundary,
-            "successful trace capsule final state must match the final step boundary"
+            FederationStateMachineTraceEvidenceViolation::FinalStateMismatch
         );
 
         Ok(())
