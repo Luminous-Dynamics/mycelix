@@ -471,7 +471,9 @@ pub struct AuthorizationRequest {
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct AuthorizationRequestWire {
+    #[serde(deserialize_with = "deserialize_security_identifier")]
     subject: String,
+    #[serde(deserialize_with = "deserialize_security_identifier")]
     resource: String,
     action: CapabilityAction,
     policy_version: u64,
