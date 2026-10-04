@@ -109,6 +109,15 @@ impl EconomicPolicyProfile {
         Ok(())
     }
 
+    /// Whether this profile is active at the supplied timestamp.
+    pub fn is_active_at(&self, timestamp: u64) -> bool {
+        timestamp >= self.effective_from
+            && self
+                .effective_until
+                .map(|until| timestamp <= until)
+                .unwrap_or(true)
+    }
+
     /// Return a deterministic SHA-256 content identity.
     ///
     /// Lists are canonicalized lexicographically before hashing. This gives
@@ -227,6 +236,18 @@ mod tests {
         right.authority_refs.reverse();
         left.interoperability_profile_refs.reverse();
         assert_eq!(left.fingerprint().unwrap(), right.fingerprint().unwrap());
+    }
+
+    #[test]
+    fn active_interval_is_explicit() {
+        let mut value = profile();
+        assert!(!value.is_active_at(999));
+        assert!(value.is_active_at(1_000));
+        assert!(value.is_active_at(10_000));
+
+        value.effective_until = Some(2_000);
+        assert!(value.is_active_at(2_000));
+        assert!(!value.is_active_at(2_001));
     }
 
     #[test]

@@ -13,7 +13,10 @@
 //! other rails while preserving the Mycelix event identity and declaring any
 //! representation loss.
 
-use super::{policy_context::EconomicPolicyContext, policy_profile::EconomicOsOperation};
+use super::{
+    policy_context::EconomicPolicyContext,
+    policy_profile::{EconomicOsOperation, EconomicPolicyProfile},
+};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
@@ -128,6 +131,27 @@ impl EconomicOsEnvelope {
             if key.trim().is_empty() {
                 return Err("Economic OS extension keys cannot be empty".into());
             }
+        }
+
+        Ok(())
+    }
+
+    /// Validate all policy contexts against supplied exact profiles and
+    /// the event occurrence time.
+    pub fn validate_against_profiles(
+        &self,
+        profiles: &BTreeMap<String, EconomicPolicyProfile>,
+    ) -> Result<(), String> {
+        self.validate()?;
+
+        for context in &self.policy_contexts {
+            let profile = profiles.get(&context.profile_ref).ok_or_else(|| {
+                format!(
+                    "Economic OS policy profile is not available: {}",
+                    context.profile_ref
+                )
+            })?;
+            context.validate_against_profile(profile, self.occurred_at)?;
         }
 
         Ok(())
@@ -250,6 +274,36 @@ mod tests {
         });
 
         assert!(value.validate().is_err());
+    }
+
+    #[test]
+    fn event_context_requires_active_exact_profile() {
+        let value = envelope();
+        let profile = EconomicPolicyProfile {
+            profile_id: "profile:za:reference:v1".into(),
+            jurisdiction_ref: "jurisdiction:ZA".into(),
+            regime_ref: "regime:national-fiat".into(),
+            policy_version: "1.0.0".into(),
+            currency_refs: vec!["ZAR".into()],
+            authority_refs: vec!["authority:treasury".into()],
+            policy_rule_refs: vec!["rule:v1".into()],
+            interoperability_profile_refs: vec!["standard:SDMX-3.1".into()],
+            effective_from: 1_000,
+            effective_until: None,
+            evidence_refs: vec!["evidence:profile".into()],
+            supersedes_profile_ref: None,
+            declared_at: 1_000,
+        };
+        let mut profiles = BTreeMap::new();
+        profiles.insert(profile.profile_id.clone(), profile.clone());
+
+        let mut mismatched = value.clone();
+        mismatched.policy_contexts[0].profile_fingerprint = "f".repeat(64);
+        assert!(mismatched.validate_against_profiles(&profiles).is_err());
+
+        let mut valid = value;
+        valid.policy_contexts[0].profile_fingerprint = profile.fingerprint().unwrap();
+        assert!(valid.validate_against_profiles(&profiles).is_ok());
     }
 
     #[test]

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! Multi-context policy binding for cross-jurisdiction economic events.
 
+use super::policy_profile::EconomicPolicyProfile;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -21,6 +22,26 @@ pub struct EconomicPolicyContext {
 }
 
 impl EconomicPolicyContext {
+    /// Validate this context against the exact profile and event timestamp.
+    pub fn validate_against_profile(
+        &self,
+        profile: &EconomicPolicyProfile,
+        event_timestamp: u64,
+    ) -> Result<(), String> {
+        self.validate()?;
+        let fingerprint = profile.fingerprint()?;
+        if self.profile_ref != profile.profile_id {
+            return Err("Policy context profile reference does not match supplied profile".into());
+        }
+        if self.profile_fingerprint != fingerprint {
+            return Err("Policy context profile fingerprint does not match supplied profile".into());
+        }
+        if !profile.is_active_at(event_timestamp) {
+            return Err("Policy context profile is not active at event timestamp".into());
+        }
+        Ok(())
+    }
+
     pub fn validate(&self) -> Result<(), String> {
         if self.profile_ref.trim().is_empty() {
             return Err("Policy context profile reference cannot be empty".into());
