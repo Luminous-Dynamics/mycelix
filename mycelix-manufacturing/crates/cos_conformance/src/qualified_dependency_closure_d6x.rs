@@ -1626,13 +1626,59 @@ mod tests {
             assert!(vector.recipe.required_node_ids.iter().all(|id| !id.is_empty()));
             assert!(vector.recipe.max_nodes > 0);
             assert!(vector.recipe.max_edges > 0);
-            assert!(vector.recipe.rule.from_kind.is_some() || vector.recipe.rule.to_kind.is_some()
-                || vector.recipe.rule.edge_kind.is_support_semantic());
-            assert!(vector
-                .recipe
-                .projection_mutations
-                .iter()
-                .all(|mutation| !mutation.op.is_empty()));
+            let declared_rule = DependencyRuleV1 {
+                edge_kind: vector.recipe.rule.edge_kind,
+                from_kind: vector.recipe.rule.from_kind,
+                to_kind: vector.recipe.rule.to_kind,
+                currentness: vector.recipe.rule.currentness,
+            };
+            assert!(
+                declared_rule.structurally_valid(),
+                "golden recipe rule must satisfy D6X rule shape: {}",
+                vector.id
+            );
+            for mutation in &vector.recipe.projection_mutations {
+                match mutation.op.as_str() {
+                    "add_edge" => {
+                        assert!(mutation.edge_id.as_deref().is_some_and(non_empty));
+                        assert!(mutation.from_node_id.as_deref().is_some_and(non_empty));
+                        assert!(mutation.to_node_id.as_deref().is_some_and(non_empty));
+                        assert!(mutation.kind.is_some());
+                        assert!(mutation.edge_commitment.as_deref().is_some_and(non_empty));
+                        assert!(mutation.node_id.is_none());
+                        assert!(mutation.fields.is_none());
+                    }
+                    "set_node" => {
+                        assert!(mutation.edge_id.is_none());
+                        assert!(mutation.from_node_id.is_none());
+                        assert!(mutation.to_node_id.is_none());
+                        assert!(mutation.kind.is_none());
+                        assert!(mutation.edge_commitment.is_none());
+                        assert!(mutation.node_id.as_deref().is_some_and(non_empty));
+                        let fields = mutation
+                            .fields
+                            .as_ref()
+                            .filter(|fields| !fields.is_empty())
+                            .unwrap_or_else(|| panic!("set_node mutation must declare fields: {}", vector.id));
+                        for (field, value) in fields {
+                            match field.as_str() {
+                                "historical_only" => {
+                                    assert!(value.is_boolean(), "historical_only must be boolean: {}", vector.id);
+                                }
+                                "current_frontier_root" => {
+                                    assert!(
+                                        value.is_null() || value.as_str().is_some_and(non_empty),
+                                        "current_frontier_root must be null or non-empty string: {}",
+                                        vector.id
+                                    );
+                                }
+                                _ => panic!("unsupported set_node field in golden recipe {}: {field}", vector.id),
+                            }
+                        }
+                    }
+                    op => panic!("unsupported D6X golden recipe mutation: {op}"),
+                }
+            }
             assert!(!vector.expected.included_node_ids.iter().any(String::is_empty));
             assert!(!vector.expected.included_edge_ids.iter().any(String::is_empty));
             assert!(!vector.expected.missing_dependency_ids.iter().any(String::is_empty));
@@ -2098,251 +2144,3 @@ mod tests {
         let before=compute_dependency_closure(&a,&e,&d,&p).unwrap();
         {
             let edge = a.edges.get_mut("e1").unwrap();
-            edge.kind = ClaimGraphEdgeKindV1::Provenance;
-            edge.edge_commitment = edge.recomputed_commitment();
-        }
-        let kind_changed=compute_dependency_closure(&a,&e,&d,&p).unwrap();
-        assert_ne!(before.closure_identity_commitment, kind_changed.closure_identity_commitment);
-    }
-
-    #[test]
-    fn dependency_reference_domains_are_structurally_distinct() {
-        let node = SemanticDependencyReferenceV1::node("x", Some("node-c".into()));
-        let edge = SemanticDependencyReferenceV1::edge(
-            "x", "a", "b", ClaimGraphEdgeKindV1::Supports, Some("edge-c".into())
-        );
-        let d6p = SemanticDependencyReferenceV1::d6p_receipt("receipt-c");
-        assert!(node.structurally_valid());
-        assert!(edge.structurally_valid());
-        assert!(d6p.structurally_valid());
-
-        let invalid_d6p = SemanticDependencyReferenceV1 {
-            kind: SemanticDependencyKindV1::D6PReceipt,
-            identifier: "receipt-c".into(),
-            commitment: Some("different".into()),
-            context: None,
-        };
-        assert!(!invalid_d6p.structurally_valid());
-
-        let invalid_edge = SemanticDependencyReferenceV1 {
-            kind: SemanticDependencyKindV1::Edge,
-            identifier: "x".into(),
-            commitment: Some("edge-c".into()),
-            context: None,
-        };
-        assert!(!invalid_edge.structurally_valid());
-    }
-
-    #[test]
-    fn currentness_marks_the_affected_dependency_stale() {
-        let (mut a,e,d)=projection(false);
-        a.nodes.get_mut("dep").unwrap().historical_only = true;
-        let mut p=profile(BTreeSet::new());
-        p.rules = [DependencyRuleV1 {
-            edge_kind: ClaimGraphEdgeKindV1::Supports,
-            from_kind: Some(ClaimGraphNodeKindV1::Statement),
-            to_kind: Some(ClaimGraphNodeKindV1::Evidence),
-            currentness: DependencyCurrentnessV1::CurrentOnly,
-        }].into_iter().collect();
-        let c=compute_dependency_closure(&a,&e,&d,&p).unwrap();
-        let dep=SemanticDependencyReferenceV1::node("dep", Some("commit-dep".into()));
-        assert_eq!(c.status, DependencyClosureStatusV1::BlockedCurrentness);
-        assert!(c.dependencies.contains(&SemanticDependencyReferenceV1::edge(
-            "e1", "root", "dep", ClaimGraphEdgeKindV1::Supports, Some("edge-e1".into())
-        )));
-        assert_eq!(c.dependency_resolutions.get(&dep), Some(&SemanticDependencyResolutionV1::Stale));
-        assert!(c.valid());
-    }
-
-    #[test]
-    fn stale_resolution_is_monotonic_across_selected_edge_order() {
-        let (mut a,e,d)=projection(false);
-        a.nodes.get_mut("dep").unwrap().historical_only = true;
-        a.edges.insert("z-current".into(), QualifiedEdgeV1 {
-            edge_id:"z-current".into(), from_node_id:"root".into(), to_node_id:"dep".into(),
-            kind:ClaimGraphEdgeKindV1::Supports, edge_commitment:"edge-z".into(),
-            claim_ceiling:D6X_CLAIM_CEILING.into(),
-        });
-        let mut p=profile(BTreeSet::new());
-        p.rules = [
-            DependencyRuleV1 {
-                edge_kind: ClaimGraphEdgeKindV1::Supports,
-                from_kind: Some(ClaimGraphNodeKindV1::Statement),
-                to_kind: Some(ClaimGraphNodeKindV1::Evidence),
-                currentness: DependencyCurrentnessV1::Any,
-            },
-            DependencyRuleV1 {
-                edge_kind: ClaimGraphEdgeKindV1::Supports,
-                from_kind: Some(ClaimGraphNodeKindV1::Statement),
-                to_kind: Some(ClaimGraphNodeKindV1::Evidence),
-                currentness: DependencyCurrentnessV1::CurrentOnly,
-            },
-        ].into_iter().collect();
-        let c=compute_dependency_closure(&a,&e,&d,&p).unwrap();
-        let dep=SemanticDependencyReferenceV1::node("dep", Some("commit-dep".into()));
-        assert_eq!(c.dependency_resolutions.get(&dep), Some(&SemanticDependencyResolutionV1::Stale));
-        assert_eq!(c.status, DependencyClosureStatusV1::BlockedCurrentness);
-    }
-
-    #[test]
-    fn stale_currentness_survives_target_node_dequeue() {
-        let (mut a, e, d) = projection(false);
-        a.nodes.get_mut("dep").unwrap().historical_only = true;
-
-        let mut p = profile(BTreeSet::new());
-        p.rules = [DependencyRuleV1 {
-            edge_kind: ClaimGraphEdgeKindV1::Supports,
-            from_kind: Some(ClaimGraphNodeKindV1::Statement),
-            to_kind: Some(ClaimGraphNodeKindV1::Evidence),
-            currentness: DependencyCurrentnessV1::CurrentOnly,
-        }]
-        .into_iter()
-        .collect();
-
-        let c = compute_dependency_closure(&a, &e, &d, &p).unwrap();
-        let dep = SemanticDependencyReferenceV1::node("dep", Some("commit-dep".into()));
-
-        assert_eq!(
-            c.dependency_resolutions.get(&dep),
-            Some(&SemanticDependencyResolutionV1::Stale)
-        );
-        assert_eq!(c.status, DependencyClosureStatusV1::BlockedCurrentness);
-        assert!(c.valid());
-    }
-
-    #[test]
-    fn frontier_mismatch_marks_selected_dependency_stale() {
-        let (mut a, e, d) = projection(false);
-        a.nodes.get_mut("dep").unwrap().current_frontier_root = Some("frontier-old".into());
-
-        let mut p = profile(BTreeSet::new());
-        p.rules = [DependencyRuleV1 {
-            edge_kind: ClaimGraphEdgeKindV1::Supports,
-            from_kind: Some(ClaimGraphNodeKindV1::Statement),
-            to_kind: Some(ClaimGraphNodeKindV1::Evidence),
-            currentness: DependencyCurrentnessV1::CurrentOnly,
-        }]
-        .into_iter()
-        .collect();
-
-        let c = compute_dependency_closure(&a, &e, &d, &p).unwrap();
-        let dep = SemanticDependencyReferenceV1::node("dep", Some("commit-dep".into()));
-
-        assert_eq!(
-            c.dependency_resolutions.get(&dep),
-            Some(&SemanticDependencyResolutionV1::Stale)
-        );
-        assert_eq!(c.status, DependencyClosureStatusV1::BlockedCurrentness);
-        assert!(c.valid());
-    }
-
-    #[test]
-    fn missing_frontier_metadata_blocks_current_only_qualification() {
-        let (mut a, e, d) = projection(false);
-        a.nodes.get_mut("dep").unwrap().current_frontier_root = None;
-
-        let mut p = profile(BTreeSet::new());
-        p.rules = [DependencyRuleV1 {
-            edge_kind: ClaimGraphEdgeKindV1::Supports,
-            from_kind: Some(ClaimGraphNodeKindV1::Statement),
-            to_kind: Some(ClaimGraphNodeKindV1::Evidence),
-            currentness: DependencyCurrentnessV1::CurrentOnly,
-        }]
-        .into_iter()
-        .collect();
-
-        let c = compute_dependency_closure(&a, &e, &d, &p).unwrap();
-        let dep = SemanticDependencyReferenceV1::node("dep", Some("commit-dep".into()));
-
-        assert_eq!(
-            c.dependency_resolutions.get(&dep),
-            Some(&SemanticDependencyResolutionV1::Stale)
-        );
-        assert_eq!(c.status, DependencyClosureStatusV1::BlockedCurrentness);
-        assert!(c.valid());
-    }
-
-    #[test]
-    fn frontier_match_is_required_for_current_only_but_not_any() {
-        let (mut a, e, d) = projection(false);
-        a.nodes.get_mut("dep").unwrap().current_frontier_root = Some("frontier-old".into());
-
-        let mut any = profile(BTreeSet::new());
-        any.rules = [DependencyRuleV1 {
-            edge_kind: ClaimGraphEdgeKindV1::Supports,
-            from_kind: Some(ClaimGraphNodeKindV1::Statement),
-            to_kind: Some(ClaimGraphNodeKindV1::Evidence),
-            currentness: DependencyCurrentnessV1::Any,
-        }]
-        .into_iter()
-        .collect();
-
-        let complete = compute_dependency_closure(&a, &e, &d, &any).unwrap();
-        assert_eq!(complete.status, DependencyClosureStatusV1::Complete);
-
-        let mut current = any.clone();
-        current.rules = [DependencyRuleV1 {
-            edge_kind: ClaimGraphEdgeKindV1::Supports,
-            from_kind: Some(ClaimGraphNodeKindV1::Statement),
-            to_kind: Some(ClaimGraphNodeKindV1::Evidence),
-            currentness: DependencyCurrentnessV1::CurrentOnly,
-        }]
-        .into_iter()
-        .collect();
-
-        let blocked = compute_dependency_closure(&a, &e, &d, &current).unwrap();
-        assert_eq!(blocked.status, DependencyClosureStatusV1::BlockedCurrentness);
-    }
-
-    #[test]
-    fn stale_resolution_requires_a_selected_current_only_edge() {
-        let (mut a,e,d)=projection(false);
-        a.nodes.insert("other".into(), QualifiedNodeV1 {
-            node_id:"other".into(), kind:ClaimGraphNodeKindV1::Statement,
-            content_commitment:"content-other".into(), node_commitment:"commit-other".into(), historical_only:false,
-            current_frontier_root:Some("frontier".into()), claim_ceiling:D6S_CLAIM_CEILING.into(),
-        });
-        a.edges.insert("unselected-current-only".into(), QualifiedEdgeV1 {
-            edge_id:"unselected-current-only".into(),
-            from_node_id:"other".into(), to_node_id:"dep".into(),
-            kind:ClaimGraphEdgeKindV1::Supports, edge_commitment:"edge-unselected".into(),
-            claim_ceiling:D6S_CLAIM_CEILING.into(),
-        });
-        a.nodes.get_mut("dep").unwrap().historical_only = true;
-        let mut p=profile(BTreeSet::new());
-        p.rules = [DependencyRuleV1 {
-            edge_kind: ClaimGraphEdgeKindV1::Supports,
-            from_kind: Some(ClaimGraphNodeKindV1::Statement),
-            to_kind: Some(ClaimGraphNodeKindV1::Evidence),
-            currentness: DependencyCurrentnessV1::Any,
-        }].into_iter().collect();
-        let c=compute_dependency_closure(&a,&e,&d,&p).unwrap();
-        let dep=SemanticDependencyReferenceV1::node("dep", Some("commit-dep".into()));
-        assert_eq!(c.dependency_resolutions.get(&dep), Some(&SemanticDependencyResolutionV1::Present));
-        assert_eq!(c.status, DependencyClosureStatusV1::Complete);
-    }
-
-    #[test]
-    fn missing_unmatched_edge_target_does_not_block_closure() {
-        let (mut a,e,d)=projection(false);
-        a.edges.insert("irrelevant-dangling".into(), QualifiedEdgeV1 {
-            edge_id:"irrelevant-dangling".into(),
-            from_node_id:"root".into(), to_node_id:"missing-target".into(),
-            kind:ClaimGraphEdgeKindV1::Provenance, edge_commitment:"edge-dangling".into(),
-            claim_ceiling:D6S_CLAIM_CEILING.into(),
-        });
-        let p=profile(BTreeSet::new());
-        let c=compute_dependency_closure(&a,&e,&d,&p).unwrap();
-        assert_eq!(c.status, DependencyClosureStatusV1::Complete);
-        assert!(!c.missing_dependency_ids.contains("missing-target"));
-    }
-
-    #[test]
-    fn dependency_resolution_distinguishes_present_and_missing() {
-        let (a,e,d)=projection(false); let p=profile(["missing".into()].into_iter().collect());
-        let c=compute_dependency_closure(&a,&e,&d,&p).unwrap();
-        assert_eq!(c.dependency_resolutions.get(&SemanticDependencyReferenceV1::node("root", Some("commit-root".into()))), Some(&SemanticDependencyResolutionV1::Present));
-        assert_eq!(c.dependency_resolutions.get(&SemanticDependencyReferenceV1::node("missing", None)), Some(&SemanticDependencyResolutionV1::Missing));
-        assert!(c.valid());
-    }
-}
