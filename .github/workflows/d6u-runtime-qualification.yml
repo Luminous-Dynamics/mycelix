@@ -115,6 +115,10 @@ jobs:
             echo "claim_ceiling=ReferenceModelOnly"
           } | tee d6u-runtime-evidence.txt
 
+      - name: Verify emitted runtime evidence record
+        if: success()
+        run: python3 scripts/integral/verify_d6u_runtime_record.py
+
       - name: Upload runtime evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
