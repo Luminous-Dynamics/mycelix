@@ -2560,6 +2560,7 @@ mod tests {
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
     struct FederationStateMachineFailureCapsule {
         schema_version: u16,
+        failure_kind: &'static str,
         trace: FederationStateMachineTraceCapsule,
         failed_step_index: usize,
         operation: FederationStateMachineOperation,
@@ -2614,6 +2615,7 @@ mod tests {
 
             Self {
                 schema_version: 1,
+                failure_kind: "invariant-violation",
                 trace,
                 failed_step_index,
                 operation,
@@ -3077,10 +3079,56 @@ mod tests {
                     before.clone(),
                     canonical_state_fingerprint(&state),
                 );
+                let mut capsule = capsule;
+                capsule.expected_decision = match operation {
+                    FederationStateMachineOperation::AdmitLocal
+                    | FederationStateMachineOperation::AdmitWithPredecessor => {
+                        Some(FederationDecision::AcceptedLocal)
+                    }
+                    FederationStateMachineOperation::ReplayExact
+                    | FederationStateMachineOperation::RetryExisting => {
+                        Some(FederationDecision::Duplicate)
+                    }
+                    FederationStateMachineOperation::RebindAttempt => {
+                        Some(FederationDecision::AttemptConflict)
+                    }
+                    FederationStateMachineOperation::AdmitForeign
+                    | FederationStateMachineOperation::AdmitRecognizedForeign => {
+                        Some(FederationDecision::AcceptedForeign)
+                    }
+                    FederationStateMachineOperation::PendingDependency => {
+                        Some(FederationDecision::PendingDependency)
+                    }
+                    FederationStateMachineOperation::Partition => {
+                        Some(FederationDecision::PartitionUnknown)
+                    }
+                    FederationStateMachineOperation::StaleSchema => {
+                        Some(FederationDecision::StaleGeneration)
+                    }
+                    FederationStateMachineOperation::Expired => {
+                        Some(FederationDecision::ExpiredAuthorization)
+                    }
+                    FederationStateMachineOperation::Revoked
+                    | FederationStateMachineOperation::Absent => {
+                        Some(FederationDecision::Unauthorized)
+                    }
+                    FederationStateMachineOperation::ConflictExistingDelivery => {
+                        Some(FederationDecision::PayloadConflict)
+                    }
+                    FederationStateMachineOperation::AddRecognition
+                    | FederationStateMachineOperation::DuplicateRecognition
+                    | FederationStateMachineOperation::RecordObservation
+                    | FederationStateMachineOperation::DuplicateObservation
+                    | FederationStateMachineOperation::ConflictObservation
+                    | FederationStateMachineOperation::ForgedSourceObservation => None,
+                };
+                capsule.observed_decision = decision;
+                capsule.observed_authority = authority;
                 panic!(
-                    "state-machine invariant failure; replay capsule follows:\n{}",
+                    "state-machine invariant failure; replay capsule follows:\\n{}",
                     capsule.to_json()
                 );
+
             }
 
             evidence.push(FederationStateMachineEvidence {
@@ -3178,6 +3226,7 @@ mod tests {
         ];
         let capsule = FederationStateMachineFailureCapsule {
             schema_version: 1,
+            failure_kind: "invariant-violation",
             trace: FederationStateMachineTraceCapsule {
                 trace_index: 11,
                 initial_seed,
@@ -3206,6 +3255,7 @@ mod tests {
             serde_json::from_str::<FederationStateMachineFailureCapsule>(&json)
                 .expect("failure capsule must deserialize");
         assert_eq!(round_trip, capsule);
+        assert_eq!(round_trip.failure_kind, "invariant-violation");
         assert_eq!(json, round_trip.to_json());
         assert_eq!(
             capsule.trace.operations.len(),
