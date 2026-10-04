@@ -117,6 +117,8 @@ def reconstruct(stream: dict[str, Any]) -> tuple[str, str, dict[str, str] | None
             return "DENY", "cross-session-event", None
 
         if event["event_type"] == "EV_NO_ACTION":
+            if pcr == 0 and "startup_locality" in event:
+                return "INDETERMINATE", "startup-locality-initial-state-adjustment-unsupported", None
             continue
 
         key = str(pcr)
@@ -229,6 +231,12 @@ def mutate(base: dict[str, Any], name: str) -> dict[str, Any]:
                     states[key] + bytes.fromhex(event["digest_sha256"])
                 ).digest()
         value["observed_pcr_values"] = {key: digest.hex() for key, digest in states.items()}
+    elif name == "startup-locality-initial-state-adjustment-unsupported":
+        for event in value["events"]:
+            if event["pcr"] == 0:
+                event["event_type"] = "EV_NO_ACTION"
+                event["startup_locality"] = 3
+                break
     elif name == "hcrtm-initial-state-adjustment-unsupported":
         for event in value["events"]:
             if event["pcr"] == 0:
