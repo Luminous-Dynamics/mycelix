@@ -41,14 +41,25 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - name: Generate candidate Cargo lockfile
+      - name: Compare conservative and full lockfile regeneration
         run: |
           cd mycelix-identity
           cp Cargo.lock Cargo.lock.committed
+
+          cargo update --workspace --dry-run 2>&1 | tee "$GITHUB_WORKSPACE/identity-cargo-lock-workspace-update.txt"
+
+          cp Cargo.lock.committed Cargo.lock.workspace
+          cargo update --workspace --manifest-path Cargo.toml
+          sha256sum Cargo.lock.workspace > "$GITHUB_WORKSPACE/identity-cargo-lock-workspace.sha256"
+          sha256sum Cargo.lock > "$GITHUB_WORKSPACE/identity-cargo-lock-workspace-candidate.sha256"
+          git diff --no-index -- Cargo.lock.workspace Cargo.lock > "$GITHUB_WORKSPACE/identity-cargo-lock-workspace.diff" || true
+
+          cp Cargo.lock.committed Cargo.lock
           cargo generate-lockfile --manifest-path Cargo.toml
+          sha256sum Cargo.lock > "$GITHUB_WORKSPACE/identity-cargo-lock-full-candidate.sha256"
+          git diff --no-index -- Cargo.lock.committed Cargo.lock > "$GITHUB_WORKSPACE/identity-cargo-lock-full.diff" || true
+
           sha256sum Cargo.lock.committed > "$GITHUB_WORKSPACE/identity-cargo-lock-committed.sha256"
-          sha256sum Cargo.lock > "$GITHUB_WORKSPACE/identity-cargo-lock-candidate.sha256"
-          git diff --no-index -- Cargo.lock.committed Cargo.lock > "$GITHUB_WORKSPACE/identity-cargo-lock.diff" || true
           if cmp -s Cargo.lock.committed Cargo.lock; then
             echo "CARGO_LOCK_STATUS unchanged" > "$GITHUB_WORKSPACE/identity-cargo-lock-status.txt"
           else
@@ -59,11 +70,15 @@ jobs:
         run: |
           cat identity-cargo-lock-status.txt
           cat identity-cargo-lock-committed.sha256
-          cat identity-cargo-lock-candidate.sha256
-          if grep -q '^CARGO_LOCK_STATUS differs$' identity-cargo-lock-status.txt; then
-            echo "Candidate lockfile differs from the committed lockfile."
-            sed -n '1,240p' identity-cargo-lock.diff
-          fi
+          cat identity-cargo-lock-workspace.sha256
+          cat identity-cargo-lock-workspace-candidate.sha256
+          cat identity-cargo-lock-full-candidate.sha256
+          echo "--- conservative workspace update ---"
+          sed -n '1,180p' identity-cargo-lock-workspace.diff || true
+          echo "--- full regeneration ---"
+          sed -n '1,180p' identity-cargo-lock-full.diff || true
+          echo "--- dry-run resolver output ---"
+          sed -n '1,180p' identity-cargo-lock-workspace-update.txt
 
       - name: Upload lockfile diagnostic
         if: always()
@@ -74,7 +89,11 @@ jobs:
           path: |
             mycelix-identity/Cargo.lock.committed
             mycelix-identity/Cargo.lock
-            identity-cargo-lock.diff
+            identity-cargo-lock-workspace-update.txt
+            identity-cargo-lock-workspace.diff
+            identity-cargo-lock-full.diff
             identity-cargo-lock-status.txt
             identity-cargo-lock-committed.sha256
-            identity-cargo-lock-candidate.sha256
+            identity-cargo-lock-workspace.sha256
+            identity-cargo-lock-workspace-candidate.sha256
+            identity-cargo-lock-full-candidate.sha256
