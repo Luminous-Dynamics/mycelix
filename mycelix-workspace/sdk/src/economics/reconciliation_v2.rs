@@ -321,6 +321,21 @@ pub fn postings_for_step(
                     ),
                 ]
             }
+            EconomicTransition::RealAssetRevaluation(revaluation) => {
+                let actor = sector_for(assignments, &revaluation.actor)?;
+                let instrument = match revaluation.target {
+                    crate::economics::stock_flow::RealAssetRevaluationTarget::ProductiveCapital => {
+                        BalanceSheetInstrument::ProductiveCapital
+                    }
+                    crate::economics::stock_flow::RealAssetRevaluationTarget::InventoryCarryingValue => {
+                        BalanceSheetInstrument::InventoryCarryingValue
+                    }
+                };
+                vec![
+                    StockPosting::new(actor, instrument, revaluation.amount),
+                    StockPosting::new(actor, BalanceSheetInstrument::Equity, -revaluation.amount),
+                ]
+            }
             EconomicTransition::CreditCreation(credit) => {
                 let lender = sector_for(assignments, &credit.lender)?;
                 let borrower = sector_for(assignments, &credit.borrower)?;
@@ -454,6 +469,7 @@ pub fn physical_postings_for_step(
             | EconomicTransition::InventoryCostAddition(_)
             | EconomicTransition::InventoryCostRelief(_)
             | EconomicTransition::Depreciation(_)
+            | EconomicTransition::RealAssetRevaluation(_)
             | EconomicTransition::CreditCreation(_)
             | EconomicTransition::DebtRepayment(_) => {}
         }
