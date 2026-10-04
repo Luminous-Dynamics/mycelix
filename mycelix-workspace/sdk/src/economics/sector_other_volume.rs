@@ -100,13 +100,30 @@ impl SectorOtherVolumeChangeMatrix {
         let mut matrix = Self::default();
         for transition in transitions {
             transition.validate()?;
-            if let EconomicTransition::DebtWriteOff(write_off) = transition {
-                matrix.push(SectorOtherVolumeChange::new(
-                    sector_for(&write_off.lender)?,
-                    sector_for(&write_off.borrower)?,
-                    OtherVolumeChangeCategory::DebtWriteOff,
-                    write_off.amount,
-                )?);
+            match transition {
+                EconomicTransition::DebtWriteOff(write_off) => {
+                    matrix.push(SectorOtherVolumeChange::new(
+                        sector_for(&write_off.lender)?,
+                        sector_for(&write_off.borrower)?,
+                        OtherVolumeChangeCategory::DebtWriteOff,
+                        write_off.amount,
+                    )?);
+                }
+                EconomicTransition::MonetaryTransfer(_)
+                | EconomicTransition::IncomeTransfer(_)
+                | EconomicTransition::CapitalInvestment(_)
+                | EconomicTransition::Production(_)
+                | EconomicTransition::InventoryTransfer(_)
+                | EconomicTransition::InventoryConsumption(_)
+                | EconomicTransition::GoodsSale(_)
+                | EconomicTransition::TradeCreditSale(_)
+                | EconomicTransition::TradeCreditSettlement(_)
+                | EconomicTransition::InventoryCostAddition(_)
+                | EconomicTransition::InventoryCostRelief(_)
+                | EconomicTransition::Depreciation(_)
+                | EconomicTransition::RealAssetRevaluation(_)
+                | EconomicTransition::CreditCreation(_)
+                | EconomicTransition::DebtRepayment(_) => {}
             }
         }
         Ok(matrix)
