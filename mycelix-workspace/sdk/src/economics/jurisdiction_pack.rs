@@ -141,6 +141,30 @@ impl EconomicJurisdictionPack {
                 ));
             }
 
+            if matches!(capability.guarantee, InteroperabilityGuarantee::Unsupported) {
+                return Err(format!(
+                    "Unsupported capability cannot be listed as supported: {:?}",
+                    capability.operation
+                ));
+            }
+
+            for reference in &capability.interoperability_refs {
+                if !self.profile.interoperability_profile_refs.contains(reference) {
+                    return Err(format!(
+                        "Capability interoperability reference {reference} is absent from policy profile"
+                    ));
+                }
+                if matches!(
+                    capability.guarantee,
+                    InteroperabilityGuarantee::LossyDeclared
+                ) && !self.loss_declarations.contains_key(reference)
+                {
+                    return Err(format!(
+                        "Lossy interoperability reference {reference} requires an explicit loss declaration"
+                    ));
+                }
+            }
+
             if let Some(authority_ref) = &capability.authority_ref {
                 if !self.profile.authority_refs.contains(authority_ref) {
                     return Err(format!(
@@ -303,6 +327,32 @@ mod tests {
     fn rejects_authority_not_declared_by_profile() {
         let mut value = pack();
         value.capabilities[0].authority_ref = Some("authority:unknown".into());
+        assert!(value.validate().is_err());
+    }
+
+    #[test]
+    fn rejects_unlisted_interoperability_reference() {
+        let mut value = pack();
+        value.capabilities[0].interoperability_refs = vec!["standard:not-in-profile".into()];
+        assert!(value.validate().is_err());
+    }
+
+    #[test]
+    fn lossy_mapping_requires_declared_loss() {
+        let mut value = pack();
+        value.capabilities[0].guarantee = InteroperabilityGuarantee::LossyDeclared;
+        assert!(value.validate().is_err());
+        value.loss_declarations.insert(
+            "standard:SDMX-3.1".into(),
+            "legacy representation drops extension field".into(),
+        );
+        assert!(value.validate().is_ok());
+    }
+
+    #[test]
+    fn unsupported_operation_cannot_be_advertised() {
+        let mut value = pack();
+        value.capabilities[0].guarantee = InteroperabilityGuarantee::Unsupported;
         assert!(value.validate().is_err());
     }
 
