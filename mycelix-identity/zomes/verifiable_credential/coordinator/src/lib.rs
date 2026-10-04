@@ -1116,6 +1116,10 @@ pub fn verify_presentation(
                         "W3C presentation proof created value is not a valid RFC3339 timestamp"
                             .to_string(),
                     );
+                } else if vp.proof.created.parse::<Timestamp>().ok() > Some(now) {
+                    errors.push(
+                        "W3C presentation proof created value is in the future".to_string(),
+                    );
                 } else {
                     let response = call(
                         CallTargetCell::Local,
@@ -4361,7 +4365,12 @@ fn verify_credential_signature(vc: &VerifiableCredential) -> ExternResult<bool> 
             return Ok(false);
         }
 
-        if vc.proof.created.parse::<Timestamp>().is_err() {
+        let proof_created = vc.proof.created.parse::<Timestamp>().map_err(|_| {
+            wasm_error!(WasmErrorInner::Guest(
+                "W3C JCS proof created value is not a valid timestamp".into()
+            ))
+        })?;
+        if proof_created > sys_time()? {
             return Ok(false);
         }
 
