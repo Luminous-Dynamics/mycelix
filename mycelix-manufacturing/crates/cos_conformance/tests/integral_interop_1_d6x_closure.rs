@@ -405,10 +405,16 @@ fn projection_metadata_and_runtime_resolution_evidence_are_not_semantic_identity
         observed.closure_identity_commitment,
         "runtime retrieval evidence must not contaminate semantic identity"
     );
+    let observed_commitment = observed.recompute();
     assert_ne!(
         baseline.commitment,
-        observed.recompute(),
+        observed_commitment,
         "the audit certificate must still record that runtime evidence changed"
+    );
+    observed.commitment = observed_commitment;
+    assert!(
+        observed.valid(),
+        "typed runtime resolution evidence should remain structurally valid"
     );
 }
 
