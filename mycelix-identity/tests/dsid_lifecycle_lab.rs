@@ -5014,14 +5014,14 @@ async fn dsid_050_issuer_key_rotation_invalidates_current_vc_authorization() {
         .call(
             &holder.zome("verifiable_credential"),
             "verify_credential",
-            credential
-                .entry()
-                .to_app_option::<serde_json::Value>()
-                .unwrap()
-                .unwrap()["id"]
-                .as_str()
-                .unwrap()
-                .to_owned(),
+            {
+                let value: serde_json::Value = credential
+                    .entry()
+                    .to_app_option()
+                    .unwrap()
+                    .unwrap();
+                value["id"].as_str().unwrap().to_owned()
+            },
         )
         .await;
     assert_eq!(
