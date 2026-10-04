@@ -1,0 +1,196 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/passive-design-provenance-v2.json",
+  "title": "Mycelix Passive Design Provenance v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_digest",
+    "passive_contract",
+    "evidence_claims",
+    "lineage",
+    "decision"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "passive-design-provenance-v2"
+    },
+    "artifact_digest": {
+      "type": "string",
+      "minLength": 1
+    },
+    "passive_contract": {
+      "$ref": "#/$defs/passive_contract"
+    },
+    "evidence_claims": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "$ref": "#/$defs/evidence_claim"
+      }
+    },
+    "solver": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "backend": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "configuration_digest": { "type": "string", "minLength": 1 },
+        "truth_role": {
+          "enum": ["Exact", "ReducedOrder", "Surrogate", "Screening"]
+        }
+      }
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "method": { "type": "string", "minLength": 1 },
+        "independent": { "type": "boolean" },
+        "verifier_digest": { "type": "string", "minLength": 1 },
+        "result_digest": { "type": "string", "minLength": 1 }
+      }
+    },
+    "measurement": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "instrument": { "type": "string", "minLength": 1 },
+        "conditions_digest": { "type": "string", "minLength": 1 },
+        "result_digest": { "type": "string", "minLength": 1 }
+      }
+    },
+    "lineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["parent_artifact_digests", "transformation"],
+      "properties": {
+        "parent_artifact_digests": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "transformation": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["eligible_for_passive_scoring", "reasons"],
+      "properties": {
+        "eligible_for_passive_scoring": {
+          "type": "boolean"
+        },
+        "reasons": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "$defs": {
+    "passive_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contract_digest", "input", "output", "mechanism"],
+      "properties": {
+        "contract_digest": { "type": "string", "minLength": 1 },
+        "input": {
+          "enum": [
+            "Mechanical",
+            "Fluidic",
+            "Thermal",
+            "Acoustic",
+            "Electromagnetic",
+            "Optical",
+            "Chemical"
+          ]
+        },
+        "output": {
+          "enum": [
+            "Mechanical",
+            "Fluidic",
+            "Thermal",
+            "Acoustic",
+            "Electromagnetic",
+            "Optical",
+            "Chemical"
+          ]
+        },
+        "mechanism": {
+          "enum": [
+            "Geometry",
+            "MaterialResponse",
+            "PhaseChange",
+            "DistributedTransport",
+            "WaveInteraction",
+            "FieldInteraction",
+            "Hybrid"
+          ]
+        }
+      }
+    },
+    "evidence_claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "field",
+        "status",
+        "source_kind",
+        "evidence_digest"
+      ],
+      "properties": {
+        "field": {
+          "enum": [
+            "moving_solid_components",
+            "mechanical_joints",
+            "active_power_w",
+            "commanded_actuators",
+            "requires_external_control",
+            "uses_fluid_motion",
+            "uses_distributed_deformation",
+            "uses_phase_change"
+          ]
+        },
+        "status": {
+          "enum": [
+            "Unobserved",
+            "Declared",
+            "Simulated",
+            "Verified",
+            "Measured",
+            "Validated"
+          ]
+        },
+        "source_kind": {
+          "enum": [
+            "DesignDeclaration",
+            "SimulationDeclaration",
+            "ManufacturingDeclaration",
+            "VerificationRecord",
+            "MeasurementRecord"
+          ]
+        },
+        "evidence_digest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "value": {
+          "oneOf": [
+            { "type": "integer", "minimum": 0 },
+            { "type": "number", "minimum": 0 },
+            { "type": "boolean" },
+            { "type": "null" }
+          ]
+        }
+      }
+    }
+  }
+}
