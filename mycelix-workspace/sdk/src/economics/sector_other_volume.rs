@@ -208,12 +208,29 @@ impl SectorOtherVolumeChangeMatrix {
         instrument: BalanceSheetInstrument,
     ) -> Result<i128, String> {
         self.changes.iter().try_fold(0i128, |sum, change| {
-            let delta = match (change.category, change.creditor == sector, change.debtor == sector, instrument) {
-                (OtherVolumeChangeCategory::DebtWriteOff, true, _, BalanceSheetInstrument::Loans) => -change.amount,
-                (OtherVolumeChangeCategory::DebtWriteOff, _, true, BalanceSheetInstrument::Debt) => change.amount,
-                (OtherVolumeChangeCategory::DebtWriteOff, true, _, BalanceSheetInstrument::Equity) => change.amount,
-                (OtherVolumeChangeCategory::DebtWriteOff, _, true, BalanceSheetInstrument::Equity) => -change.amount,
-                _ => 0,
+            let delta = match change.category {
+                OtherVolumeChangeCategory::DebtWriteOff => match instrument {
+                    BalanceSheetInstrument::Loans if change.creditor == sector => -change.amount,
+                    BalanceSheetInstrument::Debt if change.debtor == sector => change.amount,
+                    BalanceSheetInstrument::Equity => {
+                        let creditor_delta = if change.creditor == sector {
+                            change.amount
+                        } else {
+                            0
+                        };
+                        let debtor_delta = if change.debtor == sector {
+                            -change.amount
+                        } else {
+                            0
+                        };
+                        creditor_delta
+                            .checked_add(debtor_delta)
+                            .ok_or_else(|| {
+                                "sector other-volume equity delta overflow".to_string()
+                            })?
+                    }
+                    _ => 0,
+                },
             };
             sum.checked_add(delta)
                 .ok_or_else(|| "sector other-volume instrument delta overflow".to_string())
@@ -269,6 +286,48 @@ mod tests {
         assert_eq!(matrix.changes[0].category, OtherVolumeChangeCategory::DebtWriteOff);
         assert_eq!(matrix.gross_volume(), 40);
         matrix.validate_against(&state, &assignments, &transitions).unwrap();
+    }
+
+    #[test]
+    fn same_sector_debt_write_off_cancels_equity_delta() {
+        let mut creditor = ActorBalanceSheet::new("bank-a");
+        creditor.monetary.claims = 100;
+        let mut debtor = ActorBalanceSheet::new("bank-b");
+        debtor.monetary.liabilities = 100;
+        let pre = EconomicState::new(vec![creditor, debtor]);
+        let transitions = vec![EconomicTransition::DebtWriteOff(
+            DebtWriteOff::new("bank-a", "bank-b", 40).unwrap(),
+        )];
+        let (post, _) =
+            crate::economics::transition::apply_step(&pre, 1, &transitions, None).unwrap();
+        let assignments = vec![
+            SectorAssignment {
+                actor: "bank-a".into(),
+                sector: EconomicSector::Bank,
+            },
+            SectorAssignment {
+                actor: "bank-b".into(),
+                sector: EconomicSector::Bank,
+            },
+        ];
+        let pre_sheet = SectorBalanceSheet::from_state(&pre, &assignments).unwrap();
+        let post_sheet = SectorBalanceSheet::from_state(&post, &assignments).unwrap();
+        let matrix =
+            SectorOtherVolumeChangeMatrix::from_transitions(&transitions, &assignments).unwrap();
+
+        matrix
+            .validate_against_balance_sheet_delta(&pre_sheet, &post_sheet)
+            .unwrap();
+        assert_eq!(
+            post_sheet.sector_instrument_total(
+                EconomicSector::Bank,
+                BalanceSheetInstrument::Equity
+            ),
+            pre_sheet.sector_instrument_total(
+                EconomicSector::Bank,
+                BalanceSheetInstrument::Equity
+            )
+        );
     }
 
     #[test]
