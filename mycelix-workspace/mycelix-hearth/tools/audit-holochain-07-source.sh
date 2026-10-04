@@ -832,58 +832,48 @@ check_semantic_case_integrity_bindings() {
 # itself as the invariant.
 check_dependency_semantics() {
   local file="$1"
-  local source
-  source="$(sed '/^\#\[cfg(test)\]/,$d' "$file")"
-  if printf '%s\n' "$source" | rg -n --pcre2 'must_get_action\(action\.(?:original_action_address|deletes_address)' >/tmp/hearth07_weak_dependency.$$ 2>/dev/null; then
-    echo "FAIL: $file uses must_get_action for update/delete authorization"
-    cat /tmp/hearth07_weak_dependency.$$
-    fail=1
-  fi
-  local call_count
-  call_count="$(printf '%s\n' "$source" | rg -o --fixed-strings 'must_get_valid_record(' | wc -l)"
-  if [[ "$call_count" -eq 0 ]]; then
-    echo "OK:   $file has no must_get_valid_record dependency sites"
-    rm -f /tmp/hearth07_weak_dependency.$$
-    return
-  fi
+  if python3 - "$file" <<'PY'
+import re, sys
+from pathlib import Path
 
-  mapfile -t fn_lines < <(
-    printf '%s\n' "$source" |
-      rg -n --pcre2 '^\s*(?:pub\s+)?fn\s+[A-Za-z0-9_]+\s*\(' |
-      cut -d: -f1
-  )
-  local start_line next_fn end_line block fn_line fn_name saw_consumer=0
-  for start_line in "${fn_lines[@]}"; do
-    next_fn=""
-    for fn_line in "${fn_lines[@]}"; do
-      if [[ "$fn_line" -gt "$start_line" ]]; then
-        next_fn="$fn_line"
-        break
-      fi
-    done
-    if [[ -n "$next_fn" ]]; then
-      end_line=$((next_fn - 1))
-    else
-      end_line="$(printf '%s\n' "$source" | wc -l)"
-    fi
-    block="$(sed -n "${start_line},${end_line}p" <<<"$source")"
-    if ! printf '%s\n' "$block" | rg -n --fixed-strings 'must_get_valid_record(' >/dev/null 2>&1; then
-      continue
-    fi
-    saw_consumer=1
-    fn_name="$(sed -n 's/.*fn[[:space:]]\+\([A-Za-z0-9_]*\).*/\1/p' <<<"$(sed -n "${start_line}p" <<<"$source")")"
-    if printf '%s\n' "$block" | rg -n --pcre2 '\.entry\(\)|\.action\(\)|try_from_action' >/dev/null 2>&1; then
-      echo "OK:   $file $fn_name inspects each valid-record dependency within its function scope"
-    else
-      echo "FAIL: $file $fn_name retrieves a valid record without inspecting its entry/action"
-      fail=1
-    fi
-  done
-  if [[ "$saw_consumer" -eq 0 ]]; then
-    echo "FAIL: $file has must_get_valid_record calls outside recognized function scope"
+path = Path(sys.argv[1])
+source = path.read_text()
+prod = source.split("#[cfg(test)]", 1)[0]
+if re.search(r'must_get_action\(action\.(?:original_action_address|deletes_address)', prod):
+    print(f"FAIL: {path} uses must_get_action for update/delete authorization")
+    raise SystemExit(2)
+
+lines = prod.splitlines()
+starts = [i for i, line in enumerate(lines) if re.match(r'^\s*(?:pub\s+)?fn\s+[A-Za-z0-9_]+\s*\(', line)]
+call_count = prod.count("must_get_valid_record(")
+if call_count == 0:
+    print(f"OK:   {path} has no must_get_valid_record dependency sites")
+    raise SystemExit(0)
+
+consumers = 0
+for idx, start in enumerate(starts):
+    end = starts[idx + 1] if idx + 1 < len(starts) else len(lines)
+    block = "\n".join(lines[start:end])
+    if "must_get_valid_record(" not in block:
+        continue
+    consumers += 1
+    name_match = re.search(r'fn\s+([A-Za-z0-9_]+)', lines[start])
+    fn_name = name_match.group(1) if name_match else f"<line {start + 1}>"
+    if re.search(r'\.entry\(\)|\.action\(\)|try_from_action', block):
+        print(f"OK:   {path} {fn_name} inspects each valid-record dependency within its function scope")
+    else:
+        print(f"FAIL: {path} {fn_name} retrieves a valid record without inspecting its entry/action")
+        raise SystemExit(2)
+
+if consumers == 0:
+    print(f"FAIL: {path} has must_get_valid_record calls outside recognized function scope")
+    raise SystemExit(2)
+PY
+  then
+    return
+  else
     fail=1
   fi
-  rm -f /tmp/hearth07_weak_dependency.$$
 }
 
 # Immutable-field helpers must prove the referenced CreateRecord is valid and
@@ -897,75 +887,58 @@ check_dependency_semantics() {
 # one well-formed helper must not mask another helper's missing dependency proof.
 check_immutable_dependency_semantics() {
   local file="$1"
-  local source
-  source="$(sed '/^\#\[cfg(test)\]/,$d' "$file")"
+  if python3 - "$file" <<'PY'
+import re, sys
+from pathlib import Path
 
-  mapfile -t helper_lines < <(
-    printf '%s\n' "$source" |
-      rg -n --pcre2 '^\s*(?:pub\s+)?fn\s+validate_[A-Za-z0-9_]*immutable_fields\s*\(' |
-      cut -d: -f1
-  )
+path = Path(sys.argv[1])
+source = path.read_text()
+prod = source.split("#[cfg(test)]", 1)[0]
+lines = prod.splitlines()
+helper_starts = [
+    i for i, line in enumerate(lines)
+    if re.match(r'^\s*(?:pub\s+)?fn\s+validate_[A-Za-z0-9_]*immutable_fields\s*\(', line)
+]
+if not helper_starts:
+    print(f"OK:   {path} has no immutable-field helper sites")
+    raise SystemExit(0)
 
-  if [[ "${#helper_lines[@]}" -eq 0 ]]; then
-    echo "OK:   $file has no immutable-field helper sites"
+fn_starts = [
+    i for i, line in enumerate(lines)
+    if re.match(r'^\s*(?:pub\s+)?fn\s+[A-Za-z0-9_]+\s*\(', line)
+]
+
+for start in helper_starts:
+    next_fn = next((line for line in fn_starts if line > start), len(lines))
+    block = "\n".join(lines[start:next_fn])
+    match = re.search(r'fn\s+(validate_[A-Za-z0-9_]*immutable_fields)', lines[start])
+    if not match:
+        print(f"FAIL: {path} could not resolve immutable-field helper name at line {start + 1}")
+        raise SystemExit(2)
+    name = match.group(1)
+
+    if "must_get_valid_record(" not in block:
+        print(f"FAIL: {path} {name} lacks must_get_valid_record")
+        raise SystemExit(2)
+
+    normalized = " ".join(block.splitlines())
+    if not re.search(r'\.entry\(\)\s*\.to_app_option\(\)', normalized):
+        print(f"FAIL: {path} {name} retrieves a valid record without deserializing its original entry")
+        raise SystemExit(2)
+
+    uses = len(re.findall(re.escape(name) + r'\(', prod))
+    if uses < 2:
+        print(f"FAIL: {path} {name} has no production call site outside its declaration")
+        raise SystemExit(2)
+
+    print(f"OK:   {path} {name} validates and deserializes its own immutable dependency")
+    print(f"OK:   {path} {name} has an explicit production call site")
+PY
+  then
     return
+  else
+    fail=1
   fi
-
-  mapfile -t fn_lines < <(
-    printf '%s\n' "$source" |
-      rg -n --pcre2 '^\s*(?:pub\s+)?fn\s+[A-Za-z0-9_]+\s*\(' |
-      cut -d: -f1
-  )
-
-  local start end helper_line helper_name block next_fn fn_line
-  for start in "${helper_lines[@]}"; do
-    next_fn=""
-    for fn_line in "${fn_lines[@]}"; do
-      if [[ "$fn_line" -gt "$start" ]]; then
-        next_fn="$fn_line"
-        break
-      fi
-    done
-    if [[ -n "$next_fn" ]]; then
-      end=$((next_fn - 1))
-    else
-      end="$(printf '%s\n' "$source" | wc -l)"
-    fi
-
-    helper_line="$(sed -n "${start}p" <<<"$source")"
-    helper_name="$(sed -n 's/.*fn[[:space:]]\+\(validate_[A-Za-z0-9_]*immutable_fields\).*/\1/p' <<<"$helper_line")"
-    if [[ -z "$helper_name" ]]; then
-      echo "FAIL: $file could not resolve immutable-field helper name at line $start"
-      fail=1
-      continue
-    fi
-
-    block="$(sed -n "${start},${end}p" <<<"$source")"
-    if ! printf '%s\n' "$block" | rg -n --pcre2 'must_get_valid_record\s*\(' >/dev/null 2>&1; then
-      echo "FAIL: $file $helper_name lacks must_get_valid_record"
-      fail=1
-    else
-      # Rust permits method chains to span lines. Normalize the helper body for
-      # the adjacency check so formatting cannot cause a false negative while
-      # still requiring the fetched record to be deserialized by that helper.
-      normalized_block="$(tr '\n' ' ' <<<"$block")"
-      if ! printf '%s\n' "$normalized_block" | rg -n --pcre2 '\.entry\(\)[[:space:]]*\.to_app_option\(\)' >/dev/null 2>&1; then
-        echo "FAIL: $file $helper_name retrieves a valid record without deserializing its original entry"
-        fail=1
-      else
-        echo "OK:   $file $helper_name validates and deserializes its own immutable dependency"
-      fi
-    fi
-
-    local uses
-    uses="$(printf '%s\n' "$source" | rg -n --fixed-strings "$helper_name(" | wc -l)"
-    if [[ "$uses" -lt 2 ]]; then
-      echo "FAIL: $file $helper_name has no production call site outside its declaration"
-      fail=1
-    else
-      echo "OK:   $file $helper_name has an explicit production call site"
-    fi
-  done
 }
 check_standalone_tests_workspace_boundary() {
   local manifest="mycelix-workspace/mycelix-hearth/tests/Cargo.toml"
