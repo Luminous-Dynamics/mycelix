@@ -342,8 +342,12 @@ async fn d6u_runtime_authority_boundary() {
         &reached,
     );
 
+    let mut mutated_bytes = base.canonical_bytes.clone();
+    let mutation_index = mutated_bytes.len() / 2;
+    mutated_bytes[mutation_index] ^= 0x01;
+    assert_ne!(mutated_bytes, base.canonical_bytes);
     let mutated = ProbeInput {
-        canonical_bytes: br#"{"a":1,"b":3}"#.to_vec(),
+        canonical_bytes: mutated_bytes,
         ..base.clone()
     };
     let (n, exp) = holochain_nonce::fresh_nonce(Timestamp::now()).unwrap();
