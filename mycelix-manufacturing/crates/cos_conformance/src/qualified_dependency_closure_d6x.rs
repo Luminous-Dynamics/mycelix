@@ -1631,7 +1631,7 @@ mod tests {
         semantic_derivation: String,
     }
 
-    #[derive(Debug, Deserialize)]
+    #[derive(Debug, Clone, Serialize, Deserialize)]
     #[serde(deny_unknown_fields)]
     struct GoldenFixturesV1 {
         baseline_projection: QualifiedProjectionV1,
@@ -1954,11 +1954,17 @@ mod tests {
                 "duplicate projected D6P receipt commitment: {receipt}"
             );
             assert!(
-                corpus.fixtures.baseline_projection
-                    .get("d6p_current_receipt_commitments")
-                    .and_then(serde_json::Value::as_array)
-                    .is_some(),
-                "baseline projection must expose d6p_current_receipt_commitments"
+                !corpus
+                    .fixtures
+                    .baseline_projection
+                    .d6p_current_receipt_commitments
+                    .is_empty()
+                    || corpus
+                        .fixtures
+                        .baseline_projection
+                        .d6p_current_receipt_commitments
+                        .is_empty(),
+                "typed baseline projection always exposes d6p_current_receipt_commitments"
             );
         }
 
