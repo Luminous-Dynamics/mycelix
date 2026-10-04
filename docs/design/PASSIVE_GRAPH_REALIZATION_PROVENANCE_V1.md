@@ -57,3 +57,9 @@ TopologyDivergence is emitted when all declared FlowPath edges are geometrically
 connected but the realized mesh also connects a represented port pair that the intent
 graph does not connect in either direction. This prevents endpoint satisfaction from
 being mistaken for exact topology realization.
+
+
+When a path is evaluated against an explicit port boundary policy, the per-path status
+may also be BoundaryPolicyRejected. This means the candidate's open boundary does not
+satisfy the declared port-opening policy; it is geometric negative evidence, not a
+transport impossibility claim.
