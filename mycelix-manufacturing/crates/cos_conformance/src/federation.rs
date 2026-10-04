@@ -4798,7 +4798,7 @@ mod tests {
             .expect_err("re-sealed delivery-count forgery must be rejected");
         assert_eq!(
             error,
-            "trace capsule evidence must preserve delivery-count boundary continuity"
+            FederationStateMachineTraceEvidenceViolation::PreDeliveryContinuityMismatch
         );
 
         let mut capsule =
@@ -4857,7 +4857,7 @@ mod tests {
             .expect_err("re-sealed admission-index forgery must be rejected");
         assert_eq!(
             error,
-            "trace capsule evidence must preserve admission-index boundary continuity"
+            FederationStateMachineTraceEvidenceViolation::PreAdmissionContinuityMismatch
         );
     }
 
