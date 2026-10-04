@@ -312,8 +312,18 @@ pub fn issue_credential(input: IssueCredentialInput) -> ExternResult<Record> {
             verification_method: format!("{}#keys-1", issuer_did),
             proof_purpose: "assertionMethod".to_string(),
             proof_value: String::new(), // Will be filled
-            cryptosuite: Some("mycelix-blake2b-ed25519-2026".to_string()),
-            algorithm: Some(AlgorithmId::Ed25519.as_u16()),
+            cryptosuite: Some(match proof_profile {
+                CredentialProofProfile::MycelixBlake2bEd25519 => {
+                    "mycelix-blake2b-ed25519-2026".to_string()
+                }
+                CredentialProofProfile::W3cEddsaJcs2022 => "eddsa-jcs-2022".to_string(),
+            }),
+            algorithm: match proof_profile {
+                CredentialProofProfile::MycelixBlake2bEd25519 => {
+                    Some(AlgorithmId::Ed25519.as_u16())
+                }
+                CredentialProofProfile::W3cEddsaJcs2022 => None,
+            },
             challenge: None,
             domain: None,
             proof_context: match proof_profile {
@@ -330,7 +340,7 @@ pub fn issue_credential(input: IssueCredentialInput) -> ExternResult<Record> {
 
     // Sign credential with agent's ed25519 key
     // This creates a real cryptographic signature using HDK's sign_raw
-    let signature_value = sign_credential(&vc_for_hash)?;
+    let signature_value = sign_credential(&vc_for_hash, proof_profile)?;
     vc_for_hash.proof.proof_value = signature_value;
 
     let vc = vc_for_hash;
@@ -3459,28 +3469,103 @@ mod tests {
     }
 }
 
+/// Build the 64-byte hashData input required by W3C eddsa-jcs-2022.
+///
+/// The unsecured credential is the credential with its proof property removed.
+/// The proof configuration contains the proof fields except proofValue, plus
+/// the proof-level @context when present. Both are JCS canonicalized (RFC 8785),
+/// SHA-256 hashed, and concatenated as proofConfigHash || documentHash.
+fn eddsa_jcs_hash_data(vc: &VerifiableCredential) -> ExternResult<Vec<u8>> {
+    let mut unsecured = serde_json::to_value(vc).map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Credential JSON serialization failed: {e}"
+        )))
+    })?;
+    let unsecured_map = unsecured.as_object_mut().ok_or(wasm_error!(
+        WasmErrorInner::Guest("Credential must serialize to a JSON object".into())
+    ))?;
+    unsecured_map.remove("proof");
+
+    let proof_value = serde_json::to_value(&vc.proof).map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Proof JSON serialization failed: {e}"
+        )))
+    })?;
+    let mut proof_config = proof_value.as_object().cloned().ok_or(wasm_error!(
+        WasmErrorInner::Guest("Credential proof must serialize to a JSON object".into())
+    ))?;
+    proof_config.remove("proofValue");
+
+    let canonical_document = serde_json_canonicalizer::to_vec(&unsecured).map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "JCS credential canonicalization failed: {e}"
+        )))
+    })?;
+    let canonical_proof_config =
+        serde_json_canonicalizer::to_vec(&Value::Object(proof_config)).map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "JCS proof configuration canonicalization failed: {e}"
+            )))
+        })?;
+
+    let transformed_document_hash = Sha256::digest(&canonical_document);
+    let proof_config_hash = Sha256::digest(&canonical_proof_config);
+
+    let mut hash_data = Vec::with_capacity(64);
+    hash_data.extend_from_slice(&proof_config_hash);
+    hash_data.extend_from_slice(&transformed_document_hash);
+    Ok(hash_data)
+}
+
+/// Encode a raw Ed25519 signature as base58-btc Multibase, as required by
+/// W3C Data Integrity EdDSA cryptosuites.
+fn encode_raw_ed25519_multibase(signature: &[u8]) -> ExternResult<String> {
+    if signature.len() != 64 {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Ed25519 signature must be exactly 64 bytes, got {}",
+            signature.len()
+        ))));
+    }
+    let encoded = bs58::encode(signature)
+        .with_alphabet(bs58::Alphabet::BITCOIN)
+        .into_string();
+    Ok(format!("z{encoded}"))
+}
+
 /// Sign credential content using the agent's ed25519 key
 ///
 /// This uses Holochain's HDK sign_raw which performs ed25519 signing
 /// with the agent's cryptographic identity. The result is a
 /// `TaggedSignature`-aware multibase string that includes the algorithm
 /// multicodec prefix so verifiers can detect the algorithm.
-fn sign_credential(vc: &VerifiableCredential) -> ExternResult<String> {
-    // Compute canonical hash of credential content
-    let content_hash = compute_credential_hash(vc);
+fn sign_credential(
+    vc: &VerifiableCredential,
+    profile: CredentialProofProfile,
+) -> ExternResult<String> {
+    let hash_data = match profile {
+        CredentialProofProfile::MycelixBlake2bEd25519 => compute_credential_hash(vc),
+        CredentialProofProfile::W3cEddsaJcs2022 => eddsa_jcs_hash_data(vc)?,
+    };
 
-    // Sign with agent's ed25519 key via HDK
-    let signature = sign_raw(agent_info()?.agent_initial_pubkey, content_hash.clone())?;
+    let signature = sign_raw(agent_info()?.agent_initial_pubkey, hash_data)?;
 
-    // Wrap in TaggedSignature for algorithm-tagged multibase encoding
-    let tagged =
-        TaggedSignature::new(AlgorithmId::Ed25519, signature.as_ref().to_vec()).map_err(|e| {
-            wasm_error!(WasmErrorInner::Guest(format!(
-                "Signature tagging error: {}",
-                e
-            )))
-        })?;
-    Ok(tagged.to_multibase())
+    match profile {
+        CredentialProofProfile::MycelixBlake2bEd25519 => {
+            let tagged =
+                TaggedSignature::new(AlgorithmId::Ed25519, signature.as_ref().to_vec()).map_err(
+                    |e| {
+                        wasm_error!(WasmErrorInner::Guest(format!(
+                            "Signature tagging error: {}",
+                            e
+                        )))
+                    },
+                )?;
+            Ok(tagged.to_multibase())
+        }
+        CredentialProofProfile::W3cEddsaJcs2022 => {
+            encode_raw_ed25519_multibase(signature.as_ref())
+        }
+    }
 }
 
 /// Verify a credential signature with algorithm dispatch.
