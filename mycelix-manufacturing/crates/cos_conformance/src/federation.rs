@@ -3079,6 +3079,7 @@ mod tests {
     const FEDERATION_STATE_MACHINE_TRACE_CAPSULE_SCHEMA_VERSION: u16 = 1;
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    #[serde(deny_unknown_fields)]
     struct FederationStateMachineTraceBoundary {
         admission_index: u64,
         delivery_count: usize,
@@ -3086,6 +3087,7 @@ mod tests {
     }
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    #[serde(deny_unknown_fields)]
     struct FederationStateMachineEvidence {
         step_index: usize,
         operation: FederationStateMachineOperation,
@@ -3102,6 +3104,7 @@ mod tests {
     }
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    #[serde(deny_unknown_fields)]
     struct FederationStateMachineTraceCapsule {
         schema_version: u16,
         trace_index: usize,
@@ -4290,6 +4293,25 @@ mod tests {
                 .expect("capsule must deserialize");
         capsule.tokens[7] ^= 1;
         assert!(std::panic::catch_unwind(|| state_machine_plan_from_capsule(&capsule)).is_err());
+    }
+
+    #[test]
+    fn state_machine_trace_capsule_rejects_unknown_fields() {
+        let capsule_text = state_machine_trace_capsule(2, 6);
+        let mut value =
+            serde_json::from_str::<serde_json::Value>(&capsule_text)
+                .expect("generated trace capsule JSON must parse");
+        value
+            .as_object_mut()
+            .expect("trace capsule must serialize as an object")
+            .insert("unexpected_field".into(), serde_json::Value::Bool(true));
+
+        let tampered = serde_json::to_string_pretty(&value)
+            .expect("tampered trace capsule JSON must serialize");
+        assert!(
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&tampered).is_err(),
+            "successful trace capsule must reject unknown fields"
+        );
     }
 
     #[test]
