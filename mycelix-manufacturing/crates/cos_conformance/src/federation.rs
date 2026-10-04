@@ -5439,10 +5439,13 @@ mod tests {
             )
         );
 
-        let mut rollback_publication = earlier_publication.clone();
-        rollback_publication.evidence_end = 6;
-        rollback_publication.chain_head_sha256 =
-            earlier.evidence[5].chain_sha256.clone();
+        let mut rollback_publication = state_machine_trace_checkpoint_publication(
+            &later,
+            6,
+            &earlier_publication.publication_sha256,
+        );
+        rollback_publication.previous_publication_sha256 =
+            earlier_publication.publication_sha256.clone();
         rollback_publication.publication_sha256 =
             state_machine_trace_checkpoint_publication_sha256(&rollback_publication);
         assert_eq!(
