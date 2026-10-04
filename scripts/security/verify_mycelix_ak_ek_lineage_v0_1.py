@@ -6,10 +6,15 @@ import argparse
 import copy
 import hashlib
 import json
+import subprocess
+import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
 VERIFIER_ID = "mycelix.tpm.ak-ek-lineage.v0.1"
+ATTRIBUTES_VERIFIER_ID = "mycelix.tpm.ak-public-attributes.v0.1"
+ATTRIBUTES_VERIFIER_SCRIPT = Path(__file__).with_name("verify_mycelix_ak_public_attributes_v0_1.py")
 SHA256_NAME_ALG = "sha256"
 SHA256_ALG_ID = bytes.fromhex("000b")
 
@@ -53,6 +58,50 @@ def expected_qname(parent_qname: bytes, object_name: bytes) -> bytes:
     return SHA256_ALG_ID + hashlib.sha256(parent_qname + object_name).digest()
 
 
+def sha256_file(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def run_public_attributes_verifier(binding: dict[str, Any]) -> dict[str, Any]:
+    verifier_input = binding.get("verifier_input")
+    if not isinstance(verifier_input, dict):
+        return result("DENY", "ak-public-attributes-verifier-input-missing")
+    if not ATTRIBUTES_VERIFIER_SCRIPT.is_file():
+        return result("DENY", "ak-public-attributes-verifier-missing")
+    with tempfile.TemporaryDirectory(prefix="mycelix-ak-attributes-") as td:
+        root = Path(td)
+        input_path = root / "attributes-input.json"
+        output_path = root / "attributes-output.json"
+        input_path.write_text(
+            json.dumps(verifier_input, indent=2, sort_keys=True) + "\\n",
+            encoding="utf-8",
+        )
+        proc = subprocess.run(
+            [sys.executable, str(ATTRIBUTES_VERIFIER_SCRIPT), "--verify", str(input_path), "--output", str(output_path)],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        if proc.returncode not in (0, 2):
+            return result("DENY", "ak-public-attributes-verifier-failed", {"stderr": proc.stderr})
+        if not output_path.is_file():
+            return result("DENY", "ak-public-attributes-verifier-produced-no-output")
+        try:
+            generated = json.loads(output_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            return result("DENY", "ak-public-attributes-verifier-output-invalid", {"error": str(exc)})
+        if generated.get("verifier_id") != ATTRIBUTES_VERIFIER_ID:
+            return result("DENY", "ak-public-attributes-result-verifier-id-mismatch")
+        binding_input_sha256 = sha256_file(input_path)
+        binding_output_sha256 = sha256_file(output_path)
+        if binding.get("input_sha256") != binding_input_sha256:
+            return result("DENY", "ak-public-attributes-input-hash-mismatch")
+        if binding.get("output_sha256") != binding_output_sha256:
+            return result("DENY", "ak-public-attributes-output-hash-mismatch")
+        return generated
+
+
 def result(
     state: str,
     reason: str,
@@ -80,6 +129,7 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
         "ak",
         "parentage",
         "public_name_binding",
+        "public_attributes_binding",
         "ek_credential",
         "credential_activation",
     }
@@ -126,8 +176,6 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
                 "name_hex",
                 "qualified_name_hex",
                 "name_alg",
-                "fixedTPM",
-                "fixedParent",
             ),
         ),
     ):
@@ -143,10 +191,40 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
         return result("DENY", "key-public-digest-invalid")
     if ak["name_alg"] != SHA256_NAME_ALG:
         return result("DENY", "unsupported-ak-name-algorithm")
-    if ak["fixedTPM"] is not True:
-        return result("DENY", "ak-fixedTPM-not-set")
-    if ak["fixedParent"] is not True:
-        return result("DENY", "ak-fixedParent-not-set")
+
+    attributes_binding = manifest["public_attributes_binding"]
+    if not isinstance(attributes_binding, dict):
+        return result("DENY", "public-attributes-binding-invalid")
+    for field in ("state", "verifier_id", "input_sha256", "output_sha256", "public_area_sha256", "derived_fixedTPM", "derived_fixedParent", "source_sha256", "verifier_input"):
+        if field not in attributes_binding:
+            return result("DENY", "missing-field", {"field": f"public_attributes_binding.{field}"})
+    if attributes_binding["verifier_id"] != ATTRIBUTES_VERIFIER_ID:
+        return result("DENY", "public-attributes-verifier-id-mismatch")
+    if attributes_binding["state"] not in {"PASS", "INDETERMINATE"}:
+        return result("DENY", "public-attributes-state-invalid")
+    for field in ("input_sha256", "output_sha256", "public_area_sha256", "source_sha256"):
+        if not valid_hash(attributes_binding[field]):
+            return result("DENY", "public-attributes-digest-invalid", {"field": field})
+    generated_attributes = run_public_attributes_verifier(attributes_binding)
+    if generated_attributes.get("verifier_id") != ATTRIBUTES_VERIFIER_ID:
+        return generated_attributes
+    if generated_attributes.get("state") != attributes_binding["state"]:
+        return result("DENY", "public-attributes-result-state-mismatch")
+    if generated_attributes.get("state") == "DENY":
+        return result("DENY", "ak-public-attributes-verification-denied")
+    if generated_attributes.get("state") == "INDETERMINATE":
+        return result("INDETERMINATE", "ak-public-attributes-verification-indeterminate")
+    details = generated_attributes.get("details")
+    if not isinstance(details, dict):
+        return result("DENY", "ak-public-attributes-details-missing")
+    if attributes_binding["derived_fixedTPM"] is not True or attributes_binding["derived_fixedParent"] is not True:
+        return result("DENY", "public-attributes-derived-fixed-bits-not-set")
+    if details.get("fixedTPM") is not True or details.get("fixedParent") is not True:
+        return result("DENY", "public-attributes-derived-fixed-bits-mismatch")
+    if details.get("public_area_sha256") != attributes_binding["public_area_sha256"]:
+        return result("DENY", "public-attributes-area-digest-mismatch")
+    if details.get("name_hex") != ak["name_hex"]:
+        return result("DENY", "public-attributes-name-mismatch")
 
     try:
         ek_name = validate_name(ek["name_hex"], "ek.name_hex")
@@ -180,10 +258,9 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
             },
         )
 
-    if (
-        not valid_hash(public_name.get("public_sha256"))
-        or public_name["public_sha256"] != ak["public_sha256"]
-    ):
+    if public_name.get("verifier_id") != "mycelix.tpm.public-name-coherence.v0.1":
+        return result("DENY", "ak-public-name-verifier-id-mismatch")
+    if not valid_hash(public_name.get("public_sha256")) or public_name["public_sha256"] != ak["public_sha256"]:
         return result("DENY", "ak-public-name-binding-public-digest-mismatch")
 
     try:
@@ -360,11 +437,10 @@ def fixture() -> dict[str, Any]:
         },
         "ak": {
             "public_sha256": ak_public,
+            "public_area_sha256": "ab" * 32,
             "name_hex": ak_name.hex(),
             "qualified_name_hex": ak_qname.hex(),
             "name_alg": "sha256",
-            "fixedTPM": True,
-            "fixedParent": True,
         },
         "parentage": {
             "parent_type": "EK",
@@ -375,6 +451,31 @@ def fixture() -> dict[str, Any]:
             "method": "same-tpm-readpublic-context",
             "public_sha256": ak_public,
             "name_sha256": hashlib.sha256(ak_name).hexdigest(),
+            "public_area_sha256": "ab" * 32,
+            "verifier_id": "mycelix.tpm.public-name-coherence.v0.1",
+        },
+        "public_attributes_binding": {
+            "state": "PASS",
+            "verifier_id": ATTRIBUTES_VERIFIER_ID,
+            "input_sha256": "ac" * 32,
+            "output_sha256": "ad" * 32,
+            "public_area_sha256": "ab" * 32,
+            "derived_fixedTPM": True,
+            "derived_fixedParent": True,
+            "source_sha256": "ae" * 32,
+            "verifier_input": {
+                "profile_id": "mycelix.security.tpm.ak-public-attributes",
+                "profile_version": "0.1.0",
+                "verification_mode": "ReferenceModelOnly",
+                "claim_ceiling": "ReferenceModelOnly",
+                "object_role": "AK",
+                "public_format": "TPMT_PUBLIC",
+                "public_wire_hex": (bytes.fromhex("0001000b00000032") + (b"\\x00" * 64)).hex(),
+                "public_wire_sha256": hashlib.sha256(bytes.fromhex("0001000b00000032") + (b"\\x00" * 64)).hexdigest(),
+                "name_hex": (SHA256_ALG_ID + hashlib.sha256(bytes.fromhex("0001000b00000032") + (b"\\x00" * 64)).digest()).hex(),
+                "readpublic_state": "PASS",
+                "readpublic_source_sha256": "aa" * 32,
+            },
         },
         "ek_credential": {
             "state": "PASS",
