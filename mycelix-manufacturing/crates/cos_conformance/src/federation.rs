@@ -4167,7 +4167,7 @@ mod tests {
     }
 
     #[test]
-    fn state_machine_trace_capsule_is_a_compact_reproduction_descriptor() {
+    fn state_machine_trace_capsule_is_a_self_validating_evidence_artifact() {
         let capsule_text = state_machine_trace_capsule(3, 8);
         assert!(capsule_text.contains(""trace_index": 3"));
         assert!(capsule_text.contains(""initial_seed":"));
