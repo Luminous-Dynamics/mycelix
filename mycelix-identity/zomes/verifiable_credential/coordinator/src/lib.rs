@@ -308,7 +308,7 @@ pub fn issue_credential(input: IssueCredentialInput) -> ExternResult<Record> {
             verification_method: format!("{}#keys-1", issuer_did),
             proof_purpose: "assertionMethod".to_string(),
             proof_value: String::new(), // Will be filled
-            cryptosuite: Some(AlgorithmId::Ed25519.cryptosuite().to_string()),
+            cryptosuite: Some("mycelix-blake2b-ed25519-2026".to_string()),
             algorithm: Some(AlgorithmId::Ed25519.as_u16()),
             challenge: None,
             domain: None,
@@ -727,7 +727,7 @@ pub fn create_presentation(input: CreatePresentationInput) -> ExternResult<Recor
         verification_method: format!("{}#keys-1", holder_did),
         proof_purpose: "authentication".to_string(),
         proof_value: tagged_sig.to_multibase(),
-        cryptosuite: Some(AlgorithmId::Ed25519.cryptosuite().to_string()),
+        cryptosuite: Some("mycelix-blake2b-ed25519-2026".to_string()),
         algorithm: Some(AlgorithmId::Ed25519.as_u16()),
         challenge: input.challenge.clone(),
         domain: input.domain.clone(),
@@ -3473,8 +3473,18 @@ fn verify_credential_signature(vc: &VerifiableCredential) -> ExternResult<bool> 
         )))
     })?;
 
-    // Compute expected content hash
+    // Compute expected content hash.
     let content_hash = compute_credential_hash(vc);
+
+    // The native Mycelix proof profile is deliberately distinct from W3C
+    // eddsa-rdfc-2022 / eddsa-jcs-2022. Those suites require their specified
+    // canonicalization and hashing construction. Legacy credentials with no
+    // cryptosuite remain supported; an explicit but unsupported label must not
+    // silently be treated as the Mycelix-native payload format.
+    match vc.proof.cryptosuite.as_deref() {
+        None | Some("mycelix-blake2b-ed25519-2026") => {}
+        Some(_) => return Ok(false),
+    }
 
     // Try to parse as TaggedSignature (algorithm-aware multibase)
     match TaggedSignature::from_multibase(&vc.proof.proof_value) {
