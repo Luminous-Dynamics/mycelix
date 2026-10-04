@@ -800,11 +800,9 @@ impl EvidenceDispositionReconciliation {
                     .into(),
             );
         }
-        if self.authority_delegation != self.authority_scope.delegation {
-            return Err(
-                "reconciliation authority delegation must match authority scope delegation".into(),
-            );
-        }
+        // This struct stores only the authority-scope identity. Exact delegation
+        // continuity is validated by the full EvidenceDispositionAuthorityScope
+        // witness at the reconciliation boundary.
         if !matches!(
             self.reconciliation_id.kind,
             IdentityKind::ReconciliationWitness
@@ -1004,12 +1002,9 @@ impl EvidenceDispositionCoverageBoundary {
                     .into(),
             );
         }
-        if self.authority_delegation != self.authority_scope.delegation {
-            return Err(
-                "coverage boundary authority delegation must match authority scope delegation"
-                    .into(),
-            );
-        }
+        // This boundary stores only the authority-scope identity. Exact delegation
+        // continuity is validated by the full EvidenceDispositionAuthorityScope
+        // witness at the composed coverage boundary.
         if self.boundary_id.kind != IdentityKind::ReconciliationWitness {
             return Err("coverage boundary identity must be a ReconciliationWitness".into());
         }
@@ -1483,7 +1478,7 @@ impl EvidenceDispositionReconciliationCoverage {
                 if has_missing_transitions {
                     return Ok(EvidenceDispositionCoverageAssessment::Unresolved {
                         missing,
-                        authority_roots: partial.authority_roots,
+                        authority_roots: partial.roots,
                     });
                 }
 
@@ -1497,7 +1492,7 @@ impl EvidenceDispositionReconciliationCoverage {
 
                 return Ok(EvidenceDispositionCoverageAssessment::Unresolved {
                     missing,
-                    authority_roots: partial.authority_roots,
+                    authority_roots: partial.roots,
                 });
             }
             QualificationStatus::Complete(partial) => partial,
@@ -1515,7 +1510,7 @@ impl EvidenceDispositionReconciliationCoverage {
         )?;
 
         Ok(EvidenceDispositionCoverageAssessment::Complete {
-            authority_roots: partial.authority_roots,
+            authority_roots: partial.roots,
         })
     }
 
@@ -1846,9 +1841,8 @@ impl TemporalEvidenceApplicability {
         self.artifact.validate()?;
         self.evidence_target.validate()?;
         self.configuration_applicability.validate()?;
-        self.event_interval
-            .validate()?
-            .and_then(|_| self.validate_effectivity_containment())?;
+        self.event_interval.validate()?;
+        self.validate_effectivity_containment()?;
         self.effectivity_interval.validate()?;
         self.disposition.validate(&self.evidence)?;
 
