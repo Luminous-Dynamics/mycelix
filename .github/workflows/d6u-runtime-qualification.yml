@@ -120,6 +120,6 @@ jobs:
           if-no-files-found: warn
           name: d6u-runtime-evidence-${{ github.sha }}
           path: |
-            d6u-runtime-evidence.txt
-            d6u-runtime-test.log
-            Cargo.lock
+            d6u-runtime-harness/d6u-runtime-evidence.txt
+            d6u-runtime-harness/d6u-runtime-test.log
+            d6u-runtime-harness/Cargo.lock
