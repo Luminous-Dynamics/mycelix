@@ -391,6 +391,13 @@ def fixture_manifest() -> dict[str, Any]:
             "ek_template_wire_sha256": "cc" * 32,
             "ek_template_source_sha256": "cd" * 32,
             "ek_template_transcript_sha256": "ce" * 32,
+            "ek_certificate_capture_result_sha256": "d1" * 32,
+            "ek_certificate_capture_inventory_sha256": "d2" * 32,
+            "ek_certificate_capture_transcript_sha256": "d3" * 32,
+            "ek_certificate_capture_script_sha256": sha256_file(EK_CERTIFICATE_CAPTURE_SCRIPT),
+            "ek_certificate_rsa_sha256": None,
+            "ek_cert_spki_input_sha256": None,
+            "ek_cert_spki_output_sha256": None,
             "tss_version_evidence_sha256": "f" * 64,
             "ek_public_sha256": "b" * 64,
         },
@@ -586,6 +593,13 @@ def validate_semantics(manifest: dict[str, Any]) -> tuple[str, str]:
             "payload_coherence_output_sha256",
             "tss_version_evidence_sha256",
             "ek_public_sha256",
+            "ek_certificate_capture_result_sha256",
+            "ek_certificate_capture_inventory_sha256",
+            "ek_certificate_capture_transcript_sha256",
+            "ek_certificate_capture_script_sha256",
+            "ek_certificate_rsa_sha256",
+            "ek_cert_spki_input_sha256",
+            "ek_cert_spki_output_sha256",
         ),
     }
 
@@ -615,6 +629,63 @@ def validate_semantics(manifest: dict[str, Any]) -> tuple[str, str]:
                 denies.append(f"ek-template-{field}-artifact-binding-mismatch")
         if ek_template.get("wire_sha256") != manifest.get("public_name_coherence",{}).get("ek",{}).get("wire_sha256"):
             denies.append("ek-template-public-name-wire-mismatch")
+    ek_certificate_capture = manifest["ek_certificate_capture"]
+    for field in (
+        "status","verifier_id","reason","result_sha256","inventory_sha256",
+        "transcript_sha256","script_sha256","source_mode","candidate_handles",
+        "rsa_certificate_present","rsa_certificate_sha256",
+    ):
+        if field not in ek_certificate_capture:
+            denies.append(f"missing-ek-certificate-capture.{field}")
+    if ek_certificate_capture.get("verifier_id") != EK_CERTIFICATE_CAPTURE_ID:
+        denies.append("ek-certificate-capture-verifier-id-mismatch")
+    if ek_certificate_capture.get("status") not in {"PASS","INDETERMINATE"}:
+        denies.append("ek-certificate-capture-state-invalid")
+    if ek_certificate_capture.get("source_mode") != "TPM_NV_ONLY":
+        denies.append("ek-certificate-capture-source-mode-invalid")
+    if not isinstance(ek_certificate_capture.get("candidate_handles"), list):
+        denies.append("ek-certificate-candidate-handles-invalid")
+    for field in ("result_sha256","inventory_sha256","transcript_sha256","script_sha256"):
+        if not valid_hash(ek_certificate_capture.get(field)):
+            denies.append(f"ek-certificate-{field}-invalid")
+    if ek_certificate_capture.get("script_sha256") != sha256_file(EK_CERTIFICATE_CAPTURE_SCRIPT):
+        denies.append("ek-certificate-capture-script-source-mismatch")
+    if ek_certificate_capture.get("rsa_certificate_present"):
+        if not valid_hash(ek_certificate_capture.get("rsa_certificate_sha256")):
+            denies.append("ek-certificate-rsa-digest-invalid")
+    elif ek_certificate_capture.get("rsa_certificate_sha256") is not None:
+        denies.append("ek-certificate-rsa-absent-with-digest")
+
+    ek_cert_spki = manifest["ek_cert_spki_binding"]
+    for field in (
+        "status","verifier_id","reason","input_sha256","output_sha256",
+        "certificate_sha256","ek_public_wire_sha256","certificate_source_sha256",
+        "ek_public_source_sha256",
+    ):
+        if field not in ek_cert_spki:
+            denies.append(f"missing-ek-cert-spki.{field}")
+    if ek_cert_spki.get("verifier_id") != EK_CERT_SPki_VERIFIER_ID:
+        denies.append("ek-cert-spki-verifier-id-mismatch")
+    if ek_cert_spki.get("status") not in {"PASS","INDETERMINATE"}:
+        denies.append("ek-cert-spki-state-invalid")
+    for field in (
+        "input_sha256","output_sha256","certificate_sha256",
+        "ek_public_wire_sha256","certificate_source_sha256","ek_public_source_sha256",
+    ):
+        value = ek_cert_spki.get(field)
+        if value is not None and not valid_hash(value):
+            denies.append(f"ek-cert-spki-{field}-invalid")
+    if ek_cert_spki.get("certificate_sha256") is not None and ek_certificate_capture.get("rsa_certificate_sha256") != ek_cert_spki.get("certificate_sha256"):
+        denies.append("ek-cert-spki-certificate-capture-mismatch")
+    if ek_cert_spki.get("ek_public_wire_sha256") != manifest["public_name_coherence"]["ek"]["wire_sha256"]:
+        denies.append("ek-cert-spki-public-name-wire-mismatch")
+    if ek_cert_spki.get("certificate_source_sha256") not in {None, ek_certificate_capture.get("transcript_sha256")}:
+        denies.append("ek-cert-spki-certificate-source-mismatch")
+    if ek_cert_spki.get("ek_public_source_sha256") not in {None, manifest["public_name_coherence"]["ek"]["source_sha256"]}:
+        denies.append("ek-cert-spki-ek-public-source-mismatch")
+    if ek_cert_spki.get("status") == "PASS" and not ek_certificate_capture.get("rsa_certificate_present"):
+        denies.append("ek-cert-spki-pass-without-rsa-certificate")
+
     public_name = manifest.get("public_name_coherence")
     if not isinstance(public_name, dict):
         denies.append("public-name-coherence-not-object")
