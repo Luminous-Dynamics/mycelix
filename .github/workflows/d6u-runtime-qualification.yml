@@ -20,3 +20,4 @@ jobs:
         run: |
           set -euo pipefail
           echo "D6U default-branch workflow bootstrap present"
+# Registration activation marker; runtime implementation remains PR-controlled.
