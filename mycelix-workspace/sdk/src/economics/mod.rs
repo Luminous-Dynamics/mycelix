@@ -26,6 +26,7 @@ pub mod substrate;
 pub mod metabolic_oracle;
 pub mod policy_analysis;
 pub mod policy_context;
+pub mod scenario;
 pub mod policy_profile;
 pub mod poc;
 pub mod recognition;
@@ -44,6 +45,7 @@ pub use jurisdiction_pack::{
 };
 pub use policy_analysis::EconomicPolicyAnalysis;
 pub use policy_context::{EconomicPolicyContext, EconomicPolicyContextRole};
+pub use scenario::{EconomicPolicyScenario, EconomicScenarioBinding, EconomicScenarioKind};
 pub use policy_profile::{EconomicOsOperation, EconomicPolicyProfile};
 pub use poc::{
     calculate_mycel_score, jubilee_normalize, GamingDetection, GamingRecommendation,
