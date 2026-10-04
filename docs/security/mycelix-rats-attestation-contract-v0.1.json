@@ -122,6 +122,7 @@
       "releasability_profile": "E1-default",
       "export_control_profile": "E1-default",
       "policy_version": "e1-policy-2026-10-01",
+      "policy_version_match": true,
       "nonce": "nonce-001",
       "audience": "mycelix-enclave-e1",
       "subject_authorized": true,
