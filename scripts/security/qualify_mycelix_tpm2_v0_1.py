@@ -135,6 +135,14 @@ def main() -> int:
 
             swtpm_version_text = version_text("swtpm", env, root)
             tool_versions: dict[str, str | None] = {"swtpm": extract_version(swtpm_version_text)}
+            swtpm_info = run(["swtpm", "--print-info"], env, root, check=False)
+            if swtpm_info.returncode != 0:
+                raise RuntimeError("swtpm --print-info failed")
+            (capture / "swtpm-print-info.txt").write_text(
+                swtpm_info.stdout + swtpm_info.stderr,
+                encoding="utf-8",
+            )
+
             for tool in [
                 "tpm2_createek",
                 "tpm2_createak",
@@ -178,7 +186,6 @@ def main() -> int:
             )
 
             before_path = capture / "pcr-before.yaml"
-            run(["tpm2_pcrread", "sha256:16"], env, root, check=True).check_returncode
             before = run(["tpm2_pcrread", "sha256:16"], env, root)
             before_path.write_text(before.stdout, encoding="utf-8")
             before_pcr = pcr16_value(before_path)
@@ -318,6 +325,7 @@ def main() -> int:
                 "tpm_implementation": "swtpm",
                 "swtpm_version": tool_versions["swtpm"],
                 "tpm2_tools_version": expected_tpm2,
+                "swtpm_print_info_sha256": sha256_hex((capture / "swtpm-print-info.txt").read_bytes()),
                 "transport": "local-unix-domain-socket",
                 "pcr_selection": "sha256:16",
                 "attestation_key_algorithm": "RSA-2048",
