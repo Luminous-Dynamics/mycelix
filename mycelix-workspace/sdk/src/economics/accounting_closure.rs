@@ -25,6 +25,7 @@ use super::sector_balance::{SectorAssignment, SectorBalanceSheet};
 use super::sector_financial_flow::SectorFinancialFlowMatrix;
 use super::sector_flow::{EconomicSector, SectorTransactionMatrix};
 use super::sector_observables::SectorEconomicObservables;
+use super::sector_other_volume::SectorOtherVolumeChangeMatrix;
 use super::stock_flow::{ActorId, EconomicState};
 use super::transition::{state_hash, transition_hash, EconomicTransition};
 
@@ -42,6 +43,7 @@ pub struct EconomicAccountingClosure {
     pub physical_posting_count: u64,
     pub sector_transaction_hash: String,
     pub sector_financial_flow_hash: String,
+    pub other_volume_change_hash: String,
     pub sector_observations_hash: String,
     pub closure_hash: String,
 }
@@ -89,6 +91,12 @@ impl EconomicAccountingClosure {
         sector_financial_flow
             .validate_against_balance_sheet_delta(&pre_balance, &post_balance)?;
 
+        let other_volume_change =
+            SectorOtherVolumeChangeMatrix::from_transitions(transitions, assignments)?;
+        other_volume_change.validate_against(pre_state, assignments, transitions)?;
+        other_volume_change
+            .validate_against_balance_sheet_delta(&pre_balance, &post_balance)?;
+
         let actor_observations =
             ActorEconomicObservables::from_state_and_transitions(pre_state, transitions)?;
         validate_actor_terminal_state(post_state, &actor_observations)?;
@@ -115,6 +123,7 @@ impl EconomicAccountingClosure {
         let actor_observations_hash = hash_json(&actor_observations)?;
         let sector_transaction_hash = hash_json(&sector_transaction)?;
         let sector_financial_flow_hash = hash_json(&sector_financial_flow)?;
+        let other_volume_change_hash = hash_json(&other_volume_change)?;
         let sector_observations_hash = hash_json(&sector_observations)?;
 
         let binding = (
@@ -130,6 +139,7 @@ impl EconomicAccountingClosure {
             stock_flow.physical_posting_count,
             &sector_transaction_hash,
             &sector_financial_flow_hash,
+            &other_volume_change_hash,
             &sector_observations_hash,
         );
         let closure_hash = hash_json(&binding)?;
@@ -147,6 +157,7 @@ impl EconomicAccountingClosure {
             physical_posting_count: stock_flow.physical_posting_count,
             sector_transaction_hash,
             sector_financial_flow_hash,
+            other_volume_change_hash,
             sector_observations_hash,
             closure_hash,
         })
@@ -191,6 +202,7 @@ impl EconomicAccountingClosure {
             self.physical_posting_count,
             &self.sector_transaction_hash,
             &self.sector_financial_flow_hash,
+            &self.other_volume_change_hash,
             &self.sector_observations_hash,
         );
         let expected = hash_json(&binding)?;
@@ -566,6 +578,7 @@ mod tests {
         assert!(!a.aggregate_observations_hash.is_empty());
         assert!(!a.sector_transaction_hash.is_empty());
         assert!(!a.sector_financial_flow_hash.is_empty());
+        assert!(!a.other_volume_change_hash.is_empty());
         assert!(!a.sector_observations_hash.is_empty());
     }
 
