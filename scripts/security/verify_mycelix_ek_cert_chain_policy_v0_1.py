@@ -232,13 +232,30 @@ def mutate_certificate_sha256(v:dict[str,Any],bad:bytes)->None:
     v["leaf_certificate_der_base64"]=base64.b64encode(bad).decode()
     v["leaf_certificate_sha256"]=hashlib.sha256(bad).hexdigest()
     v["spki_binding"]["certificate_sha256"]=v["leaf_certificate_sha256"]
-    v["session_binding_sha256"]=session_binding(v,v["leaf_certificate_sha256"],v["intermediate_certificate_sha256"],v["trust_anchor_root_sha256"],v["revocation"]["crl_der_sha256"])
+    v["session_binding_sha256"]=session_binding(
+        v,
+        v["leaf_certificate_sha256"],
+        v["intermediate_certificate_sha256"],
+        v["trust_anchor_root_sha256"],
+        v["revocation"]["crl_der_sha256"],
+    )
+
+def mutate_root(v:dict[str,Any])->None:
+    v["trust_anchor_root_der_base64"]=v["intermediate_certificate_der_base64"]
+    v["trust_anchor_root_sha256"]=v["intermediate_certificate_sha256"]
+    v["session_binding_sha256"]=session_binding(
+        v,
+        v["leaf_certificate_sha256"],
+        v["intermediate_certificate_sha256"],
+        v["trust_anchor_root_sha256"],
+        v["revocation"]["crl_der_sha256"],
+    )
 
 def self_test()->int:
     base=fixture()
     cases=[
       ("canonical-valid","PASS",lambda x:x),
-      ("root-substitution","DENY",lambda x:x.update({"trust_anchor_root_base64":x["intermediate_certificate_der_base64"]})),
+      ("root-substitution","DENY",mutate_root),
       ("intermediate-substitution","DENY",lambda x:x.update({"intermediate_certificate_der_base64":x["trust_anchor_root_der_base64"]})),
       ("leaf-byte-substitution","DENY",lambda x:mutate_certificate_sha256(x,bytes(FIXTURE_LEAF_DER[:-1])+b"\\x00")),
       ("expired-reference-time","DENY",lambda x:x.update({"verification_time_unix":EXPIRED_TIME_UNIX})),
