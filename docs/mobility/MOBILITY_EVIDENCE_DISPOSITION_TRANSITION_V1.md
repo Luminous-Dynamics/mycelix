@@ -221,3 +221,8 @@ The concrete authority-agent registry retains the full verified signed credentia
 The authority-agent registry now pins a four-stage admission law: payload structure → issuer/agent match → cryptographic signature validity → immutable registry conflict checks, followed by state insertion. A credential cannot be reclassified as a duplicate-binding adapter conflict until its own validity is established.
 
 The new regressions cover malformed payload, issuer mismatch, and invalid signature against an already-occupied authority, plus fully valid duplicate authority and duplicate provenance-witness cases. Semantic-invalid credentials leave the existing registry untouched; verified conflicts remain adapter-boundary rejections and also leave the existing credential untouched. The machine corpus is contiguous through EDT-191.
+
+
+## Latest credential admission boundary hardening
+
+The authority-agent registry now also pins deterministic signature-host failure precedence: when a conflicting authority credential cannot complete signature verification because the host returns an error, the result remains an adapter runtime error rather than a duplicate-admission rejection, and the previously admitted registry state remains unchanged. This closes the semantic-invalid versus runtime-failure versus adapter-conflict partition through `EDT-192`.
