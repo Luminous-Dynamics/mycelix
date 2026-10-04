@@ -63,6 +63,8 @@ pub struct EconomicActionRevision {
     pub action_ref: String,
     /// Scope identifier active for this revision.
     pub scope_id: String,
+    /// SHA-256 fingerprint of the complete scope contents.
+    pub scope_fingerprint: String,
     /// Lifecycle stage represented by this revision.
     pub stage: EconomicActionStage,
     /// Semantic reason for the revision.
@@ -90,6 +92,9 @@ impl EconomicActionRevision {
         }
         if self.scope_id.trim().is_empty() {
             return Err("Lifecycle scope ID cannot be empty".into());
+        }
+        if self.scope_fingerprint.trim().is_empty() {
+            return Err("Lifecycle scope fingerprint cannot be empty".into());
         }
         if self.authority_ref.trim().is_empty() {
             return Err("Lifecycle authority reference cannot be empty".into());
@@ -148,6 +153,7 @@ pub struct EconomicActionLifecycle {
     action_ref: String,
     active_scope_id: String,
     current_revision_id: String,
+    active_scope_fingerprint: String,
     current_stage: EconomicActionStage,
     revisions: Vec<EconomicActionRevision>,
 }
@@ -162,11 +168,13 @@ impl EconomicActionLifecycle {
         recorded_at: u64,
     ) -> Result<Self, String> {
         scope.validate()?;
+        let scope_fingerprint = scope.fingerprint()?;
 
         let revision = EconomicActionRevision {
             revision_id: revision_id.into(),
             action_ref: scope.action_ref.clone(),
             scope_id: scope.scope_id.clone(),
+            scope_fingerprint: scope_fingerprint.clone(),
             stage: EconomicActionStage::Planning,
             kind: EconomicActionChangeKind::Initial,
             predecessor_revision_id: None,
@@ -181,6 +189,7 @@ impl EconomicActionLifecycle {
             action_ref: scope.action_ref.clone(),
             active_scope_id: scope.scope_id.clone(),
             current_revision_id: revision.revision_id.clone(),
+            active_scope_fingerprint: scope_fingerprint,
             current_stage: EconomicActionStage::Planning,
             revisions: vec![revision],
         })
@@ -203,6 +212,9 @@ impl EconomicActionLifecycle {
         }
         if self.active_scope_id.trim().is_empty() {
             return Err("Lifecycle active scope ID cannot be empty".into());
+        }
+        if self.active_scope_fingerprint.trim().is_empty() {
+            return Err("Lifecycle active scope fingerprint cannot be empty".into());
         }
         if self.current_revision_id.trim().is_empty() {
             return Err("Lifecycle current revision ID cannot be empty".into());
@@ -245,6 +257,9 @@ impl EconomicActionLifecycle {
         if self.active_scope_id != last.scope_id {
             return Err("Lifecycle active scope does not match history".into());
         }
+        if self.active_scope_fingerprint != last.scope_fingerprint {
+            return Err("Lifecycle active scope fingerprint does not match history".into());
+        }
         Ok(())
     }
 
@@ -274,15 +289,33 @@ impl EconomicActionLifecycle {
         revision_id: impl Into<String>,
         stage: EconomicActionStage,
         kind: EconomicActionChangeKind,
-        scope_id: impl Into<String>,
+        scope: &EconomicActionScope,
         authority_ref: impl Into<String>,
         evidence_refs: Vec<String>,
         recorded_at: u64,
     ) -> Result<(), String> {
+        scope.validate()?;
+        if scope.action_ref != self.action_ref {
+            return Err("Lifecycle update must retain the action reference".into());
+        }
+        if scope.scope_id != self.active_scope_id {
+            return Err(
+                "Lifecycle scope cannot change during a normal update; use amend_scope instead"
+                    .into(),
+            );
+        }
+        let scope_fingerprint = scope.fingerprint()?;
+        if scope_fingerprint != self.active_scope_fingerprint {
+            return Err(
+                "Lifecycle scope contents changed without an explicit scope amendment".into(),
+            );
+        }
+
         self.record_inner(EconomicActionRevision {
             revision_id: revision_id.into(),
             action_ref: self.action_ref.clone(),
-            scope_id: scope_id.into(),
+            scope_id: scope.scope_id.clone(),
+            scope_fingerprint,
             stage,
             kind,
             predecessor_revision_id: Some(self.current_revision_id.clone()),
@@ -303,6 +336,7 @@ impl EconomicActionLifecycle {
         recorded_at: u64,
     ) -> Result<(), String> {
         new_scope.validate()?;
+        let new_scope_fingerprint = new_scope.fingerprint()?;
         if new_scope.action_ref != self.action_ref {
             return Err("Scope amendment must retain the lifecycle action reference".into());
         }
@@ -320,6 +354,7 @@ impl EconomicActionLifecycle {
             revision_id: revision_id.into(),
             action_ref: self.action_ref.clone(),
             scope_id: new_scope.scope_id.clone(),
+            scope_fingerprint: new_scope_fingerprint,
             stage: self.current_stage,
             kind: EconomicActionChangeKind::ScopeAmendment,
             predecessor_revision_id: Some(self.current_revision_id.clone()),
@@ -365,11 +400,20 @@ impl EconomicActionLifecycle {
                 if revision.predecessor_scope_id.as_deref() != Some(self.active_scope_id.as_str()) {
                     return Err("Scope amendment predecessor does not match active scope".into());
                 }
+                if revision.scope_fingerprint == self.active_scope_fingerprint {
+                    return Err("Scope amendment must change the scope fingerprint".into());
+                }
             }
             _ => {
                 if revision.scope_id != self.active_scope_id {
                     return Err(
                         "Lifecycle scope cannot change without an explicit scope amendment"
+                            .into(),
+                    );
+                }
+                if revision.scope_fingerprint != self.active_scope_fingerprint {
+                    return Err(
+                        "Lifecycle scope contents cannot change without an explicit scope amendment"
                             .into(),
                     );
                 }
@@ -387,6 +431,7 @@ impl EconomicActionLifecycle {
         self.current_stage = revision.stage;
         if revision.kind == EconomicActionChangeKind::ScopeAmendment {
             self.active_scope_id = revision.scope_id.clone();
+            self.active_scope_fingerprint = revision.scope_fingerprint.clone();
         }
         self.revisions.push(revision);
 
@@ -468,7 +513,7 @@ mod tests {
                 "revision:2",
                 EconomicActionStage::Tendering,
                 EconomicActionChangeKind::Update,
-                "scope:1",
+                &scope("action:1", "scope:1"),
                 "authority:dao-1",
                 vec!["evidence:revision-2".into()],
                 1_100,
@@ -479,7 +524,7 @@ mod tests {
                 "revision:3",
                 EconomicActionStage::Awarded,
                 EconomicActionChangeKind::Update,
-                "scope:1",
+                &scope("action:1", "scope:1"),
                 "authority:dao-1",
                 vec!["evidence:revision-3".into()],
                 1_200,
@@ -518,7 +563,7 @@ mod tests {
                 "revision:2",
                 EconomicActionStage::Contracted,
                 EconomicActionChangeKind::Update,
-                "scope:1",
+                &scope("action:1", "scope:1"),
                 "authority:dao-1",
                 vec!["evidence:contract".into()],
                 1_100,
@@ -572,7 +617,7 @@ mod tests {
                 "revision:2",
                 EconomicActionStage::Tendering,
                 EconomicActionChangeKind::Update,
-                "scope:1",
+                &scope("action:1", "scope:1"),
                 "authority:dao-1",
                 vec!["evidence:tender".into()],
                 1_100,
@@ -600,7 +645,7 @@ mod tests {
                 "revision:2",
                 EconomicActionStage::Tendering,
                 EconomicActionChangeKind::Update,
-                "scope:1",
+                &scope("action:1", "scope:1"),
                 "authority:dao-1",
                 vec!["evidence:tender".into()],
                 1_100,
@@ -611,7 +656,7 @@ mod tests {
                 "revision:3",
                 EconomicActionStage::Terminated,
                 EconomicActionChangeKind::Termination,
-                "scope:1",
+                &scope("action:1", "scope:1"),
                 "authority:dao-1",
                 vec!["evidence:termination".into()],
                 1_200,
