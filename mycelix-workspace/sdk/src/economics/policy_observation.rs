@@ -40,7 +40,7 @@ pub struct EconomicObservation {
     pub signal: EconomicObservationSignal,
     /// Native unit supplied by the source.
     pub native_unit: String,
-    /// Canonical decimal lexical value; no exponent notation.
+    /// Plain decimal lexical value; exponent notation is not permitted.
     pub value: String,
     /// Inclusive reference-period start.
     pub reference_period_start: u64,
@@ -161,7 +161,7 @@ impl EconomicObservation {
             .map_err(|error| format!("Economic observation canonicalization failed: {error}"))?;
 
         let mut hasher = Sha256::new();
-        hasher.update(b"MYCELIX-ECONOMIC-OBSERVATION-V1\\0");
+        hasher.update(b"MYCELIX-ECONOMIC-OBSERVATION-V1\0");
         hasher.update(canonical);
         Ok(hex::encode(hasher.finalize()))
     }
@@ -232,6 +232,12 @@ impl EconomicObservationSnapshot {
                     binding.observation_ref
                 )
             })?;
+            if observation.observed_at > self.captured_at {
+                return Err(format!(
+                    "Economic observation occurs after snapshot capture time: {}",
+                    binding.observation_ref
+                ));
+            }
             let fingerprint = observation.fingerprint()?;
             if fingerprint != binding.observation_fingerprint {
                 return Err(format!(
@@ -266,7 +272,7 @@ impl EconomicObservationSnapshot {
             .map_err(|error| format!("Economic observation snapshot canonicalization failed: {error}"))?;
 
         let mut hasher = Sha256::new();
-        hasher.update(b"MYCELIX-ECONOMIC-OBSERVATION-SNAPSHOT-V1\\0");
+        hasher.update(b"MYCELIX-ECONOMIC-OBSERVATION-SNAPSHOT-V1\0");
         hasher.update(canonical);
         Ok(hex::encode(hasher.finalize()))
     }
@@ -406,6 +412,22 @@ mod tests {
         let mut changed = value;
         changed.value = "6.25".into();
         observations.insert(changed.observation_id.clone(), changed);
+        assert!(snapshot.validate_against(&observations).is_err());
+    }
+
+    #[test]
+    fn snapshot_rejects_future_observation() {
+        let value = observation();
+        let snapshot = EconomicObservationSnapshot {
+            snapshot_id: "snapshot:future-rejection".into(),
+            observation_bindings: vec![EconomicObservationBinding {
+                observation_ref: value.observation_id.clone(),
+                observation_fingerprint: value.fingerprint().unwrap(),
+            }],
+            captured_at: value.observed_at - 1,
+        };
+        let mut observations = std::collections::BTreeMap::new();
+        observations.insert(value.observation_id.clone(), value);
         assert!(snapshot.validate_against(&observations).is_err());
     }
 
