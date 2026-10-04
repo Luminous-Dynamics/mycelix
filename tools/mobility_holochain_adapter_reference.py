@@ -120,6 +120,7 @@ def main() -> int:
         "credential_issuer_match_precedes_signature_verification": True,
         "credential_definitive_invalidity_precedes_registry_admission": True,
         "credential_signature_verification_precedes_registry_admission": True,
+        "credential_signature_host_failure_precedes_registry_admission": True,
         "duplicate_authority_requires_verified_credential": True,
         "duplicate_provenance_witness_requires_verified_credential": True,
         "rejected_credential_admission_preserves_registry_state": True,
