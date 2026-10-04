@@ -2822,6 +2822,43 @@ mod tests {
                 }
             }
 
+            if changed {
+                continue;
+            }
+
+            let distinct_tokens = current
+                .iter()
+                .map(|(_, token)| *token)
+                .collect::<BTreeSet<_>>();
+
+            'linked: for current_token in distinct_tokens {
+                for candidate_token in state_machine_token_shrink_candidates(current_token) {
+                    if candidate_token >= current_token {
+                        continue;
+                    }
+
+                    let candidate = current
+                        .iter()
+                        .map(|(operation, token)| {
+                            (
+                                *operation,
+                                if *token == current_token {
+                                    candidate_token
+                                } else {
+                                    *token
+                                },
+                            )
+                        })
+                        .collect::<Vec<_>>();
+
+                    if fails(&candidate) {
+                        current = candidate;
+                        changed = true;
+                        break 'linked;
+                    }
+                }
+            }
+
             if !changed {
                 break;
             }
