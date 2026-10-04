@@ -1021,6 +1021,9 @@ def verify_bundle(args: argparse.Namespace) -> int:
         "tss-version-evidence.txt": manifest["toolchain"]["tss_version_evidence_sha256"],
         "eventlog-reconstruction-input.json": manifest["reconstruction"]["input_sha256"],
         "observed-pcr-values.json": manifest["live_observation"]["pcr_values_file_sha256"],
+        "ek-nv-index-handles.txt": manifest["ek_certificate_capture"]["inventory_sha256"],
+        "ek-certificate-capture-transcript.json": manifest["ek_certificate_capture"]["transcript_sha256"],
+        "ek-certificate-capture.json": manifest["ek_certificate_capture"]["result_sha256"],
         "raw-eventlog.json": manifest["raw_eventlog"]["output_sha256"],
         "payload-coherence.json": manifest["payload_coherence"]["output_sha256"],
         "ak-public-name-input.json": manifest["public_name_coherence"]["ak"]["input_sha256"],
@@ -1042,6 +1045,81 @@ def verify_bundle(args: argparse.Namespace) -> int:
             return 1
         if sha256_file(path) != expected:
             print(f"PLATFORM EVIDENCE: DENY: artifact-digest-mismatch-{relative}")
+            return 1
+
+    cert_capture = manifest["ek_certificate_capture"]
+    cert_capture_result = load_json(bundle / "ek-certificate-capture.json")
+    if cert_capture_result.get("verifier_id") != EK_CERTIFICATE_CAPTURE_ID:
+        print("PLATFORM EVIDENCE: DENY: ek-certificate-capture-result-verifier-id-mismatch")
+        return 1
+    if cert_capture_result.get("state") != cert_capture["status"]:
+        print("PLATFORM EVIDENCE: DENY: ek-certificate-capture-result-state-mismatch")
+        return 1
+    if cert_capture_result.get("content_sha256") != self_hash(cert_capture_result, "content_sha256"):
+        print("PLATFORM EVIDENCE: DENY: ek-certificate-capture-result-content-hash-mismatch")
+        return 1
+    if cert_capture_result.get("details", {}).get("source_policy", {}).get("mode") != "TPM_NV_ONLY":
+        print("PLATFORM EVIDENCE: DENY: ek-certificate-capture-not-nv-only")
+        return 1
+    if cert_capture_result.get("details", {}).get("source_policy", {}).get("network_url_present"):
+        print("PLATFORM EVIDENCE: DENY: ek-certificate-capture-network-url-present")
+        return 1
+    if cert_capture_result.get("details", {}).get("source_policy", {}).get("explicit_network_option_present"):
+        print("PLATFORM EVIDENCE: DENY: ek-certificate-capture-network-option-present")
+        return 1
+    if cert_capture.get("result_sha256") != sha256_file(bundle / "ek-certificate-capture.json"):
+        print("PLATFORM EVIDENCE: DENY: ek-certificate-capture-result-digest-mismatch")
+        return 1
+    if cert_capture.get("inventory_sha256") != sha256_file(bundle / "ek-nv-index-handles.txt"):
+        print("PLATFORM EVIDENCE: DENY: ek-certificate-capture-inventory-digest-mismatch")
+        return 1
+    if cert_capture.get("transcript_sha256") != sha256_file(bundle / "ek-certificate-capture-transcript.json"):
+        print("PLATFORM EVIDENCE: DENY: ek-certificate-capture-transcript-digest-mismatch")
+        return 1
+    if cert_capture.get("script_sha256") != sha256_file(EK_CERTIFICATE_CAPTURE_SCRIPT):
+        print("PLATFORM EVIDENCE: DENY: ek-certificate-capture-script-digest-mismatch")
+        return 1
+
+    if cert_capture.get("rsa_certificate_present"):
+        if cert_capture.get("rsa_certificate_sha256") != sha256_file(bundle / "ek-cert-rsa.der"):
+            print("PLATFORM EVIDENCE: DENY: ek-certificate-rsa-digest-mismatch")
+            return 1
+        spki_input = bundle / "ek-cert-spki-input.json"
+        spki_output = bundle / "ek-cert-spki-binding.json"
+        if not spki_input.is_file() or not spki_output.is_file():
+            print("PLATFORM EVIDENCE: DENY: missing-ek-cert-spki-receipt")
+            return 1
+        spki_state, spki_reason = run_ek_cert_spki_verifier(
+            spki_input, spki_output, bundle, os.environ.copy()
+        )
+        print(f"Independent EK certificate SPKI verifier: {spki_state} ({spki_reason})")
+        if spki_state == "DENY":
+            return 1
+        spki_result = load_json(spki_output)
+        if spki_result.get("verifier_id") != EK_CERT_SPki_VERIFIER_ID:
+            print("PLATFORM EVIDENCE: DENY: ek-cert-spki-verifier-id-mismatch")
+            return 1
+        if spki_result.get("state") != manifest["ek_cert_spki_binding"]["status"]:
+            print("PLATFORM EVIDENCE: DENY: ek-cert-spki-state-binding-mismatch")
+            return 1
+        if spki_result.get("certificate_der_sha256") != cert_capture["rsa_certificate_sha256"]:
+            print("PLATFORM EVIDENCE: DENY: ek-cert-spki-certificate-capture-mismatch")
+            return 1
+        if spki_result.get("ek_public_wire_sha256") != manifest["public_name_coherence"]["ek"]["wire_sha256"]:
+            print("PLATFORM EVIDENCE: DENY: ek-cert-spki-ek-wire-mismatch")
+            return 1
+        if spki_result.get("content_sha256") != self_hash(spki_result, "content_sha256"):
+            print("PLATFORM EVIDENCE: DENY: ek-cert-spki-content-hash-mismatch")
+            return 1
+        if manifest["ek_cert_spki_binding"]["input_sha256"] != sha256_file(spki_input):
+            print("PLATFORM EVIDENCE: DENY: ek-cert-spki-input-digest-mismatch")
+            return 1
+        if manifest["ek_cert_spki_binding"]["output_sha256"] != sha256_file(spki_output):
+            print("PLATFORM EVIDENCE: DENY: ek-cert-spki-output-digest-mismatch")
+            return 1
+    else:
+        if manifest["ek_cert_spki_binding"]["status"] != "INDETERMINATE":
+            print("PLATFORM EVIDENCE: DENY: missing-rsa-certificate-must-be-indeterminate")
             return 1
 
     try:
