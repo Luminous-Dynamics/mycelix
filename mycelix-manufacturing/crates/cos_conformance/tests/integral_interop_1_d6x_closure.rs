@@ -379,10 +379,23 @@ fn projection_metadata_and_runtime_resolution_evidence_are_not_semantic_identity
 
     let mut observed = baseline.clone();
     observed.resolution_evidence.insert(
-        "oad:design-water-purifier:v1".into(),
+        cos_conformance::qualified_dependency_closure_d6x::SemanticDependencyReferenceV1::node(
+            "oad:design-water-purifier:v1",
+            Some(
+                projection
+                    .nodes
+                    .get("oad:design-water-purifier:v1")
+                    .expect("fixture dependency must exist")
+                    .node_commitment
+                    .clone(),
+            ),
+        ),
         cos_conformance::qualified_dependency_closure_d6x::SemanticDependencyResolutionEvidenceV1 {
             retrieval_reference: Some("runtime://resolver/42".into()),
-            observed_commitment: Some("observed-design-commitment".into()),
+            observed_commitment: projection
+                .nodes
+                .get("oad:design-water-purifier:v1")
+                .map(|node| node.node_commitment.clone()),
             qualification_context_commitment: Some("qualification-context-1".into()),
         },
     );
