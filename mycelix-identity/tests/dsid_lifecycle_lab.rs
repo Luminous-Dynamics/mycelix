@@ -3834,6 +3834,32 @@ async fn dsid_042_key_rotation_revokes_stale_presentation_authorization() {
         .expect("synthetic Ed25519 key must have a valid Multikey encoding")
         .to_multibase();
 
+    let presentation: Record = conductor
+        .call(
+            &holder.zome("verifiable_credential"),
+            "create_presentation",
+            serde_json::json!({
+                "credential_ids": [credential_id.clone()],
+                "challenge": "dsid-042-before-rotation"
+            }),
+        )
+        .await;
+
+    let before_rotation: serde_json::Value = conductor
+        .call(
+            &issuer.zome("verifiable_credential"),
+            "verify_presentation",
+            serde_json::json!({
+                "presentation_hash": presentation.action_address(),
+                "expected_challenge": "dsid-042-before-rotation"
+            }),
+        )
+        .await;
+    assert_eq!(
+        before_rotation["valid"], true,
+        "presentation must verify before the holder's authorization is rotated"
+    );
+
     let rotated: Record = conductor
         .call(
             &holder.zome("did_registry"),
@@ -3863,6 +3889,21 @@ async fn dsid_042_key_rotation_revokes_stale_presentation_authorization() {
         .await
         .expect("credential and DID rotation must reach DHT consistency");
 
+    let stale_existing: serde_json::Value = conductor
+        .call(
+            &issuer.zome("verifiable_credential"),
+            "verify_presentation",
+            serde_json::json!({
+                "presentation_hash": presentation.action_address(),
+                "expected_challenge": "dsid-042-before-rotation"
+            }),
+        )
+        .await;
+    assert_eq!(
+        stale_existing["valid"], false,
+        "an already-created presentation must fail current-state verification after authorization rotation"
+    );
+
     let stale_presentation: Result<Record, _> = conductor
         .call_fallible(
             &holder.zome("verifiable_credential"),
@@ -3886,18 +3927,23 @@ async fn dsid_042_key_rotation_revokes_stale_presentation_authorization() {
         "key-rotation-revokes-stale-presentation-authorization",
         &dna,
         agents,
-        &[&credential, &created_holder, &rotated],
+        &[&credential, &created_holder, &rotated, &presentation],
         "After key rotation removes the historical canonical Multikey from DID authentication, the holder must not mint new JCS presentations using that stale verification method.",
         format!(
-            "old_multikey_auth_removed={} stale_presentation_rejected={}",
+            "old_multikey_auth_removed={} pre_rotation_valid={} existing_presentation_invalidated={} stale_creation_rejected={}",
             !rotated_doc.authentication.iter().any(|method| {
                 method == &format!("{}#keys-1-multikey", holder_app.agent())
             }),
+            before_rotation["valid"] == true,
+            stale_existing["valid"] == false,
             stale_presentation.is_err()
         ),
         !rotated_doc.authentication.iter().any(|method| {
             method == &format!("{}#keys-1-multikey", holder_app.agent())
-        }) && stale_presentation.is_err(),
+        })
+            && before_rotation["valid"] == true
+            && stale_existing["valid"] == false
+            && stale_presentation.is_err(),
     );
 }
 
