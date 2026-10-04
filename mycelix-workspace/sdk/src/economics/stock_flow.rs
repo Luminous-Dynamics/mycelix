@@ -685,6 +685,7 @@ pub struct EconomicState {
     pub debt_repaid: i128,
     /// Cumulative debt write-offs across the lifetime of this state.
     /// Period-specific debt write-offs are derived from `EconomicPeriodLedger`.
+    #[serde(default)]
     pub debt_written_off: i128,
 }
 
