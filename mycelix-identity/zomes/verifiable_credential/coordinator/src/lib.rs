@@ -408,19 +408,39 @@ pub fn verify_credential(credential_id: String) -> ExternResult<VerificationResu
     let now = sys_time()?;
     let mut errors = Vec::new();
 
-    // Check expiration using ISO 8601 parsing (fail-closed)
-    if let Some(valid_until) = &credential.valid_until {
-        match parse_iso8601_expired(valid_until, now) {
-            ExpirationStatus::Expired => {
-                errors.push("Credential has expired".to_string());
-            }
-            ExpirationStatus::ParseError => {
-                errors.push(format!(
-                    "Credential expiration date unparseable (fail-closed): '{}'",
+    // Validate the full validity window using the issuer-declared temporal
+    // semantics. New entries are checked again here so legacy records cannot
+    // bypass verifier-side validity simply because they predate integrity rules.
+    let valid_from = match parse_iso8601_to_micros(&credential.valid_from) {
+        Some(micros) => Some(Timestamp::from_micros(micros)),
+        None => {
+            errors.push(format!(
+                "Credential validFrom unparseable (fail-closed): '{}'",
+                credential.valid_from
+            ));
+            None
+        }
+    };
+    if let Some(valid_from) = valid_from {
+        if now < valid_from {
+            errors.push("Credential is not yet valid".to_string());
+        }
+
+        if let Some(valid_until) = &credential.valid_until {
+            match parse_iso8601_to_micros(valid_until) {
+                Some(micros) => {
+                    let valid_until = Timestamp::from_micros(micros);
+                    if valid_from > valid_until {
+                        errors.push("Credential validity interval is inverted".to_string());
+                    } else if now > valid_until {
+                        errors.push("Credential has expired".to_string());
+                    }
+                }
+                None => errors.push(format!(
+                    "Credential validUntil unparseable (fail-closed): '{}'",
                     valid_until
-                ));
+                )),
             }
-            ExpirationStatus::Valid => {}
         }
     }
 
@@ -941,20 +961,34 @@ pub fn verify_presentation(
             }
         }
 
-        // Check expiration (fail-closed)
-        if let Some(valid_until) = &cred.valid_until {
-            match parse_iso8601_expired(valid_until, now) {
-                ExpirationStatus::Expired => {
-                    cred_errors.push("Credential expired".to_string());
+        // Validate the full validity window for each contained credential.
+        match parse_iso8601_to_micros(&cred.valid_from) {
+            Some(micros) => {
+                let valid_from = Timestamp::from_micros(micros);
+                if now < valid_from {
+                    cred_errors.push("Credential not yet valid".to_string());
                 }
-                ExpirationStatus::ParseError => {
-                    cred_errors.push(format!(
-                        "Credential expiration date unparseable (fail-closed): '{}'",
-                        valid_until
-                    ));
+                if let Some(valid_until) = &cred.valid_until {
+                    match parse_iso8601_to_micros(valid_until) {
+                        Some(until_micros) => {
+                            let valid_until = Timestamp::from_micros(until_micros);
+                            if valid_from > valid_until {
+                                cred_errors.push("Credential validity interval is inverted".to_string());
+                            } else if now > valid_until {
+                                cred_errors.push("Credential expired".to_string());
+                            }
+                        }
+                        None => cred_errors.push(format!(
+                            "Credential expiration date unparseable (fail-closed): '{}'",
+                            valid_until
+                        )),
+                    }
                 }
-                ExpirationStatus::Valid => {}
             }
+            None => cred_errors.push(format!(
+                "Credential validFrom unparseable (fail-closed): '{}'",
+                cred.valid_from
+            )),
         }
 
         let cred_valid = cred_errors.is_empty();
