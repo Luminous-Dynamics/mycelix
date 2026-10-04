@@ -5245,7 +5245,7 @@ async fn dsid_052_exports_mycelix_jcs_interop_fixture() {
         serde_json::json!({
             "@context": ["https://www.w3.org/ns/did/v1", "https://w3id.org/security/multikey/v1"],
             "id": doc.id,
-            "controller": doc.controller.to_string(),
+            "controller": doc.id,
             "verificationMethod": doc.verification_method.iter()
                 .filter(|method| method.type_ == "Multikey")
                 .map(|method| serde_json::json!({
