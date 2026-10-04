@@ -1065,6 +1065,23 @@ def capture(args: argparse.Namespace) -> int:
     if raw_parse.returncode != 0:
         raise RuntimeError("independent raw event-log parser failed; raw evidence preserved but not qualified")
     trusted = load_json(out / "trusted-time.json")
+    reference_appraisal_path = out / "reference-appraisal.json"
+    reference_appraisal_proc = run(
+        [
+            sys.executable,
+            str(REFERENCE_APPRAISAL_SCRIPT),
+            "--appraise",
+            str(out / "reference-values.json"),
+            "--output",
+            str(reference_appraisal_path),
+        ],
+        env,
+        out,
+        check=False,
+    )
+    if reference_appraisal_proc.returncode not in (0, 2) and not reference_appraisal_path.is_file():
+        raise RuntimeError("reference-value appraisal failed without producing a result")
+    reference_appraisal = load_json(reference_appraisal_path)
     input_path = out / "eventlog-reconstruction-input.json"
 
     reconstruction_path = out / "eventlog-reconstruction.json"
