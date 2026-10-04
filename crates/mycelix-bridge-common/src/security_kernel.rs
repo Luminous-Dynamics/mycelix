@@ -886,9 +886,7 @@ fn revalidate_permit(
         return AuthorizationOutcome::Deny(AuthorizationDenial::VerificationEvidenceMismatch);
     }
     if evidence.authority_binding == [0; 32] {
-        return AuthorizationOutcome::Indeterminate(
-            AuthorizationIndeterminacy::AmbiguousAuthority,
-        );
+        return AuthorizationOutcome::Indeterminate(AuthorizationIndeterminacy::AmbiguousAuthority);
     }
     if evidence.authority_binding != permit.authority_binding {
         return AuthorizationOutcome::Deny(AuthorizationDenial::AuthorityBindingMismatch);
@@ -897,9 +895,7 @@ fn revalidate_permit(
         return AuthorizationOutcome::Deny(AuthorizationDenial::RevokedCapability);
     }
     if evidence.authority != AuthorityResolution::Unambiguous {
-        return AuthorizationOutcome::Indeterminate(
-            AuthorizationIndeterminacy::AmbiguousAuthority,
-        );
+        return AuthorizationOutcome::Indeterminate(AuthorizationIndeterminacy::AmbiguousAuthority);
     }
     if now_us >= evidence.valid_until_us || !permit.is_valid_at(now_us) {
         return AuthorizationOutcome::Deny(AuthorizationDenial::OutsideValidityWindow);
@@ -1225,8 +1221,8 @@ mod tests {
         oversized.resize(MAX_SECURITY_WIRE_BYTES + 1, b' ');
 
         let cursor = std::io::Cursor::new(oversized);
-        let error =
-            deserialize_bounded_security_json_reader::<_, AuthorizationRequest>(cursor).unwrap_err();
+        let error = deserialize_bounded_security_json_reader::<_, AuthorizationRequest>(cursor)
+            .unwrap_err();
 
         assert_eq!(error.classify(), serde_json::error::Category::Io);
         assert_eq!(error.io_error_kind(), Some(std::io::ErrorKind::InvalidData));
