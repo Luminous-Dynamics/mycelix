@@ -86,7 +86,7 @@ jobs:
           for pattern in \
             'pub([[:space:]]*\([^)]*\))?[[:space:]]+(enum|struct|const)[[:space:]]+(SignatureVerification|RevocationStatus|AuthorityResolution|AUTHORITY_FRESHNESS_[A-Z_]+)' \
             'pub([[:space:]]*\([^)]*\))?[[:space:]]+fn[[:space:]]+(authority_binding_from_freshness_digest|new_for_capability(_with_[a-z_]+)?|binding_digest|revalidate_permit)'; do
-            if grep -nzE "$pattern" crates/mycelix-bridge-common/src/security_kernel.rs; then
+            if grep -nE "$pattern" crates/mycelix-bridge-common/src/security_kernel.rs; then
               echo "security-kernel trust-surface regression: $pattern" >&2
               exit 1
             fi
