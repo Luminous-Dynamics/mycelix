@@ -1023,6 +1023,20 @@ mod tests {
     }
 
     #[test]
+    fn authorization_request_wire_identifier_exact_limit_is_accepted() {
+        let boundary = "x".repeat(MAX_SECURITY_IDENTIFIER_BYTES);
+        let json = serde_json::json!({
+            "subject": boundary,
+            "resource": "resource:ledger",
+            "action": "Read",
+            "policy_version": 7
+        });
+
+        let decoded: AuthorizationRequest = serde_json::from_value(json).unwrap();
+        assert_eq!(decoded.subject.len(), MAX_SECURITY_IDENTIFIER_BYTES);
+    }
+
+    #[test]
     fn capability_action_order_is_canonical_and_duplicates_rejected() {
         let first = Capability::new(
             "alice",
