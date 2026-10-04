@@ -217,6 +217,31 @@ mod tests {
         );
     }
 
+
+    #[test]
+    fn multi_period_state_counters_are_cumulative_while_ledgers_remain_period_specific() {
+        let initial = initial_state();
+        let steps = vec![
+            EconomicSimulationStep {
+                period: 1,
+                transitions: vec![EconomicTransition::CreditCreation(
+                    CreditCreation::new("bank", "household", 500).unwrap(),
+                )],
+            },
+            EconomicSimulationStep {
+                period: 2,
+                transitions: vec![EconomicTransition::DebtRepayment(
+                    DebtRepayment::new("bank", "household", 100).unwrap(),
+                )],
+            },
+        ];
+
+        let (final_state, _) = EconomicSimulationTrace::run(&initial, &steps).unwrap();
+        assert_eq!(final_state.credit_created, 500);
+        assert_eq!(final_state.debt_repaid, 100);
+        assert_eq!(final_state.monetary_flow_volume, 600);
+    }
+
     #[test]
     fn changing_one_period_changes_the_trace() {
         let initial = initial_state();
