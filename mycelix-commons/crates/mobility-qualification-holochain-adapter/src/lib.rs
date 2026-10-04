@@ -2318,7 +2318,7 @@ mod tests {
 
         let mut bindings = HolochainDependencyBindingSet::new();
         bindings
-            .bind_for_test(identity("dispatch"), address, retrieval)
+            .bind_for_test(identity("dispatch"), address.clone(), retrieval)
             .unwrap();
 
         let QualificationDecision::Valid(mut resolved) =
@@ -2328,9 +2328,8 @@ mod tests {
         };
 
         let calls = Arc::new(Mutex::new(Vec::new()));
-        let _ = set_hdi(RecordingHdi {
+        let _ = set_hdi(DispatchRecordingHdi {
             calls: Arc::clone(&calls),
-            verify_result: true,
         });
 
         let result =
@@ -2339,12 +2338,145 @@ mod tests {
         let _ = set_hdi(ErrHdi);
 
         assert!(result.is_err(), "recording HDI intentionally stops the call");
-        assert_eq!(calls.lock().unwrap().as_slice(), [expected_call]);
+        assert_eq!(calls.lock().unwrap().as_slice(), [address]);
+        assert_eq!(calls.lock().unwrap().len(), 1);
+        assert_eq!(expected_call_for(&calls.lock().unwrap()[0]), expected_call);
+    }
+
+    fn expected_call_for(call: &HolochainDependencyAddress) -> &'static str {
+        match call {
+            HolochainDependencyAddress::Action(_) => "must_get_action",
+            HolochainDependencyAddress::Entry(_) => "must_get_entry",
+        }
+    }
+
+    #[derive(Debug)]
+    struct DispatchRecordingHdi {
+        calls: Arc<Mutex<Vec<HolochainDependencyAddress>>>,
+    }
+
+    #[test]
+    fn retrieve_resolved_dispatches_first_canonical_dependency_to_host() {
+        let _guard = host_test_lock().lock().expect("HDI test lock is not poisoned");
+
+        let mut bindings = HolochainDependencyBindingSet::new();
+        bindings
+            .bind_for_test(
+                identity("a-dispatch"),
+                HolochainDependencyAddress::Action(action_hash(60)),
+                QualificationDependencyRetrievalKind::Action,
+            )
+            .unwrap();
+        bindings
+            .bind_for_test(
+                identity("b-dispatch"),
+                HolochainDependencyAddress::Action(action_hash(61)),
+                QualificationDependencyRetrievalKind::Action,
+            )
+            .unwrap();
+
+        let QualificationDecision::Valid(resolved) = bindings.resolve_required(vec![
+            identity("a-dispatch"),
+            identity("b-dispatch"),
+        ]) else {
+            panic!("bindings should resolve");
+        };
+        let caller_order = resolved.into_iter().rev().collect::<Vec<_>>();
+
+        let calls = Arc::new(Mutex::new(Vec::new()));
+        let _ = set_hdi(DispatchRecordingHdi {
+            calls: Arc::clone(&calls),
+        });
+        let result =
+            catch_unwind(AssertUnwindSafe(|| retrieve_resolved(&caller_order)));
+        let _ = set_hdi(ErrHdi);
+
+        assert!(result.is_err(), "recording HDI intentionally stops the first host call");
+        assert_eq!(
+            calls.lock().unwrap().as_slice(),
+            [HolochainDependencyAddress::Action(action_hash(60))]
+        );
     }
 
     struct RecordingHdi {
         calls: Arc<Mutex<Vec<&'static str>>>,
         verify_result: bool,
+    }
+
+    impl HdiT for DispatchRecordingHdi {
+        fn verify_signature(&self, _: VerifySignature) -> ExternResult<bool> {
+            Ok(true)
+        }
+
+        fn must_get_entry(&self, input: MustGetEntryInput) -> ExternResult<EntryHashed> {
+            self.calls
+                .lock()
+                .unwrap()
+                .push(HolochainDependencyAddress::Entry(input.into_inner()));
+            panic!("test stop after recording must_get_entry");
+        }
+
+        fn must_get_action(
+            &self,
+            input: MustGetActionInput,
+        ) -> ExternResult<SignedActionHashed> {
+            self.calls
+                .lock()
+                .unwrap()
+                .push(HolochainDependencyAddress::Action(input.into_inner()));
+            panic!("test stop after recording must_get_action");
+        }
+
+        fn must_get_valid_record(
+            &self,
+            input: MustGetValidRecordInput,
+        ) -> ExternResult<Record> {
+            self.calls
+                .lock()
+                .unwrap()
+                .push(HolochainDependencyAddress::Action(input.into_inner()));
+            panic!("test stop after recording must_get_valid_record");
+        }
+
+        fn must_get_agent_activity(
+            &self,
+            _: MustGetAgentActivityInput,
+        ) -> ExternResult<Vec<AgentActivity>> {
+            unimplemented!()
+        }
+
+        fn dna_info(&self, _: ()) -> ExternResult<DnaInfo> {
+            unimplemented!()
+        }
+
+        fn zome_info(&self, _: ()) -> ExternResult<ZomeInfo> {
+            unimplemented!()
+        }
+
+        fn trace(&self, _: TraceMsg) -> ExternResult<()> {
+            unimplemented!()
+        }
+
+        fn x_salsa20_poly1305_decrypt(
+            &self,
+            _: XSalsa20Poly1305Decrypt,
+        ) -> ExternResult<Option<XSalsa20Poly1305Data>> {
+            unimplemented!()
+        }
+
+        fn x_25519_x_salsa20_poly1305_decrypt(
+            &self,
+            _: X25519XSalsa20Poly1305Decrypt,
+        ) -> ExternResult<Option<XSalsa20Poly1305Data>> {
+            unimplemented!()
+        }
+
+        fn ed_25519_x_salsa20_poly1305_decrypt(
+            &self,
+            _: Ed25519XSalsa20Poly1305Decrypt,
+        ) -> ExternResult<XSalsa20Poly1305Data> {
+            unimplemented!()
+        }
     }
 
     impl RecordingHdi {
