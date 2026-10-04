@@ -53,6 +53,8 @@ The pure layer exposes `QualificationDependencyBindingSet::resolve_required`, us
 
 Duplicate requests for the same logical identity are deduplicated during resolution. The API does not synthesize, guess, hash, or otherwise derive protocol addresses. A runtime adapter must map the returned opaque addresses to the concrete dependency retrieval API and preserve the unresolved state when a required addressable dependency is unavailable.
 
+Before host retrieval, `retrieve_resolved` canonicalizes any caller-supplied dependency vector by `ResolvedHolochainDependency.identity`. This preserves deterministic host-call ordering even when a caller does not pass the exact ordering produced by `resolve_required`. The canonicalization is mechanical and does not alter the logical bindings or provenance.
+
 ## Dependency retrieval boundary
 
 For Holochain, dependency retrieval SHOULD use the deterministic `must_get_*` host-function model.
