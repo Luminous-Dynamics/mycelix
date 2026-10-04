@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "artifact_type": "tpm2-eventlog-yaml-v1-adapter-contract",
+  "adapter_id": "mycelix.pc-client.tpm2-eventlog-yaml-v1-adapter",
+  "input": "tpm2_eventlog YAML version 1 plus the exact binary event-log artifact",
+  "output": "mycelix.security.platform.eventlog.reconstruction canonical input",
+  "semantics": [
+    "EventNum is preserved as canonical source sequence and must be strictly increasing",
+    "PCRIndex and EventType are preserved",
+    "EV_NO_ACTION is non-extending and may omit digest_sha256",
+    "PCR0 StartupLocality is detected from the StartupLocality event payload and is surfaced as startup_locality",
+    "PCR0 HCRTM events are preserved and left for the replay profile to classify as unsupported initial-state adjustment",
+    "the adapter never selects a SHA-1 or SHA-384 digest as a SHA-256 digest",
+    "missing or ambiguous SHA-256 digests on extending events are DENY",
+    "observed SHA-256 PCR values are supplied from a separate tpm2_pcrread-derived JSON artifact; the tpm2_eventlog trailing pcrs section is not an observation source",
+    "the exact binary event-log digest and adapter source digest are emitted into the canonical input",
+    "the observed-PCR JSON artifact must match the selected PCR set exactly"
+  ],
+  "supported_yaml_version": 1,
+  "unsupported": [
+    "YAML version 2",
+    "ambiguous duplicate SHA-256 digests within one event",
+    "missing selected observed PCRs",
+    "non-increasing EventNum",
+    "extending event without SHA-256 digest"
+  ]
+}

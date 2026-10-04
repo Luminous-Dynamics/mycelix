@@ -10,12 +10,16 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 from typing import Any, Sequence
 
 ROOT = Path(__file__).resolve().parents[2]
 CONTRACT = ROOT / "docs/security/mycelix-platform-evidence-capture-v0.1.json"
+RECONSTRUCTION_SCRIPT = ROOT / "scripts/security/reconstruct_mycelix_pc_client_eventlog_v0_1.py"
+ADAPTER_SCRIPT = ROOT / "scripts/security/adapt_mycelix_tpm2_eventlog_yaml_v1_v0_1.py"
+RECONSTRUCTION_VERIFIER_ID = "mycelix.pc-client.eventlog-reconstruction.v0.1"
 
 
 def sha256_bytes(data: bytes) -> str:
@@ -101,6 +105,9 @@ def session_binding(manifest: dict[str, Any]) -> str:
             "ek_public_sha256": manifest["tpm"]["ek_public_sha256"],
             "event_log_sha256": manifest["event_log"]["sha256"],
             "pcr_selection": manifest["quote"]["pcr_selection"],
+            "pcr_post_artifact_sha256": manifest["live_observation"]["pcr_post_artifact_sha256"],
+            "pcr_values_sha256": manifest["live_observation"]["pcr_values_sha256"],
+            "pcr_values_file_sha256": manifest["live_observation"]["pcr_values_file_sha256"],
             "nonce_sha256": manifest["quote"]["nonce_sha256"],
             "challenge_origin": manifest["challenge"]["origin"],
             "attestation_key_sha256": manifest["quote"]["attestation_key_sha256"],
@@ -111,6 +118,9 @@ def session_binding(manifest: dict[str, Any]) -> str:
             "reference_sha256": manifest["reference_values"]["sha256"],
             "trusted_time_sha256": manifest["trusted_time"]["sha256"],
             "reconstruction_content_sha256": manifest["reconstruction"]["content_sha256"],
+            "reconstruction_input_sha256": manifest["reconstruction"]["input_sha256"],
+            "reconstruction_verifier_id": manifest["reconstruction"]["verifier_id"],
+            "reconstruction_verifier_source_sha256": manifest["reconstruction"]["verifier_source_sha256"],
             "os_image_digest": manifest["os_image_digest"],
             "workload_digest": manifest["workload_digest"],
         }
@@ -185,17 +195,23 @@ def fixture_manifest() -> dict[str, Any]:
             "event_log_sha256": "c" * 64,
             "pcr_selection": "sha256:0,2,4,7",
             "reconstructed_pcrs_sha256": pcr_values_hash(reconstruction),
+            "input_sha256": "3" * 64,
+            "verifier_id": RECONSTRUCTION_VERIFIER_ID,
+            "verifier_source_sha256": "4" * 64,
         },
         "live_observation": {
             "selection": "sha256:0,2,4,7",
             "pcr_post_artifact_sha256": "4" * 64,
             "pcr_values_sha256": pcr_values_hash(live),
+            "pcr_values_file_sha256": "a" * 64,
         },
         "artifacts": {
             "quote_message_sha256": "5" * 64,
             "quote_signature_sha256": "6" * 64,
             "attestation_key_sha256": "e" * 64,
             "reconstruction_file_sha256": "8" * 64,
+            "reconstruction_input_sha256": "3" * 64,
+            "observed_pcr_values_file_sha256": "a" * 64,
             "tss_version_evidence_sha256": "f" * 64,
             "ek_public_sha256": "b" * 64,
         },
@@ -349,13 +365,18 @@ def validate_semantics(manifest: dict[str, Any]) -> tuple[str, str]:
             "pcr_selection",
             "reconstructed_pcrs_sha256",
             "content_sha256",
+            "input_sha256",
+            "verifier_id",
+            "verifier_source_sha256",
         ),
-        "live_observation": ("selection", "pcr_post_artifact_sha256", "pcr_values_sha256"),
+        "live_observation": ("selection", "pcr_post_artifact_sha256", "pcr_values_sha256", "pcr_values_file_sha256"),
         "artifacts": (
             "quote_message_sha256",
             "quote_signature_sha256",
             "attestation_key_sha256",
             "reconstruction_file_sha256",
+            "reconstruction_input_sha256",
+            "observed_pcr_values_file_sha256",
             "tss_version_evidence_sha256",
             "ek_public_sha256",
         ),
@@ -408,6 +429,8 @@ def validate_semantics(manifest: dict[str, Any]) -> tuple[str, str]:
         denies.append("attestation-key-artifact-binding-mismatch")
     if manifest["tpm"]["ek_public_sha256"] != manifest["artifacts"]["ek_public_sha256"]:
         denies.append("ek-artifact-binding-mismatch")
+    if manifest["live_observation"]["pcr_values_file_sha256"] != manifest["artifacts"]["observed_pcr_values_file_sha256"]:
+        denies.append("observed-pcr-file-binding-mismatch")
 
     if (
         manifest["reconstruction"]["status"] == "PASS"
@@ -526,6 +549,108 @@ def run_quote_check(bundle: Path) -> tuple[str, str]:
     )
 
 
+def validate_reconstruction_result(
+    reconstruction: dict[str, Any],
+    manifest: dict[str, Any],
+    live_values: dict[str, str],
+    input_path: Path,
+) -> tuple[str, str]:
+    required = {
+        "profile_id","profile_version","event_log_sha256","session_id","pcr_bank",
+        "pcr_selection","event_count","reconstructed_pcr_values","reconstructed_pcrs_sha256",
+        "observed_pcr_values","observed_pcrs_sha256","match","reconstruction_status",
+        "reason","input_sha256","verifier_id","verifier_source_sha256","content_sha256",
+    }
+    missing = sorted(required - set(reconstruction))
+    if missing:
+        return "DENY", "reconstruction-result-missing-" + ",".join(missing)
+    if reconstruction["profile_id"] != "mycelix.security.platform.eventlog.reconstruction":
+        return "DENY", "reconstruction-result-profile-mismatch"
+    if reconstruction["profile_version"] != "0.1.0":
+        return "DENY", "reconstruction-result-version-mismatch"
+    if reconstruction["event_log_sha256"] != manifest["event_log"]["sha256"]:
+        return "DENY", "reconstruction-result-eventlog-mismatch"
+    if reconstruction["session_id"] != manifest["session_id"]:
+        return "DENY", "reconstruction-result-session-mismatch"
+    if reconstruction["pcr_bank"] != "sha256":
+        return "DENY", "reconstruction-result-bank-mismatch"
+    if reconstruction["pcr_selection"] != manifest["live_observation"]["selection"]:
+        return "DENY", "reconstruction-result-selection-mismatch"
+    if not isinstance(reconstruction["event_count"], int) or reconstruction["event_count"] <= 0:
+        return "DENY", "reconstruction-result-event-count-invalid"
+    if reconstruction["reconstruction_status"] != "PASS" or reconstruction["match"] is not True:
+        return "DENY", "reconstruction-result-not-qualified"
+    if not isinstance(reconstruction["reconstructed_pcr_values"], dict):
+        return "DENY", "reconstruction-result-reconstructed-map-invalid"
+    if not isinstance(reconstruction["observed_pcr_values"], dict):
+        return "DENY", "reconstruction-result-observed-map-invalid"
+
+    try:
+        selected = parse_selection(reconstruction["pcr_selection"])
+    except (TypeError, ValueError):
+        return "DENY", "reconstruction-result-selection-invalid"
+    expected_keys = {str(index) for index in selected}
+    for label in ("reconstructed_pcr_values", "observed_pcr_values"):
+        values = reconstruction[label]
+        if set(values) != expected_keys:
+            return "DENY", "reconstruction-result-" + label + "-selection-mismatch"
+        if any(
+            not isinstance(value, str)
+            or len(value) != 64
+            or any(char not in "0123456789abcdef" for char in value)
+            for value in values.values()
+        ):
+            return "DENY", "reconstruction-result-" + label + "-invalid-digest"
+
+    if pcr_values_hash(reconstruction["reconstructed_pcr_values"]) != reconstruction["reconstructed_pcrs_sha256"]:
+        return "DENY", "reconstruction-result-reconstructed-state-hash-mismatch"
+    if pcr_values_hash(reconstruction["observed_pcr_values"]) != reconstruction["observed_pcrs_sha256"]:
+        return "DENY", "reconstruction-result-observed-state-hash-mismatch"
+    if reconstruction["reconstructed_pcr_values"] != reconstruction["observed_pcr_values"]:
+        return "DENY", "reconstruction-result-map-disagreement"
+    if reconstruction["reconstructed_pcrs_sha256"] != manifest["reconstruction"]["reconstructed_pcrs_sha256"]:
+        return "DENY", "reconstruction-result-manifest-hash-mismatch"
+    if reconstruction["observed_pcrs_sha256"] != manifest["live_observation"]["pcr_values_sha256"]:
+        return "DENY", "reconstruction-result-live-hash-mismatch"
+    if reconstruction["observed_pcr_values"] != live_values:
+        return "DENY", "reconstruction-result-live-map-mismatch"
+    if reconstruction["input_sha256"] != sha256_file(input_path):
+        return "DENY", "reconstruction-result-input-digest-mismatch"
+    if reconstruction["input_sha256"] != manifest["reconstruction"]["input_sha256"]:
+        return "DENY", "reconstruction-result-manifest-input-mismatch"
+    if reconstruction["verifier_id"] != RECONSTRUCTION_VERIFIER_ID:
+        return "DENY", "reconstruction-result-verifier-id-mismatch"
+    if reconstruction["verifier_source_sha256"] != sha256_file(RECONSTRUCTION_SCRIPT):
+        return "DENY", "reconstruction-result-verifier-source-mismatch"
+    if reconstruction["content_sha256"] != self_hash(reconstruction, "content_sha256"):
+        return "DENY", "reconstruction-result-content-hash-mismatch"
+
+    source = load_json(input_path)
+    if source.get("session_id") != manifest["session_id"]:
+        return "DENY", "reconstruction-input-session-mismatch"
+    if source.get("event_log_sha256") != manifest["event_log"]["sha256"]:
+        return "DENY", "reconstruction-input-eventlog-mismatch"
+    if source.get("pcr_selection") != manifest["live_observation"]["selection"]:
+        return "DENY", "reconstruction-input-selection-mismatch"
+    events = source.get("events")
+    if not isinstance(events, list) or len(events) != reconstruction["event_count"]:
+        return "DENY", "reconstruction-input-event-count-mismatch"
+    return "PASS", "reconstruction-result-schema-valid"
+
+
+def run_independent_reconstruction(input_path: Path, output_path: Path, cwd: Path) -> tuple[str, str]:
+    if not RECONSTRUCTION_SCRIPT.is_file():
+        return "DENY", "reconstruction-verifier-missing"
+    proc = run(
+        [sys.executable, str(RECONSTRUCTION_SCRIPT), "--reconstruct", str(input_path), "--output", str(output_path)],
+        os.environ.copy(), cwd, check=False,
+    )
+    if proc.returncode == 2:
+        return "INDETERMINATE", "independent-reconstruction-indeterminate"
+    if proc.returncode != 0:
+        return "DENY", "independent-reconstruction-failed"
+    return "PASS", "independent-reconstruction-executed"
+
 def verify_bundle(args: argparse.Namespace) -> int:
     bundle = Path(args.bundle).resolve()
     manifest_path = bundle / "capture-session.json"
@@ -553,6 +678,8 @@ def verify_bundle(args: argparse.Namespace) -> int:
         "nonce.bin": manifest["challenge"]["sha256"],
         "tool-versions.json": manifest["toolchain"]["observed_tool_versions_sha256"],
         "tss-version-evidence.txt": manifest["toolchain"]["tss_version_evidence_sha256"],
+        "eventlog-reconstruction-input.json": manifest["reconstruction"]["input_sha256"],
+        "observed-pcr-values.json": manifest["live_observation"]["pcr_values_file_sha256"],
         "eventlog-reconstruction.json": manifest["artifacts"]["reconstruction_file_sha256"],
     }
     for relative, expected in checks.items():
@@ -576,24 +703,40 @@ def verify_bundle(args: argparse.Namespace) -> int:
     if pcr_values_hash(values) != manifest["live_observation"]["pcr_values_sha256"]:
         print("PLATFORM EVIDENCE: DENY: pcr-values-state-hash-mismatch")
         return 1
+    observed_file_values = load_json(bundle / "observed-pcr-values.json")
+    if observed_file_values != values:
+        print("PLATFORM EVIDENCE: DENY: observed-pcr-json-mismatch")
+        return 1
 
     reconstruction_path = bundle / "eventlog-reconstruction.json"
     reconstruction = load_json(reconstruction_path)
     if self_hash(reconstruction, "content_sha256") != reconstruction.get("content_sha256"):
         print("PLATFORM EVIDENCE: DENY: reconstruction-self-hash-mismatch")
         return 1
-    if reconstruction.get("content_sha256") != manifest["reconstruction"]["content_sha256"]:
-        print("PLATFORM EVIDENCE: DENY: reconstruction-content-binding-mismatch")
+
+    input_path = bundle / "eventlog-reconstruction-input.json"
+    if manifest["reconstruction"]["status"] != "PASS":
+        print("PLATFORM EVIDENCE: DENY: reconstruction-not-qualified")
         return 1
-    if reconstruction.get("event_log_sha256") != manifest["event_log"]["sha256"]:
-        print("PLATFORM EVIDENCE: DENY: reconstruction-eventlog-binding-mismatch")
+    if not input_path.is_file():
+        print("PLATFORM EVIDENCE: DENY: missing-eventlog-reconstruction-input.json")
         return 1
-    if reconstruction.get("pcr_selection") != manifest["live_observation"]["selection"]:
-        print("PLATFORM EVIDENCE: DENY: reconstruction-selection-binding-mismatch")
-        return 1
-    if reconstruction.get("reconstructed_pcrs_sha256") != manifest["reconstruction"]["reconstructed_pcrs_sha256"]:
-        print("PLATFORM EVIDENCE: DENY: reconstruction-result-binding-mismatch")
-        return 1
+
+    result_state, result_reason = validate_reconstruction_result(reconstruction, manifest, values, input_path)
+    print(f"Reconstruction result validation: {result_state} ({result_reason})")
+    if result_state != "PASS":
+        return 1 if result_state == "DENY" else 2
+
+    with tempfile.TemporaryDirectory(prefix="mycelix-independent-reconstruction-") as td:
+        independent_path = Path(td) / "reconstruction.json"
+        independent_state, independent_reason = run_independent_reconstruction(input_path, independent_path, bundle)
+        print(f"Independent reconstruction execution: {independent_state} ({independent_reason})")
+        if independent_state != "PASS":
+            return 1 if independent_state == "DENY" else 2
+        independent = load_json(independent_path)
+        if independent != reconstruction:
+            print("PLATFORM EVIDENCE: DENY: supplied reconstruction differs from independent execution")
+            return 1
 
     quote_state, quote_reason = run_quote_check(bundle)
     print(f"TPM Quote verification: {quote_state} ({quote_reason})")
@@ -602,6 +745,10 @@ def verify_bundle(args: argparse.Namespace) -> int:
 
     print("PLATFORM EVIDENCE: PASS")
     print("Claim ceiling: ReferenceModelOnly")
+    if reconstruction.get("status") == "DENY":
+        return 1
+    if reconstruction.get("status") == "INDETERMINATE":
+        return 2
     return 0
 
 
@@ -743,7 +890,9 @@ def capture(args: argparse.Namespace) -> int:
     post = run(["tpm2_pcrread", args.pcr_selection], env, out)
     (out / "pcr-post.yaml").write_text(post.stdout, encoding="utf-8")
     live_values = parse_pcrread_sha256(post.stdout, args.pcr_selection)
-
+    (out / "observed-pcr-values.json").write_text(
+        json.dumps(live_values, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
     props_after = run(["tpm2_getcap", "properties-fixed"], env, out)
     if sha256_bytes(props_after.stdout.encode()) != prop_hash:
         raise RuntimeError("TPM fixed properties changed during capture")
@@ -751,8 +900,9 @@ def capture(args: argparse.Namespace) -> int:
     if boot_after != boot_before:
         raise RuntimeError("OS boot_id changed during capture")
 
+    session_id = f"linuxboot-{boot_before}-{sha256_file(out / 'eventlog.bin')[:16]}"
     parsed = run(
-        ["tpm2_eventlog", str(out / "eventlog.bin")],
+        ["tpm2_eventlog", "--eventlog-version=1", str(out / "eventlog.bin")],
         env,
         out,
         check=False,
@@ -764,24 +914,93 @@ def capture(args: argparse.Namespace) -> int:
         raise RuntimeError("tpm2_eventlog parser failed; raw evidence preserved but not qualified")
 
     trusted = load_json(out / "trusted-time.json")
-    reconstruction: dict[str, Any] = {
-        "status": "INDETERMINATE",
-        "reason": "independent-event-log-reconstruction-result-not-yet-supplied",
-        "event_log_sha256": sha256_file(out / "eventlog.bin"),
-        "pcr_selection": args.pcr_selection,
-        "verifier_id": "external-reconstruction-required",
-        "reconstructed_pcrs_sha256": "",
-    }
-    reconstruction["content_sha256"] = self_hash(reconstruction, "content_sha256")
-    (out / "eventlog-reconstruction.json").write_text(
-        json.dumps(reconstruction, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    input_path = out / "eventlog-reconstruction-input.json"
+    reconstruction_path = out / "eventlog-reconstruction.json"
+    adapter = run(
+        [
+            sys.executable,
+            str(ADAPTER_SCRIPT),
+            "--adapt",
+            str(out / "eventlog-parsed.yaml"),
+            "--binary-eventlog",
+            str(out / "eventlog.bin"),
+            "--observed-pcr-json",
+            str(out / "observed-pcr-values.json"),
+            "--session-id",
+            session_id,
+            "--pcr-selection",
+            args.pcr_selection,
+            "--output",
+            str(input_path),
+        ],
+        env,
+        out,
+        check=False,
     )
+    if adapter.returncode == 0:
+        replay = run(
+            [
+                sys.executable,
+                str(RECONSTRUCTION_SCRIPT),
+                "--reconstruct",
+                str(input_path),
+                "--output",
+                str(reconstruction_path),
+            ],
+            env,
+            out,
+            check=False,
+        )
+        if reconstruction_path.is_file():
+            reconstruction = load_json(reconstruction_path)
+        else:
+            reconstruction = {
+                "status": "DENY",
+                "reason": "reconstruction-executable-produced-no-result",
+                "event_log_sha256": sha256_file(out / "eventlog.bin"),
+                "pcr_selection": args.pcr_selection,
+                "verifier_id": RECONSTRUCTION_VERIFIER_ID,
+                "verifier_source_sha256": sha256_file(RECONSTRUCTION_SCRIPT),
+                "input_sha256": sha256_file(input_path),
+                "reconstructed_pcrs_sha256": "",
+            }
+            reconstruction["content_sha256"] = self_hash(reconstruction, "content_sha256")
+            reconstruction_path.write_text(
+                json.dumps(reconstruction, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            )
+        if replay.returncode not in (0, 1, 2):
+            raise RuntimeError("independent event-log reconstruction process failed")
+    else:
+        input_path.write_text(
+            json.dumps({
+                "status": "INDETERMINATE",
+                "reason": "eventlog-yaml-adapter-failed",
+                "session_id": session_id,
+                "event_log_sha256": sha256_file(out / "eventlog.bin"),
+                "pcr_selection": args.pcr_selection,
+            }, sort_keys=True, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        reconstruction = {
+            "status": "INDETERMINATE",
+            "reason": "eventlog-yaml-adapter-failed",
+            "event_log_sha256": sha256_file(out / "eventlog.bin"),
+            "pcr_selection": args.pcr_selection,
+            "verifier_id": "external-reconstruction-required",
+            "verifier_source_sha256": "",
+            "input_sha256": sha256_file(input_path),
+            "reconstructed_pcrs_sha256": "",
+        }
+        reconstruction["content_sha256"] = self_hash(reconstruction, "content_sha256")
+        reconstruction_path.write_text(
+            json.dumps(reconstruction, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
 
     ek_hash = sha256_file(out / "ek.pub")
     manifest: dict[str, Any] = {
         "profile_id": "mycelix.security.platform.evidence.capture",
         "profile_version": "0.1.0",
-        "session_id": f"linuxboot-{boot_before}-{sha256_file(out / 'eventlog.bin')[:16]}",
+        "session_id": session_id,
         "boot_id": boot_before,
         "tpm": {
             "device_path": str(device),
@@ -825,12 +1044,15 @@ def capture(args: argparse.Namespace) -> int:
             "selection": args.pcr_selection,
             "pcr_post_artifact_sha256": sha256_file(out / "pcr-post.yaml"),
             "pcr_values_sha256": pcr_values_hash(live_values),
+            "pcr_values_file_sha256": sha256_file(out / "observed-pcr-values.json"),
         },
         "artifacts": {
             "quote_message_sha256": sha256_file(out / "quote.msg"),
             "quote_signature_sha256": sha256_file(out / "quote.sig"),
             "attestation_key_sha256": sha256_file(out / "ak.pub"),
             "reconstruction_file_sha256": sha256_file(out / "eventlog-reconstruction.json"),
+            "reconstruction_input_sha256": sha256_file(out / "eventlog-reconstruction-input.json"),
+            "observed_pcr_values_file_sha256": sha256_file(out / "observed-pcr-values.json"),
             "tss_version_evidence_sha256": sha256_file(out / "tss-version-evidence.txt"),
             "ek_public_sha256": ek_hash,
         },
@@ -856,7 +1078,8 @@ def capture(args: argparse.Namespace) -> int:
     print("Capture status: CAPTURED_RAW_EVIDENCE")
     print("Qualification status: NOT QUALIFIED")
     print("Event-log parser: PASS")
-    print("Event-log reconstruction: INDETERMINATE until independently supplied")
+    print(f"Event-log reconstruction: {reconstruction.get('status', 'INDETERMINATE')}")
+    print(f"Event-log reconstruction reason: {reconstruction.get('reason', 'unknown')}")
     print("Claim ceiling: ReferenceModelOnly")
     return 0
 
