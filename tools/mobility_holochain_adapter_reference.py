@@ -256,7 +256,6 @@ def main() -> int:
 
     if "provenance: QualificationDependencyBindingProvenance" not in source:
         raise SystemExit("resolved dependencies must carry their provenance witness")
-    compact_source = "".join(source.split())
     if "self.provenance.validate()" not in compact_source:
         raise SystemExit("binding payload validation must structurally validate its provenance")
     if "matches_logical_identity(&identity)" not in source:
