@@ -54,6 +54,8 @@ The new implementation remains a policy/type boundary. `VerificationEvidence` is
 
 A zero authority-freshness commitment is treated as missing authority evidence and therefore yields `Indeterminate(AmbiguousAuthority)` at both verification and enforcement; it is never a valid “unknown” placeholder for a permit.
 
+Legacy offline identity state is likewise non-authoritative: `OfflineCredential::effective_tier()` must not treat an attached attestation as trusted merely because signature bytes exist. An attested freshness timestamp may influence offline degradation only after explicit MAC verification, with attester identity and authority established separately; offline tier state must never be used as a substitute for current institutional freshness evidence.
+
 Enforcement security events additionally require `actor_id == request.subject`; a caller cannot use the authoritative enforcement-event constructor to attribute an authorized operation to another principal. The general event constructor also rejects policy-version mismatches, keeping newly constructed records internally coherent.
 
 ## Evidence durability invariant
