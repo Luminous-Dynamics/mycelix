@@ -15,7 +15,7 @@ For a new Vote:
 3. created_at must be on or after the Decision's created_at.
 4. created_at must be on or before the Decision's immutable deadline.
 
-The checks use hash-addressed Decision content only. Validation does not inspect mutable link collections, wall-clock time, live membership state, or coordinator call provenance.
+The checks use hash-addressed Decision content plus the authoritative Holochain action timestamp of the Vote Create operation. Validation does not use the Vote's self-reported created_at field, mutable link collections, wall-clock time, live membership state, or coordinator call provenance.
 
 ## Dependency semantics
 
@@ -31,9 +31,10 @@ Pure integrity tests cover:
 
 - a two-option Decision rejecting choice 2;
 - a twenty-option Decision accepting choice 19;
-- a Vote preceding Decision creation being rejected;
-- a Vote after the Decision deadline being rejected;
-- a Vote exactly at the deadline being accepted.
+- a Vote action timestamp preceding the Decision action timestamp being rejected;
+- a Vote action timestamp after the Decision deadline being rejected;
+- a Vote action timestamp exactly at the deadline being accepted;
+- a forged Vote.created_at value being unable to bypass a valid action-timestamp deadline check.
 
 The host-dependent reference-resolution path is kept separate from pure value validation so failure semantics remain explicit.
 
