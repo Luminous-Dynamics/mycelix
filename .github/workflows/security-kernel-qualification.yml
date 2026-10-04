@@ -26,6 +26,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
@@ -107,6 +108,13 @@ jobs:
           line_count="$(wc -l < crates/mycelix-bridge-common/src/lib.rs)"
           if [[ "$line_count" -lt 1800 ]]; then
             echo "bridge-common surface regression: lib.rs unexpectedly shrank to $line_count lines" >&2
+            exit 1
+          fi
+
+          merge_base="$(git merge-base HEAD origin/main)"
+          deleted_lines="$(git diff --numstat "$merge_base"...HEAD -- crates/mycelix-bridge-common/src/lib.rs | awk '{ sum += $2 } END { print sum + 0 }')"
+          if [[ "$deleted_lines" -ne 0 ]]; then
+            echo "bridge-common surface regression: security PR deleted $deleted_lines lines from pre-existing lib.rs surface" >&2
             exit 1
           fi
 
