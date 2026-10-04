@@ -4656,10 +4656,26 @@ mod tests {
         reseal_state_machine_trace_for_test(&mut capsule);
 
         let error = validate_state_machine_trace_evidence(&capsule)
-            .expect_err("re-sealed cross-step temporal forgery must be rejected");
+            .expect_err("re-sealed delivery-count forgery must be rejected");
         assert_eq!(
             error,
             "trace capsule evidence must preserve delivery-count boundary continuity"
+        );
+
+        let mut capsule =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&capsule_text)
+                .expect("capsule must deserialize");
+        let previous_post_admission_index = capsule.evidence[2].post_admission_index;
+        capsule.evidence[3].pre_admission_index = previous_post_admission_index + 1;
+        capsule.evidence[3].post_admission_index = previous_post_admission_index + 1;
+        capsule.evidence[3].newly_admitted_deliveries.clear();
+        reseal_state_machine_trace_for_test(&mut capsule);
+
+        let error = validate_state_machine_trace_evidence(&capsule)
+            .expect_err("re-sealed admission-index forgery must be rejected");
+        assert_eq!(
+            error,
+            "trace capsule evidence must preserve admission-index boundary continuity"
         );
     }
 
