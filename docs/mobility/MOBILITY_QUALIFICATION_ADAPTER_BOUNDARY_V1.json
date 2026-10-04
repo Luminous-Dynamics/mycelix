@@ -170,6 +170,8 @@
     "credential_schema": "mycelix.mobility.holochain_authority_agent_binding.v1",
     "provenance_type": "QualificationAuthorityAgentBindingProvenance",
     "issuer_must_equal_agent": true,
+    "credential_payload_validation_precedes_signature_verification": true,
+    "credential_issuer_match_precedes_signature_verification": true,
     "credential_signature_required": true,
     "authority_must_be_present_before_runtime_binding": true,
     "one_agent_per_authority": true,
