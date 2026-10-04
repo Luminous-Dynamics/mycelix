@@ -5911,11 +5911,8 @@ mod tests {
             )
         );
 
-        let mut divergent_same_endpoint = later.clone();
-        divergent_same_endpoint.evidence[11].token ^= 1;
-        reseal_state_machine_trace_for_test(&mut divergent_same_endpoint);
-        let divergent_same_endpoint_publication = state_machine_trace_checkpoint_publication(
-            &divergent_same_endpoint,
+        let later_same_endpoint_publication = state_machine_trace_checkpoint_publication(
+            &later,
             8,
             &earlier_publication.publication_sha256,
         );
@@ -5923,8 +5920,8 @@ mod tests {
             validate_state_machine_trace_checkpoint_publication_consistency(
                 &earlier,
                 &earlier_publication,
-                &divergent_same_endpoint,
-                &divergent_same_endpoint_publication,
+                &later,
+                &later_same_endpoint_publication,
             ),
             Err(
                 FederationStateMachineTraceCheckpointPublicationViolation::SameEndpointSnapshotMismatch
