@@ -7,84 +7,108 @@
       "test": "test_invalid_decision_entry_reaches_integrity_validation",
       "zome": "hearth_decisions",
       "operation": "create_decision",
-      "operation_surface": ["CreateEntry", "CreateRecord"],
+      "operation_surface": [
+        "CreateEntry",
+        "CreateRecord"
+      ],
       "invariant": "Decision title cannot be empty",
       "rejection_reason": "Decision title cannot be empty",
       "expected_result": "Invalid",
       "boundary": "integrity_validation",
       "validator_source": "mycelix-workspace/mycelix-hearth/zomes/hearth-decisions/integrity/src/lib.rs",
       "validator_symbol": "validate_decision",
-      "invariant_code": "decision.title.is_empty()"
+      "invariant_code": "decision.title.is_empty()",
+      "dispatch_symbol": "validate_decision"
     },
     {
       "case_id": "SEM-02",
       "test": "test_invalid_resource_entry_reaches_integrity_validation",
       "zome": "hearth_resources",
       "operation": "register_resource",
-      "operation_surface": ["CreateEntry", "CreateRecord"],
+      "operation_surface": [
+        "CreateEntry",
+        "CreateRecord"
+      ],
       "invariant": "Resource name cannot be empty",
       "rejection_reason": "Resource name cannot be empty",
       "expected_result": "Invalid",
       "boundary": "integrity_validation",
       "validator_source": "mycelix-workspace/mycelix-hearth/zomes/hearth-resources/integrity/src/lib.rs",
       "validator_symbol": "validate_resource",
-      "invariant_code": "resource.name.is_empty()"
+      "invariant_code": "resource.name.is_empty()",
+      "dispatch_symbol": "validate_resource"
     },
     {
       "case_id": "SEM-03",
       "test": "test_invalid_story_entry_reaches_integrity_validation",
       "zome": "hearth_stories",
       "operation": "create_story",
-      "operation_surface": ["CreateEntry", "CreateRecord"],
+      "operation_surface": [
+        "CreateEntry",
+        "CreateRecord"
+      ],
       "invariant": "Story title cannot be empty",
       "rejection_reason": "Story title cannot be empty",
       "expected_result": "Invalid",
       "boundary": "integrity_validation",
       "validator_source": "mycelix-workspace/mycelix-hearth/zomes/hearth-stories/integrity/src/lib.rs",
       "validator_symbol": "validate_story",
-      "invariant_code": "story.title.is_empty()"
+      "invariant_code": "story.title.is_empty()",
+      "dispatch_symbol": "validate_story"
     },
     {
       "case_id": "SEM-04",
       "test": "test_cross_hearth_collection_story_link_reaches_integrity_validation",
       "zome": "hearth_stories",
       "operation": "add_to_collection",
-      "operation_surface": ["Link.CreateLink"],
+      "operation_surface": [
+        "Link.CreateLink"
+      ],
       "invariant": "CollectionToStories story belongs to a different hearth",
       "rejection_reason": "CollectionToStories story belongs to a different hearth",
       "expected_result": "Invalid",
       "boundary": "integrity_validation",
       "validator_source": "mycelix-workspace/mycelix-hearth/zomes/hearth-stories/integrity/src/lib.rs",
       "validator_symbol": "validate_create_link",
-      "invariant_code": "story_entry.hearth_hash != collection_entry.hearth_hash"
+      "invariant_code": "story_entry.hearth_hash != collection_entry.hearth_hash",
+      "dispatch_symbol": "validate_create_link"
     },
     {
       "case_id": "SEM-05",
       "test": "test_invalid_bridge_notification_reaches_integrity_validation",
       "zome": "hearth_bridge",
       "operation": "receive_notification",
-      "operation_surface": ["CreateEntry", "CreateRecord"],
+      "operation_surface": [
+        "CreateEntry",
+        "CreateRecord"
+      ],
       "invariant": "source_cluster cannot be empty",
       "rejection_reason": "source_cluster cannot be empty",
       "expected_result": "Invalid",
       "boundary": "integrity_validation",
       "validator_source": "crates/mycelix-bridge-entry-types/src/lib.rs",
       "validator_symbol": "validate_notification",
-      "invariant_code": "entry.source_cluster.is_empty()"
+      "invariant_code": "entry.source_cluster.is_empty()",
+      "dispatch_symbol": "validate_notification_entry"
     },
     {
       "case_id": "SEM-06",
       "test": "test_invalid_story_update_reaches_integrity_validation",
       "zome": "hearth_stories",
       "operation": "update_story",
-      "operation_surface": ["CreateEntry", "CreateRecord", "Update"],
+      "operation_surface": [
+        "CreateEntry",
+        "CreateRecord",
+        "Update"
+      ],
       "invariant": "Story title cannot be empty",
       "rejection_reason": "Story title cannot be empty",
       "expected_result": "Invalid",
       "boundary": "integrity_validation",
       "validator_source": "mycelix-workspace/mycelix-hearth/zomes/hearth-stories/integrity/src/lib.rs",
       "validator_symbol": "validate_story_update",
-      "invariant_code": "story.title.is_empty()"
+      "invariant_code": "story.title.is_empty()",
+      "dispatch_symbol": "validate_story_update"
     }
   ]
 }
