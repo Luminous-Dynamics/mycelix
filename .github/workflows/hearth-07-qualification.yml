@@ -35,6 +35,9 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
+      # Keep the ambient workflow token unavailable to shell processes and Nix.
+      # Actions that need repository access use their explicit action inputs.
+      GITHUB_TOKEN: ""
       # Always qualify an exact source commit: PRs use the source head rather
       # than GitHub's synthetic merge ref, pushes use the pushed commit, and
       # manual runs require an explicit SHA.
@@ -95,6 +98,17 @@ jobs:
       - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24
         with:
           install_url: https://releases.nixos.org/nix/nix-2.35.0/install
+          # Do not allow the action to copy the ambient GitHub token into nix.conf.
+          github_access_token: ""
+
+      - name: Verify Nix credential isolation
+        run: |
+          set -euo pipefail
+          if sudo grep -Eq 'access-tokens[[:space:]]*=.*github\.com' /etc/nix/nix.conf 2>/dev/null; then
+            echo "Nix configuration unexpectedly contains a GitHub access token" >&2
+            exit 1
+          fi
+          echo "OK: Nix configuration contains no GitHub access-token entry"
 
       - uses: cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866
         with:
