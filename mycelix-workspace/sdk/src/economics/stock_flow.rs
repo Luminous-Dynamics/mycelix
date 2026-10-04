@@ -757,6 +757,7 @@ impl EconomicState {
             ("monetary flow volume", self.monetary_flow_volume),
             ("credit created", self.credit_created),
             ("debt repaid", self.debt_repaid),
+            ("debt written off", self.debt_written_off),
         ] {
             if value < 0 {
                 return Err(format!("economic state contains negative {label}"));
