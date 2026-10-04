@@ -49,20 +49,62 @@
     "claim_ceiling"
   ],
   "cases": {
-    "canonical-payload-accepted": {"outcome": "accepted", "zome_reached": true},
-    "authorized-semantic-rejection": {"outcome": "semantic-rejected", "zome_reached": true},
-    "wire-signature-invalid": {"outcome": "authentication-failed", "zome_reached": false},
-    "author-grant": {"outcome": "accepted", "zome_reached": true},
-    "valid-capability": {"outcome": "accepted", "zome_reached": true},
-    "wrong-capability": {"outcome": "authorization-failed", "zome_reached": false},
-    "revoked-capability": {"outcome": "authorization-failed", "zome_reached": false},
-    "provenance-mismatch": {"outcome": "authorization-failed", "zome_reached": false},
-    "nonce-replay": {"outcome": "authorization-failed", "zome_reached": false},
-    "expired-invocation": {"outcome": "authorization-failed", "zome_reached": false},
-    "wrong-zome": {"outcome": "routing-failed", "zome_reached": false},
-    "wrong-function": {"outcome": "routing-failed", "zome_reached": false},
-    "wrong-cell": {"outcome": "routing-failed", "zome_reached": false},
-    "blocked-provenance": {"outcome": "authorization-failed", "zome_reached": false}
+    "canonical-payload-accepted": {
+      "outcome": "accepted",
+      "zome_reached": true
+    },
+    "authorized-semantic-rejection": {
+      "outcome": "semantic-rejected",
+      "zome_reached": true
+    },
+    "wire-signature-invalid": {
+      "outcome": "authentication-failed",
+      "zome_reached": false
+    },
+    "author-grant": {
+      "outcome": "accepted",
+      "zome_reached": true
+    },
+    "valid-capability": {
+      "outcome": "accepted",
+      "zome_reached": true
+    },
+    "wrong-capability": {
+      "outcome": "authorization-failed",
+      "zome_reached": false
+    },
+    "revoked-capability": {
+      "outcome": "authorization-failed",
+      "zome_reached": false
+    },
+    "provenance-mismatch": {
+      "outcome": "authorization-failed",
+      "zome_reached": false
+    },
+    "nonce-replay": {
+      "outcome": "authorization-failed",
+      "zome_reached": false
+    },
+    "expired-invocation": {
+      "outcome": "authorization-failed",
+      "zome_reached": false
+    },
+    "wrong-zome": {
+      "outcome": "routing-failed",
+      "zome_reached": false
+    },
+    "wrong-function": {
+      "outcome": "routing-failed",
+      "zome_reached": false
+    },
+    "wrong-cell": {
+      "outcome": "routing-failed",
+      "zome_reached": false
+    },
+    "blocked-provenance": {
+      "outcome": "authorization-failed",
+      "zome_reached": false
+    }
   },
   "supplemental_substrate": {
     "future-expiry-rejection": "Future",
@@ -83,5 +125,35 @@
     "holochain_serialized_bytes": "0.0.57",
     "holochain_types": "0.7.0"
   },
-  "lock_source": "registry+https://github.com/rust-lang/crates.io-index"
+  "lock_source": "registry+https://github.com/rust-lang/crates.io-index",
+  "manifest_version": 11,
+  "d6s2_authority_ledger_schema": "v1",
+  "d6s2_manifest_git_blob_sha": "4353b9aed545c7762d6f8f73bc551e4c008271a9",
+  "d6s2_fixture_git_blob_sha": "0b4c5b924bc3b807c556ef92cc869d66f7cc97a1",
+  "d6s1_corpus_sha256": "9d61cdb2e625c13c5813fffb7cceea4af2f93ed60d7d64c068dc6d3f6f6b614d",
+  "expected_case_coverage": "14-of-14",
+  "expected_supplemental_coverage": "4-of-4",
+  "expected_application_check_coverage": "1-of-1",
+  "expected_case_outcome_classes": [
+    "accepted",
+    "semantic-rejected",
+    "d6s-commitment-mismatch",
+    "authentication-failed",
+    "authorization-failed",
+    "routing-failed"
+  ],
+  "required_tracked_blobs": {
+    ".github/workflows/d6u-runtime-qualification.yml": "64364952fad6876d210f28f327b7c799357531a9",
+    "docs/integral/d6u-runtime-manifest.json": "7cb9fbe547bc5e0c3512224712ceca7b5e30b7c2",
+    "d6u-runtime-harness/Cargo.toml": "919927360b4c2b8d79efb336297b8834c7ff12e0",
+    "d6u-runtime-harness/rust-toolchain.toml": "69719934f101c996e1cecfc572f8bc61441018f2",
+    "d6u-runtime-harness/src/lib.rs": "d20684b30b7567742b1f4af5cd592e25d4e8a163",
+    "d6u-runtime-harness/tests/d6u_authority_boundary.rs": "45149b5f2cb4042f643af26623358c51fffb0d04",
+    "scripts/integral/verify_d6u_runtime_manifest.py": "f94848988e7f7d6a80826401d78db9e98f01a17d",
+    "scripts/integral/verify_d6u_runtime_evidence.py": "f35aad81943cdf35a17c83827b01bbd7e0597e93",
+    "scripts/integral/verify_d6u_runtime_lock.py": "16607cb0830be451b37116b2612b46693423a377",
+    "scripts/integral/verify_d6u_runtime_record.py": "1587b0d02e3fde30a112069af24b22d58cb74027",
+    "docs/integral/d6s-canon-2-manifest.json": "4353b9aed545c7762d6f8f73bc551e4c008271a9",
+    "docs/integral/d6s-canon-2-authority-boundary-fixture.json": "0b4c5b924bc3b807c556ef92cc869d66f7cc97a1"
+  }
 }
