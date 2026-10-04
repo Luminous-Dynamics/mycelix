@@ -23,6 +23,7 @@ The kernel provides:
 
 - `Capability` and `AuthorizationRequest` as explicit inputs; both wire-deserialization paths are constructor-gated so serialized input cannot bypass their constructor invariants. Their private wire schemas also reject unknown fields, preventing field-smuggling across the signed semantic boundary.
 - `ProvenanceRef` uses the same constructor-gated wire boundary, rejects unknown fields, and keeps its invariant-bearing fields private so callers cannot bypass `ProvenanceRef::new()` with a struct literal or mutation.
+- Security-event recovery correlations are also constructor-gated during wire decoding, and untrusted provenance sequences are bounded before retention to keep audit input fail-closed and resource-bounded.
 - `VerificationEvidence` as an opaque, non-serializable hand-off from an independent cryptographic/identity verifier; its trusted fields cannot be constructed or deserialized by downstream callers.
 - `VerifiedCapability` as a non-forgeable-in-module boundary object.
 - `AuthorizationDecision::Allow | Deny | Indeterminate`.

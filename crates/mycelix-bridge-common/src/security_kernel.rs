@@ -16,12 +16,14 @@
 //! Symthaea may consume or produce advisory values around this kernel. It is
 //! not a root of trust and cannot manufacture an authorization decision.
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::Error as _, de::SeqAccess, de::Visitor};
 
 #[cfg(feature = "identity")]
 use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
 
 pub const MAX_SECURITY_IDENTIFIER_BYTES: usize = 512;
+/// Maximum number of actions a capability can contain.
+pub const MAX_CAPABILITY_ACTIONS: usize = 5;
 /// Maximum lifetime of an issued authorization permit, independent of the
 /// underlying capability's absolute expiry.
 pub const MAX_AUTHORIZATION_PERMIT_LIFETIME_US: u64 = 5 * 60 * 1_000_000;
@@ -42,6 +44,7 @@ pub struct Capability {
     subject: String,
     issuer: String,
     resource: String,
+    #[serde(deserialize_with = "deserialize_capability_actions")]
     actions: Vec<CapabilityAction>,
     not_before_us: u64,
     expires_at_us: u64,
@@ -74,6 +77,43 @@ impl TryFrom<CapabilityWire> for Capability {
             wire.policy_version,
         )
     }
+}
+
+/// Bound capability action sequences before retaining an attacker-controlled
+/// number of enum values from wire input.
+fn deserialize_capability_actions<'de, D>(
+    deserializer: D,
+) -> Result<Vec<CapabilityAction>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    struct CapabilityActionsVisitor;
+
+    impl<'de> Visitor<'de> for CapabilityActionsVisitor {
+        type Value = Vec<CapabilityAction>;
+
+        fn expecting(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+            formatter.write_str("a bounded capability action sequence")
+        }
+
+        fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+        where
+            A: SeqAccess<'de>,
+        {
+            let mut actions = Vec::with_capacity(MAX_CAPABILITY_ACTIONS);
+            while let Some(action) = seq.next_element()? {
+                if actions.len() >= MAX_CAPABILITY_ACTIONS {
+                    return Err(A::Error::custom(
+                        "capability action sequence exceeds size limit",
+                    ));
+                }
+                actions.push(action);
+            }
+            Ok(actions)
+        }
+    }
+
+    deserializer.deserialize_seq(CapabilityActionsVisitor)
 }
 
 /// A capability together with an Ed25519 signature over its canonical semantic
@@ -887,6 +927,17 @@ mod tests {
             "policy_version": 7
         });
         assert!(serde_json::from_value::<Capability>(invalid_window).is_err());
+
+        let too_many_actions = serde_json::json!({
+            "subject": "did:mycelix:alice",
+            "issuer": "did:mycelix:issuer",
+            "resource": "resource:ledger",
+            "actions": ["Read", "Write", "Execute", "Delegate", "Admin", "Read"],
+            "not_before_us": 100,
+            "expires_at_us": 200,
+            "policy_version": 7
+        });
+        assert!(serde_json::from_value::<Capability>(too_many_actions).is_err());
 
         let unknown_field = serde_json::json!({
             "subject": "did:mycelix:alice",

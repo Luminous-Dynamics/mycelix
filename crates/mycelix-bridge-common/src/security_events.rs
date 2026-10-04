@@ -14,6 +14,8 @@ use serde::{Deserialize, Deserializer, Serialize, de::Error as _};
 use crate::security_kernel::{AuthorizationDecision, AuthorizationRequest, EnforcementRequest};
 
 pub const MAX_PROVENANCE_IDENTIFIER_BYTES: usize = 512;
+/// Resource bound for provenance edges accepted from a security-event wire envelope.
+pub const MAX_SECURITY_EVENT_PROVENANCE_REFS: usize = 256;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(try_from = "ProvenanceRefWire")]
@@ -95,8 +97,46 @@ pub struct SecurityEvent {
     /// that qualified a successful enforcement request.
     #[serde(default)]
     authority_binding: Option<[u8; 32]>,
+    #[serde(deserialize_with = "deserialize_provenance_refs")]
     provenance: Vec<ProvenanceRef>,
     recovery_correlation: Option<String>,
+}
+
+/// Bound provenance sequences before retaining an attacker-controlled
+/// number of references from wire input.
+fn deserialize_provenance_refs<'de, D>(
+    deserializer: D,
+) -> Result<Vec<ProvenanceRef>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    struct ProvenanceRefsVisitor;
+
+    impl<'de> Visitor<'de> for ProvenanceRefsVisitor {
+        type Value = Vec<ProvenanceRef>;
+
+        fn expecting(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+            formatter.write_str("a bounded provenance-reference sequence")
+        }
+
+        fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+        where
+            A: SeqAccess<'de>,
+        {
+            let mut provenance = Vec::with_capacity(MAX_SECURITY_EVENT_PROVENANCE_REFS);
+            while let Some(reference) = seq.next_element()? {
+                if provenance.len() >= MAX_SECURITY_EVENT_PROVENANCE_REFS {
+                    return Err(A::Error::custom(
+                        "security event provenance exceeds size limit",
+                    ));
+                }
+                provenance.push(reference);
+            }
+            Ok(provenance)
+        }
+    }
+
+    deserializer.deserialize_seq(ProvenanceRefsVisitor)
 }
 
 #[derive(Debug, Deserialize)]
@@ -363,6 +403,39 @@ mod tests {
             r#"{"artifact_id":"evidence:source-1","relation":"References","authority":"ignored"}"#,
         );
         assert!(unknown.is_err());
+    }
+
+    #[test]
+    fn security_event_deserialization_rejects_excessive_provenance() {
+        let provenance: String = (0..=MAX_SECURITY_EVENT_PROVENANCE_REFS)
+            .map(|index| {
+                format!(
+                    r#"{{"artifact_id":"evidence:{index}","relation":"References"}}"#
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(",");
+
+        let json = format!(
+            r#"{{
+                "event_id":"event:provenance-limit",
+                "actor_id":"did:mycelix:alice",
+                "capability_ref":"capability:1",
+                "request":{{
+                    "subject":"did:mycelix:alice",
+                    "resource":"resource:ledger",
+                    "action":"Read",
+                    "policy_version":7
+                }},
+                "decision":{{"Deny":"ActionNotGranted"}},
+                "policy_version":7,
+                "timestamp_us":151,
+                "provenance":[{provenance}],
+                "recovery_correlation":null
+            }}"#
+        );
+
+        assert!(serde_json::from_str::<SecurityEvent>(&json).is_err());
     }
 
     #[test]
