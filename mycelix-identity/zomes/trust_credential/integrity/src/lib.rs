@@ -1127,15 +1127,24 @@ mod author_binding_tests {
         TrustPresentation {
             id: "pres-1".to_string(),
             credential_id: "cred-1".to_string(),
+            credential_action_hash: Some(ActionHash::from_raw_36(vec![9u8; 36])),
             subject_did,
             disclosed_tier: TrustTier::Standard,
             disclosed_range: None,
             presentation_proof: vec![1, 2, 3],
             verifier_did: None,
             purpose: "test".to_string(),
-            presented_at: Timestamp::from_micros(0),
-            nonce: vec![1, 2, 3, 4],
+            presented_at: Timestamp::from_micros(1),
+            nonce: vec![1u8; 16],
         }
+    }
+
+    #[test]
+    fn create_presentation_requires_source_credential_hash() {
+        let mut pres = valid_presentation(format!("did:mycelix:{}", me()));
+        pres.credential_action_hash = None;
+        let result = validate_create_presentation(test_action(me()), pres).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
     #[test]
