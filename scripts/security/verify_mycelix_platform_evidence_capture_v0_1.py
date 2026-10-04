@@ -23,6 +23,8 @@ RAW_EVENTLOG_PARSER_SCRIPT = ROOT / "scripts/security/parse_mycelix_raw_tpm2_eve
 PAYLOAD_COHERENCE_SCRIPT = ROOT / "scripts/security/verify_mycelix_event_payload_digest_coherence_v0_1.py"
 REFERENCE_APPRAISAL_SCRIPT = ROOT / "scripts/security/verify_mycelix_reference_value_appraisal_v0_1.py"
 REFERENCE_REGISTRY = ROOT / "docs/security/mycelix-reference-value-registry-v0.1.json"
+TIME_APPRAISAL_SCRIPT = ROOT / "scripts/security/verify_mycelix_trusted_time_appraisal_v0_1.py"
+TIME_REGISTRY = ROOT / "docs/security/mycelix-trusted-time-registry-v0.1.json"
 RECONSTRUCTION_VERIFIER_ID = "mycelix.pc-client.eventlog-reconstruction.v0.1"
 
 
@@ -139,6 +141,11 @@ def session_binding(manifest: dict[str, Any]) -> str:
             "reference_appraisal_source_sha256": manifest["reference_appraisal"]["source_sha256"],
             "reference_appraisal_registry_sha256": manifest["reference_appraisal"]["registry_sha256"],
             "reference_appraisal_input_sha256": manifest["reference_appraisal"]["input_sha256"],
+            "time_appraisal_status": manifest["time_appraisal"]["status"],
+            "time_appraisal_output_sha256": manifest["time_appraisal"]["output_sha256"],
+            "time_appraisal_source_sha256": manifest["time_appraisal"]["source_sha256"],
+            "time_appraisal_registry_sha256": manifest["time_appraisal"]["registry_sha256"],
+            "time_appraisal_input_sha256": manifest["time_appraisal"]["input_sha256"],
         }
     )
 
@@ -408,6 +415,13 @@ def validate_semantics(manifest: dict[str, Any]) -> tuple[str, str]:
             "registry_sha256",
             "input_sha256",
         ),
+        "time_appraisal": (
+            "status",
+            "output_sha256",
+            "source_sha256",
+            "registry_sha256",
+            "input_sha256",
+        ),
         "quote": ("pcr_selection", "nonce_sha256", "attestation_key_sha256"),
         "challenge": ("sha256", "origin"),
         "toolchain": (
@@ -438,6 +452,7 @@ def validate_semantics(manifest: dict[str, Any]) -> tuple[str, str]:
             "raw_eventlog_output_sha256",
             "payload_coherence_output_sha256",
             "reference_appraisal_output_sha256",
+            "time_appraisal_output_sha256",
             "tss_version_evidence_sha256",
             "ek_public_sha256",
         ),
@@ -510,6 +525,16 @@ def validate_semantics(manifest: dict[str, Any]) -> tuple[str, str]:
         denies.append("reference-appraisal-denied")
     elif manifest["reference_appraisal"]["status"] != "PASS":
         indeterminate.append("reference-appraisal-unavailable-or-unapproved")
+    if manifest["time_appraisal"]["source_sha256"] != sha256_file(TIME_APPRAISAL_SCRIPT):
+        denies.append("time-appraisal-source-binding-mismatch")
+    if manifest["time_appraisal"]["registry_sha256"] != sha256_file(TIME_REGISTRY):
+        denies.append("time-appraisal-registry-binding-mismatch")
+    if manifest["time_appraisal"]["input_sha256"] != manifest["trusted_time"]["sha256"]:
+        denies.append("time-appraisal-input-binding-mismatch")
+    if manifest["time_appraisal"]["status"] == "DENY":
+        denies.append("time-appraisal-denied")
+    elif manifest["time_appraisal"]["status"] != "PASS":
+        indeterminate.append("time-appraisal-unavailable-or-untrusted")
 
     if (
         manifest["reconstruction"]["status"] == "PASS"
