@@ -854,7 +854,7 @@ if cargo_path is None:
 
 cargo_text = cargo_path.read_text()
 package_match = re.search(
-    r'(?m)^[[:space:]]*name[[:space:]]*=[[:space:]]*"([^"]+)"[[:space:]]*$',
+    r'(?m)^\s*name\s*=\s*"([^"]+)"\s*$',
     cargo_text,
 )
 if not package_match:
@@ -868,7 +868,7 @@ integrity_prod = integrity_text.split("#[cfg(test)]", 1)[0]
 integrity_manifest = integrity_source.parent.parent / "Cargo.toml"
 
 dependency_re = re.compile(
-    rf'(?m)^[[:space:]]*{re.escape(package_name)}[[:space:]]*=[[:space:]]'
+    rf'(?m)^\s*{re.escape(package_name)}\s*=\s'
 )
 if not dependency_re.search(integrity_manifest.read_text()):
     print(
@@ -878,7 +878,7 @@ if not dependency_re.search(integrity_manifest.read_text()):
     raise SystemExit(2)
 
 import_re = re.compile(
-    rf'(?ms)^[[:space:]]*(?:pub[[:space:]]+)?use[[:space:]]+'
+    rf'(?ms)^\s*(?:pub\s+)?use\s+'
     rf'{re.escape(crate_name)}::[^;]*\b{re.escape(validator_symbol)}\b'
 )
 if not import_re.search(integrity_prod):
@@ -889,8 +889,8 @@ if not import_re.search(integrity_prod):
     raise SystemExit(2)
 
 local_def_re = re.compile(
-    rf'(?m)^[[:space:]]*(?:pub[[:space:]]+)?fn[[:space:]]+'
-    rf'{re.escape(validator_symbol)}[[:space:]]*\('
+    rf'(?m)^\s*(?:pub\s+)?fn\s+'
+    rf'{re.escape(validator_symbol)}\s*\('
 )
 if local_def_re.search(integrity_prod):
     print(
