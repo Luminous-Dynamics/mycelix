@@ -712,3 +712,184 @@ async fn test_tally_and_query_votes() {
     drop(bob_conductor);
     tokio::time::sleep(std::time::Duration::from_millis(500)).await;
 }
+
+// ============================================================================
+// Concurrent close/finalize lifecycle precedence
+// ============================================================================
+
+/// Alice closes while Bob finalizes from the same Open Decision after the
+/// deadline. AC-075 requires the canonical Decision view to remain Finalized
+/// because substantive resolution outranks administrative closure.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "requires Holochain conductor"]
+async fn test_concurrent_close_and_finalize_prefers_finalized() {
+    let dna_file = SweetDnaFile::from_bundle(&hearth_dna_path()).await.unwrap();
+
+    let mut alice_conductor = SweetConductor::from_standard_config().await;
+    let mut bob_conductor = SweetConductor::from_standard_config().await;
+
+    let (alice,) = alice_conductor
+        .setup_app("test-app", &[dna_file.clone()])
+        .await
+        .unwrap()
+        .into_tuple();
+    let (bob,) = bob_conductor
+        .setup_app("test-app", &[dna_file.clone()])
+        .await
+        .unwrap()
+        .into_tuple();
+
+    SweetConductor::exchange_peer_info([&alice_conductor, &bob_conductor]).await;
+
+    let hearth_record: Record = alice_conductor
+        .call(
+            &alice.zome("hearth_kinship"),
+            "create_hearth",
+            CreateHearthInput {
+                name: "Close Finalize Race Hearth".to_string(),
+                description: "Testing terminal lifecycle precedence".to_string(),
+                hearth_type: HearthType::Chosen,
+                max_members: Some(10),
+            },
+        )
+        .await;
+    let hearth_hash = hearth_record.action_address().clone();
+
+    let invitation_record: Record = alice_conductor
+        .call(
+            &alice.zome("hearth_kinship"),
+            "invite_member",
+            InviteMemberInput {
+                hearth_hash: hearth_hash.clone(),
+                invitee_agent: bob.agent_pubkey().clone(),
+                proposed_role: MemberRole::Adult,
+                message: "Join terminal race test".to_string(),
+                expires_at: Timestamp::from_micros(Timestamp::now().as_micros() + 86_400_000_000),
+            },
+        )
+        .await;
+
+    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+
+    let _: Record = bob_conductor
+        .call(
+            &bob.zome("hearth_kinship"),
+            "accept_invitation",
+            AcceptInvitationInput {
+                invitation_hash: invitation_record.action_address().clone(),
+                display_name: "Bob".to_string(),
+            },
+        )
+        .await;
+
+    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+
+    let decision_record: Record = alice_conductor
+        .call(
+            &alice.zome("hearth_decisions"),
+            "create_decision",
+            CreateDecisionInput {
+                hearth_hash: hearth_hash.clone(),
+                title: "Concurrent terminal race".to_string(),
+                description: "Close and finalize race from one Open basis".to_string(),
+                decision_type: DecisionType::MajorityVote,
+                eligible_roles: vec![MemberRole::Founder, MemberRole::Adult],
+                options: vec!["A".to_string(), "B".to_string()],
+                deadline: Timestamp::from_micros(Timestamp::now().as_micros() + 2_000_000),
+                quorum_bp: None,
+            },
+        )
+        .await;
+    let decision_hash = decision_record.action_address().clone();
+
+    let _: Record = alice_conductor
+        .call(
+            &alice.zome("hearth_decisions"),
+            "cast_vote",
+            CastVoteInput {
+                decision_hash: decision_hash.clone(),
+                choice: 0,
+                reasoning: Some("Alice substantive vote".to_string()),
+            },
+        )
+        .await;
+
+    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+
+    let _: Record = bob_conductor
+        .call(
+            &bob.zome("hearth_decisions"),
+            "cast_vote",
+            CastVoteInput {
+                decision_hash: decision_hash.clone(),
+                choice: 0,
+                reasoning: Some("Bob substantive vote".to_string()),
+            },
+        )
+        .await;
+
+    // Ensure finalization's deadline guard is satisfied. close_decision has no
+    // deadline guard, so both terminal operations can race from the same Open view.
+    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+
+    let (_closed, finalized) = tokio::join!(
+        alice_conductor.call(
+            &alice.zome("hearth_decisions"),
+            "close_decision",
+            CloseDecisionInput {
+                decision_hash: decision_hash.clone(),
+            },
+        ),
+        bob_conductor.call(
+            &bob.zome("hearth_decisions"),
+            "finalize_decision",
+            FinalizeDecisionInput {
+                decision_hash: decision_hash.clone(),
+            },
+        ),
+    );
+
+    let outcome = finalized;
+    assert_eq!(
+        outcome.action().author(),
+        bob.agent_pubkey(),
+        "Finalization outcome must be authored by Bob",
+    );
+
+    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+
+    let current: Record = alice_conductor
+        .call(
+            &alice.zome("hearth_decisions"),
+            "get_decision",
+            decision_hash.clone(),
+        )
+        .await;
+    let current_decision: Decision = current
+        .entry()
+        .to_app_option()
+        .expect("Decision record must deserialize")
+        .expect("Decision record must contain entry data");
+    assert_eq!(
+        current_decision.status,
+        DecisionStatus::Finalized,
+        "Finalized must dominate a concurrent Closed revision",
+    );
+
+    let canonical: Option<Record> = alice_conductor
+        .call(
+            &alice.zome("hearth_decisions"),
+            "get_decision_outcome",
+            decision_hash,
+        )
+        .await;
+    assert_eq!(
+        canonical.expect("substantive outcome must remain visible").action_address(),
+        outcome.action_address(),
+        "Canonical outcome should remain visible after the concurrent close",
+    );
+
+    drop(alice_conductor);
+    drop(bob_conductor);
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+}
