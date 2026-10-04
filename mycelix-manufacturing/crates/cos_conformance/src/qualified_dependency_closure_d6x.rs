@@ -1637,6 +1637,14 @@ mod tests {
         baseline_projection: QualifiedProjectionV1,
         semantic_environment: SemanticEnvironmentV1,
         derivation_profile: DerivationProfileV1,
+        authoritative_d6p: GoldenAuthoritativeD6PFixtureV1,
+    }
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct GoldenAuthoritativeD6PFixtureV1 {
+        receipt: CurrentFinalityEligibilityReceiptV1,
+        composition: FinalityEligibilityCompositionV1,
     }
 
     #[derive(Debug, Clone, Deserialize)]
@@ -1729,6 +1737,21 @@ mod tests {
         assert!(!corpus.fixtures.baseline_projection.projection_id.is_empty());
         assert!(!corpus.fixtures.semantic_environment.semantic_profile_id.is_empty());
         assert!(!corpus.fixtures.derivation_profile.profile_id.is_empty());
+        assert!(
+            corpus.fixtures.authoritative_d6p.receipt.commitment_matches(),
+            "golden D6P receipt fixture must be internally committed"
+        );
+        assert!(
+            corpus.fixtures.authoritative_d6p.composition.semantically_valid(),
+            "golden D6P composition fixture must be semantically valid"
+        );
+        assert!(
+            verify_current_receipt_provenance_from_composition(
+                &corpus.fixtures.authoritative_d6p.receipt,
+                &corpus.fixtures.authoritative_d6p.composition,
+            ),
+            "golden D6P receipt must be an exact projection of its composition"
+        );
         assert!(!corpus.recipe_contract.baseline_projection.is_empty());
         assert!(!corpus.recipe_contract.mutation_semantics.is_empty());
         assert!(!corpus.recipe_contract.cross_runtime_rule.is_empty());
@@ -2048,6 +2071,64 @@ mod tests {
         };
 
         (projection, environment, derivation_profile, profile)
+    }
+
+    #[test]
+    fn golden_authoritative_d6p_fixture_executes_against_d6x_admission() {
+        let corpus_text = include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/testdata/d6x_qualified_closure_golden_vectors.json"
+        ));
+        let corpus: GoldenCorpusV1 =
+            serde_json::from_str(corpus_text).expect("D6X golden vector corpus must parse");
+
+        let fixture = &corpus.fixtures.authoritative_d6p;
+        let mut vector = corpus
+            .vectors
+            .iter()
+            .find(|vector| vector.id == "baseline-complete")
+            .expect("baseline golden vector")
+            .clone();
+        vector.recipe.required_d6p_receipt_commitments =
+            vec![fixture.receipt.receipt_commitment.clone()];
+        vector.recipe.projection_d6p_receipt_commitments =
+            vec![fixture.receipt.receipt_commitment.clone()];
+
+        let (projection, environment, derivation_profile, profile) =
+            execute_golden_recipe(&corpus, &vector);
+        let closure = compute_dependency_closure_from_authoritative_d6p(
+            &projection,
+            &environment,
+            &derivation_profile,
+            &profile,
+            std::slice::from_ref(&fixture.receipt),
+            std::slice::from_ref(&fixture.composition),
+        )
+        .expect("declared authoritative D6P fixture must pass non-strict admission");
+
+        assert_eq!(closure.status, DependencyClosureStatusV1::Complete);
+        assert_eq!(
+            closure.included_d6p_receipt_commitments,
+            [fixture.receipt.receipt_commitment.clone()]
+                .into_iter()
+                .collect()
+        );
+
+        let strict = compute_dependency_closure_from_authoritative_d6p_at_frontier(
+            &projection,
+            &environment,
+            &derivation_profile,
+            &profile,
+            std::slice::from_ref(&fixture.receipt),
+            std::slice::from_ref(&fixture.composition),
+            Some(&fixture.receipt.current_frontier_root),
+        )
+        .expect("declared authoritative D6P fixture must pass matching frontier admission");
+
+        assert_eq!(
+            strict.closure_identity_commitment,
+            closure.closure_identity_commitment
+        );
     }
 
     #[test]
