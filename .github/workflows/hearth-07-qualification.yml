@@ -9,12 +9,14 @@ on:
       - "crates/mycelix-bridge-*/**"
       - ".github/workflows/hearth-07-qualification.yml"
       - ".gitmodules"
+      - "mycelix-health/**"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
     paths:
       - "mycelix-workspace/mycelix-hearth/**"
       - "crates/mycelix-bridge-*/**"
       - ".gitmodules"
+      - "mycelix-health/**"
   workflow_dispatch:
     inputs:
       target_sha:
