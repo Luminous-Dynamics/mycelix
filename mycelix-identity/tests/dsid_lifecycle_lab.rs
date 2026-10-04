@@ -4794,3 +4794,109 @@ async fn dsid_048_request_bound_issuance_rejects_legacy_cryptosuite() {
     );
 }
 
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_049_default_credential_proof_profile_is_w3c_jcs() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let issuer_app = conductor
+        .setup_app("dsid-default-jcs-issuer", std::slice::from_ref(&dna))
+        .await
+        .unwrap();
+    let holder_app = conductor
+        .setup_app("dsid-default-jcs-holder", std::slice::from_ref(&dna))
+        .await
+        .unwrap();
+
+    let issuer = issuer_app.cells()[0].clone();
+    let holder = holder_app.cells()[0].clone();
+    let holder_did = format!("did:mycelix:{}", holder_app.agent());
+
+    let _: Record = conductor
+        .call(&issuer.zome("did_registry"), "create_did", ())
+        .await;
+    let _: Record = conductor
+        .call(&holder.zome("did_registry"), "create_did", ())
+        .await;
+
+    let credential: Record = conductor
+        .call(
+            &issuer.zome("verifiable_credential"),
+            "issue_credential",
+            serde_json::json!({
+                "subject_did": holder_did.clone(),
+                "schema_id": "mycelix:schema:education:degree:v1",
+                "claims": {"degree": "DSID default JCS"},
+                "credential_types": ["QualificationCredential"],
+                "issuer_name": "DSID Default Profile Issuer",
+                "expiration_days": 365,
+                "enable_revocation": false,
+                "strict_schema": false
+            }),
+        )
+        .await;
+
+    let value: serde_json::Value = credential
+        .entry()
+        .to_app_option()
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(
+        value["proof"]["cryptosuite"].as_str(),
+        Some("eddsa-jcs-2022")
+    );
+    assert_eq!(value["proof"]["type"].as_str(), Some("DataIntegrityProof"));
+    assert_eq!(
+        value["proof"]["verificationMethod"].as_str(),
+        Some(
+            format!(
+                "did:mycelix:{}#keys-1-multikey",
+                issuer_app.agent()
+            )
+            .as_str()
+        )
+    );
+    assert_eq!(value["proof"]["algorithm"], serde_json::Value::Null);
+    assert_eq!(value["proof"]["@context"], value["@context"]);
+
+    let verified: serde_json::Value = conductor
+        .call(
+            &holder.zome("verifiable_credential"),
+            "verify_credential",
+            value["id"].as_str().unwrap().to_owned(),
+        )
+        .await;
+    assert_eq!(
+        verified["valid"], true,
+        "default W3C JCS credential must verify: {verified}"
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("issuer", issuer_app.agent().to_string());
+    agents.insert("holder", holder_app.agent().to_string());
+    emit_evidence(
+        "DSID-049",
+        "default-credential-proof-profile-is-w3c-jcs",
+        &dna,
+        agents,
+        &[&credential],
+        "Omitting proof_profile must produce the W3C eddsa-jcs-2022 DataIntegrityProof profile and the resulting credential must verify.",
+        format!(
+            "cryptosuite={} data_integrity_proof={} canonical_multikey={} proof_context_matches_document={} verifies={}",
+            value["proof"]["cryptosuite"].as_str().unwrap_or("missing"),
+            value["proof"]["type"].as_str() == Some("DataIntegrityProof"),
+            value["proof"]["verificationMethod"].as_str()
+                == Some(format!("did:mycelix:{}#keys-1-multikey", issuer_app.agent()).as_str()),
+            value["proof"]["@context"] == value["@context"],
+            verified["valid"] == true
+        ),
+        value["proof"]["cryptosuite"].as_str() == Some("eddsa-jcs-2022")
+            && value["proof"]["type"].as_str() == Some("DataIntegrityProof")
+            && value["proof"]["verificationMethod"].as_str()
+                == Some(format!("did:mycelix:{}#keys-1-multikey", issuer_app.agent()).as_str())
+            && value["proof"]["@context"] == value["@context"]
+            && verified["valid"] == true,
+    );
+}
+
