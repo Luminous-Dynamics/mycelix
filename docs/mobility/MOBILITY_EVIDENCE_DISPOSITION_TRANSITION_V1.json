@@ -906,6 +906,11 @@
       "id": "EDT-179",
       "case": "malformed_runtime_binding_payload_precedes_missing_authority_preflight",
       "expected": "typed_structural_error"
+    },
+    {
+      "id": "EDT-180",
+      "case": "runtime_binding_rejects_provenance_witness_from_other_authority_registry_binding",
+      "expected": "adapter_boundary_error"
     }
   ],
   "outcome_classes": [
