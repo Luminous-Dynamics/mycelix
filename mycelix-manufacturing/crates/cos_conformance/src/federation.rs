@@ -3218,6 +3218,40 @@ mod tests {
         "integral-federation-trace-checkpoint-publication-sha256-v1";
     const FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_GENESIS: &str =
         "sha256:checkpoint-publication-genesis-v1:0000000000000000000000000000000000000000000000000000000000000000";
+    const FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_CONSISTENCY_RECEIPT_SCHEMA_VERSION: u16 = 1;
+    const FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_CONSISTENCY_RECEIPT_PROFILE: &str =
+        "integral-federation-trace-checkpoint-consistency-receipt-v1";
+    const FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_CONSISTENCY_RECEIPT_HASH_DOMAIN: &str =
+        "integral-federation-trace-checkpoint-consistency-receipt-sha256-v1";
+
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct FederationStateMachineTraceCheckpointConsistencyReceipt {
+        schema_version: u16,
+        receipt_profile: String,
+        trace_schema_version: u16,
+        trace_verification_profile: String,
+        trace_index: usize,
+        earlier_publication_sha256: String,
+        later_publication_sha256: String,
+        earlier_evidence_end: usize,
+        later_evidence_end: usize,
+        receipt_sha256: String,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+    struct FederationStateMachineTraceCheckpointConsistencyReceiptHashView {
+        hash_domain: String,
+        schema_version: u16,
+        receipt_profile: String,
+        trace_schema_version: u16,
+        trace_verification_profile: String,
+        trace_index: usize,
+        earlier_publication_sha256: String,
+        later_publication_sha256: String,
+        earlier_evidence_end: usize,
+        later_evidence_end: usize,
+    }
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
     #[serde(deny_unknown_fields)]
@@ -3402,6 +3436,143 @@ mod tests {
         PreviousPublicationMismatch,
         PublicationChainEmpty,
         PublicationForkDetected,
+        ConsistencyReceiptSchemaMismatch,
+        ConsistencyReceiptProfileMismatch,
+        ConsistencyReceiptTraceBindingMismatch,
+        ConsistencyReceiptPublicationBindingMismatch,
+        ConsistencyReceiptEndpointMismatch,
+        ConsistencyReceiptDigestMismatch,
+    }
+
+    fn state_machine_trace_checkpoint_consistency_receipt_sha256(
+        receipt: &FederationStateMachineTraceCheckpointConsistencyReceipt,
+    ) -> String {
+        let view = FederationStateMachineTraceCheckpointConsistencyReceiptHashView {
+            hash_domain:
+                FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_CONSISTENCY_RECEIPT_HASH_DOMAIN.into(),
+            schema_version: receipt.schema_version,
+            receipt_profile: receipt.receipt_profile.clone(),
+            trace_schema_version: receipt.trace_schema_version,
+            trace_verification_profile: receipt.trace_verification_profile.clone(),
+            trace_index: receipt.trace_index,
+            earlier_publication_sha256: receipt.earlier_publication_sha256.clone(),
+            later_publication_sha256: receipt.later_publication_sha256.clone(),
+            earlier_evidence_end: receipt.earlier_evidence_end,
+            later_evidence_end: receipt.later_evidence_end,
+        };
+        let bytes = serde_json::to_vec(&view)
+            .expect("trace checkpoint consistency receipt hash view must be serializable");
+        state_machine_domain_separated_sha256(
+            FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_CONSISTENCY_RECEIPT_HASH_DOMAIN,
+            &bytes,
+        )
+    }
+
+    fn state_machine_trace_checkpoint_consistency_receipt(
+        earlier_publication: &FederationStateMachineTraceCheckpointPublication,
+        later_publication: &FederationStateMachineTraceCheckpointPublication,
+    ) -> FederationStateMachineTraceCheckpointConsistencyReceipt {
+        assert_eq!(
+            earlier_publication.trace_schema_version,
+            later_publication.trace_schema_version,
+            "consistency receipt requires matching trace schema versions"
+        );
+        assert_eq!(
+            earlier_publication.trace_verification_profile,
+            later_publication.trace_verification_profile,
+            "consistency receipt requires matching verification profiles"
+        );
+        assert_eq!(
+            earlier_publication.trace_index,
+            later_publication.trace_index,
+            "consistency receipt requires matching trace identities"
+        );
+        assert!(
+            earlier_publication.evidence_end <= later_publication.evidence_end,
+            "consistency receipt requires a non-rollback evidence endpoint"
+        );
+
+        let mut receipt = FederationStateMachineTraceCheckpointConsistencyReceipt {
+            schema_version:
+                FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_CONSISTENCY_RECEIPT_SCHEMA_VERSION,
+            receipt_profile:
+                FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_CONSISTENCY_RECEIPT_PROFILE.into(),
+            trace_schema_version: earlier_publication.trace_schema_version,
+            trace_verification_profile: earlier_publication.trace_verification_profile.clone(),
+            trace_index: earlier_publication.trace_index,
+            earlier_publication_sha256: earlier_publication.publication_sha256.clone(),
+            later_publication_sha256: later_publication.publication_sha256.clone(),
+            earlier_evidence_end: earlier_publication.evidence_end,
+            later_evidence_end: later_publication.evidence_end,
+            receipt_sha256: String::new(),
+        };
+        receipt.receipt_sha256 =
+            state_machine_trace_checkpoint_consistency_receipt_sha256(&receipt);
+        receipt
+    }
+
+    fn validate_state_machine_trace_checkpoint_consistency_receipt(
+        earlier_capsule: &FederationStateMachineTraceCapsule,
+        earlier_publication: &FederationStateMachineTraceCheckpointPublication,
+        later_capsule: &FederationStateMachineTraceCapsule,
+        later_publication: &FederationStateMachineTraceCheckpointPublication,
+        receipt: &FederationStateMachineTraceCheckpointConsistencyReceipt,
+    ) -> Result<(), FederationStateMachineTraceCheckpointPublicationViolation> {
+        validate_state_machine_trace_checkpoint_publication_consistency(
+            earlier_capsule,
+            earlier_publication,
+            later_capsule,
+            later_publication,
+        )?;
+
+        if receipt.schema_version
+            != FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_CONSISTENCY_RECEIPT_SCHEMA_VERSION
+        {
+            return Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::ConsistencyReceiptSchemaMismatch
+            );
+        }
+        if receipt.receipt_profile
+            != FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_CONSISTENCY_RECEIPT_PROFILE
+        {
+            return Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::ConsistencyReceiptProfileMismatch
+            );
+        }
+        if receipt.trace_schema_version != earlier_publication.trace_schema_version
+            || receipt.trace_schema_version != later_publication.trace_schema_version
+            || receipt.trace_verification_profile != earlier_publication.trace_verification_profile
+            || receipt.trace_verification_profile != later_publication.trace_verification_profile
+            || receipt.trace_index != earlier_publication.trace_index
+            || receipt.trace_index != later_publication.trace_index
+        {
+            return Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::ConsistencyReceiptTraceBindingMismatch
+            );
+        }
+        if receipt.earlier_publication_sha256 != earlier_publication.publication_sha256
+            || receipt.later_publication_sha256 != later_publication.publication_sha256
+        {
+            return Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::ConsistencyReceiptPublicationBindingMismatch
+            );
+        }
+        if receipt.earlier_evidence_end != earlier_publication.evidence_end
+            || receipt.later_evidence_end != later_publication.evidence_end
+        {
+            return Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::ConsistencyReceiptEndpointMismatch
+            );
+        }
+        if receipt.receipt_sha256
+            != state_machine_trace_checkpoint_consistency_receipt_sha256(receipt)
+        {
+            return Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::ConsistencyReceiptDigestMismatch
+            );
+        }
+
+        Ok(())
     }
 
     fn validate_state_machine_trace_checkpoint_publication_set(
