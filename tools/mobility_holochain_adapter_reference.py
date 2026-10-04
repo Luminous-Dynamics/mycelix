@@ -319,6 +319,8 @@ def main() -> int:
         raise SystemExit("adapter must preserve semantic invalidity as a distinct preflight class")
     if "logical_rebinding_precedes_duplicate_provenance_binding_conflict" not in source:
         raise SystemExit("logical rebinding conflict precedence must have a regression")
+    if "duplicate_authority_precedes_duplicate_provenance_conflict" not in source:
+        raise SystemExit("combined authority/witness conflict precedence must have a regression")
     if "duplicate_binding_remains_an_adapter_contract_failure" not in source:
         raise SystemExit("adapter must pin duplicate binding as an adapter-contract defect")
     if "QualificationDecision::Invalid" not in source:
