@@ -1,7 +1,7 @@
 {
-  "policy_version": 1,
-  "workflow_name": "D6U Holochain 0.7 Runtime Qualification",
-  "workflow_path": ".github/workflows/d6u-runtime-qualification.yml",
+  "policy_version": 2,
+  "workflow_name": "D6U Exact-Head Runtime Qualification",
+  "workflow_path": ".github/workflows/d6u-exact-head-runtime.yml",
   "artifact_name_prefix": "d6u-runtime-evidence-",
   "claim_ceiling": "ReferenceModelOnly",
   "runtime": {
@@ -143,7 +143,6 @@
     "routing-failed"
   ],
   "required_tracked_blobs": {
-    ".github/workflows/d6u-runtime-qualification.yml": "5c93a9dce9e03324c388230023826ddff023bf06",
     "docs/integral/d6u-runtime-manifest.json": "7cb9fbe547bc5e0c3512224712ceca7b5e30b7c2",
     "d6u-runtime-harness/Cargo.toml": "919927360b4c2b8d79efb336297b8834c7ff12e0",
     "d6u-runtime-harness/rust-toolchain.toml": "69719934f101c996e1cecfc572f8bc61441018f2",
@@ -154,7 +153,8 @@
     "scripts/integral/verify_d6u_runtime_lock.py": "16607cb0830be451b37116b2612b46693423a377",
     "scripts/integral/verify_d6u_runtime_record.py": "1587b0d02e3fde30a112069af24b22d58cb74027",
     "docs/integral/d6s-canon-2-manifest.json": "4353b9aed545c7762d6f8f73bc551e4c008271a9",
-    "docs/integral/d6s-canon-2-authority-boundary-fixture.json": "0b4c5b924bc3b807c556ef92cc869d66f7cc97a1"
+    "docs/integral/d6s-canon-2-authority-boundary-fixture.json": "0b4c5b924bc3b807c556ef92cc869d66f7cc97a1",
+    ".github/workflows/d6u-exact-head-runtime.yml": "975a1cb62ea691dfcebaede07ee29eb032a63492"
   },
   "origin_policy": "same-repository-only"
 }
