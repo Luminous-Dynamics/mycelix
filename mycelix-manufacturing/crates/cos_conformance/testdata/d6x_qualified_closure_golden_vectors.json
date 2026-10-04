@@ -7,7 +7,7 @@
   "closure_identity_domain": "d6x-closure-identity",
   "certificate_domain": "d6x-dependency-closure",
   "claim_ceiling": "ReferenceModelOnly; canonical derivation integrity semantics only; no truth, causality, authority, or actuation claim.",
-  "generation_note": "Hash values independently reconstructed from the exact D6X-CANON-1 reference encoding and cross-checked against the repository D6S-CANON-1 vectors; Rust reference-model execution remains pending.",
+  "generation_note": "Hash values independently reconstructed from the exact D6X-CANON-1 reference encoding and cross-checked against the repository D6S-CANON-1 vectors; the Rust reference model and authoritative D6P admission paths are now exercised from declared corpus fixtures.",
   "vectors": [
     {
       "id": "baseline-complete",
@@ -406,7 +406,8 @@
     "mutation_semantics": "Apply each recipe mutation to that baseline fixture before evaluating D6X. Commitment strings in this corpus are frozen expected outputs, not authority claims.",
     "cross_runtime_rule": "The recipe is intentionally declarative: another implementation may construct equivalent typed objects rather than depending on Rust test-helper names.",
     "baseline_projection": "Use fixtures.baseline_projection, fixtures.semantic_environment, and fixtures.derivation_profile as the exact canonical baseline inputs.",
-    "semantic_derivation": "Derived commitments are computed with D6S-CANON-1 and the D6X domains declared above. Apply each vector recipe to the baseline projection/profile, then evaluate D6X."
+    "semantic_derivation": "Derived commitments are computed with D6S-CANON-1 and the D6X domains declared above. Apply each vector recipe to the baseline projection/profile, then evaluate D6X.",
+    "authoritative_d6p": "fixtures.authoritative_d6p contains a committed D6P composition and receipt. An implementation MUST verify receipt-to-composition binding before consuming the receipt as a qualified D6X dependency; the optional frontier-specific path additionally requires the exact expected frontier."
   },
   "fixtures": {
     "baseline_projection": {
