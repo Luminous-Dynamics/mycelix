@@ -206,6 +206,7 @@ impl SectorTransactionMatrix {
                     FlowCategory::LoanCreation,
                     credit.amount,
                 ),
+                super::transition::EconomicTransition::DebtWriteOff(_) => continue,
                 super::transition::EconomicTransition::DebtRepayment(repayment) => (
                     sector_for(&repayment.borrower)?,
                     sector_for(&repayment.lender)?,
