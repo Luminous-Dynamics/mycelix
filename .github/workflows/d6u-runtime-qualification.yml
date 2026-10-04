@@ -92,6 +92,7 @@ jobs:
             echo "workflow_run_id=${{ github.run_id }}"
             echo "workflow_run_attempt=${{ github.run_attempt }}"
             echo "workflow_execution_commit_sha=${{ github.workflow_sha }}"
+            echo "workflow_execution_ref=${{ github.workflow_ref }}"
             echo "workflow_sha=$(git hash-object ../.github/workflows/d6u-runtime-qualification.yml)"
             echo "d6s2_manifest_git_blob_sha=$(git hash-object ../docs/integral/d6s-canon-2-manifest.json)"
             echo "d6s2_fixture_git_blob_sha=$(git hash-object ../docs/integral/d6s-canon-2-authority-boundary-fixture.json)"
