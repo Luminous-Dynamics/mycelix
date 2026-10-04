@@ -532,6 +532,7 @@ fn is_date_time_stamp(value: &str) -> bool {
         && bytes[tz_start + 2].is_ascii_digit()
         && bytes[tz_start + 4].is_ascii_digit()
         && bytes[tz_start + 5].is_ascii_digit()
+        && value.parse::<Timestamp>().is_ok()
 }
 
 fn compute_credential_content_hash(vc: &VerifiableCredential) -> Vec<u8> {
