@@ -30,6 +30,7 @@ pub struct ProvenanceRef {
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ProvenanceRefWire {
+    #[serde(deserialize_with = "deserialize_provenance_identifier")]
     artifact_id: String,
     relation: ProvenanceRelation,
 }
@@ -104,6 +105,94 @@ pub struct SecurityEvent {
     recovery_correlation: Option<String>,
 }
 
+/// Bound provenance/security identifiers before retaining attacker-controlled wire strings.
+fn deserialize_provenance_identifier<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct ProvenanceIdentifierVisitor;
+
+    impl<'de> Visitor<'de> for ProvenanceIdentifierVisitor {
+        type Value = String;
+
+        fn expecting(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+            formatter.write_str("a bounded provenance/security identifier string")
+        }
+
+        fn visit_borrowed_str<E>(self, value: &'de str) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
+            if value.len() > MAX_PROVENANCE_IDENTIFIER_BYTES {
+                return Err(E::custom(
+                    "provenance/security identifier exceeds size limit",
+                ));
+            }
+            Ok(value.to_owned())
+        }
+
+        fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
+            if value.len() > MAX_PROVENANCE_IDENTIFIER_BYTES {
+                return Err(E::custom(
+                    "provenance/security identifier exceeds size limit",
+                ));
+            }
+            Ok(value.to_owned())
+        }
+
+        fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
+            if value.len() > MAX_PROVENANCE_IDENTIFIER_BYTES {
+                return Err(E::custom(
+                    "provenance/security identifier exceeds size limit",
+                ));
+            }
+            Ok(value)
+        }
+    }
+
+    deserializer.deserialize_str(ProvenanceIdentifierVisitor)
+}
+
+/// Bound an optional provenance/security identifier during wire decoding.
+fn deserialize_optional_provenance_identifier<'de, D>(
+    deserializer: D,
+) -> Result<Option<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct OptionalProvenanceIdentifierVisitor;
+
+    impl<'de> Visitor<'de> for OptionalProvenanceIdentifierVisitor {
+        type Value = Option<String>;
+
+        fn expecting(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+            formatter.write_str("null or a bounded provenance/security identifier string")
+        }
+
+        fn visit_none<E>(self) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
+            Ok(None)
+        }
+
+        fn visit_some<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            deserialize_provenance_identifier(deserializer).map(Some)
+        }
+    }
+
+    deserializer.deserialize_option(OptionalProvenanceIdentifierVisitor)
+}
+
 /// Bound provenance sequences before retaining an attacker-controlled
 /// number of references from wire input.
 fn deserialize_provenance_refs<'de, D>(
@@ -144,8 +233,11 @@ where
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct SecurityEventWire {
+    #[serde(deserialize_with = "deserialize_provenance_identifier")]
     event_id: String,
+    #[serde(deserialize_with = "deserialize_provenance_identifier")]
     actor_id: String,
+    #[serde(deserialize_with = "deserialize_provenance_identifier")]
     capability_ref: String,
     request: AuthorizationRequest,
     decision: AuthorizationDecision,
@@ -157,6 +249,10 @@ struct SecurityEventWire {
     authority_binding: Option<[u8; 32]>,
     #[serde(deserialize_with = "deserialize_provenance_refs")]
     provenance: Vec<ProvenanceRef>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_optional_provenance_identifier"
+    )]
     recovery_correlation: Option<String>,
 }
 
