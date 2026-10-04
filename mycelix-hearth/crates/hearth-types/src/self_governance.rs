@@ -144,14 +144,21 @@ impl SelfGovernanceEnvelope {
         Ok(())
     }
 
-    /// Serialize the validated envelope in a stable field order.
+    /// Serialize the validated envelope with order-insensitive collections.
     ///
     /// Reflective content is represented only through opaque commitments.
     /// Holochain entry/action identity can provide the higher-level content
     /// identity when this envelope is persisted by a zome.
     pub fn canonical_bytes(&self) -> Result<Vec<u8>, String> {
         self.validate()?;
-        serde_json::to_vec(self)
+
+        let mut canonical = self.clone();
+        canonical.evidence_refs.sort();
+        if let SelfGovernanceVisibility::Specified(agents) = &mut canonical.visibility {
+            agents.sort();
+        }
+
+        serde_json::to_vec(&canonical)
             .map_err(|error| format!("Self-governance canonicalization failed: {error}"))
     }
 }
@@ -260,12 +267,12 @@ mod tests {
     }
 
     #[test]
-    fn evidence_order_changes_canonical_bytes_without_changing_meaning() {
+    fn evidence_order_does_not_change_canonical_bytes() {
         let mut left = envelope();
         left.evidence_refs = vec!["evidence:1".into(), "evidence:2".into()];
         let mut right = left.clone();
         right.evidence_refs.reverse();
-        assert_ne!(left.canonical_bytes().unwrap(), right.canonical_bytes().unwrap());
+        assert_eq!(left.canonical_bytes().unwrap(), right.canonical_bytes().unwrap());
     }
 
     #[test]
