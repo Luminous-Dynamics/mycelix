@@ -39,7 +39,7 @@ def measure(profile: dict[str, Any], event: str) -> dict[str, Any]:
     return {
         "reachable_resources_after_compromise": len(reached),
         "reachable_resource_ids": reached,
-        "trust_boundaries_crossed": max((costs[r] for r in reached), default=0),
+        "max_boundary_depth": max((costs[r] for r in reached), default=0),
         "standing_privilege_count": profile["standing_privilege_count"],
         "revocation_latency_seconds": profile["revocation_latency_seconds"],
         "cross_domain_exposure_count": profile["cross_domain_exposure_count"],
@@ -50,7 +50,7 @@ def assert_guardrails(profile_id: str, event: str, result: dict[str, Any]) -> No
     # These are architecture-neutral sanity checks, not superiority claims.
     if result["reachable_resources_after_compromise"] < 0:
         raise AssertionError(f"{profile_id}/{event}: negative reachability")
-    if result["trust_boundaries_crossed"] < 0:
+    if result["max_boundary_depth"] < 0:
         raise AssertionError(f"{profile_id}/{event}: negative boundary count")
     if result["standing_privilege_count"] < 0:
         raise AssertionError(f"{profile_id}/{event}: negative privilege count")
@@ -86,7 +86,7 @@ def main() -> int:
             print(
                 f"{scenario['id']} {event}: "
                 f"reach={result['reachable_resources_after_compromise']} "
-                f"boundaries={result['trust_boundaries_crossed']} "
+                f"max_boundary_depth={result['max_boundary_depth']} "
                 f"standing_privilege={result['standing_privilege_count']} "
                 f"revocation_s={result['revocation_latency_seconds']} "
                 f"cross_domain_exposure={result['cross_domain_exposure_count']}"
