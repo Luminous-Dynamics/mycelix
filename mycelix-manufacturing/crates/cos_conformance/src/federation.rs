@@ -3148,7 +3148,6 @@ mod tests {
     struct FederationStateMachineTraceHashView {
         hash_domain: String,
         schema_version: u16,
-        checkpoint_profile: String,
         verification_profile: String,
         trace_index: usize,
         initial_seed: u64,
@@ -3178,6 +3177,7 @@ mod tests {
     #[serde(deny_unknown_fields)]
     struct FederationStateMachineTraceCheckpoint {
         schema_version: u16,
+        checkpoint_profile: String,
         verification_profile: String,
         trace_index: usize,
         step_start: usize,
