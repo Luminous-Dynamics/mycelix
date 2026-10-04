@@ -1008,6 +1008,37 @@ References:
 - DEFINE, Dynamic Ecosystem-FINance-Economy ecological SFC framework.
 - Dafermos, Nikolaidi & Galanis, A stock-flow-fund ecological macroeconomic model (2017).
 
+## Explicit debt write-off / other-volume adjustment (implemented)
+
+The accounting substrate now distinguishes explicit debt write-off from debt repayment and from
+holding-gain/loss revaluation. `DebtWriteOff` extinguishes a lender's outstanding loan claim and
+the matching borrower's debt liability without moving cash, deposits, or physical stocks.
+
+For a write-off amount (W):
+
+- lender loan claim: (-W);
+- lender derived equity/net worth: (-W);
+- borrower debt liability: (-W);
+- borrower derived equity/net worth: (+W).
+
+The aggregate financial claim/liability identity therefore remains closed, while the loss of the
+creditor is exactly offset by the debtor's liability extinguishment. The event is visible in the
+lifetime state counter, period ledger, actor/sector observations, and financial-claim projection,
+but is excluded from the monetary transaction-flow matrix.
+
+The financial-claim matrix uses the creditor/debtor pair for this category; its direction identifies
+the contractual counterpart relationship and does **not** imply a payment. This keeps a write-off
+from being misreported as cash settlement.
+
+This follows the 2025 SNA treatment in which write-offs of financial instruments are recorded in
+other changes in the volume of assets and liabilities, while holding gains/losses are reserved for
+changes attributable to prices and exchange rates. It also preserves the SFC distinction between
+transaction flows and balance-sheet adjustments.
+
+References:
+- United Nations Statistics Division, 2025 SNA, Chapter 4 (write-offs, other volume changes, and holding gains/losses).
+- United Nations Statistics Division, 2025 SNA, Chapter 25 (financial instrument stocks and other flows).
+
 ## State-counter versus period-ledger semantics (implemented)
 
 `EconomicState::monetary_flow_volume`, `credit_created`, and `debt_repaid` are lifetime-cumulative
