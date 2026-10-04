@@ -552,6 +552,9 @@ impl MetabolicOracle {
                     .into(),
             );
         }
+        if !profile.is_active_at(decision.decided_at) {
+            return Err("Policy profile is not active at policy decision timestamp".into());
+        }
 
         self.apply_governed_adjustment(decision)
     }
@@ -764,6 +767,27 @@ mod tests {
             supersedes_profile_ref: None,
             declared_at: 1_000,
         }
+    }
+
+    #[test]
+    fn test_governed_policy_must_use_active_profile_interval() {
+        let mut oracle = MetabolicOracle::new();
+        let mut profile = policy_profile();
+        profile.effective_until = Some(900);
+        let decision = GovernedPolicyAdjustment {
+            decision_id: "decision:inactive-profile".into(),
+            policy_profile_ref: profile.profile_id.clone(),
+            policy_profile_fingerprint: profile.fingerprint().unwrap(),
+            observation_refs: vec!["observation:vitality:1".into()],
+            rule_ref: "rule:countercyclical:v1".into(),
+            authority_ref: "authority:dao-1".into(),
+            adjustment: oracle.generate_adjustment(),
+            decided_at: 1_000,
+        };
+
+        assert!(oracle
+            .apply_governed_adjustment_for_profile(decision, &profile)
+            .is_err());
     }
 
     #[test]
