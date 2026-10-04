@@ -623,11 +623,12 @@ mod linux {
                             let local_epem = target == index + 2
                                 && filter[index + 1].code == BPF_RET | BPF_K
                                 && filter[index + 1].k == SECCOMP_RET_ERRNO | libc::EPERM as u32;
-                            let full_width_not_equal_shortcut = target == index + 4
+                            let full_width_not_equal_shortcut = index >= 2
+                                && target == index + 4
                                 && filter.get(index - 2).is_some_and(|i| i.code == BPF_LD | BPF_W | BPF_ABS)
                                 && filter.get(index + 1).is_some_and(|i| {
                                     i.code == BPF_LD | BPF_W | BPF_ABS
-                                        && i.k == filter[index - 2].k + 4
+                                        && i.k == filter[index - 2].k.saturating_add(4)
                                 })
                                 && filter.get(index + 2).is_some_and(|i| i.code == BPF_ALU | BPF_AND | BPF_K)
                                 && filter.get(index + 3).is_some_and(|i| i.code == BPF_JMP | BPF_JEQ | BPF_K);
