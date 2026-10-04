@@ -19,107 +19,120 @@ def canonical_hash(value: Any) -> str:
 
 
 def valid_digest(value: Any) -> bool:
-    return (
-        isinstance(value, str)
-        and len(value) == 64
-        and all(c in "0123456789abcdef" for c in value)
-    )
+    return isinstance(value, str) and len(value) == 64 and all(c in "0123456789abcdef" for c in value)
 
 
-def self_hash(value: dict[str, Any], field: str) -> str:
-    clone = copy.deepcopy(value)
-    clone.pop(field, None)
-    return canonical_hash(clone)
+def selection_ids(selection: str) -> list[int]:
+    bank, sep, rest = selection.partition(":")
+    if bank != "sha256" or not sep or not rest:
+        raise ValueError("unsupported PCR selection")
+    ids = [int(x) for x in rest.split(",") if x.isdigit()]
+    if not ids or len(ids) != len(set(ids)):
+        raise ValueError("invalid/duplicate PCR selection")
+    return ids
 
 
-def reconstruct(stream: dict[str, Any]) -> tuple[str, str, str | None]:
+def state_hash(values: dict[str, str]) -> str:
+    return canonical_hash({"bank": "sha256", "values": {k: values[k] for k in sorted(values, key=int)}})
+
+
+def reconstruct(stream: dict[str, Any]) -> tuple[str, str, dict[str, str] | None]:
     required = {
-        "profile_id", "profile_version", "pcr_bank", "target_pcr",
-        "events", "observed_pcr_sha256"
+        "profile_id", "profile_version", "event_log_sha256", "session_id",
+        "pcr_bank", "pcr_selection", "events", "observed_pcr_values",
     }
     missing = required - set(stream)
     if missing:
-        return "DENY", "missing-" + "-".join(sorted(missing)), None
+        return "DENY", "missing-" + ",".join(sorted(missing)), None
     if stream["profile_id"] != "mycelix.security.platform.eventlog.reconstruction":
         return "DENY", "profile-id-mismatch", None
     if stream["profile_version"] != "0.1.0":
         return "DENY", "profile-version-mismatch", None
     if stream["pcr_bank"] != "sha256":
         return "DENY", "wrong-bank", None
-    if not isinstance(stream["target_pcr"], int) or stream["target_pcr"] < 0:
-        return "DENY", "invalid-target-pcr", None
-    if not isinstance(stream["events"], list) or not stream["events"]:
-        return "DENY", "empty-event-log", None
-    if not valid_digest(stream["observed_pcr_sha256"]):
-        return "INDETERMINATE", "missing-or-invalid-observed-pcr", None
 
-    state = bytes(32)
+    try:
+        ids = selection_ids(stream["pcr_selection"])
+    except (TypeError, ValueError) as exc:
+        return "DENY", str(exc), None
+
+    events = stream["events"]
+    if not isinstance(events, list) or not events:
+        return "DENY", "empty-event-log", None
+
+    observed = stream["observed_pcr_values"]
+    if not isinstance(observed, dict):
+        return "INDETERMINATE", "missing-observed-pcr-map", None
+
+    expected_keys = {str(x) for x in ids}
+    if set(observed) != expected_keys:
+        return "INDETERMINATE", "observed-pcr-selection-incomplete", None
+    if any(not valid_digest(value) for value in observed.values()):
+        return "INDETERMINATE", "invalid-observed-pcr-value", None
+
+    states = {str(i): bytes(32) for i in ids}
     previous_sequence = -1
-    target_seen = False
-    for event in stream["events"]:
+    seen_sequences: set[int] = set()
+
+    for event in events:
         if not isinstance(event, dict):
             return "DENY", "event-not-object", None
         for key in ("sequence", "pcr", "event_type", "digest_sha256"):
             if key not in event:
                 return "DENY", "missing-event-" + key, None
-        if not isinstance(event["sequence"], int) or event["sequence"] <= previous_sequence:
+
+        sequence = event["sequence"]
+        pcr = event["pcr"]
+        if not isinstance(sequence, int) or sequence <= previous_sequence:
             return "DENY", "non-increasing-sequence", None
-        previous_sequence = event["sequence"]
-        if not isinstance(event["pcr"], int) or event["pcr"] < 0:
+        if sequence in seen_sequences:
+            return "DENY", "duplicate-sequence", None
+        seen_sequences.add(sequence)
+        previous_sequence = sequence
+
+        if not isinstance(pcr, int) or pcr < 0:
             return "DENY", "invalid-pcr-index", None
-        if not valid_digest(event["digest_sha256"]):
-            return "DENY", "malformed-digest", None
         if event.get("digest_algorithm", "sha256") != "sha256":
             return "DENY", "digest-algorithm-substitution", None
-        if event["pcr"] == stream["target_pcr"]:
-            target_seen = True
-            measurement = bytes.fromhex(event["digest_sha256"])
-            state = hashlib.sha256(state + measurement).digest()
+        if not valid_digest(event["digest_sha256"]):
+            return "DENY", "malformed-digest", None
+        if event.get("session_id", stream["session_id"]) != stream["session_id"]:
+            return "DENY", "cross-session-event", None
 
-    if not target_seen:
-        return "INDETERMINATE", "target-pcr-missing-from-events", None
+        key = str(pcr)
+        if key in states:
+            states[key] = hashlib.sha256(states[key] + bytes.fromhex(event["digest_sha256"])).digest()
 
-    reconstructed = state.hex()
-    if reconstructed != stream["observed_pcr_sha256"]:
+    reconstructed = {key: value.hex() for key, value in states.items()}
+    if reconstructed != observed:
         return "DENY", "reconstructed-pcr-mismatch", reconstructed
     return "PASS", "pcr-reconstruction-matches-observed", reconstructed
 
 
 def fixture() -> dict[str, Any]:
-    a = "11" * 32
-    b = "22" * 32
-    state = hashlib.sha256(bytes(32) + bytes.fromhex(a)).digest()
-    state = hashlib.sha256(state + bytes.fromhex(b)).digest()
+    selection = "sha256:0,2,4,7"
+    session = "session-20261004-0001"
+    events = [
+        {"sequence": 1, "pcr": 4, "event_type": "EV_EFI_BOOT_SERVICES_APPLICATION", "digest_sha256": "11" * 32, "session_id": session},
+        {"sequence": 2, "pcr": 4, "event_type": "EV_SEPARATOR", "digest_sha256": "22" * 32, "session_id": session},
+        {"sequence": 3, "pcr": 7, "event_type": "EV_EFI_VARIABLE_AUTHORITY", "digest_sha256": "33" * 32, "session_id": session},
+        {"sequence": 4, "pcr": 0, "event_type": "EV_ACTION", "digest_sha256": "44" * 32, "session_id": session},
+        {"sequence": 5, "pcr": 2, "event_type": "EV_ACTION", "digest_sha256": "55" * 32, "session_id": session},
+    ]
+    states = {str(i): bytes(32) for i in selection_ids(selection)}
+    for event in events:
+        key = str(event["pcr"])
+        states[key] = hashlib.sha256(states[key] + bytes.fromhex(event["digest_sha256"])).digest()
+
     return {
         "profile_id": "mycelix.security.platform.eventlog.reconstruction",
         "profile_version": "0.1.0",
+        "event_log_sha256": "aa" * 32,
+        "session_id": session,
         "pcr_bank": "sha256",
-        "target_pcr": 4,
-        "session_id": "session-20261004-0001",
-        "events": [
-            {
-                "sequence": 1,
-                "pcr": 4,
-                "event_type": "EV_EFI_BOOT_SERVICES_APPLICATION",
-                "digest_sha256": a,
-                "session_id": "session-20261004-0001"
-            },
-            {
-                "sequence": 2,
-                "pcr": 4,
-                "event_type": "EV_SEPARATOR",
-                "digest_sha256": b,
-                "session_id": "session-20261004-0001"
-            },
-            {
-                "sequence": 3,
-                "pcr": 7,
-                "event_type": "EV_EFI_VARIABLE_AUTHORITY",
-                "digest_sha256": "33" * 32,
-                "session_id": "session-20261004-0001"
-            }
-        ],
-        "observed_pcr_sha256": state.hex()
+        "pcr_selection": selection,
+        "events": events,
+        "observed_pcr_values": {key: value.hex() for key, value in states.items()},
     }
 
 
@@ -128,14 +141,14 @@ def mutate(base: dict[str, Any], name: str) -> dict[str, Any]:
     if name == "canonical-valid":
         return value
     if name == "digest-substitution":
-        value["events"][0]["digest_sha256"] = "44" * 32
+        value["events"][0]["digest_sha256"] = "66" * 32
     elif name == "event-removal":
         value["events"].pop(1)
     elif name == "event-insertion":
-        value["events"].insert(1, {
-            "sequence": 4, "pcr": 4, "event_type": "EV_ACTION",
-            "digest_sha256": "55" * 32, "session_id": value["session_id"]
-        })
+        value["events"].insert(
+            1,
+            {"sequence": 6, "pcr": 4, "event_type": "EV_ACTION", "digest_sha256": "77" * 32, "session_id": value["session_id"]},
+        )
     elif name == "event-reordering":
         value["events"][0], value["events"][1] = value["events"][1], value["events"][0]
     elif name == "pcr-index-substitution":
@@ -147,25 +160,27 @@ def mutate(base: dict[str, Any], name: str) -> dict[str, Any]:
     elif name == "wrong-bank":
         value["pcr_bank"] = "sha1"
     elif name == "expected-pcr-substitution":
-        value["observed_pcr_sha256"] = "66" * 32
+        value["observed_pcr_values"]["4"] = "88" * 32
     elif name == "missing-expected-pcr":
-        value["observed_pcr_sha256"] = ""
+        del value["observed_pcr_values"]["4"]
     elif name == "empty-event-log":
         value["events"] = []
     elif name == "key-order-permutation":
         value = dict(reversed(list(value.items())))
-        value["events"] = [dict(reversed(list(e.items()))) for e in value["events"]]
+        value["events"] = [dict(reversed(list(event.items()))) for event in value["events"]]
+        value["observed_pcr_values"] = dict(reversed(list(value["observed_pcr_values"].items())))
     elif name == "metadata-only-substitution":
         value["events"][0]["event_type"] = "VENDOR_UNTRUSTED_LABEL"
     elif name == "reconstruction-unavailable":
-        value["observed_pcr_sha256"] = "not-available"
+        value["reconstruction_status"] = "INDETERMINATE"
     elif name == "invalid-initial-pcr":
         value["initial_pcr_sha256"] = "77" * 32
     elif name == "digest-algorithm-substitution":
         value["events"][0]["digest_algorithm"] = "sha1"
     elif name == "target-pcr-missing-from-events":
         for event in value["events"]:
-            event["pcr"] = 7
+            if event["pcr"] == 4:
+                event["pcr"] = 5
     elif name == "multi-pcr-canonical":
         return value
     elif name == "target-event-cross-session":
@@ -173,20 +188,17 @@ def mutate(base: dict[str, Any], name: str) -> dict[str, Any]:
     elif name == "separator-event-canonical":
         return value
     elif name == "reconstructed-pcr-mismatch":
-        value["observed_pcr_sha256"] = "88" * 32
+        value["observed_pcr_values"]["4"] = "99" * 32
     else:
         raise KeyError(name)
     return value
 
 
 def validate(stream: dict[str, Any]) -> tuple[str, str]:
-    if "initial_pcr_sha256" in stream and stream["initial_pcr_sha256"] != "00" * 32:
+    if stream.get("initial_pcr_sha256") not in (None, "00" * 32):
         return "DENY", "invalid-initial-pcr"
-    expected_session = stream.get("session_id")
-    if expected_session is not None:
-        for event in stream.get("events", []):
-            if event.get("session_id", expected_session) != expected_session:
-                return "DENY", "cross-session-event"
+    if stream.get("reconstruction_status") == "INDETERMINATE":
+        return "INDETERMINATE", "reconstruction-unavailable"
     return reconstruct(stream)[:2]
 
 
@@ -196,11 +208,18 @@ def self_test(contract: dict[str, Any]) -> int:
     for vector in contract["vectors"]:
         state, reason = validate(mutate(base, vector["mutation"]))
         ok = state == vector["expected"]
-        print(f'{"[PASS]" if ok else "[FAIL]"} {vector["id"]}: expected={vector["expected"]} got={state} reason={reason}')
+        print(
+            f'{"[PASS]" if ok else "[FAIL]"} {vector["id"]}: '
+            f"expected={vector['expected']} got={state} reason={reason}"
+        )
         if not ok:
             failures.append(vector["id"])
+
     print()
-    print(f"PC-client event-log reconstruction qualification: {len(contract['vectors']) - len(failures)}/{len(contract['vectors'])} vectors passed")
+    print(
+        "PC-client event-log reconstruction qualification: "
+        f"{len(contract['vectors']) - len(failures)}/{len(contract['vectors'])} vectors passed"
+    )
     print("Qualification ceiling: ReferenceModelOnly")
     return 1 if failures else 0
 
@@ -212,13 +231,15 @@ def main() -> int:
     mode.add_argument("--reconstruct", metavar="EVENT_STREAM")
     args = parser.parse_args()
     contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
+
     if args.self_test:
         return self_test(contract)
+
     stream = json.loads(Path(args.reconstruct).read_text(encoding="utf-8"))
-    state, reason, reconstructed = reconstruct(stream)
+    state, reason, values = reconstruct(stream)
     print(f"Reconstruction: {state} ({reason})")
-    if reconstructed:
-        print(f"reconstructed_pcr_sha256={reconstructed}")
+    if values:
+        print("reconstructed_pcrs_sha256=" + state_hash(values))
     return 0 if state == "PASS" else (2 if state == "INDETERMINATE" else 1)
 
 
