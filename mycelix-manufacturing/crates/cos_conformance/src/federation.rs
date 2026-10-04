@@ -4443,6 +4443,18 @@ mod tests {
             "sha256:0000000000000000000000000000000000000000000000000000000000000000"
                 .into();
         assert!(std::panic::catch_unwind(|| state_machine_plan_from_capsule(&capsule)).is_err());
+
+        let mut capsule =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&capsule_text)
+                .expect("capsule must deserialize");
+        capsule.integrity.algorithm = "sha-512".into();
+        assert!(std::panic::catch_unwind(|| state_machine_plan_from_capsule(&capsule)).is_err());
+
+        let mut capsule =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&capsule_text)
+                .expect("capsule must deserialize");
+        capsule.integrity.encoding = "rfc8785-jcs".into();
+        assert!(std::panic::catch_unwind(|| state_machine_plan_from_capsule(&capsule)).is_err());
     }
 
     #[test]
