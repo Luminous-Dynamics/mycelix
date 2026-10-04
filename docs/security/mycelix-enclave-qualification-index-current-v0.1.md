@@ -29,7 +29,7 @@ This standalone index freezes the exact Git identities and execution status of t
 #3975 E1 CUI/CMMC revision boundary
 ```
 
-The security-evidence execution gate is introduced by **#4016**. Exact-head validation for #4011 is tracked separately by **#4013**.
+The original security-evidence gate is #4016/#4013; the active hardening stack now continues through #4030 → #4034 → #4036 → #4038 → #4040.
 
 All listed PRs are currently draft/open unless explicitly stated otherwise. The SHA recorded for each item is the exact snapshot identity, not a claim that the PR cannot change later.
 
@@ -82,7 +82,7 @@ quote verification
 != local authorization
 ```
 
-The current semantic corpus contains **22 adversarial vectors**, including session/boot/EK substitution, parser/profile substitution, nonce/PCR/AK substitution, reconstruction tampering, trusted-time ambiguity, key-order invariance, post-quote PCR mismatch, and DENY-over-INDETERMINATE precedence.
+The original platform corpus contained 22 vectors. The current stack adds a 25-vector PC-client replay corpus, an event payload→digest theorem, an independent raw binary TCG event-log parser, raw/YAML byte-fidelity cross-checks, and an independent reference-value appraisal boundary.
 
 ## TPM boundary
 
@@ -106,14 +106,14 @@ The capture helper is intentionally conservative: a physical run can preserve ra
 
 ## CI execution boundary
 
-#4016 installs a dedicated security-evidence workflow that validates:
+#4016 introduced the dedicated security-evidence workflow. The current workflow additionally validates the raw parser, payload-digest theorem, reference appraisal, adapter→replay composition, and end-to-end false-green regressions.
 
 - contract JSON structure and vector count;
 - Python bytecode compilation;
 - the complete semantic self-test;
 - preservation of the bounded claim ceiling.
 
-#4013 is the exact-head validation PR for #4011. At this snapshot there is **no hosted security-evidence result yet**, because the workflow is not authoritative from `main` until #4016 is merged.
+#4013 is the exact-head validation PR for #4011. At this snapshot the latest active heads are still in draft/open PRs. Current Actions executions are queued on the repaired heads; earlier failed runs exposed and drove parser/receipt fixes. A queued run is not a PASS.
 
 ## Current CMMC distinction
 
@@ -192,3 +192,19 @@ The repository is now structurally prepared for that evidence without allowing a
 ## Unproven
 
 Physical TPM security, measured boot, firmware/kernel integrity, manufacturer trust, FIPS validation, CMMC status, classified authorization, CDS approval, legal export authorization, and system-wide superiority over SIPRNet/NIPRNet remain explicitly unproven.
+
+## Current hardening stack
+
+```text
+#4030 executable reconstruction receipt verification
+    ↓
+#4034 event payload → digest coherence
+    ↓
+#4036 independent raw binary event-log parsing
+    ↓
+#4038 physical capture composition
+    ↓
+#4040 independent reference-value appraisal
+```
+
+All remain `ReferenceModelOnly` / `EvidenceGatePending`. The physical TPM experiment is still not executed.
