@@ -186,6 +186,14 @@ A future qualified implementation should establish at least:
 9. Reputation cannot recursively increase the power to define or rewrite the same substrate boundary.
 10. A metric becoming consequential does not make the metric itself the only source of truth.
 
+
+## Determinism note
+
+The reference model uses integer substrate quantities (i128) rather than floating-point
+state transitions. This is intentional: accounting state should not depend on IEEE-754
+rounding or processing order. Floating-point normalization, when needed for presentation,
+belongs at the reporting edge rather than inside the state transition model.
+
 ## Important limitation
 
 AC-017 is a systems-design and reference-model step, not evidence that a particular real economy, institution, company, municipality, or ecosystem is healthy or unhealthy.
