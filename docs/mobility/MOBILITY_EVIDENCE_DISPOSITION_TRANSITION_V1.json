@@ -891,6 +891,11 @@
       "id": "EDT-176",
       "case": "missing_authority_agent_binding_is_preflight_only_and_makes_no_host_calls",
       "expected": "unresolved_at_protocol_layer"
+    },
+    {
+      "id": "EDT-177",
+      "case": "caller_supplied_runtime_dependency_order_is_canonicalized_before_host_retrieval",
+      "expected": "accepted"
     }
   ],
   "outcome_classes": [
