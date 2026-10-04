@@ -411,7 +411,7 @@ impl EnforcementRequest {
         now_us: u64,
     ) -> Result<Self, AuthorizationDecision> {
         match revalidate_permit(&permit, evidence, now_us) {
-            AuthorizationDecision::Allow => Ok(Self {
+            AuthorizationOutcome::Allow => Ok(Self {
                 request: permit.request,
                 issued_at_us: permit.issued_at_us,
                 revalidated_at_us: now_us,
@@ -489,6 +489,12 @@ impl TryFrom<AuthorizationRequestWire> for AuthorizationRequest {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AuthorizationDecision {
+    Deny(AuthorizationDenial),
+    Indeterminate(AuthorizationIndeterminacy),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum AuthorizationOutcome {
     Allow,
     Deny(AuthorizationDenial),
     Indeterminate(AuthorizationIndeterminacy),
@@ -785,15 +791,15 @@ fn revalidate_permit(
     permit: &AuthorizationPermit,
     evidence: VerificationEvidence,
     now_us: u64,
-) -> AuthorizationDecision {
+) -> AuthorizationOutcome {
     if evidence.signature != SignatureVerification::Verified {
-        return AuthorizationDecision::Deny(AuthorizationDenial::InvalidCapability);
+        return AuthorizationOutcome::Deny(AuthorizationDenial::InvalidCapability);
     }
     if evidence.capability_binding != permit.capability_binding {
         return AuthorizationDecision::Deny(AuthorizationDenial::VerificationEvidenceMismatch);
     }
     if evidence.authority_binding == [0; 32] {
-        return AuthorizationDecision::Indeterminate(
+        return AuthorizationOutcome::Indeterminate(
             AuthorizationIndeterminacy::AmbiguousAuthority,
         );
     }
@@ -811,7 +817,7 @@ fn revalidate_permit(
     if now_us >= evidence.valid_until_us || !permit.is_valid_at(now_us) {
         return AuthorizationDecision::Deny(AuthorizationDenial::OutsideValidityWindow);
     }
-    AuthorizationDecision::Allow
+    AuthorizationOutcome::Allow
 }
 
 /// Evaluate authorization and, on success, mint a non-forgeable-in-module
