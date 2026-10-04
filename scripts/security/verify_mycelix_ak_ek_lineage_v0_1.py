@@ -1,0 +1,484 @@
+#!/usr/bin/env python3
+"""Verify Mycelix TPM AK -> EK lineage evidence under an explicit claim boundary."""
+from __future__ import annotations
+
+import argparse
+import copy
+import hashlib
+import json
+from pathlib import Path
+from typing import Any
+
+VERIFIER_ID = "mycelix.tpm.ak-ek-lineage.v0.1"
+SHA256_NAME_ALG = "sha256"
+SHA256_ALG_ID = bytes.fromhex("000b")
+
+
+def canonical_hash(value: Any) -> str:
+    return hashlib.sha256(
+        json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+    ).hexdigest()
+
+
+def valid_hash(value: Any) -> bool:
+    return isinstance(value, str) and len(value) == 64 and all(
+        char in "0123456789abcdef" for char in value
+    )
+
+
+def normalize_hex(value: Any, field: str) -> bytes:
+    if not isinstance(value, str):
+        raise ValueError(f"{field} must be a hex string")
+    normalized = value.lower().removeprefix("0x")
+    if len(normalized) % 2 or any(char not in "0123456789abcdef" for char in normalized):
+        raise ValueError(f"{field} is not canonical hexadecimal")
+    return bytes.fromhex(normalized)
+
+
+def validate_name(value: Any, field: str) -> bytes:
+    raw = normalize_hex(value, field)
+    if len(raw) != 34 or raw[:2] != SHA256_ALG_ID:
+        raise ValueError(f"{field} must be a SHA-256 TPM Name")
+    return raw
+
+
+def validate_qname(value: Any, field: str) -> bytes:
+    raw = normalize_hex(value, field)
+    if len(raw) != 34 or raw[:2] != SHA256_ALG_ID:
+        raise ValueError(f"{field} must be a SHA-256 Qualified Name")
+    return raw
+
+
+def expected_qname(parent_qname: bytes, object_name: bytes) -> bytes:
+    return SHA256_ALG_ID + hashlib.sha256(parent_qname + object_name).digest()
+
+
+def result(
+    state: str,
+    reason: str,
+    details: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    value: dict[str, Any] = {
+        "verifier_id": VERIFIER_ID,
+        "state": state,
+        "reason": reason,
+    }
+    if details:
+        value["details"] = details
+    return value
+
+
+def verify(manifest: dict[str, Any]) -> dict[str, Any]:
+    required = {
+        "profile_id",
+        "profile_version",
+        "verification_mode",
+        "claim_ceiling",
+        "session_id",
+        "tpm_identity_digest",
+        "ek",
+        "ak",
+        "parentage",
+        "public_name_binding",
+        "ek_credential",
+        "credential_activation",
+    }
+    missing = sorted(required - set(manifest))
+    if missing:
+        return result("DENY", "missing-required-fields", {"fields": missing})
+
+    if manifest["profile_id"] != "mycelix.security.tpm.ak-ek-lineage":
+        return result("DENY", "profile-id-mismatch")
+    if manifest["profile_version"] != "0.1.0":
+        return result("DENY", "profile-version-mismatch")
+    if manifest["verification_mode"] not in {
+        "ReferenceModelOnly",
+        "OfflineBundle",
+        "LiveVerifierSession",
+    }:
+        return result("DENY", "verification-mode-invalid")
+    if manifest["claim_ceiling"] != "ReferenceModelOnly":
+        return result("DENY", "claim-ceiling-mismatch")
+    if not valid_hash(manifest["tpm_identity_digest"]):
+        return result("DENY", "tpm-identity-digest-invalid")
+
+    ek = manifest["ek"]
+    ak = manifest["ak"]
+    parentage = manifest["parentage"]
+    public_name = manifest["public_name_binding"]
+    credential = manifest["ek_credential"]
+    activation = manifest["credential_activation"]
+
+    if not isinstance(ek, dict) or not isinstance(ak, dict):
+        return result("DENY", "key-sections-invalid")
+    if not isinstance(parentage, dict) or not isinstance(public_name, dict):
+        return result("DENY", "lineage-binding-sections-invalid")
+    if not isinstance(credential, dict) or not isinstance(activation, dict):
+        return result("DENY", "credential-sections-invalid")
+
+    for section_name, section, fields in (
+        ("ek", ek, ("public_sha256", "name_hex", "qualified_name_hex")),
+        (
+            "ak",
+            ak,
+            (
+                "public_sha256",
+                "name_hex",
+                "qualified_name_hex",
+                "name_alg",
+                "fixedTPM",
+                "fixedParent",
+            ),
+        ),
+    ):
+        for field in fields:
+            if field not in section:
+                return result(
+                    "DENY",
+                    "missing-field",
+                    {"field": f"{section_name}.{field}"},
+                )
+
+    if not valid_hash(ek["public_sha256"]) or not valid_hash(ak["public_sha256"]):
+        return result("DENY", "key-public-digest-invalid")
+    if ak["name_alg"] != SHA256_NAME_ALG:
+        return result("DENY", "unsupported-ak-name-algorithm")
+    if ak["fixedTPM"] is not True:
+        return result("DENY", "ak-fixedTPM-not-set")
+    if ak["fixedParent"] is not True:
+        return result("DENY", "ak-fixedParent-not-set")
+
+    try:
+        ek_name = validate_name(ek["name_hex"], "ek.name_hex")
+        ek_qname = validate_qname(ek["qualified_name_hex"], "ek.qualified_name_hex")
+        ak_name = validate_name(ak["name_hex"], "ak.name_hex")
+        ak_qname = validate_qname(ak["qualified_name_hex"], "ak.qualified_name_hex")
+        parent_qname = validate_qname(
+            parentage["parent_qualified_name_hex"],
+            "parentage.parent_qualified_name_hex",
+        )
+    except ValueError as exc:
+        return result(
+            "DENY",
+            "invalid-tpm-name-encoding",
+            {"error": str(exc)},
+        )
+
+    if parentage.get("parent_type") != "EK":
+        return result("DENY", "parent-type-is-not-ek")
+    if parent_qname != ek_qname:
+        return result("DENY", "parent-qualified-name-does-not-equal-ek")
+
+    expected = expected_qname(parent_qname, ak_name)
+    if ak_qname != expected:
+        return result(
+            "DENY",
+            "ak-qualified-name-parentage-mismatch",
+            {
+                "expected_qualified_name_hex": expected.hex(),
+                "observed_qualified_name_hex": ak_qname.hex(),
+            },
+        )
+
+    if (
+        not valid_hash(public_name.get("public_sha256"))
+        or public_name["public_sha256"] != ak["public_sha256"]
+    ):
+        return result("DENY", "ak-public-name-binding-public-digest-mismatch")
+
+    try:
+        recorded_name_sha256 = public_name["name_sha256"]
+        if not valid_hash(recorded_name_sha256):
+            return result("DENY", "ak-public-name-binding-name-digest-invalid")
+        if recorded_name_sha256 != hashlib.sha256(ak_name).hexdigest():
+            return result("DENY", "ak-public-name-binding-name-digest-mismatch")
+    except KeyError:
+        return result(
+            "DENY",
+            "missing-field",
+            {"field": "public_name_binding.name_sha256"},
+        )
+
+    if public_name.get("method") != "same-tpm-readpublic-context":
+        return result("DENY", "ak-public-name-binding-method-invalid")
+    if public_name.get("state") != "PASS":
+        if public_name.get("state") == "INDETERMINATE":
+            return result("INDETERMINATE", "ak-public-name-binding-indeterminate")
+        return result("DENY", "ak-public-name-binding-failed")
+
+    for field in ("material_sha256", "bound_ek_public_sha256"):
+        if not valid_hash(credential.get(field)):
+            return result(
+                "DENY",
+                "ek-credential-digest-invalid",
+                {"field": field},
+            )
+    if credential["bound_ek_public_sha256"] != ek["public_sha256"]:
+        return result("DENY", "ek-credential-not-bound-to-observed-ek")
+    if credential.get("mode") not in {"provider", "tpm-resident"}:
+        return result("DENY", "ek-credential-mode-invalid")
+    if credential.get("state") == "DENY":
+        return result("DENY", "ek-credential-appraisal-denied")
+    if credential.get("state") == "INDETERMINATE":
+        return result("INDETERMINATE", "ek-credential-appraisal-indeterminate")
+    if credential.get("state") != "PASS":
+        return result("DENY", "ek-credential-state-invalid")
+
+    activation_required = {
+        "protocol",
+        "state",
+        "scope",
+        "session_id",
+        "tpm_identity_digest",
+        "challenge_origin",
+        "challenge_sha256",
+        "credential_blob_sha256",
+        "ek_public_sha256",
+        "ak_name_hex",
+    }
+    missing_activation = sorted(activation_required - set(activation))
+    if missing_activation:
+        return result(
+            "DENY",
+            "missing-activation-fields",
+            {"fields": missing_activation},
+        )
+    if activation["protocol"] != "TPM2_MakeCredential+TPM2_ActivateCredential":
+        return result("DENY", "credential-activation-protocol-mismatch")
+    if activation["session_id"] != manifest["session_id"]:
+        return result("DENY", "credential-activation-session-mismatch")
+    if activation["tpm_identity_digest"] != manifest["tpm_identity_digest"]:
+        return result("DENY", "credential-activation-tpm-identity-mismatch")
+    if activation["ek_public_sha256"] != ek["public_sha256"]:
+        return result("DENY", "credential-activation-ek-mismatch")
+
+    try:
+        activation_name = validate_name(
+            activation["ak_name_hex"],
+            "credential_activation.ak_name_hex",
+        )
+    except ValueError as exc:
+        return result(
+            "DENY",
+            "credential-activation-ak-name-invalid",
+            {"error": str(exc)},
+        )
+    if activation_name != ak_name:
+        return result("DENY", "credential-activation-ak-name-mismatch")
+
+    for field in ("challenge_sha256", "credential_blob_sha256"):
+        if not valid_hash(activation[field]):
+            return result(
+                "DENY",
+                "credential-activation-digest-invalid",
+                {"field": field},
+            )
+    if activation["challenge_origin"] != "external-verifier-supplied":
+        return result("DENY", "credential-activation-challenge-not-external")
+
+    activation_state = activation["state"]
+    if activation_state == "DENY":
+        return result("DENY", "credential-activation-denied")
+    if activation_state != "PASS":
+        return result("INDETERMINATE", "credential-activation-indeterminate")
+
+    scope = activation["scope"]
+    if scope == "ReferenceModelOnly":
+        for field in ("expected_secret_sha256", "activated_secret_sha256"):
+            if not valid_hash(activation.get(field)):
+                return result(
+                    "DENY",
+                    "reference-activation-secret-digest-invalid",
+                    {"field": field},
+                )
+        if activation["expected_secret_sha256"] != activation["activated_secret_sha256"]:
+            return result("DENY", "reference-activation-secret-mismatch")
+    elif scope == "LiveVerifierSession":
+        return result(
+            "INDETERMINATE",
+            "live-activation-execution-not-integrated-into-static-verifier",
+        )
+    elif scope == "OfflineBundle":
+        return result(
+            "INDETERMINATE",
+            "offline-activation-receipt-requires-independent-verifier-authentication",
+        )
+    else:
+        return result("DENY", "credential-activation-scope-invalid")
+
+    if manifest["verification_mode"] == "OfflineBundle":
+        return result(
+            "INDETERMINATE",
+            "offline-lineage-cannot-claim-live-credential-activation",
+        )
+
+    if manifest["verification_mode"] == "LiveVerifierSession":
+        return result(
+            "INDETERMINATE",
+            "live-lineage-execution-not-integrated-into-static-verifier",
+        )
+
+    if manifest["verification_mode"] == "ReferenceModelOnly" and scope != "ReferenceModelOnly":
+        return result(
+            "INDETERMINATE",
+            "reference-model-requires-reference-activation-scope",
+        )
+
+    return result(
+        "PASS",
+        "ak-ek-lineage-verified",
+        {
+            "ek_name_sha256": hashlib.sha256(ek_name).hexdigest(),
+            "ak_name_sha256": hashlib.sha256(ak_name).hexdigest(),
+            "ak_qualified_name_hex": ak_qname.hex(),
+            "parent_qualified_name_hex": parent_qname.hex(),
+        },
+    )
+
+
+def fixture() -> dict[str, Any]:
+    ek_name = bytes.fromhex("000b" + "11" * 32)
+    ek_qname = bytes.fromhex("000b" + "22" * 32)
+    ak_name = bytes.fromhex("000b" + "33" * 32)
+    ak_qname = expected_qname(ek_qname, ak_name)
+    tpm_id = "44" * 32
+    ak_public = "55" * 32
+    ek_public = "66" * 32
+    secret = "77" * 32
+
+    return {
+        "profile_id": "mycelix.security.tpm.ak-ek-lineage",
+        "profile_version": "0.1.0",
+        "verification_mode": "ReferenceModelOnly",
+        "claim_ceiling": "ReferenceModelOnly",
+        "session_id": "ak-ek-lineage-self-test",
+        "tpm_identity_digest": tpm_id,
+        "ek": {
+            "public_sha256": ek_public,
+            "name_hex": ek_name.hex(),
+            "qualified_name_hex": ek_qname.hex(),
+        },
+        "ak": {
+            "public_sha256": ak_public,
+            "name_hex": ak_name.hex(),
+            "qualified_name_hex": ak_qname.hex(),
+            "name_alg": "sha256",
+            "fixedTPM": True,
+            "fixedParent": True,
+        },
+        "parentage": {
+            "parent_type": "EK",
+            "parent_qualified_name_hex": ek_qname.hex(),
+        },
+        "public_name_binding": {
+            "state": "PASS",
+            "method": "same-tpm-readpublic-context",
+            "public_sha256": ak_public,
+            "name_sha256": hashlib.sha256(ak_name).hexdigest(),
+        },
+        "ek_credential": {
+            "state": "PASS",
+            "mode": "provider",
+            "material_sha256": "88" * 32,
+            "bound_ek_public_sha256": ek_public,
+        },
+        "credential_activation": {
+            "protocol": "TPM2_MakeCredential+TPM2_ActivateCredential",
+            "state": "PASS",
+            "scope": "ReferenceModelOnly",
+            "session_id": "ak-ek-lineage-self-test",
+            "tpm_identity_digest": tpm_id,
+            "challenge_origin": "external-verifier-supplied",
+            "challenge_sha256": "99" * 32,
+            "credential_blob_sha256": "aa" * 32,
+            "ek_public_sha256": ek_public,
+            "ak_name_hex": ak_name.hex(),
+            "expected_secret_sha256": secret,
+            "activated_secret_sha256": secret,
+        },
+    }
+
+
+def self_test() -> int:
+    base = fixture()
+    cases: list[tuple[str, str, Any]] = [
+        ("canonical-valid", "PASS", lambda x: x),
+        ("ak-qualified-name-substitution", "DENY", lambda x: x["ak"].update({"qualified_name_hex": "000b" + "ff" * 32})),
+        ("parent-qname-substitution", "DENY", lambda x: x["parentage"].update({"parent_qualified_name_hex": "000b" + "ee" * 32})),
+        ("parent-type-substitution", "DENY", lambda x: x["parentage"].update({"parent_type": "owner"})),
+        ("fixedTPM-cleared", "DENY", lambda x: x["ak"].update({"fixedTPM": False})),
+        ("fixedParent-cleared", "DENY", lambda x: x["ak"].update({"fixedParent": False})),
+        ("name-algorithm-substitution", "DENY", lambda x: x["ak"].update({"name_alg": "sha1"})),
+        ("public-name-public-substitution", "DENY", lambda x: x["ak"].update({"public_sha256": "bb" * 32})),
+        ("public-name-name-substitution", "DENY", lambda x: x["public_name_binding"].update({"name_sha256": "cc" * 32})),
+        ("public-name-binding-indeterminate", "INDETERMINATE", lambda x: x["public_name_binding"].update({"state": "INDETERMINATE"})),
+        ("ek-credential-binding-substitution", "DENY", lambda x: x["ek_credential"].update({"bound_ek_public_sha256": "dd" * 32})),
+        ("ek-credential-unavailable", "INDETERMINATE", lambda x: x["ek_credential"].update({"state": "INDETERMINATE"})),
+        ("activation-denied", "DENY", lambda x: x["credential_activation"].update({"state": "DENY"})),
+        ("activation-indeterminate", "INDETERMINATE", lambda x: x["credential_activation"].update({"state": "INDETERMINATE"})),
+        ("activation-ek-substitution", "DENY", lambda x: x["credential_activation"].update({"ek_public_sha256": "de" * 32})),
+        ("activation-protocol-substitution", "DENY", lambda x: x["credential_activation"].update({"protocol": "local-secret-import"})),
+        ("activation-ak-substitution", "DENY", lambda x: x["credential_activation"].update({"ak_name_hex": "000b" + "ab" * 32})),
+        ("activation-tpm-substitution", "DENY", lambda x: x["credential_activation"].update({"tpm_identity_digest": "ef" * 32})),
+        ("offline-activation", "INDETERMINATE", lambda x: (x.update({"verification_mode": "OfflineBundle"}), x["credential_activation"].update({"scope": "OfflineBundle"}))),
+        ("live-without-observation", "INDETERMINATE", lambda x: (x.update({"verification_mode": "LiveVerifierSession"}), x["credential_activation"].update({"scope": "LiveVerifierSession"}))),
+        ("activation-secret-substitution", "DENY", lambda x: x["credential_activation"].update({"activated_secret_sha256": "01" * 32})),
+    ]
+
+    for name, expected_state, mutate in cases:
+        candidate = copy.deepcopy(base)
+        mutate(candidate)
+        observed = verify(candidate)
+        if observed["state"] != expected_state:
+            print(f"{name}: FAIL (expected {expected_state}, got {observed['state']})")
+            return 1
+
+    permuted = json.loads(json.dumps(base, sort_keys=True))
+    observed = verify(permuted)
+    if observed["state"] != "PASS":
+        print("key-order-permutation: FAIL")
+        return 1
+
+    print("AK/EK lineage semantic corpus: PASS")
+    print("20 adversarial mutations plus canonical case: PASS")
+    print("Live/offline activation remains explicitly bounded")
+    return 0
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--self-test", action="store_true")
+    mode.add_argument("--verify", metavar="MANIFEST")
+    parser.add_argument("--output")
+    args = parser.parse_args()
+
+    if args.self_test:
+        return self_test()
+
+    path = Path(args.verify).resolve()
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(manifest, dict):
+        raise SystemExit("manifest must be a JSON object")
+
+    verified = verify(manifest)
+    output = {
+        "profile_id": "mycelix.security.tpm.ak-ek-lineage",
+        "profile_version": "0.1.0",
+        "verifier_id": VERIFIER_ID,
+        "input_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+        **verified,
+    }
+    output["content_sha256"] = canonical_hash(
+        {key: value for key, value in output.items() if key != "content_sha256"}
+    )
+    rendered = json.dumps(output, indent=2, sort_keys=True) + "\n"
+    if args.output:
+        Path(args.output).write_text(rendered, encoding="utf-8")
+    else:
+        print(rendered, end="")
+    return {"PASS": 0, "DENY": 1, "INDETERMINATE": 2}[verified["state"]]
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
