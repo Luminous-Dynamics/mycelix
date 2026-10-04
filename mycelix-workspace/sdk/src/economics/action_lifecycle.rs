@@ -93,8 +93,8 @@ impl EconomicActionRevision {
         if self.scope_id.trim().is_empty() {
             return Err("Lifecycle scope ID cannot be empty".into());
         }
-        if self.scope_fingerprint.trim().is_empty() {
-            return Err("Lifecycle scope fingerprint cannot be empty".into());
+        if !is_sha256_hex(&self.scope_fingerprint) {
+            return Err("Lifecycle scope fingerprint must be a 64-character hexadecimal SHA-256".into());
         }
         if self.authority_ref.trim().is_empty() {
             return Err("Lifecycle authority reference cannot be empty".into());
@@ -145,6 +145,11 @@ impl EconomicActionRevision {
 
         Ok(())
     }
+}
+
+/// Validate canonical lowercase/uppercase hexadecimal SHA-256 text.
+fn is_sha256_hex(value: &str) -> bool {
+    value.len() == 64 && value.as_bytes().iter().all(u8::is_ascii_hexdigit)
 }
 
 /// Append-only lifecycle ledger for one economic action.
@@ -203,6 +208,11 @@ impl EconomicActionLifecycle {
     /// Read the active scope identity.
     pub fn active_scope_id(&self) -> &str {
         &self.active_scope_id
+    }
+
+    /// Read the fingerprint of the active scope contents.
+    pub fn active_scope_fingerprint(&self) -> &str {
+        &self.active_scope_fingerprint
     }
 
     /// Validate the lifecycle's internal consistency.
@@ -600,7 +610,7 @@ mod tests {
             "revision:2",
             EconomicActionStage::Tendering,
             EconomicActionChangeKind::Update,
-            "scope:1",
+            &scope("action:1", "scope:1"),
             "authority:dao-1",
             vec!["evidence:revision-2".into()],
             1_100,
@@ -693,6 +703,14 @@ mod tests {
         assert!(result.is_err());
         assert_eq!(lifecycle.revisions().len(), 1);
         assert_eq!(lifecycle.active_scope_id(), "scope:1");
+    }
+
+    #[test]
+    fn malformed_scope_fingerprint_is_rejected() {
+        let mut lifecycle = start();
+        lifecycle.revisions[0].scope_fingerprint = "not-a-hash".into();
+
+        assert!(lifecycle.validate().is_err());
     }
 
     #[test]
