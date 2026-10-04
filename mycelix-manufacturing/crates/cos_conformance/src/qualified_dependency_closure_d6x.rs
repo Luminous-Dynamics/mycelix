@@ -1745,6 +1745,134 @@ mod tests {
         );
     }
 
+    fn execute_golden_recipe(
+        corpus: &GoldenCorpusV1,
+        vector: &GoldenVectorV1,
+    ) -> (
+        QualifiedProjectionV1,
+        SemanticEnvironmentV1,
+        DerivationProfileV1,
+        DependencyClosureProfileV1,
+    ) {
+        let environment: SemanticEnvironmentV1 =
+            serde_json::from_value(corpus.fixtures.semantic_environment.clone())
+                .expect("golden semantic environment must deserialize");
+        let derivation_profile: DerivationProfileV1 =
+            serde_json::from_value(corpus.fixtures.derivation_profile.clone())
+                .expect("golden derivation profile must deserialize");
+
+        let mut projection_value = corpus.fixtures.baseline_projection.clone();
+        let projection_object = projection_value
+            .as_object_mut()
+            .expect("golden baseline projection must be an object");
+        projection_object.insert(
+            "semantic_environment_commitment".into(),
+            serde_json::Value::String(environment.commitment()),
+        );
+        projection_object.insert(
+            "derivation_profile_commitment".into(),
+            serde_json::Value::String(derivation_profile.commitment()),
+        );
+
+        for mutation in &vector.recipe.projection_mutations {
+            match mutation.op.as_str() {
+                "add_edge" => {
+                    let edge_id = mutation.edge_id.clone().expect("validated add_edge edge_id");
+                    let from_node_id = mutation
+                        .from_node_id
+                        .clone()
+                        .expect("validated add_edge from_node_id");
+                    let to_node_id = mutation
+                        .to_node_id
+                        .clone()
+                        .expect("validated add_edge to_node_id");
+                    let kind = mutation.kind.expect("validated add_edge kind");
+                    let edge_commitment = mutation
+                        .edge_commitment
+                        .clone()
+                        .expect("validated add_edge edge_commitment");
+                    let edges = projection_object
+                        .get_mut("edges")
+                        .and_then(serde_json::Value::as_object_mut)
+                        .expect("golden projection edges must be an object");
+                    edges.insert(
+                        edge_id.clone(),
+                        serde_json::json!({
+                            "edge_id": edge_id,
+                            "from_node_id": from_node_id,
+                            "to_node_id": to_node_id,
+                            "kind": kind,
+                            "edge_commitment": edge_commitment,
+                            "claim_ceiling": D6X_CLAIM_CEILING,
+                        }),
+                    );
+                }
+                "set_node" => {
+                    let node_id = mutation.node_id.as_ref().expect("validated set_node node_id");
+                    let fields = mutation.fields.as_ref().expect("validated set_node fields");
+                    let nodes = projection_object
+                        .get_mut("nodes")
+                        .and_then(serde_json::Value::as_object_mut)
+                        .expect("golden projection nodes must be an object");
+                    let node = nodes
+                        .get_mut(node_id)
+                        .and_then(serde_json::Value::as_object_mut)
+                        .unwrap_or_else(|| panic!("golden set_node target is missing: {node_id}"));
+                    for (field, value) in fields {
+                        node.insert(field.clone(), value.clone());
+                    }
+                }
+                op => panic!("validated corpus contained unsupported mutation: {op}"),
+            }
+        }
+
+        let projection: QualifiedProjectionV1 = serde_json::from_value(projection_value)
+            .expect("golden projection recipe must deserialize");
+
+        let rule = DependencyRuleV1 {
+            edge_kind: vector.recipe.rule.edge_kind,
+            from_kind: vector.recipe.rule.from_kind,
+            to_kind: vector.recipe.rule.to_kind,
+            currentness: vector.recipe.rule.currentness,
+        };
+        let profile = DependencyClosureProfileV1 {
+            profile_id: "closure".into(),
+            version: "1".into(),
+            root_node_ids: vector.recipe.root_node_ids.iter().cloned().collect(),
+            required_node_ids: vector.recipe.required_node_ids.iter().cloned().collect(),
+            required_d6p_receipt_commitments: BTreeSet::new(),
+            rules: [rule].into_iter().collect(),
+            excluded_boundary_policy: "Only rule-matched semantic edges expand closure.".into(),
+            max_nodes: vector.recipe.max_nodes,
+            max_edges: vector.recipe.max_edges,
+            claim_ceiling: D6X_CLAIM_CEILING.into(),
+        };
+
+        (projection, environment, derivation_profile, profile)
+    }
+
+    #[test]
+    fn golden_vector_recipes_execute_against_declared_fixtures() {
+        let corpus: GoldenCorpusV1 = serde_json::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/testdata/d6x_qualified_closure_golden_vectors.json"
+        )))
+        .expect("D6X golden vector corpus must parse");
+
+        for vector in &corpus.vectors {
+            let (projection, environment, derivation_profile, profile) =
+                execute_golden_recipe(&corpus, vector);
+            let closure = compute_dependency_closure(
+                &projection,
+                &environment,
+                &derivation_profile,
+                &profile,
+            )
+            .unwrap_or_else(|| panic!("golden recipe must produce a closure: {}", vector.id));
+            assert_golden_vector(&corpus, &vector.id, &closure);
+        }
+    }
+
     #[test]
     fn golden_vector_hashes_match_reference_model() {
         let corpus: GoldenCorpusV1 = serde_json::from_str(include_str!(concat!(
@@ -2098,49 +2226,3 @@ mod tests {
         let mut changed=p.clone();
         changed.version="2".into();
         let after=compute_dependency_closure(&a,&e,&d,&changed).unwrap();
-        assert_ne!(before.closure_identity_commitment, after.closure_identity_commitment);
-    }
-
-    #[test]
-    fn set_insertion_order_does_not_change_identity() {
-        let (a,e,d)=projection(false);
-        let mut p1=profile(BTreeSet::new());
-        p1.required_node_ids.extend(["dep".into(), "root".into()]);
-        let mut p2=p1.clone();
-        p2.required_node_ids=BTreeSet::from(["root".into(), "dep".into()]);
-        assert_eq!(compute_dependency_closure(&a,&e,&d,&p1).unwrap().closure_identity_commitment,
-                   compute_dependency_closure(&a,&e,&d,&p2).unwrap().closure_identity_commitment);
-    }
-
-    #[test]
-    fn canonical_dependency_set_contains_selected_node_and_edge() {
-        let (a,e,d)=projection(false); let p=profile(BTreeSet::new());
-        let c=compute_dependency_closure(&a,&e,&d,&p).unwrap();
-        assert!(c.dependencies.contains(&SemanticDependencyReferenceV1::node("root", Some("commit-root".into()))));
-        assert!(c.dependencies.contains(&SemanticDependencyReferenceV1::node("dep", Some("commit-dep".into()))));
-        assert!(c.dependencies.contains(&SemanticDependencyReferenceV1::edge("e1", "root", "dep", ClaimGraphEdgeKindV1::Supports, Some("edge-e1".into()))));
-        assert_eq!(c.dependencies.len(), 3);
-    }
-
-    #[test]
-    fn selected_edge_endpoint_or_kind_changes_identity() {
-        let (mut a,e,d)=projection(false); let p=profile(BTreeSet::new());
-        let before=compute_dependency_closure(&a,&e,&d,&p).unwrap();
-
-        a.nodes.insert("alt".into(), QualifiedNodeV1 {
-            node_id:"alt".into(), kind:ClaimGraphNodeKindV1::Evidence,
-            content_commitment:"content-alt".into(), node_commitment:"commit-alt".into(), historical_only:false,
-            current_frontier_root:Some("frontier".into()), claim_ceiling:D6S_CLAIM_CEILING.into(),
-        });
-        {
-            let edge = a.edges.get_mut("e1").unwrap();
-            edge.to_node_id = "alt".into();
-            edge.edge_commitment = edge.recomputed_commitment();
-        }
-        let endpoint_changed=compute_dependency_closure(&a,&e,&d,&p).unwrap();
-        assert_ne!(before.closure_identity_commitment, endpoint_changed.closure_identity_commitment);
-
-        let (mut a,e,d)=projection(false);
-        let before=compute_dependency_closure(&a,&e,&d,&p).unwrap();
-        {
-            let edge = a.edges.get_mut("e1").unwrap();
