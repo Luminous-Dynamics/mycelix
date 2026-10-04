@@ -61,7 +61,8 @@
     "network_listener": false,
     "state_lock": true,
     "state_mode": "0600",
-    "state_fsync": true
+    "state_fsync": false,
+    "state_durability_note": "swtpm 0.10.1 profile does not use the later fsync backend option; host/storage durability is outside this v0.1 theorem"
   },
   "required_qualifications": [
     "exact-tool-version-check",
