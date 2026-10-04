@@ -309,7 +309,14 @@ pub fn issue_credential(input: IssueCredentialInput) -> ExternResult<Record> {
         proof: CredentialProof {
             proof_type: "DataIntegrityProof".to_string(),
             created: now_iso.clone(),
-            verification_method: format!("{}#keys-1", issuer_did),
+            verification_method: match proof_profile {
+                CredentialProofProfile::MycelixBlake2bEd25519 => {
+                    format!("{}#keys-1", issuer_did)
+                }
+                CredentialProofProfile::W3cEddsaJcs2022 => {
+                    format!("{}#keys-1-multikey", issuer_did)
+                }
+            },
             proof_purpose: "assertionMethod".to_string(),
             proof_value: String::new(), // Will be filled
             cryptosuite: Some(match proof_profile {
