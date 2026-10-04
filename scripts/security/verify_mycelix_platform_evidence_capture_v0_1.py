@@ -21,11 +21,19 @@ RECONSTRUCTION_SCRIPT = ROOT / "scripts/security/reconstruct_mycelix_pc_client_e
 ADAPTER_SCRIPT = ROOT / "scripts/security/adapt_mycelix_tpm2_eventlog_yaml_v1_v0_1.py"
 RAW_EVENTLOG_PARSER_SCRIPT = ROOT / "scripts/security/parse_mycelix_raw_tpm2_eventlog_v0_1.py"
 PAYLOAD_COHERENCE_SCRIPT = ROOT / "scripts/security/verify_mycelix_event_payload_digest_coherence_v0_1.py"
+PUBLIC_NAME_VERIFIER_SCRIPT = ROOT / "scripts/security/verify_mycelix_tpm_public_name_coherence_v0_1.py"
+PUBLIC_NAME_VERIFIER_ID = "mycelix.tpm.public-name-coherence.v0.1"
 RECONSTRUCTION_VERIFIER_ID = "mycelix.pc-client.eventlog-reconstruction.v0.1"
 
 
 def sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def valid_hash(value: Any) -> bool:
+    return isinstance(value, str) and len(value) == 64 and all(
+        c in "0123456789abcdef" for c in value
+    )
 
 
 def sha256_file(path: Path) -> str:
@@ -132,6 +140,20 @@ def session_binding(manifest: dict[str, Any]) -> str:
             "payload_coherence_output_sha256": manifest["payload_coherence"]["output_sha256"],
             "payload_coherence_source_sha256": manifest["payload_coherence"]["source_sha256"],
             "payload_coherence_input_sha256": manifest["payload_coherence"]["input_sha256"],
+            "public_name_ak_status": manifest["public_name_coherence"]["ak"]["status"],
+            "public_name_ak_output_sha256": manifest["public_name_coherence"]["ak"]["output_sha256"],
+            "public_name_ak_input_sha256": manifest["public_name_coherence"]["ak"]["input_sha256"],
+            "public_name_ak_wire_sha256": manifest["public_name_coherence"]["ak"]["wire_sha256"],
+            "public_name_ak_name_sha256": manifest["public_name_coherence"]["ak"]["name_sha256"],
+            "public_name_ak_qname_sha256": manifest["public_name_coherence"]["ak"]["qname_sha256"],
+            "public_name_ak_source_sha256": manifest["public_name_coherence"]["ak"]["source_sha256"],
+            "public_name_ek_status": manifest["public_name_coherence"]["ek"]["status"],
+            "public_name_ek_output_sha256": manifest["public_name_coherence"]["ek"]["output_sha256"],
+            "public_name_ek_input_sha256": manifest["public_name_coherence"]["ek"]["input_sha256"],
+            "public_name_ek_wire_sha256": manifest["public_name_coherence"]["ek"]["wire_sha256"],
+            "public_name_ek_name_sha256": manifest["public_name_coherence"]["ek"]["name_sha256"],
+            "public_name_ek_qname_sha256": manifest["public_name_coherence"]["ek"]["qname_sha256"],
+            "public_name_ek_source_sha256": manifest["public_name_coherence"]["ek"]["source_sha256"],
         }
     )
 
@@ -188,6 +210,10 @@ def fixture_manifest() -> dict[str, Any]:
             "source_sha256": sha256_file(RAW_EVENTLOG_PARSER_SCRIPT),
             "binary_sha256": "c" * 64,
         },
+        "public_name_coherence": {
+            "ak": public_name_ak,
+            "ek": public_name_ek,
+        },
         "quote": {
             "pcr_selection": "sha256:0,2,4,7",
             "nonce_sha256": "d" * 64,
@@ -227,6 +253,28 @@ def fixture_manifest() -> dict[str, Any]:
             "source_sha256": sha256_file(PAYLOAD_COHERENCE_SCRIPT),
             "input_sha256": "3" * 64,
         },
+        "public_name_coherence": {
+            "ak": {
+                "status": "INDETERMINATE",
+                "verifier_id": PUBLIC_NAME_VERIFIER_ID,
+                "output_sha256": "aa" * 32,
+                "input_sha256": "ab" * 32,
+                "wire_sha256": "ac" * 32,
+                "name_sha256": "ad" * 32,
+                "qname_sha256": "ae" * 32,
+                "source_sha256": "af" * 32,
+            },
+            "ek": {
+                "status": "INDETERMINATE",
+                "verifier_id": PUBLIC_NAME_VERIFIER_ID,
+                "output_sha256": "ba" * 32,
+                "input_sha256": "bb" * 32,
+                "wire_sha256": "bc" * 32,
+                "name_sha256": "bd" * 32,
+                "qname_sha256": "be" * 32,
+                "source_sha256": "bf" * 32,
+            },
+        },
         "artifacts": {
             "quote_message_sha256": "5" * 64,
             "quote_signature_sha256": "6" * 64,
@@ -236,6 +284,18 @@ def fixture_manifest() -> dict[str, Any]:
             "observed_pcr_values_file_sha256": "a" * 64,
             "raw_eventlog_output_sha256": "8" * 64,
             "payload_coherence_output_sha256": "9" * 64,
+            "public_name_ak_output_sha256": "aa" * 32,
+            "public_name_ak_input_sha256": "ab" * 32,
+            "public_name_ak_wire_sha256": "ac" * 32,
+            "public_name_ak_name_sha256": "ad" * 32,
+            "public_name_ak_qname_sha256": "ae" * 32,
+            "public_name_ak_source_sha256": "af" * 32,
+            "public_name_ek_output_sha256": "ba" * 32,
+            "public_name_ek_input_sha256": "bb" * 32,
+            "public_name_ek_wire_sha256": "bc" * 32,
+            "public_name_ek_name_sha256": "bd" * 32,
+            "public_name_ek_qname_sha256": "be" * 32,
+            "public_name_ek_source_sha256": "bf" * 32,
             "tss_version_evidence_sha256": "f" * 64,
             "ek_public_sha256": "b" * 64,
         },
@@ -314,10 +374,21 @@ def mutate(value: dict[str, Any], name: str) -> dict[str, Any]:
             "reconstruction",
             "live_observation",
             "artifacts",
+            "public_name_coherence",
         ):
             out[key] = dict(reversed(list(out[key].items())))
     elif name == "post-quote-pcr-value-mismatch":
         out["live_observation"]["pcr_values_sha256"] = "6" * 64
+    elif name == "public-name-ak-status-deny":
+        out["public_name_coherence"]["ak"]["status"] = "DENY"
+    elif name == "public-name-ek-verifier-substitution":
+        out["public_name_coherence"]["ek"]["verifier_id"] = "other-verifier"
+    elif name == "public-name-ak-wire-substitution":
+        out["public_name_coherence"]["ak"]["wire_sha256"] = "12" * 32
+    elif name == "public-name-cross-key-splice":
+        out["public_name_coherence"]["ak"]["wire_sha256"] = out["public_name_coherence"]["ek"]["wire_sha256"]
+    elif name == "public-name-ak-source-substitution":
+        out["public_name_coherence"]["ak"]["source_sha256"] = "13" * 32
     elif name == "deny-over-indeterminate":
         out["event_log"]["parser_status"] = "FAIL"
         out["reconstruction"]["status"] = "INDETERMINATE"
@@ -421,6 +492,18 @@ def validate_semantics(manifest: dict[str, Any]) -> tuple[str, str]:
         ),
     }
 
+    public_name = manifest.get("public_name_coherence")
+    if not isinstance(public_name, dict):
+        denies.append("public-name-coherence-not-object")
+    else:
+        for role in ("ak", "ek"):
+            entry = public_name.get(role)
+            if not isinstance(entry, dict):
+                denies.append(f"public-name-{role}-not-object")
+                continue
+            for field in ("status", "verifier_id", "output_sha256", "input_sha256", "wire_sha256", "name_sha256", "qname_sha256", "source_sha256"):
+                if field not in entry:
+                    denies.append(f"missing-public-name-{role}.{field}")
     for section, fields in sections.items():
         value = manifest.get(section)
         if not isinstance(value, dict):
@@ -480,6 +563,27 @@ def validate_semantics(manifest: dict[str, Any]) -> tuple[str, str]:
         denies.append("payload-coherence-source-binding-mismatch")
     if manifest["payload_coherence"]["input_sha256"] != manifest["reconstruction"]["input_sha256"]:
         denies.append("payload-coherence-input-binding-mismatch")
+    for role in ("ak", "ek"):
+        entry = manifest["public_name_coherence"][role]
+        prefix = "public_name_ak" if role == "ak" else "public_name_ek"
+        if entry["verifier_id"] != PUBLIC_NAME_VERIFIER_ID:
+            denies.append(f"public-name-{role}-verifier-id-mismatch")
+        if entry["status"] not in {"PASS", "INDETERMINATE"}:
+            denies.append(f"public-name-{role}-invalid-state")
+        fields = ("output_sha256","input_sha256","wire_sha256","name_sha256","qname_sha256","source_sha256")
+        if not all(valid_hash(entry[field]) for field in fields):
+            denies.append(f"public-name-{role}-digest-invalid")
+        artifact_map = {
+            "output_sha256": f"{prefix}_output_sha256",
+            "input_sha256": f"{prefix}_input_sha256",
+            "wire_sha256": f"{prefix}_wire_sha256",
+            "name_sha256": f"{prefix}_name_sha256",
+            "qname_sha256": f"{prefix}_qname_sha256",
+            "source_sha256": f"{prefix}_source_sha256",
+        }
+        for field, artifact_key in artifact_map.items():
+            if valid_hash(entry[field]) and manifest["artifacts"].get(artifact_key) != entry[field]:
+                denies.append(f"public-name-{role}-{field}-artifact-binding-mismatch")
 
     if (
         manifest["reconstruction"]["status"] == "PASS"
@@ -764,6 +868,53 @@ def run_independent_raw_eventlog_parser(
     return "PASS", "independent-raw-eventlog-parser-executed"
 
 
+def run_public_name_verifier(input_path: Path, output_path: Path, cwd: Path) -> tuple[str, str]:
+    if not PUBLIC_NAME_VERIFIER_SCRIPT.is_file():
+        return "DENY", "public-name-verifier-missing"
+    proc = run(
+        [sys.executable, str(PUBLIC_NAME_VERIFIER_SCRIPT), "--verify", str(input_path), "--output", str(output_path)],
+        os.environ.copy(), cwd, check=False,
+    )
+    if proc.returncode == 0:
+        return "PASS", "public-name-verifier-executed"
+    if proc.returncode == 2:
+        return "INDETERMINATE", "public-name-verifier-indeterminate"
+    return "DENY", "public-name-verifier-failed"
+
+
+def normalized_tpm2b_public_body(path: Path) -> bytes:
+    raw = path.read_bytes()
+    if len(raw) < 2:
+        raise ValueError(f"{path.name}: TPM2B_PUBLIC wrapper is truncated")
+    declared = int.from_bytes(raw[:2], "big")
+    if declared != len(raw) - 2:
+        raise ValueError(f"{path.name}: TPM2B_PUBLIC wrapper size mismatch")
+    return raw[2:]
+
+
+def run_public_name_verifier(input_path: Path, output_path: Path, cwd: Path) -> tuple[str, str]:
+    if not PUBLIC_NAME_VERIFIER_SCRIPT.is_file():
+        return "DENY", "public-name-verifier-missing"
+    proc = run(
+        [
+            sys.executable,
+            str(PUBLIC_NAME_VERIFIER_SCRIPT),
+            "--verify",
+            str(input_path),
+            "--output",
+            str(output_path),
+        ],
+        os.environ.copy(),
+        cwd,
+        check=False,
+    )
+    if proc.returncode == 0:
+        return "PASS", "public-name-verifier-executed"
+    if proc.returncode == 2:
+        return "INDETERMINATE", "public-name-verifier-indeterminate"
+    return "DENY", "public-name-verifier-failed"
+
+
 def verify_bundle(args: argparse.Namespace) -> int:
     bundle = Path(args.bundle).resolve()
     manifest_path = bundle / "capture-session.json"
@@ -795,6 +946,16 @@ def verify_bundle(args: argparse.Namespace) -> int:
         "observed-pcr-values.json": manifest["live_observation"]["pcr_values_file_sha256"],
         "raw-eventlog.json": manifest["raw_eventlog"]["output_sha256"],
         "payload-coherence.json": manifest["payload_coherence"]["output_sha256"],
+        "ak-public-name-input.json": manifest["public_name_coherence"]["ak"]["input_sha256"],
+        "ak-public-name-coherence.json": manifest["public_name_coherence"]["ak"]["output_sha256"],
+        "ak.tpmt": manifest["public_name_coherence"]["ak"]["wire_sha256"],
+        "ak.name.readpublic": manifest["public_name_coherence"]["ak"]["name_sha256"],
+        "ak.qname.readpublic": manifest["public_name_coherence"]["ak"]["qname_sha256"],
+        "ek-public-name-input.json": manifest["public_name_coherence"]["ek"]["input_sha256"],
+        "ek-public-name-coherence.json": manifest["public_name_coherence"]["ek"]["output_sha256"],
+        "ek.tpmt": manifest["public_name_coherence"]["ek"]["wire_sha256"],
+        "ek.name.readpublic": manifest["public_name_coherence"]["ek"]["name_sha256"],
+        "ek.qname.readpublic": manifest["public_name_coherence"]["ek"]["qname_sha256"],
         "eventlog-reconstruction.json": manifest["artifacts"]["reconstruction_file_sha256"],
     }
     for relative, expected in checks.items():
@@ -873,6 +1034,45 @@ def verify_bundle(args: argparse.Namespace) -> int:
             print("PLATFORM EVIDENCE: DENY: supplied reconstruction differs from independent execution")
             return 1
 
+    for role in ("ak", "ek"):
+        role_input = bundle / f"{role}-public-name-input.json"
+        role_output = bundle / f"{role}-public-name-coherence.json"
+        state, reason = run_public_name_verifier(role_input, role_output, bundle)
+        print(f"Independent {role.upper()} public-area/name verifier: {state} ({reason})")
+        if state == "DENY":
+            return 1
+        supplied = load_json(role_output)
+        entry = manifest["public_name_coherence"][role]
+        input_data = load_json(role_input)
+        if supplied.get("verifier_id") != PUBLIC_NAME_VERIFIER_ID:
+            print(f"PLATFORM EVIDENCE: DENY: public-name-{role}-verifier-id-mismatch")
+            return 1
+        if supplied.get("state") not in {"PASS", "INDETERMINATE"}:
+            print(f"PLATFORM EVIDENCE: DENY: public-name-{role}-invalid-result-state")
+            return 1
+        if supplied.get("state") != entry["status"]:
+            print(f"PLATFORM EVIDENCE: DENY: public-name-{role}-state-binding-mismatch")
+            return 1
+        if supplied.get("input_sha256") != sha256_file(role_input):
+            print(f"PLATFORM EVIDENCE: DENY: public-name-{role}-input-mismatch")
+            return 1
+        if input_data.get("public_wire_sha256") != entry["wire_sha256"]:
+            print(f"PLATFORM EVIDENCE: DENY: public-name-{role}-wire-input-binding-mismatch")
+            return 1
+        if input_data.get("readpublic_source_sha256") != entry["source_sha256"]:
+            print(f"PLATFORM EVIDENCE: DENY: public-name-{role}-source-input-binding-mismatch")
+            return 1
+        details = supplied.get("details")
+        if isinstance(details, dict) and details.get("public_area_sha256") != entry["wire_sha256"]:
+            print(f"PLATFORM EVIDENCE: DENY: public-name-{role}-result-wire-binding-mismatch")
+            return 1
+        if isinstance(details, dict) and details.get("name_hex") != input_data.get("name_hex"):
+            print(f"PLATFORM EVIDENCE: DENY: public-name-{role}-result-name-binding-mismatch")
+            return 1
+        if supplied.get("content_sha256") != self_hash(supplied, "content_sha256"):
+            print(f"PLATFORM EVIDENCE: DENY: public-name-{role}-content-hash-mismatch")
+            return 1
+
     payload_result = load_json(bundle / "payload-coherence.json")
     if payload_result.get("profile_id") != "mycelix.security.event-payload-digest-coherence":
         print("PLATFORM EVIDENCE: DENY: payload-coherence-profile-mismatch")
@@ -938,6 +1138,7 @@ def require_capture_tools() -> list[str]:
         "tpm2_createak",
         "tpm2_checkquote",
         "tpm2_eventlog",
+        "tpm2_readpublic",
     )
     return [name for name in names if shutil.which(name) is None]
 
@@ -951,6 +1152,7 @@ def observed_tool_versions(out: Path, env: dict[str, str]) -> dict[str, str]:
         "tpm2_createak",
         "tpm2_checkquote",
         "tpm2_eventlog",
+        "tpm2_readpublic",
     )
     result: dict[str, str] = {}
     for name in names:
@@ -960,6 +1162,111 @@ def observed_tool_versions(out: Path, env: dict[str, str]) -> dict[str, str]:
             raise RuntimeError(f"no version output for {name}")
         result[name] = lines[0]
     return result
+
+
+def capture_public_name_observation(
+    role: str,
+    context_path: Path,
+    public_artifact: Path,
+    out: Path,
+    env: dict[str, str],
+    tool_version: str,
+) -> dict[str, str]:
+    wire_path = out / f"{role}.tpmt"
+    name_path = out / f"{role}.name.readpublic"
+    qname_path = out / f"{role}.qname.readpublic"
+    transcript_path = out / f"{role}.readpublic-transcript.json"
+    input_path = out / f"{role}-public-name-input.json"
+    result_path = out / f"{role}-public-name-coherence.json"
+
+    argv = [
+        "tpm2_readpublic",
+        "-Q",
+        "-c",
+        str(context_path),
+        "-f",
+        "tpmt",
+        "-o",
+        str(wire_path),
+        "-n",
+        str(name_path),
+        "-q",
+        str(qname_path),
+    ]
+    proc = run(argv, env, out, check=False)
+    transcript = {
+        "role": role,
+        "command": argv,
+        "tool_version": tool_version,
+        "returncode": proc.returncode,
+        "stdout": proc.stdout,
+        "stderr": proc.stderr,
+    }
+    transcript_path.write_text(
+        json.dumps(transcript, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    if proc.returncode != 0:
+        raise RuntimeError(f"tpm2_readpublic failed for {role}: {proc.stderr}")
+    for path in (wire_path, name_path, qname_path):
+        if not path.is_file():
+            raise RuntimeError(f"tpm2_readpublic did not produce {path.name}")
+
+    public_body = normalized_tpm2b_public_body(public_artifact)
+    if public_body != wire_path.read_bytes():
+        raise RuntimeError(
+            f"{role} ReadPublic TPMT_PUBLIC does not match the public artifact used by attestation"
+        )
+
+    public_name_input = {
+        "profile_id": "mycelix.security.tpm.public-name-coherence",
+        "profile_version": "0.1.0",
+        "verification_mode": "LiveVerifierSession",
+        "claim_ceiling": "ReferenceModelOnly",
+        "object_role": role.upper(),
+        "public_format": "TPMT_PUBLIC",
+        "public_wire_hex": wire_path.read_bytes().hex(),
+        "public_wire_sha256": sha256_file(wire_path),
+        "name_hex": name_path.read_bytes().hex(),
+        "readpublic_state": "PASS",
+        "readpublic_source_sha256": sha256_file(transcript_path),
+    }
+    input_path.write_text(
+        json.dumps(public_name_input, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    verifier = run(
+        [
+            sys.executable,
+            str(PUBLIC_NAME_VERIFIER_SCRIPT),
+            "--verify",
+            str(input_path),
+            "--output",
+            str(result_path),
+        ],
+        env,
+        out,
+        check=False,
+    )
+    if verifier.returncode not in (0, 2):
+        raise RuntimeError(
+            f"public-name verifier failed for {role}: {verifier.stdout}{verifier.stderr}"
+        )
+    result = load_json(result_path)
+    if result.get("state") not in {"PASS", "INDETERMINATE"}:
+        raise RuntimeError(
+            f"public-name verifier returned DENY for {role}: {result.get('reason')}"
+        )
+    return {
+        "status": result["state"],
+        "verifier_id": result["verifier_id"],
+        "output_sha256": sha256_file(result_path),
+        "input_sha256": sha256_file(input_path),
+        "wire_sha256": sha256_file(wire_path),
+        "name_sha256": sha256_file(name_path),
+        "qname_sha256": sha256_file(qname_path),
+        "source_sha256": sha256_file(transcript_path),
+    }
 
 
 def capture(args: argparse.Namespace) -> int:
@@ -1000,6 +1307,8 @@ def capture(args: argparse.Namespace) -> int:
     env = os.environ.copy()
     env["TPM2TOOLS_TCTI"] = f"device:{device}"
 
+    boot_before = Path("/proc/sys/kernel/random/boot_id").read_text(encoding="utf-8").strip()
+
     for source, destination in (
         (args.reference_values, "reference-values.json"),
         (args.trusted_time, "trusted-time.json"),
@@ -1008,8 +1317,6 @@ def capture(args: argparse.Namespace) -> int:
     ):
         shutil.copy2(source, out / destination)
     shutil.copy2(event_log, out / "eventlog.bin")
-
-    boot_before = Path("/proc/sys/kernel/random/boot_id").read_text(encoding="utf-8").strip()
     props = run(["tpm2_getcap", "properties-fixed"], env, out)
     (out / "tpm-properties.txt").write_text(props.stdout, encoding="utf-8")
     prop_hash = sha256_file(out / "tpm-properties.txt")
@@ -1037,6 +1344,13 @@ def capture(args: argparse.Namespace) -> int:
         ],
         env,
         out,
+    )
+
+    public_name_ak = capture_public_name_observation(
+        "ak", out / "ak.ctx", out / "ak.pub", out, env, versions["tpm2_readpublic"]
+    )
+    public_name_ek = capture_public_name_observation(
+        "ek", out / "ek.ctx", out / "ek.pub", out, env, versions["tpm2_readpublic"]
     )
 
     nonce = (out / "nonce.bin").read_bytes()

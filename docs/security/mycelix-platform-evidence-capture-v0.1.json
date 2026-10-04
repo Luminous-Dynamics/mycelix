@@ -62,7 +62,19 @@
       "eventlog-reconstruction-input.json",
       "observed-pcr-values.json",
       "raw-eventlog.json",
-      "payload-coherence.json"
+      "payload-coherence.json",
+      "ak-public-name-input.json",
+      "ak-public-name-coherence.json",
+      "ak.tpmt",
+      "ak.name.readpublic",
+      "ak.qname.readpublic",
+      "ak.readpublic-transcript.json",
+      "ek-public-name-input.json",
+      "ek-public-name-coherence.json",
+      "ek.tpmt",
+      "ek.name.readpublic",
+      "ek.qname.readpublic",
+      "ek.readpublic-transcript.json"
     ],
     "optional_artifacts": [
       "pcr-pre.yaml",
@@ -126,7 +138,35 @@
       "payload_coherence.output_sha256",
       "payload_coherence.source_sha256",
       "payload_coherence.input_sha256",
-      "artifacts.payload_coherence_output_sha256"
+      "artifacts.payload_coherence_output_sha256",
+      "public_name_coherence.ak.status",
+      "public_name_coherence.ak.verifier_id",
+      "public_name_coherence.ak.output_sha256",
+      "public_name_coherence.ak.input_sha256",
+      "public_name_coherence.ak.wire_sha256",
+      "public_name_coherence.ak.name_sha256",
+      "public_name_coherence.ak.qname_sha256",
+      "public_name_coherence.ak.source_sha256",
+      "public_name_coherence.ek.status",
+      "public_name_coherence.ek.verifier_id",
+      "public_name_coherence.ek.output_sha256",
+      "public_name_coherence.ek.input_sha256",
+      "public_name_coherence.ek.wire_sha256",
+      "public_name_coherence.ek.name_sha256",
+      "public_name_coherence.ek.qname_sha256",
+      "public_name_coherence.ek.source_sha256",
+      "artifacts.public_name_ak_output_sha256",
+      "artifacts.public_name_ak_input_sha256",
+      "artifacts.public_name_ak_wire_sha256",
+      "artifacts.public_name_ak_name_sha256",
+      "artifacts.public_name_ak_qname_sha256",
+      "artifacts.public_name_ak_source_sha256",
+      "artifacts.public_name_ek_output_sha256",
+      "artifacts.public_name_ek_input_sha256",
+      "artifacts.public_name_ek_wire_sha256",
+      "artifacts.public_name_ek_name_sha256",
+      "artifacts.public_name_ek_qname_sha256",
+      "artifacts.public_name_ek_source_sha256"
     ],
     "session_binding": "The session_binding_sha256 covers the session/boot/TPM/EK/event-log/PCR selection/challenge/AK/toolchain/reference/trusted-time/reconstruction result, exact reconstruction input digest, verifier identifier, verifier source digest, and platform/workload inputs in canonical form.",
     "canonical_json": "Manifest semantic hashing uses UTF-8 JSON with sorted keys and no insignificant whitespace."
@@ -219,6 +259,18 @@
     {
       "id": "CAP-022",
       "rule": "Payload coherence input and verifier source provenance must bind to the exact canonical reconstruction input and exact verifier source."
+    },
+    {
+      "id": "CAP-026",
+      "rule": "The physical capture records TPM2_ReadPublic output for AK and EK and the verifier must independently derive each SHA-256 object Name from the captured TPMT_PUBLIC bytes."
+    },
+    {
+      "id": "CAP-027",
+      "rule": "The TPMT_PUBLIC bytes returned by ReadPublic must equal the public body contained in the exact ak.pub or ek.pub artifact used by later attestation operations."
+    },
+    {
+      "id": "CAP-028",
+      "rule": "Live ReadPublic evidence is explicit but remains INDETERMINATE until a live verifier trusts and executes the ReadPublic provenance; it never silently becomes platform qualification."
     },
     {
       "id": "CAP-023",
@@ -341,6 +393,31 @@
       "id": "CAP-V23",
       "mutation": "raw-parser-sidecar-substitution",
       "expected": "DENY"
+    },
+    {
+      "id": "CAP-V24",
+      "mutation": "public-name-ak-status-deny",
+      "expected": "DENY"
+    },
+    {
+      "id": "CAP-V25",
+      "mutation": "public-name-ek-verifier-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "CAP-V26",
+      "mutation": "public-name-ak-wire-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "CAP-V27",
+      "mutation": "public-name-cross-key-splice",
+      "expected": "DENY"
+    },
+    {
+      "id": "CAP-V28",
+      "mutation": "public-name-ak-source-substitution",
+      "expected": "DENY"
     }
   ],
   "execution_modes": {
@@ -363,7 +440,8 @@
       "tpm2_createek",
       "tpm2_createak",
       "tpm2_checkquote",
-      "tpm2_eventlog"
+      "tpm2_eventlog",
+      "tpm2_readpublic"
     ],
     "quote_default_pcr_selection": "sha256:0,2,4,7",
     "workload_pcr_note": "PCR16 remains a separate workload-specific measurement surface and is not silently treated as a PC-client firmware event-log PCR."
@@ -371,6 +449,7 @@
   "reference_boundary": {
     "event_log_semantics": "The PC-client event log is an input to reconstruction; parsing alone is not a trust decision.",
     "reference_values": "Reference values are identified by version and digest and remain an independent appraisal input.",
+    "public_name_coherence": "AK and EK public-area/name results are independently re-executed from ReadPublic inputs; live ReadPublic provenance is explicit and does not raise the claim ceiling.",
     "trusted_time": "Trusted time is an externally qualified evidence object; local wall-clock time is not authoritative.",
     "authorization": "Coherent platform Evidence remains evidence only and is consumed by the downstream RATS/Relying-Party/PEP chain."
   },
