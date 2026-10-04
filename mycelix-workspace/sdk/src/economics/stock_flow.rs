@@ -1482,6 +1482,18 @@ impl EconomicState {
 mod tests {
 
     #[test]
+    fn legacy_state_without_write_off_counter_defaults_to_zero() {
+        let json = r#"{
+            "actors": [],
+            "monetary_flow_volume": 0,
+            "credit_created": 0,
+            "debt_repaid": 0
+        }"#;
+        let state: EconomicState = serde_json::from_str(json).unwrap();
+        assert_eq!(state.debt_written_off, 0);
+    }
+
+    #[test]
     fn inventory_revaluation_requires_physical_inventory() {
         let mut state = EconomicState::new(vec![ActorBalanceSheet::new("firm")]);
         state.actors[0].inventory_carrying_value = 50;
