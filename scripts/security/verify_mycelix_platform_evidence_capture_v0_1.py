@@ -787,6 +787,7 @@ def verify_bundle(args: argparse.Namespace) -> int:
         "raw-eventlog.json": manifest["raw_eventlog"]["output_sha256"],
         "payload-coherence.json": manifest["payload_coherence"]["output_sha256"],
         "reference-appraisal.json": manifest["reference_appraisal"]["output_sha256"],
+        "time-appraisal.json": manifest["time_appraisal"]["output_sha256"],
         "eventlog-reconstruction.json": manifest["artifacts"]["reconstruction_file_sha256"],
     }
     for relative, expected in checks.items():
