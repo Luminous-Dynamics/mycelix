@@ -11,7 +11,10 @@ use crate::canonical_derivation_receipt::{
     D6S_CLAIM_CEILING,
 };
 use crate::evidence_claim_graph::{ClaimGraphEdgeKindV1, ClaimGraphNodeKindV1};
+use crate::contestable_finality::{ExternalObservedEvidenceV1, ExternalObservationSetV1, FinalityQualificationProfileV1, ObservationSetAssessmentV1};
 use crate::finality_eligibility_composition::{compose_finality_eligibility_from_authoritative_d6n_d6o, verify_current_receipt_provenance_from_composition, CurrentFinalityEligibilityReceiptV1, FinalityEligibilityCompositionV1};
+use crate::observer_lifecycle::{EvidenceEligibilityReceiptV1, ObserverLifecycleLedgerV1, ObserverLifecycleProfileV1};
+use crate::substitution_continuity::{ProviderRouteV1, SemanticEffectV1};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
@@ -507,6 +510,62 @@ fn cycle_exists(nodes: &BTreeSet<String>, edges: &[(String, String)]) -> bool {
 /// state. The supplied composition is itself treated as the qualified D6P
 /// source object; independent upstream authority reconstruction belongs at the
 /// D6P admission boundary.
+/// Fully qualified D6X entrypoint for a single authoritative D6N/D6O-composed D6P receipt.
+///
+/// The supplied D6P receipt is not treated as a source of authority. Its exact
+/// composition is reconstructed from the authoritative D6N/D6O inputs first;
+/// only an exact projection of that reconstruction is admitted to the existing
+/// strict D6X D6P boundary.
+pub fn compute_dependency_closure_from_authoritative_d6n_d6o(
+    projection: &QualifiedProjectionV1,
+    environment: &SemanticEnvironmentV1,
+    derivation_profile: &DerivationProfileV1,
+    profile: &DependencyClosureProfileV1,
+    effect: &SemanticEffectV1,
+    route: &ProviderRouteV1,
+    finality_profile: &FinalityQualificationProfileV1,
+    set: &ExternalObservationSetV1,
+    assessment: &ObservationSetAssessmentV1,
+    evidence: &[ExternalObservedEvidenceV1],
+    eligibility_receipts: &[EvidenceEligibilityReceiptV1],
+    lifecycle_profile: &ObserverLifecycleProfileV1,
+    d6o_ledger: &ObserverLifecycleLedgerV1,
+    d6p_receipt: &CurrentFinalityEligibilityReceiptV1,
+    current_frontier_root: Option<&str>,
+    live_generation_id: &str,
+    required_independent_observations: u32,
+) -> Option<DependencyClosureCertificateV1> {
+    let composition = compose_finality_eligibility_from_authoritative_d6n_d6o(
+        effect,
+        route,
+        finality_profile,
+        set,
+        assessment,
+        evidence,
+        eligibility_receipts,
+        lifecycle_profile,
+        d6o_ledger,
+        current_frontier_root
+            .or(environment.current_frontier_root.as_deref())?,
+        live_generation_id,
+        required_independent_observations,
+    )?;
+
+    if !verify_current_receipt_provenance_from_composition(d6p_receipt, &composition) {
+        return None;
+    }
+
+    compute_dependency_closure_from_authoritative_d6p_at_frontier(
+        projection,
+        environment,
+        derivation_profile,
+        profile,
+        std::slice::from_ref(d6p_receipt),
+        std::slice::from_ref(&composition),
+        current_frontier_root,
+    )
+}
+
 pub fn compute_dependency_closure_from_authoritative_d6p(
     projection: &QualifiedProjectionV1,
     environment: &SemanticEnvironmentV1,
@@ -2164,13 +2223,24 @@ mod tests {
 
         let (projection, environment, derivation_profile, profile) =
             execute_golden_recipe(&corpus, &vector);
-        let closure = compute_dependency_closure_from_authoritative_d6p(
+        let closure = compute_dependency_closure_from_authoritative_d6n_d6o(
             &projection,
             &environment,
             &derivation_profile,
             &profile,
-            std::slice::from_ref(&expected.receipt),
-            std::slice::from_ref(&reconstructed),
+            &upstream.effect,
+            &upstream.route,
+            &upstream.profile,
+            &upstream.set,
+            &upstream.assessment,
+            &upstream.evidence,
+            std::slice::from_ref(&upstream.eligibility_receipt),
+            &upstream.lifecycle_profile,
+            &upstream.d6o_ledger,
+            &expected.receipt,
+            None,
+            &upstream.live_generation_id,
+            upstream.required_independent_observations,
         )
         .expect("D6X must consume the independently reconstructed D6P");
 
