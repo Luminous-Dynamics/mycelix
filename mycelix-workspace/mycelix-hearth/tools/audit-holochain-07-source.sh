@@ -289,7 +289,7 @@ check_update_action_coverage() {
 # fetched through must_get_valid_record before applying author authorization.
 check_update_delete_authorization() {
   local file="$1"
-  if grep -Fq "FlatOp::Update(OpUpdate::Entry { action" "$file"; then
+  if rg -nU --pcre2 'FlatOp::Update\(\s*OpUpdate::Entry\s*\{\s*action' "$file" >/dev/null 2>&1; then
     local update_block
     update_block="$(awk 'index($0, "FlatOp::Update(OpUpdate::Entry") { in_block=1 } index($0, "FlatOp::Update(_)") && in_block { in_block=0 } in_block' "$file")"
     if printf '%s\n' "$update_block" | grep -Fq "must_get_valid_record(action.original_action_address"; then
@@ -308,7 +308,7 @@ check_update_delete_authorization() {
     echo "OK:   $file has no explicit entry Update authorization path"
   fi
 
-  if grep -Fq "FlatOp::Delete(OpDelete { action" "$file"; then
+  if rg -nU --pcre2 'FlatOp::Delete\(\s*OpDelete\s*\{\s*action' "$file" >/dev/null 2>&1; then
     local delete_block
     delete_block="$(awk 'index($0, "FlatOp::Delete(OpDelete") { in_block=1 } index($0, "FlatOp::Update") && in_block { in_block=0 } in_block' "$file")"
     if printf '%s\n' "$delete_block" | grep -Fq "must_get_valid_record(action.deletes_address"; then
@@ -387,12 +387,12 @@ check_link_type_policy() {
     fail=1
     return
   fi
-  if ! printf '%s\n' "$source" | grep -Fq 'FlatOp::Link(OpLink::CreateLink { link_type, action })'; then
+  if ! printf '%s\n' "$source" | rg -nU --pcre2 'FlatOp::Link\(\s*OpLink::CreateLink\s*\{\s*link_type\s*,\s*action\s*\}' >/dev/null 2>&1; then
     echo "FAIL: $file CreateLink validation does not bind link_type and action"
     fail=1
     return
   fi
-  if ! printf '%s\n' "$source" | grep -Fq 'action.data.base_address' || ! printf '%s\n' "$source" | grep -Fq 'action.data.target_address'; then
+  if ! printf '%s\n' "$source" | rg -nU --fixed-strings 'action.data.base_address' >/dev/null 2>&1 || ! printf '%s\n' "$source" | rg -nU --fixed-strings 'action.data.target_address' >/dev/null 2>&1; then
     echo "FAIL: $file CreateLink validation does not inspect both base_address and target_address"
     fail=1
     return
