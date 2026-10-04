@@ -51,6 +51,10 @@ pub struct EconomicPeriodLedger {
     pub cost_of_goods_sold: i128,
     /// Productive-capital carrying amount consumed through explicit depreciation.
     pub depreciation: i128,
+    /// Signed non-cash revaluation of monetary-valued real assets.
+    /// This is not part of transaction income or cash flow.
+    #[serde(default)]
+    pub real_asset_revaluation: i128,
     /// Number of transitions represented by the ledger.
     pub transition_count: u64,
     /// Hash of the exact ordered transition list from which this ledger came.
@@ -168,6 +172,14 @@ impl EconomicPeriodLedger {
                         .checked_add(depreciation.amount)
                         .ok_or_else(|| EconomicStepError::Serialization("period depreciation overflow".into()))?;
                 }
+                EconomicTransition::RealAssetRevaluation(revaluation) => {
+                    ledger.real_asset_revaluation = ledger
+                        .real_asset_revaluation
+                        .checked_add(revaluation.amount)
+                        .ok_or_else(|| EconomicStepError::Serialization(
+                            "period real-asset revaluation overflow".into(),
+                        ))?;
+                }
                 EconomicTransition::CreditCreation(credit) => {
                     ledger.credit_created = ledger
                         .credit_created
@@ -270,6 +282,32 @@ mod tests {
         GoodsSale, IncomeTransfer, InventoryConsumption, InventoryCostAddition,
         InventoryCostRelief, InventoryTransfer, MonetaryFlow, ProductionEvent,
     };
+
+    #[test]
+    fn real_asset_revaluation_is_period_local_and_signed() {
+        let transitions = vec![
+            EconomicTransition::RealAssetRevaluation(
+                crate::economics::stock_flow::RealAssetRevaluation::new(
+                    "firm",
+                    crate::economics::stock_flow::RealAssetRevaluationTarget::ProductiveCapital,
+                    25,
+                )
+                .unwrap(),
+            ),
+            EconomicTransition::RealAssetRevaluation(
+                crate::economics::stock_flow::RealAssetRevaluation {
+                    actor: "firm".into(),
+                    target: crate::economics::stock_flow::RealAssetRevaluationTarget::ProductiveCapital,
+                    amount: -10,
+                },
+            ),
+        ];
+        let ledger = EconomicPeriodLedger::from_transitions(&transitions).unwrap();
+        assert_eq!(ledger.real_asset_revaluation, 15);
+        assert_eq!(ledger.monetary_transfer_total, 0);
+        assert_eq!(ledger.credit_created, 0);
+        assert_eq!(ledger.debt_repaid, 0);
+    }
 
     #[test]
     fn production_is_aggregated_without_becoming_a_monetary_flow() {
