@@ -896,6 +896,11 @@
       "id": "EDT-177",
       "case": "caller_supplied_runtime_dependency_order_is_canonicalized_before_host_retrieval",
       "expected": "accepted"
+    },
+    {
+      "id": "EDT-178",
+      "case": "must_get_valid_record_upstream_invalidity_remains_protocol_unresolved_not_transport_absence",
+      "expected": "unresolved_at_protocol_layer"
     }
   ],
   "outcome_classes": [
