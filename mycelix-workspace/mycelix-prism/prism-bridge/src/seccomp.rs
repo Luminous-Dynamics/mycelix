@@ -312,6 +312,23 @@ const FORBIDDEN_RENDERER_SYSCALLS: &[i64] = &[
     libc::SYS_name_to_handle_at,
     libc::SYS_open_by_handle_at,
     libc::SYS_process_mrelease,
+
+    // Credential/capability mutation and system-wide administrative control.
+    libc::SYS_capset,
+    libc::SYS_setuid,
+    libc::SYS_setgid,
+    libc::SYS_setreuid,
+    libc::SYS_setregid,
+    libc::SYS_setresuid,
+    libc::SYS_setresgid,
+    libc::SYS_setgroups,
+    libc::SYS_setfsuid,
+    libc::SYS_setfsgid,
+    libc::SYS_kexec_load,
+    libc::SYS_reboot,
+    libc::SYS_sethostname,
+    libc::SYS_setdomainname,
+    libc::SYS_syslog,
 ];
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 const FORBIDDEN_X86_PROCESS_CREATION_SYSCALLS: &[i64] = &[libc::SYS_fork, libc::SYS_vfork];
@@ -1458,7 +1475,7 @@ mod linux {
         // This commits the renderer-policy validation contract separately
         // from the syscall list and compiled BPF. Future changes to the
         // forbidden renderer syscall set must therefore bump this version.
-        hasher.update(b"PRISM-SECCOMP-RENDERER-POLICY-VALIDATION-V2");
+        hasher.update(b"PRISM-SECCOMP-RENDERER-POLICY-VALIDATION-V3");
         hasher.update(b"PRISM-SECCOMP-NO-NEW-PRIVS-REQUIRED-V1");
         hasher.update(&SECCOMP_RET_ERRNO.to_le_bytes());
         hasher.update(&(libc::EPERM as u32).to_le_bytes());
@@ -1487,7 +1504,7 @@ mod linux {
             hasher.update(&[instruction.jt, instruction.jf]);
             hasher.update(&instruction.k.to_le_bytes());
         }
-        hasher.update(b"PRISM-SECCOMP-RENDERER-POLICY-VALIDATION-V2");
+        hasher.update(b"PRISM-SECCOMP-RENDERER-POLICY-VALIDATION-V3");
         hasher.update(b"PRISM-SECCOMP-NO-NEW-PRIVS-REQUIRED-V1");
         hasher.update(&SECCOMP_RET_ERRNO.to_le_bytes());
         hasher.update(&(libc::EPERM as u32).to_le_bytes());
@@ -3994,6 +4011,21 @@ mod linux {
                 libc::SYS_pidfd_open,
                 libc::SYS_pidfd_send_signal,
                 libc::SYS_process_mrelease,
+                libc::SYS_capset,
+                libc::SYS_setuid,
+                libc::SYS_setgid,
+                libc::SYS_setreuid,
+                libc::SYS_setregid,
+                libc::SYS_setresuid,
+                libc::SYS_setresgid,
+                libc::SYS_setgroups,
+                libc::SYS_setfsuid,
+                libc::SYS_setfsgid,
+                libc::SYS_kexec_load,
+                libc::SYS_reboot,
+                libc::SYS_sethostname,
+                libc::SYS_setdomainname,
+                libc::SYS_syslog,
             ];
             #[cfg(target_arch = "x86_64")]
             {
