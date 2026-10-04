@@ -213,7 +213,7 @@ fn expected_reason(test_name: &str) -> String {
                     .flatten()
             })
         })
-        .unwrap_or_else(|| panic!("semantic manifest has no invariant for {test_name}"))
+        .unwrap_or_else(|| panic!("semantic manifest has no rejection_reason for {test_name}"))
         .to_string()
 }
 
