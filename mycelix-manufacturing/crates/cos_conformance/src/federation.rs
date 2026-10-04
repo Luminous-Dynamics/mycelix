@@ -1500,6 +1500,7 @@ pub fn run_scenario(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sha2::{Digest, Sha256};
 
     fn nodes() -> FederationState {
         FederationState::new([
@@ -3103,6 +3104,31 @@ mod tests {
         newly_admitted_deliveries: Vec<(String, u64)>,
     }
 
+    const FEDERATION_STATE_MACHINE_TRACE_CAPSULE_SCHEMA_VERSION: u16 = 2;
+    const FEDERATION_STATE_MACHINE_TRACE_CAPSULE_HASH_ALGORITHM: &str = "sha-256";
+    const FEDERATION_STATE_MACHINE_TRACE_CAPSULE_HASH_ENCODING: &str =
+        "serde-json-struct-order-v1";
+
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct FederationStateMachineTraceIntegrity {
+        algorithm: String,
+        encoding: String,
+        body_sha256: String,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+    struct FederationStateMachineTraceHashView {
+        schema_version: u16,
+        trace_index: usize,
+        initial_seed: u64,
+        operations: Vec<FederationStateMachineOperation>,
+        tokens: Vec<u64>,
+        initial_state: FederationStateMachineTraceBoundary,
+        evidence: Vec<FederationStateMachineEvidence>,
+        final_state: FederationStateMachineTraceBoundary,
+    }
+
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
     #[serde(deny_unknown_fields)]
     struct FederationStateMachineTraceCapsule {
@@ -3114,6 +3140,37 @@ mod tests {
         initial_state: FederationStateMachineTraceBoundary,
         evidence: Vec<FederationStateMachineEvidence>,
         final_state: FederationStateMachineTraceBoundary,
+        integrity: FederationStateMachineTraceIntegrity,
+    }
+
+    fn state_machine_trace_hash_view(
+        capsule: &FederationStateMachineTraceCapsule,
+    ) -> FederationStateMachineTraceHashView {
+        FederationStateMachineTraceHashView {
+            schema_version: capsule.schema_version,
+            trace_index: capsule.trace_index,
+            initial_seed: capsule.initial_seed,
+            operations: capsule.operations.clone(),
+            tokens: capsule.tokens.clone(),
+            initial_state: capsule.initial_state.clone(),
+            evidence: capsule.evidence.clone(),
+            final_state: capsule.final_state.clone(),
+        }
+    }
+
+    fn state_machine_trace_body_sha256(capsule: &FederationStateMachineTraceCapsule) -> String {
+        let bytes = serde_json::to_vec(&state_machine_trace_hash_view(capsule))
+            .expect("trace hash view must be serializable");
+        let digest = Sha256::digest(bytes);
+        format!("sha256:{digest:x}")
+    }
+
+    fn state_machine_trace_integrity(capsule: &FederationStateMachineTraceCapsule) -> FederationStateMachineTraceIntegrity {
+        FederationStateMachineTraceIntegrity {
+            algorithm: FEDERATION_STATE_MACHINE_TRACE_CAPSULE_HASH_ALGORITHM.into(),
+            encoding: FEDERATION_STATE_MACHINE_TRACE_CAPSULE_HASH_ENCODING.into(),
+            body_sha256: state_machine_trace_body_sha256(capsule),
+        }
     }
 
     fn state_machine_next_seed(seed: &mut u64) -> u64 {
@@ -3164,7 +3221,7 @@ mod tests {
             })
             .unwrap_or_else(|| initial_state.clone());
 
-        let capsule = FederationStateMachineTraceCapsule {
+        let mut capsule = FederationStateMachineTraceCapsule {
             schema_version: FEDERATION_STATE_MACHINE_TRACE_CAPSULE_SCHEMA_VERSION,
             trace_index,
             initial_seed,
@@ -3173,7 +3230,13 @@ mod tests {
             initial_state,
             evidence,
             final_state,
+            integrity: FederationStateMachineTraceIntegrity {
+                algorithm: FEDERATION_STATE_MACHINE_TRACE_CAPSULE_HASH_ALGORITHM.into(),
+                encoding: FEDERATION_STATE_MACHINE_TRACE_CAPSULE_HASH_ENCODING.into(),
+                body_sha256: String::new(),
+            },
         };
+        capsule.integrity.body_sha256 = state_machine_trace_body_sha256(&capsule);
         serde_json::to_string_pretty(&capsule).expect("trace capsule is serializable")
     }
 
@@ -3184,6 +3247,21 @@ mod tests {
             capsule.schema_version,
             FEDERATION_STATE_MACHINE_TRACE_CAPSULE_SCHEMA_VERSION,
             "successful trace capsule schema version must be supported"
+        );
+        assert_eq!(
+            capsule.integrity.algorithm,
+            FEDERATION_STATE_MACHINE_TRACE_CAPSULE_HASH_ALGORITHM,
+            "successful trace capsule integrity algorithm must be supported"
+        );
+        assert_eq!(
+            capsule.integrity.encoding,
+            FEDERATION_STATE_MACHINE_TRACE_CAPSULE_HASH_ENCODING,
+            "successful trace capsule integrity encoding must be supported"
+        );
+        assert_eq!(
+            capsule.integrity.body_sha256,
+            state_machine_trace_body_sha256(capsule),
+            "successful trace capsule body digest must match its serialized hash view"
         );
         assert_eq!(
             capsule.operations.len(),
@@ -4343,6 +4421,39 @@ mod tests {
     }
 
     #[test]
+    fn state_machine_trace_capsule_rejects_integrity_tampering() {
+        let capsule_text = state_machine_trace_capsule(6, 9);
+        let mut capsule =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&capsule_text)
+                .expect("capsule must deserialize");
+
+        capsule.integrity.body_sha256 =
+            "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+                .into();
+        assert!(std::panic::catch_unwind(|| state_machine_plan_from_capsule(&capsule)).is_err());
+    }
+
+    #[test]
+    fn state_machine_trace_capsule_hash_is_stable_across_json_reformatting() {
+        let capsule_text = state_machine_trace_capsule(4, 7);
+        let capsule =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&capsule_text)
+                .expect("capsule must deserialize");
+        let compact = serde_json::to_string(&capsule).expect("compact JSON must serialize");
+        let reformatted =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&compact)
+                .expect("reformatted capsule must deserialize");
+        assert_eq!(
+            capsule.integrity.body_sha256,
+            reformatted.integrity.body_sha256
+        );
+        assert_eq!(
+            state_machine_trace_body_sha256(&capsule),
+            state_machine_trace_body_sha256(&reformatted)
+        );
+    }
+
+    #[test]
     fn state_machine_trace_capsule_rejects_schema_boundary_and_temporal_tampering() {
         let capsule_text = state_machine_trace_capsule(9, 10);
 
@@ -4387,7 +4498,7 @@ mod tests {
     #[test]
     fn state_machine_trace_capsule_is_a_self_validating_evidence_artifact() {
         let capsule_text = state_machine_trace_capsule(3, 8);
-        assert!(capsule_text.contains("\"schema_version\": 1"));
+        assert!(capsule_text.contains("\"schema_version\": 2"));
         assert!(capsule_text.contains("\"trace_index\": 3"));
         assert!(capsule_text.contains("\"initial_seed\":"));
         assert!(capsule_text.contains("\"operations\": ["));
@@ -4395,6 +4506,8 @@ mod tests {
         assert!(capsule_text.contains("\"initial_state\": {"));
         assert!(capsule_text.contains("\"evidence\": ["));
         assert!(capsule_text.contains("\"final_state\": {"));
+        assert!(capsule_text.contains("\"integrity\": {"));
+        assert!(capsule_text.contains("\"body_sha256\": \"sha256:"));
 
         let capsule = serde_json::from_str::<FederationStateMachineTraceCapsule>(&capsule_text)
             .expect("capsule must remain self-describing");
