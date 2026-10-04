@@ -59,8 +59,14 @@ if(!presentationResult.valid) {
     JSON.stringify(presentationResult));
 }
 
-const vpProof = fixture.presentation.proof;
-if(vpProof.challenge !== fixture.presentationChallenge ||
+const credentialSubject = fixture.credential?.credentialSubject;
+if(!credentialSubject || typeof credentialSubject !== 'object' ||
+   !Object.prototype.hasOwnProperty.call(credentialSubject, 'degree')) {
+  throw new Error('fixture credentialSubject.degree is required for the tamper test');
+}
+
+const vpProof = fixture.presentation?.proof;
+if(!vpProof || vpProof.challenge !== fixture.presentationChallenge ||
    vpProof.domain !== fixture.presentationDomain) {
   throw new Error('fixture challenge/domain mismatch');
 }
