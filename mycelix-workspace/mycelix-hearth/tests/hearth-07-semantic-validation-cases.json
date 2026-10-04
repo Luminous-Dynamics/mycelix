@@ -15,7 +15,8 @@
       "expected_result": "Invalid",
       "boundary": "integrity_validation",
       "validator_source": "mycelix-workspace/mycelix-hearth/zomes/hearth-decisions/integrity/src/lib.rs",
-      "validator_symbol": "validate_decision"
+      "validator_symbol": "validate_decision",
+      "invariant_code": "decision.title.is_empty()"
     },
     {
       "case_id": "SEM-02",
@@ -30,7 +31,8 @@
       "expected_result": "Invalid",
       "boundary": "integrity_validation",
       "validator_source": "mycelix-workspace/mycelix-hearth/zomes/hearth-resources/integrity/src/lib.rs",
-      "validator_symbol": "validate_resource"
+      "validator_symbol": "validate_resource",
+      "invariant_code": "resource.name.is_empty()"
     },
     {
       "case_id": "SEM-03",
@@ -45,7 +47,8 @@
       "expected_result": "Invalid",
       "boundary": "integrity_validation",
       "validator_source": "mycelix-workspace/mycelix-hearth/zomes/hearth-stories/integrity/src/lib.rs",
-      "validator_symbol": "validate_story"
+      "validator_symbol": "validate_story",
+      "invariant_code": "story.title.is_empty()"
     },
     {
       "case_id": "SEM-04",
@@ -59,7 +62,8 @@
       "expected_result": "Invalid",
       "boundary": "integrity_validation",
       "validator_source": "mycelix-workspace/mycelix-hearth/zomes/hearth-stories/integrity/src/lib.rs",
-      "validator_symbol": "validate_create_link"
+      "validator_symbol": "validate_create_link",
+      "invariant_code": "story_entry.hearth_hash != collection_entry.hearth_hash"
     },
     {
       "case_id": "SEM-05",
@@ -74,7 +78,8 @@
       "expected_result": "Invalid",
       "boundary": "integrity_validation",
       "validator_source": "crates/mycelix-bridge-entry-types/src/lib.rs",
-      "validator_symbol": "validate_notification"
+      "validator_symbol": "validate_notification",
+      "invariant_code": "entry.source_cluster.is_empty()"
     },
     {
       "case_id": "SEM-06",
@@ -90,7 +95,8 @@
       "expected_result": "Invalid",
       "boundary": "integrity_validation",
       "validator_source": "mycelix-workspace/mycelix-hearth/zomes/hearth-stories/integrity/src/lib.rs",
-      "validator_symbol": "validate_story_update"
+      "validator_symbol": "validate_story_update",
+      "invariant_code": "story.title.is_empty()"
     }
   ]
 }
