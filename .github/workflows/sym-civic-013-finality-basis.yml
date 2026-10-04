@@ -1,0 +1,124 @@
+name: SYM-CIVIC-013 Finality Basis
+
+on:
+  push:
+    branches:
+      - 'staging/sym-civic-013-finality-basis'
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'mycelix-workspace/docs/civic-resilience/SYM_CIVIC_013_FINALITY_BASIS_V1.md'
+      - 'mycelix-workspace/docs/civic-resilience/sym_civic_013_finality_basis.json'
+      - 'scripts/qualification/sym_civic_013_finality_basis_v1.py'
+      - '.github/workflows/sym-civic-013-finality-basis.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Substantive finality-basis boundary
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Exact ancestry and one-commit geometry
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='0fee3f3708e66a40b02420cbedfed14e33457aa9'
+          test "$(git merge-base HEAD "$EXPECTED_PARENT")" = "$EXPECTED_PARENT"
+          test "$(git rev-list --count "$EXPECTED_PARENT"..HEAD)" = "1"
+          test -z "$(git status --short)"
+          printf '%s\n' \
+            "HEAD=$(git rev-parse HEAD)" \
+            "PARENT=$EXPECTED_PARENT" \
+            "MERGE_BASE=$(git merge-base HEAD "$EXPECTED_PARENT")" \
+            "AHEAD=$(git rev-list --count "$EXPECTED_PARENT"..HEAD)"
+
+      - name: Exact four-path research surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='0fee3f3708e66a40b02420cbedfed14e33457aa9'
+          expected="$(printf '%s\n' \
+            '.github/workflows/sym-civic-013-finality-basis.yml' \
+            'mycelix-workspace/docs/civic-resilience/SYM_CIVIC_013_FINALITY_BASIS_V1.md' \
+            'mycelix-workspace/docs/civic-resilience/sym_civic_013_finality_basis.json' \
+            'scripts/qualification/sym_civic_013_finality_basis_v1.py' | sort)"
+          actual="$(git diff --name-only "$EXPECTED_PARENT" HEAD | sort)"
+          test "$actual" = "$expected"
+          git diff --check "$EXPECTED_PARENT" HEAD
+
+      - name: Canonical UTF-8 publication integrity
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          paths = [
+              Path(".github/workflows/sym-civic-013-finality-basis.yml"),
+              Path("mycelix-workspace/docs/civic-resilience/SYM_CIVIC_013_FINALITY_BASIS_V1.md"),
+              Path("mycelix-workspace/docs/civic-resilience/sym_civic_013_finality_basis.json"),
+              Path("scripts/qualification/sym_civic_013_finality_basis_v1.py"),
+          ]
+          for path in paths:
+              raw = path.read_bytes()
+              raw.decode("utf-8")
+              if raw.startswith(b"\x1f\x8b"):
+                  raise SystemExit(f"{path}: gzip encoding detected")
+              if b"\x00" in raw:
+                  raise SystemExit(f"{path}: NUL byte detected")
+              if raw != raw.decode("utf-8").encode("utf-8"):
+                  raise SystemExit(f"{path}: non-canonical UTF-8")
+          print("canonical UTF-8: PASS")
+          PY
+
+      - name: Qualifier dependency audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import ast
+          from pathlib import Path
+          allowed = {"__future__", "copy", "hashlib", "json", "datetime", "pathlib"}
+          tree = ast.parse(
+              Path("scripts/qualification/sym_civic_013_finality_basis_v1.py").read_text(encoding="utf-8")
+          )
+          for node in ast.walk(tree):
+              if isinstance(node, ast.Import):
+                  names = [alias.name.split(".")[0] for alias in node.names]
+                  if any(name not in allowed for name in names):
+                      raise SystemExit(f"non-stdlib import: {names}")
+              elif isinstance(node, ast.ImportFrom):
+                  name = (node.module or "").split(".")[0]
+                  if name not in allowed:
+                      raise SystemExit(f"non-stdlib import: {name}")
+          print("qualifier imports: stdlib-only")
+          PY
+
+      - name: Qualifier syntax
+        run: python3 -c 'from pathlib import Path; compile(Path("scripts/qualification/sym_civic_013_finality_basis_v1.py").read_text(encoding="utf-8"), "sym_civic_013_finality_basis_v1.py", "exec")'
+
+      - name: Execute exact corpus qualifier
+        run: python3 scripts/qualification/sym_civic_013_finality_basis_v1.py
+
+      - name: Static no-runtime audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_PARENT='0fee3f3708e66a40b02420cbedfed14e33457aa9'
+          changed="$(git diff --name-only "$EXPECTED_PARENT" HEAD)"
+          if printf '%s\n' "$changed" | grep -E '[.]rs$|[.]toml$|[.]lock$'; then
+            echo 'forbidden runtime source path detected' >&2
+            exit 1
+          fi
+
+      - name: Immutable checkout postflight
+        run: test -z "$(git status --short)"
