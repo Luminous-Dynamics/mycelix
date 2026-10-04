@@ -41,7 +41,7 @@ pub use decay_garden::{
 pub use model_provenance::EconomicModelProvenance;
 pub use outcome_evaluation::{
     EconomicEvaluationKind, EconomicMeasurementStatus, EconomicOutcomeEvaluation,
-    EconomicOutcomeInfluence,
+    EconomicOutcomeInfluence, EconomicOutcomeTarget,
 };
 pub use metabolic_oracle::{
     GovernedPolicyAdjustment, MetabolicOracle, MetabolicState, PolicyAdjustment, PolicyBounds,
