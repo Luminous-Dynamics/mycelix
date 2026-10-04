@@ -1808,13 +1808,25 @@ mod tests {
         let projection_object = projection_value
             .as_object_mut()
             .expect("golden baseline projection must be an object");
-        projection_object.insert(
-            "semantic_environment_commitment".into(),
-            serde_json::Value::String(environment.commitment()),
+
+        let declared_environment_commitment = projection_object
+            .get("semantic_environment_commitment")
+            .and_then(serde_json::Value::as_str)
+            .expect("golden baseline projection must declare semantic_environment_commitment");
+        assert_eq!(
+            declared_environment_commitment,
+            environment.commitment(),
+            "golden fixture must bind the exact D6S semantic-environment commitment"
         );
-        projection_object.insert(
-            "derivation_profile_commitment".into(),
-            serde_json::Value::String(derivation_profile.commitment()),
+
+        let declared_derivation_commitment = projection_object
+            .get("derivation_profile_commitment")
+            .and_then(serde_json::Value::as_str)
+            .expect("golden baseline projection must declare derivation_profile_commitment");
+        assert_eq!(
+            declared_derivation_commitment,
+            derivation_profile.commitment(),
+            "golden fixture must bind the exact D6S derivation-profile commitment"
         );
 
         let mut projection_d6p_receipt_ids = BTreeSet::new();
