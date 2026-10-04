@@ -2151,6 +2151,22 @@ mod tests {
     }
 
     #[test]
+    fn vc_validator_rejects_future_proof_creation() {
+        let mut vc = minimal_vc();
+        vc.proof.created = "2100-01-01T00:00:00Z".into();
+
+        let result = validate_create_verifiable_credential(
+            EntryCreationAction::Create(test_action(me())),
+            vc,
+        )
+        .unwrap();
+
+        assert!(
+            matches!(result, ValidateCallbackResult::Invalid(message) if message.contains("proof created"))
+        );
+    }
+
+    #[test]
     fn vc_validator_rejects_inverted_validity_interval() {
         let mut vc = minimal_vc();
         vc.valid_until = Some("2025-12-31T23:59:59Z".into());
