@@ -39,7 +39,7 @@ impl ReconciliationEvidenceProjection {
         witness.validate()?;
         base.validate()?;
 
-        let witness_ref = self.witness_ref();
+        let witness_ref = self.witness_identity();
         witness_ref.validate()?;
         if witness_ref.kind != IdentityKind::ReconciliationWitness {
             return Err(
