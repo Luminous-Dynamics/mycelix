@@ -24,6 +24,7 @@ v3 records deterministic evidence for the selected patch:
 - boundary patch digest derived from interface identity, exact mesh identity, selection, perimeter, and residuals;
 - `evidence_level=AdapterAttested` for ordinary adapter binding;
 - `solver_entity_fingerprint` and `solver_entity_mapping_digest` when the binding is promoted to `SolverEntityAttested` after concrete solver-side entity introspection.
+- `solver_entity_observation_digest`, the digest of the adapter-owned canonical introspection observation from which that fingerprint was derived.
 - the solver-entity mapping digest is adapter-specific, preventing an attestation receipt from being transplanted between adapter implementations.
 
 
@@ -65,7 +66,9 @@ adapter owns the vendor-specific entity extraction.
 
 `solver_binding_verified=true` means the sealed construction path established a checked binding. With `evidence_level=AdapterAttested`, the adapter's mapping draft was accepted after checking the typed interface, exact candidate mesh, and complete candidate-surface interface rim.
 
-With `evidence_level=SolverEntityAttested`, the binding additionally carries a solver-entity fingerprint and a mapping digest tied to those exact identities. This is stronger provenance, not independent solver truth: the neutral core cannot inspect a vendor-specific solver's live state itself.
+With `evidence_level=SolverEntityAttested`, the binding additionally carries a solver-entity fingerprint, an observation digest, and a mapping digest tied to those exact identities. This is stronger provenance, not independent solver truth: the neutral core cannot inspect a vendor-specific solver's live state itself.
+
+The observation digest is an adapter-owned receipt for a canonical introspection record. The neutral core records and cryptographically binds it, but does not interpret vendor-specific contents.
 
 Neither evidence level means the solver accepted or executed the boundary.
 
