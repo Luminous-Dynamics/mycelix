@@ -1,0 +1,225 @@
+{
+  "schema_version": 1,
+  "profile_id": "mycelix.security.e1-cui-cmmc-boundary",
+  "profile_version": "0.1.0",
+  "claim_ceiling": "ReferenceModelOnly",
+  "as_of": "2026-10-04",
+  "purpose": "Keep the SP 800-171 Rev.3 engineering target distinct from the operative 2026 CMMC/DFARS surface and classify Mycelix mappings honestly.",
+  "current_external_state": {
+    "cmmc_phase_two": "suspended-2026-07-13",
+    "current_phase_one_statement": "DoW CIO current public guidance states Phase I self-assessment requirements remain in place during the suspension.",
+    "operational_level_two_basis": "DoW CIO current public guidance states Level 2 self-assessment uses 110 requirements from NIST SP 800-171 Rev.2 during the suspension.",
+    "contractual_surface": "DFARS 252.204-7021 remains a contract clause whose required CMMC level is inserted by the Contracting Officer; applicability is contract/solicitation specific.",
+    "engineering_target": "NIST SP 800-171 Rev.3 and related Rev.3 assessment/enhanced publications remain the architectural engineering target in this repository."
+  },
+  "non_equivalences": [
+    [
+      "NIST_SP_800_171r3_engineering_target",
+      "operative_CMMC_requirement"
+    ],
+    [
+      "CMMC_Level_2",
+      "NIST_SP_800_171r3_automatic_equivalence"
+    ],
+    [
+      "semantic_control_mapping",
+      "CMMC_status"
+    ],
+    [
+      "technical_evidence",
+      "organizational_or_physical_compliance"
+    ],
+    [
+      "software_feature",
+      "independent_assessment"
+    ],
+    [
+      "reference_model_PASS",
+      "contractual_authorization"
+    ]
+  ],
+  "status_vocabulary": [
+    "AlreadyQualified",
+    "ImplementedUnqualified",
+    "Designed",
+    "CandidateMapping",
+    "Gap",
+    "OrganizationDecisionRequired",
+    "ContractDecisionRequired",
+    "IndependentAssessorRequired",
+    "NotApplicable"
+  ],
+  "control_families": [
+    {
+      "family": "Access Control",
+      "status": "CandidateMapping",
+      "evidence": [
+        "RATS-PEP",
+        "#3977",
+        "#4001"
+      ]
+    },
+    {
+      "family": "Awareness and Training",
+      "status": "OrganizationDecisionRequired",
+      "evidence": []
+    },
+    {
+      "family": "Audit and Accountability",
+      "status": "ImplementedUnqualified",
+      "evidence": [
+        "qualification receipts",
+        "decision evidence index"
+      ]
+    },
+    {
+      "family": "Configuration Management",
+      "status": "CandidateMapping",
+      "evidence": [
+        "artifact provenance",
+        "exact build identity"
+      ]
+    },
+    {
+      "family": "Identification and Authentication",
+      "status": "CandidateMapping",
+      "evidence": [
+        "RATS Evidence",
+        "PEP decision"
+      ]
+    },
+    {
+      "family": "Incident Response",
+      "status": "Gap",
+      "evidence": []
+    },
+    {
+      "family": "Maintenance",
+      "status": "OrganizationDecisionRequired",
+      "evidence": []
+    },
+    {
+      "family": "Media Protection",
+      "status": "Gap",
+      "evidence": []
+    },
+    {
+      "family": "Personnel Security",
+      "status": "OrganizationDecisionRequired",
+      "evidence": []
+    },
+    {
+      "family": "Physical Protection",
+      "status": "OrganizationDecisionRequired",
+      "evidence": []
+    },
+    {
+      "family": "Risk Assessment",
+      "status": "CandidateMapping",
+      "evidence": [
+        "comparative threat model",
+        "qualification profile"
+      ]
+    },
+    {
+      "family": "Security Assessment",
+      "status": "ImplementedUnqualified",
+      "evidence": [
+        "executable semantic corpora",
+        "benchmark evidence"
+      ]
+    },
+    {
+      "family": "System and Communications Protection",
+      "status": "CandidateMapping",
+      "evidence": [
+        "protected release",
+        "security-domain isolation",
+        "Xenia boundary"
+      ]
+    },
+    {
+      "family": "System and Information Integrity",
+      "status": "CandidateMapping",
+      "evidence": [
+        "TPM/Evidence profile",
+        "supply-chain provenance"
+      ]
+    },
+    {
+      "family": "System and Information Integrity / Monitoring",
+      "status": "Gap",
+      "evidence": []
+    }
+  ],
+  "qualification_vectors": [
+    {
+      "id": "CMMC-BOUNDARY-001",
+      "case": "treat-r3-as-cmmc-automatic-basis",
+      "expected": "DENY"
+    },
+    {
+      "id": "CMMC-BOUNDARY-002",
+      "case": "treat-semantic-mapping-as-cmmc-status",
+      "expected": "DENY"
+    },
+    {
+      "id": "CMMC-BOUNDARY-003",
+      "case": "contracting-officer-level-required",
+      "expected": "PASS"
+    },
+    {
+      "id": "CMMC-BOUNDARY-004",
+      "case": "organization-evidence-missing",
+      "expected": "ORGANIZATION_DECISION_REQUIRED"
+    },
+    {
+      "id": "CMMC-BOUNDARY-005",
+      "case": "independent-assessor-missing",
+      "expected": "INDEPENDENT_ASSESSOR_REQUIRED"
+    },
+    {
+      "id": "CMMC-BOUNDARY-006",
+      "case": "technical-implementation-evidence-present",
+      "expected": "PASS"
+    },
+    {
+      "id": "CMMC-BOUNDARY-007",
+      "case": "physical-control-unavailable",
+      "expected": "ORGANIZATION_DECISION_REQUIRED"
+    },
+    {
+      "id": "CMMC-BOUNDARY-008",
+      "case": "contract-specific-flowdown-unknown",
+      "expected": "CONTRACT_DECISION_REQUIRED"
+    },
+    {
+      "id": "CMMC-BOUNDARY-009",
+      "case": "phase-two-assumption",
+      "expected": "DENY"
+    },
+    {
+      "id": "CMMC-BOUNDARY-010",
+      "case": "r2-operational-basis-confused-with-r3-target",
+      "expected": "DENY"
+    },
+    {
+      "id": "CMMC-BOUNDARY-011",
+      "case": "cmmc-status-inferred-from-green-code-tests",
+      "expected": "DENY"
+    },
+    {
+      "id": "CMMC-BOUNDARY-012",
+      "case": "e1-engineering-target-remains-r3",
+      "expected": "PASS"
+    }
+  ],
+  "references": [
+    "https://csrc.nist.gov/pubs/sp/800/171/r3/final",
+    "https://csrc.nist.gov/pubs/sp/800/172/r3/final",
+    "https://csrc.nist.gov/pubs/sp/800/171/a/r3/final",
+    "https://csrc.nist.gov/pubs/sp/800/172/a/r3/final",
+    "https://www.acquisition.gov/dfars/252.204-7021-contractor-compliance-cybersecurity-maturity-model-certification-level-requirements.",
+    "https://dodcio.defense.gov/CMMC/about/"
+  ]
+}
