@@ -3211,6 +3211,38 @@ mod tests {
         "integral-federation-trace-checkpoint-sha256-v1";
     const FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_GENESIS: &str =
         "sha256:checkpoint-genesis-v1:0000000000000000000000000000000000000000000000000000000000000000";
+    const FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_SCHEMA_VERSION: u16 = 1;
+    const FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_PROFILE: &str =
+        "integral-federation-trace-checkpoint-publication-v1";
+    const FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_HASH_DOMAIN: &str =
+        "integral-federation-trace-checkpoint-publication-sha256-v1";
+    const FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_GENESIS: &str =
+        "sha256:checkpoint-publication-genesis-v1:0000000000000000000000000000000000000000000000000000000000000000";
+
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct FederationStateMachineTraceCheckpointPublication {
+        schema_version: u16,
+        publication_profile: String,
+        trace_index: usize,
+        evidence_end: usize,
+        body_sha256: String,
+        chain_head_sha256: String,
+        previous_publication_sha256: String,
+        publication_sha256: String,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+    struct FederationStateMachineTraceCheckpointPublicationHashView {
+        hash_domain: String,
+        schema_version: u16,
+        publication_profile: String,
+        trace_index: usize,
+        evidence_end: usize,
+        body_sha256: String,
+        chain_head_sha256: String,
+        previous_publication_sha256: String,
+    }
 
     fn state_machine_trace_hash_view(
         capsule: &FederationStateMachineTraceCapsule,
@@ -3289,6 +3321,189 @@ mod tests {
                 .map(|evidence| evidence.chain_sha256.clone())
                 .unwrap_or_else(|| FEDERATION_STATE_MACHINE_TRACE_CHAIN_GENESIS.into()),
         }
+    }
+
+    fn state_machine_trace_checkpoint_publication_sha256(
+        publication: &FederationStateMachineTraceCheckpointPublication,
+    ) -> String {
+        let view = FederationStateMachineTraceCheckpointPublicationHashView {
+            hash_domain: FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_HASH_DOMAIN.into(),
+            schema_version: publication.schema_version,
+            publication_profile: publication.publication_profile.clone(),
+            trace_index: publication.trace_index,
+            evidence_end: publication.evidence_end,
+            body_sha256: publication.body_sha256.clone(),
+            chain_head_sha256: publication.chain_head_sha256.clone(),
+            previous_publication_sha256: publication.previous_publication_sha256.clone(),
+        };
+        let bytes = serde_json::to_vec(&view)
+            .expect("trace checkpoint publication hash view must be serializable");
+        state_machine_domain_separated_sha256(
+            FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_HASH_DOMAIN,
+            &bytes,
+        )
+    }
+
+    fn state_machine_trace_checkpoint_publication(
+        capsule: &FederationStateMachineTraceCapsule,
+        evidence_end: usize,
+        previous_publication_sha256: &str,
+    ) -> FederationStateMachineTraceCheckpointPublication {
+        assert!(
+            evidence_end <= capsule.evidence.len(),
+            "trace checkpoint publication endpoint must be within the trace evidence"
+        );
+        let chain_head_sha256 = if evidence_end == 0 {
+            FEDERATION_STATE_MACHINE_TRACE_CHAIN_GENESIS.to_owned()
+        } else {
+            capsule.evidence[evidence_end - 1].chain_sha256.clone()
+        };
+        let mut publication = FederationStateMachineTraceCheckpointPublication {
+            schema_version: FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_SCHEMA_VERSION,
+            publication_profile: FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_PROFILE.into(),
+            trace_index: capsule.trace_index,
+            evidence_end,
+            body_sha256: capsule.integrity.body_sha256.clone(),
+            chain_head_sha256,
+            previous_publication_sha256: previous_publication_sha256.to_owned(),
+            publication_sha256: String::new(),
+        };
+        publication.publication_sha256 =
+            state_machine_trace_checkpoint_publication_sha256(&publication);
+        publication
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+    enum FederationStateMachineTraceCheckpointPublicationViolation {
+        UnsupportedSchemaVersion,
+        UnsupportedPublicationProfile,
+        TraceIndexMismatch,
+        InvalidEvidenceEnd,
+        BodyDigestMismatch,
+        ChainHeadMismatch,
+        PublicationDigestMismatch,
+        FirstPublicationPredecessorMismatch,
+        SnapshotProfileMismatch,
+        SnapshotTraceIndexMismatch,
+        SnapshotPrefixMismatch,
+        SnapshotRollback,
+        PreviousPublicationMismatch,
+    }
+
+    fn validate_state_machine_trace_checkpoint_publication(
+        capsule: &FederationStateMachineTraceCapsule,
+        publication: &FederationStateMachineTraceCheckpointPublication,
+    ) -> Result<(), FederationStateMachineTraceCheckpointPublicationViolation> {
+        if publication.schema_version
+            != FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_SCHEMA_VERSION
+        {
+            return Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::UnsupportedSchemaVersion
+            );
+        }
+        if publication.publication_profile
+            != FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_PROFILE
+        {
+            return Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::UnsupportedPublicationProfile
+            );
+        }
+        if publication.trace_index != capsule.trace_index {
+            return Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::TraceIndexMismatch
+            );
+        }
+        if publication.evidence_end > capsule.evidence.len() {
+            return Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::InvalidEvidenceEnd
+            );
+        }
+        if publication.body_sha256 != capsule.integrity.body_sha256 {
+            return Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::BodyDigestMismatch
+            );
+        }
+        let expected_chain_head = if publication.evidence_end == 0 {
+            FEDERATION_STATE_MACHINE_TRACE_CHAIN_GENESIS
+        } else {
+            capsule.evidence[publication.evidence_end - 1]
+                .chain_sha256
+                .as_str()
+        };
+        if publication.chain_head_sha256 != expected_chain_head {
+            return Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::ChainHeadMismatch
+            );
+        }
+        if publication.publication_sha256
+            != state_machine_trace_checkpoint_publication_sha256(publication)
+        {
+            return Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::PublicationDigestMismatch
+            );
+        }
+        Ok(())
+    }
+
+    fn validate_state_machine_trace_checkpoint_publication_consistency(
+        earlier_capsule: &FederationStateMachineTraceCapsule,
+        earlier_publication: &FederationStateMachineTraceCheckpointPublication,
+        later_capsule: &FederationStateMachineTraceCapsule,
+        later_publication: &FederationStateMachineTraceCheckpointPublication,
+    ) -> Result<(), FederationStateMachineTraceCheckpointPublicationViolation> {
+        validate_state_machine_trace_checkpoint_publication(
+            earlier_capsule,
+            earlier_publication,
+        )?;
+        validate_state_machine_trace_checkpoint_publication(
+            later_capsule,
+            later_publication,
+        )?;
+
+        if later_publication.publication_profile != earlier_publication.publication_profile {
+            return Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::SnapshotProfileMismatch
+            );
+        }
+        if later_publication.trace_index != earlier_publication.trace_index {
+            return Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::SnapshotTraceIndexMismatch
+            );
+        }
+        if earlier_publication.evidence_end > later_publication.evidence_end {
+            return Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::SnapshotRollback
+            );
+        }
+        if later_publication.previous_publication_sha256
+            != earlier_publication.publication_sha256
+        {
+            return Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::PreviousPublicationMismatch
+            );
+        }
+
+        if earlier_capsule.initial_seed != later_capsule.initial_seed
+            || earlier_capsule.initial_state != later_capsule.initial_state
+            || earlier_capsule.verification_profile != later_capsule.verification_profile
+        {
+            return Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::SnapshotPrefixMismatch
+            );
+        }
+
+        let end = earlier_publication.evidence_end;
+        if later_capsule.operations.get(..end)
+            != earlier_capsule.operations.get(..end)
+            || later_capsule.tokens.get(..end) != earlier_capsule.tokens.get(..end)
+            || later_capsule.evidence.get(..end) != earlier_capsule.evidence.get(..end)
+        {
+            return Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::SnapshotPrefixMismatch
+            );
+        }
+
+        Ok(())
     }
 
     fn state_machine_trace_checkpoint_sha256(
@@ -4921,6 +5136,27 @@ mod tests {
                 .is_err(),
             "trace checkpoint must reject unknown fields"
         );
+
+        let publication = state_machine_trace_checkpoint_publication(
+            &capsule,
+            capsule.evidence.len(),
+            FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_GENESIS,
+        );
+        let mut publication_value =
+            serde_json::to_value(&publication).expect("publication must serialize");
+        publication_value
+            .as_object_mut()
+            .expect("publication must serialize as an object")
+            .insert("unexpected_publication_field".into(), serde_json::Value::Bool(true));
+        let tampered_publication = serde_json::to_string_pretty(&publication_value)
+            .expect("tampered publication JSON must serialize");
+        assert!(
+            serde_json::from_str::<FederationStateMachineTraceCheckpointPublication>(
+                &tampered_publication
+            )
+            .is_err(),
+            "trace checkpoint publication must reject unknown fields"
+        );
     }
 
     #[test]
@@ -5112,6 +5348,26 @@ mod tests {
     }
 
     #[test]
+    #[test]
+    fn state_machine_trace_checkpoint_publication_hash_domain_is_distinct_from_other_receipts() {
+        assert_ne!(
+            FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_HASH_DOMAIN,
+            FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_HASH_DOMAIN
+        );
+        assert_ne!(
+            FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_HASH_DOMAIN,
+            FEDERATION_STATE_MACHINE_TRACE_BODY_HASH_DOMAIN
+        );
+        assert_ne!(
+            FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_GENESIS,
+            FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_GENESIS
+        );
+        assert_ne!(
+            FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_PROFILE,
+            FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PROFILE
+        );
+    }
+
     fn state_machine_trace_checkpoint_hash_domain_is_distinct_from_trace_hash_domains() {
         assert_ne!(
             FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_HASH_DOMAIN,
@@ -5128,6 +5384,77 @@ mod tests {
         assert_ne!(
             FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PROFILE,
             FEDERATION_STATE_MACHINE_TRACE_VERIFICATION_PROFILE
+        );
+    }
+
+    #[test]
+    fn state_machine_trace_checkpoint_publications_prove_append_only_prefix_consistency() {
+        let earlier_text = state_machine_trace_capsule(31, 8);
+        let later_text = state_machine_trace_capsule(31, 12);
+        let earlier =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&earlier_text)
+                .expect("earlier capsule must deserialize");
+        let later =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&later_text)
+                .expect("later capsule must deserialize");
+
+        let earlier_publication = state_machine_trace_checkpoint_publication(
+            &earlier,
+            8,
+            FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_GENESIS,
+        );
+        let later_publication = state_machine_trace_checkpoint_publication(
+            &later,
+            12,
+            &earlier_publication.publication_sha256,
+        );
+
+        assert!(
+            validate_state_machine_trace_checkpoint_publication_consistency(
+                &earlier,
+                &earlier_publication,
+                &later,
+                &later_publication,
+            )
+            .is_ok()
+        );
+
+        let mut forged_later = later.clone();
+        forged_later.evidence[2].token ^= 1;
+        reseal_state_machine_trace_for_test(&mut forged_later);
+        let forged_publication = state_machine_trace_checkpoint_publication(
+            &forged_later,
+            12,
+            &earlier_publication.publication_sha256,
+        );
+        assert_eq!(
+            validate_state_machine_trace_checkpoint_publication_consistency(
+                &earlier,
+                &earlier_publication,
+                &forged_later,
+                &forged_publication,
+            ),
+            Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::SnapshotPrefixMismatch
+            )
+        );
+
+        let mut rollback_publication = earlier_publication.clone();
+        rollback_publication.evidence_end = 6;
+        rollback_publication.chain_head_sha256 =
+            earlier.evidence[5].chain_sha256.clone();
+        rollback_publication.publication_sha256 =
+            state_machine_trace_checkpoint_publication_sha256(&rollback_publication);
+        assert_eq!(
+            validate_state_machine_trace_checkpoint_publication_consistency(
+                &earlier,
+                &earlier_publication,
+                &later,
+                &rollback_publication,
+            ),
+            Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::SnapshotRollback
+            )
         );
     }
 
