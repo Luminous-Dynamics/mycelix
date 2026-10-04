@@ -256,6 +256,10 @@ jobs:
           sha256sum dsid-scenario-set.txt > dsid-scenario-set.sha256
 
       - name: Verify Mycelix fixture with independent Digital Bazaar implementation
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run independent Digital Bazaar verification
         run: |
           corepack enable
           mkdir -p "$RUNNER_TEMP/mycelix-interop"
