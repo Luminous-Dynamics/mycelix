@@ -25,6 +25,7 @@ pub mod finalization_certificate;
 pub mod substrate;
 pub mod metabolic_oracle;
 pub mod model_provenance;
+pub mod outcome_evaluation;
 pub mod policy_analysis;
 pub mod policy_context;
 pub mod policy_observation;
@@ -38,6 +39,11 @@ pub use decay_garden::{
     calculate_demurrage, CompostAllocation, CompostDistribution, CompostEvent, DemurrageConfig,
 };
 pub use model_provenance::EconomicModelProvenance;
+pub use outcome_evaluation::{
+    EconomicEvaluationKind, EconomicMeasurementStatus, EconomicOutcomeEvaluation,
+    EconomicOutcomeInfluence, EconomicOutcomeTarget, EconomicGovernanceDecisionBinding,
+    EconomicInterventionBinding,
+};
 pub use metabolic_oracle::{
     GovernedPolicyAdjustment, MetabolicOracle, MetabolicState, PolicyAdjustment, PolicyBounds,
     TendLimitTier, VitalityIndex,
