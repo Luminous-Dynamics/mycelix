@@ -610,8 +610,7 @@ check_semantic_case_entrypoints() {
       continue
     fi
 
-    if rg -n --pcre2 "^#[[:space:]]*hdk_extern[[:space:]]*$" "$coord_file" >/dev/null 2>&1 \
-      && rg -n --pcre2 "pub[[:space:]]+fn[[:space:]]+${operation}[[:space:]]*\\(" "$coord_file" >/dev/null 2>&1; then
+    if rg -nU --pcre2 "^#[[:space:]]*hdk_extern[[:space:]]*$\\n[[:space:]]*(?:pub[[:space:]]+)?(?:async[[:space:]]+)?fn[[:space:]]+${operation}[[:space:]]*\\(" "$coord_file" >/dev/null 2>&1; then
       echo "OK:   semantic case ${zome}/${operation} resolves to an #[hdk_extern]"
     else
       echo "FAIL: semantic case ${zome}/${operation} has no matching #[hdk_extern] function"
