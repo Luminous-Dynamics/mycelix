@@ -841,10 +841,6 @@ validator_source = Path(sys.argv[1])
 integrity_source = Path(sys.argv[2])
 validator_symbol = sys.argv[3]
 
-# Resolve the external validator to the Rust package that owns the declared
-# source file. This prevents a manifest from naming an arbitrary src/lib.rs
-# containing a same-named function while the integrity crate imports a different
-# implementation.
 cargo_path = None
 for parent in [validator_source.parent, *validator_source.parents]:
     candidate = parent / "Cargo.toml"
@@ -857,7 +853,63 @@ if cargo_path is None:
     raise SystemExit(2)
 
 cargo_text = cargo_path.read_text()
-package_match = re.search(r'(?m)^[[:space:]]*name[[:space:]]*=[[:space:]]*"([^"]+)"[[:space:]]*
+package_match = re.search(
+    r'(?m)^[[:space:]]*name[[:space:]]*=[[:space:]]*"([^"]+)"[[:space:]]*$',
+    cargo_text,
+)
+if not package_match:
+    print(f"FAIL: could not resolve package name for external validator source: {cargo_path}")
+    raise SystemExit(2)
+
+package_name = package_match.group(1)
+crate_name = package_name.replace("-", "_")
+integrity_text = integrity_source.read_text()
+integrity_prod = integrity_text.split("#[cfg(test)]", 1)[0]
+integrity_manifest = integrity_source.parent.parent / "Cargo.toml"
+
+dependency_re = re.compile(
+    rf'(?m)^[[:space:]]*{re.escape(package_name)}[[:space:]]*=[[:space:]]'
+)
+if not dependency_re.search(integrity_manifest.read_text()):
+    print(
+        f"FAIL: external validator package {package_name} is not a direct dependency "
+        f"of {integrity_manifest}"
+    )
+    raise SystemExit(2)
+
+import_re = re.compile(
+    rf'(?ms)^[[:space:]]*(?:pub[[:space:]]+)?use[[:space:]]+'
+    rf'{re.escape(crate_name)}::[^;]*\b{re.escape(validator_symbol)}\b'
+)
+if not import_re.search(integrity_prod):
+    print(
+        f"FAIL: {integrity_source} does not directly import "
+        f"{crate_name}::{validator_symbol}"
+    )
+    raise SystemExit(2)
+
+local_def_re = re.compile(
+    rf'(?m)^[[:space:]]*(?:pub[[:space:]]+)?fn[[:space:]]+'
+    rf'{re.escape(validator_symbol)}[[:space:]]*\('
+)
+if local_def_re.search(integrity_prod):
+    print(
+        f"FAIL: {integrity_source} locally defines {validator_symbol}; "
+        "external validator provenance would be ambiguous"
+    )
+    raise SystemExit(2)
+
+print(
+    f"OK:   external validator {crate_name}::{validator_symbol} is bound "
+    f"to {validator_source} and its owning dependency"
+)
+PY
+        then
+          echo "OK:   $id external validator ownership/import provenance"
+        else
+          fail=1
+        fi
+      fi
     if [[ "$expected_result" != "Invalid" ]]; then
       echo "FAIL: $id expected_result must be Invalid, got $expected_result"
       fail=1
