@@ -1340,13 +1340,10 @@ run_audit_check() {
   fi
   trace_file="${trace_dir}/predicate.log"
   fifo_file="${trace_dir}/predicate.fifo"
+
+  # Launch the tee directly; its exit status is made authoritative by wait.
+  # This avoids racing the FIFO with a background if/then compound.
   tee "${trace_file}" < "${fifo_file}" &
-  tee_pid=$!
-    fail=1
-    finished="$(date +%s)"
-    echo "AUDIT_END ${name} status=1 duration=$((finished - started))s"
-    return 0
-  fi
   tee_pid=$!
 
   if "$@" >"${fifo_file}" 2>&1; then
@@ -1365,8 +1362,8 @@ run_audit_check() {
 
   # A predicate that prints FAIL but accidentally returns success must still
   # fail the aggregate audit. This protects the failure-propagation contract
-  # independently of each predicate's local control flow.
-  if [[ -f "${trace_file}" ]] && grep -qE '^FAIL:' "${trace_file}"; then
+  # independently of each predicate’s local control flow.
+  if [[ -f "${trace_file}" ]] && grep -qE "^FAIL:" "${trace_file}"; then
     if [[ "${status}" -eq 0 ]]; then
       echo "AUDIT_FAIL_OUTPUT ${name}: predicate emitted FAIL output despite success status"
       status=1
@@ -1379,7 +1376,7 @@ run_audit_check() {
   rm -rf "${trace_dir}"
   finished="$(date +%s)"
   echo "AUDIT_END ${name} status=${status} duration=$((finished - started))s"
-  # Individual predicate failures are aggregated through the global 'fail'
+  # Individual predicate failures are aggregated through the global fail
   # accumulator; they must not trigger errexit before later diagnostics run.
   return 0
 }
