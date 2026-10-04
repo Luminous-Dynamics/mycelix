@@ -1788,6 +1788,24 @@ mod tests {
         assert_eq!(calls.lock().unwrap().as_slice(), ["verify_signature", "verify_signature"]);
     }
     #[test]
+    fn valid_duplicate_provenance_witness_is_adapter_rejection_and_state_preserving() {
+        let _guard = host_test_lock().lock().expect("HDI test lock is not poisoned");
+        let calls = Arc::new(Mutex::new(Vec::new()));
+        let _previous = set_hdi(RecordingHdi { calls: Arc::clone(&calls), verify_result: true });
+        let first = authority_credential(identity("valid-witness-admission-first"), action_agent_key(81), "valid-witness-admission-first");
+        let mut second = authority_credential(identity("valid-witness-admission-second"), action_agent_key(82), "valid-witness-admission-second");
+        second.payload.provenance.witness_identity = first.payload.provenance.witness_identity.clone();
+        let mut registry = HolochainAuthorityAgentBindingSet::new();
+        assert!(matches!(registry.bind_attested(first.clone()), Ok(Ok(()))));
+        let result = registry.bind_attested(second);
+        let _ = set_hdi(ErrHdi);
+        assert!(matches!(result, Ok(Err(HolochainAdapterBoundaryError::BindingRejected { reason }))
+            if reason == "an authority-agent provenance witness may justify only one registry binding"));
+        assert_eq!(registry.len(), 1);
+        assert_eq!(registry.credential_for(&first.payload.provenance.authority), Some(&first));
+        assert_eq!(calls.lock().unwrap().as_slice(), ["verify_signature", "verify_signature"]);
+    }
+    #[test]
     fn authority_agent_registry_rejects_duplicate_authority() {
         let _guard = host_test_lock().lock().expect("HDI test lock is not poisoned");
         let calls = Arc::new(Mutex::new(Vec::new()));
