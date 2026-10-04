@@ -44,7 +44,8 @@ As a supplemental substrate check, the runtime also exercises Holochain 0.7's ex
 
 ## Protocol-level outcome classes
 
-The runtime log binds each supported case to one expected protocol-level outcome:
+The runtime log binds each supported case to one expected protocol-level outcome and an observed `zome-reached=true|false` state derived from the runtime execution.
+
 
 - `accepted`: app-interface call reached successful zome execution;
 - `semantic-rejected`: authorization succeeded and the probe deliberately rejected the payload semantically;
