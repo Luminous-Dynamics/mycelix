@@ -98,7 +98,7 @@ def mutate_time(base: dict[str, Any], mutation: str) -> dict[str, Any]:
     elif mutation in {"interval-straddles-expiry", "nonce-valid-but-time-ambiguous"}:
         value.update(earliest=1791115228, latest=1791115232)
     elif mutation == "interval-straddles-max-age":
-        value.update(earliest=1791115225, latest=1791115232)
+        value.update(earliest=1791115228, latest=1791115232)
     elif mutation == "time-source-unavailable":
         value["available"] = False
     elif mutation == "unadmitted-source-profile":
