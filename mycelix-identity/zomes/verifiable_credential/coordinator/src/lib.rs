@@ -333,13 +333,6 @@ pub fn issue_credential(input: IssueCredentialInput) -> ExternResult<Record> {
             },
             challenge: None,
             domain: None,
-            proof_context: match proof_profile {
-                CredentialProofProfile::W3cEddsaJcs2022 => Some(vec![
-                    W3C_CREDENTIALS_V2.to_string(),
-                    W3C_DATA_INTEGRITY.to_string(),
-                ]),
-                CredentialProofProfile::MycelixBlake2bEd25519 => None,
-            },
         },
         mycelix_schema_id: input.schema_id.clone(),
         mycelix_created: now,
@@ -780,7 +773,6 @@ pub fn create_presentation(input: CreatePresentationInput) -> ExternResult<Recor
         algorithm: Some(AlgorithmId::Ed25519.as_u16()),
         challenge: input.challenge.clone(),
         domain: input.domain.clone(),
-        proof_context: None,
     };
 
     let vp = VerifiablePresentation {
@@ -3051,7 +3043,6 @@ mod tests {
                 algorithm: None,
                 challenge: None,
                 domain: None,
-                proof_context: None,
             },
             mycelix_schema_id: "mycelix:schema:test:v1".into(),
             mycelix_created: Timestamp::from_micros(0),
@@ -3127,7 +3118,6 @@ mod tests {
                 algorithm: None,
                 challenge: None,
                 domain: None,
-                proof_context: None,
             },
             mycelix_schema_id: "mycelix:schema:test:v1".into(),
             mycelix_created: Timestamp::from_micros(0),
