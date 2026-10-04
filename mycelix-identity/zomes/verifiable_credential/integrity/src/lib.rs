@@ -2224,6 +2224,42 @@ mod author_binding_tests {
     }
 
     #[test]
+    fn eddsa_jcs_hash_matches_w3c_published_vector() {
+        let credential = serde_json::json!({
+            "@context": [
+                "https://www.w3.org/ns/credentials/v2",
+                "https://www.w3.org/ns/credentials/examples/v2"
+            ],
+            "id": "urn:uuid:58172aac-d8ba-11ed-83dd-0b3aef56cc33",
+            "type": ["VerifiableCredential", "AlumniCredential"],
+            "name": "Alumni Credential",
+            "description": "A minimum viable example of an Alumni Credential.",
+            "issuer": "https://vc.example/issuers/5678",
+            "validFrom": "2023-01-01T00:00:00Z",
+            "credentialSubject": {
+                "id": "did:example:abcdefgh",
+                "alumniOf": "The School of Examples"
+            }
+        });
+
+        let proof_options = serde_json::json!({
+            "type": "DataIntegrityProof",
+            "cryptosuite": "eddsa-jcs-2022",
+            "created": "2023-02-24T23:36:38Z",
+            "verificationMethod": "did:key:z6MkrJVnaZkeFzdQyMZu1cgjg7k1pZZ6pvBQ7XJPt4swbTQ2#z6MkrJVnaZkeFzdQyMZu1cgjg7k1pZZ6pvBQ7XJPt4swbTQ2",
+            "proofPurpose": "assertionMethod"
+        });
+
+        let hash_data = eddsa_jcs_hash_data_from_values(credential, proof_options).unwrap();
+        let expected = concat!(
+            "66ab154f5c2890a140cb8388a22a160454f80575f6eae09e5a097cabe539a1db",
+            "59b7cb6251b8991add1ce0bc83107e3db9dbbab5bd2c28f687db1a03abc92f19"
+        );
+        let actual = hash_data.iter().map(|b| format!("{b:02x}")).collect::<String>();
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
     fn derived_content_hash_is_deterministic() {
         let vc = minimal_vc();
         assert_eq!(
