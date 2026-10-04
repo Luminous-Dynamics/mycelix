@@ -43,6 +43,7 @@ pub struct EconomicAccountingClosure {
     pub physical_posting_count: u64,
     pub sector_transaction_hash: String,
     pub sector_financial_flow_hash: String,
+    #[serde(default)]
     pub other_volume_change_hash: String,
     pub sector_observations_hash: String,
     pub closure_hash: String,
@@ -88,14 +89,19 @@ impl EconomicAccountingClosure {
             assignments,
             transitions,
         )?;
-        sector_financial_flow
-            .validate_against_balance_sheet_delta(&pre_balance, &post_balance)?;
 
         let other_volume_change =
             SectorOtherVolumeChangeMatrix::from_transitions(transitions, assignments)?;
         other_volume_change.validate_against(pre_state, assignments, transitions)?;
         other_volume_change
             .validate_against_balance_sheet_delta(&pre_balance, &post_balance)?;
+
+        sector_financial_flow
+            .validate_against_balance_sheet_delta_with_other_volume(
+                &pre_balance,
+                &post_balance,
+                &other_volume_change,
+            )?;
 
         let actor_observations =
             ActorEconomicObservables::from_state_and_transitions(pre_state, transitions)?;
