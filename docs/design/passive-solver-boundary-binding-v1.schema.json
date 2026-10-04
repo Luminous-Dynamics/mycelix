@@ -13,6 +13,7 @@
     "adapter_id",
     "external_boundary_handle",
     "candidate_geometry_digest",
+    "candidate_mesh_digest",
     "boundary_patch_digest",
     "semantic_status",
     "solver_binding_verified",
@@ -65,6 +66,10 @@
       "minLength": 1
     },
     "candidate_geometry_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "candidate_mesh_digest": {
       "type": "string",
       "pattern": "^[0-9a-f]{64}$"
     },
