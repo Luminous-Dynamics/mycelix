@@ -263,8 +263,17 @@ pub async fn create_my_did(ctx: IdentityCtx, hc: HolochainCtx) -> Result<(), Str
     if hc.status.get_untracked() != mycelix_leptos_core::holochain_provider::ConnectionStatus::Connected {
         return Err("Holochain identity runtime is not connected".into());
     }
-    if !hc.refresh_zome_call_signing_ready() {
-        return Err("Connected conductor cannot authorize zome calls".into());
+    // Use the canonical read itself as the signer/conductor authorization probe.
+    // This is stronger than checking whether a browser signer function merely exists:
+    // the conductor must actually accept the signed zome call before any mutation is attempted.
+    let before = hc
+        .call_zome_default::<(), Option<DidDocumentView>>("did_registry", "get_my_did_view", &())
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if let Some(existing) = before {
+        ctx.did_document.set(Some(existing));
+        return Err("This agent already has a canonical Mycelix DID".into());
     }
 
     hc.call_zome_default::<(), DidDocumentView>("did_registry", "create_did_view", &())
