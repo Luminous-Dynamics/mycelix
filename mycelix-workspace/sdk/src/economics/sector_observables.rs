@@ -61,6 +61,12 @@ pub struct SectorEconomicObservables {
     pub credit_received: i128,
     pub credit_originated: i128,
     pub debt_repaid: i128,
+    /// Debt claims extinguished by bilateral forgiveness in this sector as lender.
+    #[serde(default)]
+    pub debt_forgiven_as_lender: i128,
+    /// Debt liabilities extinguished by bilateral forgiveness in this sector as borrower.
+    #[serde(default)]
+    pub debt_forgiven_as_borrower: i128,
     /// Debt claims extinguished by write-off in this sector as lender.
     #[serde(default)]
     pub debt_written_off_as_lender: i128,
@@ -126,6 +132,8 @@ impl Default for SectorEconomicObservables {
             credit_received: 0,
             credit_originated: 0,
             debt_repaid: 0,
+            debt_forgiven_as_lender: 0,
+            debt_forgiven_as_borrower: 0,
             debt_written_off_as_lender: 0,
             debt_written_off_as_borrower: 0,
             trade_credit_received: 0,
@@ -394,6 +402,16 @@ impl SectorEconomicObservables {
                     &mut sector_observation.debt_repaid,
                     observation.debt_repaid,
                     "sector debt repaid",
+                ),
+                (
+                    &mut sector_observation.debt_forgiven_as_lender,
+                    observation.debt_forgiven_as_lender,
+                    "sector debt forgiven as lender",
+                ),
+                (
+                    &mut sector_observation.debt_forgiven_as_borrower,
+                    observation.debt_forgiven_as_borrower,
+                    "sector debt forgiven as borrower",
                 ),
                 (
                     &mut sector_observation.debt_written_off_as_lender,
@@ -1017,5 +1035,38 @@ mod tests {
             &missing
         )
         .is_err());
+    }    #[test]
+    fn sector_observations_distinguish_forgiveness_counterparts() {
+        let mut actors = BTreeMap::new();
+        actors.insert(
+            "bank".into(),
+            ActorEconomicObservables {
+                actor: "bank".into(),
+                opening_liquidity: 0,
+                liquidity: 0,
+                debt_forgiven_as_lender: 10,
+                ..ActorEconomicObservables::default()
+            },
+        );
+        actors.insert(
+            "firm".into(),
+            ActorEconomicObservables {
+                actor: "firm".into(),
+                opening_liquidity: 0,
+                liquidity: 0,
+                debt_forgiven_as_borrower: 10,
+                ..ActorEconomicObservables::default()
+            },
+        );
+        let assignments = vec![
+            SectorAssignment { actor: "bank".into(), sector: EconomicSector::Bank },
+            SectorAssignment { actor: "firm".into(), sector: EconomicSector::Firm },
+        ];
+        let sectors =
+            SectorEconomicObservables::from_actor_observations(&actors, &assignments).unwrap();
+        assert_eq!(sectors[&EconomicSector::Bank].debt_forgiven_as_lender, 10);
+        assert_eq!(sectors[&EconomicSector::Firm].debt_forgiven_as_borrower, 10);
     }
+
+
 }
