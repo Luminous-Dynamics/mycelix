@@ -634,6 +634,59 @@ mod linux {
             dispatch_index = next;
         }
 
+        // Every emitted rule body is a sequence of one or more non-empty
+        // predicate clauses. Each clause ends at exactly one ALLOW boundary:
+        // intermediate ALLOWs must be followed by the next clause's first
+        // argument load, while the final ALLOW must be immediately followed by
+        // the next syscall dispatch (or the global EPERM terminator). Without
+        // this invariant, a forged extra ALLOW inside a single clause could
+        // manufacture the "after ALLOW" topology used for legitimate OR edges.
+        for (rule_index, &dispatch) in dispatch_indices.iter().enumerate() {
+            let body_end = dispatch_indices
+                .get(rule_index + 1)
+                .copied()
+                .unwrap_or(filter.len() - 1);
+            let body_start = dispatch
+                .checked_add(1)
+                .ok_or(SeccompError::CompilerInvariantViolation)?;
+            if body_start >= body_end {
+                return Err(SeccompError::CompilerInvariantViolation);
+            }
+
+            let is_argument_load = |pc: usize| {
+                filter.get(pc).is_some_and(|instruction| {
+                    instruction.code == BPF_LD | BPF_W | BPF_ABS
+                        && (16..=60).contains(&instruction.k)
+                        && (instruction.k - 16) % 4 == 0
+                })
+            };
+
+            if !is_argument_load(body_start) {
+                return Err(SeccompError::CompilerInvariantViolation);
+            }
+
+            let allow_indices: Vec<usize> = (body_start..body_end)
+                .filter(|&pc| {
+                    filter[pc].code == BPF_RET | BPF_K
+                        && filter[pc].k == SECCOMP_RET_ALLOW
+                })
+                .collect();
+            if allow_indices.is_empty()
+                || allow_indices.last().copied() != body_end.checked_sub(1)
+            {
+                return Err(SeccompError::CompilerInvariantViolation);
+            }
+            for pair in allow_indices.windows(2) {
+                if pair[0]
+                    .checked_add(1)
+                    .filter(|&pc| pc < body_end)
+                    .map_or(true, |pc| !is_argument_load(pc))
+                {
+                    return Err(SeccompError::CompilerInvariantViolation);
+                }
+            }
+        }
+
         for (index, instruction) in filter.iter().enumerate() {
             match instruction.code {
                 code if code == BPF_LD | BPF_W | BPF_ABS => {
@@ -3344,6 +3397,45 @@ mod linux {
             // clause" edge. Jumping directly after this rule's ALLOW would
             // bypass the remaining predicate and is therefore invalid.
             filter[predicate].jf = u8::try_from(allow + 1 - predicate - 1).unwrap();
+
+            assert!(matches!(
+                validate_compiled_filter(&filter),
+                Err(SeccompError::CompilerInvariantViolation)
+            ));
+        }
+
+        #[test]
+        fn compiled_filter_rejects_forged_allow_inside_single_clause() {
+            let arch = SeccompArchitecture::current().unwrap();
+            let rule = SeccompSyscallRuleV2::new(
+                libc::SYS_socket,
+                vec![
+                    SeccompArgPredicateV1::new(0, u64::MAX, libc::AF_UNIX as u64).unwrap(),
+                    SeccompArgPredicateV1::new(1, u64::MAX, 7).unwrap(),
+                ],
+            ).unwrap();
+            let policy = SeccompSyscallPolicyV2::new(arch, vec![rule]).unwrap();
+            let mut filter = compile_filter_v2(&policy).unwrap();
+
+            let first_predicate = filter.iter().position(|instruction| {
+                instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                    && instruction.k == libc::AF_UNIX as u32
+            }).unwrap();
+            let second_predicate = filter.iter().enumerate().skip(first_predicate + 1).find_map(
+                |(index, instruction)| {
+                    (instruction.code == BPF_JMP | BPF_JEQ | BPF_K
+                        && instruction.k == 7).then_some(index)
+                }
+            ).unwrap();
+
+            // Turn the second predicate's local EPERM into a forged ALLOW. The
+            // resulting stream contains two ALLOWs inside one rule and makes
+            // the first predicate's branch appear to have a legitimate
+            // disjunctive boundary while actually skipping the second check.
+            filter[second_predicate + 1].k = SECCOMP_RET_ALLOW;
+            filter[first_predicate].jf = u8::try_from(
+                second_predicate + 2 - first_predicate - 1
+            ).unwrap();
 
             assert!(matches!(
                 validate_compiled_filter(&filter),
