@@ -226,6 +226,13 @@ check_delete_link_authorization() {
     echo "FAIL: $file DeleteLink path does not establish original CreateLink validity with must_get_valid_record"
     fail=1
   fi
+
+  if printf '%s\n' "$delete_link_block" | rg -n --fixed-strings 'TypedAction::<CreateLinkData>::try_from_action(original_record.action().clone())?' >/dev/null 2>&1; then
+    echo "OK:   $file DeleteLink narrows the referenced action to CreateLinkData"
+  else
+    echo "FAIL: $file DeleteLink path does not explicitly narrow the referenced action to CreateLinkData"
+    fail=1
+  fi
 }
 # Action-family authorization must not be accidentally absorbed by a terminal
 # catch-all. If a zome validates entry updates at CreateEntry(UpdateEntry), it
