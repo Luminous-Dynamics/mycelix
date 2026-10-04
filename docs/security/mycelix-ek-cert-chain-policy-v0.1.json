@@ -57,8 +57,11 @@
     {"id":"EKC-V11","mutation":"revocation-indeterminate","expected":"INDETERMINATE"},
     {"id":"EKC-V12","mutation":"spki-certificate-substitution","expected":"DENY"},
     {"id":"EKC-V13","mutation":"spki-indeterminate","expected":"INDETERMINATE"},
-    {"id":"EKC-V14","mutation":"session-binding-substitution","expected":"DENY"},
-    {"id":"EKC-V15","mutation":"key-order-permutation","expected":"PASS"}
+    {"id":"EKC-V14","mutation":"spki-ek-public-digest-substitution","expected":"DENY"},
+    {"id":"EKC-V15","mutation":"verification-time-binding-substitution","expected":"DENY"},
+    {"id":"EKC-V16","mutation":"revocation-state-binding-substitution","expected":"DENY"},
+    {"id":"EKC-V17","mutation":"session-binding-substitution","expected":"DENY"},
+    {"id":"EKC-V18","mutation":"key-order-permutation","expected":"PASS"}
   ],
   "reference_fixture": {
     "root_sha256": "bf027c125d7641b37bb1e8e71eab5f480cc3b925eb33660b818b251faf5fa6bc",
