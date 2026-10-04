@@ -4199,6 +4199,27 @@ fn eddsa_jcs_hash_data(vc: &VerifiableCredential) -> ExternResult<Vec<u8>> {
 
     eddsa_jcs_hash_data_from_values(unsecured, Value::Object(proof_config))
 }
+fn decode_raw_jcs_signature(value: &str) -> ExternResult<[u8; 64]> {
+    if !value.starts_with('z') || value.len() <= 1 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "W3C JCS proofValue must use base58-btc Multibase (z prefix)".into()
+        )));
+    }
+    let decoded = bs58::decode(&value[1..])
+        .with_alphabet(bs58::Alphabet::BITCOIN)
+        .into_vec()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Invalid proofValue base58-btc payload: {e}"
+            )))
+        })?;
+    <[u8; 64]>::try_from(decoded.as_slice()).map_err(|_| {
+        wasm_error!(WasmErrorInner::Guest(
+            "W3C JCS proofValue must decode to exactly 64 Ed25519 bytes".into()
+        ))
+    })
+}
+
 /// Encode a raw Ed25519 signature as base58-btc Multibase, as required by
 /// W3C Data Integrity EdDSA cryptosuites.
 fn encode_raw_ed25519_multibase(signature: &[u8]) -> ExternResult<String> {
@@ -4336,22 +4357,9 @@ fn verify_credential_signature(vc: &VerifiableCredential) -> ExternResult<bool> 
             }
         }
 
-        let signature_bytes = multibase_decode(&vc.proof.proof_value).ok_or_else(|| {
-            wasm_error!(WasmErrorInner::Guest(
-                "Invalid W3C EdDSA JCS proofValue multibase encoding".into()
-            ))
-        })?;
-        if signature_bytes.len() != 64 {
-            return Ok(false);
-        }
-
-        let signature = Signature::from(
-            <[u8; 64]>::try_from(signature_bytes.as_slice()).map_err(|_| {
-                wasm_error!(WasmErrorInner::Guest(
-                    "Invalid W3C EdDSA JCS signature length".into()
-                ))
-            })?,
-        );
+        let signature = Signature::from(decode_raw_jcs_signature(
+            &vc.proof.proof_value
+        )?);
 
         return verify_signature(pubkey, signature, eddsa_jcs_hash_data(vc)?);
     }
