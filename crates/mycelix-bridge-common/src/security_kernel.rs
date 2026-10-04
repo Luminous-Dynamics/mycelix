@@ -53,8 +53,11 @@ pub struct Capability {
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct CapabilityWire {
+    #[serde(deserialize_with = "deserialize_security_identifier")]
     subject: String,
+    #[serde(deserialize_with = "deserialize_security_identifier")]
     issuer: String,
+    #[serde(deserialize_with = "deserialize_security_identifier")]
     resource: String,
     #[serde(deserialize_with = "deserialize_capability_actions")]
     actions: Vec<CapabilityAction>,
@@ -77,6 +80,54 @@ impl TryFrom<CapabilityWire> for Capability {
             wire.policy_version,
         )
     }
+}
+
+/// Bound security identifiers before retaining attacker-controlled wire strings.
+fn deserialize_security_identifier<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    struct SecurityIdentifierVisitor;
+
+    impl<'de> Visitor<'de> for SecurityIdentifierVisitor {
+        type Value = String;
+
+        fn expecting(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+            formatter.write_str("a bounded security identifier string")
+        }
+
+        fn visit_borrowed_str<E>(self, value: &'de str) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
+            if value.len() > MAX_SECURITY_IDENTIFIER_BYTES {
+                return Err(E::custom("security identifier exceeds size limit"));
+            }
+            Ok(value.to_owned())
+        }
+
+        fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
+            if value.len() > MAX_SECURITY_IDENTIFIER_BYTES {
+                return Err(E::custom("security identifier exceeds size limit"));
+            }
+            Ok(value.to_owned())
+        }
+
+        fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
+            if value.len() > MAX_SECURITY_IDENTIFIER_BYTES {
+                return Err(E::custom("security identifier exceeds size limit"));
+            }
+            Ok(value)
+        }
+    }
+
+    deserializer.deserialize_str(SecurityIdentifierVisitor)
 }
 
 /// Bound capability action sequences before retaining an attacker-controlled
