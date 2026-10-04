@@ -1,7 +1,11 @@
 {
   "profile": "D6U-RUNTIME-1",
   "kind": "holochain-0.7-authority-boundary-runtime-manifest",
-  "version": 10,
+  "version": 11,
+  "attestation_policy": {
+    "mode": "deferred-to-trusted-builder",
+    "rationale": "The PR-controlled runtime workflow intentionally has no OIDC or attestations write permission; signed provenance must be produced by a trusted default-branch builder that does not execute PR-controlled code."
+  },
   "substrate": {
     "holochain": "0.7.0",
     "hdk": "0.7.0",
