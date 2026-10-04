@@ -3222,6 +3222,21 @@ mod tests {
         }
     }
 
+    fn reseal_state_machine_trace_for_test(capsule: &mut FederationStateMachineTraceCapsule) {
+        let mut previous_chain_sha256 =
+            FEDERATION_STATE_MACHINE_TRACE_CHAIN_GENESIS.to_string();
+
+        for evidence in &mut capsule.evidence {
+            evidence.chain_prev_sha256 = previous_chain_sha256.clone();
+            evidence.chain_sha256 = String::new();
+            evidence.chain_sha256 = state_machine_evidence_chain_sha256(evidence);
+            previous_chain_sha256 = evidence.chain_sha256.clone();
+        }
+
+        capsule.integrity = state_machine_trace_integrity(capsule);
+    }
+
+
     fn state_machine_next_seed(seed: &mut u64) -> u64 {
         *seed = seed
             .wrapping_mul(6_364_136_223_846_793_005)
@@ -3290,27 +3305,42 @@ mod tests {
         serde_json::to_string_pretty(&capsule).expect("trace capsule is serializable")
     }
 
-    fn state_machine_plan_from_capsule(
+    /// Validates the persisted trace capsule without executing any state-machine
+    /// transition. This verifies the artifact's schema, canonical plan descriptor,
+    /// state/temporal boundary continuity, and hash-chain/body integrity.
+    ///
+    /// This is intentionally weaker than replay verification: a consumer can establish
+    /// that the artifact is internally self-consistent without establishing that the
+    /// recorded decisions were produced by this transition implementation. Replay remains
+    /// the model-coupled semantic oracle.
+    fn validate_state_machine_trace_evidence(
         capsule: &FederationStateMachineTraceCapsule,
-    ) -> Vec<(FederationStateMachineOperation, u64)> {
-        assert_eq!(
-            capsule.schema_version,
-            FEDERATION_STATE_MACHINE_TRACE_CAPSULE_SCHEMA_VERSION,
+    ) -> Result<(), String> {
+        macro_rules! require {
+            ($condition:expr, $message:expr) => {
+                if !$condition {
+                    return Err($message.to_owned());
+                }
+            };
+        }
+
+        require!(
+            capsule.schema_version == FEDERATION_STATE_MACHINE_TRACE_CAPSULE_SCHEMA_VERSION,
             "successful trace capsule schema version must be supported"
         );
-        assert_eq!(
-            capsule.integrity.algorithm,
-            FEDERATION_STATE_MACHINE_TRACE_CAPSULE_HASH_ALGORITHM,
+        require!(
+            capsule.integrity.algorithm
+                == FEDERATION_STATE_MACHINE_TRACE_CAPSULE_HASH_ALGORITHM,
             "successful trace capsule integrity algorithm must be supported"
         );
-        assert_eq!(
-            capsule.integrity.encoding,
-            FEDERATION_STATE_MACHINE_TRACE_CAPSULE_HASH_ENCODING,
+        require!(
+            capsule.integrity.encoding
+                == FEDERATION_STATE_MACHINE_TRACE_CAPSULE_HASH_ENCODING,
             "successful trace capsule integrity encoding must be supported"
         );
-        assert_eq!(
-            capsule.integrity.body_sha256,
-            state_machine_trace_body_sha256(capsule),
+        require!(
+            capsule.integrity.body_sha256
+                == state_machine_trace_body_sha256(capsule),
             "successful trace capsule body digest must match its serialized hash view"
         );
         let expected_chain_head = capsule
@@ -3318,28 +3348,27 @@ mod tests {
             .last()
             .map(|evidence| evidence.chain_sha256.as_str())
             .unwrap_or(FEDERATION_STATE_MACHINE_TRACE_CHAIN_GENESIS);
-        assert_eq!(
-            capsule.integrity.chain_head_sha256,
-            expected_chain_head,
+        require!(
+            capsule.integrity.chain_head_sha256 == expected_chain_head,
             "successful trace capsule integrity must bind its terminal evidence chain head"
         );
-        assert_eq!(
-            capsule.operations.len(),
-            capsule.tokens.len(),
+        require!(
+            capsule.operations.len() == capsule.tokens.len(),
             "trace capsule operation/token lengths must match"
         );
-        assert_eq!(
-            capsule.initial_state,
-            FederationStateMachineTraceBoundary {
-                admission_index: 0,
-                delivery_count: 0,
-                state_fingerprint: canonical_state_fingerprint(&nodes()),
-            },
+        require!(
+            capsule.initial_state
+                == FederationStateMachineTraceBoundary {
+                    admission_index: 0,
+                    delivery_count: 0,
+                    state_fingerprint: canonical_state_fingerprint(&nodes()),
+                },
             "successful trace capsule initial state must match the canonical empty state"
         );
+
         let expected_seed = 0xD6E5_5EED_u64 ^ capsule.trace_index as u64;
-        assert_eq!(
-            capsule.initial_seed, expected_seed,
+        require!(
+            capsule.initial_seed == expected_seed,
             "trace capsule seed does not match canonical trace seed"
         );
 
@@ -3351,14 +3380,12 @@ mod tests {
             .copied()
             .zip(capsule.tokens.iter().copied())
             .collect::<Vec<_>>();
-
-        assert_eq!(
-            recorded_plan, canonical_plan,
+        require!(
+            recorded_plan == canonical_plan,
             "trace capsule is not canonical for its trace index and length"
         );
-        assert_eq!(
-            capsule.evidence.len(),
-            recorded_plan.len(),
+        require!(
+            capsule.evidence.len() == recorded_plan.len(),
             "successful trace capsule evidence length must match its plan"
         );
 
@@ -3371,36 +3398,43 @@ mod tests {
         for (step_index, ((operation, token), evidence)) in
             recorded_plan.iter().zip(&capsule.evidence).enumerate()
         {
-            assert_eq!(
-                evidence.step_index, step_index,
+            require!(
+                evidence.step_index == step_index,
                 "trace capsule evidence step index must match its canonical position"
             );
-            assert_eq!(
-                evidence.operation, *operation,
+            require!(
+                evidence.operation == *operation,
                 "trace capsule evidence operation must match its canonical plan"
             );
-            assert_eq!(
-                evidence.token, *token,
+            require!(
+                evidence.token == *token,
                 "trace capsule evidence token must match its canonical plan"
             );
-            assert_eq!(
-                evidence.pre_state_fingerprint, expected_pre_state_fingerprint,
+            require!(
+                evidence.pre_state_fingerprint == expected_pre_state_fingerprint,
                 "trace capsule evidence must preserve state-fingerprint continuity"
             );
-            assert_eq!(
-                evidence.chain_prev_sha256, expected_chain_prev_sha256,
+            require!(
+                evidence.pre_admission_index == expected_post_boundary.admission_index,
+                "trace capsule evidence must preserve admission-index boundary continuity"
+            );
+            require!(
+                evidence.pre_delivery_count == expected_post_boundary.delivery_count,
+                "trace capsule evidence must preserve delivery-count boundary continuity"
+            );
+            require!(
+                evidence.chain_prev_sha256 == expected_chain_prev_sha256,
                 "trace capsule evidence must preserve chain continuity"
             );
-            assert_eq!(
-                evidence.chain_sha256,
-                state_machine_evidence_chain_sha256(evidence),
+            require!(
+                evidence.chain_sha256 == state_machine_evidence_chain_sha256(evidence),
                 "trace capsule evidence chain digest must match its step body"
             );
-            assert!(
+            require!(
                 evidence.post_admission_index >= evidence.pre_admission_index,
                 "trace capsule evidence cannot regress the admission counter"
             );
-            assert!(
+            require!(
                 evidence.post_delivery_count >= evidence.pre_delivery_count,
                 "trace capsule evidence cannot regress admitted-delivery count"
             );
@@ -3408,23 +3442,22 @@ mod tests {
                 evidence.post_admission_index - evidence.pre_admission_index;
             let delivery_delta =
                 (evidence.post_delivery_count - evidence.pre_delivery_count) as u64;
-            assert_eq!(
-                admission_delta, delivery_delta,
+            require!(
+                admission_delta == delivery_delta,
                 "trace capsule evidence admission/delivery deltas must agree"
             );
-            assert_eq!(
-                evidence.newly_admitted_deliveries.len() as u64,
-                admission_delta,
+            require!(
+                evidence.newly_admitted_deliveries.len() as u64 == admission_delta,
                 "trace capsule evidence must enumerate every consumed admission ordinal"
             );
-            assert_eq!(
+            require!(
                 evidence
                     .newly_admitted_deliveries
                     .iter()
                     .map(|(_, index)| *index)
-                    .collect::<BTreeSet<_>>(),
-                (evidence.pre_admission_index..evidence.post_admission_index)
-                    .collect::<BTreeSet<_>>(),
+                    .collect::<BTreeSet<_>>()
+                    == (evidence.pre_admission_index..evidence.post_admission_index)
+                        .collect::<BTreeSet<_>>(),
                 "trace capsule evidence must enumerate the exact consumed ordinal range"
             );
 
@@ -3437,11 +3470,26 @@ mod tests {
             expected_chain_prev_sha256 = evidence.chain_sha256.clone();
         }
 
-        assert_eq!(
-            capsule.final_state,
-            expected_post_boundary,
+        require!(
+            capsule.final_state == expected_post_boundary,
             "successful trace capsule final state must match the final step boundary"
         );
+
+        Ok(())
+    }
+
+    fn state_machine_plan_from_capsule(
+        capsule: &FederationStateMachineTraceCapsule,
+    ) -> Vec<(FederationStateMachineOperation, u64)> {
+        validate_state_machine_trace_evidence(capsule)
+            .unwrap_or_else(|message| panic!("{message}"));
+
+        let recorded_plan = capsule
+            .operations
+            .iter()
+            .copied()
+            .zip(capsule.tokens.iter().copied())
+            .collect::<Vec<_>>();
 
         let replayed_evidence = run_state_machine_trace_plan(&recorded_plan);
         assert_eq!(
@@ -4588,6 +4636,30 @@ mod tests {
         assert_eq!(
             state_machine_trace_body_sha256(&capsule),
             state_machine_trace_body_sha256(&reformatted)
+        );
+    }
+
+    #[test]
+    fn state_machine_trace_evidence_verifier_is_replay_independent_and_rejects_resealed_boundary_forgery() {
+        let capsule_text = state_machine_trace_capsule(18, 10);
+        let mut capsule =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&capsule_text)
+                .expect("capsule must deserialize");
+
+        assert!(
+            validate_state_machine_trace_evidence(&capsule).is_ok(),
+            "generated capsule must pass the replay-independent evidence verifier"
+        );
+
+        let previous_post_delivery_count = capsule.evidence[2].post_delivery_count;
+        capsule.evidence[3].pre_delivery_count = previous_post_delivery_count + 1;
+        reseal_state_machine_trace_for_test(&mut capsule);
+
+        let error = validate_state_machine_trace_evidence(&capsule)
+            .expect_err("re-sealed cross-step temporal forgery must be rejected");
+        assert_eq!(
+            error,
+            "trace capsule evidence must preserve delivery-count boundary continuity"
         );
     }
 
