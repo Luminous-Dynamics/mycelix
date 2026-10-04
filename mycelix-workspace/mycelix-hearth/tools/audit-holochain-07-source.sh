@@ -1062,7 +1062,7 @@ check_coordinator_operation_bindings() {
     source="$(sed '/^\#\[cfg(test)\]/,$d' "$coordinator")"
 
     # Entry creation is paired with both 0.7 validation surfaces.
-    if rg -n --pcre2 '\bcreate_entry\s*\(' "$coordinator" >/dev/null 2>&1; then
+    if printf '%s\n' "$source" | rg -n --pcre2 '\bcreate_entry\s*\(' >/dev/null 2>&1; then
       if rg -n --pcre2 'FlatOp::CreateEntry\s*\(' "$file" >/dev/null 2>&1 \
         && rg -n --pcre2 'FlatOp::CreateRecord\s*\(\s*OpRecord::CreateEntry' "$file" >/dev/null 2>&1; then
         echo "OK:   $zome coordinator entry writes map to CreateEntry + CreateRecord validation"
@@ -1074,7 +1074,7 @@ check_coordinator_operation_bindings() {
 
     # Mutable entry writes need content validation, CreateRecord parity, and
     # action-level author authorization.
-    if rg -n --pcre2 '\bupdate_entry\s*\(' "$coordinator" >/dev/null 2>&1; then
+    if printf '%s\n' "$source" | rg -n --pcre2 '\bupdate_entry\s*\(' >/dev/null 2>&1; then
       if rg -n --pcre2 'FlatOp::CreateEntry\s*\(\s*OpEntry::UpdateEntry' "$file" >/dev/null 2>&1 \
         && rg -n --pcre2 'FlatOp::CreateRecord\s*\(\s*OpRecord::UpdateEntry' "$file" >/dev/null 2>&1 \
         && rg -n --pcre2 'FlatOp::Update\s*\(\s*OpUpdate::Entry' "$file" >/dev/null 2>&1; then
@@ -1085,7 +1085,7 @@ check_coordinator_operation_bindings() {
       fi
     fi
 
-    if rg -n --pcre2 '\bdelete_entry\s*\(' "$coordinator" >/dev/null 2>&1; then
+    if printf '%s\n' "$source" | rg -n --pcre2 '\bdelete_entry\s*\(' >/dev/null 2>&1; then
       if rg -n --pcre2 'FlatOp::Delete\s*\(\s*OpDelete\s*\{\s*action' "$file" >/dev/null 2>&1 \
         && rg -n --pcre2 'must_get_valid_record\s*\(\s*action\.deletes_address' "$file" >/dev/null 2>&1; then
         echo "OK:   $zome coordinator delete_entry maps to validated Delete authorization"
@@ -1095,7 +1095,7 @@ check_coordinator_operation_bindings() {
       fi
     fi
 
-    if rg -n --pcre2 '\bcreate_link\s*\(' "$coordinator" >/dev/null 2>&1; then
+    if printf '%s\n' "$source" | rg -n --pcre2 '\bcreate_link\s*\(' >/dev/null 2>&1; then
       if rg -n --pcre2 'FlatOp::Link\s*\(\s*OpLink::CreateLink' "$file" >/dev/null 2>&1; then
         echo "OK:   $zome coordinator create_link maps to explicit CreateLink validation"
       else
@@ -1104,7 +1104,7 @@ check_coordinator_operation_bindings() {
       fi
     fi
 
-    if rg -n --pcre2 '\bdelete_link\s*\(' "$coordinator" >/dev/null 2>&1; then
+    if printf '%s\n' "$source" | rg -n --pcre2 '\bdelete_link\s*\(' >/dev/null 2>&1; then
       if rg -n --pcre2 'FlatOp::Link\s*\([^)]*OpLink::DeleteLink' "$file" >/dev/null 2>&1 \
         && rg -n --pcre2 'must_get_valid_record\s*\(\s*action\.link_add_address' "$file" >/dev/null 2>&1; then
         echo "OK:   $zome coordinator delete_link maps to validated DeleteLink authorization"
