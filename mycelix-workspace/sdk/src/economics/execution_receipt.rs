@@ -324,6 +324,16 @@ mod tests {
     }
 
     #[test]
+    fn receipt_fingerprint_changes_when_receipt_content_changes() {
+        let lifecycle = lifecycle();
+        let receipt = receipt(&lifecycle, EconomicExecutionKind::Payment);
+        let mut changed = receipt.clone();
+        changed.external_ref = "external:changed".into();
+
+        assert_ne!(receipt.fingerprint().unwrap(), changed.fingerprint().unwrap());
+    }
+
+    #[test]
     fn execution_requires_contract_or_implementation_stage() {
         let lifecycle = lifecycle();
         let mut ledger = EconomicExecutionLedger::new("action:1").unwrap();
