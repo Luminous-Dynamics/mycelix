@@ -803,7 +803,10 @@ mod tests {
             chosen_option: chosen,
             tally_vote_refs: Some(vec![fake_action_hash()]),
             tally: Some(vec![(chosen, 5000)]),
-            tally_fingerprint: Some(vec![0u8; 32]),
+            tally_fingerprint: Some(tally_evidence_fingerprint(
+                &[fake_action_hash()],
+                &[(chosen, 5000)],
+            )),
             participation_rate_bp: participation_bp,
             resolved_at: fake_timestamp(),
             quorum_bp: None,
@@ -892,6 +895,27 @@ mod tests {
             validate_outcome_against_basis(&outcome, &basis).unwrap(),
             ValidateCallbackResult::Invalid(_)
         ));
+    }
+
+    // ---- Tally evidence fingerprint ----
+
+    #[test]
+    fn tally_evidence_fingerprint_is_order_independent_for_refs() {
+        let a = fake_action_hash();
+        let b = ActionHash::from_raw_36(vec![0xACu8; 36]);
+        let tally = vec![(0, 10000), (1, 5000)];
+        let fp1 = tally_evidence_fingerprint(&[a.clone(), b.clone()], &tally);
+        let fp2 = tally_evidence_fingerprint(&[b, a], &tally);
+        assert_eq!(fp1, fp2);
+        assert_eq!(fp1.len(), 32);
+    }
+
+    #[test]
+    fn tally_evidence_fingerprint_changes_when_tally_changes() {
+        let refs = vec![fake_action_hash()];
+        let a = tally_evidence_fingerprint(&refs, &[(0, 10000)]);
+        let b = tally_evidence_fingerprint(&refs, &[(0, 5000)]);
+        assert_ne!(a, b);
     }
 
     // ---- Decision Validation ----
@@ -1291,7 +1315,11 @@ mod tests {
         let o = DecisionOutcome {
             decision_hash: fake_action_hash(),
             finalization_basis_action: Some(fake_action_hash()),
+            resolved_by: Some(fake_agent()),
             chosen_option: 1,
+            tally_vote_refs: None,
+            tally: None,
+            tally_fingerprint: None,
             participation_rate_bp: 8500,
             resolved_at: fake_timestamp(),
             quorum_bp: Some(5000),
@@ -1469,6 +1497,9 @@ mod tests {
             finalization_basis_action: Some(fake_action_hash()),
             resolved_by: Some(fake_agent()),
             chosen_option: 1,
+            tally_vote_refs: None,
+            tally: None,
+            tally_fingerprint: None,
             participation_rate_bp: 8500,
             resolved_at: fake_timestamp(),
             quorum_bp: Some(5000),
