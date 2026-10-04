@@ -849,6 +849,13 @@ check_qualification_workflow_provenance() {
     "Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6"
     "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02"
   )
+  if rg -n --fixed-strings "persist-credentials: false" "$workflow" >/dev/null 2>&1; then
+    echo "OK:   qualification workflow does not persist the GitHub token after checkout"
+  else
+    echo "FAIL: qualification workflow must set persist-credentials: false"
+    fail=1
+  fi
+
   action_use_count="$(rg -n --pcre2 '^[[:space:]]*(?:-[[:space:]]+)?uses:' "$workflow" | wc -l)"
   pinned_action_count="$(rg -n --pcre2 '^[[:space:]]*(?:-[[:space:]]+)?uses:[[:space:]]+[^[:space:]@]+@[0-9a-f]{40}[[:space:]]*(#.*)?$' "$workflow" | wc -l)"
   if [[ "$action_use_count" -ne "${#expected_action_refs[@]}" ]]; then

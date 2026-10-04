@@ -42,6 +42,7 @@ jobs:
         with:
           ref: ${{ env.QUALIFY_SHA }}
           submodules: recursive
+          persist-credentials: false
 
       - name: Verify immutable qualification checkout
         run: |
