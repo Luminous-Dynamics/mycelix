@@ -10,6 +10,9 @@ on:
 
 permissions:
   contents: read
+  id-token: write
+  attestations: write
+  artifact-metadata: write
 
 concurrency:
   group: d6u-runtime-reference-${{ github.head_ref || github.ref_name }}
@@ -131,6 +134,15 @@ jobs:
       - name: Verify emitted runtime evidence record
         if: success()
         run: python3 scripts/integral/verify_d6u_runtime_record.py
+
+      - name: Attest runtime evidence
+        if: success()
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
+        with:
+          subject-path: |
+            d6u-runtime-harness/d6u-runtime-evidence.txt
+            d6u-runtime-harness/d6u-runtime-test.log
+            d6u-runtime-harness/Cargo.lock
 
       - name: Upload runtime evidence
         if: always()
