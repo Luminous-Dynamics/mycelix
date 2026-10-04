@@ -225,25 +225,10 @@ fn latest_revocation_state(
             .then_with(|| ha.cmp(hb))
     });
 
-    let (_, _, entry) = candidates
-        .pop()
+    let (action_hash, _, entry) = candidates
+        .last()
         .expect("candidates was checked non-empty");
-    let action_hash = {
-        let mut selected: Option<(u32, ActionHash)> = None;
-        for (hash, record, _) in candidates {
-            let candidate = (record.action().action_seq(), hash);
-            if selected
-                .as_ref()
-                .is_none_or(|(seq, existing)| candidate.0 > *seq || (candidate.0 == *seq && candidate.1 > *existing))
-            {
-                selected = Some(candidate);
-            }
-        }
-        selected
-            .map(|(_, hash)| hash)
-            .unwrap_or_else(|| panic!("selected state hash missing"))
-    };
-    Ok(Some((action_hash, entry)))
+    Ok(Some((action_hash.clone(), entry.clone())))
 }
 
 /// Reinstate a suspended credential
