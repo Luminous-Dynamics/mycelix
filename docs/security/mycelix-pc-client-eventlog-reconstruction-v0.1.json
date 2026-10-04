@@ -43,30 +43,119 @@
     "reconstructed selected-PCR state must equal independently observed selected-PCR state",
     "event-log parser success alone never establishes reconstruction PASS",
     "reference-value appraisal is separate from digest replay",
-    "missing or ambiguous observed PCR state is INDETERMINATE, not PASS"
+    "missing or ambiguous observed PCR state is INDETERMINATE, not PASS",
+    "a selected PCR with no events but a non-initial observed value yields DENY because the asserted state cannot be reconstructed"
   ],
   "vectors": [
-    {"id":"PLR-V01","mutation":"canonical-valid","expected":"PASS"},
-    {"id":"PLR-V02","mutation":"digest-substitution","expected":"DENY"},
-    {"id":"PLR-V03","mutation":"event-removal","expected":"DENY"},
-    {"id":"PLR-V04","mutation":"event-insertion","expected":"DENY"},
-    {"id":"PLR-V05","mutation":"event-reordering","expected":"DENY"},
-    {"id":"PLR-V06","mutation":"pcr-index-substitution","expected":"DENY"},
-    {"id":"PLR-V07","mutation":"sequence-duplicate","expected":"DENY"},
-    {"id":"PLR-V08","mutation":"malformed-digest","expected":"DENY"},
-    {"id":"PLR-V09","mutation":"wrong-bank","expected":"DENY"},
-    {"id":"PLR-V10","mutation":"expected-pcr-substitution","expected":"DENY"},
-    {"id":"PLR-V11","mutation":"missing-expected-pcr","expected":"INDETERMINATE"},
-    {"id":"PLR-V12","mutation":"empty-event-log","expected":"DENY"},
-    {"id":"PLR-V13","mutation":"key-order-permutation","expected":"PASS"},
-    {"id":"PLR-V14","mutation":"metadata-only-substitution","expected":"PASS"},
-    {"id":"PLR-V15","mutation":"reconstruction-unavailable","expected":"INDETERMINATE"},
-    {"id":"PLR-V16","mutation":"invalid-initial-pcr","expected":"DENY"},
-    {"id":"PLR-V17","mutation":"digest-algorithm-substitution","expected":"DENY"},
-    {"id":"PLR-V18","mutation":"target-pcr-missing-from-events","expected":"INDETERMINATE"},
-    {"id":"PLR-V19","mutation":"multi-pcr-canonical","expected":"PASS"},
-    {"id":"PLR-V20","mutation":"target-event-cross-session","expected":"DENY"},
-    {"id":"PLR-V21","mutation":"separator-event-canonical","expected":"PASS"},
-    {"id":"PLR-V22","mutation":"reconstructed-pcr-mismatch","expected":"DENY"}
+    {
+      "id": "PLR-V01",
+      "mutation": "canonical-valid",
+      "expected": "PASS"
+    },
+    {
+      "id": "PLR-V02",
+      "mutation": "digest-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "PLR-V03",
+      "mutation": "event-removal",
+      "expected": "DENY"
+    },
+    {
+      "id": "PLR-V04",
+      "mutation": "event-insertion",
+      "expected": "DENY"
+    },
+    {
+      "id": "PLR-V05",
+      "mutation": "event-reordering",
+      "expected": "DENY"
+    },
+    {
+      "id": "PLR-V06",
+      "mutation": "pcr-index-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "PLR-V07",
+      "mutation": "sequence-duplicate",
+      "expected": "DENY"
+    },
+    {
+      "id": "PLR-V08",
+      "mutation": "malformed-digest",
+      "expected": "DENY"
+    },
+    {
+      "id": "PLR-V09",
+      "mutation": "wrong-bank",
+      "expected": "DENY"
+    },
+    {
+      "id": "PLR-V10",
+      "mutation": "expected-pcr-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "PLR-V11",
+      "mutation": "missing-expected-pcr",
+      "expected": "INDETERMINATE"
+    },
+    {
+      "id": "PLR-V12",
+      "mutation": "empty-event-log",
+      "expected": "DENY"
+    },
+    {
+      "id": "PLR-V13",
+      "mutation": "key-order-permutation",
+      "expected": "PASS"
+    },
+    {
+      "id": "PLR-V14",
+      "mutation": "metadata-only-substitution",
+      "expected": "PASS"
+    },
+    {
+      "id": "PLR-V15",
+      "mutation": "reconstruction-unavailable",
+      "expected": "INDETERMINATE"
+    },
+    {
+      "id": "PLR-V16",
+      "mutation": "invalid-initial-pcr",
+      "expected": "DENY"
+    },
+    {
+      "id": "PLR-V17",
+      "mutation": "digest-algorithm-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "PLR-V18",
+      "mutation": "target-pcr-missing-from-events",
+      "expected": "DENY"
+    },
+    {
+      "id": "PLR-V19",
+      "mutation": "multi-pcr-canonical",
+      "expected": "PASS"
+    },
+    {
+      "id": "PLR-V20",
+      "mutation": "target-event-cross-session",
+      "expected": "DENY"
+    },
+    {
+      "id": "PLR-V21",
+      "mutation": "separator-event-canonical",
+      "expected": "PASS"
+    },
+    {
+      "id": "PLR-V22",
+      "mutation": "reconstructed-pcr-mismatch",
+      "expected": "DENY"
+    }
   ]
 }
