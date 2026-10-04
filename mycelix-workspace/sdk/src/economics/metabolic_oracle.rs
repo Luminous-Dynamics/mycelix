@@ -822,6 +822,8 @@ mod tests {
         adjustment.fee_rate_factor = f64::NAN;
         let decision = GovernedPolicyAdjustment {
             decision_id: "decision:1".into(),
+            policy_profile_ref: "profile:za:reference:v1".into(),
+            policy_profile_fingerprint: "a".repeat(64),
             observation_refs: vec!["observation:vitality:1".into()],
             rule_ref: "rule:countercyclical:v1".into(),
             authority_ref: "authority:dao-1".into(),
