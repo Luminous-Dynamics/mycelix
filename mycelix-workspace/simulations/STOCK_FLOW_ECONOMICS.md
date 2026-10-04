@@ -980,6 +980,27 @@ This establishes a useful invariant for transported evidence:
 A recomputed hash is therefore not sufficient to make malformed evidence acceptable at the chain
 boundary; the structure must also satisfy the same identity rules used by normal construction.
 
+## Explicit non-cash real-asset revaluation (implemented)
+
+The accounting substrate now supports a deliberately narrow non-cash valuation transition,
+`RealAssetRevaluation`, for two existing monetary-valued real assets: productive capital and
+inventory carrying value. Its amount is signed: positive values represent holding gains and
+negative values holding losses. The transition cannot drive the affected carrying value below
+zero.
+
+Revaluation changes no cash, deposit, financial claim, liability, or physical quantity. Its
+balance-sheet counterpart is the actor's derived equity/net-worth residual. Consequently it is
+excluded from the cash transaction matrix, excluded from the financial-claim flow matrix, and
+excluded from operating-surplus calculations while remaining fully visible in the period ledger,
+actor/sector/aggregate observations, and stock-flow reconciliation postings.
+
+This follows the accounting distinction used in the System of National Accounts: holding gains and
+losses are valuation changes rather than transactions, and are tracked separately from transaction
+income. citeturn875360search34turn875360search6 It also keeps the ecological-SFC boundary
+clean: monetary valuation changes do not imply a physical material flow. Modern ecological SFC work
+continues to treat monetary and physical stocks/flows as distinct but jointly coherent dimensions.
+citeturn875360search1turn875360search2
+
 ## State-counter versus period-ledger semantics (implemented)
 
 `EconomicState::monetary_flow_volume`, `credit_created`, and `debt_repaid` are lifetime-cumulative
