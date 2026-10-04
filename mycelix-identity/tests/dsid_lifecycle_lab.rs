@@ -4083,8 +4083,8 @@ async fn dsid_043_request_bound_issuance_is_deterministically_idempotent() {
         .await
         .expect("idempotent fulfillment must reach requester");
 
-    let final_request: Option<Record> = conductor
-        .call(
+    let final_request = conductor
+        .call::<Option<Record>, _>(
             &requester.zome("verifiable_credential"),
             "get_credential_request",
             serde_json::json!({
@@ -4092,9 +4092,10 @@ async fn dsid_043_request_bound_issuance_is_deterministically_idempotent() {
                 "request_id": request_id
             }),
         )
-        .await;
+        .await
+        .expect("fulfilled request lookup must succeed")
+        .expect("fulfilled request must resolve");
     let final_value: serde_json::Value = final_request
-        .expect("fulfilled request must resolve")
         .entry()
         .to_app_option()
         .unwrap()
@@ -4114,7 +4115,7 @@ async fn dsid_043_request_bound_issuance_is_deterministically_idempotent() {
         "request-bound-issuance-is-deterministically-idempotent",
         &dna,
         agents,
-        &[&request, &preexisting, &fulfilled, &final_request.unwrap()],
+        &[&request, &preexisting, &fulfilled, &final_request],
         "Request-bound issuance derives one deterministic credential ID from issuer and request ID; an existing valid fulfillment is reused and then cryptographically bound into Issued state instead of minting a second credential.",
         format!(
             "deterministic_id_present={} reused_action={} issued_status={} issued_pointer_matches={}",
