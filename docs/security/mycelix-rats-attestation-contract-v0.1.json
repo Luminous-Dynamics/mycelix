@@ -160,6 +160,6 @@
     {"id":"RATS-025","stage":"relying-party","mutation":"cross-domain-result","expected":"DENY"},
     {"id":"RATS-026","stage":"relying-party","mutation":"missing-result-binding","expected":"DENY"},
     {"id":"RATS-027","stage":"relying-party","mutation":"result-replay-with-new-request-nonce","expected":"DENY"},
-    {"id":"RATS-028","stage":"relying-party","mutation":"valid-attestation-unauthorized-delegation","expected":"DENY"}
+    {"id":"RATS-028","stage":"relying-party","mutation":"unauthorized-delegation","expected":"DENY"}
   ]
 }
