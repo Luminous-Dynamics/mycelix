@@ -21,6 +21,7 @@ use super::transition::EconomicTransition;
 pub enum FinancialFlowCategory {
     LoanCreation,
     DebtRepayment,
+    DebtForgiveness,
     TradeCreditExtension,
     TradeCreditSettlement,
 }
@@ -115,6 +116,11 @@ impl SectorFinancialFlowMatrix {
     ///
     /// Trade credit is oriented buyer -> seller because the buyer acquires a
     /// payable while the seller acquires the corresponding receivable.
+    ///
+    /// Debt forgiveness is oriented borrower -> lender as the financial-account
+    /// counterpart of the claim extinction. This direction does not represent
+    /// a cash payment; the corresponding capital-transfer projection runs
+    /// lender -> borrower.
     pub fn from_transitions(
         transitions: &[EconomicTransition],
         assignments: &[SectorAssignment],
@@ -147,6 +153,12 @@ impl SectorFinancialFlowMatrix {
                     sector_for(&repayment.lender)?,
                     FinancialFlowCategory::DebtRepayment,
                     repayment.amount,
+                ),
+                EconomicTransition::DebtForgiveness(forgiveness) => (
+                    sector_for(&forgiveness.borrower)?,
+                    sector_for(&forgiveness.lender)?,
+                    FinancialFlowCategory::DebtForgiveness,
+                    forgiveness.amount,
                 ),
                 EconomicTransition::TradeCreditSale(sale) => (
                     sector_for(&sale.buyer)?,
@@ -614,6 +626,31 @@ mod tests {
         matrix
             .validate_against_balance_sheet_delta(&pre_sheet, &post_sheet)
             .unwrap();
+    }
+
+    #[test]
+    fn financial_matrix_represents_forgiveness_as_claim_extinction_not_payment() {
+        let state = EconomicState::new(vec![
+            ActorBalanceSheet::new("bank"),
+            ActorBalanceSheet::new("firm"),
+        ]);
+        let transitions = vec![EconomicTransition::DebtForgiveness(
+            crate::economics::stock_flow::DebtForgiveness::new("bank", "firm", 20).unwrap(),
+        )];
+        let matrix =
+            SectorFinancialFlowMatrix::from_transitions(&transitions, &vec![
+                SectorAssignment { actor: "bank".into(), sector: EconomicSector::Bank },
+                SectorAssignment { actor: "firm".into(), sector: EconomicSector::Firm },
+            ]).unwrap();
+        assert_eq!(matrix.flows.len(), 1);
+        assert_eq!(matrix.flows[0].from, EconomicSector::Firm);
+        assert_eq!(matrix.flows[0].to, EconomicSector::Bank);
+        assert_eq!(matrix.flows[0].category, FinancialFlowCategory::DebtForgiveness);
+        assert!(matrix.clears());
+        matrix.validate_against(&state, &vec![
+            SectorAssignment { actor: "bank".into(), sector: EconomicSector::Bank },
+            SectorAssignment { actor: "firm".into(), sector: EconomicSector::Firm },
+        ], &transitions).unwrap();
     }
 
 
