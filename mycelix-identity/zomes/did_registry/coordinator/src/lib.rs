@@ -803,7 +803,10 @@ pub struct DidDocumentWireView {
 
 fn did_document_wire_view(document: &DidDocument) -> DidDocumentWireView {
     DidDocumentWireView {
-        context: vec!["https://www.w3.org/ns/did/v1.1".into()],
+        context: vec![
+            "https://www.w3.org/ns/did/v1.1".into(),
+            "https://w3id.org/security/multikey/v1".into(),
+        ],
         id: document.id.clone(),
         controller: format!("did:mycelix:{}", document.controller),
         verification_methods: document
