@@ -5,8 +5,13 @@ on:
   # Keeping a push trigger here would duplicate every PR update and cause the
   # concurrency group to cancel one of the two identical runtime jobs.
   pull_request:
+    paths:
+      - ".github/workflows/d6u-runtime-qualification.yml"
+      - "d6u-runtime-harness/**"
+      - "docs/integral/d6u-runtime-*.json"
+      - "docs/integral/d6u-runtime-*.md"
+      - "scripts/integral/verify_d6u_runtime_*.py"
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
-  workflow_dispatch:
 
 permissions:
   contents: read
