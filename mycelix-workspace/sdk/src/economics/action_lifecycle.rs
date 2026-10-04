@@ -255,6 +255,40 @@ impl EconomicActionLifecycle {
                 return Err("Lifecycle action reference changed in history".into());
             }
             current.validate()?;
+
+            match current.kind {
+                EconomicActionChangeKind::ScopeAmendment => {
+                    if current.predecessor_scope_id.as_deref()
+                        != Some(previous.scope_id.as_str())
+                    {
+                        return Err(
+                            "Lifecycle scope-amendment predecessor does not match history"
+                                .into(),
+                        );
+                    }
+                    if current.scope_id == previous.scope_id
+                        || current.scope_fingerprint == previous.scope_fingerprint
+                    {
+                        return Err(
+                            "Lifecycle scope amendment must change ID and fingerprint".into(),
+                        );
+                    }
+                }
+                _ => {
+                    if current.scope_id != previous.scope_id
+                        || current.scope_fingerprint != previous.scope_fingerprint
+                    {
+                        return Err(
+                            "Lifecycle scope changed without an explicit amendment".into(),
+                        );
+                    }
+                    if current.predecessor_scope_id.is_some() {
+                        return Err(
+                            "Ordinary lifecycle revision cannot carry a predecessor scope".into(),
+                        );
+                    }
+                }
+            }
         }
 
         let last = self.revisions.last().unwrap();
@@ -703,6 +737,25 @@ mod tests {
         assert!(result.is_err());
         assert_eq!(lifecycle.revisions().len(), 1);
         assert_eq!(lifecycle.active_scope_id(), "scope:1");
+    }
+
+    #[test]
+    fn tampered_historical_scope_transition_is_rejected() {
+        let mut lifecycle = start();
+        lifecycle
+            .record(
+                "revision:2",
+                EconomicActionStage::Tendering,
+                EconomicActionChangeKind::Update,
+                &scope("action:1", "scope:1"),
+                "authority:dao-1",
+                vec!["evidence:tender".into()],
+                1_100,
+            )
+            .unwrap();
+
+        lifecycle.revisions[1].scope_id = "scope:forged".into();
+        assert!(lifecycle.validate().is_err());
     }
 
     #[test]
