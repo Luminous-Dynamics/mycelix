@@ -140,6 +140,50 @@ jobs:
           ):
               raise SystemExit("security-kernel regression: bounded action deserializer is not attached to CapabilityWire")
 
+          def require_wire_decoder(text, struct_name, fields, decoder):
+              match = re.search(
+                  rf"struct {struct_name}\\s*\\{{(?P<body>.*?)\\n\\}}",
+                  text,
+                  re.DOTALL,
+              )
+              if not match:
+                  raise SystemExit(f"security-wire regression: {struct_name} disappeared")
+              body = match.group("body")
+              for field in fields:
+                  expected = (
+                      rf'#\\[serde\\(deserialize_with\\s*=\\s*"{re.escape(decoder)}"\\)\\]\\s*'
+                      rf"{field}:"
+                  )
+                  if not re.search(expected, body):
+                      raise SystemExit(
+                          f"security-wire regression: {struct_name}.{field} lost {decoder}"
+                      )
+
+          require_wire_decoder(
+              kernel,
+              "CapabilityWire",
+              ["subject", "issuer", "resource"],
+              "deserialize_security_identifier",
+          )
+          require_wire_decoder(
+              kernel,
+              "AuthorizationRequestWire",
+              ["subject", "resource"],
+              "deserialize_security_identifier",
+          )
+          require_wire_decoder(
+              events,
+              "ProvenanceRefWire",
+              ["artifact_id"],
+              "deserialize_provenance_identifier",
+          )
+          require_wire_decoder(
+              events,
+              "SecurityEventWire",
+              ["event_id", "actor_id", "capability_ref"],
+              "deserialize_provenance_identifier",
+          )
+
           security_event_wire = re.search(
               r"struct SecurityEventWire\s*\{(?P<body>.*?)\n\}",
               events,
@@ -161,6 +205,19 @@ jobs:
             echo "security-event regression: provenance wire sequence lost bounded deserialization" >&2
             exit 1
           fi
+          if ! rg -n 'deserialize_optional_provenance_identifier' crates/mycelix-bridge-common/src/security_events.rs; then
+            echo "security-event regression: recovery correlation bounded deserializer disappeared" >&2
+            exit 1
+          fi
+          if ! rg -n 'deserialize_with[[:space:]]*=[[:space:]]*"deserialize_security_identifier"' crates/mycelix-bridge-common/src/security_kernel.rs; then
+            echo "security-kernel regression: bounded identifier deserializer disappeared" >&2
+            exit 1
+          fi
+          if ! rg -n 'deserialize_with[[:space:]]*=[[:space:]]*"deserialize_provenance_identifier"' crates/mycelix-bridge-common/src/security_events.rs; then
+            echo "security-event regression: bounded identifier deserializer disappeared" >&2
+            exit 1
+          fi
+
           if ! rg -n 'MAX_SECURITY_EVENT_PROVENANCE_REFS' crates/mycelix-bridge-common/src/security_events.rs; then
             echo "security-event regression: provenance sequence limit disappeared" >&2
             exit 1
