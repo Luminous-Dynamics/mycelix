@@ -200,6 +200,8 @@ A malformed credential or issuer mismatch therefore remains semantic invalidity 
 
 Rejected admissions are state-preserving: the existing verified credential remains the sole registry entry for the conflicting authority or witness. Corpus vectors EDT-187–EDT-191 pin both precedence and non-mutation.
 
+A failure of the deterministic signature-verification host function is different again: it remains an `ExternResult::Err` and must occur before duplicate registry admission is considered. This prevents a runtime failure from being reclassified as a local duplicate conflict. `EDT-192` pins that precedence and state preservation.
+
 The authority-agent credential itself follows the same local-definitive-before-crypto rule used by runtime attestations: validate the signed payload first, then require the credential issuer to equal the exact agent key named by the payload, and only then call `verify_signature`. A malformed credential payload or issuer mismatch therefore cannot be masked by, or cause, signature-verification host activity. This ordering is a semantic safety boundary as well as an efficiency boundary: Holochain permits deterministic Ed25519 verification during validation, but definitive invalidity should remain distinct from runtime failures and unavailable DHT dependencies.
 
 This establishes a protocol-level identity binding, not a claim about a real-world person's or institution's legal identity. The semantic authority determination remains in the pure provenance graph.
