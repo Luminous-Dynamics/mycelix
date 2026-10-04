@@ -957,10 +957,16 @@ if not re.search(
     )
     raise SystemExit(2)
 
-if not re.search(rf'"{re.escape(expected_reason)}"', raw_predicate_branch):
+string_literals = [
+    match.group(0)
+    for match in token_re.finditer(raw_predicate_branch)
+    if match.group(0).startswith('"')
+]
+if f'"{expected_reason}"' not in string_literals:
     print(
         f"FAIL: executable invariant predicate {code_pattern!r} does not "
-        f"emit the exact manifest rejection reason {expected_reason!r}"
+        f"emit the exact manifest rejection reason {expected_reason!r} "
+        "as a Rust string literal"
     )
     raise SystemExit(2)
 
