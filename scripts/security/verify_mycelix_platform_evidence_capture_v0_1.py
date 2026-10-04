@@ -489,6 +489,8 @@ def validate_semantics(manifest: dict[str, Any]) -> tuple[str, str]:
         "reconstruction",
         "live_observation",
         "artifacts",
+        "ek_certificate_capture",
+        "ek_cert_spki_binding",
         "claim_ceiling",
         "session_binding_sha256",
         "os_image_digest",
