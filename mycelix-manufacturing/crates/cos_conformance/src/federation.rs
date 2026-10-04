@@ -3388,6 +3388,7 @@ mod tests {
         ChainHeadMismatch,
         PublicationDigestMismatch,
         UnsupportedTraceSchemaVersion,
+        TraceEvidenceInvalid(FederationStateMachineTraceEvidenceViolation),
         FirstPublicationPredecessorMismatch,
         SnapshotProfileMismatch,
         SnapshotTraceIndexMismatch,
@@ -3488,6 +3489,8 @@ mod tests {
                 FederationStateMachineTraceCheckpointPublicationViolation::PublicationDigestMismatch
             );
         }
+        validate_state_machine_trace_evidence(capsule)
+            .map_err(FederationStateMachineTraceCheckpointPublicationViolation::TraceEvidenceInvalid)?;
         Ok(())
     }
 
@@ -5644,6 +5647,27 @@ mod tests {
             ),
             Err(
                 FederationStateMachineTraceCheckpointPublicationViolation::UnsupportedTraceSchemaVersion
+            )
+        );
+
+        let mut forged_evidence_later = later.clone();
+        let previous_post_delivery_count = forged_evidence_later.evidence[2].post_delivery_count;
+        forged_evidence_later.evidence[3].pre_delivery_count = previous_post_delivery_count + 1;
+        reseal_state_machine_trace_for_test(&mut forged_evidence_later);
+        let forged_evidence_publication = state_machine_trace_checkpoint_publication(
+            &forged_evidence_later,
+            12,
+            &earlier_publication.publication_sha256,
+        );
+        assert_eq!(
+            validate_state_machine_trace_checkpoint_publication(
+                &forged_evidence_later,
+                &forged_evidence_publication,
+            ),
+            Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::TraceEvidenceInvalid(
+                    FederationStateMachineTraceEvidenceViolation::PreDeliveryContinuityMismatch
+                )
             )
         );
 
