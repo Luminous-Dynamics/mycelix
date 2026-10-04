@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "artifact_type": "enclave-qualification-index",
+  "profile_id": "mycelix.security.enclave",
+  "profile_version": "0.1.0",
+  "claim_ceiling": "ReferenceModelOnly",
+  "as_of": "2026-10-04",
+  "program_chain": [
+    {
+      "pr": 3976,
+      "issue": 3968,
+      "branch": "security/enclave-profile-v0.1",
+      "head": "358e7bd40f1dadec0b9c6316c608414b51f0fcad",
+      "status": "ReferenceModelOnly",
+      "execution": "structural JSON validation"
+    },
+    {
+      "pr": 3977,
+      "issue": 3977,
+      "branch": "security/rats-attestation-v0.1",
+      "head": "bc28a1aa13048ce60757cce10fc168cb0db73d7",
+      "status": "ReferenceModelOnly",
+      "execution": "31/31 independent semantic vectors"
+    },
+    {
+      "pr": 3982,
+      "issue": 3982,
+      "branch": "security/rats-trusted-time-v0.1",
+      "head": "3a06e6a5410e3b068fb2c18ccf5355f2efbbec77",
+      "status": "ReferenceModelOnly",
+      "execution": "17/17 independent interval-freshness vectors"
+    },
+    {
+      "pr": 3983,
+      "issue": 3983,
+      "branch": "security/tpm2-evidence-v0.1",
+      "head": "e9f1170228cefe1aecb150879b3ea8dbf6a8236b",
+      "status": "ReferenceModelOnly",
+      "execution": "NOT EXECUTED: TPM/vTPM tools unavailable in current environment"
+    },
+    {
+      "pr": 3994,
+      "issue": 3994,
+      "branch": "security/eat-measured-component-v0.1",
+      "head": "865d9cbc37122f18a979f59eecab44d8ac2c5b48",
+      "status": "ReferenceModelOnly",
+      "execution": "16/16 independent semantic vectors"
+    },
+    {
+      "pr": 3973,
+      "issue": 3973,
+      "branch": "security/protected-release-v0.1",
+      "head": "2127b5c3087f107a9121d536a48c93b5f57dbacf",
+      "status": "ReferenceModelOnly",
+      "execution": "33/33 independent semantic vectors"
+    },
+    {
+      "pr": 3974,
+      "issue": 3974,
+      "branch": "security/comparative-benchmark-v0.1",
+      "head": "d387a233732c83ffb519c82874caf1b7037e8190",
+      "status": "ReferenceModelOnly",
+      "execution": "24/24 independent reference-model scenario checks"
+    },
+    {
+      "pr": 4001,
+      "issue": 4001,
+      "branch": "security/pep-decision-boundary-v0.1",
+      "head": "a0e933ba6ecd4f927fc13e669cab42b3dcfe002b",
+      "status": "ReferenceModelOnly",
+      "execution": "24/24 independent decision-algebra vectors"
+    }
+  ],
+  "executed_invariants": [
+    "Evidence != Attestation Result != Authorization",
+    "trusted time != wall clock",
+    "vTPM != physical TPM security",
+    "EAT measured component != authorization",
+    "transfer receipt != release authority",
+    "DENY > INDETERMINATE > PASS",
+    "no composite comparative-security score"
+  ],
+  "current_blockers": [
+    "No /dev/tpm* device is available in the execution environment.",
+    "swtpm, tpm2-tools, and tpm2-eventlog utilities are unavailable in the execution environment.",
+    "Therefore the TPM quote/PCR execution layer is a source candidate, not a green execution result.",
+    "The program still requires exact real-hardware capture and event-log reconstruction before any hardware assurance claim."
+  ],
+  "qualification_ceiling_not_established": [
+    "physical TPM security",
+    "measured boot",
+    "firmware correctness",
+    "kernel integrity",
+    "manufacturer trust",
+    "FIPS 140-3 validation",
+    "CMMC/classified authorization",
+    "CDS approval",
+    "legal export-control authorization",
+    "system-wide superiority over SIPRNet/NIPRNet"
+  ]
+}
