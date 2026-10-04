@@ -109,6 +109,8 @@ def reconstruct(stream: dict[str, Any]) -> tuple[str, str, dict[str, str] | None
             return "DENY", "invalid-pcr-index", None
         if event.get("digest_algorithm", "sha256") != "sha256":
             return "DENY", "digest-algorithm-substitution", None
+        if event["event_type"] == "EV_EFI_HCRTM_EVENT" and pcr == 0:
+            return "INDETERMINATE", "hcrtm-initial-state-adjustment-unsupported", None
         if not valid_digest(event["digest_sha256"]):
             return "DENY", "malformed-digest", None
         if event.get("session_id", stream["session_id"]) != stream["session_id"]:
