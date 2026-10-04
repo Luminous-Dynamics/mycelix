@@ -1680,7 +1680,11 @@ mod tests {
                         assert!(mutation.to_node_id.is_none());
                         assert!(mutation.kind.is_none());
                         assert!(mutation.edge_commitment.is_none());
-                        assert!(mutation.node_id.as_deref().is_some_and(non_empty));
+                        let node_id = mutation
+                            .node_id
+                            .as_deref()
+                            .expect("validated set_node node_id");
+                        assert!(non_empty(node_id));
                         let fields = mutation
                             .fields
                             .as_ref()
@@ -1688,7 +1692,7 @@ mod tests {
                             .unwrap_or_else(|| panic!("set_node mutation must declare fields: {}", vector.id));
                         for (field, value) in fields {
                             assert!(
-                                mutation_field_targets.insert((node_id, field)),
+                                mutation_field_targets.insert((node_id, field.as_str())),
                                 "golden recipe must not assign the same node field twice: {}:{field}",
                                 vector.id
                             );
