@@ -20,6 +20,7 @@ use super::transition::EconomicTransition;
 pub enum FinancialFlowCategory {
     LoanCreation,
     DebtRepayment,
+    DebtWriteOff,
     TradeCreditExtension,
     TradeCreditSettlement,
 }
@@ -147,6 +148,12 @@ impl SectorFinancialFlowMatrix {
                     FinancialFlowCategory::DebtRepayment,
                     repayment.amount,
                 ),
+                EconomicTransition::DebtWriteOff(write_off) => (
+                    sector_for(&write_off.lender)?,
+                    sector_for(&write_off.borrower)?,
+                    FinancialFlowCategory::DebtWriteOff,
+                    write_off.amount,
+                ),
                 EconomicTransition::TradeCreditSale(sale) => (
                     sector_for(&sale.buyer)?,
                     sector_for(&sale.seller)?,
@@ -237,6 +244,12 @@ impl SectorFinancialFlowMatrix {
                 (FinancialFlowCategory::DebtRepayment, _, true)
                     if instrument == BalanceSheetInstrument::Loans =>
                     -flow.amount,
+                (FinancialFlowCategory::DebtWriteOff, true, _)
+                    if instrument == BalanceSheetInstrument::Loans =>
+                    -flow.amount,
+                (FinancialFlowCategory::DebtWriteOff, _, true)
+                    if instrument == BalanceSheetInstrument::Debt =>
+                    flow.amount,
                 (FinancialFlowCategory::TradeCreditExtension, true, _)
                     if instrument == BalanceSheetInstrument::TradeReceivables =>
                     flow.amount,
@@ -251,6 +264,7 @@ impl SectorFinancialFlowMatrix {
                     flow.amount,
                 (FinancialFlowCategory::LoanCreation
                     | FinancialFlowCategory::DebtRepayment
+                    | FinancialFlowCategory::DebtWriteOff
                     | FinancialFlowCategory::TradeCreditExtension
                     | FinancialFlowCategory::TradeCreditSettlement)
                     => 0,
@@ -319,7 +333,7 @@ mod tests {
     use super::*;
     use crate::economics::stock_flow::{
         ActorBalanceSheet, CreditCreation, EconomicState, TradeCreditSale,
-        TradeCreditSettlement, DebtRepayment,
+        TradeCreditSettlement, DebtRepayment, DebtWriteOff,
     };
 
     fn assignments() -> Vec<SectorAssignment> {
