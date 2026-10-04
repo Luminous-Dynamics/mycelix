@@ -186,6 +186,7 @@ The current implementation includes:
 - type-specific, coordinator-authoritative MFA strength decay;
 - browser redaction of raw MFA factor identifiers and metadata;
 - progressive self-recovery state exposed through a typed projection;
+- recovery configuration and request creation/update timestamps are bounded by the signed Holochain action clock; future-dated application metadata cannot establish security chronology;
 - credential revocation checks fail-closed when revocation state cannot be verified.
 
 ## 9. Privacy considerations
