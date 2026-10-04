@@ -73,6 +73,12 @@ pub struct ActorEconomicObservables {
     pub credit_received: i128,
     pub credit_originated: i128,
     pub debt_repaid: i128,
+    /// Debt claims extinguished by bilateral forgiveness where this actor is lender.
+    #[serde(default)]
+    pub debt_forgiven_as_lender: i128,
+    /// Debt liabilities extinguished by bilateral forgiveness where this actor is borrower.
+    #[serde(default)]
+    pub debt_forgiven_as_borrower: i128,
     /// Debt claims extinguished by explicit write-off where this actor is lender.
     #[serde(default)]
     pub debt_written_off_as_lender: i128,
@@ -251,6 +257,20 @@ impl ActorEconomicObservables {
                         &mut observations.get_mut(&write_off.borrower).unwrap().debt_written_off_as_borrower,
                         write_off.amount,
                         "actor debt written off as borrower",
+                    )?;
+                }
+                EconomicTransition::DebtForgiveness(forgiveness) => {
+                    ensure_actor(&forgiveness.lender)?;
+                    ensure_actor(&forgiveness.borrower)?;
+                    add_checked(
+                        &mut observations.get_mut(&forgiveness.lender).unwrap().debt_forgiven_as_lender,
+                        forgiveness.amount,
+                        "actor debt forgiven as lender",
+                    )?;
+                    add_checked(
+                        &mut observations.get_mut(&forgiveness.borrower).unwrap().debt_forgiven_as_borrower,
+                        forgiveness.amount,
+                        "actor debt forgiven as borrower",
                     )?;
                 }
                 EconomicTransition::IncomeTransfer(flow) => {
@@ -652,6 +672,9 @@ fn affected_actors(transition: &EconomicTransition) -> Vec<ActorId> {
         EconomicTransition::DebtWriteOff(write_off) => {
             vec![write_off.lender.clone(), write_off.borrower.clone()]
         }
+        EconomicTransition::DebtForgiveness(forgiveness) => {
+            vec![forgiveness.lender.clone(), forgiveness.borrower.clone()]
+        }
     };
     ids.dedup();
     ids
@@ -929,5 +952,22 @@ mod tests {
         assert_eq!(observation.productive_capital_revaluation, 50);
         assert_eq!(observation.inventory_carrying_value_revaluation, -50);
     }
+    #[test]
+    fn actor_observations_distinguish_forgiveness_from_write_off() {
+        let state = EconomicState::new(vec![
+            ActorBalanceSheet::new("bank"),
+            ActorBalanceSheet::new("firm"),
+        ]);
+        let transitions = vec![EconomicTransition::DebtForgiveness(
+            crate::economics::stock_flow::DebtForgiveness::new("bank", "firm", 10).unwrap(),
+        )];
+        let observations =
+            ActorEconomicObservables::from_state_and_transitions(&state, &transitions).unwrap();
+        assert_eq!(observations["bank"].debt_forgiven_as_lender, 10);
+        assert_eq!(observations["firm"].debt_forgiven_as_borrower, 10);
+        assert_eq!(observations["bank"].debt_written_off_as_lender, 0);
+        assert_eq!(observations["firm"].debt_written_off_as_borrower, 0);
+    }
+
 
 }
