@@ -245,6 +245,15 @@ jobs:
             echo "security-kernel regression: bounded identifier deserializer disappeared" >&2
             exit 1
           fi
+          if ! rg -nU 'fn authority_binding_from_freshness_digest\([^)]*\)[[:space:]]*->[[:space:]]*\[u8;[[:space:]]*32\][[:space:]]*\{' crates/mycelix-bridge-common/src/security_kernel.rs; then
+            echo "security-kernel regression: authority freshness binding helper disappeared" >&2
+            exit 1
+          fi
+          if ! rg -nU 'if freshness_digest[[:space:]]*==[[:space:]]*\[0;[[:space:]]*32\][[:space:]]*\{[^}]*return[[:space:]]+\[0;[[:space:]]*32\];' crates/mycelix-bridge-common/src/security_kernel.rs; then
+            echo "security-kernel regression: zero freshness sentinel is not preserved as missing authority binding" >&2
+            exit 1
+          fi
+
           if ! rg -n 'deserialize_with[[:space:]]*=[[:space:]]*"deserialize_provenance_identifier"' crates/mycelix-bridge-common/src/security_events.rs; then
             echo "security-event regression: bounded identifier deserializer disappeared" >&2
             exit 1
