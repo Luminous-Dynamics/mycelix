@@ -295,7 +295,7 @@ jobs:
             local path="$1"
             local marker="$2"
             if [[ ! -s "$path" ]]; then
-              printf '%s\\n' "$marker" > "$path"
+              printf '%s\n' "$marker" > "$path"
             fi
           }
 
@@ -359,7 +359,7 @@ jobs:
             if grep -q '^source_audit_exit_code=' "${hearth}/qualification-source-audit.log" 2>/dev/null; then
               echo "source_audit_log=present"
             elif [[ -s "${hearth}/qualification-source-audit.log" ]]; then
-              printf '%s\\n' "source_audit_terminal_diagnostic=missing" >> "${hearth}/qualification-source-audit.log"
+              printf '%s\n' "source_audit_terminal_diagnostic=missing" >> "${hearth}/qualification-source-audit.log"
               echo "source audit log exists but lacks terminal exit-code diagnostic" >&2
             else
               ensure_marker "${hearth}/qualification-source-audit.log" "unavailable_source_audit_log_missing"
@@ -384,17 +384,17 @@ jobs:
             [[ -s "${hearth}/qualification-wasm-sha256.txt" ]] || wasm_capture_failed=1
             [[ "${wasm_capture_failed}" -eq 0 ]] || echo "wasm_capture_status=failed" >> "${hearth}/qualification-wasm-sha256.txt"
           else
-            printf '%s\\n' "unavailable_build_not_successful" > "${hearth}/qualification-wasm-sha256.txt"
+            printf '%s\n' "unavailable_build_not_successful" > "${hearth}/qualification-wasm-sha256.txt"
           fi
 
           if [[ "${dna_pack_conclusion}" == "success" ]]; then
             if [[ -s "${hearth}/dna/mycelix_hearth.dna" ]]; then
               sha256sum "${hearth}/dna/mycelix_hearth.dna" > "${hearth}/qualification-dna-sha256.txt"
             else
-              printf '%s\\n' "missing_packed_dna=dna/mycelix_hearth.dna" > "${hearth}/qualification-dna-sha256.txt"
+              printf '%s\n' "missing_packed_dna=dna/mycelix_hearth.dna" > "${hearth}/qualification-dna-sha256.txt"
             fi
           else
-            printf '%s\\n' "unavailable_pack_not_successful" > "${hearth}/qualification-dna-sha256.txt"
+            printf '%s\n' "unavailable_pack_not_successful" > "${hearth}/qualification-dna-sha256.txt"
           fi
 
           if [[ -f "${hearth}/tests/hearth-07-semantic-validation-cases.json"              && -f "${hearth}/tools/audit-holochain-07-source.sh"              && -f "${hearth}/tests/sweettest_semantic_validation.rs"              && -f "${hearth}/dna/dna.yaml"              && -f "${hearth}/flake.nix"              && -f "${hearth}/flake.lock"              && -f "${root}/.gitmodules"              && -f "${hearth}/Cargo.toml"              && -f "${hearth}/tests/Cargo.toml"              && -f "${root}/.github/workflows/hearth-07-qualification.yml" ]]; then
@@ -422,10 +422,10 @@ PY
                 sha256sum                   mycelix-workspace/mycelix-hearth/tools/audit-holochain-07-source.sh                   mycelix-workspace/mycelix-hearth/tests/hearth-07-semantic-validation-cases.json                   mycelix-workspace/mycelix-hearth/tests/sweettest_semantic_validation.rs                   mycelix-workspace/mycelix-hearth/dna/dna.yaml                   mycelix-workspace/mycelix-hearth/flake.nix                   mycelix-workspace/mycelix-hearth/flake.lock                   .gitmodules                   mycelix-workspace/mycelix-hearth/Cargo.toml                   mycelix-workspace/mycelix-hearth/tests/Cargo.toml                   .github/workflows/hearth-07-qualification.yml                   "${semantic_validator_sources[@]}"                   > mycelix-workspace/mycelix-hearth/qualification-source-contract-sha256.txt
               )
             else
-              printf '%s\\n' "unavailable_declared_validator_source_missing" > "${hearth}/qualification-source-contract-sha256.txt"
+              printf '%s\n' "unavailable_declared_validator_source_missing" > "${hearth}/qualification-source-contract-sha256.txt"
             fi
           else
-            printf '%s\\n' "unavailable_source_contract_inputs_missing" > "${hearth}/qualification-source-contract-sha256.txt"
+            printf '%s\n' "unavailable_source_contract_inputs_missing" > "${hearth}/qualification-source-contract-sha256.txt"
           fi
 
           source_contract_verified=0
@@ -452,7 +452,7 @@ PY
           if [[ "${source_audit_conclusion}" == "success"              && "${build_conclusion}" == "success"              && "${dna_pack_conclusion}" == "success"              && "${sweettest_conclusion}" == "success"              && "${source_contract_verified}" -eq 1              && real "${hearth}/qualification-source-audit.log"              && real "${hearth}/qualification-wasm-sha256.txt"              && real "${hearth}/qualification-dna-sha256.txt"              && real "${hearth}/qualification-cargo-lock-sha256.txt"              && real "${hearth}/qualification-source-contract-sha256.txt"              && real "${hearth}/qualification-cargo-metadata.json"              && real "${hearth}/tests/qualification-cargo-metadata.json"              && real "${hearth}/Cargo.lock"              && real "${hearth}/tests/Cargo.lock" ]]; then
             evidence_status="complete"
           fi
-          printf '%s\\n' "${evidence_status}" > "${hearth}/qualification-evidence-status.txt"
+          printf '%s\n' "${evidence_status}" > "${hearth}/qualification-evidence-status.txt"
           echo "source_audit_conclusion=${source_audit_conclusion}"
           echo "build_zomes_conclusion=${build_conclusion}"
           echo "dna_pack_conclusion=${dna_pack_conclusion}"
