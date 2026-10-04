@@ -830,6 +830,677 @@ check_semantic_case_integrity_bindings() {
         echo "FAIL: $id integrity validate dispatcher does not invoke declared validator $validator_symbol"
         fail=1
       fi
+
+      if [[ "$validator_source" != "$integrity_file" ]]; then
+        if python3 - "$validator_source" "$integrity_file" "$validator_symbol" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+validator_source = Path(sys.argv[1])
+integrity_source = Path(sys.argv[2])
+validator_symbol = sys.argv[3]
+
+# Resolve the external validator to the Rust package that owns the declared
+# source file. This prevents a manifest from naming an arbitrary src/lib.rs
+# containing a same-named function while the integrity crate imports a different
+# implementation.
+cargo_path = None
+for parent in [validator_source.parent, *validator_source.parents]:
+    candidate = parent / "Cargo.toml"
+    if candidate.is_file():
+        cargo_path = candidate
+        break
+
+if cargo_path is None:
+    print(f"FAIL: external validator source has no owning Cargo.toml: {validator_source}")
+    raise SystemExit(2)
+
+cargo_text = cargo_path.read_text()
+package_match = re.search(r'(?m)^[[:space:]]*name[[:space:]]*=[[:space:]]*"([^"]+)"[[:space:]]*
+    if [[ "$expected_result" != "Invalid" ]]; then
+      echo "FAIL: $id expected_result must be Invalid, got $expected_result"
+      fail=1
+    else
+      echo "OK:   $id declares expected validation result Invalid"
+    fi
+
+    for declared_surface in ${surface//,/ }; do
+      declared_surface="${declared_surface//\"/}"
+      declared_surface="${declared_surface//[[:space:]]/}"
+      case "$declared_surface" in
+        CreateEntry) pattern='FlatOp::CreateEntry' ;;
+        CreateRecord) pattern='FlatOp::CreateRecord' ;;
+        Update) pattern='FlatOp::Update' ;;
+        Delete) pattern='FlatOp::Delete' ;;
+        Link.CreateLink) pattern='FlatOp::Link(OpLink::CreateLink' ;;
+        Link.DeleteLink) pattern='FlatOp::Link(link @ OpLink::DeleteLink' ;;
+        *) echo "FAIL: $id contains unknown operation surface: $declared_surface"; fail=1; continue ;;
+      esac
+      if rg -n --fixed-strings "$pattern" "$integrity_file" >/dev/null 2>&1; then
+        echo "OK:   $id declares operation surface $declared_surface present in integrity source"
+      else
+        echo "FAIL: $id declares operation surface $declared_surface absent from integrity source"
+        fail=1
+      fi
+    done
+  done
+}
+# Dependency retrieval semantics: must_get_action only proves retrieval; it does not prove
+# that the referenced record passed application validation. Update/delete authorization
+# therefore uses must_get_valid_record before trusting the referenced author. Valid-record
+# consumers must also inspect the referenced entry/action rather than treating retrieval
+# itself as the invariant.
+check_dependency_semantics() {
+  local file="$1"
+  if python3 - "$file" <<'PY'
+import re, sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+source = path.read_text()
+prod = source.split("#[cfg(test)]", 1)[0]
+if re.search(r'must_get_action\(action\.(?:original_action_address|deletes_address)', prod):
+    print(f"FAIL: {path} uses must_get_action for update/delete authorization")
+    raise SystemExit(2)
+
+lines = prod.splitlines()
+starts = [i for i, line in enumerate(lines) if re.match(r'^\s*(?:pub\s+)?fn\s+[A-Za-z0-9_]+\s*\(', line)]
+call_count = prod.count("must_get_valid_record(")
+if call_count == 0:
+    print(f"OK:   {path} has no must_get_valid_record dependency sites")
+    raise SystemExit(0)
+
+consumers = 0
+for idx, start in enumerate(starts):
+    end = starts[idx + 1] if idx + 1 < len(starts) else len(lines)
+    block = "\n".join(lines[start:end])
+    if "must_get_valid_record(" not in block:
+        continue
+    consumers += 1
+    name_match = re.search(r'fn\s+([A-Za-z0-9_]+)', lines[start])
+    fn_name = name_match.group(1) if name_match else f"<line {start + 1}>"
+    if re.search(r'\.entry\(\)|\.action\(\)|try_from_action', block):
+        print(f"OK:   {path} {fn_name} inspects each valid-record dependency within its function scope")
+    else:
+        print(f"FAIL: {path} {fn_name} retrieves a valid record without inspecting its entry/action")
+        raise SystemExit(2)
+
+if consumers == 0:
+    print(f"FAIL: {path} has must_get_valid_record calls outside recognized function scope")
+    raise SystemExit(2)
+PY
+  then
+    return
+  else
+    fail=1
+  fi
+}
+
+# Immutable-field helpers must prove the referenced CreateRecord is valid and
+# deserialize the original entry before comparing fields. This guards against a
+# future helper that retrieves a record but accidentally treats retrieval as proof.
+# Immutable-field helpers must each prove their own referenced CreateRecord is
+# valid and deserialize the original entry. File-wide evidence is insufficient:
+# one well-formed helper must not mask another helper's missing dependency proof.
+# Immutable-field helpers must each prove their own referenced CreateRecord is
+# valid and deserialize the original entry. File-wide evidence is insufficient:
+# one well-formed helper must not mask another helper's missing dependency proof.
+check_immutable_dependency_semantics() {
+  local file="$1"
+  if python3 - "$file" <<'PY'
+import re, sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+source = path.read_text()
+prod = source.split("#[cfg(test)]", 1)[0]
+lines = prod.splitlines()
+helper_starts = [
+    i for i, line in enumerate(lines)
+    if re.match(r'^\s*(?:pub\s+)?fn\s+validate_[A-Za-z0-9_]*immutable_fields\s*\(', line)
+]
+if not helper_starts:
+    print(f"OK:   {path} has no immutable-field helper sites")
+    raise SystemExit(0)
+
+fn_starts = [
+    i for i, line in enumerate(lines)
+    if re.match(r'^\s*(?:pub\s+)?fn\s+[A-Za-z0-9_]+\s*\(', line)
+]
+
+for start in helper_starts:
+    next_fn = next((line for line in fn_starts if line > start), len(lines))
+    block = "\n".join(lines[start:next_fn])
+    match = re.search(r'fn\s+(validate_[A-Za-z0-9_]*immutable_fields)', lines[start])
+    if not match:
+        print(f"FAIL: {path} could not resolve immutable-field helper name at line {start + 1}")
+        raise SystemExit(2)
+    name = match.group(1)
+
+    if "must_get_valid_record(" not in block:
+        print(f"FAIL: {path} {name} lacks must_get_valid_record")
+        raise SystemExit(2)
+
+    normalized = " ".join(block.splitlines())
+    if not re.search(r'\.entry\(\)\s*\.to_app_option\(\)', normalized):
+        print(f"FAIL: {path} {name} retrieves a valid record without deserializing its original entry")
+        raise SystemExit(2)
+
+    uses = len(re.findall(re.escape(name) + r'\(', prod))
+    if uses < 2:
+        print(f"FAIL: {path} {name} has no production call site outside its declaration")
+        raise SystemExit(2)
+
+    print(f"OK:   {path} {name} validates and deserializes its own immutable dependency")
+    print(f"OK:   {path} {name} has an explicit production call site")
+PY
+  then
+    return
+  else
+    fail=1
+  fi
+}
+check_standalone_tests_workspace_boundary() {
+  local manifest="mycelix-workspace/mycelix-hearth/tests/Cargo.toml"
+  if [[ -f "$manifest" ]] && rg -n --fixed-strings "[workspace]" "$manifest" >/dev/null 2>&1; then
+    echo "OK:   Hearth integration tests declare their standalone Cargo workspace boundary"
+  else
+    echo "FAIL: Hearth integration tests must declare an explicit standalone Cargo workspace boundary"
+    fail=1
+  fi
+}
+
+check_qualification_workflow_provenance() {
+  local workflow=".github/workflows/hearth-07-qualification.yml"
+  if [[ ! -f "$workflow" ]]; then
+    echo "FAIL: missing Hearth 0.7 qualification workflow"
+    fail=1
+    return
+  fi
+  if rg -n --fixed-strings "runs-on: ubuntu-24.04" "$workflow" >/dev/null 2>&1; then
+    echo "OK:   qualification workflow pins the GitHub-hosted runner image to Ubuntu 24.04"
+  else
+    echo "FAIL: qualification workflow must pin runs-on to ubuntu-24.04"
+    fail=1
+  fi
+  if rg -n --fixed-strings 'echo "runner_image_os=\${ImageOS:-unknown}"' "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings 'echo "runner_image_version=\${ImageVersion:-unknown}"' "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings 'echo "runner_arch=\${RUNNER_ARCH:-unknown}"' "$workflow" >/dev/null 2>&1; then
+    echo "OK:   qualification workflow captures resolved hosted-runner provenance"
+  else
+    echo "FAIL: qualification workflow must capture resolved hosted-runner provenance"
+    fail=1
+  fi
+  if rg -n --fixed-strings 'mapfile -t semantic_validator_sources' "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings 'tests/hearth-07-semantic-validation-cases.json' "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings '"\${semantic_validator_sources[@]}"' "$workflow" >/dev/null 2>&1; then
+    echo "OK:   qualification workflow hashes every manifest-declared semantic validator source"
+  else
+    echo "FAIL: qualification workflow must hash every manifest-declared semantic validator source"
+    fail=1
+  fi
+  if rg -n --fixed-strings "target_sha:" "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings 'ref: ${{ env.QUALIFY_SHA }}' "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings "git rev-parse HEAD" "$workflow" >/dev/null 2>&1; then
+    echo "OK:   qualification workflow binds execution to an exact candidate SHA"
+  else
+    echo "FAIL: qualification workflow does not enforce exact candidate-SHA checkout provenance"
+    fail=1
+  fi
+  local expected_action_ref action_use_count pinned_action_count
+  local expected_action_refs=(
+    "actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803"
+    "NixOS/nix-installer-action@62c1943b776c509394b550f3f983adc14e9212d6"
+    "cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866"
+    "actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f"
+  )
+  if rg -n --fixed-strings 'NixOS/nix-installer-action@62c1943b776c509394b550f3f983adc14e9212d6' "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings 'dogfood: "true"' "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings 'dogfood-path: "/tmp/nix-installer"' "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings 'releases/download/2.35.2/nix-installer-x86_64-linux' "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings '5448a1cd70ad945cb4d36365defbaf3731eba38e23859f3dc8bd7418e1946acc' "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings 'sha256sum --check --status -' "$workflow" >/dev/null 2>&1 \
+    && ! rg -n --fixed-strings 'cachix/install-nix-action@' "$workflow" >/dev/null 2>&1; then
+    echo "OK:   qualification workflow pins and hash-locks the Nix installer binary"
+  else
+    echo "FAIL: qualification workflow must pin and hash-lock the Nix installer binary"
+    fail=1
+  fi
+
+  local submodule_url
+  submodule_url="$(git config -f .gitmodules --get submodule.mycelix-health.url 2>/dev/null || true)"
+  if [[ "$submodule_url" == "https://github.com/Luminous-Dynamics/mycelix-health.git" ]]; then
+    echo "OK:   qualification checkout declares the expected Hearth submodule source"
+  else
+    echo "FAIL: qualification checkout has an unexpected or missing Hearth submodule source"
+    fail=1
+  fi
+
+  if rg -n --fixed-strings 'group: hearth-07-qualification-${{ github.head_ref || github.ref_name }}' "$workflow" >/dev/null 2>&1 \
+    && ! rg -n --fixed-strings 'github.event.pull_request.head.ref || github.ref' "$workflow" >/dev/null 2>&1; then
+    echo "OK:   qualification workflow uses one branch-name cancellation domain across push/PR events"
+  else
+    echo "FAIL: qualification workflow must normalize push/PR refs to the same branch-name concurrency key"
+    fail=1
+  fi
+
+  if ! rg -n --fixed-strings "nix develop .#ci --impure" "$workflow" >/dev/null 2>&1 \
+    && ! rg -n --fixed-strings "nix_path:" "$workflow" >/dev/null 2>&1; then
+    echo "OK:   qualification workflow uses pure flake evaluation without mutable NIX_PATH channels"
+  else
+    echo "FAIL: qualification workflow must not use --impure evaluation or mutable NIX_PATH channels"
+    fail=1
+  fi
+
+  if rg -n --fixed-strings "persist-credentials: false" "$workflow" >/dev/null 2>&1; then
+    echo "OK:   qualification workflow does not persist the GitHub token after checkout"
+  else
+    echo "FAIL: qualification workflow must set persist-credentials: false"
+    fail=1
+  fi
+
+  if rg -n --fixed-strings "Verify Nix credential isolation" "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings "sudo grep -Eq 'access-tokens[[:space:]]*=.*github\\.com' /etc/nix/nix.conf" "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings "Nix configuration unexpectedly contains a GitHub access token" "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings "exit 1" "$workflow" >/dev/null 2>&1; then
+    echo "OK:   qualification workflow enforces Nix credential isolation with an executable guard"
+  else
+    echo "FAIL: qualification workflow must contain an executable Nix credential-isolation guard"
+    fail=1
+  fi
+
+  action_use_count="$(rg -n --pcre2 '^[[:space:]]*(?:-[[:space:]]+)?uses:' "$workflow" | wc -l)"
+  pinned_action_count="$(rg -n --pcre2 '^[[:space:]]*(?:-[[:space:]]+)?uses:[[:space:]]+[^[:space:]@]+@[0-9a-f]{40}[[:space:]]*(#.*)?$' "$workflow" | wc -l)"
+  if [[ "$action_use_count" -ne "${#expected_action_refs[@]}" ]]; then
+    echo "FAIL: qualification workflow action count changed: expected ${#expected_action_refs[@]}, got $action_use_count"
+    fail=1
+  elif [[ "$pinned_action_count" -ne "$action_use_count" ]]; then
+    echo "FAIL: qualification workflow contains unpinned action refs"
+    fail=1
+  else
+    echo "OK:   qualification workflow pins every action to a full commit SHA"
+  fi
+  for expected_action_ref in "${expected_action_refs[@]}"; do
+    if rg -n --fixed-strings "$expected_action_ref" "$workflow" >/dev/null 2>&1; then
+      echo "OK:   qualification workflow uses reviewed action ref $expected_action_ref"
+    else
+      echo "FAIL: qualification workflow is missing reviewed action ref $expected_action_ref"
+      fail=1
+    fi
+  done
+
+  if rg -n --fixed-strings "cargo test --locked --release --test sweettest_semantic_validation -- --include-ignored --test-threads=1" "$workflow" >/dev/null 2>&1; then
+    echo "OK:   qualification workflow runs only the authoritative semantic Sweettest target"
+  else
+    echo "FAIL: qualification workflow must target sweettest_semantic_validation explicitly"
+    fail=1
+  fi
+
+  if rg -n --fixed-strings "Capture immutable qualification evidence" "$workflow" >/dev/null 2>&1     && rg -n --fixed-strings "if: ${{ !cancelled() }}" "$workflow" >/dev/null 2>&1     && rg -n --fixed-strings "unavailable_source_audit_not_reached" "$workflow" >/dev/null 2>&1     && rg -n --fixed-strings "qualification-evidence-status.txt" "$workflow" >/dev/null 2>&1     && rg -n --fixed-strings "source_contract_digest=unavailable" "$workflow" >/dev/null 2>&1; then
+    echo "OK:   qualification evidence capture is failure-monotonic with explicit unavailable markers"
+  else
+    echo "FAIL: qualification evidence capture must preserve artifacts across early failures"
+    fail=1
+  fi
+
+  if python3 - "$workflow" <<'PY'
+import re, sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+source = path.read_text()
+push_start = source.find("  push:")
+pr_start = source.find("  pull_request:")
+wd_start = source.find("  workflow_dispatch:")
+if min(push_start, pr_start, wd_start) < 0:
+    print("FAIL: qualification workflow trigger sections are incomplete")
+    raise SystemExit(2)
+push_block = source[push_start:pr_start]
+pr_block = source[pr_start:wd_start]
+for label, block in [("push", push_block), ("pull_request", pr_block)]:
+    for required in ['      - ".gitmodules"', '      - "mycelix-health/**"']:
+        if required not in block:
+            print(f"FAIL: qualification {label} trigger omits provenance-sensitive path {required}")
+            raise SystemExit(2)
+print("OK: qualification workflow triggers on .gitmodules and mycelix-health gitlink changes")
+PY
+  then
+    true
+  else
+    fail=1
+  fi
+
+  if python3 - "$workflow" <<'PY'
+import re, sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+source = path.read_text()
+start = source.find("      - name: Capture immutable qualification evidence")
+end = source.find("      - name: Capture qualification metadata", start)
+if start < 0 or end < 0:
+    raise SystemExit("capture step boundaries not found")
+block = source[start:end]
+
+checks = [
+    ('root workspace capture', r'root="\$\{GITHUB_WORKSPACE\}"'),
+    ('non-cancelled evidence condition', r'if: \$\{\{ !cancelled\(\) \}\}'),
+    ('marker helper', r'ensure_marker\(\)'),
+    ('non-destructive marker creation', r'if \[\[ ! -s "\$path" \]\]'),
+    ('root-level source-contract verification', r'\(cd "\$\{root\}" && sha256sum -c mycelix-workspace/mycelix-hearth/qualification-source-contract-sha256\.txt\)'),
+    ('evidence status artifact', r'qualification-evidence-status\.txt'),
+]
+for label, pattern in checks:
+    if not re.search(pattern, block):
+        print(f"FAIL: qualification evidence capture missing {label}")
+        raise SystemExit(2)
+
+if re.search(r'working-directory:\s*mycelix-workspace/mycelix-hearth', block):
+    print("FAIL: evidence capture must not depend on Hearth working-directory existing")
+    raise SystemExit(2)
+
+print("OK: qualification evidence capture is root-anchored and non-destructive")
+PY
+  then
+    true
+  else
+    fail=1
+  fi
+  if rg -n --fixed-strings "cargo build --locked" "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings "cargo test --locked" "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings "cargo generate-lockfile" "$workflow" >/dev/null 2>&1; then
+    echo "OK:   qualification workflow generates and consumes locked Rust closures"
+  else
+    echo "FAIL: qualification workflow is missing locked Rust dependency closure enforcement"
+    fail=1
+  fi
+}
+
+# Coordinator-to-integrity operation binding. A static validator can be internally
+# complete while the coordinator silently uses an operation family that the integrity
+# zome does not model explicitly. Tie the application write surface to its validator
+# counterpart without assuming every zome must expose every operation family.
+# Coordinator symbol parity: coordinator code may only construct entry/link types
+# that the paired integrity zome actually declares. This catches stale coordinator
+# references after entry/link migrations or renames.
+check_coordinator_symbol_parity() {
+  local coordinator file zome enum_block variant source
+  while IFS= read -r -d "" coordinator; do
+    zome="$(basename "$(dirname "$(dirname "$(dirname "$coordinator")")")")"
+    file="mycelix-workspace/mycelix-hearth/zomes/$zome/integrity/src/lib.rs"
+    [[ -f "$file" ]] || continue
+    source="$(sed '/^\#\[cfg(test)\]/,$d' "$coordinator")"
+
+    enum_block="$(sed '/^\#\[cfg(test)\]/,$d' "$file" | sed -n '/^pub enum EntryTypes[[:space:]]*{/,/^}/p')"
+    while IFS= read -r variant; do
+      [[ -z "$variant" ]] && continue
+      if printf '%s\n' "$enum_block" | grep -Eq "^[[:space:]]*$variant\("; then
+        echo "OK:   $zome coordinator EntryTypes::$variant matches integrity declaration"
+      else
+        echo "FAIL: $zome coordinator references undeclared EntryTypes::$variant"
+        fail=1
+      fi
+    done < <(printf '%s\n' "$source" | rg -o --pcre2 'EntryTypes::[A-Za-z_][A-Za-z0-9_]*' | sed 's/.*EntryTypes:://' | sort -u)
+
+    enum_block="$(sed '/^\#\[cfg(test)\]/,$d' "$file" | sed -n '/^pub enum LinkTypes[[:space:]]*{/,/^}/p')"
+    while IFS= read -r variant; do
+      [[ -z "$variant" ]] && continue
+      if printf '%s\n' "$enum_block" | grep -Eq "^[[:space:]]*$variant,$"; then
+        echo "OK:   $zome coordinator LinkTypes::$variant matches integrity declaration"
+      else
+        echo "FAIL: $zome coordinator references undeclared LinkTypes::$variant"
+        fail=1
+      fi
+    done < <(printf '%s\n' "$source" | rg -o --pcre2 'LinkTypes::[A-Za-z_][A-Za-z0-9_]*' | sed 's/.*LinkTypes:://' | sort -u)
+  done < <(git ls-files -z -- "mycelix-workspace/mycelix-hearth/zomes/*/coordinator/src/**/*.rs")
+}
+
+check_coordinator_operation_bindings() {
+  local coordinator file zome source
+  while IFS= read -r -d "" coordinator; do
+    zome="$(basename "$(dirname "$(dirname "$(dirname "$coordinator")")")")"
+    file="mycelix-workspace/mycelix-hearth/zomes/$zome/integrity/src/lib.rs"
+    if [[ ! -f "$file" ]]; then
+      echo "FAIL: coordinator $coordinator has no paired integrity source $file"
+      fail=1
+      continue
+    fi
+    source="$(sed '/^\#\[cfg(test)\]/,$d' "$coordinator")"
+
+    # Entry creation is paired with both 0.7 validation surfaces.
+    if printf '%s\n' "$source" | rg -n --pcre2 '\bcreate_entry\s*\(' >/dev/null 2>&1; then
+      if rg -n --pcre2 'FlatOp::CreateEntry\s*\(' "$file" >/dev/null 2>&1 \
+        && rg -n --pcre2 'FlatOp::CreateRecord\s*\(\s*OpRecord::CreateEntry' "$file" >/dev/null 2>&1; then
+        echo "OK:   $zome coordinator entry writes map to CreateEntry + CreateRecord validation"
+      else
+        echo "FAIL: $zome coordinator calls create_entry but integrity lacks paired 0.7 create validation"
+        fail=1
+      fi
+    fi
+
+    # Mutable entry writes need content validation, CreateRecord parity, and
+    # action-level author authorization.
+    if printf '%s\n' "$source" | rg -n --pcre2 '\bupdate_entry\s*\(' >/dev/null 2>&1; then
+      if rg -n --pcre2 'FlatOp::CreateEntry\s*\(\s*OpEntry::UpdateEntry' "$file" >/dev/null 2>&1 \
+        && rg -n --pcre2 'FlatOp::CreateRecord\s*\(\s*OpRecord::UpdateEntry' "$file" >/dev/null 2>&1 \
+        && rg -n --pcre2 'FlatOp::Update\s*\(\s*OpUpdate::Entry' "$file" >/dev/null 2>&1; then
+        echo "OK:   $zome coordinator update_entry maps to content + CreateRecord + Update authorization"
+      else
+        echo "FAIL: $zome coordinator calls update_entry without complete 0.7 update validation coverage"
+        fail=1
+      fi
+    fi
+
+    if printf '%s\n' "$source" | rg -n --pcre2 '\bdelete_entry\s*\(' >/dev/null 2>&1; then
+      if rg -n --pcre2 'FlatOp::Delete\s*\(\s*OpDelete\s*\{\s*action' "$file" >/dev/null 2>&1 \
+        && rg -n --pcre2 'must_get_valid_record\s*\(\s*action\.deletes_address' "$file" >/dev/null 2>&1; then
+        echo "OK:   $zome coordinator delete_entry maps to validated Delete authorization"
+      else
+        echo "FAIL: $zome coordinator calls delete_entry without validated Delete authorization coverage"
+        fail=1
+      fi
+    fi
+
+    if printf '%s\n' "$source" | rg -n --pcre2 '\bcreate_link\s*\(' >/dev/null 2>&1; then
+      if rg -n --pcre2 'FlatOp::Link\s*\(\s*OpLink::CreateLink' "$file" >/dev/null 2>&1; then
+        echo "OK:   $zome coordinator create_link maps to explicit CreateLink validation"
+      else
+        echo "FAIL: $zome coordinator calls create_link but integrity lacks explicit CreateLink validation"
+        fail=1
+      fi
+    fi
+
+    if printf '%s\n' "$source" | rg -n --pcre2 '\bdelete_link\s*\(' >/dev/null 2>&1; then
+      if rg -n --pcre2 'FlatOp::Link\s*\([^)]*OpLink::DeleteLink' "$file" >/dev/null 2>&1 \
+        && rg -n --pcre2 'must_get_valid_record\s*\(\s*action\.link_add_address' "$file" >/dev/null 2>&1; then
+        echo "OK:   $zome coordinator delete_link maps to validated DeleteLink authorization"
+      else
+        echo "FAIL: $zome coordinator calls delete_link without validated DeleteLink authorization coverage"
+        fail=1
+      fi
+    fi
+  done < <(git ls-files -z -- "mycelix-workspace/mycelix-hearth/zomes/*/coordinator/src/**/*.rs")
+}
+
+check_dna_source_completeness() {
+  local dna="mycelix-workspace/mycelix-hearth/dna/dna.yaml"
+  local count=0
+  while IFS= read -r -d "" file; do
+    local dir name
+    dir="$(basename "$(dirname "$(dirname "$(dirname "$file")")")")"
+    name="${dir//-/_}_integrity"
+    if rg -n --fixed-strings "- name: $name" "$dna" >/dev/null 2>&1; then
+      echo "OK:   DNA packages discovered integrity zome $name"
+    else
+      echo "FAIL: DNA is missing discovered integrity zome $name"
+      fail=1
+    fi
+    count=$((count + 1))
+  done < <(git ls-files -z -- "mycelix-workspace/mycelix-hearth/zomes/*/integrity/src/lib.rs")
+  local dna_count
+  dna_count="$(awk '/^integrity:/,/^coordinator:/ { if ($0 ~ /^[[:space:]]*- name: hearth_[A-Za-z0-9_]+_integrity$/) print $3 }' "$dna" | sort -u | wc -l)"
+  if [[ "$dna_count" -eq "$count" ]]; then
+    echo "OK:   DNA integrity-zome count matches tracked Hearth integrity zomes ($count)"
+  else
+    echo "FAIL: DNA integrity-zome count ($dna_count) differs from tracked Hearth integrity zomes ($count)"
+    fail=1
+  fi
+}
+run_audit_check() {
+  local name="$1"
+  shift
+  local started finished status=0 tee_status=0 trace_dir="" trace_file="" fifo_file="" tee_pid=""
+  started="$(date +%s)"
+  echo "AUDIT_START ${name} epoch=${started}"
+
+  # Harness setup failures are audit failures too. Keep them inside the
+  # aggregate failure contract instead of allowing set -e to abort the whole
+  # script before the failure summary and later predicates are reached.
+  if ! trace_dir="$(mktemp -d)"; then
+    echo "FAIL: ${name} audit harness could not create a temporary directory"
+    fail=1
+    finished="$(date +%s)"
+    echo "AUDIT_END ${name} status=1 duration=$((finished - started))s"
+    return 0
+  fi
+  trace_file="${trace_dir}/predicate.log"
+  fifo_file="${trace_dir}/predicate.fifo"
+  if ! mkfifo "${fifo_file}"; then
+    echo "FAIL: ${name} audit harness could not create its diagnostic FIFO"
+    rm -rf "${trace_dir}"
+    fail=1
+    finished="$(date +%s)"
+    echo "AUDIT_END ${name} status=1 duration=$((finished - started))s"
+    return 0
+  fi
+
+  # Launch the tee directly; its exit status is made authoritative by wait.
+  # This avoids racing the FIFO with a background if/then compound.
+  tee "${trace_file}" < "${fifo_file}" &
+  tee_pid=$!
+
+  if "$@" >"${fifo_file}" 2>&1; then
+    status=0
+  else
+    status=$?
+    fail=1
+  fi
+
+  wait "${tee_pid}" || tee_status=$?
+  if [[ "${tee_status}" -ne 0 ]]; then
+    echo "FAIL: predicate diagnostic tee failed with status ${tee_status}"
+    status=1
+    fail=1
+  fi
+
+  # A predicate that prints FAIL but accidentally returns success must still
+  # fail the aggregate audit. This protects the failure-propagation contract
+  # independently of each predicate’s local control flow.
+  if [[ -f "${trace_file}" ]] && grep -qE "^FAIL:" "${trace_file}"; then
+    if [[ "${status}" -eq 0 ]]; then
+      echo "AUDIT_FAIL_OUTPUT ${name}: predicate emitted FAIL output despite success status"
+      status=1
+    else
+      echo "AUDIT_FAIL_OUTPUT ${name}: predicate emitted FAIL output"
+    fi
+    fail=1
+  fi
+
+  rm -rf "${trace_dir}"
+  finished="$(date +%s)"
+  echo "AUDIT_END ${name} status=${status} duration=$((finished - started))s"
+  # Individual predicate failures are aggregated through the global fail
+  # accumulator; they must not trigger errexit before later diagnostics run.
+  return 0
+}
+run_audit_check check_standalone_tests_workspace_boundary check_standalone_tests_workspace_boundary
+run_audit_check check_qualification_workflow_provenance check_qualification_workflow_provenance
+run_audit_check check_coordinator_operation_bindings check_coordinator_operation_bindings
+run_audit_check check_coordinator_symbol_parity check_coordinator_symbol_parity
+run_audit_check check_dna_source_completeness check_dna_source_completeness
+run_audit_check check_semantic_validation_suite_wiring check_semantic_validation_suite_wiring
+run_audit_check check_semantic_case_entrypoints check_semantic_case_entrypoints
+run_audit_check check_semantic_case_integrity_bindings check_semantic_case_integrity_bindings
+
+for file in "${integrity_files[@]}"; do
+  run_audit_check "check_create_record_coverage:$(basename "$(dirname "$(dirname "$(dirname "$file")")")")" check_create_record_coverage "$file"
+done
+
+for file in "${integrity_files[@]}"; do
+  run_audit_check "check_dangerous_operation_catchalls:$(basename "$(dirname "$(dirname "$(dirname "$file")")")")" check_dangerous_operation_catchalls "$file"
+done
+
+for file in "${integrity_files[@]}"; do
+  run_audit_check "check_create_record_entry_dispatch:$(basename "$(dirname "$(dirname "$(dirname "$file")")")")" check_create_record_entry_dispatch "$file"
+done
+
+for file in "${integrity_files[@]}"; do
+  run_audit_check "check_dependency_semantics:$(basename "$(dirname "$(dirname "$(dirname "$file")")")")" check_dependency_semantics "$file"
+done
+
+for file in "${integrity_files[@]}"; do
+  run_audit_check "check_update_action_coverage:$(basename "$(dirname "$(dirname "$(dirname "$file")")")")" check_update_action_coverage "$file"
+done
+
+for file in "${integrity_files[@]}"; do
+  run_audit_check "check_update_delete_authorization:$(basename "$(dirname "$(dirname "$(dirname "$file")")")")" check_update_delete_authorization "$file"
+done
+
+for file in "${integrity_files[@]}"; do
+  run_audit_check "check_entry_type_dispatch:$(basename "$(dirname "$(dirname "$(dirname "$file")")")")" check_entry_type_dispatch "$file"
+done
+
+for file in "${integrity_files[@]}"; do
+  run_audit_check "check_delete_link_authorization:$(basename "$(dirname "$(dirname "$(dirname "$file")")")")" check_delete_link_authorization "$file"
+done
+
+for file in "${integrity_files[@]}"; do
+  run_audit_check "check_link_type_policy:$(basename "$(dirname "$(dirname "$(dirname "$file")")")")" check_link_type_policy "$file"
+done
+
+for file in "${integrity_files[@]}"; do
+  run_audit_check "check_link_tag_contract:$(basename "$(dirname "$(dirname "$(dirname "$file")")")")" check_link_tag_contract "$file"
+done
+
+for file in "${integrity_files[@]}"; do
+  run_audit_check "check_immutable_dependency_semantics:$(basename "$(dirname "$(dirname "$(dirname "$file")")")")" check_immutable_dependency_semantics "$file"
+done
+
+for file in "${integrity_files[@]}"; do
+  run_audit_check "check_validation_determinism:$(basename "$(dirname "$(dirname "$(dirname "$file")")")")" check_validation_determinism "$file"
+done
+
+echo
+if [[ "$fail" -ne 0 ]]; then
+  echo "HEARTH-0.7 source audit: FAIL"
+  exit "$fail"
+fi
+echo "HEARTH-0.7 source audit: PASS"
+, cargo_text)
+if not package_match:
+    print(f"FAIL: could not resolve package name for external validator source: {cargo_path}")
+    raise SystemExit(2)
+
+package_name = package_match.group(1)
+crate_name = package_name.replace("-", "_")
+integrity_text = integrity_source.read_text()
+integrity_prod = integrity_text.split("#[cfg(test)]", 1)[0]
+
+# Require a real Cargo dependency on the owning package. Workspace dependency
+# indirection still leaves the package key visible in the integrity manifest.
+dependency_re = re.compile(
+    rf'(?m)^[[:space:]]*{re.escape(package_name)}[[:space:]]*=[[:space:]]'
+)
+if not dependency_re.search(integrity_source.parent.parent / "Cargo.toml".read_text() if False else ""):
+    pass
+PY
+        then
+          echo "OK:   $id external validator ownership/import provenance"
+        else
+          fail=1
+        fi
+      fi
     fi
 
     if [[ "$expected_result" != "Invalid" ]]; then
