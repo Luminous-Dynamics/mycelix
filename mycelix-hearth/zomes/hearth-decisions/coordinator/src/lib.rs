@@ -112,18 +112,26 @@ fn collect_decision_revisions(
     seen: &mut std::collections::HashSet<ActionHash>,
     revisions: &mut Vec<Record>,
 ) -> ExternResult<()> {
-    if !seen.insert(action_hash.clone()) {
-        return Ok(());
-    }
+    // Use an explicit stack so an unusually deep but valid update history cannot
+    // exhaust the WASM call stack.
+    let mut pending = vec![action_hash];
+    while let Some(current_hash) = pending.pop() {
+        if !seen.insert(current_hash.clone()) {
+            continue;
+        }
 
-    let Some(details) = get_details(action_hash, GetOptions::default())? else {
-        return Ok(());
-    };
+        let Some(details) = get_details(current_hash, GetOptions::default())? else {
+            continue;
+        };
 
-    if let Details::Record(record_details) = details {
-        revisions.push(record_details.record);
-        for update in record_details.updates {
-            collect_decision_revisions(update.action_address().clone(), seen, revisions)?;
+        if let Details::Record(record_details) = details {
+            revisions.push(record_details.record);
+            pending.extend(
+                record_details
+                    .updates
+                    .into_iter()
+                    .map(|update| update.action_address().clone()),
+            );
         }
     }
 
@@ -2059,6 +2067,26 @@ mod tests {
         let rate = participation_rate_bp(0, 5);
         assert_eq!(rate, 0);
         assert!(!is_quorum_met(rate, Some(5000)));
+    }
+
+    // ---- Current Decision revision semantics ----
+
+    #[test]
+    fn decision_record_terminal_classification() {
+        let open = DecisionStatus::Open;
+        let closed = DecisionStatus::Closed;
+        let finalized = DecisionStatus::Finalized;
+
+        assert!(!matches!(open, DecisionStatus::Closed | DecisionStatus::Finalized));
+        assert!(matches!(closed, DecisionStatus::Closed | DecisionStatus::Finalized));
+        assert!(matches!(finalized, DecisionStatus::Closed | DecisionStatus::Finalized));
+    }
+
+    #[test]
+    fn terminal_revision_semantics_are_strictly_non_open() {
+        for status in [DecisionStatus::Closed, DecisionStatus::Finalized] {
+            assert_ne!(status, DecisionStatus::Open);
+        }
     }
 
     // ---- Pure helper: winning_option (deterministic tiebreaker) ----
