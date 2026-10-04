@@ -80,3 +80,7 @@ function
 → solver execution
 → numerical evidence
 → measurement
+
+## Dispatch evidence requirement
+
+A consumer may require `SolverEntityAttested` explicitly at the final binding-set gate. Ordinary `AdapterAttested` records remain valid provenance, but they do not satisfy a workflow that requires concrete solver-side entity evidence.
