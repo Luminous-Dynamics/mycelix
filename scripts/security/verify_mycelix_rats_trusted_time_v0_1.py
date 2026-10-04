@@ -130,6 +130,10 @@ def mutate_result(base: dict[str, Any], mutation: str) -> dict[str, Any]:
     value = copy.deepcopy(base)
     if mutation == "fresh-nonce-stale-time":
         value.update(issued_at=1791115100, expires_at=1791115150)
+    elif mutation == "interval-straddles-max-age":
+        # Keep expiry safely in the future so this vector isolates max-age
+        # uncertainty rather than also crossing the expiry boundary.
+        value.update(issued_at=1791115170, expires_at=1791115300)
     return value
 
 
