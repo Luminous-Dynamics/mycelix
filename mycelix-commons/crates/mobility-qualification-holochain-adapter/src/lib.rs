@@ -1460,6 +1460,69 @@ mod tests {
             Ok(HolochainAuthorityAgentBindingVerification::Invalid { reason })
                 if reason == "authority-agent binding issuer must equal the bound agent key"
         ));
+        assert!(
+            calls.lock().unwrap().is_empty(),
+            "issuer mismatch must be classified before signature verification"
+        );
+    }
+
+    #[test]
+    fn authority_agent_payload_validation_precedes_signature_verification() {
+        let _guard = host_test_lock().lock().expect("HDI test lock is not poisoned");
+        let calls = Arc::new(Mutex::new(Vec::new()));
+        let _previous = set_hdi(RecordingHdi {
+            calls: Arc::clone(&calls),
+            verify_result: true,
+        });
+
+        let authority = identity("malformed-authority-credential");
+        let mut credential =
+            authority_credential(authority, action_agent_key(57), "malformed-credential");
+        credential.payload.schema =
+            "mycelix.mobility.holochain_authority_agent_binding.v2".into();
+
+        let result = credential.verify();
+
+        let _ = set_hdi(ErrHdi);
+
+        assert!(matches!(
+            result,
+            Ok(HolochainAuthorityAgentBindingVerification::Invalid { reason })
+                if reason == "authority-agent binding uses an unexpected schema"
+        ));
+        assert!(
+            calls.lock().unwrap().is_empty(),
+            "definitive payload invalidity must prevent signature host I/O"
+        );
+    }
+
+    #[test]
+    fn authority_agent_issuer_mismatch_precedes_signature_verification() {
+        let _guard = host_test_lock().lock().expect("HDI test lock is not poisoned");
+        let calls = Arc::new(Mutex::new(Vec::new()));
+        let _previous = set_hdi(RecordingHdi {
+            calls: Arc::clone(&calls),
+            verify_result: true,
+        });
+
+        let authority = identity("issuer-precedence-authority");
+        let agent = action_agent_key(58);
+        let mut credential = authority_credential(authority, agent, "issuer-precedence");
+        credential.issuer = action_agent_key(59);
+
+        let result = credential.verify();
+
+        let _ = set_hdi(ErrHdi);
+
+        assert!(matches!(
+            result,
+            Ok(HolochainAuthorityAgentBindingVerification::Invalid { reason })
+                if reason == "authority-agent binding issuer must equal the bound agent key"
+        ));
+        assert!(
+            calls.lock().unwrap().is_empty(),
+            "issuer/agent mismatch must prevent signature host I/O"
+        );
     }
 
     #[test]
