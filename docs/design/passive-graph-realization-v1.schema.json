@@ -39,6 +39,7 @@
         "InvalidGraph",
         "NoFlowPathsDeclared",
         "AllDeclaredPathsConnected",
+        "TopologyDivergence",
         "PartialRealization",
         "NoDeclaredPathsConnected"
       ]
