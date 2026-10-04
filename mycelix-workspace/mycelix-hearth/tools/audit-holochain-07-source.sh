@@ -926,6 +926,20 @@ check_qualification_workflow_provenance() {
     fail=1
   fi
 
+  if rg -n --fixed-strings 'GITHUB_TOKEN: ""' "$workflow" >/dev/null 2>&1     && rg -n --fixed-strings 'github_access_token: ""' "$workflow" >/dev/null 2>&1; then
+    echo "OK:   qualification workflow withholds the GitHub token from Nix"
+  else
+    echo "FAIL: qualification workflow must not expose GITHUB_TOKEN to the Nix installer"
+    fail=1
+  fi
+
+  if rg -n --fixed-strings "Verify Nix credential isolation" "$workflow" >/dev/null 2>&1     && rg -n --fixed-strings "access-tokens.*github\\.com" "$workflow" >/dev/null 2>&1; then
+    echo "OK:   qualification workflow verifies Nix credential isolation after installation"
+  else
+    echo "FAIL: qualification workflow must verify that Nix did not persist a GitHub access token"
+    fail=1
+  fi
+
   action_use_count="$(rg -n --pcre2 '^[[:space:]]*(?:-[[:space:]]+)?uses:' "$workflow" | wc -l)"
   pinned_action_count="$(rg -n --pcre2 '^[[:space:]]*(?:-[[:space:]]+)?uses:[[:space:]]+[^[:space:]@]+@[0-9a-f]{40}[[:space:]]*(#.*)?$' "$workflow" | wc -l)"
   if [[ "$action_use_count" -ne "${#expected_action_refs[@]}" ]]; then
