@@ -47,6 +47,10 @@ pub use action_lifecycle::{
 pub use execution_receipt::{
     EconomicExecutionKind, EconomicExecutionLedger, EconomicExecutionReceipt,
 };
+pub use execution_reconciliation::{
+    EconomicExecutionConstraint, EconomicExecutionReconciliation,
+    EconomicExecutionReconciliationLedger, ExecutionConformance,
+};
 pub use substrate::{
     BoundaryDirection, DistributionPurpose, GateDecision, SubstrateAccount, SubstrateBoundary,
     SubstrateDimension, SubstrateEvent, SubstrateEventKind, SubstrateLedger, SubstrateReport,
