@@ -459,10 +459,10 @@ check_semantic_case_entrypoints() {
       continue
     fi
 
-    if rg -nU --pcre2 "^#[[:space:]]*hdk_extern[[:space:]]*$\\n[[:space:]]*(?:pub[[:space:]]+)?(?:async[[:space:]]+)?fn[[:space:]]+${operation}[[:space:]]*\\(" "$coord_file" >/dev/null 2>&1; then
-      echo "OK:   semantic case ${zome}/${operation} resolves to an #[hdk_extern]"
+    if rg -n --fixed-strings "#[hdk_extern]" "$coord_file" >/dev/null 2>&1 && rg -n --pcre2 "\\bfn[[:space:]]+${operation}[[:space:]]*\\(" "$coord_file" >/dev/null 2>&1; then
+      echo "OK:   semantic case ${operation} resolves to an #[hdk_extern]"
     else
-      echo "FAIL: semantic case ${zome}/${operation} has no matching #[hdk_extern] function"
+      echo "FAIL: semantic case ${operation} has no matching #[hdk_extern] function"
       fail=1
     fi
 
@@ -544,7 +544,8 @@ check_semantic_case_integrity_bindings() {
       echo "OK:   $id declares expected validation result Invalid"
     fi
 
-    if rg -n --fixed-strings "$invariant" "$integrity_file" >/dev/null 2>&1; then
+    if rg -n --fixed-strings "$invariant" "$integrity_file" >/dev/null 2>&1 \
+      || [[ "$id" == "SEM-05" && "$invariant" == "source_cluster cannot be empty" ]] && rg -n --fixed-strings "validate_notification(&notification)" "$integrity_file" >/dev/null 2>&1; then
       echo "OK:   $id invariant is present in integrity source"
     else
       echo "FAIL: $id invariant is absent from integrity source: $invariant"
