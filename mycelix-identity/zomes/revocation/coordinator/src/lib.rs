@@ -471,23 +471,72 @@ pub struct CreateRevocationListInput {
     pub issuer_did: String,
 }
 
-/// Get a revocation list by its ID
-#[hdk_extern]
-pub fn get_revocation_list(list_id: String) -> ExternResult<Option<Record>> {
-    let list_hash = string_to_entry_hash(&list_id);
+fn latest_revocation_list(
+    list_id: &str,
+) -> ExternResult<Option<(ActionHash, RevocationList)>> {
+    let list_hash = string_to_entry_hash(list_id);
     let links = get_links(
         LinkQuery::try_new(list_hash, LinkTypes::IssuerToRevocationList)?,
         GetStrategy::default(),
     )?;
 
-    let latest_link = links.into_iter().max_by_key(|l| l.timestamp);
-    if let Some(link) = latest_link {
-        let action_hash = ActionHash::try_from(link.target)
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        return get(action_hash, GetOptions::default());
+    let mut candidates: Vec<(ActionHash, Record, RevocationList)> = Vec::new();
+    for link in links {
+        let action_hash = link
+            .target
+            .into_action_hash()
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "IssuerToRevocationList target must be an ActionHash".into()
+            )))?;
+        let record = get(action_hash.clone(), GetOptions::default())?.ok_or(
+            wasm_error!(WasmErrorInner::Guest(
+                "IssuerToRevocationList references a missing record".into()
+            )),
+        )?;
+        if let Some(list) = record
+            .entry()
+            .to_app_option::<RevocationList>()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        {
+            if list.id == list_id {
+                candidates.push((action_hash, record, list));
+            }
+        }
     }
 
-    Ok(None)
+    if candidates.is_empty() {
+        return Ok(None);
+    }
+
+    let mut issuers = std::collections::BTreeSet::new();
+    for (_, _, list) in &candidates {
+        issuers.insert(list.issuer.clone());
+    }
+    if issuers.len() != 1 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Ambiguous revocation list authority; refusing nondeterministic resolution".into()
+        )));
+    }
+
+    candidates.sort_by(|(ha, ra, _), (hb, rb, _)| {
+        ra.action()
+            .action_seq()
+            .cmp(&rb.action().action_seq())
+            .then_with(|| ha.cmp(hb))
+    });
+    let (hash, _, list) = candidates
+        .last()
+        .expect("candidates was checked non-empty");
+    Ok(Some((hash.clone(), list.clone())))
+}
+
+/// Get a revocation list by its ID
+#[hdk_extern]
+pub fn get_revocation_list(list_id: String) -> ExternResult<Option<Record>> {
+    let Some((action_hash, _)) = latest_revocation_list(&list_id)? else {
+        return Ok(None);
+    };
+    get(action_hash, GetOptions::default())
 }
 
 /// Get all revocation lists for an issuer
@@ -680,35 +729,12 @@ fn add_to_revocation_list(
     credential_ids: &[String],
     now: Timestamp,
 ) -> ExternResult<()> {
-    let list_hash = string_to_entry_hash(list_id);
-    let links = get_links(
-        LinkQuery::try_new(list_hash, LinkTypes::IssuerToRevocationList)?,
-        GetStrategy::default(),
+    let (action_hash, mut list) = latest_revocation_list(list_id)?.ok_or(
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Revocation list '{}' not found",
+            list_id
+        ))),
     )?;
-
-    let latest_link = links.into_iter().max_by_key(|l| l.timestamp);
-    let action_hash = match latest_link {
-        Some(link) => ActionHash::try_from(link.target)
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?,
-        None => {
-            return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                "Revocation list '{}' not found",
-                list_id
-            ))));
-        }
-    };
-
-    let record = get(action_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
-        WasmErrorInner::Guest("Revocation list record not found".into())
-    ))?;
-
-    let mut list: RevocationList = record
-        .entry()
-        .to_app_option()
-        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
-        .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Invalid revocation list entry".into()
-        )))?;
 
     // Verify issuer owns this list
     if list.issuer != issuer_did {
