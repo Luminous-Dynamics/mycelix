@@ -119,6 +119,17 @@ jobs:
             echo "security-event regression: SecurityEvent wire schema lost deny_unknown_fields" >&2
             exit 1
           fi
+
+          # Recovery correlations carry a non-empty, bounded identifier invariant.
+          # Wire decoding must route them through the validating constructor.
+          if ! rg -nU 'with_recovery_correlation\([^)]*\)[[:space:]]*$' crates/mycelix-bridge-common/src/security_events.rs; then
+            echo "security-event regression: recovery correlation validation call disappeared" >&2
+            exit 1
+          fi
+          if rg -nU 'event\.recovery_correlation[[:space:]]*=[[:space:]]*wire\.recovery_correlation' crates/mycelix-bridge-common/src/security_events.rs; then
+            echo "security-event regression: recovery correlation is assigned directly from wire data" >&2
+            exit 1
+          fi
           for pattern in \
             '#\[derive\([^]]*(Serialize|Deserialize)[^]]*\)\][[:space:]]*(pub[[:space:]]+)?struct (VerificationEvidence|AuthorizationPermit|EnforcementRequest)' \
             'impl[[:space:]]+(Serialize|Deserialize)[[:space:]]+for[[:space:]]+(VerificationEvidence|AuthorizationPermit|EnforcementRequest)' \
