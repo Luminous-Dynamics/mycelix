@@ -1,7 +1,7 @@
 {
   "schema":"mycelix.sym-civic.sealing-key-chain-preflight.v1",
   "program":"SYM-CIVIC-018",
-  "parent_subject":"fe82a004c30165affa77b9172d6b44fcd80a41f3",
+  "parent_subject":"1e34a2ed7ac42d373e6fdbc2fc54956e4c3bfc33",
   "analysis_role":"research_only",
   "cases":[
     {"id":"C-01","family":"canonical_chain","mutations":[]},
@@ -37,6 +37,14 @@
     {"id":"C-31","family":"malformed_authorised_origin_port","mutations":[{"op":"replace","path":"registers.0.auth.entries.0.0","value":"https://server.example:bad"}]},
     {"id":"C-32","family":"malformed_keyset_port","mutations":[{"op":"replace","path":"registers.0.sealing_keys.origin","value":"https://server.example:bad"}]},
     {"id":"C-33","family":"malformed_register_port","mutations":[{"op":"replace","path":"registers.0.register_origin","value":"https://reg-a.example:bad"}]},
-    {"id":"C-34","family":"addressed_register_byte_order_drift","mutations":[{"op":"replace","path":"output.addressed_registers","value":["https://reg-b.example","https://reg-a.example"]}]}
+    {"id":"C-34","family":"addressed_register_byte_order_drift","mutations":[{"op":"replace","path":"output.addressed_registers","value":["https://reg-b.example","https://reg-a.example"]}]},
+    {"id":"C-35","family":"agreements_non_list","mutations":[{"op":"replace","path":"agreements","value":null}]},
+    {"id":"C-36","family":"registers_non_list","mutations":[{"op":"replace","path":"registers","value":null}]},
+    {"id":"C-37","family":"agreement_non_mapping","mutations":[{"op":"replace","path":"agreements.0","value":"malformed"}]},
+    {"id":"C-38","family":"register_non_mapping","mutations":[{"op":"replace","path":"registers.0","value":"malformed"}]},
+    {"id":"C-39","family":"authorisation_non_mapping","mutations":[{"op":"replace","path":"registers.0.auth","value":[]}]},
+    {"id":"C-40","family":"keyset_non_mapping","mutations":[{"op":"replace","path":"registers.0.sealing_keys","value":"malformed"}]},
+    {"id":"C-41","family":"keyset_keys_non_list","mutations":[{"op":"replace","path":"registers.0.sealing_keys.keys","value":null}]},
+    {"id":"C-42","family":"register_key_non_mapping","mutations":[{"op":"replace","path":"registers.0.register_keys.0","value":"malformed"}]},{"id":"C-43","family":"output_non_mapping","mutations":[{"op":"replace","path":"output","value":[]}]},{"id":"C-44","family":"addressed_registers_non_list","mutations":[{"op":"replace","path":"output.addressed_registers","value":"malformed"}]},{"id":"C-45","family":"addressed_register_non_string","mutations":[{"op":"replace","path":"output.addressed_registers.0","value":7}]},{"id":"C-46","family":"register_keys_non_list","mutations":[{"op":"replace","path":"registers.0.register_keys","value":null}]},{"id":"C-47","family":"sealing_key_non_mapping","mutations":[{"op":"replace","path":"registers.0.sealing_keys.keys.0","value":"malformed"}]},{"id":"C-48","family":"authorisation_entries_non_list","mutations":[{"op":"replace","path":"registers.0.auth.entries","value":null}]}
   ]
 }
