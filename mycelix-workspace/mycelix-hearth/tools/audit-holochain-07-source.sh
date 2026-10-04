@@ -547,6 +547,28 @@ check_semantic_validation_suite_wiring() {
   done
 
   if [[ -f "$manifest" ]]; then
+    if python3 - "$manifest" <<'PY'
+import json, sys
+from pathlib import Path
+def reject_duplicates(pairs):
+    obj = {}
+    for key, value in pairs:
+        if key in obj:
+            raise ValueError(f"duplicate JSON object key: {key}")
+        obj[key] = value
+    return obj
+try:
+    json.loads(Path(sys.argv[1]).read_text(), object_pairs_hook=reject_duplicates)
+except Exception as exc:
+    print(f"duplicate/invalid semantic manifest JSON: {exc}", file=sys.stderr)
+    raise SystemExit(1)
+PY
+    then
+      echo "OK:   Hearth semantic-validation manifest has unique JSON object keys"
+    else
+      echo "FAIL: Hearth semantic-validation manifest contains duplicate or invalid JSON object keys"
+      fail=1
+    fi
     if rg -n --pcre2 '"schema_version"[[:space:]]*:[[:space:]]*"HEARTH-SEMANTIC-0.7-CASESET-1"' "$manifest" >/dev/null 2>&1; then
       echo "OK:   Hearth semantic-validation case schema is pinned"
     else
