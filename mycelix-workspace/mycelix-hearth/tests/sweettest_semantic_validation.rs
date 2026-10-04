@@ -479,6 +479,9 @@ fn test_semantic_case_manifest_is_structurally_valid() {
         let invariant = case["invariant"]
             .as_str()
             .expect("every semantic case needs an invariant");
+        let invariant_code = case["invariant_code"]
+            .as_str()
+            .expect("every semantic case needs invariant_code");
         let expected_result = case["expected_result"]
             .as_str()
             .expect("every semantic case needs expected_result");
@@ -501,6 +504,14 @@ fn test_semantic_case_manifest_is_structurally_valid() {
         assert!(!zome.is_empty(), "semantic case zome must not be empty");
         assert!(!operation.is_empty(), "semantic case operation must not be empty");
         assert!(!invariant.is_empty(), "semantic case invariant must not be empty");
+        assert!(
+            !invariant_code.is_empty(),
+            "{case_id} invariant_code must not be empty"
+        );
+        assert!(
+            !invariant_code.contains('\n'),
+            "{case_id} invariant_code must be a single predicate expression"
+        );
         assert_eq!(
             expected_result, "Invalid",
             "{case_id} must declare the Invalid validation result"
