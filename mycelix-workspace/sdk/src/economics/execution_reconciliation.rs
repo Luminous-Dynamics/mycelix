@@ -189,6 +189,35 @@ pub struct EconomicExecutionReconciliationLedger {
     reconciliations: Vec<EconomicExecutionReconciliation>,
 }
 
+/// Compute the exact conformance result for a receipt and constraint whose
+/// authorization context has already been established.
+///
+/// Keeping this calculation in one place prevents the persisted result from
+/// becoming an independently trusted claim at later audit boundaries.
+pub fn exact_conformance(
+    receipt: &EconomicExecutionReceipt,
+    constraint: &EconomicExecutionConstraint,
+) -> ExecutionConformance {
+    if receipt.kind != constraint.kind {
+        return ExecutionConformance::KindMismatch;
+    }
+
+    match (receipt.quantity, receipt.quantity_unit.as_deref()) {
+        (None, _) => ExecutionConformance::MissingObservedQuantity,
+        (Some(_), None) => ExecutionConformance::UnitMismatch,
+        (Some(_), Some(unit)) if unit != constraint.quantity_unit => {
+            ExecutionConformance::UnitMismatch
+        }
+        (Some(actual), Some(_)) if actual < constraint.quantity => {
+            ExecutionConformance::UnderQuantity
+        }
+        (Some(actual), Some(_)) if actual > constraint.quantity => {
+            ExecutionConformance::OverQuantity
+        }
+        (Some(_), Some(_)) => ExecutionConformance::Conformant,
+    }
+}
+
 impl EconomicExecutionReconciliationLedger {
     /// Create an empty reconciliation ledger.
     pub fn new() -> Self {
@@ -287,24 +316,7 @@ impl EconomicExecutionReconciliationLedger {
         let execution_fingerprint = receipt.fingerprint()?;
         let constraint_fingerprint = constraint.fingerprint()?;
 
-        let result = if receipt.kind != constraint.kind {
-            ExecutionConformance::KindMismatch
-        } else {
-            match (receipt.quantity, receipt.quantity_unit.as_deref()) {
-                (None, _) => ExecutionConformance::MissingObservedQuantity,
-                (Some(_), None) => ExecutionConformance::UnitMismatch,
-                (Some(actual), Some(unit)) if unit != constraint.quantity_unit => {
-                    ExecutionConformance::UnitMismatch
-                }
-                (Some(actual), Some(_)) if actual < constraint.quantity => {
-                    ExecutionConformance::UnderQuantity
-                }
-                (Some(actual), Some(_)) if actual > constraint.quantity => {
-                    ExecutionConformance::OverQuantity
-                }
-                (Some(_), Some(_)) => ExecutionConformance::Conformant,
-            }
-        };
+        let result = exact_conformance(receipt, constraint);
 
         let reconciliation = EconomicExecutionReconciliation {
             reconciliation_id,
