@@ -159,7 +159,7 @@ jobs:
         run: |
           grep '^DSID_EVIDENCE ' dsid-lifecycle-evidence.txt | cut -d ' ' -f2- \
             > dsid-lifecycle-evidence.jsonl
-          test "$(wc -l < dsid-lifecycle-evidence.jsonl)" -eq 38
+          test "$(wc -l < dsid-lifecycle-evidence.jsonl)" -eq 39
           python3 - <<'PY'
           import json
           from pathlib import Path
@@ -208,6 +208,7 @@ jobs:
               "DSID-036",
               "DSID-037",
               "DSID-038",
+              "DSID-039",
           }
 
           assert len(rows) == len(expected_ids)
