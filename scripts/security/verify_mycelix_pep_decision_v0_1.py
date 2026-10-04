@@ -26,7 +26,10 @@ REQUIRED = [
 ]
 
 
-def evaluate(inputs: dict[str, str]) -> tuple[str, str]:
+def evaluate(inputs: dict[str, str], output_mode: str = "evidence-only") -> tuple[str, str]:
+    if output_mode != "evidence-only":
+        return "DENY", "forbidden-output-mode"
+
     unknown = [k for k, v in inputs.items() if k in REQUIRED and v not in {"PASS", "DENY", "INDETERMINATE"}]
     if unknown:
         return "INDETERMINATE", "unknown-input-state"
@@ -89,7 +92,7 @@ def mutate(base: dict[str, str], mutation: str) -> dict[str, str]:
         value["policy_version"] = "DENY"
         return value
     if mutation == "decision-output-bearer-token-attempt":
-        value["delegation"] = "DENY"
+        value["__output_mode__"] = "bearer-token"
         return value
     if mutation == "freshness-indeterminate":
         value["freshness"] = "INDETERMINATE"
@@ -113,7 +116,8 @@ def main() -> int:
 
     for vector in contract["vectors"]:
         inputs = mutate(base, vector["mutation"])
-        got, reason = evaluate(inputs)
+        output_mode = inputs.pop("__output_mode__", "evidence-only")
+        got, reason = evaluate(inputs, output_mode=output_mode)
         if vector["mutation"] == "same-inputs-repeat":
             got, reason = evaluate(mutate(base, vector["mutation"]))
         ok = got == vector["expected"]
