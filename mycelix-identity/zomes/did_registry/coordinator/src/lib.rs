@@ -1157,6 +1157,25 @@ pub struct UpdateDidInput {
     pub service: Option<Vec<ServiceEndpoint>>,
 }
 
+/// Select a single deactivation artifact without trusting DHT link ordering.
+///
+/// Duplicate links to the same action are harmless. Distinct targets are
+/// ambiguous legacy state and must never be resolved by author-controlled
+/// link timestamps.
+fn unique_action_hash(targets: Vec<ActionHash>) -> Result<Option<ActionHash>, &'static str> {
+    let mut selected = None;
+    for target in targets {
+        if let Some(existing) = selected.as_ref() {
+            if existing != &target {
+                return Err("Ambiguous DID deactivation state: multiple distinct deactivation records exist");
+            }
+        } else {
+            selected = Some(target);
+        }
+    }
+    Ok(selected)
+}
+
 /// Deactivate a DID
 #[hdk_extern]
 pub fn deactivate_did(reason: String) -> ExternResult<Record> {
@@ -1182,24 +1201,36 @@ pub fn deactivate_did(reason: String) -> ExternResult<Record> {
             "Invalid DID entry".into()
         )))?;
 
-    // Idempotent: if already deactivated, return the existing deactivation record
+    // Idempotent: if already deactivated, return the existing deactivation record.
+    // Never choose among distinct records by link timestamp: that timestamp is
+    // mutable DHT metadata, not protocol authority. The integrity zome already
+    // enforces one deactivation artifact per DID; legacy ambiguity must still
+    // fail closed here.
     if !is_did_active(current_did.id.clone())? {
-        // Find and return the existing deactivation record
         let deactivation_links = get_links(
             LinkQuery::try_new(agent_pub_key.clone(), LinkTypes::DidToDeactivation)?,
             GetStrategy::default(),
         )?;
-        if let Some(link) = deactivation_links.into_iter().max_by_key(|l| l.timestamp) {
-            let existing_hash = ActionHash::try_from(link.target).map_err(|_| {
+        let mut targets = Vec::new();
+        for link in deactivation_links {
+            let target = ActionHash::try_from(link.target).map_err(|_| {
                 wasm_error!(WasmErrorInner::Guest(
                     "Invalid deactivation link target".into()
                 ))
             })?;
+            targets.push(target);
+        }
+
+        let existing_hash = unique_action_hash(targets).map_err(|message| {
+            wasm_error!(WasmErrorInner::Guest(message.into()))
+        })?;
+        if let Some(existing_hash) = existing_hash {
             return get(existing_hash, GetOptions::default())?.ok_or(wasm_error!(
                 WasmErrorInner::Guest("Deactivation record not found".into())
             ));
         }
-        // Fallback: links gone but DID is inactive (shouldn't happen)
+
+        // Links gone but DID is inactive: the state is internally inconsistent.
         return Err(wasm_error!(WasmErrorInner::Guest(
             "DID is deactivated but deactivation record is missing".into()
         )));
@@ -2125,6 +2156,25 @@ mod tests {
         let multibase = format!("z{}", encoded);
 
         assert!(validate_multibase_key(&multibase).is_err());
+    }
+
+    #[test]
+    fn unique_deactivation_target_fails_closed_on_ambiguity() {
+        let first = ActionHash::from_raw_36(vec![1; 36]);
+        let second = ActionHash::from_raw_36(vec![2; 36]);
+
+        assert_eq!(
+            unique_action_hash(vec![]).expect("empty link set is valid"),
+            None
+        );
+        assert_eq!(
+            unique_action_hash(vec![first.clone(), first.clone()]).expect("duplicate target is valid"),
+            Some(first.clone())
+        );
+        assert_eq!(
+            unique_action_hash(vec![first, second]).expect_err("distinct targets must fail closed"),
+            "Ambiguous DID deactivation state: multiple distinct deactivation records exist"
+        );
     }
 
     #[test]
