@@ -122,7 +122,8 @@ pub struct CredentialProof {
     pub proof_value: String,
     /// For DataIntegrityProof: cryptosuite used
     pub cryptosuite: Option<String>,
-    /// Optional Mycelix algorithm identifier (multicodec u16). W3C cryptosuites such as\n    /// eddsa-jcs-2022 define their algorithm through the cryptosuite and omit this field.
+    /// Optional Mycelix algorithm identifier (multicodec u16). W3C cryptosuites such as
+    /// eddsa-jcs-2022 define their algorithm through the cryptosuite and omit this field.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub algorithm: Option<u16>,
     /// Challenge value for replay protection (W3C Data Integrity spec).
