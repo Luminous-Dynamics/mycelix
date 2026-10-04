@@ -10,6 +10,7 @@ from verify_d6u_trusted_artifacts import (
     verify_cases,
     verify_lock,
     verify_required_tracked_blobs,
+    verify_workflow_identity,
 )
 
 
@@ -73,6 +74,22 @@ def test_duplicate_case_is_rejected() -> None:
         lambda: verify_cases(tampered, base_policy()),
         "duplicate D6U case was accepted",
     )
+
+
+def test_workflow_identity_tampering_is_rejected() -> None:
+    policy = {"workflow_path": ".github/workflows/d6u-exact-head-runtime.yml",
+              "required_tracked_blobs": {
+                  ".github/workflows/d6u-exact-head-runtime.yml": "a" * 40,
+              }}
+    valid = {"workflow_sha": "a" * 40}
+    verify_workflow_identity(valid, policy)
+
+    tampered = {"workflow_sha": "b" * 40}
+    assert_rejected(
+        lambda: verify_workflow_identity(tampered, policy),
+        "tampered workflow identity was accepted",
+    )
+
 
 
 def test_lock_provenance_is_rejected_when_tampered() -> None:
@@ -237,6 +254,7 @@ if __name__ == "__main__":
         test_valid_log_is_accepted,
         test_case_tampering_is_rejected,
         test_duplicate_case_is_rejected,
+        test_workflow_identity_tampering_is_rejected,
         test_lock_provenance_is_rejected_when_tampered,
         test_duplicate_record_key_is_rejected,
         test_tracked_source_tree_accepts_exact_blobs,
