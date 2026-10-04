@@ -18,6 +18,7 @@ use super::{
     policy_profile::EconomicPolicyProfile,
 };
 use sha2::{Digest, Sha256};
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Policy bounds preventing runaway self-modification
 /// These are constitutional constraints that cannot be modified by the oracle
@@ -808,6 +809,7 @@ mod tests {
             policy_profile_ref: "profile:za:reference:v1".into(),
             policy_profile_fingerprint: "a".repeat(64),
             observation_refs: vec!["observation:vitality:1".into()],
+            analysis_evidence: Vec::new(),
             rule_ref: "rule:countercyclical:v1".into(),
             authority_ref: "authority:dao-1".into(),
             adjustment,
@@ -831,6 +833,7 @@ mod tests {
             policy_profile_ref: "profile:za:reference:v1".into(),
             policy_profile_fingerprint: "a".repeat(64),
             observation_refs: vec!["observation:b".into(), "observation:a".into()],
+            analysis_evidence: Vec::new(),
             rule_ref: "rule:countercyclical:v1".into(),
             authority_ref: "authority:dao-1".into(),
             adjustment: adjustment.clone(),
@@ -872,6 +875,7 @@ mod tests {
             policy_profile_ref: profile.profile_id.clone(),
             policy_profile_fingerprint: profile.fingerprint().unwrap(),
             observation_refs: vec!["observation:vitality:1".into()],
+            analysis_evidence: Vec::new(),
             rule_ref: "rule:countercyclical:v1".into(),
             authority_ref: "authority:dao-1".into(),
             adjustment: oracle.generate_adjustment(),
@@ -892,6 +896,7 @@ mod tests {
             policy_profile_ref: profile.profile_id.clone(),
             policy_profile_fingerprint: profile.fingerprint().unwrap(),
             observation_refs: vec!["observation:vitality:1".into()],
+            analysis_evidence: Vec::new(),
             rule_ref: "rule:countercyclical:v1".into(),
             authority_ref: "authority:dao-1".into(),
             adjustment: oracle.generate_adjustment(),
@@ -921,6 +926,7 @@ mod tests {
             policy_profile_ref: "profile:za:reference:v1".into(),
             policy_profile_fingerprint: "a".repeat(64),
             observation_refs: vec!["observation:vitality:1".into()],
+            analysis_evidence: Vec::new(),
             rule_ref: "rule:countercyclical:v1".into(),
             authority_ref: "authority:dao-1".into(),
             adjustment: oracle.generate_adjustment(),
@@ -942,6 +948,7 @@ mod tests {
             policy_profile_ref: "profile:za:reference:v1".into(),
             policy_profile_fingerprint: "a".repeat(64),
             observation_refs: vec!["observation:vitality:1".into()],
+            analysis_evidence: Vec::new(),
             rule_ref: "rule:countercyclical:v1".into(),
             authority_ref: "authority:dao-1".into(),
             adjustment,
