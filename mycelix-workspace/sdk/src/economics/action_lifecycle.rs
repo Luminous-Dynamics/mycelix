@@ -99,6 +99,9 @@ impl EconomicActionRevision {
         if self.authority_ref.trim().is_empty() {
             return Err("Lifecycle authority reference cannot be empty".into());
         }
+        if self.evidence_refs.is_empty() {
+            return Err("Lifecycle revision requires at least one evidence reference".into());
+        }
         if self
             .evidence_refs
             .iter()
@@ -586,6 +589,21 @@ mod tests {
             1_000,
         )
         .unwrap()
+    }
+
+    #[test]
+    fn lifecycle_revision_without_evidence_is_rejected() {
+        let scope = scope("action:evidence", "scope:evidence");
+        let result = EconomicActionLifecycle::start(
+            &scope,
+            "revision:evidence",
+            "authority:dao-1",
+            Vec::new(),
+            1_000,
+        );
+
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("evidence"));
     }
 
     #[test]
