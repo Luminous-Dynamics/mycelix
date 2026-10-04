@@ -520,7 +520,7 @@ fn is_date_time_stamp(value: &str) -> bool {
     }
 
     if value.ends_with('Z') {
-        return true;
+        return value.parse::<Timestamp>().is_ok();
     }
     if value.len() < 25 {
         return false;
