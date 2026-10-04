@@ -1132,6 +1132,30 @@ def capture(args: argparse.Namespace) -> int:
     if raw_parse.returncode != 0:
         raise RuntimeError("independent raw event-log parser failed; raw evidence preserved but not qualified")
     trusted = load_json(out / "trusted-time.json")
+    time_appraisal_path = out / "time-appraisal.json"
+    time_appraisal_proc = run(
+        [
+            sys.executable,
+            str(TIME_APPRAISAL_SCRIPT),
+            "--appraise",
+            str(out / "trusted-time.json"),
+            "--nonce-file",
+            str(out / "nonce.bin"),
+        ] + (
+            ["--now-unix", str(args.time_evaluation_unix)]
+            if args.time_evaluation_unix is not None
+            else []
+        ) + [
+            "--output",
+            str(time_appraisal_path),
+        ],
+        env,
+        out,
+        check=False,
+    )
+    if time_appraisal_proc.returncode not in (0, 2) and not time_appraisal_path.is_file():
+        raise RuntimeError("time appraisal failed without producing a result")
+    time_appraisal = load_json(time_appraisal_path)
     reference_appraisal_path = out / "reference-appraisal.json"
     reference_appraisal_proc = run(
         [
@@ -1305,6 +1329,13 @@ def capture(args: argparse.Namespace) -> int:
             "registry_sha256": sha256_file(REFERENCE_REGISTRY),
             "input_sha256": sha256_file(out / "reference-values.json"),
         },
+        "time_appraisal": {
+            "status": time_appraisal.get("state", "DENY"),
+            "output_sha256": sha256_file(time_appraisal_path),
+            "source_sha256": sha256_file(TIME_APPRAISAL_SCRIPT),
+            "registry_sha256": sha256_file(TIME_REGISTRY),
+            "input_sha256": sha256_file(out / "trusted-time.json"),
+        },
         "quote": {
             "pcr_selection": args.pcr_selection,
             "nonce_sha256": sha256_file(out / "nonce.bin"),
@@ -1346,6 +1377,7 @@ def capture(args: argparse.Namespace) -> int:
             "raw_eventlog_output_sha256": sha256_file(raw_eventlog_path),
             "payload_coherence_output_sha256": sha256_file(payload_coherence_path),
             "reference_appraisal_output_sha256": sha256_file(reference_appraisal_path),
+            "time_appraisal_output_sha256": sha256_file(time_appraisal_path),
             "tss_version_evidence_sha256": sha256_file(out / "tss-version-evidence.txt"),
             "ek_public_sha256": ek_hash,
         },
@@ -1392,6 +1424,7 @@ def main() -> int:
     parser.add_argument("--os-image-digest")
     parser.add_argument("--workload-digest")
     parser.add_argument("--pcr-selection", default="sha256:0,2,4,7")
+    parser.add_argument("--time-evaluation-unix", type=int)
     args = parser.parse_args()
 
     contract = load_json(CONTRACT)
