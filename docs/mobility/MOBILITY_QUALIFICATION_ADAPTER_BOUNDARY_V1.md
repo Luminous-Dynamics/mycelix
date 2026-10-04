@@ -43,6 +43,8 @@ An adapter MUST establish an explicit deterministic binding from each unresolved
 
 The binding set is intentionally append-only: a logical identity cannot be rebound to a second address within the same binding set. Every binding also carries an explicit runtime-neutral retrieval intent (`ValidRecord`, `Action`, or `Entry`). The runtime adapter must map that intent to a compatible address type and host function; the pure layer does not treat protocol address kinds as interchangeable. Iteration is canonicalized by logical identity, so construction order cannot affect downstream dependency resolution. An unbound logical identity remains unresolved; it must not be converted into a negative semantic finding.
 
+Conflict precedence is deterministic as well as append-only: candidate-local address/retrieval typing is checked before registry state, and an existing logical-identity binding is the primary immutable conflict before secondary provenance-witness reuse. This mirrors the pure `QualificationDependencyBindingSet` semantics and prevents equivalent conflicts from being classified differently by runtime adapters. 
+
 ### Binding resolution contract
 
 The pure layer exposes `QualificationDependencyBindingSet::resolve_required`, using the same three-outcome decision algebra as the adapter boundary:
