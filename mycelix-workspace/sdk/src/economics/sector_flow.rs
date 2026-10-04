@@ -32,6 +32,7 @@ pub enum FlowCategory {
     Investment,
     Tax,
     Transfer,
+    CapitalTransfer,
     Interest,
     LoanCreation,
     DebtRepayment,
@@ -207,6 +208,12 @@ impl SectorTransactionMatrix {
                     credit.amount,
                 ),
                 super::transition::EconomicTransition::DebtWriteOff(_) => continue,
+                super::transition::EconomicTransition::DebtForgiveness(forgiveness) => (
+                    sector_for(&forgiveness.lender)?,
+                    sector_for(&forgiveness.borrower)?,
+                    FlowCategory::CapitalTransfer,
+                    forgiveness.amount,
+                ),
                 super::transition::EconomicTransition::DebtRepayment(repayment) => (
                     sector_for(&repayment.borrower)?,
                     sector_for(&repayment.lender)?,
