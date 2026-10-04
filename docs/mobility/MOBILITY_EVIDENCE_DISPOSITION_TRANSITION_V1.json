@@ -966,6 +966,11 @@
       "id": "EDT-191",
       "case": "valid_duplicate_provenance_witness_is_adapter_rejection_and_state_preserving",
       "expected": "adapter_boundary_error"
+    },
+    {
+      "id": "EDT-192",
+      "case": "credential_signature_host_failure_precedes_duplicate_authority_admission",
+      "expected": "adapter_boundary_error"
     }
   ],
   "outcome_classes": [
