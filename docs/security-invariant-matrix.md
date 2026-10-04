@@ -26,7 +26,7 @@ The kernel provides:
 - Security-event recovery correlations are also constructor-gated during wire decoding, and untrusted provenance sequences are bounded before retention to keep audit input fail-closed and resource-bounded.
 - `VerificationEvidence` as an opaque, non-serializable hand-off from an independent cryptographic/identity verifier; its trusted fields cannot be constructed or deserialized by downstream callers, and it intentionally does not implement `Debug`, `PartialEq`, or `Eq` so downstream code cannot turn trusted evidence into an observation/comparison surface.
 - `VerifiedCapability` as a non-forgeable-in-module boundary object.
-- `AuthorizationDecision::Allow | Deny | Indeterminate`.
+- `AuthorizationDecision` as failure-only authorization outcomes (`Deny | Indeterminate`); `SecurityEventDecision::Allow | Deny | Indeterminate` is reserved for audit records.
 - `AdvisoryResult` as a separate type with no conversion path to authorization.
 - Explicit denial for invalid, revoked, expired, subject-mismatched, action-mismatched, stale-policy, and evidence-mismatched capabilities.
 - Explicit indeterminate handling for ambiguous authority.
