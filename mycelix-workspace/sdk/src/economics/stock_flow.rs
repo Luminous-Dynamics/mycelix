@@ -1064,6 +1064,17 @@ impl EconomicState {
         }
 
         let actor = self.actor_mut(&revaluation.actor)?;
+        if matches!(
+            revaluation.target,
+            RealAssetRevaluationTarget::InventoryCarryingValue
+        ) && actor.real.inventories == 0
+        {
+            return Err(format!(
+                "cannot revalue inventory carrying value for {} without physical inventory",
+                actor.actor
+            ));
+        }
+
         let current = match revaluation.target {
             RealAssetRevaluationTarget::ProductiveCapital => actor.real.productive_capital,
             RealAssetRevaluationTarget::InventoryCarryingValue => actor.inventory_carrying_value,
@@ -1413,6 +1424,22 @@ impl EconomicState {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn inventory_revaluation_requires_physical_inventory() {
+        let mut state = EconomicState::new(vec![ActorBalanceSheet::new("firm")]);
+        state.actors[0].inventory_carrying_value = 50;
+
+        let gain = RealAssetRevaluation::new(
+            "firm",
+            RealAssetRevaluationTarget::InventoryCarryingValue,
+            10,
+        )
+        .unwrap();
+
+        assert!(state.apply_real_asset_revaluation(&gain).is_err());
+        assert_eq!(state.actors[0].inventory_carrying_value, 50);
+    }
 
     #[test]
     fn real_asset_revaluation_loss_cannot_create_negative_asset_stock() {
