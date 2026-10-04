@@ -37,6 +37,18 @@ check_present_any() {
     fail=1
   fi
 }
+check_present_file() {
+  local label="$1"
+  local file="$2"
+  local pattern="$3"
+  if rg -n --pcre2 "$pattern" "$file" >/dev/null 2>&1; then
+    echo "OK:   $label"
+  else
+    echo "FAIL: $label"
+    fail=1
+  fi
+}
+
 check_lock_ref() {
   local label="$1" node="$2" owner="$3" repo="$4" ref="$5"
   if python3 - "$node" "$owner" "$repo" "$ref" <<'PY'
@@ -61,6 +73,18 @@ check_absent_multiline() {
     echo "OK:   $label"
   fi
 }
+check_absent_file() {
+  local label="$1"
+  local file="$2"
+  local pattern="$3"
+  if rg -n --pcre2 "$pattern" "$file" >/dev/null 2>&1; then
+    echo "FAIL: $label"
+    fail=1
+  else
+    echo "OK:   $label"
+  fi
+}
+
 
 echo "HEARTH-0.7 deterministic source audit"
 echo "HEAD: $(git rev-parse HEAD)"
@@ -90,19 +114,19 @@ check_absent "legacy 0.6 sandbox transport spelling" '\bwebrtc\b'
 check_absent_multiline "removed ChainFilter builder methods" 'ChainFilter::new\([^)]*\)[[:space:]]*\.[[:space:]]*(until_hash|take|until_timestamp)[[:space:]]*\('
 
 # 0.7 dependency floor must be visible in Hearth manifests.
-check_present "Hearth HDK 0.7.0 dependency floor" 'hdk\s*=\s*"=0\.7\.0"'
-check_present "Hearth HDI 0.8.0 dependency floor" 'hdi\s*=\s*"=0\.8\.0"'
-check_present "Hearth serialized-bytes 0.0.57 floor" 'holochain_serialized_bytes\s*=\s*"0\.0\.57"'
-check_present "Hearth Holochain 0.7.0 test dependency" 'holochain\s*=.*version\s*=\s*"0\.7\.0"'
-check_present "Hearth Sweettest uses encryption feature" 'holochain.*features.*encryption'
-check_present "Hearth Sweettest uses wasmer-sys-cranelift" 'holochain.*features.*wasmer-sys-cranelift'
-check_present_any "Hearth uses SweetConductor::standard" 'SweetConductor::standard\s*\('
-check_present "Hearth dev shell provides Node.js 24" 'nodejs_24'
-check_present "Hearth dev shell provides Perl" '\bperl\b'
-check_present "Hearth flake uses Holonix main-0.7" 'holonix.*ref=main-0\.7'
-check_present "Hearth package builds use Holonix Rust" 'nativeBuildInputs[[:space:]]*=[[:space:]]*\[[[:space:]]*holochainPackages\.rust[[:space:]]'
-check_absent "Hearth package builds do not use shared Rust toolchain" 'holochainBase\.rustToolchain'
-check_present "Hearth default shell prepends Holonix Rust" 'export PATH="\$\{holochainPackages\.rust\}/bin:\$PATH'
+check_present_file "Hearth HDK 0.7.0 dependency floor" "mycelix-workspace/mycelix-hearth/Cargo.toml" '^[[:space:]]*hdk[[:space:]]*=[[:space:]]*"=0\.7\.0"'
+check_present_file "Hearth HDI 0.8.0 dependency floor" "mycelix-workspace/mycelix-hearth/Cargo.toml" '^[[:space:]]*hdi[[:space:]]*=[[:space:]]*"=0\.8\.0"'
+check_present_file "Hearth serialized-bytes 0.0.57 floor" "mycelix-workspace/mycelix-hearth/Cargo.toml" '^[[:space:]]*holochain_serialized_bytes[[:space:]]*=[[:space:]]*"0\.0\.57"'
+check_present_file "Hearth Holochain 0.7.0 test dependency" "mycelix-workspace/mycelix-hearth/tests/Cargo.toml" '^[[:space:]]*holochain[[:space:]]*=[[:space:]]*\{[^}]*version[[:space:]]*=[[:space:]]*"0\.7\.0"'
+check_present_file "Hearth Sweettest uses encryption feature" "mycelix-workspace/mycelix-hearth/tests/Cargo.toml" '^holochain[[:space:]]*=[[:space:]]*\{[^}]*features[[:space:]]*=.*"encryption"'
+check_present_file "Hearth Sweettest uses wasmer-sys-cranelift" "mycelix-workspace/mycelix-hearth/tests/Cargo.toml" '^holochain[[:space:]]*=[[:space:]]*\{[^}]*features[[:space:]]*=.*"wasmer-sys-cranelift"'
+check_present_file "Hearth uses SweetConductor::standard" "mycelix-workspace/mycelix-hearth/tests/sweettest_semantic_validation.rs" 'SweetConductor::standard[[:space:]]*\('
+check_present_file "Hearth dev shell provides Node.js 24" "mycelix-workspace/mycelix-hearth/flake.nix" 'nodejs_24'
+check_present_file "Hearth dev shell provides Perl" "mycelix-workspace/mycelix-hearth/flake.nix" '\bperl\b'
+check_present_file "Hearth flake uses Holonix main-0.7" "mycelix-workspace/mycelix-hearth/flake.nix" 'holonix[[:space:]]*=.*ref=main-0\.7'
+check_present_file "Hearth package builds use Holonix Rust" "mycelix-workspace/mycelix-hearth/flake.nix" 'nativeBuildInputs[[:space:]]*=[[:space:]]*\[[[:space:]]*holochainPackages\.rust[[:space:]]'
+check_absent_file "Hearth package builds do not use shared Rust toolchain" "mycelix-workspace/mycelix-hearth/flake.nix" 'holochainBase\.rustToolchain'
+check_present_file "Hearth default shell prepends Holonix Rust" "mycelix-workspace/mycelix-hearth/flake.nix" 'export PATH="\$\{holochainPackages\.rust\}/bin:\$PATH'
 
 check_lock_ref "flake.lock pins Holochain 0.7.0" "holochain" "holochain" "holochain" "holochain-0.7.0"
 check_lock_ref "flake.lock pins Kitsune2 0.5.0" "kitsune2" "holochain" "kitsune2" "v0.5.0"
