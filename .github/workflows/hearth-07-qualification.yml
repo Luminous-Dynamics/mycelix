@@ -177,6 +177,22 @@ jobs:
           print("OK: holonix is pinned to the verified Holochain 0.7 lock object")
           PY
 
+      - name: Generate exact Rust dependency locks
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: |
+          set -euo pipefail
+          nix develop .#ci --command cargo generate-lockfile
+          nix develop .#ci --command bash -c 'cd tests && cargo generate-lockfile'
+          test -s Cargo.lock
+          test -s tests/Cargo.lock
+          sha256sum Cargo.lock tests/Cargo.lock > qualification-cargo-lock-sha256.txt
+          {
+            echo "hearth_cargo_lock=$(sha256sum Cargo.lock | awk '{print $1}')"
+            echo "tests_cargo_lock=$(sha256sum tests/Cargo.lock | awk '{print $1}')"
+          } > qualification-cargo-lock-summary.txt
+          nix develop .#ci --command cargo metadata --locked --format-version 1 > qualification-cargo-metadata.json
+          nix develop .#ci --command bash -c 'cd tests && cargo metadata --locked --format-version 1' > tests/qualification-cargo-metadata.json
+
       - name: Syntax-check Hearth 0.7 audit
         working-directory: mycelix-workspace/mycelix-hearth
         run: bash -n tools/audit-holochain-07-source.sh
@@ -242,22 +258,6 @@ jobs:
         run: |
           set -o pipefail
           nix develop .#ci --command             cargo fmt --manifest-path tests/Cargo.toml --check 2>&1 | tee qualification-format.log
-
-      - name: Generate exact Rust dependency locks
-        working-directory: mycelix-workspace/mycelix-hearth
-        run: |
-          set -euo pipefail
-          nix develop .#ci --command cargo generate-lockfile
-          nix develop .#ci --command bash -c 'cd tests && cargo generate-lockfile'
-          test -s Cargo.lock
-          test -s tests/Cargo.lock
-          sha256sum Cargo.lock tests/Cargo.lock > qualification-cargo-lock-sha256.txt
-          {
-            echo "hearth_cargo_lock=$(sha256sum Cargo.lock | awk '{print $1}')"
-            echo "tests_cargo_lock=$(sha256sum tests/Cargo.lock | awk '{print $1}')"
-          } > qualification-cargo-lock-summary.txt
-          nix develop .#ci --command cargo metadata --locked --format-version 1 > qualification-cargo-metadata.json
-          nix develop .#ci --command bash -c 'cd tests && cargo metadata --locked --format-version 1' > tests/qualification-cargo-metadata.json
 
       - name: Build Hearth 0.7 zomes
         id: build_zomes
