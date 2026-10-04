@@ -27,7 +27,7 @@
     "verification_time_unix": "deterministic validation time",
     "revocation": ["state", "method", "crl_der_base64", "crl_der_sha256"],
     "spki_binding": ["state", "verifier_id", "certificate_sha256", "ek_public_wire_sha256"],
-    "session_binding_sha256": "binding over session, TPM, certificate chain, trust anchor and CRL"
+    "session_binding_sha256": "binding over session, TPM, certificate chain, trust-anchor source, verification time, revocation state/method/CRL, and SPKI certificate/public-key identity"
   },
   "profile_rules": {
     "version": 3,
