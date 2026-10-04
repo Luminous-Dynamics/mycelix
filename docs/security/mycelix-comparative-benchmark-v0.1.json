@@ -127,11 +127,13 @@
         ],
         "resource-C": [
           "subject_identity",
-          "network_segment"
+          "network_segment",
+          "admin_plane"
         ],
         "resource-D": [
           "subject_identity",
-          "network_segment"
+          "network_segment",
+          "admin_plane"
         ]
       },
       "compromise_effects": {
