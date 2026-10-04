@@ -262,6 +262,13 @@ const AUTHORITY_FRESHNESS_PROFILE: &str = "mycelix-authority-freshness-bundle-v1
 /// under a different freshness identity scheme. Dynamic proof/lease metadata remains outside
 /// the binding.
 fn authority_binding_from_freshness_digest(freshness_digest: [u8; 32]) -> [u8; 32] {
+    // Preserve the zero sentinel used by the kernel to represent missing
+    // authority freshness evidence; do not hash it into a seemingly valid
+    // non-zero binding.
+    if freshness_digest == [0; 32] {
+        return [0; 32];
+    }
+
     let mut hasher = blake3::Hasher::new();
     hasher.update(b"mycelix/security/authority-binding/v1");
     frame_hash_bytes(&mut hasher, AUTHORITY_FRESHNESS_PROTOCOL_VERSION.as_bytes());
@@ -1615,6 +1622,11 @@ mod tests {
             revalidate_permit(&permit, missing_evidence, 151),
             AuthorizationOutcome::Indeterminate(AuthorizationIndeterminacy::AmbiguousAuthority)
         );
+    }
+
+    #[test]
+    fn zero_freshness_digest_remains_missing_authority_binding() {
+        assert_eq!(authority_binding_from_freshness_digest([0; 32]), [0; 32]);
     }
 
     #[test]
