@@ -7,37 +7,56 @@ on:
       - 'security/**'
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   security-evidence:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     steps:
       - name: Check out exact commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
 
-      - name: Run platform Evidence contract
+      - name: Validate contracts
         shell: bash
         run: |
           set -euo pipefail
-          test -f docs/security/mycelix-platform-evidence-capture-v0.1.json
-          test -f scripts/security/verify_mycelix_platform_evidence_capture_v0_1.py
-          python3 -c 'import json, pathlib; p=pathlib.Path("docs/security/mycelix-platform-evidence-capture-v0.1.json"); d=json.loads(p.read_text()); assert d["profile_id"] == "mycelix.security.platform.evidence.capture"; assert len(d["vectors"]) == 22; assert d["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"'
-          python3 -m py_compile scripts/security/verify_mycelix_platform_evidence_capture_v0_1.py
-          python3 scripts/security/verify_mycelix_platform_evidence_capture_v0_1.py --self-test
-          grep -q 'ReferenceModelOnly' scripts/security/verify_mycelix_platform_evidence_capture_v0_1.py
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          platform = json.loads(Path("docs/security/mycelix-platform-evidence-capture-v0.1.json").read_text())
+          recon = json.loads(Path("docs/security/mycelix-pc-client-eventlog-reconstruction-v0.1.json").read_text())
+          assert platform["profile_id"] == "mycelix.security.platform.evidence.capture"
+          assert recon["profile_id"] == "mycelix.security.platform.eventlog.reconstruction"
+          assert platform["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"
+          assert len(platform["vectors"]) == 22
+          assert len(recon["vectors"]) == 22
+          assert "eventlog-reconstruction-input.json" in platform["qualification_required_artifacts"]
+          assert "verifier_source_sha256" in platform["required_reconstruction_output"]
+          PY
+
+      - name: Compile security verifiers and bundle regression
+        run: |
+          python3 -m py_compile             scripts/security/verify_mycelix_platform_evidence_capture_v0_1.py             scripts/security/reconstruct_mycelix_pc_client_eventlog_v0_1.py             scripts/security/test_mycelix_platform_evidence_bundle_v0_1.py
+
+      - name: Run platform Evidence semantic corpus
+        run: python3 scripts/security/verify_mycelix_platform_evidence_capture_v0_1.py --self-test
+
+      - name: Run independent PCR reconstruction semantic corpus
+        run: python3 scripts/security/reconstruct_mycelix_pc_client_eventlog_v0_1.py --self-test
+
+      - name: Run end-to-end bundle false-green regression
+        run: python3 scripts/security/test_mycelix_platform_evidence_bundle_v0_1.py
+
+      - name: Confirm claim ceiling remains bounded
+        run: |
+          set -euo pipefail
+          grep -q '"claim_ceiling": "ReferenceModelOnly"' docs/security/mycelix-platform-evidence-capture-v0.1.json
           grep -q 'TPM PLATFORM CAPTURE: NOT EXECUTED' scripts/security/verify_mycelix_platform_evidence_capture_v0_1.py
-          grep -q 'tpm2_checkquote' scripts/security/verify_mycelix_platform_evidence_capture_v0_1.py
-
-      - name: Run independent PCR reconstruction contract when present
-        shell: bash
-        run: |
-          set -euo pipefail
-          if test -f docs/security/mycelix-pc-client-eventlog-reconstruction-v0.1.json; then
-            test -f scripts/security/reconstruct_mycelix_pc_client_eventlog_v0_1.py
-            python3 -c 'import json, pathlib; p=pathlib.Path("docs/security/mycelix-pc-client-eventlog-reconstruction-v0.1.json"); d=json.loads(p.read_text()); assert d["profile_id"] == "mycelix.security.platform.eventlog.reconstruction"; assert len(d["vectors"]) == 22'
-            python3 -m py_compile scripts/security/reconstruct_mycelix_pc_client_eventlog_v0_1.py
-            python3 scripts/security/reconstruct_mycelix_pc_client_eventlog_v0_1.py --self-test
-          else
-            echo "Reconstruction contract not present in this feature stack; separate PR."
-          fi
+          grep -q 'reconstruction-result-not-qualified' scripts/security/verify_mycelix_platform_evidence_capture_v0_1.py
