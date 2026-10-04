@@ -1,8 +1,8 @@
 # SYM-CIVIC-018 — sealing-key discovery trust-chain preflight v1
 
-Status: design/research preflight only; candidate — not qualified.
+Status: design/research preflight only; v2 repair candidate — not qualified.
 
-Parent subject: `41ade1f999b62b319e6ebb1486d7b6a41cc0c998`
+Parent subject: `fe82a004c30165affa77b9172d6b44fcd80a41f3`
 
 ## Boundary
 
@@ -41,7 +41,9 @@ ARP-04 also requires the sealing key set to be published and notarised with a Pu
 
 ## Corpus
 
-Exactly 30 adversarial cases; no expected-verdict fields.
+Exactly 34 adversarial cases; no expected-verdict fields.
+
+The v2 repair adds fail-closed malformed-origin cases at nested authorization, key-set, and register-origin boundaries, plus an explicit byte-order case for the Output's Addressed-Registers Identifier Set.
 
 Coverage includes authorization mismatch and omission, signed-document binding drift, bytewise ordering, signer resolution, key-set signer binding, sealing-key deletion, JWK-thumbprint drift, payload/COSE/path `kid` drift, Sealing-Key Identifier origin drift, not-yet-valid and expired keys, retired-key acceptance and boundary rejection, revoked-key historical acceptance and boundary rejection, missing revocation time, key-set signer validity failure, duplicate addressed registers, and RFC 3986-equivalent origin spellings.
 
@@ -53,7 +55,13 @@ GREEN establishes only a synthetic, self-consistent trust-chain relation over a 
 
 It does not establish actual COSE_Sign1 verification, deterministic CBOR interoperability, HTTP or Web PKI behavior, live retrieval behavior, real-world authority, private-key possession, Transparency Service notarisation, deployment completeness, operator independence, policy correctness, or operational safety.
 
+RFC 3986 treats scheme and host as case-insensitive normalization targets but still defines a syntactic port component; malformed authority data is therefore invalid input and must become rejection rather than an uncaught verifier exception. citeturn759800search0
+
 RFC 9052 independently requires unique COSE header-map labels and rejection of duplicate labels. 018 leaves duplicate-CBOR-map parsing to a future encoding-focused boundary instead of pretending the JSON fixture already implements it. citeturn104151search1
+
+## v2 repair rule
+
+`Malformed origin data is untrusted input: parser failure becomes REJECT, never an uncaught verifier exception; canonical output ordering is checked as part of the representation boundary.`
 
 ## Design rule
 

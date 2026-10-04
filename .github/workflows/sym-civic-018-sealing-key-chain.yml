@@ -1,9 +1,9 @@
-name: SYM-CIVIC-018 Sealing Key Chain
+name: SYM-CIVIC-018 Sealing Key Chain v2
 
 on:
   push:
     branches:
-      - 'staging/sym-civic-018-sealing-key-chain-v1'
+      - 'staging/sym-civic-018-sealing-key-chain-v2'
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
@@ -32,7 +32,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          EXPECTED_PARENT='41ade1f999b62b319e6ebb1486d7b6a41cc0c998'
+          EXPECTED_PARENT='fe82a004c30165affa77b9172d6b44fcd80a41f3'
           test "$(git merge-base HEAD "$EXPECTED_PARENT")" = "$EXPECTED_PARENT"
           test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
           test "$(git rev-list --parents -n 1 HEAD | awk '{print NF-1}')" = "1"
@@ -43,7 +43,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          EXPECTED_PARENT='41ade1f999b62b319e6ebb1486d7b6a41cc0c998'
+          EXPECTED_PARENT='fe82a004c30165affa77b9172d6b44fcd80a41f3'
           expected="$(printf '%s\n' \
             'mycelix-workspace/docs/civic-resilience/SYM_CIVIC_018_SEALING_KEY_CHAIN_V1.md' \
             'mycelix-workspace/docs/civic-resilience/sym_civic_018_sealing_key_chain_v1.json' \

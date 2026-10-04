@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = ROOT / "mycelix-workspace/docs/civic-resilience/sym_civic_018_sealing_key_chain_v1.json"
 PROGRAM = "SYM-CIVIC-018"
 SCHEMA = "mycelix.sym-civic.sealing-key-chain-preflight.v1"
-PARENT_SUBJECT = "41ade1f999b62b319e6ebb1486d7b6a41cc0c998"
+PARENT_SUBJECT = "fe82a004c30165affa77b9172d6b44fcd80a41f3"
 
 REJECT = "REJECT_SEALING_KEY_CHAIN"
 SUFFICIENT = "SEALING_KEY_CHAIN_SUFFICIENT"
@@ -32,21 +32,30 @@ def b64url(value):
     return base64.urlsafe_b64encode(value).decode("ascii").rstrip("=")
 
 def normalize_origin(value):
-    parsed = urlsplit(value)
-    if (
-        parsed.scheme.lower() != "https"
-        or not parsed.hostname
-        or parsed.username is not None
-        or parsed.password is not None
-        or parsed.path not in ("", "/")
-        or parsed.query
-        or parsed.fragment
-    ):
-        raise ValueError("invalid origin")
-    host = parsed.hostname.lower()
-    port = parsed.port
-    netloc = host if port in (None, 443) else f"{host}:{port}"
-    return urlunsplit(("https", netloc, "", "", ""))
+    try:
+        parsed = urlsplit(value)
+        if (
+            parsed.scheme.lower() != "https"
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.path not in ("", "/")
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise ValueError("invalid origin")
+        host = parsed.hostname.lower()
+        port = parsed.port
+        netloc = host if port in (None, 443) else f"{host}:{port}"
+        return urlunsplit(("https", netloc, "", "", ""))
+    except Exception as exc:
+        raise ValueError("invalid origin") from exc
+
+def origin_or_none(value):
+    try:
+        return normalize_origin(value)
+    except Exception:
+        return None
 
 def synthetic_jwk(seed):
     return {
@@ -245,6 +254,11 @@ def validate_primary(candidate):
         return REJECT
     if len(addressed) != len(set(addressed)):
         return REJECT
+    if output["addressed_registers"] != sorted(
+        output["addressed_registers"],
+        key=lambda value: value.encode("utf-8"),
+    ):
+        return REJECT
 
     agreement_origins = []
     for agreement in candidate["agreements"]:
@@ -281,7 +295,7 @@ def validate_primary(candidate):
         register_origin = normalize_origin(agreement["register_origin"])
         register = next(
             (r for r in candidate["registers"]
-             if normalize_origin(r["register_origin"]) == register_origin),
+             if origin_or_none(r.get("register_origin")) == register_origin),
             None,
         )
         if register is None:
@@ -299,7 +313,12 @@ def validate_primary(candidate):
         except Exception:
             return REJECT
 
-        target = [entry for entry in entries if normalize_origin(entry[0]) == authority]
+        target = [
+            entry for entry in entries
+            if isinstance(entry, list)
+            and len(entry) == 3
+            and origin_or_none(entry[0]) == authority
+        ]
         if len(target) != 1:
             return REJECT
 
@@ -324,7 +343,7 @@ def validate_primary(candidate):
         keyset = register.get("sealing_keys")
         if (
             not keyset
-            or normalize_origin(keyset.get("origin", "")) != authority
+            or origin_or_none(keyset.get("origin", "")) != authority
             or keyset.get("signing_kid") != sealing_signer
         ):
             return REJECT
@@ -366,11 +385,17 @@ def validate_reference(candidate):
         return REJECT
 
     try:
-        stated = {normalize_origin(v) for v in output["addressed_registers"]}
+        stated_values = [normalize_origin(v) for v in output["addressed_registers"]]
     except Exception:
         return REJECT
-    if len(stated) != len(output["addressed_registers"]):
+    if len(stated_values) != len(output["addressed_registers"]):
         return REJECT
+    if output["addressed_registers"] != sorted(
+        output["addressed_registers"],
+        key=lambda value: value.encode("utf-8"),
+    ):
+        return REJECT
+    stated = set(stated_values)
 
     declared = set()
     for agreement in candidate["agreements"]:
@@ -399,7 +424,9 @@ def validate_reference(candidate):
         return REJECT
 
     for register in candidate["registers"]:
-        register_origin = normalize_origin(register["register_origin"])
+        register_origin = origin_or_none(register.get("register_origin"))
+        if register_origin is None:
+            return REJECT
         auth = register.get("auth")
         if not isinstance(auth, dict):
             return REJECT
@@ -414,7 +441,7 @@ def validate_reference(candidate):
         target = [
             entry for entry in entries
             if isinstance(entry, list) and len(entry) == 3
-            and normalize_origin(entry[0]) == authority
+            and origin_or_none(entry[0]) == authority
         ]
         if len(target) != 1 or target[0][1] == target[0][2]:
             return REJECT
@@ -436,7 +463,7 @@ def validate_reference(candidate):
         keyset = register.get("sealing_keys")
         if not isinstance(keyset, dict):
             return REJECT
-        if normalize_origin(keyset.get("origin", "")) != authority:
+        if origin_or_none(keyset.get("origin", "")) != authority:
             return REJECT
         signer_kid = target[0][1]
         if keyset.get("signing_kid") != signer_kid:
@@ -499,7 +526,7 @@ def main():
     assert document["parent_subject"] == PARENT_SUBJECT
 
     cases = document["cases"]
-    assert [case["id"] for case in cases] == [f"C-{i:02d}" for i in range(1, 31)]
+    assert [case["id"] for case in cases] == [f"C-{i:02d}" for i in range(1, 35)]
     for case in cases:
         assert set(case) == {"id", "family", "mutations"}
         lowered = canon(case).lower()
@@ -532,7 +559,7 @@ def main():
     }
     assert not disagreements, disagreements
     assert census == {
-        REJECT: 25,
+        REJECT: 29,
         SUFFICIENT: 5,
         UNRESOLVED: 0,
     }, census
@@ -546,6 +573,22 @@ def main():
     variant = clone(candidate_for(cases[0]))
     variant["agreements"][0]["authority_origin"] = "https://SERVER.EXAMPLE:443/"
     assert verdict(variant)[0] == SUFFICIENT
+
+    malformed = clone(candidate_for(cases[0]))
+    malformed["registers"][0]["auth"]["entries"][0][0] = "https://server.example:bad"
+    assert verdict(malformed)[0] == REJECT
+
+    malformed = clone(candidate_for(cases[0]))
+    malformed["registers"][0]["sealing_keys"]["origin"] = "https://server.example:bad"
+    assert verdict(malformed)[0] == REJECT
+
+    malformed = clone(candidate_for(cases[0]))
+    malformed["registers"][0]["register_origin"] = "https://reg-a.example:bad"
+    assert verdict(malformed)[0] == REJECT
+
+    reordered = clone(candidate_for(cases[0]))
+    reordered["output"]["addressed_registers"] = list(reversed(reordered["output"]["addressed_registers"]))
+    assert verdict(reordered)[0] == REJECT
 
     print("SYM-CIVIC-018 DERIVED=" + canon(census))
     print("SYM-CIVIC-018 METAMORPHIC=PASS")
