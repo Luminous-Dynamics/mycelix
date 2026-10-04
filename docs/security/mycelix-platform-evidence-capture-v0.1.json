@@ -257,6 +257,10 @@
     {
       "id": "CAP-025",
       "rule": "Reference appraisal is bound to the exact reference artifact, registry digest, verifier source, and capture session."
+    },
+    {
+      "id": "CAP-026",
+      "rule": "Trusted-time evidence requires independent appraisal with an external nonce and an explicit verifier evaluation time; local clock claims are not authoritative."
     }
   ],
   "decision_algebra": "ANY DENY > ANY INDETERMINATE > ALL PASS",
