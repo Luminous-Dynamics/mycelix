@@ -889,7 +889,7 @@
     },
     {
       "id": "EDT-176",
-      "case": "missing_authority_agent_binding_is_preflight_only_and_makes_no_host_calls",
+      "case": "missing_authority_agent_binding_is_preflight_only_and_stops_before_dht_retrieval",
       "expected": "unresolved_at_protocol_layer"
     },
     {
