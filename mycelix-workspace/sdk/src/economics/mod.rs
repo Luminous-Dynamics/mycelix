@@ -16,6 +16,7 @@ pub mod decay_garden;
 pub mod economic_os;
 pub mod impact;
 pub mod integrity_gate;
+pub mod jurisdiction_pack;
 pub mod action_lifecycle;
 pub mod execution_receipt;
 pub mod execution_reconciliation;
@@ -36,6 +37,7 @@ pub use metabolic_oracle::{
     TendLimitTier, VitalityIndex,
 };
 pub use economic_os::EconomicOsEnvelope;
+pub use jurisdiction_pack::{EconomicJurisdictionPack, EconomicOsCapability, InteroperabilityGuarantee};
 pub use policy_profile::{EconomicOsOperation, EconomicPolicyProfile};
 pub use poc::{
     calculate_mycel_score, jubilee_normalize, GamingDetection, GamingRecommendation,
