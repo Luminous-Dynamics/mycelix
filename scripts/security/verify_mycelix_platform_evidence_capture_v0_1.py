@@ -1277,6 +1277,8 @@ def capture(args: argparse.Namespace) -> int:
             "reconstruction_input_sha256": sha256_file(out / "eventlog-reconstruction-input.json"),
             "observed_pcr_values_file_sha256": sha256_file(out / "observed-pcr-values.json"),
             "raw_eventlog_output_sha256": sha256_file(raw_eventlog_path),
+            "payload_coherence_output_sha256": sha256_file(payload_coherence_path),
+            "reference_appraisal_output_sha256": sha256_file(reference_appraisal_path),
             "tss_version_evidence_sha256": sha256_file(out / "tss-version-evidence.txt"),
             "ek_public_sha256": ek_hash,
         },
