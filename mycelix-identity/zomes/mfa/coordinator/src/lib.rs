@@ -2427,16 +2427,28 @@ fn get_mfa_state_internal(did: &str) -> ExternResult<(MfaState, ActionHash)> {
         GetStrategy::default(),
     )?;
 
-    // Get the most recent link
-    let link = links
-        .into_iter()
-        .max_by_key(|l| l.timestamp)
-        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("MFA state not found".into())))?;
+    // DID-to-state is security state. Never choose among distinct legacy
+    // targets using mutable DHT link timestamps.
+    let mut action_hash: Option<ActionHash> = None;
+    for link in links {
+        let target = link
+            .target
+            .into_action_hash()
+            .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
 
-    let action_hash = link
-        .target
-        .into_action_hash()
-        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
+        if let Some(existing) = action_hash.as_ref() {
+            if existing != &target {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Ambiguous MFA state: multiple distinct DID-to-state targets exist".into(),
+                )));
+            }
+        } else {
+            action_hash = Some(target);
+        }
+    }
+
+    let action_hash = action_hash
+        .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("MFA state not found".into())))?;
 
     let record = get_latest_record(action_hash.clone())?
         .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("MFA state record not found".into())))?;
