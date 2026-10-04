@@ -22,6 +22,16 @@ pub struct DidDocument {
     pub verification_method: Vec<VerificationMethod>,
     /// Authentication methods
     pub authentication: Vec<String>,
+    /// Verification methods authorized to make assertions for this DID.
+    /// W3C Data Integrity proofs using proofPurpose=assertionMethod must
+    /// reference a method listed here.
+    #[serde(
+        rename = "assertionMethod",
+        alias = "assertion_method",
+        default,
+        skip_serializing_if = "Vec::is_empty"
+    )]
+    pub assertion_method: Vec<String>,
     /// Key agreement methods for encryption (W3C DID Core §5.3.3).
     ///
     /// Each entry is a DID URL fragment (e.g. "#kem-1") referencing a
@@ -534,6 +544,12 @@ fn validate_verification_method_set(did_doc: &DidDocument) -> Result<(), String>
             return Err(format!("DID authentication reference '{}' must use a signature algorithm, detected {}", reference, algorithm.did_verification_method_type()));
         }
     }
+    for reference in &did_doc.assertion_method {
+        let algorithm = algorithms.get(reference.as_str()).ok_or_else(|| format!("DID assertionMethod reference '{}' must resolve to a verification method", reference))?;
+        if !algorithm.is_signature_algorithm() {
+            return Err(format!("DID assertionMethod reference '{}' must use a signature algorithm, detected {}", reference, algorithm.did_verification_method_type()));
+        }
+    }
     for reference in &did_doc.key_agreement {
         let algorithm = algorithms.get(reference.as_str()).ok_or_else(|| format!("DID keyAgreement reference '{}' must resolve to a verification method", reference))?;
         if !matches!(algorithm, AlgorithmId::MlKem768 | AlgorithmId::MlKem1024) {
@@ -892,6 +908,32 @@ mod tests {
         assert!(validate_mycelix_did_syntax("did:mycelix:uhCAk-_0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz").is_ok());
     }
 
+
+    #[test]
+    fn assertion_method_requires_resolvable_signature_method() {
+        let method = VerificationMethod {
+            id: "did:mycelix:test#keys-1-multikey".into(),
+            type_: "Multikey".into(),
+            controller: "did:mycelix:test".into(),
+            public_key_multibase: "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK".into(),
+            algorithm: None,
+        };
+        let mut document = DidDocument {
+            id: "did:mycelix:test".into(),
+            controller: AgentPubKey::from_raw_36(vec![7; 36]),
+            verification_method: vec![method],
+            authentication: vec![],
+            assertion_method: vec!["did:mycelix:test#keys-1-multikey".into()],
+            key_agreement: vec![],
+            service: vec![],
+            created: Timestamp::from_micros(1),
+            updated: Timestamp::from_micros(1),
+            version: 1,
+        };
+        assert!(validate_verification_method_set(&document).is_ok());
+        document.assertion_method = vec!["did:mycelix:test#missing".into()];
+        assert!(validate_verification_method_set(&document).is_err());
+    }
 
     #[test]
     fn verification_method_accepts_w3c_ed25519_multikey() {
