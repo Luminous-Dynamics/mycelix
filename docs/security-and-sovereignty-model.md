@@ -129,6 +129,8 @@ This separation prevents a valid signature from being treated as a synthetic pro
 
 ## Trust boundary
 
+Legacy `OfflineCredential` and `FreshnessAttestation` helpers in `mycelix-bridge-common` are not authorization roots. `OfflineCredential::effective_tier()` intentionally uses only its locally retained verification timestamp; an attached attestation does not affect authority merely because signature bytes are present. The explicit attestation-key path verifies the MAC before using an attested freshness timestamp, but the caller must still independently establish that the key belongs to the named attester and that the attester is authorized for the relevant domain. Neither an offline tier nor an attestation may be converted directly into `VerificationEvidence` or treated as current institutional authority.
+
 Symthaea must not be the root of trust.
 
 The intended layering is:
