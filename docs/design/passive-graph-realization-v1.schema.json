@@ -15,7 +15,7 @@
     "disconnected_paths",
     "invalid_paths",
     "path_results",
-    "unexpected_connectivity",
+    "unexpected_flow_connectivity",
     "physical_transport_unproven"
   ],
   "properties": {
