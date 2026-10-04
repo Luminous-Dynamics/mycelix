@@ -3,7 +3,8 @@
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Verifiable Credential Coordinator Zome
 //!
-//! W3C Verifiable Credentials Data Model 2.0 implementation with native Mycelix\n//! integrity extensions and W3C Data Integrity eddsa-jcs-2022 support
+//! Mycelix VC 2.0 application profile with native integrity extensions and W3C
+//! Data Integrity eddsa-jcs-2022 support.
 //! Handles credential issuance, verification, and presentation
 //!
 //! # Cryptographic Signatures
