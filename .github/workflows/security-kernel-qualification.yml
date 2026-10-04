@@ -182,7 +182,7 @@ jobs:
           # every Rust visibility form, not merely bare pub.
           for pattern in \
             'pub([[:space:]]*\([^)]*\))?[[:space:]]+(decision|capability_binding|authority_binding|event_id|actor_id|capability_ref|request|policy_version|timestamp_us|provenance|recovery_correlation)[[:space:]]*:'; do
-            if grep -nzE "$pattern" crates/mycelix-bridge-common/src/security_events.rs; then
+            if grep -nE "$pattern" crates/mycelix-bridge-common/src/security_events.rs; then
               echo "security-event trust-surface regression: $pattern" >&2
               exit 1
             fi
@@ -275,11 +275,11 @@ jobs:
             echo "security-event regression: programmatic provenance bound coverage disappeared" >&2
             exit 1
           fi
-          if ! grep -nzE 'pub[[:space:]]+fn[[:space:]]+with_provenance[[:space:]]*\(' crates/mycelix-bridge-common/src/security_events.rs; then
+          if ! grep -nE 'pub[[:space:]]+fn[[:space:]]+with_provenance[[:space:]]*\(' crates/mycelix-bridge-common/src/security_events.rs; then
             echo "security-event regression: provenance enrichment API disappeared unexpectedly" >&2
             exit 1
           fi
-          if ! grep -nzE 'if[[:space:]]+provenance\.len\(\)[[:space:]]*>[[:space:]]*MAX_SECURITY_EVENT_PROVENANCE_REFS' crates/mycelix-bridge-common/src/security_events.rs; then
+          if ! grep -nE 'if[[:space:]]+provenance\.len\(\)[[:space:]]*>[[:space:]]*MAX_SECURITY_EVENT_PROVENANCE_REFS' crates/mycelix-bridge-common/src/security_events.rs; then
             echo "security-event regression: programmatic provenance retention is no longer bounded" >&2
             exit 1
           fi
@@ -288,7 +288,7 @@ jobs:
           # use ProvenanceRef::new(), and wire decoding must pass through that constructor.
           for pattern in \
             'pub([[:space:]]*\([^)]*\))?[[:space:]]+(artifact_id|relation)[[:space:]]*:'; do
-            if grep -nzE "$pattern" crates/mycelix-bridge-common/src/security_events.rs; then
+            if grep -nE "$pattern" crates/mycelix-bridge-common/src/security_events.rs; then
               echo "security-event trust-surface regression: public ProvenanceRef field: $pattern" >&2
               exit 1
             fi
@@ -410,12 +410,12 @@ jobs:
             echo "security-event regression: provenance wire sequence lost bounded deserialization" >&2
             exit 1
           fi
-          if ! grep -nzE 'pub[[:space:]]+enum[[:space:]]+SecurityEventDecision' crates/mycelix-bridge-common/src/security_events.rs; then
+          if ! grep -nE 'pub[[:space:]]+enum[[:space:]]+SecurityEventDecision' crates/mycelix-bridge-common/src/security_events.rs; then
             echo "security-event regression: SecurityEventDecision vocabulary disappeared" >&2
             exit 1
           fi
 
-          if ! grep -nzE 'decision:[[:space:]]*SecurityEventDecision' crates/mycelix-bridge-common/src/security_events.rs; then
+          if ! grep -nE 'decision:[[:space:]]*SecurityEventDecision' crates/mycelix-bridge-common/src/security_events.rs; then
             echo "security-event regression: SecurityEvent no longer uses the audit decision vocabulary" >&2
             exit 1
           fi
@@ -428,7 +428,7 @@ jobs:
             echo "security-kernel regression: bounded identifier deserializer disappeared" >&2
             exit 1
           fi
-          if ! grep -nzE 'fn authority_binding_from_freshness_digest\([^)]*\)[[:space:]]*->[[:space:]]*\[u8;[[:space:]]*32\][[:space:]]*\{' crates/mycelix-bridge-common/src/security_kernel.rs; then
+          if ! grep -nE 'fn authority_binding_from_freshness_digest\([^)]*\)[[:space:]]*->[[:space:]]*\[u8;[[:space:]]*32\][[:space:]]*\{' crates/mycelix-bridge-common/src/security_kernel.rs; then
             echo "security-kernel regression: authority freshness binding helper disappeared" >&2
             exit 1
           fi
@@ -473,7 +473,7 @@ jobs:
             echo "security-event regression: recovery correlation validation call disappeared" >&2
             exit 1
           fi
-          if grep -nzE 'event\.recovery_correlation[[:space:]]*=[[:space:]]*wire\.recovery_correlation' crates/mycelix-bridge-common/src/security_events.rs; then
+          if grep -nE 'event\.recovery_correlation[[:space:]]*=[[:space:]]*wire\.recovery_correlation' crates/mycelix-bridge-common/src/security_events.rs; then
             echo "security-event regression: recovery correlation is assigned directly from wire data" >&2
             exit 1
           fi
@@ -501,7 +501,7 @@ jobs:
           # serialization would let downstream callers forge the verification hand-off.
           for pattern in \
             '[[:space:]]*pub([[:space:]]*\([^)]*\))?[[:space:]]+(capability|verification_valid_until_us|authority_binding)[[:space:]]*:'; do
-            if grep -nzE "$pattern" crates/mycelix-bridge-common/src/security_kernel.rs; then
+            if grep -nE "$pattern" crates/mycelix-bridge-common/src/security_kernel.rs; then
               echo "security-kernel trust-surface regression: VerifiedCapability field became public: $pattern" >&2
               exit 1
             fi
