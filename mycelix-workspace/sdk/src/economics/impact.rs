@@ -662,6 +662,39 @@ mod tests {
     }
 
     #[test]
+    fn action_scoped_exposure_excludes_unrelated_actions() {
+        let mut ledger = ImpactLedger::new();
+
+        let mut local = depletion();
+        local.id = "impact:local".into();
+        local.action_ref = "action:local".into();
+        ledger.record_impact(local).unwrap();
+
+        let mut other = depletion();
+        other.id = "impact:other".into();
+        other.action_ref = "action:other".into();
+        ledger.record_impact(other).unwrap();
+
+        assert_eq!(
+            ledger.exposure_for_action("action:local").open_impact_ids,
+            vec!["impact:local"]
+        );
+        assert_eq!(
+            ledger.exposure_for_action("action:other").open_impact_ids,
+            vec!["impact:other"]
+        );
+        assert!(ledger.exposure_for_action("action:missing").open_impact_ids.is_empty());
+
+        assert_eq!(
+            ledger.gate_for_action(
+                "action:local",
+                DistributionPurpose::Discretionary
+            ),
+            ImpactGateDecision::InsufficientAttribution
+        );
+    }
+
+    #[test]
     fn unknown_or_partial_attribution_cannot_close_depletion() {
         let mut ledger = ImpactLedger::new();
         ledger.record_impact(depletion()).unwrap();
