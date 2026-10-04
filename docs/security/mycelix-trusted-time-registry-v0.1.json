@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "registry_id": "mycelix.trusted-time.registry.v0.1",
+  "profile_version": "0.1.0",
+  "approved": [
+    {
+      "source_id": "mycelix.reference-model.trusted-time",
+      "max_age_seconds": 60,
+      "status": "APPROVED_REFERENCE_MODEL_FIXTURE"
+    }
+  ]
+}
