@@ -661,11 +661,8 @@ mod tests {
 
         let provenance = (0..MAX_SECURITY_EVENT_PROVENANCE_REFS)
             .map(|index| {
-                ProvenanceRef::new(
-                    format!("evidence:{index}"),
-                    ProvenanceRelation::References,
-                )
-                .unwrap()
+                ProvenanceRef::new(format!("evidence:{index}"), ProvenanceRelation::References)
+                    .unwrap()
             })
             .collect();
 
