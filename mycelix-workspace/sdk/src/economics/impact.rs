@@ -334,6 +334,12 @@ impl ImpactLedger {
     ) -> Result<(), String> {
         for attribution in &attributions {
             attribution.validate()?;
+            if attribution.basis == AttributionBasis::Unknown {
+                return Err(
+                    "Unknown attribution cannot close an impact; leave the residual unresolved"
+                        .into(),
+                );
+            }
         }
 
         attributions.sort_by(|left, right| left.actor.cmp(&right.actor));
@@ -367,6 +373,12 @@ impl ImpactLedger {
         if !matches!(impact.status, ImpactStatus::Open | ImpactStatus::Challenged) {
             return Err("Only open or challenged impacts may be attributed".into());
         }
+        if impact.obligation_id.is_some() {
+            return Err(
+                "Impact already has a restoration obligation; resolve the existing obligation before re-attribution"
+                    .into(),
+            );
+        }
 
         if impact.direction == ImpactDirection::Depletion {
             let obligation_id = obligation_id
@@ -397,11 +409,7 @@ impl ImpactLedger {
         }
 
         impact.attributions = attributions;
-        impact.status = if impact.direction == ImpactDirection::Depletion {
-            ImpactStatus::Attributed
-        } else {
-            ImpactStatus::Restored
-        };
+        impact.status = ImpactStatus::Attributed;
 
         Ok(())
     }
@@ -575,6 +583,28 @@ mod tests {
     }
 
     #[test]
+    fn unknown_basis_cannot_disguise_missing_attribution() {
+        let mut ledger = ImpactLedger::new();
+        ledger.record_impact(depletion()).unwrap();
+
+        let result = ledger.attribute_impact(
+            "impact-1",
+            vec![ImpactAttribution {
+                actor: "did:example:unknown".into(),
+                basis: AttributionBasis::Unknown,
+                share_bps: 10_000,
+                evidence_ref: None,
+            }],
+            Some("obligation-1".into()),
+            Some(5_000),
+        );
+
+        assert!(result.is_err());
+        assert!(ledger.obligation("obligation-1").is_none());
+        assert_eq!(ledger.impact("impact-1").unwrap().status, ImpactStatus::Open);
+    }
+
+    #[test]
     fn full_attribution_opens_restoration_obligation() {
         let mut ledger = ImpactLedger::new();
         ledger.record_impact(depletion()).unwrap();
@@ -656,6 +686,32 @@ mod tests {
         assert_eq!(status, ObligationStatus::Restored);
         assert_eq!(ledger.impact("impact-1").unwrap().status, ImpactStatus::Restored);
         assert_eq!(ledger.obligation("obligation-1").unwrap().outstanding(), 0);
+    }
+
+    #[test]
+    fn reattribution_cannot_orphan_an_existing_obligation() {
+        let mut ledger = ImpactLedger::new();
+        ledger.record_impact(depletion()).unwrap();
+        ledger
+            .attribute_impact(
+                "impact-1",
+                vec![attribution("did:example:a", 10_000)],
+                Some("obligation-1".into()),
+                Some(5_000),
+            )
+            .unwrap();
+        ledger.challenge_impact("impact-1").unwrap();
+
+        let result = ledger.attribute_impact(
+            "impact-1",
+            vec![attribution("did:example:b", 10_000)],
+            Some("obligation-2".into()),
+            Some(6_000),
+        );
+
+        assert!(result.is_err());
+        assert!(ledger.obligation("obligation-2").is_none());
+        assert!(ledger.obligation("obligation-1").is_some());
     }
 
     #[test]
