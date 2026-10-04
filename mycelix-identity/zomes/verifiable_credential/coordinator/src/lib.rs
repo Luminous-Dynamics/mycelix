@@ -1662,6 +1662,78 @@ pub struct RequestCredentialInput {
     pub evidence: Option<Vec<CredentialEvidence>>,
 }
 
+/// Input for canonical credential-request lookup.
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GetCredentialRequestInput {
+    pub issuer_did: String,
+    pub request_id: String,
+}
+
+/// Resolve a credential request by the issuer's DHT index and follow its update chain.
+///
+/// The issuer DID is explicit because the request ID alone is not a globally
+/// derivable locator. Distinct current records claiming the same request ID
+/// are treated as an integrity ambiguity rather than arbitrarily selecting one.
+#[hdk_extern]
+pub fn get_credential_request(
+    input: GetCredentialRequestInput,
+) -> ExternResult<Option<Record>> {
+    if input.issuer_did.is_empty() || input.issuer_did.len() > 256 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Issuer DID must be 1-256 characters".into(),
+        )));
+    }
+    if input.request_id.is_empty() || input.request_id.len() > 256 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Request ID must be 1-256 characters".into(),
+        )));
+    }
+
+    let issuer_hash = string_to_entry_hash(&input.issuer_did);
+    let links = get_links(
+        LinkQuery::try_new(issuer_hash, LinkTypes::IssuerToRequest)?,
+        GetStrategy::default(),
+    )?;
+
+    let mut selected: Option<(ActionHash, Record)> = None;
+    for link in links {
+        let action_hash = ActionHash::try_from(link.target)
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+                "Invalid credential request link target".into(),
+            )))?;
+
+        let Some(record) = get_latest_record(action_hash.clone())? else {
+            continue;
+        };
+        let Some(req) = record
+            .entry()
+            .to_app_option::<CredentialRequest>()
+            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        else {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Issuer request index contains a non-request record".into(),
+            )));
+        };
+
+        if req.id != input.request_id {
+            continue;
+        }
+
+        if let Some((existing_hash, _)) = selected.as_ref() {
+            if existing_hash != &action_hash {
+                return Err(wasm_error!(WasmErrorInner::Guest(
+                    "Ambiguous credential request ID: multiple distinct current requests exist"
+                        .into(),
+                )));
+            }
+        } else {
+            selected = Some((action_hash, record));
+        }
+    }
+
+    Ok(selected.map(|(_, record)| record))
+}
+
 /// Get pending requests for an issuer
 #[hdk_extern]
 pub fn get_pending_requests(issuer_did: String) -> ExternResult<Vec<Record>> {
