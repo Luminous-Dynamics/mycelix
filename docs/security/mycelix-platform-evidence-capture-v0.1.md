@@ -27,11 +27,11 @@ coherent platform Evidence
 
 ## Why the event log is a separate theorem
 
-The Linux TPM event-log model treats the preboot event log as richer context accompanying PCR contents; the log is not trusted merely because it exists or parses. citeturn312934search7
+The Linux TPM event-log model treats the preboot event log as richer context accompanying PCR contents; the log is not trusted merely because it exists or parses. See the Linux kernel TPM event-log documentation: https://www.kernel.org/doc/html/latest/security/tpm/tpm_event_log.html
 
-The tpm2-tools `tpm2_eventlog` utility parses a binary TPM2 event log according to the TCG PC Client Platform Firmware Profile format. citeturn312934search0
+The tpm2-tools `tpm2_eventlog` utility parses a binary TPM2 event log according to the TCG PC Client Platform Firmware Profile format: https://tpm2-tools.readthedocs.io/en/latest/man/tpm2_eventlog.1/
 
-The TCG PC Client profile requires firmware measurements to be extended into PCRs and logged, and `EV_SEPARATOR` is measured across PCRs 0–7 once per boot to delimit the pre-OS/OS-Present transition. citeturn311994view0turn311994view1
+The TCG PC Client profile requires firmware measurements to be extended into PCRs and logged, and `EV_SEPARATOR` is measured across PCRs 0–7 once per boot to delimit the pre-OS/OS-Present transition. See the TCG PC Client Platform Firmware Profile: https://trustedcomputinggroup.org/resource/pc-client-specific-platform-firmware-profile-specification/
 
 Therefore:
 
@@ -44,7 +44,7 @@ quote signature valid
 
 ## PCR artifact hash versus PCR state
 
-This distinction is now explicit.
+This distinction is explicit.
 
 ```
 sha256(pcr-post.yaml)
@@ -59,7 +59,7 @@ canonical_hash({
 
 They are intentionally different claims.
 
-`tpm2_pcrread` emits PCR values in YAML and can also write raw PCR values in binary form; the verifier uses the YAML representation for the human-auditable artifact and parses the actual SHA-256 PCR values for the state hash. citeturn562146search0
+`tpm2_pcrread` emits PCR values in YAML and can also write raw PCR values in binary form. The verifier uses the YAML representation for the human-auditable artifact and parses the actual SHA-256 PCR values for the state hash: https://tpm2-tools.readthedocs.io/en/latest/man/tpm2_pcrread.1/
 
 ## Capture boundary
 
@@ -136,6 +136,8 @@ reference-value + trusted-time evidence
         ↓
 bounded platform Evidence
 ```
+
+The tpm2-tools quote verifier checks the TPM Quote signature and can verify the supplied qualifying data and PCR values: https://tpm2-tools.readthedocs.io/en/latest/man/tpm2_checkquote.1/
 
 The downstream flow remains:
 
