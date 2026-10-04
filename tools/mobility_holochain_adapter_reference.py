@@ -138,6 +138,7 @@ def main() -> int:
         "missing_binding_stops_before_dht_retrieval": True,
         "runtime_binding_payload_validation_precedes_authority_preflight": True,
         "runtime_binding_signature_verification_precedes_authority_preflight": True,
+        "candidate_address_kind_validation_precedes_binding_conflicts": True,
     }
     for key, expected in expected_authority_contract.items():
         if authority_contract.get(key) != expected:
