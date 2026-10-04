@@ -389,6 +389,12 @@ PY
           sha256sum             tools/audit-holochain-07-source.sh             tests/hearth-07-semantic-validation-cases.json             tests/sweettest_semantic_validation.rs             dna/dna.yaml             flake.nix             flake.lock             ../../.gitmodules             Cargo.toml             tests/Cargo.toml             ../../.github/workflows/hearth-07-qualification.yml             "${semantic_validator_sources[@]}"             > qualification-source-contract-sha256.txt
           sha256sum -c qualification-source-contract-sha256.txt
 
+          evidence_status="partial"
+          if [[ "${{ steps.source_audit.conclusion || 'unknown' }}" == "success"              && "${{ steps.build_zomes.conclusion || 'unknown' }}" == "success"              && "${{ steps.dna_pack.conclusion || 'unknown' }}" == "success"              && "${{ steps.sweettest.conclusion || 'unknown' }}" == "success"              && -s qualification-source-audit.log              && -s qualification-wasm-sha256.txt              && -s qualification-dna-sha256.txt              && -s qualification-cargo-lock-sha256.txt              && -s qualification-source-contract-sha256.txt              && -s qualification-cargo-metadata.json              && -s tests/qualification-cargo-metadata.json              && -s Cargo.lock              && -s tests/Cargo.lock ]]; then
+            evidence_status="complete"
+          fi
+          printf '%s\n' "$evidence_status" > qualification-evidence-status.txt
+
       - name: Capture qualification metadata
         if: always()
         working-directory: mycelix-workspace/mycelix-hearth
