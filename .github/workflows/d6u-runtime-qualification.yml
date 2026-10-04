@@ -12,7 +12,6 @@ permissions:
   contents: read
   id-token: write
   attestations: write
-  artifact-metadata: write
 
 concurrency:
   group: d6u-runtime-reference-${{ github.head_ref || github.ref_name }}
