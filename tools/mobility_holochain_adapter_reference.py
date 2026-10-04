@@ -159,7 +159,7 @@ def main() -> int:
         raise SystemExit("runtime binding must preserve exact authority delegation continuity")
     if "authorized_credential.payload.provenance.basis" not in compact_source:
         raise SystemExit("runtime binding must preserve the registered authority credential basis")
-    if "runtime binding witness identity must differ from the registered authority credential witness" not in compact_source:
+    if "runtime binding witness identity must differ from the registered authority credential witness".replace(" ", "") not in compact_source:
         raise SystemExit("runtime binding must use a distinct witness identity")
     if ".find(|basis| !binding.payload.provenance.basis.contains(basis))" not in source:
         raise SystemExit("runtime binding must reject dropped authority credential basis witnesses")
