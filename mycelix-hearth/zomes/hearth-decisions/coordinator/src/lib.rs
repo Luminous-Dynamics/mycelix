@@ -655,7 +655,7 @@ pub fn finalize_decision(input: FinalizeDecisionInput) -> ExternResult<Record> {
 pub fn close_decision(input: CloseDecisionInput) -> ExternResult<Record> {
     let agent = agent_info()?.agent_initial_pubkey;
 
-    let decision_record = get(input.decision_hash.clone(), GetOptions::default())?.ok_or(
+    let decision_record = get_current_decision_record(input.decision_hash.clone())?.ok_or(
         wasm_error!(WasmErrorInner::Guest("Decision not found".into())),
     )?;
     let mut decision: Decision = decision_record
@@ -902,7 +902,7 @@ pub fn amend_vote(input: AmendVoteInput) -> ExternResult<Record> {
 /// Get a single decision by its action hash.
 #[hdk_extern]
 pub fn get_decision(decision_hash: ActionHash) -> ExternResult<Option<Record>> {
-    get(decision_hash, GetOptions::default())
+    get_current_decision_record(decision_hash)
 }
 
 /// Get all decisions for a hearth.
@@ -1122,7 +1122,7 @@ pub fn get_my_pending_votes(hearth_hash: ActionHash) -> ExternResult<Vec<Record>
             continue;
         }
 
-        if let Some(record) = get_latest_record(target)? {
+        if let Some(record) = get_current_decision_record(target)? {
             let decision: Decision = record
                 .entry()
                 .to_app_option()
