@@ -937,7 +937,7 @@ check_qualification_workflow_provenance() {
     fail=1
   fi
 
-  if rg -n --fixed-strings 'group: hearth-07-qualification-${{ github.head_ref || github.ref_name }}' "$workflow" >/dev/null 2>&1
+  if rg -n --fixed-strings 'group: hearth-07-qualification-${{ github.head_ref || github.ref_name }}' "$workflow" >/dev/null 2>&1 \
     && ! rg -n --fixed-strings 'github.event.pull_request.head.ref || github.ref' "$workflow" >/dev/null 2>&1; then
     echo "OK:   qualification workflow uses one branch-name cancellation domain across push/PR events"
   else
