@@ -135,8 +135,8 @@ pub struct CredentialProof {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub domain: Option<String>,
     /// Proof-level @context used by W3C Data Integrity JCS proofs.
-    /// When present for eddsa-jcs-2022, it must be an ordered prefix of the
-    /// secured document's @context as defined by the W3C suite.
+    /// At Mycelix admission it is required to equal the secured document's
+    /// @context; verifier-side interoperability permits ordered-prefix context.
     #[serde(
         rename = "@context",
         default,
@@ -2097,6 +2097,22 @@ mod tests {
         assert!(!is_date_time_stamp("2026-01-01"));
         assert!(!is_date_time_stamp("2026-01-01T00:00:00"));
         assert!(!is_date_time_stamp("2026-13-99T99:99:99Z"));
+    }
+
+    #[test]
+    fn vc_validator_rejects_future_creation_provenance() {
+        let mut vc = minimal_vc();
+        vc.mycelix_created = ts(2_100_000_000_000_000);
+
+        let result = validate_create_verifiable_credential(
+            EntryCreationAction::Create(test_action(me())),
+            vc,
+        )
+        .unwrap();
+
+        assert!(
+            matches!(result, ValidateCallbackResult::Invalid(message) if message.contains("mycelix_created"))
+        );
     }
 
     #[test]
