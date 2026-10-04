@@ -549,6 +549,9 @@ mod linux {
                 return Err(SeccompError::CompilerInvariantViolation);
             }
 
+            if next >= filter.len() {
+                return Err(SeccompError::CompilerInvariantViolation);
+            }
             if next == filter.len() - 1 {
                 break;
             }
@@ -659,6 +662,19 @@ mod linux {
                                 })
                                 && filter.get(index + 2).is_some_and(|i| i.code == BPF_ALU | BPF_AND | BPF_K)
                                 && filter.get(index + 3).is_some_and(|i| i.code == BPF_JMP | BPF_JEQ | BPF_K);
+                            let single_clause_full_width_not_equal = index >= 2
+                                && target == index + 5
+                                && filter.get(index - 2).is_some_and(|i| i.code == BPF_LD | BPF_W | BPF_ABS)
+                                && filter.get(index + 1).is_some_and(|i| {
+                                    i.code == BPF_LD | BPF_W | BPF_ABS
+                                        && i.k == filter[index - 2].k.saturating_add(4)
+                                })
+                                && filter.get(index + 2).is_some_and(|i| i.code == BPF_ALU | BPF_AND | BPF_K)
+                                && filter.get(index + 3).is_some_and(|i| i.code == BPF_JMP | BPF_JEQ | BPF_K)
+                                && filter.get(index + 4).is_some_and(|i| {
+                                    i.code == BPF_RET | BPF_K
+                                        && i.k == SECCOMP_RET_ERRNO | libc::EPERM as u32
+                                });
                             let after_allow = target > 0
                                 && filter[target - 1].code == BPF_RET | BPF_K
                                 && filter[target - 1].k == SECCOMP_RET_ALLOW;
@@ -666,6 +682,7 @@ mod linux {
                             if offset != 0
                                 && !local_epem
                                 && !full_width_not_equal_shortcut
+                                && !single_clause_full_width_not_equal
                                 && !after_allow
                             {
                                 return Err(SeccompError::CompilerInvariantViolation);
@@ -3026,7 +3043,7 @@ mod linux {
             let mut invalid_predicate_value = compile_filter_v2(&predicate_policy).unwrap();
             invalid_predicate_value[arg_load + 2].k = 0x100;
             assert!(matches!(
-                validate_compiled_filter(&invalid_predicate_value),
+                validate_v2_compiled_semantics(&predicate_policy, &invalid_predicate_value),
                 Err(SeccompError::CompilerInvariantViolation)
             ));
 
