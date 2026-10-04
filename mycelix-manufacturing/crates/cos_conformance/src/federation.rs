@@ -3338,6 +3338,8 @@ mod tests {
         AdmissionDeliveryDeltaMismatch,
         AdmissionEnumerationLengthMismatch,
         AdmissionOrdinalRangeMismatch,
+        DuplicateAdmittedDeliveryIdentity,
+        EmptyAdmittedDeliveryIdentity,
         FinalStateMismatch,
     }
 
@@ -3435,6 +3437,7 @@ mod tests {
         let mut expected_post_boundary = capsule.initial_state.clone();
         let mut expected_chain_prev_sha256 =
             FEDERATION_STATE_MACHINE_TRACE_CHAIN_GENESIS.to_string();
+        let mut admitted_delivery_identities = BTreeSet::new();
 
         for (step_index, ((operation, token), evidence)) in
             recorded_plan.iter().zip(&capsule.evidence).enumerate()
@@ -3501,6 +3504,17 @@ mod tests {
                         .collect::<BTreeSet<_>>(),
                 FederationStateMachineTraceEvidenceViolation::AdmissionOrdinalRangeMismatch
             );
+
+            for (delivery_id, _) in &evidence.newly_admitted_deliveries {
+                require!(
+                    !delivery_id.is_empty(),
+                    FederationStateMachineTraceEvidenceViolation::EmptyAdmittedDeliveryIdentity
+                );
+                require!(
+                    admitted_delivery_identities.insert(delivery_id.clone()),
+                    FederationStateMachineTraceEvidenceViolation::DuplicateAdmittedDeliveryIdentity
+                );
+            }
 
             expected_post_boundary = FederationStateMachineTraceBoundary {
                 admission_index: evidence.post_admission_index,
@@ -4707,6 +4721,39 @@ mod tests {
         assert_eq!(
             error,
             "trace capsule evidence must preserve delivery-count boundary continuity"
+        );
+
+        let mut capsule =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&capsule_text)
+                .expect("capsule must deserialize");
+        let reused_identity = capsule.evidence[2].newly_admitted_deliveries
+            .first()
+            .map(|(id, _)| id.clone())
+            .or_else(|| capsule.evidence[1].newly_admitted_deliveries.first().map(|(id, _)| id.clone()))
+            .expect("test trace must contain an admitted delivery");
+        let duplicate_index = capsule.evidence.iter().position(|step| !step.newly_admitted_deliveries.is_empty())
+            .expect("test trace must contain an admitted delivery");
+        capsule.evidence[duplicate_index].newly_admitted_deliveries[0].0 = reused_identity;
+        reseal_state_machine_trace_for_test(&mut capsule);
+        let error = validate_state_machine_trace_evidence(&capsule)
+            .expect_err("re-sealed duplicate delivery identity must be rejected");
+        assert_eq!(
+            error,
+            FederationStateMachineTraceEvidenceViolation::DuplicateAdmittedDeliveryIdentity
+        );
+
+        let mut capsule =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&capsule_text)
+                .expect("capsule must deserialize");
+        let empty_index = capsule.evidence.iter().position(|step| !step.newly_admitted_deliveries.is_empty())
+            .expect("test trace must contain an admitted delivery");
+        capsule.evidence[empty_index].newly_admitted_deliveries[0].0.clear();
+        reseal_state_machine_trace_for_test(&mut capsule);
+        let error = validate_state_machine_trace_evidence(&capsule)
+            .expect_err("re-sealed empty delivery identity must be rejected");
+        assert_eq!(
+            error,
+            FederationStateMachineTraceEvidenceViolation::EmptyAdmittedDeliveryIdentity
         );
 
         let mut capsule =
