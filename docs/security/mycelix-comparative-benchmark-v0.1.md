@@ -23,10 +23,12 @@ This prevents an architecture from “winning” by receiving an easier adversar
 
 ## Metrics
 
+Boundary-depth reporting is a maximum declared path depth, not discovery of undocumented real network paths.
+
 The benchmark reports separate vectors:
 
 - reachable resources after compromise;
-- trust boundaries crossed;
+- maximum declared trust-boundary path depth among reached resources;
 - standing privilege count;
 - revocation latency;
 - cross-domain exposure.
