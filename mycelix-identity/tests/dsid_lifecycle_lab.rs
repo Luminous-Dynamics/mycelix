@@ -5177,4 +5177,143 @@ async fn dsid_051_w3c_1_1_eddsa_jcs_vector_verifies_end_to_end() {
             && verifying_key.verify(&hash_data, &signature).is_ok(),
     );
 }
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_052_exports_mycelix_jcs_interop_fixture() {
+    let dna = load_dna().await;
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let issuer_app = conductor.setup_app("dsid-interop-issuer", std::slice::from_ref(&dna)).await.unwrap();
+    let holder_app = conductor.setup_app("dsid-interop-holder", std::slice::from_ref(&dna)).await.unwrap();
+    let issuer = issuer_app.cells()[0].clone();
+    let holder = holder_app.cells()[0].clone();
+    let issuer_did = format!("did:mycelix:{}", issuer_app.agent());
+    let holder_did = format!("did:mycelix:{}", holder_app.agent());
+
+    let issuer_record: Record = conductor.call(&issuer.zome("did_registry"), "create_did", ()).await;
+    let holder_record: Record = conductor.call(&holder.zome("did_registry"), "create_did", ()).await;
+
+    let credential: Record = conductor.call(
+        &issuer.zome("verifiable_credential"), "issue_credential",
+        serde_json::json!({
+            "subject_did": holder_did.clone(),
+            "schema_id": "mycelix:schema:interop:degree:v1",
+            "claims": {"degree": "Independent interoperability fixture"},
+            "credential_types": ["QualificationCredential"],
+            "issuer_name": "Mycelix Interoperability Issuer",
+            "expiration_days": 365,
+            "enable_revocation": false,
+            "strict_schema": false
+        }),
+    ).await;
+    let credential_value: serde_json::Value = credential.entry().to_app_option().unwrap().unwrap();
+    let credential_id = credential_value["id"].as_str().expect("interop credential must expose an ID").to_owned();
+
+    await_consistency(&[issuer.clone(), holder.clone()]).await.expect("issuer and holder must reach consistency");
+
+    let challenge = "dsid-052-independent-interop".to_string();
+    let domain = "identity.mycelix.test".to_string();
+    let presentation: Record = conductor.call(
+        &holder.zome("verifiable_credential"), "create_presentation",
+        serde_json::json!({
+            "credential_ids": [credential_id],
+            "challenge": challenge.clone(),
+            "domain": domain.clone()
+        }),
+    ).await;
+    let presentation_value: serde_json::Value = presentation.entry().to_app_option().unwrap().unwrap();
+
+    let vc_check: serde_json::Value = conductor.call(
+        &holder.zome("verifiable_credential"), "verify_credential",
+        credential_value["id"].as_str().unwrap().to_owned(),
+    ).await;
+    assert_eq!(vc_check["valid"], true, "Mycelix VC must verify before export");
+
+    let vp_check: serde_json::Value = conductor.call(
+        &issuer.zome("verifiable_credential"), "verify_presentation",
+        serde_json::json!({
+            "presentation_hash": presentation.action_address(),
+            "expected_challenge": challenge.clone(),
+            "expected_domain": domain.clone()
+        }),
+    ).await;
+    assert_eq!(vp_check["valid"], true, "Mycelix VP must verify before export");
+
+    let issuer_doc: DidDocument = decode_entry(&issuer_record).expect("issuer DID must decode");
+    let holder_doc: DidDocument = decode_entry(&holder_record).expect("holder DID must decode");
+
+    let to_wire = |doc: &DidDocument| {
+        serde_json::json!({
+            "@context": ["https://www.w3.org/ns/did/v1", "https://w3id.org/security/multikey/v1"],
+            "id": doc.id,
+            "controller": doc.controller.to_string(),
+            "verificationMethod": doc.verification_method.iter()
+                .filter(|method| method.type_ == "Multikey")
+                .map(|method| serde_json::json!({
+                    "id": method.id,
+                    "type": "Multikey",
+                    "controller": method.controller,
+                    "publicKeyMultibase": method.public_key_multibase
+                }))
+                .collect::<Vec<_>>(),
+            "authentication": doc.authentication.iter().filter(|method| method.ends_with("#keys-1-multikey")).cloned().collect::<Vec<_>>(),
+            "assertionMethod": doc.assertion_method.iter().filter(|method| method.ends_with("#keys-1-multikey")).cloned().collect::<Vec<_>>(),
+            "keyAgreement": [],
+            "service": []
+        })
+    };
+
+    let fixture_dir = match std::env::var_os("DSID_INTEROP_FIXTURE_DIR") {
+        Some(path) => PathBuf::from(path),
+        None => {
+            let mut agents = BTreeMap::new();
+            agents.insert("issuer", issuer_app.agent().to_string());
+            agents.insert("holder", holder_app.agent().to_string());
+            emit_evidence(
+                "DSID-052", "mycelix-jcs-interop-fixture", &dna, agents,
+                &[&issuer_record, &holder_record, &credential, &presentation],
+                "Mycelix can generate a self-contained W3C eddsa-jcs-2022 VC and challenge-bound VP suitable for independent verification.",
+                "fixture_export_skipped=local-run", true,
+            );
+            return;
+        }
+    };
+
+    std::fs::create_dir_all(&fixture_dir).expect("interop fixture directory must be writable");
+    let fixture = serde_json::json!({
+        "schema_version": 1,
+        "generated_by": "Mycelix",
+        "cryptosuite": "eddsa-jcs-2022",
+        "credential": credential_value,
+        "presentation": presentation_value,
+        "issuerDidDocument": to_wire(&issuer_doc),
+        "holderDidDocument": to_wire(&holder_doc),
+        "presentationChallenge": challenge,
+        "presentationDomain": domain,
+        "qualifiedHeadCommit": commit_sha()
+    });
+    std::fs::write(
+        fixture_dir.join("mycelix-eddsa-jcs-interop.json"),
+        serde_json::to_vec_pretty(&fixture).expect("interop fixture must serialize"),
+    ).expect("interop fixture must be written");
+
+    let mut agents = BTreeMap::new();
+    agents.insert("issuer", issuer_app.agent().to_string());
+    agents.insert("holder", holder_app.agent().to_string());
+    emit_evidence(
+        "DSID-052", "mycelix-jcs-interop-fixture", &dna, agents,
+        &[&issuer_record, &holder_record, &credential, &presentation],
+        "Mycelix must export a self-contained W3C eddsa-jcs-2022 credential and challenge-bound presentation that an independent implementation can verify.",
+        format!(
+            "fixture_written=true credential_jcs={} presentation_jcs={} credential_internal_valid={} presentation_internal_valid={}",
+            credential_value["proof"]["cryptosuite"].as_str() == Some("eddsa-jcs-2022"),
+            presentation_value["proof"]["cryptosuite"].as_str() == Some("eddsa-jcs-2022"),
+            vc_check["valid"] == true,
+            vp_check["valid"] == true
+        ),
+        credential_value["proof"]["cryptosuite"].as_str() == Some("eddsa-jcs-2022")
+            && presentation_value["proof"]["cryptosuite"].as_str() == Some("eddsa-jcs-2022")
+            && vc_check["valid"] == true
+            && vp_check["valid"] == true,
+    );
+}
 
