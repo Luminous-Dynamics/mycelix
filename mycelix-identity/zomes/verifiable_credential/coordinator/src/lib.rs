@@ -15,7 +15,6 @@ use hdk::prelude::*;
 use mycelix_crypto::{AlgorithmId, TaggedPublicKey, TaggedSignature};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
-use mycelix_zome_helpers::records_from_links_strict;
 use verifiable_credential_integrity::*;
 
 /// Mirror type for credential_schema deserialization (cross-zome)
@@ -802,48 +801,28 @@ pub fn create_presentation(input: CreatePresentationInput) -> ExternResult<Recor
         now.as_micros()
     );
 
-    // Create presentation proof with real ed25519 signature
-    // Hash the presentation content for signing
-    let mut presentation_data = presentation_id.as_bytes().to_vec();
-    presentation_data.extend(holder_did.as_bytes());
-    for cred in &credentials {
-        presentation_data.extend(cred.id.as_bytes());
-    }
-    if let Some(challenge) = &input.challenge {
-        presentation_data.extend(challenge.as_bytes());
-    }
-    if let Some(domain) = &input.domain {
-        presentation_data.extend(domain.as_bytes());
-    }
-
-    // Sign with agent's ed25519 key
-    let signature = sign_raw(agent_info.agent_initial_pubkey.clone(), presentation_data)?;
-    let tagged_sig = TaggedSignature::new(AlgorithmId::Ed25519, signature.as_ref().to_vec())
-        .map_err(|e| {
-            wasm_error!(WasmErrorInner::Guest(format!(
-                "Signature tagging error: {}",
-                e
-            )))
-        })?;
-
+    // Create a standards-conformant W3C Data Integrity proof.
+    // The proof configuration includes the presentation @context as required
+    // by eddsa-jcs-2022, while the credential references remain embedded.
+    let presentation_context = vec![
+        W3C_CREDENTIALS_V2.to_string(),
+        W3C_DATA_INTEGRITY.to_string(),
+    ];
     let proof = CredentialProof {
         proof_type: "DataIntegrityProof".to_string(),
         created: now_iso.clone(),
-        verification_method: format!("{}#keys-1", holder_did),
+        verification_method: format!("{}#keys-1-multikey", holder_did),
         proof_purpose: "authentication".to_string(),
-        proof_value: tagged_sig.to_multibase(),
-        cryptosuite: Some("mycelix-blake2b-ed25519-2026".to_string()),
-        algorithm: Some(AlgorithmId::Ed25519.as_u16()),
+        proof_value: String::new(),
+        cryptosuite: Some("eddsa-jcs-2022".to_string()),
+        algorithm: None,
         challenge: input.challenge.clone(),
         domain: input.domain.clone(),
-        proof_context: None,
+        proof_context: Some(presentation_context.clone()),
     };
 
-    let vp = VerifiablePresentation {
-        context: vec![
-            W3C_CREDENTIALS_V2.to_string(),
-            W3C_DATA_INTEGRITY.to_string(),
-        ],
+    let mut vp = VerifiablePresentation {
+        context: presentation_context,
         id: presentation_id,
         presentation_type: vec!["VerifiablePresentation".to_string()],
         holder: holder_did.clone(),
@@ -851,6 +830,10 @@ pub fn create_presentation(input: CreatePresentationInput) -> ExternResult<Recor
         proof,
         mycelix_created: now,
     };
+
+    let hash_data = eddsa_jcs_hash_data_for_presentation(&vp)?;
+    let signature = sign_raw(agent_info.agent_initial_pubkey.clone(), hash_data)?;
+    vp.proof.proof_value = encode_raw_ed25519_multibase(signature.as_ref())?;
 
     let action_hash = create_entry(&EntryTypes::VerifiablePresentation(vp))?;
 
@@ -950,78 +933,202 @@ pub fn verify_presentation(
         );
     }
 
-    // 3. Verify holder's proof signature
-    if !proof_verification_method_matches_did(
-        &vp.proof.verification_method,
-        &vp.holder,
-    ) {
-        errors.push("Presentation proof verification method does not belong to holder DID".to_string());
-    }
-
+    // 3. Verify holder's proof signature.
     let holder_pubkey_str = vp.holder.strip_prefix("did:mycelix:");
     if let Some(pubkey_str) = holder_pubkey_str {
         if let Ok(holder_pubkey) = AgentPubKey::try_from(pubkey_str.to_string()) {
-            // Reconstruct the signed data (mirrors create_presentation).
-            // Use the values stored IN the proof, not from the verifier's input,
-            // since these are what was actually signed.
-            let mut presentation_data = vp.id.as_bytes().to_vec();
-            presentation_data.extend(vp.holder.as_bytes());
-            for cred in &vp.verifiable_credential {
-                presentation_data.extend(cred.id.as_bytes());
-            }
-            if let Some(challenge) = &vp.proof.challenge {
-                presentation_data.extend(challenge.as_bytes());
-            }
-            if let Some(domain) = &vp.proof.domain {
-                presentation_data.extend(domain.as_bytes());
-            }
+            if vp.proof.cryptosuite.as_deref() == Some("eddsa-jcs-2022") {
+                if vp.proof.proof_type != "DataIntegrityProof"
+                    || vp.proof.algorithm.is_some()
+                    || vp.proof.proof_context.as_deref() != Some(vp.context.as_slice())
+                {
+                    errors.push(
+                        "W3C presentation proof configuration is invalid".to_string(),
+                    );
+                } else if !is_date_time_stamp(&vp.proof.created) {
+                    errors.push(
+                        "W3C presentation proof created value is not a valid dateTimeStamp"
+                            .to_string(),
+                    );
+                } else {
+                    let response = call(
+                        CallTargetCell::Local,
+                        ZomeName::new("did_registry"),
+                        FunctionName::new("resolve_did"),
+                        None,
+                        vp.holder.clone(),
+                    )?;
+                    let did_record = match response {
+                        ZomeCallResponse::Ok(result) => result
+                            .decode::<Option<Record>>()
+                            .map_err(|e| {
+                                wasm_error!(WasmErrorInner::Guest(format!(
+                                    "Failed to decode holder DID resolution: {e:?}"
+                                )))
+                            })?,
+                        _ => None,
+                    };
 
-            // Try TaggedSignature first, then legacy
-            match TaggedSignature::from_multibase(&vp.proof.proof_value) {
-                Ok(tagged_sig) => {
-                    if tagged_sig.algorithm == AlgorithmId::Ed25519
-                        && tagged_sig.signature_bytes.len() == 64
-                    {
-                        let sig = Signature::from(
-                            <[u8; 64]>::try_from(tagged_sig.signature_bytes.as_slice())
-                                .unwrap_or([0u8; 64]),
-                        );
-                        match verify_signature(holder_pubkey, sig, presentation_data) {
-                            Ok(true) => {}
-                            Ok(false) => errors
-                                .push("Holder proof signature verification failed".to_string()),
-                            Err(e) => {
-                                errors.push(format!("Holder signature verification error: {:?}", e))
-                            }
+                    if let Some(did_record) = did_record {
+                        let did_doc: DidDocumentProofMirror = did_record
+                            .entry()
+                            .to_app_option()
+                            .map_err(|e| {
+                                wasm_error!(WasmErrorInner::Guest(e.to_string()))
+                            })?
+                            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                                "Resolved holder DID record contained no DID document".into()
+                            )))?;
+                        let expected_multibase =
+                            canonical_agent_ed25519_multibase(&holder_pubkey)?;
+                        if !validate_w3c_authentication_method_binding(
+                            &did_doc,
+                            &vp.holder,
+                            &vp.proof.verification_method,
+                            &expected_multibase,
+                        ) {
+                            errors.push(
+                                "Presentation proof verification method is not authorized by the holder DID authentication relationship"
+                                    .to_string(),
+                            );
                         }
                     } else {
-                        errors.push(format!(
-                            "Unsupported presentation proof algorithm: {:?}",
-                            tagged_sig.algorithm
-                        ));
+                        errors.push(
+                            "Holder DID could not be resolved for W3C presentation verification"
+                                .to_string(),
+                        );
+                    }
+
+                    if !vp
+                        .proof
+                        .verification_method
+                        .starts_with(&format!("{}#", vp.holder))
+                    {
+                        errors.push(
+                            "Presentation proof verification method does not belong to holder DID"
+                                .to_string(),
+                        );
+                    }
+
+                    if !vp.proof.proof_value.starts_with('z') {
+                        errors.push(
+                            "W3C presentation proofValue must use base58-btc Multibase".to_string(),
+                        );
+                    } else {
+                        match bs58::decode(&vp.proof.proof_value[1..])
+                            .with_alphabet(bs58::Alphabet::BITCOIN)
+                            .into_vec()
+                        {
+                            Ok(bytes) if bytes.len() == 64 => {
+                                let sig = Signature::from(
+                                    <[u8; 64]>::try_from(bytes.as_slice()).unwrap_or([0u8; 64]),
+                                );
+                                match eddsa_jcs_hash_data_for_presentation(&vp) {
+                                    Ok(hash_data) => match verify_signature(
+                                        holder_pubkey,
+                                        sig,
+                                        hash_data,
+                                    ) {
+                                        Ok(true) => {}
+                                        Ok(false) => errors.push(
+                                            "Holder W3C JCS proof signature verification failed"
+                                                .to_string(),
+                                        ),
+                                        Err(e) => errors.push(format!(
+                                            "Holder W3C JCS signature verification error: {:?}",
+                                            e
+                                        )),
+                                    },
+                                    Err(e) => errors.push(format!(
+                                        "Could not construct W3C JCS presentation hash: {:?}",
+                                        e
+                                    )),
+                                }
+                            }
+                            Ok(_) => errors.push(
+                                "W3C presentation proofValue must decode to 64 Ed25519 bytes"
+                                    .to_string(),
+                            ),
+                            Err(e) => errors.push(format!(
+                                "Invalid W3C presentation proofValue encoding: {}",
+                                e
+                            )),
+                        }
                     }
                 }
-                Err(_) => {
-                    // Legacy multibase fallback
-                    if let Some(sig_bytes) = multibase_decode(&vp.proof.proof_value) {
-                        if sig_bytes.len() == 64 {
+            } else {
+                // Legacy Mycelix presentation profile retained for old records.
+                if !proof_verification_method_matches_did(
+                    &vp.proof.verification_method,
+                    &vp.holder,
+                ) {
+                    errors.push(
+                        "Presentation proof verification method does not belong to holder DID"
+                            .to_string(),
+                    );
+                }
+
+                let mut presentation_data = vp.id.as_bytes().to_vec();
+                presentation_data.extend(vp.holder.as_bytes());
+                for cred in &vp.verifiable_credential {
+                    presentation_data.extend(cred.id.as_bytes());
+                }
+                if let Some(challenge) = &vp.proof.challenge {
+                    presentation_data.extend(challenge.as_bytes());
+                }
+                if let Some(domain) = &vp.proof.domain {
+                    presentation_data.extend(domain.as_bytes());
+                }
+
+                match TaggedSignature::from_multibase(&vp.proof.proof_value) {
+                    Ok(tagged_sig) => {
+                        if tagged_sig.algorithm == AlgorithmId::Ed25519
+                            && tagged_sig.signature_bytes.len() == 64
+                        {
                             let sig = Signature::from(
-                                <[u8; 64]>::try_from(sig_bytes.as_slice()).unwrap_or([0u8; 64]),
+                                <[u8; 64]>::try_from(tagged_sig.signature_bytes.as_slice())
+                                    .unwrap_or([0u8; 64]),
                             );
                             match verify_signature(holder_pubkey, sig, presentation_data) {
                                 Ok(true) => {}
                                 Ok(false) => errors.push(
-                                    "Holder proof signature verification failed (legacy)"
-                                        .to_string(),
+                                    "Holder proof signature verification failed".to_string(),
                                 ),
-                                Err(e) => errors
-                                    .push(format!("Holder signature verification error: {:?}", e)),
+                                Err(e) => errors.push(format!(
+                                    "Holder signature verification error: {:?}",
+                                    e
+                                )),
                             }
                         } else {
-                            errors.push("Invalid holder signature length".to_string());
+                            errors.push(format!(
+                                "Unsupported presentation proof algorithm: {:?}",
+                                tagged_sig.algorithm
+                            ));
                         }
-                    } else {
-                        errors.push("Could not decode holder proof signature".to_string());
+                    }
+                    Err(_) => {
+                        if let Some(sig_bytes) = multibase_decode(&vp.proof.proof_value) {
+                            if sig_bytes.len() == 64 {
+                                let sig = Signature::from(
+                                    <[u8; 64]>::try_from(sig_bytes.as_slice()).unwrap_or([0u8; 64]),
+                                );
+                                match verify_signature(holder_pubkey, sig, presentation_data) {
+                                    Ok(true) => {}
+                                    Ok(false) => errors.push(
+                                        "Holder proof signature verification failed (legacy)"
+                                            .to_string(),
+                                    ),
+                                    Err(e) => errors.push(format!(
+                                        "Holder signature verification error: {:?}",
+                                        e
+                                    )),
+                                }
+                            } else {
+                                errors.push("Invalid holder signature length".to_string());
+                            }
+                        } else {
+                            errors.push("Could not decode holder proof signature".to_string());
+                        }
                     }
                 }
             }
@@ -3636,6 +3743,8 @@ struct DidDocumentProofMirror {
     id: String,
     #[serde(rename = "verificationMethod", alias = "verification_method")]
     verification_method: Vec<DidVerificationMethodProofMirror>,
+    #[serde(default)]
+    authentication: Vec<String>,
     #[serde(rename = "assertionMethod", alias = "assertion_method", default)]
     assertion_method: Vec<String>,
 }
@@ -3652,6 +3761,35 @@ fn canonical_agent_ed25519_multibase(agent_pub_key: &AgentPubKey) -> ExternResul
         .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
             "Failed to encode canonical DID Multikey: {e}"
         ))))
+}
+
+
+fn validate_w3c_authentication_method_binding(
+    did_doc: &DidDocumentProofMirror,
+    holder_did: &str,
+    verification_method: &str,
+    expected_multibase: &str,
+) -> bool {
+    if did_doc.id != holder_did
+        || !did_doc
+            .authentication
+            .iter()
+            .any(|reference| reference == verification_method)
+    {
+        return false;
+    }
+
+    let Some(method) = did_doc
+        .verification_method
+        .iter()
+        .find(|method| method.id == verification_method)
+    else {
+        return false;
+    };
+
+    method.controller == holder_did
+        && method.type_ == "Multikey"
+        && method.public_key_multibase == expected_multibase
 }
 
 fn validate_w3c_assertion_method_binding(
@@ -3717,6 +3855,33 @@ fn eddsa_jcs_hash_data_from_values(
     hash_data.extend_from_slice(&proof_config_hash);
     hash_data.extend_from_slice(&transformed_document_hash);
     Ok(hash_data)
+}
+
+
+fn eddsa_jcs_hash_data_for_presentation(
+    vp: &VerifiablePresentation,
+) -> ExternResult<Vec<u8>> {
+    let mut unsecured = serde_json::to_value(vp).map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Presentation JSON serialization failed: {e}"
+        )))
+    })?;
+    let unsecured_map = unsecured.as_object_mut().ok_or(wasm_error!(
+        WasmErrorInner::Guest("Presentation must serialize to a JSON object".into())
+    ))?;
+    unsecured_map.remove("proof");
+
+    let proof_value = serde_json::to_value(&vp.proof).map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Presentation proof JSON serialization failed: {e}"
+        )))
+    })?;
+    let mut proof_config = proof_value.as_object().cloned().ok_or(wasm_error!(
+        WasmErrorInner::Guest("Presentation proof must serialize to a JSON object".into())
+    ))?;
+    proof_config.remove("proofValue");
+
+    eddsa_jcs_hash_data_from_values(unsecured, Value::Object(proof_config))
 }
 
 fn eddsa_jcs_hash_data(vc: &VerifiableCredential) -> ExternResult<Vec<u8>> {
