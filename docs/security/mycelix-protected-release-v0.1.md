@@ -134,7 +134,7 @@ An actual classified cross-domain deployment still requires its independently go
 
 ## Qualification corpus
 
-27 deterministic vectors cover:
+29 deterministic vectors cover:
 
 - source/destination mismatch;
 - classification mismatch;
