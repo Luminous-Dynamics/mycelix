@@ -16,7 +16,7 @@
     "sequence": "strictly increasing integer",
     "pcr": "non-negative integer",
     "event_type": "string",
-    "digest_sha256": "exactly 64 lowercase hexadecimal characters",
+    "digest_sha256": "required for PCR-extending events; optional for EV_NO_ACTION records",
     "session_id": "optional; when present, must equal the reconstruction session_id",
     "startup_locality": "optional integer 0..4; valid only on PCR0 EV_NO_ACTION StartupLocality records"
   },
@@ -56,7 +56,8 @@
     "the bundle verifier independently executes the reconstruction theorem and rejects disagreement with the supplied receipt",
     "EV_NO_ACTION is logged context and does not extend the PCR",
     "HCRTM PCR0 initialization is outside the zero-state replay profile and must be INDETERMINATE rather than silently misreconstructed",
-    "PCR0 StartupLocality EV_NO_ACTION records do not provide an ordinary extend measurement; their locality effect changes the initial PCR state and is outside the zero-state replay profile, so the verifier returns INDETERMINATE"
+    "PCR0 StartupLocality EV_NO_ACTION records do not provide an ordinary extend measurement; their locality effect changes the initial PCR state and is outside the zero-state replay profile, so the verifier returns INDETERMINATE",
+    "EV_NO_ACTION control records may omit digest_sha256 because they do not extend a PCR"
   ],
   "vectors": [
     {
