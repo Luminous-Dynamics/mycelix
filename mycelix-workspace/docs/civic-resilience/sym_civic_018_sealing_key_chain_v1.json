@@ -1,7 +1,7 @@
 {
   "schema":"mycelix.sym-civic.sealing-key-chain-preflight.v1",
   "program":"SYM-CIVIC-018",
-  "parent_subject":"41ade1f999b62b319e6ebb1486d7b6a41cc0c998",
+  "parent_subject":"fe82a004c30165affa77b9172d6b44fcd80a41f3",
   "analysis_role":"research_only",
   "cases":[
     {"id":"C-01","family":"canonical_chain","mutations":[]},
@@ -33,6 +33,10 @@
     {"id":"C-27","family":"duplicate_addressed_register","mutations":[{"op":"replace","path":"output.addressed_registers","value":["https://reg-a.example","https://reg-a.example"]}]},
     {"id":"C-28","family":"noncanonical_agreement_origin_spelling","mutations":[{"op":"replace","path":"agreements.0.authority_origin","value":"https://SERVER.EXAMPLE:443/"}]},
     {"id":"C-29","family":"noncanonical_output_origin_spelling","mutations":[{"op":"replace","path":"output.authority_origin","value":"https://SERVER.EXAMPLE:443/"}]},
-    {"id":"C-30","family":"revocation_at_reconciliation_timestamp","mutations":[{"op":"replace","path":"registers.0.sealing_keys.keys.1.arp-key-status","value":"revoked","reseal":true},{"op":"replace","path":"registers.0.sealing_keys.keys.1.arp-key-validity","value":["2026-01-01T00:00:00Z","2027-01-01T00:00:00Z","2026-10-02T12:00:00Z"],"reseal":true}]}
+    {"id":"C-30","family":"revocation_at_reconciliation_timestamp","mutations":[{"op":"replace","path":"registers.0.sealing_keys.keys.1.arp-key-status","value":"revoked","reseal":true},{"op":"replace","path":"registers.0.sealing_keys.keys.1.arp-key-validity","value":["2026-01-01T00:00:00Z","2027-01-01T00:00:00Z","2026-10-02T12:00:00Z"],"reseal":true}]},
+    {"id":"C-31","family":"malformed_authorised_origin_port","mutations":[{"op":"replace","path":"registers.0.auth.entries.0.0","value":"https://server.example:bad"}]},
+    {"id":"C-32","family":"malformed_keyset_port","mutations":[{"op":"replace","path":"registers.0.sealing_keys.origin","value":"https://server.example:bad"}]},
+    {"id":"C-33","family":"malformed_register_port","mutations":[{"op":"replace","path":"registers.0.register_origin","value":"https://reg-a.example:bad"}]},
+    {"id":"C-34","family":"addressed_register_byte_order_drift","mutations":[{"op":"replace","path":"output.addressed_registers","value":["https://reg-b.example","https://reg-a.example"]}]}
   ]
 }
