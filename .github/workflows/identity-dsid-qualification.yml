@@ -101,6 +101,18 @@ jobs:
         with:
           nix_path: nixpkgs=channel:nixos-unstable
 
+      - name: Require Nix 2.26+ for parent-tree flake inputs
+        run: |
+          nix --version
+          nix_version="$(nix --version | awk '{print $3}')"
+          nix_major="${nix_version%%.*}"
+          nix_minor="${nix_version#*.}"
+          nix_minor="${nix_minor%%.*}"
+          if (( nix_major < 2 || (nix_major == 2 && nix_minor < 26) )); then
+            echo "Nix $nix_version is too old: parent-tree relative flake inputs require Nix 2.26+."
+            exit 1
+          fi
+
       - uses: cachix/cachix-action@v15
         with:
           name: holochain-ci
