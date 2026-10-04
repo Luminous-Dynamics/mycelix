@@ -273,6 +273,8 @@ pub fn issue_credential(input: IssueCredentialInput) -> ExternResult<Record> {
         claims: input.claims,
     };
 
+    let proof_profile = input.proof_profile.unwrap_or_default();
+
     // Build credential hash for signing
     let mut vc_for_hash = VerifiableCredential {
         context: vec![
@@ -314,7 +316,6 @@ pub fn issue_credential(input: IssueCredentialInput) -> ExternResult<Record> {
             algorithm: Some(AlgorithmId::Ed25519.as_u16()),
             challenge: None,
             domain: None,
-                proof_context: None,
             proof_context: match proof_profile {
                 CredentialProofProfile::W3cEddsaJcs2022 => Some(vec![
                     W3C_CREDENTIALS_V2.to_string(),
