@@ -139,13 +139,22 @@ def result(state:str,reason:str,details:dict[str,Any]|None=None)->dict[str,Any]:
     return out
 
 def session_binding(m:dict[str,Any], leaf_sha256:str, inter_sha256:str, root_sha256:str, crl_sha256:str)->str:
+    spki = m["spki_binding"]
+    rev = m["revocation"]
     return canonical_hash({
         "session_id":m["session_id"],
         "tpm_identity_digest":m["tpm_identity_digest"],
         "leaf_certificate_sha256":leaf_sha256,
         "intermediate_certificate_sha256":inter_sha256,
         "trust_anchor_root_sha256":root_sha256,
+        "trust_anchor_source_sha256":m["trust_anchor_source_sha256"],
+        "verification_time_unix":m["verification_time_unix"],
+        "revocation_state":rev["state"],
+        "revocation_method":rev.get("method"),
         "revocation_crl_sha256":crl_sha256,
+        "spki_state":spki.get("state"),
+        "spki_certificate_sha256":spki.get("certificate_sha256"),
+        "spki_ek_public_wire_sha256":spki.get("ek_public_wire_sha256"),
     })
 
 def verify(m:dict[str,Any])->dict[str,Any]:
@@ -181,6 +190,8 @@ def verify(m:dict[str,Any])->dict[str,Any]:
     spki=m["spki_binding"]
     if not isinstance(spki,dict):return result("DENY","spki-binding-invalid")
     if spki.get("verifier_id")!=SPKI_VERIFIER_ID:return result("DENY","spki-verifier-id-mismatch")
+    if not valid_hash(spki.get("certificate_sha256")) or not valid_hash(spki.get("ek_public_wire_sha256")):
+        return result("DENY","spki-binding-digest-invalid")
     if spki.get("state")=="INDETERMINATE":return result("INDETERMINATE","spki-binding-indeterminate")
     if spki.get("state")!="PASS":return result("DENY","spki-binding-not-pass")
     if spki.get("certificate_sha256")!=m["leaf_certificate_sha256"]:return result("DENY","spki-certificate-digest-mismatch")
@@ -225,7 +236,17 @@ def fixture()->dict[str,Any]:
       "verification_time_unix":REFERENCE_TIME_UNIX,
       "revocation":{"state":"PASS","method":"issuer-crl","crl_der_base64":base64.b64encode(crl).decode(),"crl_der_sha256":cd},
       "spki_binding":{"state":"PASS","verifier_id":SPKI_VERIFIER_ID,"certificate_sha256":ld,"ek_public_wire_sha256":"55"*32},
-      "session_binding_sha256":canonical_hash({"session_id":session,"tpm_identity_digest":tpm,"leaf_certificate_sha256":ld,"intermediate_certificate_sha256":id,"trust_anchor_root_sha256":rd,"revocation_crl_sha256":cd})
+      "session_binding_sha256":session_binding(
+        {
+          "session_id":session,
+          "tpm_identity_digest":tpm,
+          "trust_anchor_source_sha256":REFERENCE_ROOT_SOURCE_SHA256,
+          "verification_time_unix":REFERENCE_TIME_UNIX,
+          "revocation":{"state":"PASS","method":"issuer-crl"},
+          "spki_binding":{"state":"PASS","certificate_sha256":ld,"ek_public_wire_sha256":"55"*32},
+        },
+        ld,id,rd,cd
+      )
     }
 
 def mutate_certificate_sha256(v:dict[str,Any],bad:bytes)->None:
@@ -267,6 +288,9 @@ def self_test()->int:
       ("revocation-indeterminate","INDETERMINATE",lambda x:x["revocation"].update({"state":"INDETERMINATE"})),
       ("spki-certificate-substitution","DENY",lambda x:x["spki_binding"].update({"certificate_sha256":"77"*32})),
       ("spki-indeterminate","INDETERMINATE",lambda x:x["spki_binding"].update({"state":"INDETERMINATE"})),
+      ("spki-ek-public-digest-substitution","DENY",lambda x:x["spki_binding"].update({"ek_public_wire_sha256":"77"*32})),
+      ("verification-time-binding-substitution","DENY",lambda x:x.update({"verification_time_unix":REFERENCE_TIME_UNIX+3600})),
+      ("revocation-state-binding-substitution","DENY",lambda x:x["revocation"].update({"state":"PASS"})),
       ("session-binding-substitution","DENY",lambda x:x.update({"session_id":"attacker"})),
     ]
     for name,expected,mut in cases:
