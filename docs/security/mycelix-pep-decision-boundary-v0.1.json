@@ -1,0 +1,197 @@
+{
+  "schema_version": 1,
+  "profile_id": "mycelix.security.pep-decision",
+  "profile_version": "0.1.0",
+  "claim_ceiling": "ReferenceModelOnly",
+  "purpose": "Executable fail-closed composition of qualified evidence/results into a bounded enforcement decision.",
+  "input_domains": [
+    "subject_identity",
+    "device_posture",
+    "workload_identity",
+    "security_domain",
+    "policy_version",
+    "freshness",
+    "purpose",
+    "resource_authorization",
+    "releasability",
+    "export_control",
+    "delegation"
+  ],
+  "decision_states": [
+    "PASS",
+    "DENY",
+    "INDETERMINATE"
+  ],
+  "join_rule": "ANY_DENY > ANY_INDETERMINATE > ALL_PASS",
+  "output_semantics": {
+    "side_effect_free": true,
+    "bearer_capability": false,
+    "portable_authorization_token": false,
+    "evidence_only": true
+  },
+  "fixture": {
+    "now_unix": 1791115200,
+    "output_mode":"evidence-only",
+    "inputs": {
+      "subject_identity": "PASS",
+      "device_posture": "PASS",
+      "workload_identity": "PASS",
+      "security_domain": "PASS",
+      "policy_version": "PASS",
+      "freshness": "PASS",
+      "purpose": "PASS",
+      "resource_authorization": "PASS",
+      "releasability": "PASS",
+      "export_control": "PASS",
+      "delegation": "PASS"
+    }
+  },
+  "vectors": [
+    {
+      "id": "PEP-001",
+      "mutation": "canonical-all-pass",
+      "expected": "PASS"
+    },
+    {
+      "id": "PEP-002",
+      "mutation": "subject-identity-deny",
+      "expected": "DENY"
+    },
+    {
+      "id": "PEP-003",
+      "mutation": "device-posture-deny",
+      "expected": "DENY"
+    },
+    {
+      "id": "PEP-004",
+      "mutation": "workload-identity-deny",
+      "expected": "DENY"
+    },
+    {
+      "id": "PEP-005",
+      "mutation": "security-domain-deny",
+      "expected": "DENY"
+    },
+    {
+      "id": "PEP-006",
+      "mutation": "policy-version-deny",
+      "expected": "DENY"
+    },
+    {
+      "id": "PEP-007",
+      "mutation": "freshness-deny",
+      "expected": "DENY"
+    },
+    {
+      "id": "PEP-008",
+      "mutation": "freshness-indeterminate",
+      "expected": "INDETERMINATE"
+    },
+    {
+      "id": "PEP-009",
+      "mutation": "purpose-deny",
+      "expected": "DENY"
+    },
+    {
+      "id": "PEP-010",
+      "mutation": "resource-authorization-deny",
+      "expected": "DENY"
+    },
+    {
+      "id": "PEP-011",
+      "mutation": "releasability-deny",
+      "expected": "DENY"
+    },
+    {
+      "id": "PEP-012",
+      "mutation": "export-control-deny",
+      "expected": "DENY"
+    },
+    {
+      "id": "PEP-013",
+      "mutation": "delegation-deny",
+      "expected": "DENY"
+    },
+    {
+      "id": "PEP-014",
+      "mutation": "release-receipt-without-current-authorization",
+      "expected": "DENY"
+    },
+    {
+      "id": "PEP-015",
+      "mutation": "network-reachability-without-resource-authorization",
+      "expected": "DENY"
+    },
+    {
+      "id": "PEP-016",
+      "mutation": "deny-plus-indeterminate",
+      "expected": "DENY"
+    },
+    {
+      "id": "PEP-017",
+      "mutation": "all-indeterminate",
+      "expected": "INDETERMINATE"
+    },
+    {
+      "id": "PEP-018",
+      "mutation": "attestation-positive-but-policy-revoked",
+      "expected": "DENY"
+    },
+    {
+      "id": "PEP-019",
+      "mutation": "identity-pass-device-workload-deny",
+      "expected": "DENY"
+    },
+    {
+      "id": "PEP-020",
+      "mutation": "decision-output-bearer-token-attempt",
+      "expected": "DENY"
+    },
+    {
+      "id": "PEP-021",
+      "mutation": "same-inputs-repeat",
+      "expected": "PASS"
+    },
+    {
+      "id": "PEP-022",
+      "mutation": "input-order-permutation",
+      "expected": "PASS"
+    },
+    {
+      "id": "PEP-023",
+      "mutation": "unknown-input-state",
+      "expected": "INDETERMINATE"
+    },
+    {
+      "id": "PEP-024",
+      "mutation": "attestation-result-alone",
+      "expected": "DENY"
+    }
+  ],
+  "non_equivalences": [
+    [
+      "attestation_result",
+      "resource_authorization"
+    ],
+    [
+      "freshness",
+      "current_authorization"
+    ],
+    [
+      "identity",
+      "permission"
+    ],
+    [
+      "release_receipt",
+      "execution_authority"
+    ],
+    [
+      "qualification_evidence",
+      "runtime_authority"
+    ],
+    [
+      "network_reachability",
+      "resource_authorization"
+    ]
+  ]
+}
