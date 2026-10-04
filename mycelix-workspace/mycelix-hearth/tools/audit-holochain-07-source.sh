@@ -933,7 +933,7 @@ check_qualification_workflow_provenance() {
     fail=1
   fi
 
-  if rg -n --fixed-strings "Verify Nix credential isolation" "$workflow" >/dev/null 2>&1     && rg -n --fixed-strings "access-tokens.*github\\.com" "$workflow" >/dev/null 2>&1; then
+  if rg -n --fixed-strings "Verify Nix credential isolation" "$workflow" >/dev/null 2>&1     && rg -n --fixed-strings "access-tokens[[:space:]]*=.*github\\.com" "$workflow" >/dev/null 2>&1; then
     echo "OK:   qualification workflow verifies Nix credential isolation after installation"
   else
     echo "FAIL: qualification workflow must verify that Nix did not persist a GitHub access token"
