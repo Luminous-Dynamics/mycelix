@@ -986,6 +986,23 @@ fn validate_create_verifiable_credential(
                 ));
             }
         }
+        Some("eddsa-jcs-2022") => {
+            if vc.proof.proof_type != "DataIntegrityProof" {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "eddsa-jcs-2022 proofs must use DataIntegrityProof".into(),
+                ));
+            }
+            if vc.proof.algorithm.is_some() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "eddsa-jcs-2022 proofs must not declare a non-standard algorithm field".into(),
+                ));
+            }
+            if vc.proof.proof_context.as_deref() != Some(vc.context.as_slice()) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "eddsa-jcs-2022 proof @context must equal the credential @context".into(),
+                ));
+            }
+        }
         Some(_) => {
             return Ok(ValidateCallbackResult::Invalid(
                 "Unsupported credential cryptosuite for the current in-DNA verifier".into(),
