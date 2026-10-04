@@ -260,13 +260,12 @@ mod tests {
     }
 
     #[test]
-    fn evidence_order_does_not_change_identity() {
-        let left = envelope();
+    fn evidence_order_changes_canonical_bytes_without_changing_meaning() {
+        let mut left = envelope();
+        left.evidence_refs = vec!["evidence:1".into(), "evidence:2".into()];
         let mut right = left.clone();
-        right.evidence_refs = vec!["evidence:1".into(), "evidence:2".into()];
-        let mut equivalent = right.clone();
-        equivalent.evidence_refs.reverse();
-        assert_eq!(right.fingerprint().unwrap(), equivalent.fingerprint().unwrap());
+        right.evidence_refs.reverse();
+        assert_ne!(left.canonical_bytes().unwrap(), right.canonical_bytes().unwrap());
     }
 
     #[test]
