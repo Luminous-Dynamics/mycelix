@@ -58,6 +58,14 @@ pub struct EconomicPeriodLedger {
     /// This is not part of transaction income or cash flow.
     #[serde(default)]
     pub real_asset_revaluation: i128,
+    /// Signed revaluation attributable specifically to productive capital.
+    /// Kept separate so offsetting valuation changes remain observable.
+    #[serde(default)]
+    pub productive_capital_revaluation: i128,
+    /// Signed revaluation attributable specifically to inventory carrying value.
+    /// Kept separate so offsetting valuation changes remain observable.
+    #[serde(default)]
+    pub inventory_carrying_value_revaluation: i128,
     /// Number of transitions represented by the ledger.
     pub transition_count: u64,
     /// Hash of the exact ordered transition list from which this ledger came.
@@ -181,6 +189,20 @@ impl EconomicPeriodLedger {
                         .checked_add(revaluation.amount)
                         .ok_or_else(|| EconomicStepError::Serialization(
                             "period real-asset revaluation overflow".into(),
+                        ))?;
+
+                    let target = match revaluation.target {
+                        crate::economics::stock_flow::RealAssetRevaluationTarget::ProductiveCapital => {
+                            &mut ledger.productive_capital_revaluation
+                        }
+                        crate::economics::stock_flow::RealAssetRevaluationTarget::InventoryCarryingValue => {
+                            &mut ledger.inventory_carrying_value_revaluation
+                        }
+                    };
+                    *target = target
+                        .checked_add(revaluation.amount)
+                        .ok_or_else(|| EconomicStepError::Serialization(
+                            "period target-specific revaluation overflow".into(),
                         ))?;
                 }
                 EconomicTransition::CreditCreation(credit) => {
