@@ -789,6 +789,36 @@ def verify_bundle(args: argparse.Namespace) -> int:
             print("PLATFORM EVIDENCE: DENY: supplied reconstruction differs from independent execution")
             return 1
 
+    payload_result = load_json(bundle / "payload-coherence.json")
+    if payload_result.get("profile_id") != "mycelix.security.event-payload-digest-coherence":
+        print("PLATFORM EVIDENCE: DENY: payload-coherence-profile-mismatch")
+        return 1
+    if payload_result.get("profile_version") != "0.1.0":
+        print("PLATFORM EVIDENCE: DENY: payload-coherence-version-mismatch")
+        return 1
+    if payload_result.get("verifier_id") != "mycelix.pc-client.event-payload-digest-coherence.v0.1":
+        print("PLATFORM EVIDENCE: DENY: payload-coherence-verifier-id-mismatch")
+        return 1
+    if payload_result.get("verifier_source_sha256") != sha256_file(PAYLOAD_COHERENCE_SCRIPT):
+        print("PLATFORM EVIDENCE: DENY: payload-coherence-source-mismatch")
+        return 1
+    if payload_result.get("input_sha256") != sha256_file(input_path):
+        print("PLATFORM EVIDENCE: DENY: payload-coherence-input-mismatch")
+        return 1
+    if payload_result.get("content_sha256") != self_hash(payload_result, "content_sha256"):
+        print("PLATFORM EVIDENCE: DENY: payload-coherence-self-hash-mismatch")
+        return 1
+    payload_state = payload_result.get("state")
+    if payload_state == "DENY":
+        print("PLATFORM EVIDENCE: DENY: payload-coherence-failure")
+        return 1
+    if payload_state not in {"PASS", "INDETERMINATE"}:
+        print("PLATFORM EVIDENCE: DENY: payload-coherence-state-invalid")
+        return 1
+    if manifest["payload_coherence"]["status"] != payload_state:
+        print("PLATFORM EVIDENCE: DENY: payload-coherence-manifest-state-mismatch")
+        return 1
+
     quote_state, quote_reason = run_quote_check(bundle)
     print(f"TPM Quote verification: {quote_state} ({quote_reason})")
     if quote_state != "PASS":
