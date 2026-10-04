@@ -3433,6 +3433,7 @@ mod tests {
         SnapshotTraceIndexMismatch,
         SnapshotPrefixMismatch,
         SnapshotRollback,
+        SameEndpointSnapshotMismatch,
         PreviousPublicationMismatch,
         PublicationChainEmpty,
         PublicationForkDetected,
@@ -3703,6 +3704,14 @@ mod tests {
         if earlier_publication.evidence_end > later_publication.evidence_end {
             return Err(
                 FederationStateMachineTraceCheckpointPublicationViolation::SnapshotRollback
+            );
+        }
+        if earlier_publication.evidence_end == later_publication.evidence_end
+            && (earlier_publication.body_sha256 != later_publication.body_sha256
+                || earlier_publication.chain_head_sha256 != later_publication.chain_head_sha256)
+        {
+            return Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::SameEndpointSnapshotMismatch
             );
         }
         if later_publication.previous_publication_sha256
@@ -5899,6 +5908,26 @@ mod tests {
             ),
             Err(
                 FederationStateMachineTraceCheckpointPublicationViolation::SnapshotPrefixMismatch
+            )
+        );
+
+        let mut divergent_same_endpoint = later.clone();
+        divergent_same_endpoint.evidence[11].token ^= 1;
+        reseal_state_machine_trace_for_test(&mut divergent_same_endpoint);
+        let divergent_same_endpoint_publication = state_machine_trace_checkpoint_publication(
+            &divergent_same_endpoint,
+            8,
+            &earlier_publication.publication_sha256,
+        );
+        assert_eq!(
+            validate_state_machine_trace_checkpoint_publication_consistency(
+                &earlier,
+                &earlier_publication,
+                &divergent_same_endpoint,
+                &divergent_same_endpoint_publication,
+            ),
+            Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::SameEndpointSnapshotMismatch
             )
         );
 
