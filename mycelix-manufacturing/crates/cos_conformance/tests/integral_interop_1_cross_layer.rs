@@ -245,7 +245,7 @@ fn actual_d6p_fixture() -> (
 
     // D6O: bind the same observation to a live generation, dependency snapshot,
     // lifecycle profile, and exact eligibility receipt.
-    let lifecycle_profile = ObserverLifecycleProfileV1 {
+    let mut lifecycle_profile = ObserverLifecycleProfileV1 {
         profile_id: "integral-lifecycle-profile-1".into(),
         semantic_environment_root: semantic_environment_root.clone(),
         observation_profile_id: "integral-observation-profile-1".into(),
@@ -1431,7 +1431,7 @@ fn strict_d6x_d6p_boundary_accepts_committed_receipt_and_rejects_substitution() 
         [receipt.receipt_commitment.clone()].into_iter().collect();
 
     let profile = DependencyClosureProfileV1 {
-        required_d6p_receipt_commitments =
+        required_d6p_receipt_commitments:
             [receipt.receipt_commitment.clone()].into_iter().collect(),
         ..closure_profile(true)
     };
