@@ -612,12 +612,22 @@ check_semantic_case_entrypoints() {
       continue
     fi
 
-    if rg -n --fixed-strings "#[hdk_extern]" "$coord_file" >/dev/null 2>&1 && rg -n --pcre2 "\\bfn[[:space:]]+${operation}[[:space:]]*\\(" "$coord_file" >/dev/null 2>&1; then
-      echo "OK:   semantic case ${operation} resolves to an #[hdk_extern]"
+    if awk -v op="$operation" '
+      /^[[:space:]]*#\[hdk_extern\][[:space:]]*$/ { saw_extern=1; next }
+      {
+        if ($0 ~ "^[[:space:]]*(pub[[:space:]]+)?(async[[:space:]]+)?fn[[:space:]]+" op "[[:space:]]*\\(") {
+          found=saw_extern
+          exit
+        }
+        saw_extern=0
+      }
+      END { exit(found ? 0 : 1) }
+    ' "$coord_file"; then
+      echo "OK:   semantic case ${operation} resolves to the #[hdk_extern]-annotated function"
     else
-      echo "FAIL: semantic case ${operation} has no matching #[hdk_extern] function"
+      echo "FAIL: semantic case ${operation} is not the function immediately annotated by #[hdk_extern]"
       fail=1
-    fi
+    fii
 
     mapfile -t test_fn_lines < <(
       rg -n --fixed-strings "async fn ${test_name}" "$rust_test" |
