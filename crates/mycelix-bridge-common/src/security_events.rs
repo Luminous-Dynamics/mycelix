@@ -420,9 +420,15 @@ impl SecurityEvent {
         )
     }
 
-    pub fn with_provenance(mut self, provenance: Vec<ProvenanceRef>) -> Self {
+    pub fn with_provenance(
+        mut self,
+        provenance: Vec<ProvenanceRef>,
+    ) -> Result<Self, &'static str> {
+        if provenance.len() > MAX_SECURITY_EVENT_PROVENANCE_REFS {
+            return Err("security event provenance exceeds size limit");
+        }
         self.provenance = provenance;
-        self
+        Ok(self)
     }
 
     pub fn with_recovery_correlation(
@@ -606,6 +612,41 @@ mod tests {
     }
 
     #[test]
+    fn security_event_programmatic_provenance_is_bounded() {
+        let request = crate::security_kernel::AuthorizationRequest::new(
+            "did:mycelix:alice",
+            "resource:ledger",
+            CapabilityAction::Read,
+            7,
+        )
+        .unwrap();
+        let event = SecurityEvent::new(
+            "event:provenance-programmatic-limit",
+            "did:mycelix:alice",
+            "capability:1",
+            request,
+            AuthorizationDecision::Deny(
+                crate::security_kernel::AuthorizationDenial::ActionNotGranted,
+            ),
+            7,
+            151,
+        )
+        .unwrap();
+
+        let provenance = (0..=MAX_SECURITY_EVENT_PROVENANCE_REFS)
+            .map(|index| {
+                ProvenanceRef::new(
+                    format!("evidence:{index}"),
+                    ProvenanceRelation::References,
+                )
+                .unwrap()
+            })
+            .collect();
+
+        assert!(event.with_provenance(provenance).is_err());
+    }
+
+    #[test]
     fn security_event_rejects_unknown_wire_fields() {
         let json = r#"{
             "event_id":"event:unknown",
@@ -723,6 +764,7 @@ mod tests {
         )
         .unwrap()
         .with_provenance(vec![source])
+        .unwrap()
         .with_recovery_correlation("recovery:1")
         .unwrap();
 
