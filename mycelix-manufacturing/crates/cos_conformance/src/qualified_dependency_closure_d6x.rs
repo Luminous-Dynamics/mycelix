@@ -1001,6 +1001,64 @@ mod tests {
     }
 
     #[test]
+    fn authoritative_d6p_rejects_duplicate_composition_identity() {
+        let (mut p, e, d) = projection(false);
+        let receipt_commitment = "receipt-composition-duplicate".to_string();
+        p.d6p_current_receipt_commitments.insert(receipt_commitment.clone());
+
+        let mut profile = profile(BTreeSet::new());
+        profile.required_d6p_receipt_commitments.insert(receipt_commitment.clone());
+
+        let receipt = CurrentFinalityEligibilityReceiptV1 {
+            receipt_id: "receipt-id".into(),
+            effect_id: "effect".into(),
+            effect_lineage_id: "lineage".into(),
+            lifecycle_generation_id: "generation".into(),
+            route_id: "route".into(),
+            provider_id: "provider".into(),
+            provider_operation_id: "operation".into(),
+            provider_profile_root: "provider-profile".into(),
+            semantic_environment_root: "env".into(),
+            observation_set_id: "set".into(),
+            observation_set_commitment: "set-commitment".into(),
+            d6n_assessment_commitment: "assessment".into(),
+            composition_commitment: "composition-duplicate".into(),
+            witness_eligibility_ids: ["eligibility".into()].into_iter().collect(),
+            observer_generation_ids: ["generation".into()].into_iter().collect(),
+            current_frontier_root: "frontier".into(),
+            lifecycle_profile_id: "lifecycle".into(),
+            eligible_independent_count: 1,
+            preserved_contradictory_count: 0,
+            disposition: crate::finality_eligibility_composition::FinalityEligibilityDispositionV1::EligibleCurrent,
+            qualification_transition_id: "transition".into(),
+            receipt_commitment,
+            claim_ceiling: crate::finality_eligibility_composition::FINALITY_ELIGIBILITY_COMPOSITION_CLAIM_CEILING.into(),
+        };
+
+        let composition_a = FinalityEligibilityCompositionV1 {
+            composition_id: "composition:set".into(),
+            composition_commitment: "composition-duplicate".into(),
+            ..Default::default()
+        };
+        let mut composition_b = composition_a.clone();
+        composition_b.composition_id = "composition:other".into();
+
+        assert!(
+            compute_dependency_closure_from_authoritative_d6p_at_frontier(
+                &p,
+                &e,
+                &d,
+                &profile,
+                std::slice::from_ref(&receipt),
+                &[composition_a, composition_b],
+                Some("frontier"),
+            )
+            .is_none(),
+            "qualified D6P admission must reject ambiguous composition identity",
+        );
+    }
+
+    #[test]
     fn authoritative_d6p_rejects_replayed_historical_frontier() {
         let (mut p, e, d) = projection(false);
         let receipt_commitment = "receipt-1".to_string();
