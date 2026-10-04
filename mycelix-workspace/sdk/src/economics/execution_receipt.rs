@@ -153,6 +153,37 @@ impl EconomicExecutionLedger {
         &self.receipts
     }
 
+    /// Validate persisted execution history without mutating it.
+    ///
+    /// This closes the structural ambiguity where a deserialized ledger could
+    /// contain duplicate execution IDs or receipts belonging to another action.
+    pub fn validate(&self) -> Result<(), String> {
+        if self.action_ref.trim().is_empty() {
+            return Err("Execution ledger action reference cannot be empty".into());
+        }
+
+        let mut seen = std::collections::BTreeSet::new();
+        for receipt in &self.receipts {
+            receipt.validate()?;
+
+            if !seen.insert(receipt.execution_id.clone()) {
+                return Err(format!(
+                    "Duplicate execution ID in history: {}",
+                    receipt.execution_id
+                ));
+            }
+
+            if receipt.action_ref != self.action_ref {
+                return Err(format!(
+                    "Execution receipt {} action reference does not match ledger",
+                    receipt.execution_id
+                ));
+            }
+        }
+
+        Ok(())
+    }
+
     /// Attach a receipt to the exact current lifecycle authorization.
     ///
     /// The receipt must reference the current revision and current scope
@@ -267,6 +298,29 @@ mod tests {
             evidence_refs: vec!["evidence:execution".into()],
             recorded_at: 1_200,
         }
+    }
+
+    #[test]
+    fn malformed_execution_history_is_rejected() {
+        let receipt = receipt(
+            &EconomicActionLifecycle::start(
+                &scope("action:1", "scope:1"),
+                "revision:1",
+                "authority:dao-1",
+                vec!["evidence:planning".into()],
+                1_000,
+            )
+            .unwrap(),
+            EconomicExecutionKind::Delivery,
+        );
+
+        let duplicate = serde_json::json!({
+            "action_ref": "action:1",
+            "receipts": [receipt, receipt]
+        });
+        let ledger: EconomicExecutionLedger = serde_json::from_value(duplicate).unwrap();
+
+        assert!(ledger.validate().is_err());
     }
 
     #[test]
