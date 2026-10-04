@@ -624,6 +624,7 @@ fn test_semantic_case_manifest_is_structurally_valid() {
             .as_str()
             .expect("every semantic case needs a validator_source");
         let validator_symbol = case["validator_symbol"]
+        let dispatch_symbol = case["dispatch_symbol"]
             .as_str()
             .expect("every semantic case needs a validator_symbol");
 
@@ -665,7 +666,13 @@ fn test_semantic_case_manifest_is_structurally_valid() {
             validator_source.ends_with("src/lib.rs"),
             "{case_id} validator_source must point to a Rust source file"
         );
+        assert!(
+            validator_source.starts_with("mycelix-workspace/mycelix-hearth/")
+                || validator_source.starts_with("crates/"),
+            "{case_id} validator_source must remain inside the approved repository source boundary"
+        );
         assert!(!validator_symbol.is_empty(), "{case_id} validator_symbol must not be empty");
+        assert!(!dispatch_symbol.is_empty(), "{case_id} dispatch_symbol must not be empty");
 
         let surfaces = case["operation_surface"]
             .as_array()
