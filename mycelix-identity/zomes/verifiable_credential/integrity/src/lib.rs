@@ -546,24 +546,52 @@ fn is_date_time_stamp(value: &str) -> bool {
 }
 
 fn eddsa_jcs_hash_data_from_values(
-    unsecured: Value,
+    mut unsecured: Value,
     mut proof_config: Value,
 ) -> ExternResult<Vec<u8>> {
-    let context = unsecured
+    let document_context = unsecured
         .get("@context")
         .cloned()
         .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "JCS credential must contain an @context for proof configuration".into()
+            "JCS secured document must contain an @context".into()
         )))?;
 
     let proof_config_map = proof_config.as_object_mut().ok_or(wasm_error!(
         WasmErrorInner::Guest("JCS proof configuration must serialize to a JSON object".into())
     ))?;
-    proof_config_map.insert("@context".to_string(), context);
+
+    // W3C eddsa-jcs-2022 verification: when proof @context is present it
+    // must be an ordered prefix of the secured document's @context, and the
+    // unsecured document is canonicalized using that proof context. When the
+    // proof omits @context, the document context remains unchanged.
+    if let Some(proof_context) = proof_config_map.get("@context").cloned() {
+        let document_values = document_context.as_array().ok_or(wasm_error!(
+            WasmErrorInner::Guest("JCS document @context must be an array".into())
+        ))?;
+        let proof_values = proof_context.as_array().ok_or(wasm_error!(
+            WasmErrorInner::Guest("JCS proof @context must be an array".into())
+        ))?;
+
+        if proof_values.is_empty()
+            || proof_values.len() > document_values.len()
+            || document_values[..proof_values.len()] != proof_values[..]
+        {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "JCS proof @context must be an ordered prefix of the document @context".into()
+            )));
+        }
+
+        unsecured
+            .as_object_mut()
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "JCS secured document must serialize to a JSON object".into()
+            )))?
+            .insert("@context".into(), proof_context);
+    }
 
     let canonical_document = serde_json_canonicalizer::to_vec(&unsecured).map_err(|e| {
         wasm_error!(WasmErrorInner::Guest(format!(
-            "JCS credential canonicalization failed: {e}"
+            "JCS document canonicalization failed: {e}"
         )))
     })?;
     let canonical_proof_config = serde_json_canonicalizer::to_vec(&proof_config).map_err(|e| {
@@ -1181,10 +1209,15 @@ fn validate_create_verifiable_credential(
                     "eddsa-jcs-2022 proofs must not declare a non-standard algorithm field".into(),
                 ));
             }
-            if vc.proof.proof_context.as_deref() != Some(vc.context.as_slice()) {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "eddsa-jcs-2022 proof @context must exactly match the credential @context".into(),
-                ));
+            if let Some(proof_context) = vc.proof.proof_context.as_ref() {
+                if proof_context.is_empty()
+                    || proof_context.len() > vc.context.len()
+                    || vc.context[..proof_context.len()] != proof_context[..]
+                {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "eddsa-jcs-2022 proof @context must be an ordered prefix of the credential @context".into(),
+                    ));
+                }
             }
         }
         Some(_) => {
@@ -1296,10 +1329,15 @@ fn validate_create_verifiable_presentation(
                     "eddsa-jcs-2022 presentation proofs must not declare algorithm".into(),
                 ));
             }
-            if vp.proof.proof_context.as_deref() != Some(vp.context.as_slice()) {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "eddsa-jcs-2022 presentation proof @context must exactly match the presentation @context".into(),
-                ));
+            if let Some(proof_context) = vp.proof.proof_context.as_ref() {
+                if proof_context.is_empty()
+                    || proof_context.len() > vp.context.len()
+                    || vp.context[..proof_context.len()] != proof_context[..]
+                {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "eddsa-jcs-2022 presentation proof @context must be an ordered prefix of the presentation @context".into(),
+                    ));
+                }
             }
             let expected_method = format!("{}#keys-1-multikey", vp.holder);
             if vp.proof.verification_method != expected_method {
