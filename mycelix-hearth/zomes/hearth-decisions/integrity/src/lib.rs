@@ -266,17 +266,49 @@ fn validate_outcome_basis(outcome: &DecisionOutcome) -> ExternResult<ValidateCal
     };
 
     let basis_record = must_get_valid_record(basis.clone())?;
-    let basis_decision: Decision = basis_record
-        .entry()
-        .to_app_option()
-        .map_err(|e| {
-            wasm_error!(WasmErrorInner::Guest(format!(
-                "Failed to deserialize finalization basis Decision: {e}"
-            )))
-        })?
-        .ok_or(wasm_error!(WasmErrorInner::Guest(
-            "Finalization basis does not reference a Decision entry".into()
-        )))?;
+    let basis_entry_type = basis_record.action().entry_type().ok_or(wasm_error!(
+        WasmErrorInner::Guest(
+            "Finalization basis action does not contain an application entry type".into(),
+        )
+    ))?;
+    let EntryType::App(app_entry_def) = basis_entry_type else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Finalization basis must reference an application Decision entry".into(),
+        ));
+    };
+
+    let basis_entry = match basis_record.entry() {
+        RecordEntry::Present(entry) => entry,
+        _ => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Finalization basis does not contain entry data".into(),
+            ));
+        }
+    };
+    let basis_entry_type = EntryTypes::deserialize_from_type(
+        app_entry_def.zome_index,
+        app_entry_def.entry_index,
+        basis_entry,
+    )
+    .map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "Failed to identify finalization basis entry type: {e:?}"
+        )))
+    })?;
+
+    let basis_decision = match basis_entry_type {
+        Some(EntryTypes::Decision(decision)) => decision,
+        Some(_) => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Finalization basis action is not a Decision entry".into(),
+            ));
+        }
+        None => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Finalization basis action belongs to another zome or entry definition".into(),
+            ));
+        }
+    };
 
     if basis_decision.status != DecisionStatus::Open {
         return Ok(ValidateCallbackResult::Invalid(
