@@ -38,8 +38,8 @@ def main() -> None:
             f"expected={expected_version!r}, observed={sorted(observed_versions)!r}"
         )
         for package in matches:
-            assert package.get("source", "").startswith("registry+"), (
-                f"Cargo.lock substrate package {package_name!r} must come from a registry"
+            assert package.get("source") == "registry+https://github.com/rust-lang/crates.io-index", (
+                f"Cargo.lock substrate package {package_name!r} must resolve from the crates.io index"
             )
             assert package.get("checksum"), (
                 f"Cargo.lock substrate package {package_name!r} must include a checksum"
