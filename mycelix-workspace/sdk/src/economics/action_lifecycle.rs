@@ -130,15 +130,30 @@ impl EconomicActionRevision {
                 if self.stage != EconomicActionStage::Completed {
                     return Err("Completion revision must use Completed stage".into());
                 }
+                if self.predecessor_scope_id.is_some() {
+                    return Err("Completion revision cannot carry a predecessor scope".into());
+                }
             }
             EconomicActionChangeKind::Termination => {
                 if self.stage != EconomicActionStage::Terminated {
                     return Err("Termination revision must use Terminated stage".into());
                 }
+                if self.predecessor_scope_id.is_some() {
+                    return Err("Termination revision cannot carry a predecessor scope".into());
+                }
             }
             EconomicActionChangeKind::Update => {
                 if self.predecessor_scope_id.is_some() {
                     return Err("Ordinary update cannot carry a predecessor scope".into());
+                }
+                if matches!(
+                    self.stage,
+                    EconomicActionStage::Completed | EconomicActionStage::Terminated
+                ) {
+                    return Err(
+                        "Terminal lifecycle transitions require Completion or Termination kind"
+                            .into(),
+                    );
                 }
             }
         }
@@ -256,8 +271,17 @@ impl EconomicActionLifecycle {
             }
             current.validate()?;
 
+            if !stage_transition_allowed(previous.stage, current.stage) {
+                return Err("Lifecycle history contains an invalid stage transition".into());
+            }
+
             match current.kind {
                 EconomicActionChangeKind::ScopeAmendment => {
+                    if current.stage != previous.stage {
+                        return Err(
+                            "Scope amendments cannot change lifecycle stage".into(),
+                        );
+                    }
                     if current.predecessor_scope_id.as_deref()
                         != Some(previous.scope_id.as_str())
                     {
@@ -740,6 +764,61 @@ mod tests {
         );
 
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn terminal_stage_requires_terminal_change_kind() {
+        let mut lifecycle = start();
+        lifecycle
+            .record(
+                "revision:2",
+                EconomicActionStage::Tendering,
+                EconomicActionChangeKind::Update,
+                &scope("action:1", "scope:1"),
+                "authority:dao-1",
+                vec!["evidence:tender".into()],
+                1_100,
+            )
+            .unwrap();
+
+        let result = lifecycle.record(
+            "revision:3",
+            EconomicActionStage::Terminated,
+            EconomicActionChangeKind::Update,
+            &scope("action:1", "scope:1"),
+            "authority:dao-1",
+            vec!["evidence:bad-terminal-kind".into()],
+            1_200,
+        );
+
+        assert!(result.is_err());
+        assert_eq!(lifecycle.current_stage(), EconomicActionStage::Tendering);
+    }
+
+    #[test]
+    fn scope_amendment_cannot_change_stage() {
+        let mut lifecycle = start();
+        let mut amended = scope("action:1", "scope:2");
+
+        // Direct historical construction is validated separately; amend_scope
+        // itself always retains the current stage.
+        let revision = EconomicActionRevision {
+            revision_id: "revision:2".into(),
+            action_ref: "action:1".into(),
+            scope_id: amended.scope_id.clone(),
+            scope_fingerprint: amended.fingerprint().unwrap(),
+            stage: EconomicActionStage::Tendering,
+            kind: EconomicActionChangeKind::ScopeAmendment,
+            predecessor_revision_id: Some("revision:1".into()),
+            predecessor_scope_id: Some("scope:1".into()),
+            authority_ref: "authority:dao-1".into(),
+            evidence_refs: vec!["evidence:bad-stage".into()],
+            recorded_at: 1_100,
+        };
+
+        lifecycle.revisions.push(revision);
+        assert!(lifecycle.validate().is_err());
+        amended.policy_ref = "policy:still-unused".into();
     }
 
     #[test]
