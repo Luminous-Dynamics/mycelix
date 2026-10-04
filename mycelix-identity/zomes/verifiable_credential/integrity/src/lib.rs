@@ -2114,8 +2114,7 @@ mod author_binding_tests {
                 algorithm: None,
                 challenge: None,
                 domain: None,
-            proof_context: None,
-            proof_context: None,
+                proof_context: None,
             },
             mycelix_created: Timestamp::from_micros(0),
         }
