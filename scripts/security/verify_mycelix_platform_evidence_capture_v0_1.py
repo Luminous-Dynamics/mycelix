@@ -1016,24 +1016,23 @@ def capture(args: argparse.Namespace) -> int:
             )
         if replay.returncode not in (0, 1, 2):
             raise RuntimeError("independent event-log reconstruction process failed")
-
-    payload_coherence_path = out / "payload-coherence.json"
-    payload_proc = run(
-        [
-            sys.executable,
-            str(PAYLOAD_COHERENCE_SCRIPT),
-            "--verify",
-            str(input_path),
-            "--output",
-            str(payload_coherence_path),
-        ],
-        env,
-        out,
-        check=False,
-    )
-    if payload_proc.returncode not in (0, 2) and not payload_coherence_path.is_file():
-        raise RuntimeError("payload coherence verifier failed without producing a result")
-    payload_coherence = load_json(payload_coherence_path)
+        payload_coherence_path = out / "payload-coherence.json"
+        payload_proc = run(
+            [
+                sys.executable,
+                str(PAYLOAD_COHERENCE_SCRIPT),
+                "--verify",
+                str(input_path),
+                "--output",
+                str(payload_coherence_path),
+            ],
+            env,
+            out,
+            check=False,
+        )
+        if payload_proc.returncode not in (0, 2) and not payload_coherence_path.is_file():
+            raise RuntimeError("payload coherence verifier failed without producing a result")
+        payload_coherence = load_json(payload_coherence_path)
     else:
         input_path.write_text(
             json.dumps({
@@ -1059,7 +1058,22 @@ def capture(args: argparse.Namespace) -> int:
         reconstruction_path.write_text(
             json.dumps(reconstruction, indent=2, sort_keys=True) + "\n", encoding="utf-8"
         )
-
+        payload_coherence_path = out / "payload-coherence.json"
+        payload_coherence = {
+            "profile_id": "mycelix.security.event-payload-digest-coherence",
+            "profile_version": "0.1.0",
+            "verifier_id": "mycelix.pc-client.event-payload-digest-coherence.v0.1",
+            "verifier_source_sha256": sha256_file(PAYLOAD_COHERENCE_SCRIPT),
+            "input_sha256": sha256_file(input_path),
+            "event_count": 0,
+            "event_results": [],
+            "state": "INDETERMINATE",
+            "reason": "canonical-input-unavailable",
+        }
+        payload_coherence["content_sha256"] = self_hash(payload_coherence, "content_sha256")
+        payload_coherence_path.write_text(
+            json.dumps(payload_coherence, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
     ek_hash = sha256_file(out / "ek.pub")
     manifest: dict[str, Any] = {
         "profile_id": "mycelix.security.platform.evidence.capture",
