@@ -3234,7 +3234,7 @@ mod tests {
                 body_sha256: String::new(),
             },
         };
-        capsule.integrity.body_sha256 = state_machine_trace_body_sha256(&capsule);
+        capsule.integrity = state_machine_trace_integrity(&capsule);
         serde_json::to_string_pretty(&capsule).expect("trace capsule is serializable")
     }
 
