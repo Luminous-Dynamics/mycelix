@@ -64,6 +64,28 @@ An ecosystem asset account is not silently converted into a policy threshold.
 
 Those transformations require explicit local policy.
 
+
+## Freshness qualification
+
+A valid published observation is not automatically current decision evidence.
+
+SEEA accounting periods may differ across data sources, and explicit adjustments or assumptions may be needed when integrating sources with different reference periods. AC-022 therefore separates structural validation from temporal qualification.
+
+The reference SDK exposes a freshness policy with:
+
+- a decision timestamp;
+- a maximum permitted age measured from the observation period end.
+
+It rejects observations that are:
+
+- from the future;
+- accompanied by a future publisher timestamp;
+- older than the permitted policy window when current evidence is required.
+
+This prevents a real and correctly sourced ecosystem account from becoming a stale authorization token.
+
+The policy is deliberately caller-owned. Different procurement classes may require different freshness windows, and the protocol does not pretend that an annual ecosystem account must satisfy a universal freshness constant.
+
 ## Procurement interoperability
 
 Open Contracting Data Standard (OCDS) represents procurement as a lifecycle including planning, tendering, awarding, contracting and implementation.
