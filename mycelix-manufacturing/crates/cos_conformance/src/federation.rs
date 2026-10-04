@@ -2620,54 +2620,80 @@ mod tests {
             let mut authority = None;
 
             match operation {
-                FederationStateMachineOperation::AddRecognition
-                | FederationStateMachineOperation::DuplicateRecognition => {
+                FederationStateMachineOperation::AddRecognition => {
+                    let inserted = state
+                        .try_add_recognition(RecognitionEdge {
+                            recognizing_node: "node-a".into(),
+                            origin_node: "node-b".into(),
+                            scope: format!("sm-recognition-{token}"),
+                            mode: RecognitionMode::EvidenceOnly,
+                        })
+                        .unwrap();
+                    assert!(inserted);
+                }
+                FederationStateMachineOperation::DuplicateRecognition => {
                     let edge = RecognitionEdge {
                         recognizing_node: "node-a".into(),
                         origin_node: "node-b".into(),
-                        scope: "subject-1".into(),
+                        scope: "sm-recognition-duplicate".into(),
                         mode: RecognitionMode::EvidenceOnly,
                     };
-                    let inserted = state.try_add_recognition(edge).unwrap();
-                    if operation
-                        == FederationStateMachineOperation::AddRecognition
-                    {
-                        assert!(inserted || state.recognition_edges.len() == 1);
-                    } else {
-                        assert!(!inserted);
-                    }
+                    let _ = state.try_add_recognition(edge.clone()).unwrap();
+                    assert_eq!(state.try_add_recognition(edge), Ok(false));
+                    assert_eq!(canonical_state_fingerprint(&state), before);
                 }
-                FederationStateMachineOperation::RecordObservation
-                | FederationStateMachineOperation::DuplicateObservation
-                | FederationStateMachineOperation::ConflictObservation => {
+                FederationStateMachineOperation::RecordObservation => {
                     let observation = ObservationRecord {
-                        observation_id: "sm-observation".into(),
+                        observation_id: format!("sm-observation-{token}"),
                         semantic_subject_id: "subject-1".into(),
-                        payload_commitment: if operation
-                            == FederationStateMachineOperation::ConflictObservation
-                        {
-                            "sha256:sm-conflict".into()
-                        } else {
-                            "sha256:sm-observation".into()
-                        },
+                        payload_commitment: format!("sha256:sm-observation-{token}"),
                         origin_node: "node-a".into(),
                         origin_node_known: false,
                         recognized_by: None,
                         source_observation: false,
                     };
-                    let expected = match operation {
-                        FederationStateMachineOperation::RecordObservation => {
-                            ObservationWriteResult::Inserted
-                        }
-                        FederationStateMachineOperation::DuplicateObservation => {
-                            ObservationWriteResult::Duplicate
-                        }
-                        FederationStateMachineOperation::ConflictObservation => {
-                            ObservationWriteResult::Conflict
-                        }
-                        _ => unreachable!(),
+                    assert_eq!(
+                        record_observation(&mut state, observation),
+                        ObservationWriteResult::Inserted
+                    );
+                }
+                FederationStateMachineOperation::DuplicateObservation => {
+                    let observation = ObservationRecord {
+                        observation_id: "sm-observation-duplicate".into(),
+                        semantic_subject_id: "subject-1".into(),
+                        payload_commitment: "sha256:sm-observation-duplicate".into(),
+                        origin_node: "node-a".into(),
+                        origin_node_known: false,
+                        recognized_by: None,
+                        source_observation: false,
                     };
-                    assert_eq!(record_observation(&mut state, observation), expected);
+                    let _ = record_observation(&mut state, observation.clone());
+                    let before_duplicate = canonical_state_fingerprint(&state);
+                    assert_eq!(
+                        record_observation(&mut state, observation),
+                        ObservationWriteResult::Duplicate
+                    );
+                    assert_eq!(canonical_state_fingerprint(&state), before_duplicate);
+                }
+                FederationStateMachineOperation::ConflictObservation => {
+                    let observation = ObservationRecord {
+                        observation_id: "sm-observation-conflict".into(),
+                        semantic_subject_id: "subject-1".into(),
+                        payload_commitment: "sha256:sm-observation".into(),
+                        origin_node: "node-a".into(),
+                        origin_node_known: false,
+                        recognized_by: None,
+                        source_observation: false,
+                    };
+                    let _ = record_observation(&mut state, observation.clone());
+                    let before_conflict = canonical_state_fingerprint(&state);
+                    let mut conflict = observation;
+                    conflict.payload_commitment = "sha256:sm-conflict".into();
+                    assert_eq!(
+                        record_observation(&mut state, conflict),
+                        ObservationWriteResult::Conflict
+                    );
+                    assert_eq!(canonical_state_fingerprint(&state), before_conflict);
                 }
                 FederationStateMachineOperation::AdmitLocal => {
                     let candidate = state_machine_envelope(operation, token);
@@ -2678,32 +2704,64 @@ mod tests {
                     authority = Some(outcome.authority());
                 }
                 FederationStateMachineOperation::ReplayExact => {
-                    if let Some(candidate) = admitted.first().cloned() {
-                        let outcome = deliver(&mut state, &candidate, 100, true);
-                        assert_eq!(outcome.decision(), FederationDecision::Duplicate);
-                        decision = Some(outcome.decision());
-                        authority = Some(outcome.authority());
+                    if admitted.is_empty() {
+                        let candidate = state_machine_envelope(
+                            FederationStateMachineOperation::AdmitLocal,
+                            token.wrapping_add(1),
+                        );
+                        assert_eq!(
+                            deliver(&mut state, &candidate, 100, true).decision(),
+                            FederationDecision::AcceptedLocal
+                        );
+                        admitted.push(candidate);
                     }
+                    let candidate = admitted.first().cloned().unwrap();
+                    let outcome = deliver(&mut state, &candidate, 100, true);
+                    assert_eq!(outcome.decision(), FederationDecision::Duplicate);
+                    decision = Some(outcome.decision());
+                    authority = Some(outcome.authority());
+                    assert_eq!(canonical_state_fingerprint(&state), before);
                 }
                 FederationStateMachineOperation::RetryExisting => {
-                    if let Some(mut candidate) = admitted.first().cloned() {
-                        candidate.attempt_id = format!("sm-retry-{token}");
-                        candidate.envelope_id = format!("sm-retry-envelope-{token}");
-                        let outcome = deliver(&mut state, &candidate, 100, true);
-                        assert_eq!(outcome.decision(), FederationDecision::Duplicate);
-                        decision = Some(outcome.decision());
-                        authority = Some(outcome.authority());
+                    if admitted.is_empty() {
+                        let candidate = state_machine_envelope(
+                            FederationStateMachineOperation::AdmitLocal,
+                            token.wrapping_add(1),
+                        );
+                        assert_eq!(
+                            deliver(&mut state, &candidate, 100, true).decision(),
+                            FederationDecision::AcceptedLocal
+                        );
+                        admitted.push(candidate);
                     }
+                    let mut candidate = admitted.first().cloned().unwrap();
+                    candidate.attempt_id = format!("sm-retry-{token}");
+                    candidate.envelope_id = format!("sm-retry-envelope-{token}");
+                    let outcome = deliver(&mut state, &candidate, 100, true);
+                    assert_eq!(outcome.decision(), FederationDecision::Duplicate);
+                    decision = Some(outcome.decision());
+                    authority = Some(outcome.authority());
                 }
                 FederationStateMachineOperation::RebindAttempt => {
-                    if let Some(candidate) = admitted.first().cloned() {
-                        let mut rebound = candidate.clone();
-                        rebound.envelope_id = format!("sm-rebound-envelope-{token}");
-                        let outcome = deliver(&mut state, &rebound, 100, true);
-                        assert_eq!(outcome.decision(), FederationDecision::AttemptConflict);
-                        decision = Some(outcome.decision());
-                        authority = Some(outcome.authority());
+                    if admitted.is_empty() {
+                        let candidate = state_machine_envelope(
+                            FederationStateMachineOperation::AdmitLocal,
+                            token.wrapping_add(1),
+                        );
+                        assert_eq!(
+                            deliver(&mut state, &candidate, 100, true).decision(),
+                            FederationDecision::AcceptedLocal
+                        );
+                        admitted.push(candidate);
                     }
+                    let candidate = admitted.first().cloned().unwrap();
+                    let mut rebound = candidate.clone();
+                    rebound.envelope_id = format!("sm-rebound-envelope-{token}");
+                    let outcome = deliver(&mut state, &rebound, 100, true);
+                    assert_eq!(outcome.decision(), FederationDecision::AttemptConflict);
+                    decision = Some(outcome.decision());
+                    authority = Some(outcome.authority());
+                    assert_eq!(canonical_state_fingerprint(&state), before);
                 }
                 FederationStateMachineOperation::AdmitForeign => {
                     let mut candidate = state_machine_envelope(operation, token);
@@ -2742,21 +2800,32 @@ mod tests {
                     assert_eq!(outcome.decision(), FederationDecision::PendingDependency);
                     decision = Some(outcome.decision());
                     authority = Some(outcome.authority());
+                    assert_eq!(canonical_state_fingerprint(&state), before);
                 }
                 FederationStateMachineOperation::AdmitWithPredecessor => {
-                    if let Some(predecessor) = admitted.first() {
-                        let mut candidate = state_machine_envelope(operation, token);
-                        candidate.predecessor_delivery_id =
-                            Some(predecessor.logical_delivery_id.clone());
-                        let outcome = deliver(&mut state, &candidate, 100, true);
+                    if admitted.is_empty() {
+                        let predecessor = state_machine_envelope(
+                            FederationStateMachineOperation::AdmitLocal,
+                            token.wrapping_add(1),
+                        );
                         assert_eq!(
-                            outcome.decision(),
+                            deliver(&mut state, &predecessor, 100, true).decision(),
                             FederationDecision::AcceptedLocal
                         );
-                        admitted.push(candidate);
-                        decision = Some(outcome.decision());
-                        authority = Some(outcome.authority());
+                        admitted.push(predecessor);
                     }
+                    let predecessor = admitted.first().cloned().unwrap();
+                    let mut candidate = state_machine_envelope(operation, token);
+                    candidate.predecessor_delivery_id =
+                        Some(predecessor.logical_delivery_id.clone());
+                    let outcome = deliver(&mut state, &candidate, 100, true);
+                    assert_eq!(
+                        outcome.decision(),
+                        FederationDecision::AcceptedLocal
+                    );
+                    admitted.push(candidate);
+                    decision = Some(outcome.decision());
+                    authority = Some(outcome.authority());
                 }
                 FederationStateMachineOperation::Partition => {
                     let candidate = state_machine_envelope(operation, token);
@@ -2822,17 +2891,27 @@ mod tests {
                     assert_eq!(canonical_state_fingerprint(&state), before);
                 }
                 FederationStateMachineOperation::ConflictExistingDelivery => {
-                    if let Some(mut candidate) = admitted.first().cloned() {
-                        candidate.payload_commitment = format!("sha256:conflict-{token}");
-                        let outcome = deliver(&mut state, &candidate, 100, true);
-                        assert_eq!(
-                            outcome.decision(),
-                            FederationDecision::PayloadConflict
+                    if admitted.is_empty() {
+                        let candidate = state_machine_envelope(
+                            FederationStateMachineOperation::AdmitLocal,
+                            token.wrapping_add(1),
                         );
-                        decision = Some(outcome.decision());
-                        authority = Some(outcome.authority());
-                        assert_eq!(canonical_state_fingerprint(&state), before);
+                        assert_eq!(
+                            deliver(&mut state, &candidate, 100, true).decision(),
+                            FederationDecision::AcceptedLocal
+                        );
+                        admitted.push(candidate);
                     }
+                    let mut candidate = admitted.first().cloned().unwrap();
+                    candidate.payload_commitment = format!("sha256:conflict-{token}");
+                    let outcome = deliver(&mut state, &candidate, 100, true);
+                    assert_eq!(
+                        outcome.decision(),
+                        FederationDecision::PayloadConflict
+                    );
+                    decision = Some(outcome.decision());
+                    authority = Some(outcome.authority());
+                    assert_eq!(canonical_state_fingerprint(&state), before);
                 }
             }
 
