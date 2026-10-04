@@ -2925,6 +2925,21 @@ async fn dsid_036_issued_state_proves_credential_fulfillment() {
         "newly issued request-bound Mycelix credentials must use the W3C JCS proof profile"
     );
 
+    assert_eq!(
+        credential_value["proof"]["verificationMethod"].as_str(),
+        Some(format!(
+            "{}#keys-1-multikey",
+            issuer_did
+        ).as_str()),
+        "JCS credentials must resolve their W3C proof through the DID's Multikey representation"
+    );
+    assert_eq!(
+        credential_value["proof"]["@context"],
+        credential_value["@context"],
+        "JCS proof @context must exactly match the credential @context"
+    );
+    assert!(credential_value["proof"].get("algorithm").is_none());
+
     let verified: serde_json::Value = conductor
         .call(
             &requester.zome("verifiable_credential"),
