@@ -140,7 +140,8 @@ impl SectorRevaluationChangeMatrix {
                         revaluation.amount,
                     )?);
                 }
-                EconomicTransition::MonetaryTransfer(_)
+                EconomicTransition::DebtForgiveness(_)
+                | EconomicTransition::MonetaryTransfer(_)
                 | EconomicTransition::IncomeTransfer(_)
                 | EconomicTransition::CapitalInvestment(_)
                 | EconomicTransition::Production(_)
