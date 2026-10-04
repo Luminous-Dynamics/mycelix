@@ -26,6 +26,11 @@ The aggregate status distinguishes:
 Each declared flow edge also carries its port-level status and, when available,
 the mesh component assigned to each anchor.
 
+The record may additionally contain unexpected_connectivity entries when the realized
+mesh places two represented ports in the same component even though the intent graph
+declares no FlowPath in either direction. These are topology-divergence observations,
+not claims that the accidental connection is physically useful.
+
 ## Epistemic invariant
 
 physical_transport_unproven is required and must be true.
