@@ -73,7 +73,7 @@ pub use stock_flow::{
     ActorBalanceSheet, ActorId, CapitalInvestment, ProductionEvent, InventoryTransfer,
     InventoryConsumption, GoodsSale, TradeCreditSale, TradeCreditSettlement, InventoryCostAddition,
     InventoryCostRelief, Depreciation, CreditCreation,
-    DebtRepayment, DebtWriteOff, EconomicFlowCategory, IncomeTransfer, EconomicState, MonetaryFlow,
+    DebtRepayment, DebtWriteOff, DebtForgiveness, EconomicFlowCategory, IncomeTransfer, EconomicState, MonetaryFlow,
     MonetaryInstrument, MonetaryStock, RealStock,
 };
 
