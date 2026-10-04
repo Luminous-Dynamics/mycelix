@@ -15,3 +15,4 @@ Physical path:
 binary_bios_measurements → tpm2_eventlog v1 → bounded adapter → eventlog-reconstruction-input.json → independent PCR replay → platform Evidence verifier
 
 Claim ceiling remains ReferenceModelOnly.
+When the raw payload sidecar is used, the adapter requires matching parser identity, parser source digest, and binary event-log digest before any payload bytes are admitted.
