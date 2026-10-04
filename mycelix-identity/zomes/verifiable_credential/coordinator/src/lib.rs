@@ -779,6 +779,84 @@ pub fn create_presentation(input: CreatePresentationInput) -> ExternResult<Recor
         }
     }
 
+    // The current holder DID must be active and must still authorize the
+    // canonical Multikey for authentication. This prevents a key rotation or
+    // deactivation from silently producing new JCS presentations with stale
+    // authorization state.
+    let active_response = call(
+        CallTargetCell::Local,
+        ZomeName::new("did_registry"),
+        FunctionName::new("is_did_active"),
+        None,
+        holder_did.clone(),
+    )?;
+    let active = match active_response {
+        ZomeCallResponse::Ok(result) => result.decode::<bool>().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Failed to decode holder DID active state: {e:?}"
+            )))
+        })?,
+        _ => {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Holder DID active state could not be established".into()
+            )))
+        }
+    };
+    if !active {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Cannot create a presentation for a deactivated holder DID".into()
+        )));
+    }
+
+    let did_response = call(
+        CallTargetCell::Local,
+        ZomeName::new("did_registry"),
+        FunctionName::new("resolve_did"),
+        None,
+        holder_did.clone(),
+    )?;
+    let did_record = match did_response {
+        ZomeCallResponse::Ok(result) => result.decode::<Option<Record>>().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Failed to decode holder DID resolution: {e:?}"
+            )))
+        })?,
+        _ => None,
+    }
+    .ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Holder DID could not be resolved for presentation creation".into()
+    )))?;
+    let did_doc: DidDocumentProofMirror = did_record
+        .entry()
+        .to_app_option()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Resolved holder DID record contained no DID document".into()
+        )))?;
+    let holder_pubkey = AgentPubKey::try_from(
+        holder_did
+            .strip_prefix("did:mycelix:")
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Holder DID is not a did:mycelix identifier".into()
+            )))?
+            .to_string(),
+    )
+    .map_err(|e| wasm_error!(WasmErrorInner::Guest(format!(
+        "Holder DID public key is invalid: {e:?}"
+    ))))?;
+    let multikey_method = format!("{}#keys-1-multikey", holder_did);
+    let expected_multibase = canonical_agent_ed25519_multibase(&holder_pubkey)?;
+    if !validate_w3c_authentication_method_binding(
+        &did_doc,
+        &holder_did,
+        &multikey_method,
+        &expected_multibase,
+    ) {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Holder DID does not currently authorize its canonical Multikey for authentication".into()
+        )));
+    }
+
     // Gather credentials
     let mut credentials = Vec::new();
     for cred_id in &input.credential_ids {
