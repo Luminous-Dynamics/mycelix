@@ -41,7 +41,8 @@ provenance consumers must not silently substitute a different tolerance.
 The recommended pre-dispatch gate validates the complete binding set against one
 semantic candidate geometry digest and one exact candidate mesh before a solver
 adapter is allowed to proceed. This makes candidate drift an explicit provenance
-failure, not a convention left to individual callers.
+failure, not a convention left to individual callers. The resulting collection
+is represented by `passive-solver-boundary-binding-set-v1.schema.json`.
 
 The mesh-side boundary selection represents the typed interface rim on the
 candidate surface. It is distinct from the solver's own face/patch topology;
