@@ -594,6 +594,18 @@ mod tests {
     }
 
     #[test]
+    fn provenance_ref_wire_identifier_exact_limit_is_accepted() {
+        let boundary = "x".repeat(MAX_PROVENANCE_IDENTIFIER_BYTES);
+        let json = format!(
+            r#"{{"artifact_id":"{id}","relation":"References"}}"#,
+            id = boundary,
+        );
+
+        let decoded: ProvenanceRef = serde_json::from_str(&json).unwrap();
+        assert_eq!(decoded.artifact_id().len(), MAX_PROVENANCE_IDENTIFIER_BYTES);
+    }
+
+    #[test]
     fn security_event_deserialization_rejects_invalid_recovery_correlation() {
         let base = |correlation: &str| {
             format!(
