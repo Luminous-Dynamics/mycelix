@@ -505,11 +505,13 @@ fn validate_verification_method(method: &VerificationMethod, did_id: &str) -> Re
             ));
         }
     }
-    if method.type_ != tagged.algorithm.did_verification_method_type() {
+    let expected_type = tagged.algorithm.did_verification_method_type();
+    let w3c_ed25519_multikey = tagged.algorithm == AlgorithmId::Ed25519 && method.type_ == "Multikey";
+    if method.type_ != expected_type && !w3c_ed25519_multikey {
         return Err(format!(
             "Verification method type does not match key algorithm: type={}, algorithm={}",
             method.type_,
-            tagged.algorithm.did_verification_method_type()
+            expected_type
         ));
     }
     Ok(tagged.algorithm)
@@ -890,6 +892,21 @@ mod tests {
         assert!(validate_mycelix_did_syntax("did:mycelix:uhCAk-_0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz").is_ok());
     }
 
+
+    #[test]
+    fn verification_method_accepts_w3c_ed25519_multikey() {
+        let method = VerificationMethod {
+            id: "did:mycelix:test#keys-1-multikey".into(),
+            type_: "Multikey".into(),
+            controller: "did:mycelix:test".into(),
+            public_key_multibase: "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK".into(),
+            algorithm: None,
+        };
+        assert_eq!(
+            validate_verification_method(&method, "did:mycelix:test").unwrap(),
+            AlgorithmId::Ed25519
+        );
+    }
 
     #[test]
     fn verification_method_accepts_canonical_ed25519_multibase() {
