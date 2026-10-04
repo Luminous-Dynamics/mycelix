@@ -146,7 +146,7 @@ mod tests {
     use crate::economics::impact::{
         AttributionBasis, ImpactAttribution, ImpactDirection, ImpactStatus, SubstrateImpact,
     };
-    use crate::economics::substrate::{SubstrateAccount, SubstrateBoundary, SubstrateEventKind};
+    use crate::economics::substrate::{SubstrateAccount, SubstrateBoundary};
 
     fn healthy_substrate() -> SubstrateLedger {
         let mut ledger = SubstrateLedger::new();
@@ -418,11 +418,61 @@ mod tests {
         assert_eq!(assessment.decision, EconomicIntegrityDecision::Allowed);
     }
 
+    fn decision_rank(decision: EconomicIntegrityDecision) -> u8 {
+        match decision {
+            EconomicIntegrityDecision::Allowed => 0,
+            EconomicIntegrityDecision::AllowedWithWarning => 1,
+            EconomicIntegrityDecision::InsufficientEvidence => 2,
+            EconomicIntegrityDecision::Blocked => 3,
+            EconomicIntegrityDecision::EmergencyEscalationRequired => 4,
+        }
+    }
+
+    fn substrate_rank(decision: GateDecision) -> u8 {
+        match decision {
+            GateDecision::Allowed => 0,
+            GateDecision::AllowedWithWarning => 1,
+            GateDecision::InsufficientEvidence => 2,
+            GateDecision::Blocked => 3,
+            GateDecision::EmergencyEscalationRequired => 4,
+        }
+    }
+
+    fn impact_rank(decision: ImpactGateDecision) -> u8 {
+        match decision {
+            ImpactGateDecision::Allowed => 0,
+            ImpactGateDecision::AllowedWithOpenImpacts => 1,
+            ImpactGateDecision::InsufficientAttribution => 2,
+            ImpactGateDecision::BlockedByObligation => 3,
+            ImpactGateDecision::EmergencyEscalationRequired => 4,
+        }
+    }
+
     #[test]
-    fn imported_event_kind_remains_available_to_reference_helpers() {
-        assert_eq!(
-            SubstrateEventKind::Depletion,
-            SubstrateEventKind::Depletion
-        );
+    fn combined_decision_is_never_more_permissive_than_either_layer() {
+        let substrate_decisions = [
+            GateDecision::Allowed,
+            GateDecision::AllowedWithWarning,
+            GateDecision::InsufficientEvidence,
+            GateDecision::Blocked,
+            GateDecision::EmergencyEscalationRequired,
+        ];
+        let impact_decisions = [
+            ImpactGateDecision::Allowed,
+            ImpactGateDecision::AllowedWithOpenImpacts,
+            ImpactGateDecision::InsufficientAttribution,
+            ImpactGateDecision::BlockedByObligation,
+            ImpactGateDecision::EmergencyEscalationRequired,
+        ];
+
+        for substrate in substrate_decisions {
+            for impact in impact_decisions {
+                let combined = EconomicIntegrityGate::combine(substrate, impact);
+                let rank = decision_rank(combined);
+
+                assert!(rank >= substrate_rank(substrate));
+                assert!(rank >= impact_rank(impact));
+            }
+        }
     }
 }
