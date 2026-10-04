@@ -14,6 +14,7 @@
 
 use serde::{Deserialize, Serialize};
 use super::{
+    model_provenance::EconomicModelProvenance,
     policy_analysis::{EconomicAnalysisBinding, EconomicPolicyAnalysis},
     policy_profile::EconomicPolicyProfile,
 };
@@ -353,18 +354,51 @@ impl GovernedPolicyAdjustment {
             let analysis = analyses
                 .get(&binding.analysis_ref)
                 .expect("validated analysis binding must resolve");
+            let provenance = match &analysis.model_provenance {
+                Some(value) => value,
+                None => continue,
+            };
+            let comparison_key = match provenance.comparison_key()? {
+                Some(value) => value,
+                None => continue,
+            };
             let scenario_fingerprint = analysis
                 .scenario
                 .as_ref()
                 .map(|scenario| scenario.scenario_fingerprint.as_str())
                 .unwrap_or("scenario:none");
             groups.insert((
-                analysis.model_ref.as_str(),
-                analysis.observation_snapshot_fingerprint.as_str(),
-                scenario_fingerprint,
+                comparison_key,
+                analysis.observation_snapshot_fingerprint.clone(),
+                scenario_fingerprint.to_owned(),
             ));
         }
         Ok(groups.len())
+    }
+
+    /// Return the number of analyses whose model provenance is not sufficient
+    /// to establish a conservative comparison identity.
+    pub fn unresolved_analysis_provenance_count(
+        &self,
+        analyses: &BTreeMap<String, EconomicPolicyAnalysis>,
+    ) -> Result<usize, String> {
+        self.validate_against_analyses(analyses)?;
+
+        let mut unresolved = 0;
+        for binding in &self.analysis_evidence {
+            let analysis = analyses
+                .get(&binding.analysis_ref)
+                .expect("validated analysis binding must resolve");
+            let comparable = analysis
+                .model_provenance
+                .as_ref()
+                .map(|provenance| provenance.has_comparable_identity())
+                .unwrap_or(false);
+            if !comparable {
+                unresolved += 1;
+            }
+        }
+        Ok(unresolved)
     }
 
     /// Return a deterministic content fingerprint for the governed decision.
@@ -853,6 +887,17 @@ mod tests {
             policy_profile_ref: "profile:za:reference:v1".into(),
             policy_profile_fingerprint: "a".repeat(64),
             model_ref: model.into(),
+            model_provenance: Some(EconomicModelProvenance {
+                model_ref: model.into(),
+                model_version: "v1".into(),
+                model_family_ref: Some(format!("family:{model}")),
+                provider_ref: Some("provider:test".into()),
+                implementation_fingerprint: Some("c".repeat(64)),
+                deployment_ref: Some(format!("deployment:{id}")),
+                training_data_refs: vec!["dataset:test".into()],
+                evaluation_data_refs: vec!["dataset:test-holdout".into()],
+                declared_at: 1_000,
+            }),
             observation_refs: vec!["observation:vitality:1".into()],
             observation_snapshot_fingerprint: "b".repeat(64),
             scenario: None,
@@ -952,7 +997,16 @@ mod tests {
                 .distinct_analysis_provenance_count(&analyses)
                 .unwrap(),
             2
-        );
+        );        assert_eq!(expanded.unresolved_analysis_provenance_count(&analyses).unwrap(), 0);
+
+        let mut opaque = advisory_analysis("analysis:opaque", "model:opaque");
+        opaque.model_provenance = None;
+        analyses.insert(opaque.analysis_id.clone(), opaque.clone());
+        expanded.analysis_evidence.push(EconomicAnalysisBinding {
+            analysis_ref: opaque.analysis_id,
+            analysis_fingerprint: opaque.fingerprint().unwrap(),
+        });
+        assert_eq!(expanded.unresolved_analysis_provenance_count(&analyses).unwrap(), 1);
     }
 
     fn policy_profile() -> EconomicPolicyProfile {
