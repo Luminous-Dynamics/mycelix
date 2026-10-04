@@ -1,8 +1,6 @@
 name: Hearth Exact-Head Qualification
 
 on:
-  push:
-    branches: [ac-080-exact-head-qualification]
   pull_request:
     branches: [main]
     paths:
