@@ -81,6 +81,9 @@ pub struct SectorEconomicObservables {
     pub goods_purchases: i128,
     pub cost_of_goods_sold: i128,
     pub depreciation: i128,
+    /// Signed non-cash revaluation of monetary-valued real assets during the period.
+    #[serde(default)]
+    pub real_asset_revaluation: i128,
 }
 
 impl Default for SectorEconomicObservables {
@@ -129,6 +132,7 @@ impl Default for SectorEconomicObservables {
             goods_purchases: 0,
             cost_of_goods_sold: 0,
             depreciation: 0,
+            real_asset_revaluation: 0,
         }
     }
 }
@@ -304,6 +308,11 @@ impl SectorEconomicObservables {
                     &mut sector_observation.net_worth,
                     observation.net_worth,
                     "sector net worth",
+                ),
+                (
+                    &mut sector_observation.real_asset_revaluation,
+                    observation.real_asset_revaluation,
+                    "sector real-asset revaluation",
                 ),
             ] {
                 add_checked(slot, value, label)?;
