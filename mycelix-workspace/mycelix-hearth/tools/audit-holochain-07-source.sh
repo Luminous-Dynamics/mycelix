@@ -617,11 +617,35 @@ check_semantic_case_entrypoints() {
       fail=1
     fi
 
-    if rg -n --fixed-strings ".zome(\"${zome}\")" "$rust_test" >/dev/null 2>&1 \
-      && rg -n --fixed-strings "\"${operation}\"" "$rust_test" >/dev/null 2>&1; then
-      echo "OK:   semantic runtime witness invokes ${zome}/${operation}"
+    mapfile -t test_fn_lines < <(
+      rg -n --fixed-strings "async fn ${operation}" "$rust_test" |
+        cut -d: -f1
+    )
+    local test_start test_next test_end test_block
+    if [[ "${#test_fn_lines[@]}" -ne 1 ]]; then
+      echo "FAIL: semantic runtime witness must contain exactly one async test function named ${operation}"
+      fail=1
+      continue
+    fi
+    test_start="${test_fn_lines[0]}"
+    test_next=""
+    while IFS= read -r test_line; do
+      if [[ "$test_line" -gt "$test_start" ]]; then
+        test_next="$test_line"
+        break
+      fi
+    done < <(rg -n '^async fn [A-Za-z_][A-Za-z0-9_]*' "$rust_test" | cut -d: -f1 | sort -n)
+    if [[ -n "$test_next" ]]; then
+      test_end=$((test_next - 1))
     else
-      echo "FAIL: semantic runtime witness does not invoke ${zome}/${operation}"
+      test_end="$(wc -l < "$rust_test")"
+    fi
+    test_block="$(sed -n "${test_start},${test_end}p" "$rust_test")"
+
+    if printf '%s\n' "$test_block" | rg -n --fixed-strings ".zome(\"${zome}\")" >/dev/null 2>&1       && printf '%s\n' "$test_block" | rg -n --fixed-strings "\"${operation}" >/dev/null 2>&1; then
+      echo "OK:   semantic runtime witness ${operation} is bound to ${zome}/${operation}'s own test body"
+    else
+      echo "FAIL: semantic runtime witness ${zome}/${operation} is not invoked by its own test body"
       fail=1
     fi
   done
