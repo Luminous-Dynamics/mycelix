@@ -290,27 +290,48 @@ check_update_delete_authorization() {
 }
 
 # Every declared EntryTypes variant must have at least one explicit validation dispatch reference.
+# Every declared EntryTypes variant must have an explicit reference in the
+# 0.7 validate dispatcher itself. References in helper functions are not enough:
+# the dispatcher is the authoritative operation-to-entry policy boundary.
 check_entry_type_dispatch() {
   local file="$1"
-  local source enum_block variant
-  source="$(sed '/^\#\[cfg(test)\]/,$d' "$file")"
-  enum_block="$(printf '%s\n' "$source" | sed -n '/^pub enum EntryTypes[[:space:]]*{/,/^}/p')"
+  local source enum_block dispatch_block variant
+  source="$(sed '/^\\#\\[cfg(test)\\]/,$d' "$file")"
+  enum_block="$(printf '%s\\n' "$source" | sed -n '/^pub enum EntryTypes[[:space:]]*{/,/^}/p')"
   if [[ -z "$enum_block" ]]; then
     echo "FAIL: $file has no parseable EntryTypes enum"
     fail=1
     return
   fi
+
+  dispatch_block="$(printf '%s\\n' "$source" | awk '
+    /^[[:space:]]*pub[[:space:]]+fn[[:space:]]+validate[[:space:]]*\\(/ {
+      in_block=1
+      print
+      next
+    }
+    in_block && /^[[:space:]]*(pub[[:space:]]+)?fn[[:space:]]+[A-Za-z0-9_]+[[:space:]]*\\(/ {
+      exit
+    }
+    in_block { print }
+  ')"
+
+  if [[ -z "$dispatch_block" ]]; then
+    echo "FAIL: $file has no parseable validate(Op) dispatcher block"
+    fail=1
+    return
+  fi
+
   while IFS= read -r variant; do
     [[ -z "$variant" ]] && continue
-    if printf '%s\n' "$source" | rg -n --pcre2 "\\bEntryTypes::${variant}\\b" >/dev/null 2>&1; then
-      echo "OK:   $file EntryTypes::$variant has validation dispatch coverage"
+    if printf '%s\\n' "$dispatch_block" | rg -n --pcre2 "\\bEntryTypes::${variant}\\b" >/dev/null 2>&1; then
+      echo "OK:   $file EntryTypes::$variant has validate dispatcher coverage"
     else
-      echo "FAIL: $file EntryTypes::$variant has no validation dispatch reference"
+      echo "FAIL: $file EntryTypes::$variant has no validate dispatcher reference"
       fail=1
     fi
-  done < <(printf '%s\n' "$enum_block" | rg --pcre2 -o '^\\s*[A-Za-z_][A-Za-z0-9_]*\\s*\\(' | sed -E 's/^\\s*([A-Za-z_][A-Za-z0-9_]*).*$/\\1/')
+  done < <(printf '%s\\n' "$enum_block" | rg --pcre2 -o '^\\s*[A-Za-z_][A-Za-z0-9_]*\\s*\\(' | sed -E 's/^\\s*([A-Za-z_][A-Za-z0-9_]*).*$/\\1/')
 }
-
 # Link validation must receive the typed base/target addresses and must dispatch
 # on every declared LinkTypes variant inside the CreateLink policy itself. A
 # reference elsewhere in tests or coordinators does not establish validation coverage.
@@ -705,29 +726,75 @@ check_dependency_semantics() {
 # Immutable-field helpers must prove the referenced CreateRecord is valid and
 # deserialize the original entry before comparing fields. This guards against a
 # future helper that retrieves a record but accidentally treats retrieval as proof.
+# Immutable-field helpers must each prove their own referenced CreateRecord is
+# valid and deserialize the original entry. File-wide evidence is insufficient:
+# one well-formed helper must not mask another helper's missing dependency proof.
 check_immutable_dependency_semantics() {
   local file="$1"
-  local helper_count
-  helper_count="$(rg -n --pcre2 '^\s*(?:pub\s+)?fn\s+validate_[A-Za-z0-9_]*immutable_fields\s*\(' "$file" | wc -l)"
-  if [[ "$helper_count" -eq 0 ]]; then
+  local source
+  source="$(sed '/^\\#\\[cfg(test)\\]/,$d' "$file")"
+
+  mapfile -t helper_lines < <(
+    printf '%s\\n' "$source" |
+      rg -n --pcre2 '^\\s*(?:pub\\s+)?fn\\s+validate_[A-Za-z0-9_]*immutable_fields\\s*\\(' |
+      cut -d: -f1
+  )
+
+  if [[ "${#helper_lines[@]}" -eq 0 ]]; then
     echo "OK:   $file has no immutable-field helper sites"
     return
   fi
-  if ! rg -n --pcre2 'validate_[A-Za-z0-9_]*immutable_fields\s*\(' "$file" >/dev/null 2>&1; then
-    echo "FAIL: $file declares immutable-field helpers but no call site was found"
-    fail=1
-  fi
-  if ! rg -n --pcre2 'must_get_valid_record\(' "$file" >/dev/null 2>&1; then
-    echo "FAIL: $file immutable-field helpers do not use must_get_valid_record"
-    fail=1
-  fi
-  if ! rg -n --pcre2 '\.entry\(\)\s*\.to_app_option\(\)' "$file" >/dev/null 2>&1; then
-    echo "FAIL: $file immutable-field helpers do not deserialize the original entry"
-    fail=1
-  fi
-  echo "OK:   $file immutable-field dependency semantics"
-}
 
+  mapfile -t fn_lines < <(
+    printf '%s\\n' "$source" |
+      rg -n --pcre2 '^\\s*(?:pub\\s+)?fn\\s+[A-Za-z0-9_]+\\s*\\(' |
+      cut -d: -f1
+  )
+
+  local start end helper_line helper_name block next_fn fn_line
+  for start in "${helper_lines[@]}"; do
+    next_fn=""
+    for fn_line in "${fn_lines[@]}"; do
+      if [[ "$fn_line" -gt "$start" ]]; then
+        next_fn="$fn_line"
+        break
+      fi
+    done
+    if [[ -n "$next_fn" ]]; then
+      end=$((next_fn - 1))
+    else
+      end="$(printf '%s\\n' "$source" | wc -l)"
+    fi
+
+    helper_line="$(sed -n "${start}p" <<<"$source")"
+    helper_name="$(sed -n 's/.*fn[[:space:]]\\+\\(validate_[A-Za-z0-9_]*immutable_fields\\).*/\\1/p' <<<"$helper_line")"
+    if [[ -z "$helper_name" ]]; then
+      echo "FAIL: $file could not resolve immutable-field helper name at line $start"
+      fail=1
+      continue
+    fi
+
+    block="$(sed -n "${start},${end}p" <<<"$source")"
+    if ! printf '%s\\n' "$block" | rg -n --pcre2 'must_get_valid_record\\s*\\(' >/dev/null 2>&1; then
+      echo "FAIL: $file $helper_name lacks must_get_valid_record"
+      fail=1
+    elif ! printf '%s\\n' "$block" | rg -n --pcre2 '\\.entry\\(\\)\\s*\\.to_app_option\\(\\)' >/dev/null 2>&1; then
+      echo "FAIL: $file $helper_name retrieves a valid record without deserializing its original entry"
+      fail=1
+    else
+      echo "OK:   $file $helper_name validates and deserializes its own immutable dependency"
+    fi
+
+    local uses
+    uses="$(printf '%s\\n' "$source" | rg -n --fixed-strings "$helper_name(" | wc -l)"
+    if [[ "$uses" -lt 2 ]]; then
+      echo "FAIL: $file $helper_name has no production call site outside its declaration"
+      fail=1
+    else
+      echo "OK:   $file $helper_name has an explicit production call site"
+    fi
+  done
+}
 check_standalone_tests_workspace_boundary() {
   local manifest="mycelix-workspace/mycelix-hearth/tests/Cargo.toml"
   if [[ -f "$manifest" ]] && rg -n --fixed-strings "[workspace]" "$manifest" >/dev/null 2>&1; then
