@@ -14,7 +14,7 @@
 use hdi::prelude::*;
 
 /// W3C Verifiable Credential
-/// Full implementation of VC Data Model 2.0
+/// VC 2.0 application-profile entry with Mycelix integrity constraints.
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
 pub struct VerifiableCredential {
