@@ -145,12 +145,7 @@ mod tests {
         ledger.register_account(ecological_account(650)).unwrap();
 
         let cheap = assess_procurement_option(&option("project-a", 800), &ledger).unwrap();
-        let expensive = ProcurementAssessment {
-            option_id: "project-b".into(),
-            price: 1_000,
-            decision: GateDecision::Blocked,
-            required_dimensions: vec![SubstrateDimension::Ecological],
-        };
+        let expensive = assess_procurement_option(&option("project-b", 1_000), &ledger).unwrap();
 
         assert_eq!(
             ledger
@@ -160,6 +155,7 @@ mod tests {
             SubstrateState::Breached
         );
         assert_eq!(cheap.decision, GateDecision::Blocked);
+        assert_eq!(expensive.decision, GateDecision::Blocked);
         assert!(expensive.price > cheap.price);
     }
 
