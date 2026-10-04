@@ -79,6 +79,86 @@ fn is_decision_closeable(status: &DecisionStatus) -> bool {
     *status == DecisionStatus::Open
 }
 
+/// Deterministic action-level ordering for Decision revisions.
+fn decision_record_order_key(record: &Record) -> (Timestamp, Vec<u8>) {
+    (
+        record.action().timestamp(),
+        record.action_address().get_raw_36().to_vec(),
+    )
+}
+
+/// Determine whether a decision revision is terminal.
+fn decision_record_is_terminal(record: &Record) -> ExternResult<bool> {
+    let decision: Decision = record
+        .entry()
+        .to_app_option()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Failed to deserialize Decision record: {e}"
+            )))
+        })?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Decision record entry is missing".into()
+        )))?;
+    Ok(decision.status != DecisionStatus::Open)
+}
+
+/// Collect every reachable valid Decision revision from a root action.
+///
+/// Decision updates can branch concurrently. We therefore traverse the immutable
+/// update graph rather than assuming the DHT's update order is semantic.
+fn collect_decision_revisions(
+    action_hash: ActionHash,
+    seen: &mut std::collections::HashSet<ActionHash>,
+    revisions: &mut Vec<Record>,
+) -> ExternResult<()> {
+    if !seen.insert(action_hash.clone()) {
+        return Ok(());
+    }
+
+    let Some(details) = get_details(action_hash, GetOptions::default())? else {
+        return Ok(());
+    };
+
+    if let Details::Record(record_details) = details {
+        revisions.push(record_details.record);
+        for update in record_details.updates {
+            collect_decision_revisions(update.action_address().clone(), seen, revisions)?;
+        }
+    }
+
+    Ok(())
+}
+
+/// Resolve the current Decision revision deterministically.
+///
+/// Terminal revisions dominate Open revisions so a concurrent Open->Open update
+/// cannot resurrect a Decision after a Closed or Finalized revision exists.
+/// Among revisions in the same lifecycle class, the greatest
+/// `(action timestamp, action hash)` wins. All revisions remain preserved.
+fn get_current_decision_record(action_hash: ActionHash) -> ExternResult<Option<Record>> {
+    let mut seen = std::collections::HashSet::new();
+    let mut revisions = Vec::new();
+    collect_decision_revisions(action_hash, &mut seen, &mut revisions)?;
+
+    if revisions.is_empty() {
+        return Ok(None);
+    }
+
+    let mut terminal: Vec<Record> = Vec::new();
+    let mut open: Vec<Record> = Vec::new();
+    for record in revisions {
+        if decision_record_is_terminal(&record)? {
+            terminal.push(record);
+        } else {
+            open.push(record);
+        }
+    }
+
+    let candidates = if terminal.is_empty() { open } else { terminal };
+    Ok(candidates.into_iter().max_by_key(decision_record_order_key))
+}
+
 /// Check whether the current time is at or past the deadline.
 fn is_deadline_passed(now: &Timestamp, deadline: &Timestamp) -> bool {
     now >= deadline
@@ -233,7 +313,7 @@ pub fn create_decision(input: CreateDecisionInput) -> ExternResult<Record> {
         (),
     )?;
 
-    let record = get(decision_hash, GetOptions::default())?.ok_or(wasm_error!(
+    let record = get_current_decision_record(decision_hash)?.ok_or(wasm_error!(
         WasmErrorInner::Guest("Could not find the newly created Decision".into())
     ))?;
 
@@ -249,7 +329,7 @@ pub fn cast_vote(input: CastVoteInput) -> ExternResult<Record> {
     let agent = agent_info()?.agent_initial_pubkey;
 
     // Get the decision to find its hearth_hash
-    let decision_record = get(input.decision_hash.clone(), GetOptions::default())?.ok_or(
+    let decision_record = get_current_decision_record(input.decision_hash.clone())?.ok_or(
         wasm_error!(WasmErrorInner::Guest("Decision not found".into())),
     )?;
     let decision: Decision = decision_record
@@ -429,7 +509,7 @@ pub fn finalize_decision(input: FinalizeDecisionInput) -> ExternResult<Record> {
     let agent = agent_info()?.agent_initial_pubkey;
 
     // Get the decision
-    let decision_record = get(input.decision_hash.clone(), GetOptions::default())?.ok_or(
+    let decision_record = get_current_decision_record(input.decision_hash.clone())?.ok_or(
         wasm_error!(WasmErrorInner::Guest("Decision not found".into())),
     )?;
     let mut decision: Decision = decision_record
@@ -842,7 +922,7 @@ pub fn get_hearth_decisions(hearth_hash: ActionHash) -> ExternResult<Vec<Record>
                 "Link target is not an ActionHash".into()
             )))?;
 
-        if let Some(record) = get_latest_record(target)? {
+        if let Some(record) = get_current_decision_record(target)? {
             decisions.push(record);
         }
     }
