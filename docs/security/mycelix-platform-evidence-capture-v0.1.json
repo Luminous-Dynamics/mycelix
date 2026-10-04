@@ -60,7 +60,8 @@
       "tool-versions.json",
       "tss-version-evidence.txt",
       "eventlog-reconstruction-input.json",
-      "observed-pcr-values.json"
+      "observed-pcr-values.json",
+      "raw-eventlog.json"
     ],
     "optional_artifacts": [
       "pcr-pre.yaml",
@@ -113,7 +114,13 @@
       "reconstruction.verifier_source_sha256",
       "artifacts.reconstruction_input_sha256",
       "live_observation.pcr_values_file_sha256",
-      "artifacts.observed_pcr_values_file_sha256"
+      "artifacts.observed_pcr_values_file_sha256",
+      "raw_eventlog.status",
+      "raw_eventlog.parser_id",
+      "raw_eventlog.output_sha256",
+      "raw_eventlog.source_sha256",
+      "raw_eventlog.binary_sha256",
+      "artifacts.raw_eventlog_output_sha256"
     ],
     "session_binding": "The session_binding_sha256 covers the session/boot/TPM/EK/event-log/PCR selection/challenge/AK/toolchain/reference/trusted-time/reconstruction result, exact reconstruction input digest, verifier identifier, verifier source digest, and platform/workload inputs in canonical form.",
     "canonical_json": "Manifest semantic hashing uses UTF-8 JSON with sorted keys and no insignificant whitespace."
@@ -190,6 +197,14 @@
     {
       "id": "CAP-018",
       "rule": "The capture command invokes the bounded tpm2_eventlog adapter and independent reconstruction executable; no manually supplied reconstruction receipt is required for the physical capture path."
+    },
+    {
+      "id": "CAP-019",
+      "rule": "The raw binary event-log parser must succeed independently of tpm2_eventlog YAML rendering and must bind its binary SHA-256 to the captured eventlog.bin."
+    },
+    {
+      "id": "CAP-020",
+      "rule": "The YAML adapter must cross-check EventNum/PCRIndex/EventType and selected SHA-256 digests against the independent raw parser before attaching exact payload bytes."
     }
   ],
   "decision_algebra": "ANY DENY > ANY INDETERMINATE > ALL PASS",
