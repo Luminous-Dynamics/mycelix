@@ -486,7 +486,7 @@
         "provider_profile_root": "provider-profile",
         "semantic_environment_root": "env",
         "observation_set_id": "set-1",
-        "observation_set_commitment": "set-commit",
+        "observation_set_commitment": "830425845c4e99459b4455edb964052747cc9a398c06e7959219cfaccbb82afc",
         "d6n_assessment_commitment": "assessment:830425845c4e99459b4455edb964052747cc9a398c06e7959219cfaccbb82afc",
         "composition_commitment": "a1e7ca5b39fbd95fef484bf0ece21066870d4129ccf740b6122addc9bef01702",
         "witness_eligibility_ids": [
@@ -515,7 +515,7 @@
         "provider_profile_root": "provider-profile",
         "semantic_environment_root": "env",
         "observation_set_id": "set-1",
-        "observation_set_commitment": "set-commit",
+        "observation_set_commitment": "830425845c4e99459b4455edb964052747cc9a398c06e7959219cfaccbb82afc",
         "d6n_assessment_commitment": "assessment:830425845c4e99459b4455edb964052747cc9a398c06e7959219cfaccbb82afc",
         "lifecycle_profile_id": "lifecycle",
         "current_frontier_root": "frontier",
@@ -636,7 +636,7 @@
             "claim_ceiling": "Contestable external-finality reference evidence only; no physical truth, settlement, or actuation authorization claim."
           }
         ],
-        "assessment_commitment": "assessment:set-commit",
+        "assessment_commitment": "assessment:830425845c4e99459b4455edb964052747cc9a398c06e7959219cfaccbb82afc",
         "claim_ceiling": "Contestable external-finality reference evidence only; no physical truth, settlement, or actuation authorization claim."
       },
       "evidence": [
