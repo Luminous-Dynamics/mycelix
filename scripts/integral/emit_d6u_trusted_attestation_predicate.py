@@ -107,11 +107,7 @@ def main() -> None:
 
     assert policy["attestation_verification"]["predicate_type"] == PREDICATE_TYPE
     output_path.write_text(
-        json.dumps(
-            {"predicateType": PREDICATE_TYPE, "predicate": predicate},
-            indent=2,
-            sort_keys=True,
-        )
+        json.dumps(predicate, indent=2, sort_keys=True)
         + "\n",
         encoding="utf-8",
     )
