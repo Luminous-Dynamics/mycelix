@@ -29,12 +29,15 @@ permissions:
   contents: read
   pull-requests: read
 
+cache-mode: none
+
 concurrency:
   group: security-kernel-independent-${{ inputs.candidate_repository }}-${{ inputs.candidate_pr }}-${{ inputs.candidate_sha }}
   cancel-in-progress: true
 
 env:
   BASE_REPOSITORY: "Luminous-Dynamics/mycelix"
+  BASE_REPOSITORY_ID: "1176351975"
 
 jobs:
   qualify:
@@ -58,6 +61,7 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
           BASE_REPOSITORY_EVENT: ${{ github.event.pull_request.base.repo.full_name }}
+          BASE_REPOSITORY_ID_EVENT: ${{ github.event.pull_request.base.repo.id }}
           BASE_BRANCH_EVENT: ${{ github.event.pull_request.base.ref }}
           CANDIDATE_PR: ${{ inputs.candidate_pr }}
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
@@ -66,14 +70,22 @@ jobs:
           HEAD_REPOSITORY_ID: ${{ github.event.pull_request.head.repo.id }}
           CALLED_WORKFLOW_REF: ${{ job.workflow_ref }}
           CALLED_WORKFLOW_SHA: ${{ job.workflow_sha }}
+          CALLED_WORKFLOW_REPOSITORY: ${{ job.workflow_repository }}
+          CALLED_WORKFLOW_FILE_PATH: ${{ job.workflow_file_path }}
+          CACHE_MODE: ${{ env.ACTIONS_CACHE_MODE }}
           TRUSTED_WORKFLOW_BLOB_SHA: ${{ inputs.trusted_workflow_blob_sha }}
           WORKFLOW_SHA: ${{ github.workflow_sha }}
         run: |
           set -euo pipefail
           test "$GITHUB_WORKFLOW_REF" = "Luminous-Dynamics/mycelix/.github/workflows/security-kernel-trusted-dispatch.yml@refs/heads/main"
           test "$GITHUB_REF" = "refs/heads/main"
+          test "$GITHUB_REPOSITORY" = "$BASE_REPOSITORY"
+          test "$GITHUB_REPOSITORY_ID" = "$BASE_REPOSITORY_ID"
+          test "$CACHE_MODE" = "none"
           test "$GITHUB_EVENT_NAME" = "pull_request_target"
           test "$CALLED_WORKFLOW_REF" = "Luminous-Dynamics/mycelix/.github/workflows/security-kernel-independent-qualification.yml@refs/heads/main"
+          test "$CALLED_WORKFLOW_REPOSITORY" = "$BASE_REPOSITORY"
+          test "$CALLED_WORKFLOW_FILE_PATH" = ".github/workflows/security-kernel-independent-qualification.yml"
           printf '%s' "$CALLED_WORKFLOW_SHA" | grep -Eq '^[0-9a-f]{40}$'
           printf '%s' "$TRUSTED_WORKFLOW_BLOB_SHA" | grep -Eq '^[0-9a-f]{40}$'
           printf '%s' "$PR_NUMBER" | grep -Eq '^[0-9]+$'
@@ -105,6 +117,7 @@ jobs:
           assert pr["number"] == pr_number
           assert pr["state"] == "open"
           assert pr["base"]["repo"]["full_name"] == repo
+          assert pr["base"]["repo"]["id"] == int(os.environ["BASE_REPOSITORY_ID"])
           assert pr["base"]["ref"] == "main"
           assert pr["head"]["repo"]["full_name"] == os.environ["CANDIDATE_REPOSITORY"]
           assert pr["head"]["repo"]["id"] == int(os.environ["CANDIDATE_REPOSITORY_ID"])
@@ -908,6 +921,9 @@ jobs:
             echo "trusted_workflow_ref=$GITHUB_WORKFLOW_REF"
             echo "trusted_workflow_sha=$GITHUB_WORKFLOW_SHA"
             echo "trusted_workflow_name=$GITHUB_WORKFLOW"
+            echo "trusted_repository_id=$BASE_REPOSITORY_ID"
+            echo "trusted_workflow_repository=$CALLED_WORKFLOW_REPOSITORY"
+            echo "trusted_workflow_file_path=$CALLED_WORKFLOW_FILE_PATH"
             echo "registered_s1_workflow_blob_sha=$TRUSTED_WORKFLOW_BLOB_SHA"
             echo "called_workflow_ref=$CALLED_WORKFLOW_REF"
             echo "called_workflow_sha=$CALLED_WORKFLOW_SHA"
