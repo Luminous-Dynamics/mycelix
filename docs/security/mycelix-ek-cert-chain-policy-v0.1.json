@@ -143,81 +143,86 @@
     },
     {
       "id": "EKC-V11",
-      "mutation": "revocation-deny",
+      "mutation": "root-self-consistent-source-substitution",
       "expected": "DENY"
     },
     {
       "id": "EKC-V12",
+      "mutation": "revocation-deny",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V13",
       "mutation": "revocation-indeterminate",
       "expected": "INDETERMINATE"
     },
     {
-      "id": "EKC-V13",
+      "id": "EKC-V14",
       "mutation": "root-crl-missing",
       "expected": "DENY"
     },
     {
-      "id": "EKC-V14",
+      "id": "EKC-V15",
       "mutation": "spki-certificate-substitution",
       "expected": "DENY"
     },
     {
-      "id": "EKC-V15",
+      "id": "EKC-V16",
       "mutation": "spki-indeterminate",
       "expected": "INDETERMINATE"
     },
     {
-      "id": "EKC-V16",
+      "id": "EKC-V17",
       "mutation": "spki-ek-public-digest-substitution",
       "expected": "DENY"
     },
     {
-      "id": "EKC-V17",
+      "id": "EKC-V18",
       "mutation": "verification-time-binding-substitution",
       "expected": "DENY"
     },
     {
-      "id": "EKC-V18",
+      "id": "EKC-V19",
       "mutation": "revocation-state-binding-substitution",
       "expected": "DENY"
     },
     {
-      "id": "EKC-V19",
+      "id": "EKC-V20",
       "mutation": "verification-mode-substitution",
       "expected": "DENY"
     },
     {
-      "id": "EKC-V20",
+      "id": "EKC-V21",
       "mutation": "session-binding-substitution",
       "expected": "DENY"
     },
     {
-      "id": "EKC-V21",
+      "id": "EKC-V22",
       "mutation": "template-verifier-substitution",
       "expected": "DENY"
     },
     {
-      "id": "EKC-V22",
+      "id": "EKC-V23",
       "mutation": "template-source-substitution",
       "expected": "DENY"
     },
     {
-      "id": "EKC-V23",
+      "id": "EKC-V24",
       "mutation": "template-wire-substitution",
       "expected": "DENY"
     },
     {
-      "id": "EKC-V24",
+      "id": "EKC-V25",
       "mutation": "template-indeterminate",
       "expected": "INDETERMINATE"
     },
     {
-      "id": "EKC-V25",
+      "id": "EKC-V26",
       "mutation": "template-input-substitution",
       "expected": "DENY"
     },
     {
-      "id": "EKC-V26",
+      "id": "EKC-V27",
       "mutation": "key-order-permutation",
       "expected": "PASS"
     }
