@@ -134,7 +134,8 @@ def parse_directory_name(san_text: str) -> dict[str, Any]:
     for part in split_rdn_path(dirs[0]):
         if "=" not in part: continue
         key,value=part.split("=",1)
-        key = OID_ALIASES.get(key, key)
+        key = OID_ALIASES.get(key.strip(), key.strip())
+        value = value.strip()
         if key in attrs: duplicates.append(key)
         attrs.setdefault(key, value)
     if duplicates:
