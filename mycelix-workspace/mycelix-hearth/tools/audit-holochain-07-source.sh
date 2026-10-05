@@ -688,6 +688,7 @@ check_semantic_manifest_schema() {
   local manifest="mycelix-workspace/mycelix-hearth/tests/hearth-07-semantic-validation-cases.json"
   if python3 - "$manifest" <<'PY'
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -841,6 +842,16 @@ for index, case in enumerate(cases, start=1):
     unknown = [surface for surface in surfaces if surface not in allowed_surfaces]
     if unknown:
         reject(f"{case_id} contains unknown operation surfaces: {unknown}")
+    expected_surfaces = {
+        "create_entry": {"CreateEntry", "CreateRecord"},
+        "update_entry": {"CreateEntry", "CreateRecord", "Update"},
+        "create_link": {"Link.CreateLink"},
+    }[coordinator_primitive]
+    if set(surfaces) != expected_surfaces:
+        reject(
+            f"{case_id} operation_surface is inconsistent with coordinator_primitive "
+            f"{coordinator_primitive!r}: expected {sorted(expected_surfaces)}, got {sorted(surfaces)}"
+        )
     if case["rejection_reason"].strip() != case["rejection_reason"]:
         reject(f"{case_id} rejection_reason has leading/trailing whitespace")
 
