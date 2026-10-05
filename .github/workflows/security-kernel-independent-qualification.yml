@@ -452,8 +452,8 @@ jobs:
               --cgroupns=private \
               --tmpfs /tmp:rw,nosuid,nodev,noexec,size=256m \
               --tmpfs /cargo-home:rw,nosuid,nodev,noexec,size=512m \
-              --tmpfs /subject/target:rw,nosuid,nodev,size=8g \
-              --volume "$CANDIDATE_ROOT:/subject:ro" \
+              --tmpfs /target:rw,nosuid,nodev,size=8g \
+              --volume "$CANDIDATE_ROOT:/source:ro" \
               --volume "$VENDOR_ROOT:/vendor:ro" \
               --volume "$RUST_SYSROOT:/opt/rust-toolchain:ro" \
               --volume "$VENDOR_CONFIG:/vendor-config/config.toml:ro" \
@@ -466,6 +466,8 @@ jobs:
               --env ACTIONS_ID_TOKEN_REQUEST_URL= \
               --env ACTIONS_RUNTIME_TOKEN= \
               --env CARGO_NET_OFFLINE=true \
+              --env CARGO_TARGET_DIR=/target \
+              --workdir /source \
               "$SANDBOX_IMAGE" /bin/bash -euc "$1"
           }
 
@@ -474,11 +476,11 @@ jobs:
             test "$(/opt/rust-toolchain/bin/rustc --version --verbose | sed -n "s/^commit-hash: //p")" = "b940084d7eb6a299eb4bfeb8e34901bc051e7ac4"
             /opt/rust-toolchain/bin/rustfmt --version
             /opt/rust-toolchain/bin/cargo-clippy --version
-            /opt/rust-toolchain/bin/cargo fmt --manifest-path /subject/Cargo.toml -- --check
+            /opt/rust-toolchain/bin/cargo fmt --manifest-path /source/Cargo.toml -- --check
           '
 
           run_sandbox '
-            /opt/rust-toolchain/bin/cargo --config /vendor-config/config.toml test --frozen --manifest-path /subject/Cargo.toml --jobs 3
+            /opt/rust-toolchain/bin/cargo --config /vendor-config/config.toml test --frozen --manifest-path /source/Cargo.toml --jobs 3
           '
 
           run_sandbox '
@@ -486,7 +488,7 @@ jobs:
           '
 
           run_sandbox '
-            /opt/rust-toolchain/bin/cargo --config /vendor-config/config.toml clippy --frozen --manifest-path /subject/Cargo.toml --all-targets --jobs 3 -- -D warnings
+            /opt/rust-toolchain/bin/cargo --config /vendor-config/config.toml clippy --frozen --manifest-path /source/Cargo.toml --all-targets --jobs 3 -- -D warnings
           '
 
           run_sandbox '
@@ -537,8 +539,10 @@ jobs:
           SOURCE_RUN_ATTEMPT: ${{ inputs.source_run_attempt }}
           CANDIDATE_TREE: ${{ steps.resolve_source.outputs.candidate_tree }}
           SOURCE_DIGEST: ${{ steps.snapshot_source.outputs.source_digest }}
+          VENDOR_DIGEST: ${{ steps.vendor_dependencies.outputs.vendor_digest }}
         run: |
           set -euo pipefail
+          CARGO_LOCK_DIGEST="$(sha256sum "$CANDIDATE_ROOT/crates/mycelix-bridge-common/Cargo.lock" | awk '{print $1}')"
           {
             echo "schema=security-kernel-independent-qualification-v1"
             echo "candidate_repository=$CANDIDATE_REPOSITORY"
@@ -546,6 +550,14 @@ jobs:
             echo "candidate_sha=$CANDIDATE_SHA"
             echo "candidate_tree=$CANDIDATE_TREE"
             echo "candidate_source_digest=$SOURCE_DIGEST"
+            echo "candidate_cargo_lock_sha256=$CARGO_LOCK_DIGEST"
+            echo "vendor_digest=$VENDOR_DIGEST"
+            echo "sandbox_image=docker.io/library/rust:1.99.0-slim-bookworm@sha256:452176c0cefca88c0b3184ce85a4eb03e3d4fa05d2afb5366abcba853221019e"
+            echo "sandbox_network=none"
+            echo "sandbox_rootfs=read-only"
+            echo "sandbox_user=non-root"
+            echo "sandbox_capabilities=all-dropped"
+            echo "sandbox_no_new_privileges=true"
             echo "source_run_id=$SOURCE_RUN_ID"
             echo "source_run_attempt=$SOURCE_RUN_ATTEMPT"
             echo "trusted_workflow_ref=$GITHUB_WORKFLOW_REF"
