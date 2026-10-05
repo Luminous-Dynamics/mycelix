@@ -177,7 +177,6 @@ jobs:
           print("OK: holonix is pinned to the verified Holochain 0.7 lock object")
           PY
 
-      - name: Classify Rust dependency closure provenance,        working-directory: mycelix-workspace/mycelix-hearth,        run: |,          set -euo pipefail,          closure_status="unfrozen",          if git ls-files --error-unmatch Cargo.lock tests/Cargo.lock >/dev/null 2>&1 \,            && [[ -s Cargo.lock ]] \,            && [[ -s tests/Cargo.lock ]]; then,            closure_status="source_controlled",          fi,          {,            echo "dependency_closure_status=${closure_status}",            echo "hearth_lock_tracked=$(git ls-files --error-unmatch Cargo.lock >/dev/null 2>&1 && echo true || echo false)",            echo "tests_lock_tracked=$(git ls-files --error-unmatch tests/Cargo.lock >/dev/null 2>&1 && echo true || echo false)",          } > qualification-dependency-closure.txt,          cat qualification-dependency-closure.txt,,      - name: Verify or generate Rust dependency closure
         working-directory: mycelix-workspace/mycelix-hearth
         run: |
           set -euo pipefail
