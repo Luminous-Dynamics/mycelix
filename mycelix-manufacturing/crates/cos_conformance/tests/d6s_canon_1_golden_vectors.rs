@@ -1,4 +1,5 @@
-use cos_conformance::{canonical_bytes, d6s_raw_json::parse_d6s_canon_json, D6S_HASH_DOMAIN, D6S_REFERENCE_CANONICALIZATION_VERSION};
+use cos_conformance::canonical_derivation_receipt::{canonical_bytes, D6S_HASH_DOMAIN, D6S_REFERENCE_CANONICALIZATION_VERSION};
+use cos_conformance::d6s_raw_json::parse_d6s_canon_json;
 use sha2::{Digest, Sha256};
 use serde_json::Value;
 use std::fs;
