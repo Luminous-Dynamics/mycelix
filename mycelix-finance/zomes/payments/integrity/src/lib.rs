@@ -301,10 +301,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::ExitRecord(exit) => {
                     validate_create_exit_record(EntryCreationAction::Create(action), exit)
                 }
-                EntryTypes::SapBalance(bal) => validate_sap_balance(
-                    EntryCreationAction::Create(action),
-                    &bal,
-                ),
+                EntryTypes::SapBalance(bal) => {
+                    validate_create_sap_balance(EntryCreationAction::Create(action), &bal)
+                },
                 EntryTypes::SapMintRecord(mint) => validate_create_sap_mint_record(&mint),
                 EntryTypes::HearthSapPool(pool) => validate_hearth_sap_pool(&pool),
                 EntryTypes::SapMintCapCounterEntry(counter) => {
@@ -325,7 +324,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     EntryTypes::ExitRecord(_) => Ok(ValidateCallbackResult::Invalid(
                         "Exit records cannot be updated".into(),
                     )),
-                    EntryTypes::SapBalance(bal) => validate_sap_balance(action, &bal),
+                    EntryTypes::SapBalance(bal) => validate_update_sap_balance(action, &bal),
                     EntryTypes::SapMintRecord(_) => {
                         // Mint records are immutable
                         Ok(ValidateCallbackResult::Invalid(
@@ -704,8 +703,22 @@ fn validate_create_receipt(
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn validate_sap_balance(
+fn validate_create_sap_balance(
     action: EntryCreationAction,
+    bal: &SapBalance,
+) -> ExternResult<ValidateCallbackResult> {
+    validate_sap_balance_owner(action.author(), bal)
+}
+
+fn validate_update_sap_balance(
+    action: Update,
+    bal: &SapBalance,
+) -> ExternResult<ValidateCallbackResult> {
+    validate_sap_balance_owner(action.author(), bal)
+}
+
+fn validate_sap_balance_owner(
+    author: &AgentPubKey,
     bal: &SapBalance,
 ) -> ExternResult<ValidateCallbackResult> {
     // SAP account state is owner-authenticated: the account's final balance
@@ -726,7 +739,7 @@ fn validate_sap_balance(
         ));
     }
 
-    let author_did = did_for_author(action.author());
+    let author_did = did_for_author(author);
     if bal.member_did != author_did {
         return Ok(ValidateCallbackResult::Invalid(
             "SAP balance owner DID must match the signed action author".into(),
