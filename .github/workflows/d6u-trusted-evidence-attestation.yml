@@ -37,7 +37,7 @@ jobs:
 
       - name: Assert trusted policy root cohesion
         env:
-          TRUSTED_POLICY_VERSION: "20"
+          TRUSTED_POLICY_VERSION: "22"
         run: |
           set -euo pipefail
           policy_version=$(python3 -c 'import json; print(json.load(open("docs/integral/d6u-trusted-builder-policy.json"))["policy_version"])')
@@ -53,6 +53,7 @@ jobs:
             scripts/integral/verify_d6u_trusted_artifacts.py
             scripts/integral/fetch_d6u_trusted_artifact.py
             scripts/integral/verify_d6u_trusted_attestation.py
+            scripts/integral/emit_d6u_trusted_attestation_predicate.py
           )
           for path in "${trusted_programs[@]}"; do
             expected=$(python3 -c 'import json, sys; print(json.load(open("docs/integral/d6u-trusted-builder-policy.json"))["trusted_programs"][sys.argv[1]]["blob_sha"])' "$path")
@@ -67,7 +68,7 @@ jobs:
           done
 
       - name: Preflight trusted verifier
-        run: python3 -m py_compile scripts/integral/verify_d6u_trusted_artifacts.py scripts/integral/fetch_d6u_trusted_artifact.py scripts/integral/verify_d6u_trusted_attestation.py scripts/integral/emit_d6u_trusted_attestation_predicate.py
+        run: python3 -m py_compile scripts/integral/verify_d6u_trusted_artifacts.py scripts/integral/fetch_d6u_trusted_artifact.py scripts/integral/verify_d6u_trusted_attestation.py scripts/integral/emit_d6u_trusted_attestation_predicate.py scripts/integral/emit_d6u_trusted_attestation_predicate.py
 
       - name: Fetch and safely extract exact D6U artifact
         env:
@@ -81,6 +82,13 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: python3 scripts/integral/verify_d6u_trusted_artifacts.py "${{ runner.temp }}/d6u-trusted-input"
 
+      - name: Emit canonical D6U evidence predicate
+        run: |
+          set -euo pipefail
+          python3 scripts/integral/emit_d6u_trusted_attestation_predicate.py \
+            "${{ runner.temp }}/d6u-trusted-input" \
+            "$RUNNER_TEMP/d6u-trusted-evidence-predicate.json"
+
       - name: Attest trusted D6U evidence
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
@@ -88,6 +96,8 @@ jobs:
             ${{ runner.temp }}/d6u-trusted-input/d6u-runtime-evidence.txt
             ${{ runner.temp }}/d6u-trusted-input/d6u-runtime-test.log
             ${{ runner.temp }}/d6u-trusted-input/Cargo.lock
+          predicate-type: https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1
+          predicate-path: ${{ runner.temp }}/d6u-trusted-evidence-predicate.json
 
       - name: Verify trusted D6U attestations
         env:
@@ -109,7 +119,7 @@ jobs:
               --format=json > "$report"
             D6U_ATTESTATION_SUBJECT="$subject" \
             D6U_TRUSTED_EVIDENCE_DIR="$RUNNER_TEMP/d6u-trusted-input" \
-            D6U_TRUSTED_POLICY_VERSION="21" \
+            D6U_TRUSTED_POLICY_VERSION="22" \
               python3 scripts/integral/verify_d6u_trusted_attestation.py "$report"
             rm -f "$report"
           done
