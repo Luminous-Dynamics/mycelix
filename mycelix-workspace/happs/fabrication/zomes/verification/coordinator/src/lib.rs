@@ -382,6 +382,14 @@ pub fn get_design_claims(input: HashPaginationInput) -> ExternResult<PaginatedRe
     Ok(paginate(items, input.pagination.as_ref()))
 }
 
+fn epistemic_aggregate_status(classified_claims: u32, total_claims: u32) -> EpistemicAggregateStatus {
+    match (classified_claims, total_claims) {
+        (0, _) => EpistemicAggregateStatus::NoClassifiedEvidence,
+        (classified, total) if classified == total => EpistemicAggregateStatus::Classified,
+        _ => EpistemicAggregateStatus::PartialClassifiedEvidence,
+    }
+}
+
 #[hdk_extern]
 pub fn get_epistemic_score(design_hash: ActionHash) -> ExternResult<EpistemicScore> {
     let claims = get_design_claims_all(design_hash)?;
@@ -410,11 +418,7 @@ pub fn get_epistemic_score(design_hash: ActionHash) -> ExternResult<EpistemicSco
     }
 
     let count_f = classified_count.max(1) as f32;
-    let evidence_status = match (classified_count, total_claims) {
-        (0, _) => EpistemicAggregateStatus::NoClassifiedEvidence,
-        (classified, total) if classified == total => EpistemicAggregateStatus::Classified,
-        _ => EpistemicAggregateStatus::PartialClassifiedEvidence,
-    };
+    let evidence_status = epistemic_aggregate_status(classified_count, total_claims);
 
     Ok(EpistemicScore {
         empirical: e_sum / count_f,
@@ -608,6 +612,30 @@ mod tests {
             let decoded: EpistemicAggregateStatus = serde_json::from_str(&encoded).unwrap();
             assert_eq!(decoded, status);
         }
+    }
+
+    #[test]
+    fn test_epistemic_aggregate_status_classification_matrix() {
+        assert_eq!(
+            epistemic_aggregate_status(0, 0),
+            EpistemicAggregateStatus::NoClassifiedEvidence
+        );
+        assert_eq!(
+            epistemic_aggregate_status(0, 3),
+            EpistemicAggregateStatus::NoClassifiedEvidence
+        );
+        assert_eq!(
+            epistemic_aggregate_status(1, 1),
+            EpistemicAggregateStatus::Classified
+        );
+        assert_eq!(
+            epistemic_aggregate_status(2, 3),
+            EpistemicAggregateStatus::PartialClassifiedEvidence
+        );
+        assert_eq!(
+            epistemic_aggregate_status(3, 3),
+            EpistemicAggregateStatus::Classified
+        );
     }
 
 }
