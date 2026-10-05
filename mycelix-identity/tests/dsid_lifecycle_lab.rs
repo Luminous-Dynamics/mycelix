@@ -869,6 +869,170 @@ async fn dsid_056_deactivated_did_rejects_did_update() {
 
 #[tokio::test(flavor = "multi_thread")]
 #[ignore]
+async fn dsid_057_deactivated_did_rejects_trust_presentation() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let app = conductor
+        .setup_app(
+            "dsid-deactivated-trust-presentation",
+            std::slice::from_ref(&dna),
+        )
+        .await
+        .unwrap();
+    let cell = app.cells()[0].clone();
+    let agent = app.agent().clone();
+
+    let did_record: Record = conductor
+        .call(&cell.zome("did_registry"), "create_did", ())
+        .await;
+    let did: DidDocument =
+        decode_entry(&did_record).expect("DID record must decode");
+
+    let deactivated: Record = conductor
+        .call(
+            &cell.zome("did_registry"),
+            "deactivate_did",
+            "DSID post-deactivation trust-presentation regression",
+        )
+        .await;
+
+    let blocked: Result<Record, _> = conductor
+        .call_fallible(
+            &cell.zome("trust_credential"),
+            "create_presentation",
+            serde_json::json!({
+                "credential_id": "post-deactivation",
+                "subject_did": did.id.clone(),
+                "disclosed_tier": "Basic",
+                "disclose_range": false,
+                "trust_range": {
+                    "lower": 0.0,
+                    "upper": 0.0
+                },
+                "presentation_proof": [1, 2, 3],
+                "verifier_did": null,
+                "purpose": "DSID deactivation regression"
+            }),
+        )
+        .await;
+
+    let rejection = format!("{blocked:?}");
+    assert!(
+        blocked.is_err(),
+        "deactivated DID must not create new trust presentations"
+    );
+    assert!(
+        rejection.contains("not active"),
+        "presentation rejection must come from the active-DID guard, got: {rejection}"
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("subject", agent.to_string());
+    emit_evidence(
+        "DSID-057",
+        "deactivated-did-rejects-trust-presentation",
+        &dna,
+        agents,
+        &[&did_record, &deactivated],
+        "A deactivated DID cannot mint a new selective-disclosure trust presentation.",
+        format!("presentation_rejected={}", blocked.is_err()),
+        blocked.is_err(),
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_058_deactivated_did_rejects_attestation_request() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let requester_app = conductor
+        .setup_app(
+            "dsid-deactivated-attestation-requester",
+            std::slice::from_ref(&dna),
+        )
+        .await
+        .unwrap();
+    let subject_app = conductor
+        .setup_app(
+            "dsid-attestation-request-subject",
+            std::slice::from_ref(&dna),
+        )
+        .await
+        .unwrap();
+    let requester = requester_app.cells()[0].clone();
+    let subject = subject_app.cells()[0].clone();
+    let requester_agent = requester_app.agent().clone();
+    let subject_agent = subject_app.agent().clone();
+
+    let requester_record: Record = conductor
+        .call(&requester.zome("did_registry"), "create_did", ())
+        .await;
+    let subject_record: Record = conductor
+        .call(&subject.zome("did_registry"), "create_did", ())
+        .await;
+    let requester_did: DidDocument =
+        decode_entry(&requester_record).expect("requester DID must decode");
+    let subject_did: DidDocument =
+        decode_entry(&subject_record).expect("subject DID must decode");
+
+    let deactivated: Record = conductor
+        .call(
+            &requester.zome("did_registry"),
+            "deactivate_did",
+            "DSID post-deactivation attestation-request regression",
+        )
+        .await;
+
+    let now = sys_time()
+        .await
+        .expect("Sweettest host time must be available");
+    let expires_at = now
+        .checked_add(std::time::Duration::from_secs(3600))
+        .expect("attestation expiry arithmetic must not overflow");
+
+    let blocked: Result<Record, _> = conductor
+        .call_fallible(
+            &requester.zome("trust_credential"),
+            "request_attestation",
+            serde_json::json!({
+                "requester_did": requester_did.id,
+                "subject_did": subject_did.id,
+                "components": ["Reputation"],
+                "min_trust_score": 0.5,
+                "min_tier": null,
+                "purpose": "DSID deactivation regression",
+                "expires_at": expires_at
+            }),
+        )
+        .await;
+
+    let rejection = format!("{blocked:?}");
+    assert!(
+        blocked.is_err(),
+        "deactivated DID must not create new attestation requests"
+    );
+    assert!(
+        rejection.contains("not active"),
+        "attestation request rejection must come from the active-DID guard, got: {rejection}"
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("requester", requester_agent.to_string());
+    agents.insert("subject", subject_agent.to_string());
+    emit_evidence(
+        "DSID-058",
+        "deactivated-did-rejects-attestation-request",
+        &dna,
+        agents,
+        &[&requester_record, &subject_record, &deactivated],
+        "A deactivated DID cannot initiate a new attestation request against another subject.",
+        format!("attestation_request_rejected={}", blocked.is_err()),
+        blocked.is_err(),
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
 async fn dsid_006_self_recovery_projection_matches_canonical_state() {
     let mut conductor = SweetConductor::from_standard_config().await;
     let dna = load_dna().await;
