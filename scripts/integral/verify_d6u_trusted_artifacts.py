@@ -128,7 +128,9 @@ def verify_executor_workflow_record(
     assert record["executor_workflow_file_path"] == cfg["path"]
     assert record["executor_workflow_repository"] == repo
     assert re.fullmatch(r"[0-9a-f]{40}", record["executor_workflow_commit_sha"])
-    assert record["executor_workflow_ref"].startswith(f"{repo}/{cfg['path']}@")
+    assert record["executor_workflow_ref"] == (
+        f"{repo}/{cfg['path']}@refs/heads/main"
+    )
 
 
 def verify_executor_workflow_identity(
@@ -164,6 +166,9 @@ def verify_trigger_run_record(
     assert record["trigger_workflow_path"] == trigger["path"]
     assert record["source_repository"] == trigger["head_repository"]["full_name"]
     assert record["source_branch"] == trigger["head_branch"]
+    assert record["trigger_workflow_blob_sha"] == (
+        policy["required_source_blobs"][cfg["path"]]
+    )
 
 
 def verify_trigger_run(
