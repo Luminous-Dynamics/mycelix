@@ -616,7 +616,8 @@ export interface ClaimEpistemic {
 export type EpistemicAggregateStatus =
   | 'Classified'
   | 'PartialClassifiedEvidence'
-  | 'NoClassifiedEvidence';
+  | 'NoClassifiedEvidence'
+  | 'IncompleteEvidence';
 
 export interface EpistemicScore {
   empirical: number;
@@ -626,6 +627,7 @@ export interface EpistemicScore {
   evidenceStatus: EpistemicAggregateStatus;
   classifiedClaims: number;
   totalClaims: number;
+  uninterpretableRecords: number;
 }
 
 export interface VerificationSummary {
