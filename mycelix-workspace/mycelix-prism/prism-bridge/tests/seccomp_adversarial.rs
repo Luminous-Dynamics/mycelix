@@ -727,20 +727,32 @@ fn maximum_dispatch_offset_child() -> ! {
         unsafe { libc::_exit(164) };
     }
 
-    // Eight near-maximum filters remain below MAX_INSNS_PER_PATH. The
-    // ninth candidate is intentionally different: it denies getppid(), so an
-    // incorrect partial attachment is distinguishable from an ENOMEM refusal.
-    for index in 0..8u32 {
+    // Linux charges the converted eBPF program length at chain-attachment
+    // time, not merely the user-space cBPF length. The kernel's classic-BPF
+    // conversion adds a three-instruction prologue and maps each RET_K to two
+    // eBPF instructions. For this fixture that yields:
+    //   x86_64: base 151 + 7*4249 + 8*4 = 29,922
+    //   AArch64: base 148 + 7*4246 + 8*4 = 29,898
+    // The eighth candidate would cross 32,768 on both architectures:
+    //   x86_64: 34,175
+    //   AArch64: 34,144
+    //
+    // Therefore seven near-maximum filters must succeed. The eighth candidate
+    // is intentionally different: it denies getppid(), so an incorrect
+    // partial attachment is distinguishable from the expected ENOMEM refusal.
+    for index in 0..7u32 {
+        eprintln!("cumulative-layer={} expected=success", index);
         let receipt = install_v2(
             RendererProcessAssignmentId::new(20u128 + u128::from(index)).unwrap(),
             cumulative_profile.clone(),
             &cumulative_policy,
         );
         if receipt.is_err() {
-            unsafe { libc::_exit(165) };
+            unsafe { libc::_exit(165u8.saturating_add(index as u8)) };
         }
     }
 
+    eprintln!("cumulative-layer=7 expected=ENOMEM");
     let cumulative_result = install_v2(
         RendererProcessAssignmentId::new(30).unwrap(),
         cumulative_failure_profile,
