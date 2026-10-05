@@ -161,6 +161,45 @@ pub struct ExitRecord {
     pub exited_at: Timestamp,
 }
 
+/// Immutable sender-authored authorization for a SAP transfer.
+///
+/// The intent records the sender-side monetary transition without directly
+/// mutating the recipient account. The recipient later claims this exact intent.
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct SapTransferIntent {
+    /// Stable transfer identifier chosen by the sender.
+    pub id: String,
+    /// Sender account.
+    pub from_did: String,
+    /// Recipient account.
+    pub to_did: String,
+    /// Exact amount in micro-SAP.
+    pub amount: u64,
+    /// Source-chain publication time.
+    pub created_at: Timestamp,
+    /// Optional claim deadline.
+    pub expires_at: Option<Timestamp>,
+}
+
+/// Immutable recipient-authored claim consuming one transfer intent.
+///
+/// The claim is the sole positive-balance justification for the recipient leg.
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct SapTransferClaim {
+    /// Stable transfer identifier.
+    pub transfer_id: String,
+    /// Exact sender-authored transfer intent.
+    pub intent_action_hash: ActionHash,
+    /// Recipient account.
+    pub recipient_did: String,
+    /// Exact amount claimed in micro-SAP.
+    pub amount: u64,
+    /// Source-chain publication time.
+    pub claimed_at: Timestamp,
+}
+
 /// Record of SAP minting — every SAP must trace to a provenance.
 ///
 /// SAP enters circulation through three paths:
@@ -254,6 +293,8 @@ pub enum EntryTypes {
     Receipt(Receipt),
     ExitRecord(ExitRecord),
     SapBalance(SapBalance),
+    SapTransferIntent(SapTransferIntent),
+    SapTransferClaim(SapTransferClaim),
     SapMintRecord(SapMintRecord),
     HearthSapPool(HearthSapPool),
     SapMintCapCounterEntry(SapMintCapCounterEntry),
@@ -267,6 +308,8 @@ pub enum LinkTypes {
     ChannelPartyA,
     ChannelPartyB,
     DidToSapBalance,
+    TransferIdToIntent,
+    TransferIdToClaim,
     MemberToExitRecord,
     PaymentIdToPayment,
     MintIdToMintRecord,
@@ -304,6 +347,18 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::SapBalance(bal) => {
                     validate_create_sap_balance(EntryCreationAction::Create(action), &bal)
                 },
+                EntryTypes::SapTransferIntent(intent) => {
+                    validate_create_sap_transfer_intent(
+                        EntryCreationAction::Create(action),
+                        &intent,
+                    )
+                }
+                EntryTypes::SapTransferClaim(claim) => {
+                    validate_create_sap_transfer_claim(
+                        EntryCreationAction::Create(action),
+                        &claim,
+                    )
+                }
                 EntryTypes::SapMintRecord(mint) => validate_create_sap_mint_record(&mint),
                 EntryTypes::HearthSapPool(pool) => validate_hearth_sap_pool(&pool),
                 EntryTypes::SapMintCapCounterEntry(counter) => {
@@ -325,6 +380,12 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                         "Exit records cannot be updated".into(),
                     )),
                     EntryTypes::SapBalance(bal) => validate_update_sap_balance(action, &bal),
+                    EntryTypes::SapTransferIntent(_) => Ok(ValidateCallbackResult::Invalid(
+                        "SAP transfer intents cannot be updated".into(),
+                    )),
+                    EntryTypes::SapTransferClaim(_) => Ok(ValidateCallbackResult::Invalid(
+                        "SAP transfer claims cannot be updated".into(),
+                    )),
                     EntryTypes::SapMintRecord(_) => {
                         // Mint records are immutable
                         Ok(ValidateCallbackResult::Invalid(
@@ -383,6 +444,14 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     if base_address.as_ref().len() != 39 || target_address.as_ref().len() != 39 {
                         return Ok(ValidateCallbackResult::Invalid(
                             "DidToSapBalance link must connect valid hashes".into(),
+                        ));
+                    }
+                    Ok(ValidateCallbackResult::Valid)
+                }
+                LinkTypes::TransferIdToIntent | LinkTypes::TransferIdToClaim => {
+                    if target_address.as_ref().len() != 39 {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "SAP transfer link target must be a valid action hash".into(),
                         ));
                     }
                     Ok(ValidateCallbackResult::Valid)
@@ -703,6 +772,123 @@ fn validate_create_receipt(
     Ok(ValidateCallbackResult::Valid)
 }
 
+fn validate_create_sap_transfer_intent(
+    action: EntryCreationAction,
+    intent: &SapTransferIntent,
+) -> ExternResult<ValidateCallbackResult> {
+    if intent.id.is_empty() || intent.id.len() > MAX_ID_LEN {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Transfer intent id must be 1-256 characters".into(),
+        ));
+    }
+    if intent.from_did.len() > MAX_DID_LEN || intent.to_did.len() > MAX_DID_LEN {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Transfer intent DID exceeds maximum length".into(),
+        ));
+    }
+    if !intent.from_did.starts_with("did:") || !intent.to_did.starts_with("did:") {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Transfer intent parties must be valid DIDs".into(),
+        ));
+    }
+    if intent.from_did == intent.to_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Transfer intent sender and recipient must differ".into(),
+        ));
+    }
+    if intent.amount == 0 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Transfer intent amount must be positive".into(),
+        ));
+    }
+    if intent.expires_at.is_some_and(|expiry| expiry <= intent.created_at) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Transfer intent expiry must be after creation time".into(),
+        ));
+    }
+
+    let author_did = did_for_author(action.author());
+    if intent.from_did != author_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Transfer intent sender DID must match the signed action author".into(),
+        ));
+    }
+    if intent.created_at != action.timestamp() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Transfer intent created_at must match the signed action timestamp".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_create_sap_transfer_claim(
+    action: EntryCreationAction,
+    claim: &SapTransferClaim,
+) -> ExternResult<ValidateCallbackResult> {
+    if claim.transfer_id.is_empty() || claim.transfer_id.len() > MAX_ID_LEN {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Transfer claim id must be 1-256 characters".into(),
+        ));
+    }
+    if claim.recipient_did.len() > MAX_DID_LEN || !claim.recipient_did.starts_with("did:") {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Transfer claim recipient DID is invalid".into(),
+        ));
+    }
+    if claim.amount == 0 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Transfer claim amount must be positive".into(),
+        ));
+    }
+    if claim.claimed_at != action.timestamp() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Transfer claim claimed_at must match the signed action timestamp".into(),
+        ));
+    }
+
+    let author_did = did_for_author(action.author());
+    if claim.recipient_did != author_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Transfer claim recipient DID must match the signed action author".into(),
+        ));
+    }
+
+    let intent_record = must_get_valid_record(claim.intent_action_hash.clone())?;
+    let intent = intent_record
+        .entry()
+        .to_app_option::<SapTransferIntent>()
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+            "Transfer claim intent record could not be decoded as SapTransferIntent".into()
+        )))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Transfer claim intent record is missing SapTransferIntent entry".into()
+        )))?;
+
+    if claim.transfer_id != intent.id
+        || claim.recipient_did != intent.to_did
+        || claim.amount != intent.amount
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Transfer claim does not match its exact intent".into(),
+        ));
+    }
+
+    if claim.claimed_at < intent.created_at {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Transfer claim cannot precede the transfer intent".into(),
+        ));
+    }
+
+    if intent.expires_at.is_some_and(|expiry| claim.claimed_at > expiry) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Transfer claim is past the intent expiry".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
 fn validate_create_sap_balance(
     action: EntryCreationAction,
     bal: &SapBalance,
@@ -714,7 +900,65 @@ fn validate_update_sap_balance(
     action: Update,
     bal: &SapBalance,
 ) -> ExternResult<ValidateCallbackResult> {
-    validate_sap_balance_owner(action.author(), bal)
+    validate_sap_balance_owner(action.author(), bal)?;
+
+    let original_record = must_get_valid_record(action.original_action_address.clone())?;
+    let original = original_record
+        .entry()
+        .to_app_option::<SapBalance>()
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+            "Original SAP balance record could not be decoded".into()
+        )))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Original SAP balance record is missing SapBalance entry".into()
+        )))?;
+
+    if original.member_did != bal.member_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SAP balance owner cannot change during update".into(),
+        ));
+    }
+
+    if bal.balance > original.balance {
+        let delta = bal.balance - original.balance;
+        let Some(justification_hash) = bal.justified_by.clone() else {
+            return Ok(ValidateCallbackResult::Invalid(
+                "SAP balance increase requires an immutable transfer claim or mint record".into(),
+            ));
+        };
+
+        let justification = must_get_valid_record(justification_hash)?;
+        if let Some(claim) = justification
+            .entry()
+            .to_app_option::<SapTransferClaim>()
+            .ok()
+            .flatten()
+        {
+            if claim.recipient_did != bal.member_did || claim.amount != delta {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "SAP balance increase does not match transfer claim recipient/amount".into(),
+                ));
+            }
+        } else if let Some(mint) = justification
+            .entry()
+            .to_app_option::<SapMintRecord>()
+            .ok()
+            .flatten()
+        {
+            if mint.recipient_did != bal.member_did || mint.amount != delta {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "SAP balance increase does not match mint recipient/amount".into(),
+                ));
+            }
+        } else {
+            return Ok(ValidateCallbackResult::Invalid(
+                "SAP balance increase justification must be a valid transfer claim or mint record"
+                    .into(),
+            ));
+        }
+    }
+
+    Ok(ValidateCallbackResult::Valid)
 }
 
 fn validate_sap_balance_owner(
@@ -771,6 +1015,13 @@ fn validate_sap_balance_owner(
             ));
         }
     }
+
+    if bal.balance > 0 && bal.justified_by.is_none() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Positive SAP balance state requires an immutable justification".into(),
+        ));
+    }
+
     Ok(ValidateCallbackResult::Valid)
 }
 
