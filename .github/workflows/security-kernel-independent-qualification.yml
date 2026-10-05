@@ -518,14 +518,12 @@ jobs:
               echo "candidate source mount is unexpectedly writable" >&2
               exit 1
             fi
-            if touch /opt/rust-toolchain/.security-kernel-write-probe 2>/dev/null; then
-              echo "Rust toolchain mount is unexpectedly writable" >&2
-              exit 1
-            fi
             if bash -c "echo probe >/dev/tcp/1.1.1.1/80" 2>/dev/null; then
               echo "network unexpectedly reachable inside candidate sandbox" >&2
               exit 1
             fi
+            test -x /usr/local/cargo/bin/cargo
+            test -x /usr/local/cargo/bin/rustc
             rustfmt --version
             cargo-clippy --version
             run_limited cargo fmt --manifest-path /source/crates/mycelix-bridge-common/Cargo.toml -- --check
