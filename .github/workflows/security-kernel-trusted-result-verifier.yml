@@ -19,9 +19,9 @@ env:
   BASE_REPOSITORY_ID: "1176351975"
   BASE_BRANCH: "main"
   TRUSTED_DISPATCHER_WORKFLOW_PATH: ".github/workflows/security-kernel-trusted-dispatch.yml"
-  TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA: "c896912ecf05dea27de7c127629ef8bb7425b2de"
+  TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA: "d2581c6389af72d9021b91f48425f0a3ffdd19e1"
   INDEPENDENT_WORKFLOW_PATH: ".github/workflows/security-kernel-independent-qualification.yml"
-  TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "41edcdd9d0240131213ccccf5a2916de28553083"
+  TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "0a84b08d7757a31ebd66ba71b226841e0ffd052f"
   EXPECTED_JOB_NAME: "Independent Security Kernel"
 
 jobs:
@@ -96,8 +96,12 @@ jobs:
 
           workflow_sha = run.get("workflow_sha")
           assert re.fullmatch(r"[0-9a-f]{40}", workflow_sha or ""), f"unexpected dispatcher workflow_sha: {workflow_sha!r}"
-          verifier_file = get(f"/repos/{repo}/contents/.github/workflows/security-kernel-trusted-result-verifier.yml?ref={os.environ["GITHUB_WORKFLOW_SHA"]}")
-          assert verifier_file["sha"] == subprocess.check_output(["git","ls-tree","--format=%(objectname)","%s" % os.environ["GITHUB_WORKFLOW_SHA"],"--",".github/workflows/security-kernel-trusted-result-verifier.yml"], text=True).strip(), "S2 checked-out verifier blob differs from GitHub API content at the invoked workflow commit"
+           export WORKFLOW_BLOB_SHA="$workflow_blob_sha"
+           verifier_file = get(f"/repos/{repo}/contents/.github/workflows/security-kernel-trusted-result-verifier.yml?ref={os.environ['GITHUB_WORKFLOW_SHA']}")
+           assert verifier_file["type"] == "file"
+           assert verifier_file["path"] == ".github/workflows/security-kernel-trusted-result-verifier.yml"
+           assert verifier_file["sha"] == os.environ["WORKFLOW_BLOB_SHA"], "S2 checked-out verifier blob differs from GitHub API content at the invoked workflow commit"
+           print(f"PASS: invoked S2 workflow commit={os.environ['GITHUB_WORKFLOW_SHA']} blob={os.environ['WORKFLOW_BLOB_SHA']} is independently bound to the checked-out file")
 
           dispatcher_at_run = get(
               f"/repos/{repo}/contents/{os.environ['TRUSTED_DISPATCHER_WORKFLOW_PATH']}?ref={workflow_sha}"
@@ -218,6 +222,8 @@ jobs:
               "trusted_dispatcher_workflow_sha": workflow_sha,
               "trusted_dispatcher_workflow_blob_sha": dispatcher_at_run["sha"],
               "trusted_s1_workflow_blob_sha": s1_at_run["sha"],
+               "verifier_workflow_sha": os.environ["GITHUB_WORKFLOW_SHA"],
+               "verifier_workflow_blob_sha": os.environ["WORKFLOW_BLOB_SHA"],
               "qualification_receipt_artifact_id": artifact["id"],
               "qualification_receipt_artifact_digest": artifact.get("digest"),
               "independent_qualification": "verified-pass",
