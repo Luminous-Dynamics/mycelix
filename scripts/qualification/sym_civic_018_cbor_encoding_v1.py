@@ -180,6 +180,9 @@ def parse(data, pos=0):
 def preferred_float(raw):
     width = len(raw) - 1
     if width == 2:
+        bits = int.from_bytes(raw[1:], "big")
+        if (bits & 0x7c00) == 0x7c00 and (bits & 0x03ff):
+            raise Fault("nan outside synthetic profile")
         return raw
     if width not in (4, 8):
         raise Fault("unsupported float width")
@@ -430,6 +433,9 @@ def ref_key(node):
 def ref_preferred_float(raw):
     width = len(raw) - 1
     if width == 2:
+        bits = int.from_bytes(raw[1:], "big")
+        if (bits & 0x7c00) == 0x7c00 and (bits & 0x03ff):
+            raise Fault("ref nan outside synthetic profile")
         return raw
     if width == 4:
         value = struct.unpack(">f", raw[1:])[0]
@@ -549,7 +555,7 @@ def main():
     assert doc["analysis_role"] == "research_only"
     assert doc["parent_subject"] == PARENT_SUBJECT
     cases = doc["cases"]
-    assert [c["id"] for c in cases] == [f"C-{i:02d}" for i in range(1,31)]
+    assert [c["id"] for c in cases] == [f"C-{i:02d}" for i in range(1,34)]
     for case in cases:
         assert set(case) == {"id","family","hex"}
         raw = bytes.fromhex(case["hex"])
@@ -574,7 +580,7 @@ def main():
     assert census == {
         SUFFICIENT: 4,
         MESSAGE_REJECT: 8,
-        ENCODING_REJECT: 14,
+        ENCODING_REJECT: 17,
         PARSE_ERROR: 4,
         UNRESOLVED: 0,
     }, census
