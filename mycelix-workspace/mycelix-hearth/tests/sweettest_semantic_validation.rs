@@ -624,8 +624,14 @@ fn test_semantic_case_manifest_is_structurally_valid() {
             .as_str()
             .expect("every semantic case needs a validator_source");
         let validator_symbol = case["validator_symbol"]
+            .as_str()
+            .expect("every semantic case needs a validator_symbol");
         let dispatch_symbol = case["dispatch_symbol"]
+            .as_str()
+            .expect("every semantic case needs a dispatch_symbol");
         let target_variant = case["target_variant"]
+            .as_str()
+            .expect("every semantic case needs a target_variant");
         let coordinator_primitive = case["coordinator_primitive"]
             .as_str()
             .expect("every semantic case needs a coordinator_primitive");
