@@ -248,6 +248,7 @@ pub fn get_design(hash: ActionHash) -> ExternResult<Option<Record>> {
 /// Update an existing design
 #[hdk_extern]
 pub fn update_design(input: UpdateDesignInput) -> ExternResult<Record> {
+    rate_limit_caller()?;
     let original = get(input.original_action_hash.clone(), GetOptions::default())?
         .ok_or(FabricationError::not_found("Design", &input.original_action_hash))?;
 
@@ -310,6 +311,7 @@ pub fn update_design(input: UpdateDesignInput) -> ExternResult<Record> {
 /// Delete a design (marks as deleted, doesn't remove from DHT)
 #[hdk_extern]
 pub fn delete_design(hash: ActionHash) -> ExternResult<ActionHash> {
+    rate_limit_caller()?;
     let design_record = get(hash.clone(), GetOptions::default())?
         .ok_or(FabricationError::not_found("Design", &hash))?;
 
