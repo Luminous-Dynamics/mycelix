@@ -70,16 +70,15 @@ S1 first proves:
 - the called S1 workflow blob at that caller commit matches the registered S1 profile;
 - the candidate PR number/repository/head SHA passed by S0 exactly match the current PR.
 
-S1 then fetches the exact candidate repository and commit SHA. It rejects gitlinks/submodules
-and rejects symlinks or other non-regular files in the materialized candidate tree.
+S1 resolves the exact candidate commit and tree through the GitHub API and enforces the
+resource profile before any candidate blob contents are materialized. Hostile Git transport,
+object validation, and archive extraction then occur only inside a dedicated pinned
+non-root networked fetch sandbox. No candidate repository `.git` data is fetched, parsed,
+or archived by Git on the trusted host runner.
 
-### Pre-materialization resource ceiling
-
-S1 first performs a blobless partial Git fetch, which transfers commit/tree objects without
-blob contents. Git's partial-clone documentation defines `--filter=blob:none` specifically
-to defer blob transfer until the blobs are needed. S1 then inspects the exact Git tree
-through GitHub's tree API and enforces the resource profile before any candidate blob
-contents are materialized onto the trusted runner. citeturn847810search0turn847810search12
+Git's own security guidance notes that the fetch/upload-pack attack surface is substantial,
+so the fetch sandbox is a separate trust zone rather than part of the trusted host phase.
+citeturn142361search4turn142361search6
 
 The pre-materialization profile enforces:
 
@@ -93,10 +92,11 @@ The pre-materialization profile enforces:
 The live Security Kernel candidate tree measured approximately 415 MiB with a largest blob
 of approximately 49 MiB, leaving deterministic headroom under the registered total bound.
 
-The candidate source identity is hashed with unambiguous length-framed records:
+The candidate source identity is hashed with unambiguous length-framed records that also
+include the extracted file mode:
 
 ```text
-u64(path_bytes_length) || path_bytes ||
+u32(mode_bits) || u64(path_bytes_length) || path_bytes ||
 u64(content_bytes_length) || content_bytes
 ```
 
@@ -120,9 +120,10 @@ workflow. The profile currently requires, among other invariants:
 - exact crates.io registry provenance and canonical 64-hex SHA-256 checksums;
 - no candidate-controlled Cargo source overrides, `[patch]`, `[replace]`, or relevant
   Cargo configuration files;
-- the candidate's own qualification workflow remains an untrusted `pull_request` feedback
-  lane, does not use `pull_request_target`, uses pinned actions, and checks out the exact
-  candidate head.
+- if a candidate supplies a workflow at the legacy
+  `.github/workflows/security-kernel-qualification.yml` path, it is treated purely as
+  untrusted data; S1 does not depend on its existence, execution, or result, and rejects
+  privileged `pull_request_target` use or secret references in that file.
 
 A static predicate exercise was performed against Security Kernel PR #3822 exact head
 `673de287aa6923a16bcb22c0970dd165573ea8e8`. The inspected kernel/events/manifest/lockfile/
