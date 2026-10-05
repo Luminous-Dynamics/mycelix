@@ -1861,16 +1861,18 @@ mod tests {
         let allowed_roles = [ExternalObserverRoleV1::IndependentObserver]
             .into_iter()
             .collect::<BTreeSet<_>>();
-        ObserverLifecycleProfileV1 {
+        let mut profile = ObserverLifecycleProfileV1 {
             profile_id: "life-profile-1".into(),
             semantic_environment_root: "env-1".into(),
             observation_profile_id: "obs-profile-1".into(),
             allowed_roles,
             current_frontier_required: true,
             historical_evidence_allowed: true,
-            profile_commitment: "life-profile-commitment".into(),
+            profile_commitment: String::new(),
             claim_ceiling: crate::observer_lifecycle::OBSERVER_LIFECYCLE_CLAIM_CEILING.into(),
-        }
+        };
+        profile.profile_commitment = profile.recomputed_commitment();
+        profile
     }
 
     fn generation(id: &str) -> ObserverGenerationV1 {
