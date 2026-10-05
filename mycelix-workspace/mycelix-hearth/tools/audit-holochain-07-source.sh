@@ -2518,6 +2518,29 @@ PY
   fi
 }
 
+  if python3 - "$workflow" <<'PY'
+from pathlib import Path
+import sys
+
+lines = Path(sys.argv[1]).read_text().splitlines()
+named_steps = [line for line in lines if line.startswith("      - name: ")]
+closure_steps = [line for line in named_steps if line == "      - name: Verify or generate Rust dependency closure"]
+if len(closure_steps) != 1:
+    print("FAIL: dependency closure verification step must occur exactly once")
+    raise SystemExit(2)
+
+for number, line in enumerate(lines, start=1):
+    if line.startswith("      - ") and not line.startswith("      - name: "):
+        print(f"FAIL: unnamed workflow step item at line {number}: {line}")
+        raise SystemExit(2)
+
+print("OK: qualification workflow step structure has named step items and one dependency-closure verifier")
+PY
+  then
+    true
+  else
+    fail=1
+  fi
 # Coordinator-to-integrity operation binding. A static validator can be internally
 # complete while the coordinator silently uses an operation family that the integrity
 # zome does not model explicitly. Tie the application write surface to its validator
