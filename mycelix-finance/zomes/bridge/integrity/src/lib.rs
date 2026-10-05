@@ -752,11 +752,19 @@ fn validate_create_finance_bridge_event(
 fn canonical_source_commitment(source_hashes: &[ActionHash]) -> String {
     let mut canonical = source_hashes.to_vec();
     canonical.sort();
-    canonical
+
+    let mut bytes = b"sap.reserve.source-set.v0".to_vec();
+    bytes.extend_from_slice(&(canonical.len() as u32).to_be_bytes());
+    for hash in &canonical {
+        bytes.extend_from_slice(hash.get_raw_39());
+    }
+
+    let digest = blake2b_256(&bytes);
+    let hex = digest
         .iter()
-        .map(ActionHash::to_hex)
-        .collect::<Vec<_>>()
-        .join(",")
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
+    format!("blake2b256:{hex}")
 }
 
 fn validate_create_reserve_valuation_snapshot(
@@ -884,6 +892,11 @@ fn validate_reserve_valuation_snapshot_fields(
     if unique.len() != snapshot.source_action_hashes.len() {
         return Ok(ValidateCallbackResult::Invalid(
             "Duplicate source action hashes are not permitted".into(),
+        ));
+    }
+    if snapshot.source_action_hashes != unique {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Source action hashes must be in canonical sorted order".into(),
         ));
     }
     if snapshot.source_commitment != canonical_source_commitment(&snapshot.source_action_hashes) {
