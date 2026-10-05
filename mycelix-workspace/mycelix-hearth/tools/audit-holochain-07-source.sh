@@ -2507,10 +2507,13 @@ PY
     && rg -n --fixed-strings "cargo metadata --locked" "$workflow" >/dev/null 2>&1 \
     && rg -n --fixed-strings "dependency_closure_status=generated_at_runtime" "$workflow" >/dev/null 2>&1 \
     && rg -n --fixed-strings "dependency_closure_status=source_controlled_and_stable" "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings "Verify Rust dependency closure remains immutable" "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings "dependency_closure_initial_capture_verified=true" "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings "dependency_closure_runtime_immutable=true" "$workflow" >/dev/null 2>&1 \
     && rg -n --fixed-strings "grep -Fxq \"dependency_closure_status=source_controlled_and_stable\"" "$workflow" >/dev/null 2>&1; then
-    echo "OK:   qualification workflow verifies committed locked closures, generates only for the unfrozen case, and gates complete evidence on stable source-controlled locks"
+    echo "OK:   qualification workflow verifies committed locked closures, distinguishes runtime-generated closures, and proves lock immutability before/after runtime"
   else
-    echo "FAIL: qualification workflow must fail closed on dependency-closure provenance and use locked verification for committed closures"
+    echo "FAIL: qualification workflow must fail closed on dependency-closure provenance and prove the lock closure remains immutable"
     fail=1
   fi
 }
