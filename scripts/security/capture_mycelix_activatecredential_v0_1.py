@@ -125,7 +125,7 @@ def capture(out:Path,tpm_identity_digest:str)->int:
         "ak_authorization_file_sha256":session["ak_authorization_file_sha256"],
         "secret_equality_state":equality,
         "activation_session_tuple_sha256":session_hash,
-        "source_sha256":hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        "capture_source_sha256":hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         "makecredential_transcript":make_tx,
         "activatecredential_transcript":activate_tx,
     }
