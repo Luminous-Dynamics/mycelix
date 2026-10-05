@@ -44,7 +44,7 @@ S1:
 - records the candidate tree, lockfile, vendor closure, sandbox image, and trusted workflow identities; and
 - fails if the candidate source changes during qualification, excluding only Cargo's `target/` output.
 
-The candidate executes without repository write permission, secrets, or OIDC access. S1 also requires the source PR to remain an exact open-head match at execution time, records the pre-execution source digest in a trusted workflow step output, and requires a committed Security Kernel `Cargo.lock` while rejecting candidate-controlled Cargo configuration at the relevant workspace/config hierarchy. The lockfile policy also rejects non-crates.io package sources, preventing a candidate from turning dependency acquisition into arbitrary Git/custom-registry network access. The lockfile digest is captured before candidate execution. Candidate dependency acquisition uses only the committed manifest/lockfile in a constrained non-root container; candidate source and code are not present during that networked fetch phase. The resulting vendor tree is then mounted read-only for candidate execution. Candidate Cargo gates use Rust 1.99.0 from a read-only mounted sysroot, `--frozen`, offline networking, a read-only source tree, and fresh disposable containers with dropped capabilities, `no-new-privileges`, resource bounds, private PID/IPC namespaces, and no Docker socket. These controls substantially reduce candidate access to the host runner, but this remains a defense-in-depth container boundary rather than a proof of Linux kernel/Docker-daemon escape resistance.
+The candidate executes without repository write permission, secrets, or OIDC access. S1 also requires the source PR to remain an exact open-head match at execution time, records the pre-execution source digest in a trusted workflow step output, and requires a committed Security Kernel `Cargo.lock` while rejecting candidate-controlled Cargo configuration at the relevant workspace/config hierarchy. The lockfile policy also rejects non-crates.io package sources, preventing a candidate from turning dependency acquisition into arbitrary Git/custom-registry network access. The lockfile digest is captured before candidate execution. Candidate dependency acquisition uses only the committed manifest/lockfile in a constrained non-root container; candidate source and code are not present during that networked fetch phase. The resulting vendor tree is then mounted read-only for candidate execution. Candidate Cargo gates use Rust 1.99.0 from a read-only mounted sysroot, `--frozen`, `network=none` / offline networking, a read-only source tree, and fresh disposable containers with dropped capabilities, `no-new-privileges`, resource bounds, private PID/IPC namespaces, and no Docker socket. These controls substantially reduce candidate access to the host runner, but this remains a defense-in-depth container boundary rather than a proof of Linux kernel/Docker-daemon escape resistance.
 
 ## S2 — trusted result verifier
 
@@ -96,10 +96,8 @@ It emits a vendor tree and generated Cargo source configuration that the later c
 containers consume read-only.
 
 The candidate phase uses the immutable Rust image
-`docker.io/library/rust:1.99.0-slim-bookworm@sha256:452176c0cefca88c0b3184ce85a4eb03e3d4fa05d2afb5366abcba853221019e`.
-The Docker image is selected by digest rather than a mutable tag; the official image metadata
-identifies the amd64 manifest separately as
-`sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d`.
+`docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d`.
+The Docker image is selected directly by the verified amd64 manifest digest rather than a mutable tag. The upstream official image metadata records this exact manifest as `sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d` under the `rust:1.99.0-slim-bookworm` image.
 The current S1 run requests `linux/amd64` explicitly.
 
 Each candidate gate gets a fresh disposable container. Candidate source, vendor contents,
