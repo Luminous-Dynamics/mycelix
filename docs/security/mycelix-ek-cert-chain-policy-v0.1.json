@@ -6,7 +6,11 @@
   "status": "executable-reference-profile",
   "claim_ceiling": "ReferenceModelOnly",
   "decision_algebra": "ANY DENY > ANY INDETERMINATE > ALL PASS",
-  "states": ["PASS", "DENY", "INDETERMINATE"],
+  "states": [
+    "PASS",
+    "DENY",
+    "INDETERMINATE"
+  ],
   "theorem": {
     "statement": "An EK certificate is admissible only when the exact DER leaf path validates to an explicitly authorized root at the supplied time, the leaf satisfies the RSA storage-EK profile, AuthorityKeyIdentifier binds to the issuing CA SubjectKeyIdentifier, a CRL check is PASS, and the prior EK SPKI theorem binds the leaf to the observed EK public key.",
     "scope": "The reference trust anchor is synthetic. This theorem is a deterministic policy model and does not assert real manufacturer authenticity."
@@ -14,7 +18,11 @@
   "required_input": {
     "session_id": "capture session identifier",
     "tpm_identity_digest": "TPM session identity digest",
-    "verification_mode": ["ReferenceModelOnly", "OfflineBundle", "LiveVerifierSession"],
+    "verification_mode": [
+      "ReferenceModelOnly",
+      "OfflineBundle",
+      "LiveVerifierSession"
+    ],
     "claim_ceiling": "ReferenceModelOnly",
     "leaf_certificate_der_base64": "exact leaf DER",
     "leaf_certificate_sha256": "leaf digest",
@@ -25,9 +33,28 @@
     "trust_anchor_state": "PASS, DENY or INDETERMINATE",
     "trust_anchor_source_sha256": "canonical_hash({source_tag: mycelix.synthetic-ek-root.v0.1, root_sha256: trust_anchor_root_sha256})",
     "verification_time_unix": "deterministic validation time",
-    "revocation": ["state", "method", "crl_der_base64", "crl_der_sha256"],
-    "spki_binding": ["state", "verifier_id", "certificate_sha256", "ek_public_wire_sha256"],
-    "ek_template_binding": ["state", "verifier_id", "input_sha256", "output_sha256", "public_wire_sha256", "source_sha256", "template_id", "verifier_input"],
+    "revocation": [
+      "state",
+      "method",
+      "crl_der_base64",
+      "crl_der_sha256"
+    ],
+    "spki_binding": [
+      "state",
+      "verifier_id",
+      "certificate_sha256",
+      "ek_public_wire_sha256"
+    ],
+    "ek_template_binding": [
+      "state",
+      "verifier_id",
+      "input_sha256",
+      "output_sha256",
+      "public_wire_sha256",
+      "source_sha256",
+      "template_id",
+      "verifier_input"
+    ],
     "session_binding_sha256": "binding over verification mode, session, TPM, certificate chain, trust-anchor state/source, verification time, revocation state/method/CRL, and SPKI certificate/public-key identity"
   },
   "profile_rules": {
@@ -42,44 +69,164 @@
     "root_authority": "the synthetic root is authorized only inside ReferenceModelOnly; a physical deployment must replace this with independently authorized real-root provenance"
   },
   "non_equivalences": [
-    ["certificate_path_valid", "manufacturer_authenticity"],
-    ["trusted_root_hash_match", "real_world_root_authorization"],
-    ["spki_binding_pass", "issuer_trust"],
-    ["revocation_pass", "measured_boot_valid"],
-    ["ek_profile_pass", "AK_EK_lineage"]
+    [
+      "certificate_path_valid",
+      "manufacturer_authenticity"
+    ],
+    [
+      "trusted_root_hash_match",
+      "real_world_root_authorization"
+    ],
+    [
+      "spki_binding_pass",
+      "issuer_trust"
+    ],
+    [
+      "revocation_pass",
+      "measured_boot_valid"
+    ],
+    [
+      "ek_profile_pass",
+      "AK_EK_lineage"
+    ]
   ],
   "vectors": [
-    {"id":"EKC-V01","mutation":"canonical-valid","expected":"PASS"},
-    {"id":"EKC-V02","mutation":"root-substitution","expected":"DENY"},
-    {"id":"EKC-V03","mutation":"intermediate-substitution","expected":"DENY"},
-    {"id":"EKC-V04","mutation":"leaf-byte-substitution","expected":"DENY"},
-    {"id":"EKC-V05","mutation":"expired-reference-time","expected":"DENY"},
-    {"id":"EKC-V06","mutation":"not-yet-valid-reference-time","expected":"DENY"},
-    {"id":"EKC-V07","mutation":"key-usage-profile-mismatch","expected":"DENY"},
-    {"id":"EKC-V08","mutation":"eku-profile-mismatch","expected":"DENY"},
-    {"id":"EKC-V09","mutation":"trust-anchor-substitution","expected":"DENY"},
-    {"id":"EKC-V10","mutation":"trust-anchor-state-substitution","expected":"DENY"},
-    {"id":"EKC-V11","mutation":"revocation-deny","expected":"DENY"},
-    {"id":"EKC-V12","mutation":"revocation-indeterminate","expected":"INDETERMINATE"},
-    {"id":"EKC-V13","mutation":"spki-certificate-substitution","expected":"DENY"},
-    {"id":"EKC-V14","mutation":"spki-indeterminate","expected":"INDETERMINATE"},
-    {"id":"EKC-V15","mutation":"spki-ek-public-digest-substitution","expected":"DENY"},
-    {"id":"EKC-V16","mutation":"verification-time-binding-substitution","expected":"DENY"},
-    {"id":"EKC-V17","mutation":"revocation-state-binding-substitution","expected":"DENY"},
-    {"id":"EKC-V18","mutation":"verification-mode-substitution","expected":"DENY"},
-    {"id":"EKC-V19","mutation":"session-binding-substitution","expected":"DENY"},
-    {"id":"EKC-V20","mutation":"template-verifier-substitution","expected":"DENY"},
-    {"id":"EKC-V21","mutation":"template-source-substitution","expected":"DENY"},
-    {"id":"EKC-V22","mutation":"template-wire-substitution","expected":"DENY"},
-    {"id":"EKC-V23","mutation":"template-indeterminate","expected":"INDETERMINATE"},
-    {"id":"EKC-V24","mutation":"template-input-substitution","expected":"DENY"},
-    {"id":"EKC-V25","mutation":"key-order-permutation","expected":"PASS"}
+    {
+      "id": "EKC-V01",
+      "mutation": "canonical-valid",
+      "expected": "PASS"
+    },
+    {
+      "id": "EKC-V02",
+      "mutation": "root-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V03",
+      "mutation": "intermediate-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V04",
+      "mutation": "leaf-byte-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V05",
+      "mutation": "expired-reference-time",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V06",
+      "mutation": "not-yet-valid-reference-time",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V07",
+      "mutation": "key-usage-profile-mismatch",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V08",
+      "mutation": "eku-profile-mismatch",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V09",
+      "mutation": "trust-anchor-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V10",
+      "mutation": "trust-anchor-state-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V11",
+      "mutation": "revocation-deny",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V12",
+      "mutation": "revocation-indeterminate",
+      "expected": "INDETERMINATE"
+    },
+    {
+      "id": "EKC-V13",
+      "mutation": "spki-certificate-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V14",
+      "mutation": "spki-indeterminate",
+      "expected": "INDETERMINATE"
+    },
+    {
+      "id": "EKC-V15",
+      "mutation": "spki-ek-public-digest-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V16",
+      "mutation": "verification-time-binding-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V17",
+      "mutation": "revocation-state-binding-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V18",
+      "mutation": "verification-mode-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V19",
+      "mutation": "session-binding-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V20",
+      "mutation": "template-verifier-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V21",
+      "mutation": "template-source-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V22",
+      "mutation": "template-wire-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V23",
+      "mutation": "template-indeterminate",
+      "expected": "INDETERMINATE"
+    },
+    {
+      "id": "EKC-V24",
+      "mutation": "template-input-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "EKC-V25",
+      "mutation": "key-order-permutation",
+      "expected": "PASS"
+    }
   ],
   "reference_fixture": {
     "root_fixture_mode": "runtime-generated synthetic root; source authorization is bound to the exact root SHA-256",
     "leaf_fixture_mode": "runtime-generated synthetic EK leaf",
     "intermediate_fixture_mode": "runtime-generated synthetic issuing CA",
     "crl_fixture_mode": "runtime-generated signed empty CRL",
-    "verification_time_policy": "deterministic within self-test fixture; wall-clock values are never authoritative"
+    "verification_time_policy": "deterministic within self-test fixture; wall-clock values are never authoritative",
+    "root_sha256": "f9dbfd812b4772854cf32096bca60947ea62164835299e1839bc44c003e46fab",
+    "leaf_sha256": "7448f84d763c2bee017ff33e18f1679b73f6db3f96bcfe2793c4b607b20a048b",
+    "intermediate_sha256": "859a9f31a543940927bfc8484a33101710cc67e7467493472b456192fad677a3",
+    "crl_bundle_pem_sha256": "6e0e1ea27ae4b5933d40e54368a8618a7aee98b45011962029a131c11b323abb",
+    "verification_time_unix": 1791158400
   }
 }
