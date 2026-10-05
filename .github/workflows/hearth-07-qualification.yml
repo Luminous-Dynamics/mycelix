@@ -511,7 +511,22 @@ PY
           real() {
             [[ -s "$1" ]] && ! head -n1 "$1" | grep -q '^unavailable_'
           }
-          if [[ "${source_audit_conclusion}" == "success"              && "${build_conclusion}" == "success"              && "${dna_pack_conclusion}" == "success"              && "${sweettest_conclusion}" == "success"              && [[ -s "${hearth}/qualification-semantic-execution.txt" ]]              && grep -qx "status=passed" "${hearth}/qualification-semantic-execution.txt"              && "${source_contract_verified}" -eq 1              && real "${hearth}/qualification-source-audit.log"              && real "${hearth}/qualification-wasm-sha256.txt"              && real "${hearth}/qualification-dna-sha256.txt"              && real "${hearth}/qualification-cargo-lock-sha256.txt"              && real "${hearth}/qualification-source-contract-sha256.txt"              && real "${hearth}/qualification-cargo-metadata.json"              && real "${hearth}/tests/qualification-cargo-metadata.json"              && real "${hearth}/Cargo.lock"              && real "${hearth}/tests/Cargo.lock" ]]; then
+          if [[ "${source_audit_conclusion}" == "success" ]] \
+            && [[ "${build_conclusion}" == "success" ]] \
+            && [[ "${dna_pack_conclusion}" == "success" ]] \
+            && [[ "${sweettest_conclusion}" == "success" ]] \
+            && [[ -s "${hearth}/qualification-semantic-execution.txt" ]] \
+            && grep -qx "status=passed" "${hearth}/qualification-semantic-execution.txt" \
+            && [[ "${source_contract_verified}" -eq 1 ]] \
+            && real "${hearth}/qualification-source-audit.log" \
+            && real "${hearth}/qualification-wasm-sha256.txt" \
+            && real "${hearth}/qualification-dna-sha256.txt" \
+            && real "${hearth}/qualification-cargo-lock-sha256.txt" \
+            && real "${hearth}/qualification-source-contract-sha256.txt" \
+            && real "${hearth}/qualification-cargo-metadata.json" \
+            && real "${hearth}/tests/qualification-cargo-metadata.json" \
+            && real "${hearth}/Cargo.lock" \
+            && real "${hearth}/tests/Cargo.lock"; then
             evidence_status="complete"
           fi
           printf '%s\n' "${evidence_status}" > "${hearth}/qualification-evidence-status.txt"
