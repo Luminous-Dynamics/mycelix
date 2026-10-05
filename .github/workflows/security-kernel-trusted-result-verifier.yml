@@ -257,6 +257,8 @@ jobs:
                   )
                   receipt_bytes = archive.read(files[0])
 
+          receipt_content_sha256 = hashlib.sha256(receipt_bytes).hexdigest()
+          assert re.fullmatch(r"[0-9a-f]{64}", receipt_content_sha256)
           receipt_text = receipt_bytes.decode("utf-8")
           receipt = {}
           for line in receipt_text.splitlines():
@@ -316,6 +318,7 @@ jobs:
               "verifier_workflow_blob_sha": os.environ["WORKFLOW_BLOB_SHA"],
               "qualification_receipt_artifact_id": artifact["id"],
               "qualification_receipt_artifact_digest": artifact.get("digest"),
+              "qualification_receipt_content_sha256": receipt_content_sha256,
               "independent_qualification": "verified-pass",
               "status_publication": "deliberately-deferred-to-protected-status-plane",
           }, sort_keys=True))
