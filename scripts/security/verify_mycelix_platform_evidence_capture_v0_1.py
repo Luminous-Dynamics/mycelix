@@ -191,6 +191,39 @@ def run(
     )
 
 
+PUBLIC_NAME_FIXTURE = {
+    "ak": {
+        "status": "INDETERMINATE",
+        "verifier_id": PUBLIC_NAME_VERIFIER_ID,
+        "output_sha256": "aa" * 32,
+        "input_sha256": "ab" * 32,
+        "wire_sha256": "ac" * 32,
+        "name_sha256": "ad" * 32,
+        "qname_sha256": "ae" * 32,
+        "source_sha256": "af" * 32,
+    },
+    "ek": {
+        "status": "INDETERMINATE",
+        "verifier_id": PUBLIC_NAME_VERIFIER_ID,
+        "output_sha256": "ba" * 32,
+        "input_sha256": "bb" * 32,
+        "wire_sha256": "bc" * 32,
+        "name_sha256": "bd" * 32,
+        "qname_sha256": "be" * 32,
+        "source_sha256": "bf" * 32,
+    },
+}
+EK_TEMPLATE_FIXTURE = {
+    "status": "INDETERMINATE",
+    "verifier_id": EK_TEMPLATE_VERIFIER_ID,
+    "output_sha256": "ca" * 32,
+    "input_sha256": "cb" * 32,
+    "wire_sha256": "cc" * 32,
+    "source_sha256": "cd" * 32,
+    "transcript_sha256": "ce" * 32,
+}
+
+
 def fixture_manifest() -> dict[str, Any]:
     live = {"0": "aa" * 32, "2": "bb" * 32, "4": "cc" * 32, "7": "dd" * 32}
     reconstruction = copy.deepcopy(live)
@@ -219,6 +252,8 @@ def fixture_manifest() -> dict[str, Any]:
             "source_sha256": sha256_file(RAW_EVENTLOG_PARSER_SCRIPT),
             "binary_sha256": "c" * 64,
         },
+        "public_name_coherence": copy.deepcopy(PUBLIC_NAME_FIXTURE),
+        "ek_template_appraisal": copy.deepcopy(EK_TEMPLATE_FIXTURE),
         "quote": {
             "pcr_selection": "sha256:0,2,4,7",
             "nonce_sha256": "d" * 64,

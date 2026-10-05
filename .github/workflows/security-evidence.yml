@@ -67,7 +67,7 @@ jobs:
           assert platform["profile_id"] == "mycelix.security.platform.evidence.capture"
           assert recon["profile_id"] == "mycelix.security.platform.eventlog.reconstruction"
           assert platform["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"
-          assert len(platform["vectors"]) == 28
+          assert len(platform["vectors"]) == 33
           assert len(recon["vectors"]) == 25
           assert "eventlog-reconstruction-input.json" in platform["qualification_required_artifacts"]
           assert "verifier_source_sha256" in platform["required_reconstruction_output"]
@@ -80,7 +80,7 @@ jobs:
           assert lineage["profile_id"] == "mycelix.security.tpm.ak-ek-lineage"
           assert lineage["claim_ceiling"] == "ReferenceModelOnly"
           assert lineage["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"
-          assert len(lineage["vectors"]) == 22
+          assert len(lineage["vectors"]) == 28
           assert creation["profile_id"] == "mycelix.security.tpm.ak-creation-provenance"
           assert creation["claim_ceiling"] == "ReferenceModelOnly"
           assert creation["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"
