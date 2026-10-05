@@ -40,7 +40,8 @@ S0 is deliberately metadata-only. Its trusted run name carries the PR head repos
   invoking S1;
 - S1 is invoked as a same-repository local reusable workflow:
   `./.github/workflows/security-kernel-independent-qualification.yml`;
-- the reusable call explicitly sets `cache-mode: none`.
+- the reusable call explicitly sets `cache-mode: none`;
+- the trusted base repository is also bound by numeric GitHub repository ID `1176351975`, not only by its mutable owner/name.
 
 The local reusable-workflow form is important: GitHub resolves a same-repository local
 reusable workflow from the same commit as the caller. Therefore S0 and S1 share one
@@ -64,12 +65,14 @@ with privileged access.
 
 S1 first proves:
 
-- `job.workflow_ref` and `job.workflow_sha` identify the reusable S1 job itself; S1 requires the expected main-branch workflow reference and requires `job.workflow_sha` to equal the S0 caller workflow commit for the same-commit local reusable-workflow path.
+- `job.workflow_ref`, `job.workflow_sha`, `job.workflow_repository`, and `job.workflow_file_path` identify the reusable S1 job itself; S1 requires the expected main-branch workflow identity, the same-commit relationship to the S0 caller, and the exact trusted repository/path.
 
 - `github.event_name == pull_request_target`;
 - `github.workflow_ref` is exactly the trusted S0 workflow on `refs/heads/main`;
 - `github.workflow_sha` is a valid commit SHA for the S0 caller;
 - the S1 job has only `actions: read`, `contents: read`, and `pull-requests: read` permissions;
+- the trusted base repository name and numeric repository ID agree with the live Actions context and PR API object;
+- the effective Actions cache mode is observed as `none` inside the reusable job;
 - the executing S1 workflow blob at that caller commit independently matches the registered S1 profile supplied by S0;
 - the candidate PR number/repository/head SHA passed by S0 exactly match the current PR.
 
@@ -217,6 +220,7 @@ the GitHub artifact record. S2 independently verifies the exact retained artifac
 S2 independently verifies:
 
 - the triggering run is the exact S0 `workflow_run` event and completed successfully;
+- the base repository object, the S0 run, and the current PR all resolve to the registered numeric base repository ID `1176351975`;
 - the S0 workflow reference is exactly the default-branch trusted dispatcher;
 - the S0 workflow blob executed by that run matches the registered S0 profile;
 - the same-commit S1 workflow blob matches the registered S1 profile;
