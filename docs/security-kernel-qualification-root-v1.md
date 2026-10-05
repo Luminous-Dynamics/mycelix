@@ -44,7 +44,7 @@ S1:
 - records the candidate tree identity and trusted workflow identity; and
 - fails if the candidate source changes during qualification, excluding only Cargo's `target/` output.
 
-The candidate executes without repository write permission, secrets, or OIDC access.
+The candidate executes without repository write permission, secrets, or OIDC access. The current S1 profile still executes Cargo/tests on the GitHub-hosted VM rather than inside a dedicated container sandbox; this is an explicit evidence ceiling, not an implicit claim of hostile-code isolation.
 
 ## S2 — trusted result verifier
 
