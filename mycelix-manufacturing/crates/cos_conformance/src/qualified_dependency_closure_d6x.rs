@@ -747,6 +747,8 @@ impl D6XVerificationSummaryV1 {
             && is_canonical_sha256_commitment(&self.closure_profile_commitment)
             && is_canonical_sha256_commitment(&self.closure_identity_commitment)
             && self.current_frontier_root.as_deref().is_none_or(non_empty)
+            && self.resolution_evidence_commitment.is_some()
+                == self.resolution_qualification_context_commitment.is_some()
             && self.resolution_evidence_commitment
                 .as_deref()
                 .map_or(true, is_canonical_sha256_commitment)
@@ -3243,6 +3245,53 @@ mod tests {
                 &closure,
             ),
             "consumer qualification must explicitly require Passed"
+        );
+    }
+
+    #[test]
+    fn partial_strict_summary_metadata_is_structurally_invalid() {
+        let (projection, environment, derivation_profile) = projection(false);
+        let closure_profile = profile(BTreeSet::new());
+        let closure = compute_dependency_closure(
+            &projection,
+            &environment,
+            &derivation_profile,
+            &closure_profile,
+        )
+        .expect("fixture closure");
+
+        let policy = canonical_sha256(
+            "test-d6x-verification-policy",
+            &serde_json::json!({"required_result":"Passed"}),
+        );
+        let mut summary = D6XVerificationSummaryV1::from_verified_closure(
+            "verifier:d6x-test",
+            &policy,
+            &projection,
+            &environment,
+            &derivation_profile,
+            &closure_profile,
+            &closure,
+        )
+        .expect("verified closure summary");
+
+        summary.resolution_evidence_commitment =
+            Some(closure.resolution_evidence_commitment());
+        summary.commitment = summary.recompute();
+        assert!(
+            !summary.valid(),
+            "evidence identity without its qualification context is malformed"
+        );
+
+        summary.resolution_evidence_commitment = None;
+        summary.resolution_qualification_context_commitment = Some(canonical_sha256(
+            "test-d6x-resolution-context",
+            &serde_json::json!({"scope":"d6x"}),
+        ));
+        summary.commitment = summary.recompute();
+        assert!(
+            !summary.valid(),
+            "qualification context without its evidence identity is malformed"
         );
     }
 
