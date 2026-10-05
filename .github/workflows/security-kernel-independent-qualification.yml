@@ -182,8 +182,6 @@ jobs:
           digest=hashlib.sha256()
           for path in sorted(root.rglob("*")):
               rel=path.relative_to(root)
-              if rel.parts and rel.parts[0] == "target":
-                  continue
               mode=path.lstat().st_mode
               if stat.S_ISLNK(mode):
                   raise SystemExit(f"candidate source contains forbidden symlink: {rel}")
@@ -572,8 +570,6 @@ jobs:
           digest=hashlib.sha256()
           for path in sorted(root.rglob("*")):
               rel=path.relative_to(root)
-              if rel.parts and rel.parts[0] == "target":
-                  continue
               mode=path.lstat().st_mode
               if stat.S_ISLNK(mode):
                   raise SystemExit(f"candidate source contains forbidden symlink: {rel}")
