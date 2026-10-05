@@ -180,7 +180,7 @@ jobs:
           CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-src
         run: |
           set -euo pipefail
-          python3 - "$CANDIDATE_ROOT" <<'PY'
+          source_digest="$(python3 - "$CANDIDATE_ROOT" <<'PY'
           import hashlib, pathlib, stat, sys
           root=pathlib.Path(sys.argv[1])
           digest=hashlib.sha256()
@@ -199,9 +199,12 @@ jobs:
               digest.update(b"\\0")
               digest.update(path.read_bytes())
               digest.update(b"\\0")
-          printf 'source_digest=%s\n' "$digest" >> "$GITHUB_OUTPUT"
-          echo "PASS: trusted pre-execution candidate source digest recorded"
+          print(digest.hexdigest())
           PY
+          )"
+          test "${#source_digest}" -eq 64
+          printf 'source_digest=%s\\n' "$source_digest" >> "$GITHUB_OUTPUT"
+          echo "PASS: trusted pre-execution candidate source digest recorded"
 
       - name: Static trust-surface audit
         shell: bash
