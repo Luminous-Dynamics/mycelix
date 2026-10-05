@@ -15,14 +15,6 @@ on:
         description: "Exact source repository full name"
         required: true
         type: string
-      source_run_id:
-        description: "Completed Security Kernel Qualification run id"
-        required: true
-        type: string
-      source_run_attempt:
-        description: "Completed Security Kernel Qualification run attempt"
-        required: true
-        type: string
       trusted_workflow_blob_sha:
         description: "Registered S1 workflow blob SHA supplied by the trusted caller"
         required: true
@@ -38,7 +30,6 @@ concurrency:
 
 env:
   BASE_REPOSITORY: "Luminous-Dynamics/mycelix"
-  SOURCE_WORKFLOW_PATH: ".github/workflows/security-kernel-qualification.yml"
 
 jobs:
   qualify:
@@ -53,111 +44,48 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Verify same-commit reusable-workflow invocation context
+      - name: Verify trusted pull-request-target invocation
         shell: bash
         env:
           TOKEN: ${{ github.token }}
           RUN_ID: ${{ github.run_id }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPOSITORY_EVENT: ${{ github.event.pull_request.base.repo.full_name }}
+          BASE_BRANCH_EVENT: ${{ github.event.pull_request.base.ref }}
           TRUSTED_WORKFLOW_BLOB_SHA: ${{ inputs.trusted_workflow_blob_sha }}
         run: |
           set -euo pipefail
           test "$GITHUB_WORKFLOW_REF" = "Luminous-Dynamics/mycelix/.github/workflows/security-kernel-trusted-dispatch.yml@refs/heads/main"
-          printf '%s' "$GITHUB_WORKFLOW_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$GITHUB_EVENT_NAME" = "pull_request_target"
           printf '%s' "$TRUSTED_WORKFLOW_BLOB_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          test "$BASE_REPOSITORY_EVENT" = "$BASE_REPOSITORY"
+          test "$BASE_BRANCH_EVENT" = "main"
+          test "$PR_NUMBER" = "$CANDIDATE_PR"
+          test "$HEAD_SHA" = "$CANDIDATE_SHA"
+          test "$HEAD_REPOSITORY" = "$CANDIDATE_REPOSITORY"
           python3 - <<'PY'
           import json, os, urllib.request
-          repo = os.environ["BASE_REPOSITORY"]
-          run_id = os.environ["RUN_ID"]
-
-          def get(path):
-              req = urllib.request.Request(
-                  "https://api.github.com" + path,
-                  headers={
-                      "Accept": "application/vnd.github+json",
-                      "Authorization": f"Bearer {os.environ['TOKEN']}",
-                      "X-GitHub-Api-Version": "2022-11-28",
-                  },
-              )
-              with urllib.request.urlopen(req, timeout=20) as response:
-                  return json.load(response)
-
-          run = get(f"/repos/{repo}/actions/runs/{run_id}")
-          assert run["id"] == int(run_id)
-          assert run["event"] == "workflow_run"
-          assert run["path"] == ".github/workflows/security-kernel-trusted-dispatch.yml"
-          assert run["repository"]["full_name"] == repo
-          assert run["workflow_ref"] == f"{repo}/.github/workflows/security-kernel-trusted-dispatch.yml@refs/heads/main"
-          assert run["workflow_sha"] == os.environ["GITHUB_WORKFLOW_SHA"]
-
-          workflow = get(
-              f"/repos/{repo}/contents/.github/workflows/security-kernel-independent-qualification.yml"
-              f"?ref={os.environ['GITHUB_WORKFLOW_SHA']}"
-          )
-          assert workflow["sha"] == os.environ["TRUSTED_WORKFLOW_BLOB_SHA"], (
-              "called S1 workflow blob does not match the registered profile at the caller commit"
-          )
-          print("PASS: S1 is same-commit invoked by trusted S0 and matches the registered workflow blob")
-          PY
-
-      - name: Validate source qualification provenance
-        shell: bash
-        env:
-          TOKEN: ${{ github.token }}
-          CANDIDATE_PR: ${{ inputs.candidate_pr }}
-          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
-          CANDIDATE_REPOSITORY: ${{ inputs.candidate_repository }}
-          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
-          SOURCE_RUN_ATTEMPT: ${{ inputs.source_run_attempt }}
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          import json, os, re, urllib.request
-          base = "https://api.github.com"
-          token = os.environ["TOKEN"]
-
-          def get(path):
-              req = urllib.request.Request(
-                  base + path,
-                  headers={
-                      "Accept":"application/vnd.github+json",
-                      "Authorization":f"Bearer {token}",
-                      "X-GitHub-Api-Version":"2022-11-28"})
-              with urllib.request.urlopen(req, timeout=20) as r:
-                  return json.load(r)
-
-          for name, pattern in {
-              "CANDIDATE_PR": r"[0-9]+",
-              "CANDIDATE_SHA": r"[0-9a-f]{40}",
-              "CANDIDATE_REPOSITORY": r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+",
-              "SOURCE_RUN_ID": r"[0-9]+",
-              "SOURCE_RUN_ATTEMPT": r"[0-9]+",
-          }.items():
-              assert re.fullmatch(pattern, os.environ[name]), name
-
-          run = get(f'/repos/{os.environ["BASE_REPOSITORY"]}/actions/runs/{os.environ["SOURCE_RUN_ID"]}')
-          assert run["id"] == int(os.environ["SOURCE_RUN_ID"])
-          assert run["run_attempt"] == int(os.environ["SOURCE_RUN_ATTEMPT"])
-          assert run["status"] == "completed"
-          assert run["path"] == os.environ["SOURCE_WORKFLOW_PATH"]
-          assert run["name"] == "Security Kernel Qualification"
-          assert run["event"] == "pull_request"
-          assert run["repository"]["full_name"] == os.environ["BASE_REPOSITORY"]
-          assert run["head_sha"] == os.environ["CANDIDATE_SHA"]
-          assert (run.get("head_repository") or {}).get("full_name") == os.environ["CANDIDATE_REPOSITORY"]
-
-          source_prs = run.get("pull_requests") or []
-          assert len(source_prs) == 1, f"source qualification run must identify exactly one PR: {len(source_prs)}"
-          assert int(os.environ["CANDIDATE_PR"]) == source_prs[0]["number"], (
-              "candidate PR input does not match the PR bound to the verified source run"
-          )
-          pr = get(f'/repos/{os.environ["BASE_REPOSITORY"]}/pulls/{os.environ["CANDIDATE_PR"]}')
-          assert pr["number"] == int(os.environ["CANDIDATE_PR"])
+          repo=os.environ["BASE_REPOSITORY"]
+          pr_number=int(os.environ["PR_NUMBER"])
+          req=urllib.request.Request(
+              f"https://api.github.com/repos/{repo}/pulls/{pr_number}",
+              headers={
+                  "Accept":"application/vnd.github+json",
+                  "Authorization":f"Bearer {os.environ['TOKEN']}",
+                  "X-GitHub-Api-Version":"2022-11-28",
+              })
+          with urllib.request.urlopen(req, timeout=20) as response:
+              pr=json.load(response)
+          assert pr["number"] == pr_number
           assert pr["state"] == "open"
-          assert pr["base"]["repo"]["full_name"] == os.environ["BASE_REPOSITORY"]
+          assert pr["base"]["repo"]["full_name"] == repo
           assert pr["base"]["ref"] == "main"
           assert pr["head"]["repo"]["full_name"] == os.environ["CANDIDATE_REPOSITORY"]
           assert pr["head"]["sha"] == os.environ["CANDIDATE_SHA"]
-          print("PASS: source workflow, source attempt, candidate repository/SHA, and current PR head are exact")
+          print("PASS: trusted default-branch S0 bound the exact current PR repository/SHA")
           PY
 
       - name: Resolve exact candidate source
@@ -742,8 +670,6 @@ jobs:
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
           CANDIDATE_PR: ${{ inputs.candidate_pr }}
           CANDIDATE_REPOSITORY: ${{ inputs.candidate_repository }}
-          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
-          SOURCE_RUN_ATTEMPT: ${{ inputs.source_run_attempt }}
           CANDIDATE_TREE: ${{ steps.resolve_source.outputs.candidate_tree }}
           SOURCE_DIGEST: ${{ steps.snapshot_source.outputs.source_digest }}
           VENDOR_DIGEST: ${{ steps.vendor_dependencies.outputs.vendor_digest }}
@@ -768,8 +694,8 @@ jobs:
             echo "sandbox_user=non-root"
             echo "sandbox_capabilities=all-dropped"
             echo "sandbox_no_new_privileges=true"
-            echo "source_run_id=$SOURCE_RUN_ID"
-            echo "source_run_attempt=$SOURCE_RUN_ATTEMPT"
+            echo "source_event=pull_request_target"
+            echo "trusted_dispatcher_workflow=$GITHUB_WORKFLOW_REF"
             echo "trusted_workflow_ref=$GITHUB_WORKFLOW_REF"
             echo "trusted_workflow_sha=$GITHUB_WORKFLOW_SHA"
             echo "trusted_workflow_name=$GITHUB_WORKFLOW"
