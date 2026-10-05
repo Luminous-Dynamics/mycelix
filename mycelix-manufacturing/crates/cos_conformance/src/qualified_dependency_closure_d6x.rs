@@ -2878,6 +2878,42 @@ mod tests {
             "self-consistent D6N policy substitution must be rejected by the pinned profile expectation"
         );
 
+        let mut forged_lifecycle_profile = baseline.clone();
+        forged_lifecycle_profile
+            .lifecycle_profile
+            .historical_evidence_allowed = !forged_lifecycle_profile
+            .lifecycle_profile
+            .historical_evidence_allowed;
+        forged_lifecycle_profile.lifecycle_profile.profile_commitment =
+            forged_lifecycle_profile
+                .lifecycle_profile
+                .recomputed_commitment();
+        assert!(
+            forged_lifecycle_profile
+                .lifecycle_profile
+                .strict_commitment_matches()
+        );
+        assert!(
+            compose_finality_eligibility_from_authoritative_d6n_d6o(
+                &forged_lifecycle_profile.effect,
+                &forged_lifecycle_profile.route,
+                &forged_lifecycle_profile.profile,
+                &forged_lifecycle_profile.profile.profile_commitment,
+                &forged_lifecycle_profile.set,
+                &forged_lifecycle_profile.assessment,
+                &forged_lifecycle_profile.evidence,
+                std::slice::from_ref(&forged_lifecycle_profile.eligibility_receipt),
+                &forged_lifecycle_profile.lifecycle_profile,
+                &baseline.lifecycle_profile.profile_commitment,
+                &forged_lifecycle_profile.d6o_ledger,
+                &forged_lifecycle_profile.current_frontier_root,
+                &forged_lifecycle_profile.live_generation_id,
+                forged_lifecycle_profile.required_independent_observations,
+            )
+            .is_none(),
+            "self-consistent D6O policy substitution must be rejected by the pinned lifecycle profile expectation"
+        );
+
         assert!(
             compose_finality_eligibility_from_authoritative_d6n_d6o(
                 &forged_d6o.effect,
