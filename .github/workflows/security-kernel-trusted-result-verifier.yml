@@ -120,17 +120,16 @@ jobs:
           source_head_repository = (source.get("head_repository") or {}).get("full_name")
           assert source_head_repository, "source qualification run is missing head repository identity"
 
-          pulls = get(f"/repos/{repo}/commits/{candidate_sha}/pulls?per_page=100")
-          matches = [
-              pr for pr in pulls
-              if pr["base"]["repo"]["full_name"] == repo
-              and pr["base"]["ref"] == os.environ["BASE_BRANCH"]
-              and pr["head"]["repo"]["full_name"] == source_head_repository
-              and pr["head"]["sha"] == candidate_sha
-              and pr["state"] == "open"
-          ]
-          assert len(matches) == 1, f"expected one exact open candidate PR, found {len(matches)}"
-          candidate_pr = matches[0]["number"]
+          source_prs = source.get("pull_requests") or []
+          assert len(source_prs) == 1, f"source qualification run must identify exactly one PR: {len(source_prs)}"
+          candidate_pr = source_prs[0]["number"]
+          pr = get(f"/repos/{repo}/pulls/{candidate_pr}")
+          assert pr["number"] == candidate_pr
+          assert pr["base"]["repo"]["full_name"] == repo
+          assert pr["base"]["ref"] == os.environ["BASE_BRANCH"]
+          assert pr["state"] == "open"
+          assert pr["head"]["repo"]["full_name"] == source_head_repository
+          assert pr["head"]["sha"] == candidate_sha
 
           jobs = get(f"/repos/{repo}/actions/runs/{run_id}/jobs?per_page=100")["jobs"]
           resolver_jobs = [job for job in jobs if job["name"] == "Resolve exact PR subject and source provenance"]
