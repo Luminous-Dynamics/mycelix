@@ -3101,6 +3101,9 @@ mod tests {
             if self.failure_kind != FEDERATION_STATE_MACHINE_FAILURE_CAPSULE_KIND {
                 return Err(FederationStateMachineFailureCapsuleViolation::UnsupportedFailureKind);
             }
+            if !self.expected_state_valid || self.observed_state_valid {
+                return Err(FederationStateMachineFailureCapsuleViolation::StateValidityFlagsMismatch);
+            }
             if self.trace_prefix.len() != self.failed_step_index.saturating_add(1) {
                 return Err(
                     FederationStateMachineFailureCapsuleViolation::FailedStepIndexMismatch
@@ -3150,6 +3153,15 @@ mod tests {
                 {
                     return Err(FederationStateMachineFailureCapsuleViolation::TemporalEvidenceMismatch);
                 }
+            }
+            if self.audit.len() != FEDERATION_INVARIANT_REGISTRY.len()
+                || self
+                    .audit
+                    .iter()
+                    .zip(FEDERATION_INVARIANT_REGISTRY.iter())
+                    .any(|(entry, spec)| entry.id != spec.id)
+            {
+                return Err(FederationStateMachineFailureCapsuleViolation::AuditRegistryShapeMismatch);
             }
             let derived_violations = self
                 .audit
@@ -7061,6 +7073,26 @@ mod tests {
                 .expect("failure capsule must deserialize");
         assert_eq!(round_trip, capsule);
         assert_eq!(round_trip.validate(), Ok(()));
+
+        let mut invalid_state_flags = capsule.clone();
+        invalid_state_flags.expected_state_valid = false;
+        assert_eq!(
+            invalid_state_flags.validate(),
+            Err(FederationStateMachineFailureCapsuleViolation::StateValidityFlagsMismatch)
+        );
+
+        let mut truncated_audit = capsule.clone();
+        truncated_audit.audit.pop();
+        assert_eq!(
+            truncated_audit.validate(),
+            Err(FederationStateMachineFailureCapsuleViolation::AuditRegistryShapeMismatch)
+        );
+        let mut reordered_audit = capsule.clone();
+        reordered_audit.audit.swap(0, 1);
+        assert_eq!(
+            reordered_audit.validate(),
+            Err(FederationStateMachineFailureCapsuleViolation::AuditRegistryShapeMismatch)
+        );
 
         let mut unsupported_schema = capsule.clone();
         unsupported_schema.schema_version += 1;
