@@ -202,7 +202,10 @@ S1 emits a non-authoritative receipt containing at least:
 
 The receipt is evidence only. S2 never treats candidate-produced receipt text as the source
 of truth. Receipt upload is fail-closed: a successful qualification must retain the receipt artifact,
-and S2 requires the upload step to complete successfully.
+and S2 requires the upload step to complete successfully. The artifact name is bound to both the
+candidate SHA and exact S1/S0 workflow run attempt. S1 verifies the upload action's artifact ID and
+SHA-256 digest against the GitHub artifact record, and S2 independently verifies the exact retained
+artifact on the triggering run.
 
 ## S2 — trusted result verifier
 
@@ -219,6 +222,8 @@ S2 independently verifies:
 - the current PR number/head SHA remain exact;
 - the S0 run has exactly the expected two-job topology;
 - jobs are fetched from the exact `run_attempt`, avoiding latest-attempt confusion;
+- the expected qualification receipt artifact exists exactly once for that run attempt, is not expired,
+  is non-empty, and belongs to the triggering S0 run;
 - the resolver job completed successfully;
 - the unique reusable S1 job completed successfully;
 - every required S1 gate completed successfully.
