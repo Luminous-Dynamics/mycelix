@@ -828,7 +828,8 @@ fn validate_create_reserve_valuation_authority_policy(
     Ok(ValidateCallbackResult::Valid)
 }
 
-fn canonical_source_commitment(source_hashes: &[ActionHash]) -> String {
+/// Compute the canonical reserve source-set commitment shared by snapshot publishers and validators.
+pub fn canonical_source_commitment(source_hashes: &[ActionHash]) -> String {
     let mut canonical = source_hashes.to_vec();
     canonical.sort();
 
