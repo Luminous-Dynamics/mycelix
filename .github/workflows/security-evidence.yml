@@ -107,6 +107,11 @@ jobs:
           assert cert_chain["claim_ceiling"] == "ReferenceModelOnly"
           assert cert_chain["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"
           assert len(cert_chain["vectors"]) == 27
+          san = json.loads(Path("docs/security/mycelix-ek-cert-san-property-binding-v0.1.json").read_text())
+          assert san["profile_id"] == "mycelix.security.tpm.ek-cert-san-property-binding"
+          assert san["claim_ceiling"] == "ReferenceModelOnly"
+          assert san["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"
+          assert len(san["vectors"]) == 13
           PY
 
       - name: Compile security verifiers and bundle regression
