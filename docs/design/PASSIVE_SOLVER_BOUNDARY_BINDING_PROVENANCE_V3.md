@@ -60,7 +60,11 @@ bind the declared `boundary` patch to its exact `faces` range and, when the
 serialized `points` artifact and explicit unit scale are supplied, require the
 patch perimeter to equal the independently certified candidate rim. Distinct
 serialized topology edges that collapse to the same quantized portable edge
-identity fail closed; repeated or degenerate face geometry is likewise rejected.
+identity fail closed; repeated point indices, degenerate faces, and non-manifold
+patch edges are likewise rejected. Serialized boundary-face ordering must also
+produce a normal aligned with the typed interface outward normal, so reversed
+face orientation is not treated as equivalent geometry.
+
 An optional `neighbour` artifact establishes the internal-face count and therefore
 the complete non-overlapping, contiguous boundary-patch partition. A stronger
 complete-topology input path can additionally require the `owner` artifact's
