@@ -163,7 +163,7 @@
   "executor_workflow": {
     "name": "D6U Exact-Head Runtime Executor",
     "path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
-    "blob_sha": "dd9484d0d5a8dd6752deb29c1c7f5ae9390705f7"
+    "blob_sha": "228402db9c015c97a69289b0b0c7e4c132b83777"
   },
   "required_source_blobs": {
     "docs/integral/d6u-runtime-manifest.json": "7cb9fbe547bc5e0c3512224712ceca7b5e30b7c2",
@@ -178,5 +178,6 @@
     "docs/integral/d6s-canon-2-manifest.json": "4353b9aed545c7762d6f8f73bc551e4c008271a9",
     "docs/integral/d6s-canon-2-authority-boundary-fixture.json": "0b4c5b924bc3b807c556ef92cc869d66f7cc97a1",
     ".github/workflows/d6s-canonical-qualification.yml": "4b97ffb7251f7a8db0406efaaa8afaf85dad6adc"
-  }
+  },
+  "artifact_name_template": "d6u-runtime-evidence-run-{executor_run_id}-attempt-{executor_run_attempt}"
 }
