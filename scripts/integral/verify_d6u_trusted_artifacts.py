@@ -214,6 +214,7 @@ def verify_trigger_run_record(
     assert trigger["event"] == "pull_request"
     assert trigger["conclusion"] == "success"
     assert trigger["head_repository"]["full_name"] == repo
+    assert trigger["repository"]["full_name"] == repo
     assert trigger["head_branch"] == policy["source_branch"]
     assert trigger["run_attempt"] == int(record["trigger_workflow_run_attempt"])
     assert trigger["head_sha"] == record["source_commit"]
