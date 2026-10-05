@@ -469,6 +469,20 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     }
 }
 
+/// Application timestamps cannot outrun the signed Holochain action.
+fn validate_timestamp_not_after_action(
+    field: &str,
+    value: Timestamp,
+    action_timestamp: Timestamp,
+) -> Result<(), String> {
+    if value > action_timestamp {
+        return Err(format!(
+            "{field} cannot be later than its signed Holochain action timestamp"
+        ));
+    }
+    Ok(())
+}
+
 /// Validate trust credential creation
 fn validate_create_credential(
     action: Create,
@@ -520,6 +534,11 @@ fn validate_create_credential(
         return Ok(ValidateCallbackResult::Invalid(
             "Trust credential issued_at must be non-zero".into(),
         ));
+    }
+    if let Err(message) =
+        validate_timestamp_not_after_action("Trust credential issued_at", cred.issued_at, action.timestamp)
+    {
+        return Ok(ValidateCallbackResult::Invalid(message));
     }
     if let Some(expires_at) = cred.expires_at {
         if expires_at <= cred.issued_at {
@@ -651,6 +670,14 @@ fn validate_update_credential(
             return Ok(ValidateCallbackResult::Invalid(
                 "Revocation reason cannot be changed once set".into(),
             ));
+        }
+    }
+
+    if let Some(revoked_at) = cred.revoked_at {
+        if let Err(message) =
+            validate_timestamp_not_after_action("Trust credential revoked_at", revoked_at, action.timestamp)
+        {
+            return Ok(ValidateCallbackResult::Invalid(message));
         }
     }
 
@@ -1038,7 +1065,7 @@ mod author_binding_tests {
     fn test_action(author: AgentPubKey) -> Create {
         Create {
             author,
-            timestamp: Timestamp::from_micros(0),
+            timestamp: Timestamp::from_micros(1),
             action_seq: 0,
             prev_action: ActionHash::from_raw_36(vec![0u8; 36]),
             entry_type: EntryType::App(AppEntryDef::new(
@@ -1071,7 +1098,7 @@ mod author_binding_tests {
                 upper: 0.6,
             },
             trust_tier: TrustTier::Standard,
-            issued_at: Timestamp::from_micros(0),
+            issued_at: Timestamp::from_micros(1),
             expires_at: None,
             revoked: false,
             revocation_reason: None,
@@ -1085,6 +1112,14 @@ mod author_binding_tests {
         let cred = valid_credential(format!("did:mycelix:{}", me()));
         let result = validate_create_credential(test_action(me()), cred).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn future_issued_at_rejected() {
+        let mut cred = valid_credential(format!("did:mycelix:{}", me()));
+        cred.issued_at = Timestamp::from_micros(2);
+        let result = validate_create_credential(test_action(me()), cred).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
     #[test]
