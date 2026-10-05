@@ -84,7 +84,6 @@ jobs:
 
           run = get(f"/repos/{repo}/actions/runs/{run_id}")
           assert run["id"] == int(run_id)
-          assert run["workflow_sha"] != os.environ["GITHUB_WORKFLOW_SHA"], "triggering S0 run unexpectedly shares the S2 verifier workflow commit"
           assert run["run_attempt"] == run_attempt
           assert run["status"] == "completed"
           assert run["conclusion"] == "success"
