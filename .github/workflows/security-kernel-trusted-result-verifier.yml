@@ -52,8 +52,8 @@ jobs:
           test "$GITHUB_REPOSITORY_ID" = "$BASE_REPOSITORY_ID"
           test "$GITHUB_REF_PROTECTED" = "true"
           test "${ACTIONS_CACHE_MODE:-}" = "none"
-          workflow_blob_sha="$(git hash-object ".github/workflows/security-kernel-trusted-result-verifier.yml")"
-          test "$workflow_blob_sha" = "$GITHUB_WORKFLOW_SHA"
+          workflow_blob_sha="$(git ls-tree "$GITHUB_WORKFLOW_SHA" -- ".github/workflows/security-kernel-trusted-result-verifier.yml" | awk '{print $3}')"
+          printf "%s" "$workflow_blob_sha" | grep -Eq "^[0-9a-f]{40}$"
           git fetch --no-tags origin "refs/heads/main:refs/remotes/origin/main"
           git merge-base --is-ancestor "$GITHUB_WORKFLOW_SHA" "refs/remotes/origin/main"
 
@@ -84,8 +84,7 @@ jobs:
 
           run = get(f"/repos/{repo}/actions/runs/{run_id}")
           assert run["id"] == int(run_id)
-          assert run["workflow_ref"] == f"{repo}/.github/workflows/security-kernel-trusted-result-verifier.yml@refs/heads/main"
-          assert run["workflow_sha"] == os.environ["GITHUB_WORKFLOW_SHA"]
+          assert run["workflow_sha"] != os.environ["GITHUB_WORKFLOW_SHA"], "triggering S0 run unexpectedly shares the S2 verifier workflow commit"
           assert run["run_attempt"] == run_attempt
           assert run["status"] == "completed"
           assert run["conclusion"] == "success"
@@ -98,6 +97,8 @@ jobs:
 
           workflow_sha = run.get("workflow_sha")
           assert re.fullmatch(r"[0-9a-f]{40}", workflow_sha or ""), f"unexpected dispatcher workflow_sha: {workflow_sha!r}"
+          verifier_file = get(f"/repos/{repo}/contents/.github/workflows/security-kernel-trusted-result-verifier.yml?ref={os.environ["GITHUB_WORKFLOW_SHA"]}")
+          assert verifier_file["sha"] == subprocess.check_output(["git","ls-tree","--format=%(objectname)","%s" % os.environ["GITHUB_WORKFLOW_SHA"],"--",".github/workflows/security-kernel-trusted-result-verifier.yml"], text=True).strip(), "S2 checked-out verifier blob differs from GitHub API content at the invoked workflow commit"
 
           dispatcher_at_run = get(
               f"/repos/{repo}/contents/{os.environ['TRUSTED_DISPATCHER_WORKFLOW_PATH']}?ref={workflow_sha}"
