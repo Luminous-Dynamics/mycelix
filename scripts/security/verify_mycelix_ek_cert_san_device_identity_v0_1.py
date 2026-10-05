@@ -18,6 +18,14 @@ VERIFIER_ID = "mycelix.tpm.ek-cert-san-device-identity.v0.1"
 TPM_MFG_OID = "tcg-at-tpmManufacturer"
 TPM_MODEL_OID = "tcg-at-tpmModel"
 TPM_VERSION_OID = "tcg-at-tpmVersion"
+TPM_MFG_OID_NUM = "2.23.133.2.1"
+TPM_MODEL_OID_NUM = "2.23.133.2.2"
+TPM_VERSION_OID_NUM = "2.23.133.2.3"
+OID_ALIASES = {
+    TPM_MFG_OID_NUM: TPM_MFG_OID,
+    TPM_MODEL_OID_NUM: TPM_MODEL_OID,
+    TPM_VERSION_OID_NUM: TPM_VERSION_OID,
+}
 REFERENCE_PROPERTIES_SHA256 = "e0b80bf063a21abbf0729996a75f3233ac640e69a08bcce09dbc0f0fd8e93731"
 REFERENCE_PROPERTIES_SOURCE_TAG = "synthetic-tpm-properties-fixture-v0.1"
 REFERENCE_PROPERTIES_SOURCE_SHA256 = hashlib.sha256(
@@ -126,6 +134,7 @@ def parse_directory_name(san_text: str) -> dict[str, Any]:
     for part in split_rdn_path(dirs[0]):
         if "=" not in part: continue
         key,value=part.split("=",1)
+        key = OID_ALIASES.get(key, key)
         if key in attrs: duplicates.append(key)
         attrs.setdefault(key, value)
     if duplicates:
