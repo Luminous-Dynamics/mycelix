@@ -310,7 +310,94 @@
               }
             }
           }
+                ,
+        {
+          "if": {
+            "properties": {
+              "status": { "const": "Unobserved" }
+            },
+            "required": ["status"]
+          },
+          "then": {
+            "not": { "required": ["value"] }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": { "const": "Declared" }
+            },
+            "required": ["status"]
+          },
+          "then": {
+            "required": ["value"],
+            "properties": {
+              "source_kind": {
+                "enum": ["DesignDeclaration", "ManufacturingDeclaration"]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": { "const": "Simulated" }
+            },
+            "required": ["status"]
+          },
+          "then": {
+            "required": ["value"],
+            "properties": {
+              "source_kind": { "const": "SimulationDeclaration" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": { "const": "Verified" }
+            },
+            "required": ["status"]
+          },
+          "then": {
+            "required": ["value"],
+            "properties": {
+              "source_kind": { "const": "VerificationRecord" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": { "const": "Measured" }
+            },
+            "required": ["status"]
+          },
+          "then": {
+            "required": ["value"],
+            "properties": {
+              "source_kind": { "const": "MeasurementRecord" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": { "const": "Validated" }
+            },
+            "required": ["status"]
+          },
+          "then": {
+            "required": ["value"],
+            "properties": {
+              "source_kind": { "const": "MeasurementRecord" }
+            }
+          }
         }
+      ]
+    }
+  }
+}
       ]
     }
   }
