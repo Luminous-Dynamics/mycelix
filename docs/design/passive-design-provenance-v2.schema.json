@@ -247,7 +247,71 @@
             { "type": "null" }
           ]
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "field": {
+                "enum": [
+                  "moving_solid_components",
+                  "mechanical_joints",
+                  "commanded_actuators"
+                ]
+              }
+            },
+            "required": ["field"]
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "field": {
+                "const": "active_power_w"
+              }
+            },
+            "required": ["field"]
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": "number",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "field": {
+                "enum": [
+                  "requires_external_control",
+                  "uses_fluid_motion",
+                  "uses_distributed_deformation",
+                  "uses_phase_change"
+                ]
+              }
+            },
+            "required": ["field"]
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      ]
     }
   }
 }
