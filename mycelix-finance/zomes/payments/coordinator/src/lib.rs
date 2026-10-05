@@ -834,6 +834,47 @@ pub fn initiate_sap_transfer(input: TransferSapIntentInput) -> ExternResult<Reco
     )))
 }
 
+/// Look up the exact sender-authored transfer intent for a transfer ID.
+///
+/// This is observational only. Absence or ambiguity is never treated as a
+/// successful transfer.
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GetSapTransferIntentInput {
+    pub transfer_id: String,
+}
+
+#[hdk_extern]
+pub fn get_sap_transfer_intent(
+    input: GetSapTransferIntentInput,
+) -> ExternResult<Option<Record>> {
+    validate_id(&input.transfer_id, "transfer_id")?;
+
+    let intent_anchor = transfer_intent_anchor(&input.transfer_id)?;
+    let links = get_links(
+        LinkQuery::try_new(intent_anchor, LinkTypes::TransferIdToIntent)?,
+        GetStrategy::default(),
+    )?;
+
+    if links.len() > 1 {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Multiple SAP transfer intents exist for {}; refusing ambiguous lookup",
+            input.transfer_id
+        ))));
+    }
+
+    let Some(link) = links.into_iter().next() else {
+        return Ok(None);
+    };
+
+    let hash = ActionHash::try_from(link.target).map_err(|_| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Invalid SAP transfer intent target".into(),
+        ))
+    })?;
+
+    Ok(get(hash, GetOptions::default())?)
+}
+
 /// Look up the exact recipient claim for a transfer ID.
 ///
 /// This is observational only. It never creates, updates, or consumes monetary state.
