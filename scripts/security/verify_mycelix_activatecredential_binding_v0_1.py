@@ -11,8 +11,6 @@ def sha256_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 VERIFIER_ID = "mycelix.tpm.activatecredential-binding.v0.1"
-APPROVED_SOURCE_TAG = "mycelix-activatecredential-reference-v0.1"
-
 def canonical_hash(value: Any) -> str:
     return hashlib.sha256(json.dumps(value,sort_keys=True,separators=(",",":"),ensure_ascii=False).encode()).hexdigest()
 
@@ -99,7 +97,7 @@ def fixture()->dict[str,Any]:
         "makecredential_blob_sha256":"55"*32,
         "makecredential_transcript_sha256":"66"*32,
         "activatecredential_transcript_sha256":"77"*32,
-        "capture_source_sha256":hashlib.sha256(APPROVED_SOURCE_TAG.encode()).hexdigest(),
+        "capture_source_sha256":sha256_file(CAPTURE_SOURCE_SCRIPT),
         "makecredential_returncode":0,
         "activatecredential_returncode":0,
         "secret_equality_state":"PASS"
