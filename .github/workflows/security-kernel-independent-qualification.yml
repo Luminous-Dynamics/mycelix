@@ -168,10 +168,12 @@ jobs:
               assert size <= max_file_bytes, f"candidate file exceeds {max_file_bytes} bytes: {path!r}"
               assert total <= max_total_bytes, f"candidate tree exceeds {max_total_bytes} total bytes"
 
+          print(f"source_tree_entry_count={len(entries)}")
           print(f"source_file_count={count}")
           print(f"source_total_bytes={total}")
           print(f"source_max_blob_bytes={max_blob}")
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"source_tree_entry_count={len(entries)}\n")
               output.write(f"source_file_count={count}\n")
               output.write(f"source_total_bytes={total}\n")
               output.write(f"source_max_blob_bytes={max_blob}\n")
@@ -732,8 +734,10 @@ jobs:
           CANDIDATE_PR: ${{ inputs.candidate_pr }}
           CANDIDATE_REPOSITORY: ${{ inputs.candidate_repository }}
           CANDIDATE_TREE: ${{ steps.resolve_source.outputs.candidate_tree }}
+          SOURCE_TREE_ENTRY_COUNT: ${{ steps.resolve_source.outputs.source_tree_entry_count }}
           SOURCE_FILE_COUNT: ${{ steps.resolve_source.outputs.source_file_count }}
           SOURCE_TOTAL_BYTES: ${{ steps.resolve_source.outputs.source_total_bytes }}
+          SOURCE_MAX_BLOB_BYTES: ${{ steps.resolve_source.outputs.source_max_blob_bytes }}
           SOURCE_DIGEST: ${{ steps.snapshot_source.outputs.source_digest }}
           VENDOR_DIGEST: ${{ steps.vendor_dependencies.outputs.vendor_digest }}
           LOCK_DIGEST: ${{ steps.locked_dependency_identity.outputs.lock_digest }}
@@ -748,8 +752,10 @@ jobs:
             echo "candidate_pr=$CANDIDATE_PR"
             echo "candidate_sha=$CANDIDATE_SHA"
             echo "candidate_tree=$CANDIDATE_TREE"
+            echo "candidate_source_tree_entry_count=$SOURCE_TREE_ENTRY_COUNT"
             echo "candidate_source_file_count=$SOURCE_FILE_COUNT"
             echo "candidate_source_total_bytes=$SOURCE_TOTAL_BYTES"
+            echo "candidate_source_max_blob_bytes=$SOURCE_MAX_BLOB_BYTES"
             echo "candidate_source_digest=$SOURCE_DIGEST"
             echo "candidate_cargo_lock_format=v4"
             echo "candidate_cargo_lock_sha256=$CARGO_LOCK_DIGEST"
