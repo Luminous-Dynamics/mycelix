@@ -112,6 +112,41 @@ def verify_aki_ski(leaf_text: str, intermediate_text: str) -> bool:
     return bool(parse_key_id(aki) and parse_key_id(ski) and parse_key_id(aki) == parse_key_id(ski))
 
 
+def crl_metadata(crl: bytes, work: Path) -> dict[str, Any]:
+    path = work / "policy-crl.der"
+    path.write_bytes(crl)
+    proc = run(
+        [
+            "openssl", "crl", "-inform", "DER", "-in", str(path),
+            "-noout", "-issuer", "-lastupdate", "-nextupdate",
+        ],
+        work,
+    )
+    if proc.returncode != 0:
+        raise ValueError(f"openssl crl metadata failed: {proc.stderr.strip()}")
+
+    values: dict[str, str] = {}
+    for line in proc.stdout.splitlines():
+        if "=" in line:
+            key, value = line.split("=", 1)
+            values[key.strip()] = value.strip()
+
+    from datetime import datetime, timezone
+
+    def parse_time(field: str) -> int:
+        raw = values.get(field)
+        if not raw:
+            raise ValueError(f"CRL {field} missing")
+        dt = datetime.strptime(raw, "%b %d %H:%M:%S %Y GMT").replace(tzinfo=timezone.utc)
+        return int(dt.timestamp())
+
+    return {
+        "issuer": values.get("issuer", ""),
+        "this_update_unix": parse_time("lastUpdate"),
+        "next_update_unix": parse_time("nextUpdate"),
+    }
+
+
 def verify_chain(
     leaf: bytes,
     intermediate: bytes,
@@ -315,6 +350,7 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
     with tempfile.TemporaryDirectory(prefix="mycelix-ek-chain-") as td:
         work = Path(td)
         try:
+            crl_info = crl_metadata(crl, work)
             chain_ok, chain_detail = verify_chain(
                 leaf, intermediate, root, crl, manifest["verification_time_unix"], work
             )
@@ -323,12 +359,32 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
             serial = int(x509_scalar(leaf, work, "leaf", "-serial"), 16)
             subject = x509_scalar(leaf, work, "leaf-subject", "-subject")
             issuer = x509_scalar(leaf, work, "leaf-issuer", "-issuer")
+            intermediate_subject = x509_scalar(intermediate, work, "intermediate-subject", "-subject")
             openssl_version = run(["openssl", "version"], work).stdout.strip()
         except (ValueError, OSError) as exc:
             return result("DENY", "openssl-parse-error", {"error": str(exc)})
 
     if not chain_ok:
         return result("DENY", "certificate-path-validation-failed", {"openssl": chain_detail})
+    if crl_info["issuer"] != intermediate_subject:
+        return result(
+            "DENY",
+            "crl-issuer-does-not-match-intermediate-subject",
+            {"crl_issuer": crl_info["issuer"], "intermediate_subject": intermediate_subject},
+        )
+    attime = manifest["verification_time_unix"]
+    if not (
+        crl_info["this_update_unix"] <= attime <= crl_info["next_update_unix"]
+    ):
+        return result(
+            "DENY",
+            "crl-outside-validity-window",
+            {
+                "crl_this_update_unix": crl_info["this_update_unix"],
+                "crl_next_update_unix": crl_info["next_update_unix"],
+                "verification_time_unix": attime,
+            },
+        )
 
     profile_ok, profile = leaf_profile_ok(leaf_text)
     profile["serial_positive"] = serial > 0
@@ -355,6 +411,9 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
             "verification_time_unix": manifest["verification_time_unix"],
             "revocation_state": rev["state"],
             "revocation_crl_sha256": rev["crl_der_sha256"],
+            "crl_this_update_unix": crl_info["this_update_unix"],
+            "crl_next_update_unix": crl_info["next_update_unix"],
+            "crl_issuer": crl_info["issuer"],
             "spki_certificate_sha256": spki["certificate_sha256"],
             "spki_ek_public_wire_sha256": spki["ek_public_wire_sha256"],
         },
@@ -496,6 +555,9 @@ def openssl_fixture(work: Path) -> dict[str, Any]:
         "bad_usage": bad_usage,
         "bad_eku": bad_eku,
         "crl": crl,
+        "crl_this_update_unix": start,
+        "crl_next_update_unix": start + 30 * 24 * 3600,
+        "crl_issuer": x509_scalar(intermediate, work, "fixture-intermediate", "-subject"),
         "attime": start + 120,
     }
 
@@ -526,6 +588,9 @@ def make_manifest(fx: dict[str, Any]) -> dict[str, Any]:
             "method": "issuer-crl",
             "crl_der_base64": b64(fx["crl"]),
             "crl_der_sha256": crl_sha,
+            "this_update_unix": fx["crl_this_update_unix"],
+            "next_update_unix": fx["crl_next_update_unix"],
+            "issuer": fx["crl_issuer"],
         },
         "spki_binding": {
             "state": "PASS",
@@ -601,6 +666,9 @@ def self_test() -> int:
             ("spki-indeterminate", "INDETERMINATE", lambda x: x["spki_binding"].update({"state": "INDETERMINATE"})),
             ("spki-ek-public-digest-substitution", "DENY", lambda x: x["spki_binding"].update({"ek_public_wire_sha256": "77" * 32})),
             ("verification-time-binding-substitution", "DENY", lambda x: x.update({"verification_time_unix": x["verification_time_unix"] + 3600})),
+            ("crl-expired-at-verification-time", "DENY", lambda x: x.update({"verification_time_unix": int(time.time()) + 45 * 24 * 3600})),
+            ("crl-not-yet-valid-at-verification-time", "DENY", lambda x: x.update({"verification_time_unix": 0})),
+            ("revocation-method-substitution", "DENY", lambda x: x["revocation"].update({"method": "issuer-ocsp"})),
             ("revocation-state-binding-substitution", "DENY", lambda x: x["revocation"].update({"state": "PASS"})),
             ("session-binding-substitution", "DENY", lambda x: x.update({"session_id": "attacker"})),
         ]
