@@ -147,6 +147,14 @@ impl ObserverLifecycleProfileV1 {
                 || self.profile_commitment == self.recomputed_commitment())
     }
 
+    /// Strict profile-integrity check for authoritative qualification paths.
+    /// Legacy opaque commitments remain accepted by the generic reference model,
+    /// but an authoritative consumer must require the commitment to cover the
+    /// full serialized lifecycle policy.
+    pub fn strict_commitment_matches(&self) -> bool {
+        self.structurally_valid() && self.profile_commitment == self.recomputed_commitment()
+    }
+
     pub fn structurally_valid(&self) -> bool {
         non_empty(&self.profile_id)
             && non_empty(&self.semantic_environment_root)
@@ -1468,9 +1476,12 @@ mod tests {
             allowed_roles,
             current_frontier_required: true,
             historical_evidence_allowed: true,
-            profile_commitment: "life-profile-commitment".into(),
+            profile_commitment: String::new(),
             claim_ceiling: OBSERVER_LIFECYCLE_CLAIM_CEILING.into(),
-        }
+        };
+        let mut profile = profile;
+        profile.profile_commitment = profile.recomputed_commitment();
+        profile
     }
 
     fn generation(id: &str, sequence: u64, predecessor: Option<&str>) -> ObserverGenerationV1 {
@@ -1674,6 +1685,19 @@ mod tests {
             certificate_commitment: "rotation-commitment-1".into(),
             claim_ceiling: OBSERVER_LIFECYCLE_CLAIM_CEILING.into(),
         }
+    }
+
+    #[test]
+    fn lifecycle_profile_strict_commitment_binds_policy_fields() {
+        let profile = profile();
+        assert!(profile.strict_commitment_matches());
+
+        let mut forged = profile.clone();
+        forged.historical_evidence_allowed = !forged.historical_evidence_allowed;
+        assert!(!forged.strict_commitment_matches());
+
+        forged.profile_commitment = forged.recomputed_commitment();
+        assert!(forged.strict_commitment_matches());
     }
 
     #[test]
