@@ -1,15 +1,6 @@
 name: Hearth 0.7 Workflow Lint
 
 on:
-  push:
-    branches:
-      - 'chore/hearth-07-*'
-    paths:
-      - ".github/workflows/hearth-07-qualification.yml"
-      - ".github/workflows/hearth-07-workflow-lint.yml"
-      - "mycelix-workspace/mycelix-hearth/**"
-      - "crates/mycelix-bridge-*/**"
-      - ".gitmodules"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
     paths:
@@ -23,17 +14,36 @@ permissions:
   contents: read
 
 concurrency:
-  group: hearth-07-workflow-lint-${{ github.head_ref || github.ref_name }}
+  group: hearth-07-workflow-lint-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   actionlint:
-    name: Validate Hearth 0.7 qualification workflow
+    name: Validate exact Hearth 0.7 qualification workflow source
     runs-on: ubuntu-24.04
+    env:
+      QUALIFY_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
+          ref: ${{ env.QUALIFY_SHA }}
           persist-credentials: false
+
+      - name: Verify exact lint checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "${QUALIFY_SHA}" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "QUALIFY_SHA must be an exact 40-character lowercase commit SHA: ${QUALIFY_SHA}"
+            exit 1
+          }
+          checked_out_sha="$(git rev-parse HEAD)"
+          [[ "${checked_out_sha}" == "${QUALIFY_SHA}" ]] || {
+            echo "lint checkout mismatch: expected ${QUALIFY_SHA}, got ${checked_out_sha}"
+            exit 1
+          }
+          echo "QUALIFY_SHA=${QUALIFY_SHA}"
+          echo "Checked-out HEAD=${checked_out_sha}"
 
       - name: Fetch and verify official actionlint
         shell: bash
@@ -50,7 +60,7 @@ jobs:
           /tmp/actionlint/actionlint -version
           echo "OK: official actionlint v${version} matches pinned SHA-256"
 
-      - name: Lint Hearth 0.7 qualification workflow
+      - name: Lint exact Hearth 0.7 qualification workflow
         shell: bash
         run: |
           set -euo pipefail
