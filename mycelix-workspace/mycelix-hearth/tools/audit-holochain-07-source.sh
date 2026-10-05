@@ -2447,10 +2447,44 @@ PY
   else
     fail=1
   fi
-  if rg -n --fixed-strings "Capture immutable qualification evidence" "$workflow" >/dev/null 2>&1     && rg -n --fixed-strings "if: ${{ !cancelled() }}" "$workflow" >/dev/null 2>&1     && rg -n --fixed-strings "unavailable_source_audit_not_reached" "$workflow" >/dev/null 2>&1     && rg -n --fixed-strings "qualification-evidence-status.txt" "$workflow" >/dev/null 2>&1     && rg -n --fixed-strings "source_contract_digest=unavailable" "$workflow" >/dev/null 2>&1; then
-    echo "OK:   qualification evidence capture is failure-monotonic with explicit unavailable markers"
+  if python3 - "$workflow" <<'PY'
+from pathlib import Path
+import sys
+
+source = Path(sys.argv[1]).read_text()
+start = source.find("      - name: Capture immutable qualification evidence")
+end = source.find("      - name: Capture qualification metadata", start)
+if start < 0 or end < 0:
+    raise SystemExit("capture step boundaries not found")
+block = source[start:end]
+
+required = [
+    '"      - name: Capture immutable qualification evidence"',
+    'if: ${{ !cancelled() }}',
+    'ensure_marker "${hearth}/qualification-cargo-lock-sha256.txt" "unavailable_cargo_lock_capture"',
+    'ensure_marker "${hearth}/qualification-cargo-lock-summary.txt" "unavailable_cargo_lock_summary"',
+    'ensure_marker "${hearth}/qualification-source-tree-immutability.txt" "unavailable_source_tree_immutability_not_reached"',
+]
+missing = [item for item in required if item not in block]
+if missing:
+    print("FAIL: evidence capture is missing required failure-monotonic markers:")
+    for item in missing:
+        print(f"  missing: {item}")
+    raise SystemExit(2)
+
+for forbidden in [
+    '> "${hearth}/qualification-cargo-lock-sha256.txt"',
+    '> "${hearth}/qualification-cargo-lock-summary.txt"',
+]:
+    if forbidden in block and "if [[ ! -s" not in block:
+        print(f"FAIL: evidence capture must not destructively rewrite {forbidden}")
+        raise SystemExit(2)
+
+print("OK: qualification evidence capture preserves pre-runtime lock receipts and failure markers")
+PY
+  then
+    true
   else
-    echo "FAIL: qualification evidence capture must preserve artifacts across early failures"
     fail=1
   fi
 
