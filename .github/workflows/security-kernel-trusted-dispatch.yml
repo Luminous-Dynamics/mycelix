@@ -19,7 +19,7 @@ env:
   BASE_REPOSITORY_ID: "1176351975"
   BASE_BRANCH: "main"
   TRUSTED_INDEPENDENT_WORKFLOW_PATH: ".github/workflows/security-kernel-independent-qualification.yml"
-  TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "41edcdd9d0240131213ccccf5a2916de28553083"
+  TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "0a84b08d7757a31ebd66ba71b226841e0ffd052f"
   TRUSTED_DISPATCHER_WORKFLOW_PATH: ".github/workflows/security-kernel-trusted-dispatch.yml"
 
 jobs:
@@ -106,5 +106,5 @@ jobs:
       candidate_sha: ${{ needs.resolve.outputs.candidate_sha }}
       candidate_repository: ${{ needs.resolve.outputs.candidate_repository }}
       candidate_repository_id: ${{ needs.resolve.outputs.candidate_repository_id }}
-      trusted_workflow_blob_sha: "41edcdd9d0240131213ccccf5a2916de28553083"
+      trusted_workflow_blob_sha: "0a84b08d7757a31ebd66ba71b226841e0ffd052f"
 
