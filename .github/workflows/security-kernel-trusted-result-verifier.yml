@@ -19,9 +19,9 @@ env:
   BASE_REPOSITORY_ID: "1176351975"
   BASE_BRANCH: "main"
   TRUSTED_DISPATCHER_WORKFLOW_PATH: ".github/workflows/security-kernel-trusted-dispatch.yml"
-  TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA: "e71d419f85beb1ebc8af7287438a577fab37fc93"
+  TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA: "ac91d40e653b1ed2ddeb4b7d7111954d0fa4f4bb"
   INDEPENDENT_WORKFLOW_PATH: ".github/workflows/security-kernel-independent-qualification.yml"
-  TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "8f7a73dcc374b4f15b163e2455946df986d6f46b"
+  TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "42b9bfe548a90475ce1a4dc531c76991facd2111"
   EXPECTED_JOB_NAME: "Independent Security Kernel"
 
 jobs:
@@ -223,7 +223,6 @@ jobs:
               "trusted_dispatcher_workflow_blob_sha": dispatcher_at_run["sha"],
               "trusted_s1_workflow_blob_sha": s1_at_run["sha"],
               "verifier_workflow_sha": os.environ["GITHUB_WORKFLOW_SHA"],
-              "verifier_workflow_blob_sha": os.environ["WORKFLOW_BLOB_SHA"],
                "verifier_workflow_blob_sha": os.environ["WORKFLOW_BLOB_SHA"],
               "qualification_receipt_artifact_id": artifact["id"],
               "qualification_receipt_artifact_digest": artifact.get("digest"),
