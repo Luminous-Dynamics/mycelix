@@ -1235,6 +1235,7 @@ pub fn compose_finality_eligibility_from_authoritative_d6n_d6o(
     effect: &SemanticEffectV1,
     route: &ProviderRouteV1,
     profile: &FinalityQualificationProfileV1,
+    expected_finality_profile_commitment: &str,
     set: &ExternalObservationSetV1,
     assessment: &ObservationSetAssessmentV1,
     evidence: &[ExternalObservedEvidenceV1],
@@ -1245,7 +1246,9 @@ pub fn compose_finality_eligibility_from_authoritative_d6n_d6o(
     live_generation_id: &str,
     required_independent_observations: u32,
 ) -> Option<FinalityEligibilityCompositionV1> {
-    if profile.required_independent_observations != required_independent_observations {
+    if profile.required_independent_observations != required_independent_observations
+        || profile.profile_commitment != expected_finality_profile_commitment
+    {
         return None;
     }
 
@@ -2152,6 +2155,7 @@ mod tests {
                 route_frontier_root: "frontier-1".into(),
             },
             &finality_profile,
+            &finality_profile.profile_commitment,
             &set,
             &assessment,
             std::slice::from_ref(&evidence),
