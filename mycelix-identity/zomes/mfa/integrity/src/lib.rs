@@ -163,7 +163,10 @@ impl EnrolledFactor {
             return 0.0;
         }
 
-        let elapsed_micros = now.as_micros() - self.last_verified.as_micros();
+        let elapsed_micros = now
+            .as_micros()
+            .saturating_sub(self.last_verified.as_micros())
+            .max(0);
         let elapsed_secs = (elapsed_micros / 1_000_000) as u64;
 
         let (grace_period, decay_rate, _) = self.factor_type.decay_config();
@@ -720,6 +723,38 @@ fn validate_agent_to_mfa_state_link(
     Ok(ValidateCallbackResult::Valid)
 }
 
+/// Application timestamps are subordinate to the signed Holochain action clock.
+fn validate_factor_timestamp(
+    field: &str,
+    value: Timestamp,
+    action_timestamp: Timestamp,
+) -> Result<(), String> {
+    if value > action_timestamp {
+        return Err(format!(
+            "{field} cannot be later than its signed Holochain action timestamp"
+        ));
+    }
+    Ok(())
+}
+
+/// Enforce ordered factor timestamps so a future-dated verification cannot
+/// manufacture freshness or reverse the enrollment chronology.
+fn validate_factor_timestamps(
+    factor: &EnrolledFactor,
+    action_timestamp: Timestamp,
+) -> Result<(), String> {
+    validate_factor_timestamp("Factor enrolled_at", factor.enrolled_at, action_timestamp)?;
+    validate_factor_timestamp(
+        "Factor last_verified",
+        factor.last_verified,
+        action_timestamp,
+    )?;
+    if factor.last_verified < factor.enrolled_at {
+        return Err("Factor last_verified cannot precede enrolled_at".into());
+    }
+    Ok(())
+}
+
 /// Validate MFA state creation
 fn validate_create_mfa_state(
     action: EntryCreationAction,
@@ -750,6 +785,26 @@ fn validate_create_mfa_state(
         return Ok(ValidateCallbackResult::Invalid(
             "MFA state DID must correspond to the committing agent (forgery)".to_string(),
         ));
+    }
+
+    if let Err(message) = validate_factor_timestamp(
+        "MFA created timestamp",
+        state.created,
+        *action.timestamp(),
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(message));
+    }
+    if let Err(message) = validate_factor_timestamp(
+        "MFA updated timestamp",
+        state.updated,
+        *action.timestamp(),
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(message));
+    }
+    for factor in &state.factors {
+        if let Err(message) = validate_factor_timestamps(factor, *action.timestamp()) {
+            return Ok(ValidateCallbackResult::Invalid(message));
+        }
     }
 
     // Validate initial version
@@ -793,6 +848,19 @@ fn validate_update_mfa_state(
         return Ok(ValidateCallbackResult::Invalid(
             "DID must start with 'did:mycelix:'".into(),
         ));
+    }
+
+    if let Err(message) = validate_factor_timestamp(
+        "MFA updated timestamp",
+        state.updated,
+        *action.timestamp(),
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(message));
+    }
+    for factor in &state.factors {
+        if let Err(message) = validate_factor_timestamps(factor, *action.timestamp()) {
+            return Ok(ValidateCallbackResult::Invalid(message));
+        }
     }
 
     // Must keep at least one factor
@@ -887,6 +955,12 @@ fn validate_create_factor_enrollment(
         ));
     }
 
+    if let Err(message) =
+        validate_factor_timestamp("Factor enrollment timestamp", enrollment.timestamp, *action.timestamp())
+    {
+        return Ok(ValidateCallbackResult::Invalid(message));
+    }
+
     // Validate reason provided
     if enrollment.reason.is_empty() {
         return Ok(ValidateCallbackResult::Invalid(
@@ -918,6 +992,14 @@ fn validate_create_factor_verification(
         return Ok(ValidateCallbackResult::Invalid(
             "DID must start with 'did:mycelix:'".into(),
         ));
+    }
+
+    if let Err(message) = validate_factor_timestamp(
+        "Factor verification timestamp",
+        verification.timestamp,
+        *action.timestamp(),
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(message));
     }
 
     // Validate strength is non-negative.
