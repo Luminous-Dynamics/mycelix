@@ -313,7 +313,11 @@ fn validate_trust_link(
                 LinkTypes::TierToCredential => {
                     anchor_hash(&format!("tier:{:?}", credential.trust_tier))?
                 }
-                _ => unreachable!(),
+                _ => {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "Unexpected trust credential link type for credential index".into(),
+                    ));
+                }
             };
             if base != expected_base {
                 return Ok(ValidateCallbackResult::Invalid(
