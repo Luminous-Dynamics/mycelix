@@ -2517,7 +2517,6 @@ PY
     fail=1
   fi
 }
-
   if python3 - "$workflow" <<'PY'
 from pathlib import Path
 import sys
@@ -2541,6 +2540,7 @@ PY
   else
     fail=1
   fi
+
 # Coordinator-to-integrity operation binding. A static validator can be internally
 # complete while the coordinator silently uses an operation family that the integrity
 # zome does not model explicitly. Tie the application write surface to its validator
