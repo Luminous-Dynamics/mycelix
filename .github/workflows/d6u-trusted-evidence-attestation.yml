@@ -270,6 +270,7 @@ jobs:
               "predicate_schema": "d6u-trusted-runtime-evidence/v1",
               "claim_ceiling": "ReferenceModelOnly",
               "public_good_instance_required": True,
+              "public_good_instance": "sigstore-public-good",
               "tlog_required": True,
               "offline_verified": True,
               "no_public_good_rejected": True,
