@@ -57,7 +57,7 @@ Neither event upgrades the D6S claim ceiling beyond `ReferenceModelOnly`.
 
 ## Fail-closed self-test boundary
 
-The read-only trusted-verifier suite contains eighteen deterministic checks: valid evidence acceptance; case-outcome tampering rejection; duplicate-case rejection; live executor-run identity rejection; D6S prerequisite-policy pin coverage; Cargo.lock checksum tampering rejection; duplicate-record-key rejection; trigger-run identity and workflow-blob tampering rejection; exact Git-blob acceptance; executor workflow-identity tampering rejection; Git symlink-mode rejection; Git submodule/non-blob rejection; truncated-tree rejection; and regular-file artifact-layout symlink rejection; artifact size-limit enforcement; current executor-workflow policy-pin enforcement; and executor-workflow trigger coverage.
+The read-only trusted-verifier suite contains seventeen deterministic checks: valid evidence acceptance; case-outcome tampering rejection; duplicate-case rejection; live executor-run identity rejection; D6S prerequisite-policy pin coverage; Cargo.lock checksum tampering rejection; duplicate-record-key rejection; trigger-run identity and workflow-blob tampering rejection; exact Git-blob acceptance; executor workflow-identity tampering rejection; Git symlink-mode rejection; Git submodule/non-blob rejection; truncated-tree rejection; regular-file artifact-layout symlink rejection; artifact size-limit enforcement; and policy-bound artifact-size enforcement.
 
 The self-test has no signing permissions and is not itself an authority root.
 
@@ -67,7 +67,3 @@ The intended chain is exactly three levels: `D6S Canonical Qualification` → `D
 
 
 Current trusted policy revision: v10.
-
-## Cargo execution boundary
-
-The main-owned D6U executor sets `CARGO_HOME` to a fresh per-run directory under the ephemeral runner workspace and removes/recreates it before any Cargo command. This prevents runner-global `$HOME/.cargo/config.toml` or `$HOME/.cargo/config` from altering the qualification while preserving the separate repository `.cargo` denial policy. Cargo's configuration model includes `CARGO_HOME`, so this isolates a supply-chain control that repository-tree inspection alone cannot see.
