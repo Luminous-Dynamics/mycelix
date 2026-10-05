@@ -3464,7 +3464,6 @@ mod tests {
         PublicationCollectionEmpty,
         PublicationForkDetected,
         PublicationLineageNoRoot,
-        PublicationLineageMultipleRoots,
         PublicationLineageIdentityMismatch,
         PublicationLineageDisconnected,
         PublicationLineageCycle,
@@ -3770,12 +3769,6 @@ mod tests {
                 FederationStateMachineTraceCheckpointPublicationViolation::PublicationLineageNoRoot
             );
         }
-        if roots.len() > 1 {
-            return Err(
-                FederationStateMachineTraceCheckpointPublicationViolation::PublicationLineageMultipleRoots
-            );
-        }
-
         let mut successor_by_predecessor = BTreeMap::<&str, &str>::new();
         for publication in publications.values() {
             successor_by_predecessor.insert(
@@ -6121,6 +6114,15 @@ mod tests {
             validate_state_machine_trace_checkpoint_publication_lineage(&complete_lineage)
                 .is_ok(),
             "complete publication lineage must be rooted and fully reachable"
+        );
+        let mut reversed_complete_lineage = complete_lineage.clone();
+        reversed_complete_lineage.reverse();
+        assert!(
+            validate_state_machine_trace_checkpoint_publication_lineage(
+                &reversed_complete_lineage
+            )
+            .is_ok(),
+            "complete publication lineage validation must be permutation-invariant"
         );
 
         let mut disconnected_suffix = fork_a_publication.clone();
