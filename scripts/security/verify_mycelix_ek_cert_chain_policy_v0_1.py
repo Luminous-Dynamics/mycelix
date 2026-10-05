@@ -459,7 +459,9 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
         return result("DENY", "trust-anchor-denied")
     if manifest["trust_anchor_state"] == "INDETERMINATE":
         return result("INDETERMINATE", "trust-anchor-indeterminate")
-    if manifest["trust_anchor_source_sha256"] != reference_root_source_hash(manifest["trust_anchor_root_sha256"]):
+    if manifest["trust_anchor_root_sha256"] != REFERENCE_ROOT_SHA256:
+        return result("DENY", "trust-anchor-root-not-approved")
+    if manifest["trust_anchor_source_sha256"] != reference_root_source_hash(REFERENCE_ROOT_SHA256):
         return result("DENY", "trust-anchor-source-not-authorized-for-root")
 
     if manifest["verification_time_unix"] < 0:
@@ -734,6 +736,21 @@ def refresh_template_binding(m: dict[str, Any]) -> None:
         output=json.loads(op.read_text(encoding="utf-8"))
         binding["public_wire_sha256"] = output["details"]["public_wire_sha256"]
 
+def mutate_root_authorization(m: dict[str, Any]) -> None:
+    m["trust_anchor_root_der_base64"] = m["intermediate_certificate_der_base64"]
+    m["trust_anchor_root_sha256"] = m["intermediate_certificate_sha256"]
+    m["trust_anchor_source_sha256"] = reference_root_source_hash(
+        m["trust_anchor_root_sha256"]
+    )
+    m["session_binding_sha256"] = session_binding(
+        m,
+        m["leaf_certificate_sha256"],
+        m["intermediate_certificate_sha256"],
+        m["trust_anchor_root_sha256"],
+        m["revocation"]["crl_bundle_pem_sha256"],
+    )
+
+
 def mutate_trust_anchor_source(m: dict[str, Any]) -> None:
     m["trust_anchor_source_sha256"] = "66" * 32
     m["session_binding_sha256"] = session_binding(
@@ -819,10 +836,13 @@ def self_test() -> int:
 
         cases = [
             ("canonical-valid", "PASS", lambda x: None),
-            ("root-substitution", "DENY", lambda x: x.update({
-                "trust_anchor_root_der_base64": x["intermediate_certificate_der_base64"],
-                "trust_anchor_root_sha256": x["intermediate_certificate_sha256"],
-            })),
+            ("root-substitution", "DENY", lambda x: (
+                x.update({
+                    "trust_anchor_root_der_base64": x["intermediate_certificate_der_base64"],
+                    "trust_anchor_root_sha256": x["intermediate_certificate_sha256"],
+                    "trust_anchor_source_sha256": reference_root_source_hash(x["intermediate_certificate_sha256"]),
+                })
+            )),
             ("intermediate-substitution", "DENY", lambda x: x.update({
                 "intermediate_certificate_der_base64": x["trust_anchor_root_der_base64"],
                 "intermediate_certificate_sha256": x["trust_anchor_root_sha256"],
@@ -833,6 +853,7 @@ def self_test() -> int:
             ("key-usage-profile-mismatch", "DENY", lambda x: mutate_leaf(x, fx["bad_usage"])),
             ("eku-profile-mismatch", "DENY", lambda x: mutate_leaf(x, fx["bad_eku"])),
             ("trust-anchor-source-substitution", "DENY", lambda x: mutate_trust_anchor_source(x)),
+            ("root-self-consistent-source-substitution", "DENY", lambda x: mutate_root_authorization(x)),
             ("template-verifier-substitution", "DENY", lambda x: x["ek_template_binding"].update({"verifier_id": "other-verifier"})),
             ("template-source-substitution", "DENY", lambda x: x["ek_template_binding"].update({"source_sha256": "12" * 32})),
             ("template-input-substitution", "DENY", lambda x: x["ek_template_binding"].update({"input_sha256": "14" * 32})),
@@ -870,7 +891,7 @@ def self_test() -> int:
             return 1
 
     print("EK certificate chain policy semantic corpus: PASS")
-    print("24 adversarial mutations plus canonical and key-order control: PASS")
+    print("25 adversarial mutations plus canonical and key-order control: PASS")
     print("synthetic trust anchor is explicitly reference-only")
     return 0
 
