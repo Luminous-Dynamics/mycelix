@@ -486,6 +486,31 @@
       "id": "CAP-V33",
       "mutation": "ek-cert-absent",
       "expected": "INDETERMINATE"
+    },
+    {
+      "id": "CAP-V34",
+      "mutation": "ek-cert-chain-source-mode-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "CAP-V35",
+      "mutation": "ek-cert-chain-result-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "CAP-V36",
+      "mutation": "ek-cert-chain-inventory-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "CAP-V37",
+      "mutation": "ek-cert-chain-concatenated-substitution",
+      "expected": "DENY"
+    },
+    {
+      "id": "CAP-V38",
+      "mutation": "ek-cert-chain-absent",
+      "expected": "INDETERMINATE"
     }
   ],
   "execution_modes": {
@@ -521,14 +546,19 @@
     "ek_certificate": "EK certificate capture is TPM_NVRAM-only and preserves raw bytes; absence is explicit and does not trigger a network fallback.",
     "public_name_coherence": "AK and EK public-area/name results are independently re-executed from ReadPublic inputs; live ReadPublic provenance is explicit and does not raise the claim ceiling.",
     "trusted_time": "Trusted time is an externally qualified evidence object; local wall-clock time is not authoritative.",
-    "authorization": "Coherent platform Evidence remains evidence only and is consumed by the downstream RATS/Relying-Party/PEP chain."
+    "authorization": "Coherent platform Evidence remains evidence only and is consumed by the downstream RATS/Relying-Party/PEP chain.",
+    "ek_certificate_chain": "Raw EK certificate-chain evidence is captured only from TPM NV indices 0x01c00100..0x01c001ff; capture preserves bytes without parsing or reordering, does not expect the root CA in NV, and represents absence explicitly as INDETERMINATE."
   },
   "qualification_required_artifacts": [
     "eventlog-reconstruction-input.json",
     "eventlog-reconstruction.json",
     "ek-nv-index-handles.txt",
     "ek-certificate-capture-transcript.json",
-    "ek-certificate-capture.json"
+    "ek-certificate-capture.json",
+    "ek-cert-chain-nv-index-handles.txt",
+    "ek-cert-chain-nv-capture-transcript.json",
+    "ek-cert-chain-nv-capture.json",
+    "ek-cert-chain-nv-concatenated.bin"
   ],
   "required_reconstruction_output": [
     "profile_id",
@@ -548,5 +578,27 @@
     "verifier_id",
     "verifier_source_sha256",
     "content_sha256"
+  ],
+  "rules": [
+    {
+      "id": "CAP-036",
+      "rule": "EK certificate-chain capture source must be TPM_NV_ONLY and limited to the exact TCG-defined chain NV range."
+    },
+    {
+      "id": "CAP-037",
+      "rule": "Capture must preserve each populated chain NV index as raw bytes and must not parse, reorder, or synthesize certificates."
+    },
+    {
+      "id": "CAP-038",
+      "rule": "The root CA must not be inferred as stored in the EK certificate-chain NV range; trust-anchor provenance remains a separate input."
+    },
+    {
+      "id": "CAP-039",
+      "rule": "Chain-capture result, inventory, transcript, script, and concatenated-byte digests must be bound into the session identity."
+    },
+    {
+      "id": "CAP-040",
+      "rule": "Absence of populated EK certificate-chain NV indices is INDETERMINATE and must not trigger network retrieval."
+    }
   ]
 }
