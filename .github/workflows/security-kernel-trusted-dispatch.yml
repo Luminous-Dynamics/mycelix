@@ -48,94 +48,8 @@ jobs:
           test "$GITHUB_REF" = "refs/heads/main"
           test "$GITHUB_EVENT_NAME" = "pull_request_target"
           printf '%s' "$PR_NUMBER" | grep -Eq '^[0-9]+$'
-          printf '%s' "$HEAD_SHA" | grep -Eq '^[0-9a-f]{40}
-          test -n "$HEAD_REPOSITORY"
-          python3 - <<'PY'
-          import json, os, urllib.request
-          repo=os.environ["BASE_REPOSITORY"]
-          pr_number=int(os.environ["PR_NUMBER"])
-          req=urllib.request.Request(
-              f"https://api.github.com/repos/{repo}/pulls/{pr_number}",
-              headers={
-                  "Accept":"application/vnd.github+json",
-                  "Authorization":f"Bearer {os.environ['TOKEN']}",
-                  "X-GitHub-Api-Version":"2022-11-28",
-              })
-          with urllib.request.urlopen(req, timeout=20) as response:
-              pr=json.load(response)
-          assert pr["number"] == pr_number
-          assert pr["state"] == "open"
-          assert pr["base"]["repo"]["full_name"] == repo
-          assert pr["base"]["ref"] == os.environ["BASE_BRANCH"]
-          assert pr["head"]["repo"]["full_name"] == os.environ["HEAD_REPOSITORY"]
-          assert pr["head"]["repo"]["id"] == int(os.environ["HEAD_REPOSITORY_ID"])
-          assert pr["head"]["sha"] == os.environ["HEAD_SHA"]
-          print("PASS: trusted default-branch dispatcher bound the exact current PR repository/SHA")
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-              output.write(f"candidate_pr={pr_number}\n")
-              output.write(f"candidate_sha={os.environ['HEAD_SHA']}\n")
-              output.write(f"candidate_repository={os.environ['HEAD_REPOSITORY']}\n")
-          PY
-
-  qualify:
-    name: Execute exact candidate qualification
-    needs: resolve
-    permissions:
-      actions: read
-      contents: read
-      pull-requests: read
-    cache-mode: none
-    uses: ./.github/workflows/security-kernel-independent-qualification.yml
-    with:
-      candidate_pr: ${{ needs.resolve.outputs.candidate_pr }}
-      candidate_sha: ${{ needs.resolve.outputs.candidate_sha }}
-      candidate_repository: ${{ needs.resolve.outputs.candidate_repository }}
-      trusted_workflow_blob_sha: "b7f2fdcbfbda26e8fba913d64bb79cc2bfc6a236"
-
-          printf '%s' "$HEAD_REPOSITORY_ID" | grep -Eq '^[0-9]+
-          test -n "$HEAD_REPOSITORY"
-          python3 - <<'PY'
-          import json, os, urllib.request
-          repo=os.environ["BASE_REPOSITORY"]
-          pr_number=int(os.environ["PR_NUMBER"])
-          req=urllib.request.Request(
-              f"https://api.github.com/repos/{repo}/pulls/{pr_number}",
-              headers={
-                  "Accept":"application/vnd.github+json",
-                  "Authorization":f"Bearer {os.environ['TOKEN']}",
-                  "X-GitHub-Api-Version":"2022-11-28",
-              })
-          with urllib.request.urlopen(req, timeout=20) as response:
-              pr=json.load(response)
-          assert pr["number"] == pr_number
-          assert pr["state"] == "open"
-          assert pr["base"]["repo"]["full_name"] == repo
-          assert pr["base"]["ref"] == os.environ["BASE_BRANCH"]
-          assert pr["head"]["repo"]["full_name"] == os.environ["HEAD_REPOSITORY"]
-          assert pr["head"]["repo"]["id"] == int(os.environ["HEAD_REPOSITORY_ID"])
-          assert pr["head"]["sha"] == os.environ["HEAD_SHA"]
-          print("PASS: trusted default-branch dispatcher bound the exact current PR repository/SHA")
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-              output.write(f"candidate_pr={pr_number}\n")
-              output.write(f"candidate_sha={os.environ['HEAD_SHA']}\n")
-              output.write(f"candidate_repository={os.environ['HEAD_REPOSITORY']}\n")
-          PY
-
-  qualify:
-    name: Execute exact candidate qualification
-    needs: resolve
-    permissions:
-      actions: read
-      contents: read
-      pull-requests: read
-    cache-mode: none
-    uses: ./.github/workflows/security-kernel-independent-qualification.yml
-    with:
-      candidate_pr: ${{ needs.resolve.outputs.candidate_pr }}
-      candidate_sha: ${{ needs.resolve.outputs.candidate_sha }}
-      candidate_repository: ${{ needs.resolve.outputs.candidate_repository }}
-      trusted_workflow_blob_sha: "b7f2fdcbfbda26e8fba913d64bb79cc2bfc6a236"
-
+          printf '%s' "$HEAD_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          printf '%s' "$HEAD_REPOSITORY_ID" | grep -Eq '^[0-9]+$'
           test "$BASE_REPOSITORY_EVENT" = "$BASE_REPOSITORY"
           test "$BASE_BRANCH_EVENT" = "$BASE_BRANCH"
           test -n "$HEAD_REPOSITORY"
@@ -180,3 +94,4 @@ jobs:
       candidate_sha: ${{ needs.resolve.outputs.candidate_sha }}
       candidate_repository: ${{ needs.resolve.outputs.candidate_repository }}
       trusted_workflow_blob_sha: "b7f2fdcbfbda26e8fba913d64bb79cc2bfc6a236"
+
