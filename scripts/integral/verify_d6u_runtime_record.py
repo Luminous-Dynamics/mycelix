@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify the emitted D6U runtime evidence record against its execution subject."""
+"""Verify D6U runtime evidence against the upstream D6S run and executor context."""
 
 import hashlib
 import json
@@ -14,11 +14,58 @@ MANIFEST = ROOT / "docs/integral/d6u-runtime-manifest.json"
 D6S2_MANIFEST = ROOT / "docs/integral/d6s-canon-2-manifest.json"
 D6S2_FIXTURE = ROOT / "docs/integral/d6s-canon-2-authority-boundary-fixture.json"
 D6S1_CORPUS = ROOT / "docs/integral/d6s-canon-1-golden-vectors.json"
-WORKFLOW = ROOT / ".github/workflows/d6u-exact-head-runtime.yml"
-CALLER_WORKFLOW = ROOT / ".github/workflows/d6s-canonical-qualification.yml"
+TRIGGER_WORKFLOW = ROOT / ".github/workflows/d6s-canonical-qualification.yml"
 EVIDENCE = ROOT / "d6u-runtime-harness/d6u-runtime-evidence.txt"
 TEST_LOG = ROOT / "d6u-runtime-harness/d6u-runtime-test.log"
 LOCKFILE = ROOT / "d6u-runtime-harness/Cargo.lock"
+
+EXPECTED_TRIGGER_WORKFLOW_NAME = "D6S Canonical Qualification"
+EXPECTED_TRIGGER_WORKFLOW_PATH = ".github/workflows/d6s-canonical-qualification.yml"
+EXPECTED_EXECUTOR_WORKFLOW_NAME = "D6U Exact-Head Runtime Executor"
+EXPECTED_EXECUTOR_WORKFLOW_PATH = ".github/workflows/d6u-exact-head-runtime-executor.yml"
+
+EXPECTED_RECORD_FIELDS = {
+    "status",
+    "source_commit",
+    "source_branch",
+    "source_repository",
+    "trigger_workflow_run_id",
+    "trigger_workflow_run_attempt",
+    "trigger_workflow_name",
+    "trigger_workflow_path",
+    "trigger_workflow_blob_sha",
+    "executor_run_id",
+    "executor_run_attempt",
+    "executor_workflow_commit_sha",
+    "executor_workflow_ref",
+    "executor_workflow_file_path",
+    "executor_workflow_repository",
+    "attestation_status",
+    "d6s2_manifest_git_blob_sha",
+    "d6s2_fixture_git_blob_sha",
+    "d6s2_authority_ledger_schema",
+    "d6s1_corpus_sha256",
+    "test_log_sha256",
+    "manifest_version",
+    "manifest_git_blob_sha",
+    "evidence_verifier_git_blob_sha",
+    "lock_verifier_git_blob_sha",
+    "case_coverage",
+    "supplemental_coverage",
+    "application_check_coverage",
+    "case_outcome_classes",
+    "runtime",
+    "hdk",
+    "hdi",
+    "rust",
+    "rust_verbose_commit",
+    "cargo",
+    "cargo_lock_sha256",
+    "test",
+    "supported_cases",
+    "unsupported_cases",
+    "claim_ceiling",
+}
 
 
 def git_blob_sha(path: Path) -> str:
@@ -34,24 +81,9 @@ def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def workflow_record_fields(path: Path) -> list[str]:
-    fields: list[str] = []
-    pattern = re.compile(r'^\s*echo "([A-Za-z0-9_]+)=.*"$')
-    for line in path.read_text(encoding="utf-8").splitlines():
-        match = pattern.match(line)
-        if match:
-            fields.append(match.group(1))
-    assert fields, "workflow must emit at least one evidence-record field"
-    assert len(fields) == len(set(fields)), (
-        "workflow emits duplicate evidence-record fields: "
-        f"{fields}"
-    )
-    return fields
-
-
 def load_record(path: Path) -> dict[str, str]:
     lines = path.read_text(encoding="utf-8").splitlines()
-    assert lines[0] == "D6U HOLOCHAIN 0.7 RUNTIME EVIDENCE"
+    assert lines and lines[0] == "D6U HOLOCHAIN 0.7 RUNTIME EVIDENCE"
     record: dict[str, str] = {}
     for line in lines[1:]:
         assert "=" in line, f"malformed evidence record line: {line!r}"
@@ -61,25 +93,71 @@ def load_record(path: Path) -> dict[str, str]:
     return record
 
 
+def run_sha(event: dict) -> str:
+    upstream = event["workflow_run"]
+    sha = upstream["head_sha"]
+    assert re.fullmatch(r"[0-9a-f]{40}", sha)
+    return sha
+
+
+def assert_identity(event: dict, record: dict[str, str], repository: str) -> None:
+    upstream = event["workflow_run"]
+
+    assert upstream["name"] == EXPECTED_TRIGGER_WORKFLOW_NAME
+    assert upstream["path"] == EXPECTED_TRIGGER_WORKFLOW_PATH
+    assert upstream["event"] == "pull_request"
+    assert upstream["conclusion"] == "success"
+    assert upstream["head_repository"]["full_name"] == repository
+    assert record["trigger_workflow_name"] == upstream["name"]
+    assert record["trigger_workflow_path"] == upstream["path"]
+    assert record["trigger_workflow_run_id"] == str(upstream["id"])
+    assert record["trigger_workflow_run_attempt"] == str(upstream["run_attempt"])
+    assert record["source_commit"] == upstream["head_sha"]
+    assert record["source_branch"] == upstream["head_branch"]
+    assert record["source_repository"] == upstream["head_repository"]["full_name"]
+
+    assert record["executor_run_id"] == os.environ["GITHUB_RUN_ID"]
+    assert record["executor_run_attempt"] == os.environ["GITHUB_RUN_ATTEMPT"]
+    assert record["executor_workflow_commit_sha"] == os.environ["GITHUB_WORKFLOW_SHA"]
+    assert record["executor_workflow_ref"] == os.environ["GITHUB_WORKFLOW_REF"]
+    assert record["executor_workflow_repository"] == repository
+    assert record["executor_workflow_file_path"] == EXPECTED_EXECUTOR_WORKFLOW_PATH
+
+    assert re.fullmatch(r"[0-9a-f]{40}", record["executor_workflow_commit_sha"])
+    assert record["executor_workflow_ref"].startswith(
+        f"{repository}/{EXPECTED_EXECUTOR_WORKFLOW_PATH}@"
+    )
+    assert re.fullmatch(r"[0-9a-f]{40}", record["trigger_workflow_blob_sha"])
+    assert record["trigger_workflow_blob_sha"] == git_blob_sha(TRIGGER_WORKFLOW)
+
+
 def main() -> None:
     assert len(sys.argv) == 1, "usage: verify_d6u_runtime_record.py"
+    event = json.loads(
+        Path(os.environ["GITHUB_EVENT_PATH"]).read_text(encoding="utf-8")
+    )
     record = load_record(EVIDENCE)
     repository = os.environ["GITHUB_REPOSITORY"]
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
     d6s2 = json.loads(D6S2_MANIFEST.read_text(encoding="utf-8"))
     test_log_lines = TEST_LOG.read_text(encoding="utf-8").splitlines()
+
+    expected_source = run_sha(event)
+    actual_head = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
     observed_case_count = sum(
         1 for line in test_log_lines if line.startswith("D6U_CASE\t")
     )
     observed_supplemental_count = sum(
-        1
-        for line in test_log_lines
-        if line.startswith("D6U_SUBSTRATE_CHECK\t")
+        1 for line in test_log_lines if line.startswith("D6U_SUBSTRATE_CHECK\t")
     )
     observed_application_count = sum(
-        1
-        for line in test_log_lines
-        if line.startswith("D6U_APPLICATION_CHECK\t")
+        1 for line in test_log_lines if line.startswith("D6U_APPLICATION_CHECK\t")
     )
 
     d6s2_ledger_schema = f"v{d6s2['version']}"
@@ -94,28 +172,33 @@ def main() -> None:
         f"{observed_application_count}-of-"
         f"{len(manifest.get('supplemental_application_checks', []))}"
     )
-    runtime = f"holochain-{manifest['substrate']['holochain']}"
 
-    produced_fields = workflow_record_fields(WORKFLOW)
+    assert actual_head == expected_source, (
+        f"executor checkout drift: expected {expected_source}, observed {actual_head}"
+    )
+    assert set(record) == EXPECTED_RECORD_FIELDS, (
+        f"evidence field mismatch: extra={set(record) - EXPECTED_RECORD_FIELDS}, "
+        f"missing={EXPECTED_RECORD_FIELDS - set(record)}"
+    )
+
+    assert_identity(event, record, repository)
 
     expected = {
         "status": "runtime-reference-evidence",
-        "source_commit": subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            check=True,
-            capture_output=True,
-            text=True,
-        ).stdout.strip(),
-        "workflow_run_id": os.environ["GITHUB_RUN_ID"],
-        "workflow_run_attempt": os.environ["GITHUB_RUN_ATTEMPT"],
-        "caller_workflow_commit_sha": record["caller_workflow_commit_sha"],
-        "caller_workflow_ref": record["caller_workflow_ref"],
-        "workflow_definition_commit_sha": record["workflow_definition_commit_sha"],
-        "workflow_definition_ref": record["workflow_definition_ref"],
-        "workflow_definition_repository": record["workflow_definition_repository"],
-        "workflow_definition_file_path": record["workflow_definition_file_path"],
-        "workflow_definition_blob_sha": git_blob_sha(WORKFLOW),
-        "caller_workflow_blob_sha": git_blob_sha(CALLER_WORKFLOW),
+        "source_commit": actual_head,
+        "source_branch": record["source_branch"],
+        "source_repository": repository,
+        "trigger_workflow_run_id": record["trigger_workflow_run_id"],
+        "trigger_workflow_run_attempt": record["trigger_workflow_run_attempt"],
+        "trigger_workflow_name": EXPECTED_TRIGGER_WORKFLOW_NAME,
+        "trigger_workflow_path": EXPECTED_TRIGGER_WORKFLOW_PATH,
+        "trigger_workflow_blob_sha": git_blob_sha(TRIGGER_WORKFLOW),
+        "executor_run_id": os.environ["GITHUB_RUN_ID"],
+        "executor_run_attempt": os.environ["GITHUB_RUN_ATTEMPT"],
+        "executor_workflow_commit_sha": os.environ["GITHUB_WORKFLOW_SHA"],
+        "executor_workflow_ref": os.environ["GITHUB_WORKFLOW_REF"],
+        "executor_workflow_file_path": EXPECTED_EXECUTOR_WORKFLOW_PATH,
+        "executor_workflow_repository": repository,
         "attestation_status": manifest["attestation_policy"]["mode"],
         "d6s2_manifest_git_blob_sha": git_blob_sha(D6S2_MANIFEST),
         "d6s2_fixture_git_blob_sha": git_blob_sha(D6S2_FIXTURE),
@@ -134,7 +217,7 @@ def main() -> None:
         "supplemental_coverage": supplemental_coverage,
         "application_check_coverage": application_check_coverage,
         "case_outcome_classes": ",".join(manifest["evidence_outcome_classes"]),
-        "runtime": runtime,
+        "runtime": f"holochain-{manifest['substrate']['holochain']}",
         "hdk": manifest["substrate"]["hdk"],
         "hdi": manifest["substrate"]["hdi"],
         "rust": subprocess.run(
@@ -162,15 +245,6 @@ def main() -> None:
         "claim_ceiling": manifest["claim_ceiling"],
     }
 
-    assert set(produced_fields) == set(expected), (
-        f"workflow/record verifier schema mismatch: "
-        f"workflow_only={set(produced_fields) - set(expected)}, "
-        f"verifier_only={set(expected) - set(produced_fields)}"
-    )
-    assert set(record) == set(expected), (
-        f"evidence field mismatch: extra={set(record) - set(expected)}, "
-        f"missing={set(expected) - set(record)}"
-    )
     mismatches = {
         key: {"record": record[key], "expected": value}
         for key, value in expected.items()
@@ -178,28 +252,14 @@ def main() -> None:
     }
     assert not mismatches, "evidence record mismatch: " + repr(mismatches)
 
-    assert re.fullmatch(r"[0-9a-f]{40}", record["caller_workflow_commit_sha"])
-    assert record["caller_workflow_ref"].startswith(
-        f"{repository}/.github/workflows/d6s-canonical-qualification.yml@"
-    )
-    assert re.fullmatch(r"[0-9a-f]{40}", record["workflow_definition_commit_sha"])
-    assert record["workflow_definition_ref"].startswith(
-        f"{repository}/.github/workflows/d6u-exact-head-runtime.yml@"
-    )
-    assert record["workflow_definition_repository"] == repository
-    assert record["workflow_definition_file_path"] == (
-        ".github/workflows/d6u-exact-head-runtime.yml"
-    )
-    assert record["workflow_definition_blob_sha"] == git_blob_sha(WORKFLOW)
-    assert record["caller_workflow_blob_sha"] == git_blob_sha(CALLER_WORKFLOW)
-
     assert d6s2["profile"] == "D6S-CANON-2"
     assert d6s2["claim_ceiling"] == "ReferenceModelOnly"
     assert d6s2["runtime_evidence"]["status"] == "NotExecuted"
 
     print(
         "verified emitted D6U runtime evidence record: "
-        f"run={record['workflow_run_id']}, attempt={record['workflow_run_attempt']}, "
+        f"trigger_run={record['trigger_workflow_run_id']}, "
+        f"executor_run={record['executor_run_id']}, "
         f"source={record['source_commit']}"
     )
 
