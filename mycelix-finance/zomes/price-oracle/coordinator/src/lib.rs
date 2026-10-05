@@ -456,22 +456,38 @@ fn get_previous_consensus(item: &str) -> ExternResult<Option<PriceConsensus>> {
         GetStrategy::default(),
     )?;
 
-    if let Some(link) = links.last() {
-        if let Some(hash) = link.target.clone().into_action_hash() {
-            if let Some(record) = get(hash, GetOptions::default())? {
-                if let Some(prev) = record
-                    .entry()
-                    .to_app_option::<PriceConsensus>()
-                    .ok()
-                    .flatten()
-                {
-                    return Ok(Some(prev));
-                }
+    let mut best: Option<(Timestamp, ActionHash, PriceConsensus)> = None;
+
+    for link in links {
+        let Some(hash) = link.target.clone().into_action_hash() else {
+            continue;
+        };
+        let Some(record) = get(hash.clone(), GetOptions::default())? else {
+            continue;
+        };
+        let Some(consensus) = record
+            .entry()
+            .to_app_option::<PriceConsensus>()
+            .ok()
+            .flatten()
+        else {
+            continue;
+        };
+
+        let replace = match best.as_ref() {
+            None => true,
+            Some((best_time, best_hash, _)) => {
+                consensus.computed_at > *best_time
+                    || (consensus.computed_at == *best_time && hash > *best_hash)
             }
+        };
+
+        if replace {
+            best = Some((consensus.computed_at, hash, consensus));
         }
     }
 
-    Ok(None)
+    Ok(best.map(|(_, _, consensus)| consensus))
 }
 
 fn build_fallback_consensus(
