@@ -2013,9 +2013,10 @@ pub fn get_payment(payment_id: String) -> ExternResult<Option<Record>> {
         LinkQuery::try_new(anchor_hash(&payment_id)?, LinkTypes::PaymentIdToPayment)?,
         GetStrategy::default(),
     )?;
-    let Some(link) = links.into_iter().next() else {
+    if links.is_empty() {
         return Ok(None);
-    };
+    }
+    let link = exact_one_index_link(links, "PaymentIdToPayment", &payment_id)?;
     let hash = ActionHash::try_from(link.target.clone())
         .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
     Ok(Some(follow_update_chain(hash)?))
