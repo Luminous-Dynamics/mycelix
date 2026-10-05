@@ -86,7 +86,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         assert len(required[path]) == 40
         assert all(ch in "0123456789abcdef" for ch in required[path])
 
-    assert policy["policy_version"] == 26
+    assert policy["policy_version"] == 27
 
     assert policy["forbidden_cargo_config_paths"] == [
         ".cargo/config",
@@ -172,6 +172,30 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
     assert policy["attestation_verification"]["require_current_run_identity"] is True
     assert policy["attestation_verification"]["subject_set_exact"] is True
     assert policy["attestation_verification"]["require_verified_timestamp"] is True
+    assert policy["attestation_verification"]["require_verified_tlog"] is True
+
+    assert policy["attestation_retention"] == {
+        "schema": "d6u-attestation-retention/v1",
+        "expected_file_count": 8,
+        "max_file_bytes": 4194304,
+        "max_trusted_root_bytes": 2097152,
+        "max_total_bytes": 18874368,
+        "max_jsonl_lines": 64,
+        "subjects": [
+            "d6u-runtime-evidence.txt",
+            "d6u-runtime-test.log",
+            "Cargo.lock",
+        ],
+        "trusted_root_filename": "trusted_root.jsonl",
+        "offline_verified": True,
+        "require_public_good_instance": True,
+        "require_tlog": True,
+        "require_no_public_good_rejection": True,
+        "retention_artifact": {
+            "name_template": "d6u-trusted-attestation-retention-run-{run_id}-attempt-{run_attempt}",
+            "retention_days": 90,
+        },
+    }
 
     workflow_text = (Path(__file__).parents[2] / policy["trusted_workflow"]["path"]).read_text(encoding="utf-8")
     assert workflow_text.count("TRUSTED_POLICY_VERSION:") == 1
