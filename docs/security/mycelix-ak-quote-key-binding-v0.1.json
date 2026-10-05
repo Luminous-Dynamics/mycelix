@@ -41,7 +41,8 @@
       "quote_signature_source_sha256",
       "ak_public_spki_sha256"
     ],
-    "session_binding_sha256": "binding over all key/object/lineage/quote identity inputs"
+    "session_binding_sha256": "binding over all key/object/lineage/quote identity inputs",
+    "verifier_source_sha256": "exact SHA-256 of verifier source"
   },
   "outputs": [
     "ak_spki_sha256",
