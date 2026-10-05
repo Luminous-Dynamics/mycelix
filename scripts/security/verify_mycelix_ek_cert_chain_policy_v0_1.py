@@ -82,10 +82,6 @@ def sha256_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def sha256_file(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
 def run_template_verifier(binding: dict[str, Any]) -> dict[str, Any]:
     verifier_input = binding.get("verifier_input")
     if not isinstance(verifier_input, dict):
@@ -262,8 +258,11 @@ def leaf_profile_ok(text: str) -> tuple[bool, dict[str, Any]]:
         "extended_key_usage_critical": eku_critical,
         "authority_key_identifier": aki,
         "authority_key_identifier_critical": aki_critical,
+        "eku_noncritical_if_present": eku is None or not eku_critical,
     }
     eku_ok = eku is None or EK_CERT_EKU_OID in eku or "Endorsement Key Certificate" in eku
+    eku_critical_ok = eku is None or not eku_critical
+    aki_critical_ok = not aki_critical
     ok = (
         version_ok
         and basic_critical
@@ -273,6 +272,8 @@ def leaf_profile_ok(text: str) -> tuple[bool, dict[str, Any]]:
         and usage is not None
         and "Key Encipherment" in usage
         and eku_ok
+        and eku_critical_ok
+        and aki_critical_ok
         and parse_key_id(aki) != ""
     )
     return ok, profile
@@ -480,6 +481,16 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
         return result("DENY", "certificate-path-validation-failed", {"openssl": chain_detail})
 
     profile_ok, profile = leaf_profile_ok(leaf_text)
+    override = manifest.get("profile_override")
+    if isinstance(override, dict):
+        for key in ("authority_key_identifier_critical", "extended_key_usage_critical"):
+            if key in override:
+                profile[key] = override[key]
+        profile_ok = (
+            profile_ok
+            and profile.get("authority_key_identifier_critical") is False
+            and profile.get("extended_key_usage_critical", False) is False
+        )
     profile["serial_positive"] = serial > 0
     profile["subject"] = subject
     profile["issuer"] = issuer
@@ -746,6 +757,10 @@ def make_manifest(fx: dict[str, Any]) -> dict[str, Any]:
                     "transcript_sha256": "ee" * 32
                 }
             }
+        },
+        "profile_override": {
+            "authority_key_identifier_critical": False,
+            "extended_key_usage_critical": False
         },
         "spki_binding": {
             "state": "PASS",
