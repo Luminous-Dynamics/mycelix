@@ -54,6 +54,9 @@ jobs:
           HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
           BASE_REPOSITORY_EVENT: ${{ github.event.pull_request.base.repo.full_name }}
           BASE_BRANCH_EVENT: ${{ github.event.pull_request.base.ref }}
+          CANDIDATE_PR: ${{ inputs.candidate_pr }}
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          CANDIDATE_REPOSITORY: ${{ inputs.candidate_repository }}
           TRUSTED_WORKFLOW_BLOB_SHA: ${{ inputs.trusted_workflow_blob_sha }}
         run: |
           set -euo pipefail
