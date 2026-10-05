@@ -494,10 +494,8 @@ fn generated_transfer_id(from_did: &str, to_did: &str, amount: u64, now: Timesta
 
 /// Sender-side SAP settlement.
 ///
-/// This replaces the old synchronous cross-account transfer. The sender's
-/// debit and immutable transfer intent are committed on the sender's source
-/// chain in one transaction. The recipient must later call claim_sap_transfer
-/// to finalize the recipient leg.
+/// The sender creates and debits an immutable transfer intent. The recipient
+/// must later call claim_sap_transfer to finalize the recipient balance.
 #[hdk_extern]
 pub fn transfer_sap(input: TransferSapInput) -> ExternResult<Record> {
     verify_caller_is_did(&input.from_did)?;
