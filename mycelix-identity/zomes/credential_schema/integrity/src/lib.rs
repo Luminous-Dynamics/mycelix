@@ -395,6 +395,29 @@ mod tests {
         }
     }
 
+    #[test]
+    fn security_timestamps_cannot_be_future_dated() {
+        let action_timestamp = Timestamp::from_micros(1_000);
+        assert_eq!(
+            validate_timestamp_not_future(
+                "Schema created timestamp",
+                Timestamp::from_micros(1_000),
+                action_timestamp,
+            ),
+            ValidateCallbackResult::Valid
+        );
+        match validate_timestamp_not_future(
+            "Schema updated timestamp",
+            Timestamp::from_micros(1_001),
+            action_timestamp,
+        ) {
+            ValidateCallbackResult::Invalid(message) => {
+                assert!(message.contains("signed Holochain action timestamp"));
+            }
+            other => panic!("future schema timestamp must be invalid, got {other:?}"),
+        }
+    }
+
     // --- CredentialSchema ---
 
     #[test]
