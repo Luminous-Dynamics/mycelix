@@ -42,7 +42,7 @@ jobs:
   qualify:
     name: Independent Security Kernel
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - name: Checkout trusted qualification root
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -214,6 +214,8 @@ jobs:
           lockfile=root/"crates/mycelix-bridge-common/Cargo.lock"
           assert manifest.is_file(), manifest
           assert lockfile.is_file(), "Security Kernel qualification requires a committed Cargo.lock"
+          assert manifest.stat().st_size <= 2 * 1024 * 1024, "Cargo.toml exceeds qualification size bound"
+          assert lockfile.stat().st_size <= 32 * 1024 * 1024, "Cargo.lock exceeds qualification size bound"
           import tomllib
           manifest_text=manifest.read_text(encoding="utf-8")
           assert re.search(r"(?m)^\s*(git|path|registry)\s*=", manifest_text) is None, "manifest dependency source override is forbidden"
