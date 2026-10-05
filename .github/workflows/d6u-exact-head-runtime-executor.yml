@@ -71,19 +71,35 @@ jobs:
             RUSTC \
             RUSTDOC \
             RUSTFLAGS \
+            RUSTDOCFLAGS \
             CARGO_ENCODED_RUSTFLAGS \
             CARGO_BUILD_RUSTFLAGS \
+            CARGO_BUILD_RUSTDOCFLAGS \
             RUSTC_WRAPPER \
+            RUSTC_WORKSPACE_WRAPPER \
             CARGO_BUILD_RUSTC_WRAPPER \
             CARGO_BUILD_RUSTC \
             CARGO_BUILD_RUSTDOC \
             CARGO_BUILD_TARGET \
-            CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER; do
+            CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER \
+            RUSTUP_TOOLCHAIN \
+            RUSTUP_HOME \
+            RUSTUP_DIST_SERVER \
+            RUSTUP_UPDATE_ROOT; do
             if [ -n "${!variable:-}" ]; then
               echo "unexpected ambient toolchain override: $variable"
               exit 1
             fi
           done
+
+          while IFS='=' read -r name _; do
+            case "$name" in
+              CARGO_REGISTRIES_*|CARGO_SOURCE_*|CARGO_HTTP_*|CARGO_NET_*)
+                echo "unexpected ambient Cargo supply-chain override: $name"
+                exit 1
+                ;;
+            esac
+          done < <(env)
 
       - name: Preflight evidence verifiers
         run: python3 -m py_compile scripts/integral/verify_d6u_runtime_manifest.py scripts/integral/verify_d6u_runtime_evidence.py scripts/integral/verify_d6u_runtime_lock.py scripts/integral/verify_d6u_runtime_record.py
