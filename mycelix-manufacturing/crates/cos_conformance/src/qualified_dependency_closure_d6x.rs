@@ -322,12 +322,18 @@ impl DependencyClosureCertificateV1 {
                 evidence.observed_commitment.is_none()
             }
             SemanticDependencyResolutionV1::Present | SemanticDependencyResolutionV1::Stale => {
+                // For a concrete selected dependency, supplied resolution
+                // evidence must identify the exact object that was resolved.
+                // A retrieval address or qualification context by itself is
+                // not sufficient to justify Present/Stale when the semantic
+                // dependency already carries a commitment.
                 match (&dependency.commitment, &evidence.observed_commitment) {
                     (Some(expected), Some(observed)) => expected == observed,
-                    // Omitting an observed commitment is allowed when the
-                    // runtime cannot expose it, but a supplied observation must
-                    // agree with the semantic dependency commitment.
-                    _ => true,
+                    (Some(_), None) => false,
+                    // This arm is retained only for structurally valid future
+                    // dependency kinds that intentionally have no commitment.
+                    (None, None) => true,
+                    (None, Some(_)) => true,
                 }
             }
         }
@@ -1525,6 +1531,44 @@ mod tests {
 
         assert!(evidenced.valid());
         assert!(evidenced.verifies_against_sources(&a, &e, &d, &p));
+    }
+
+    #[test]
+    fn present_or_stale_resolution_evidence_requires_exact_observed_commitment() {
+        let (projection, environment, derivation_profile) = projection(false);
+        let profile = profile(BTreeSet::new());
+        let mut certificate =
+            compute_dependency_closure(&projection, &environment, &derivation_profile, &profile)
+                .expect("baseline closure");
+
+        let dependency = SemanticDependencyReferenceV1::node(
+            "root",
+            Some(
+                projection
+                    .nodes
+                    .get("root")
+                    .expect("root")
+                    .node_commitment
+                    .clone(),
+            ),
+        );
+        certificate.resolution_evidence.insert(
+            dependency,
+            SemanticDependencyResolutionEvidenceV1 {
+                retrieval_reference: Some("runtime://resolver/context-only".into()),
+                observed_commitment: None,
+                qualification_context_commitment: Some("qualification-context-1".into()),
+            },
+        );
+        certificate.commitment = certificate.recompute();
+
+        assert!(!certificate.valid());
+        assert!(!certificate.verifies_against_sources(
+            &projection,
+            &environment,
+            &derivation_profile,
+            &profile,
+        ));
     }
 
     #[test]
