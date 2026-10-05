@@ -677,21 +677,15 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 /// transfer, claim, mint, payment, or balance initialization.
 fn validate_delete_link_type(link_type: &LinkTypes) -> ValidateCallbackResult {
     match link_type {
-        LinkTypes::PaymentToReceipt
-        | LinkTypes::PaymentIdToPayment
-        | LinkTypes::DidToSapBalance
-        | LinkTypes::TransferIdToIntent
-        | LinkTypes::TransferIdToClaim
-        | LinkTypes::MintIdToClaim
-        | LinkTypes::MintIdToMintRecord
-        | LinkTypes::DidToMintRecords
-        | LinkTypes::ChannelIdToChannel
-        | LinkTypes::MemberToExitRecord => ValidateCallbackResult::Invalid(
-            "Critical finance index links are append-only and cannot be deleted".into(),
-        ),
         // PendingCompostQueue is deliberately mutable: successful delivery drains
         // the retry queue by deleting the consumed queue link.
-        _ => ValidateCallbackResult::Valid,
+        LinkTypes::PendingCompostQueue => ValidateCallbackResult::Valid,
+        // Every other link in this zome is an identity, audit, settlement, or
+        // discovery index. Deleting one would erase durable addressability or a
+        // replay/rate-limit guard, so new mutable queues must get their own link type.
+        _ => ValidateCallbackResult::Invalid(
+            "Finance index links are append-only and cannot be deleted".into(),
+        ),
     }
 }
 
@@ -1911,28 +1905,34 @@ mod tests {
     // ---- 22. Critical finance indexes cannot be deleted ----
 
     #[test]
-    fn test_critical_finance_indexes_are_non_destructive() {
-        let critical = vec![
+    fn test_all_finance_indexes_except_retry_queue_are_non_destructive() {
+        let links = vec![
+            LinkTypes::SenderToPayments,
+            LinkTypes::ReceiverToPayments,
             LinkTypes::PaymentToReceipt,
-            LinkTypes::PaymentIdToPayment,
+            LinkTypes::ChannelPartyA,
+            LinkTypes::ChannelPartyB,
             LinkTypes::DidToSapBalance,
             LinkTypes::TransferIdToIntent,
             LinkTypes::TransferIdToClaim,
             LinkTypes::MintIdToClaim,
+            LinkTypes::MemberToExitRecord,
+            LinkTypes::PaymentIdToPayment,
             LinkTypes::MintIdToMintRecord,
             LinkTypes::DidToMintRecords,
+            LinkTypes::HearthDidToSapPool,
             LinkTypes::ChannelIdToChannel,
-            LinkTypes::MemberToExitRecord,
+            LinkTypes::MintCapCounterAnchor,
         ];
 
-        for link_type in &critical {
+        for link_type in &links {
             assert!(
                 matches!(
                     validate_delete_link_type(link_type),
                     ValidateCallbackResult::Invalid(msg)
                         if msg.contains("append-only")
                 ),
-                "critical finance link should be non-destructive: {link_type:?}",
+                "finance index should be non-destructive: {link_type:?}",
             );
         }
     }
