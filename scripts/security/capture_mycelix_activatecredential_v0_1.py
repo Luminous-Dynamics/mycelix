@@ -144,7 +144,7 @@ def capture(out:Path,tpm_identity_digest:str)->int:
         "makecredential_returncode":receipt["makecredential_returncode"],
         "activatecredential_returncode":receipt["activatecredential_returncode"],
         "ak_authorization_file_sha256":receipt["ak_authorization_file_sha256"],
-        "source_sha256":receipt["source_sha256"],
+        "capture_source_sha256":receipt["capture_source_sha256"],
     })
     receipt["content_sha256"]=canonical_hash({k:v for k,v in receipt.items() if k!="content_sha256"})
     (out/"activatecredential-makecredential-transcript.json").write_text(json.dumps(make_tx,indent=2,sort_keys=True)+"\n",encoding="utf-8")
