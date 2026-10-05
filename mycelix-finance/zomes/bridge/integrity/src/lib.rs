@@ -804,6 +804,23 @@ fn validate_create_reserve_valuation_snapshot(
                 "Reserve source report item does not match snapshot source_item".into(),
             ));
         }
+        if report.observed_at > report.reported_at {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Reserve source observation time cannot be later than report time".into(),
+            ));
+        }
+        if report.reported_at < snapshot.effective_window_start
+            || report.reported_at > snapshot.effective_window_end
+        {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Reserve source report is outside the snapshot effective window".into(),
+            ));
+        }
+        if !report.price_tend.is_finite() || report.price_tend <= 0.0 {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Reserve source report price must be positive and finite".into(),
+            ));
+        }
     }
 
     Ok(ValidateCallbackResult::Valid)
