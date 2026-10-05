@@ -75,17 +75,18 @@ def canonicalize_pem(pem:str,work:Path)->tuple[bytes,str]:
     if pub.returncode!=0:raise RuntimeError(f"AK public key parse failed: {pub.stderr}")
     return out.read_bytes(),ver.stdout.strip()
 def session_binding(m:dict[str,Any])->str:
+    if m["verifier_source_sha256"]!=hashlib.sha256(Path(__file__).read_bytes()).hexdigest():return result("DENY","verifier-source-digest-mismatch")
     l=m["lineage_binding"];q=m["quote_binding"]
-    return canonical_hash({"session_id":m["session_id"],"ak_public_key_sha256":m["ak_public_key_sha256"],"ak_public_source_sha256":m["ak_public_source_sha256"],"ak_public_wire_sha256":m["ak_public_wire_sha256"],"ak_name_hex":m["ak_name_hex"],"lineage_state":l.get("state"),"lineage_name_hex":l.get("name_hex"),"lineage_public_area_sha256":l.get("public_area_sha256"),"lineage_qualified_name_hex":l.get("qualified_name_hex"),"lineage_source_sha256":l.get("source_sha256"),"quote_state":q.get("state"),"quote_signature_source_sha256":q.get("quote_signature_source_sha256"),"quote_ak_public_spki_sha256":q.get("ak_public_spki_sha256")})
+    return canonical_hash({"verifier_source_sha256":m["verifier_source_sha256"],"session_id":m["session_id"],"ak_public_key_sha256":m["ak_public_key_sha256"],"ak_public_source_sha256":m["ak_public_source_sha256"],"ak_public_wire_sha256":m["ak_public_wire_sha256"],"ak_name_hex":m["ak_name_hex"],"lineage_state":l.get("state"),"lineage_name_hex":l.get("name_hex"),"lineage_public_area_sha256":l.get("public_area_sha256"),"lineage_qualified_name_hex":l.get("qualified_name_hex"),"lineage_source_sha256":l.get("source_sha256"),"quote_state":q.get("state"),"quote_signature_source_sha256":q.get("quote_signature_source_sha256"),"quote_ak_public_spki_sha256":q.get("ak_public_spki_sha256")})
 def verify(m:dict[str,Any])->dict[str,Any]:
-    req={"profile_id","profile_version","verification_mode","claim_ceiling","session_id","ak_public_key_pem","ak_public_key_sha256","ak_public_source_sha256","ak_public_wire_hex","ak_public_wire_sha256","ak_name_hex","lineage_binding","quote_binding","session_binding_sha256"}
+    req={"profile_id","profile_version","verification_mode","claim_ceiling","verifier_source_sha256","session_id","ak_public_key_pem","ak_public_key_sha256","ak_public_source_sha256","ak_public_wire_hex","ak_public_wire_sha256","ak_name_hex","lineage_binding","quote_binding","session_binding_sha256"}
     miss=sorted(req-set(m))
     if miss:return result("DENY","missing-required-fields",{"fields":miss})
     if m["profile_id"]!="mycelix.security.tpm.ak-quote-key-binding":return result("DENY","profile-id-mismatch")
     if m["profile_version"]!="0.1.0":return result("DENY","profile-version-mismatch")
     if m["claim_ceiling"]!="ReferenceModelOnly":return result("DENY","claim-ceiling-mismatch")
     if m["verification_mode"] not in {"ReferenceModelOnly","OfflineBundle","LiveVerifierSession"}:return result("DENY","verification-mode-invalid")
-    for f in ("ak_public_key_sha256","ak_public_source_sha256","ak_public_wire_sha256","session_binding_sha256"):
+    for f in ("verifier_source_sha256","ak_public_key_sha256","ak_public_source_sha256","ak_public_wire_sha256","session_binding_sha256"):
         if not valid_hash(m[f]):return result("DENY","digest-invalid",{"field":f})
     l=m["lineage_binding"];q=m["quote_binding"]
     if not isinstance(l,dict) or not isinstance(q,dict):return result("DENY","binding-object-invalid")
@@ -209,7 +210,7 @@ def self_test()->int:
         ("quote-source-substitution","DENY",lambda x:x["quote_binding"].update({"quote_signature_source_sha256":"bb"*32})),
         ("key-type-substitution","DENY",lambda x:x.update({"ak_public_wire_hex":"0002"+x["ak_public_wire_hex"][4:]})),
         ("rsa-modulus-substitution","DENY",lambda x:mutate_wire_byte(x,len(hex_bytes(x["ak_public_wire_hex"],"ak_public_wire_hex"))-1)),
-        ("rsa-exponent-substitution","DENY",lambda x:mutate_wire_byte(x,14)),
+        ("rsa-exponent-substitution","DENY",lambda x:mutate_wire_byte(x,18)),
         ("offline-origin","INDETERMINATE",lambda x:x.update({"verification_mode":"OfflineBundle"})),
         ("live-origin","INDETERMINATE",lambda x:x.update({"verification_mode":"LiveVerifierSession"})),
     ]
