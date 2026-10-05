@@ -22,6 +22,8 @@ jobs:
       contents: read
       id-token: write
       attestations: write
+    env:
+      GH_CONFIG_DIR: ${{ runner.temp }}/d6u-gh-config
     steps:
       - name: Checkout trusted policy root
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -37,7 +39,7 @@ jobs:
 
       - name: Assert trusted policy root cohesion
         env:
-          TRUSTED_POLICY_VERSION: "25"
+          TRUSTED_POLICY_VERSION: "26"
         run: |
           set -euo pipefail
           policy_version=$(python3 -c 'import json; print(json.load(open("docs/integral/d6u-trusted-builder-policy.json"))["policy_version"])')
@@ -98,6 +100,20 @@ jobs:
             ${{ runner.temp }}/d6u-trusted-input/Cargo.lock
           predicate-type: https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1
           predicate-path: ${{ runner.temp }}/d6u-trusted-evidence-predicate.json
+
+      - name: Assert GitHub CLI verification environment
+        run: |
+          set -euo pipefail
+          rm -rf "$GH_CONFIG_DIR"
+          mkdir -p "$GH_CONFIG_DIR"
+          test -z "$(find "$GH_CONFIG_DIR" -mindepth 1 -maxdepth 1 -print -quit)"
+          test "$(gh version | sed -n '1s/^gh version \([^ ]*\).*/\1/p')" = "2.101.0"
+          for variable in GH_HOST GH_ENTERPRISE_TOKEN GH_REPO; do
+            if [ -n "${!variable:-}" ]; then
+              echo "unexpected ambient GitHub CLI override: $variable"
+              exit 1
+            fi
+          done
 
       - name: Verify trusted D6U attestations
         env:
