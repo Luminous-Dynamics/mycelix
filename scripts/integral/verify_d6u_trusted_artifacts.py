@@ -119,36 +119,39 @@ def load_record(path: Path) -> dict[str, str]:
     return record
 
 
+def verify_executor_workflow_record(
+    record: dict[str, str],
+    policy: dict,
+    repo: str,
+) -> None:
+    cfg = policy["executor_workflow"]
+    assert record["executor_workflow_file_path"] == cfg["path"]
+    assert record["executor_workflow_repository"] == repo
+    assert re.fullmatch(r"[0-9a-f]{40}", record["executor_workflow_commit_sha"])
+    assert record["executor_workflow_ref"].startswith(f"{repo}/{cfg['path']}@")
+
+
 def verify_executor_workflow_identity(
     record: dict[str, str],
     policy: dict,
     repo: str,
     token: str,
 ) -> None:
-    cfg = policy["executor_workflow"]
-    assert record["executor_workflow_file_path"] == cfg["path"]
-    assert record["executor_workflow_repository"] == repo
-    assert re.fullmatch(r"[0-9a-f]{40}", record["executor_workflow_commit_sha"])
-    assert record["executor_workflow_ref"].startswith(
-        f"{repo}/{cfg['path']}@"
+    verify_executor_workflow_record(record, policy, repo)
+    tree = git_tree_from_api(repo, record["executor_workflow_commit_sha"], token)
+    verify_required_tracked_blobs(
+        tree,
+        {policy["executor_workflow"]["path"]: policy["executor_workflow"]["blob_sha"]},
     )
 
-    tree = git_tree_from_api(repo, record["executor_workflow_commit_sha"], token)
-    verify_required_tracked_blobs(tree, {cfg["path"]: cfg["blob_sha"]})
 
-
-def verify_trigger_run(
+def verify_trigger_run_record(
     record: dict[str, str],
+    trigger: dict,
     policy: dict,
     repo: str,
-    token: str,
-) -> dict:
+) -> None:
     cfg = policy["trigger_workflow"]
-    trigger = github_get(
-        repo,
-        f"/actions/runs/{urllib.parse.quote(record['trigger_workflow_run_id'], safe='')}",
-        token,
-    )
     assert trigger["name"] == cfg["name"]
     assert trigger["path"] == cfg["path"]
     assert trigger["event"] == "pull_request"
@@ -157,12 +160,24 @@ def verify_trigger_run(
     assert trigger["head_branch"] == policy["source_branch"]
     assert trigger["run_attempt"] == int(record["trigger_workflow_run_attempt"])
     assert trigger["head_sha"] == record["source_commit"]
-
     assert record["trigger_workflow_name"] == trigger["name"]
     assert record["trigger_workflow_path"] == trigger["path"]
     assert record["source_repository"] == trigger["head_repository"]["full_name"]
     assert record["source_branch"] == trigger["head_branch"]
 
+
+def verify_trigger_run(
+    record: dict[str, str],
+    policy: dict,
+    repo: str,
+    token: str,
+) -> dict:
+    trigger = github_get(
+        repo,
+        f"/actions/runs/{urllib.parse.quote(record['trigger_workflow_run_id'], safe='')}",
+        token,
+    )
+    verify_trigger_run_record(record, trigger, policy, repo)
     source_tree = git_tree_from_api(repo, record["source_commit"], token)
     verify_required_tracked_blobs(
         source_tree,
