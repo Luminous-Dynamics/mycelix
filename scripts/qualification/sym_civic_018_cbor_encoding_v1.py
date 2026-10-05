@@ -246,9 +246,7 @@ def primary(data):
     try:
         root, end = parse(data)
         if end != len(data):
-            return MESSAGE_REJECT
-        if not deterministic(root):
-            return ENCODING_REJECT
+            return PARSE_ERROR
         if root[0] != "a" or len(root[1]) != 4:
             return MESSAGE_REJECT
         protected, unprotected, payload, signature = root[1]
@@ -259,7 +257,7 @@ def primary(data):
             return MESSAGE_REJECT
         if set(kid(k) for k, _ in pmap[1]).intersection(set(kid(k) for k, _ in unprotected[1])):
             return MESSAGE_REJECT
-        if not deterministic(pmap) or not deterministic(unprotected):
+        if not deterministic(root) or not deterministic(pmap) or not deterministic(unprotected):
             return ENCODING_REJECT
         labels = {kid(k) for k, _ in pmap[1]}
         if ("i", 1) not in labels or ("i", 4) not in labels:
@@ -423,9 +421,7 @@ def reference(data):
     try:
         root, end = scan(data)
         if end != len(data):
-            return MESSAGE_REJECT
-        if not ref_deterministic(root):
-            return ENCODING_REJECT
+            return PARSE_ERROR
         if root["m"] != 4 or len(root["items"]) != 4:
             return MESSAGE_REJECT
         protected, unprotected, payload, signature = root["items"]
@@ -443,6 +439,8 @@ def reference(data):
         right = {ref_key(k) for k,_ in unprotected["pairs"]}
         if left.intersection(right):
             return MESSAGE_REJECT
+        if not ref_deterministic(root) or not ref_deterministic(pmap) or not ref_deterministic(unprotected):
+            return ENCODING_REJECT
         if ("i",1) not in left or ("i",4) not in left:
             return MESSAGE_REJECT
         if payload["m"] not in (2,7) or (payload["m"] == 7 and payload["v"] != 22):
