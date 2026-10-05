@@ -1521,6 +1521,10 @@ pub struct ClaimEpistemic {
 pub enum EpistemicProvenance {
     /// Values were accepted from a validated Knowledge classification response.
     KnowledgeClassified,
+    /// Knowledge classification could not be obtained; no epistemic score is present.
+    KnowledgeUnavailable,
+    /// Knowledge returned a malformed or semantically invalid classification.
+    KnowledgeMalformed,
     /// Historical record without a persisted source/provenance discriminator.
     LegacyUnattributed,
 }
@@ -2869,6 +2873,8 @@ mod tests {
     fn test_epistemic_provenance_serde_roundtrip() {
         for provenance in [
             EpistemicProvenance::KnowledgeClassified,
+            EpistemicProvenance::KnowledgeUnavailable,
+            EpistemicProvenance::KnowledgeMalformed,
             EpistemicProvenance::LegacyUnattributed,
         ] {
             let json = serde_json::to_string(&provenance).unwrap();
