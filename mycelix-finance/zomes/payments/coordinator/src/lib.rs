@@ -474,6 +474,24 @@ pub struct TransferSapInput {
     pub transfer_id: Option<String>,
 }
 
+fn generated_transfer_id(from_did: &str, to_did: &str, amount: u64, now: Timestamp) -> String {
+    let mut bytes = b"mycelix.sap.transfer.v1".to_vec();
+    bytes.extend_from_slice(&(from_did.len() as u32).to_be_bytes());
+    bytes.extend_from_slice(from_did.as_bytes());
+    bytes.extend_from_slice(&(to_did.len() as u32).to_be_bytes());
+    bytes.extend_from_slice(to_did.as_bytes());
+    bytes.extend_from_slice(&amount.to_be_bytes());
+    bytes.extend_from_slice(&now.as_micros().to_be_bytes());
+
+    let digest = holo_hash::blake2b_256(&bytes);
+    let mut hex = String::with_capacity(digest.len() * 2);
+    for byte in digest {
+        use std::fmt::Write;
+        let _ = write!(&mut hex, "{byte:02x}");
+    }
+    format!("transfer:{hex}")
+}
+
 /// Sender-side SAP settlement.
 ///
 /// This replaces the old synchronous cross-account transfer. The sender's
@@ -526,14 +544,15 @@ pub fn transfer_sap(input: TransferSapInput) -> ExternResult<Record> {
         }
     }
 
-    let transfer_id = input.transfer_id.unwrap_or_else(|| {
-        format!(
-            "transfer:{}:{}:{}",
-            input.from_did,
-            input.to_did,
-            sys_time().map(|time| time.as_micros()).unwrap_or_default()
-        )
-    });
+    let transfer_id = match input.transfer_id {
+        Some(id) => id,
+        None => generated_transfer_id(
+            &input.from_did,
+            &input.to_did,
+            input.amount,
+            sys_time()?,
+        ),
+    };
 
     initiate_sap_transfer(TransferSapIntentInput {
         transfer_id,
@@ -1487,6 +1506,13 @@ pub fn send_payment(input: SendPaymentInput) -> ExternResult<Record> {
 
     let now = sys_time()?;
 
+    if input.currency == "SAP" {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Synchronous SAP send is retired: use transfer_sap and claim_sap_transfer"
+                .into(),
+        )));
+    }
+
     // Per-agent rate limit: reject if this agent has exceeded the payment
     // send limit within the current 60-second window.
     {
@@ -1510,13 +1536,6 @@ pub fn send_payment(input: SendPaymentInput) -> ExternResult<Record> {
             LinkTypes::SenderToPayments,
             (),
         )?;
-    }
-
-    if input.currency == "SAP" {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Synchronous SAP send is retired: use transfer_sap and claim_sap_transfer"
-                .into(),
-        )));
     }
 
     let (memo, fee_amount) = (input.memo.clone(), 0);
