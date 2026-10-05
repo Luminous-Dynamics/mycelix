@@ -126,8 +126,8 @@ def assert_identity(event: dict, record: dict[str, str], repository: str) -> Non
     assert record["executor_workflow_file_path"] == EXPECTED_EXECUTOR_WORKFLOW_PATH
 
     assert re.fullmatch(r"[0-9a-f]{40}", record["executor_workflow_commit_sha"])
-    assert record["executor_workflow_ref"].startswith(
-        f"{repository}/{EXPECTED_EXECUTOR_WORKFLOW_PATH}@"
+    assert record["executor_workflow_ref"] == (
+        f"{repository}/{EXPECTED_EXECUTOR_WORKFLOW_PATH}@refs/heads/main"
     )
     assert re.fullmatch(r"[0-9a-f]{40}", record["trigger_workflow_blob_sha"])
     assert record["trigger_workflow_blob_sha"] == git_blob_sha(TRIGGER_WORKFLOW)
