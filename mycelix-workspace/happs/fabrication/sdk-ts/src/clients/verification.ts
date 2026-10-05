@@ -120,8 +120,8 @@ export class VerificationClient {
    * Get epistemic score for a design
    *
    * Returns aggregated E/N/M scores from Knowledge-classified claims only.
-   * If Knowledge classification is unavailable or malformed, safety-claim
-   * submission fails closed instead of storing fallback scores.
+   * A safety claim remains queryable when Knowledge is unavailable or malformed,
+   * but it carries no epistemic score until classification succeeds.
    */
   async getEpistemicScore(designHash: ActionHash): Promise<EpistemicScore> {
     return this.client.callZome({
