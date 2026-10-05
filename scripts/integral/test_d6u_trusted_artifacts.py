@@ -8,9 +8,10 @@ from verify_d6u_trusted_artifacts import (
     load_record,
     verify_artifact_layout,
     verify_cases,
+    verify_executor_workflow_record,
     verify_lock,
     verify_required_tracked_blobs,
-    verify_workflow_identity,
+    verify_trigger_run_record,
 )
 
 
@@ -76,37 +77,60 @@ def test_duplicate_case_is_rejected() -> None:
     )
 
 
-def test_workflow_identity_tampering_is_rejected() -> None:
+def test_executor_workflow_identity_tampering_is_rejected() -> None:
     policy = {
-        "workflow_path": ".github/workflows/d6u-exact-head-runtime.yml",
-        "caller_workflow_path": ".github/workflows/d6s-canonical-qualification.yml",
-        "required_tracked_blobs": {
-            ".github/workflows/d6u-exact-head-runtime.yml": "a" * 40,
-            ".github/workflows/d6s-canonical-qualification.yml": "b" * 40,
+        "executor_workflow": {
+            "name": "D6U Exact-Head Runtime Executor",
+            "path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
+            "blob_sha": "a" * 40,
         },
     }
     valid = {
-        "caller_workflow_commit_sha": "c" * 40,
-        "caller_workflow_ref": "Luminous-Dynamics/mycelix/.github/workflows/d6s-canonical-qualification.yml@refs/heads/main",
-        "workflow_definition_commit_sha": "d" * 40,
-        "workflow_definition_ref": "Luminous-Dynamics/mycelix/.github/workflows/d6u-exact-head-runtime.yml@refs/heads/main",
-        "workflow_definition_repository": "Luminous-Dynamics/mycelix",
-        "workflow_definition_file_path": ".github/workflows/d6u-exact-head-runtime.yml",
-        "workflow_definition_blob_sha": "a" * 40,
-        "caller_workflow_blob_sha": "b" * 40,
+        "executor_workflow_file_path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
+        "executor_workflow_repository": "Luminous-Dynamics/mycelix",
+        "executor_workflow_commit_sha": "c" * 40,
+        "executor_workflow_ref": "Luminous-Dynamics/mycelix/.github/workflows/d6u-exact-head-runtime-executor.yml@refs/heads/main",
     }
-    verify_workflow_identity(valid, policy)
+    verify_executor_workflow_record(valid, policy, "Luminous-Dynamics/mycelix")
 
-    tampered_definition = {**valid, "workflow_definition_blob_sha": "e" * 40}
+    tampered = {**valid, "executor_workflow_repository": "attacker/repo"}
     assert_rejected(
-        lambda: verify_workflow_identity(tampered_definition, policy),
-        "tampered called-workflow identity was accepted",
+        lambda: verify_executor_workflow_record(tampered, policy, "Luminous-Dynamics/mycelix"),
+        "tampered executor repository was accepted",
     )
 
-    tampered_caller = {**valid, "caller_workflow_blob_sha": "f" * 40}
+def test_trigger_run_identity_tampering_is_rejected() -> None:
+    policy = {
+        "source_branch": "myc-int-demo-d6u-holochain-07-runtime",
+        "trigger_workflow": {
+            "name": "D6S Canonical Qualification",
+            "path": ".github/workflows/d6s-canonical-qualification.yml",
+        },
+    }
+    record = {
+        "trigger_workflow_run_attempt": "2",
+        "trigger_workflow_name": "D6S Canonical Qualification",
+        "trigger_workflow_path": ".github/workflows/d6s-canonical-qualification.yml",
+        "source_repository": "Luminous-Dynamics/mycelix",
+        "source_branch": "myc-int-demo-d6u-holochain-07-runtime",
+        "source_commit": "d" * 40,
+    }
+    trigger = {
+        "name": "D6S Canonical Qualification",
+        "path": ".github/workflows/d6s-canonical-qualification.yml",
+        "event": "pull_request",
+        "conclusion": "success",
+        "head_repository": {"full_name": "Luminous-Dynamics/mycelix"},
+        "head_branch": "myc-int-demo-d6u-holochain-07-runtime",
+        "run_attempt": 2,
+        "head_sha": "d" * 40,
+    }
+    verify_trigger_run_record(record, trigger, policy, "Luminous-Dynamics/mycelix")
+
+    bad_trigger = {**trigger, "head_sha": "e" * 40}
     assert_rejected(
-        lambda: verify_workflow_identity(tampered_caller, policy),
-        "tampered caller-workflow identity was accepted",
+        lambda: verify_trigger_run_record(record, bad_trigger, policy, "Luminous-Dynamics/mycelix"),
+        "tampered trigger SHA was accepted",
     )
 
 
@@ -272,9 +296,10 @@ if __name__ == "__main__":
         test_valid_log_is_accepted,
         test_case_tampering_is_rejected,
         test_duplicate_case_is_rejected,
-        test_workflow_identity_tampering_is_rejected,
+        test_executor_workflow_identity_tampering_is_rejected,
         test_lock_provenance_is_rejected_when_tampered,
         test_duplicate_record_key_is_rejected,
+        test_trigger_run_identity_tampering_is_rejected,
         test_tracked_source_tree_accepts_exact_blobs,
         test_tracked_source_tree_rejects_symlink_mode,
         test_tracked_source_tree_rejects_nonblob_entry,
