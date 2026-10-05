@@ -1030,6 +1030,438 @@ async fn dsid_058_deactivated_did_rejects_attestation_request() {
 
 #[tokio::test(flavor = "multi_thread")]
 #[ignore]
+async fn dsid_059_deactivated_did_rejects_presigned_vc_issuance() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let app = conductor
+        .setup_app(
+            "dsid-deactivated-presigned-vc",
+            std::slice::from_ref(&dna),
+        )
+        .await
+        .unwrap();
+    let cell = app.cells()[0].clone();
+    let agent = app.agent().clone();
+
+    let did_record: Record = conductor
+        .call(&cell.zome("did_registry"), "create_did", ())
+        .await;
+    let did: DidDocument = decode_entry(&did_record).expect("DID record must decode");
+
+    let deactivated: Record = conductor
+        .call(
+            &cell.zome("did_registry"),
+            "deactivate_did",
+            "DSID post-deactivation pre-signed VC regression",
+        )
+        .await;
+
+    let blocked: Result<Record, _> = conductor
+        .call_fallible(
+            &cell.zome("verifiable_credential"),
+            "issue_credential_with_proof",
+            serde_json::json!({
+                "credential": {
+                    "@context": ["https://www.w3.org/ns/credentials/v2"],
+                    "id": "urn:uuid:dsid-059",
+                    "type": ["VerifiableCredential"],
+                    "issuer": did.id.clone(),
+                    "validFrom": "2026-10-05T00:00:00Z",
+                    "credentialSubject": {
+                        "id": did.id.clone()
+                    },
+                    "proof": {
+                        "type": "DataIntegrityProof",
+                        "created": "2026-10-05T00:00:00Z",
+                        "verificationMethod": format!("{}#keys-1", did.id),
+                        "proofPurpose": "assertionMethod",
+                        "proofValue": "zblocked",
+                        "cryptosuite": "mycelix-blake2b-ed25519-2026"
+                    },
+                    "mycelix_schema_id": "",
+                    "mycelix_created": 0
+                }
+            }),
+        )
+        .await;
+
+    let rejection = format!("{blocked:?}");
+    assert!(blocked.is_err(), "deactivated issuer must not submit pre-signed credentials");
+    assert!(
+        rejection.contains("not active"),
+        "pre-signed issuance rejection must come from the active-DID guard, got: {rejection}"
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("issuer", agent.to_string());
+    emit_evidence(
+        "DSID-059",
+        "deactivated-did-rejects-presigned-vc-issuance",
+        &dna,
+        agents,
+        &[&did_record, &deactivated],
+        "A deactivated DID cannot introduce a new pre-signed W3C credential, even when its historical signing key remains valid.",
+        format!("presigned_issuance_rejected={}", blocked.is_err()),
+        blocked.is_err(),
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_060_deactivated_did_rejects_derived_credential() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let app = conductor
+        .setup_app(
+            "dsid-deactivated-derived-vc",
+            std::slice::from_ref(&dna),
+        )
+        .await
+        .unwrap();
+    let cell = app.cells()[0].clone();
+    let agent = app.agent().clone();
+
+    let did_record: Record = conductor
+        .call(&cell.zome("did_registry"), "create_did", ())
+        .await;
+    let did: DidDocument = decode_entry(&did_record).expect("DID record must decode");
+
+    let deactivated: Record = conductor
+        .call(
+            &cell.zome("did_registry"),
+            "deactivate_did",
+            "DSID post-deactivation derived-credential regression",
+        )
+        .await;
+
+    let blocked: Result<Record, _> = conductor
+        .call_fallible(
+            &cell.zome("verifiable_credential"),
+            "create_derived_credential",
+            serde_json::json!({
+                "credential_id": "nonexistent-after-deactivation",
+                "selected_claims": [],
+                "expires_hours": 24
+            }),
+        )
+        .await;
+
+    let rejection = format!("{blocked:?}");
+    assert!(blocked.is_err(), "deactivated holder must not create derived credentials");
+    assert!(
+        rejection.contains("not active"),
+        "derived-credential rejection must come from the active-DID guard, got: {rejection}"
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("holder", agent.to_string());
+    emit_evidence(
+        "DSID-060",
+        "deactivated-did-rejects-derived-credential",
+        &dna,
+        agents,
+        &[&did_record, &deactivated],
+        "A deactivated holder cannot mint a new selective-disclosure derived credential.",
+        format!("derived_creation_rejected={}", blocked.is_err()),
+        blocked.is_err(),
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_061_deactivated_did_rejects_credential_request() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let app = conductor
+        .setup_app(
+            "dsid-deactivated-credential-request",
+            std::slice::from_ref(&dna),
+        )
+        .await
+        .unwrap();
+    let cell = app.cells()[0].clone();
+    let agent = app.agent().clone();
+
+    let did_record: Record = conductor
+        .call(&cell.zome("did_registry"), "create_did", ())
+        .await;
+    let did: DidDocument = decode_entry(&did_record).expect("DID record must decode");
+
+    let deactivated: Record = conductor
+        .call(
+            &cell.zome("did_registry"),
+            "deactivate_did",
+            "DSID post-deactivation credential-request regression",
+        )
+        .await;
+
+    let blocked: Result<Record, _> = conductor
+        .call_fallible(
+            &cell.zome("verifiable_credential"),
+            "request_credential",
+            serde_json::json!({
+                "issuer_did": "did:mycelix:target-issuer",
+                "schema_id": "",
+                "claims": {},
+                "evidence": []
+            }),
+        )
+        .await;
+
+    let rejection = format!("{blocked:?}");
+    assert!(blocked.is_err(), "deactivated requester must not create credential requests");
+    assert!(
+        rejection.contains("not active"),
+        "credential-request rejection must come from the active-DID guard, got: {rejection}"
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("requester", agent.to_string());
+    emit_evidence(
+        "DSID-061",
+        "deactivated-did-rejects-credential-request",
+        &dna,
+        agents,
+        &[&did_record, &deactivated],
+        "A deactivated requester cannot initiate a new credential-request authority flow.",
+        format!("credential_request_rejected={}", blocked.is_err()),
+        blocked.is_err(),
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_062_deactivated_issuer_rejects_credential_request_approval() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let requester_app = conductor
+        .setup_app(
+            "dsid-deactivated-approval-requester",
+            std::slice::from_ref(&dna),
+        )
+        .await
+        .unwrap();
+    let issuer_app = conductor
+        .setup_app(
+            "dsid-deactivated-approval-issuer",
+            std::slice::from_ref(&dna),
+        )
+        .await
+        .unwrap();
+    let requester = requester_app.cells()[0].clone();
+    let issuer = issuer_app.cells()[0].clone();
+    let requester_agent = requester_app.agent().clone();
+    let issuer_agent = issuer_app.agent().clone();
+
+    let requester_record: Record = conductor
+        .call(&requester.zome("did_registry"), "create_did", ())
+        .await;
+    let issuer_record: Record = conductor
+        .call(&issuer.zome("did_registry"), "create_did", ())
+        .await;
+    let issuer_did: DidDocument =
+        decode_entry(&issuer_record).expect("issuer DID must decode");
+
+    let request: Record = conductor
+        .call(
+            &requester.zome("verifiable_credential"),
+            "request_credential",
+            serde_json::json!({
+                "issuer_did": issuer_did.id.clone(),
+                "schema_id": "",
+                "claims": {
+                    "purpose": "DSID approval lifecycle"
+                },
+                "evidence": []
+            }),
+        )
+        .await;
+    let request_value: serde_json::Value = request
+        .entry()
+        .to_app_option()
+        .unwrap()
+        .unwrap();
+    let request_id = request_value["id"]
+        .as_str()
+        .expect("credential request ID must exist")
+        .to_owned();
+
+    await_consistency(&[requester.clone(), issuer.clone()])
+        .await
+        .expect("credential request must reach the issuer");
+
+    let _under_review: Record = conductor
+        .call(
+            &issuer.zome("verifiable_credential"),
+            "update_request_status",
+            serde_json::json!({
+                "request_id": request_id.clone(),
+                "new_status": "UnderReview"
+            }),
+        )
+        .await;
+
+    let deactivated: Record = conductor
+        .call(
+            &issuer.zome("did_registry"),
+            "deactivate_did",
+            "DSID post-deactivation credential approval regression",
+        )
+        .await;
+
+    let blocked: Result<Record, _> = conductor
+        .call_fallible(
+            &issuer.zome("verifiable_credential"),
+            "update_request_status",
+            serde_json::json!({
+                "request_id": request_id,
+                "new_status": "Approved"
+            }),
+        )
+        .await;
+
+    let rejection = format!("{blocked:?}");
+    assert!(blocked.is_err(), "deactivated issuer must not approve credential requests");
+    assert!(
+        rejection.contains("not active"),
+        "approval rejection must come from the active-DID guard, got: {rejection}"
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("requester", requester_agent.to_string());
+    agents.insert("issuer", issuer_agent.to_string());
+    emit_evidence(
+        "DSID-062",
+        "deactivated-issuer-rejects-credential-request-approval",
+        &dna,
+        agents,
+        &[&requester_record, &issuer_record, &request, &deactivated],
+        "Credential-request approval is a new issuer authority act and must stop when the issuer DID is deactivated.",
+        format!("approval_rejected={}", blocked.is_err()),
+        blocked.is_err(),
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_063_deactivated_issuer_rejects_proof_carrying_request_fulfillment() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let requester_app = conductor
+        .setup_app(
+            "dsid-deactivated-fulfillment-requester",
+            std::slice::from_ref(&dna),
+        )
+        .await
+        .unwrap();
+    let issuer_app = conductor
+        .setup_app(
+            "dsid-deactivated-fulfillment-issuer",
+            std::slice::from_ref(&dna),
+        )
+        .await
+        .unwrap();
+    let requester = requester_app.cells()[0].clone();
+    let issuer = issuer_app.cells()[0].clone();
+    let issuer_agent = issuer_app.agent().clone();
+
+    let requester_record: Record = conductor
+        .call(&requester.zome("did_registry"), "create_did", ())
+        .await;
+    let issuer_record: Record = conductor
+        .call(&issuer.zome("did_registry"), "create_did", ())
+        .await;
+    let issuer_did: DidDocument =
+        decode_entry(&issuer_record).expect("issuer DID must decode");
+
+    let request: Record = conductor
+        .call(
+            &requester.zome("verifiable_credential"),
+            "request_credential",
+            serde_json::json!({
+                "issuer_did": issuer_did.id.clone(),
+                "schema_id": "",
+                "claims": {
+                    "purpose": "DSID proof-carrying fulfillment"
+                },
+                "evidence": []
+            }),
+        )
+        .await;
+    let request_value: serde_json::Value = request
+        .entry()
+        .to_app_option()
+        .unwrap()
+        .unwrap();
+    let request_id = request_value["id"]
+        .as_str()
+        .expect("credential request ID must exist")
+        .to_owned();
+
+    await_consistency(&[requester.clone(), issuer.clone()])
+        .await
+        .expect("credential request must reach the issuer");
+
+    let _approved: Record = conductor
+        .call(
+            &issuer.zome("verifiable_credential"),
+            "update_request_status",
+            serde_json::json!({
+                "request_id": request_id.clone(),
+                "new_status": "Approved"
+            }),
+        )
+        .await;
+
+    let deactivated: Record = conductor
+        .call(
+            &issuer.zome("did_registry"),
+            "deactivate_did",
+            "DSID post-deactivation proof-carrying fulfillment regression",
+        )
+        .await;
+
+    let blocked: Result<Record, _> = conductor
+        .call_fallible(
+            &issuer.zome("verifiable_credential"),
+            "issue_credential_for_request",
+            serde_json::json!({
+                "request_id": request_id,
+                "claims": {
+                    "purpose": "DSID proof-carrying fulfillment"
+                },
+                "credential_types": ["QualificationCredential"],
+                "issuer_name": "DSID",
+                "expiration_days": 1,
+                "enable_revocation": false,
+                "strict_schema": false
+            }),
+        )
+        .await;
+
+    let rejection = format!("{blocked:?}");
+    assert!(blocked.is_err(), "deactivated issuer must not fulfill approved credential requests");
+    assert!(
+        rejection.contains("not active"),
+        "request fulfillment rejection must come from the active-DID guard, got: {rejection}"
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("issuer", issuer_agent.to_string());
+    emit_evidence(
+        "DSID-063",
+        "deactivated-issuer-rejects-proof-carrying-request-fulfillment",
+        &dna,
+        agents,
+        &[&requester_record, &issuer_record, &request, &deactivated],
+        "A deactivated issuer cannot mint a credential through the proof-carrying request fulfillment path.",
+        format!("request_fulfillment_rejected={}", blocked.is_err()),
+        blocked.is_err(),
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
 async fn dsid_006_self_recovery_projection_matches_canonical_state() {
     let mut conductor = SweetConductor::from_standard_config().await;
     let dna = load_dna().await;
