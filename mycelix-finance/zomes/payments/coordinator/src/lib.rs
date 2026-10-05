@@ -518,32 +518,6 @@ pub fn transfer_sap(input: TransferSapInput) -> ExternResult<Record> {
         )));
     }
 
-    // Preserve the existing SAP fee economics. The sender-side fee debit and
-    // transfer intent/debit occur in this same zome invocation, so the source
-    // chain commits the local transition atomically.
-    let fee = compute_sap_fee(&input.from_did, input.amount)?;
-    if fee > 0 {
-        debit_sap(DebitSapInput {
-            member_did: input.from_did.clone(),
-            amount: fee,
-            reason: format!("SAP transfer fee to global commons ({})", fee),
-        })?;
-
-        if let Err(err) = call(
-            CallTargetCell::Local,
-            ZomeName::from("treasury"),
-            FunctionName::from("receive_compost"),
-            None,
-            ReceiveCompostPayload {
-                commons_pool_id: "global-fee-pool".to_string(),
-                amount: fee,
-                source_member_did: input.from_did.clone(),
-            },
-        ) {
-            debug!("SAP transfer fee routing failed: {:?}", err);
-        }
-    }
-
     let transfer_id = match input.transfer_id {
         Some(id) => id,
         None => generated_transfer_id(
@@ -656,6 +630,32 @@ pub fn initiate_sap_transfer(input: TransferSapIntentInput) -> ExternResult<Reco
         }
 
         return Ok(record);
+    }
+
+    // Charge the SAP transfer fee only when creating a new intent. If a
+    // prior invocation already committed the intent, idempotent retries return it
+    // without charging the sender again.
+    let fee = compute_sap_fee(&input.from_did, input.amount)?;
+    if fee > 0 {
+        debit_sap(DebitSapInput {
+            member_did: input.from_did.clone(),
+            amount: fee,
+            reason: format!("SAP transfer fee to global commons ({})", fee),
+        })?;
+
+        if let Err(err) = call(
+            CallTargetCell::Local,
+            ZomeName::from("treasury"),
+            FunctionName::from("receive_compost"),
+            None,
+            ReceiveCompostPayload {
+                commons_pool_id: "global-fee-pool".to_string(),
+                amount: fee,
+                source_member_did: input.from_did.clone(),
+            },
+        ) {
+            debug!("SAP transfer fee routing failed: {:?}", err);
+        }
     }
 
     let (balance_record, balance) = get_sap_balance_inner(&input.from_did)?;
