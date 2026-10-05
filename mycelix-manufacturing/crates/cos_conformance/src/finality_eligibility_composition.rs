@@ -2159,6 +2159,7 @@ mod tests {
             &lifecycle_profile(),
             &ledger,
             "frontier-1",
+            "effect-generation-1",
             1,
         );
 

@@ -891,6 +891,7 @@ pub fn compute_dependency_closure(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::contestable_finality::ObservationClassificationV1;
     use crate::canonical_derivation_receipt::{QualifiedEdgeV1, QualifiedNodeV1};
 
     fn profile(required: BTreeSet<String>) -> DependencyClosureProfileV1 {
