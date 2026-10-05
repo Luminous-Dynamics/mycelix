@@ -2835,3 +2835,32 @@ mod tests {
         );
     }
 }
+
+
+#[cfg(test)]
+mod ac116_tests {
+    use super::*;
+
+    #[test]
+    fn cross_happ_transfer_id_is_bounded_and_deterministic() {
+        let id = cross_happ_transfer_id(
+            "source-happ",
+            &"r".repeat(1024),
+        );
+        let again = cross_happ_transfer_id(
+            "source-happ",
+            &"r".repeat(1024),
+        );
+
+        assert_eq!(id, again);
+        assert_eq!(id.len(), 69);
+        assert!(id.starts_with("xfer:"));
+    }
+
+    #[test]
+    fn cross_happ_transfer_id_binds_source_and_reference() {
+        let base = cross_happ_transfer_id("source-happ", "reference");
+        assert_ne!(base, cross_happ_transfer_id("other-happ", "reference"));
+        assert_ne!(base, cross_happ_transfer_id("source-happ", "other"));
+    }
+}
