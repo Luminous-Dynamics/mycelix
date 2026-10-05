@@ -498,23 +498,23 @@ jobs:
             test "$(/opt/rust-toolchain/bin/rustc --version --verbose | sed -n "s/^commit-hash: //p")" = "b940084d7eb6a299eb4bfeb8e34901bc051e7ac4"
             /opt/rust-toolchain/bin/rustfmt --version
             /opt/rust-toolchain/bin/cargo-clippy --version
-            run_limited /opt/rust-toolchain/bin/cargo fmt --manifest-path /source/Cargo.toml -- --check
+            run_limited /opt/rust-toolchain/bin/cargo fmt --manifest-path /source/crates/mycelix-bridge-common/Cargo.toml -- --check
           '
 
           run_sandbox 9m '
-            run_limited /opt/rust-toolchain/bin/cargo --config /vendor-config/config.toml test --frozen --manifest-path /source/Cargo.toml --jobs 3
+            run_limited /opt/rust-toolchain/bin/cargo --config /vendor-config/config.toml test --frozen --manifest-path /source/crates/mycelix-bridge-common/Cargo.toml --jobs 3
           '
 
           run_sandbox 9m '
-            run_limited /opt/rust-toolchain/bin/cargo --config /vendor-config/config.toml test --frozen --manifest-path /source/Cargo.toml --features identity --jobs 3
+            run_limited /opt/rust-toolchain/bin/cargo --config /vendor-config/config.toml test --frozen --manifest-path /source/crates/mycelix-bridge-common/Cargo.toml --features identity --jobs 3
           '
 
           run_sandbox 9m '
-            run_limited /opt/rust-toolchain/bin/cargo --config /vendor-config/config.toml clippy --frozen --manifest-path /source/Cargo.toml --all-targets --jobs 3 -- -D warnings
+            run_limited /opt/rust-toolchain/bin/cargo --config /vendor-config/config.toml clippy --frozen --manifest-path /source/crates/mycelix-bridge-common/Cargo.toml --all-targets --jobs 3 -- -D warnings
           '
 
           run_sandbox 9m '
-            run_limited /opt/rust-toolchain/bin/cargo --config /vendor-config/config.toml clippy --frozen --manifest-path /source/Cargo.toml --all-targets --features identity --jobs 3 -- -D warnings
+            run_limited /opt/rust-toolchain/bin/cargo --config /vendor-config/config.toml clippy --frozen --manifest-path /source/crates/mycelix-bridge-common/Cargo.toml --all-targets --features identity --jobs 3 -- -D warnings
           '
 
           echo "PASS: all candidate compilation/test/lint gates executed in fresh disposable networkless sandboxes"
