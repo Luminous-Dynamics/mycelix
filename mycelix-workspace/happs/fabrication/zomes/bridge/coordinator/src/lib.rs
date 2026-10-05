@@ -314,6 +314,9 @@ pub fn update_repair_workflow(input: UpdateWorkflowInput) -> ExternResult<Record
     // Consciousness gate
     require_fabrication_consciousness("update_repair_workflow")?;
 
+    // Rate limit state-changing operation
+    rate_limit_caller()?;
+
     let record = get(input.workflow_hash.clone(), GetOptions::default())?
         .ok_or(FabricationError::not_found("RepairWorkflow", &input.workflow_hash))?;
 
