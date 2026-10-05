@@ -47,6 +47,7 @@ S1:
   commit matches the registered S1 profile;
 - fetches the exact candidate repository and commit SHA rather than a mutable PR branch;
 - materializes the exact commit as source data;
+- executes the trusted qualification workflow from the exact caller commit rather than mutable `main`;
 - performs an independent static trust-surface audit;
 - runs rustfmt, default-feature tests, identity-feature tests, and Clippy using Rust 1.99.0;
 - captures the exact candidate source digest as a trusted step output before dependency acquisition or candidate execution, and records the candidate tree, lockfile, vendor closure, sandbox image, and trusted workflow identities; and
@@ -108,9 +109,10 @@ The candidate phase uses the immutable Rust image
 The Docker image is selected directly by the verified amd64 manifest digest rather than a mutable tag. The upstream official image metadata records this exact manifest as `sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d` under the `rust:1.99.0-slim-bookworm` image.
 The current S1 run requests `linux/amd64` explicitly.
 
-Each candidate gate gets a fresh disposable container. Candidate source, vendor contents,
-and the Rust sysroot are read-only mounts. Writable state is confined to bounded tmpfs
-locations and an isolated build target. Network access is disabled for candidate execution.
+Each candidate gate gets a fresh disposable container. The trusted workflow checkout is
+bound to the exact S0 caller commit; candidate source and vendor contents are separate
+read-only mounts, while writable state is confined to bounded tmpfs locations and an
+isolated build target. Network access is disabled for candidate execution.
 The candidate receives no usable GitHub token, OIDC request token, runtime token, or Docker socket.
 
 The qualification profile intentionally does not claim that these controls provide a kernel
