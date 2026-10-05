@@ -1,0 +1,32 @@
+{
+  "schema": "mycelix.sym-civic.cbor-encoding-preflight.v1",
+  "program": "SYM-CIVIC-018-CBOR",
+  "parent_subject": "c0ff69b37b2ba768894b55178370ce0bff7adeb0",
+  "analysis_role": "research_only",
+  "cases": [
+    {"id":"C-01","family":"canonical_sign1","hex":"8446a20126044101a0f64100"},
+    {"id":"C-02","family":"canonical_sign1_payload_bytes","hex":"8446a20126044101a041784100"},
+    {"id":"C-03","family":"duplicate_protected_label","hex":"8449a30126044101044101a0f64100"},
+    {"id":"C-04","family":"duplicate_unprotected_label","hex":"8446a20126044101a2044101044101f64100"},
+    {"id":"C-05","family":"duplicate_cross_bucket_label","hex":"8446a20126044101a1044102f64100"},
+    {"id":"C-06","family":"sign1_wrong_arity","hex":"8346a20126044101a04100"},
+    {"id":"C-07","family":"protected_not_bstr","hex":"84a20126044101a0f64100"},
+    {"id":"C-08","family":"unprotected_not_map","hex":"8446a2012604410140f64100"},
+    {"id":"C-09","family":"missing_protected_alg","hex":"8444a1044101a0f64100"},
+    {"id":"C-10","family":"missing_protected_kid","hex":"8443a10126a0f64100"},
+    {"id":"C-11","family":"protected_map_order_reversed","hex":"8446a20441010126a0f64100"},
+    {"id":"C-12","family":"unprotected_map_order_reversed","hex":"8446a20126044101a20441010126f64100"},
+    {"id":"C-13","family":"nonminimal_integer_argument","hex":"8447a2011801044101a0f64100"},
+    {"id":"C-14","family":"nonminimal_bstr_length","hex":"8447a2012604580101a0f64100"},
+    {"id":"C-15","family":"nonminimal_map_length","hex":"8447b8020126044101a0f64100"},
+    {"id":"C-16","family":"indefinite_sign1_array","hex":"9f46a20126044101a0f64100ff"},
+    {"id":"C-17","family":"indefinite_protected_map","hex":"8447bf0126044101ffa0f64100"},
+    {"id":"C-18","family":"indefinite_signature_bytes","hex":"8446a20126044101a05f4100fff6"},
+    {"id":"C-19","family":"indefinite_text_key","hex":"8446a201260441017f6178ffa0f64100"},
+    {"id":"C-20","family":"nonminimal_negative_integer","hex":"8447a2013806044101a0f64100"},
+    {"id":"C-21","family":"truncated_item","hex":"8446a2012604"},
+    {"id":"C-22","family":"trailing_bytes","hex":"8446a20126044101a0f6410000"},
+    {"id":"C-23","family":"invalid_utf8_text_key","hex":"8446a20126044101a163c32878f44100"},
+    {"id":"C-24","family":"reserved_simple_value","hex":"8446a20126044101a0f8014100"}
+  ]
+}
