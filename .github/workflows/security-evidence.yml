@@ -112,6 +112,11 @@ jobs:
           assert san["claim_ceiling"] == "ReferenceModelOnly"
           assert san["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"
           assert len(san["vectors"]) == 13
+          tpm_properties = json.loads(Path("docs/security/mycelix-tpm-properties-fixed-capture-v0.1.json").read_text())
+          assert tpm_properties["profile_id"] == "mycelix.security.tpm.properties-fixed-capture"
+          assert tpm_properties["claim_ceiling"] == "ReferenceModelOnly"
+          assert tpm_properties["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"
+          assert len(tpm_properties["vectors"]) == 12
           PY
 
       - name: Compile security verifiers and bundle regression
@@ -133,6 +138,7 @@ jobs:
             scripts/security/verify_mycelix_ak_public_attributes_v0_1.py \
             scripts/security/verify_mycelix_ek_cert_spki_binding_v0_1.py \
             scripts/security/capture_mycelix_ek_certificate_nv_v0_1.py \
+            scripts/security/capture_mycelix_tpm_properties_fixed_v0_1.py \
             scripts/security/verify_mycelix_ek_cert_chain_policy_v0_1.py
 
       - name: Run platform Evidence semantic corpus
@@ -173,6 +179,9 @@ jobs:
 
       - name: Run EK certificate SAN property binding semantic corpus
         run: python3 scripts/security/verify_mycelix_ek_cert_san_property_binding_v0_1.py --self-test
+
+      - name: Run TPM properties-fixed capture semantic corpus
+        run: python3 scripts/security/capture_mycelix_tpm_properties_fixed_v0_1.py --self-test
 
       - name: Run EK template appraisal semantic corpus
         run: python3 scripts/security/verify_mycelix_ek_template_appraisal_v0_1.py --self-test
