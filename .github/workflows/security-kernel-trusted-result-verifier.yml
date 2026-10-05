@@ -166,7 +166,7 @@ jobs:
           assert not failed, f"independent qualification gate failed: {failed}"
 
           artifacts = get(f"/repos/{repo}/actions/runs/{run_id}/artifacts?per_page=100").get("artifacts", [])
-          expected_artifact_name = f"security-kernel-independent-qualification-{candidate_sha}-attempt-{run_attempt}"
+          expected_artifact_name = f"security-kernel-independent-qualification-{candidate_sha}-attempt-{run_attempt}.txt"
           matching_artifacts = [a for a in artifacts if a.get("name") == expected_artifact_name]
           assert len(matching_artifacts) == 1, (
               f"expected exactly one retained qualification receipt artifact: {len(matching_artifacts)}"
