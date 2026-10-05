@@ -19,7 +19,8 @@
       "validator_symbol": "validate_decision",
       "invariant_code": "decision.title.is_empty()",
       "dispatch_symbol": "validate_decision",
-      "target_variant": "EntryTypes::Decision"
+      "target_variant": "EntryTypes::Decision",
+      "coordinator_primitive": "create_entry"
     },
     {
       "case_id": "SEM-02",
@@ -38,7 +39,8 @@
       "validator_symbol": "validate_resource",
       "invariant_code": "resource.name.is_empty()",
       "dispatch_symbol": "validate_resource",
-      "target_variant": "EntryTypes::SharedResource"
+      "target_variant": "EntryTypes::SharedResource",
+      "coordinator_primitive": "create_entry"
     },
     {
       "case_id": "SEM-03",
@@ -57,7 +59,8 @@
       "validator_symbol": "validate_story",
       "invariant_code": "story.title.is_empty()",
       "dispatch_symbol": "validate_story",
-      "target_variant": "EntryTypes::FamilyStory"
+      "target_variant": "EntryTypes::FamilyStory",
+      "coordinator_primitive": "create_entry"
     },
     {
       "case_id": "SEM-04",
@@ -75,7 +78,8 @@
       "validator_symbol": "validate_create_link",
       "invariant_code": "story_entry.hearth_hash != collection_entry.hearth_hash",
       "dispatch_symbol": "validate_create_link",
-      "target_variant": "LinkTypes::CollectionToStories"
+      "target_variant": "LinkTypes::CollectionToStories",
+      "coordinator_primitive": "create_link"
     },
     {
       "case_id": "SEM-05",
@@ -94,7 +98,8 @@
       "validator_symbol": "validate_notification",
       "invariant_code": "entry.source_cluster.is_empty()",
       "dispatch_symbol": "validate_notification_entry",
-      "target_variant": "EntryTypes::Notification"
+      "target_variant": "EntryTypes::Notification",
+      "coordinator_primitive": "create_entry"
     },
     {
       "case_id": "SEM-06",
@@ -114,7 +119,8 @@
       "validator_symbol": "validate_story_update",
       "invariant_code": "story.title.is_empty()",
       "dispatch_symbol": "validate_story_update",
-      "target_variant": "EntryTypes::FamilyStory"
+      "target_variant": "EntryTypes::FamilyStory",
+      "coordinator_primitive": "update_entry"
     }
   ]
 }
