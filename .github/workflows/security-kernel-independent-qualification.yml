@@ -187,7 +187,11 @@ jobs:
               r"pub\s+(?:\([^)]*\)\s+)?(decision|capability_binding|authority_binding|event_id|actor_id|capability_ref|request|policy_version|timestamp_us|provenance|recovery_correlation)\s*:",
           ):
               assert re.search(pattern,kernel) is None, pattern
-          assert re.search(r"pub struct SignedCapability\s*\{[^}]*\n\s*capability:",kernel,re.S)
+          for field in ("capability", "issuer_public_key", "signature"):
+              assert re.search(rf"pub struct SignedCapability\s*\{{.*?\n\s+{field}\s*:", kernel, re.S), field
+              assert re.search(rf"pub struct SignedCapability\s*\{{.*?\n\s+pub\s+{field}\s*:", kernel, re.S) is None, field
+          for accessor in ("pub fn capability", "pub fn issuer_public_key", "pub fn signature"):
+              assert accessor in kernel, accessor
           for value in (
               "MAX_SECURITY_WIRE_BYTES",
               "deserialize_bounded_security_json_reader",
