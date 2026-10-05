@@ -91,6 +91,19 @@ jobs:
           test "$(rustc +1.99.0 --version | awk '{print $2}')" = "1.99.0"
           test "$(rustc +1.99.0 --version --verbose | sed -n 's/^commit-hash: //p')" = "b940084d7eb6a299eb4bfeb8e34901bc051e7ac4"
 
+      - name: Resolve pinned Rust sysroot
+        id: rust_sysroot
+        shell: bash
+        run: |
+          set -euo pipefail
+          rust_sysroot="$(readlink -f "$(rustc +1.99.0 --print sysroot)")"
+          test -x "$rust_sysroot/bin/rustc"
+          test -x "$rust_sysroot/bin/cargo"
+          test -x "$rust_sysroot/bin/rustfmt"
+          test -x "$rust_sysroot/bin/cargo-clippy"
+          printf 'rust_sysroot=%s\n' "$rust_sysroot" >> "$GITHUB_OUTPUT"
+          echo "PASS: exact Rust 1.99.0 toolchain sysroot resolved"
+
       - name: Validate dispatch provenance
         shell: bash
         env:
@@ -200,39 +213,6 @@ jobs:
           print("PASS: exact candidate commit materialized with regular-file-only source tree")
           PY
 
-      - name: Snapshot trusted candidate source
-        id: snapshot_source
-        shell: bash
-        env:
-          CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-src
-        run: |
-          set -euo pipefail
-          source_digest="$(python3 - "$CANDIDATE_ROOT" <<'PY'
-          import hashlib, pathlib, stat, sys
-          root=pathlib.Path(sys.argv[1])
-          digest=hashlib.sha256()
-          for path in sorted(root.rglob("*")):
-              rel=path.relative_to(root)
-              if rel.parts and rel.parts[0] == "target":
-                  continue
-              mode=path.lstat().st_mode
-              if stat.S_ISLNK(mode):
-                  raise SystemExit(f"candidate source contains forbidden symlink: {rel}")
-              if path.is_dir():
-                  continue
-              if not stat.S_ISREG(mode):
-                  raise SystemExit(f"candidate source contains forbidden non-regular file: {rel}")
-              digest.update(rel.as_posix().encode())
-              digest.update(b"\\0")
-              digest.update(path.read_bytes())
-              digest.update(b"\\0")
-          print(digest.hexdigest())
-          PY
-          )"
-          test "${#source_digest}" -eq 64
-          printf 'source_digest=%s\\n' "$source_digest" >> "$GITHUB_OUTPUT"
-          echo "PASS: trusted pre-execution candidate source digest recorded"
-
       - name: Static trust-surface audit
         shell: bash
         env:
@@ -311,90 +291,210 @@ jobs:
           print("PASS: independent static trust-surface profile")
           PY
 
-      - name: Assert Rust toolchain before candidate compilation
+      - name: Pull and preflight pinned sandbox image
         shell: bash
+        env:
+          SANDBOX_IMAGE: "docker.io/library/rust:1.99.0-slim-bookworm@sha256:452176c0cefca88c0b3184ce85a4eb03e3d4fa05d2afb5366abcba853221019e"
         run: |
           set -euo pipefail
-          test "$(rustc +1.99.0 --version | awk '{print $2}')" = "1.99.0"
-          test "$(rustc +1.99.0 --version --verbose | sed -n 's/^commit-hash: //p')" = "b940084d7eb6a299eb4bfeb8e34901bc051e7ac4"
+          docker pull --quiet "$SANDBOX_IMAGE"
+          runner_uid="$(id -u)"
+          runner_gid="$(id -g)"
+          docker run --rm --platform=linux/amd64 --pull=never \
+            --network=none \
+            --read-only \
+            --cap-drop=ALL \
+            --security-opt=no-new-privileges:true \
+            --security-opt=seccomp=default \
+            --pids-limit=512 \
+            --memory=256m \
+            --cpus=1 \
+            --ulimit=nofile=4096:4096 \
+            --user "$runner_uid:$runner_gid" \
+            --ipc=private \
+            --pid=private \
+            --cgroupns=private \
+            --tmpfs /tmp:rw,nosuid,nodev,noexec,size=64m \
+            --env HOME=/tmp \
+            --env GITHUB_TOKEN= \
+            --env GH_TOKEN= \
+            --env ACTIONS_ID_TOKEN_REQUEST_TOKEN= \
+            --env ACTIONS_ID_TOKEN_REQUEST_URL= \
+            --env ACTIONS_RUNTIME_TOKEN= \
+            "$SANDBOX_IMAGE" /bin/bash -euc '
+              test "$(id -u)" -ne 0
+              grep -Eq "^NoNewPrivs:[[:space:]]+1$" /proc/self/status
+              test "$(awk "/^CapEff:/{print \$2}" /proc/self/status)" = "0000000000000000"
+              test ! -e /var/run/docker.sock
+              if touch /sandbox-readonly-test 2>/dev/null; then
+                echo "root filesystem unexpectedly writable" >&2
+                exit 1
+              fi
+              test ! -s /proc/net/route
+              test ! -s /proc/net/ipv6_route
+              test "$(cat /sys/fs/cgroup/pids.max)" = "512"
+              echo "PASS: pinned sandbox image + non-root + read-only root + no network routes + dropped caps + no-new-privileges + bounded PIDs"
+            '
 
-      - name: Format candidate bridge crate
-        working-directory: ${{ runner.temp }}/security-kernel-candidate-src
-        env:
-          RUSTUP_TOOLCHAIN: "1.99.0"
-          GITHUB_TOKEN: ""
-          GH_TOKEN: ""
-          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ""
-          ACTIONS_ID_TOKEN_REQUEST_URL: ""
-        run: rustup run 1.99.0 cargo fmt --manifest-path crates/mycelix-bridge-common/Cargo.toml -- --check
-
-      - name: Assert Rust toolchain before default tests
+      - name: Prepare locked dependency subject
+        id: dependency_subject
         shell: bash
+        env:
+          CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-src
         run: |
           set -euo pipefail
-          test "$(rustc +1.99.0 --version | awk '{print $2}')" = "1.99.0"
-          test "$(rustc +1.99.0 --version --verbose | sed -n 's/^commit-hash: //p')" = "b940084d7eb6a299eb4bfeb8e34901bc051e7ac4"
+          dependency_root="$RUNNER_TEMP/security-kernel-dependency-subject"
+          rm -rf "$dependency_root"
+          mkdir -p "$dependency_root"
+          install -m 0444 "$CANDIDATE_ROOT/crates/mycelix-bridge-common/Cargo.toml" "$dependency_root/Cargo.toml"
+          install -m 0444 "$CANDIDATE_ROOT/crates/mycelix-bridge-common/Cargo.lock" "$dependency_root/Cargo.lock"
+          printf 'dependency_root=%s\n' "$dependency_root" >> "$GITHUB_OUTPUT"
+          echo "PASS: only the committed Cargo manifest and lockfile enter dependency acquisition"
 
-      - name: Test candidate default feature set
-        working-directory: ${{ runner.temp }}/security-kernel-candidate-src
-        env:
-          RUSTUP_TOOLCHAIN: "1.99.0"
-          GITHUB_TOKEN: ""
-          GH_TOKEN: ""
-          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ""
-          ACTIONS_ID_TOKEN_REQUEST_URL: ""
-        run: rustup run 1.99.0 cargo test --locked --manifest-path crates/mycelix-bridge-common/Cargo.toml
-
-      - name: Assert Rust toolchain before identity tests
+      - name: Vendor locked dependency closure in fetch sandbox
+        id: vendor_dependencies
         shell: bash
+        env:
+          DEPENDENCY_ROOT: ${{ steps.dependency_subject.outputs.dependency_root }}
+          SANDBOX_IMAGE: "docker.io/library/rust:1.99.0-slim-bookworm@sha256:452176c0cefca88c0b3184ce85a4eb03e3d4fa05d2afb5366abcba853221019e"
         run: |
           set -euo pipefail
-          test "$(rustc +1.99.0 --version | awk '{print $2}')" = "1.99.0"
-          test "$(rustc +1.99.0 --version --verbose | sed -n 's/^commit-hash: //p')" = "b940084d7eb6a299eb4bfeb8e34901bc051e7ac4"
+          runner_uid="$(id -u)"
+          runner_gid="$(id -g)"
+          vendor_root="$RUNNER_TEMP/security-kernel-vendor"
+          vendor_config="$RUNNER_TEMP/security-kernel-vendor-config.toml"
+          rm -rf "$vendor_root" "$vendor_config"
+          mkdir -p "$vendor_root"
+          docker run --rm --platform=linux/amd64 --pull=never \
+            --network=bridge \
+            --read-only \
+            --cap-drop=ALL \
+            --security-opt=no-new-privileges:true \
+            --security-opt=seccomp=default \
+            --pids-limit=256 \
+            --memory=2g \
+            --cpus=2 \
+            --ulimit=nofile=4096:4096 \
+            --user "$runner_uid:$runner_gid" \
+            --ipc=private \
+            --pid=private \
+            --cgroupns=private \
+            --tmpfs /tmp:rw,nosuid,nodev,noexec,size=128m \
+            --tmpfs /cargo-home:rw,nosuid,nodev,noexec,size=512m \
+            --env HOME=/cargo-home \
+            --env CARGO_HOME=/cargo-home \
+            --env GITHUB_TOKEN= \
+            --env GH_TOKEN= \
+            --env ACTIONS_ID_TOKEN_REQUEST_TOKEN= \
+            --env ACTIONS_ID_TOKEN_REQUEST_URL= \
+            --env ACTIONS_RUNTIME_TOKEN= \
+            --volume "$DEPENDENCY_ROOT:/subject:ro" \
+            --volume "$vendor_root:/out:rw" \
+            "$SANDBOX_IMAGE" /bin/bash -euc '
+              /usr/local/cargo/bin/cargo vendor --locked --manifest-path /subject/Cargo.toml /out/vendor
+            ' > "$vendor_config"
+          test -s "$vendor_config"
+          python3 - "$vendor_root" "$vendor_config" <<'PY'
+          import hashlib, pathlib, stat, sys
+          vendor=pathlib.Path(sys.argv[1])
+          config=pathlib.Path(sys.argv[2])
+          text=config.read_text(encoding="utf-8")
+          assert "/vendor" in text
+          assert "credentials" not in text.lower()
+          digest=hashlib.sha256()
+          for path in sorted(vendor.rglob("*")):
+              rel=path.relative_to(vendor)
+              mode=path.lstat().st_mode
+              if stat.S_ISLNK(mode):
+                  raise SystemExit(f"vendored dependency contains forbidden symlink: {rel}")
+              if path.is_dir():
+                  continue
+              if not stat.S_ISREG(mode):
+                  raise SystemExit(f"vendored dependency contains forbidden non-regular file: {rel}")
+              digest.update(rel.as_posix().encode())
+              digest.update(b"\\0")
+              digest.update(path.read_bytes())
+              digest.update(b"\\0")
+          print(f"vendor_digest={digest.hexdigest()}")
+          print("PASS: locked dependency closure vendored without candidate source/code access")
+          pathlib.Path("$RUNNER_TEMP/security-kernel-vendor-digest").write_text(digest.hexdigest()+"\n", encoding="utf-8")
+          PY
+          test -s "$RUNNER_TEMP/security-kernel-vendor-digest"
+          printf 'vendor_root=%s\nvendor_config=%s\n' "$vendor_root" "$vendor_config" >> "$GITHUB_OUTPUT"
+          printf 'vendor_digest=%s\n' "$(cat "$RUNNER_TEMP/security-kernel-vendor-digest")" >> "$GITHUB_OUTPUT"
 
-      - name: Test candidate identity feature set
-        working-directory: ${{ runner.temp }}/security-kernel-candidate-src
-        env:
-          RUSTUP_TOOLCHAIN: "1.99.0"
-          GITHUB_TOKEN: ""
-          GH_TOKEN: ""
-          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ""
-          ACTIONS_ID_TOKEN_REQUEST_URL: ""
-        run: rustup run 1.99.0 cargo test --locked --manifest-path crates/mycelix-bridge-common/Cargo.toml --features identity
-
-      - name: Assert Rust toolchain before default Clippy
+      - name: Execute candidate qualification in disposable networkless sandbox
         shell: bash
+        env:
+          CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-src
+          VENDOR_ROOT: ${{ steps.vendor_dependencies.outputs.vendor_root }}
+          VENDOR_CONFIG: ${{ steps.vendor_dependencies.outputs.vendor_config }}
+          RUST_SYSROOT: ${{ steps.rust_sysroot.outputs.rust_sysroot }}
+          SANDBOX_IMAGE: "docker.io/library/rust:1.99.0-slim-bookworm@sha256:452176c0cefca88c0b3184ce85a4eb03e3d4fa05d2afb5366abcba853221019e"
         run: |
           set -euo pipefail
-          test "$(rustc +1.99.0 --version | awk '{print $2}')" = "1.99.0"
-          test "$(rustc +1.99.0 --version --verbose | sed -n 's/^commit-hash: //p')" = "b940084d7eb6a299eb4bfeb8e34901bc051e7ac4"
+          runner_uid="$(id -u)"
+          runner_gid="$(id -g)"
 
-      - name: Clippy candidate default feature set
-        working-directory: ${{ runner.temp }}/security-kernel-candidate-src
-        env:
-          RUSTUP_TOOLCHAIN: "1.99.0"
-          GITHUB_TOKEN: ""
-          GH_TOKEN: ""
-          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ""
-          ACTIONS_ID_TOKEN_REQUEST_URL: ""
-        run: rustup run 1.99.0 cargo clippy --locked --manifest-path crates/mycelix-bridge-common/Cargo.toml --all-targets -- -D warnings
+          run_sandbox() {
+            docker run --rm --platform=linux/amd64 --pull=never \
+              --network=none \
+              --read-only \
+              --cap-drop=ALL \
+              --security-opt=no-new-privileges:true \
+              --security-opt=seccomp=default \
+              --pids-limit=512 \
+              --memory=12g \
+              --cpus=3 \
+              --ulimit=nofile=4096:4096 \
+              --user "$runner_uid:$runner_gid" \
+              --ipc=private \
+              --pid=private \
+              --cgroupns=private \
+              --tmpfs /tmp:rw,nosuid,nodev,noexec,size=256m \
+              --tmpfs /cargo-home:rw,nosuid,nodev,noexec,size=512m \
+              --tmpfs /subject/target:rw,nosuid,nodev,size=8g \
+              --volume "$CANDIDATE_ROOT:/subject:ro" \
+              --volume "$VENDOR_ROOT:/vendor:ro" \
+              --volume "$RUST_SYSROOT:/opt/rust-toolchain:ro" \
+              --volume "$VENDOR_CONFIG:/vendor-config/config.toml:ro" \
+              --env HOME=/cargo-home \
+              --env CARGO_HOME=/cargo-home \
+              --env PATH=/opt/rust-toolchain/bin:/usr/local/bin:/usr/bin:/bin \
+              --env GITHUB_TOKEN= \
+              --env GH_TOKEN= \
+              --env ACTIONS_ID_TOKEN_REQUEST_TOKEN= \
+              --env ACTIONS_ID_TOKEN_REQUEST_URL= \
+              --env ACTIONS_RUNTIME_TOKEN= \
+              --env CARGO_NET_OFFLINE=true \
+              "$SANDBOX_IMAGE" /bin/bash -euc "$1"
+          }
 
-      - name: Assert Rust toolchain before identity Clippy
-        shell: bash
-        run: |
-          set -euo pipefail
-          test "$(rustc +1.99.0 --version | awk '{print $2}')" = "1.99.0"
-          test "$(rustc +1.99.0 --version --verbose | sed -n 's/^commit-hash: //p')" = "b940084d7eb6a299eb4bfeb8e34901bc051e7ac4"
+          run_sandbox '
+            test "$(/opt/rust-toolchain/bin/rustc --version | awk "{print \$2}")" = "1.99.0"
+            test "$(/opt/rust-toolchain/bin/rustc --version --verbose | sed -n "s/^commit-hash: //p")" = "b940084d7eb6a299eb4bfeb8e34901bc051e7ac4"
+            /opt/rust-toolchain/bin/rustfmt --version
+            /opt/rust-toolchain/bin/cargo-clippy --version
+            /opt/rust-toolchain/bin/cargo fmt --manifest-path /subject/Cargo.toml -- --check
+          '
 
-      - name: Clippy candidate identity feature set
-        working-directory: ${{ runner.temp }}/security-kernel-candidate-src
-        env:
-          RUSTUP_TOOLCHAIN: "1.99.0"
-          GITHUB_TOKEN: ""
-          GH_TOKEN: ""
-          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ""
-          ACTIONS_ID_TOKEN_REQUEST_URL: ""
-        run: rustup run 1.99.0 cargo clippy --locked --manifest-path crates/mycelix-bridge-common/Cargo.toml --all-targets --features identity -- -D warnings
+          run_sandbox '
+            /opt/rust-toolchain/bin/cargo --config /vendor-config/config.toml test --frozen --manifest-path /subject/Cargo.toml --jobs 3
+          '
+
+          run_sandbox '
+            /opt/rust-toolchain/bin/cargo --config /vendor-config/config.toml test --frozen --manifest-path /subject/Cargo.toml --features identity --jobs 3
+          '
+
+          run_sandbox '
+            /opt/rust-toolchain/bin/cargo --config /vendor-config/config.toml clippy --frozen --manifest-path /subject/Cargo.toml --all-targets --jobs 3 -- -D warnings
+          '
+
+          run_sandbox '
+            /opt/rust-toolchain/bin/cargo --config /vendor-config/config.toml clippy --frozen --manifest-path /subject/Cargo.toml --all-targets --features identity --jobs 3 -- -D warnings
+          '
+
+          echo "PASS: all candidate compilation/test/lint gates executed inside disposable networkless sandbox"
 
       - name: Verify candidate source immutability
         shell: bash
