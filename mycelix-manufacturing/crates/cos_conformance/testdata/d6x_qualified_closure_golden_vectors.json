@@ -731,7 +731,7 @@
             "created_frontier_root": "frontier",
             "created_frontier_sequence": 1,
             "initial_status": "Active",
-            "generation_commitment": "generation:gen-1",
+            "generation_commitment": "c023aabeb9779ab216762ea48f5db012cf39c5057ca7546eb69324281c7a4745",
             "claim_ceiling": "Observer/evidence lifecycle reference semantics only; no real-world trust, revocation infrastructure, or authority claim."
           }
         },
@@ -750,7 +750,7 @@
             "effective_frontier_root": "frontier",
             "effective_frontier_sequence": 1,
             "predecessor_snapshot_id": null,
-            "snapshot_commitment": "snapshot:snapshot",
+            "snapshot_commitment": "7ab5dfe7586df58859ec5cc5c394002ef64758fda55e94bbb7905d02803a8aea",
             "claim_ceiling": "Observer/evidence lifecycle reference semantics only; no real-world trust, revocation infrastructure, or authority claim."
           }
         },
