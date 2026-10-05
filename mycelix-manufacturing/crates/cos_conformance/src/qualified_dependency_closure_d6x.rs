@@ -483,6 +483,152 @@ impl DependencyClosureCertificateV1 {
     }
 }
 
+pub const D6X_VERIFICATION_SUMMARY_SCHEMA_VERSION: &str = "D6X-VS-1";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum D6XVerificationResultV1 {
+    Passed,
+    Failed,
+}
+
+/// Reference-model equivalent of a verification-summary attestation.
+///
+/// This carries verification context, not authority. Consumers must pin the
+/// verifier identity and verification-policy commitment they trust before
+/// accepting a Passed summary. The model is unsigned; delegated trust requires
+/// an external signing/trust envelope.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct D6XVerificationSummaryV1 {
+    pub schema_version: String,
+    pub verifier_id: String,
+    pub verification_policy_commitment: String,
+    pub projection_commitment: String,
+    pub source_dkg_snapshot_commitment: String,
+    pub semantic_environment_commitment: String,
+    pub derivation_profile_commitment: String,
+    pub closure_profile_commitment: String,
+    pub closure_identity_commitment: String,
+    pub current_frontier_root: Option<String>,
+    pub verification_result: D6XVerificationResultV1,
+    pub dependency_counts: BTreeMap<SemanticDependencyKindV1, u32>,
+    pub claim_ceiling: String,
+    pub commitment: String,
+}
+
+impl D6XVerificationSummaryV1 {
+    pub fn from_verified_closure(
+        verifier_id: &str,
+        verification_policy_commitment: &str,
+        projection: &QualifiedProjectionV1,
+        environment: &SemanticEnvironmentV1,
+        derivation_profile: &DerivationProfileV1,
+        closure_profile: &DependencyClosureProfileV1,
+        closure: &DependencyClosureCertificateV1,
+    ) -> Option<Self> {
+        if !non_empty(verifier_id)
+            || !is_canonical_sha256_commitment(verification_policy_commitment)
+            || closure.status != DependencyClosureStatusV1::Complete
+            || !closure.verifies_against_sources(
+                projection,
+                environment,
+                derivation_profile,
+                closure_profile,
+            )
+        {
+            return None;
+        }
+
+        let mut dependency_counts = BTreeMap::new();
+        for dependency in &closure.dependencies {
+            *dependency_counts.entry(dependency.kind).or_insert(0) += 1;
+        }
+
+        let mut summary = Self {
+            schema_version: D6X_VERIFICATION_SUMMARY_SCHEMA_VERSION.into(),
+            verifier_id: verifier_id.into(),
+            verification_policy_commitment: verification_policy_commitment.into(),
+            projection_commitment: projection.commitment(),
+            source_dkg_snapshot_commitment: projection.source_dkg_snapshot_commitment.clone(),
+            semantic_environment_commitment: environment.commitment(),
+            derivation_profile_commitment: derivation_profile.commitment(),
+            closure_profile_commitment: closure_profile.commitment(),
+            closure_identity_commitment: closure.closure_identity_commitment.clone(),
+            current_frontier_root: environment.current_frontier_root.clone(),
+            verification_result: D6XVerificationResultV1::Passed,
+            dependency_counts,
+            claim_ceiling: D6X_CLAIM_CEILING.into(),
+            commitment: String::new(),
+        };
+        summary.commitment = summary.recompute();
+        Some(summary)
+    }
+
+    pub fn recompute(&self) -> String {
+        let mut unsigned = self.clone();
+        unsigned.commitment.clear();
+        canonical_sha256("d6x-verification-summary", &unsigned)
+    }
+
+    pub fn valid(&self) -> bool {
+        self.schema_version == D6X_VERIFICATION_SUMMARY_SCHEMA_VERSION
+            && non_empty(&self.verifier_id)
+            && is_canonical_sha256_commitment(&self.verification_policy_commitment)
+            && is_canonical_sha256_commitment(&self.projection_commitment)
+            && is_canonical_sha256_commitment(&self.source_dkg_snapshot_commitment)
+            && is_canonical_sha256_commitment(&self.semantic_environment_commitment)
+            && is_canonical_sha256_commitment(&self.derivation_profile_commitment)
+            && is_canonical_sha256_commitment(&self.closure_profile_commitment)
+            && is_canonical_sha256_commitment(&self.closure_identity_commitment)
+            && self.current_frontier_root.as_deref().is_none_or(non_empty)
+            && self.dependency_counts.values().all(|count| *count > 0)
+            && self.claim_ceiling == D6X_CLAIM_CEILING
+            && is_canonical_sha256_commitment(&self.commitment)
+            && self.commitment == self.recompute()
+            && matches!(self.verification_result, D6XVerificationResultV1::Passed)
+    }
+
+    /// Verify a summary against explicit consumer expectations and the exact
+    /// source objects. A self-consistent summary is insufficient when its
+    /// verifier, policy, or closure scope differs from the consumer's contract.
+    pub fn verifies_against_expectations(
+        &self,
+        expected_verifier_id: &str,
+        expected_verification_policy_commitment: &str,
+        projection: &QualifiedProjectionV1,
+        environment: &SemanticEnvironmentV1,
+        derivation_profile: &DerivationProfileV1,
+        closure_profile: &DependencyClosureProfileV1,
+        closure: &DependencyClosureCertificateV1,
+    ) -> bool {
+        if !self.valid()
+            || self.verifier_id != expected_verifier_id
+            || self.verification_policy_commitment != expected_verification_policy_commitment
+            || self.projection_commitment != projection.commitment()
+            || self.source_dkg_snapshot_commitment != projection.source_dkg_snapshot_commitment
+            || self.semantic_environment_commitment != environment.commitment()
+            || self.derivation_profile_commitment != derivation_profile.commitment()
+            || self.closure_profile_commitment != closure_profile.commitment()
+            || self.closure_identity_commitment != closure.closure_identity_commitment
+            || self.current_frontier_root != environment.current_frontier_root
+            || closure.status != DependencyClosureStatusV1::Complete
+            || !closure.verifies_against_sources(
+                projection,
+                environment,
+                derivation_profile,
+                closure_profile,
+            )
+        {
+            return false;
+        }
+
+        let mut expected_counts = BTreeMap::new();
+        for dependency in &closure.dependencies {
+            *expected_counts.entry(dependency.kind).or_insert(0) += 1;
+        }
+        self.dependency_counts == expected_counts
+    }
+}
+
 fn cycle_exists(nodes: &BTreeSet<String>, edges: &[(String, String)]) -> bool {
     fn visit(id: &str, adjacency: &BTreeMap<String, BTreeSet<String>>, active: &mut BTreeSet<String>, done: &mut BTreeSet<String>) -> bool {
         if active.contains(id) { return true; }
@@ -2321,6 +2467,138 @@ mod tests {
             )
             .is_none(),
             "unified authoritative D6X entrypoint must reject a self-consistent D6P receipt targeting the wrong composition"
+        );
+    }
+
+    #[test]
+    fn verification_summary_binds_exact_verifier_policy_and_closure() {
+        let (projection, environment, derivation_profile) = projection(false);
+        let closure_profile = profile(BTreeSet::new());
+        let closure = compute_dependency_closure(
+            &projection,
+            &environment,
+            &derivation_profile,
+            &closure_profile,
+        )
+        .expect("fixture closure");
+
+        let verification_policy_commitment = canonical_sha256(
+            "test-d6x-verification-policy",
+            &serde_json::json!({
+                "required_result": "Passed",
+                "scope": "d6x"
+            }),
+        );
+        let summary = D6XVerificationSummaryV1::from_verified_closure(
+            "verifier:d6x-test",
+            &verification_policy_commitment,
+            &projection,
+            &environment,
+            &derivation_profile,
+            &closure_profile,
+            &closure,
+        )
+        .expect("verified closure summary");
+
+        assert!(summary.valid());
+        assert!(summary.verifies_against_expectations(
+            "verifier:d6x-test",
+            &verification_policy_commitment,
+            &projection,
+            &environment,
+            &derivation_profile,
+            &closure_profile,
+            &closure,
+        ));
+    }
+
+    #[test]
+    fn verification_summary_rejects_self_consistent_verifier_substitution() {
+        let (projection, environment, derivation_profile) = projection(false);
+        let closure_profile = profile(BTreeSet::new());
+        let closure = compute_dependency_closure(
+            &projection,
+            &environment,
+            &derivation_profile,
+            &closure_profile,
+        )
+        .expect("fixture closure");
+
+        let policy = canonical_sha256(
+            "test-d6x-verification-policy",
+            &serde_json::json!({"required_result": "Passed"}),
+        );
+        let mut forged = D6XVerificationSummaryV1::from_verified_closure(
+            "verifier:d6x-test",
+            &policy,
+            &projection,
+            &environment,
+            &derivation_profile,
+            &closure_profile,
+            &closure,
+        )
+        .expect("verified closure summary");
+        forged.verifier_id = "verifier:attacker".into();
+        forged.commitment = forged.recompute();
+
+        assert!(forged.valid());
+        assert!(
+            !forged.verifies_against_expectations(
+                "verifier:d6x-test",
+                &policy,
+                &projection,
+                &environment,
+                &derivation_profile,
+                &closure_profile,
+                &closure,
+            ),
+            "consumer must pin the trusted verifier identity"
+        );
+    }
+
+    #[test]
+    fn verification_summary_rejects_self_consistent_closure_substitution() {
+        let (projection, environment, derivation_profile) = projection(false);
+        let closure_profile = profile(BTreeSet::new());
+        let closure = compute_dependency_closure(
+            &projection,
+            &environment,
+            &derivation_profile,
+            &closure_profile,
+        )
+        .expect("fixture closure");
+
+        let policy = canonical_sha256(
+            "test-d6x-verification-policy",
+            &serde_json::json!({"required_result": "Passed"}),
+        );
+        let summary = D6XVerificationSummaryV1::from_verified_closure(
+            "verifier:d6x-test",
+            &policy,
+            &projection,
+            &environment,
+            &derivation_profile,
+            &closure_profile,
+            &closure,
+        )
+        .expect("verified closure summary");
+
+        let mut forged_closure = closure.clone();
+        forged_closure.closure_identity_commitment = "attacker-closure".into();
+        forged_closure.commitment = forged_closure.recompute();
+
+        assert!(forged_closure.valid());
+        assert!(
+            !summary.verifies_against_expectations(
+                "verifier:d6x-test",
+                &policy,
+                &projection,
+                &environment,
+                &derivation_profile,
+                &closure_profile,
+                &forged_closure,
+            ),
+            "summary must not delegate trust to a substituted self-consistent closure"
         );
     }
 
