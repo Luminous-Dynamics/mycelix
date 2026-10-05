@@ -64,10 +64,24 @@ def capture(out:Path,tpm_identity_digest:str)->int:
         "output_sha256":sha256_file(blob) if blob.is_file() else None,
     }
 
-    ac_cmd=["tpm2_activatecredential","-c",str(out/"ak.ctx"),"-C",str(out/"ek.ctx"),"-i",str(blob),"-o",str(recovered),"-p","akpass"]
+    ak_auth = os.environ.get("MYCELIX_AK_AUTH")
+    if not ak_auth:
+        value=result("INDETERMINATE","ak-authorization-not-supplied")
+        (out/"activatecredential-capture.json").write_text(
+            json.dumps(value,indent=2,sort_keys=True)+"\n",encoding="utf-8"
+        )
+        return 2
+    auth_path = out / "ak-authorization.txt"
+    auth_path.write_text(ak_auth,encoding="utf-8")
+    os.chmod(auth_path, stat.S_IRUSR | stat.S_IWUSR)
+
+    ac_cmd=["tpm2_activatecredential","-c",str(out/"ak.ctx"),"-C",str(out/"ek.ctx"),"-i",str(blob),"-o",str(recovered),"-p",f"file:{auth_path}"]
     ac=run(ac_cmd,out)
+    ac_public_cmd=["tpm2_activatecredential","-c","ak.ctx","-C","ek.ctx","-i","activatecredential.blob","-o","activated-secret.bin","-p","file:<redacted>"]
     activate_tx={
-        "command":ac_cmd,
+        "command":ac_public_cmd,
+        "authorization_mode":"file",
+        "authorization_file_sha256":sha256_file(auth_path),
         "returncode":ac.returncode,
         "stdout_sha256":hashlib.sha256(ac.stdout.encode()).hexdigest(),
         "stderr_sha256":hashlib.sha256(ac.stderr.encode()).hexdigest(),
@@ -88,6 +102,7 @@ def capture(out:Path,tpm_identity_digest:str)->int:
         "makecredential_blob_sha256":sha256_file(blob) if blob.is_file() else None,
         "makecredential_returncode":mc.returncode,
         "activatecredential_returncode":ac.returncode,
+        "ak_authorization_file_sha256":sha256_file(auth_path),
     }
     session_hash=canonical_hash(session)
     receipt={
@@ -107,6 +122,7 @@ def capture(out:Path,tpm_identity_digest:str)->int:
         "activatecredential_transcript_sha256":hashlib.sha256(json.dumps(activate_tx,sort_keys=True,separators=(",",":")).encode()).hexdigest(),
         "makecredential_returncode":mc.returncode,
         "activatecredential_returncode":ac.returncode,
+        "ak_authorization_file_sha256":session["ak_authorization_file_sha256"],
         "secret_equality_state":equality,
         "activation_session_tuple_sha256":session_hash,
         "source_sha256":hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
@@ -127,6 +143,7 @@ def capture(out:Path,tpm_identity_digest:str)->int:
         "activatecredential_transcript_sha256":receipt["activatecredential_transcript_sha256"],
         "makecredential_returncode":receipt["makecredential_returncode"],
         "activatecredential_returncode":receipt["activatecredential_returncode"],
+        "ak_authorization_file_sha256":receipt["ak_authorization_file_sha256"],
         "source_sha256":receipt["source_sha256"],
     })
     receipt["content_sha256"]=canonical_hash({k:v for k,v in receipt.items() if k!="content_sha256"})
