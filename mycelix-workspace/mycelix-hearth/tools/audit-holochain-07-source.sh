@@ -2472,13 +2472,14 @@ if missing:
         print(f"  missing: {item}")
     raise SystemExit(2)
 
-for forbidden in [
-    '> "${hearth}/qualification-cargo-lock-sha256.txt"',
-    '> "${hearth}/qualification-cargo-lock-summary.txt"',
+for path in [
+    "qualification-cargo-lock-sha256.txt",
+    "qualification-cargo-lock-summary.txt",
 ]:
-    if forbidden in block and "if [[ ! -s" not in block:
-        print(f"FAIL: evidence capture must not destructively rewrite {forbidden}")
-        raise SystemExit(2)
+    for line in block.splitlines():
+        if path in line and (">" in line or ">>" in line):
+            print(f"FAIL: evidence capture must never rewrite a pre-runtime lock receipt: {path}")
+            raise SystemExit(2)
 
 print("OK: qualification evidence capture preserves pre-runtime lock receipts and failure markers")
 PY
