@@ -80,6 +80,7 @@ def verify_entry(entry: dict, record: dict[str, str], subjects: list[dict]) -> b
     statement = result.get("statement", {})
     predicate = statement.get("predicate", {})
     statement_subjects = statement.get("subject", [])
+    verified_timestamps = result.get("verifiedTimestamps", [])
 
     certificate_ok = (
         certificate.get("subjectAlternativeName") == expected_san
@@ -132,6 +133,7 @@ def verify_entry(entry: dict, record: dict[str, str], subjects: list[dict]) -> b
 
     return (
         certificate_ok
+        and bool(verified_timestamps)
         and predicate_ok
         and canonical_subjects(statement_subjects) == canonical_subjects(subjects)
     )
