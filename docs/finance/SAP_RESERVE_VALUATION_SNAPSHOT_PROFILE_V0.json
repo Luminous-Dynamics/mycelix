@@ -22,7 +22,7 @@
     "source_commitment": "non-empty bounded canonical commitment",
     "source_count": "1..=200",
     "aggregation_profile_id": "non-empty bounded string",
-    "publisher_policy_id": "non-empty bounded string",
+    "publisher_policy_id": "non-empty bounded authenticated policy/version identifier",
     "qualification_state": [
       "Qualified",
       "Degraded",
@@ -34,7 +34,9 @@
     ],
     "publisher_did": "must bind to signed Create author",
     "supersedes": "optional ActionHash",
-    "created_at": "must equal signed Create action timestamp"
+    "created_at": "must equal signed Create action timestamp",
+    "source_item": "non-empty bounded canonical source item identifier",
+    "source_action_hashes": "1..=200 unique ActionHash values in canonical sorted order"
   },
   "reserve_consumption": {
     "allowed_qualification_state": "Qualified",
@@ -55,10 +57,10 @@
     "authority_bootstrap_profile": "AC-106"
   },
   "source_commitment": {
-    "ordering": "canonical deterministic order",
-    "preferred_basis": "sorted action hashes or addressable quorum certificate",
-    "validation_retrieval": "must_get_valid_record",
-    "mutable_link_iteration_as_proof": false
+    "algorithm": "BLAKE2b-256",
+    "domain": "sap.reserve.source-set.v0",
+    "input": "u32 big-endian source count + sorted 39-byte ActionHash values",
+    "encoding": "blake2b256:<64 lowercase hex characters>"
   },
   "immutability": {
     "snapshot_updates_allowed": false,
@@ -91,5 +93,12 @@
     "AC-108",
     "AC-109",
     "AC-110"
-  ]
+  ],
+  "source_records": {
+    "dependency_resolution": "must_get_valid_record",
+    "required_entry_type": "price_oracle::PriceReport",
+    "required_item_match": true,
+    "required_window_match": true,
+    "observed_at_must_be_le_reported_at": true
+  }
 }
