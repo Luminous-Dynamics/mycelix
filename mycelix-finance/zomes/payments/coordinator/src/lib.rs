@@ -445,6 +445,11 @@ const DEMURRAGE_MIN_ELAPSED_SECONDS: u64 = 60;
 /// does verify_governance). See MYCELIX_ECONOMY_IMPROVEMENT_PLAN Phase 1 / Class-A #3.
 #[hdk_extern]
 pub fn credit_sap(input: CreditSapInput) -> ExternResult<Record> {
+    // Owner-authenticated balance model: direct credit may no longer mutate
+    // another member's final account state. Cross-account value movement must
+    // use the typed transfer/claim protocol instead.
+    verify_caller_is_did(&input.member_did)?;
+
     // Opportunistically drain any pending compost deliveries
     if let Err(e) = drain_pending_compost_inner() {
         debug!(
