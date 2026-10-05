@@ -1,0 +1,258 @@
+name: Security Kernel Independent Qualification
+run-name: SEC-KERNEL-INDEP candidate=${{ inputs.candidate_sha }} pr=${{ inputs.candidate_pr }} source=${{ inputs.source_run_id }}.${{ inputs.source_run_attempt }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_pr:
+        description: "Exact source PR number"
+        required: true
+        type: string
+      candidate_sha:
+        description: "Exact source commit SHA"
+        required: true
+        type: string
+      candidate_repository:
+        description: "Exact source repository full name"
+        required: true
+        type: string
+      source_run_id:
+        description: "Completed Security Kernel Qualification run id"
+        required: true
+        type: string
+      source_run_attempt:
+        description: "Completed Security Kernel Qualification run attempt"
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: security-kernel-independent-${{ inputs.candidate_sha }}
+  cancel-in-progress: true
+
+env:
+  BASE_REPOSITORY: "Luminous-Dynamics/mycelix"
+  SOURCE_WORKFLOW_ID: "372951439"
+  SOURCE_WORKFLOW_PATH: ".github/workflows/security-kernel-qualification.yml"
+
+jobs:
+  qualify:
+    name: Independent Security Kernel
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout trusted qualification root
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate dispatch provenance
+        shell: bash
+        env:
+          TOKEN: ${{ github.token }}
+          CANDIDATE_PR: ${{ inputs.candidate_pr }}
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          CANDIDATE_REPOSITORY: ${{ inputs.candidate_repository }}
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          SOURCE_RUN_ATTEMPT: ${{ inputs.source_run_attempt }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, re, urllib.request
+          for name, pattern in {
+              "CANDIDATE_PR": r"[0-9]+",
+              "CANDIDATE_SHA": r"[0-9a-f]{40}",
+              "CANDIDATE_REPOSITORY": r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+",
+              "SOURCE_RUN_ID": r"[0-9]+",
+              "SOURCE_RUN_ATTEMPT": r"[0-9]+",
+          }.items():
+              assert re.fullmatch(pattern, os.environ[name]), name
+          req=urllib.request.Request(
+              f"https://api.github.com/repos/{os.environ['BASE_REPOSITORY']}/actions/runs/{os.environ['SOURCE_RUN_ID']}",
+              headers={"Accept":"application/vnd.github+json","Authorization":f"Bearer {os.environ['TOKEN']}","X-GitHub-Api-Version":"2022-11-28"})
+          with urllib.request.urlopen(req, timeout=20) as r:
+              run=json.load(r)
+          assert run["id"] == int(os.environ["SOURCE_RUN_ID"])
+          assert run["run_attempt"] == int(os.environ["SOURCE_RUN_ATTEMPT"])
+          assert run["workflow_id"] == int(os.environ["SOURCE_WORKFLOW_ID"])
+          assert run["path"] == os.environ["SOURCE_WORKFLOW_PATH"]
+          assert run["event"] == "pull_request"
+          assert run["repository"]["full_name"] == os.environ["BASE_REPOSITORY"]
+          assert run["head_sha"] == os.environ["CANDIDATE_SHA"]
+          assert (run.get("head_repository") or {}).get("full_name") == os.environ["CANDIDATE_REPOSITORY"]
+          print("PASS: source workflow run is bound to exact candidate SHA/repository/attempt")
+          PY
+
+      - name: Resolve exact candidate source
+        shell: bash
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          CANDIDATE_REPOSITORY: ${{ inputs.candidate_repository }}
+          CANDIDATE_PR: ${{ inputs.candidate_pr }}
+        run: |
+          set -euo pipefail
+          candidate_git="$RUNNER_TEMP/security-kernel-candidate-git"
+          candidate_root="$RUNNER_TEMP/security-kernel-candidate-src"
+          rm -rf "$candidate_git" "$candidate_root"
+          git init -q "$candidate_git"
+          git -C "$candidate_git" remote add origin "https://github.com/$CANDIDATE_REPOSITORY.git"
+          git -C "$candidate_git" fetch --no-tags --depth=1 origin "$CANDIDATE_SHA"
+          resolved="$(git -C "$candidate_git" rev-parse FETCH_HEAD)"
+          test "$resolved" = "$CANDIDATE_SHA"
+          candidate_tree="$(git -C "$candidate_git" rev-parse FETCH_HEAD^{tree})"
+          mkdir -p "$candidate_root"
+          git -C "$candidate_git" archive --format=tar "$resolved" | tar -xf - -C "$candidate_root"
+          printf "CANDIDATE_SHA=%s\nCANDIDATE_TREE=%s\nCANDIDATE_PR=%s\nCANDIDATE_REPOSITORY=%s\n" "$CANDIDATE_SHA" "$candidate_tree" "$CANDIDATE_PR" "$CANDIDATE_REPOSITORY" > "$RUNNER_TEMP/security-kernel-subject.env"
+
+          python3 - "$candidate_root" "$RUNNER_TEMP/security-kernel-source-digest-before" <<'PY'
+          import hashlib, pathlib, sys
+          root=pathlib.Path(sys.argv[1])
+          digest=hashlib.sha256()
+          for path in sorted(root.rglob("*")):
+              if not path.is_file():
+                  continue
+              rel=path.relative_to(root)
+              if rel.parts and rel.parts[0] == "target":
+                  continue
+              digest.update(rel.as_posix().encode())
+              digest.update(b"\0")
+              digest.update(path.read_bytes())
+              digest.update(b"\0")
+          pathlib.Path(sys.argv[2]).write_text(digest.hexdigest()+"\n",encoding="utf-8")
+          print("PASS: exact candidate commit materialized")
+          PY
+
+      - name: Static trust-surface audit
+        shell: bash
+        env:
+          CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-src
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import os, re
+          root=Path(os.environ["CANDIDATE_ROOT"])
+          kernel=(root/"crates/mycelix-bridge-common/src/security_kernel.rs").read_text(encoding="utf-8")
+          events=(root/"crates/mycelix-bridge-common/src/security_events.rs").read_text(encoding="utf-8")
+          workflow=(root/".github/workflows/security-kernel-qualification.yml").read_text(encoding="utf-8")
+          assert "pull_request_target:" not in workflow
+          uses=re.findall(r"(?m)^\s*-\s*uses:\s*([^\n]+)$",workflow)
+          assert uses and all(re.search(r"@[0-9a-fA-F]{40}(?:\s+#.*)?$",line) for line in uses)
+          for value in (
+              "runs-on: ubuntu-24.04",
+              "ref: " + "$" + "{{ github.event.pull_request.head.sha || github.sha }}",
+              "persist-credentials: false",
+              "contents: read",
+          ):
+              assert value in workflow, value
+          for value in (
+              '#[must_use = "verified capabilities must be passed to authorize_permit"]',
+              '#[must_use = "signature verification results must be checked before accepting a capability"]',
+              '#[must_use = "issuer-bound signature verification results must be checked before accepting a capability"]',
+          ):
+              assert value in kernel, value
+          for pattern in (
+              r"pub\s+(?:\([^)]*\)\s+)?(SignatureVerification|RevocationStatus|AuthorityResolution)",
+              r"pub\s+(?:\([^)]*\)\s+)?fn\s+(authority_binding_from_freshness_digest|revalidate_permit)",
+              r"pub\s+(?:\([^)]*\)\s+)?(decision|capability_binding|authority_binding|event_id|actor_id|capability_ref|request|policy_version|timestamp_us|provenance|recovery_correlation)\s*:",
+          ):
+              assert re.search(pattern,kernel) is None, pattern
+          assert re.search(r"pub struct SignedCapability\s*\{[^}]*\n\s*capability:",kernel,re.S)
+          for value in (
+              "MAX_SECURITY_WIRE_BYTES",
+              "deserialize_bounded_security_json_reader",
+              "deserialize_capability_actions",
+              "serde(try_from = " + chr(34) + "CapabilityWire" + chr(34) + ")",
+              "serde(try_from = " + chr(34) + "AuthorizationRequestWire" + chr(34) + ")",
+          ):
+              assert value in kernel, value
+          assert "deny_unknown_fields" in kernel and "deny_unknown_fields" in events
+          print("PASS: independent static trust-surface profile")
+          PY
+
+      - name: Format candidate bridge crate
+        working-directory: ${{ runner.temp }}/security-kernel-candidate-src
+        run: cargo fmt --manifest-path crates/mycelix-bridge-common/Cargo.toml -- --check
+
+      - name: Test candidate default feature set
+        working-directory: ${{ runner.temp }}/security-kernel-candidate-src
+        run: cargo test --locked --manifest-path crates/mycelix-bridge-common/Cargo.toml
+
+      - name: Test candidate identity feature set
+        working-directory: ${{ runner.temp }}/security-kernel-candidate-src
+        run: cargo test --locked --manifest-path crates/mycelix-bridge-common/Cargo.toml --features identity
+
+      - name: Clippy candidate default feature set
+        working-directory: ${{ runner.temp }}/security-kernel-candidate-src
+        run: cargo clippy --locked --manifest-path crates/mycelix-bridge-common/Cargo.toml --all-targets -- -D warnings
+
+      - name: Clippy candidate identity feature set
+        working-directory: ${{ runner.temp }}/security-kernel-candidate-src
+        run: cargo clippy --locked --manifest-path crates/mycelix-bridge-common/Cargo.toml --all-targets --features identity -- -D warnings
+
+      - name: Verify candidate source immutability
+        shell: bash
+        env:
+          CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-src
+        run: |
+          set -euo pipefail
+          python3 - "$CANDIDATE_ROOT" "$RUNNER_TEMP/security-kernel-source-digest-before" <<'PY'
+          import hashlib, pathlib, sys
+          root=pathlib.Path(sys.argv[1])
+          digest=hashlib.sha256()
+          for path in sorted(root.rglob("*")):
+              if not path.is_file():
+                  continue
+              rel=path.relative_to(root)
+              if rel.parts and rel.parts[0] == "target":
+                  continue
+              digest.update(rel.as_posix().encode())
+              digest.update(b"\0")
+              digest.update(path.read_bytes())
+              digest.update(b"\0")
+          before=pathlib.Path(sys.argv[2]).read_text(encoding="utf-8").strip()
+          after=digest.hexdigest()
+          assert before == after, f"candidate source mutated during qualification: {before} != {after}"
+          print("PASS: candidate source remained immutable")
+          PY
+
+      - name: Emit qualification receipt
+        shell: bash
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          CANDIDATE_PR: ${{ inputs.candidate_pr }}
+          CANDIDATE_REPOSITORY: ${{ inputs.candidate_repository }}
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          SOURCE_RUN_ATTEMPT: ${{ inputs.source_run_attempt }}
+        run: |
+          set -euo pipefail
+          source "$RUNNER_TEMP/security-kernel-subject.env"
+          {
+            echo "schema=security-kernel-independent-qualification-v1"
+            echo "candidate_repository=$CANDIDATE_REPOSITORY"
+            echo "candidate_pr=$CANDIDATE_PR"
+            echo "candidate_sha=$CANDIDATE_SHA"
+            echo "candidate_tree=$CANDIDATE_TREE"
+            echo "source_run_id=$SOURCE_RUN_ID"
+            echo "source_run_attempt=$SOURCE_RUN_ATTEMPT"
+            echo "trusted_workflow_ref=$GITHUB_WORKFLOW_REF"
+            echo "trusted_workflow_sha=$GITHUB_WORKFLOW_SHA"
+            echo "trusted_workflow_name=$GITHUB_WORKFLOW"
+            echo "rust=$(rustc --version)"
+            echo "rust_verbose_commit=$(rustc --version --verbose | sed -n 's/^commit-hash: //p')"
+            echo "qualification_pass=true"
+          } > "$RUNNER_TEMP/security-kernel-independent-qualification.txt"
+          cat "$RUNNER_TEMP/security-kernel-independent-qualification.txt"
+
+      - name: Upload qualification receipt
+        if: success()
+        continue-on-error: true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a0 # v7.0.1
+        with:
+          name: security-kernel-independent-qualification-${{ inputs.candidate_sha }}
+          path: ${{ runner.temp }}/security-kernel-independent-qualification.txt
