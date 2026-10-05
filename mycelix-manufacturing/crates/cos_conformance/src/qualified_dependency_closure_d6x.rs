@@ -369,7 +369,9 @@ impl DependencyClosureCertificateV1 {
     /// Require every selected Present/Stale resolution record to carry the
     /// exact qualification context expected by the consuming verifier.
     pub fn resolution_evidence_matches_context(&self, expected_context_commitment: &str) -> bool {
-        if !is_canonical_sha256_commitment(expected_context_commitment) {
+        if !is_canonical_sha256_commitment(expected_context_commitment)
+            || self.resolution_evidence.is_empty()
+        {
             return false;
         }
 
@@ -2845,6 +2847,29 @@ mod tests {
                 &closure_profile,
                 &complete,
             )
+        );
+    }
+
+    #[test]
+    fn context_binding_is_not_vacuously_true_without_evidence() {
+        let (projection, environment, derivation_profile) = projection(false);
+        let closure_profile = profile(BTreeSet::new());
+        let closure = compute_dependency_closure(
+            &projection,
+            &environment,
+            &derivation_profile,
+            &closure_profile,
+        )
+        .expect("verified closure");
+
+        let context = canonical_sha256(
+            "test-d6x-resolution-context",
+            &serde_json::json!({"scope":"d6x"}),
+        );
+
+        assert!(
+            !closure.resolution_evidence_matches_context(&context),
+            "an evidence-free closure cannot satisfy a context-binding predicate"
         );
     }
 
