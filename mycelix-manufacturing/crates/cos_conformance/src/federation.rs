@@ -3652,12 +3652,18 @@ mod tests {
             );
         }
 
-        for (capsule, publication) in snapshots {
+        let mut canonical_snapshots = snapshots.iter().collect::<Vec<_>>();
+        canonical_snapshots.sort_by_key(|(capsule, publication)| {
+            serde_json::to_string((capsule, publication))
+                .expect("publication collection audit entry must be serializable")
+        });
+
+        for (capsule, publication) in &canonical_snapshots {
             validate_state_machine_trace_checkpoint_publication(capsule, publication)?;
         }
-        let publications = snapshots
+        let publications = canonical_snapshots
             .iter()
-            .map(|(_, publication)| publication.clone())
+            .map(|(_, publication)| (*publication).clone())
             .collect::<Vec<_>>();
         validate_state_machine_trace_checkpoint_publication_set(&publications)
     }
@@ -5985,6 +5991,22 @@ mod tests {
             Err(
                 FederationStateMachineTraceCheckpointPublicationViolation::BodyDigestMismatch
             )
+        );
+
+        let mut malformed_a = base_publication.clone();
+        malformed_a.body_sha256 = "sha256:malformed-a".into();
+        let mut malformed_b = base_publication.clone();
+        malformed_b.body_sha256 = "sha256:malformed-b".into();
+        let malformed_a_first = vec![(&base, &malformed_a), (&base, &malformed_b)];
+        let malformed_b_first = vec![(&base, &malformed_b), (&base, &malformed_a)];
+        assert_eq!(
+            validate_state_machine_trace_checkpoint_publication_set_against_snapshots(
+                &malformed_a_first
+            ),
+            validate_state_machine_trace_checkpoint_publication_set_against_snapshots(
+                &malformed_b_first
+            ),
+            "qualified collection diagnostics must be permutation-invariant"
         );
     }
 
