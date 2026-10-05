@@ -740,27 +740,18 @@ pub fn initiate_sap_transfer(input: TransferSapIntentInput) -> ExternResult<Reco
             reason: format!("SAP transfer fee to global commons ({})", fee),
         })?;
 
-        if let Err(err) = call(
-            CallTargetCell::Local,
-            ZomeName::from("treasury"),
-            FunctionName::from("receive_compost"),
-            None,
-            ReceiveCompostPayload {
-                commons_pool_id: "global-fee-pool".to_string(),
-                amount: fee,
-                source_member_did: input.from_did.clone(),
-            },
-        ) {
-            debug!("SAP transfer fee routing failed: {:?}; queueing pending delivery", err);
-            queue_pending_compost(
-                "global-fee-pool",
-                fee,
-                &input.from_did,
-                CompostPoolTier::Global,
-            )?;
-        }
+        // Durable-first settlement: persist the fee-delivery obligation in the
+        // same atomic source-chain transaction as the fee debit. Delivery is
+        // retried from the explicit queue after the local commit, so a later
+        // validation/chain-head failure cannot leave an external compost credit
+        // without its corresponding committed local fee debit.
+        queue_pending_compost(
+            "global-fee-pool",
+            fee,
+            &input.from_did,
+            CompostPoolTier::Global,
+        )?;
     }
-
     // The fee debit above may advance last_demurrage_at. Re-read the balance and
     // capture a fresh timestamp so the transfer update can never move that timestamp
     // backward on the owner's source chain.
