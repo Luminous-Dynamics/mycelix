@@ -728,17 +728,26 @@ fn maximum_dispatch_offset_child() -> ! {
     }
 
     // Linux charges the converted eBPF program length at chain-attachment
-    // time, not merely the user-space cBPF length. The kernel's classic-BPF
-    // conversion adds a three-instruction prologue and maps each RET_K to two
-    // eBPF instructions. For this fixture that yields:
-    //   x86_64: base 151 + 7*4249 + 8*4 = 29,922
-    //   AArch64: base 148 + 7*4246 + 8*4 = 29,898
-    // The eighth candidate would cross 32,768 on both architectures:
-    //   x86_64: 34,175
-    //   AArch64: 34,144
+    // time, not merely the user-space cBPF length. In this fixture the
+    // classic-BPF converter contributes three prologue instructions, two
+    // eBPF instructions for each RET_K, and expands each maximum-width
+    // disjunctive dummy rule by four instructions over its cBPF form.
+    // The resulting converted lengths are:
+    //   x86_64: base 151, candidate 4249
+    //   AArch64: base 147, candidate 4245
     //
-    // Therefore seven near-maximum filters must succeed. The eighth candidate
-    // is intentionally different: it denies getppid(), so an incorrect
+    // seccomp_attach_filter() checks:
+    //   new_len + sum(existing_len + 4)
+    // before attachment. Thus the 7th candidate admission check is:
+    //   x86_64: 4249 + 151 + 6*4249 + 7*4 = 29,922
+    //   AArch64: 4245 + 147 + 6*4245 + 7*4 = 29,890
+    // while the 8th candidate admission check is:
+    //   x86_64: 34,175
+    //   AArch64: 34,139
+    // Both leave the 7th candidate below the 32,768 path limit and force
+    // the 8th to return ENOMEM before attachment.
+    //
+    // The rejected candidate intentionally denies getppid(), so an incorrect
     // partial attachment is distinguishable from the expected ENOMEM refusal.
     for index in 0..7u32 {
         eprintln!("cumulative-layer={} expected=success", index);
