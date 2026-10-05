@@ -727,37 +727,23 @@ pub fn publish_consensus_price(input: PublishConsensusInput) -> ExternResult<Con
         computation.result.item
     ))?;
 
-    // Reject ordinary replay of the same item/window/source/profile. This is a
-    // local duplicate guard; global concurrent publication serialization remains
-    // a separate qualification problem.
-    let existing_links = get_links(
-        LinkQuery::try_new(consensus_anchor.clone(), LinkTypes::ItemToConsensus)?,
+    // Retain a non-destructive publication index so historical artifacts cannot
+    // be republished merely because they are no longer the current ItemToConsensus link.
+    let publication_index_anchor = anchor_hash(&format!(
+        "oracle:consensus:publication:{source_commitment}"
+    ))?;
+    let publication_links = get_links(
+        LinkQuery::try_new(
+            publication_index_anchor.clone(),
+            LinkTypes::ConsensusPublicationIndex,
+        )?,
         GetStrategy::default(),
     )?;
-    for link in existing_links {
-        if let Some(hash) = link.target.clone().into_action_hash() {
-            if let Some(record) = get(hash, GetOptions::default())? {
-                if let Some(existing) = record
-                    .entry()
-                    .to_app_option::<PriceConsensus>()
-                    .ok()
-                    .flatten()
-                {
-                    if existing.item == computation.result.item
-                        && existing.window_start == computation.result.window_start
-                        && existing.source_commitment == source_commitment
-                        && existing.aggregation_profile_id == CONSENSUS_AGGREGATION_PROFILE_V1
-                    {
-                        return Err(wasm_error!(WasmErrorInner::Guest(
-                            "Consensus for this item/window/source set/profile is already published"
-                                .into(),
-                        )));
-                    }
-                }
-            }
-        }
+    if !publication_links.is_empty() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Consensus source commitment has already been published".into(),
+        )));
     }
-
     let consensus = PriceConsensus {
         item: computation.result.item.clone(),
         median_price: computation.result.median_price,
@@ -772,6 +758,14 @@ pub fn publish_consensus_price(input: PublishConsensusInput) -> ExternResult<Con
     };
 
     let consensus_hash = create_entry(&EntryTypes::PriceConsensus(consensus))?;
+
+    // Historical publication index is append-only and is never deleted.
+    create_link(
+        publication_index_anchor,
+        consensus_hash.clone(),
+        LinkTypes::ConsensusPublicationIndex,
+        (),
+    )?;
 
     // Replace only the query index; the immutable consensus artifact remains
     // addressable by its own ActionHash.
