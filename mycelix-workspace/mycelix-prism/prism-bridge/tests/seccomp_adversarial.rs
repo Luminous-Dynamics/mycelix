@@ -638,7 +638,7 @@ fn maximum_dispatch_offset_child() -> ! {
     // The final candidate swaps getppid for getuid. If the kernel incorrectly
     // attached that candidate despite returning ENOMEM, the post-failure
     // getppid() probe below would be denied by the new filter.
-    fn cumulative_policy(
+    fn build_cumulative_policy(
         architecture: SeccompArchitecture,
         include_getppid: bool,
     ) -> Result<SeccompSyscallPolicyV2, prism_bridge::seccomp::SeccompError> {
@@ -694,9 +694,9 @@ fn maximum_dispatch_offset_child() -> ! {
         SeccompSyscallPolicyV2::new(architecture, rules)
     }
 
-    let cumulative_policy = cumulative_policy(architecture, true)
+    let cumulative_policy = build_cumulative_policy(architecture, true)
         .unwrap_or_else(|_| unsafe { libc::_exit(160) });
-    let cumulative_failure_policy = cumulative_policy(architecture, false)
+    let cumulative_failure_policy = build_cumulative_policy(architecture, false)
         .unwrap_or_else(|_| unsafe { libc::_exit(161) });
     let cumulative_profile = SandboxProfileV1::renderer_default()
         .with_syscall_policy_digest(cumulative_policy.digest())
@@ -732,7 +732,7 @@ fn maximum_dispatch_offset_child() -> ! {
     // incorrect partial attachment is distinguishable from an ENOMEM refusal.
     for index in 0..8u32 {
         let receipt = install_v2(
-            RendererProcessAssignmentId::new(20 + index).unwrap(),
+            RendererProcessAssignmentId::new(20u128 + u128::from(index)).unwrap(),
             cumulative_profile.clone(),
             &cumulative_policy,
         );
