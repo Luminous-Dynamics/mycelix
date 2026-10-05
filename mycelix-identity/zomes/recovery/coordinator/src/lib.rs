@@ -30,6 +30,45 @@ pub enum AssuranceLevel {
     ConstitutionallyCritical,
 }
 
+/// Require the DID registry to report an active canonical identity.
+/// Historical resolution alone is insufficient authorization for recovery state.
+fn verify_did_active(did: &str) -> ExternResult<()> {
+    let response = call(
+        CallTargetCell::Local,
+        ZomeName::new("did_registry"),
+        FunctionName::new("is_did_active"),
+        None,
+        did.to_string(),
+    )?;
+
+    match response {
+        ZomeCallResponse::Ok(io) => {
+            let active: bool = io
+                .decode()
+                .map_err(|e| wasm_error!(WasmErrorInner::Serialize(e)))?;
+            if active {
+                Ok(())
+            } else {
+                Err(wasm_error!(WasmErrorInner::Guest(
+                    "DID is not active in the registry; refusing recovery configuration".into(),
+                )))
+            }
+        }
+        ZomeCallResponse::Unauthorized(_, _, _, _) => Err(wasm_error!(WasmErrorInner::Guest(
+            "DID registry authorization failed; refusing recovery configuration".into(),
+        ))),
+        ZomeCallResponse::NetworkError(err) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "DID active-state verification failed (network error: {err})"
+        )))),
+        ZomeCallResponse::CountersigningSession(err) => Err(wasm_error!(WasmErrorInner::Guest(
+            format!("DID active-state verification failed (countersigning: {err})")
+        ))),
+        ZomeCallResponse::AuthenticationFailed(_, _) => Err(wasm_error!(WasmErrorInner::Guest(
+            "DID active-state verification failed (authentication)".into(),
+        ))),
+    }
+}
+
 /// Check if a DID has sufficient MFA assurance for recovery operations
 fn verify_mfa_assurance_for_recovery(did: &str) -> ExternResult<bool> {
     let response = call(
@@ -283,32 +322,9 @@ pub fn setup_recovery(input: SetupRecoveryInput) -> ExternResult<Record> {
         )));
     }
 
-    // Recovery configuration is security state. Refuse to create it unless
-    // the canonical DID registry confirms that this DID actually exists.
-    let response = call(
-        CallTargetCell::Local,
-        ZomeName::new("did_registry"),
-        FunctionName::new("resolve_did"),
-        None,
-        input.did.clone(),
-    )?;
-    match response {
-        ZomeCallResponse::Ok(io) => {
-            let record: Option<Record> = io.decode().map_err(|e| {
-                wasm_error!(WasmErrorInner::Serialize(e))
-            })?;
-            if record.is_none() {
-                return Err(wasm_error!(WasmErrorInner::Guest(
-                    "Cannot configure recovery for a DID that does not exist".into()
-                )));
-            }
-        }
-        _ => {
-            return Err(wasm_error!(WasmErrorInner::Guest(
-                "DID registry verification failed; refusing recovery configuration".into()
-            )));
-        }
-    }
+    // Recovery configuration is security state. Historical DID resolution
+    // is not enough; the registry must report the canonical DID as active.
+    verify_did_active(&input.did)?;
 
     let now = sys_time()?;
 
@@ -1661,11 +1677,11 @@ pub struct CreateSelfRecoveryInput {
     pub did: String,
 }
 
-/// Auto-create a self-recovery config for a new DID.
+/// Register a self-recovery configuration scaffold for a new DID.
 ///
-/// Called by `create_did()` — gives every user a recovery fallback from Day 0.
-/// Starts with zero anchors (user enrolls them progressively) and a conservative
-/// 7-day time lock.
+/// Called by `create_did()` after the canonical DID is active. The scaffold
+/// starts with zero anchors; self-recovery remains non-executable until the
+/// cryptographic proof-of-control and successor-DID protocols land (#3874/#3873).
 #[hdk_extern]
 pub fn create_self_recovery(input: CreateSelfRecoveryInput) -> ExternResult<Record> {
     if !input.did.starts_with("did:mycelix:") {
@@ -1675,6 +1691,16 @@ pub fn create_self_recovery(input: CreateSelfRecoveryInput) -> ExternResult<Reco
     }
 
     let agent = agent_info()?.agent_initial_pubkey;
+    let expected_did = format!("did:mycelix:{}", agent);
+    if input.did != expected_did {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Can only create self-recovery state for the caller's canonical DID".into()
+        )));
+    }
+    // The DID already exists when create_did() reaches this cross-zome call.
+    // Direct callers are likewise prevented from creating recovery state for
+    // historical, deactivated, or nonexistent identities.
+    verify_did_active(&input.did)?;
     let now = sys_time()?;
 
     let config = SelfRecoveryConfig {
