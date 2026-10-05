@@ -1,0 +1,155 @@
+{
+  "schema_version": 1,
+  "artifact_type": "mycelix-ak-quote-key-binding-v0.1",
+  "profile_id": "mycelix.security.tpm.ak-quote-key-binding",
+  "profile_version": "0.1.0",
+  "status": "executable-reference-profile",
+  "claim_ceiling": "ReferenceModelOnly",
+  "decision_algebra": "ANY DENY > ANY INDETERMINATE > ALL PASS",
+  "states": [
+    "PASS",
+    "DENY",
+    "INDETERMINATE"
+  ],
+  "theorem": {
+    "statement": "The key used to verify a TPM Quote must be the same AK public key represented by the exact TPMT_PUBLIC bytes, with the same TPM Name and public-area digest already qualified by AK lineage.",
+    "scope": "RSA AK signing-key identity only; quote signature validity and live TPM residency remain separate claims."
+  },
+  "required_input": {
+    "session_id": "attestation session identifier",
+    "verification_mode": [
+      "ReferenceModelOnly",
+      "OfflineBundle",
+      "LiveVerifierSession"
+    ],
+    "claim_ceiling": "ReferenceModelOnly",
+    "ak_public_key_pem": "exact captured AK public key PEM",
+    "ak_public_key_sha256": "digest of exact captured key representation",
+    "ak_public_source_sha256": "source receipt digest for captured AK public key",
+    "ak_public_wire_hex": "exact TPMT_PUBLIC bytes",
+    "ak_public_wire_sha256": "digest of exact TPMT_PUBLIC bytes",
+    "ak_name_hex": "exact TPM Name",
+    "lineage_binding": [
+      "state",
+      "name_hex",
+      "public_area_sha256",
+      "qualified_name_hex",
+      "source_sha256"
+    ],
+    "quote_binding": [
+      "state",
+      "quote_signature_source_sha256",
+      "ak_public_spki_sha256"
+    ],
+    "session_binding_sha256": "binding over all key/object/lineage/quote identity inputs"
+  },
+  "outputs": [
+    "ak_spki_sha256",
+    "tpm_spki_sha256",
+    "ak_public_representation_sha256",
+    "ak_public_wire_sha256",
+    "ak_name_hex",
+    "lineage_bound",
+    "quote_key_bound"
+  ],
+  "non_equivalences": [
+    [
+      "spki_key_match",
+      "quote_signature_valid"
+    ],
+    [
+      "quote_key_bound",
+      "live_TPM_residency"
+    ],
+    [
+      "ak_name_match",
+      "AK_EK_lineage"
+    ],
+    [
+      "ak_public_key_sha256",
+      "ak_public_wire_sha256"
+    ]
+  ],
+  "vectors": [
+    [
+      "QK-V01",
+      "canonical-valid",
+      "PASS"
+    ],
+    [
+      "QK-V02",
+      "public-key-digest-substitution",
+      "DENY"
+    ],
+    [
+      "QK-V03",
+      "public-wire-digest-substitution",
+      "DENY"
+    ],
+    [
+      "QK-V04",
+      "public-wire-substitution",
+      "DENY"
+    ],
+    [
+      "QK-V05",
+      "name-substitution",
+      "DENY"
+    ],
+    [
+      "QK-V06",
+      "lineage-name-substitution",
+      "DENY"
+    ],
+    [
+      "QK-V07",
+      "lineage-area-substitution",
+      "DENY"
+    ],
+    [
+      "QK-V08",
+      "lineage-source-substitution",
+      "DENY"
+    ],
+    [
+      "QK-V09",
+      "quote-key-substitution",
+      "DENY"
+    ],
+    [
+      "QK-V10",
+      "quote-source-substitution",
+      "DENY"
+    ],
+    [
+      "QK-V11",
+      "key-type-substitution",
+      "DENY"
+    ],
+    [
+      "QK-V12",
+      "rsa-modulus-substitution",
+      "DENY"
+    ],
+    [
+      "QK-V13",
+      "rsa-exponent-substitution",
+      "DENY"
+    ],
+    [
+      "QK-V14",
+      "offline-origin",
+      "INDETERMINATE"
+    ],
+    [
+      "QK-V15",
+      "live-origin",
+      "INDETERMINATE"
+    ],
+    [
+      "QK-V16",
+      "key-order-permutation",
+      "PASS"
+    ]
+  ]
+}
