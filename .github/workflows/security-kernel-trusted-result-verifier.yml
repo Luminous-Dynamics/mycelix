@@ -111,6 +111,23 @@ jobs:
           )
           main_sha = subprocess.check_output(["git", "rev-parse", "origin/main"], text=True).strip()
           subprocess.run(["git", "merge-base", "--is-ancestor", workflow_sha, main_sha], check=True)
+          assert os.environ["GITHUB_WORKFLOW_SHA"] == main_sha, (
+              "S2 workflow is not executing from the current default-branch tip"
+          )
+          current_dispatcher = get(
+              f"/repos/{repo}/contents/{os.environ['TRUSTED_DISPATCHER_WORKFLOW_PATH']}?ref={main_sha}"
+          )
+          assert current_dispatcher["sha"] == os.environ["TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA"], (
+              "registered S0 trust profile is stale relative to current protected main"
+          )
+          current_s1 = get(
+              f"/repos/{repo}/contents/{os.environ['INDEPENDENT_WORKFLOW_PATH']}?ref={main_sha}"
+          )
+          assert current_s1["sha"] == os.environ["TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA"], (
+              "registered S1 trust profile is stale relative to current protected main"
+          )
+          print("PASS: registered S0/S1 workflow trust profile still matches the current protected main tip")
+
 
           s1_at_run = get(
               f"/repos/{repo}/contents/{os.environ['INDEPENDENT_WORKFLOW_PATH']}?ref={workflow_sha}"
