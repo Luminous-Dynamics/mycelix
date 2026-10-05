@@ -2412,6 +2412,13 @@ check_qualification_workflow_provenance() {
     fail=1
   fi
 
+  if rg -n --fixed-strings "Verify every semantic qualification case executed" "$workflow" >/dev/null 2>&1     && rg -n --fixed-strings "semantic qualification case was still ignored" "$workflow" >/dev/null 2>&1     && rg -n --fixed-strings "semantic qualification case was not observed in test output" "$workflow" >/dev/null 2>&1     && rg -n --fixed-strings "cargo test summary reports ignored tests despite --include-ignored" "$workflow" >/dev/null 2>&1; then
+    echo "OK:   qualification workflow proves every manifest case actually executed and was not merely collected/skipped"
+  else
+    echo "FAIL: qualification workflow must prove every manifest semantic case executed and passed"
+    fail=1
+  fi
+
   if rg -n --fixed-strings "Capture immutable qualification evidence" "$workflow" >/dev/null 2>&1     && rg -n --fixed-strings "if: ${{ !cancelled() }}" "$workflow" >/dev/null 2>&1     && rg -n --fixed-strings "unavailable_source_audit_not_reached" "$workflow" >/dev/null 2>&1     && rg -n --fixed-strings "qualification-evidence-status.txt" "$workflow" >/dev/null 2>&1     && rg -n --fixed-strings "source_contract_digest=unavailable" "$workflow" >/dev/null 2>&1; then
     echo "OK:   qualification evidence capture is failure-monotonic with explicit unavailable markers"
   else
