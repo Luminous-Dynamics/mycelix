@@ -191,6 +191,21 @@ def parse_key_id(value: str | None) -> str:
     return value.lower()
 
 
+def crl_issuers_from_pem_bundle(bundle: bytes, work: Path) -> list[str]:
+    path = work / "crl-bundle.pem"
+    path.write_bytes(bundle)
+    proc = run(["openssl", "crl", "-in", str(path), "-noout", "-issuer", "-nameopt", "RFC2253"], work)
+    if proc.returncode != 0:
+        raise ValueError(f"openssl crl bundle parse failed: {proc.stderr.strip()}")
+    issuers = []
+    for line in proc.stdout.splitlines():
+        if line.startswith("issuer="):
+            issuers.append(line.split("=", 1)[1].strip())
+    if len(issuers) < 2:
+        raise ValueError("CRL bundle does not contain at least two issuer records")
+    return issuers
+
+
 def verify_aki_ski(leaf_text: str, intermediate_text: str) -> bool:
     _aki_critical, aki = extension(leaf_text, "Authority Key Identifier")
     _ski_critical, ski = extension(intermediate_text, "Subject Key Identifier")
@@ -205,10 +220,6 @@ def verify_chain(
     attime: int,
     work: Path,
 ) -> tuple[bool, str]:
-    paths = {
-        "leaf.der": leaf,
-        "inter.der": intermediate,
-        "root.der": root,
     paths = {
         "leaf.der": leaf,
         "inter.der": intermediate,
@@ -237,7 +248,7 @@ def verify_chain(
             "-untrusted", str(work / "inter.pem"),
             "-x509_strict",
             "-check_ss_sig",
-            "-crl_check",
+            "-crl_check_all",
             "-CRLfile", str(crl_path),
             "-attime", str(attime),
             str(work / "leaf.pem"),
@@ -461,7 +472,7 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
         manifest["leaf_certificate_sha256"],
         manifest["intermediate_certificate_sha256"],
         manifest["trust_anchor_root_sha256"],
-        rev["crl_der_sha256"],
+        rev["crl_bundle_pem_sha256"],
     )
     if expected_session_binding != manifest["session_binding_sha256"]:
         return result("DENY", "session-binding-mismatch")
@@ -481,7 +492,7 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
             subject = x509_scalar(leaf, work, "leaf-subject", "-subject")
             issuer = x509_scalar(leaf, work, "leaf-issuer", "-issuer")
             intermediate_subject = x509_scalar(intermediate, work, "intermediate-subject", "-subject")
-            crl_issuer = crl_scalar(crl, work, "issuer", "-issuer")
+            crl_issuers = crl_issuers_from_pem_bundle(crl_bundle_pem, work)
             openssl_version = run(["openssl", "version"], work).stdout.strip()
         except (ValueError, OSError) as exc:
             return result("DENY", "openssl-parse-error", {"error": str(exc)})
@@ -514,11 +525,18 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
             "leaf-issuer-does-not-match-intermediate-subject",
             {**profile, "intermediate_subject": intermediate_subject},
         )
-    if crl_issuer != intermediate_subject:
+    if intermediate_subject not in crl_issuers:
         return result(
             "DENY",
-            "crl-issuer-does-not-match-intermediate-subject",
-            {**profile, "crl_issuer": crl_issuer, "intermediate_subject": intermediate_subject},
+            "crl-bundle-missing-leaf-issuer",
+            {**profile, "crl_issuers": crl_issuers, "required_issuer": intermediate_subject},
+        )
+    root_subject = x509_scalar(root, work, "root-subject", "-subject")
+    if root_subject not in crl_issuers:
+        return result(
+            "DENY",
+            "crl-bundle-missing-intermediate-issuer",
+            {**profile, "crl_issuers": crl_issuers, "required_issuer": root_subject},
         )
     if not verify_aki_ski(leaf_text, intermediate_text):
         return result("DENY", "authority-key-identifier-does-not-match-intermediate-ski", profile)
@@ -711,7 +729,7 @@ def make_manifest(fx: dict[str, Any]) -> dict[str, Any]:
     leaf_sha = hashlib.sha256(fx["leaf"]).hexdigest()
     inter_sha = hashlib.sha256(fx["intermediate"]).hexdigest()
     root_sha = hashlib.sha256(fx["root"]).hexdigest()
-    crl_sha = hashlib.sha256(fx["crl"]).hexdigest()
+    crl_sha = hashlib.sha256(fx["crl_bundle_pem"]).hexdigest()
     m = {
         "profile_id": "mycelix.security.tpm.ek-cert-chain-policy",
         "profile_version": "0.1.0",
