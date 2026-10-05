@@ -1850,15 +1850,18 @@ fn exact_one_index_link(
     index_type: &str,
     identifier: &str,
 ) -> ExternResult<Link> {
-    match links.len() {
-        1 => Ok(links.into_iter().next().expect("length checked")),
-        0 => Err(wasm_error!(WasmErrorInner::Guest(format!(
+    let mut links = links.into_iter();
+    let Some(link) = links.next() else {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
             "{index_type} index has no entry for {identifier}"
-        )))),
-        n => Err(wasm_error!(WasmErrorInner::Guest(format!(
-            "{index_type} index is ambiguous for {identifier}: {n} entries"
-        )))),
+        )));
+    };
+    if links.next().is_some() {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "{index_type} index is ambiguous for {identifier}"
+        )));
     }
+    Ok(link)
 }
 
 /// Internal helper: fetch a PaymentChannel Record + deserialized entry by ID via link index.
