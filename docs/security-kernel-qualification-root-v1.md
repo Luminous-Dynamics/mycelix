@@ -27,7 +27,7 @@ the workflow from the base repository's default branch rather than the pull requ
 which prevents a candidate from disabling the trusted dispatcher by editing its own PR
 workflow.
 
-S0 is deliberately metadata-only:
+S0 is deliberately metadata-only. Its trusted run name carries the PR head repository ID so S2 can independently detect a source-repository identity change between S0 discovery and final verification:
 
 - no checkout of candidate source;
 - no candidate artifact download or execution;
@@ -202,10 +202,10 @@ S1 emits a non-authoritative receipt containing at least:
 
 The receipt is evidence only. S2 never treats candidate-produced receipt text as the source
 of truth. Receipt upload is fail-closed: a successful qualification must retain the receipt artifact,
-and S2 requires the upload step to complete successfully. The artifact name is bound to both the
-candidate SHA and exact S1/S0 workflow run attempt. S1 verifies the upload action's artifact ID and
-SHA-256 digest against the GitHub artifact record, and S2 independently verifies the exact retained
-artifact on the triggering run.
+and S2 requires the upload step to complete successfully. The artifact is a single raw receipt file rather than a ZIP envelope; its name is bound to both the
+candidate SHA and exact S1/S0 workflow run attempt. S1 recomputes the receipt file's SHA-256 and
+requires equality with the upload action's artifact digest, then verifies the artifact ID/digest against
+the GitHub artifact record. S2 independently verifies the exact retained artifact on the triggering run.
 
 ## S2 — trusted result verifier
 
@@ -219,8 +219,8 @@ S2 independently verifies:
 - the S0 workflow blob executed by that run matches the registered S0 profile;
 - the same-commit S1 workflow blob matches the registered S1 profile;
 - the S0 workflow commit is an ancestor of current protected `main`;
-- the current PR number/head SHA remain exact;
-- the S0 run has exactly the expected two-job topology;
+- the current PR number/head SHA/head repository identity remain exact;
+- the S0 run has exactly the expected two-job topology, and its trusted run name binds the PR head repository ID;
 - jobs are fetched from the exact `run_attempt`, avoiding latest-attempt confusion;
 - the expected qualification receipt artifact exists exactly once for that run attempt, is not expired,
   is non-empty, and belongs to the triggering S0 run;
