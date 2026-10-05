@@ -2214,7 +2214,7 @@ check_qualification_workflow_provenance() {
   elif rg -n --fixed-strings 'version="1.7.12"' "$lint_workflow" >/dev/null 2>&1 \
     && rg -n --fixed-strings '8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8' "$lint_workflow" >/dev/null 2>&1 \
     && rg -n --fixed-strings 'https://github.com/rhysd/actionlint/releases/download/v${version}/actionlint_${version}_linux_amd64.tar.gz' "$lint_workflow" >/dev/null 2>&1 \
-    && rg -n --fixed-strings '.github/workflows/hearth-07-qualification.yml' "$lint_workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings '.github/workflows/hearth-07-qualification.yml .github/workflows/hearth-07-workflow-lint.yml' "$lint_workflow" >/dev/null 2>&1 \
     && rg -n --fixed-strings 'actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803' "$lint_workflow" >/dev/null 2>&1 \
     && rg -n --fixed-strings 'QUALIFY_SHA: ${{ github.event.pull_request.head.sha || github.sha }}' "$lint_workflow" >/dev/null 2>&1 \
     && rg -n --fixed-strings 'ref: ${{ env.QUALIFY_SHA }}' "$lint_workflow" >/dev/null 2>&1 \
