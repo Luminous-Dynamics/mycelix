@@ -124,9 +124,9 @@ pub fn reconcile_payment_settlement(
 
     let payment = decode_cross_happ_payment(&payment_record)?;
     let caller_did = format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey);
-    if caller_did != payment.from_did && caller_did != payment.to_did {
+    if caller_did != payment.from_did {
         return Err(wasm_error!(WasmErrorInner::Guest(
-            "Only the payment sender or recipient may reconcile settlement".into()
+            "Only the payment source-chain author may finalize cross-hApp settlement".into()
         )));
     }
 
@@ -142,12 +142,20 @@ pub fn reconcile_payment_settlement(
     }
 
     let transfer_id = cross_happ_transfer_id(&payment.source_happ, &payment.reference);
+
+    #[derive(Serialize, Debug)]
+    struct GetSapTransferClaimPayload {
+        transfer_id: String,
+    }
+
     let claim_result = call(
         CallTargetCell::Local,
         ZomeName::from("payments"),
         FunctionName::from("get_sap_transfer_claim"),
         None,
-        serde_json::json!({ "transfer_id": transfer_id }).to_string(),
+        GetSapTransferClaimPayload {
+            transfer_id: transfer_id.clone(),
+        },
     );
 
     let claim_record = match claim_result {
