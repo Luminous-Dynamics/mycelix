@@ -308,8 +308,10 @@ jobs:
             --security-opt=seccomp=default \
             --pids-limit=512 \
             --memory=256m \
+            --memory-swap=256m \
             --cpus=1 \
             --ulimit=nofile=4096:4096 \
+            --ulimit=core=0:0 \
             --user "$runner_uid:$runner_gid" \
             --ipc=private \
             --pid=private \
@@ -373,8 +375,10 @@ jobs:
             --security-opt=seccomp=default \
             --pids-limit=256 \
             --memory=2g \
+            --memory-swap=2g \
             --cpus=2 \
             --ulimit=nofile=4096:4096 \
+            --ulimit=core=0:0 \
             --user "$runner_uid:$runner_gid" \
             --ipc=private \
             --pid=private \
@@ -436,7 +440,9 @@ jobs:
           runner_gid="$(id -g)"
 
           run_sandbox() {
-            docker run --rm --platform=linux/amd64 --pull=never \
+            local wall="$1"
+            local script="$2"
+            timeout --signal=TERM --kill-after=30s "$wall" docker run --rm --platform=linux/amd64 --pull=never \
               --network=none \
               --read-only \
               --cap-drop=ALL \
@@ -444,8 +450,10 @@ jobs:
               --security-opt=seccomp=default \
               --pids-limit=512 \
               --memory=12g \
+              --memory-swap=12g \
               --cpus=3 \
               --ulimit=nofile=4096:4096 \
+              --ulimit=core=0:0 \
               --user "$runner_uid:$runner_gid" \
               --ipc=private \
               --pid=private \
@@ -459,43 +467,57 @@ jobs:
               --volume "$VENDOR_CONFIG:/vendor-config/config.toml:ro" \
               --env HOME=/cargo-home \
               --env CARGO_HOME=/cargo-home \
+              --env RUSTUP_HOME=/dev/null \
               --env PATH=/opt/rust-toolchain/bin:/usr/local/bin:/usr/bin:/bin \
+              --env CARGO_NET_OFFLINE=true \
+              --env CARGO_TARGET_DIR=/target \
+              --env CARGO_TERM_COLOR=never \
               --env GITHUB_TOKEN= \
               --env GH_TOKEN= \
               --env ACTIONS_ID_TOKEN_REQUEST_TOKEN= \
               --env ACTIONS_ID_TOKEN_REQUEST_URL= \
               --env ACTIONS_RUNTIME_TOKEN= \
-              --env CARGO_NET_OFFLINE=true \
-              --env CARGO_TARGET_DIR=/target \
-              --workdir /source \
-              "$SANDBOX_IMAGE" /bin/bash -euc "$1"
+              "$SANDBOX_IMAGE" /bin/bash -euc "
+                run_limited() {
+                  local output=/tmp/security-kernel-gate-output
+                  rm -f \$output
+                  set +e
+                  \"\$@\" >\"\$output\" 2>&1
+                  local status=\$?
+                  tail -n 400 \"\$output\"
+                  rm -f \"\$output\"
+                  set -e
+                  return \$status
+                }
+                $script
+              "
           }
 
-          run_sandbox '
-            test "$(/opt/rust-toolchain/bin/rustc --version | awk "{print \$2}")" = "1.99.0"
+          run_sandbox 2m '
+            test "$(/opt/rust-toolchain/bin/rustc --version | awk "{print \\$2}")" = "1.99.0"
             test "$(/opt/rust-toolchain/bin/rustc --version --verbose | sed -n "s/^commit-hash: //p")" = "b940084d7eb6a299eb4bfeb8e34901bc051e7ac4"
             /opt/rust-toolchain/bin/rustfmt --version
             /opt/rust-toolchain/bin/cargo-clippy --version
-            /opt/rust-toolchain/bin/cargo fmt --manifest-path /source/Cargo.toml -- --check
+            run_limited /opt/rust-toolchain/bin/cargo fmt --manifest-path /source/Cargo.toml -- --check
           '
 
-          run_sandbox '
-            /opt/rust-toolchain/bin/cargo --config /vendor-config/config.toml test --frozen --manifest-path /source/Cargo.toml --jobs 3
+          run_sandbox 9m '
+            run_limited /opt/rust-toolchain/bin/cargo --config /vendor-config/config.toml test --frozen --manifest-path /source/Cargo.toml --jobs 3
           '
 
-          run_sandbox '
-            /opt/rust-toolchain/bin/cargo --config /vendor-config/config.toml test --frozen --manifest-path /subject/Cargo.toml --features identity --jobs 3
+          run_sandbox 9m '
+            run_limited /opt/rust-toolchain/bin/cargo --config /vendor-config/config.toml test --frozen --manifest-path /source/Cargo.toml --features identity --jobs 3
           '
 
-          run_sandbox '
-            /opt/rust-toolchain/bin/cargo --config /vendor-config/config.toml clippy --frozen --manifest-path /source/Cargo.toml --all-targets --jobs 3 -- -D warnings
+          run_sandbox 9m '
+            run_limited /opt/rust-toolchain/bin/cargo --config /vendor-config/config.toml clippy --frozen --manifest-path /source/Cargo.toml --all-targets --jobs 3 -- -D warnings
           '
 
-          run_sandbox '
-            /opt/rust-toolchain/bin/cargo --config /vendor-config/config.toml clippy --frozen --manifest-path /subject/Cargo.toml --all-targets --features identity --jobs 3 -- -D warnings
+          run_sandbox 9m '
+            run_limited /opt/rust-toolchain/bin/cargo --config /vendor-config/config.toml clippy --frozen --manifest-path /source/Cargo.toml --all-targets --features identity --jobs 3 -- -D warnings
           '
 
-          echo "PASS: all candidate compilation/test/lint gates executed inside disposable networkless sandbox"
+          echo "PASS: all candidate compilation/test/lint gates executed in fresh disposable networkless sandboxes"
 
       - name: Verify candidate source immutability
         shell: bash
