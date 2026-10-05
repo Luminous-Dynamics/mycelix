@@ -561,6 +561,82 @@ async fn dsid_005_deactivation_is_observable_and_terminal() {
 
 #[tokio::test(flavor = "multi_thread")]
 #[ignore]
+async fn dsid_053_deactivated_did_rejects_mfa_enrollment() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let app = conductor
+        .setup_app(
+            "dsid-deactivated-mfa-enrollment",
+            std::slice::from_ref(&dna),
+        )
+        .await
+        .unwrap();
+    let cell = app.cells()[0].clone();
+    let agent = app.agent().clone();
+
+    let did_record: Record = conductor
+        .call(&cell.zome("did_registry"), "create_did", ())
+        .await;
+    let did: DidDocument =
+        decode_entry(&did_record).expect("DID record must decode");
+
+    let deactivated: Record = conductor
+        .call(
+            &cell.zome("did_registry"),
+            "deactivate_did",
+            "DSID post-deactivation MFA mutation regression",
+        )
+        .await;
+
+    let blocked: Result<serde_json::Value, _> = conductor
+        .call_fallible(
+            &cell.zome("mfa"),
+            "enroll_factor",
+            serde_json::json!({
+                "did": did.id.clone(),
+                "factor_type": "HardwareKey",
+                "factor_id": "sha256:post-deactivation-regression",
+                "metadata": "{}",
+                "reason": "DSID deactivated-DID mutation regression"
+            }),
+        )
+        .await;
+
+    let state: serde_json::Value = conductor
+        .call(&cell.zome("mfa"), "get_mfa_state", did.id.clone())
+        .await
+        .expect("historical MFA state remains readable after DID deactivation");
+    let factor_count = state["state"]["factors"]
+        .as_array()
+        .map(|factors| factors.len())
+        .unwrap_or_default();
+
+    assert!(blocked.is_err(), "deactivated DID must reject MFA enrollment");
+    assert_eq!(
+        factor_count, 1,
+        "failed post-deactivation enrollment must not append a factor"
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("alice", agent.to_string());
+    emit_evidence(
+        "DSID-053",
+        "deactivated-did-rejects-mfa-enrollment",
+        &dna,
+        agents,
+        &[&did_record, &deactivated],
+        "A deactivated DID remains auditable but cannot authorize new MFA security state.",
+        format!(
+            "enrollment_rejected={} historical_factor_count={}",
+            blocked.is_err(),
+            factor_count
+        ),
+        blocked.is_err() && factor_count == 1,
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
 async fn dsid_006_self_recovery_projection_matches_canonical_state() {
     let mut conductor = SweetConductor::from_standard_config().await;
     let dna = load_dna().await;
