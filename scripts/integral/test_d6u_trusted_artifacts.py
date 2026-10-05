@@ -4,6 +4,7 @@
 import json
 import subprocess
 import tempfile
+from unittest.mock import patch
 from pathlib import Path
 
 from verify_d6u_trusted_artifacts import (
@@ -13,6 +14,7 @@ from verify_d6u_trusted_artifacts import (
     verify_executor_run_record,
     verify_trusted_workflow_identity,
     verify_executor_workflow_record,
+    verify_executor_workflow_against_run_head,
     verify_lock,
     verify_required_tracked_blobs,
     verify_record_metadata,
@@ -338,6 +340,41 @@ def test_executor_workflow_identity_tampering_is_rejected() -> None:
     )
 
 
+def test_executor_workflow_is_bound_to_run_head() -> None:
+    policy = {
+        "executor_workflow": {
+            "name": "D6U Exact-Head Runtime Executor",
+            "path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
+            "blob_sha": "a" * 40,
+        }
+    }
+    run = {
+        "repository": {"full_name": "Luminous-Dynamics/mycelix"},
+        "head_repository": {"full_name": "Luminous-Dynamics/mycelix"},
+        "head_branch": "main",
+        "head_sha": "b" * 40,
+    }
+    tree = {
+        "truncated": False,
+        "tree": [{
+            "path": policy["executor_workflow"]["path"],
+            "mode": "100644",
+            "type": "blob",
+            "sha": "a" * 40,
+        }],
+    }
+    with patch(
+        "verify_d6u_trusted_artifacts.git_tree_from_api",
+        return_value=tree,
+    ) as fetch_tree:
+        verify_executor_workflow_against_run_head(
+            run, policy, "Luminous-Dynamics/mycelix", "token"
+        )
+    fetch_tree.assert_called_once_with(
+        "Luminous-Dynamics/mycelix", "b" * 40, "token"
+    )
+
+
 def test_executor_run_live_identity_is_rejected() -> None:
     policy = {
         "executor_workflow": {
@@ -638,6 +675,7 @@ if __name__ == "__main__":
         test_case_tampering_is_rejected,
         test_duplicate_case_is_rejected,
         test_executor_workflow_identity_tampering_is_rejected,
+        test_executor_workflow_is_bound_to_run_head,
         test_executor_run_live_identity_is_rejected,
         test_lock_provenance_is_rejected_when_tampered,
         test_duplicate_record_key_is_rejected,
