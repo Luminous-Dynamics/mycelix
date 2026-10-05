@@ -2165,6 +2165,7 @@ mod tests {
             std::slice::from_ref(&evidence),
             std::slice::from_ref(&receipt),
             &lifecycle_profile(),
+            &lifecycle_profile().profile_commitment,
             &ledger,
             "frontier-1",
             "effect-generation-1",
