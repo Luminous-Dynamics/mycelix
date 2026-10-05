@@ -18,7 +18,7 @@
 
 use hdk::prelude::*;
 use mycelix_finance_shared::{
-    GOVERNANCE_AGENTS_ANCHOR, anchor_hash, follow_update_chain, rate_limit_anchor_key,
+    GOVERNANCE_AGENTS_ANCHOR, anchor_hash, caller_did, follow_update_chain, rate_limit_anchor_key,
     verify_governance_or_bootstrap_from_links,
 };
 use mycelix_zome_helpers as _;
@@ -49,9 +49,19 @@ const MIN_REPORTERS_FOR_CONSENSUS: usize = 2;
 const REPORT_RATE_LIMIT: u32 = 10;
 
 /// Collected report data for consensus computation
+#[derive(Clone)]
 struct ReportData {
     reporter_did: String,
     price: f64,
+    action_hash: ActionHash,
+}
+
+struct ConsensusComputation {
+    result: ConsensusResult,
+    reports: Vec<ReportData>,
+    source_action_hashes: Vec<ActionHash>,
+    previous_median: Option<f64>,
+    computed_at: Timestamp,
 }
 
 // =============================================================================
@@ -67,6 +77,11 @@ pub struct ReportPriceInput {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GetConsensusInput {
+    pub item: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct PublishConsensusInput {
     pub item: String,
 }
 
@@ -491,8 +506,41 @@ fn build_fallback_consensus(
 ///    via cross-zome call to `tend/update_oracle_state`
 ///
 /// Requires at least 2 unique reporters for a valid consensus.
-#[hdk_extern]
-pub fn get_consensus_price(input: GetConsensusInput) -> ExternResult<ConsensusResult> {
+fn verify_strict_consensus_publisher() -> ExternResult<()> {
+    let gov_links = get_links(
+        LinkQuery::try_new(
+            anchor_hash(GOVERNANCE_AGENTS_ANCHOR)?,
+            LinkTypes::AnchorLinks,
+        )?,
+        GetStrategy::default(),
+    )?;
+
+    if gov_links.is_empty() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Consensus publication suspended: no governance publisher registry is established"
+                .into(),
+        )));
+    }
+
+    let caller = agent_info()?.agent_initial_pubkey;
+    if gov_links.iter().any(|link| {
+        link.target
+            .clone()
+            .into_agent_pub_key()
+            .map(|agent| agent == caller)
+            .unwrap_or(false)
+    }) {
+        Ok(())
+    } else {
+        Err(wasm_error!(WasmErrorInner::Guest(
+            "Caller is not an authorized consensus publisher".into(),
+        )))
+    }
+}
+
+/// Deterministically compute a consensus result without creating or updating
+/// any DHT state. This is the only path used by the public query.
+fn compute_consensus_price(input: &GetConsensusInput) -> ExternResult<ConsensusComputation> {
     let item = input.item.to_lowercase().trim().to_string();
     let item_anchor = anchor_hash(&format!("{ITEM_REPORTS_ANCHOR_PREFIX}{item}"))?;
     let previous_consensus = get_previous_consensus(&item)?;
@@ -507,28 +555,27 @@ pub fn get_consensus_price(input: GetConsensusInput) -> ExternResult<ConsensusRe
     let window_start_us = now_us - CONSENSUS_WINDOW_US;
     let window_start = Timestamp::from_micros(window_start_us);
 
-    // Collect the LATEST report per reporter within the window. Deduping by reporter
-    // is the key flood/Sybil guard: without it, one reporter submitting many reports in
-    // the window (up to the per-minute rate limit) gets many votes in the weighted median
-    // while still counting as a single unique reporter — enough to own the consensus.
-    // One reporter now contributes exactly one price.
-    let mut latest_by_reporter: std::collections::HashMap<String, (i64, f64)> =
-        std::collections::HashMap::new();
+    // Select exactly one latest report per reporter. The source ActionHash is
+    // retained so an eventual publication can bind the precise observation set.
+    let mut latest_by_reporter: std::collections::HashMap<
+        String,
+        (i64, f64, ActionHash),
+    > = std::collections::HashMap::new();
 
     for link in &links {
         if let Some(hash) = link.target.clone().into_action_hash() {
-            if let Some(record) = get(hash, GetOptions::default())? {
+            if let Some(record) = get(hash.clone(), GetOptions::default())? {
                 if let Some(report) = record.entry().to_app_option::<PriceReport>().ok().flatten() {
                     let ts = report.reported_at.as_micros();
-                    if ts >= window_start_us {
+                    if report.item == item && ts >= window_start_us {
                         latest_by_reporter
                             .entry(report.reporter_did.clone())
                             .and_modify(|e| {
-                                if ts > e.0 {
-                                    *e = (ts, report.price_tend);
+                                if ts > e.0 || (ts == e.0 && hash < e.2) {
+                                    *e = (ts, report.price_tend, hash.clone());
                                 }
                             })
-                            .or_insert((ts, report.price_tend));
+                            .or_insert((ts, report.price_tend, hash));
                     }
                 }
             }
@@ -538,24 +585,31 @@ pub fn get_consensus_price(input: GetConsensusInput) -> ExternResult<ConsensusRe
     let reporters_count = latest_by_reporter.len();
     let mut reports: Vec<ReportData> = latest_by_reporter
         .into_iter()
-        .map(|(reporter_did, (_, price))| ReportData {
+        .map(|(reporter_did, (_, price, action_hash))| ReportData {
             reporter_did,
             price,
+            action_hash,
         })
         .collect();
 
     if reporters_count < MIN_REPORTERS_FOR_CONSENSUS {
         if let Some(previous) = previous_consensus.as_ref() {
-            return Ok(build_fallback_consensus(
-                &item,
-                window_start,
-                reporters_count,
-                previous,
-                format!(
-                    "Insufficient fresh reporters in consensus window; reused previous consensus with {} reporter(s)",
-                    reporters_count
+            return Ok(ConsensusComputation {
+                result: build_fallback_consensus(
+                    &item,
+                    window_start,
+                    reporters_count,
+                    previous,
+                    format!(
+                        "Insufficient fresh reporters in consensus window; reused previous consensus with {} reporter(s)",
+                        reporters_count
+                    ),
                 ),
-            ));
+                reports,
+                source_action_hashes: Vec::new(),
+                previous_median: Some(previous.median_price),
+                computed_at: now,
+            });
         }
 
         return Err(wasm_error!(WasmErrorInner::Guest(format!(
@@ -564,14 +618,13 @@ pub fn get_consensus_price(input: GetConsensusInput) -> ExternResult<ConsensusRe
         ))));
     }
 
-    // Sort by price for trimming
     reports.sort_by(|a, b| {
         a.price
             .partial_cmp(&b.price)
             .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| a.action_hash.cmp(&b.action_hash))
     });
 
-    // Trim top/bottom 10% by count
     let trim_count = (reports.len() as f64 * TRIM_PERCENT).floor() as usize;
     let trimmed = if trim_count > 0 && reports.len() > trim_count * 2 {
         &reports[trim_count..reports.len() - trim_count]
@@ -585,7 +638,6 @@ pub fn get_consensus_price(input: GetConsensusInput) -> ExternResult<ConsensusRe
         )));
     }
 
-    // Fetch accuracy scores for each reporter in the trimmed set
     let mut accuracy_sum = 0.0;
     let mut accuracy_count = 0u32;
     let mut weighted_entries: Vec<(f64, f64)> = Vec::with_capacity(trimmed.len());
@@ -593,7 +645,6 @@ pub fn get_consensus_price(input: GetConsensusInput) -> ExternResult<ConsensusRe
     for report in trimmed {
         let (_, acc) = get_or_create_accuracy(&report.reporter_did)?;
         let mut weight = acc.accuracy_score.max(ACCURACY_MIN_WEIGHT);
-        // Sybil resistance: cap newcomer weight until they build history
         if acc.report_count < MIN_REPORTS_FOR_FULL_WEIGHT {
             weight = weight.min(NEWCOMER_WEIGHT_CAP);
         }
@@ -602,45 +653,140 @@ pub fn get_consensus_price(input: GetConsensusInput) -> ExternResult<ConsensusRe
         accuracy_count += 1;
     }
 
-    // Compute accuracy-weighted median
     let median = weighted_median(&mut weighted_entries).ok_or(wasm_error!(
         WasmErrorInner::Guest("Failed to compute weighted median".into())
     ))?;
 
-    // Standard deviation (unweighted, on trimmed prices — for spread indication)
     let prices: Vec<f64> = trimmed.iter().map(|r| r.price).collect();
     let mean: f64 = prices.iter().sum::<f64>() / prices.len() as f64;
     let variance: f64 =
         prices.iter().map(|p| (p - mean).powi(2)).sum::<f64>() / prices.len() as f64;
     let std_dev = variance.sqrt();
 
-    // Signal integrity: average accuracy of contributing reporters
     let signal_integrity = if accuracy_count > 0 {
         accuracy_sum / accuracy_count as f64
     } else {
         ACCURACY_INITIAL_SCORE
     };
 
-    // Store consensus entry
-    let consensus = PriceConsensus {
-        item: item.clone(),
-        median_price: median,
-        reporter_count: reporters_count as u32,
-        std_dev,
-        window_start,
-        computed_at: now,
-    };
+    let mut source_action_hashes: Vec<ActionHash> =
+        reports.iter().map(|r| r.action_hash.clone()).collect();
+    source_action_hashes.sort();
 
-    let consensus_hash = create_entry(&EntryTypes::PriceConsensus(consensus))?;
-
-    // Fetch the previous consensus price BEFORE replacing the link, so we
-    // compare against the prior value (not the one we just stored).
     let previous_median = previous_consensus
         .as_ref()
         .map(|consensus| consensus.median_price);
 
-    // Update latest consensus link (replace old if exists)
-    let consensus_anchor = anchor_hash(&format!("{ITEM_REPORTS_ANCHOR_PREFIX}{item}:consensus"))?;
+    Ok(ConsensusComputation {
+        result: ConsensusResult {
+            item,
+            median_price: median,
+            reporter_count: reporters_count as u32,
+            std_dev,
+            window_start,
+            signal_integrity,
+            tend_escalated: false,
+            fallback_used: false,
+            fallback_reason: None,
+        },
+        reports,
+        source_action_hashes,
+        previous_median,
+        computed_at: now,
+    })
+}
+
+/// Public consensus query. This function is deliberately read-only:
+/// it does not create consensus entries, replace consensus links, update
+/// reporter accuracy, or trigger TEND escalation.
+#[hdk_extern]
+pub fn get_consensus_price(input: GetConsensusInput) -> ExternResult<ConsensusResult> {
+    Ok(compute_consensus_price(&input)?.result)
+}
+
+/// Publish an immutable authoritative consensus artifact.
+///
+/// Publication is explicitly separated from computation. Only a caller present
+/// in the established governance publisher registry can create the authoritative
+/// artifact and perform its downstream side effects.
+///
+/// The governance registry itself remains subject to the finance root-of-trust
+/// work in AC-106.
+#[hdk_extern]
+pub fn publish_consensus_price(input: PublishConsensusInput) -> ExternResult<ConsensusResult> {
+    verify_strict_consensus_publisher()?;
+
+    let computation = compute_consensus_price(&GetConsensusInput {
+        item: input.item,
+    })?;
+
+    if computation.result.fallback_used {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Cannot publish a degraded/fallback consensus as authoritative state".into(),
+        )));
+    }
+
+    let publisher_did = caller_did()?;
+    let source_commitment = canonical_consensus_source_commitment(
+        &computation.result.item,
+        computation.result.window_start,
+        CONSENSUS_AGGREGATION_PROFILE_V1,
+        &computation.source_action_hashes,
+    );
+
+    let consensus_anchor = anchor_hash(&format!(
+        "{ITEM_REPORTS_ANCHOR_PREFIX}{}:consensus",
+        computation.result.item
+    ))?;
+
+    // Reject ordinary replay of the same item/window/source/profile. This is a
+    // local duplicate guard; global concurrent publication serialization remains
+    // a separate qualification problem.
+    let existing_links = get_links(
+        LinkQuery::try_new(consensus_anchor.clone(), LinkTypes::ItemToConsensus)?,
+        GetStrategy::default(),
+    )?;
+    for link in existing_links {
+        if let Some(hash) = link.target.clone().into_action_hash() {
+            if let Some(record) = get(hash, GetOptions::default())? {
+                if let Some(existing) = record
+                    .entry()
+                    .to_app_option::<PriceConsensus>()
+                    .ok()
+                    .flatten()
+                {
+                    if existing.item == computation.result.item
+                        && existing.window_start == computation.result.window_start
+                        && existing.source_commitment == source_commitment
+                        && existing.aggregation_profile_id == CONSENSUS_AGGREGATION_PROFILE_V1
+                    {
+                        return Err(wasm_error!(WasmErrorInner::Guest(
+                            "Consensus for this item/window/source set/profile is already published"
+                                .into(),
+                        )));
+                    }
+                }
+            }
+        }
+    }
+
+    let consensus = PriceConsensus {
+        item: computation.result.item.clone(),
+        median_price: computation.result.median_price,
+        reporter_count: computation.result.reporter_count,
+        std_dev: computation.result.std_dev,
+        window_start: computation.result.window_start,
+        computed_at: computation.computed_at,
+        source_action_hashes: computation.source_action_hashes.clone(),
+        source_commitment,
+        aggregation_profile_id: CONSENSUS_AGGREGATION_PROFILE_V1.to_string(),
+        publisher_did,
+    };
+
+    let consensus_hash = create_entry(&EntryTypes::PriceConsensus(consensus))?;
+
+    // Replace only the query index; the immutable consensus artifact remains
+    // addressable by its own ActionHash.
     let old_links = get_links(
         LinkQuery::try_new(consensus_anchor.clone(), LinkTypes::ItemToConsensus)?,
         GetStrategy::default(),
@@ -655,33 +801,32 @@ pub fn get_consensus_price(input: GetConsensusInput) -> ExternResult<ConsensusRe
         (),
     )?;
 
-    // Update accuracy scores for ALL reporters (not just trimmed)
-    // so that trimmed-out reporters also get accuracy feedback
-    for report in &reports {
-        let _ = update_reporter_accuracy(&report.reporter_did, report.price, median);
+    // Accuracy mutation is now reachable only from the authorized publication
+    // path. A failure is logged rather than converting an already-published
+    // immutable artifact into a false "not published" result.
+    for report in &computation.reports {
+        if let Err(err) = update_reporter_accuracy(&report.reporter_did, report.price, computation.result.median_price) {
+            debug!(
+                "price-oracle: reporter accuracy update failed for {} after publication: {:?}",
+                report.reporter_did, err
+            );
+        }
     }
 
-    // -------------------------------------------------------------------------
-    // Volatility check: compare new consensus to previous consensus for this
-    // item. If the weekly price change exceeds VOLATILITY_ESCALATION_THRESHOLD
-    // (20%), auto-escalate TEND limits via cross-zome call.
-    // -------------------------------------------------------------------------
-    let mut tend_escalated = false;
+    let mut result = computation.result;
 
-    if let Some(previous_median) = previous_median {
+    if let Some(previous_median) = computation.previous_median {
         if previous_median > 0.0 {
-            let weekly_change = ((median - previous_median) / previous_median).abs();
+            let weekly_change = ((result.median_price - previous_median) / previous_median).abs();
             if weekly_change > VOLATILITY_ESCALATION_THRESHOLD {
                 let vitality = if weekly_change > 0.40 {
-                    10u32 // Emergency
+                    10u32
                 } else if weekly_change > 0.30 {
-                    30 // High
+                    30
                 } else {
-                    50 // Elevated
+                    50
                 };
 
-                // Cross-zome call to TEND oracle — same DNA, local call.
-                // Failure is non-fatal: log warning but don't fail consensus.
                 match call(
                     CallTargetCell::Local,
                     ZomeName::from("tend"),
@@ -690,7 +835,7 @@ pub fn get_consensus_price(input: GetConsensusInput) -> ExternResult<ConsensusRe
                     vitality,
                 ) {
                     Ok(ZomeCallResponse::Ok(_)) => {
-                        tend_escalated = true;
+                        result.tend_escalated = true;
                     }
                     Ok(other) => {
                         debug!(
@@ -698,10 +843,10 @@ pub fn get_consensus_price(input: GetConsensusInput) -> ExternResult<ConsensusRe
                             other
                         );
                     }
-                    Err(e) => {
+                    Err(err) => {
                         debug!(
                             "price-oracle: TEND escalation cross-zome call failed (non-fatal): {:?}",
-                            e
+                            err
                         );
                     }
                 }
@@ -709,17 +854,7 @@ pub fn get_consensus_price(input: GetConsensusInput) -> ExternResult<ConsensusRe
         }
     }
 
-    Ok(ConsensusResult {
-        item,
-        median_price: median,
-        reporter_count: reporters_count as u32,
-        std_dev,
-        window_start,
-        signal_integrity,
-        tend_escalated,
-        fallback_used: false,
-        fallback_reason: None,
-    })
+    Ok(result)
 }
 
 // =============================================================================
@@ -1195,6 +1330,10 @@ mod tests {
             std_dev: 0.8,
             window_start: Timestamp::from_micros(100),
             computed_at: Timestamp::from_micros(200),
+            source_action_hashes: Vec::new(),
+            source_commitment: String::new(),
+            aggregation_profile_id: CONSENSUS_AGGREGATION_PROFILE_V1.into(),
+            publisher_did: "did:mycelix:test".into(),
         };
 
         let result = build_fallback_consensus(
