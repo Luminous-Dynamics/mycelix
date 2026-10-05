@@ -794,9 +794,10 @@ fn maximum_dispatch_offset_child() -> ! {
 
     // A different, unlisted syscall must continue through the unconditional
     // write()/exit_group rules and still reach the compiler's global EPERM
-    // terminator. This catches a dispatch offset that lands inside the
-    // following rule chain instead of at its exact boundary.
-    let denied = unsafe { libc::syscall(libc::SYS_getppid) };
+    // terminator. getppid() is intentionally allowlisted above as the
+    // partial-attachment oracle, so gettid() is used for this independent
+    // final-default-deny probe.
+    let denied = unsafe { libc::syscall(libc::SYS_gettid) };
     let denied_errno = unsafe { *libc::__errno_location() };
     if denied != -1 || denied_errno != libc::EPERM {
         unsafe { libc::_exit(161) };
