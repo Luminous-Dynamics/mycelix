@@ -241,18 +241,18 @@ def fixture_manifest() -> dict[str, Any]:
             "identity_digest": "",
         },
         "ek_certificate_chain_capture": {
-            "status": "INDETERMINATE",
+            "status": "PASS",
             "verifier_id": EK_CERTIFICATE_CHAIN_CAPTURE_ID,
-            "reason": "no-populated-ek-certificate-chain-nv-index-observed",
+            "reason": "synthetic-raw-ek-certificate-chain-nv-fixture",
             "result_sha256": "e1" * 32,
             "inventory_sha256": "e2" * 32,
             "transcript_sha256": "e3" * 32,
             "script_sha256": sha256_file(EK_CERTIFICATE_CHAIN_CAPTURE_SCRIPT),
             "source_mode": "TPM_NV_ONLY",
-            "candidate_handles": [],
-            "first_handle": None,
-            "last_handle": None,
-            "first_gap": None,
+            "candidate_handles": ["0x01c00100"],
+            "first_handle": "0x01c00100",
+            "last_handle": "0x01c00100",
+            "first_gap": "0x01c00101",
             "concatenated_sha256": "e4" * 32,
         },
         "event_log": {
@@ -555,6 +555,14 @@ def mutate(value: dict[str, Any], name: str) -> dict[str, Any]:
     elif name == "ek-cert-chain-concatenated-substitution":
         out["ek_certificate_chain_capture"]["concatenated_sha256"] = "e7" * 32
     elif name == "ek-cert-chain-absent":
+        out["ek_certificate_chain_capture"]["status"] = "INDETERMINATE"
+        out["ek_certificate_chain_capture"]["reason"] = "no-populated-ek-certificate-chain-nv-index-observed"
+        out["ek_certificate_chain_capture"]["candidate_handles"] = []
+        out["ek_certificate_chain_capture"]["first_handle"] = None
+        out["ek_certificate_chain_capture"]["last_handle"] = None
+        out["ek_certificate_chain_capture"]["first_gap"] = None
+        out["ek_certificate_chain_capture"]["concatenated_sha256"] = "e4" * 32
+        out["session_binding_sha256"] = session_binding(out)
         out["ek_certificate_chain_capture"]["status"] = "INDETERMINATE"
         out["ek_certificate_chain_capture"]["candidate_handles"] = []
         out["ek_certificate_chain_capture"]["first_handle"] = None
