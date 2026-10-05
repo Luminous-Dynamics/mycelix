@@ -1380,6 +1380,10 @@ def verify_bundle(args: argparse.Namespace) -> int:
         "ek-nv-index-handles.txt": manifest["ek_certificate_capture"]["inventory_sha256"],
         "ek-certificate-capture-transcript.json": manifest["ek_certificate_capture"]["transcript_sha256"],
         "ek-certificate-capture.json": manifest["ek_certificate_capture"]["result_sha256"],
+        "ek-cert-chain-nv-index-handles.txt": manifest["ek_certificate_chain_capture"]["inventory_sha256"],
+        "ek-cert-chain-nv-capture-transcript.json": manifest["ek_certificate_chain_capture"]["transcript_sha256"],
+        "ek-cert-chain-nv-capture.json": manifest["ek_certificate_chain_capture"]["result_sha256"],
+        "ek-cert-chain-nv-concatenated.bin": manifest["ek_certificate_chain_capture"]["concatenated_sha256"],
         "raw-eventlog.json": manifest["raw_eventlog"]["output_sha256"],
         "payload-coherence.json": manifest["payload_coherence"]["output_sha256"],
         "ak-public-name-input.json": manifest["public_name_coherence"]["ak"]["input_sha256"],
@@ -1434,6 +1438,53 @@ def verify_bundle(args: argparse.Namespace) -> int:
         return 1
     if cert_capture.get("script_sha256") != sha256_file(EK_CERTIFICATE_CAPTURE_SCRIPT):
         print("PLATFORM EVIDENCE: DENY: ek-certificate-capture-script-digest-mismatch")
+        return 1
+
+    chain_capture = manifest["ek_certificate_chain_capture"]
+    chain_result = load_json(bundle / "ek-cert-chain-nv-capture.json")
+    if chain_result.get("verifier_id") != EK_CERTIFICATE_CHAIN_CAPTURE_ID:
+        print("PLATFORM EVIDENCE: DENY: ek-certificate-chain-capture-result-verifier-id-mismatch")
+        return 1
+    if chain_result.get("state") != chain_capture["status"]:
+        print("PLATFORM EVIDENCE: DENY: ek-certificate-chain-capture-state-mismatch")
+        return 1
+    if chain_result.get("content_sha256") != self_hash(chain_result, "content_sha256"):
+        print("PLATFORM EVIDENCE: DENY: ek-certificate-chain-capture-result-content-hash-mismatch")
+        return 1
+    chain_details = chain_result.get("details", {})
+    policy = chain_details.get("source_policy", {})
+    if policy.get("mode") != "TPM_NV_ONLY" or policy.get("network_access") or policy.get("remote_lookup"):
+        print("PLATFORM EVIDENCE: DENY: ek-certificate-chain-capture-source-policy-invalid")
+        return 1
+    if chain_capture["script_sha256"] != sha256_file(EK_CERTIFICATE_CHAIN_CAPTURE_SCRIPT):
+        print("PLATFORM EVIDENCE: DENY: ek-certificate-chain-capture-script-digest-mismatch")
+        return 1
+    if chain_capture["result_sha256"] != sha256_file(bundle / "ek-cert-chain-nv-capture.json"):
+        print("PLATFORM EVIDENCE: DENY: ek-certificate-chain-capture-result-digest-mismatch")
+        return 1
+    if chain_capture["inventory_sha256"] != sha256_file(bundle / "ek-cert-chain-nv-index-handles.txt"):
+        print("PLATFORM EVIDENCE: DENY: ek-certificate-chain-capture-inventory-digest-mismatch")
+        return 1
+    if chain_capture["transcript_sha256"] != sha256_file(bundle / "ek-cert-chain-nv-capture-transcript.json"):
+        print("PLATFORM EVIDENCE: DENY: ek-certificate-chain-capture-transcript-digest-mismatch")
+        return 1
+    if chain_capture["concatenated_sha256"] != sha256_file(bundle / "ek-cert-chain-nv-concatenated.bin"):
+        print("PLATFORM EVIDENCE: DENY: ek-certificate-chain-capture-concatenated-digest-mismatch")
+        return 1
+    if chain_details.get("candidate_handles", []) != chain_capture.get("candidate_handles", []):
+        print("PLATFORM EVIDENCE: DENY: ek-certificate-chain-candidate-handle-binding-mismatch")
+        return 1
+    if chain_details.get("first_handle") != chain_capture.get("first_handle"):
+        print("PLATFORM EVIDENCE: DENY: ek-certificate-chain-first-handle-binding-mismatch")
+        return 1
+    if chain_details.get("last_handle") != chain_capture.get("last_handle"):
+        print("PLATFORM EVIDENCE: DENY: ek-certificate-chain-last-handle-binding-mismatch")
+        return 1
+    if chain_details.get("first_gap") != chain_capture.get("first_gap"):
+        print("PLATFORM EVIDENCE: DENY: ek-certificate-chain-gap-binding-mismatch")
+        return 1
+    if chain_details.get("concatenated_sha256") != chain_capture.get("concatenated_sha256"):
+        print("PLATFORM EVIDENCE: DENY: ek-certificate-chain-concatenated-result-mismatch")
         return 1
 
     if cert_capture.get("rsa_certificate_present"):
