@@ -271,26 +271,42 @@ def fixture_manifest() -> dict[str, Any]:
             "source_sha256": "cd" * 32,
             "transcript_sha256": "ce" * 32,
         },
+        "activatecredential_binding": {
+            "status": "PASS",
+            "verifier_id": ACTIVATECREDENTIAL_VERIFIER_ID,
+            "receipt_sha256": "b0" * 32,
+            "makecredential_blob_sha256": "b1" * 32,
+            "makecredential_transcript_sha256": "b2" * 32,
+            "activatecredential_transcript_sha256": "b3" * 32,
+            "registrar_secret_sha256": "b4" * 32,
+            "recovered_secret_sha256": "b4" * 32,
+            "ak_authorization_file_sha256": "b5" * 32,
+            "capture_source_sha256": sha256_file(ACTIVATECREDENTIAL_CAPTURE_SCRIPT),
+            "ek_public_sha256": "b" * 64,
+            "ek_public_wire_sha256": "bc" * 32,
+            "ak_name_sha256": "ad" * 32,
+            "secret_equality_state": "PASS",
+        },
         "ek_certificate_capture": {
-            "status": "INDETERMINATE",
+            "status": "PASS",
             "verifier_id": EK_CERTIFICATE_CAPTURE_ID,
-            "reason": "no-tcg-ek-certificate-nv-index-observed",
+            "reason": "reference-model-ek-certificate-captured-from-tpm-nv-path",
             "result_sha256": "d1" * 32,
             "inventory_sha256": "d2" * 32,
             "transcript_sha256": "d3" * 32,
             "script_sha256": sha256_file(EK_CERTIFICATE_CAPTURE_SCRIPT),
             "source_mode": "TPM_NV_ONLY",
             "candidate_handles": [],
-            "rsa_certificate_present": False,
-            "rsa_certificate_sha256": None,
+            "rsa_certificate_present": True,
+            "rsa_certificate_sha256": "d4" * 32,
         },
         "ek_cert_spki_binding": {
-            "status": "INDETERMINATE",
+            "status": "PASS",
             "verifier_id": EK_CERT_SPki_VERIFIER_ID,
-            "reason": "rsa-ek-certificate-not-present",
-            "input_sha256": None,
-            "output_sha256": None,
-            "certificate_sha256": None,
+            "reason": "reference-model-spki-match",
+            "input_sha256": "d5" * 32,
+            "output_sha256": "d6" * 32,
+            "certificate_sha256": "d4" * 32,
             "ek_public_wire_sha256": "bc" * 32,
             "certificate_source_sha256": "d3" * 32,
             "ek_public_source_sha256": "bf" * 32,
@@ -364,9 +380,17 @@ def fixture_manifest() -> dict[str, Any]:
             "ek_certificate_capture_inventory_sha256": "d2" * 32,
             "ek_certificate_capture_transcript_sha256": "d3" * 32,
             "ek_certificate_capture_script_sha256": sha256_file(EK_CERTIFICATE_CAPTURE_SCRIPT),
-            "ek_certificate_rsa_sha256": None,
-            "ek_cert_spki_input_sha256": None,
-            "ek_cert_spki_output_sha256": None,
+            "ek_certificate_rsa_sha256": "d4" * 32,
+            "ek_cert_spki_input_sha256": "d5" * 32,
+            "ek_cert_spki_output_sha256": "d6" * 32,
+            "activatecredential_receipt_sha256": "b0" * 32,
+            "activatecredential_makecredential_blob_sha256": "b1" * 32,
+            "activatecredential_makecredential_transcript_sha256": "b2" * 32,
+            "activatecredential_activatecredential_transcript_sha256": "b3" * 32,
+            "activatecredential_registrar_secret_sha256": "b4" * 32,
+            "activatecredential_recovered_secret_sha256": "b4" * 32,
+            "activatecredential_ak_authorization_file_sha256": "b5" * 32,
+            "activatecredential_capture_source_sha256": sha256_file(ACTIVATECREDENTIAL_CAPTURE_SCRIPT),
             "tss_version_evidence_sha256": "f" * 64,
             "ek_public_sha256": "b" * 64,
         },
@@ -470,6 +494,38 @@ def mutate(value: dict[str, Any], name: str) -> dict[str, Any]:
         out["ek_cert_spki_binding"]["certificate_source_sha256"] = "15" * 32
     elif name == "ek-cert-spki-wire-substitution":
         out["ek_cert_spki_binding"]["ek_public_wire_sha256"] = "16" * 32
+    elif name == "activatecredential-verifier-substitution":
+        out["activatecredential_binding"]["verifier_id"] = "other-verifier"
+    elif name == "activatecredential-receipt-substitution":
+        out["activatecredential_binding"]["receipt_sha256"] = "c1" * 32
+    elif name == "activatecredential-ek-substitution":
+        out["activatecredential_binding"]["ek_public_sha256"] = "c2" * 32
+    elif name == "activatecredential-wire-substitution":
+        out["activatecredential_binding"]["ek_public_wire_sha256"] = "c3" * 32
+    elif name == "activatecredential-ak-name-substitution":
+        out["activatecredential_binding"]["ak_name_sha256"] = "c4" * 32
+    elif name == "activatecredential-secret-substitution":
+        out["activatecredential_binding"]["registrar_secret_sha256"] = "c5" * 32
+    elif name == "activatecredential-session-substitution":
+        out["session_id"] = "activation-attacker"
+    elif name == "activatecredential-indeterminate":
+        out["activatecredential_binding"]["status"] = "INDETERMINATE"
+        out["activatecredential_binding"]["secret_equality_state"] = "INDETERMINATE"
+        out["activatecredential_binding"]["makecredential_blob_sha256"] = None
+        out["activatecredential_binding"]["makecredential_transcript_sha256"] = None
+        out["activatecredential_binding"]["activatecredential_transcript_sha256"] = None
+        out["activatecredential_binding"]["registrar_secret_sha256"] = None
+        out["activatecredential_binding"]["recovered_secret_sha256"] = None
+        out["activatecredential_binding"]["ak_authorization_file_sha256"] = None
+        out["activatecredential_binding"]["receipt_sha256"] = "b0" * 32
+        out["activatecredential_binding"]["capture_source_sha256"] = sha256_file(ACTIVATECREDENTIAL_CAPTURE_SCRIPT)
+        out["artifacts"]["activatecredential_makecredential_blob_sha256"] = None
+        out["artifacts"]["activatecredential_makecredential_transcript_sha256"] = None
+        out["artifacts"]["activatecredential_activatecredential_transcript_sha256"] = None
+        out["artifacts"]["activatecredential_registrar_secret_sha256"] = None
+        out["artifacts"]["activatecredential_recovered_secret_sha256"] = None
+        out["artifacts"]["activatecredential_ak_authorization_file_sha256"] = None
+        out["session_binding_sha256"] = session_binding(out)
     elif name == "ek-cert-absent":
         out["ek_certificate_capture"]["status"] = "INDETERMINATE"
         out["ek_certificate_capture"]["candidate_handles"] = []
@@ -1844,6 +1900,19 @@ def capture(args: argparse.Namespace) -> int:
 
     session_id = f"linuxboot-{boot_before}-{sha256_file(out / 'eventlog.bin')[:16]}"
 
+    tpm_identity_digest_for_activation = canonical_hash(
+        {
+            "device_path": str(device),
+            "properties_sha256": prop_hash,
+            "ek_public_sha256": sha256_file(out / "ek.pub"),
+        }
+    )
+    activation_capture_result = run_activatecredential_capture(
+        out,
+        env,
+        tpm_identity_digest_for_activation,
+    )
+
     ek_certificate_capture = run_ek_certificate_capture(out, env)
     cert_capture_details = ek_certificate_capture.get("details", {})
     cert_source_sha256 = cert_capture_details.get("transcript_sha256")
@@ -2151,6 +2220,14 @@ def capture(args: argparse.Namespace) -> int:
                 if (out / "ek-cert-spki-input.json").is_file()
                 else None
             ),
+            "activatecredential_receipt_sha256": sha256_file(out / "activatecredential-capture.json"),
+            "activatecredential_makecredential_blob_sha256": activation_capture_result.get("makecredential_blob_sha256"),
+            "activatecredential_makecredential_transcript_sha256": activation_capture_result.get("makecredential_transcript_sha256"),
+            "activatecredential_activatecredential_transcript_sha256": activation_capture_result.get("activatecredential_transcript_sha256"),
+            "activatecredential_registrar_secret_sha256": activation_capture_result.get("registrar_secret_sha256"),
+            "activatecredential_recovered_secret_sha256": activation_capture_result.get("recovered_secret_sha256"),
+            "activatecredential_ak_authorization_file_sha256": activation_capture_result.get("ak_authorization_file_sha256"),
+            "activatecredential_capture_source_sha256": activation_capture_result.get("capture_source_sha256"),
             "ek_cert_spki_output_sha256": (
                 sha256_file(out / "ek-cert-spki-binding.json")
                 if (out / "ek-cert-spki-binding.json").is_file()
@@ -2182,6 +2259,7 @@ def capture(args: argparse.Namespace) -> int:
     print(f"Event-log reconstruction: {reconstruction.get('status', 'INDETERMINATE')}")
     print(f"Event-log reconstruction reason: {reconstruction.get('reason', 'unknown')}")
     print(f"Payload coherence: {payload_coherence.get('state', 'DENY')} ({payload_coherence.get('reason', 'unknown')})")
+    print(f"ActivateCredential association: {activation_capture_result.get('state', 'INDETERMINATE')} ({activation_capture_result.get('reason', 'unknown')})")
     print("Claim ceiling: ReferenceModelOnly")
     return 0
 
