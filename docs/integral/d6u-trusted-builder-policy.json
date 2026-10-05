@@ -1,5 +1,5 @@
 {
-  "policy_version": 27,
+  "policy_version": 28,
   "workflow_name": "D6U Exact-Head Runtime Executor",
   "workflow_path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
   "artifact_name_prefix": "d6u-runtime-evidence-",
@@ -206,7 +206,7 @@
   "artifact_max_total_bytes": 12582912,
   "trusted_workflow": {
     "path": ".github/workflows/d6u-trusted-evidence-attestation.yml",
-    "blob_sha": "0a5728e97bb5c33acb53772e7ee11c993ff750bf"
+    "blob_sha": "f6235c21cc266e3c10928a25f35e81c8e3dcf43d"
   },
   "artifact_max_entries": 32,
   "artifact_integrity": {
@@ -300,6 +300,10 @@
       "GH_HOST",
       "GH_ENTERPRISE_TOKEN",
       "GH_REPO"
+    ],
+    "executable_path_must_not_resolve_under": [
+      "${{ github.workspace }}",
+      "${{ runner.temp }}"
     ]
   },
   "attestation_retention": {
