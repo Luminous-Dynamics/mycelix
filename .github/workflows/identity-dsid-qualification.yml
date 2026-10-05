@@ -318,6 +318,7 @@ jobs:
             @digitalbazaar/credentials-context@3.2.0 \
             @digitalbazaar/data-integrity-context@2.0.1 \
             @digitalbazaar/multikey-context@2.0.1 \
+            jsonld-signatures@11.6.0 \
             --ignore-scripts
 
           nix develop --no-update-lock-file --no-write-lock-file "$GITHUB_WORKSPACE/mycelix-identity#ci" --command node --input-type=module <<'NODE'
@@ -331,6 +332,7 @@ jobs:
             '@digitalbazaar/credentials-context': '3.2.0',
             '@digitalbazaar/data-integrity-context': '2.0.1',
             '@digitalbazaar/multikey-context': '2.0.1',
+            'jsonld-signatures': '11.6.0',
           };
           for(const [name, version] of Object.entries(expected)) {
             const key = 'node_modules/' + name;
