@@ -222,7 +222,7 @@ This separation matches the architectural direction suggested by Holochain's val
 
 D6XVerificationSummaryV1::valid() answers whether a verification-summary record is structurally coherent and commitment-consistent. A structurally valid summary may carry either `Passed` or `Failed` as its verification result.
 
-Downstream qualification is a stronger question. `verifies_against_expectations(...)` explicitly requires `Passed`, in addition to the expected verifier identity, policy commitment, source bindings, closure scope, and source-bound closure correspondence. The strict evidence-backed verifier adds complete resolution evidence, a single qualification context, and the exact resolution-evidence commitment.
+Downstream qualification is a stronger question. `is_passed()` explicitly exposes the acceptance-relevant result check, while `verifies_against_expectations(...)` combines that requirement with the expected verifier identity, policy commitment, source bindings, closure scope, and source-bound closure correspondence. The strict evidence-backed verifier adds complete resolution evidence, a single qualification context, and the exact resolution-evidence commitment.
 
 This separation mirrors the current SLSA v1.2 VSA model, where `verificationResult` may be `PASSED` or `FAILED`, while consumer verification separately requires `PASSED` when the artifact is to be accepted. D6X adopts the semantic distinction only; it remains ReferenceModelOnly and unsigned.
 
