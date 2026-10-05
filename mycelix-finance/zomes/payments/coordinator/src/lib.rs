@@ -797,7 +797,7 @@ pub fn mint_sap_from_governance(input: MintSapFromGovernanceInput) -> ExternResu
     })?;
 
     // Update the running mint cap counter (O(1) for future cap checks)
-    update_mint_cap_counter(input.amount, now)?;
+    update_mint_cap_counter(input.amount, now, &mint_id)?;
 
     // Broadcast mint event via bridge
     if let Err(e) = call(
@@ -884,7 +884,11 @@ fn enforce_annual_mint_cap(new_amount: u64, now: Timestamp) -> ExternResult<()> 
 
 /// Update the on-chain mint cap counter after a successful governance mint.
 /// Called immediately after the SapMintRecord is committed.
-fn update_mint_cap_counter(minted_amount: u64, now: Timestamp) -> ExternResult<()> {
+fn update_mint_cap_counter(
+    minted_amount: u64,
+    now: Timestamp,
+    current_mint_id: &str,
+) -> ExternResult<()> {
     let year_micros: i64 = 365 * 24 * 60 * 60 * 1_000_000;
 
     match find_mint_cap_counter_record()? {
@@ -919,7 +923,7 @@ fn update_mint_cap_counter(minted_amount: u64, now: Timestamp) -> ExternResult<(
             // governance mints already exist. Reconstruct the observed local
             // history before creating the counter so the first counter write
             // cannot silently forget previously-issued SAP.
-            let observed = load_or_bootstrap_mint_cap_counter(now)?;
+            let observed = load_or_bootstrap_mint_cap_counter(now, Some(current_mint_id))?;
             let cumulative_minted = observed
                 .cumulative_minted
                 .checked_add(minted_amount)
@@ -951,8 +955,14 @@ fn update_mint_cap_counter(minted_amount: u64, now: Timestamp) -> ExternResult<(
     Ok(())
 }
 
-/// Load the existing mint cap counter, or bootstrap from chain scan if none exists.
-fn load_or_bootstrap_mint_cap_counter(now: Timestamp) -> ExternResult<SapMintCapCounter> {
+/// Load the existing mint cap counter, or bootstrap from a local chain scan if none exists.
+///
+/// `exclude_mint_id` is used only by the post-mint counter write because the
+/// current `SapMintRecord` is already on the author's source chain at that point.
+fn load_or_bootstrap_mint_cap_counter(
+    now: Timestamp,
+    exclude_mint_id: Option<&str>,
+) -> ExternResult<SapMintCapCounter> {
     if let Some((_record, entry)) = find_mint_cap_counter_record()? {
         return Ok(entry.into());
     }
@@ -978,6 +988,7 @@ fn load_or_bootstrap_mint_cap_counter(now: Timestamp) -> ExternResult<SapMintCap
         })
         .filter(|m| m.minted_at.as_micros() > cutoff)
         .filter(|m| matches!(m.source, SapMintSource::GovernanceProposal { .. }))
+        .filter(|m| exclude_mint_id != Some(m.id.as_str()))
         .fold((0u64, 0u32), |(acc, cnt), m| {
             (acc.saturating_add(m.amount), cnt.saturating_add(1))
         });
