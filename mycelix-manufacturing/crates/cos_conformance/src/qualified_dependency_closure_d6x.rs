@@ -2763,6 +2763,7 @@ mod tests {
             &fixture.evidence,
             std::slice::from_ref(&fixture.eligibility_receipt),
             &fixture.lifecycle_profile,
+            &fixture.lifecycle_profile.profile_commitment,
             &fixture.d6o_ledger,
             &fixture.current_frontier_root,
             &fixture.live_generation_id,
