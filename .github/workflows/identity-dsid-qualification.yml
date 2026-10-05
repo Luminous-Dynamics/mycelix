@@ -181,6 +181,7 @@ jobs:
           cargo test --locked -p recovery_integrity --lib
           cargo test --locked -p trust_credential_integrity --lib
           cargo test --locked -p education_integrity --lib
+          cargo test --locked -p credential_schema_integrity --lib
           cargo test --locked -p revocation_integrity --lib
           cargo test --locked -p web_of_trust_integrity --lib
           cargo test --locked -p verifiable_credential_integrity --lib
@@ -211,7 +212,7 @@ jobs:
         run: |
           grep '^DSID_EVIDENCE ' dsid-lifecycle-evidence.txt | cut -d ' ' -f2- \
             > dsid-lifecycle-evidence.jsonl
-          test "$(wc -l < dsid-lifecycle-evidence.jsonl)" -eq 66
+          test "$(wc -l < dsid-lifecycle-evidence.jsonl)" -eq 69
           python3 - <<'PY'
           import json
           from pathlib import Path
@@ -288,6 +289,9 @@ jobs:
               "DSID-064",
               "DSID-065",
               "DSID-066",
+              "DSID-067",
+              "DSID-068",
+              "DSID-069",
           }
 
           assert len(rows) == len(expected_ids)
