@@ -435,6 +435,22 @@ fn validate_consensus(
                 "Consensus source record is missing PriceReport entry".into()
             )))?;
 
+        let author_did = format!("did:mycelix:{}", record.action().author());
+        if report.reporter_did != author_did {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Consensus source reporter DID must match the signed PriceReport author".into(),
+            ));
+        }
+        if report.reported_at != record.action().timestamp() {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Consensus source reported_at must match the signed PriceReport timestamp".into(),
+            ));
+        }
+        if report.observed_at > report.reported_at {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Consensus source observed_at cannot be after reported_at".into(),
+            ));
+        }
         if report.item != consensus.item {
             return Ok(ValidateCallbackResult::Invalid(
                 "Consensus source report item does not match publication item".into(),
