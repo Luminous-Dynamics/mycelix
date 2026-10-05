@@ -609,6 +609,19 @@ mod tests {
     }
 
     #[test]
+    fn negative_evidence_remains_recordable_without_eligibility() {
+        let mut record = valid_record();
+        record["decision"]["eligible_for_passive_scoring"] = json!(false);
+        record["evidence_claims"][0]["status"] = json!("Unobserved");
+        record["evidence_claims"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("value");
+
+        assert!(validate_passive_design_provenance_v2(&record).is_ok());
+    }
+
+    #[test]
     fn eligibility_cannot_outpace_unobserved_claim() {
         let mut record = valid_record();
         record["evidence_claims"][0]["status"] = json!("Unobserved");
