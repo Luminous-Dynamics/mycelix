@@ -472,6 +472,8 @@ def mutate(value: dict[str, Any], name: str) -> dict[str, Any]:
         out["event_log"]["sha256"] = "1" * 64
     elif name == "parser-profile-substitution":
         out["event_log"]["parser_profile_id"] = "other-profile"
+    elif name == "raw-parser-sidecar-substitution":
+        out["raw_eventlog"]["output_sha256"] = "10" * 32
     elif name == "pcr-selection-substitution":
         out["quote"]["pcr_selection"] = "sha256:0,2,4"
     elif name == "nonce-substitution":
@@ -909,6 +911,10 @@ def validate_semantics(manifest: dict[str, Any]) -> tuple[str, str]:
         denies.append("raw-eventlog-parser-id-mismatch")
     if manifest["raw_eventlog"]["binary_sha256"] != manifest["event_log"]["sha256"]:
         denies.append("raw-eventlog-binary-binding-mismatch")
+    if manifest["raw_eventlog"]["output_sha256"] != manifest["artifacts"]["raw_eventlog_output_sha256"]:
+        denies.append("raw-eventlog-output-artifact-binding-mismatch")
+    if manifest["raw_eventlog"]["source_sha256"] != sha256_file(RAW_EVENTLOG_PARSER_SCRIPT):
+        denies.append("raw-eventlog-source-binding-mismatch")
     if manifest["payload_coherence"]["source_sha256"] != sha256_file(PAYLOAD_COHERENCE_SCRIPT):
         denies.append("payload-coherence-source-binding-mismatch")
     if manifest["payload_coherence"]["input_sha256"] != manifest["reconstruction"]["input_sha256"]:
