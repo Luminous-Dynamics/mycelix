@@ -241,9 +241,10 @@ pub fn create_repair_prediction(input: CreateRepairPredictionInput) -> ExternRes
 
     create_link(input.property_asset_hash, hash.clone(), LinkTypes::AssetToPredictions, ())?;
 
-    // Auto-create workflow if probability is high enough
+    // Auto-create workflow if probability is high enough.
+    // Use the internal path so the single public operation consumes one rate-limit slot.
     if input.failure_probability > 0.7 {
-        create_repair_workflow(hash.clone())?;
+        create_repair_workflow_internal(hash.clone())?;
     }
 
     // Best-effort property hApp notification
@@ -258,9 +259,37 @@ pub fn create_repair_prediction(input: CreateRepairPredictionInput) -> ExternRes
     get(hash.clone(), GetOptions::default())?.ok_or(FabricationError::not_found("RepairPrediction", &hash))
 }
 
-/// Create a repair workflow from a prediction
+/// Create a repair workflow from a prediction.
+/// 
+/// This is a state-changing external entrypoint, so it must pass the same
+/// consciousness and rate-limit gates as the other mutation paths.
 #[hdk_extern]
 pub fn create_repair_workflow(prediction_hash: ActionHash) -> ExternResult<Record> {
+    require_fabrication_consciousness("create_repair_workflow")?;
+    rate_limit_caller()?;
+
+    // Do not create a workflow from an arbitrary action hash: require a
+    // readable RepairPrediction entry before creating derived state.
+    let prediction = get(prediction_hash.clone(), GetOptions::default())?
+        .ok_or(FabricationError::not_found("RepairPrediction", &prediction_hash))?;
+    prediction
+        .entry()
+        .to_app_option::<RepairPredictionEntry>()
+        .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+        .ok_or(FabricationError::ValidationFailed {
+            field: "prediction_hash".to_string(),
+            reason: "Referenced action is not a RepairPrediction".to_string(),
+        }
+        .to_wasm_error())?;
+
+    create_repair_workflow_internal(prediction_hash)
+}
+
+/// Create workflow state for an already-created prediction.
+///
+/// Callers must establish authorization and rate limiting before reaching
+/// this internal helper.
+fn create_repair_workflow_internal(prediction_hash: ActionHash) -> ExternResult<Record> {
     let now = sys_time()?;
 
     let workflow = RepairWorkflowEntry {
