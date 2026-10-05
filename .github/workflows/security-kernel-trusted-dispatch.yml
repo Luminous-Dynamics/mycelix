@@ -20,6 +20,8 @@ env:
   SOURCE_WORKFLOW_PATH: ".github/workflows/security-kernel-qualification.yml"
   TRUSTED_INDEPENDENT_WORKFLOW_PATH: ".github/workflows/security-kernel-independent-qualification.yml"
   TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "949443c39bdded6769305e63259e6162694068fd"
+  TRUSTED_RESULT_VERIFIER_WORKFLOW_PATH: ".github/workflows/security-kernel-trusted-result-verifier.yml"
+  TRUSTED_RESULT_VERIFIER_WORKFLOW_BLOB_SHA: "4c284f328d4f5c0e975bee370bdf9166e514e6a6"
   TRUSTED_DISPATCHER_WORKFLOW_PATH: ".github/workflows/security-kernel-trusted-dispatch.yml"
 
 jobs:
@@ -32,6 +34,34 @@ jobs:
       candidate_sha: ${{ steps.resolve.outputs.candidate_sha }}
       candidate_repository: ${{ steps.resolve.outputs.candidate_repository }}
     steps:
+      - name: Verify trusted result verifier profile at caller commit
+        shell: bash
+        env:
+          TOKEN: ${{ github.token }}
+          CALLER_SHA: ${{ github.workflow_sha }}
+          TRUSTED_RESULT_VERIFIER_WORKFLOW_BLOB_SHA: ${{ env.TRUSTED_RESULT_VERIFIER_WORKFLOW_BLOB_SHA }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, urllib.request
+          repo=os.environ["BASE_REPOSITORY"]
+          path=os.environ["TRUSTED_RESULT_VERIFIER_WORKFLOW_PATH"]
+          ref=os.environ["CALLER_SHA"]
+          req=urllib.request.Request(
+              f"https://api.github.com/repos/{repo}/contents/{path}?ref={ref}",
+              headers={
+                  "Accept":"application/vnd.github+json",
+                  "Authorization":f"Bearer {os.environ['TOKEN']}",
+                  "X-GitHub-Api-Version":"2022-11-28",
+              })
+          with urllib.request.urlopen(req, timeout=20) as response:
+              content=json.load(response)
+          assert content["sha"] == os.environ["TRUSTED_RESULT_VERIFIER_WORKFLOW_BLOB_SHA"], (
+              "S2 verifier blob differs from the externally registered trust profile at the S0 commit"
+          )
+          print("PASS: trusted S2 verifier profile is anchored at the exact S0 commit")
+          PY
+
       - name: Verify trusted dispatcher context and exact PR identity
         id: resolve
         shell: bash
