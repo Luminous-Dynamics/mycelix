@@ -269,6 +269,10 @@ struct ReceiveCompostPayload {
     pub commons_pool_id: String,
     pub amount: u64,
     pub source_member_did: String,
+    /// Stable identity of the durable queue item. Treasury uses this as its
+    /// idempotency key so a successful delivery cannot be credited twice when
+    /// queue-link deletion races with a retry.
+    pub delivery_id: String,
 }
 
 // ---------------------------------------------------------------------------
@@ -280,7 +284,12 @@ const PENDING_COMPOST_ANCHOR: &str = "pending_compost_queue";
 
 /// Attempt to deliver compost to treasury with retries.
 /// Returns `true` if delivery succeeded, `false` if all retries exhausted.
-fn try_deliver_compost(pool_id: &str, amount: u64, source_did: &str) -> bool {
+fn try_deliver_compost(
+    pool_id: &str,
+    amount: u64,
+    source_did: &str,
+    delivery_id: &str,
+) -> bool {
     if amount == 0 {
         return true;
     }
@@ -294,6 +303,7 @@ fn try_deliver_compost(pool_id: &str, amount: u64, source_did: &str) -> bool {
                 commons_pool_id: pool_id.to_string(),
                 amount,
                 source_member_did: source_did.to_string(),
+                delivery_id: delivery_id.to_string(),
             },
         ) {
             Ok(ZomeCallResponse::Ok(_)) => return true,
@@ -359,8 +369,9 @@ fn queue_pending_compost(
 }
 
 /// Drain the pending compost queue by retrying all queued deliveries.
-/// Successfully delivered entries are removed from the queue.
-/// Called opportunistically from `credit_sap` and `debit_sap`.
+/// Successfully delivered entries are removed from the queue. Treasury receives
+/// the queue-link ActionHash as a stable idempotency key, so deletion races do
+/// not turn an already-credited delivery into a second credit.
 ///
 /// Returns the number of successfully drained entries.
 #[hdk_extern]
@@ -396,6 +407,7 @@ fn drain_pending_compost_inner() -> ExternResult<u32> {
             &pending.commons_pool_id,
             pending.amount,
             &pending.source_member_did,
+            &link.create_link_hash.to_string(),
         ) {
             // Success — remove from queue
             delete_link(link.create_link_hash.clone(), GetOptions::default())?;
