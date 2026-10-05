@@ -112,6 +112,22 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         ch in "0123456789abcdef"
         for ch in policy["trusted_artifact_fetcher"]["blob_sha"]
     )
+    assert policy["trusted_permissions"] == {
+        "actions": "read",
+        "contents": "read",
+        "id-token": "write",
+        "attestations": "write",
+    }
+    workflow_path = Path(__file__).parents[2] / policy["trusted_workflow"]["path"]
+    workflow_text = workflow_path.read_text(encoding="utf-8")
+    assert "artifact-metadata: write" not in workflow_text
+    assert "actions: write" not in workflow_text
+    assert "contents: write" not in workflow_text
+    assert "attestations: write" in workflow_text
+    assert "id-token: write" in workflow_text
+    assert "actions: read" in workflow_text
+    assert "contents: read" in workflow_text
+
     assert policy["artifact_integrity"] == {
         "algorithm": "sha256",
         "source": "github-artifact-api",
