@@ -137,7 +137,7 @@ impl FederationState {
         if modes.len() > 1 {
             return Err(());
         }
-        Ok(modes.pop())
+        Ok(modes.into_iter().next())
     }
 }
 

@@ -8,7 +8,7 @@
 //! refund, remediation, and correction are new semantic effects linked to the
 //! original effect; they never rewrite its identity or history.
 
-use crate::archive_continuity::ArchiveRecoveryBindingV1;
+use crate::substitution_continuity::ArchiveRecoveryBindingV1;
 use crate::no_resurrection::SemanticTombstone;
 use crate::substitution_continuity::{
     EffectConservationStateV1, ProviderOutcomeKindV1, ProviderOutcomeV1, ProviderRouteV1,

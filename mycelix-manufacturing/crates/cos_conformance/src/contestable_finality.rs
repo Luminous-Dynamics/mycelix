@@ -620,7 +620,11 @@ pub fn assess_observation_set(
             let left = by_id.get(&assessments[i].observation_id).expect("assessment source exists");
             let right = by_id.get(&assessments[j].observation_id).expect("assessment source exists");
             if profiles_share_dependency(&left.observer, &right.observer) {
-                for assessment in [&mut assessments[i], &mut assessments[j]] {
+                let (left_assessment, right_assessment) = {
+                    let (before, after) = assessments.split_at_mut(j);
+                    (&mut before[i], &mut after[0])
+                };
+                for assessment in [left_assessment, right_assessment] {
                     if matches!(
                         assessment.classification,
                         ObservationClassificationV1::CorroboratingIndependent

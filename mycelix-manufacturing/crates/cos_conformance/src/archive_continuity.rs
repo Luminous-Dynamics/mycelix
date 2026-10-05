@@ -15,7 +15,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 pub const ARCHIVE_CONTINUITY_PROFILE_ID: &str = "INTEGRAL-ARCHIVE-REF-001";
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum HistoricalClaimClassV1 {
     State,
     Lineage,
