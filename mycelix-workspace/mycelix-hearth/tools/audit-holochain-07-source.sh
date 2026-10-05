@@ -2503,13 +2503,14 @@ PY
   if rg -n --fixed-strings "cargo build --locked" "$workflow" >/dev/null 2>&1 \
     && rg -n --fixed-strings "cargo test --locked" "$workflow" >/dev/null 2>&1 \
     && rg -n --fixed-strings "cargo generate-lockfile" "$workflow" >/dev/null 2>&1 \
-    && rg -n --fixed-strings "Classify Rust dependency closure provenance" "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings "Verify or generate Rust dependency closure" "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings "cargo metadata --locked" "$workflow" >/dev/null 2>&1 \
     && rg -n --fixed-strings "dependency_closure_status=generated_at_runtime" "$workflow" >/dev/null 2>&1 \
     && rg -n --fixed-strings "dependency_closure_status=source_controlled_and_stable" "$workflow" >/dev/null 2>&1 \
     && rg -n --fixed-strings "grep -Fxq \"dependency_closure_status=source_controlled_and_stable\"" "$workflow" >/dev/null 2>&1; then
-    echo "OK:   qualification workflow records dependency-closure provenance and gates complete evidence on a stable source-controlled lock closure"
+    echo "OK:   qualification workflow verifies committed locked closures, generates only for the unfrozen case, and gates complete evidence on stable source-controlled locks"
   else
-    echo "FAIL: qualification workflow must explicitly classify dependency closure provenance and require source-controlled stable locks for complete evidence"
+    echo "FAIL: qualification workflow must fail closed on dependency-closure provenance and use locked verification for committed closures"
     fail=1
   fi
 }
