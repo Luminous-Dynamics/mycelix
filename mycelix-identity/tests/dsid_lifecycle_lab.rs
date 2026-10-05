@@ -611,7 +611,12 @@ async fn dsid_053_deactivated_did_rejects_mfa_enrollment() {
         .map(|factors| factors.len())
         .unwrap_or_default();
 
+    let rejection = format!("{blocked:?}");
     assert!(blocked.is_err(), "deactivated DID must reject MFA enrollment");
+    assert!(
+        rejection.contains("not active"),
+        "MFA rejection must come from the active-DID guard, got: {rejection}"
+    );
     assert_eq!(
         factor_count, 1,
         "failed post-deactivation enrollment must not append a factor"
@@ -681,7 +686,12 @@ async fn dsid_054_deactivated_did_rejects_recovery_anchor_mutation() {
         .call(&cell.zome("recovery"), "get_self_recovery_view", did.id.clone())
         .await;
     let view = view.expect("historical self-recovery config remains readable");
+    let rejection = format!("{blocked:?}");
     assert!(blocked.is_err(), "deactivated DID must reject recovery-anchor mutation");
+    assert!(
+        rejection.contains("not active"),
+        "Recovery rejection must come from the active-DID guard, got: {rejection}"
+    );
     assert!(
         view.anchors.is_empty(),
         "failed post-deactivation anchor enrollment must not mutate recovery state"
@@ -750,9 +760,14 @@ async fn dsid_055_deactivated_did_rejects_trust_credential_issuance() {
         )
         .await;
 
+    let rejection = format!("{blocked:?}");
     assert!(
         blocked.is_err(),
         "deactivated issuer DID must not mint a new trust credential"
+    );
+    assert!(
+        rejection.contains("not active"),
+        "Trust-credential rejection must come from the active-DID guard, got: {rejection}"
     );
 
     let mut agents = BTreeMap::new();
