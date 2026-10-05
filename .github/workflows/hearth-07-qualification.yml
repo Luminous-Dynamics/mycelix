@@ -304,12 +304,53 @@ jobs:
           [[ "$actual_tests" == "$expected_tests" ]] || { echo "tests/Cargo.lock changed after initial capture"; exit 1; }
           printf '%s\n' "dependency_closure_initial_capture_verified=true" > qualification-dependency-closure-immutability.txt
           cat qualification-dependency-closure-immutability.txt
+      - name: Capture source tree fingerprint before runtime
+        id: source_tree_before_runtime
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: |
+          set -euo pipefail
+          root="${GITHUB_WORKSPACE}"
+          git -C "${root}" diff --quiet HEAD --
+          git -C "${root}" diff --cached --quiet HEAD --
+          [[ -z "$(git -C "${root}" status --porcelain=v1 --untracked-files=no)" ]]
+          git -C "${root}" ls-files -s | sha256sum > qualification-source-index-sha256.txt
+          git -C "${root}" submodule status --recursive > qualification-submodules-before-runtime.txt
+          git -C "${root}" submodule foreach --recursive 'test -z "$(git status --porcelain=v1 --untracked-files=all)"'
+          printf '%s\n' "source_tree_before_runtime_captured=true" > qualification-source-tree-immutability.txt
+
       - name: Run Hearth 0.7 SweetConductor qualification
         id: sweettest
         working-directory: mycelix-workspace/mycelix-hearth
         run: |
           set -o pipefail
           nix develop .#ci --command bash -c             'set -o pipefail; cd tests && cargo test --locked --release --test sweettest_semantic_validation -- --include-ignored --test-threads=1 2>&1 | tee ../qualification-sweettest.log'
+
+      - name: Verify source tree immutability after runtime qualification
+        id: source_tree_after_runtime
+        if: ${{ !cancelled() }}
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: |
+          set -euo pipefail
+          root="${GITHUB_WORKSPACE}"
+          test -s qualification-source-index-sha256.txt
+          expected_index="$(awk '{print $1}' qualification-source-index-sha256.txt)"
+          actual_index="$(git -C "${root}" ls-files -s | sha256sum | awk '{print $1}')"
+          [[ "${actual_index}" == "${expected_index}" ]] || {
+            echo "tracked Git index fingerprint changed during runtime qualification"
+            exit 1
+          }
+          git -C "${root}" diff --quiet HEAD --
+          git -C "${root}" diff --cached --quiet HEAD --
+          [[ -z "$(git -C "${root}" status --porcelain=v1 --untracked-files=no)" ]]
+          git -C "${root}" submodule status --recursive > qualification-submodules-after-runtime.txt
+          cmp -s qualification-submodules-before-runtime.txt qualification-submodules-after-runtime.txt || {
+            echo "submodule provenance changed during runtime qualification"
+            diff -u qualification-submodules-before-runtime.txt qualification-submodules-after-runtime.txt || true
+            exit 1
+          }
+          git -C "${root}" submodule foreach --recursive 'test -z "$(git status --porcelain=v1 --untracked-files=all)"'
+          printf '%s\n' "source_tree_runtime_immutable=true" >> qualification-source-tree-immutability.txt
+          cat qualification-source-tree-immutability.txt
 
       - name: Verify Rust dependency closure after runtime qualification
         id: dependency_closure_immutable_after_runtime
@@ -415,6 +456,10 @@ PYCOUNT
           ensure_marker "${hearth}/qualification-dna-sha256.txt" "unavailable_dna_capture"
           ensure_marker "${hearth}/qualification-cargo-lock-sha256.txt" "unavailable_cargo_lock_capture"
           ensure_marker "${hearth}/qualification-cargo-lock-summary.txt" "unavailable_cargo_lock_summary"
+          ensure_marker "${hearth}/qualification-source-index-sha256.txt" "unavailable_source_tree_fingerprint_not_reached"
+          ensure_marker "${hearth}/qualification-submodules-before-runtime.txt" "unavailable_source_tree_snapshot_not_reached"
+          ensure_marker "${hearth}/qualification-submodules-after-runtime.txt" "unavailable_source_tree_runtime_verification_not_reached"
+          ensure_marker "${hearth}/qualification-source-tree-immutability.txt" "unavailable_source_tree_immutability_not_reached"
           ensure_marker "${hearth}/qualification-dependency-closure.txt" "unavailable_dependency_closure_classification"
           ensure_marker "${hearth}/qualification-dependency-closure-immutability.txt" "unavailable_dependency_closure_immutability"
           ensure_marker "${hearth}/qualification-source-contract-sha256.txt" "unavailable_source_contract_capture"
@@ -569,6 +614,7 @@ PY
             && real "${hearth}/qualification-wasm-sha256.txt" \
             && real "${hearth}/qualification-dna-sha256.txt" \
             && real "${hearth}/qualification-cargo-lock-sha256.txt" \
+            && grep -Fxq "source_tree_runtime_immutable=true" "${hearth}/qualification-source-tree-immutability.txt" \
             && grep -Fxq "dependency_closure_status=source_controlled_and_stable" "${hearth}/qualification-dependency-closure.txt" \
             && grep -Fxq "dependency_closure_initial_capture_verified=true" "${hearth}/qualification-dependency-closure-immutability.txt" \
             && grep -Fxq "dependency_closure_runtime_immutable=true" "${hearth}/qualification-dependency-closure-immutability.txt" \
@@ -612,6 +658,7 @@ PY
             echo "evidence_capture_status=${evidence_status}"
             echo "format_conclusion=${{ steps.format.conclusion || 'unknown' }}"
             echo "dependency_closure_status=$(sed -n "s/^dependency_closure_status=//p" "${hearth}/qualification-dependency-closure.txt" | head -n1)"
+            echo "source_tree_runtime_immutable=$(sed -n "s/^source_tree_runtime_immutable=//p" "${hearth}/qualification-source-tree-immutability.txt" | tail -n1)"
             echo "pr_head_sha=${{ github.event.pull_request.head.sha || '' }}"
             echo "pr_base_sha=${{ github.event.pull_request.base.sha || '' }}"
             echo "ref=${GITHUB_REF_NAME}"
@@ -647,6 +694,10 @@ PY
             mycelix-workspace/mycelix-hearth/qualification-cargo-lock-sha256.txt
             mycelix-workspace/mycelix-hearth/qualification-cargo-lock-summary.txt
             mycelix-workspace/mycelix-hearth/qualification-dependency-closure.txt
+            mycelix-workspace/mycelix-hearth/qualification-source-index-sha256.txt
+            mycelix-workspace/mycelix-hearth/qualification-submodules-before-runtime.txt
+            mycelix-workspace/mycelix-hearth/qualification-submodules-after-runtime.txt
+            mycelix-workspace/mycelix-hearth/qualification-source-tree-immutability.txt
             mycelix-workspace/mycelix-hearth/qualification-dependency-closure-immutability.txt
             mycelix-workspace/mycelix-hearth/qualification-source-contract-sha256.txt
             mycelix-workspace/mycelix-hearth/qualification-evidence-status.txt
