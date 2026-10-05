@@ -1066,3 +1066,12 @@ The external monetary and settlement claims in this document should be checked a
 - South African Reserve Bank, *SAMOS*: https://www.resbank.co.za/en/home/what-we-do/payments-and-settlements/samos
 
 These sources are reference material, not endorsements of SAP. They establish the external concepts against which SAP should be evaluated.
+
+
+### Current implementation prerequisites
+
+- **AC-092 (#4110)** — close the raw SAP credit/mint provenance surface.
+- **AC-093 (#4111)** — establish reserve-grade valuation/oracle provenance.
+- **AC-094 (#4113)** — establish canonical reserve identity and anti-double-counting/encumbrance semantics.
+
+These are ordered deliberately: supply provenance comes before valuation; valuation comes before aggregate reserve accounting; reserve accounting must then be able to prove uniqueness and unavailable/encumbered capacity rather than merely summing claims.
