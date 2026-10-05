@@ -1015,21 +1015,46 @@ fn find_sap_balance_record(member_did: &str) -> ExternResult<Option<(Record, Sap
         )?,
         GetStrategy::default(),
     )?;
-    if let Some(link) = links.last() {
+
+    let mut candidates = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+
+    for link in links {
         let hash = ActionHash::try_from(link.target.clone())
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid SAP balance link target".into())))?;
+        if !seen.insert(hash.clone()) {
+            continue;
+        }
+
         let record = follow_update_chain(hash)?;
-        let bal = record.entry().to_app_option::<SapBalance>().map_err(|e| {
-            wasm_error!(WasmErrorInner::Guest(format!(
-                "SapBalance deserialization error: {:?}",
-                e
-            )))
-        })?;
-        if let Some(bal) = bal {
-            return Ok(Some((record, bal)));
+        let balance = record
+            .entry()
+            .to_app_option::<SapBalance>()
+            .map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "SapBalance deserialization error: {:?}",
+                    e
+                )))
+            })?
+            .ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "SAP balance index points to a record without SapBalance entry".into()
+                ))
+            })?;
+
+        if balance.member_did == member_did {
+            candidates.push((record, balance));
         }
     }
-    Ok(None)
+
+    match candidates.len() {
+        0 => Ok(None),
+        1 => Ok(candidates.pop()),
+        _ => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Conflicting SAP balance records exist for member {}; refusing to choose by link order",
+            member_did
+        )))),
+    }
 }
 
 fn get_sap_balance_inner(member_did: &str) -> ExternResult<(Record, SapBalance)> {
