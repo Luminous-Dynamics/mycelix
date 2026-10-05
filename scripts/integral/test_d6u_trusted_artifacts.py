@@ -35,8 +35,7 @@ def base_policy() -> dict:
 
 
 def valid_log() -> str:
-    return "
-".join(
+    return "\n".join(
         [
             "D6U_CASE\tcanonical-payload-accepted\taccepted\tzome-reached=true\tPASS",
             'D6U_RUNTIME_WITNESS\tfuture-expiry-rejection\tBadNonce("Future")',
