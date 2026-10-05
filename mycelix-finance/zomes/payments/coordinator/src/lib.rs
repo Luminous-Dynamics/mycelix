@@ -183,9 +183,8 @@ pub fn revoke_amber_exemption(member_did: String) -> ExternResult<Record> {
 /// Returns the amount deducted. If 0, no update is persisted.
 #[hdk_extern]
 pub fn apply_demurrage(input: ApplyDemurrageInput) -> ExternResult<DemurrageResult> {
-    // Opportunistically drain pending compost queue
-    let _ = drain_pending_compost_inner();
-
+    // Demurrage is a balance mutation. Keep this transaction source-chain-only;
+    // pending compost delivery is a separate, durable queue operation.
     let (record, bal) = get_sap_balance_inner(&input.member_did)?;
     let now = sys_time()?;
     let elapsed = elapsed_seconds(bal.last_demurrage_at, now);
@@ -223,12 +222,11 @@ pub fn apply_demurrage(input: ApplyDemurrageInput) -> ExternResult<DemurrageResu
     let regional_amount = deduction * COMPOST_REGIONAL_PCT / 100;
     let global_amount = deduction - local_amount - regional_amount; // remainder to global
 
-    // Redistribute via treasury zome cross-zome calls with retry + queue
-    let mut fully_redistributed = true;
-
+    // Durable-first redistribution: persist each delivery obligation in the same
+    // source-chain transaction as the demurrage debit. Actual treasury delivery is
+    // performed later by the explicit queue-drain operation.
     if let Some(ref pool_id) = input.local_commons_pool_id {
-        if !try_deliver_compost(pool_id, local_amount, &input.member_did) {
-            fully_redistributed = false;
+        if local_amount > 0 {
             queue_pending_compost(
                 pool_id,
                 local_amount,
@@ -238,8 +236,7 @@ pub fn apply_demurrage(input: ApplyDemurrageInput) -> ExternResult<DemurrageResu
         }
     }
     if let Some(ref pool_id) = input.regional_commons_pool_id {
-        if !try_deliver_compost(pool_id, regional_amount, &input.member_did) {
-            fully_redistributed = false;
+        if regional_amount > 0 {
             queue_pending_compost(
                 pool_id,
                 regional_amount,
@@ -249,8 +246,7 @@ pub fn apply_demurrage(input: ApplyDemurrageInput) -> ExternResult<DemurrageResu
         }
     }
     if let Some(ref pool_id) = input.global_commons_pool_id {
-        if !try_deliver_compost(pool_id, global_amount, &input.member_did) {
-            fully_redistributed = false;
+        if global_amount > 0 {
             queue_pending_compost(
                 pool_id,
                 global_amount,
@@ -262,7 +258,9 @@ pub fn apply_demurrage(input: ApplyDemurrageInput) -> ExternResult<DemurrageResu
 
     Ok(DemurrageResult {
         deducted: deduction,
-        redistributed: fully_redistributed,
+        // A durable queue obligation is not the same thing as completed
+        // redistribution; do not report success before treasury confirms it.
+        redistributed: false,
     })
 }
 
@@ -467,10 +465,8 @@ pub struct CreditSapInput {
 pub fn debit_sap(input: DebitSapInput) -> ExternResult<Record> {
     verify_caller_is_did(&input.member_did)?;
 
-    if let Err(e) = drain_pending_compost_inner() {
-        debug!("debit_sap: pending compost drain failed (non-fatal): {:?}", e);
-    }
-
+    // Do not perform cross-zome compost delivery inside the balance mutation.
+    // Pending delivery is handled separately from the committed debit.
     for attempt in 0..MAX_SAP_RETRIES {
         let (record, bal) = get_sap_balance_inner(&input.member_did)?;
         let now = sys_time()?;
