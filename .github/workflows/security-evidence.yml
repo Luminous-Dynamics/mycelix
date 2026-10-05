@@ -102,6 +102,10 @@ jobs:
           assert cert_chain["claim_ceiling"] == "ReferenceModelOnly"
           assert cert_chain["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"
           assert len(cert_chain["vectors"]) == 27
+          quote_key = json.loads(Path("docs/security/mycelix-ak-quote-key-binding-v0.1.json").read_text())
+          assert quote_key["profile_id"] == "mycelix.security.tpm.ak-quote-key-binding"
+          assert quote_key["claim_ceiling"] == "ReferenceModelOnly"
+          assert len(quote_key["vectors"]) == 16
           san_binding = json.loads(Path("docs/security/mycelix-ek-cert-san-identity-binding-v0.1.json").read_text())
           assert san_binding["profile_id"] == "mycelix.security.tpm.ek-cert-san-identity-binding"
           assert san_binding["claim_ceiling"] == "ReferenceModelOnly"
@@ -127,6 +131,7 @@ jobs:
             scripts/security/verify_mycelix_ak_public_attributes_v0_1.py \
             scripts/security/verify_mycelix_ek_cert_spki_binding_v0_1.py \
             scripts/security/verify_mycelix_ek_cert_chain_policy_v0_1.py \
+            scripts/security/verify_mycelix_ak_quote_key_binding_v0_1.py \
             scripts/security/extract_mycelix_ek_cert_san_v0_1.py \
             scripts/security/verify_mycelix_ek_cert_san_identity_v0_1.py \
             scripts/security/capture_mycelix_ek_certificate_nv_v0_1.py
@@ -185,6 +190,9 @@ jobs:
 
       - name: Run EK certificate chain policy semantic corpus
         run: python3 scripts/security/verify_mycelix_ek_cert_chain_policy_v0_1.py --self-test
+
+      - name: Run AK Quote key-binding semantic corpus
+        run: python3 scripts/security/verify_mycelix_ak_quote_key_binding_v0_1.py --self-test
 
       - name: Run EK SAN directory identity extractor semantic corpus
         run: python3 scripts/security/extract_mycelix_ek_cert_san_v0_1.py --self-test
