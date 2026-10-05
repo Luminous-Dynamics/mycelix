@@ -59,6 +59,25 @@ pub enum LinkTypes {
     NameToTransfers,
 }
 
+fn validate_timestamp_us_not_future(
+    field: &str,
+    value_us: u64,
+    action_timestamp: Timestamp,
+) -> ValidateCallbackResult {
+    let action_us = action_timestamp.as_micros();
+    let Ok(action_us) = u64::try_from(action_us) else {
+        return ValidateCallbackResult::Invalid(format!(
+            "{field} cannot be validated against a negative signed Holochain action timestamp"
+        ));
+    };
+    if value_us > action_us {
+        return ValidateCallbackResult::Invalid(format!(
+            "{field} cannot be later than its signed Holochain action timestamp"
+        ));
+    }
+    ValidateCallbackResult::Valid
+}
+
 fn name_anchor(segments: &[String]) -> ExternResult<EntryHash> {
     hash_entry(&EntryTypes::Anchor(Anchor(format!(
         "mesh_name/{}",
@@ -162,6 +181,42 @@ fn validate_name_transfer_chain_uniqueness(
     Ok(ValidateCallbackResult::Valid)
 }
 
+fn latest_name_action(
+    author: AgentPubKey,
+    chain_top: ActionHash,
+    name_hash: &ActionHash,
+) -> ExternResult<Option<ActionHash>> {
+    let activity = must_get_agent_activity(author, ChainFilter::new(chain_top))?;
+    let entry_type = EntryType::App(AppEntryDef::try_from(UnitEntryTypes::MeshNameEntry)?);
+    let mut latest: Option<(u32, ActionHash)> = None;
+
+    for item in activity {
+        let prior_action = item.action.action();
+        if prior_action.entry_type() != Some(&entry_type)
+            || !matches!(prior_action, Action::Create(_) | Action::Update(_))
+        {
+            continue;
+        }
+        let action_hash = hdi::hash::hash_action(prior_action.clone())?;
+        let entry_hash = prior_action.entry_hash().cloned();
+        if let Some(entry_hash) = entry_hash {
+            let entry = must_get_entry(entry_hash)?;
+            let name: MeshNameEntry = entry.try_into().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Mesh name history entry could not be decoded: {e}"
+                )))
+            })?;
+            if &action_hash == name_hash {
+                if latest.as_ref().is_none_or(|(seq, _)| prior_action.action_seq() > *seq) {
+                    latest = Some((prior_action.action_seq(), action_hash));
+                }
+            }
+        }
+    }
+
+    Ok(latest.map(|(_, hash)| hash))
+}
+
 fn validate_create_name_transfer(
     action: EntryCreationAction,
     transfer: NameTransfer,
@@ -170,6 +225,14 @@ fn validate_create_name_transfer(
         return Ok(ValidateCallbackResult::Invalid(
             "Transfer timestamp must be non-zero".into(),
         ));
+    }
+    match validate_timestamp_us_not_future(
+        "Transfer timestamp",
+        transfer.timestamp_us,
+        *action.timestamp(),
+    ) {
+        ValidateCallbackResult::Valid => {}
+        invalid => return Ok(invalid),
     }
 
     let name_record = must_get_valid_record(transfer.name_hash.clone())?;
@@ -339,6 +402,19 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::StoreEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, action } => match app_entry {
                 EntryTypes::MeshNameEntry(entry) => {
+                    if entry.registered_at == 0 {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Registration timestamp must be non-zero".into(),
+                        ));
+                    }
+                    match validate_timestamp_us_not_future(
+                        "Registration timestamp",
+                        entry.registered_at,
+                        *action.timestamp(),
+                    ) {
+                        ValidateCallbackResult::Valid => {}
+                        invalid => return Ok(invalid),
+                    }
                     validate_mesh_name(&entry).map_or_else(
                         |msg| Ok(ValidateCallbackResult::Invalid(msg)),
                         |_| Ok(ValidateCallbackResult::Valid),
@@ -372,6 +448,32 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 }
                 match app_entry {
                     EntryTypes::MeshNameEntry(entry) => {
+                        let original_entry: MeshNameEntry = original
+                            .entry()
+                            .to_app_option()
+                            .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                                "Original update target must be a MeshNameEntry".into(),
+                            )))?;
+
+                        if entry.segments != original_entry.segments
+                            || entry.canonical != original_entry.canonical
+                            || entry.endpoint_type != original_entry.endpoint_type
+                            || entry.endpoint_data != original_entry.endpoint_data
+                            || entry.registered_at != original_entry.registered_at
+                        {
+                            return Ok(ValidateCallbackResult::Invalid(
+                                "Mesh name identity fields are immutable; renewal may only advance expiry"
+                                    .into(),
+                            ));
+                        }
+
+                        if entry.expires_at <= original_entry.expires_at {
+                            return Ok(ValidateCallbackResult::Invalid(
+                                "Mesh name renewal must strictly advance expiry".into(),
+                            ));
+                        }
+
                         validate_mesh_name(&entry).map_or_else(
                             |msg| Ok(ValidateCallbackResult::Invalid(msg)),
                             |_| Ok(ValidateCallbackResult::Valid),
