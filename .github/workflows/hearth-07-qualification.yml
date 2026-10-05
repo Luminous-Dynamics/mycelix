@@ -371,6 +371,7 @@ PY
           git -C "${root}" ls-files -s | sha256sum > qualification-source-index-sha256.txt
           test -s qualification-source-contract-sha256.txt
           (cd "${root}" && sha256sum -c mycelix-workspace/mycelix-hearth/qualification-source-contract-sha256.txt)
+          printf '%s\n' "source_contract_runtime_immutable=true" >> qualification-source-contract-state.txt
           git -C "${root}" submodule status --recursive > qualification-submodules-before-runtime.txt
           git -C "${root}" submodule foreach --recursive 'test -z "$(git status --porcelain=v1 --untracked-files=all)"'
           printf '%s\n' "source_tree_before_runtime_captured=true" > qualification-source-tree-immutability.txt
@@ -633,6 +634,7 @@ PYCOUNT
             && real "${hearth}/qualification-cargo-lock-sha256.txt" \
             && grep -Fxq "source_tree_runtime_immutable=true" "${hearth}/qualification-source-tree-immutability.txt" \
             && grep -Fxq "source_contract_before_runtime_captured=true" "${hearth}/qualification-source-contract-state.txt" \
+            && grep -Fxq "source_contract_runtime_immutable=true" "${hearth}/qualification-source-contract-state.txt" \
             && grep -Fxq "dependency_closure_status=source_controlled_and_stable" "${hearth}/qualification-dependency-closure.txt" \
             && grep -Fxq "dependency_closure_initial_capture_verified=true" "${hearth}/qualification-dependency-closure-immutability.txt" \
             && grep -Fxq "dependency_closure_runtime_immutable=true" "${hearth}/qualification-dependency-closure-immutability.txt" \
@@ -677,6 +679,7 @@ PYCOUNT
             echo "format_conclusion=${{ steps.format.conclusion || 'unknown' }}"
             echo "dependency_closure_status=$(sed -n "s/^dependency_closure_status=//p" "${hearth}/qualification-dependency-closure.txt" | head -n1)"
             echo "source_tree_runtime_immutable=$(sed -n "s/^source_tree_runtime_immutable=//p" "${hearth}/qualification-source-tree-immutability.txt" | tail -n1)"
+            echo "source_contract_runtime_immutable=$(sed -n "s/^source_contract_runtime_immutable=//p" "${hearth}/qualification-source-contract-state.txt" | tail -n1)"
             echo "pr_head_sha=${{ github.event.pull_request.head.sha || '' }}"
             echo "pr_base_sha=${{ github.event.pull_request.base.sha || '' }}"
             echo "ref=${GITHUB_REF_NAME}"
