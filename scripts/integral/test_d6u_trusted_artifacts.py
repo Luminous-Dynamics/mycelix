@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Deterministic, read-only tests for the D6U trusted verifier."""
 
+import json
 import tempfile
 from pathlib import Path
 
@@ -51,6 +52,25 @@ def assert_rejected(fn, message: str) -> None:
     except AssertionError:
         return
     raise AssertionError(message)
+
+
+def test_policy_pins_d6s_prerequisite_boundary() -> None:
+    policy_path = Path(__file__).parents[2] / "docs/integral/d6u-trusted-builder-policy.json"
+    policy = json.loads(policy_path.read_text(encoding="utf-8"))
+    required = policy["required_source_blobs"]
+    expected_paths = {
+        "docs/integral/d6s-canon-1-manifest.json",
+        "docs/integral/d6s-canon-1-golden-vectors.json",
+        "scripts/integral/verify_d6s_canon_1.py",
+        "docs/integral/d6s-canon-2-manifest.json",
+        "docs/integral/d6s-canon-2-authority-boundary-fixture.json",
+        "scripts/integral/verify_d6s_canon_2_authority_boundary.py",
+        ".github/workflows/d6s-canonical-qualification.yml",
+    }
+    assert expected_paths <= set(required)
+    for path in expected_paths:
+        assert len(required[path]) == 40
+        assert all(ch in "0123456789abcdef" for ch in required[path])
 
 
 def test_valid_log_is_accepted() -> None:
@@ -356,6 +376,7 @@ def test_artifact_layout_rejects_symlink() -> None:
 
 if __name__ == "__main__":
     tests = [
+        test_policy_pins_d6s_prerequisite_boundary,
         test_valid_log_is_accepted,
         test_case_tampering_is_rejected,
         test_duplicate_case_is_rejected,
