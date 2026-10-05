@@ -110,13 +110,24 @@ fn validate_epistemic_response(ep: &ClaimEpistemic) -> ExternResult<()> {
     Ok(())
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum EpistemicFetchFailure {
+    Unavailable,
+    Malformed,
+}
+
 /// Fetch epistemic classification from Knowledge with an exact-claim cache.
 ///
-/// This path is fail-closed: an unavailable, unauthorized, or malformed Knowledge
-/// response never becomes a fabricated/default score and is never cached. A cache hit
-/// is only possible for a previously validated Knowledge response.
-fn fetch_epistemic(claim_text: &str, claim_type_key: &str) -> ExternResult<ClaimEpistemic> {
-    let now = sys_time()?.as_micros();
+/// Missing or malformed classification becomes an explicit unclassified state rather
+/// than a fabricated score. Only validated classifications are cached.
+fn fetch_epistemic(
+    claim_text: &str,
+    claim_type_key: &str,
+) -> Result<ClaimEpistemic, EpistemicFetchFailure> {
+    let now = match sys_time() {
+        Ok(time) => time.as_micros(),
+        Err(_) => return Err(EpistemicFetchFailure::Unavailable),
+    };
     let key = epistemic_cache_key(claim_text, claim_type_key);
 
     let cached = EPISTEMIC_CACHE.with(|c| {
@@ -130,23 +141,26 @@ fn fetch_epistemic(claim_text: &str, claim_type_key: &str) -> ExternResult<Claim
         return Ok(ep);
     }
 
-    let response = call(
+    let response = match call(
         CallTargetCell::OtherRole("mycelix-knowledge".into()),
         ZomeName::from("epistemic"),
         FunctionName::from("classify_claim"),
         None,
         claim_text,
-    )
-    .map_err(|_| FabricationError::cross_happ("knowledge"))?;
+    ) {
+        Ok(response) => response,
+        Err(_) => return Err(EpistemicFetchFailure::Unavailable),
+    };
 
     let ep = match response {
         ZomeCallResponse::Ok(bytes) => bytes
             .decode::<ClaimEpistemic>()
-            .map_err(|_| FabricationError::cross_happ("knowledge"))?,
-        _ => return Err(FabricationError::cross_happ("knowledge")),
+            .map_err(|_| EpistemicFetchFailure::Malformed)?,
+        _ => return Err(EpistemicFetchFailure::Unavailable),
     };
 
-    validate_epistemic_response(&ep)?;
+    validate_epistemic_response(&ep)
+        .map_err(|_| EpistemicFetchFailure::Malformed)?;
 
     EPISTEMIC_CACHE.with(|c| {
         let mut cache = c.borrow_mut();
@@ -303,17 +317,26 @@ pub fn submit_safety_claim(input: SubmitClaimInput) -> ExternResult<Record> {
     let author = agent_info()?.agent_initial_pubkey;
     let now = sys_time()?;
 
-    // A safety claim is only persisted after a successful Knowledge classification.
-    // Unavailable/malformed epistemic dependencies fail the operation closed.
+    // Preserve the safety claim itself, but never promote missing or malformed
+    // Knowledge enrichment into a positive epistemic score.
     let claim_type_key = format!("{:?}", input.claim_type);
-    let epistemic = fetch_epistemic(&input.claim_text, &claim_type_key)?;
+    let (epistemic, epistemic_provenance) =
+        match fetch_epistemic(&input.claim_text, &claim_type_key) {
+            Ok(ep) => (Some(ep), EpistemicProvenance::KnowledgeClassified),
+            Err(EpistemicFetchFailure::Unavailable) => {
+                (None, EpistemicProvenance::KnowledgeUnavailable)
+            }
+            Err(EpistemicFetchFailure::Malformed) => {
+                (None, EpistemicProvenance::KnowledgeMalformed)
+            }
+        };
 
     let claim = SafetyClaim {
         design_hash: input.design_hash.clone(),
         claim_type: input.claim_type,
         claim_text: input.claim_text,
         epistemic,
-        epistemic_provenance: EpistemicProvenance::KnowledgeClassified,
+        epistemic_provenance,
         supporting_evidence: input.supporting_evidence,
         knowledge_claim_hash: None,
         author,
@@ -367,9 +390,12 @@ pub fn get_epistemic_score(design_hash: ActionHash) -> ExternResult<EpistemicSco
             if claim.epistemic_provenance != EpistemicProvenance::KnowledgeClassified {
                 continue;
             }
-            e_sum += claim.epistemic.empirical;
-            n_sum += claim.epistemic.normative;
-            m_sum += claim.epistemic.mythic;
+            let Some(epistemic) = claim.epistemic else {
+                continue;
+            };
+            e_sum += epistemic.empirical;
+            n_sum += epistemic.normative;
+            m_sum += epistemic.mythic;
             count += 1;
         }
     }
