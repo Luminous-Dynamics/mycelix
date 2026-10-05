@@ -105,7 +105,7 @@ jobs:
           san_binding = json.loads(Path("docs/security/mycelix-ek-cert-san-identity-binding-v0.1.json").read_text())
           assert san_binding["profile_id"] == "mycelix.security.tpm.ek-cert-san-identity-binding"
           assert san_binding["claim_ceiling"] == "ReferenceModelOnly"
-          assert len(san_binding["vectors"]) == 15
+          assert len(san_binding["vectors"]) == 16
           PY
 
       - name: Compile security verifiers and bundle regression
