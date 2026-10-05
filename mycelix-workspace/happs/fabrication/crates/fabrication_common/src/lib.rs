@@ -1548,6 +1548,8 @@ pub enum EpistemicAggregateStatus {
     PartialClassifiedEvidence,
     /// No decoded safety claim contributed a Knowledge classification.
     NoClassifiedEvidence,
+    /// One or more linked records could not be interpreted as SafetyClaim records.
+    IncompleteEvidence,
 }
 
 /// Status of a verification request
