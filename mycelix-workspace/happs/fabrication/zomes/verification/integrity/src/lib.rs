@@ -306,6 +306,23 @@ mod tests {
     }
 
     #[test]
+    fn test_legacy_claim_missing_provenance_defaults_unattributed() {
+        let claim = valid_safety_claim();
+        let mut value = serde_json::to_value(&claim).unwrap();
+        value.as_object_mut().unwrap().remove("epistemic_provenance");
+
+        let restored: SafetyClaim = serde_json::from_value(value).unwrap();
+        assert_eq!(
+            restored.epistemic_provenance,
+            EpistemicProvenance::LegacyUnattributed
+        );
+        assert_eq!(
+            validate_safety_claim(restored).unwrap(),
+            ValidateCallbackResult::Valid
+        );
+    }
+
+    #[test]
     fn test_empty_claim_text_rejected() {
         let mut c = valid_safety_claim();
         c.claim_text = "   ".to_string();
