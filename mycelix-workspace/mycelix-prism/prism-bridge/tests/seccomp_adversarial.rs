@@ -714,15 +714,17 @@ fn thread_sync_divergent_filter_child() -> ! {
     const SECCOMP_SET_MODE_FILTER: libc::c_uint = 1;
     const SECCOMP_RET_ALLOW: u32 = 0x7fff_0000;
 
-    unsafe fn read_exact(fd: libc::c_int, bytes: &mut [u8]) -> bool {
+    fn read_exact(fd: libc::c_int, bytes: &mut [u8]) -> bool {
         let mut offset = 0usize;
         while offset < bytes.len() {
-            let rc = libc::syscall(
-                libc::SYS_read,
-                fd,
-                bytes[offset..].as_mut_ptr(),
-                bytes.len() - offset,
-            );
+            let rc = unsafe {
+                libc::syscall(
+                    libc::SYS_read,
+                    fd,
+                    bytes[offset..].as_mut_ptr(),
+                    bytes.len() - offset,
+                )
+            };
             if rc <= 0 {
                 return false;
             }
@@ -731,15 +733,17 @@ fn thread_sync_divergent_filter_child() -> ! {
         true
     }
 
-    unsafe fn write_exact(fd: libc::c_int, bytes: &[u8]) -> bool {
+    fn write_exact(fd: libc::c_int, bytes: &[u8]) -> bool {
         let mut offset = 0usize;
         while offset < bytes.len() {
-            let rc = libc::syscall(
-                libc::SYS_write,
-                fd,
-                bytes[offset..].as_ptr(),
-                bytes.len() - offset,
-            );
+            let rc = unsafe {
+                libc::syscall(
+                    libc::SYS_write,
+                    fd,
+                    bytes[offset..].as_ptr(),
+                    bytes.len() - offset,
+                )
+            };
             if rc <= 0 {
                 return false;
             }
@@ -915,15 +919,17 @@ fn thread_sync_strict_mode_child() -> ! {
         std::process::abort();
     }
 
-    unsafe fn read_exact(fd: libc::c_int, bytes: &mut [u8]) -> bool {
+    fn read_exact(fd: libc::c_int, bytes: &mut [u8]) -> bool {
         let mut offset = 0usize;
         while offset < bytes.len() {
-            let rc = libc::syscall(
-                libc::SYS_read,
-                fd,
-                bytes[offset..].as_mut_ptr(),
-                bytes.len() - offset,
-            );
+            let rc = unsafe {
+                libc::syscall(
+                    libc::SYS_read,
+                    fd,
+                    bytes[offset..].as_mut_ptr(),
+                    bytes.len() - offset,
+                )
+            };
             if rc <= 0 {
                 return false;
             }
@@ -932,15 +938,17 @@ fn thread_sync_strict_mode_child() -> ! {
         true
     }
 
-    unsafe fn write_exact(fd: libc::c_int, bytes: &[u8]) -> bool {
+    fn write_exact(fd: libc::c_int, bytes: &[u8]) -> bool {
         let mut offset = 0usize;
         while offset < bytes.len() {
-            let rc = libc::syscall(
-                libc::SYS_write,
-                fd,
-                bytes[offset..].as_ptr(),
-                bytes.len() - offset,
-            );
+            let rc = unsafe {
+                libc::syscall(
+                    libc::SYS_write,
+                    fd,
+                    bytes[offset..].as_ptr(),
+                    bytes.len() - offset,
+                )
+            };
             if rc <= 0 {
                 return false;
             }
@@ -1074,15 +1082,17 @@ fn thread_sync_child() -> ! {
         errno: i32,
     }
 
-    unsafe fn read_exact(fd: libc::c_int, bytes: &mut [u8]) -> bool {
+    fn read_exact(fd: libc::c_int, bytes: &mut [u8]) -> bool {
         let mut offset = 0usize;
         while offset < bytes.len() {
-            let rc = libc::syscall(
-                libc::SYS_read,
-                fd,
-                bytes[offset..].as_mut_ptr(),
-                bytes.len() - offset,
-            );
+            let rc = unsafe {
+                libc::syscall(
+                    libc::SYS_read,
+                    fd,
+                    bytes[offset..].as_mut_ptr(),
+                    bytes.len() - offset,
+                )
+            };
             if rc <= 0 {
                 return false;
             }
@@ -1091,15 +1101,17 @@ fn thread_sync_child() -> ! {
         true
     }
 
-    unsafe fn write_exact(fd: libc::c_int, bytes: &[u8]) -> bool {
+    fn write_exact(fd: libc::c_int, bytes: &[u8]) -> bool {
         let mut offset = 0usize;
         while offset < bytes.len() {
-            let rc = libc::syscall(
-                libc::SYS_write,
-                fd,
-                bytes[offset..].as_ptr(),
-                bytes.len() - offset,
-            );
+            let rc = unsafe {
+                libc::syscall(
+                    libc::SYS_write,
+                    fd,
+                    bytes[offset..].as_ptr(),
+                    bytes.len() - offset,
+                )
+            };
             if rc <= 0 {
                 return false;
             }
