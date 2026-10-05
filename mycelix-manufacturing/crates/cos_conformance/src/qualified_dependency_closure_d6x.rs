@@ -444,6 +444,8 @@ impl DependencyClosureCertificateV1 {
         .map(|mut summary| {
             summary.resolution_evidence_commitment =
                 Some(closure.resolution_evidence_commitment());
+            summary.resolution_qualification_context_commitment =
+                Some(expected_resolution_qualification_context_commitment.into());
             summary.commitment = summary.recompute();
             summary
         })
@@ -670,6 +672,9 @@ pub struct D6XVerificationSummaryV1 {
     /// strict evidence-backed summary. Semantic-only summaries leave this
     /// unbound so closure identity remains audit-evidence-neutral.
     pub resolution_evidence_commitment: Option<String>,
+    /// Qualification context explicitly bound to a strict evidence-backed
+    /// summary. Semantic-only summaries leave this unset.
+    pub resolution_qualification_context_commitment: Option<String>,
     pub dependency_counts: BTreeMap<SemanticDependencyKindV1, u32>,
     pub claim_ceiling: String,
     pub commitment: String,
@@ -716,6 +721,7 @@ impl D6XVerificationSummaryV1 {
             current_frontier_root: environment.current_frontier_root.clone(),
             verification_result: D6XVerificationResultV1::Passed,
             resolution_evidence_commitment: None,
+            resolution_qualification_context_commitment: None,
             dependency_counts,
             claim_ceiling: D6X_CLAIM_CEILING.into(),
             commitment: String::new(),
@@ -742,6 +748,9 @@ impl D6XVerificationSummaryV1 {
             && is_canonical_sha256_commitment(&self.closure_identity_commitment)
             && self.current_frontier_root.as_deref().is_none_or(non_empty)
             && self.resolution_evidence_commitment
+                .as_deref()
+                .map_or(true, is_canonical_sha256_commitment)
+            && self.resolution_qualification_context_commitment
                 .as_deref()
                 .map_or(true, is_canonical_sha256_commitment)
             && self.dependency_counts.values().all(|count| *count > 0)
@@ -826,6 +835,8 @@ impl D6XVerificationSummaryV1 {
         )
             && self.resolution_evidence_commitment
                 == Some(closure.resolution_evidence_commitment())
+            && self.resolution_qualification_context_commitment.as_deref()
+                == Some(expected_resolution_qualification_context_commitment)
     }
 }
 
@@ -3048,6 +3059,10 @@ mod tests {
         assert_eq!(
             summary.resolution_evidence_commitment,
             Some(evidenced.resolution_evidence_commitment())
+        );
+        assert_eq!(
+            summary.resolution_qualification_context_commitment,
+            Some(context.clone())
         );
 
         let mut substituted = evidenced.clone();
