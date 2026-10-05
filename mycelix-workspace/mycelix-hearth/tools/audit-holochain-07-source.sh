@@ -2207,6 +2207,26 @@ check_standalone_tests_workspace_boundary() {
 }
 
 check_qualification_workflow_provenance() {
+  local lint_workflow=".github/workflows/hearth-07-workflow-lint.yml"
+  if [[ ! -f "$lint_workflow" ]]; then
+    echo "FAIL: missing independent Hearth 0.7 workflow-lint workflow"
+    fail=1
+  elif rg -n --fixed-strings 'version="1.7.12"' "$lint_workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings '8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8' "$lint_workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings 'https://github.com/rhysd/actionlint/releases/download/v${version}/actionlint_${version}_linux_amd64.tar.gz' "$lint_workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings '.github/workflows/hearth-07-qualification.yml' "$lint_workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings 'actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803' "$lint_workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings 'QUALIFY_SHA: ${{ github.event.pull_request.head.sha || github.sha }}' "$lint_workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings 'ref: ${{ env.QUALIFY_SHA }}' "$lint_workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings 'Verify exact lint checkout' "$lint_workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings 'shell: bash' "$lint_workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings '-shellcheck shellcheck' "$lint_workflow" >/dev/null 2>&1 \
+    && ! rg -n --fixed-strings 'raven-actions/actionlint@' "$lint_workflow" >/dev/null 2>&1; then
+    echo "OK:   independent qualification workflow lint is pinned, exact-head, hash-locked, and explicitly ShellCheck-enabled"
+  else
+    echo "FAIL: independent qualification workflow lint must pin official actionlint, verify its SHA-256, qualify the exact PR head, and require ShellCheck"
+    fail=1
+  fi
   local workflow=".github/workflows/hearth-07-qualification.yml"
   if rg -n --fixed-strings "runs-on: ubuntu-24.04" "$workflow" >/dev/null 2>&1; then
     echo "OK:   qualification workflow pins the GitHub-hosted runner image to Ubuntu 24.04"
