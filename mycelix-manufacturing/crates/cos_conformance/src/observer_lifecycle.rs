@@ -1508,7 +1508,7 @@ mod tests {
     }
 
     fn generation(id: &str, sequence: u64, predecessor: Option<&str>) -> ObserverGenerationV1 {
-        ObserverGenerationV1 {
+        let mut generation = ObserverGenerationV1 {
             generation_id: id.into(),
             observer_id: "observer-A".into(),
             generation_sequence: sequence,
@@ -1527,7 +1527,9 @@ mod tests {
             initial_status: ObserverStatusV1::Active,
             generation_commitment: format!("generation:{id}"),
             claim_ceiling: OBSERVER_LIFECYCLE_CLAIM_CEILING.into(),
-        }
+        };
+        generation.generation_commitment = generation.recomputed_commitment();
+        generation
     }
 
     fn snapshot(
@@ -1539,7 +1541,7 @@ mod tests {
         custody_root: &str,
         independence: ObservationIndependenceV1,
     ) -> EvidenceDependencySnapshotV1 {
-        EvidenceDependencySnapshotV1 {
+        let mut snapshot = EvidenceDependencySnapshotV1 {
             snapshot_id: id.into(),
             observer_generation_id: generation_id.into(),
             observation_profile_id: "obs-profile-1".into(),
@@ -1554,7 +1556,9 @@ mod tests {
             predecessor_snapshot_id: predecessor.map(str::to_owned),
             snapshot_commitment: format!("snapshot:{id}"),
             claim_ceiling: OBSERVER_LIFECYCLE_CLAIM_CEILING.into(),
-        }
+        };
+        snapshot.snapshot_commitment = snapshot.recomputed_commitment();
+        snapshot
     }
 
     fn evidence(
@@ -1662,7 +1666,7 @@ mod tests {
         sequence: u64,
         successor_generation_id: Option<&str>,
     ) -> ObserverStatusTransitionV1 {
-        ObserverStatusTransitionV1 {
+        let mut transition = ObserverStatusTransitionV1 {
             transition_id: transition_id.into(),
             observer_id: generation.observer_id.clone(),
             predecessor_generation_id: generation.generation_id.clone(),
@@ -1681,7 +1685,9 @@ mod tests {
             qualification_transition_id: format!("qualification-{transition_id}"),
             transition_commitment: format!("transition:{transition_id}"),
             claim_ceiling: OBSERVER_LIFECYCLE_CLAIM_CEILING.into(),
-        }
+        };
+        transition.transition_commitment = transition.recomputed_commitment();
+        transition
     }
 
     fn rotation_certificate(
@@ -1689,7 +1695,7 @@ mod tests {
         successor: &ObserverGenerationV1,
         transition: &ObserverStatusTransitionV1,
     ) -> ObserverRotationCertificateV1 {
-        ObserverRotationCertificateV1 {
+        let mut certificate = ObserverRotationCertificateV1 {
             certificate_id: "rotation-1".into(),
             observer_id: predecessor.observer_id.clone(),
             predecessor_generation_id: predecessor.generation_id.clone(),
@@ -1707,7 +1713,10 @@ mod tests {
             continuity_root: "continuity-root-1".into(),
             certificate_commitment: "rotation-commitment-1".into(),
             claim_ceiling: OBSERVER_LIFECYCLE_CLAIM_CEILING.into(),
-        }
+        };
+        certificate.continuity_root = certificate.recomputed_continuity_root();
+        certificate.certificate_commitment = certificate.recomputed_commitment();
+        certificate
     }
 
     #[test]
