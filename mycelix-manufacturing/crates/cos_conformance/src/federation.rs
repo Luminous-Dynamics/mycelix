@@ -2992,6 +2992,7 @@ mod tests {
     }
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    #[serde(deny_unknown_fields)]
     struct FederationStateMachineFailureCapsule {
         schema_version: u16,
         failure_kind: String,
@@ -6961,6 +6962,18 @@ mod tests {
             serde_json::from_str::<FederationStateMachineFailureCapsule>(&json)
                 .expect("failure capsule must deserialize");
         assert_eq!(round_trip, capsule);
+
+        let mut unknown = serde_json::to_value(&capsule)
+            .expect("failure capsule must serialize as a JSON value");
+        unknown
+            .as_object_mut()
+            .expect("failure capsule must serialize as an object")
+            .insert("unexpected_failure_field".into(), serde_json::Value::Bool(true));
+        assert!(
+            serde_json::from_value::<FederationStateMachineFailureCapsule>(unknown).is_err(),
+            "failure capsule must reject unknown top-level fields"
+        );
+
         assert_eq!(round_trip.failure_kind, "invariant-violation");
         assert_eq!(json, round_trip.to_json());
         assert_eq!(
