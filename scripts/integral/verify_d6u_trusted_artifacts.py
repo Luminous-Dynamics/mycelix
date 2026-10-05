@@ -133,6 +133,24 @@ def verify_executor_workflow_record(
     )
 
 
+def verify_executor_run_record(
+    executor_run: dict,
+    record: dict[str, str],
+    policy: dict,
+    repo: str,
+) -> None:
+    cfg = policy["executor_workflow"]
+    assert executor_run["name"] == cfg["name"]
+    assert executor_run["path"] == cfg["path"]
+    assert executor_run["event"] == "workflow_run"
+    assert executor_run["conclusion"] == "success"
+    assert executor_run["repository"]["full_name"] == repo
+    assert executor_run["head_repository"]["full_name"] == repo
+    assert executor_run["head_branch"] == "main"
+    assert executor_run["id"] == int(record["executor_run_id"])
+    assert executor_run["run_attempt"] == int(record["executor_run_attempt"])
+
+
 def verify_executor_workflow_identity(
     record: dict[str, str],
     policy: dict,
@@ -272,10 +290,10 @@ def main() -> None:
     executor_run = event["workflow_run"]
 
     assert event["repository"]["full_name"] == repo
-    assert executor_run["name"] == policy["executor_workflow"]["name"]
-    assert executor_run["path"] == policy["executor_workflow"]["path"]
-    assert executor_run["event"] == "workflow_run"
-    assert executor_run["conclusion"] == "success"
+    verify_executor_run_record(executor_run, {
+        "executor_run_id": str(executor_run["id"]),
+        "executor_run_attempt": str(executor_run["run_attempt"]),
+    }, policy, repo)
 
     expected_files = {
         "d6u-runtime-evidence.txt",
