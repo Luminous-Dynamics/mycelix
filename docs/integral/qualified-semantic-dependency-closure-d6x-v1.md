@@ -192,7 +192,7 @@ The reference model currently includes fixtures for:
 27. missing-dependency resolution evidence cannot claim an observed semantic commitment;
 28. resolution evidence may omit an observed commitment while retaining independent retrieval/qualification context evidence;
 29. the runtime-neutral resolution adapter distinguishes Action, Entry, and External address domains without importing those runtime identifiers into semantic identity;
-30. Retrieved attempts require an observed commitment, while unavailable/historical attempts may preserve an address without claiming observed semantic content.
+30. Retrieved attempts require an observed commitment; Historical attempts also require an observed commitment because they identify a concrete stale object; Unavailable attempts may preserve an address but MUST NOT claim an observed semantic commitment.
 31. the runtime adapter maps Retrieved/Unavailable/Historical monotonically to Present/Missing/Stale without performing commitment equality checks itself.
 32. a lossless runtime-resolution evidence envelope round-trips address domain, outcome, address, and observations while leaving closure identity unchanged.
 33. the typed runtime-resolution envelope rejects drift between its typed attempt and legacy opaque evidence representation.
@@ -217,6 +217,14 @@ D6X semantic dependency identity is intentionally kept independent of runtime re
 
 This separation matches the architectural direction suggested by Holochain's validation model: dependencies used for deterministic validation need addressable retrieval, and unavailable dependencies are represented as unresolved so validation can be retried. D6X remains a reference-model analogue, not a claim of runtime equivalence. 
 
+
+## Verification-summary result semantics
+
+D6XVerificationSummaryV1::valid() answers whether a verification-summary record is structurally coherent and commitment-consistent. A structurally valid summary may carry either `Passed` or `Failed` as its verification result.
+
+Downstream qualification is a stronger question. `verifies_against_expectations(...)` explicitly requires `Passed`, in addition to the expected verifier identity, policy commitment, source bindings, closure scope, and source-bound closure correspondence. The strict evidence-backed verifier adds complete resolution evidence, a single qualification context, and the exact resolution-evidence commitment.
+
+This separation mirrors the current SLSA v1.2 VSA model, where `verificationResult` may be `PASSED` or `FAILED`, while consumer verification separately requires `PASSED` when the artifact is to be accepted. D6X adopts the semantic distinction only; it remains ReferenceModelOnly and unsigned.
 
 ## Runtime resolution adapter boundary
 
