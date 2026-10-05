@@ -30,10 +30,12 @@ TPM2_MakeCredential binds a credential to EK public material and AK Name; TPM2_A
 
 The static verifier does not accept a bundle-stored activation receipt as self-authenticating live proof. Offline evidence remains INDETERMINATE; LiveVerifierSession is reserved for a future verifier that directly performs the TPM activation.
 
-The AK public key and AK Name are required to come from the same TPM ReadPublic context observation. This reduces file-splicing, but the verifier deliberately does not claim to independently re-marshal the entire TPMT_PUBLIC structure in v0.1. Later Quote verification must use the exact same AK public material, so the composition closes that remaining cross-artifact binding.
+The AK public key and AK Name are required to come from the same TPM ReadPublic context observation. The lineage verifier now invokes the dedicated AK public-attributes verifier as a separate process, supplies its exact verifier input, and requires the generated public-area digest and Name to match the AK identity. This closes the previous false-green path where caller-supplied fixedTPM/fixedParent booleans could disagree with the actual TPMT_PUBLIC bytes.
+
+The exact TPMT_PUBLIC body digest is kept distinct from the broader AK public-artifact digest. This avoids treating differently encoded representations as if their SHA-256 values had the same semantics.
 
 The profile ceiling remains ReferenceModelOnly. No hardware qualification is introduced by this theorem.
 
 ## Result
 
-The deterministic corpus contains one canonical PASS, twenty adversarial mutations, and a key-order permutation check. DENY outranks INDETERMINATE, which outranks PASS.
+The deterministic corpus contains one canonical PASS, twenty-six adversarial mutations, and a key-order permutation check. DENY outranks INDETERMINATE, which outranks PASS.
