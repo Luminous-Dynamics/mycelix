@@ -62,6 +62,47 @@ fn string_to_entry_hash(s: &str) -> EntryHash {
     )
 }
 
+fn verify_did_active(did: &str, operation: &str) -> ExternResult<()> {
+    let response = call(
+        CallTargetCell::Local,
+        ZomeName::new("did_registry"),
+        FunctionName::new("is_did_active"),
+        None,
+        did.to_string(),
+    )?;
+
+    match response {
+        ZomeCallResponse::Ok(result) => {
+            let active = result.decode::<bool>().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Failed to decode DID active state for {operation}: {e:?}"
+                )))
+            })?;
+            if active {
+                Ok(())
+            } else {
+                Err(wasm_error!(WasmErrorInner::Guest(format!(
+                    "DID is not active; refusing {operation}"
+                ))))
+            }
+        }
+        ZomeCallResponse::Unauthorized(_, _, _, _)
+        | ZomeCallResponse::AuthenticationFailed(_, _) => Err(wasm_error!(
+            WasmErrorInner::Guest(format!(
+                "DID active-state authorization failed for {operation}"
+            ))
+        )),
+        ZomeCallResponse::NetworkError(err) => Err(wasm_error!(WasmErrorInner::Guest(
+            format!("DID active-state verification failed for {operation}: {err}")
+        ))),
+        ZomeCallResponse::CountersigningSession(err) => Err(wasm_error!(
+            WasmErrorInner::Guest(format!(
+                "DID active-state verification failed for {operation} (countersigning: {err})"
+            ))
+        )),
+    }
+}
+
 fn deterministic_request_credential_id(issuer_did: &str, request_id: &str) -> String {
     // Domain-separate request-bound credential IDs from other identifier
     // derivation primitives and make the construction versioned.
@@ -276,34 +317,9 @@ pub fn issue_credential(input: IssueCredentialInput) -> ExternResult<Record> {
     let now = sys_time()?;
     let now_iso = format_timestamp_iso8601(now);
 
-    // Issuance is an authority act. A deactivated issuer must not be able
-    // to mint new credentials even if its historical signing key remains valid.
-    let active_response = call(
-        CallTargetCell::Local,
-        ZomeName::new("did_registry"),
-        FunctionName::new("is_did_active"),
-        None,
-        issuer_did.clone(),
-    )?;
-    match active_response {
-        ZomeCallResponse::Ok(result) => {
-            let active = result.decode::<bool>().map_err(|e| {
-                wasm_error!(WasmErrorInner::Guest(format!(
-                    "Failed to decode issuer DID active state: {e:?}"
-                )))
-            })?;
-            if !active {
-                return Err(wasm_error!(WasmErrorInner::Guest(
-                    "Deactivated issuer DID cannot issue new credentials".into()
-                )));
-            }
-        }
-        _ => {
-            return Err(wasm_error!(WasmErrorInner::Guest(
-                "Issuer DID active state could not be established".into()
-            )));
-        }
-    }
+    // Issuance is an authority act. Historical keys must not mint new
+    // credentials after issuer DID deactivation.
+    verify_did_active(&issuer_did, "credential issuance")?;
 
     // Validate claims against schema if a schema is specified
     let schema_validation = validate_claims_against_schema(&input.schema_id, &input.claims)?;
@@ -897,6 +913,7 @@ pub fn get_credentials_for_subject(subject_did: String) -> ExternResult<Vec<Reco
 pub fn create_presentation(input: CreatePresentationInput) -> ExternResult<Record> {
     let agent_info = agent_info()?;
     let holder_did = format!("did:mycelix:{}", agent_info.agent_initial_pubkey);
+    verify_did_active(&holder_did, "derived credential creation")?;
     let now = sys_time()?;
     let now_iso = format_timestamp_iso8601(now);
 
@@ -924,34 +941,9 @@ pub fn create_presentation(input: CreatePresentationInput) -> ExternResult<Recor
         }
     }
 
-    // The current holder DID must be active and must still authorize the
-    // canonical Multikey for authentication. This prevents a key rotation or
-    // deactivation from silently producing new JCS presentations with stale
-    // authorization state.
-    let active_response = call(
-        CallTargetCell::Local,
-        ZomeName::new("did_registry"),
-        FunctionName::new("is_did_active"),
-        None,
-        holder_did.clone(),
-    )?;
-    let active = match active_response {
-        ZomeCallResponse::Ok(result) => result.decode::<bool>().map_err(|e| {
-            wasm_error!(WasmErrorInner::Guest(format!(
-                "Failed to decode holder DID active state: {e:?}"
-            )))
-        })?,
-        _ => {
-            return Err(wasm_error!(WasmErrorInner::Guest(
-                "Holder DID active state could not be established".into()
-            )))
-        }
-    };
-    if !active {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Cannot create a presentation for a deactivated holder DID".into()
-        )));
-    }
+    // A presentation is a new signed authorization artifact. A deactivated
+    // holder may remain auditable but cannot mint a new presentation.
+    verify_did_active(&holder_did, "presentation creation")?;
 
     let did_response = call(
         CallTargetCell::Local,
@@ -1733,9 +1725,24 @@ pub fn create_derived_credential(input: CreateDerivedInput) -> ExternResult<Reco
     // Derived credentials may never outlive their source credential.
     // With no requested expiry, inherit the source credential's expiry when one
     // exists; with a requested expiry, clamp it to the source expiry.
-    let requested_expires = input.expires_hours.map(|hours| {
-        Timestamp::from_micros(now.as_micros() + (hours as i64 * 3600 * 1_000_000))
-    });
+    let requested_expires = match input.expires_hours {
+        Some(hours) => {
+            let duration = (hours as i64)
+                .checked_mul(3600)
+                .and_then(|seconds| seconds.checked_mul(1_000_000))
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Derived credential expiration duration overflow".into()
+                )))?;
+            let micros = now
+                .as_micros()
+                .checked_add(duration)
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Derived credential expiration timestamp overflow".into()
+                )))?;
+            Some(Timestamp::from_micros(micros))
+        }
+        None => None,
+    };
     let source_expires = match original_vc.valid_until.as_deref() {
         Some(value) => Some(Timestamp::from_micros(
             parse_iso8601_to_micros(value).ok_or_else(|| {
@@ -2111,6 +2118,7 @@ pub fn verify_derived_credential(
 pub fn request_credential(input: RequestCredentialInput) -> ExternResult<Record> {
     let agent_info = agent_info()?;
     let requester_did = format!("did:mycelix:{}", agent_info.agent_initial_pubkey);
+    verify_did_active(&requester_did, "credential request creation")?;
     let now = sys_time()?;
 
     let request_id = format!(
@@ -2289,6 +2297,7 @@ pub fn update_request_status(input: UpdateRequestStatusInput) -> ExternResult<Re
     // Only the target issuer may publish a request status transition.
     let caller = agent_info()?.agent_initial_pubkey;
     let caller_did = format!("did:mycelix:{}", caller);
+    verify_did_active(&caller_did, "credential issuance for approved request")?;
     let issuer_hash = string_to_entry_hash(&caller_did);
 
     // Requests are authored by the requester, so a source-chain query from the
@@ -2361,6 +2370,10 @@ pub fn update_request_status(input: UpdateRequestStatusInput) -> ExternResult<Re
 
     // Issued is proof-carrying state. It must name the exact credential that
     // fulfilled the approved request; callers must use issue_credential_for_request.
+    if input.new_status == RequestStatus::Approved {
+        verify_did_active(&caller_did, "credential request approval")?;
+    }
+
     if input.new_status == RequestStatus::Issued {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Use issue_credential_for_request to transition an approved request to Issued".into()
@@ -2704,9 +2717,13 @@ pub struct IssueCredentialWithProofInput {
 pub fn issue_credential_with_proof(input: IssueCredentialWithProofInput) -> ExternResult<Record> {
     let vc = input.credential;
 
-    // Capability guard: only the claimed issuer can submit pre-signed credentials
+    // Capability guard: only the claimed issuer can submit pre-signed credentials.
+    // Deactivation is terminal for new issuance even when the historical key
+    // remains cryptographically valid.
     let caller = agent_info()?.agent_initial_pubkey;
     let caller_did = format!("did:mycelix:{}", caller);
+    verify_did_active(&caller_did, "pre-signed credential issuance")?;
+
     if vc.issuer.did() != caller_did {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Only the claimed issuer can submit pre-signed credentials".into()
