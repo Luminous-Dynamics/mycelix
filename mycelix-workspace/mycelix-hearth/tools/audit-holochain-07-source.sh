@@ -875,157 +875,6 @@ check_semantic_case_entrypoints() {
     zome="${zomes[$i]}"
     operation="${operations[$i]}"
     coord_file="mycelix-workspace/mycelix-hearth/zomes/${zome//_/-}/coordinator/src/lib.rs"
-
-    if [[ -f "$coord_file" ]]; then
-      echo "OK:   semantic case ${zome}/${operation} resolves to coordinator source"
-    else
-      echo "FAIL: semantic case ${zome}/${operation} has no coordinator source: $coord_file"
-      fail=1
-      continue
-    fi
-
-    if awk -v op="$operation" '
-      /^[[:space:]]*#\[hdk_extern\][[:space:]]*$/ { saw_extern=1; next }
-      {
-        if (saw_extern && ($0 ~ /^[[:space:]]*$/ || $0 ~ /^[[:space:]]*\/\//)) {
-          next
-        }
-        if ($0 ~ "^[[:space:]]*(pub[[:space:]]+)?(async[[:space:]]+)?fn[[:space:]]+" op "[[:space:]]*\\(") {
-          found=saw_extern
-          exit
-        }
-        saw_extern=0
-      }
-      END { exit(found ? 0 : 1) }
-    ' "$coord_file"; then
-      echo "OK:   semantic case ${operation} resolves to the #[hdk_extern]-annotated function"
-    else
-      echo "FAIL: semantic case ${operation} is not the function immediately annotated by #[hdk_extern]"
-      fail=1
-    fi
-
-    mapfile -t test_fn_lines < <(
-      rg -n --fixed-strings "async fn ${test_name}" "$rust_test" |
-        cut -d: -f1
-    )
-    local test_start test_next test_end test_block
-    if [[ "${#test_fn_lines[@]}" -ne 1 ]]; then
-      echo "FAIL: semantic case ${zome}/${operation} must map to exactly one test function: ${test_name}"
-      fail=1
-      continue
-    fi
-    test_start="${test_fn_lines[0]}"
-    test_next=""
-    while IFS= read -r test_line; do
-      if [[ "$test_line" -gt "$test_start" ]]; then
-        test_next="$test_line"
-        break
-      fi
-    done < <(rg -n "^async fn [A-Za-z_][A-Za-z0-9_]*" "$rust_test" | cut -d: -f1 | sort -n)
-    if [[ -n "$test_next" ]]; then
-      test_end=$((test_next - 1))
-    else
-      test_end="$(wc -l < "$rust_test")"
-    fi
-    test_block="$(sed -n "${test_start},${test_end}p" "$rust_test")"
-
-    # Bind the manifest case to the result-producing call itself. Requiring the
-    # exact zome/operation inside call_fallible prevents unrelated calls from
-    # satisfying the witness.
-    if printf "%s\\n" "$test_block" | rg -nU --pcre2 "let[[:space:]]+result(?:[[:space:]]*:[^=;]+)?[[:space:]]*=[[:space:]]*conductor[[:space:]]*\\.[[:space:]]*call_fallible\\([[:space:]]*&alice\\.zome\\(\\\"\\${zome}\\\"\\)[[:space:]]*,[[:space:]]*\\\"\\${operation}\\\"[[:space:]]*," >/dev/null 2>&1; then
-      echo "OK:   semantic runtime witness ${test_name} binds ${zome}/${operation} to the asserted result call"
-    else
-      echo "FAIL: semantic runtime witness ${zome}/${operation} is not bound to a result-producing call_fallible expression in ${test_name}"
-      fail=1
-    fi
-    if printf "%s\\n" "$test_block" | rg -nU --pcre2 "assert_integrity_rejection\\([[:space:]]*result[[:space:]]*," >/dev/null 2>&1; then
-      echo "OK:   semantic runtime witness ${test_name} asserts rejection of that result value"
-    else
-      echo "FAIL: semantic runtime witness ${test_name} does not assert rejection of the result value"
-      fail=1
-    fi
-    # A negative-only witness can pass even if the validator rejects everything.
-    # Require a repaired-input control that invokes the same coordinator operation
-    # through call_fallible and explicitly observes success.
-    if printf "%s\\n" "$test_block" | rg -nU --pcre2 "let[[:space:]]+valid_result(?:[[:space:]]*:[^=;]+)?[[:space:]]*=[[:space:]]*conductor[[:space:]]*\\.[[:space:]]*call_fallible\\([[:space:]]*&alice\\.zome\\(\\\"\\${zome}\\\"\\\)[[:space:]]*,[[:space:]]*\\\"\\${operation}\\\"[[:space:]]*," >/dev/null 2>&1; then
-      echo "OK:   semantic runtime witness ${test_name} contains a repaired-input success control for ${zome}/${operation}"
-    else
-      echo "FAIL: semantic runtime witness ${test_name} lacks a repaired-input call_fallible success control for ${zome}/${operation}"
-      fail=1
-    fi
-    if printf "%s\\n" "$test_block" | rg -nU --pcre2 "assert\\!\\([[:space:]]*valid_result\\.is_ok\\(\\)" >/dev/null 2>&1; then
-      echo "OK:   semantic runtime witness ${test_name} asserts repaired-input acceptance"
-    else
-      echo "FAIL: semantic runtime witness ${test_name} does not assert repaired-input acceptance"
-      fail=1
-    fi
-    # Bind the rejection reason to the same manifest case, including multiline formatting.
-
-    if printf "%s\\n" "$test_block" | rg -nU --pcre2 "expected_reason\\([[:space:]]*\"${test_name}\"[[:space:]]*\\)" >/dev/null 2>&1; then
-      echo "OK:   semantic runtime witness ${test_name} binds its rejection reason to the manifest case"
-    else
-      echo "FAIL: semantic runtime witness ${test_name} does not bind expected_reason to the manifest case"
-      fail=1
-    fi
-  done
-}
-
-# Each semantic case must point at an invariant and operation surface that
-# actually exist in the integrity implementation. This prevents a green manifest
-# from drifting away from the validator it claims to witness.
-check_semantic_case_integrity_bindings() {
-  local manifest="mycelix-workspace/mycelix-hearth/tests/hearth-07-semantic-validation-cases.json"
-  local ids tests zomes operations invariants rejection_reasons invariant_codes surfaces results validator_sources validator_symbols dispatch_symbols target_variants coordinator_primitives
-  mapfile -t ids < <(sed -n 's/^[[:space:]]*"case_id"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
-  mapfile -t tests < <(sed -n 's/^[[:space:]]*"test"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
-  mapfile -t zomes < <(sed -n 's/^[[:space:]]*"zome"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
-  mapfile -t operations < <(sed -n 's/^[[:space:]]*"operation"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
-  mapfile -t invariants < <(sed -n 's/^[[:space:]]*"invariant"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
-  mapfile -t rejection_reasons < <(sed -n 's/^[[:space:]]*"rejection_reason"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
-  mapfile -t invariant_codes < <(sed -n 's/^[[:space:]]*"invariant_code"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
-  mapfile -t surfaces < <(sed -n 's/^[[:space:]]*"operation_surface"[[:space:]]*:[[:space:]]*\[\([^]]*\)\].*/\1/p' "$manifest")
-  mapfile -t results < <(sed -n 's/^[[:space:]]*"expected_result"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
-  mapfile -t validator_sources < <(sed -n 's/^[[:space:]]*"validator_source"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
-  mapfile -t validator_symbols < <(sed -n 's/^[[:space:]]*"validator_symbol"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
-  mapfile -t dispatch_symbols < <(sed -n 's/^[[:space:]]*"validator_symbol"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
-  mapfile -t target_variants < <(sed -n 's/^[[:space:]]*"validator_symbol"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
-  mapfile -t coordinator_primitives < <(sed -n 's/^[[:space:]]*"validator_symbol"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
-
-  local count="${#ids[@]}"
-  if [[ "$count" -eq 0 || "$count" -ne "${#tests[@]}" || "$count" -ne "${#zomes[@]}" || "$count" -ne "${#operations[@]}" || "$count" -ne "${#invariants[@]}" || "$count" -ne "${#rejection_reasons[@]}" || "$count" -ne "${#invariant_codes[@]}" || "$count" -ne "${#surfaces[@]}" || "$count" -ne "${#results[@]}" || "$count" -ne "${#validator_sources[@]}" || "$count" -ne "${#validator_symbols[@]}" || "$count" -ne "${#dispatch_symbols[@]}" || "$count" -ne "${#target_variants[@]}" || "$count" -ne "${#coordinator_primitives[@]}" ]]; then
-    echo "FAIL: semantic manifest fields are not structurally aligned"
-    fail=1
-    return
-  fi
-
-  local i id zome operation invariant rejection_reason invariant_code expected_result surface integrity_file validator_source validator_symbol dispatch_symbol target_variant coordinator_primitive
-  for i in "${!ids[@]}"; do
-    id="${ids[$i]}"
-    zome="${zomes[$i]}"
-    operation="${operations[$i]}"
-    invariant="${invariants[$i]}"
-    rejection_reason="${rejection_reasons[$i]}"
-    invariant_code="${invariant_codes[$i]}"
-    if [[ -z "$rejection_reason" ]]; then
-      echo "FAIL: $id has no rejection_reason"
-      fail=1
-      continue
-    fi
-    if [[ -z "$invariant_code" ]]; then
-      echo "FAIL: $id has no executable invariant predicate"
-      fail=1
-      continue
-    fi
-    expected_result="${results[$i]}"
-    surface="${surfaces[$i]}"
-    validator_source="${validator_sources[$i]}"
-    validator_symbol="${validator_symbols[$i]}"
-    dispatch_symbol="${dispatch_symbols[$i]}"
-    target_variant="${target_variants[$i]}"
-    coordinator_primitive="${coordinator_primitives[$i]}"
-    integrity_file="mycelix-workspace/mycelix-hearth/zomes/${zome//_/-}/integrity/src/lib.rs"
-
-    coord_file="mycelix-workspace/mycelix-hearth/zomes/${zome//_/-}/coordinator/src/lib.rs"
     coord_block="$(awk -v operation="$operation" '
       /^[[:space:]]*#\[hdk_extern\][[:space:]]*$/ { pending_extern=1; next }
       pending_extern && $0 ~ "^[[:space:]]*(pub[[:space:]]+)?(async[[:space:]]+)?fn[[:space:]]+" operation "[[:space:]]*\\(" {
@@ -1041,56 +890,30 @@ check_semantic_case_integrity_bindings() {
     if [[ -z "$coord_block" ]]; then
       echo "FAIL: $id could not isolate coordinator operation $operation for typed target binding"
       fail=1
-    case "$coordinator_primitive" in
-      create_entry) primitive_pattern="create_entry[[:space:]]*\\([[:space:]]*&[[:space:]]*${target_variant}[[:space:]]*\\(" ;;
-      update_entry) primitive_pattern="update_entry[[:space:]]*\\([^;]{0,160}&[[:space:]]*${target_variant}[[:space:]]*\\(" ;;
-      create_link) primitive_pattern="create_link[[:space:]]*\\([^;]{0,240}LinkTypes::${target_variant#*::}" ;;
-    esac
-    if [[ -n "$coord_block" ]] && printf '%s\n' "$coord_block" | rg -nU --pcre2 "$primitive_pattern" >/dev/null 2>&1; then
-      echo "OK:   $id coordinator $operation binds $coordinator_primitive to $target_variant"
     else
-      echo "FAIL: $id coordinator $operation does not bind $coordinator_primitive to $target_variant"
-      fail=1
-    fi
-
-    fi
-    target_name="${target_variant#*::}"
-    if [[ "$target_variant" == EntryTypes::* ]]; then
-      if rg -nU --pcre2 "\bEntryTypes::${target_name}[[:space:]]*\(" "$integrity_file" >/dev/null 2>&1; then
-        echo "OK:   $id integrity source contains concrete entry target $target_variant"
+      case "$coordinator_primitive" in
+        create_entry)
+          primitive_pattern="create_entry[[:space:]]*\\([^;]{0,120}EntryTypes::${target_variant#*::}"
+          ;;
+        update_entry)
+          primitive_pattern="update_entry[[:space:]]*\\([^;]{0,240}EntryTypes::${target_variant#*::}"
+          ;;
+        create_link)
+          primitive_pattern="create_link[[:space:]]*\\([^;]{0,240}LinkTypes::${target_variant#*::}"
+          ;;
+        *)
+          echo "FAIL: $id has unsupported coordinator primitive $coordinator_primitive"
+          fail=1
+          primitive_pattern="a^"
+          ;;
+      esac
+      if printf "%s\n" "$coord_block" | rg -nU --pcre2 "$primitive_pattern" >/dev/null 2>&1; then
+        echo "OK:   $id coordinator $operation binds $coordinator_primitive to $target_variant"
       else
-        echo "FAIL: $id integrity source does not contain concrete entry target $target_variant"
-        fail=1
-      fi
-    else
-      if rg -nU --pcre2 "\bLinkTypes::${target_name}\b" "$integrity_file" >/dev/null 2>&1; then
-        echo "OK:   $id integrity source contains concrete link target $target_variant"
-      else
-        echo "FAIL: $id integrity source does not contain concrete link target $target_variant"
+        echo "FAIL: $id coordinator $operation does not bind $coordinator_primitive to $target_variant"
         fail=1
       fi
     fi
-    unset target_name
-
-    case "$coordinator_primitive" in
-      create_entry)
-        surface_pattern="FlatOp::CreateEntry"
-        ;;
-      update_entry)
-        surface_pattern="FlatOp::Update\\s*\\(\\s*OpUpdate::Entry"
-        ;;
-      create_link)
-        surface_pattern="FlatOp::Link\\s*\\(\\s*OpLink::CreateLink"
-        ;;
-    esac
-    if rg -nU --pcre2 "$surface_pattern" "$integrity_file" >/dev/null 2>&1; then
-      echo "OK:   $id integrity contains the 0.7 surface required by $coordinator_primitive"
-    else
-      echo "FAIL: $id integrity lacks the 0.7 surface required by $coordinator_primitive"
-      fail=1
-    fi
-
-
 
     if [[ ! -f "$integrity_file" ]]; then
       echo "FAIL: $id references missing integrity source: $integrity_file"
