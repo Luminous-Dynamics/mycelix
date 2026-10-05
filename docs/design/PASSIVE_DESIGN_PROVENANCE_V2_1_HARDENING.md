@@ -20,6 +20,8 @@ JSON Schema Draft 2020-12 expresses this with per-field `contains` constraints p
 The runtime implementation should apply the same rule so schema validation and
 application validation cannot disagree.
 
+Status/source/value compatibility is also fail-closed: `Unobserved` claims cannot carry a value; every other status requires a value; and each evidence status is restricted to the source kinds capable of establishing that status. A declaration may originate from a design or manufacturing declaration, simulation status from a simulation declaration, verification status from a verification record, and measured/validated status from a measurement record.
+
 Field values are also type-checked by field in the v2 schema: component/joint/actuator
 counts are non-negative integers, active power is a non-negative number, and control/state
 flags are booleans. The type constraints are conditional on the semantic `field` value.
