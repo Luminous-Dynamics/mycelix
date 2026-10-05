@@ -17,10 +17,7 @@
 //! required for price reporting. Prevents sybil attacks.
 
 use hdk::prelude::*;
-use mycelix_finance_shared::{
-    GOVERNANCE_AGENTS_ANCHOR, anchor_hash, follow_update_chain, rate_limit_anchor_key,
-    verify_governance_or_bootstrap_from_links,
-};
+use mycelix_finance_shared::{anchor_hash, follow_update_chain, rate_limit_anchor_key};
 use mycelix_zome_helpers as _;
 
 pub use price_oracle_integrity::*;
@@ -295,7 +292,9 @@ fn weighted_median(entries: &mut [(f64, f64)]) -> Option<f64> {
 /// This is checked via cross-zome call to the identity cluster.
 /// Falls back to governance agent check if identity cluster unavailable.
 fn verify_citizen_tier() -> ExternResult<()> {
-    // Try cross-zome consciousness check first
+    // Reserve-relevant oracle observations must fail closed when the identity
+    // service cannot establish Citizen+ status. Governance/bootstrap is not a
+    // substitute because it would let an outage manufacture trusted reports.
     match call(
         CallTargetCell::OtherRole("identity".into()),
         ZomeName::from("consciousness_gating"),
@@ -314,20 +313,15 @@ fn verify_citizen_tier() -> ExternResult<()> {
                 )))
             }
         }
-        // Identity cluster unavailable — fall back to governance agent check
-        _ => verify_governance_or_bootstrap(),
+        Ok(other) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Identity qualification returned an unexpected response; price report rejected: {:?}",
+            other
+        )))),
+        Err(e) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Identity qualification unavailable; price report rejected: {:?}",
+            e
+        )))),
     }
-}
-
-fn verify_governance_or_bootstrap() -> ExternResult<()> {
-    let gov_links = get_links(
-        LinkQuery::try_new(
-            anchor_hash(GOVERNANCE_AGENTS_ANCHOR)?,
-            LinkTypes::AnchorLinks,
-        )?,
-        GetStrategy::default(),
-    )?;
-    verify_governance_or_bootstrap_from_links(gov_links)
 }
 
 // =============================================================================
@@ -374,7 +368,7 @@ pub fn report_price(input: ReportPriceInput) -> ExternResult<Record> {
         )));
     }
 
-    let my_did = format!("did:holo:{}", my_info.agent_initial_pubkey);
+    let my_did = format!("did:mycelix:{}", my_info.agent_initial_pubkey);
 
     let report = PriceReport {
         item: item.clone(),
