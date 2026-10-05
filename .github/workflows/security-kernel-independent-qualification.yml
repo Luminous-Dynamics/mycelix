@@ -404,7 +404,14 @@ jobs:
           vendor=pathlib.Path(sys.argv[1])
           config=pathlib.Path(sys.argv[2])
           text=config.read_text(encoding="utf-8")
-          assert 'directory = "/vendor"' in text, text
+          required_config=(
+              '[source.crates-io]\n'
+              'replace-with = "vendored-sources"\n'
+              '\n'
+              '[source.vendored-sources]\n'
+              'directory = "/vendor"\n'
+          )
+          assert text.strip() == required_config.strip(), f"unexpected vendor config: {text!r}"
           assert "credentials" not in text.lower()
           digest=hashlib.sha256()
           for path in sorted(vendor.rglob("*")):
