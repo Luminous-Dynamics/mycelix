@@ -350,6 +350,10 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 action,
             } => validate_self_recovery_config_chain_uniqueness(action),
             OpActivity::CreateEntry {
+                app_entry_type: Some(UnitEntryTypes::RecoveryApprovalCertificate),
+                action,
+            } => validate_recovery_certificate_chain_uniqueness(action),
+            OpActivity::CreateEntry {
                 app_entry_type: Some(UnitEntryTypes::RecoveryVote),
                 action,
             } => validate_recovery_vote_chain_uniqueness(action),
@@ -636,6 +640,66 @@ fn validate_recovery_link(
     Ok(ValidateCallbackResult::Valid)
 }
 
+fn source_chain_contains_action(
+    author: AgentPubKey,
+    chain_top: ActionHash,
+    target: &ActionHash,
+) -> ExternResult<bool> {
+    let activity = must_get_agent_activity(author, ChainFilter::new(chain_top))?;
+    for item in activity {
+        let hash = hdi::hash::hash_action(item.action.action().clone())?;
+        if &hash == target {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+/// Enforce one approval certificate per recovery request on the request
+/// author's source chain. Multiple valid certificates would otherwise create
+/// an unnecessary second quorum representation for the same authority event.
+fn validate_recovery_certificate_chain_uniqueness(
+    action: Create,
+) -> ExternResult<ValidateCallbackResult> {
+    let current_entry = must_get_entry(action.entry_hash.clone())?;
+    let current: RecoveryApprovalCertificate = current_entry.try_into().map_err(|e| {
+        wasm_error!(WasmErrorInner::Guest(format!(
+            "RecoveryApprovalCertificate history entry could not be decoded: {e}"
+        )))
+    })?;
+
+    let activity = must_get_agent_activity(
+        action.author.clone(),
+        ChainFilter::new(action.prev_action.clone()),
+    )?;
+    let entry_type = EntryType::App(
+        AppEntryDef::try_from(UnitEntryTypes::RecoveryApprovalCertificate)?,
+    );
+
+    for item in activity {
+        let prior_action = item.action.action();
+        let Action::Create(prior_create) = prior_action else {
+            continue;
+        };
+        if prior_create.entry_type != entry_type {
+            continue;
+        }
+        let prior_entry = must_get_entry(prior_create.entry_hash.clone())?;
+        let prior: RecoveryApprovalCertificate = prior_entry.try_into().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "RecoveryApprovalCertificate history entry could not be decoded: {e}"
+            )))
+        })?;
+        if prior.request_id == current.request_id {
+            return Ok(ValidateCallbackResult::Invalid(
+                "A recovery request may have at most one approval certificate on the request author's source chain".into(),
+            ));
+        }
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
 /// Validate recovery config creation
 fn validate_create_recovery_config(
     action: EntryCreationAction,
@@ -912,6 +976,16 @@ fn validate_create_recovery_approval_certificate(
             "Recovery approval certificate must bind to the original RecoveryRequest creation action".into(),
         ));
     }
+    if !source_chain_contains_action(
+        action.author.clone(),
+        action.prev_action.clone(),
+        &certificate.request_action_hash,
+    )? {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Recovery approval certificate request must be an ancestor on the request author's source chain".into(),
+        ));
+    }
+
 
     let request_record = must_get_valid_record(certificate.request_action_hash.clone())?;
     let request: RecoveryRequest = request_record
@@ -934,6 +1008,16 @@ fn validate_create_recovery_approval_certificate(
             "Recovery approval certificate must reference the original RecoveryConfig creation action".into(),
         ));
     }
+    if !source_chain_contains_action(
+        action.author.clone(),
+        action.prev_action.clone(),
+        &certificate.recovery_config_action_hash,
+    )? {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Recovery approval certificate config must be an ancestor on the request author's source chain".into(),
+        ));
+    }
+
     let config_record = must_get_valid_record(certificate.recovery_config_action_hash.clone())?;
     let config: RecoveryConfig = config_record
         .entry()
@@ -1165,6 +1249,21 @@ fn validate_create_recovery_request(
             "Recovery request config snapshot does not authorize its DID and initiator".into(),
         ));
     }
+    if *config_record.action().author() != *action.author() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Recovery request config snapshot must be authored by the request author".into(),
+        ));
+    }
+    if !source_chain_contains_action(
+        action.author.clone(),
+        action.prev_action.clone(),
+        &request.recovery_config_action_hash,
+    )? {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Recovery request config snapshot must be an ancestor on the request author's source chain".into(),
+        ));
+    }
+
 
     if let Err(message) = validate_timestamp_not_future(
         "Recovery request created timestamp",
