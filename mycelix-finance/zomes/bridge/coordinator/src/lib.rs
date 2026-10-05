@@ -24,6 +24,25 @@ use mycelix_zome_helpers as _;
 
 const FINANCE_HAPP_ID: &str = "mycelix-finance";
 
+/// Require an ID index to resolve to exactly one root.
+/// Link retrieval order is not protocol identity; ambiguity is corruption and fails closed.
+fn exact_one_index_link(
+    links: Vec<Link>,
+    index_type: &str,
+    identifier: &str,
+) -> ExternResult<Link> {
+    match links.len() {
+        1 => Ok(links.into_iter().next().expect("length checked")),
+        0 => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "{index_type} index has no entry for {identifier}"
+        )))),
+        _ => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "{index_type} index is ambiguous for {identifier}: {} roots",
+            links.len()
+        )))),
+    }
+}
+
 /// When true, cross-cluster bridge calls that fail to reach the governance
 /// cluster will return errors instead of permissive defaults.
 ///
@@ -931,9 +950,11 @@ pub fn confirm_deposit(deposit_id: String) -> ExternResult<Record> {
         LinkQuery::try_new(anchor_hash(&deposit_id)?, LinkTypes::DepositIdToDeposit)?,
         GetStrategy::default(),
     )?;
-    let link = links.first().ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Deposit not found".into()
-    )))?;
+    let link = exact_one_index_link(
+        links,
+        "DepositIdToDeposit",
+        &deposit_id,
+    )?;
     let hash = ActionHash::try_from(link.target.clone())
         .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
     let record = follow_update_chain(hash)?;
@@ -986,9 +1007,11 @@ pub fn redeem_collateral(deposit_id: String) -> ExternResult<Record> {
         LinkQuery::try_new(anchor_hash(&deposit_id)?, LinkTypes::DepositIdToDeposit)?,
         GetStrategy::default(),
     )?;
-    let link = links.first().ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Deposit not found".into()
-    )))?;
+    let link = exact_one_index_link(
+        links,
+        "DepositIdToDeposit",
+        &deposit_id,
+    )?;
     let hash = ActionHash::try_from(link.target.clone())
         .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
     let record = follow_update_chain(hash)?;
@@ -1843,9 +1866,11 @@ pub fn release_covenant(covenant_id: String) -> ExternResult<Record> {
         LinkQuery::try_new(anchor_hash(&covenant_id)?, LinkTypes::CovenantIdToCovenant)?,
         GetStrategy::default(),
     )?;
-    let link = links.first().ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Covenant not found".into()
-    )))?;
+    let link = exact_one_index_link(
+        links,
+        "CovenantIdToCovenant",
+        &covenant_id,
+    )?;
     let hash = ActionHash::try_from(link.target.clone())
         .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
     let record = follow_update_chain(hash)?;
