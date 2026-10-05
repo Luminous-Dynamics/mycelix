@@ -1,10 +1,9 @@
 name: Security Kernel Qualification — Trusted Dispatcher
-run-name: SEC-KERNEL-DISPATCH source=${{ github.event.workflow_run.id }}.${{ github.event.workflow_run.run_attempt }} candidate=${{ github.event.workflow_run.head_sha }}
+run-name: SEC-KERNEL-DISPATCH pr=${{ github.event.pull_request.number }} candidate=${{ github.event.pull_request.head.sha }}
 
 on:
-  workflow_run:
-    workflows: ["Security Kernel Qualification"]
-    types: [completed]
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
 
 permissions:
   actions: read
@@ -12,7 +11,7 @@ permissions:
   pull-requests: read
 
 concurrency:
-  group: security-kernel-trusted-dispatch-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
+  group: security-kernel-trusted-dispatch-pr-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 env:
@@ -25,7 +24,7 @@ env:
 
 jobs:
   resolve:
-    name: Resolve exact PR subject and source provenance
+    name: Resolve exact pull request subject
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     outputs:
@@ -33,118 +32,50 @@ jobs:
       candidate_sha: ${{ steps.resolve.outputs.candidate_sha }}
       candidate_repository: ${{ steps.resolve.outputs.candidate_repository }}
     steps:
-      - name: Verify trusted dispatcher invocation context
-        shell: bash
-        env:
-          TOKEN: ${{ github.token }}
-          RUN_ID: ${{ github.run_id }}
-        run: |
-          set -euo pipefail
-          test "$GITHUB_WORKFLOW_REF" = "Luminous-Dynamics/mycelix/.github/workflows/security-kernel-trusted-dispatch.yml@refs/heads/main"
-          printf '%s' "$GITHUB_WORKFLOW_SHA" | grep -Eq '^[0-9a-f]{40}$'
-          python3 - <<'PY'
-          import json, os, urllib.request
-          repo = os.environ["BASE_REPOSITORY"]
-          req = urllib.request.Request(
-              f"https://api.github.com/repos/{repo}/actions/runs/{os.environ['RUN_ID']}",
-              headers={
-                  "Accept": "application/vnd.github+json",
-                  "Authorization": f"Bearer {os.environ['TOKEN']}",
-                  "X-GitHub-Api-Version": "2022-11-28",
-              },
-          )
-          with urllib.request.urlopen(req, timeout=20) as response:
-              run = json.load(response)
-          assert run["id"] == int(os.environ["RUN_ID"])
-          assert run["path"] == os.environ["TRUSTED_DISPATCHER_WORKFLOW_PATH"]
-          assert run["event"] == "workflow_run"
-          assert run["repository"]["full_name"] == repo
-          assert run["workflow_ref"] == f"{repo}/{os.environ['TRUSTED_DISPATCHER_WORKFLOW_PATH']}@refs/heads/main"
-          assert run["workflow_sha"] == os.environ["GITHUB_WORKFLOW_SHA"]
-          print("PASS: trusted dispatcher is executing from the protected default-branch workflow")
-          PY
-
-      - name: Verify trusted S1 profile is present at caller commit
-        shell: bash
-        env:
-          TOKEN: ${{ github.token }}
-          CALLER_SHA: ${{ github.workflow_sha }}
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          import json, os, urllib.request
-          repo = os.environ["BASE_REPOSITORY"]
-          path = os.environ["TRUSTED_INDEPENDENT_WORKFLOW_PATH"]
-          ref = os.environ["CALLER_SHA"]
-          req = urllib.request.Request(
-              f"https://api.github.com/repos/{repo}/contents/{path}?ref={ref}",
-              headers={
-                  "Accept": "application/vnd.github+json",
-                  "Authorization": f"Bearer {os.environ['TOKEN']}",
-                  "X-GitHub-Api-Version": "2022-11-28",
-              },
-          )
-          with urllib.request.urlopen(req, timeout=20) as response:
-              content = json.load(response)
-          assert content["sha"] == os.environ["TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA"], (
-              "S1 called-workflow blob differs from the registered qualification profile"
-          )
-          print("PASS: same-commit reusable S1 profile matches the registered blob")
-          PY
-
-      - name: Resolve exact source workflow provenance
+      - name: Verify trusted dispatcher context and exact PR identity
         id: resolve
         shell: bash
         env:
           TOKEN: ${{ github.token }}
-          RUN_ID: ${{ github.event.workflow_run.id }}
-          RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
-          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
-          HEAD_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPOSITORY_EVENT: ${{ github.event.pull_request.base.repo.full_name }}
+          BASE_BRANCH_EVENT: ${{ github.event.pull_request.base.ref }}
         run: |
           set -euo pipefail
+          test "$GITHUB_WORKFLOW_REF" = "Luminous-Dynamics/mycelix/.github/workflows/security-kernel-trusted-dispatch.yml@refs/heads/main"
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$GITHUB_EVENT_NAME" = "pull_request_target"
+          printf '%s' "$PR_NUMBER" | grep -Eq '^[0-9]+$'
+          printf '%s' "$HEAD_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          test "$BASE_REPOSITORY_EVENT" = "$BASE_REPOSITORY"
+          test "$BASE_BRANCH_EVENT" = "$BASE_BRANCH"
+          test -n "$HEAD_REPOSITORY"
           python3 - <<'PY'
           import json, os, urllib.request
-          base = "https://api.github.com"
-          repo = os.environ["BASE_REPOSITORY"]
-          def get(path):
-              req = urllib.request.Request(
-                  base + path,
-                  headers={
-                      "Accept": "application/vnd.github+json",
-                      "Authorization": f"Bearer {os.environ['TOKEN']}",
-                      "X-GitHub-Api-Version": "2022-11-28",
-                  },
-              )
-              with urllib.request.urlopen(req, timeout=20) as response:
-                  return json.load(response)
-
-          run = get(f"/repos/{repo}/actions/runs/{os.environ['RUN_ID']}")
-          assert run["id"] == int(os.environ["RUN_ID"])
-          assert run["run_attempt"] == int(os.environ["RUN_ATTEMPT"])
-          assert run["status"] == "completed"
-          assert run["path"] == os.environ["SOURCE_WORKFLOW_PATH"]
-          assert run["name"] == "Security Kernel Qualification"
-          assert run["event"] == "pull_request"
-          assert run["repository"]["full_name"] == repo
-          assert run["head_sha"] == os.environ["HEAD_SHA"]
-          assert (run.get("head_repository") or {}).get("full_name") == os.environ["HEAD_REPOSITORY"]
-
-          run_prs = run.get("pull_requests") or []
-          assert len(run_prs) == 1, f"source workflow run must identify exactly one PR: {len(run_prs)}"
-          candidate_pr = run_prs[0]["number"]
-          pr = get(f"/repos/{repo}/pulls/{candidate_pr}")
-          assert pr["number"] == candidate_pr
+          repo=os.environ["BASE_REPOSITORY"]
+          pr_number=int(os.environ["PR_NUMBER"])
+          req=urllib.request.Request(
+              f"https://api.github.com/repos/{repo}/pulls/{pr_number}",
+              headers={
+                  "Accept":"application/vnd.github+json",
+                  "Authorization":f"Bearer {os.environ['TOKEN']}",
+                  "X-GitHub-Api-Version":"2022-11-28",
+              })
+          with urllib.request.urlopen(req, timeout=20) as response:
+              pr=json.load(response)
+          assert pr["number"] == pr_number
           assert pr["state"] == "open"
           assert pr["base"]["repo"]["full_name"] == repo
           assert pr["base"]["ref"] == os.environ["BASE_BRANCH"]
           assert pr["head"]["repo"]["full_name"] == os.environ["HEAD_REPOSITORY"]
           assert pr["head"]["sha"] == os.environ["HEAD_SHA"]
+          print("PASS: trusted default-branch dispatcher bound the exact current PR repository/SHA")
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-              output.write(f"candidate_pr={pr['number']}\n")
+              output.write(f"candidate_pr={pr_number}\n")
               output.write(f"candidate_sha={os.environ['HEAD_SHA']}\n")
               output.write(f"candidate_repository={os.environ['HEAD_REPOSITORY']}\n")
-          print("PASS: source workflow, source attempt, candidate repository, SHA, and exact open PR are bound")
           PY
 
   qualify:
@@ -160,6 +91,4 @@ jobs:
       candidate_pr: ${{ needs.resolve.outputs.candidate_pr }}
       candidate_sha: ${{ needs.resolve.outputs.candidate_sha }}
       candidate_repository: ${{ needs.resolve.outputs.candidate_repository }}
-      source_run_id: ${{ github.event.workflow_run.id }}
-      source_run_attempt: ${{ github.event.workflow_run.run_attempt }}
       trusted_workflow_blob_sha: "1802a027063294dd662a526f731cf3ec70885a03"
