@@ -46,6 +46,7 @@ Nested directories, symlinks, special files, missing files, extra files, oversiz
 
 ## Attestation boundary
 
+The privileged attestation job now has only `actions: read`, `contents: read`, `id-token: write`, and `attestations: write`. `artifact-metadata: write` is intentionally absent because GitHub documents that permission as necessary for linked-artifact storage records when `push-to-registry` is used, not for ordinary binary artifact attestations.
 The D6U main-owned runtime executor has `contents: read` only and explicitly defers attestation. The trusted workflow owns:
 
 - `id-token: write`;
@@ -69,4 +70,4 @@ The self-test has no signing permissions and is not itself an authority root.
 The intended chain is exactly three levels: `D6S Canonical Qualification` → `D6U Exact-Head Runtime Executor` → `D6U Trusted Evidence Attestation`. GitHub documents that `workflow_run` chaining is limited to three levels, so this design deliberately stops at the privileged attestation root.
 
 
-Current trusted policy revision: v14.
+Current trusted policy revision: v15.
