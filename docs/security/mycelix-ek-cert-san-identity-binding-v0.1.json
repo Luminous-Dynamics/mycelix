@@ -1,0 +1,158 @@
+{
+  "schema_version": 1,
+  "artifact_type": "mycelix-ek-cert-san-identity-binding-v0.1",
+  "profile_id": "mycelix.security.tpm.ek-cert-san-identity-binding",
+  "profile_version": "0.1.0",
+  "status": "executable-reference-profile",
+  "claim_ceiling": "ReferenceModelOnly",
+  "decision_algebra": "ANY DENY > ANY INDETERMINATE > ALL PASS",
+  "states": [
+    "PASS",
+    "DENY",
+    "INDETERMINATE"
+  ],
+  "theorem": {
+    "statement": "The TCG EK SAN directoryName manufacturer and model claims must equal independently observed TPM identity values; the SAN firmware value may only be bound to issuance-era firmware evidence and is not required to equal current firmware.",
+    "scope": "Manufacturer-name authorization itself is a separate vendor-ID registry theorem; this theorem only compares normalized identity values."
+  },
+  "oid_map": {
+    "manufacturer": "2.23.133.2.1",
+    "model": "2.23.133.2.2",
+    "version": "2.23.133.2.3"
+  },
+  "required_input": {
+    "certificate_der_sha256": "exact EK certificate digest",
+    "san_extraction": [
+      "verifier_id",
+      "state",
+      "certificate_der_sha256",
+      "details.manufacturer",
+      "details.model",
+      "details.version"
+    ],
+    "san_extraction_sha256": "canonical digest of extractor receipt",
+    "tpm_identity": {
+      "source_sha256": "TPM property source receipt",
+      "manufacturer_source_sha256": "canonical manufacturer normalization source",
+      "model_source_sha256": "model source receipt",
+      "part_number_source_sha256": "manufacturer-specific part number source",
+      "issuance_firmware_source_sha256": "issuance-era firmware source",
+      "manufacturer_name": "authorized normalized manufacturer string",
+      "model": "observed normalized TPM model",
+      "model_state": "PASS/DENY/INDETERMINATE",
+      "part_number_state": "PASS/DENY/INDETERMINATE",
+      "issuance_firmware_state": "PASS/DENY/INDETERMINATE",
+      "issuance_firmware": "firmware at certificate creation when independently established",
+      "current_firmware": "current firmware, explicitly non-authoritative for issuance equality"
+    },
+    "session_binding_sha256": "binding over session, certificate, SAN receipt, all TPM property sources, and identity values"
+  },
+  "non_equivalences": [
+    [
+      "manufacturer_name_equality",
+      "manufacturer_vendor_registry_authorization"
+    ],
+    [
+      "model_equality",
+      "manufacturer_authenticity"
+    ],
+    [
+      "issuance_firmware_equality",
+      "current_firmware_equality"
+    ],
+    [
+      "san_binding",
+      "certificate_spki_binding"
+    ],
+    [
+      "san_binding",
+      "certificate_chain_trust"
+    ],
+    [
+      "san_binding",
+      "measured_boot_valid"
+    ]
+  ],
+  "vectors": [
+    [
+      "SAN-V01",
+      "canonical-valid",
+      "PASS"
+    ],
+    [
+      "SAN-V02",
+      "manufacturer-mismatch",
+      "DENY"
+    ],
+    [
+      "SAN-V03",
+      "model-mismatch",
+      "DENY"
+    ],
+    [
+      "SAN-V04",
+      "part-number-mismatch",
+      "DENY"
+    ],
+    [
+      "SAN-V05",
+      "model-indeterminate",
+      "INDETERMINATE"
+    ],
+    [
+      "SAN-V06",
+      "part-number-indeterminate",
+      "INDETERMINATE"
+    ],
+    [
+      "SAN-V07",
+      "firmware-indeterminate",
+      "INDETERMINATE"
+    ],
+    [
+      "SAN-V08",
+      "firmware-mismatch",
+      "DENY"
+    ],
+    [
+      "SAN-V09",
+      "san-certificate-splice",
+      "DENY"
+    ],
+    [
+      "SAN-V10",
+      "san-receipt-splice",
+      "DENY"
+    ],
+    [
+      "SAN-V11",
+      "extractor-substitution",
+      "DENY"
+    ],
+    [
+      "SAN-V12",
+      "source-splice",
+      "DENY"
+    ],
+    [
+      "SAN-V13",
+      "session-splice",
+      "DENY"
+    ],
+    [
+      "SAN-V14",
+      "offline-origin",
+      "INDETERMINATE"
+    ],
+    [
+      "SAN-V15",
+      "live-origin",
+      "INDETERMINATE"
+    ],
+    [
+      "SAN-V16",
+      "key-order-permutation",
+      "PASS"
+    ]
+  ]
+}
