@@ -57,6 +57,25 @@ pub enum LinkTypes {
     AllAttestations,
 }
 
+fn validate_timestamp_us_not_future(
+    field: &str,
+    value_us: u64,
+    action_timestamp: Timestamp,
+) -> ValidateCallbackResult {
+    let action_us = action_timestamp.as_micros();
+    let Ok(action_us) = u64::try_from(action_us) else {
+        return ValidateCallbackResult::Invalid(format!(
+            "{field} cannot be validated against a negative signed Holochain action timestamp"
+        ));
+    };
+    if value_us > action_us {
+        return ValidateCallbackResult::Invalid(format!(
+            "{field} cannot be later than its signed Holochain action timestamp"
+        ));
+    }
+    ValidateCallbackResult::Valid
+}
+
 fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
     hash_entry(&EntryTypes::Anchor(Anchor(anchor_str.to_string())))
 }
@@ -98,6 +117,14 @@ fn validate_create_trust_attestation(
             "Attestation timestamp must be non-zero".into(),
         ));
     }
+    match validate_timestamp_us_not_future(
+        "Attestation timestamp",
+        attestation.timestamp_us,
+        *action.timestamp(),
+    ) {
+        ValidateCallbackResult::Valid => {}
+        invalid => return Ok(invalid),
+    }
 
     // The author of the action is the attestor. The entry intentionally does
     // not carry a second attestor field, so authorship itself is the authority.
@@ -118,6 +145,14 @@ fn validate_create_trust_revocation(
         return Ok(ValidateCallbackResult::Invalid(
             "Revocation timestamp must be non-zero".into(),
         ));
+    }
+    match validate_timestamp_us_not_future(
+        "Revocation timestamp",
+        revocation.timestamp_us,
+        *action.timestamp(),
+    ) {
+        ValidateCallbackResult::Valid => {}
+        invalid => return Ok(invalid),
     }
 
     let attestation_record = must_get_valid_record(revocation.attestation_hash.clone())?;
@@ -183,7 +218,11 @@ fn validate_create_link(
                         ));
                     }
                 }
-                _ => unreachable!(),
+                _ => {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "Unexpected trust-attestation link type in nested matcher".into(),
+                    ));
+                }
             }
         }
         LinkTypes::AttestationToRevocations => {
