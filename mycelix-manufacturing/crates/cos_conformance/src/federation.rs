@@ -3005,7 +3005,10 @@ mod tests {
         UnsupportedFailureKind,
         FailedStepIndexMismatch,
         FailedStepIdentityMismatch,
+        AuditRegistryMismatch,
         ObservedViolationAuditMismatch,
+        InvalidStateValidityFlags,
+        TemporalEvidenceMismatch,
     }
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -3109,6 +3112,44 @@ mod tests {
                 return Err(
                     FederationStateMachineFailureCapsuleViolation::FailedStepIdentityMismatch
                 );
+            }
+            if !self.expected_state_valid || self.observed_state_valid {
+                return Err(
+                    FederationStateMachineFailureCapsuleViolation::InvalidStateValidityFlags
+                );
+            }
+            let expected_audit_ids = FEDERATION_INVARIANT_REGISTRY
+                .iter()
+                .map(|spec| spec.id)
+                .collect::<Vec<_>>();
+            let observed_audit_ids = self
+                .audit
+                .iter()
+                .map(|entry| entry.id)
+                .collect::<Vec<_>>();
+            if observed_audit_ids != expected_audit_ids {
+                return Err(FederationStateMachineFailureCapsuleViolation::AuditRegistryMismatch);
+            }
+            let delivery_delta = self.post_delivery_count.checked_sub(self.pre_delivery_count);
+            let admission_delta = self.post_admission_index.checked_sub(self.pre_admission_index);
+            let admitted_count = self.newly_admitted_deliveries.len() as u64;
+            if delivery_delta != Some(self.newly_admitted_deliveries.len())
+                || admission_delta != Some(admitted_count)
+            {
+                return Err(FederationStateMachineFailureCapsuleViolation::TemporalEvidenceMismatch);
+            }
+            for (offset, (delivery_id, ordinal)) in
+                self.newly_admitted_deliveries.iter().enumerate()
+            {
+                if delivery_id.is_empty()
+                    || *ordinal
+                        != self
+                            .pre_admission_index
+                            .checked_add(offset as u64)
+                            .ok_or(FederationStateMachineFailureCapsuleViolation::TemporalEvidenceMismatch)?
+                {
+                    return Err(FederationStateMachineFailureCapsuleViolation::TemporalEvidenceMismatch);
+                }
             }
             let derived_violations = self
                 .audit
@@ -7054,6 +7095,34 @@ mod tests {
         assert_eq!(
             mismatched_audit.validate(),
             Err(FederationStateMachineFailureCapsuleViolation::ObservedViolationAuditMismatch)
+        );
+
+        let mut truncated_audit = capsule.clone();
+        truncated_audit.audit.pop();
+        assert_eq!(
+            truncated_audit.validate(),
+            Err(FederationStateMachineFailureCapsuleViolation::AuditRegistryMismatch)
+        );
+
+        let mut mismatched_flags = capsule.clone();
+        mismatched_flags.observed_state_valid = true;
+        assert_eq!(
+            mismatched_flags.validate(),
+            Err(FederationStateMachineFailureCapsuleViolation::InvalidStateValidityFlags)
+        );
+
+        let mut mismatched_temporal = capsule.clone();
+        mismatched_temporal.post_admission_index += 1;
+        assert_eq!(
+            mismatched_temporal.validate(),
+            Err(FederationStateMachineFailureCapsuleViolation::TemporalEvidenceMismatch)
+        );
+
+        let mut mismatched_ordinal = capsule.clone();
+        mismatched_ordinal.newly_admitted_deliveries[0].1 += 1;
+        assert_eq!(
+            mismatched_ordinal.validate(),
+            Err(FederationStateMachineFailureCapsuleViolation::TemporalEvidenceMismatch)
         );
 
         let mut unknown = serde_json::to_value(&capsule)
