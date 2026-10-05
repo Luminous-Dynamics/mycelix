@@ -123,21 +123,26 @@ jobs:
           printf "CANDIDATE_SHA=%s\nCANDIDATE_TREE=%s\nCANDIDATE_PR=%s\nCANDIDATE_REPOSITORY=%s\n" "$CANDIDATE_SHA" "$candidate_tree" "$CANDIDATE_PR" "$CANDIDATE_REPOSITORY" > "$RUNNER_TEMP/security-kernel-subject.env"
 
           python3 - "$candidate_root" "$RUNNER_TEMP/security-kernel-source-digest-before" <<'PY'
-          import hashlib, pathlib, sys
+          import hashlib, pathlib, stat, sys
           root=pathlib.Path(sys.argv[1])
           digest=hashlib.sha256()
           for path in sorted(root.rglob("*")):
-              if not path.is_file():
-                  continue
               rel=path.relative_to(root)
               if rel.parts and rel.parts[0] == "target":
                   continue
+              mode=path.lstat().st_mode
+              if stat.S_ISLNK(mode):
+                  raise SystemExit(f"candidate source contains forbidden symlink: {rel}")
+              if path.is_dir():
+                  continue
+              if not stat.S_ISREG(mode):
+                  raise SystemExit(f"candidate source contains forbidden non-regular file: {rel}")
               digest.update(rel.as_posix().encode())
-              digest.update(b"\0")
+              digest.update(b"\\0")
               digest.update(path.read_bytes())
-              digest.update(b"\0")
-          pathlib.Path(sys.argv[2]).write_text(digest.hexdigest()+"\n",encoding="utf-8")
-          print("PASS: exact candidate commit materialized")
+              digest.update(b"\\0")
+          pathlib.Path(sys.argv[2]).write_text(digest.hexdigest()+"\\n",encoding="utf-8")
+          print("PASS: exact candidate commit materialized with regular-file-only source tree")
           PY
 
       - name: Static trust-surface audit
@@ -231,15 +236,20 @@ jobs:
         run: |
           set -euo pipefail
           python3 - "$CANDIDATE_ROOT" "$RUNNER_TEMP/security-kernel-source-digest-before" <<'PY'
-          import hashlib, pathlib, sys
+          import hashlib, pathlib, stat, sys
           root=pathlib.Path(sys.argv[1])
           digest=hashlib.sha256()
           for path in sorted(root.rglob("*")):
-              if not path.is_file():
-                  continue
               rel=path.relative_to(root)
               if rel.parts and rel.parts[0] == "target":
                   continue
+              mode=path.lstat().st_mode
+              if stat.S_ISLNK(mode):
+                  raise SystemExit(f"candidate source contains forbidden symlink: {rel}")
+              if path.is_dir():
+                  continue
+              if not stat.S_ISREG(mode):
+                  raise SystemExit(f"candidate source contains forbidden non-regular file: {rel}")
               digest.update(rel.as_posix().encode())
               digest.update(b"\0")
               digest.update(path.read_bytes())
@@ -247,7 +257,7 @@ jobs:
           before=pathlib.Path(sys.argv[2]).read_text(encoding="utf-8").strip()
           after=digest.hexdigest()
           assert before == after, f"candidate source mutated during qualification: {before} != {after}"
-          print("PASS: candidate source remained immutable")
+          print("PASS: candidate source remained immutable and regular-file-only")
           PY
 
       - name: Emit qualification receipt
