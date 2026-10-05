@@ -24,6 +24,8 @@ pub type CapSecret = hdk::prelude::CapSecret;
 // Profile gating system that replaces the old 4D consciousness gating.
 
 pub mod constitutional_envelope;
+/// Runtime semantic validation for passive-design provenance v2.
+pub mod passive_provenance;
 // ── Model governance extensions (feature-gated) ──────────────────────────
 pub mod consciousness_thresholds;
 pub mod consciousness_zkp;
