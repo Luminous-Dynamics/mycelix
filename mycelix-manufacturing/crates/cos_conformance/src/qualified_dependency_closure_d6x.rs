@@ -385,6 +385,14 @@ impl DependencyClosureCertificateV1 {
     /// closure_identity(): retrieval/audit evidence must not redefine the
     /// semantic closure, but a strict verification summary must still bind to
     /// the evidence set it summarizes.
+    pub fn has_complete_context_bound_resolution_evidence(
+        &self,
+        expected_context_commitment: &str,
+    ) -> bool {
+        self.has_complete_resolution_evidence()
+            && self.resolution_evidence_matches_context(expected_context_commitment)
+    }
+
     pub fn resolution_evidence_commitment(&self) -> String {
         let evidence = self
             .resolution_evidence
@@ -394,7 +402,13 @@ impl DependencyClosureCertificateV1 {
                 "evidence": evidence,
             }))
             .collect::<Vec<_>>();
-        canonical_sha256("d6x-resolution-evidence", &evidence)
+        canonical_sha256(
+            "d6x-resolution-evidence",
+            &serde_json::json!({
+                "schema_version": D6X_RESOLUTION_EVIDENCE_SCHEMA_VERSION,
+                "evidence": evidence,
+            }),
+        )
     }
 
     /// Construct a verification summary only when runtime resolution evidence
@@ -412,10 +426,9 @@ impl DependencyClosureCertificateV1 {
         closure_profile: &DependencyClosureProfileV1,
         closure: &DependencyClosureCertificateV1,
     ) -> Option<Self> {
-        if !closure.has_complete_resolution_evidence()
-            || !closure.resolution_evidence_matches_context(
-                expected_resolution_qualification_context_commitment,
-            )
+        if !closure.has_complete_context_bound_resolution_evidence(
+            expected_resolution_qualification_context_commitment,
+        )
         {
             return None;
         }
@@ -625,6 +638,7 @@ impl DependencyClosureCertificateV1 {
     }
 }
 
+pub const D6X_RESOLUTION_EVIDENCE_SCHEMA_VERSION: &str = "D6X-RE-1";
 pub const D6X_VERIFICATION_SUMMARY_SCHEMA_VERSION: &str = "D6X-VS-1";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -800,10 +814,9 @@ impl D6XVerificationSummaryV1 {
             derivation_profile,
             closure_profile,
             closure,
-        ) && closure.has_complete_resolution_evidence()
-            && closure.resolution_evidence_matches_context(
-                expected_resolution_qualification_context_commitment,
-            )
+        ) && closure.has_complete_context_bound_resolution_evidence(
+            expected_resolution_qualification_context_commitment,
+        )
             && self.resolution_evidence_commitment
                 == Some(closure.resolution_evidence_commitment())
     }
@@ -2847,6 +2860,50 @@ mod tests {
                 &closure_profile,
                 &complete,
             )
+        );
+    }
+
+    #[test]
+    fn combined_strict_evidence_predicate_requires_completeness_and_context() {
+        let (projection, environment, derivation_profile) = projection(false);
+        let closure_profile = profile(BTreeSet::new());
+        let closure = compute_dependency_closure(
+            &projection,
+            &environment,
+            &derivation_profile,
+            &closure_profile,
+        )
+        .expect("verified closure");
+
+        let context = canonical_sha256(
+            "test-d6x-resolution-context",
+            &serde_json::json!({"scope":"d6x"}),
+        );
+
+        assert!(
+            !closure.has_complete_context_bound_resolution_evidence(&context),
+            "combined predicate must reject evidence-free closures"
+        );
+
+        let first = closure
+            .dependencies
+            .iter()
+            .next()
+            .expect("selected dependency")
+            .clone();
+        let mut partial = closure.clone();
+        partial.resolution_evidence.insert(
+            first.clone(),
+            SemanticDependencyResolutionEvidenceV1 {
+                retrieval_reference: Some("runtime://resolver/partial".into()),
+                observed_commitment: first.commitment.clone(),
+                qualification_context_commitment: Some(context.clone()),
+            },
+        );
+
+        assert!(
+            !partial.has_complete_context_bound_resolution_evidence(&context),
+            "combined predicate must reject partial evidence"
         );
     }
 
