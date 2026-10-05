@@ -133,6 +133,7 @@ jobs:
               assert len(fields) == 4, f"unexpected tree record: {record!r}"
               mode, obj_type, oid, size_text = fields
               assert obj_type == "blob", f"non-blob tree entry: {path!r}"
+              assert mode in {"100644", "100755"}, f"candidate tree contains forbidden Git mode {mode}: {path!r}"
               assert len(oid) == 40, f"unexpected blob id for {path!r}"
               size = int(size_text)
               count += 1
