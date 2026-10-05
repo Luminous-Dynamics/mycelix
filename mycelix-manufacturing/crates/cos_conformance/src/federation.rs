@@ -4083,6 +4083,78 @@ mod tests {
         Ok(())
     }
 
+    /// Finds a canonical equivocation witness directly from a qualified concrete
+    /// publication/snapshot collection. The returned witness is therefore tied to
+    /// publications that have already passed the same concrete validation used by
+    /// the collection fork detector.
+    fn find_state_machine_trace_publication_equivocation_witness(
+        snapshots: &[(
+            &FederationStateMachineTraceCapsule,
+            &FederationStateMachineTraceCheckpointPublication,
+        )],
+    ) -> Result<
+        Option<FederationStateMachineTracePublicationEquivocationWitness>,
+        FederationStateMachineTraceCheckpointPublicationViolation,
+    > {
+        if snapshots.is_empty() {
+            return Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::PublicationCollectionEmpty
+            );
+        }
+
+        let mut canonical_snapshots = snapshots.iter().collect::<Vec<_>>();
+        canonical_snapshots.sort_by_key(|(capsule, publication)| {
+            serde_json::to_string((capsule, publication))
+                .expect("publication witness candidate must be serializable")
+        });
+
+        for (capsule, publication) in &canonical_snapshots {
+            validate_state_machine_trace_checkpoint_publication(capsule, publication)?;
+        }
+
+        type PublicationSuccessorKey<'a> =
+            (&'a str, &'a str, u16, &'a str, u16, &'a str, usize, &'a str);
+
+        let mut successors =
+            BTreeMap::<
+                PublicationSuccessorKey<'_>,
+                (
+                    &FederationStateMachineTraceCapsule,
+                    &FederationStateMachineTraceCheckpointPublication,
+                ),
+            >::new();
+
+        for (capsule, publication) in canonical_snapshots {
+            let key = (
+                publication.publication_profile.as_str(),
+                publication.hash_algorithm.as_str(),
+                publication.schema_version,
+                publication.trace_verification_profile.as_str(),
+                publication.trace_schema_version,
+                publication.hash_encoding.as_str(),
+                publication.trace_index,
+                publication.previous_publication_sha256.as_str(),
+            );
+
+            if let Some((first_capsule, first_publication)) = successors.get(&key).copied() {
+                if first_publication.publication_sha256
+                    != publication.publication_sha256
+                {
+                    return Ok(Some(
+                        state_machine_trace_publication_equivocation_witness(
+                            first_publication,
+                            publication,
+                        ),
+                    ));
+                }
+            } else {
+                successors.insert(key, (capsule, publication));
+            }
+        }
+
+        Ok(None)
+    }
+
     /// Validates a complete, anchored publication lineage. Unlike the
     /// order-independent fork detector, this requires exactly one publication
     /// rooted at the dedicated genesis and requires every unique publication
@@ -6631,6 +6703,49 @@ mod tests {
             validate_state_machine_trace_checkpoint_publication_set(&reversed_independent_set)
                 .is_ok(),
             "non-fork classification must not depend on publication collection order"
+        );
+
+        let witness_from_collection =
+            find_state_machine_trace_publication_equivocation_witness(&[
+                (&base, &base_publication),
+                (&fork_a, &fork_a_publication),
+                (&fork_b, &fork_b_publication),
+            ])
+            .expect("qualified fork collection must audit")
+            .expect("qualified fork collection must emit a witness");
+        assert_eq!(witness_from_collection, witness);
+
+        let witness_from_reversed_collection =
+            find_state_machine_trace_publication_equivocation_witness(&[
+                (&fork_b, &fork_b_publication),
+                (&base, &base_publication),
+                (&fork_a, &fork_a_publication),
+            ])
+            .expect("reordered qualified fork collection must audit")
+            .expect("reordered qualified fork collection must emit a witness");
+        assert_eq!(
+            witness_from_reversed_collection, witness,
+            "witness extraction must be permutation-invariant"
+        );
+
+        let no_fork = find_state_machine_trace_publication_equivocation_witness(&[
+            (&base, &base_publication),
+            (&fork_a, &fork_a_publication),
+        ])
+        .expect("non-fork collection must audit");
+        assert_eq!(no_fork, None);
+
+        let mut invalid_publication = fork_a_publication.clone();
+        invalid_publication.body_sha256 = "sha256:invalid-witness-source".into();
+        assert_eq!(
+            find_state_machine_trace_publication_equivocation_witness(&[
+                (&base, &base_publication),
+                (&fork_a, &invalid_publication),
+                (&fork_b, &fork_b_publication),
+            ]),
+            Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::BodyDigestMismatch
+            )
         );
 
         let qualified_collection = vec![
