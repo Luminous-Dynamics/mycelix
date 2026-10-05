@@ -88,6 +88,9 @@ jobs:
               "executing S0 dispatcher blob is outside the registered trust profile"
           )
 
+          main_sha = subprocess.check_output(["git", "rev-parse", "origin/main"], text=True).strip()
+          subprocess.run(["git", "merge-base", "--is-ancestor", workflow_sha, main_sha], check=True)
+
           s1_at_run = get(
               f"/repos/{repo}/contents/{os.environ['INDEPENDENT_WORKFLOW_PATH']}?ref={workflow_sha}"
           )
