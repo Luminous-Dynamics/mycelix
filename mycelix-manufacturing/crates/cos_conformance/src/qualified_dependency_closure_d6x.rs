@@ -2765,12 +2765,16 @@ mod tests {
             "test-d6x-verification-policy",
             &serde_json::json!({"required_result": "Passed"}),
         );
+        let context = canonical_sha256(
+            "test-d6x-resolution-context",
+            &serde_json::json!({"scope":"d6x"}),
+        );
 
         assert!(
             D6XVerificationSummaryV1::from_verified_closure_with_complete_resolution_evidence(
                 "verifier:d6x-test",
                 &policy,
-                &canonical_sha256("test-d6x-resolution-context", &serde_json::json!({"scope":"d6x"})),
+                &context,
                 &projection,
                 &environment,
                 &derivation_profile,
@@ -2791,15 +2795,17 @@ mod tests {
                         dependency.identifier
                     )),
                     observed_commitment: dependency.commitment.clone(),
-                    qualification_context_commitment: Some("qualification-context".into()),
+                    qualification_context_commitment: Some(context.clone()),
                 },
             );
         }
         assert!(complete.has_complete_resolution_evidence());
+        assert!(complete.resolution_evidence_matches_context(&context));
 
         let summary = D6XVerificationSummaryV1::from_verified_closure_with_complete_resolution_evidence(
             "verifier:d6x-test",
             &policy,
+            &context,
             &projection,
             &environment,
             &derivation_profile,
@@ -2813,6 +2819,7 @@ mod tests {
             summary.verifies_against_expectations_with_complete_resolution_evidence(
                 "verifier:d6x-test",
                 &policy,
+                &context,
                 &projection,
                 &environment,
                 &derivation_profile,
