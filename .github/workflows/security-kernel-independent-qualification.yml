@@ -303,10 +303,12 @@ jobs:
       - name: Pull and preflight pinned sandbox image
         shell: bash
         env:
-          SANDBOX_IMAGE: "docker.io/library/rust:1.99.0-slim-bookworm@sha256:452176c0cefca88c0b3184ce85a4eb03e3d4fa05d2afb5366abcba853221019e"
+          SANDBOX_IMAGE: "docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d"
         run: |
           set -euo pipefail
           docker pull --quiet "$SANDBOX_IMAGE"
+          docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$SANDBOX_IMAGE" |
+            grep -Fx 'docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d'
           runner_uid="$(id -u)"
           runner_gid="$(id -g)"
           docker run --rm --platform=linux/amd64 --pull=never \
@@ -367,7 +369,7 @@ jobs:
         shell: bash
         env:
           DEPENDENCY_ROOT: ${{ steps.dependency_subject.outputs.dependency_root }}
-          SANDBOX_IMAGE: "docker.io/library/rust:1.99.0-slim-bookworm@sha256:452176c0cefca88c0b3184ce85a4eb03e3d4fa05d2afb5366abcba853221019e"
+          SANDBOX_IMAGE: "docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d"
         run: |
           set -euo pipefail
           runner_uid="$(id -u)"
@@ -442,7 +444,7 @@ jobs:
           VENDOR_ROOT: ${{ steps.vendor_dependencies.outputs.vendor_root }}
           VENDOR_CONFIG: ${{ steps.vendor_dependencies.outputs.vendor_config }}
           RUST_SYSROOT: ${{ steps.rust_sysroot.outputs.rust_sysroot }}
-          SANDBOX_IMAGE: "docker.io/library/rust:1.99.0-slim-bookworm@sha256:452176c0cefca88c0b3184ce85a4eb03e3d4fa05d2afb5366abcba853221019e"
+          SANDBOX_IMAGE: "docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d"
         run: |
           set -euo pipefail
           runner_uid="$(id -u)"
@@ -505,6 +507,30 @@ jobs:
           run_sandbox 2m '
             test "$(/opt/rust-toolchain/bin/rustc --version | awk "{print \\$2}")" = "1.99.0"
             test "$(/opt/rust-toolchain/bin/rustc --version --verbose | sed -n "s/^commit-hash: //p")" = "b940084d7eb6a299eb4bfeb8e34901bc051e7ac4"
+            test "$(grep -E "^NoNewPrivs:" /proc/self/status | awk "{print \\$2}")" = "1"
+            test "$(awk "/^CapEff:/{print \\$2}" /proc/self/status)" = "0000000000000000"
+            test -z "${GITHUB_TOKEN:-}"
+            test -z "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}"
+            test ! -e /var/run/docker.sock
+            test ! -e /home/runner
+            test ! -w /source
+            test ! -w /vendor
+            test ! -w /opt/rust-toolchain
+            test -w /target
+            test -w /tmp
+            test ! -w /
+            if touch /source/.security-kernel-write-probe 2>/dev/null; then
+              echo "candidate source mount is unexpectedly writable" >&2
+              exit 1
+            fi
+            if touch /opt/rust-toolchain/.security-kernel-write-probe 2>/dev/null; then
+              echo "Rust toolchain mount is unexpectedly writable" >&2
+              exit 1
+            fi
+            if bash -c "echo probe >/dev/tcp/1.1.1.1/80" 2>/dev/null; then
+              echo "network unexpectedly reachable inside candidate sandbox" >&2
+              exit 1
+            fi
             /opt/rust-toolchain/bin/rustfmt --version
             /opt/rust-toolchain/bin/cargo-clippy --version
             run_limited /opt/rust-toolchain/bin/cargo fmt --manifest-path /source/crates/mycelix-bridge-common/Cargo.toml -- --check
@@ -586,7 +612,7 @@ jobs:
             echo "candidate_source_digest=$SOURCE_DIGEST"
             echo "candidate_cargo_lock_sha256=$CARGO_LOCK_DIGEST"
             echo "vendor_digest=$VENDOR_DIGEST"
-            echo "sandbox_image=docker.io/library/rust:1.99.0-slim-bookworm@sha256:452176c0cefca88c0b3184ce85a4eb03e3d4fa05d2afb5366abcba853221019e"
+            echo "sandbox_image=docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d"
             echo "sandbox_network=none"
             echo "sandbox_rootfs=read-only"
             echo "sandbox_user=non-root"
