@@ -86,7 +86,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         assert len(required[path]) == 40
         assert all(ch in "0123456789abcdef" for ch in required[path])
 
-    assert policy["policy_version"] == 23
+    assert policy["policy_version"] == 24
 
     assert policy["forbidden_cargo_config_paths"] == [
         ".cargo/config",
@@ -157,6 +157,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
     )
     assert policy["attestation_verification"]["require_current_run_identity"] is True
     assert policy["attestation_verification"]["subject_set_exact"] is True
+    assert policy["attestation_verification"]["require_verified_timestamp"] is True
 
     assert policy["trusted_permissions"] == {
         "actions": "read",
@@ -943,6 +944,32 @@ def synthetic_record() -> dict[str, str]:
     }
 
 
+def test_custom_attestation_requires_verified_timestamp() -> None:
+    import verify_d6u_trusted_attestation as verifier
+
+    subjects = [
+        {"name": "d6u-runtime-evidence.txt", "digest": {"sha256": "a" * 64}},
+        {"name": "d6u-runtime-test.log", "digest": {"sha256": "b" * 64}},
+        {"name": "Cargo.lock", "digest": {"sha256": "c" * 64}},
+    ]
+    record = synthetic_record()
+    entry = synthetic_attestation_entry(subjects, "42")
+    entry["verificationResult"]["verifiedTimestamps"] = []
+    with patch.dict(
+        os.environ,
+        {
+            "GITHUB_REPOSITORY": "Luminous-Dynamics/mycelix",
+            "GITHUB_RUN_ID": "42",
+            "GITHUB_RUN_ATTEMPT": "3",
+            "GITHUB_SHA": "a" * 40,
+            "GITHUB_WORKFLOW_SHA": "c" * 40,
+            "GITHUB_REF": "refs/heads/main",
+        },
+        clear=False,
+    ):
+        assert verifier.verify_entry(entry, record, subjects) is False
+
+
 def test_custom_attestation_subject_set_is_order_independent_but_exact() -> None:
     import verify_d6u_trusted_attestation as verifier
 
@@ -1076,6 +1103,7 @@ if __name__ == "__main__":
         test_harness_file_set_rejects_extra_build_script,
         test_artifact_size_limits_are_enforced,
         test_artifact_entry_limit_is_enforced,
+        test_custom_attestation_requires_verified_timestamp,
         test_custom_attestation_subject_set_is_order_independent_but_exact,
         test_custom_attestation_accepts_current_run_and_rejects_old_run,
         test_attestation_verifier_accepts_current_run,

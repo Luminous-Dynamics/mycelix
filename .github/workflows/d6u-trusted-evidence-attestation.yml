@@ -37,7 +37,7 @@ jobs:
 
       - name: Assert trusted policy root cohesion
         env:
-          TRUSTED_POLICY_VERSION: "23"
+          TRUSTED_POLICY_VERSION: "24"
         run: |
           set -euo pipefail
           policy_version=$(python3 -c 'import json; print(json.load(open("docs/integral/d6u-trusted-builder-policy.json"))["policy_version"])')
@@ -119,7 +119,7 @@ jobs:
               --format=json > "$report"
             D6U_ATTESTATION_SUBJECT="$subject" \
             D6U_TRUSTED_EVIDENCE_DIR="$RUNNER_TEMP/d6u-trusted-input" \
-            D6U_TRUSTED_POLICY_VERSION="23" \
+            D6U_TRUSTED_POLICY_VERSION="24" \
               python3 scripts/integral/verify_d6u_trusted_attestation.py "$report"
             rm -f "$report"
           done
