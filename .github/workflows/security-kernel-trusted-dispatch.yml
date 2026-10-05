@@ -48,6 +48,7 @@ jobs:
           run = get(f'/repos/{os.environ["BASE_REPOSITORY"]}/actions/runs/{os.environ["RUN_ID"]}')
           assert run["id"] == int(os.environ["RUN_ID"])
           assert run["run_attempt"] == int(os.environ["RUN_ATTEMPT"])
+          assert run["status"] == "completed"
           assert run["workflow_id"] == int(os.environ["SOURCE_WORKFLOW_ID"])
           assert run["path"] == os.environ["SOURCE_WORKFLOW_PATH"]
           assert run["event"] == "pull_request"
