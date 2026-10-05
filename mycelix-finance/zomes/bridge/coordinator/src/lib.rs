@@ -184,8 +184,70 @@ pub fn reconcile_payment_settlement(
         return Ok(payment_record);
     };
 
+    #[derive(Serialize, Debug)]
+    struct GetSapTransferIntentPayload {
+        transfer_id: String,
+    }
+
+    let intent_result = call(
+        CallTargetCell::Local,
+        ZomeName::from("payments"),
+        FunctionName::from("get_sap_transfer_intent"),
+        None,
+        GetSapTransferIntentPayload {
+            transfer_id: transfer_id.clone(),
+        },
+    );
+
+    let intent_record = match intent_result {
+        Ok(ZomeCallResponse::Ok(result)) => result.decode::<Option<Record>>().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Failed to decode SAP transfer intent lookup result: {:?}",
+                e
+            )))
+        })?,
+        Ok(other) => {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "SAP transfer intent lookup returned unexpected response: {:?}",
+                other
+            ))));
+        }
+        Err(e) => {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "SAP transfer intent lookup unavailable: {:?}",
+                e
+            ))));
+        }
+    };
+
+    let Some(intent_record) = intent_record else {
+        return Ok(payment_record);
+    };
+
+    #[derive(Deserialize)]
+    struct TransferIntentView {
+        id: String,
+        from_did: String,
+        to_did: String,
+        amount: u64,
+    }
+    let intent = intent_record
+        .entry()
+        .to_app_option::<TransferIntentView>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Failed to decode SAP transfer intent: {:?}",
+                e
+            )))
+        })?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "SAP transfer intent record is missing or malformed",
+        )))?;
+
     #[derive(Deserialize)]
     struct TransferClaimView {
+        transfer_id: String,
+        intent_action_hash: ActionHash,
         recipient_did: String,
         amount: u64,
     }
@@ -202,9 +264,18 @@ pub fn reconcile_payment_settlement(
             "SAP transfer claim record is missing or malformed",
         )))?;
 
-    if claim.recipient_did != payment.to_did || claim.amount != payment.amount {
+    if intent.id != transfer_id
+        || intent.from_did != payment.from_did
+        || intent.to_did != payment.to_did
+        || intent.amount != payment.amount
+        || claim.transfer_id != transfer_id
+        || claim.intent_action_hash != intent_record.action_address().clone()
+        || claim.recipient_did != payment.to_did
+        || claim.amount != payment.amount
+    {
         return Err(wasm_error!(WasmErrorInner::Guest(
-            "SAP transfer claim does not match cross-hApp payment recipient/amount".into()
+            "Observed SAP intent/claim does not exactly match the cross-hApp payment"
+                .into(),
         )));
     }
 
