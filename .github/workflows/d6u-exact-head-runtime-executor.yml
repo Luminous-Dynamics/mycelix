@@ -4,6 +4,8 @@ on:
   workflow_run:
     workflows: ["D6S Canonical Qualification"]
     types: [completed]
+    branches:
+      - myc-int-demo-d6u-holochain-07-runtime
 
 permissions:
   contents: read
