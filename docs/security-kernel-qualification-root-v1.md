@@ -32,6 +32,7 @@ S0 is deliberately metadata-only:
 - no checkout of candidate source;
 - no candidate artifact download or execution;
 - no secrets referenced;
+- no candidate-controlled source carrier is required;
 - `actions: read`, `contents: read`, and `pull-requests: read`;
 - no workflow-dispatch API call;
 - current PR identity is taken from the event and then re-read from the GitHub PR API;
@@ -111,7 +112,7 @@ workflow. The profile currently requires, among other invariants:
 - exact crates.io registry provenance and canonical 64-hex SHA-256 checksums;
 - no candidate-controlled Cargo source overrides, `[patch]`, `[replace]`, or relevant
   Cargo configuration files;
-- the candidate's own qualification workflow remains a read-only `pull_request` feedback
+- the candidate's own qualification workflow remains an untrusted `pull_request` feedback
   lane, does not use `pull_request_target`, uses pinned actions, and checks out the exact
   candidate head.
 
@@ -149,6 +150,8 @@ Every candidate gate runs in a fresh disposable container using the immutable Ru
 The current registered sandbox controls include:
 
 - explicit `linux/amd64`;
+- active seccomp filtering is observed in the container (`Seccomp=2` with filters present);
+- KVM, `/dev/mem`, `/dev/kmem`, and `/dev/kmsg` device surfaces are absent;
 - network disabled;
 - read-only root filesystem;
 - non-root user;
@@ -236,8 +239,9 @@ Before this mechanism is treated as authoritative:
 1. install S0, S1, and S2 on protected `main`;
 2. establish the applicable `pull_request_target` Actions event policy required by
    **#4195** before November 2, 2026;
-3. execute a real candidate run and capture the complete S0 -> S1 -> S2 attempt;
-4. retain exact run/attempt, workflow-identity, source-digest, lockfile, vendor, sandbox,
+3. enforce the branch/ruleset review and no-bypass governance recorded in **#4196**;
+4. execute a real candidate run and capture the complete S0 -> S1 -> S2 attempt;
+5. retain exact run/attempt, workflow-identity, source-digest, lockfile, vendor, sandbox,
    and gate evidence.
 
 Until then, queued CI or a committed workflow definition remains **unverified**, not PASS.
