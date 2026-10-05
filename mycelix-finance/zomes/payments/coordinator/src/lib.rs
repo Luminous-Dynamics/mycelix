@@ -555,10 +555,20 @@ pub struct TransferSapInput {
     pub from_did: String,
     pub to_did: String,
     pub amount: u64,
+    /// Stable idempotency key. This field remains optional for wire compatibility,
+    /// but `transfer_sap` rejects `None` so ambiguous retries cannot create a new transfer.
     #[serde(default)]
     pub transfer_id: Option<String>,
 }
 
+
+fn require_stable_transfer_id(
+    transfer_id: Option<String>,
+) -> ExternResult<String> {
+    transfer_id.ok_or(wasm_error!(WasmErrorInner::Guest(
+        "transfer_id is required: use a stable idempotency key and reuse it on retry".into(),
+    )))
+}
 
 /// Sender-side SAP settlement.
 ///
@@ -587,11 +597,7 @@ pub fn transfer_sap(input: TransferSapInput) -> ExternResult<Record> {
     // The transfer ID is the idempotency boundary. Auto-generating a new ID
     // from wall-clock time would turn an ambiguous retry into a second transfer.
     // Callers therefore must supply a stable request identifier and reuse it on retry.
-    let transfer_id = input.transfer_id.ok_or(wasm_error!(
-        WasmErrorInner::Guest(
-            "transfer_id is required: use a stable idempotency key and reuse it on retry".into()
-        )
-    ))?;
+    let transfer_id = require_stable_transfer_id(input.transfer_id)?;
 
     initiate_sap_transfer(TransferSapIntentInput {
         transfer_id,
@@ -2961,29 +2967,21 @@ mod ac099_tests {
     use super::*;
 
     #[test]
-    fn transfer_input_requires_explicit_idempotency_key() {
-        let input = TransferSapInput {
-            from_did: "did:mycelix:sender".into(),
-            to_did: "did:mycelix:recipient".into(),
-            amount: 42,
-            transfer_id: None,
-        };
-
-        assert!(input.transfer_id.is_none());
+    fn transfer_without_idempotency_key_is_rejected() {
+        let result = require_stable_transfer_id(None);
+        assert!(matches!(
+            result,
+            Err(e) if format!("{e:?}").contains("transfer_id is required")
+        ));
     }
 
     #[test]
-    fn transfer_input_preserves_stable_idempotency_key() {
-        let input = TransferSapInput {
-            from_did: "did:mycelix:sender".into(),
-            to_did: "did:mycelix:recipient".into(),
-            amount: 42,
-            transfer_id: Some("transfer:stable-request-001".into()),
-        };
+    fn transfer_reuses_explicit_idempotency_key() {
+        let result = require_stable_transfer_id(
+            Some("transfer:stable-request-001".into()),
+        )
+        .unwrap();
 
-        assert_eq!(
-            input.transfer_id.as_deref(),
-            Some("transfer:stable-request-001")
-        );
+        assert_eq!(result, "transfer:stable-request-001");
     }
 }
