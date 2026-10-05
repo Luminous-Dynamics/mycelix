@@ -18,7 +18,7 @@ env:
   BASE_REPOSITORY: "Luminous-Dynamics/mycelix"
   BASE_BRANCH: "main"
   TRUSTED_INDEPENDENT_WORKFLOW_PATH: ".github/workflows/security-kernel-independent-qualification.yml"
-  TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "7c4919311d351ec88e65be4347a6418a1b47172b"
+  TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "a346eccc752c54c44895b77544f15e7921f58a7f"
   TRUSTED_DISPATCHER_WORKFLOW_PATH: ".github/workflows/security-kernel-trusted-dispatch.yml"
 
 jobs:
@@ -90,4 +90,4 @@ jobs:
       candidate_pr: ${{ needs.resolve.outputs.candidate_pr }}
       candidate_sha: ${{ needs.resolve.outputs.candidate_sha }}
       candidate_repository: ${{ needs.resolve.outputs.candidate_repository }}
-      trusted_workflow_blob_sha: "7c4919311d351ec88e65be4347a6418a1b47172b"
+      trusted_workflow_blob_sha: "a346eccc752c54c44895b77544f15e7921f58a7f"
