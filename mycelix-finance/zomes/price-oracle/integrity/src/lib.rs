@@ -16,6 +16,7 @@
 //! an independent price signal that Observatory can optionally consume.
 
 use hdi::prelude::*;
+use mycelix_bridge_entry_types::{did_for_author, require_did_is_author};
 
 // =============================================================================
 // CONSTANTS
@@ -243,7 +244,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(store_entry) => match store_entry {
             OpEntry::CreateEntry { app_entry, .. } => match app_entry {
-                EntryTypes::PriceReport(report) => validate_price_report(&report),
+                EntryTypes::PriceReport(report) => {
+                    validate_price_report(EntryCreationAction::Create(action), report)
+                },
                 EntryTypes::PriceConsensus(consensus) => validate_consensus(&consensus),
                 EntryTypes::BasketDefinition(basket) => validate_basket(&basket),
                 EntryTypes::VolatilityAlert(_) => Ok(ValidateCallbackResult::Valid),
@@ -277,7 +280,36 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     }
 }
 
-fn validate_price_report(report: &PriceReport) -> ExternResult<ValidateCallbackResult> {
+fn validate_price_report(
+    action: EntryCreationAction,
+    report: PriceReport,
+) -> ExternResult<ValidateCallbackResult> {
+    // Bind the reporter identity to the signed Create action.
+    let author_did = match action {
+        EntryCreationAction::Create(ref create) => did_for_author(&create.author),
+    };
+    if let ValidateCallbackResult::Invalid(msg) =
+        require_did_is_author("PriceReport", "reporter_did", &report.reporter_did, &author_did)
+    {
+        return Ok(ValidateCallbackResult::Invalid(msg));
+    }
+
+    // The coordinator sets reported_at to the source-chain action timestamp.
+    // Enforce that relationship and prevent observations from being declared
+    // after their reporting action.
+    if let EntryCreationAction::Create(ref create) = action {
+        if report.reported_at != create.timestamp {
+            return Ok(ValidateCallbackResult::Invalid(
+                "PriceReport reported_at must equal the Create action timestamp".into(),
+            ));
+        }
+    }
+    if report.observed_at > report.reported_at {
+        return Ok(ValidateCallbackResult::Invalid(
+            "PriceReport observed_at cannot be later than reported_at".into(),
+        ));
+    }
+
     if report.item.is_empty() || report.item.len() > MAX_ITEM_NAME_LEN {
         return Ok(ValidateCallbackResult::Invalid(format!(
             "Item name must be 1-{MAX_ITEM_NAME_LEN} characters"
