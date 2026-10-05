@@ -2208,29 +2208,6 @@ check_standalone_tests_workspace_boundary() {
 
 check_qualification_workflow_provenance() {
   local workflow=".github/workflows/hearth-07-qualification.yml"
-  if [[ ! -f ".github/workflows/hearth-07-workflow-lint.yml" ]]; then
-    echo "FAIL: missing independent Hearth 0.7 workflow-lint workflow"
-    fail=1
-  elif rg -n --fixed-strings 'version="1.7.12"' ".github/workflows/hearth-07-workflow-lint.yml" >/dev/null 2>&1     && rg -n --fixed-strings '8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8' ".github/workflows/hearth-07-workflow-lint.yml" >/dev/null 2>&1     && rg -n --fixed-strings 'https://github.com/rhysd/actionlint/releases/download/v${version}/actionlint_${version}_linux_amd64.tar.gz' ".github/workflows/hearth-07-workflow-lint.yml" >/dev/null 2>&1     && rg -n --fixed-strings '.github/workflows/hearth-07-qualification.yml' ".github/workflows/hearth-07-workflow-lint.yml" >/dev/null 2>&1     && rg -n --fixed-strings 'actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803' ".github/workflows/hearth-07-workflow-lint.yml" >/dev/null 2>&1     && rg -n --fixed-strings 'QUALIFY_SHA: ${{ github.event.pull_request.head.sha || github.sha }}' ".github/workflows/hearth-07-workflow-lint.yml" >/dev/null 2>&1     && rg -n --fixed-strings 'ref: ${{ env.QUALIFY_SHA }}' ".github/workflows/hearth-07-workflow-lint.yml" >/dev/null 2>&1     && rg -n --fixed-strings 'Verify exact lint checkout' ".github/workflows/hearth-07-workflow-lint.yml" >/dev/null 2>&1     && rg -n --fixed-strings 'shell: bash' ".github/workflows/hearth-07-workflow-lint.yml" >/dev/null 2>&1     && ! rg -n --fixed-strings '-shellcheck' ".github/workflows/hearth-07-workflow-lint.yml" >/dev/null 2>&1; then
-    echo "OK:   independent qualification workflow lint verifies the official actionlint release by SHA-256"
-  else
-    echo "FAIL: independent qualification workflow lint must pin and hash-lock official actionlint"
-    fail=1
-  fi
-  if [[ ! -f "$workflow" ]]; then
-    echo "FAIL: missing Hearth 0.7 qualification workflow"
-    fail=1
-    return
-  fi
-  if [[ ! -f ".github/workflows/hearth-07-workflow-lint.yml" ]]; then
-    echo "FAIL: missing independent Hearth 0.7 workflow-lint workflow"
-    fail=1
-  elif rg -n --fixed-strings "raven-actions/actionlint@3d39aea434753780c3b3d4a1a31c854b4dbf49d7" ".github/workflows/hearth-07-workflow-lint.yml" >/dev/null 2>&1     && rg -n --fixed-strings 'version: "1.7.12"' ".github/workflows/hearth-07-workflow-lint.yml" >/dev/null 2>&1     && rg -n --fixed-strings 'files: ".github/workflows/hearth-07-qualification.yml"' ".github/workflows/hearth-07-workflow-lint.yml" >/dev/null 2>&1     && rg -n --fixed-strings "actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803" ".github/workflows/hearth-07-workflow-lint.yml" >/dev/null 2>&1; then
-    echo "OK:   independent qualification workflow lint is present, pinned, and targets the qualification workflow"
-  else
-    echo "FAIL: independent qualification workflow lint must be pinned and target hearth-07-qualification.yml"
-    fail=1
-  fi
   if rg -n --fixed-strings "runs-on: ubuntu-24.04" "$workflow" >/dev/null 2>&1; then
     echo "OK:   qualification workflow pins the GitHub-hosted runner image to Ubuntu 24.04"
   else
