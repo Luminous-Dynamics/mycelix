@@ -17,6 +17,7 @@ from verify_d6u_trusted_artifacts import (
     verify_trigger_run_record,
     verify_forbidden_cargo_config_paths,
     verify_exact_harness_file_set,
+    verify_artifact_size_limits,
 )
 
 
@@ -89,6 +90,12 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         "d6u-runtime-harness/src/lib.rs",
         "d6u-runtime-harness/tests/d6u_authority_boundary.rs",
     ]
+    assert policy["artifact_max_bytes"] == {
+        "d6u-runtime-evidence.txt": 262144,
+        "d6u-runtime-test.log": 8388608,
+        "Cargo.lock": 4194304,
+    }
+    assert policy["artifact_max_total_bytes"] == 12582912
 
 
 def record_metadata_policy() -> dict:
@@ -223,6 +230,34 @@ def test_harness_file_set_rejects_extra_build_script() -> None:
         lambda: verify_exact_harness_file_set(tree, expected),
         "extra executable harness file was accepted",
     )
+
+
+def test_artifact_size_limits_are_enforced() -> None:
+    maximums = {
+        "d6u-runtime-evidence.txt": 16,
+        "d6u-runtime-test.log": 32,
+        "Cargo.lock": 16,
+    }
+    with tempfile.TemporaryDirectory() as tmp:
+        artifact_dir = Path(tmp)
+        for name in maximums:
+            (artifact_dir / name).write_text("ok", encoding="utf-8")
+        verify_artifact_size_limits(artifact_dir, maximums, 64)
+
+        oversized = artifact_dir / "d6u-runtime-test.log"
+        oversized.write_bytes(b"x" * (maximums["d6u-runtime-test.log"] + 1))
+        assert_rejected(
+            lambda: verify_artifact_size_limits(artifact_dir, maximums, 64),
+            "oversized trusted artifact member was accepted",
+        )
+
+        oversized.write_text("ok", encoding="utf-8")
+        (artifact_dir / "Cargo.lock").write_bytes(b"x" * 16)
+        (artifact_dir / "d6u-runtime-evidence.txt").write_bytes(b"x" * 16)
+        assert_rejected(
+            lambda: verify_artifact_size_limits(artifact_dir, maximums, 16),
+            "oversized trusted artifact aggregate was accepted",
+        )
 
 
 def test_valid_log_is_accepted() -> None:
@@ -539,6 +574,7 @@ if __name__ == "__main__":
         test_forbidden_cargo_config_is_rejected,
         test_record_metadata_is_canonicalized,
         test_harness_file_set_rejects_extra_build_script,
+        test_artifact_size_limits_are_enforced,
         test_valid_log_is_accepted,
         test_case_tampering_is_rejected,
         test_duplicate_case_is_rejected,
