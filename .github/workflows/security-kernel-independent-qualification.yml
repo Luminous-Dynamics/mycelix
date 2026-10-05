@@ -72,7 +72,6 @@ jobs:
           CALLED_WORKFLOW_SHA: ${{ job.workflow_sha }}
           CALLED_WORKFLOW_REPOSITORY: ${{ job.workflow_repository }}
           CALLED_WORKFLOW_FILE_PATH: ${{ job.workflow_file_path }}
-          CACHE_MODE: ${{ env.ACTIONS_CACHE_MODE }}
           TRUSTED_WORKFLOW_BLOB_SHA: ${{ inputs.trusted_workflow_blob_sha }}
           WORKFLOW_SHA: ${{ github.workflow_sha }}
         run: |
@@ -81,7 +80,7 @@ jobs:
           test "$GITHUB_REF" = "refs/heads/main"
           test "$GITHUB_REPOSITORY" = "$BASE_REPOSITORY"
           test "$GITHUB_REPOSITORY_ID" = "$BASE_REPOSITORY_ID"
-          test "$CACHE_MODE" = "none"
+          test "${ACTIONS_CACHE_MODE:-}" = "none"
           test "$GITHUB_EVENT_NAME" = "pull_request_target"
           test "$CALLED_WORKFLOW_REF" = "Luminous-Dynamics/mycelix/.github/workflows/security-kernel-independent-qualification.yml@refs/heads/main"
           test "$CALLED_WORKFLOW_REPOSITORY" = "$BASE_REPOSITORY"
@@ -924,6 +923,7 @@ jobs:
             echo "trusted_repository_id=$BASE_REPOSITORY_ID"
             echo "trusted_workflow_repository=$CALLED_WORKFLOW_REPOSITORY"
             echo "trusted_workflow_file_path=$CALLED_WORKFLOW_FILE_PATH"
+            echo "cache_mode=${ACTIONS_CACHE_MODE:-}"
             echo "registered_s1_workflow_blob_sha=$TRUSTED_WORKFLOW_BLOB_SHA"
             echo "called_workflow_ref=$CALLED_WORKFLOW_REF"
             echo "called_workflow_sha=$CALLED_WORKFLOW_SHA"
