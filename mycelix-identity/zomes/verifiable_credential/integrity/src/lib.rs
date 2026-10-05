@@ -816,7 +816,11 @@ fn validate_credential_link(
                 LinkTypes::SubjectToCredential => string_to_entry_hash(&vc.credential_subject.id),
                 LinkTypes::SchemaToCredential => string_to_entry_hash(&vc.mycelix_schema_id),
                 LinkTypes::CredentialIdToCredential => string_to_entry_hash(&vc.id),
-                _ => unreachable!(),
+                _ => {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "Unexpected credential link type for credential index".into(),
+                    ));
+                }
             };
             let actual_base = base_address.clone().into_entry_hash().ok_or_else(|| {
                 wasm_error!(WasmErrorInner::Guest(
