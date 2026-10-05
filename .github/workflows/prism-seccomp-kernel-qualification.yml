@@ -94,41 +94,54 @@ jobs:
             seccomp_tsync_esrch_normalizes_strict_mode_failure
             seccomp_tsync_constrains_existing_sibling_threads
           )
+
           inventory="${root}/seccomp-test-inventory.txt"
+          list_log="${root}/seccomp-test-list.log"
+          set +e
+          cargo +1.96.0 test --locked -p prism-bridge --test seccomp_adversarial -- --list >"${list_log}" 2>&1
+          list_status=$?
+          set -e
+
+          inventory_status=0
+          if [[ "${list_status}" -ne 0 ]]; then
+            echo "ERROR: unable to enumerate canonical seccomp adversarial test inventory" >&2
+            inventory_status="${list_status}"
+          fi
+
           {
             echo "expected_count=${#expected_tests[@]}"
             for test_name in "${expected_tests[@]}"; do
               echo "expected=${test_name}"
             done
-            observed_count="$(grep -Ec "^test [A-Za-z0-9_]+ \.\.\. ok$" "${root}/seccomp-test.log" || true)"
+            observed_count="$(grep -Ec '^seccomp_[A-Za-z0-9_]+: test$' "${list_log}" || true)"
             echo "observed_count=${observed_count}"
             for test_name in "${expected_tests[@]}"; do
-              if grep -Fq "test ${test_name} ... ok" "${root}/seccomp-test.log"; then
+              if grep -Fqx "${test_name}: test" "${list_log}"; then
                 echo "observed=${test_name}"
               else
                 echo "missing=${test_name}"
+                inventory_status=1
               fi
             done
+            if [[ "${observed_count}" -ne "${#expected_tests[@]}" ]]; then
+              echo "count_mismatch=true"
+              inventory_status=1
+            else
+              echo "count_mismatch=false"
+            fi
           } | tee "${inventory}"
 
-          expected_count=${#expected_tests[@]}
-          observed_count="$(grep -Ec "^test [A-Za-z0-9_]+ \.\.\. ok$" "${root}/seccomp-test.log" || true)"
-          inventory_status=0
-          if [[ "${observed_count}" -ne "${expected_count}" ]]; then
-            echo "ERROR: adversarial test inventory count mismatch (expected ${expected_count}, observed ${observed_count})" >&2
-            inventory_status=1
+          if [[ "${inventory_status}" -ne 0 ]]; then
+            cat "${list_log}" >&2 || true
           fi
-          for test_name in "${expected_tests[@]}"; do
-            if ! grep -Fq "test ${test_name} ... ok" "${root}/seccomp-test.log"; then
-              echo "ERROR: required adversarial test did not pass: ${test_name}" >&2
-              inventory_status=1
-            fi
-          done
 
           if [[ "${test_status}" -ne 0 ]]; then
             exit "${test_status}"
           fi
-          exit "${inventory_status}"
+          if [[ "${inventory_status}" -ne 0 ]]; then
+            exit "${inventory_status}"
+          fi
+          exit 0
 
       - name: Emit kernel qualification identity
         if: ${{ always() }}
@@ -163,6 +176,9 @@ jobs:
             echo "test_command=RUST_TEST_THREADS=1 cargo +1.96.0 test --locked -p prism-bridge --test seccomp_adversarial"
             echo "cargo_version=$(cargo +1.96.0 --version)"
             echo "rustc_version=$(rustc +1.96.0 --version)"
+            if [[ -f "${root}/seccomp-test-list.log" ]]; then
+              echo "test_inventory_source=cargo-test---list"
+            fi
             if [[ -f "${root}/seccomp-test-inventory.txt" ]]; then
               while IFS= read -r line; do
                 printf "test_inventory_%s\n" "${line}"
@@ -198,6 +214,9 @@ jobs:
           fi
           if [[ -f "${root}/seccomp-test-inventory.txt" ]]; then
             cp "${root}/seccomp-test-inventory.txt" "${evidence_dir}/seccomp-test-inventory.txt"
+          fi
+          if [[ -f "${root}/seccomp-test-list.log" ]]; then
+            cp "${root}/seccomp-test-list.log" "${evidence_dir}/seccomp-test-list.log"
           fi
 
       - name: Upload kernel qualification evidence
