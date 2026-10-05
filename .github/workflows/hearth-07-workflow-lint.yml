@@ -1,0 +1,34 @@
+name: Hearth 0.7 Workflow Lint
+
+on:
+  push:
+    branches:
+      - 'chore/hearth-07-*'
+    paths:
+      - ".github/workflows/hearth-07-qualification.yml"
+      - ".github/workflows/hearth-07-workflow-lint.yml"
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - ".github/workflows/hearth-07-qualification.yml"
+      - ".github/workflows/hearth-07-workflow-lint.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  actionlint:
+    name: Validate Hearth 0.7 qualification workflow
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - name: Run actionlint
+        uses: raven-actions/actionlint@3d39aea434753780c3b3d4a1a31c854b4dbf49d7
+        with:
+          version: "1.7.12"
+          files: ".github/workflows/hearth-07-qualification.yml"
+          shellcheck: true
+          pyflakes: true
+          cache: true
