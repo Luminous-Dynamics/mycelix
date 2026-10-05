@@ -892,6 +892,18 @@ def attestation_entry(
     }
 
 
+def test_retention_packet_rejects_extra_member() -> None:
+    import verify_d6u_trusted_attestation_retention as retention
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        (root / "unexpected.json").write_text("{}", encoding="utf-8")
+        assert_rejected(
+            lambda: retention.main(),
+            "retention packet accepted an unexpected member",
+        )
+
+
 def test_trusted_zip_accepts_exact_members() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         archive = Path(tmp) / "artifact.zip"
@@ -1330,6 +1342,7 @@ if __name__ == "__main__":
         test_custom_attestation_requires_verified_timestamp,
         test_custom_attestation_rejects_non_tlog_timestamp,
         test_custom_attestation_subject_set_is_order_independent_but_exact,
+        test_retention_packet_rejects_extra_member,
         test_custom_attestation_accepts_current_run_and_rejects_old_run,
         test_trusted_workflow_policy_shape_is_pinned,
         test_artifact_layout_rejects_symlink,
