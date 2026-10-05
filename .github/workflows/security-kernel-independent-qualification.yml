@@ -867,6 +867,9 @@ jobs:
             echo "trusted_workflow_ref=$GITHUB_WORKFLOW_REF"
             echo "trusted_workflow_sha=$GITHUB_WORKFLOW_SHA"
             echo "trusted_workflow_name=$GITHUB_WORKFLOW"
+            echo "registered_s1_workflow_blob_sha=$TRUSTED_WORKFLOW_BLOB_SHA"
+            echo "s1_run_id=$GITHUB_RUN_ID"
+            echo "s1_run_attempt=$GITHUB_RUN_ATTEMPT"
             echo "rust_version=$RUST_VERSION"
             echo "rust_commit=$RUST_COMMIT"
             echo "qualification_pass=true"
@@ -875,7 +878,6 @@ jobs:
 
       - name: Upload qualification receipt
         if: success()
-        continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: security-kernel-independent-qualification-${{ inputs.candidate_sha }}
