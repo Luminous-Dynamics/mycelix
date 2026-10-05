@@ -240,6 +240,7 @@ def fixture_manifest() -> dict[str, Any]:
             "ek_public_sha256": "b" * 64,
             "identity_digest": "",
         },
+        "ek_certificate_chain_capture": ek_certificate_chain_capture_manifest,
         "event_log": {
             "sha256": "c" * 64,
             "parser_profile_id": "tcg.pc-client.event-log",
@@ -1256,6 +1257,36 @@ def run_ek_certificate_capture(out: Path, env: dict[str, str]) -> dict[str, Any]
     return result_value
 
 
+def run_ek_certificate_chain_capture(out: Path, env: dict[str, str]) -> dict[str, Any]:
+    if not EK_CERTIFICATE_CHAIN_CAPTURE_SCRIPT.is_file():
+        raise RuntimeError("EK certificate-chain capture helper missing")
+    proc = run(
+        [
+            sys.executable,
+            str(EK_CERTIFICATE_CHAIN_CAPTURE_SCRIPT),
+            "--capture",
+            "--output",
+            str(out),
+        ],
+        env,
+        out,
+        check=False,
+    )
+    result_path = out / "ek-cert-chain-nv-capture.json"
+    if not result_path.is_file():
+        raise RuntimeError(
+            f"EK certificate-chain capture helper produced no result: {proc.stdout}{proc.stderr}"
+        )
+    value = load_json(result_path)
+    if value.get("verifier_id") != EK_CERTIFICATE_CHAIN_CAPTURE_ID:
+        raise RuntimeError("EK certificate-chain capture helper verifier identity mismatch")
+    if value.get("state") == "DENY":
+        raise RuntimeError(
+            f"EK certificate-chain capture source policy denied: {value.get('reason')}"
+        )
+    return value
+
+
 def run_ek_cert_spki_verifier(
     input_path: Path,
     output_path: Path,
@@ -2036,6 +2067,24 @@ def capture(args: argparse.Namespace) -> int:
             "ek_public_source_sha256": public_name_ek["source_sha256"],
         }
 
+    ek_certificate_chain_capture = run_ek_certificate_chain_capture(out, env)
+    chain_capture_details = ek_certificate_chain_capture.get("details", {})
+    ek_certificate_chain_capture_manifest = {
+        "status": ek_certificate_chain_capture.get("state", "INDETERMINATE"),
+        "verifier_id": EK_CERTIFICATE_CHAIN_CAPTURE_ID,
+        "reason": ek_certificate_chain_capture.get("reason", "unknown"),
+        "result_sha256": sha256_file(out / "ek-cert-chain-nv-capture.json"),
+        "inventory_sha256": sha256_file(out / "ek-cert-chain-nv-index-handles.txt"),
+        "transcript_sha256": sha256_file(out / "ek-cert-chain-nv-capture-transcript.json"),
+        "script_sha256": sha256_file(EK_CERTIFICATE_CHAIN_CAPTURE_SCRIPT),
+        "source_mode": chain_capture_details.get("source_policy", {}).get("mode", "UNKNOWN"),
+        "candidate_handles": chain_capture_details.get("candidate_handles", []),
+        "first_handle": chain_capture_details.get("first_handle"),
+        "last_handle": chain_capture_details.get("last_handle"),
+        "first_gap": chain_capture_details.get("first_gap"),
+        "concatenated_sha256": chain_capture_details.get("concatenated_sha256"),
+    }
+
     parsed = run(
         ["tpm2_eventlog", "--eventlog-version=1", str(out / "eventlog.bin")],
         env,
@@ -2274,8 +2323,17 @@ def capture(args: argparse.Namespace) -> int:
                 sha256_file(out / "ek-cert-spki-binding.json")
                 if (out / "ek-cert-spki-binding.json").is_file()
                 else None
+            "ek_cert_spki_output_sha256": (
+                sha256_file(out / "ek-cert-spki-binding.json")
+                if (out / "ek-cert-spki-binding.json").is_file()
+                else None
             ),
-        },
+            "ek_certificate_chain_capture_result_sha256": sha256_file(out / "ek-cert-chain-nv-capture.json"),
+            "ek_certificate_chain_capture_inventory_sha256": sha256_file(out / "ek-cert-chain-nv-index-handles.txt"),
+            "ek_certificate_chain_capture_transcript_sha256": sha256_file(out / "ek-cert-chain-nv-capture-transcript.json"),
+            "ek_certificate_chain_capture_script_sha256": sha256_file(EK_CERTIFICATE_CHAIN_CAPTURE_SCRIPT),
+            "ek_certificate_chain_concatenated_sha256": sha256_file(out / "ek-cert-chain-nv-concatenated.bin"),
+       },
         "os_image_digest": args.os_image_digest,
         "workload_digest": args.workload_digest,
         "capture_status": "CAPTURED_RAW_EVIDENCE",
