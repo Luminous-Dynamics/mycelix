@@ -156,6 +156,7 @@ jobs:
       actions: read
       contents: read
       pull-requests: read
+    cache-mode: none
     uses: ./.github/workflows/security-kernel-independent-qualification.yml
     with:
       candidate_pr: ${{ needs.resolve.outputs.candidate_pr }}
