@@ -842,6 +842,7 @@ jobs:
           CANDIDATE_TREE: ${{ steps.resolve_source.outputs.candidate_tree }}
           SOURCE_TREE_ENTRY_COUNT: ${{ steps.resolve_source.outputs.source_tree_entry_count }}
           SOURCE_FILE_COUNT: ${{ steps.resolve_source.outputs.source_file_count }}
+          SOURCE_TOTAL_PATH_BYTES: ${{ steps.resolve_source.outputs.source_total_path_bytes }}
           SOURCE_TOTAL_BYTES: ${{ steps.resolve_source.outputs.source_total_bytes }}
           SOURCE_MAX_BLOB_BYTES: ${{ steps.resolve_source.outputs.source_max_blob_bytes }}
           SOURCE_DIGEST: ${{ steps.snapshot_source.outputs.source_digest }}
@@ -863,6 +864,7 @@ jobs:
             echo "candidate_tree=$CANDIDATE_TREE"
             echo "candidate_source_tree_entry_count=$SOURCE_TREE_ENTRY_COUNT"
             echo "candidate_source_file_count=$SOURCE_FILE_COUNT"
+            echo "candidate_source_total_path_bytes=$SOURCE_TOTAL_PATH_BYTES"
             echo "candidate_source_total_bytes=$SOURCE_TOTAL_BYTES"
             echo "candidate_source_max_blob_bytes=$SOURCE_MAX_BLOB_BYTES"
             echo "candidate_source_digest=$SOURCE_DIGEST"
