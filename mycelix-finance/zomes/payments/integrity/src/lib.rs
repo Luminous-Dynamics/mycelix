@@ -124,22 +124,13 @@ pub struct SapBalance {
     /// `#[serde(default)]` keeps pre-Amber balances deserializable.
     #[serde(default)]
     pub exemption: Option<AmberExemption>,
-    /// ActionHash of the entry that justifies this balance's delta from its
-    /// predecessor — a `SapMintRecord` for issuance, or the counterpart payment
-    /// for a transfer.
+    /// ActionHash of the immutable authorization that justifies this balance
+    /// transition. A positive delta MUST reference a `SapTransferClaim` or
+    /// `SapMintClaim`; a transfer debit MAY reference its `SapTransferIntent`.
     ///
-    /// STEP 1 OF THE CONSERVATION MODEL (WU-1', see
-    /// MYCELIX_PHASE1_EXECUTION_PLAN_2026-07-28.md). The field is threaded
-    /// through now but NOT yet enforced: integrity does not check it, and every
-    /// producer currently writes `None`. Adding it separately keeps the cluster
-    /// green while the mint/transfer paths are migrated to populate it, after
-    /// which integrity can require it for any *increase*.
-    ///
-    /// `Option` for a SEMANTIC reason, not backward compatibility: the genesis
-    /// balance created by `initialize_sap_balance` is zero and has nothing
-    /// justifying it. (There is no deployed DHT to migrate — Mycelix is a
-    /// prototype, pre-testnet, with no users as of 2026-07-29.)
-    #[serde(default)]
+    /// The genesis balance is the sole owner-initialized zero state and carries
+    /// no justification. Every later positive monetary transition is therefore
+    /// tied to an addressable, immutable claim rather than a mutable reason string.
     pub justified_by: Option<ActionHash>,
 }
 
@@ -671,18 +662,36 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             }
         }
         FlatOp::RegisterDeleteLink { link_type, .. } => {
-            // Prevent deletion of critical links
-            match link_type {
-                LinkTypes::PaymentToReceipt => Ok(ValidateCallbackResult::Invalid(
-                    "PaymentToReceipt links cannot be deleted - receipts are immutable".into(),
-                )),
-                _ => Ok(ValidateCallbackResult::Valid),
-            }
+            Ok(validate_delete_link_type(&link_type))
         }
         FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterUpdate(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterDelete(_) => Ok(ValidateCallbackResult::Valid),
+    }
+}
+
+/// Settlement, account, and idempotency indexes are intentionally append-only.
+/// Their coordinator lookups are used as replay guards; allowing link deletion would
+/// let an attacker erase the canonical index entry and replay an otherwise immutable
+/// transfer, claim, mint, payment, or balance initialization.
+fn validate_delete_link_type(link_type: &LinkTypes) -> ValidateCallbackResult {
+    match link_type {
+        LinkTypes::PaymentToReceipt
+        | LinkTypes::PaymentIdToPayment
+        | LinkTypes::DidToSapBalance
+        | LinkTypes::TransferIdToIntent
+        | LinkTypes::TransferIdToClaim
+        | LinkTypes::MintIdToClaim
+        | LinkTypes::MintIdToMintRecord
+        | LinkTypes::DidToMintRecords
+        | LinkTypes::ChannelIdToChannel
+        | LinkTypes::MemberToExitRecord => ValidateCallbackResult::Invalid(
+            "Critical finance index links are append-only and cannot be deleted".into(),
+        ),
+        // PendingCompostQueue is deliberately mutable: successful delivery drains
+        // the retry queue by deleting the consumed queue link.
+        _ => ValidateCallbackResult::Valid,
     }
 }
 
@@ -1573,11 +1582,13 @@ mod tests {
     fn valid_sap_mint_record() -> SapMintRecord {
         SapMintRecord {
             id: "mint:test:001".into(),
-            recipient_did: "did:mycelix:alice".into(),
+            recipient_did: test_author_did(),
             amount: 1_000_000,
             source: SapMintSource::InitialDistribution {
                 reason: "Bootstrap".into(),
             },
+            authorized_by_did: Some(test_author_did()),
+            basis_id: Some("initial-distribution:test:001".into()),
             minted_at: ts(1_000_000),
         }
     }
@@ -1877,7 +1888,10 @@ mod tests {
 
     #[test]
     fn test_valid_sap_mint_record() {
-        let result = validate_create_sap_mint_record(&valid_sap_mint_record()).unwrap();
+        let result = validate_create_sap_mint_record(
+            EntryCreationAction::Create(make_create()),
+            &valid_sap_mint_record(),
+        ).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Valid));
     }
 
@@ -1887,8 +1901,48 @@ mod tests {
     fn test_sap_mint_record_zero_amount() {
         let mut mint = valid_sap_mint_record();
         mint.amount = 0;
-        let result = validate_create_sap_mint_record(&mint).unwrap();
+        let result = validate_create_sap_mint_record(
+            EntryCreationAction::Create(make_create()),
+            &mint,
+        ).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    // ---- 22. Critical finance indexes cannot be deleted ----
+
+    #[test]
+    fn test_critical_finance_indexes_are_non_destructive() {
+        let critical = vec![
+            LinkTypes::PaymentToReceipt,
+            LinkTypes::PaymentIdToPayment,
+            LinkTypes::DidToSapBalance,
+            LinkTypes::TransferIdToIntent,
+            LinkTypes::TransferIdToClaim,
+            LinkTypes::MintIdToClaim,
+            LinkTypes::MintIdToMintRecord,
+            LinkTypes::DidToMintRecords,
+            LinkTypes::ChannelIdToChannel,
+            LinkTypes::MemberToExitRecord,
+        ];
+
+        for link_type in &critical {
+            assert!(
+                matches!(
+                    validate_delete_link_type(link_type),
+                    ValidateCallbackResult::Invalid(msg)
+                        if msg.contains("append-only")
+                ),
+                "critical finance link should be non-destructive: {link_type:?}",
+            );
+        }
+    }
+
+    #[test]
+    fn test_pending_compost_queue_remains_deletable() {
+        assert!(matches!(
+            validate_delete_link_type(&LinkTypes::PendingCompostQueue),
+            ValidateCallbackResult::Valid
+        ));
     }
 
     // ---- 22. SapMintRecord cannot be updated (must fail) ----
