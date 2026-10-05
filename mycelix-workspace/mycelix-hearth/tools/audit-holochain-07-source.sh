@@ -2502,10 +2502,14 @@ PY
   fi
   if rg -n --fixed-strings "cargo build --locked" "$workflow" >/dev/null 2>&1 \
     && rg -n --fixed-strings "cargo test --locked" "$workflow" >/dev/null 2>&1 \
-    && rg -n --fixed-strings "cargo generate-lockfile" "$workflow" >/dev/null 2>&1; then
-    echo "OK:   qualification workflow generates and consumes locked Rust closures"
+    && rg -n --fixed-strings "cargo generate-lockfile" "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings "Classify Rust dependency closure provenance" "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings "dependency_closure_status=generated_at_runtime" "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings "dependency_closure_status=source_controlled_and_stable" "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings "grep -Fxq \"dependency_closure_status=source_controlled_and_stable\"" "$workflow" >/dev/null 2>&1; then
+    echo "OK:   qualification workflow records dependency-closure provenance and gates complete evidence on a stable source-controlled lock closure"
   else
-    echo "FAIL: qualification workflow is missing locked Rust dependency closure enforcement"
+    echo "FAIL: qualification workflow must explicitly classify dependency closure provenance and require source-controlled stable locks for complete evidence"
     fail=1
   fi
 }
