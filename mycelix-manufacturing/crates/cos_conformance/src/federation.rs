@@ -3344,6 +3344,16 @@ mod tests {
     const FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_CONSISTENCY_RECEIPT_HASH_ENCODING: &str =
         "serde-json-struct-order-v1";
 
+    const FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_EQUIVOCATION_WITNESS_SCHEMA_VERSION: u16 = 1;
+    const FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_EQUIVOCATION_WITNESS_PROFILE: &str =
+        "integral-federation-trace-publication-equivocation-witness-v1";
+    const FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_EQUIVOCATION_WITNESS_HASH_DOMAIN: &str =
+        "integral-federation-trace-publication-equivocation-witness-sha256-v1";
+    const FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_EQUIVOCATION_WITNESS_HASH_ALGORITHM: &str =
+        "sha-256";
+    const FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_EQUIVOCATION_WITNESS_HASH_ENCODING: &str =
+        "serde-json-struct-order-v1";
+
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
     #[serde(deny_unknown_fields)]
     struct FederationStateMachineTraceCheckpointConsistencyReceipt {
@@ -3394,6 +3404,37 @@ mod tests {
         chain_head_sha256: String,
         previous_publication_sha256: String,
         publication_sha256: String,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct FederationStateMachineTracePublicationEquivocationWitness {
+        schema_version: u16,
+        witness_profile: String,
+        hash_algorithm: String,
+        hash_encoding: String,
+        trace_schema_version: u16,
+        trace_verification_profile: String,
+        trace_index: usize,
+        predecessor_publication_sha256: String,
+        first_publication_sha256: String,
+        second_publication_sha256: String,
+        witness_sha256: String,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+    struct FederationStateMachineTracePublicationEquivocationWitnessHashView {
+        hash_domain: String,
+        schema_version: u16,
+        witness_profile: String,
+        hash_algorithm: String,
+        hash_encoding: String,
+        trace_schema_version: u16,
+        trace_verification_profile: String,
+        trace_index: usize,
+        predecessor_publication_sha256: String,
+        first_publication_sha256: String,
+        second_publication_sha256: String,
     }
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -3587,6 +3628,233 @@ mod tests {
         ConsistencyReceiptPublicationBindingMismatch,
         ConsistencyReceiptEndpointMismatch,
         ConsistencyReceiptDigestMismatch,
+    }
+
+
+    fn state_machine_trace_publication_equivocation_witness_sha256(
+        witness: &FederationStateMachineTracePublicationEquivocationWitness,
+    ) -> String {
+        let view = FederationStateMachineTracePublicationEquivocationWitnessHashView {
+            hash_domain:
+                FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_EQUIVOCATION_WITNESS_HASH_DOMAIN.into(),
+            schema_version: witness.schema_version,
+            witness_profile: witness.witness_profile.clone(),
+            hash_algorithm: witness.hash_algorithm.clone(),
+            hash_encoding: witness.hash_encoding.clone(),
+            trace_schema_version: witness.trace_schema_version,
+            trace_verification_profile: witness.trace_verification_profile.clone(),
+            trace_index: witness.trace_index,
+            predecessor_publication_sha256: witness.predecessor_publication_sha256.clone(),
+            first_publication_sha256: witness.first_publication_sha256.clone(),
+            second_publication_sha256: witness.second_publication_sha256.clone(),
+        };
+        let bytes = serde_json::to_vec(&view)
+            .expect("publication equivocation witness hash view must be serializable");
+        state_machine_domain_separated_sha256(
+            FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_EQUIVOCATION_WITNESS_HASH_DOMAIN,
+            &bytes,
+        )
+    }
+
+    fn state_machine_trace_publication_equivocation_witness(
+        first: &FederationStateMachineTraceCheckpointPublication,
+        second: &FederationStateMachineTraceCheckpointPublication,
+    ) -> FederationStateMachineTracePublicationEquivocationWitness {
+        assert_eq!(
+            first.publication_profile, second.publication_profile,
+            "equivocation witness requires a shared publication profile"
+        );
+        assert_eq!(
+            first.hash_algorithm, second.hash_algorithm,
+            "equivocation witness requires a shared hash algorithm"
+        );
+        assert_eq!(
+            first.hash_encoding, second.hash_encoding,
+            "equivocation witness requires a shared hash encoding"
+        );
+        assert_eq!(
+            first.schema_version, second.schema_version,
+            "equivocation witness requires a shared publication schema"
+        );
+        assert_eq!(
+            first.trace_verification_profile, second.trace_verification_profile,
+            "equivocation witness requires a shared trace verification profile"
+        );
+        assert_eq!(
+            first.trace_schema_version, second.trace_schema_version,
+            "equivocation witness requires a shared trace schema"
+        );
+        assert_eq!(
+            first.trace_index, second.trace_index,
+            "equivocation witness requires a shared trace identity"
+        );
+        assert_eq!(
+            first.previous_publication_sha256, second.previous_publication_sha256,
+            "equivocation witness requires a shared predecessor"
+        );
+        assert_ne!(
+            first.publication_sha256, second.publication_sha256,
+            "equivocation witness requires distinct successor publications"
+        );
+
+        let (first_publication_sha256, second_publication_sha256) =
+            if first.publication_sha256 <= second.publication_sha256 {
+                (first.publication_sha256.clone(), second.publication_sha256.clone())
+            } else {
+                (second.publication_sha256.clone(), first.publication_sha256.clone())
+            };
+
+        let mut witness = FederationStateMachineTracePublicationEquivocationWitness {
+            schema_version:
+                FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_EQUIVOCATION_WITNESS_SCHEMA_VERSION,
+            witness_profile:
+                FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_EQUIVOCATION_WITNESS_PROFILE.into(),
+            hash_algorithm:
+                FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_EQUIVOCATION_WITNESS_HASH_ALGORITHM.into(),
+            hash_encoding:
+                FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_EQUIVOCATION_WITNESS_HASH_ENCODING.into(),
+            trace_schema_version: first.trace_schema_version,
+            trace_verification_profile: first.trace_verification_profile.clone(),
+            trace_index: first.trace_index,
+            predecessor_publication_sha256: first.previous_publication_sha256.clone(),
+            first_publication_sha256,
+            second_publication_sha256,
+            witness_sha256: String::new(),
+        };
+        witness.witness_sha256 =
+            state_machine_trace_publication_equivocation_witness_sha256(&witness);
+        witness
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+    enum FederationStateMachineTracePublicationEquivocationWitnessViolation {
+        UnsupportedSchemaVersion,
+        UnsupportedWitnessProfile,
+        UnsupportedHashAlgorithm,
+        UnsupportedHashEncoding,
+        TraceSchemaVersionMismatch,
+        TraceVerificationProfileMismatch,
+        TraceIndexMismatch,
+        PredecessorMismatch,
+        PublicationsNotDistinct,
+        FirstPublicationInvalid(FederationStateMachineTraceCheckpointPublicationViolation),
+        SecondPublicationInvalid(FederationStateMachineTraceCheckpointPublicationViolation),
+        WitnessPublicationBindingMismatch,
+        WitnessDigestMismatch,
+    }
+
+    fn validate_state_machine_trace_publication_equivocation_witness(
+        first_capsule: &FederationStateMachineTraceCapsule,
+        first_publication: &FederationStateMachineTraceCheckpointPublication,
+        second_capsule: &FederationStateMachineTraceCapsule,
+        second_publication: &FederationStateMachineTraceCheckpointPublication,
+        witness: &FederationStateMachineTracePublicationEquivocationWitness,
+    ) -> Result<(), FederationStateMachineTracePublicationEquivocationWitnessViolation> {
+        validate_state_machine_trace_checkpoint_publication(first_capsule, first_publication)
+            .map_err(
+                FederationStateMachineTracePublicationEquivocationWitnessViolation::FirstPublicationInvalid,
+            )?;
+        validate_state_machine_trace_checkpoint_publication(second_capsule, second_publication)
+            .map_err(
+                FederationStateMachineTracePublicationEquivocationWitnessViolation::SecondPublicationInvalid,
+            )?;
+
+        if witness.schema_version
+            != FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_EQUIVOCATION_WITNESS_SCHEMA_VERSION
+        {
+            return Err(
+                FederationStateMachineTracePublicationEquivocationWitnessViolation::UnsupportedSchemaVersion,
+            );
+        }
+        if witness.witness_profile
+            != FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_EQUIVOCATION_WITNESS_PROFILE
+        {
+            return Err(
+                FederationStateMachineTracePublicationEquivocationWitnessViolation::UnsupportedWitnessProfile,
+            );
+        }
+        if witness.hash_algorithm
+            != FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_EQUIVOCATION_WITNESS_HASH_ALGORITHM
+        {
+            return Err(
+                FederationStateMachineTracePublicationEquivocationWitnessViolation::UnsupportedHashAlgorithm,
+            );
+        }
+        if witness.hash_encoding
+            != FEDERATION_STATE_MACHINE_TRACE_PUBLICATION_EQUIVOCATION_WITNESS_HASH_ENCODING
+        {
+            return Err(
+                FederationStateMachineTracePublicationEquivocationWitnessViolation::UnsupportedHashEncoding,
+            );
+        }
+        if first_publication.trace_schema_version != second_publication.trace_schema_version
+            || witness.trace_schema_version != first_publication.trace_schema_version
+        {
+            return Err(
+                FederationStateMachineTracePublicationEquivocationWitnessViolation::TraceSchemaVersionMismatch,
+            );
+        }
+        if first_publication.trace_verification_profile
+            != second_publication.trace_verification_profile
+            || witness.trace_verification_profile
+                != first_publication.trace_verification_profile
+        {
+            return Err(
+                FederationStateMachineTracePublicationEquivocationWitnessViolation::TraceVerificationProfileMismatch,
+            );
+        }
+        if first_publication.trace_index != second_publication.trace_index
+            || witness.trace_index != first_publication.trace_index
+        {
+            return Err(
+                FederationStateMachineTracePublicationEquivocationWitnessViolation::TraceIndexMismatch,
+            );
+        }
+        if first_publication.previous_publication_sha256
+            != second_publication.previous_publication_sha256
+            || witness.predecessor_publication_sha256
+                != first_publication.previous_publication_sha256
+        {
+            return Err(
+                FederationStateMachineTracePublicationEquivocationWitnessViolation::PredecessorMismatch,
+            );
+        }
+        if first_publication.publication_sha256 == second_publication.publication_sha256 {
+            return Err(
+                FederationStateMachineTracePublicationEquivocationWitnessViolation::PublicationsNotDistinct,
+            );
+        }
+
+        let (expected_first, expected_second) =
+            if first_publication.publication_sha256
+                <= second_publication.publication_sha256
+            {
+                (
+                    first_publication.publication_sha256.as_str(),
+                    second_publication.publication_sha256.as_str(),
+                )
+            } else {
+                (
+                    second_publication.publication_sha256.as_str(),
+                    first_publication.publication_sha256.as_str(),
+                )
+            };
+        if witness.first_publication_sha256 != expected_first
+            || witness.second_publication_sha256 != expected_second
+        {
+            return Err(
+                FederationStateMachineTracePublicationEquivocationWitnessViolation::WitnessPublicationBindingMismatch,
+            );
+        }
+        if witness.witness_sha256
+            != state_machine_trace_publication_equivocation_witness_sha256(witness)
+        {
+            return Err(
+                FederationStateMachineTracePublicationEquivocationWitnessViolation::WitnessDigestMismatch,
+            );
+        }
+
+        Ok(())
     }
 
     fn state_machine_trace_checkpoint_consistency_receipt_sha256(
@@ -6022,6 +6290,160 @@ mod tests {
     ) {
         publication.publication_sha256 =
             state_machine_trace_checkpoint_publication_sha256(publication);
+    }
+
+    #[test]
+    fn publication_equivocation_witness_is_canonical_and_self_validating() {
+        let base_text = state_machine_trace_capsule(41, 8);
+        let fork_a_text = state_machine_trace_capsule(41, 12);
+        let mut fork_b_text = state_machine_trace_capsule(41, 12);
+
+        let base =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&base_text)
+                .expect("base capsule must deserialize");
+        let fork_a =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&fork_a_text)
+                .expect("fork-a capsule must deserialize");
+        let mut fork_b =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&fork_b_text)
+                .expect("fork-b capsule must deserialize");
+
+        fork_b.evidence[10].token ^= 1;
+        reseal_state_machine_trace_for_test(&mut fork_b);
+
+        let base_publication = state_machine_trace_checkpoint_publication(
+            &base,
+            8,
+            FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_GENESIS,
+        );
+        let fork_a_publication = state_machine_trace_checkpoint_publication(
+            &fork_a,
+            12,
+            &base_publication.publication_sha256,
+        );
+        let fork_b_publication = state_machine_trace_checkpoint_publication(
+            &fork_b,
+            12,
+            &base_publication.publication_sha256,
+        );
+
+        let witness =
+            state_machine_trace_publication_equivocation_witness(&fork_a_publication, &fork_b_publication);
+
+        assert!(
+            validate_state_machine_trace_publication_equivocation_witness(
+                &fork_a,
+                &fork_a_publication,
+                &fork_b,
+                &fork_b_publication,
+                &witness,
+            )
+            .is_ok()
+        );
+
+        let reverse_witness =
+            state_machine_trace_publication_equivocation_witness(&fork_b_publication, &fork_a_publication);
+        assert_eq!(witness, reverse_witness);
+
+        let json = serde_json::to_string_pretty(&witness)
+            .expect("equivocation witness must serialize");
+        let round_trip =
+            serde_json::from_str::<FederationStateMachineTracePublicationEquivocationWitness>(
+                &json,
+            )
+            .expect("equivocation witness must deserialize");
+        assert_eq!(round_trip, witness);
+        assert_eq!(
+            json,
+            serde_json::to_string_pretty(&round_trip)
+                .expect("equivocation witness serialization must be deterministic")
+        );
+
+        let mut bad_digest = witness.clone();
+        bad_digest.witness_sha256 = "sha256:invalid-equivo-witness".into();
+        assert_eq!(
+            validate_state_machine_trace_publication_equivocation_witness(
+                &fork_a,
+                &fork_a_publication,
+                &fork_b,
+                &fork_b_publication,
+                &bad_digest,
+            ),
+            Err(
+                FederationStateMachineTracePublicationEquivocationWitnessViolation::WitnessDigestMismatch
+            )
+        );
+
+        let mut bad_binding = witness.clone();
+        bad_binding.first_publication_sha256 = bad_binding.second_publication_sha256.clone();
+        assert_eq!(
+            validate_state_machine_trace_publication_equivocation_witness(
+                &fork_a,
+                &fork_a_publication,
+                &fork_b,
+                &fork_b_publication,
+                &bad_binding,
+            ),
+            Err(
+                FederationStateMachineTracePublicationEquivocationWitnessViolation::WitnessPublicationBindingMismatch
+            )
+        );
+
+        let mut bad_predecessor = witness.clone();
+        bad_predecessor.predecessor_publication_sha256 =
+            FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_GENESIS.into();
+        assert_eq!(
+            validate_state_machine_trace_publication_equivocation_witness(
+                &fork_a,
+                &fork_a_publication,
+                &fork_b,
+                &fork_b_publication,
+                &bad_predecessor,
+            ),
+            Err(
+                FederationStateMachineTracePublicationEquivocationWitnessViolation::PredecessorMismatch
+            )
+        );
+
+        let duplicate = state_machine_trace_publication_equivocation_witness(
+            &fork_a_publication,
+            &fork_b_publication,
+        );
+        let same = serde_json::from_str::<FederationStateMachineTracePublicationEquivocationWitness>(
+            &serde_json::to_string(&duplicate).expect("witness must serialize"),
+        )
+        .expect("witness round-trip must deserialize");
+        let mut same_publication = fork_b_publication.clone();
+        same_publication.publication_sha256 = fork_a_publication.publication_sha256.clone();
+        assert_eq!(
+            validate_state_machine_trace_publication_equivocation_witness(
+                &fork_a,
+                &fork_a_publication,
+                &fork_b,
+                &same_publication,
+                &same,
+            ),
+            Err(
+                FederationStateMachineTracePublicationEquivocationWitnessViolation::SecondPublicationInvalid(
+                    FederationStateMachineTraceCheckpointPublicationViolation::PublicationDigestMismatch
+                )
+            )
+        );
+
+        let mut unknown = serde_json::to_value(&witness)
+            .expect("equivocation witness must serialize as a JSON value");
+        unknown
+            .as_object_mut()
+            .expect("equivocation witness must serialize as an object")
+            .insert("unexpected_equivocation_field".into(), serde_json::Value::Bool(true));
+        let unknown_json =
+            serde_json::to_string_pretty(&unknown).expect("tampered witness JSON must serialize");
+        assert!(
+            serde_json::from_str::<FederationStateMachineTracePublicationEquivocationWitness>(
+                &unknown_json
+            )
+            .is_err()
+        );
     }
 
     #[test]
