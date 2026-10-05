@@ -125,20 +125,42 @@ def verify_exact_harness_file_set(tree_payload: dict, expected_files: list[str])
         )
 
 
-def verify_artifact_layout(artifact_dir: Path, expected_files: set[str]) -> None:
+def verify_artifact_layout(
+    artifact_dir: Path,
+    expected_files: set[str],
+    max_entries: int,
+) -> None:
     assert artifact_dir.is_dir(), f"missing trusted artifact directory: {artifact_dir}"
-    entries = list(artifact_dir.rglob("*"))
-    symlinks = [p for p in entries if p.is_symlink()]
-    assert not symlinks, f"trusted artifact contains symlink(s): {symlinks!r}"
-    nested = [p for p in entries if p.is_dir()]
-    assert not nested, f"trusted artifact contains nested directories: {nested!r}"
-    special = [p for p in entries if not p.is_dir() and not p.is_file()]
-    assert not special, f"trusted artifact contains special file(s): {special!r}"
-    files = {
-        p.relative_to(artifact_dir).as_posix()
-        for p in entries
-        if p.is_file()
-    }
+
+    stack = [artifact_dir]
+    files: set[str] = set()
+    entry_count = 0
+    while stack:
+        directory = stack.pop()
+        with os.scandir(directory) as entries:
+            for entry in entries:
+                entry_count += 1
+                assert entry_count <= max_entries, (
+                    f"trusted artifact contains too many filesystem entries: "
+                    f"{entry_count} > {max_entries}"
+                )
+
+                relative = Path(entry.path).relative_to(artifact_dir).as_posix()
+                assert not entry.is_symlink(), (
+                    f"trusted artifact contains symlink: {relative!r}"
+                )
+                if entry.is_dir(follow_symlinks=False):
+                    raise AssertionError(
+                        f"trusted artifact contains nested directory: {relative!r}"
+                    )
+                if entry.is_file(follow_symlinks=False):
+                    files.add(relative)
+                    continue
+
+                raise AssertionError(
+                    f"trusted artifact contains special file: {relative!r}"
+                )
+
     assert files == expected_files, (
         f"unexpected trusted-input files: {sorted(files)!r}"
     )
@@ -174,6 +196,20 @@ def load_record(path: Path) -> dict[str, str]:
         assert key and key not in record, f"duplicate evidence key: {key!r}"
         record[key] = value
     return record
+
+
+def verify_trusted_workflow_identity(
+    policy: dict,
+    repo: str,
+    workflow_sha: str,
+    token: str,
+) -> None:
+    cfg = policy["trusted_workflow"]
+    tree = git_tree_from_api(repo, workflow_sha, token)
+    verify_required_tracked_blobs(
+        tree,
+        {cfg["path"]: cfg["blob_sha"]},
+    )
 
 
 def verify_executor_workflow_record(
@@ -391,6 +427,16 @@ def main() -> None:
     token = os.environ["GITHUB_TOKEN"]
     executor_run = event["workflow_run"]
 
+    assert os.environ["GITHUB_WORKFLOW_REF"] == (
+        f"{repo}/.github/workflows/d6u-trusted-evidence-attestation.yml@refs/heads/main"
+    )
+    verify_trusted_workflow_identity(
+        policy,
+        repo,
+        os.environ["GITHUB_WORKFLOW_SHA"],
+        token,
+    )
+
     assert event["repository"]["full_name"] == repo
     verify_executor_run_record(executor_run, {
         "executor_run_id": str(executor_run["id"]),
@@ -402,7 +448,11 @@ def main() -> None:
         "d6u-runtime-test.log",
         "Cargo.lock",
     }
-    verify_artifact_layout(artifact_dir, expected_files)
+    verify_artifact_layout(
+        artifact_dir,
+        expected_files,
+        int(policy["artifact_max_entries"]),
+    )
     verify_artifact_size_limits(
         artifact_dir,
         policy["artifact_max_bytes"],
