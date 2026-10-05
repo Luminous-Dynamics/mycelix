@@ -203,7 +203,7 @@ jobs:
 
           runner_uid="$(id -u)"
           runner_gid="$(id -g)"
-          timeout --signal=TERM --kill-after=20s 10m docker run --rm --platform=linux/amd64 --pull=never             --network=bridge             --read-only             --cap-drop=ALL             --security-opt=no-new-privileges:true             --security-opt=seccomp=default             --pids-limit=512             --memory=2g             --memory-swap=2g             --cpus=2             --ulimit=nofile=4096:4096             --ulimit=core=0:0             --user "$runner_uid:$runner_gid"             --init             --stop-timeout=5             --ipc=private             --pid=private             --cgroupns=private             --tmpfs /tmp:rw,nosuid,nodev,noexec,size=512m             --env HOME=/tmp             --env GIT_CONFIG_NOSYSTEM=1             --env GIT_TERMINAL_PROMPT=0             --env GIT_CONFIG_GLOBAL=/tmp/gitconfig             --env CANDIDATE_SHA="$CANDIDATE_SHA"             --env CANDIDATE_REPOSITORY="$CANDIDATE_REPOSITORY"             --volume "$candidate_root:/output:rw"             "$FETCH_IMAGE" /bin/bash -euc '
+          timeout --signal=TERM --kill-after=20s 10m docker run --rm --platform=linux/amd64 --pull=never             --network=bridge             --read-only             --cap-drop=ALL             --security-opt=no-new-privileges:true             --security-opt=seccomp=default             --pids-limit=512             --memory=2g             --memory-swap=2g             --cpus=2             --ulimit=nofile=4096:4096             --ulimit=core=0:0             --user "$runner_uid:$runner_gid"             --init             --stop-timeout=5             --ipc=private             --pid=private             --cgroupns=private             --tmpfs /tmp:rw,nosuid,nodev,noexec,size=512m             --env HOME=/tmp             --env GIT_CONFIG_NOSYSTEM=1             --env GIT_TERMINAL_PROMPT=0             --env GIT_CONFIG_GLOBAL=/tmp/gitconfig             --env CANDIDATE_SHA="$CANDIDATE_SHA"             --env CANDIDATE_REPOSITORY="$CANDIDATE_REPOSITORY"             --env CANDIDATE_TREE="$candidate_tree"             --volume "$candidate_root:/output:rw"             "$FETCH_IMAGE" /bin/bash -euc '
               set -euo pipefail
               export XDG_CONFIG_HOME=/tmp/config
               mkdir -p /tmp/config /tmp/repository
@@ -215,6 +215,8 @@ jobs:
               git -C /tmp/repository -c fetch.fsckObjects=true -c protocol.version=2 fetch --no-tags --depth=1 origin "$CANDIDATE_SHA"
               resolved="$(git -C /tmp/repository rev-parse FETCH_HEAD)"
               test "$resolved" = "$CANDIDATE_SHA"
+              resolved_tree="$(git -C /tmp/repository rev-parse "$resolved^{tree}")"
+              test "$resolved_tree" = "$CANDIDATE_TREE"
               timeout --signal=TERM --kill-after=10s 3m git -C /tmp/repository fsck --full --strict "$resolved"
               if git -C /tmp/repository ls-tree -r "$resolved" | grep -q "^160000 "; then
                 echo "candidate source contains a gitlink/submodule; qualification requires a self-contained source tree" >&2
