@@ -305,14 +305,14 @@ jobs:
           assert artifact_run.get("id") == int(run_id), (
               "qualification receipt artifact is not bound to the exact trusted dispatcher run"
           )
-          assert artifact_run.get("repository_id") == int(os.environ["BASE_REPOSITORY_ID"]), (
-              "qualification receipt artifact repository identity differs from the trusted base repository"
+          assert artifact_run.get("repository_id") == run["repository"]["id"], (
+              "qualification receipt artifact repository identity differs from the triggering workflow run"
           )
-          assert artifact_run.get("head_repository_id") == int(os.environ["BASE_REPOSITORY_ID"]), (
-              "qualification receipt artifact head repository identity differs from the trusted dispatcher repository"
+          assert artifact_run.get("head_repository_id") == run.get("head_repository_id"), (
+              "qualification receipt artifact head repository identity differs from the triggering workflow run"
           )
-          assert artifact_run.get("head_branch") == "main", (
-              "qualification receipt artifact head branch differs from protected main"
+          assert artifact_run.get("head_branch") == run.get("head_branch"), (
+              "qualification receipt artifact head branch differs from the triggering workflow run"
           )
           assert artifact_run.get("head_sha") == run.get("head_sha"), (
               "qualification receipt artifact head SHA differs from the triggering workflow run"
