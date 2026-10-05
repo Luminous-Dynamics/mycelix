@@ -194,10 +194,18 @@ jobs:
           assert packages, "Cargo.lock contains no package records"
           forbidden_sources=[]
           allowed_registry="registry+https://github.com/rust-lang/crates.io-index"
+          checksum_pattern=re.compile(r"^[0-9a-f]{64}$")
           for package in packages:
               source=package.get("source")
-              if source is not None and not source.startswith(allowed_registry):
+              if source is None:
+                  continue
+              if source != allowed_registry:
                   forbidden_sources.append((package.get("name"), source))
+                  continue
+              checksum=package.get("checksum")
+              assert isinstance(checksum, str) and checksum_pattern.fullmatch(checksum), (
+                  f"crates.io package is missing a canonical SHA-256 checksum: {package.get('name')}"
+              )
           assert not forbidden_sources, f"non-crates.io dependency sources are forbidden: {forbidden_sources}"
           forbidden_configs=(
               root/".cargo/config.toml",
