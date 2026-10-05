@@ -64,4 +64,4 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          /tmp/actionlint/actionlint -oneline -shellcheck shellcheck -pyflakes             '' .github/workflows/hearth-07-qualification.yml
+          /tmp/actionlint/actionlint -oneline -shellcheck shellcheck -pyflakes             '' .github/workflows/hearth-07-qualification.yml .github/workflows/hearth-07-workflow-lint.yml
