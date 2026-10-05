@@ -85,11 +85,16 @@ jobs:
           components: rustfmt, clippy
 
       - name: Assert Rust identity
+        id: rust_identity
         shell: bash
         run: |
           set -euo pipefail
-          test "$(rustc +1.99.0 --version | awk '{print $2}')" = "1.99.0"
-          test "$(rustc +1.99.0 --version --verbose | sed -n 's/^commit-hash: //p')" = "b940084d7eb6a299eb4bfeb8e34901bc051e7ac4"
+          rust_version="$(rustc +1.99.0 --version | awk '{print $2}')"
+          rust_commit="$(rustc +1.99.0 --version --verbose | sed -n 's/^commit-hash: //p')"
+          test "$rust_version" = "1.99.0"
+          test "$rust_commit" = "b940084d7eb6a299eb4bfeb8e34901bc051e7ac4"
+          printf 'rust_version=%s\n' "$rust_version" >> "$GITHUB_OUTPUT"
+          printf 'rust_commit=%s\n' "$rust_commit" >> "$GITHUB_OUTPUT"
 
       - name: Resolve pinned Rust sysroot
         id: rust_sysroot
@@ -562,6 +567,8 @@ jobs:
           CANDIDATE_TREE: ${{ steps.resolve_source.outputs.candidate_tree }}
           SOURCE_DIGEST: ${{ steps.snapshot_source.outputs.source_digest }}
           VENDOR_DIGEST: ${{ steps.vendor_dependencies.outputs.vendor_digest }}
+          RUST_VERSION: ${{ steps.rust_identity.outputs.rust_version }}
+          RUST_COMMIT: ${{ steps.rust_identity.outputs.rust_commit }}
         run: |
           set -euo pipefail
           CARGO_LOCK_DIGEST="$(sha256sum "$CANDIDATE_ROOT/crates/mycelix-bridge-common/Cargo.lock" | awk '{print $1}')"
@@ -585,8 +592,8 @@ jobs:
             echo "trusted_workflow_ref=$GITHUB_WORKFLOW_REF"
             echo "trusted_workflow_sha=$GITHUB_WORKFLOW_SHA"
             echo "trusted_workflow_name=$GITHUB_WORKFLOW"
-            echo "rust=$(rustc --version)"
-            echo "rust_verbose_commit=$(rustc --version --verbose | sed -n 's/^commit-hash: //p')"
+            echo "rust_version=$RUST_VERSION"
+            echo "rust_commit=$RUST_COMMIT"
             echo "qualification_pass=true"
           } > "$RUNNER_TEMP/security-kernel-independent-qualification.txt"
           cat "$RUNNER_TEMP/security-kernel-independent-qualification.txt"
