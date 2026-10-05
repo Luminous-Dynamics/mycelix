@@ -9,6 +9,8 @@ on:
       - "scripts/integral/verify_d6u_trusted_artifacts.py"
       - "scripts/integral/test_d6u_trusted_artifacts.py"
       - "scripts/integral/fetch_d6u_trusted_artifact.py"
+      - "scripts/integral/verify_d6u_trusted_attestation.py"
+      - "scripts/integral/emit_d6u_trusted_attestation_predicate.py"
   workflow_dispatch:
 
 permissions:
@@ -29,7 +31,7 @@ jobs:
           persist-credentials: false
 
       - name: Compile trusted verifier
-        run: python3 -m py_compile scripts/integral/verify_d6u_trusted_artifacts.py scripts/integral/fetch_d6u_trusted_artifact.py scripts/integral/verify_d6u_trusted_attestation.py scripts/integral/test_d6u_trusted_artifacts.py
+        run: python3 -m py_compile scripts/integral/verify_d6u_trusted_artifacts.py scripts/integral/fetch_d6u_trusted_artifact.py scripts/integral/verify_d6u_trusted_attestation.py scripts/integral/emit_d6u_trusted_attestation_predicate.py scripts/integral/test_d6u_trusted_artifacts.py
 
       - name: Run trusted verifier self-tests
         working-directory: scripts/integral
