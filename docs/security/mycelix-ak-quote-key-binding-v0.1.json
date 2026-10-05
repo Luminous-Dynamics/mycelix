@@ -68,6 +68,10 @@
     [
       "ak_public_key_sha256",
       "ak_public_wire_sha256"
+    ],
+    [
+      "lineage_source_provenance",
+      "ak_public_key_source_provenance"
     ]
   ],
   "vectors": [
