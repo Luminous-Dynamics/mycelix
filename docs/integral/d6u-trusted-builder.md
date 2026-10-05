@@ -6,7 +6,7 @@ Status: Experimental; security architecture
 
 The D6U runtime workflow executes pull-request code and therefore must be treated as an untrusted measurement environment. The default branch owns the signing authority separately.
 
-The trusted workflow in `.github/workflows/d6u-trusted-evidence-attestation.yml` is triggered by completion of the D6U runtime workflow through `workflow_run`. The trusted job checks out the exact `github.workflow_sha` for the trusted workflow execution, asserts both the commit and workflow-ref identity, and verifies the privileged workflow blob against the policy, preflights the exact artifact identity and archive size, downloads the completed run's artifact into the runner's temporary directory, and validates the artifact as data only.
+The trusted workflow in `.github/workflows/d6u-trusted-evidence-attestation.yml` is triggered by completion of the D6U runtime workflow through `workflow_run`. The trusted job checks out the exact `github.workflow_sha` for the trusted workflow execution, asserts both the commit and workflow-ref identity, and verifies the privileged workflow blob against the policy, preflights the exact artifact identity and archive size, downloads the exact GitHub artifact archive, verifies its SHA-256 digest, and safely extracts only the bounded expected members into the runner's temporary directory.
 
 It does not check out the pull-request head, execute files from the downloaded artifact, import pull-request Python or Rust modules, or use pull-request code as its policy root. The executor records the upstream D6S run ID/attempt, source branch/repository/SHA, trigger-workflow identity, and its own executor-workflow identity. The source-side verifier redundantly rejects the wrong qualification branch, while the trusted builder independently re-fetches the upstream D6S run, binds the executor definition to the executor run's GitHub-supplied main-branch `head_sha`, and checks the exact source tree. It also rejects fork-origin runs; the signing boundary is same-repository only.
 
@@ -26,6 +26,7 @@ It pins:
 - the absence of Cargo configuration files that could be inherited by the D6U harness;
 - the exact tracked D6U harness file set, excluding build scripts and other injected executable sources;
 - the maximum trusted artifact archive/member/entry sizes;
+- the trusted artifact fetcher and bounded ZIP extraction policy;
 - all native case outcomes and zome reachability;
 - supplemental substrate witnesses;
 - lockfile substrate versions and crates.io provenance;
@@ -35,7 +36,7 @@ Before signing, the trusted verifier obtains the complete Git tree for the trigg
 
 ## Artifact boundary
 
-The downloaded artifact is treated as inert data. The trusted workflow first requires exactly one non-expired artifact with the expected run-specific name and a total archive size within policy. The verifier then requires exactly three regular files at the artifact root:
+The downloaded artifact is treated as inert data. The trusted workflow first requires exactly one non-expired artifact with the expected run-specific name and a total archive size within policy. It independently downloads the immutable artifact archive, compares its SHA-256 digest to GitHub's artifact API digest, rejects encrypted/symlink/directory/duplicate/unexpected ZIP members, enforces compressed-download and uncompressed-member bounds, and only then extracts exactly three root files:
 
 - `d6u-runtime-evidence.txt`
 - `d6u-runtime-test.log`
@@ -59,7 +60,7 @@ Neither event upgrades the D6S claim ceiling beyond `ReferenceModelOnly`.
 
 ## Fail-closed self-test boundary
 
-The read-only trusted-verifier suite contains twenty-one deterministic checks: valid evidence acceptance; case-outcome tampering rejection; duplicate-case rejection; live executor-run identity rejection; D6S prerequisite-policy pin coverage; Cargo.lock checksum tampering rejection; duplicate-record-key rejection; trigger-run identity and workflow-blob tampering rejection; exact Git-blob acceptance; executor workflow-identity tampering rejection; Git symlink-mode rejection; Git submodule/non-blob rejection; truncated-tree rejection; regular-file artifact-layout symlink rejection; artifact size-limit enforcement; artifact entry-count enforcement; trusted-workflow policy-shape enforcement; policy binding to the current trusted workflow blob; and executor run-head binding to the reviewed executor workflow blob.
+The read-only trusted-verifier suite contains twenty-five deterministic checks: valid evidence acceptance; case-outcome tampering rejection; duplicate-case rejection; live executor-run identity rejection; D6S prerequisite-policy pin coverage; Cargo.lock checksum tampering rejection; duplicate-record-key rejection; trigger-run identity and workflow-blob tampering rejection; exact Git-blob acceptance; executor workflow-identity tampering rejection; Git symlink-mode rejection; Git submodule/non-blob rejection; truncated-tree rejection; regular-file artifact-layout symlink rejection; artifact size-limit enforcement; artifact entry-count enforcement; trusted-workflow policy-shape enforcement; policy binding to the current trusted workflow blob; and executor run-head binding to the reviewed executor workflow blob; and bounded ZIP extraction adversaries for exact-member, duplicate-member, symlink-member, and traversal-path rejection.
 
 The self-test has no signing permissions and is not itself an authority root.
 
@@ -68,4 +69,4 @@ The self-test has no signing permissions and is not itself an authority root.
 The intended chain is exactly three levels: `D6S Canonical Qualification` → `D6U Exact-Head Runtime Executor` → `D6U Trusted Evidence Attestation`. GitHub documents that `workflow_run` chaining is limited to three levels, so this design deliberately stops at the privileged attestation root.
 
 
-Current trusted policy revision: v11.
+Current trusted policy revision: v13.
