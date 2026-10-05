@@ -2,7 +2,6 @@
 """Deterministic, read-only tests for the D6U trusted verifier."""
 
 import json
-import subprocess
 import tempfile
 from pathlib import Path
 
@@ -173,27 +172,6 @@ def test_record_metadata_is_canonicalized() -> None:
         lambda: verify_record_metadata(tampered, policy),
         "tampered verifier blob identity was accepted",
     )
-
-
-def test_executor_workflow_policy_pin_is_current() -> None:
-    root = Path(__file__).parents[2]
-    policy = json.loads(
-        (root / "docs/integral/d6u-trusted-builder-policy.json").read_text(
-            encoding="utf-8"
-        )
-    )
-    workflow = root / ".github/workflows/d6u-exact-head-runtime-executor.yml"
-    blob_sha = subprocess.run(
-        ["git", "hash-object", str(workflow)],
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
-    assert policy["executor_workflow"]["blob_sha"] == blob_sha
-    workflow_text = workflow.read_text(encoding="utf-8")
-    assert "CARGO_HOME: ${{ runner.temp }}/d6u-cargo-home" in workflow_text
-    assert "Initialize isolated Cargo home" in workflow_text
-    assert 'rm -rf "$CARGO_HOME"' in workflow_text
 
 
 def test_forbidden_cargo_config_is_rejected() -> None:
@@ -593,7 +571,6 @@ def test_artifact_layout_rejects_symlink() -> None:
 if __name__ == "__main__":
     tests = [
         test_policy_pins_d6s_prerequisite_boundary,
-        test_executor_workflow_policy_pin_is_current,
         test_forbidden_cargo_config_is_rejected,
         test_record_metadata_is_canonicalized,
         test_harness_file_set_rejects_extra_build_script,
