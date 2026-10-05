@@ -891,17 +891,20 @@ jobs:
             echo "rust_version=$RUST_VERSION"
             echo "rust_commit=$RUST_COMMIT"
             echo "qualification_pass=true"
-          } > "$RUNNER_TEMP/security-kernel-independent-qualification.txt"
-          cat "$RUNNER_TEMP/security-kernel-independent-qualification.txt"
+          receipt_path="$RUNNER_TEMP/security-kernel-independent-qualification-${CANDIDATE_SHA}-attempt-${GITHUB_RUN_ATTEMPT}.txt"
+          } > "$receipt_path"
+          cat "$receipt_path"
 
       - name: Upload qualification receipt
         if: success()
         id: receipt_upload
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: security-kernel-independent-qualification-${{ inputs.candidate_sha }}-attempt-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/security-kernel-independent-qualification.txt
+          name: security-kernel-independent-qualification-${{ inputs.candidate_sha }}-attempt-${{ github.run_attempt }}.txt
+          path: ${{ runner.temp }}/security-kernel-independent-qualification-${{ inputs.candidate_sha }}-attempt-${{ github.run_attempt }}.txt
           if-no-files-found: error
+          archive: false
+          overwrite: false
 
       - name: Verify retained qualification receipt
         if: success()
@@ -913,10 +916,13 @@ jobs:
           EXPECTED_ARTIFACT_NAME: security-kernel-independent-qualification-${{ inputs.candidate_sha }}-attempt-${{ github.run_attempt }}
           RUN_ID: ${{ github.run_id }}
           BASE_REPOSITORY: "Luminous-Dynamics/mycelix"
+          RECEIPT_PATH: ${{ runner.temp }}/security-kernel-independent-qualification-${{ inputs.candidate_sha }}-attempt-${{ github.run_attempt }}.txt
         run: |
           set -euo pipefail
           printf "%s" "$EXPECTED_ARTIFACT_ID" | grep -Eq "^[0-9]+$"
           printf "%s" "$EXPECTED_ARTIFACT_DIGEST" | grep -Eq "^[0-9a-f]{64}$"
+          local_receipt_digest="$(sha256sum "$RECEIPT_PATH" | awk '{print $1}')"
+          test "$local_receipt_digest" = "$EXPECTED_ARTIFACT_DIGEST"
           python3 - <<'PY'
           import json, os, urllib.request
           repo=os.environ["BASE_REPOSITORY"]
