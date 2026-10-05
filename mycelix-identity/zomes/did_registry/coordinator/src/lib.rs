@@ -1223,17 +1223,9 @@ pub fn update_did_document(input: UpdateDidInput) -> ExternResult<Record> {
         (),
     )?;
 
-    // Broadcast DidUpdated event (covers key rotation, service changes, etc.)
-    let payload = serde_json::json!({
-        "did": current_did.id,
-        "version": next_version,
-        "event": "did_updated",
-    })
-    .to_string();
-    if let Err(e) = notify_bridge_of_did_event(&current_did.id, "DidUpdated", &payload) {
-        debug!("Failed to notify bridge of DID update: {:?}", e);
-    }
-
+    // Lifecycle notification is emitted from post_commit only, after the DID
+    // update has committed. This avoids duplicate events and pre-commit false
+    // positives when later work in this zome function fails.
     get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
         "Could not find updated DID".into()
     )))
