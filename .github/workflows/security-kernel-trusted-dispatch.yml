@@ -111,13 +111,26 @@ jobs:
               "candidate_sha":os.environ["CANDIDATE_SHA"],
               "candidate_repository":os.environ["CANDIDATE_REPOSITORY"],
               "source_run_id":os.environ["SOURCE_RUN_ID"],
-              "source_run_attempt":os.environ["SOURCE_RUN_ATTEMPT"]}}
+              "source_run_attempt":os.environ["SOURCE_RUN_ATTEMPT"]},
+              "return_run_details": True}
           req=urllib.request.Request(
               "https://api.github.com/repos/Luminous-Dynamics/mycelix/actions/workflows/security-kernel-independent-qualification.yml/dispatches",
               data=json.dumps(payload).encode(),
               method="POST",
-              headers={"Accept":"application/vnd.github+json","Authorization":f"Bearer {os.environ['TOKEN']}","X-GitHub-Api-Version":"2022-11-28","Content-Type":"application/json"})
+              headers={"Accept":"application/vnd.github+json","Authorization":f"Bearer {os.environ['TOKEN']}","X-GitHub-Api-Version":"2026-03-10","Content-Type":"application/json"})
           with urllib.request.urlopen(req, timeout=20) as r:
-              assert r.status == 204
-          print(json.dumps(payload,sort_keys=True))
+              assert r.status == 200
+              dispatch=json.load(r)
+          run_id=dispatch["workflow_run_id"]
+          req=urllib.request.Request(
+              f"https://api.github.com/repos/{os.environ['BASE_REPOSITORY']}/actions/runs/{run_id}",
+              headers={"Accept":"application/vnd.github+json","Authorization":f"Bearer {os.environ['TOKEN']}","X-GitHub-Api-Version":"2026-03-10"})
+          with urllib.request.urlopen(req, timeout=20) as r:
+              run=json.load(r)
+          assert run["id"] == run_id
+          assert run["workflow_id"] != 0
+          assert run["path"] == os.environ["TRUSTED_INDEPENDENT_WORKFLOW_PATH"]
+          assert run["workflow_ref"] == f"{os.environ['BASE_REPOSITORY']}/{os.environ['TRUSTED_INDEPENDENT_WORKFLOW_PATH']}@refs/heads/main"
+          assert run["workflow_sha"] == os.environ["TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA"]
+          print(json.dumps({"dispatch":payload,"workflow_run_id":run_id,"workflow_sha":run["workflow_sha"]},sort_keys=True))
           PY
