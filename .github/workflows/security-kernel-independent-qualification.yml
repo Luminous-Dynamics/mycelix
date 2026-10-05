@@ -117,6 +117,10 @@ jobs:
           git -C "$candidate_git" fetch --no-tags --depth=1 origin "$CANDIDATE_SHA"
           resolved="$(git -C "$candidate_git" rev-parse FETCH_HEAD)"
           test "$resolved" = "$CANDIDATE_SHA"
+          if git -C "$candidate_git" ls-tree -r "$resolved" | grep -q "^160000 "; then
+            echo "candidate source contains a gitlink/submodule; qualification requires a self-contained source tree" >&2
+            exit 1
+          fi
           candidate_tree="$(git -C "$candidate_git" rev-parse FETCH_HEAD^{tree})"
           mkdir -p "$candidate_root"
           git -C "$candidate_git" archive --format=tar "$resolved" | tar -xf - -C "$candidate_root"
