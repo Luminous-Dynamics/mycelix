@@ -707,6 +707,73 @@ async fn dsid_054_deactivated_did_rejects_recovery_anchor_mutation() {
 
 #[tokio::test(flavor = "multi_thread")]
 #[ignore]
+async fn dsid_055_deactivated_did_rejects_trust_credential_issuance() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let app = conductor
+        .setup_app(
+            "dsid-deactivated-trust-credential",
+            std::slice::from_ref(&dna),
+        )
+        .await
+        .unwrap();
+    let cell = app.cells()[0].clone();
+    let agent = app.agent().clone();
+    let did_record: Record = conductor
+        .call(&cell.zome("did_registry"), "create_did", ())
+        .await;
+    let did: DidDocument =
+        decode_entry(&did_record).expect("DID record must decode");
+
+    let deactivated: Record = conductor
+        .call(
+            &cell.zome("did_registry"),
+            "deactivate_did",
+            "DSID post-deactivation trust-authority regression",
+        )
+        .await;
+
+    let blocked: Result<serde_json::Value, _> = conductor
+        .call_fallible(
+            &cell.zome("trust_credential"),
+            "issue_trust_credential",
+            serde_json::json!({
+                "subject_did": did.id.clone(),
+                "issuer_did": did.id.clone(),
+                "kvector_commitment": [],
+                "range_proof": [],
+                "trust_score_lower": 0.0,
+                "trust_score_upper": 0.0,
+                "expires_at": null,
+                "supersedes": null
+            }),
+        )
+        .await;
+
+    assert!(
+        blocked.is_err(),
+        "deactivated issuer DID must not mint a new trust credential"
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("issuer", agent.to_string());
+    emit_evidence(
+        "DSID-055",
+        "deactivated-did-rejects-trust-credential-issuance",
+        &dna,
+        agents,
+        &[&did_record, &deactivated],
+        "Trust credential issuance must require a currently active issuer DID.",
+        format!(
+            "trust_issuance_rejected={}",
+            blocked.is_err()
+        ),
+        blocked.is_err(),
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
 async fn dsid_006_self_recovery_projection_matches_canonical_state() {
     let mut conductor = SweetConductor::from_standard_config().await;
     let dna = load_dna().await;
