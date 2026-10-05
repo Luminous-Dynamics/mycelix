@@ -69,6 +69,19 @@ fn string_anchor(prefix: &str, value: &str) -> ExternResult<EntryHash> {
     anchor_hash(&format!("{prefix}:{value}"))
 }
 
+fn validate_timestamp_not_future(
+    field: &str,
+    value: Timestamp,
+    action_timestamp: Timestamp,
+) -> ValidateCallbackResult {
+    if value > action_timestamp {
+        return ValidateCallbackResult::Invalid(format!(
+            "{field} cannot be later than its signed Holochain action timestamp"
+        ));
+    }
+    ValidateCallbackResult::Valid
+}
+
 fn parse_agent(value: &str, label: &str) -> ExternResult<AgentPubKey> {
     AgentPubKey::try_from(value.to_string()).map_err(|_| {
         wasm_error!(WasmErrorInner::Guest(format!(
@@ -134,6 +147,14 @@ fn validate_domain_score_report(
         return Ok(ValidateCallbackResult::Invalid(
             "source_timestamp must be non-zero".into(),
         ));
+    }
+    match validate_timestamp_not_future(
+        "DomainScoreReport source timestamp",
+        entry.source_timestamp,
+        *action.timestamp(),
+    ) {
+        ValidateCallbackResult::Valid => {}
+        invalid => return Ok(invalid),
     }
     Ok(ValidateCallbackResult::Valid)
 }
@@ -347,6 +368,29 @@ fn validate_op(op: Op) -> ExternResult<ValidateCallbackResult> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn source_timestamp_cannot_be_future_dated() {
+        let action_timestamp = Timestamp::from_micros(1_000);
+        assert_eq!(
+            validate_timestamp_not_future(
+                "DomainScoreReport source timestamp",
+                Timestamp::from_micros(1_000),
+                action_timestamp,
+            ),
+            ValidateCallbackResult::Valid
+        );
+        match validate_timestamp_not_future(
+            "DomainScoreReport source timestamp",
+            Timestamp::from_micros(1_001),
+            action_timestamp,
+        ) {
+            ValidateCallbackResult::Invalid(message) => {
+                assert!(message.contains("signed Holochain action timestamp"));
+            }
+            other => panic!("future source timestamp must be invalid, got {other:?}"),
+        }
+    }
 
     #[test]
     fn unit_interval_rejects_nan_and_out_of_range() {
