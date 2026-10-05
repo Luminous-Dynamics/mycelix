@@ -8,6 +8,47 @@ use mycelix_bridge_common::{
 use name_registry_integrity::*;
 
 use mycelix_zome_helpers as _;
+fn verify_did_active(did: &str, operation: &str) -> ExternResult<()> {
+    let response = call(
+        CallTargetCell::Local,
+        ZomeName::new("did_registry"),
+        FunctionName::new("is_did_active"),
+        None,
+        did.to_string(),
+    )?;
+
+    match response {
+        ZomeCallResponse::Ok(result) => {
+            let active = result.decode::<bool>().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Failed to decode DID active state for {operation}: {e:?}"
+                )))
+            })?;
+            if active {
+                Ok(())
+            } else {
+                Err(wasm_error!(WasmErrorInner::Guest(format!(
+                    "DID is not active; refusing {operation}"
+                ))))
+            }
+        }
+        ZomeCallResponse::Unauthorized(_, _, _, _)
+        | ZomeCallResponse::AuthenticationFailed(_, _) => Err(wasm_error!(
+            WasmErrorInner::Guest(format!(
+                "DID active-state authorization failed for {operation}"
+            ))
+        )),
+        ZomeCallResponse::NetworkError(err) => Err(wasm_error!(WasmErrorInner::Guest(
+            format!("DID active-state verification failed for {operation}: {err}")
+        ))),
+        ZomeCallResponse::CountersigningSession(err) => Err(wasm_error!(
+            WasmErrorInner::Guest(format!(
+                "DID active-state verification failed for {operation} (countersigning: {err})"
+            ))
+        )),
+    }
+}
+
 /// Helper to get an anchor entry hash
 fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
     hash_entry(&EntryTypes::Anchor(Anchor(anchor_str.to_string())))
@@ -22,6 +63,12 @@ fn ensure_anchor(anchor_str: &str) -> ExternResult<EntryHash> {
 /// Register a mesh name (Participant+).
 #[hdk_extern]
 pub fn register_name(entry: MeshNameEntry) -> ExternResult<Record> {
+    let agent = agent_info()?.agent_initial_pubkey;
+    verify_did_active(
+        &format!("did:mycelix:{}", agent),
+        "mesh name registration",
+    )?;
+
     let _eligibility = mycelix_zome_helpers::require_civic(
         "identity_bridge",
         &civic_requirement_basic(),
@@ -221,6 +268,12 @@ fn current_name_owner(
 /// Transfer name ownership (owner only, Citizen+).
 #[hdk_extern]
 pub fn transfer_name(transfer: NameTransfer) -> ExternResult<Record> {
+    let caller = agent_info()?.agent_initial_pubkey;
+    verify_did_active(
+        &format!("did:mycelix:{}", caller),
+        "mesh name transfer",
+    )?;
+
     let _eligibility = mycelix_zome_helpers::require_civic(
         "identity_bridge",
         &civic_requirement_voting(),
@@ -282,6 +335,12 @@ pub fn transfer_name(transfer: NameTransfer) -> ExternResult<Record> {
 /// Renew a name (extend expiry by 1 year). Owner only.
 #[hdk_extern]
 pub fn renew_name(name_hash: ActionHash) -> ExternResult<Record> {
+    let caller = agent_info()?.agent_initial_pubkey;
+    verify_did_active(
+        &format!("did:mycelix:{}", caller),
+        "mesh name renewal",
+    )?;
+
     let _eligibility = mycelix_zome_helpers::require_civic(
         "identity_bridge",
         &civic_requirement_basic(),
