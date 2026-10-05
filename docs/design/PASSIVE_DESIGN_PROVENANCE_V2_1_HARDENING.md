@@ -27,6 +27,20 @@ Field values are also type-checked by field in the v2 schema: component/joint/ac
 counts are non-negative integers, active power is a non-negative number, and control/state
 flags are booleans. The type constraints are conditional on the semantic `field` value.
 
+## Numeric-type parity
+
+The v2 schema's evidence `value` union must use `anyOf`, not `oneOf`: JSON Schema
+defines `number` as including integers, so an integer instance can satisfy both the
+`integer` and `number` branches. `oneOf` would therefore reject valid integer
+count claims because two subschemas match. The schema now uses `anyOf`.
+
+The runtime validator follows the same data-model semantics: both JSON integers and
+integral JSON numbers such as `1.0` are accepted for count fields, while fractional,
+negative, or non-finite values remain rejected.
+
+A regression also locks the schema itself to the inclusive `anyOf` construction so the
+numeric union cannot silently regress to an exclusive union.
+
 ## Runtime parity
 
 The semantic runtime parity layer is now implemented in
