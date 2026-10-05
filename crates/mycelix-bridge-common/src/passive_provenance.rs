@@ -329,7 +329,12 @@ where
 }
 
 fn is_non_negative_integer(value: &Value) -> bool {
-    value.as_u64().is_some()
+    if value.as_u64().is_some() {
+        return true;
+    }
+    value
+        .as_f64()
+        .is_some_and(|value| value.is_finite() && value >= 0.0 && value.fract() == 0.0)
 }
 
 fn is_non_negative_number(value: &Value) -> bool {
@@ -422,6 +427,18 @@ mod tests {
             "passive-design-provenance-v2"
         );
         assert_eq!(schema["properties"]["evidence_claims"]["minItems"], 5);
+        assert!(
+            schema["$defs"]["evidence_claim"]["properties"]["value"]
+                .get("anyOf")
+                .is_some(),
+            "schema value union must be inclusive"
+        );
+        assert!(
+            schema["$defs"]["evidence_claim"]["properties"]["value"]
+                .get("oneOf")
+                .is_none(),
+            "schema must not use overlapping oneOf numeric types"
+        );
 
         let claim_rules = schema["properties"]["evidence_claims"]["allOf"]
             .as_array()
@@ -500,6 +517,13 @@ mod tests {
                 ..
             })
         ));
+    }
+
+    #[test]
+    fn integral_json_number_is_valid_count() {
+        let mut record = valid_record();
+        record["evidence_claims"][0]["value"] = json!(1.0);
+        assert!(validate_passive_design_provenance_v2(&record).is_ok());
     }
 
     #[test]
