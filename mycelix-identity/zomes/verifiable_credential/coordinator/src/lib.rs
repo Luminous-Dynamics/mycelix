@@ -1620,6 +1620,7 @@ fn generate_merkle_proof(
 pub fn create_derived_credential(input: CreateDerivedInput) -> ExternResult<Record> {
     let agent_info = agent_info()?;
     let holder_did = format!("did:mycelix:{}", agent_info.agent_initial_pubkey);
+    verify_did_active(&holder_did, "derived credential creation")?;
     let now = sys_time()?;
 
     // Get original credential
@@ -2297,7 +2298,6 @@ pub fn update_request_status(input: UpdateRequestStatusInput) -> ExternResult<Re
     // Only the target issuer may publish a request status transition.
     let caller = agent_info()?.agent_initial_pubkey;
     let caller_did = format!("did:mycelix:{}", caller);
-    verify_did_active(&caller_did, "credential issuance for approved request")?;
     let issuer_hash = string_to_entry_hash(&caller_did);
 
     // Requests are authored by the requester, so a source-chain query from the
@@ -2433,6 +2433,7 @@ pub fn issue_credential_for_request(
 ) -> ExternResult<Record> {
     let caller = agent_info()?.agent_initial_pubkey;
     let caller_did = format!("did:mycelix:{}", caller);
+    verify_did_active(&caller_did, "credential issuance for approved request")?;
     let issuer_hash = string_to_entry_hash(&caller_did);
 
     let links = get_links(
