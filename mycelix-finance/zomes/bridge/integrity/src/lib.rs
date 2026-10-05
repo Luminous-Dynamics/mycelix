@@ -436,7 +436,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 )),
                 EntryTypes::ReserveValuationSnapshot(_) => Ok(ValidateCallbackResult::Invalid(
                     "Reserve valuation snapshots are immutable".into(),
-                ))
+                )),
                 EntryTypes::Covenant(covenant) => validate_update_covenant(action, covenant),
                 EntryTypes::CollateralHealth(_) => {
                     // Health entries are append-only snapshots; updates are always valid
@@ -2947,6 +2947,66 @@ mod tests {
             canonical_source_commitment(&[first.clone(), second.clone()]),
             canonical_source_commitment(&[second, first])
         );
+    }
+
+
+    fn valid_reserve_policy() -> ReserveValuationAuthorityPolicy {
+        ReserveValuationAuthorityPolicy {
+            id: "sap-reserve-publisher-v0".into(),
+            version: "v0".into(),
+            authorized_publisher_dids: vec![did_for_author(&make_create().author)],
+            min_source_count: 2,
+            max_source_count: 200,
+            max_freshness_limit_micros: 60_000_000,
+            created_at: ts(1_000_000),
+        }
+    }
+
+    #[test]
+    fn test_reserve_policy_create_valid() {
+        let result = validate_create_reserve_valuation_authority_policy(
+            EntryCreationAction::Create(make_create()),
+            valid_reserve_policy(),
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Valid));
+    }
+
+    #[test]
+    fn test_reserve_policy_rejects_invalid_source_bounds() {
+        let mut policy = valid_reserve_policy();
+        policy.min_source_count = 3;
+        policy.max_source_count = 2;
+        let result = validate_create_reserve_valuation_authority_policy(
+            EntryCreationAction::Create(make_create()),
+            policy,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_reserve_policy_rejects_empty_publishers() {
+        let mut policy = valid_reserve_policy();
+        policy.authorized_publisher_dids.clear();
+        let result = validate_create_reserve_valuation_authority_policy(
+            EntryCreationAction::Create(make_create()),
+            policy,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn test_reserve_policy_rejects_action_time_mismatch() {
+        let mut policy = valid_reserve_policy();
+        policy.created_at = ts(2_000_000);
+        let result = validate_create_reserve_valuation_authority_policy(
+            EntryCreationAction::Create(make_create()),
+            policy,
+        )
+        .unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
 
