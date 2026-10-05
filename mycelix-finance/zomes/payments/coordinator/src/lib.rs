@@ -915,11 +915,28 @@ fn update_mint_cap_counter(minted_amount: u64, now: Timestamp) -> ExternResult<(
             )?;
         }
         None => {
-            // First mint ever — create counter
+            // The counter may be absent on upgraded/legacy state even when prior
+            // governance mints already exist. Reconstruct the observed local
+            // history before creating the counter so the first counter write
+            // cannot silently forget previously-issued SAP.
+            let observed = load_or_bootstrap_mint_cap_counter(now)?;
+            let cumulative_minted = observed
+                .cumulative_minted
+                .checked_add(minted_amount)
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "SAP mint-cap counter cumulative amount overflow".into()
+                )))?;
+            let mint_count = observed
+                .mint_count
+                .checked_add(1)
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "SAP mint-cap counter mint count overflow".into()
+                )))?;
+
             let counter = SapMintCapCounterEntry {
-                period_start_micros: now.as_micros() - year_micros + year_micros, // = now
-                cumulative_minted: minted_amount,
-                mint_count: 1,
+                period_start_micros: observed.period_start_micros,
+                cumulative_minted,
+                mint_count,
                 last_updated_micros: now.as_micros(),
             };
             let hash = create_entry(&EntryTypes::SapMintCapCounterEntry(counter))?;
