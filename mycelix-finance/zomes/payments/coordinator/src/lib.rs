@@ -999,24 +999,44 @@ fn find_mint_cap_counter_record() -> ExternResult<Option<(Record, SapMintCapCoun
         )?,
         GetStrategy::default(),
     )?;
-    if let Some(link) = links.last() {
-        let hash = ActionHash::try_from(link.target.clone())
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        let record = follow_update_chain(hash)?;
-        let entry = record
-            .entry()
-            .to_app_option::<SapMintCapCounterEntry>()
-            .map_err(|e| {
-                wasm_error!(WasmErrorInner::Guest(format!(
-                    "SapMintCapCounterEntry deserialization error: {:?}",
-                    e
-                )))
-            })?;
-        if let Some(entry) = entry {
-            return Ok(Some((record, entry)));
-        }
+
+    if links.is_empty() {
+        return Ok(None);
     }
-    Ok(None)
+    if links.len() > 1 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "MintCapCounterAnchor index is ambiguous; refusing order-dependent counter selection"
+                .into(),
+        )));
+    }
+
+    let hash = links
+        .into_iter()
+        .next()
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "MintCapCounterAnchor index unexpectedly empty".into()
+        )))?
+        .target
+        .into_action_hash()
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Invalid mint-cap counter link target".into()
+        )))?;
+    let record = follow_update_chain(hash)?;
+    let entry = record
+        .entry()
+        .to_app_option::<SapMintCapCounterEntry>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "SapMintCapCounterEntry deserialization error: {:?}",
+                e
+            )))
+        })?;
+    match entry {
+        Some(entry) => Ok(Some((record, entry))),
+        None => Err(wasm_error!(WasmErrorInner::Guest(
+            "Mint-cap counter link points to a non-counter entry".into()
+        ))),
+    }
 }
 
 fn find_sap_balance_record(member_did: &str) -> ExternResult<Option<(Record, SapBalance)>> {
