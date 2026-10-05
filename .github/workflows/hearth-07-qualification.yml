@@ -546,9 +546,10 @@ PY
           root="${GITHUB_WORKSPACE}"
           hearth="${root}/mycelix-workspace/mycelix-hearth"
           mkdir -p "${hearth}"
+          evidence_status="$(cat "${hearth}/qualification-evidence-status.txt" 2>/dev/null || printf 'unavailable')"
           {
             echo "job_status=${{ job.status }}"
-            if [[ "${{ job.status }}" == "success" ]]; then
+            if [[ "${{ job.status }}" == "success" ]] && [[ "${evidence_status}" == "complete" ]]; then
               echo "claim_ceiling=RuntimeQualificationPassed"
             else
               echo "claim_ceiling=RuntimeQualificationPending"
@@ -560,7 +561,7 @@ PY
             else
               echo "source_contract_digest=unavailable"
             fi
-            echo "evidence_capture_status=$(cat "${hearth}/qualification-evidence-status.txt" 2>/dev/null || echo unavailable)"
+            echo "evidence_capture_status=${evidence_status}"
             echo "format_conclusion=${{ steps.format.conclusion || 'unknown' }}"
             echo "pr_head_sha=${{ github.event.pull_request.head.sha || '' }}"
             echo "pr_base_sha=${{ github.event.pull_request.base.sha || '' }}"
