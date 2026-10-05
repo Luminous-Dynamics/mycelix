@@ -13,6 +13,7 @@ use std::collections::{BTreeMap, BTreeSet};
 pub const FEDERATION_PROFILE_ID: &str = "INTEGRAL-FED-REF-001";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct NodeProfile {
     pub node_id: String,
     pub schema_generation: u64,
@@ -35,6 +36,7 @@ pub enum RecognitionMode {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RecognitionEdge {
     pub recognizing_node: String,
     pub origin_node: String,
@@ -43,6 +45,7 @@ pub struct RecognitionEdge {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct FederationEnvelope {
     pub envelope_id: String,
     pub semantic_subject_id: String,
@@ -59,6 +62,7 @@ pub struct FederationEnvelope {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ObservationRecord {
     pub observation_id: String,
     pub semantic_subject_id: String,
@@ -1269,6 +1273,7 @@ pub enum FederationInvariantAuditStatus {
 
 /// One deterministic audit result for an invariant registry entry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct FederationInvariantAuditEntry {
     pub id: FederationInvariantId,
     pub status: FederationInvariantAuditStatus,
@@ -7476,6 +7481,73 @@ mod tests {
             replayed.authority,
             AuthorityDisposition::ExplicitDelegatedAuthority
         );
+    }
+
+    #[test]
+    fn semantic_input_types_reject_unknown_fields() {
+        let node = NodeProfile {
+            node_id: "node-a".into(),
+            schema_generation: 1,
+            authorization_generation: 1,
+            active: true,
+        };
+        let mut node_json = serde_json::to_value(&node).expect("node profile must serialize");
+        node_json
+            .as_object_mut()
+            .expect("node profile must serialize as object")
+            .insert("unexpected".into(), serde_json::Value::Bool(true));
+        assert!(serde_json::from_value::<NodeProfile>(node_json).is_err());
+
+        let edge = RecognitionEdge {
+            recognizing_node: "node-a".into(),
+            origin_node: "node-b".into(),
+            scope: "subject-1".into(),
+            mode: RecognitionMode::EvidenceOnly,
+        };
+        let mut edge_json = serde_json::to_value(&edge).expect("recognition edge must serialize");
+        edge_json
+            .as_object_mut()
+            .expect("recognition edge must serialize as object")
+            .insert("unexpected".into(), serde_json::Value::Bool(true));
+        assert!(serde_json::from_value::<RecognitionEdge>(edge_json).is_err());
+
+        let envelope = envelope();
+        let mut envelope_json =
+            serde_json::to_value(&envelope).expect("federation envelope must serialize");
+        envelope_json
+            .as_object_mut()
+            .expect("federation envelope must serialize as object")
+            .insert("unexpected".into(), serde_json::Value::Bool(true));
+        assert!(serde_json::from_value::<FederationEnvelope>(envelope_json).is_err());
+
+        let observation = ObservationRecord {
+            observation_id: "observation-1".into(),
+            semantic_subject_id: "subject-1".into(),
+            payload_commitment: "sha256:payload".into(),
+            origin_node: "node-a".into(),
+            origin_node_known: true,
+            recognized_by: None,
+            source_observation: false,
+        };
+        let mut observation_json =
+            serde_json::to_value(&observation).expect("observation must serialize");
+        observation_json
+            .as_object_mut()
+            .expect("observation must serialize as object")
+            .insert("unexpected".into(), serde_json::Value::Bool(true));
+        assert!(serde_json::from_value::<ObservationRecord>(observation_json).is_err());
+
+        let audit_entry = FederationInvariantAuditEntry {
+            id: FederationInvariantId::NodeMapIdentity,
+            status: FederationInvariantAuditStatus::Passed,
+        };
+        let mut audit_json =
+            serde_json::to_value(&audit_entry).expect("audit entry must serialize");
+        audit_json
+            .as_object_mut()
+            .expect("audit entry must serialize as object")
+            .insert("unexpected".into(), serde_json::Value::Bool(true));
+        assert!(serde_json::from_value::<FederationInvariantAuditEntry>(audit_json).is_err());
     }
 
     #[test]
