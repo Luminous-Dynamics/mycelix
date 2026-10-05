@@ -2248,7 +2248,7 @@ if qualify < 0:
     print("FAIL: qualify job is missing")
     raise SystemExit(2)
 block = source[qualify:]
-if "    defaults:\\n      run:\\n        shell: bash\\n" not in block:
+if "    defaults:\n      run:\n        shell: bash\n" not in block:
     print("FAIL: qualify job must explicitly default all run steps to Bash")
     raise SystemExit(2)
 print("OK:   qualification workflow explicitly defaults run-step execution to Bash")
