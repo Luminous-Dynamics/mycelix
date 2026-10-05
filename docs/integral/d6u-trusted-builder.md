@@ -8,7 +8,7 @@ The D6U runtime workflow executes pull-request code and therefore must be treate
 
 The trusted workflow in `.github/workflows/d6u-trusted-evidence-attestation.yml` is triggered by completion of the D6U runtime workflow through `workflow_run`. The trusted job checks out the exact `github.workflow_sha` for the trusted workflow execution, asserts both the commit and workflow-ref identity, and verifies the privileged workflow blob against the policy, preflights the exact artifact identity and archive size, downloads the completed run's artifact into the runner's temporary directory, and validates the artifact as data only.
 
-It does not check out the pull-request head, execute files from the downloaded artifact, import pull-request Python or Rust modules, or use pull-request code as its policy root. The executor records the upstream D6S run ID/attempt, source branch/repository/SHA, trigger-workflow identity, and its own executor-workflow identity. The source-side verifier redundantly rejects the wrong qualification branch, while the trusted builder independently re-fetches the upstream D6S run and checks the exact source tree. It also rejects fork-origin runs; the signing boundary is same-repository only.
+It does not check out the pull-request head, execute files from the downloaded artifact, import pull-request Python or Rust modules, or use pull-request code as its policy root. The executor records the upstream D6S run ID/attempt, source branch/repository/SHA, trigger-workflow identity, and its own executor-workflow identity. The source-side verifier redundantly rejects the wrong qualification branch, while the trusted builder independently re-fetches the upstream D6S run, binds the executor definition to the executor run's GitHub-supplied main-branch `head_sha`, and checks the exact source tree. It also rejects fork-origin runs; the signing boundary is same-repository only.
 
 ## Trusted policy
 
@@ -18,6 +18,7 @@ It pins:
 
 - the D6U workflow identity and exact main-branch executor blob;
 - the trusted attestation workflow's own exact blob identity;
+- the executor workflow blob as observed at the executor run's GitHub-supplied `head_sha`;
 - the D6U manifest and harness executable surface;
 - the D6S-CANON-1 manifest, golden corpus, and independent verifier;
 - the D6S-CANON-2 manifest, authority-boundary fixture, and independent verifier;
@@ -58,7 +59,7 @@ Neither event upgrades the D6S claim ceiling beyond `ReferenceModelOnly`.
 
 ## Fail-closed self-test boundary
 
-The read-only trusted-verifier suite contains twenty deterministic checks: valid evidence acceptance; case-outcome tampering rejection; duplicate-case rejection; live executor-run identity rejection; D6S prerequisite-policy pin coverage; Cargo.lock checksum tampering rejection; duplicate-record-key rejection; trigger-run identity and workflow-blob tampering rejection; exact Git-blob acceptance; executor workflow-identity tampering rejection; Git symlink-mode rejection; Git submodule/non-blob rejection; truncated-tree rejection; regular-file artifact-layout symlink rejection; artifact size-limit enforcement; artifact entry-count enforcement; trusted-workflow policy-shape enforcement; and policy binding to the current trusted workflow blob.
+The read-only trusted-verifier suite contains twenty-one deterministic checks: valid evidence acceptance; case-outcome tampering rejection; duplicate-case rejection; live executor-run identity rejection; D6S prerequisite-policy pin coverage; Cargo.lock checksum tampering rejection; duplicate-record-key rejection; trigger-run identity and workflow-blob tampering rejection; exact Git-blob acceptance; executor workflow-identity tampering rejection; Git symlink-mode rejection; Git submodule/non-blob rejection; truncated-tree rejection; regular-file artifact-layout symlink rejection; artifact size-limit enforcement; artifact entry-count enforcement; trusted-workflow policy-shape enforcement; policy binding to the current trusted workflow blob; and executor run-head binding to the reviewed executor workflow blob.
 
 The self-test has no signing permissions and is not itself an authority root.
 
