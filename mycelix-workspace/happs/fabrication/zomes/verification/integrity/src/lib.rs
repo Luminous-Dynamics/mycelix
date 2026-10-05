@@ -50,6 +50,8 @@ pub struct SafetyClaim {
     pub claim_type: SafetyClaimType,
     pub claim_text: String,
     pub epistemic: ClaimEpistemic,
+    #[serde(default)]
+    pub epistemic_provenance: EpistemicProvenance,
     pub supporting_evidence: Vec<String>,
     pub knowledge_claim_hash: Option<ActionHash>,
     pub author: AgentPubKey,
@@ -177,6 +179,10 @@ fn validate_safety_claim(c: SafetyClaim) -> ExternResult<ValidateCallbackResult>
     check!(validation::require_in_range(c.epistemic.normative, 0.0, 1.0, "epistemic.normative"));
     check!(validation::require_in_range(c.epistemic.mythic, 0.0, 1.0, "epistemic.mythic"));
 
+    // Epistemic provenance is part of the safety-claim contract. Legacy records
+    // deserialize as LegacyUnattributed and remain valid/queryable, but current
+    // scoring excludes them from Knowledge-sourced aggregates.
+
     // --- supporting_evidence: max 64 items, each max 256 chars ---
     check!(validation::require_max_vec_len(
         &c.supporting_evidence, 64, "supporting_evidence"
@@ -233,6 +239,7 @@ mod tests {
                 normative: 0.5,
                 mythic: 0.1,
             },
+            epistemic_provenance: EpistemicProvenance::KnowledgeClassified,
             supporting_evidence: vec!["FEA report v2.1".to_string()],
             knowledge_claim_hash: None,
             author: AgentPubKey::from_raw_36(vec![0u8; 36]),
