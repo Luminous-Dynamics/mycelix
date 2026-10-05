@@ -254,6 +254,7 @@ jobs:
           } > qualification-operation-matrix.txt
 
       - name: Check Hearth 0.7 test formatting
+        id: format
         working-directory: mycelix-workspace/mycelix-hearth
         run: |
           set -o pipefail
@@ -413,6 +414,7 @@ PYCOUNT
           } > "${hearth}/qualification-toolchain.txt"
 
           source_audit_conclusion="${{ steps.source_audit.conclusion || 'unknown' }}"
+          format_conclusion="${{ steps.format.conclusion || 'unknown' }}"
           build_conclusion="${{ steps.build_zomes.conclusion || 'unknown' }}"
           dna_pack_conclusion="${{ steps.dna_pack.conclusion || 'unknown' }}"
           sweettest_conclusion="${{ steps.sweettest.conclusion || 'unknown' }}"
@@ -512,6 +514,7 @@ PY
             [[ -s "$1" ]] && ! head -n1 "$1" | grep -q '^unavailable_'
           }
           if [[ "${source_audit_conclusion}" == "success" ]] \
+            && [[ "${format_conclusion}" == "success" ]] \
             && [[ "${build_conclusion}" == "success" ]] \
             && [[ "${dna_pack_conclusion}" == "success" ]] \
             && [[ "${sweettest_conclusion}" == "success" ]] \
@@ -531,6 +534,7 @@ PY
           fi
           printf '%s\n' "${evidence_status}" > "${hearth}/qualification-evidence-status.txt"
           echo "source_audit_conclusion=${source_audit_conclusion}"
+          echo "format_conclusion=${format_conclusion}"
           echo "build_zomes_conclusion=${build_conclusion}"
           echo "dna_pack_conclusion=${dna_pack_conclusion}"
           echo "sweettest_conclusion=${sweettest_conclusion}"
@@ -557,6 +561,7 @@ PY
               echo "source_contract_digest=unavailable"
             fi
             echo "evidence_capture_status=$(cat "${hearth}/qualification-evidence-status.txt" 2>/dev/null || echo unavailable)"
+            echo "format_conclusion=${{ steps.format.conclusion || 'unknown' }}"
             echo "pr_head_sha=${{ github.event.pull_request.head.sha || '' }}"
             echo "pr_base_sha=${{ github.event.pull_request.base.sha || '' }}"
             echo "ref=${GITHUB_REF_NAME}"
