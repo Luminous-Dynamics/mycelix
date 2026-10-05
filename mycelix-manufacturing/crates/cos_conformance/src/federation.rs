@@ -5874,6 +5874,30 @@ mod tests {
             "trace records from distinct schema namespaces must not be conflated as a fork"
         );
 
+        let mut alternate_hash_algorithm = fork_a_publication.clone();
+        alternate_hash_algorithm.hash_algorithm = "sha-512".into();
+        reseal_trace_checkpoint_publication_for_test(&mut alternate_hash_algorithm);
+        assert!(
+            validate_state_machine_trace_checkpoint_publication_set(&[
+                fork_a_publication.clone(),
+                alternate_hash_algorithm,
+            ])
+            .is_ok(),
+            "publication records from distinct hash-algorithm namespaces must not be conflated as a fork"
+        );
+
+        let mut alternate_hash_encoding = fork_a_publication.clone();
+        alternate_hash_encoding.hash_encoding = "rfc-8785-jcs".into();
+        reseal_trace_checkpoint_publication_for_test(&mut alternate_hash_encoding);
+        assert!(
+            validate_state_machine_trace_checkpoint_publication_set(&[
+                fork_a_publication.clone(),
+                alternate_hash_encoding,
+            ])
+            .is_ok(),
+            "publication records from distinct hash-encoding namespaces must not be conflated as a fork"
+        );
+
         let other_trace = state_machine_trace_capsule(33, 12);
         let other_trace =
             serde_json::from_str::<FederationStateMachineTraceCapsule>(&other_trace)
