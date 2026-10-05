@@ -603,8 +603,6 @@ fn maximum_dispatch_offset_child() -> ! {
     // layer additional filters and to service the Rust allocator while the
     // cumulative-path-limit fixture is running.
     let runtime_syscalls = [
-        libc::SYS_read,
-        libc::SYS_write,
         libc::SYS_close,
         libc::SYS_mmap,
         libc::SYS_mprotect,
@@ -614,7 +612,6 @@ fn maximum_dispatch_offset_child() -> ! {
         libc::SYS_prctl,
         libc::SYS_seccomp,
         libc::SYS_getppid,
-        libc::SYS_exit_group,
     ];
     let runtime_rules = runtime_syscalls
         .into_iter()
