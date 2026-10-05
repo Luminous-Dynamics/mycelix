@@ -411,46 +411,6 @@ impl DependencyClosureCertificateV1 {
         )
     }
 
-    /// Construct a verification summary only when runtime resolution evidence
-    /// independently corroborates every selected Present/Stale dependency.
-    ///
-    /// This is additive to the semantic-only constructor: consumers that need
-    /// evidence-backed resolution must opt into this stricter path explicitly.
-    pub fn from_verified_closure_with_complete_resolution_evidence(
-        verifier_id: &str,
-        verification_policy_commitment: &str,
-        expected_resolution_qualification_context_commitment: &str,
-        projection: &QualifiedProjectionV1,
-        environment: &SemanticEnvironmentV1,
-        derivation_profile: &DerivationProfileV1,
-        closure_profile: &DependencyClosureProfileV1,
-        closure: &DependencyClosureCertificateV1,
-    ) -> Option<Self> {
-        if !closure.has_complete_context_bound_resolution_evidence(
-            expected_resolution_qualification_context_commitment,
-        )
-        {
-            return None;
-        }
-        Self::from_verified_closure(
-            verifier_id,
-            verification_policy_commitment,
-            projection,
-            environment,
-            derivation_profile,
-            closure_profile,
-            closure,
-        )
-        .map(|mut summary| {
-            summary.resolution_evidence_commitment =
-                Some(closure.resolution_evidence_commitment());
-            summary.resolution_qualification_context_commitment =
-                Some(expected_resolution_qualification_context_commitment.into());
-            summary.commitment = summary.recompute();
-            summary
-        })
-    }
-
     fn resolution_evidence_is_consistent(
         &self,
         dependency: &SemanticDependencyReferenceV1,
@@ -728,6 +688,46 @@ impl D6XVerificationSummaryV1 {
         };
         summary.commitment = summary.recompute();
         Some(summary)
+    }
+
+    /// Construct a verification summary only when runtime resolution evidence
+    /// independently corroborates every selected Present/Stale dependency.
+    ///
+    /// This is additive to the semantic-only constructor: consumers that need
+    /// evidence-backed resolution must opt into this stricter path explicitly.
+    pub fn from_verified_closure_with_complete_resolution_evidence(
+        verifier_id: &str,
+        verification_policy_commitment: &str,
+        expected_resolution_qualification_context_commitment: &str,
+        projection: &QualifiedProjectionV1,
+        environment: &SemanticEnvironmentV1,
+        derivation_profile: &DerivationProfileV1,
+        closure_profile: &DependencyClosureProfileV1,
+        closure: &DependencyClosureCertificateV1,
+    ) -> Option<Self> {
+        if !closure.has_complete_context_bound_resolution_evidence(
+            expected_resolution_qualification_context_commitment,
+        )
+        {
+            return None;
+        }
+        Self::from_verified_closure(
+            verifier_id,
+            verification_policy_commitment,
+            projection,
+            environment,
+            derivation_profile,
+            closure_profile,
+            closure,
+        )
+        .map(|mut summary| {
+            summary.resolution_evidence_commitment =
+                Some(closure.resolution_evidence_commitment());
+            summary.resolution_qualification_context_commitment =
+                Some(expected_resolution_qualification_context_commitment.into());
+            summary.commitment = summary.recompute();
+            summary
+        })
     }
 
     pub fn recompute(&self) -> String {
