@@ -290,7 +290,8 @@ fn weighted_median(entries: &mut [(f64, f64)]) -> Option<f64> {
 /// - reputation_score >= 0.10 (some community participation)
 ///
 /// This is checked via cross-zome call to the identity cluster.
-/// Falls back to governance agent check if identity cluster unavailable.
+/// Identity qualification failure is fail-closed; governance/bootstrap is
+/// deliberately not a substitute for the reporter gate.
 fn enforce_citizen_tier_result(result: Result<bool, String>) -> ExternResult<()> {
     match result {
         Ok(true) => Ok(()),
@@ -329,7 +330,6 @@ fn verify_citizen_tier() -> ExternResult<()> {
     };
 
     enforce_citizen_tier_result(result)
-}
 }
 
 // =============================================================================
