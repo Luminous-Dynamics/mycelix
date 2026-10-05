@@ -6201,6 +6201,18 @@ mod tests {
                 FederationStateMachineTraceCheckpointPublicationViolation::SnapshotPrefixMismatch
             )
         );
+        let mut reversed_semantically_divergent_collection =
+            semantically_divergent_collection.clone();
+        reversed_semantically_divergent_collection.reverse();
+        assert_eq!(
+            validate_state_machine_trace_checkpoint_publication_lineage(
+                &reversed_semantically_divergent_collection
+            ),
+            Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::SnapshotPrefixMismatch
+            ),
+            "invalid lineage diagnostics must be permutation-invariant"
+        );
 
         let other_trace = state_machine_trace_capsule(99, 12);
         let other_trace =
