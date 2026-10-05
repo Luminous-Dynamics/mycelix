@@ -199,10 +199,12 @@ jobs:
                   continue
               if not stat.S_ISREG(mode):
                   raise SystemExit(f"candidate source contains forbidden non-regular file: {rel}")
-              digest.update(rel.as_posix().encode())
-              digest.update(b"\\0")
-              digest.update(path.read_bytes())
-              digest.update(b"\\0")
+              relative = rel.as_posix().encode()
+              content = path.read_bytes()
+              digest.update(len(relative).to_bytes(8, "big"))
+              digest.update(relative)
+              digest.update(len(content).to_bytes(8, "big"))
+              digest.update(content)
           print(f"candidate_source_digest={digest.hexdigest()}")
           print("PASS: exact candidate commit materialized with regular-file-only source tree")
           PY
@@ -355,10 +357,12 @@ jobs:
                   continue
               if not stat.S_ISREG(mode):
                   raise SystemExit(f"candidate source contains forbidden non-regular file: {rel}")
-              digest.update(rel.as_posix().encode())
-              digest.update(b"\\0")
-              digest.update(path.read_bytes())
-              digest.update(b"\\0")
+              relative = rel.as_posix().encode()
+              content = path.read_bytes()
+              digest.update(len(relative).to_bytes(8, "big"))
+              digest.update(relative)
+              digest.update(len(content).to_bytes(8, "big"))
+              digest.update(content)
           print(digest.hexdigest())
           PY
           source_digest="$(cat "$RUNNER_TEMP/security-kernel-source-snapshot.txt")"
@@ -528,10 +532,12 @@ jobs:
                   continue
               if not stat.S_ISREG(mode):
                   raise SystemExit(f"vendored dependency contains forbidden non-regular file: {rel}")
-              digest.update(rel.as_posix().encode())
-              digest.update(b"\\0")
-              digest.update(path.read_bytes())
-              digest.update(b"\\0")
+              relative = rel.as_posix().encode()
+              content = path.read_bytes()
+              digest.update(len(relative).to_bytes(8, "big"))
+              digest.update(relative)
+              digest.update(len(content).to_bytes(8, "big"))
+              digest.update(content)
           print(digest.hexdigest())
           PY
           )"
@@ -680,10 +686,12 @@ jobs:
                   continue
               if not stat.S_ISREG(mode):
                   raise SystemExit(f"candidate source contains forbidden non-regular file: {rel}")
-              digest.update(rel.as_posix().encode())
-              digest.update(b"\\0")
-              digest.update(path.read_bytes())
-              digest.update(b"\\0")
+              relative = rel.as_posix().encode()
+              content = path.read_bytes()
+              digest.update(len(relative).to_bytes(8, "big"))
+              digest.update(relative)
+              digest.update(len(content).to_bytes(8, "big"))
+              digest.update(content)
           after=digest.hexdigest()
           assert expected == after, f"candidate source mutated during qualification: {expected} != {after}"
           print("PASS: candidate source remained immutable and regular-file-only")
