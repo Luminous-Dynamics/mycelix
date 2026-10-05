@@ -672,18 +672,6 @@ pub struct TransferSapInput {
     pub transfer_id: Option<String>,
 }
 
-/// Conservation-preserving SAP transfer: debit `from`, credit `to` by the same amount.
-///
-/// This is the SANCTIONED way to move existing SAP between members. Unlike raw
-/// `credit_sap`, the credit here is *backed by an equal debit* and *authorized by the
-/// sender* (`verify_caller_is_did(from)`, also re-checked inside `debit_sap`). Callers
-/// that only move value between two members — e.g. bridge `process_payment` — should
-/// use this instead of a separate debit + credit, so no raw mint surface is exposed.
-///
-/// Debit precedes credit (same ordering/atomicity caveat as `send_payment`): if credit
-/// fails after a successful debit, the sender's SAP is already gone — a pre-existing DHT
-/// limitation (no multi-entry atomicity) that the Phase-1 conservation rebuild will close.
-#[hdk_extern]
 /// Sender-side SAP settlement.
 ///
 /// This replaces the old synchronous cross-account transfer. The sender's
