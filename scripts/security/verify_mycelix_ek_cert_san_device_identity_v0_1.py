@@ -56,7 +56,7 @@ FIXTURES = {
   "missing-model": "MIIDWjCCAkKgAwIBAgIBBzANBgkqhkiG9w0BAQsFADAhMR8wHQYDVQQDDBZNeWNlbGl4IFNBTiBGaXh0dXJlIENBMB4XDTI2MTAwMTAwMDAwMFoXDTM2MTAwMTAwMDAwMFowHTEbMBkGA1UEAwwSTXljZWxpeCBFSyBGaXh0dXJlMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAgblRQIeGpnDIyDMJHyafnoH3owFucWIai5ElCVbiUBzUR5OQ24BjmDLFUrxTP9BMyWXwTfhqve+m3jHJx5EUJJk5rr/IkwvAd5ueVgxaXIk5bXi5RJZbdL7XQnXc+TTILQEVOJYzdO2gVIudY/HE+L/zkoRk4r+Pm3TFEQxVYNidXm0+VCTsTGTyX4BmU26xW3VGR+7e9TW2B9UQIRSpBYK9O/2te98lJvqgfrpcHrNNNimfXzE2v9yYM+WfB8uIQ6sTEd/DKFlBCOdZJwHdNcuInsrPUr8fRUjJA0KIVEbdl5TYu4BMewFgml1oN61ps//nnr+n7YLb18fpgeP+AwIDAQABo4GgMIGdMAwGA1UdEwEB/wQCMAAwDgYDVR0PAQH/BAQDAgUgMD0GA1UdEQQ2MDSkMjAwMRYwFAYFZ4EFAgEMC2lkOjAwMDAxMDE0MRYwFAYFZ4EFAgMMC2lkOjAwMDcwMDU1MB0GA1UdDgQWBBQay3Yfjfwu8m7xJwi1E/AgMqzR4DAfBgNVHSMEGDAWgBQay3Yfjfwu8m7xJwi1E/AgMqzR4DANBgkqhkiG9w0BAQsFAAOCAQEAFUuFPwJmF8BmwCz3hW0c6UandELv8jJvP113KtKXbR7SMk1Cwa56x7vGnVc724/Sct5xlYSU1odJD6ftKbo16m56VJ0AUaXXylpSVddBw7dri5RTgJl24pa3WLxmZx14WC6iRWI+dH13fv0wfpDmKc3EA+PkDqLMknUH1mZHcdkbk3cHLPEeo1I00whnrLJ51UV7B3YA1S+esEds6gOjVxjTJBSc8XLKzor3cX5aej10Y5XRVoxTWpdebkEL7yJkEaXNGkheUb5WhfM7QlZiM1fxGvpF6NfZaSX6yx2zuUwUZAPBtjzTaAhh9Yk+beQQP3QjwVyCqMWoHGshKHTsfA==",
   "missing-version": "MIIDVzCCAj+gAwIBAgIBCDANBgkqhkiG9w0BAQsFADAhMR8wHQYDVQQDDBZNeWNlbGl4IFNBTiBGaXh0dXJlIENBMB4XDTI2MTAwMTAwMDAwMFoXDTM2MTAwMTAwMDAwMFowHTEbMBkGA1UEAwwSTXljZWxpeCBFSyBGaXh0dXJlMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAgblRQIeGpnDIyDMJHyafnoH3owFucWIai5ElCVbiUBzUR5OQ24BjmDLFUrxTP9BMyWXwTfhqve+m3jHJx5EUJJk5rr/IkwvAd5ueVgxaXIk5bXi5RJZbdL7XQnXc+TTILQEVOJYzdO2gVIudY/HE+L/zkoRk4r+Pm3TFEQxVYNidXm0+VCTsTGTyX4BmU26xW3VGR+7e9TW2B9UQIRSpBYK9O/2te98lJvqgfrpcHrNNNimfXzE2v9yYM+WfB8uIQ6sTEd/DKFlBCOdZJwHdNcuInsrPUr8fRUjJA0KIVEbdl5TYu4BMewFgml1oN61ps//nnr+n7YLb18fpgeP+AwIDAQABo4GdMIGaMAwGA1UdEwEB/wQCMAAwDgYDVR0PAQH/BAQDAgUgMDoGA1UdEQQzMDGkLzAtMRYwFAYFZ4EFAgEMC2lkOjAwMDAxMDE0MRMwEQYFZ4EFAgIMCFNMQjkgNjcwMB0GA1UdDgQWBBQay3Yfjfwu8m7xJwi1E/AgMqzR4DAfBgNVHSMEGDAWgBQay3Yfjfwu8m7xJwi1E/AgMqzR4DANBgkqhkiG9w0BAQsFAAOCAQEAIcuORYDdWxxmbP4U1N1McWsom4cy7uujV6ui81LNmigDtiAecZYBsVTBXVEVoZs6Vw3K8Brvmhe5CDRQiDFKPwx3b/sC0CjR0/TSH7s6hHCuWSDRNuuD8EIVEacPxnayfEHPMeqGBqMHPixZb5D+KIoE88+rPXWX5ibKRVsWL3tVZXR1QRrq3ptSpuynanBhBG0pG4DFskgTIH7oQ0Bg6Cq6OPdWBaAbMv0PVFymvR/dg5frU6kL0MSXRHRAzMDD6+0GdFlPcAQkqRTRiIbG57Rs0mUW1BrRaYPnNP/ZMLYYJt7iZCeqEjPdE00ixK6P8bIVggzHgGjzUTbAMtje3A==",
   "firmware-mismatch": "MIIDbzCCAlegAwIBAgIBCTANBgkqhkiG9w0BAQsFADAhMR8wHQYDVQQDDBZNeWNlbGl4IFNBTiBGaXh0dXJlIENBMB4XDTI2MTAwMTAwMDAwMFoXDTM2MTAwMTAwMDAwMFowHTEbMBkGA1UEAwwSTXljZWxpeCBFSyBGaXh0dXJlMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAgblRQIeGpnDIyDMJHyafnoH3owFucWIai5ElCVbiUBzUR5OQ24BjmDLFUrxTP9BMyWXwTfhqve+m3jHJx5EUJJk5rr/IkwvAd5ueVgxaXIk5bXi5RJZbdL7XQnXc+TTILQEVOJYzdO2gVIudY/HE+L/zkoRk4r+Pm3TFEQxVYNidXm0+VCTsTGTyX4BmU26xW3VGR+7e9TW2B9UQIRSpBYK9O/2te98lJvqgfrpcHrNNNimfXzE2v9yYM+WfB8uIQ6sTEd/DKFlBCOdZJwHdNcuInsrPUr8fRUjJA0KIVEbdl5TYu4BMewFgml1oN61ps//nnr+n7YLb18fpgeP+AwIDAQABo4G1MIGyMAwGA1UdEwEB/wQCMAAwDgYDVR0PAQH/BAQDAgUgMFIGA1UdEQRLMEmkRzBFMRYwFAYFZ4EFAgEMC2lkOjAwMDAxMDE0MRMwEQYFZ4EFAgIMCFNMQjkgNjcwMRYwFAYFZ4EFAgMMC2lkOjAwMDcwMDU2MB0GA1UdDgQWBBQay3Yfjfwu8m7xJwi1E/AgMqzR4DAfBgNVHSMEGDAWgBQay3Yfjfwu8m7xJwi1E/AgMqzR4DANBgkqhkiG9w0BAQsFAAOCAQEAS4RQKGsUKvNdDsTLGe4KrJ5L9DdmlJ3uA9S0Q4wZzifPqAg1jwDfyHcuBSgj/l6Lc/jQ9f4JikXwPtI2ydmlskHohoLjy932fWrZ2dsZLiDtZrqIEQ4u3uDfz7STcLoq255E4xd8JEO3xZ70Y7sfdnza+nB9p3ty3swxlPClKX8jHrZZkAHLaei/S89edrJ4Nfv3rp0TIoH7ouTv6P5Cic4i42AjeqyypE84ighCrNMosxjsmGGYU2afBkbs6iqBOiI8hM7GUr4MAKipneyBo+QwSyt0irfQ5TiuKNbQG9g0PxC60XOuzUyGpNnq3cQt4yNnMCzsl54jn/YypMF3DA==",
-  "firmware-malformed": "9da4e1ccdd0355cbffa743552bafe1228fe95bd18e15abf48d5714ae0eec2a39"
+  "firmware-malformed": "MIIDcjCCAlqgAwIBAgIBCjANBgkqhkiG9w0BAQsFADAhMR8wHQYDVQQDDBZNeWNlbGl4IFNBTiBGaXh0dXJlIENBMB4XDTI2MTAwMTAwMDAwMFoXDTM2MTAwMTAwMDAwMFowHTEbMBkGA1UEAwwSTXljZWxpeCBFSyBGaXh0dXJlMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAgblRQIeGpnDIyDMJHyafnoH3owFucWIai5ElCVbiUBzUR5OQ24BjmDLFUrxTP9BMyWXwTfhqve+m3jHJx5EUJJk5rr/IkwvAd5ueVgxaXIk5bXi5RJZbdL7XQnXc+TTILQEVOJYzdO2gVIudY/HE+L/zkoRk4r+Pm3TFEQxVYNidXm0+VCTsTGTyX4BmU26xW3VGR+7e9TW2B9UQIRSpBYK9O/2te98lJvqgfrpcHrNNNimfXzE2v9yYM+WfB8uIQ6sTEd/DKFlBCOdZJwHdNcuInsrPUr8fRUjJA0KIVEbdl5TYu4BMewFgml1oN61ps//nnr+n7YLb18fpgeP+AwIDAQABo4G4MIG1MAwGA1UdEwEB/wQCMAAwDgYDVR0PAQH/BAQDAgUgMFUGA1UdEQROMEykSjBIMRYwFAYFZ4EFAgEMC2lkOjAwMDAxMDE0MRMwEQYFZ4EFAgIMCFNMQjkgNjcwMRkwFwYFZ4EFAgMMDmZpcm13YXJlLXNldmVuMB0GA1UdDgQWBBQay3Yfjfwu8m7xJwi1E/AgMqzR4DAfBgNVHSMEGDAWgBQay3Yfjfwu8m7xJwi1E/AgMqzR4DANBgkqhkiG9w0BAQsFAAOCAQEAT7+sgOgNcsQa1Y8hS9dbBd3ADHIHLlt+s9OtyFwO8uPVBjfawYxuSBaZxO99rPWjLm8mS1L3TcqSvthbGZlbkQcomrP02pup4ZcRENiCjNwLkVG/fKznz1CPFgUyMt7QdB8eKqIbDFL1fNj1GaxjGlt3XMxolc1iRqDG0iSnolYGJsYcgLpRDzNHvbRWv/4HIcTzc2GMU8l+OembGGAe1rXEUMu/s40qOOHql+UoppyHvdrcOI8ybDqOKyYybd6qufB61B3s/e89FGCYyZVWl7OBC+Y8UoYqQv7pbzF/VPJ1m2p0VxJppAR770i8oH2b7h0of+ELPnYY8xk6YLX6tQ=="
 }
 
 def canonical_hash(value: Any) -> str:
@@ -146,6 +146,17 @@ def firmware_status(cert_value: str, current: int, require_current: bool) -> tup
     if require_current: return "MISMATCH_POLICY_DENY", False
     return "MISMATCH_POSSIBLE_FIELD_UPGRADE", True
 
+def session_binding(m: dict[str,Any]) -> str:
+    return canonical_hash({
+        "session_id": m["session_id"],
+        "tpm_identity_digest": m["tpm_identity_digest"],
+        "ek_public_wire_sha256": m["ek_public_wire_sha256"],
+        "certificate_der_sha256": m["certificate_der_sha256"],
+        "tpm_properties_sha256": m["tpm_properties_sha256"],
+        "tpm_properties_source_sha256": m["tpm_properties_source_sha256"],
+        "require_current_firmware_match": bool(m["require_current_firmware_match"]),
+    })
+
 def result(state: str, reason: str, details: dict[str,Any]|None=None)->dict[str,Any]:
     out={"verifier_id":VERIFIER_ID,"state":state,"reason":reason}
     if details: out["details"]=details
@@ -156,7 +167,7 @@ def verify(m: dict[str,Any])->dict[str,Any]:
         "profile_id","profile_version","verification_mode","claim_ceiling","session_id",
         "tpm_identity_digest","ek_public_wire_sha256","certificate_der_base64",
         "certificate_der_sha256","tpm_properties_text","tpm_properties_sha256",
-        "tpm_properties_source_sha256","require_current_firmware_match","verifier_source_sha256",
+        "tpm_properties_source_sha256","require_current_firmware_match","verifier_source_sha256","session_binding_sha256",
     }
     missing=sorted(required-set(m))
     if missing:return result("DENY","missing-required-fields",{"fields":missing})
@@ -168,6 +179,8 @@ def verify(m: dict[str,Any])->dict[str,Any]:
         return result("DENY","digest-invalid")
     if m["verifier_source_sha256"] != hashlib.sha256(Path(__file__).read_bytes()).hexdigest():
         return result("DENY","verifier-source-mismatch")
+    if m["session_binding_sha256"] != session_binding(m):
+        return result("DENY","session-binding-mismatch")
     props=m["tpm_properties_text"]
     if not isinstance(props,str):return result("DENY","tpm-properties-text-invalid")
     props_bytes=props.encode()
@@ -220,7 +233,7 @@ def fixture()->dict[str,Any]:
     pd="bc"*32
     props_sha=hashlib.sha256(PROPS_FIXTURE.encode()).hexdigest()
     session="ek-san-self-test"; tpm="44"*32
-    return {
+    binding = {
       "profile_id":"mycelix.security.tpm.ek-cert-san-device-identity",
       "profile_version":"0.1.0","verification_mode":"ReferenceModelOnly","claim_ceiling":"ReferenceModelOnly",
       "session_id":session,"tpm_identity_digest":tpm,"ek_public_wire_sha256":pd,
@@ -229,7 +242,10 @@ def fixture()->dict[str,Any]:
       "tpm_properties_source_sha256":REFERENCE_PROPERTIES_SOURCE_SHA256,
       "require_current_firmware_match":False,
       "verifier_source_sha256":hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+      "session_binding_sha256":"",
     }
+    binding["session_binding_sha256"] = session_binding(binding)
+    return binding
 
 def mutate_cert(v:dict[str,Any],fixture_name:str)->None:
     b=base64.b64decode(FIXTURES[fixture_name]);v["certificate_der_base64"]=base64.b64encode(b).decode();v["certificate_der_sha256"]=hashlib.sha256(b).hexdigest()
