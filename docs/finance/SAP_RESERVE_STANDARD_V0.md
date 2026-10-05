@@ -1050,3 +1050,19 @@ Reserve status then becomes an empirical consequence of:
     + network adoption
 
 rather than a property asserted by the protocol itself.
+
+
+---
+
+## 30. Primary sources
+
+The external monetary and settlement claims in this document should be checked against primary institutional publications:
+
+- Bank for International Settlements, *The next-generation monetary and financial system* (Annual Economic Report 2025): https://www.bis.org/publications/aer-2025/next-generation-monetary-financial-system
+- Bank for International Settlements, *Next-generation monetary and financial system takes shape, based on a tokenised unified ledger* (24 June 2025): https://www.bis.org/media-releases/20250624-next-generation-monetary-and-financial-system-takes-shape-based-tokenised-unified-ledger-bis
+- International Monetary Fund, *Special Drawing Rights*: https://www.imf.org/en/topics/special-drawing-right
+- International Monetary Fund, *What is the SDR?*: https://www.imf.org/en/about/factsheets/sheets/2023/special-drawing-rights-sdr
+- Financial Stability Board, *Regulation, Supervision and Oversight of “Global Stablecoin” Arrangements*: https://www.fsb.org/2023/07/high-level-recommendations-for-the-regulation-supervision-and-oversight-of-global-stablecoin-arrangements-final-report/
+- South African Reserve Bank, *SAMOS*: https://www.resbank.co.za/en/home/what-we-do/payments-and-settlements/samos
+
+These sources are reference material, not endorsements of SAP. They establish the external concepts against which SAP should be evaluated.
