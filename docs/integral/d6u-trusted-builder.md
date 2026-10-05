@@ -17,16 +17,16 @@ It does not check out the pull-request head, execute files from the downloaded a
 It pins:
 
 - the D6U workflow identity;
-- the D6U manifest and D6S-CANON-2 fixture identities;
-- the D6S-CANON-1 corpus identity;
-- the D6U harness executable surface;
+- the D6U manifest and harness executable surface;
+- the D6S-CANON-1 manifest, golden corpus, and independent verifier;
+- the D6S-CANON-2 manifest, authority-boundary fixture, and independent verifier;
 - the expected runtime versions;
 - all native case outcomes and zome reachability;
 - supplemental substrate witnesses;
 - lockfile substrate versions and crates.io provenance;
 - the `ReferenceModelOnly` claim ceiling.
 
-Before signing, the trusted verifier obtains the complete Git tree for the triggering run's exact `head_sha`. It requires every policy-listed tracked path to resolve to an ordinary Git blob with an allowed file mode and the exact expected SHA. A truncated tree, missing path, blob mismatch, symlink mode, or submodule/non-blob entry fails closed. The artifact's self-reported hashes therefore cannot substitute for repository state.
+Before signing, the trusted verifier obtains the complete Git tree for the triggering run's exact `head_sha`. The D6S success status is not treated as sufficient proof by itself: the canonical verifier programs and canonical reference inputs are independently pinned in the trusted policy. It requires every policy-listed tracked path to resolve to an ordinary Git blob with an allowed file mode and the exact expected SHA. A truncated tree, missing path, blob mismatch, symlink mode, or submodule/non-blob entry fails closed. The artifact's self-reported hashes therefore cannot substitute for repository state.
 
 ## Artifact boundary
 
@@ -40,7 +40,7 @@ Nested directories, symlinks, special files, missing files, and extra files are 
 
 ## Attestation boundary
 
-The D6U pull-request workflow has `contents: read` only and explicitly defers attestation. The trusted workflow owns:
+The D6U main-owned runtime executor has `contents: read` only and explicitly defers attestation. The trusted workflow owns:
 
 - `id-token: write`;
 - `attestations: write`;
