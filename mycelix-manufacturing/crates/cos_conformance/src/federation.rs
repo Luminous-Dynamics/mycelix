@@ -4158,7 +4158,7 @@ mod tests {
             );
         }
 
-        let mut canonical_snapshots = snapshots.iter().collect::<Vec<_>>();
+        let mut canonical_snapshots = snapshots.iter().copied().collect::<Vec<_>>();
         canonical_snapshots.sort_by_key(|(capsule, publication)| {
             serde_json::to_string((capsule, publication))
                 .expect("publication witness candidate must be serializable")
@@ -4277,6 +4277,7 @@ mod tests {
         WitnessNotCanonical,
         DuplicateWitness,
         WitnessInvalid(FederationStateMachineTracePublicationEquivocationWitnessViolation),
+        PublicationInvalid(FederationStateMachineTraceCheckpointPublicationViolation),
         WitnessCoverageMismatch,
         WitnessSetCoverageMismatch,
         SetDigestMismatch,
@@ -4323,6 +4324,13 @@ mod tests {
                 FederationStateMachineTracePublicationEquivocationWitnessSetViolation::UnsupportedHashEncoding
             );
         }
+        for (capsule, publication) in snapshots {
+            validate_state_machine_trace_checkpoint_publication(capsule, publication)
+                .map_err(
+                    FederationStateMachineTracePublicationEquivocationWitnessSetViolation::PublicationInvalid,
+                )?;
+        }
+
         if witness_set.witnesses.is_empty() {
             return Err(
                 FederationStateMachineTracePublicationEquivocationWitnessSetViolation::EmptyWitnessSet
@@ -6905,6 +6913,25 @@ mod tests {
             ),
             Err(
                 FederationStateMachineTracePublicationEquivocationWitnessSetViolation::WitnessNotCanonical
+            )
+        );
+
+        let mut invalid_collection_publication = fork_a_publication.clone();
+        invalid_collection_publication.body_sha256 = "sha256:invalid-set-publication".into();
+        assert_eq!(
+            validate_state_machine_trace_publication_equivocation_witness_set(
+                &[
+                    (&base, &base_publication),
+                    (&fork_a, &invalid_collection_publication),
+                    (&fork_b, &fork_b_publication),
+                    (&fork_c, &fork_c_publication),
+                ],
+                &set,
+            ),
+            Err(
+                FederationStateMachineTracePublicationEquivocationWitnessSetViolation::PublicationInvalid(
+                    FederationStateMachineTraceCheckpointPublicationViolation::BodyDigestMismatch
+                )
             )
         );
 
