@@ -357,6 +357,61 @@ pub fn get_agent_profile_remote(agent: AgentPubKey) -> ExternResult<Consciousnes
     })
 }
 
+
+/// Remote-callable wrapper to fetch a canonical DID document for a target agent.
+///
+/// The capability grant exposes this function to satellite hApps. The local
+/// bridge issuer must itself still be active so a deactivated identity
+/// substrate cannot continue asserting current identity state.
+#[hdk_extern]
+pub fn get_did_document_remote(agent: AgentPubKey) -> ExternResult<Option<DidDocumentData>> {
+    verify_issuer_active("remote DID document query")?;
+
+    let did = format!("did:mycelix:{}", agent);
+    let response = call(
+        CallTargetCell::Local,
+        ZomeName::new("did_registry"),
+        FunctionName::new("resolve_did"),
+        None,
+        did,
+    )?;
+
+    match response {
+        ZomeCallResponse::Ok(result) => {
+            let record: Option<Record> = result.decode().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Failed to decode DID document response: {e:?}"
+                )))
+            })?;
+            let Some(record) = record else {
+                return Ok(None);
+            };
+
+            let document: DidDocumentData = record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Resolved DID record did not contain a DID document".into()
+                )))?;
+
+            Ok(Some(document))
+        }
+        ZomeCallResponse::Unauthorized(_, _, _, _)
+        | ZomeCallResponse::AuthenticationFailed(_, _) => Err(wasm_error!(
+            WasmErrorInner::Guest("DID document query authorization failed".into())
+        )),
+        ZomeCallResponse::NetworkError(err) => Err(wasm_error!(WasmErrorInner::Guest(
+            format!("DID document query failed (network): {err}")
+        ))),
+        ZomeCallResponse::CountersigningSession(err) => Err(wasm_error!(
+            WasmErrorInner::Guest(format!(
+                "DID document query failed (countersigning): {err}"
+            ))
+        )),
+    }
+}
+
 /// API version for this coordinator zome.
 /// Callers can probe this via `get_api_version` to detect schema mismatches
 /// before deserializing cross-zome responses.
