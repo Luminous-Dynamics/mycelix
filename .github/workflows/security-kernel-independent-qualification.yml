@@ -240,6 +240,10 @@ jobs:
           for package in packages:
               source=package.get("source")
               if source is None:
+                  assert (
+                      package.get("name") == "mycelix-bridge-common"
+                      and package.get("version") == manifest_data["package"].get("version")
+                  ), f"source-less non-root package is forbidden: {package.get('name')}"
                   continue
               if source != allowed_registry:
                   forbidden_sources.append((package.get("name"), source))
