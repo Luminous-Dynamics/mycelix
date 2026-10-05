@@ -143,7 +143,7 @@ jobs:
 
       - name: Retain and offline-verify trusted attestations
         env:
-          GH_TOKEN: \${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
           D6U_TRUSTED_POLICY_VERSION: "27"
         run: |
           set -euo pipefail
@@ -167,9 +167,9 @@ jobs:
           )
 
           for i in "0" "1" "2"; do
-            subject="\${subjects[$i]}"
-            name="\${names[$i]}"
-            safe="$(basename "$name" | sed 's/\./_/g')"
+            subject="${subjects[$i]}"
+            name="${names[$i]}"
+            safe="$(printf '%s' "$name" | tr '.-' '__')"
             work="$RUNNER_TEMP/d6u-attestation-download-$safe"
             rm -rf "$work"
             mkdir -p "$work"
@@ -181,12 +181,12 @@ jobs:
                 --limit 8
             )
             mapfile -t bundles < <(find "$work" -maxdepth 1 -type f -name '*.jsonl' -print)
-            test "\${#bundles[@]}" -eq 1
-            bundle="$retention_dir/\${name%.*}.attestation.jsonl"
-            cp -- "\${bundles[0]}" "$bundle"
+            test "${#bundles[@]}" -eq 1
+            bundle="$retention_dir/$safe.attestation.jsonl"
+            cp -- "${bundles[0]}" "$bundle"
             test -s "$bundle"
 
-            report="$retention_dir/\${name%.*}.offline.json"
+            report="$retention_dir/$safe.offline.json"
             gh attestation verify "$subject" \
               --repo "$GITHUB_REPOSITORY" \
               --bundle "$bundle" \
@@ -296,8 +296,8 @@ jobs:
       - name: Upload retained trusted attestation packet
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: d6u-trusted-attestation-retention-run-\${{ github.run_id }}-attempt-\${{ github.run_attempt }}
-          path: \${{ runner.temp }}/d6u-attestation-retention
+          name: d6u-trusted-attestation-retention-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/d6u-attestation-retention
           retention-days: 90
           if-no-files-found: error
           include-hidden-files: false
