@@ -118,6 +118,7 @@ jobs:
 
           required = (
               "Checkout trusted qualification root",
+              "Verify exact trusted workflow identity",
               "Validate dispatch provenance",
               "Resolve exact candidate source",
               "Snapshot trusted candidate source",
