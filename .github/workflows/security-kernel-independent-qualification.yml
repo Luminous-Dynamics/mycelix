@@ -897,7 +897,7 @@ jobs:
         id: receipt_upload
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: security-kernel-independent-qualification-${{ inputs.candidate_sha }}
+          name: security-kernel-independent-qualification-${{ inputs.candidate_sha }}-attempt-${{ github.run_attempt }}
           path: ${{ runner.temp }}/security-kernel-independent-qualification.txt
           if-no-files-found: error
 
@@ -908,7 +908,7 @@ jobs:
           TOKEN: ${{ github.token }}
           EXPECTED_ARTIFACT_ID: ${{ steps.receipt_upload.outputs.artifact-id }}
           EXPECTED_ARTIFACT_DIGEST: ${{ steps.receipt_upload.outputs.artifact-digest }}
-          EXPECTED_ARTIFACT_NAME: security-kernel-independent-qualification-${{ inputs.candidate_sha }}
+          EXPECTED_ARTIFACT_NAME: security-kernel-independent-qualification-${{ inputs.candidate_sha }}-attempt-${{ github.run_attempt }}
           RUN_ID: ${{ github.run_id }}
           BASE_REPOSITORY: "Luminous-Dynamics/mycelix"
         run: |
