@@ -27,11 +27,30 @@ Field values are also type-checked by field in the v2 schema: component/joint/ac
 counts are non-negative integers, active power is a non-negative number, and control/state
 flags are booleans. The type constraints are conditional on the semantic `field` value.
 
-## Runtime parity remains required
+## Runtime parity
 
-The schema is now fail-closed for duplicate required claims and incompatible value types.
-A runtime validator must implement the same invariants before accepting or promoting a
-record; schema validation alone is not evidence that every application path enforces them.
+The semantic runtime parity layer is now implemented in
+`crates/mycelix-bridge-common/src/passive_provenance.rs` and re-exported by
+`mycelix-bridge-common`.
+
+It mirrors the schema's acceptance invariants for:
+
+- exactly one claim for each mandatory passive field;
+- allowed field/status/source discriminators;
+- field-specific non-negative numeric and boolean value types;
+- `Unobserved` forbidding a value;
+- stronger statuses requiring a value;
+- status/source compatibility, including `Validated -> ValidationRecord`;
+- positive passive-score eligibility requiring every mandatory field to be observed.
+
+The runtime validator is deliberately not a second JSON Schema engine. Structural schema
+validation remains the schema authority; application code that accepts or promotes a
+record must apply the runtime semantic validator as well.
+
+The validator has adversarial unit tests for duplicates, missing claims, wrong types,
+negative numbers, unobserved values, missing stronger-status values, source mismatches,
+validated-source requirements, eligibility drift, optional repeated mechanism claims,
+and unexpected claim properties.
 
 ## Integration invariant
 
