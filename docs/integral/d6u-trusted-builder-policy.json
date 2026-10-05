@@ -1,5 +1,5 @@
 {
-  "policy_version": 12,
+  "policy_version": 13,
   "workflow_name": "D6U Exact-Head Runtime Executor",
   "workflow_path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
   "artifact_name_prefix": "d6u-runtime-evidence-",
@@ -206,12 +206,21 @@
   "artifact_max_total_bytes": 12582912,
   "trusted_workflow": {
     "path": ".github/workflows/d6u-trusted-evidence-attestation.yml",
-    "blob_sha": "d6c72f789934d18650ab51ffbf4dcab39bd3a373"
+    "blob_sha": "466607caed309d6c2411f2a9cc98ffcbf96f9be2"
   },
   "artifact_max_entries": 32,
   "artifact_integrity": {
     "algorithm": "sha256",
     "source": "github-artifact-api",
-    "require_match_after_download": true
+    "require_match_after_download": true,
+    "archive_format": "zip",
+    "extraction_mode": "bounded-members",
+    "reject_encrypted_members": true,
+    "reject_symlink_members": true,
+    "expected_member_count": 3
+  },
+  "trusted_artifact_fetcher": {
+    "path": "scripts/integral/fetch_d6u_trusted_artifact.py",
+    "blob_sha": "a249c8f0b014beb07060b33b93382adbbc37eb96"
   }
 }
