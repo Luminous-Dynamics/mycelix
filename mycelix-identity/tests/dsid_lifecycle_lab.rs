@@ -1268,7 +1268,7 @@ async fn dsid_062_deactivated_issuer_rejects_credential_request_approval() {
             "request_credential",
             serde_json::json!({
                 "issuer_did": issuer_did.id.clone(),
-                "schema_id": "",
+                "schema_id": "mycelix:schema:dsid:approval:v1",
                 "claims": {
                     "purpose": "DSID approval lifecycle"
                 },
@@ -1380,7 +1380,7 @@ async fn dsid_063_deactivated_issuer_rejects_proof_carrying_request_fulfillment(
             "request_credential",
             serde_json::json!({
                 "issuer_did": issuer_did.id.clone(),
-                "schema_id": "",
+                "schema_id": "mycelix:schema:dsid:fulfillment:v1",
                 "claims": {
                     "purpose": "DSID proof-carrying fulfillment"
                 },
@@ -1402,6 +1402,16 @@ async fn dsid_063_deactivated_issuer_rejects_proof_carrying_request_fulfillment(
         .await
         .expect("credential request must reach the issuer");
 
+    let _under_review: Record = conductor
+        .call(
+            &issuer.zome("verifiable_credential"),
+            "update_request_status",
+            serde_json::json!({
+                "request_id": request_id.clone(),
+                "new_status": "UnderReview"
+            }),
+        )
+        .await;
     let _approved: Record = conductor
         .call(
             &issuer.zome("verifiable_credential"),
