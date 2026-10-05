@@ -73,6 +73,47 @@ pub struct AggregatorMetrics {
 // Helper: Anchor
 // ============================================================================
 
+fn verify_did_active(did: &str, operation: &str) -> ExternResult<()> {
+    let response = call(
+        CallTargetCell::Local,
+        ZomeName::new("did_registry"),
+        FunctionName::new("is_did_active"),
+        None,
+        did.to_string(),
+    )?;
+
+    match response {
+        ZomeCallResponse::Ok(result) => {
+            let active = result.decode::<bool>().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Failed to decode DID active state for {operation}: {e:?}"
+                )))
+            })?;
+            if active {
+                Ok(())
+            } else {
+                Err(wasm_error!(WasmErrorInner::Guest(format!(
+                    "DID is not active; refusing {operation}"
+                ))))
+            }
+        }
+        ZomeCallResponse::Unauthorized(_, _, _, _)
+        | ZomeCallResponse::AuthenticationFailed(_, _) => Err(wasm_error!(
+            WasmErrorInner::Guest(format!(
+                "DID active-state authorization failed for {operation}"
+            ))
+        )),
+        ZomeCallResponse::NetworkError(err) => Err(wasm_error!(WasmErrorInner::Guest(
+            format!("DID active-state verification failed for {operation}: {err}")
+        ))),
+        ZomeCallResponse::CountersigningSession(err) => Err(wasm_error!(
+            WasmErrorInner::Guest(format!(
+                "DID active-state verification failed for {operation} (countersigning: {err})"
+            ))
+        )),
+    }
+}
+
 fn ensure_anchor(name: &str) -> ExternResult<EntryHash> {
     let anchor = Anchor(name.to_string());
     create_entry(&EntryTypes::Anchor(anchor.clone()))?;
@@ -241,6 +282,12 @@ pub fn get_reputation_history(input: PaginatedAgentInput) -> ExternResult<Vec<Re
 /// their domain-specific reputation assessment for an agent.
 #[hdk_extern]
 pub fn report_domain_score(input: DomainScoreInput) -> ExternResult<ActionHash> {
+    let caller = agent_info()?.agent_initial_pubkey;
+    verify_did_active(
+        &format!("did:mycelix:{}", caller),
+        "domain reputation reporting",
+    )?;
+
     let score = input.score.clamp(0.0, 1.0);
     if !score.is_finite() {
         return Err(wasm_error!(WasmErrorInner::Guest(
@@ -248,7 +295,6 @@ pub fn report_domain_score(input: DomainScoreInput) -> ExternResult<ActionHash> 
         )));
     }
 
-    let caller = agent_info()?.agent_initial_pubkey;
     let now = sys_time()?;
 
     let report = DomainScoreReport {
