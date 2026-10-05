@@ -2370,6 +2370,46 @@ PY
     fail=1
   fi
 
+  if python3 - "$workflow" <<'PY'
+from pathlib import Path
+import sys
+
+source = Path(sys.argv[1]).read_text()
+
+required = [
+    '      - name: Check Hearth 0.7 test formatting',
+    '        id: format',
+    'format_conclusion="${{ steps.format.conclusion || \'unknown\' }}"',
+    '&& [[ "${format_conclusion}" == "success" ]]',
+    'echo "format_conclusion=${format_conclusion}"',
+    'echo "format_conclusion=${{ steps.format.conclusion || \'unknown\' }}"',
+]
+missing = [item for item in required if item not in source]
+if missing:
+    print("FAIL: qualification evidence completeness is missing formatter outcome binding:")
+    for item in missing:
+        print(f"  missing: {item}")
+    raise SystemExit(2)
+
+metadata_start = source.find("      - name: Capture qualification metadata")
+if metadata_start < 0:
+    print("FAIL: qualification metadata step is missing")
+    raise SystemExit(2)
+metadata = source[metadata_start:]
+if 'evidence_status="$(cat "${hearth}/qualification-evidence-status.txt"' not in metadata:
+    print("FAIL: qualification metadata does not read qualification-evidence-status.txt")
+    raise SystemExit(2)
+if '[[ "${evidence_status}" == "complete" ]]' not in metadata:
+    print("FAIL: RuntimeQualificationPassed is not gated on evidence_status=complete")
+    raise SystemExit(2)
+
+print("OK: qualification runtime claim is bound to formatter success and complete evidence receipt")
+PY
+  then
+    true
+  else
+    fail=1
+  fi
   if rg -n --fixed-strings "Capture immutable qualification evidence" "$workflow" >/dev/null 2>&1     && rg -n --fixed-strings "if: ${{ !cancelled() }}" "$workflow" >/dev/null 2>&1     && rg -n --fixed-strings "unavailable_source_audit_not_reached" "$workflow" >/dev/null 2>&1     && rg -n --fixed-strings "qualification-evidence-status.txt" "$workflow" >/dev/null 2>&1     && rg -n --fixed-strings "source_contract_digest=unavailable" "$workflow" >/dev/null 2>&1; then
     echo "OK:   qualification evidence capture is failure-monotonic with explicit unavailable markers"
   else
