@@ -591,22 +591,6 @@ PY
             fi
           fi
 
-          if [[ ! -s "${hearth}/qualification-cargo-lock-sha256.txt" ]] \
-            && [[ -s "${hearth}/Cargo.lock" ]] \
-            && ! head -n1 "${hearth}/Cargo.lock" | grep -q '^unavailable_'; then
-            if [[ -s "${hearth}/tests/Cargo.lock" ]] && ! head -n1 "${hearth}/tests/Cargo.lock" | grep -q '^unavailable_'; then
-              sha256sum "${hearth}/Cargo.lock" "${hearth}/tests/Cargo.lock" > "${hearth}/qualification-cargo-lock-sha256.txt"
-            fi
-          fi
-          if [[ ! -s "${hearth}/qualification-cargo-lock-summary.txt" ]] \
-            && [[ -s "${hearth}/Cargo.lock" ]] \
-            && [[ -s "${hearth}/tests/Cargo.lock" ]]; then
-            {
-              echo "hearth_cargo_lock=$(sha256sum "${hearth}/Cargo.lock" | awk '{print $1}')"
-              echo "tests_cargo_lock=$(sha256sum "${hearth}/tests/Cargo.lock" | awk '{print $1}')"
-            } > "${hearth}/qualification-cargo-lock-summary.txt"
-          fi
-
           evidence_status="partial"
           real() {
             [[ -s "$1" ]] && ! head -n1 "$1" | grep -q '^unavailable_'
