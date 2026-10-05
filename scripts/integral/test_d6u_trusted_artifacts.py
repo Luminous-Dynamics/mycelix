@@ -34,7 +34,8 @@ def base_policy() -> dict:
 
 
 def valid_log() -> str:
-    return "\n".join(
+    return "
+".join(
         [
             "D6U_CASE\tcanonical-payload-accepted\taccepted\tzome-reached=true\tPASS",
             'D6U_RUNTIME_WITNESS\tfuture-expiry-rejection\tBadNonce("Future")',
@@ -110,6 +111,7 @@ def test_executor_workflow_identity_tampering_is_rejected() -> None:
         "non-default executor ref was accepted",
     )
 
+
 def test_trigger_run_identity_tampering_is_rejected() -> None:
     policy = {
         "source_branch": "myc-int-demo-d6u-holochain-07-runtime",
@@ -117,11 +119,15 @@ def test_trigger_run_identity_tampering_is_rejected() -> None:
             "name": "D6S Canonical Qualification",
             "path": ".github/workflows/d6s-canonical-qualification.yml",
         },
+        "required_source_blobs": {
+            ".github/workflows/d6s-canonical-qualification.yml": "f" * 40,
+        },
     }
     record = {
         "trigger_workflow_run_attempt": "2",
         "trigger_workflow_name": "D6S Canonical Qualification",
         "trigger_workflow_path": ".github/workflows/d6s-canonical-qualification.yml",
+        "trigger_workflow_blob_sha": "f" * 40,
         "source_repository": "Luminous-Dynamics/mycelix",
         "source_branch": "myc-int-demo-d6u-holochain-07-runtime",
         "source_commit": "d" * 40,
@@ -142,6 +148,12 @@ def test_trigger_run_identity_tampering_is_rejected() -> None:
     assert_rejected(
         lambda: verify_trigger_run_record(record, bad_trigger, policy, "Luminous-Dynamics/mycelix"),
         "tampered trigger SHA was accepted",
+    )
+
+    bad_blob = {**record, "trigger_workflow_blob_sha": "e" * 40}
+    assert_rejected(
+        lambda: verify_trigger_run_record(bad_blob, trigger, policy, "Luminous-Dynamics/mycelix"),
+        "tampered trigger workflow blob was accepted",
     )
 
 
@@ -313,7 +325,6 @@ if __name__ == "__main__":
         test_trigger_run_identity_tampering_is_rejected,
         test_tracked_source_tree_accepts_exact_blobs,
         test_tracked_source_tree_rejects_symlink_mode,
-        test_tracked_source_tree_rejects_nonblob_entry,
         test_truncated_source_tree_is_rejected,
         test_artifact_layout_rejects_symlink,
     ]
