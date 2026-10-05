@@ -2652,6 +2652,126 @@ async fn dsid_081_deactivated_did_rejects_domain_reputation_report() {
     );
 }
 
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_082_deactivated_issuer_rejects_epistemic_credential_projection() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let app = conductor
+        .setup_app(
+            "dsid-deactivated-academic-epistemic-projection",
+            std::slice::from_ref(&dna),
+        )
+        .await
+        .unwrap();
+    let cell = app.cells()[0].clone();
+    let agent = app.agent().clone();
+    let issuer_did = format!("did:mycelix:{}", agent);
+
+    let did_record: Record = conductor
+        .call(&cell.zome("did_registry"), "create_did", ())
+        .await;
+
+    let issued: Record = conductor
+        .call(
+            &cell.zome("education"),
+            "create_academic_credential",
+            serde_json::json!({
+                "issuer": {
+                    "id": issuer_did,
+                    "name": "DSID Academic Issuer",
+                    "type": ["University"],
+                    "image": null,
+                    "location": null,
+                    "accreditation": null
+                },
+                "subject": {
+                    "id": "did:mycelix:legacy:dsid-projection-student",
+                    "name": null,
+                    "name_hash": null,
+                    "birth_date": null,
+                    "student_id": "DSID-PROJECTION-STUDENT"
+                },
+                "achievement": {
+                    "degree_type": "Bachelor",
+                    "degree_name": "DSID Test Degree",
+                    "field_of_study": "Security Engineering",
+                    "minors": null,
+                    "conferral_date": "1970-01-01T00:00:00Z",
+                    "gpa": null,
+                    "honors": null,
+                    "cip_code": null,
+                    "credits_earned": null
+                },
+                "dns_did": {
+                    "domain": "dsid.invalid",
+                    "did": issuer_did,
+                    "txt_record": "",
+                    "dnssec": "Unknown",
+                    "last_verified": "1970-01-01T00:00:00Z",
+                    "verification_chain": []
+                },
+                "revocation_registry_id": "registry:dsid-projection",
+                "valid_from": "1970-01-01T00:00:00Z",
+                "valid_until": null,
+                "proof": {
+                    "type": "DataIntegrityProof",
+                    "created": "1970-01-01T00:00:00Z",
+                    "verificationMethod": format!("{}#keys-1", issuer_did),
+                    "proofPurpose": "assertionMethod",
+                    "proofValue": "zDSID",
+                    "cryptosuite": null,
+                    "domain": null,
+                    "challenge": null,
+                    "algorithm": null
+                }
+            }),
+        )
+        .await;
+
+    let deactivated: Record = conductor
+        .call(
+            &cell.zome("did_registry"),
+            "deactivate_did",
+            "DSID deactivated academic projection regression",
+        )
+        .await;
+
+    let blocked: Result<serde_json::Value, _> = conductor
+        .call_fallible(
+            &cell.zome("education"),
+            "publish_credential_as_epistemic_claim",
+            serde_json::json!({
+                "credential_action_hash": issued.action_address()
+            }),
+        )
+        .await;
+
+    let rejection = format!("{blocked:?}");
+    assert!(
+        blocked.is_err(),
+        "deactivated issuer must not publish a new epistemic projection of its credential"
+    );
+    assert!(
+        rejection.contains("DID is not active"),
+        "epistemic projection rejection must come from the active-DID guard, got: {rejection}"
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("issuer", agent.to_string());
+    emit_evidence(
+        "DSID-082",
+        "deactivated-issuer-rejects-epistemic-credential-projection",
+        &dna,
+        agents,
+        &[&did_record, &issued, &deactivated],
+        "A deactivated academic issuer cannot create a new epistemic/DKG projection of an existing credential.",
+        format!("epistemic_projection_rejected={}", blocked.is_err()),
+        blocked.is_err(),
+    );
+}
+
 #[tokio::test(flavor = "multi_thread")]
 #[ignore]
 async fn dsid_006_self_recovery_projection_matches_canonical_state() {
