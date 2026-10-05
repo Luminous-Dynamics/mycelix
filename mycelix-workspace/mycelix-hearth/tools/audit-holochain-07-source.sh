@@ -2419,6 +2419,42 @@ check_qualification_workflow_provenance() {
     fail=1
   fi
 
+
+  if python3 - "$workflow" <<'PY'
+from pathlib import Path
+import sys
+
+source = Path(sys.argv[1]).read_text()
+verify = source.find("      - name: Verify every semantic qualification case executed")
+capture = source.find("      - name: Capture immutable qualification evidence")
+sweettest = source.find("      - name: Run Hearth 0.7 SweetConductor qualification")
+metadata = source.find("      - name: Capture qualification metadata")
+
+if not (0 <= sweettest < verify < capture < metadata):
+    print("FAIL: semantic execution verification must follow SweetConductor and precede immutable evidence/metadata capture")
+    raise SystemExit(2)
+
+capture_end = source.find("\n      - name:", capture + 1)
+if capture_end < 0:
+    capture_end = len(source)
+capture_block = source[capture:capture_end]
+
+if 'qualification-semantic-execution.txt" "unavailable_case_execution_not_reached"' not in capture_block:
+    print("FAIL: immutable evidence capture does not preserve semantic execution receipt")
+    raise SystemExit(2)
+
+if 'grep -qx "status=passed" "${hearth}/qualification-semantic-execution.txt"' not in source:
+    print("FAIL: qualification completeness is not gated on a passed semantic execution receipt")
+    raise SystemExit(2)
+
+print("OK: semantic execution verification precedes evidence capture and gates completeness")
+PY
+  then
+    true
+  else
+    fail=1
+  fi
+
   if rg -n --fixed-strings "Capture immutable qualification evidence" "$workflow" >/dev/null 2>&1     && rg -n --fixed-strings "if: ${{ !cancelled() }}" "$workflow" >/dev/null 2>&1     && rg -n --fixed-strings "unavailable_source_audit_not_reached" "$workflow" >/dev/null 2>&1     && rg -n --fixed-strings "qualification-evidence-status.txt" "$workflow" >/dev/null 2>&1     && rg -n --fixed-strings "source_contract_digest=unavailable" "$workflow" >/dev/null 2>&1; then
     echo "OK:   qualification evidence capture is failure-monotonic with explicit unavailable markers"
   else
