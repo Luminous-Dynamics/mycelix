@@ -1,0 +1,117 @@
+name: Security Kernel Qualification — Trusted Dispatcher
+on:
+  workflow_run:
+    workflows: ["Security Kernel Qualification"]
+    types: [completed]
+permissions:
+  actions: write
+  contents: read
+  pull-requests: read
+concurrency:
+  group: security-kernel-trusted-dispatch-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
+  cancel-in-progress: true
+env:
+  SOURCE_WORKFLOW_ID: "372951439"
+  SOURCE_WORKFLOW_PATH: ".github/workflows/security-kernel-qualification.yml"
+  TRUSTED_INDEPENDENT_WORKFLOW_PATH: ".github/workflows/security-kernel-independent-qualification.yml"
+  BASE_REPOSITORY: "Luminous-Dynamics/mycelix"
+  BASE_BRANCH: "main"
+jobs:
+  dispatch:
+    name: Resolve exact PR subject and dispatch trusted qualification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Resolve source workflow provenance
+        shell: bash
+        env:
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          EVENT: ${{ github.event.workflow_run.event }}
+          HEAD_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
+          TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, urllib.request
+          base = "https://api.github.com"
+          token = os.environ["TOKEN"]
+          def get(path):
+              req = urllib.request.Request(base + path, headers={
+                  "Accept":"application/vnd.github+json",
+                  "Authorization":f"Bearer {token}",
+                  "X-GitHub-Api-Version":"2022-11-28"})
+              with urllib.request.urlopen(req, timeout=20) as r:
+                  return json.load(r)
+          run = get(f'/repos/{os.environ["BASE_REPOSITORY"]}/actions/runs/{os.environ["RUN_ID"]}')
+          assert run["id"] == int(os.environ["RUN_ID"])
+          assert run["run_attempt"] == int(os.environ["RUN_ATTEMPT"])
+          assert run["workflow_id"] == int(os.environ["SOURCE_WORKFLOW_ID"])
+          assert run["path"] == os.environ["SOURCE_WORKFLOW_PATH"]
+          assert run["event"] == "pull_request"
+          assert run["repository"]["full_name"] == os.environ["BASE_REPOSITORY"]
+          assert run["head_sha"] == os.environ["HEAD_SHA"]
+          assert (run.get("head_repository") or {}).get("full_name") == os.environ["HEAD_REPOSITORY"]
+          pulls = get(f'/repos/{os.environ["BASE_REPOSITORY"]}/commits/{os.environ["HEAD_SHA"]}/pulls?per_page=100')
+          matches = [
+              pr for pr in pulls
+              if pr["base"]["repo"]["full_name"] == os.environ["BASE_REPOSITORY"]
+              and pr["base"]["ref"] == os.environ["BASE_BRANCH"]
+              and pr["head"]["repo"]["full_name"] == os.environ["HEAD_REPOSITORY"]
+              and pr["head"]["sha"] == os.environ["HEAD_SHA"]
+              and pr["state"] == "open"
+          ]
+          assert len(matches) == 1, f"expected one exact open PR, found {len(matches)}"
+          pr = matches[0]
+          with open("subject.env","w",encoding="utf-8") as f:
+              f.write(f"CANDIDATE_PR={pr['number']}\n")
+              f.write(f"CANDIDATE_SHA={os.environ['HEAD_SHA']}\n")
+              f.write(f"CANDIDATE_REPOSITORY={os.environ['HEAD_REPOSITORY']}\n")
+          print("PASS: source workflow, candidate repository, SHA, and PR are exact")
+          PY
+
+      - name: Verify trusted qualification workflow is installed
+        shell: bash
+        env:
+          TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, urllib.request
+          req=urllib.request.Request(
+              "https://api.github.com/repos/Luminous-Dynamics/mycelix/actions/workflows/security-kernel-independent-qualification.yml",
+              headers={"Accept":"application/vnd.github+json","Authorization":f"Bearer {os.environ['TOKEN']}","X-GitHub-Api-Version":"2022-11-28"})
+          with urllib.request.urlopen(req, timeout=20) as r:
+              workflow=json.load(r)
+          assert workflow["path"] == ".github/workflows/security-kernel-independent-qualification.yml"
+          assert workflow["state"] == "active"
+          print("PASS: trusted independent workflow is active")
+          PY
+
+      - name: Dispatch exact immutable candidate subject
+        shell: bash
+        env:
+          TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
+          SOURCE_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+        run: |
+          set -euo pipefail
+          source subject.env
+          python3 - <<'PY'
+          import json, os, urllib.request
+          payload={"ref":"main","inputs":{
+              "candidate_pr":os.environ["CANDIDATE_PR"],
+              "candidate_sha":os.environ["CANDIDATE_SHA"],
+              "candidate_repository":os.environ["CANDIDATE_REPOSITORY"],
+              "source_run_id":os.environ["SOURCE_RUN_ID"],
+              "source_run_attempt":os.environ["SOURCE_RUN_ATTEMPT"]}}
+          req=urllib.request.Request(
+              "https://api.github.com/repos/Luminous-Dynamics/mycelix/actions/workflows/security-kernel-independent-qualification.yml/dispatches",
+              data=json.dumps(payload).encode(),
+              method="POST",
+              headers={"Accept":"application/vnd.github+json","Authorization":f"Bearer {os.environ['TOKEN']}","X-GitHub-Api-Version":"2022-11-28","Content-Type":"application/json"})
+          with urllib.request.urlopen(req, timeout=20) as r:
+              assert r.status == 204
+          print(json.dumps(payload,sort_keys=True))
+          PY
