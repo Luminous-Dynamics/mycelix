@@ -187,8 +187,33 @@ jobs:
           assert lockfile.stat().st_size <= 32 * 1024 * 1024, "Cargo.lock exceeds qualification size bound"
           import tomllib
           manifest_text=manifest.read_text(encoding="utf-8")
-          assert re.search(r"(?m)^\s*(git|path|registry)\s*=", manifest_text) is None, "manifest dependency source override is forbidden"
-          assert re.search(r"(?m)^\s*\[(patch|replace)(?:\.|\])", manifest_text) is None, "manifest patch/replace tables are forbidden"
+          manifest_data=tomllib.loads(manifest_text)
+
+          dependency_table_names={"dependencies", "dev-dependencies", "build-dependencies"}
+          forbidden_dependency_keys={"git", "path", "registry", "workspace"}
+          violations=[]
+
+          def inspect_dependency_table(table, table_path):
+              for name, spec in table.items():
+                  if isinstance(spec, dict):
+                      for key in forbidden_dependency_keys & set(spec):
+                          violations.append((".".join(table_path), name, key))
+                  elif not isinstance(spec, str):
+                      violations.append((".".join(table_path), name, "non-string/non-table-spec"))
+
+          def walk_tables(value, path=()):
+              if not isinstance(value, dict):
+                  return
+              if path and path[-1] in dependency_table_names:
+                  inspect_dependency_table(value, path)
+              for key, child in value.items():
+                  if isinstance(child, dict):
+                      walk_tables(child, path + (str(key),))
+
+          walk_tables(manifest_data)
+          assert not violations, f"manifest dependency source/inheritance override is forbidden: {violations}"
+          assert "patch" not in manifest_data and "replace" not in manifest_data, "manifest patch/replace tables are forbidden"
+
           lock=tomllib.loads(lockfile.read_text(encoding="utf-8"))
           packages=lock.get("package", [])
           assert packages, "Cargo.lock contains no package records"
