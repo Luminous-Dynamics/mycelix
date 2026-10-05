@@ -402,6 +402,43 @@ mod tests {
     }
 
     #[test]
+    fn security_timestamps_must_not_be_future_dated() {
+        let action_timestamp = Timestamp::from_micros(1_000);
+        assert_eq!(
+            validate_timestamp_us_not_future(
+                "Attestation timestamp",
+                1_000,
+                action_timestamp,
+            ),
+            ValidateCallbackResult::Valid
+        );
+        match validate_timestamp_us_not_future(
+            "Attestation timestamp",
+            1_001,
+            action_timestamp,
+        ) {
+            ValidateCallbackResult::Invalid(message) => {
+                assert!(message.contains("signed Holochain action timestamp"));
+            }
+            other => panic!("future-dated attestation timestamp must be invalid, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn security_timestamps_reject_negative_action_clock() {
+        match validate_timestamp_us_not_future(
+            "Revocation timestamp",
+            1,
+            Timestamp::from_micros(-1),
+        ) {
+            ValidateCallbackResult::Invalid(message) => {
+                assert!(message.contains("negative signed Holochain action timestamp"));
+            }
+            other => panic!("negative action clock must fail closed, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn author_is_the_attestor() {
         let author = AgentPubKey::from_raw_36(vec![7; 36]);
         let action = ts_author(author.clone());
