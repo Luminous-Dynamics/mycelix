@@ -734,7 +734,6 @@ impl D6XVerificationSummaryV1 {
             && self.claim_ceiling == D6X_CLAIM_CEILING
             && is_canonical_sha256_commitment(&self.commitment)
             && self.commitment == self.recompute()
-            && matches!(self.verification_result, D6XVerificationResultV1::Passed)
     }
 
     /// Verify a summary against explicit consumer expectations and the exact
@@ -751,6 +750,7 @@ impl D6XVerificationSummaryV1 {
         closure: &DependencyClosureCertificateV1,
     ) -> bool {
         if !self.valid()
+            || self.verification_result != D6XVerificationResultV1::Passed
             || self.verifier_id != expected_verifier_id
             || self.verification_policy_commitment != expected_verification_policy_commitment
             || self.projection_commitment != projection.commitment()
@@ -3090,6 +3090,54 @@ mod tests {
             &closure_profile,
             &evidenced,
         ));
+    }
+
+    #[test]
+    fn failed_verification_summary_is_well_formed_but_not_acceptable() {
+        let (projection, environment, derivation_profile) = projection(false);
+        let closure_profile = profile(BTreeSet::new());
+        let closure = compute_dependency_closure(
+            &projection,
+            &environment,
+            &derivation_profile,
+            &closure_profile,
+        )
+        .expect("fixture closure");
+
+        let policy = canonical_sha256(
+            "test-d6x-verification-policy",
+            &serde_json::json!({"required_result": "Passed"}),
+        );
+        let mut summary = D6XVerificationSummaryV1::from_verified_closure(
+            "verifier:d6x-test",
+            &policy,
+            &projection,
+            &environment,
+            &derivation_profile,
+            &closure_profile,
+            &closure,
+        )
+        .expect("verified closure summary");
+
+        summary.verification_result = D6XVerificationResultV1::Failed;
+        summary.commitment = summary.recompute();
+
+        assert!(
+            summary.valid(),
+            "a Failed result may be a structurally valid summary"
+        );
+        assert!(
+            !summary.verifies_against_expectations(
+                "verifier:d6x-test",
+                &policy,
+                &projection,
+                &environment,
+                &derivation_profile,
+                &closure_profile,
+                &closure,
+            ),
+            "consumer qualification must explicitly require Passed"
+        );
     }
 
     #[test]
