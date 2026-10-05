@@ -18,8 +18,6 @@ SPKI_VERIFIER_ID = "mycelix.tpm.ek-cert-spki-binding.v0.1"
 TEMPLATE_VERIFIER_ID = "mycelix.tpm.ek-template-appraisal.v0.1"
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURE_DIR = ROOT / "docs/security/fixtures/ek-chain-policy-v0.1"
-REFERENCE_ROOT_SOURCE_TAG = "synthetic-ek-root-fixture-v0.2-frozen"
-REFERENCE_ROOT_SHA256 = "f9dbfd812b4772854cf32096bca60947ea62164835299e1839bc44c003e46fab"
 FIXTURE_HASHES = {
     "root.der": REFERENCE_ROOT_SHA256,
     "intermediate.der": "859a9f31a543940927bfc8484a33101710cc67e7467493472b456192fad677a3",
