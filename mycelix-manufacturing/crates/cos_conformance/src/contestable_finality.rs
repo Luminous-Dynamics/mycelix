@@ -1144,6 +1144,7 @@ mod tests {
     }
 
     fn receipt(disposition: FinalityResolutionDispositionV1) -> FinalityResolutionReceiptV1 {
+        let set_commitment = set(&["obs-1"]).set_commitment;
         FinalityResolutionReceiptV1 {
             resolution_id: "resolution-1".into(),
             effect_id: "effect-1".into(),
@@ -1155,7 +1156,7 @@ mod tests {
             provider_profile_root: "provider-profile-1".into(),
             semantic_environment_root: "env-1".into(),
             observation_set_id: "set-1".into(),
-            observation_set_commitment: "set-commitment".into(),
+            observation_set_commitment: set_commitment,
             qualification_profile_id: "qual-1".into(),
             disposition,
             resolved_state: Some(ExternalFinalityStateV1::Applied),
