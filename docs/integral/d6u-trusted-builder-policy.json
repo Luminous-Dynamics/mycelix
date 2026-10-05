@@ -1,7 +1,7 @@
 {
-  "policy_version": 3,
-  "workflow_name": "D6U Exact-Head Runtime Qualification",
-  "workflow_path": ".github/workflows/d6u-exact-head-runtime.yml",
+  "policy_version": 4,
+  "workflow_name": "D6U Exact-Head Runtime Executor",
+  "workflow_path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
   "artifact_name_prefix": "d6u-runtime-evidence-",
   "claim_ceiling": "ReferenceModelOnly",
   "runtime": {
@@ -17,16 +17,19 @@
   "record_fields": [
     "status",
     "source_commit",
-    "workflow_run_id",
-    "workflow_run_attempt",
-    "caller_workflow_commit_sha",
-    "caller_workflow_ref",
-    "workflow_definition_commit_sha",
-    "workflow_definition_ref",
-    "workflow_definition_repository",
-    "workflow_definition_file_path",
-    "workflow_definition_blob_sha",
-    "caller_workflow_blob_sha",
+    "source_branch",
+    "source_repository",
+    "trigger_workflow_run_id",
+    "trigger_workflow_run_attempt",
+    "trigger_workflow_name",
+    "trigger_workflow_path",
+    "trigger_workflow_blob_sha",
+    "executor_run_id",
+    "executor_run_attempt",
+    "executor_workflow_commit_sha",
+    "executor_workflow_ref",
+    "executor_workflow_file_path",
+    "executor_workflow_repository",
     "attestation_status",
     "d6s2_manifest_git_blob_sha",
     "d6s2_fixture_git_blob_sha",
@@ -147,7 +150,22 @@
     "authorization-failed",
     "routing-failed"
   ],
-  "required_tracked_blobs": {
+  "origin_policy": "same-repository-only",
+  "trigger_workflow_name": "D6S Canonical Qualification",
+  "trigger_workflow_path": ".github/workflows/d6s-canonical-qualification.yml",
+  "caller_workflow_name": "D6S Canonical Qualification",
+  "caller_workflow_path": ".github/workflows/d6s-canonical-qualification.yml",
+  "source_branch": "myc-int-demo-d6u-holochain-07-runtime",
+  "trigger_workflow": {
+    "name": "D6S Canonical Qualification",
+    "path": ".github/workflows/d6s-canonical-qualification.yml"
+  },
+  "executor_workflow": {
+    "name": "D6U Exact-Head Runtime Executor",
+    "path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
+    "blob_sha": "dd9484d0d5a8dd6752deb29c1c7f5ae9390705f7"
+  },
+  "required_source_blobs": {
     "docs/integral/d6u-runtime-manifest.json": "7cb9fbe547bc5e0c3512224712ceca7b5e30b7c2",
     "d6u-runtime-harness/Cargo.toml": "919927360b4c2b8d79efb336297b8834c7ff12e0",
     "d6u-runtime-harness/rust-toolchain.toml": "69719934f101c996e1cecfc572f8bc61441018f2",
@@ -156,15 +174,9 @@
     "scripts/integral/verify_d6u_runtime_manifest.py": "f94848988e7f7d6a80826401d78db9e98f01a17d",
     "scripts/integral/verify_d6u_runtime_evidence.py": "f35aad81943cdf35a17c83827b01bbd7e0597e93",
     "scripts/integral/verify_d6u_runtime_lock.py": "16607cb0830be451b37116b2612b46693423a377",
-    "scripts/integral/verify_d6u_runtime_record.py": "df4b05daebaee600eac6592fe372c5cdf3d2bbbe",
+    "scripts/integral/verify_d6u_runtime_record.py": "0a05f7d6ac947d71dc44b4275874684f32241e0b",
     "docs/integral/d6s-canon-2-manifest.json": "4353b9aed545c7762d6f8f73bc551e4c008271a9",
     "docs/integral/d6s-canon-2-authority-boundary-fixture.json": "0b4c5b924bc3b807c556ef92cc869d66f7cc97a1",
-    ".github/workflows/d6u-exact-head-runtime.yml": "b70c452291fe84ed192a2a831e7df38a14983de7",
-    ".github/workflows/d6s-canonical-qualification.yml": "8721b8ab05367665521e79beef425854c665832d"
-  },
-  "origin_policy": "same-repository-only",
-  "trigger_workflow_name": "D6S Canonical Qualification",
-  "trigger_workflow_path": ".github/workflows/d6s-canonical-qualification.yml",
-  "caller_workflow_name": "D6S Canonical Qualification",
-  "caller_workflow_path": ".github/workflows/d6s-canonical-qualification.yml"
+    ".github/workflows/d6s-canonical-qualification.yml": "4b97ffb7251f7a8db0406efaaa8afaf85dad6adc"
+  }
 }
