@@ -286,6 +286,9 @@ jobs:
           GITHUB_WORKFLOW_SHA="$GITHUB_WORKFLOW_SHA" \
           GITHUB_RUN_ID="$GITHUB_RUN_ID" \
           GITHUB_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT" \
+          D6U_SUBJECT_D6U_RUNTIME_EVIDENCE_TXT_SHA256="$(sha256sum "$RUNNER_TEMP/d6u-trusted-input/d6u-runtime-evidence.txt" | awk '{print $1}')" \
+          D6U_SUBJECT_D6U_RUNTIME_TEST_LOG_SHA256="$(sha256sum "$RUNNER_TEMP/d6u-trusted-input/d6u-runtime-test.log" | awk '{print $1}')" \
+          D6U_SUBJECT_CARGO_LOCK_SHA256="$(sha256sum "$RUNNER_TEMP/d6u-trusted-input/Cargo.lock" | awk '{print $1}')" \
             python3 scripts/integral/verify_d6u_trusted_attestation_retention.py "$retention_dir"
 
           rm -f "$RUNNER_TEMP"/no-public-good-*.json
