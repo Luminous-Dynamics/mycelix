@@ -28,7 +28,64 @@
       "minItems": 5,
       "items": {
         "$ref": "#/$defs/evidence_claim"
-      }
+      },
+      "allOf": [
+        {
+          "contains": {
+            "type": "object",
+            "required": ["field"],
+            "properties": {
+              "field": { "const": "moving_solid_components" }
+            }
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "type": "object",
+            "required": ["field"],
+            "properties": {
+              "field": { "const": "mechanical_joints" }
+            }
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "type": "object",
+            "required": ["field"],
+            "properties": {
+              "field": { "const": "active_power_w" }
+            }
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "type": "object",
+            "required": ["field"],
+            "properties": {
+              "field": { "const": "commanded_actuators" }
+            }
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "type": "object",
+            "required": ["field"],
+            "properties": {
+              "field": { "const": "requires_external_control" }
+            }
+          },
+          "minContains": 1,
+          "maxContains": 1
+        }
+      ]
     },
     "solver": {
       "type": "object",
