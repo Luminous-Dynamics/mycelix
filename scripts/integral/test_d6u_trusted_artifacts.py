@@ -125,6 +125,22 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         for ch in policy["trusted_artifact_fetcher"]["blob_sha"]
     )
     assert policy["policy_version"] == 18
+    assert set(policy["trusted_programs"]) == {
+        "scripts/integral/verify_d6u_trusted_artifacts.py",
+        "scripts/integral/fetch_d6u_trusted_artifact.py",
+        "scripts/integral/verify_d6u_trusted_attestation.py",
+    }
+    for path, descriptor in policy["trusted_programs"].items():
+        assert descriptor["path"] == path
+        assert len(descriptor["blob_sha"]) == 40
+        observed = subprocess.run(
+            ["git", "hash-object", path],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        assert observed == descriptor["blob_sha"]
+
     assert policy["trusted_attestation_verifier"]["path"] == (
         "scripts/integral/verify_d6u_trusted_attestation.py"
     )
