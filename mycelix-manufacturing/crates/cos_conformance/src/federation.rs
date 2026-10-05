@@ -3465,6 +3465,7 @@ mod tests {
         PublicationForkDetected,
         PublicationLineageNoRoot,
         PublicationLineageMultipleRoots,
+        PublicationLineageIdentityMismatch,
         PublicationLineageDisconnected,
         PublicationLineageCycle,
         ConsistencyReceiptSchemaMismatch,
@@ -3726,6 +3727,35 @@ mod tests {
             publications
                 .entry(publication.publication_sha256.as_str())
                 .or_insert(publication);
+        }
+
+        let first = publications
+            .values()
+            .next()
+            .expect("non-empty qualified collection must have a publication");
+        let identity = (
+            first.publication_profile.as_str(),
+            first.hash_algorithm.as_str(),
+            first.schema_version,
+            first.hash_encoding.as_str(),
+            first.trace_verification_profile.as_str(),
+            first.trace_schema_version,
+            first.trace_index,
+        );
+        if publications.values().any(|publication| {
+            (
+                publication.publication_profile.as_str(),
+                publication.hash_algorithm.as_str(),
+                publication.schema_version,
+                publication.hash_encoding.as_str(),
+                publication.trace_verification_profile.as_str(),
+                publication.trace_schema_version,
+                publication.trace_index,
+            ) != identity
+        }) {
+            return Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::PublicationLineageIdentityMismatch
+            );
         }
 
         let roots = publications
@@ -6113,6 +6143,26 @@ mod tests {
             validate_state_machine_trace_checkpoint_publication_lineage(&suffix_only),
             Err(
                 FederationStateMachineTraceCheckpointPublicationViolation::PublicationLineageNoRoot
+            )
+        );
+
+        let other_trace = state_machine_trace_capsule(99, 12);
+        let other_trace =
+            serde_json::from_str::<FederationStateMachineTraceCapsule>(&other_trace)
+                .expect("independent trace capsule must deserialize");
+        let cross_lineage_publication = state_machine_trace_checkpoint_publication(
+            &other_trace,
+            12,
+            &base_publication.publication_sha256,
+        );
+        let cross_lineage_collection =
+            vec![(&base, &base_publication), (&other_trace, &cross_lineage_publication)];
+        assert_eq!(
+            validate_state_machine_trace_checkpoint_publication_lineage(
+                &cross_lineage_collection
+            ),
+            Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::PublicationLineageIdentityMismatch
             )
         );
     }
