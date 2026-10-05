@@ -768,6 +768,13 @@ fn validate_create_request(
             "Attestation request timestamps are invalid".into(),
         ));
     }
+    if let Err(message) = validate_timestamp_not_after_action(
+        "Attestation request created_at",
+        req.created_at,
+        action.timestamp,
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(message));
+    }
     if let Some(score) = req.min_trust_score {
         if !score.is_finite() || !(0.0..=1.0).contains(&score) {
             return Ok(ValidateCallbackResult::Invalid(
@@ -1045,6 +1052,13 @@ fn validate_create_presentation(
             return Ok(ValidateCallbackResult::Invalid(message));
         }
     }
+    if let Err(message) = validate_timestamp_not_after_action(
+        "Trust presentation presented_at",
+        pres.presented_at,
+        action.timestamp,
+    ) {
+        return Ok(ValidateCallbackResult::Invalid(message));
+    }
     if pres.presented_at == Timestamp::from_micros(0)
         || pres.purpose.is_empty()
         || pres.purpose.len() > 1024
@@ -1138,10 +1152,19 @@ mod author_binding_tests {
             min_trust_score: Some(0.5),
             min_tier: None,
             purpose: "test".to_string(),
-            expires_at: Timestamp::from_micros(1),
+            expires_at: Timestamp::from_micros(2),
             status: AttestationStatus::Pending,
-            created_at: Timestamp::from_micros(0),
+            created_at: Timestamp::from_micros(1),
         }
+    }
+
+    #[test]
+    fn future_created_at_rejected() {
+        let req = valid_request(format!("did:mycelix:{}", me()));
+        let mut future = req.clone();
+        future.created_at = Timestamp::from_micros(2);
+        let result = validate_create_request(test_action(me()), future).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
 
     #[test]
@@ -1178,6 +1201,14 @@ mod author_binding_tests {
     fn create_presentation_requires_source_credential_hash() {
         let mut pres = valid_presentation(format!("did:mycelix:{}", me()));
         pres.credential_action_hash = None;
+        let result = validate_create_presentation(test_action(me()), pres).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn future_presented_at_rejected() {
+        let mut pres = valid_presentation(format!("did:mycelix:{}", me()));
+        pres.presented_at = Timestamp::from_micros(2);
         let result = validate_create_presentation(test_action(me()), pres).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
     }
