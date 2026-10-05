@@ -44,6 +44,24 @@ def expected_subjects(evidence_dir: Path) -> list[dict]:
     ]
 
 
+def canonical_subjects(value: list[dict]) -> tuple[tuple[str, str], ...]:
+    assert isinstance(value, list)
+    normalized: list[tuple[str, str]] = []
+    for subject in value:
+        assert isinstance(subject, dict)
+        assert set(subject) == {"name", "digest"}
+        name = subject["name"]
+        digest = subject["digest"]
+        assert isinstance(name, str) and name
+        assert isinstance(digest, dict)
+        assert set(digest) == {"sha256"}
+        sha = digest["sha256"]
+        assert isinstance(sha, str) and len(sha) == 64
+        assert all(ch in "0123456789abcdef" for ch in sha)
+        normalized.append((name, sha))
+    assert len(set(normalized)) == len(normalized)
+    return tuple(sorted(normalized))
+
 def verify_entry(entry: dict, record: dict[str, str], subjects: list[dict]) -> bool:
     repo = os.environ["GITHUB_REPOSITORY"]
     run_id = os.environ["GITHUB_RUN_ID"]
@@ -98,7 +116,7 @@ def verify_entry(entry: dict, record: dict[str, str], subjects: list[dict]) -> b
             "run_attempt": int(record["executor_run_attempt"]),
             "workflow_commit": record["executor_workflow_commit_sha"],
         }
-        and predicate.get("subjects") == subjects
+        and canonical_subjects(predicate.get("subjects", [])) == canonical_subjects(subjects)
         and predicate.get("evidence") == {
             "case_coverage": record["case_coverage"],
             "supplemental_coverage": record["supplemental_coverage"],
@@ -115,7 +133,7 @@ def verify_entry(entry: dict, record: dict[str, str], subjects: list[dict]) -> b
     return (
         certificate_ok
         and predicate_ok
-        and statement_subjects == subjects
+        and canonical_subjects(statement_subjects) == canonical_subjects(subjects)
     )
 
 
