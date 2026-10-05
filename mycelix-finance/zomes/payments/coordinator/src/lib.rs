@@ -458,6 +458,90 @@ pub struct CreditSapInput {
     pub reason: String,
 }
 
+/// Debit SAP from the caller's own balance.
+///
+/// This remains an owner-authenticated negative balance transition. Positive
+/// balance increases use the explicit transfer/mint claim paths.
+#[hdk_extern]
+pub fn debit_sap(input: DebitSapInput) -> ExternResult<Record> {
+    verify_caller_is_did(&input.member_did)?;
+
+    if let Err(e) = drain_pending_compost_inner() {
+        debug!("debit_sap: pending compost drain failed (non-fatal): {:?}", e);
+    }
+
+    for attempt in 0..MAX_SAP_RETRIES {
+        let (record, bal) = get_sap_balance_inner(&input.member_did)?;
+        let now = sys_time()?;
+
+        let elapsed = elapsed_seconds(bal.last_demurrage_at, now);
+        let effective = if elapsed >= DEMURRAGE_MIN_ELAPSED_SECONDS {
+            let now_secs = (now.as_micros() / 1_000_000).max(0) as u64;
+            let deduction = compute_demurrage_with_exemption(
+                bal.balance,
+                bal.exemption.as_ref(),
+                now_secs,
+                DEMURRAGE_EXEMPT_FLOOR,
+                DEMURRAGE_RATE,
+                elapsed,
+            );
+            bal.balance.saturating_sub(deduction)
+        } else {
+            bal.balance
+        };
+
+        if input.amount > effective {
+            let demurrage_applied = bal.balance.saturating_sub(effective);
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Insufficient SAP balance: effective {} (raw {} - demurrage {}), need {}",
+                effective, bal.balance, demurrage_applied, input.amount
+            ))));
+        }
+
+        let expected_balance = effective - input.amount;
+        let updated = SapBalance {
+            balance: expected_balance,
+            last_demurrage_at: now,
+            justified_by: None,
+            ..bal
+        };
+        let action_hash = update_entry(
+            record.action_address().clone(),
+            &EntryTypes::SapBalance(updated),
+        )?;
+
+        let verify = find_sap_balance_record(&input.member_did)?;
+        if let Some((_, actual)) = verify {
+            if actual.balance == expected_balance {
+                return get(action_hash, GetOptions::default())?.ok_or(wasm_error!(
+                    WasmErrorInner::Guest(format!(
+                        "SAP balance record not found after debit for member {}",
+                        input.member_did
+                    ))
+                ));
+            }
+        }
+
+        if attempt == MAX_SAP_RETRIES - 1 {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "debit_sap for {} failed after {} retries due to concurrent modifications",
+                input.member_did, MAX_SAP_RETRIES
+            ))));
+        }
+
+        debug!(
+            "debit_sap: concurrent update detected for {}, retry {}/{}",
+            input.member_did,
+            attempt + 1,
+            MAX_SAP_RETRIES
+        );
+    }
+
+    Err(wasm_error!(WasmErrorInner::Guest(
+        "debit_sap: retry loop exited unexpectedly".into()
+    )))
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct DebitSapInput {
     pub member_did: String,
