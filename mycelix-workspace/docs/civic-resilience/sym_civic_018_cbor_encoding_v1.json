@@ -27,6 +27,12 @@
     {"id":"C-21","family":"truncated_item","hex":"8446a2012604"},
     {"id":"C-22","family":"trailing_bytes","hex":"8446a20126044101a0f6410000"},
     {"id":"C-23","family":"invalid_utf8_text_key","hex":"8446a20126044101a163c32878f4f64100"},
-    {"id":"C-24","family":"reserved_simple_value","hex":"8446a20126044101a0f8014100"}
+    {"id":"C-24","family":"reserved_simple_value","hex":"8446a20126044101a0f8014100"},
+    {"id":"C-25","family":"canonical_float16","hex":"8446a20126044101a11864f94580f64100"},
+    {"id":"C-26","family":"nonminimal_float32","hex":"8446a20126044101a11864fa40b00000f64100"},
+    {"id":"C-27","family":"nonminimal_float64","hex":"8446a20126044101a11864fb4016000000000000f64100"},
+    {"id":"C-28","family":"canonical_float32","hex":"8446a20126044101a11864fa49742408f64100"},
+    {"id":"C-29","family":"nonminimal_float64_large_value","hex":"8446a20126044101a11864fb412e848100000000f64100"},
+    {"id":"C-30","family":"nonminimal_float32_small_value","hex":"8446a20126044101a11864fa3fc00000f64100"}
   ]
 }
