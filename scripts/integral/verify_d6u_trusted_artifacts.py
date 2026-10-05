@@ -255,6 +255,42 @@ def verify_trigger_run(
     return trigger
 
 
+def verify_record_metadata(record: dict[str, str], policy: dict) -> None:
+    assert record["d6s2_authority_ledger_schema"] == policy["d6s2_authority_ledger_schema"]
+    assert record["d6s1_corpus_sha256"] == policy["d6s1_corpus_sha256"]
+
+    required = policy["required_source_blobs"]
+    assert record["manifest_version"] == str(policy["manifest_version"])
+    assert record["manifest_git_blob_sha"] == required[
+        "docs/integral/d6u-runtime-manifest.json"
+    ]
+    assert record["evidence_verifier_git_blob_sha"] == required[
+        "scripts/integral/verify_d6u_runtime_evidence.py"
+    ]
+    assert record["lock_verifier_git_blob_sha"] == required[
+        "scripts/integral/verify_d6u_runtime_lock.py"
+    ]
+
+    assert record["case_coverage"] == policy["expected_case_coverage"]
+    assert record["supplemental_coverage"] == policy["expected_supplemental_coverage"]
+    assert record["application_check_coverage"] == policy[
+        "expected_application_check_coverage"
+    ]
+    assert record["case_outcome_classes"] == ",".join(
+        policy["expected_case_outcome_classes"]
+    )
+    assert record["runtime"] == f"holochain-{policy['runtime']['holochain']}"
+    assert record["hdk"] == policy["runtime"]["hdk"]
+    assert record["hdi"] == policy["runtime"]["hdi"]
+    assert record["test"] == "d6u_authority_boundary:passed"
+    assert record["supported_cases"] == str(len(policy["cases"]))
+    assert record["unsupported_cases"] == ",".join(
+        policy["unsupported_reference_cases"]
+    )
+    assert record["claim_ceiling"] == policy["claim_ceiling"]
+
+
+
 def verify_cases(log: str, policy: dict) -> None:
     observed = {}
     for line in log.splitlines():
@@ -361,6 +397,7 @@ def main() -> None:
     assert record["executor_run_attempt"] == str(executor_run["run_attempt"])
     assert record["attestation_status"] == "deferred-to-trusted-builder"
     assert record["claim_ceiling"] == policy["claim_ceiling"]
+    verify_record_metadata(record, policy)
 
     verify_executor_workflow_identity(record, policy, repo, token)
     trigger = verify_trigger_run(record, policy, repo, token)
