@@ -1,5 +1,5 @@
 {
-  "policy_version": 21,
+  "policy_version": 22,
   "workflow_name": "D6U Exact-Head Runtime Executor",
   "workflow_path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
   "artifact_name_prefix": "d6u-runtime-evidence-",
@@ -206,7 +206,7 @@
   "artifact_max_total_bytes": 12582912,
   "trusted_workflow": {
     "path": ".github/workflows/d6u-trusted-evidence-attestation.yml",
-    "blob_sha": "1eca82a8f4f38ad869cbd8378d77465ebc8c34b1"
+    "blob_sha": "4481e9ef26ff19bd0c854069f6af0a08ee003ed5"
   },
   "artifact_max_entries": 32,
   "artifact_integrity": {
@@ -218,7 +218,7 @@
     "reject_encrypted_members": true,
     "reject_symlink_members": true,
     "expected_member_count": 3,
-    "policy_revision": 14
+    "policy_revision": 22
   },
   "trusted_artifact_fetcher": {
     "path": "scripts/integral/fetch_d6u_trusted_artifact.py",
@@ -239,18 +239,19 @@
     "source_digest_source": "GITHUB_SHA",
     "source_ref_source": "GITHUB_REF",
     "predicate_type": "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1",
+    "predicate_schema": "d6u-trusted-runtime-evidence/v1",
     "current_run_identity": {
       "certificate_field": "runInvocationURI",
       "template": "https://github.com/{repository}/actions/runs/{run_id}/attempts/{run_attempt}"
     },
     "require_current_run_identity": true,
     "require_subject_digest_match": true,
-    "predicate_schema": "d6u-trusted-runtime-evidence/v1",
-    "subject_set_exact": true
+    "subject_set_exact": true,
+    "require_signed_predicate_subject_binding": true
   },
   "trusted_attestation_verifier": {
     "path": "scripts/integral/verify_d6u_trusted_attestation.py",
-    "blob_sha": "a418f10a397baa611a86aef5b65df199c2371987"
+    "blob_sha": "64d90826379fec8c865846cc4d634fa26fe3da84"
   },
   "trusted_programs": {
     "scripts/integral/verify_d6u_trusted_artifacts.py": {
@@ -263,11 +264,11 @@
     },
     "scripts/integral/verify_d6u_trusted_attestation.py": {
       "path": "scripts/integral/verify_d6u_trusted_attestation.py",
-      "blob_sha": "a418f10a397baa611a86aef5b65df199c2371987"
+      "blob_sha": "64d90826379fec8c865846cc4d634fa26fe3da84"
     },
     "scripts/integral/emit_d6u_trusted_attestation_predicate.py": {
       "path": "scripts/integral/emit_d6u_trusted_attestation_predicate.py",
-      "blob_sha": "b3b984d50df9f34fac0d641b3b8c95f49b57b9ea"
+      "blob_sha": "77eb6d7869b85d7f8444131ae9c8899770b79c7e"
     }
   }
 }
