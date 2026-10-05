@@ -1387,7 +1387,7 @@ pub fn verify_eligibility_receipt_provenance(
     if receipt.current_generation_id.as_deref() != Some(generation.generation_id.as_str()) {
         return false;
     }
-    if !generation.commitment_matches() || !snapshot.commitment_matches() || !profile.commitment_matches() {
+    if !generation.commitment_matches() || !snapshot.commitment_matches() || !profile.strict_commitment_matches() {
         return false;
     }
     if !ledger.transitions.values().all(ObserverStatusTransitionV1::commitment_matches) {
