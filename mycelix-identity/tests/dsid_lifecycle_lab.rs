@@ -2274,6 +2274,195 @@ async fn dsid_075_deactivated_did_rejects_remote_profile_assertion() {
     );
 }
 
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_076_active_did_serves_remote_did_document_endpoint() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let app = conductor
+        .setup_app("dsid-active-remote-did", std::slice::from_ref(&dna))
+        .await
+        .unwrap();
+    let cell = app.cells()[0].clone();
+    let agent = app.agent().clone();
+
+    let did_record: Record = conductor
+        .call(&cell.zome("did_registry"), "create_did", ())
+        .await;
+
+    let remote: Option<serde_json::Value> = conductor
+        .call(
+            &cell.zome("identity_bridge"),
+            "get_did_document_remote",
+            agent.clone(),
+        )
+        .await;
+
+    let remote = remote.expect("active DID must be served by advertised remote endpoint");
+    assert_eq!(remote["id"], format!("did:mycelix:{}", agent));
+    assert_eq!(remote["controller"], agent.to_string());
+    assert!(remote["verificationMethod"].as_array().is_some());
+    assert_eq!(
+        remote["verificationMethod"]
+            .as_array()
+            .map(Vec::len),
+        Some(2)
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("issuer", agent.to_string());
+    emit_evidence(
+        "DSID-076",
+        "active-did-serves-remote-did-document-endpoint",
+        &dna,
+        agents,
+        &[&did_record],
+        "An active identity bridge serves the canonical DID document through the endpoint advertised by its substrate capability.",
+        format!(
+            "remote_did={} verification_methods={}",
+            remote["id"],
+            remote["verificationMethod"].as_array().map(Vec::len).unwrap_or_default()
+        ),
+        true,
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_077_active_bridge_rejects_deactivated_remote_tier_target() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let issuer_app = conductor
+        .setup_app("dsid-active-bridge-tier", std::slice::from_ref(&dna))
+        .await
+        .unwrap();
+    let target_app = conductor
+        .setup_app("dsid-deactivated-tier-target", std::slice::from_ref(&dna))
+        .await
+        .unwrap();
+    let issuer = issuer_app.cells()[0].clone();
+    let target = target_app.cells()[0].clone();
+
+    let issuer_record: Record = conductor
+        .call(&issuer.zome("did_registry"), "create_did", ())
+        .await;
+    let target_record: Record = conductor
+        .call(&target.zome("did_registry"), "create_did", ())
+        .await;
+    let target_agent = target_app.agent().clone();
+
+    let _deactivated: Record = conductor
+        .call(
+            &target.zome("did_registry"),
+            "deactivate_did",
+            "DSID deactivated remote tier target",
+        )
+        .await;
+
+    await_consistency(&[issuer.clone(), target.clone()])
+        .await
+        .expect("target deactivation must synchronize before remote assertion check");
+
+    let blocked: Result<serde_json::Value, _> = conductor
+        .call_fallible(
+            &issuer.zome("identity_bridge"),
+            "verify_tier_remote",
+            serde_json::json!({
+                "agent": target_agent,
+                "required_resonance": 0.3
+            }),
+        )
+        .await;
+
+    let rejection = format!("{blocked:?}");
+    assert!(blocked.is_err(), "active bridge must not assert tier for deactivated target");
+    assert!(
+        rejection.contains("DID is not active"),
+        "remote tier target rejection must come from active-DID guard, got: {rejection}"
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("issuer", issuer_app.agent().to_string());
+    agents.insert("target", target_app.agent().to_string());
+    emit_evidence(
+        "DSID-077",
+        "active-bridge-rejects-deactivated-remote-tier-target",
+        &dna,
+        agents,
+        &[&issuer_record, &target_record],
+        "An active identity bridge cannot assert a consciousness tier for a deactivated target DID.",
+        format!("remote_tier_rejected={}", blocked.is_err()),
+        blocked.is_err(),
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_078_active_bridge_rejects_deactivated_remote_profile_target() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let issuer_app = conductor
+        .setup_app("dsid-active-bridge-profile", std::slice::from_ref(&dna))
+        .await
+        .unwrap();
+    let target_app = conductor
+        .setup_app("dsid-deactivated-profile-target", std::slice::from_ref(&dna))
+        .await
+        .unwrap();
+    let issuer = issuer_app.cells()[0].clone();
+    let target = target_app.cells()[0].clone();
+
+    let issuer_record: Record = conductor
+        .call(&issuer.zome("did_registry"), "create_did", ())
+        .await;
+    let target_record: Record = conductor
+        .call(&target.zome("did_registry"), "create_did", ())
+        .await;
+    let target_agent = target_app.agent().clone();
+
+    let _deactivated: Record = conductor
+        .call(
+            &target.zome("did_registry"),
+            "deactivate_did",
+            "DSID deactivated remote profile target",
+        )
+        .await;
+
+    await_consistency(&[issuer.clone(), target.clone()])
+        .await
+        .expect("target deactivation must synchronize before remote profile check");
+
+    let blocked: Result<serde_json::Value, _> = conductor
+        .call_fallible(
+            &issuer.zome("identity_bridge"),
+            "get_agent_profile_remote",
+            target_agent,
+        )
+        .await;
+
+    let rejection = format!("{blocked:?}");
+    assert!(blocked.is_err(), "active bridge must not assert profile for deactivated target");
+    assert!(
+        rejection.contains("DID is not active"),
+        "remote profile target rejection must come from active-DID guard, got: {rejection}"
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("issuer", issuer_app.agent().to_string());
+    agents.insert("target", target_app.agent().to_string());
+    emit_evidence(
+        "DSID-078",
+        "active-bridge-rejects-deactivated-remote-profile-target",
+        &dna,
+        agents,
+        &[&issuer_record, &target_record],
+        "An active identity bridge cannot assert a remote profile for a deactivated target DID.",
+        format!("remote_profile_rejected={}", blocked.is_err()),
+        blocked.is_err(),
+    );
+}
+
 #[tokio::test(flavor = "multi_thread")]
 #[ignore]
 async fn dsid_006_self_recovery_projection_matches_canonical_state() {
