@@ -1,5 +1,5 @@
 {
-  "policy_version": 22,
+  "policy_version": 23,
   "workflow_name": "D6U Exact-Head Runtime Executor",
   "workflow_path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
   "artifact_name_prefix": "d6u-runtime-evidence-",
@@ -206,7 +206,7 @@
   "artifact_max_total_bytes": 12582912,
   "trusted_workflow": {
     "path": ".github/workflows/d6u-trusted-evidence-attestation.yml",
-    "blob_sha": "4481e9ef26ff19bd0c854069f6af0a08ee003ed5"
+    "blob_sha": "a131ec26a1d9e2a6955cb403623976de6c6d44ac"
   },
   "artifact_max_entries": 32,
   "artifact_integrity": {
@@ -218,7 +218,7 @@
     "reject_encrypted_members": true,
     "reject_symlink_members": true,
     "expected_member_count": 3,
-    "policy_revision": 22
+    "policy_revision": 23
   },
   "trusted_artifact_fetcher": {
     "path": "scripts/integral/fetch_d6u_trusted_artifact.py",
@@ -251,7 +251,7 @@
   },
   "trusted_attestation_verifier": {
     "path": "scripts/integral/verify_d6u_trusted_attestation.py",
-    "blob_sha": "64d90826379fec8c865846cc4d634fa26fe3da84"
+    "blob_sha": "1a6f8781dcddcffe6574e1b7aed0959d889095c0"
   },
   "trusted_programs": {
     "scripts/integral/verify_d6u_trusted_artifacts.py": {
@@ -264,7 +264,7 @@
     },
     "scripts/integral/verify_d6u_trusted_attestation.py": {
       "path": "scripts/integral/verify_d6u_trusted_attestation.py",
-      "blob_sha": "64d90826379fec8c865846cc4d634fa26fe3da84"
+      "blob_sha": "1a6f8781dcddcffe6574e1b7aed0959d889095c0"
     },
     "scripts/integral/emit_d6u_trusted_attestation_predicate.py": {
       "path": "scripts/integral/emit_d6u_trusted_attestation_predicate.py",
