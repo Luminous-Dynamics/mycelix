@@ -215,16 +215,42 @@ pub struct SapTransferClaim {
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
 pub struct SapMintRecord {
-    /// Unique mint ID
+    /// Unique mint ID.
     pub id: String,
-    /// DID of the member receiving the minted SAP
+    /// DID of the member receiving the minted SAP.
     pub recipient_did: String,
-    /// Amount minted in micro-SAP
+    /// Amount authorized in micro-SAP.
     pub amount: u64,
-    /// Provenance of the mint
+    /// Provenance of the mint authorization.
     pub source: SapMintSource,
-    /// When the mint occurred
+    /// DID of the authorized issuer that signed this record.
+    /// Optional only for legacy historical records.
+    #[serde(default)]
+    pub authorized_by_did: Option<String>,
+    /// Canonical issuance basis identifier.
+    /// Optional only for legacy historical records.
+    #[serde(default)]
+    pub basis_id: Option<String>,
+    /// When the mint authorization was recorded.
     pub minted_at: Timestamp,
+}
+
+/// Immutable recipient-authored claim consuming one governance mint authorization.
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct SapMintClaim {
+    /// Exact mint authorization identifier.
+    pub mint_id: String,
+    /// Exact sender/issuer-authored mint record.
+    pub mint_record_action_hash: ActionHash,
+    /// Recipient account.
+    pub recipient_did: String,
+    /// Exact amount claimed in micro-SAP.
+    pub amount: u64,
+    /// Exact recipient balance action immediately before the claim.
+    pub balance_before_action_hash: ActionHash,
+    /// Source-chain publication time.
+    pub claimed_at: Timestamp,
 }
 
 /// On-chain SAP mint cap counter — tracks cumulative governance minting per annual period.
@@ -300,6 +326,7 @@ pub enum EntryTypes {
     SapTransferIntent(SapTransferIntent),
     SapTransferClaim(SapTransferClaim),
     SapMintRecord(SapMintRecord),
+    SapMintClaim(SapMintClaim),
     HearthSapPool(HearthSapPool),
     SapMintCapCounterEntry(SapMintCapCounterEntry),
 }
@@ -314,6 +341,7 @@ pub enum LinkTypes {
     DidToSapBalance,
     TransferIdToIntent,
     TransferIdToClaim,
+    MintIdToClaim,
     MemberToExitRecord,
     PaymentIdToPayment,
     MintIdToMintRecord,
@@ -363,7 +391,18 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                         &claim,
                     )
                 }
-                EntryTypes::SapMintRecord(mint) => validate_create_sap_mint_record(&mint),
+                EntryTypes::SapMintRecord(mint) => {
+                    validate_create_sap_mint_record(
+                        EntryCreationAction::Create(action),
+                        &mint,
+                    )
+                }
+                EntryTypes::SapMintClaim(claim) => {
+                    validate_create_sap_mint_claim(
+                        EntryCreationAction::Create(action),
+                        &claim,
+                    )
+                }
                 EntryTypes::HearthSapPool(pool) => validate_hearth_sap_pool(&pool),
                 EntryTypes::SapMintCapCounterEntry(counter) => {
                     validate_sap_mint_cap_counter(&counter)
@@ -391,11 +430,13 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                         "SAP transfer claims cannot be updated".into(),
                     )),
                     EntryTypes::SapMintRecord(_) => {
-                        // Mint records are immutable
                         Ok(ValidateCallbackResult::Invalid(
-                            "SAP mint records cannot be updated".into(),
+                            "SAP mint records are immutable".into(),
                         ))
                     }
+                    EntryTypes::SapMintClaim(_) => Ok(ValidateCallbackResult::Invalid(
+                        "SAP mint claims cannot be updated".into(),
+                    ))
                     EntryTypes::HearthSapPool(pool) => validate_hearth_sap_pool(&pool),
                     EntryTypes::SapMintCapCounterEntry(counter) => {
                         validate_sap_mint_cap_counter(&counter)
@@ -541,6 +582,39 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     if base_address.as_ref() != expected_base.as_slice() {
                         return Ok(ValidateCallbackResult::Invalid(
                             "TransferIdToClaim base does not match the transfer id".into(),
+                        ));
+                    }
+                    Ok(())
+                }
+                LinkTypes::MintIdToClaim => {
+                    if base_address.as_ref().len() != 39 || target_address.as_ref().len() != 39 {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "MintIdToClaim link must connect valid hashes".into(),
+                        ));
+                    }
+                    let hash = ActionHash::try_from(target_address.clone()).map_err(|_| {
+                        wasm_error!(WasmErrorInner::Guest(
+                            "MintIdToClaim target must be an action hash".into(),
+                        ))
+                    })?;
+                    let record = must_get_valid_record(hash)?;
+                    let claim = record
+                        .entry()
+                        .to_app_option::<SapMintClaim>()
+                        .map_err(|_| {
+                            wasm_error!(WasmErrorInner::Guest(
+                                "MintIdToClaim target is not a SapMintClaim entry".into(),
+                            ))
+                        })?
+                        .ok_or(wasm_error!(WasmErrorInner::Guest(
+                            "MintIdToClaim target is missing its mint claim".into(),
+                        )))?;
+                    let expected_base = holo_hash::blake2b_256(
+                        format!("sap:mint:claim:{}", claim.mint_id).as_bytes(),
+                    );
+                    if base_address.as_ref() != expected_base.as_slice() {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "MintIdToClaim base does not match the mint id".into(),
                         ));
                     }
                     Ok(())
@@ -1078,6 +1152,22 @@ fn validate_update_sap_balance(
                     "Transfer claim has already been consumed by another balance transition".into(),
                 ));
             }
+        } else if let Some(claim) = justification
+            .entry()
+            .to_app_option::<SapMintClaim>()
+            .ok()
+            .flatten()
+        {
+            if claim.recipient_did != bal.member_did || claim.amount != delta {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "SAP balance increase does not match mint claim recipient/amount".into(),
+                ));
+            }
+            if claim.balance_before_action_hash != action.original_action_address {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "Mint claim has already been consumed by another balance transition".into(),
+                ));
+            }
         } else if let Some(mint) = justification
             .entry()
             .to_app_option::<SapMintRecord>()
@@ -1158,7 +1248,86 @@ fn validate_sap_balance_owner(
     Ok(())
 }
 
-fn validate_create_sap_mint_record(mint: &SapMintRecord) -> ExternResult<ValidateCallbackResult> {
+fn validate_create_sap_mint_claim(
+    action: EntryCreationAction,
+    claim: &SapMintClaim,
+) -> ExternResult<ValidateCallbackResult> {
+    if claim.mint_id.is_empty() || claim.mint_id.len() > MAX_ID_LEN {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Mint claim id must be 1-256 characters".into(),
+        ));
+    }
+    if claim.recipient_did.len() > MAX_DID_LEN || !claim.recipient_did.starts_with("did:") {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Mint claim recipient DID is invalid".into(),
+        ));
+    }
+    if claim.amount == 0 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Mint claim amount must be positive".into(),
+        ));
+    }
+    if claim.claimed_at > action.timestamp() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Mint claim claimed_at cannot be after the signed action timestamp".into(),
+        ));
+    }
+
+    let author_did = did_for_author(action.author());
+    if claim.recipient_did != author_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Mint claim recipient DID must match the signed action author".into(),
+        ));
+    }
+
+    let balance_record = must_get_valid_record(claim.balance_before_action_hash.clone())?;
+    let balance = balance_record
+        .entry()
+        .to_app_option::<SapBalance>()
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+            "Mint claim balance dependency could not be decoded as SapBalance".into()
+        )))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Mint claim balance dependency is missing SapBalance entry".into()
+        )))?;
+    if balance.member_did != claim.recipient_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Mint claim must bind to the recipient's balance".into(),
+        ));
+    }
+
+    let mint_record = must_get_valid_record(claim.mint_record_action_hash.clone())?;
+    let mint = mint_record
+        .entry()
+        .to_app_option::<SapMintRecord>()
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+            "Mint claim authorization could not be decoded as SapMintRecord".into()
+        )))?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Mint claim authorization is missing SapMintRecord entry".into()
+        )))?;
+
+    if claim.mint_id != mint.id
+        || claim.recipient_did != mint.recipient_did
+        || claim.amount != mint.amount
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Mint claim does not match its exact authorization".into(),
+        ));
+    }
+    if claim.claimed_at < mint.minted_at {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Mint claim cannot precede the mint authorization".into(),
+        ));
+    }
+
+    Ok(ValidateCallbackResult::Valid)
+}
+
+fn validate_create_sap_mint_record(
+    action: EntryCreationAction,
+    mint: &SapMintRecord,
+) -> ExternResult<ValidateCallbackResult> {
     if mint.recipient_did.len() > MAX_DID_LEN {
         return Ok(ValidateCallbackResult::Invalid(
             "DID exceeds maximum length".into(),
@@ -1177,6 +1346,27 @@ fn validate_create_sap_mint_record(mint: &SapMintRecord) -> ExternResult<Validat
     if mint.amount == 0 {
         return Ok(ValidateCallbackResult::Invalid(
             "Mint amount must be positive".into(),
+        ));
+    }
+    let Some(authority_did) = mint.authorized_by_did.as_deref() else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "New SAP mint authorizations require an authorized_by_did binding".into(),
+        ));
+    };
+    if authority_did.len() > MAX_DID_LEN || !authority_did.starts_with("did:") {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SAP mint authorization DID is invalid".into(),
+        ));
+    }
+    let author_did = did_for_author(action.author());
+    if authority_did != author_did {
+        return Ok(ValidateCallbackResult::Invalid(
+            "SAP mint authorization DID must match the signed action author".into(),
+        ));
+    }
+    if mint.basis_id.as_deref().is_none_or(str::is_empty) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "New SAP mint authorizations require a non-empty basis_id".into(),
         ));
     }
     Ok(ValidateCallbackResult::Valid)
