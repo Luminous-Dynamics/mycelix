@@ -60,8 +60,30 @@ jobs:
           /tmp/actionlint/actionlint -version
           echo "OK: official actionlint v${version} matches pinned SHA-256"
 
+      - name: Fetch and verify official ShellCheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          shellcheck_version="0.11.0"
+          shellcheck_sha256="8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198"
+          archive="/tmp/shellcheck_${shellcheck_version}_linux_x86_64.tar.xz"
+          mkdir -p /tmp/shellcheck
+          curl --fail --silent --show-error --location \
+            "https://github.com/koalaman/shellcheck/releases/download/v${shellcheck_version}/shellcheck-v${shellcheck_version}.linux.x86_64.tar.xz" \
+            --output "${archive}"
+          printf '%s  %s\n' "${shellcheck_sha256}" "${archive}" |
+            sha256sum --check --status -
+          tar -xJf "${archive}" -C /tmp/shellcheck
+          install -D -m 0755 \
+            "/tmp/shellcheck/shellcheck-v${shellcheck_version}/shellcheck" \
+            /tmp/shellcheck/bin/shellcheck
+          /tmp/shellcheck/bin/shellcheck --version | grep -F "version: ${shellcheck_version}"
+          echo "OK: official ShellCheck v${shellcheck_version} matches pinned SHA-256"
+
       - name: Lint exact Hearth 0.7 qualification workflow
         shell: bash
         run: |
           set -euo pipefail
-          /tmp/actionlint/actionlint -oneline -shellcheck shellcheck -pyflakes             '' .github/workflows/hearth-07-qualification.yml .github/workflows/hearth-07-workflow-lint.yml
+          /tmp/actionlint/actionlint -oneline -shellcheck /tmp/shellcheck/bin/shellcheck -pyflakes '' \
+            .github/workflows/hearth-07-qualification.yml \
+            .github/workflows/hearth-07-workflow-lint.yml
