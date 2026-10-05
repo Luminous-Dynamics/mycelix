@@ -246,6 +246,20 @@ jobs:
           kernel=(root/"crates/mycelix-bridge-common/src/security_kernel.rs").read_text(encoding="utf-8")
           events=(root/"crates/mycelix-bridge-common/src/security_events.rs").read_text(encoding="utf-8")
           workflow=(root/".github/workflows/security-kernel-qualification.yml").read_text(encoding="utf-8")
+          manifest=root/"crates/mycelix-bridge-common/Cargo.toml"
+          lockfile=root/"crates/mycelix-bridge-common/Cargo.lock"
+          assert manifest.is_file(), manifest
+          assert lockfile.is_file(), "Security Kernel qualification requires a committed Cargo.lock"
+          forbidden_configs=(
+              root/".cargo/config.toml",
+              root/".cargo/config",
+              root/"crates/.cargo/config.toml",
+              root/"crates/.cargo/config",
+              root/"crates/mycelix-bridge-common/.cargo/config.toml",
+              root/"crates/mycelix-bridge-common/.cargo/config",
+          )
+          present=[str(path.relative_to(root)) for path in forbidden_configs if path.exists()]
+          assert not present, f"candidate-controlled Cargo configuration is forbidden: {present}"
           assert "pull_request_target:" not in workflow
           permission_lines = []
           workflow_lines = workflow.splitlines()
