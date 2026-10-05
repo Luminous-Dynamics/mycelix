@@ -750,6 +750,14 @@ impl D6XVerificationSummaryV1 {
             && self.commitment == self.recompute()
     }
 
+    /// Returns whether the summary records a successful verification result.
+    ///
+    /// This is intentionally separate from valid(): a structurally coherent
+    /// summary may legitimately record Failed.
+    pub fn is_passed(&self) -> bool {
+        self.valid() && self.verification_result == D6XVerificationResultV1::Passed
+    }
+
     /// Verify a summary against explicit consumer expectations and the exact
     /// source objects. A self-consistent summary is insufficient when its
     /// verifier, policy, or closure scope differs from the consumer's contract.
@@ -763,8 +771,7 @@ impl D6XVerificationSummaryV1 {
         closure_profile: &DependencyClosureProfileV1,
         closure: &DependencyClosureCertificateV1,
     ) -> bool {
-        if !self.valid()
-            || self.verification_result != D6XVerificationResultV1::Passed
+        if !self.is_passed()
             || self.verifier_id != expected_verifier_id
             || self.verification_policy_commitment != expected_verification_policy_commitment
             || self.projection_commitment != projection.commitment()
@@ -3183,6 +3190,7 @@ mod tests {
             summary.valid(),
             "a Failed result may be a structurally valid summary"
         );
+        assert!(!summary.is_passed());
         assert!(
             !summary.verifies_against_expectations(
                 "verifier:d6x-test",
