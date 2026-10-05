@@ -1042,6 +1042,11 @@ check_semantic_case_integrity_bindings() {
     integrity_file="mycelix-workspace/mycelix-hearth/zomes/${zome//_/-}/integrity/src/lib.rs"
 
     coord_file="mycelix-workspace/mycelix-hearth/zomes/${zome//_/-}/coordinator/src/lib.rs"
+    if [[ ! -f "$coord_file" ]]; then
+      echo "FAIL: $id has no coordinator source: $coord_file"
+      fail=1
+      continue
+    fi
     coord_block="$(awk -v operation="$operation" '
       /^[[:space:]]*#\[hdk_extern\][[:space:]]*$/ { pending_extern=1; next }
       pending_extern && $0 ~ "^[[:space:]]*(pub[[:space:]]+)?(async[[:space:]]+)?fn[[:space:]]+" operation "[[:space:]]*\\(" {
@@ -1101,6 +1106,26 @@ oracle_false = (
 oracle_masked = token_re.sub(lambda m: " " * len(m.group(0)), oracle_false)
 assert not re.search(pattern, oracle_masked, re.S), (
     "coordinator target matcher accepted a comment/string false positive"
+)
+
+wrong_target = "__HEARTH_WRONG_TARGET__"
+if wrong_target == target:
+    wrong_target = "__HEARTH_WRONG_TARGET_2__"
+if primitive in {"create_entry", "update_entry"}:
+    oracle_wrong = (
+        f'fn example() {{\n'
+        f'    create_entry(&EntryTypes::{wrong_target}(Default::default()));\n',
+        f'    update_entry(&EntryTypes::{wrong_target}(Default::default()));\n',
+        f'}}'
+    )
+else:
+    oracle_wrong = (
+        f'fn example() {{\n'
+        f'    create_link(&base, LinkTypes::{wrong_target}, tag);\n',
+        f'}}'
+    )
+assert not re.search(pattern, oracle_wrong, re.S), (
+    "coordinator target matcher accepted a concrete but wrong enum variant"
 )
 
 print(f"OK:   coordinator {primitive} is token-aware and binds concrete target {target}")
