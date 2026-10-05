@@ -217,6 +217,23 @@ def test_policy_pins_current_trusted_workflow() -> None:
     assert policy["trusted_workflow"]["blob_sha"] == observed
 
 
+def test_policy_pins_current_trusted_fetcher() -> None:
+    root = Path(__file__).parents[2]
+    policy = json.loads(
+        (root / "docs/integral/d6u-trusted-builder-policy.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    fetcher_path = root / policy["trusted_artifact_fetcher"]["path"]
+    observed = subprocess.run(
+        ["git", "hash-object", str(fetcher_path)],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    assert policy["trusted_artifact_fetcher"]["blob_sha"] == observed
+
+
 def test_forbidden_cargo_config_is_rejected() -> None:
     forbidden = [
         ".cargo/config",
@@ -756,6 +773,7 @@ if __name__ == "__main__":
     tests = [
         test_policy_pins_d6s_prerequisite_boundary,
         test_policy_pins_current_trusted_workflow,
+        test_policy_pins_current_trusted_fetcher,
         test_forbidden_cargo_config_is_rejected,
         test_record_metadata_is_canonicalized,
         test_harness_file_set_rejects_extra_build_script,
