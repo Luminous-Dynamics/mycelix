@@ -7,6 +7,7 @@ it does not execute Holochain authorization and must not be interpreted as
 runtime qualification.
 """
 
+import hashlib
 import json
 import subprocess
 from pathlib import Path
