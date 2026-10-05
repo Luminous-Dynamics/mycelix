@@ -10,14 +10,17 @@ use hdk::prelude::*;
 use verification_integrity::*;
 use fabrication_common::*;
 
+use sha2::{Digest, Sha256};
 use std::cell::RefCell;
 use std::collections::HashMap;
 
 const EPISTEMIC_CACHE_TTL_MICROS: i64 = 300_000_000; // 5 min
+const EPISTEMIC_CACHE_MAX_ENTRIES: usize = 128;
+const EPISTEMIC_CACHE_DOMAIN: &[u8] = b"mycelix-fabrication-epistemic-cache:v1";
 
 thread_local! {
     static CONFIG: RefCell<Option<FabricationConfig>> = const { RefCell::new(None) };
-    static EPISTEMIC_CACHE: RefCell<HashMap<String, (i64, ClaimEpistemic)>> = RefCell::new(HashMap::new());
+    static EPISTEMIC_CACHE: RefCell<HashMap<[u8; 32], (i64, ClaimEpistemic)>> = RefCell::new(HashMap::new());
 }
 
 fn get_config() -> FabricationConfig {
@@ -75,21 +78,35 @@ fn enforce_rate_limit(caller: &AgentPubKey) -> ExternResult<()> {
 
 fn rate_limit_caller() -> ExternResult<()> {
     let agent = agent_info()?.agent_initial_pubkey;
-    enforce_rate_limit(&agent)
+    enforce_rfn epistemic_cache_key(claim_text: &str, claim_type_key: &str) -> [u8; 32] {
+    let mut hasher = Sha256::new();
+    hasher.update(EPISTEMIC_CACHE_DOMAIN);
+    hasher.update((claim_type_key.len() as u64).to_le_bytes());
+    hasher.update(claim_type_key.as_bytes());
+    hasher.update((claim_text.len() as u64).to_le_bytes());
+    hasher.update(claim_text.as_bytes());
+    hasher.finalize().into()
 }
 
-/// Fetch epistemic classification from Knowledge hApp with cache.
-/// Falls back to default values if the Knowledge hApp is unreachable.
+/// Fetch epistemic classification from Knowledge hApp with an exact-claim cache.
+/// The cache key commits to both the claim type and claim text, so one claim cannot
+/// reuse another claim's epistemic classification merely because their types match.
+/// Expired entries are ignored, and the cache is bounded to prevent unbounded growth
+/// from an attacker submitting many unique claim texts.
 fn fetch_epistemic(claim_text: &str, claim_type_key: &str) -> ClaimEpistemic {
     let now = sys_time().map(|t| t.as_micros()).unwrap_or(0);
+    let key = epistemic_cache_key(claim_text, claim_type_key);
 
-    // Check cache by claim_type_key (not full text)
     let cached = EPISTEMIC_CACHE.with(|c| {
-        c.borrow().get(claim_type_key).and_then(|(ts, ep)| {
-            if now - ts < EPISTEMIC_CACHE_TTL_MICROS { Some(ep.clone()) } else { None }
+        c.borrow().get(&key).and_then(|(ts, ep)| {
+            now.checked_sub(*ts)
+                .filter(|age| *age >= 0 && *age < EPISTEMIC_CACHE_TTL_MICROS)
+                .map(|_| ep.clone())
         })
     });
-    if let Some(ep) = cached { return ep; }
+    if let Some(ep) = cached {
+        return ep;
+    }
 
     let ep = match call(
         CallTargetCell::OtherRole("mycelix-knowledge".into()),
@@ -103,9 +120,29 @@ fn fetch_epistemic(claim_text: &str, claim_type_key: &str) -> ClaimEpistemic {
         }
         _ => default_epistemic(),
     };
+
     EPISTEMIC_CACHE.with(|c| {
-        c.borrow_mut().insert(claim_type_key.to_string(), (now, ep.clone()));
+        let mut cache = c.borrow_mut();
+
+        cache.retain(|_, (ts, _)| {
+            now.checked_sub(*ts)
+                .filter(|age| *age >= 0 && *age < EPISTEMIC_CACHE_TTL_MICROS)
+                .is_some()
+        });
+
+        if !cache.contains_key(&key) && cache.len() >= EPISTEMIC_CACHE_MAX_ENTRIES {
+            if let Some(oldest_key) = cache
+                .iter()
+                .min_by_key(|(_, (ts, _))| *ts)
+                .map(|(key, _)| *key)
+            {
+                cache.remove(&oldest_key);
+            }
+        }
+
+        cache.insert(key, (now, ep.clone()));
     });
+
     ep
 }
 
@@ -505,9 +542,25 @@ mod tests {
     }
 
     #[test]
+    fn test_epistemic_cache_key_includes_claim_text_and_type() {
+        let a = epistemic_cache_key("same claim", "LoadCapacity");
+        let b = epistemic_cache_key("different claim", "LoadCapacity");
+        let c = epistemic_cache_key("same claim", "MaterialSafety");
+
+        assert_ne!(a, b, "distinct claim text must not share the cache key");
+        assert_ne!(a, c, "distinct claim types must not share the cache key");
+        assert_eq!(
+            a,
+            epistemic_cache_key("same claim", "LoadCapacity"),
+            "cache key must be deterministic"
+        );
+    }
+
+    #[test]
     fn test_epistemic_cache_ttl_constant() {
         assert_eq!(EPISTEMIC_CACHE_TTL_MICROS, 300_000_000);
-        // 5 minutes in micros
         assert_eq!(EPISTEMIC_CACHE_TTL_MICROS / 1_000_000, 300);
+        assert_eq!(EPISTEMIC_CACHE_MAX_ENTRIES, 128);
     }
+
 }
