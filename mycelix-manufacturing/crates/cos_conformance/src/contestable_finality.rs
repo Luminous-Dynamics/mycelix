@@ -19,7 +19,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 pub const D6N_ASSESSMENT_COMMITMENT_DOMAIN: &[u8] = b"MYCELIX-INTEGRAL-D6N-ASSESSMENT-V1\0";
 pub const D6N_ASSESSMENT_COMMITMENT_SERIALIZATION: &str = "serde-json-struct-v1";
-pub const D6N_PROFILE_COMMITMENT_DOMAIN: &[u8] = b"MYCELIX-INTEGRAL-D6N-PROFILE-V1\\0";
+pub const D6N_PROFILE_COMMITMENT_DOMAIN: &[u8] = b"MYCELIX-INTEGRAL-D6N-PROFILE-V1\0";
 pub const D6N_PROFILE_COMMITMENT_SERIALIZATION: &str = "serde-json-struct-v1";
 pub const CONTESTABLE_FINALITY_CLAIM_CEILING: &str =
     "Contestable external-finality reference evidence only; no physical truth, settlement, or actuation authorization claim.";
@@ -1146,6 +1146,25 @@ mod tests {
             resolution_commitment: "resolution-commitment".into(),
             claim_ceiling: CONTESTABLE_FINALITY_CLAIM_CEILING.into(),
         }
+    }
+
+    #[test]
+    fn qualification_profile_commitment_binds_policy_fields() {
+        let profile = profile();
+        assert!(profile.commitment_matches());
+
+        let mut forged = profile.clone();
+        forged.allow_explicit_conflict_resolution = !forged.allow_explicit_conflict_resolution;
+        assert!(
+            !forged.commitment_matches(),
+            "changing a qualification policy field must invalidate its committed identity"
+        );
+
+        forged.profile_commitment = forged.recomputed_commitment();
+        assert!(
+            forged.commitment_matches(),
+            "the commitment binds the profile fields deterministically"
+        );
     }
 
     #[test]
