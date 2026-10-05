@@ -319,9 +319,35 @@ pub fn get_verification_summary(design_hash: ActionHash) -> ExternResult<Verific
     })
 }
 
+const MAX_CLAIM_TEXT_BYTES: usize = 4_096;
+
+fn validate_claim_text_for_submission(claim_text: &str) -> ExternResult<()> {
+    if claim_text.trim().is_empty() {
+        return Err(FabricationError::ValidationFailed {
+            field: "claim_text".to_string(),
+            reason: "claim_text cannot be empty".to_string(),
+        }
+        .to_wasm_error());
+    }
+    if claim_text.len() > MAX_CLAIM_TEXT_BYTES {
+        return Err(FabricationError::ValidationFailed {
+            field: "claim_text".to_string(),
+            reason: format!(
+                "claim_text cannot exceed {} bytes",
+                MAX_CLAIM_TEXT_BYTES
+            ),
+        }
+        .to_wasm_error());
+    }
+    Ok(())
+}
+
 #[hdk_extern]
 pub fn submit_safety_claim(input: SubmitClaimInput) -> ExternResult<Record> {
     rate_limit_caller()?;
+    // Enforce the integrity-zome claim boundary before any cross-hApp call so an
+    // oversized/malformed claim cannot amplify work in the Knowledge dependency.
+    validate_claim_text_for_submission(&input.claim_text)?;
     let author = agent_info()?.agent_initial_pubkey;
     let now = sys_time()?;
 
@@ -573,6 +599,19 @@ mod tests {
     }
 
     // ── 5. Knowledge response validation ─────────────────────────────────────
+
+    #[test]
+    fn test_claim_text_submission_boundary() {
+        assert!(validate_claim_text_for_submission("valid claim").is_ok());
+        assert!(validate_claim_text_for_submission(&"x".repeat(MAX_CLAIM_TEXT_BYTES)).is_ok());
+
+        let empty = validate_claim_text_for_submission("   ").unwrap_err();
+        assert!(format!("{empty:?}").contains("cannot be empty"));
+
+        let oversized =
+            validate_claim_text_for_submission(&"x".repeat(MAX_CLAIM_TEXT_BYTES + 1)).unwrap_err();
+        assert!(format!("{oversized:?}").contains("cannot exceed"));
+    }
 
     #[test]
     fn test_knowledge_epistemic_response_validation_accepts_bounds() {
