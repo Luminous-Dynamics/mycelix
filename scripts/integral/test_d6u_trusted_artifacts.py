@@ -13,6 +13,7 @@ from verify_d6u_trusted_artifacts import (
     verify_executor_workflow_record,
     verify_lock,
     verify_required_tracked_blobs,
+    verify_record_metadata,
     verify_trigger_run_record,
     verify_forbidden_cargo_config_paths,
     verify_exact_harness_file_set,
@@ -88,6 +89,82 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         "d6u-runtime-harness/src/lib.rs",
         "d6u-runtime-harness/tests/d6u_authority_boundary.rs",
     ]
+
+
+def record_metadata_policy() -> dict:
+    return {
+        "d6s2_authority_ledger_schema": "v1",
+        "d6s1_corpus_sha256": "a" * 64,
+        "manifest_version": 11,
+        "required_source_blobs": {
+            "docs/integral/d6u-runtime-manifest.json": "b" * 40,
+            "scripts/integral/verify_d6u_runtime_evidence.py": "c" * 40,
+            "scripts/integral/verify_d6u_runtime_lock.py": "d" * 40,
+        },
+        "expected_case_coverage": "14-of-14",
+        "expected_supplemental_coverage": "4-of-4",
+        "expected_application_check_coverage": "1-of-1",
+        "expected_case_outcome_classes": [
+            "accepted",
+            "semantic-rejected",
+            "authentication-failed",
+        ],
+        "runtime": {
+            "holochain": "0.7.0",
+            "hdk": "0.7.0",
+            "hdi": "0.8.0",
+        },
+        "cases": {str(index): {} for index in range(14)},
+        "unsupported_reference_cases": [
+            "wire-signature-valid",
+            "nonce-stale",
+            "payload-mutation",
+        ],
+        "claim_ceiling": "ReferenceModelOnly",
+    }
+
+
+def valid_record_metadata() -> dict:
+    policy = record_metadata_policy()
+    return {
+        "d6s2_authority_ledger_schema": "v1",
+        "d6s1_corpus_sha256": "a" * 64,
+        "manifest_version": "11",
+        "manifest_git_blob_sha": "b" * 40,
+        "evidence_verifier_git_blob_sha": "c" * 40,
+        "lock_verifier_git_blob_sha": "d" * 40,
+        "case_coverage": "14-of-14",
+        "supplemental_coverage": "4-of-4",
+        "application_check_coverage": "1-of-1",
+        "case_outcome_classes": "accepted,semantic-rejected,authentication-failed",
+        "runtime": "holochain-0.7.0",
+        "hdk": "0.7.0",
+        "hdi": "0.8.0",
+        "test": "d6u_authority_boundary:passed",
+        "supported_cases": "14",
+        "unsupported_cases": "wire-signature-valid,nonce-stale,payload-mutation",
+        "claim_ceiling": "ReferenceModelOnly",
+    }
+	
+
+def test_record_metadata_is_canonicalized() -> None:
+    policy = record_metadata_policy()
+    record = valid_record_metadata()
+    verify_record_metadata(record, policy)
+
+    tampered = dict(record)
+    tampered["case_coverage"] = "13-of-14"
+    assert_rejected(
+        lambda: verify_record_metadata(tampered, policy),
+        "tampered deterministic evidence metadata was accepted",
+    )
+
+    tampered = dict(record)
+    tampered["manifest_git_blob_sha"] = "e" * 40
+    assert_rejected(
+        lambda: verify_record_metadata(tampered, policy),
+        "tampered verifier blob identity was accepted",
+    )
 
 
 def test_forbidden_cargo_config_is_rejected() -> None:
@@ -460,6 +537,7 @@ if __name__ == "__main__":
     tests = [
         test_policy_pins_d6s_prerequisite_boundary,
         test_forbidden_cargo_config_is_rejected,
+        test_record_metadata_is_canonicalized,
         test_harness_file_set_rejects_extra_build_script,
         test_valid_log_is_accepted,
         test_case_tampering_is_rejected,
