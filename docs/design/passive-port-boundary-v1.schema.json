@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/passive-port-boundary-v1.json",
+  "title": "Mycelix Passive Port Boundary Provenance v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_digest",
+    "candidate_geometry_digest",
+    "boundary_policy",
+    "status",
+    "boundary_edges",
+    "matched_boundary_edges",
+    "unexpected_boundary_edges",
+    "ambiguous_boundary_edges",
+    "missing_port_anchors",
+    "physical_transport_unproven"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "passive-port-boundary-v1"
+    },
+    "artifact_digest": {
+      "type": "string",
+      "minLength": 1
+    },
+    "candidate_geometry_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "boundary_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allowed_open_ports",
+        "tolerance_mm"
+      ],
+      "properties": {
+        "allowed_open_ports": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "uniqueItems": true
+        },
+        "tolerance_mm": {
+          "type": "number",
+          "minimum": 0
+        },
+        "required_open_ports": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "status": {
+      "enum": [
+        "InvalidMesh",
+        "Closed",
+        "ExpectedOpeningsOnly",
+        "UnexpectedOpenings",
+        "MissingPortAnchor",
+        "AmbiguousOpening",
+        "MissingPortOpening"
+      ]
+    },
+    "boundary_edges": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "matched_boundary_edges": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "unexpected_boundary_edges": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "ambiguous_boundary_edges": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "missing_port_anchors": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "uniqueItems": true
+    },
+    "physical_transport_unproven": {
+      "const": true
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/passive-port-connectivity-v1.json",
+  "title": "Mycelix Passive Port Connectivity Provenance v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_digest",
+    "graph_digest",
+    "candidate_geometry_digest",
+    "from_port",
+    "to_port",
+    "status",
+    "physical_transport_unproven"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "passive-port-connectivity-v1"
+    },
+    "artifact_digest": {
+      "type": "string",
+      "minLength": 1
+    },
+    "graph_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "candidate_geometry_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "from_port": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "to_port": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "status": {
+      "enum": [
+        "Connected",
+        "Disconnected",
+        "InvalidGraph",
+        "InvalidMesh",
+        "UndeclaredPath",
+        "AnchorNotRepresented",
+        "AmbiguousAnchor",
+        "BoundaryPolicyRejected"
+      ]
+    },
+    "from_component": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "to_component": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "physical_transport_unproven": {
+      "const": true
+    },
+    "solver_evidence_digest": {
+      "type": "string",
+      "minLength": 1
+    },
+    "manufacturability_evidence_digest": {
+      "type": "string",
+      "minLength": 1
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

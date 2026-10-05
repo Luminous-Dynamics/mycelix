@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/passive-void-graph-provenance-v1.json",
+  "title": "Mycelix Passive Functional Void Graph Provenance v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_digest",
+    "semantic_status",
+    "graph"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "passive-void-graph-provenance-v1"
+    },
+    "artifact_digest": {
+      "type": "string",
+      "minLength": 1
+    },
+    "semantic_status": {
+      "const": "IntentOnly"
+    },
+    "graph": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "digest",
+        "regions",
+        "ports",
+        "connections"
+      ],
+      "properties": {
+        "digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "regions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "role"
+            ],
+            "properties": {
+              "id": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "role": {
+                "enum": [
+                  "Inlet",
+                  "Outlet",
+                  "Junction",
+                  "Cavity",
+                  "Reservoir",
+                  "Barrier",
+                  "Sink",
+                  "Unknown"
+                ]
+              }
+            }
+          }
+        },
+        "ports": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "region"
+            ],
+            "properties": {
+              "id": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "region": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "connections": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "from",
+              "to",
+              "relation",
+              "bidirectional"
+            ],
+            "properties": {
+              "from": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "to": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "relation": {
+                "enum": [
+                  "FlowPath",
+                  "PressureCoupling",
+                  "ThermalPath",
+                  "AcousticCoupling",
+                  "ElectromagneticCoupling"
+                ]
+              },
+              "bidirectional": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      }
+    },
+    "physical_connectivity_evidence_digest": {
+      "type": "string",
+      "minLength": 1
+    },
+    "manufacturability_evidence_digest": {
+      "type": "string",
+      "minLength": 1
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
