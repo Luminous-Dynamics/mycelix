@@ -93,6 +93,10 @@ jobs:
           assert ak_attributes["claim_ceiling"] == "ReferenceModelOnly"
           assert ak_attributes["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"
           assert len(ak_attributes["vectors"]) == 16
+          cert_spki = json.loads(Path("docs/security/mycelix-ek-cert-spki-binding-v0.1.json").read_text())
+          assert cert_spki["profile_id"] == "mycelix.security.tpm.ek-cert-spki-binding"
+          assert cert_spki["claim_ceiling"] == "ReferenceModelOnly"
+          assert len(cert_spki["vectors"]) == 16
           assert ek_template["profile_id"] == "mycelix.security.tpm.ek-template-appraisal"
           assert ek_template["claim_ceiling"] == "ReferenceModelOnly"
           assert ek_template["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"
@@ -115,7 +119,8 @@ jobs:
             scripts/security/verify_mycelix_ak_creation_provenance_v0_1.py \
             scripts/security/verify_mycelix_tpm_public_name_coherence_v0_1.py \
             scripts/security/verify_mycelix_ek_template_appraisal_v0_1.py \
-            scripts/security/verify_mycelix_ak_public_attributes_v0_1.py
+            scripts/security/verify_mycelix_ak_public_attributes_v0_1.py \
+            scripts/security/verify_mycelix_ek_cert_spki_binding_v0_1.py
 
       - name: Run platform Evidence semantic corpus
         run: python3 scripts/security/verify_mycelix_platform_evidence_capture_v0_1.py --self-test
@@ -143,6 +148,9 @@ jobs:
 
       - name: Run AK public attributes semantic corpus
         run: python3 scripts/security/verify_mycelix_ak_public_attributes_v0_1.py --self-test
+
+      - name: Run EK certificate SPKI binding semantic corpus
+        run: python3 scripts/security/verify_mycelix_ek_cert_spki_binding_v0_1.py --self-test
 
       - name: Run EK template appraisal semantic corpus
         run: python3 scripts/security/verify_mycelix_ek_template_appraisal_v0_1.py --self-test
