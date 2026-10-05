@@ -215,6 +215,9 @@ jobs:
           assert manifest.is_file(), manifest
           assert lockfile.is_file(), "Security Kernel qualification requires a committed Cargo.lock"
           import tomllib
+          manifest_text=manifest.read_text(encoding="utf-8")
+          assert re.search(r"(?m)^\s*(git|path|registry)\s*=", manifest_text) is None, "manifest dependency source override is forbidden"
+          assert re.search(r"(?m)^\s*\[(patch|replace)(?:\.|\])", manifest_text) is None, "manifest patch/replace tables are forbidden"
           lock=tomllib.loads(lockfile.read_text(encoding="utf-8"))
           packages=lock.get("package", [])
           assert packages, "Cargo.lock contains no package records"
