@@ -59,7 +59,7 @@ jobs:
 
           export WORKFLOW_BLOB_SHA="$workflow_blob_sha"
           python3 - <<'PY'
-          import json, os, re, subprocess, urllib.request
+          import hashlib, io, json, os, re, subprocess, urllib.error, urllib.request, zipfile
 
           base = "https://api.github.com"
           token = os.environ["TOKEN"]
@@ -242,11 +242,10 @@ jobs:
               artifact_bytes = response.read(1024 * 1024 + 1)
           assert artifact_bytes, "qualification receipt artifact download is empty"
           assert len(artifact_bytes) <= 1024 * 1024, "qualification receipt artifact exceeds 1 MiB verifier bound"
-          assert "sha256:" + __import__("hashlib").sha256(artifact_bytes).hexdigest() == artifact_digest, (
+          assert "sha256:" + hashlib.sha256(artifact_bytes).hexdigest() == artifact_digest, (
               "downloaded qualification receipt bytes do not match GitHub's recorded artifact digest"
           )
 
-          import io, zipfile
           receipt_bytes = artifact_bytes
           if zipfile.is_zipfile(io.BytesIO(artifact_bytes)):
               with zipfile.ZipFile(io.BytesIO(artifact_bytes)) as archive:
@@ -304,9 +303,6 @@ jobs:
               "PASS: downloaded qualification receipt bytes match the recorded artifact digest "
               "and bind the exact candidate/run/trust-gate identity"
           )
-          assert re.fullmatch(r"sha256:[0-9a-f]{64}", artifact_digest or ""), (
-              f"unexpected qualification receipt artifact digest: {artifact_digest!r}"
-          )
 
           print(json.dumps({
               "candidate_sha": candidate_sha,
@@ -317,7 +313,7 @@ jobs:
               "trusted_dispatcher_workflow_blob_sha": dispatcher_at_run["sha"],
               "trusted_s1_workflow_blob_sha": s1_at_run["sha"],
               "verifier_workflow_sha": os.environ["GITHUB_WORKFLOW_SHA"],
-               "verifier_workflow_blob_sha": os.environ["WORKFLOW_BLOB_SHA"],
+              "verifier_workflow_blob_sha": os.environ["WORKFLOW_BLOB_SHA"],
               "qualification_receipt_artifact_id": artifact["id"],
               "qualification_receipt_artifact_digest": artifact.get("digest"),
               "independent_qualification": "verified-pass",
