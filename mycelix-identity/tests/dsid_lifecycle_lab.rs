@@ -1650,6 +1650,73 @@ async fn dsid_065_deactivated_issuer_rejects_academic_credential() {
     );
 }
 
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_066_deactivated_attestor_rejects_trust_attestation() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let app = conductor
+        .setup_app(
+            "dsid-deactivated-wot-attestor",
+            std::slice::from_ref(&dna),
+        )
+        .await
+        .unwrap();
+    let cell = app.cells()[0].clone();
+    let agent = app.agent().clone();
+
+    let did_record: Record = conductor
+        .call(&cell.zome("did_registry"), "create_did", ())
+        .await;
+
+    let deactivated: Record = conductor
+        .call(
+            &cell.zome("did_registry"),
+            "deactivate_did",
+            "DSID deactivated Web-of-Trust attestor regression",
+        )
+        .await;
+
+    let blocked: Result<Record, _> = conductor
+        .call_fallible(
+            &cell.zome("web_of_trust"),
+            "attest_trust",
+            serde_json::json!({
+                "subject": AgentPubKey::from_raw_36(vec![7u8; 36]),
+                "trust_score": 0.8,
+                "pq_verified": true,
+                "domain": "identity",
+                "note": "DSID regression",
+                "timestamp_us": 1
+            }),
+        )
+        .await;
+
+    let rejection = format!("{blocked:?}");
+    assert!(
+        blocked.is_err(),
+        "deactivated attestor must not create a new trust authority assertion"
+    );
+    assert!(
+        rejection.contains("DID is not active"),
+        "trust-attestation rejection must come from the active-DID guard, got: {rejection}"
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("attestor", agent.to_string());
+    emit_evidence(
+        "DSID-066",
+        "deactivated-attestor-rejects-trust-attestation",
+        &dna,
+        agents,
+        &[&did_record, &deactivated],
+        "A deactivated Web-of-Trust attestor cannot mint a new trust assertion through the attestation coordinator path.",
+        format!("trust_attestation_rejected={}", blocked.is_err()),
+        blocked.is_err(),
+    );
+}
+
 #[tokio::test(flavor = "multi_thread")]
 #[ignore]
 async fn dsid_006_self_recovery_projection_matches_canonical_state() {
