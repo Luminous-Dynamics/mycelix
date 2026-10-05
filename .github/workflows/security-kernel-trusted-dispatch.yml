@@ -52,6 +52,7 @@ jobs:
           test "$GITHUB_REF" = "refs/heads/main"
           test "$GITHUB_REPOSITORY" = "$BASE_REPOSITORY"
           test "$GITHUB_REPOSITORY_ID" = "$BASE_REPOSITORY_ID"
+          test "$GITHUB_REF_PROTECTED" = "true"
           test "${ACTIONS_CACHE_MODE:-}" = "none"
           test "$GITHUB_EVENT_NAME" = "pull_request_target"
           printf '%s' "$PR_NUMBER" | grep -Eq '^[0-9]+$'
