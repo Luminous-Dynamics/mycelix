@@ -913,7 +913,7 @@ jobs:
           TOKEN: ${{ github.token }}
           EXPECTED_ARTIFACT_ID: ${{ steps.receipt_upload.outputs.artifact-id }}
           EXPECTED_ARTIFACT_DIGEST: ${{ steps.receipt_upload.outputs.artifact-digest }}
-          EXPECTED_ARTIFACT_NAME: security-kernel-independent-qualification-${{ inputs.candidate_sha }}-attempt-${{ github.run_attempt }}
+          EXPECTED_ARTIFACT_NAME: security-kernel-independent-qualification-${{ inputs.candidate_sha }}-attempt-${{ github.run_attempt }}.txt
           RUN_ID: ${{ github.run_id }}
           BASE_REPOSITORY: "Luminous-Dynamics/mycelix"
           RECEIPT_PATH: ${{ runner.temp }}/security-kernel-independent-qualification-${{ inputs.candidate_sha }}-attempt-${{ github.run_attempt }}.txt

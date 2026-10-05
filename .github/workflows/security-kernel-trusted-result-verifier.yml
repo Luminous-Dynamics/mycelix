@@ -183,6 +183,10 @@ jobs:
               "qualification receipt artifact is not bound to the exact trusted dispatcher run"
           )
           assert int(artifact.get("size_in_bytes", 0)) > 0, "qualification receipt artifact is empty"
+          artifact_digest = artifact.get("digest")
+          assert re.fullmatch(r"sha256:[0-9a-f]{64}", artifact_digest or ""), (
+              f"unexpected qualification receipt artifact digest: {artifact_digest!r}"
+          )
 
           print(json.dumps({
               "candidate_sha": candidate_sha,
