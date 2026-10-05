@@ -450,15 +450,100 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                             "DidToSapBalance link must connect valid hashes".into(),
                         ));
                     }
-                    Ok(ValidateCallbackResult::Valid)
-                }
-                LinkTypes::TransferIdToIntent | LinkTypes::TransferIdToClaim => {
-                    if target_address.as_ref().len() != 39 {
+
+                    let hash = ActionHash::try_from(target_address.clone()).map_err(|_| {
+                        wasm_error!(WasmErrorInner::Guest(
+                            "DidToSapBalance target must be an action hash".into(),
+                        ))
+                    })?;
+                    let record = must_get_valid_record(hash)?;
+                    let balance = record
+                        .entry()
+                        .to_app_option::<SapBalance>()
+                        .map_err(|_| {
+                            wasm_error!(WasmErrorInner::Guest(
+                                "DidToSapBalance target is not a SapBalance entry".into(),
+                            ))
+                        })?
+                        .ok_or(wasm_error!(WasmErrorInner::Guest(
+                            "DidToSapBalance target is missing its SapBalance entry".into(),
+                        )))?;
+
+                    let expected_base = holo_hash::blake2b_256(
+                        format!("sap:{}", balance.member_did).as_bytes(),
+                    );
+                    if base_address.as_ref() != expected_base.as_slice() {
                         return Ok(ValidateCallbackResult::Invalid(
-                            "SAP transfer link target must be a valid action hash".into(),
+                            "DidToSapBalance base does not match the target balance owner".into(),
                         ));
                     }
                     Ok(ValidateCallbackResult::Valid)
+                }
+                LinkTypes::TransferIdToIntent => {
+                    if base_address.as_ref().len() != 39 || target_address.as_ref().len() != 39 {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "TransferIdToIntent link must connect valid hashes".into(),
+                        ));
+                    }
+                    let hash = ActionHash::try_from(target_address.clone()).map_err(|_| {
+                        wasm_error!(WasmErrorInner::Guest(
+                            "TransferIdToIntent target must be an action hash".into(),
+                        ))
+                    })?;
+                    let record = must_get_valid_record(hash)?;
+                    let intent = record
+                        .entry()
+                        .to_app_option::<SapTransferIntent>()
+                        .map_err(|_| {
+                            wasm_error!(WasmErrorInner::Guest(
+                                "TransferIdToIntent target is not a SapTransferIntent entry".into(),
+                            ))
+                        })?
+                        .ok_or(wasm_error!(WasmErrorInner::Guest(
+                            "TransferIdToIntent target is missing its transfer intent".into(),
+                        )))?;
+                    let expected_base = holo_hash::blake2b_256(
+                        format!("sap:transfer:intent:{}", intent.id).as_bytes(),
+                    );
+                    if base_address.as_ref() != expected_base.as_slice() {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "TransferIdToIntent base does not match the transfer id".into(),
+                        ));
+                    }
+                    Ok(ValidateCallbackResult::Valid)
+                }
+                LinkTypes::TransferIdToClaim => {
+                    if base_address.as_ref().len() != 39 || target_address.as_ref().len() != 39 {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "TransferIdToClaim link must connect valid hashes".into(),
+                        ));
+                    }
+                    let hash = ActionHash::try_from(target_address.clone()).map_err(|_| {
+                        wasm_error!(WasmErrorInner::Guest(
+                            "TransferIdToClaim target must be an action hash".into(),
+                        ))
+                    })?;
+                    let record = must_get_valid_record(hash)?;
+                    let claim = record
+                        .entry()
+                        .to_app_option::<SapTransferClaim>()
+                        .map_err(|_| {
+                            wasm_error!(WasmErrorInner::Guest(
+                                "TransferIdToClaim target is not a SapTransferClaim entry".into(),
+                            ))
+                        })?
+                        .ok_or(wasm_error!(WasmErrorInner::Guest(
+                            "TransferIdToClaim target is missing its transfer claim".into(),
+                        )))?;
+                    let expected_base = holo_hash::blake2b_256(
+                        format!("sap:transfer:claim:{}", claim.transfer_id).as_bytes(),
+                    );
+                    if base_address.as_ref() != expected_base.as_slice() {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "TransferIdToClaim base does not match the transfer id".into(),
+                        ));
+                    }
+                    Ok(())
                 }
                 LinkTypes::MemberToExitRecord => {
                     if base_address.as_ref().len() != 39 || target_address.as_ref().len() != 39 {
