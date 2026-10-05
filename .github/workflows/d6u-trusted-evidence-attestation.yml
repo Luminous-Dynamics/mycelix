@@ -37,7 +37,7 @@ jobs:
 
       - name: Assert trusted policy root cohesion
         env:
-          TRUSTED_POLICY_VERSION: "19"
+          TRUSTED_POLICY_VERSION: "20"
         run: |
           set -euo pipefail
           policy_version=$(python3 -c 'import json; print(json.load(open("docs/integral/d6u-trusted-builder-policy.json"))["policy_version"])')
@@ -49,14 +49,21 @@ jobs:
       - name: Assert trusted program identities
         run: |
           set -euo pipefail
-          declare -A trusted_programs=(
-            [scripts/integral/verify_d6u_trusted_artifacts.py]=$(python3 -c 'import json; p=json.load(open("docs/integral/d6u-trusted-builder-policy.json")); print(p["trusted_programs"]["scripts/integral/verify_d6u_trusted_artifacts.py"]["blob_sha"])')
-            [scripts/integral/fetch_d6u_trusted_artifact.py]=$(python3 -c 'import json; p=json.load(open("docs/integral/d6u-trusted-builder-policy.json")); print(p["trusted_programs"]["scripts/integral/fetch_d6u_trusted_artifact.py"]["blob_sha"])')
-            [scripts/integral/verify_d6u_trusted_attestation.py]=$(python3 -c 'import json; p=json.load(open("docs/integral/d6u-trusted-builder-policy.json")); print(p["trusted_programs"]["scripts/integral/verify_d6u_trusted_attestation.py"]["blob_sha"])')
+          trusted_programs=(
+            scripts/integral/verify_d6u_trusted_artifacts.py
+            scripts/integral/fetch_d6u_trusted_artifact.py
+            scripts/integral/verify_d6u_trusted_attestation.py
           )
-          for path in "${!trusted_programs[@]}"; do
-            observed=$(git hash-object "$path")
-            test "$observed" = "${trusted_programs[$path]}"
+          for path in "${trusted_programs[@]}"; do
+            expected=$(python3 -c 'import json, sys; print(json.load(open("docs/integral/d6u-trusted-builder-policy.json"))["trusted_programs"][sys.argv[1]]["blob_sha"])' "$path")
+            index_record=$(git ls-files --stage -- "$path")
+            test -n "$index_record"
+            mode=$(printf '%s
+' "$index_record" | awk '{print $1}')
+            observed=$(printf '%s
+' "$index_record" | awk '{print $2}')
+            test "$mode" = "100644" || test "$mode" = "100755"
+            test "$observed" = "$expected"
           done
 
       - name: Preflight trusted verifier
