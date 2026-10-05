@@ -3,10 +3,13 @@
 
 import json
 import subprocess
+import stat
 import tempfile
+from zipfile import ZipFile, ZipInfo
 from unittest.mock import patch
 from pathlib import Path
 
+from fetch_d6u_trusted_artifact import EXPECTED_FILES, extract_members, verify_zip_members
 from verify_d6u_trusted_artifacts import (
     load_record,
     verify_artifact_layout,
@@ -599,6 +602,75 @@ def test_truncated_source_tree_is_rejected() -> None:
     )
 
 
+def artifact_policy() -> dict:
+    return {
+        "artifact_max_bytes": {
+            "d6u-runtime-evidence.txt": 64,
+            "d6u-runtime-test.log": 128,
+            "Cargo.lock": 64,
+        },
+        "artifact_max_entries": 32,
+        "artifact_max_total_bytes": 256,
+    }
+
+
+def write_valid_artifact_zip(path: Path) -> None:
+    with ZipFile(path, "w") as archive:
+        archive.writestr("d6u-runtime-evidence.txt", "evidence")
+        archive.writestr("d6u-runtime-test.log", "log")
+        archive.writestr("Cargo.lock", "lock")
+
+
+def test_trusted_zip_accepts_exact_members() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        archive = Path(tmp) / "artifact.zip"
+        write_valid_artifact_zip(archive)
+        infos = verify_zip_members(archive, artifact_policy())
+        assert {info.filename for info in infos} == EXPECTED_FILES
+
+
+def test_trusted_zip_rejects_duplicate_member() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        archive = Path(tmp) / "artifact.zip"
+        with ZipFile(archive, "w") as zip_file:
+            zip_file.writestr("d6u-runtime-evidence.txt", "one")
+            zip_file.writestr("d6u-runtime-evidence.txt", "two")
+            zip_file.writestr("d6u-runtime-test.log", "log")
+            zip_file.writestr("Cargo.lock", "lock")
+        assert_rejected(
+            lambda: verify_zip_members(archive, artifact_policy()),
+            "duplicate ZIP member was accepted",
+        )
+
+
+def test_trusted_zip_rejects_symlink_member() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        archive = Path(tmp) / "artifact.zip"
+        link = ZipInfo("d6u-runtime-test.log")
+        link.external_attr = (stat.S_IFLNK | 0o777) << 16
+        with ZipFile(archive, "w") as zip_file:
+            zip_file.writestr("d6u-runtime-evidence.txt", "evidence")
+            zip_file.writestr(link, "Cargo.lock")
+            zip_file.writestr("Cargo.lock", "lock")
+        assert_rejected(
+            lambda: verify_zip_members(archive, artifact_policy()),
+            "symlink ZIP member was accepted",
+        )
+
+
+def test_trusted_zip_rejects_unexpected_member_path() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        archive = Path(tmp) / "artifact.zip"
+        with ZipFile(archive, "w") as zip_file:
+            zip_file.writestr("../escape", "bad")
+            zip_file.writestr("d6u-runtime-test.log", "log")
+            zip_file.writestr("Cargo.lock", "lock")
+        assert_rejected(
+            lambda: verify_zip_members(archive, artifact_policy()),
+            "unexpected ZIP member path was accepted",
+        )
+
+
 def test_artifact_entry_limit_is_enforced() -> None:
     maximums = {"evidence.txt": 16, "runtime.log": 16, "Cargo.lock": 16}
     with tempfile.TemporaryDirectory() as tmp:
@@ -670,6 +742,10 @@ if __name__ == "__main__":
         test_harness_file_set_rejects_extra_build_script,
         test_artifact_size_limits_are_enforced,
         test_artifact_entry_limit_is_enforced,
+        test_trusted_zip_accepts_exact_members,
+        test_trusted_zip_rejects_duplicate_member,
+        test_trusted_zip_rejects_symlink_member,
+        test_trusted_zip_rejects_unexpected_member_path,
         test_trusted_workflow_policy_shape_is_pinned,
         test_valid_log_is_accepted,
         test_case_tampering_is_rejected,
