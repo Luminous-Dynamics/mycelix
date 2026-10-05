@@ -3634,6 +3634,27 @@ mod tests {
         Ok(())
     }
 
+    /// Performs the qualified collection audit before invoking the lower-level
+    /// publication-only fork detector. The lower-level detector intentionally
+    /// assumes that its records have already been validated against snapshots;
+    /// this wrapper makes that precondition executable for callers that possess
+    /// the concrete snapshot/publication pairs.
+    fn validate_state_machine_trace_checkpoint_publication_set_against_snapshots(
+        snapshots: &[(
+            &FederationStateMachineTraceCapsule,
+            &FederationStateMachineTraceCheckpointPublication,
+        )],
+    ) -> Result<(), FederationStateMachineTraceCheckpointPublicationViolation> {
+        for (capsule, publication) in snapshots {
+            validate_state_machine_trace_checkpoint_publication(capsule, publication)?;
+        }
+        let publications = snapshots
+            .iter()
+            .map(|(_, publication)| publication.clone())
+            .collect::<Vec<_>>();
+        validate_state_machine_trace_checkpoint_publication_set(&publications)
+    }
+
     fn validate_state_machine_trace_checkpoint_publication_set(
         publications: &[FederationStateMachineTraceCheckpointPublication],
     ) -> Result<(), FederationStateMachineTraceCheckpointPublicationViolation> {
@@ -5927,6 +5948,30 @@ mod tests {
             validate_state_machine_trace_checkpoint_publication_set(&reversed_independent_set)
                 .is_ok(),
             "non-fork classification must not depend on publication collection order"
+        );
+
+        let qualified_collection = vec![
+            (&base, &base_publication),
+            (&fork_a, &fork_a_publication),
+        ];
+        assert!(
+            validate_state_machine_trace_checkpoint_publication_set_against_snapshots(
+                &qualified_collection
+            )
+            .is_ok(),
+            "qualified collection audit must validate concrete publications before fork detection"
+        );
+
+        let mut forged_collection_publication = fork_a_publication.clone();
+        forged_collection_publication.body_sha256 = "sha256:forged-body".into();
+        let forged_collection = vec![(&base, &base_publication), (&fork_a, &forged_collection_publication)];
+        assert_eq!(
+            validate_state_machine_trace_checkpoint_publication_set_against_snapshots(
+                &forged_collection
+            ),
+            Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::BodyDigestMismatch
+            )
         );
     }
 
