@@ -19,9 +19,9 @@ env:
   BASE_BRANCH: "main"
   SOURCE_WORKFLOW_PATH: ".github/workflows/security-kernel-qualification.yml"
   TRUSTED_DISPATCHER_WORKFLOW_PATH: ".github/workflows/security-kernel-trusted-dispatch.yml"
-  TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA: "c53d37c1218e77eb4b0d6b0426685e2421c9e037"
+  TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA: "12b51649d3251808b5e635479a4c1e0f48e12f33"
   INDEPENDENT_WORKFLOW_PATH: ".github/workflows/security-kernel-independent-qualification.yml"
-  TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "a5cce843cd2cfec3fc501775e7079095349db5af"
+  TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "d57f0679b3e67a52afe038d28e5e34238f36fff3"
   EXPECTED_JOB_NAME: "Independent Security Kernel"
 
 jobs:
