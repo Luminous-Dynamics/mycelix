@@ -2895,3 +2895,39 @@ pub fn verify_balance_proof(input: ZkBalanceProofInput) -> ExternResult<ZkBalanc
         domain_tag: domain_tag.as_str().to_string(),
     })
 }
+
+
+#[cfg(test)]
+mod ac099_tests {
+    use super::*;
+
+    #[test]
+    fn generated_transfer_id_is_bounded_and_deterministic() {
+        let now = Timestamp::from_micros(123_456);
+        let id = generated_transfer_id("did:mycelix:sender", "did:mycelix:recipient", 42, now);
+        let again =
+            generated_transfer_id("did:mycelix:sender", "did:mycelix:recipient", 42, now);
+
+        assert_eq!(id, again);
+        assert!(id.len() <= 256);
+        assert!(id.starts_with("transfer:"));
+    }
+
+    #[test]
+    fn generated_transfer_id_changes_with_bound_inputs() {
+        let now = Timestamp::from_micros(123_456);
+        let base = generated_transfer_id("did:mycelix:sender", "did:mycelix:recipient", 42, now);
+        let different_amount =
+            generated_transfer_id("did:mycelix:sender", "did:mycelix:recipient", 43, now);
+        let different_time =
+            generated_transfer_id(
+                "did:mycelix:sender",
+                "did:mycelix:recipient",
+                42,
+                Timestamp::from_micros(123_457),
+            );
+
+        assert_ne!(base, different_amount);
+        assert_ne!(base, different_time);
+    }
+}
