@@ -2523,6 +2523,71 @@ async fn dsid_079_deactivated_did_rejects_name_registration() {
     );
 }
 
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_080_deactivated_did_rejects_ruleset_publication() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let app = conductor
+        .setup_app(
+            "dsid-deactivated-ruleset-publication",
+            std::slice::from_ref(&dna),
+        )
+        .await
+        .unwrap();
+    let cell = app.cells()[0].clone();
+    let agent = app.agent().clone();
+
+    let did_record: Record = conductor
+        .call(&cell.zome("did_registry"), "create_did", ())
+        .await;
+
+    let deactivated: Record = conductor
+        .call(
+            &cell.zome("did_registry"),
+            "deactivate_did",
+            "DSID deactivated ruleset publisher regression",
+        )
+        .await;
+
+    let blocked: Result<Record, _> = conductor
+        .call_fallible(
+            &cell.zome("ruleset_registry"),
+            "publish_ruleset",
+            serde_json::json!({
+                "name": "dsid-regression-ruleset",
+                "version": "1.0.0",
+                "source": "DSID regression",
+                "entries": []
+            }),
+        )
+        .await;
+
+    let rejection = format!("{blocked:?}");
+    assert!(
+        blocked.is_err(),
+        "deactivated publisher must not establish a new ruleset authority claim"
+    );
+    assert!(
+        rejection.contains("DID is not active"),
+        "ruleset publication rejection must come from the active-DID guard, got: {rejection}"
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("publisher", agent.to_string());
+    emit_evidence(
+        "DSID-080",
+        "deactivated-did-rejects-ruleset-publication",
+        &dna,
+        agents,
+        &[&did_record, &deactivated],
+        "A deactivated DID cannot publish a new ruleset authority claim.",
+        format!("ruleset_publication_rejected={}", blocked.is_err()),
+        blocked.is_err(),
+    );
+}
+
 #[tokio::test(flavor = "multi_thread")]
 #[ignore]
 async fn dsid_006_self_recovery_projection_matches_canonical_state() {
