@@ -99,6 +99,7 @@ pub struct FinanceBridgeEvent {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum FinanceEventType {
     PaymentCompleted,
+    PaymentAwaitingRecipientClaim,
     CollateralPledged,
     CollateralReleased,
     CollateralDeposited,
