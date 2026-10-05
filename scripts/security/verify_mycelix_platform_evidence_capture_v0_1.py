@@ -2341,6 +2341,7 @@ def capture(args: argparse.Namespace) -> int:
             "rsa_certificate_sha256": sha256_file(rsa_certificate) if rsa_certificate.is_file() else None,
         },
         "ek_cert_spki_binding": ek_cert_spki_binding,
+        "ek_certificate_chain_capture": ek_certificate_chain_capture_manifest,
         "event_log": {
             "sha256": sha256_file(out / "eventlog.bin"),
             "parser_profile_id": "tcg.pc-client.event-log",
