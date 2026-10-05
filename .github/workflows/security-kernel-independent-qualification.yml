@@ -705,6 +705,98 @@ jobs:
           printf 'vendor_root=%s\\nvendor_config=%s\\nvendor_digest=%s\\n' "$vendor_root" "$vendor_config" "$vendor_digest" >> "$GITHUB_OUTPUT"
           echo "PASS: locked dependency closure vendored in constrained fetch sandbox"
           echo "vendor_digest=$vendor_digest"
+      - name: Execute sandbox negative controls
+        id: sandbox_negative_controls
+        shell: bash
+        env:
+          CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-src
+          VENDOR_ROOT: ${{ steps.vendor_dependencies.outputs.vendor_root }}
+          VENDOR_CONFIG: ${{ steps.vendor_dependencies.outputs.vendor_config }}
+          SANDBOX_IMAGE: "docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d"
+        run: |
+          set -euo pipefail
+          runner_uid="$(id -u)"
+          runner_gid="$(id -g)"
+          sentinel="$RUNNER_TEMP/security-kernel-trusted-sentinel"
+          printf '%s\n' 'security-kernel-trusted-sentinel-v1' > "$sentinel"
+          chmod 0444 "$sentinel"
+          sentinel_digest="$(sha256sum "$sentinel" | awk '{print $1}')"
+          container_name="security-kernel-negative-controls-$RANDOM"
+          docker rm -f "$container_name" >/dev/null 2>&1 || true
+          timeout --signal=TERM --kill-after=20s 3m docker run --name "$container_name" --rm --platform=linux/amd64 --pull=never \
+            --network=none \
+            --read-only \
+            --cap-drop=ALL \
+            --security-opt=no-new-privileges:true \
+            --security-opt=seccomp=default \
+            --pids-limit=128 \
+            --memory=256m \
+            --memory-swap=256m \
+            --cpus=1 \
+            --ulimit=nofile=2048:2048 \
+            --ulimit=core=0:0 \
+            --user "$runner_uid:$runner_gid" \
+            --init \
+            --stop-timeout=5 \
+            --ipc=private \
+            --pid=private \
+            --cgroupns=private \
+            --tmpfs /tmp:rw,nosuid,nodev,noexec,size=64m \
+            --volume "$CANDIDATE_ROOT:/source:ro" \
+            --volume "$VENDOR_ROOT:/vendor:ro" \
+            --volume "$VENDOR_CONFIG:/vendor-config/config.toml:ro" \
+            --volume "$sentinel:/trusted-sentinel:ro" \
+            --env GITHUB_TOKEN= \
+            --env GH_TOKEN= \
+            --env ACTIONS_ID_TOKEN_REQUEST_TOKEN= \
+            --env ACTIONS_ID_TOKEN_REQUEST_URL= \
+            --env ACTIONS_RUNTIME_TOKEN= \
+            "$SANDBOX_IMAGE" /bin/bash -euc '
+              set -euo pipefail
+              must_fail() {
+                if "$@" >/tmp/negative-control-output 2>&1; then
+                  echo "negative control unexpectedly succeeded: $*" >&2
+                  cat /tmp/negative-control-output >&2 || true
+                  exit 1
+                fi
+              }
+              test "$(id -u)" -ne 0
+              test "$(awk "/^CapEff:/{print \\$2}" /proc/self/status)" = "0000000000000000"
+              grep -Eq "^NoNewPrivs:[[:space:]]+1$" /proc/self/status
+              grep -Eq "^Seccomp:[[:space:]]+2$" /proc/self/status
+              grep -Eq "^Seccomp_filters:[[:space:]]+[1-9][0-9]*$" /proc/self/status
+              test -z "${GITHUB_TOKEN:-}"
+              test -z "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}"
+              test ! -e /var/run/docker.sock
+              test ! -e /dev/kvm
+              test ! -e /dev/mem
+              test ! -e /dev/kmem
+              test ! -e /dev/kmsg
+              test ! -e /home/runner
+              test "$(tail -n +2 /proc/net/route | wc -l)" -eq 0
+              test "$(tail -n +2 /proc/net/ipv6_route | wc -l)" -eq 0
+              test ! -w /
+              test ! -w /source
+              test ! -w /vendor
+              test ! -w /vendor-config/config.toml
+              test ! -w /trusted-sentinel
+              must_fail touch /.negative-rootfs-write
+              must_fail sh -c "printf x >> /source/.negative-source-write"
+              must_fail sh -c "printf x >> /vendor/.negative-vendor-write"
+              must_fail sh -c "printf x >> /vendor-config/config.toml"
+              must_fail sh -c "printf x >> /trusted-sentinel"
+              must_fail sh -c "echo probe >/dev/tcp/1.1.1.1/80"
+              (sleep 30) & child=$!
+              kill -0 "$child"
+              kill "$child"
+              echo "PASS: active negative controls rejected writable-root, source/vendor/config mutation, token visibility, device exposure, network access, and untrusted background-process assumptions"
+            '
+          cat "$RUNNER_TEMP/security-kernel-negative-controls.log" 2>/dev/null || true
+          test ! -e "$container_name"
+          test "$(sha256sum "$sentinel" | awk '{print $1}')" = "$sentinel_digest"
+          rm -f "$sentinel"
+          printf 'negative_controls=passed\nsentinel_digest=%s\n' "$sentinel_digest" >> "$GITHUB_OUTPUT"
+          echo "PASS: trusted sandbox negative-control matrix passed"
       - name: Execute candidate qualification in disposable networkless sandbox
         shell: bash
         env:
@@ -865,6 +957,49 @@ jobs:
           print("PASS: candidate source remained immutable and regular-file-only")
           PY
 
+      - name: Verify dependency substrate immutability
+        shell: bash
+        env:
+          VENDOR_ROOT: ${{ steps.vendor_dependencies.outputs.vendor_root }}
+          VENDOR_CONFIG: ${{ steps.vendor_dependencies.outputs.vendor_config }}
+          EXPECTED_VENDOR_DIGEST: ${{ steps.vendor_dependencies.outputs.vendor_digest }}
+        run: |
+          set -euo pipefail
+          python3 - "$VENDOR_ROOT" "$VENDOR_CONFIG" "$EXPECTED_VENDOR_DIGEST" <<'PY'
+          import hashlib, pathlib, stat, sys
+          vendor=pathlib.Path(sys.argv[1])
+          config=pathlib.Path(sys.argv[2])
+          expected=sys.argv[3].strip()
+          required_config=(
+              '[source.crates-io]\n'
+              'replace-with = "vendored-sources"\n'
+              '\n'
+              '[source.vendored-sources]\n'
+              'directory = "/vendor"\n'
+          )
+          assert config.read_text(encoding="utf-8").strip() == required_config.strip()
+          digest=hashlib.sha256()
+          for path in sorted(vendor.rglob("*")):
+              rel=path.relative_to(vendor)
+              mode=path.lstat().st_mode
+              if stat.S_ISLNK(mode):
+                  raise SystemExit(f"vendored dependency contains forbidden symlink: {rel}")
+              if path.is_dir():
+                  continue
+              if not stat.S_ISREG(mode):
+                  raise SystemExit(f"vendored dependency contains forbidden non-regular file: {rel}")
+              relative=rel.as_posix().encode()
+              content=path.read_bytes()
+              mode_bits=stat.S_IMODE(mode)
+              digest.update(mode_bits.to_bytes(4, "big"))
+              digest.update(len(relative).to_bytes(8, "big"))
+              digest.update(relative)
+              digest.update(len(content).to_bytes(8, "big"))
+              digest.update(content)
+          after=digest.hexdigest()
+          assert after == expected, f"vendored dependency substrate mutated: {expected} != {after}"
+          print("PASS: vendored dependency substrate and trusted config remained immutable")
+          PY
       - name: Emit qualification receipt
         shell: bash
         env:
@@ -884,6 +1019,7 @@ jobs:
           LOCK_PACKAGE_COUNT: ${{ steps.locked_dependency_identity.outputs.lock_package_count }}
           LOCK_DEPENDENCY_EDGES: ${{ steps.locked_dependency_identity.outputs.lock_dependency_edges }}
           VENDOR_DIGEST: ${{ steps.vendor_dependencies.outputs.vendor_digest }}
+          NEGATIVE_CONTROLS: ${{ steps.sandbox_negative_controls.outputs.negative_controls }}
           LOCK_DIGEST: ${{ steps.locked_dependency_identity.outputs.lock_digest }}
           RUST_VERSION: ${{ steps.sandbox_preflight.outputs.rust_version }}
           RUST_COMMIT: ${{ steps.sandbox_preflight.outputs.rust_commit }}
@@ -909,6 +1045,7 @@ jobs:
             echo "candidate_cargo_lock_package_count=$LOCK_PACKAGE_COUNT"
             echo "candidate_cargo_lock_dependency_edges=$LOCK_DEPENDENCY_EDGES"
             echo "vendor_digest=$VENDOR_DIGEST"
+            echo "sandbox_negative_controls=$NEGATIVE_CONTROLS"
             echo "git_fetch_image=$FETCH_IMAGE"
             echo "sandbox_image=docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d"
             echo "sandbox_network=none"
