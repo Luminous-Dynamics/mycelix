@@ -1262,11 +1262,34 @@ pub fn receive_compost(input: ReceiveCompostInput) -> ExternResult<Record> {
                 "Invalid compost delivery receival target".into(),
             ))
         })?;
-        return get(hash, GetOptions::default())?.ok_or(wasm_error!(
+        let record = get(hash, GetOptions::default())?.ok_or(wasm_error!(
             WasmErrorInner::Guest(
                 "Compost delivery index points to a missing receival record".into(),
             )
-        ));
+        ))?;
+        let existing_receival = record
+            .entry()
+            .to_app_option::<CompostReceival>()
+            .map_err(|_| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "Existing compost delivery target is not a CompostReceival".into(),
+                ))
+            })?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Existing compost delivery target is missing its CompostReceival entry".into(),
+            )))?;
+
+        if existing_receival.commons_pool_id != input.commons_pool_id
+            || existing_receival.amount != input.amount
+            || existing_receival.source_member_did != input.source_member_did
+        {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "Compost delivery {} already exists with conflicting settlement terms",
+                input.delivery_id
+            ))));
+        }
+
+        return Ok(record);
     }
 
     // Record the immutable receival before mutating pool state. The delivery
