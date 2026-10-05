@@ -800,7 +800,9 @@ jobs:
           test "$(sha256sum "$sentinel" | awk '{print $1}')" = "$sentinel_digest"
           rm -f "$sentinel"
           negative_controls_log_digest="$(sha256sum "$RUNNER_TEMP/security-kernel-negative-controls.log" | awk '{print $1}')"
-          printf '%s' "$negative_controls_log_digest" | grep -Eq '^[0-9a-f]{64}
+          printf '%s' "$negative_controls_log_digest" | grep -Eq '^[0-9a-f]{64}$'
+          printf 'negative_controls=passed\nsentinel_digest=%s\nnegative_controls_log_digest=%s\n' "$sentinel_digest" "$negative_controls_log_digest" >> "$GITHUB_OUTPUT"
+          echo "PASS: trusted sandbox negative-control matrix passed"
           echo "PASS: trusted sandbox negative-control matrix passed"
       - name: Execute candidate qualification in disposable networkless sandbox
         shell: bash
