@@ -801,7 +801,7 @@ fn validate_create_reserve_valuation_authority_policy(
         ));
     }
     for did in &policy.authorized_publisher_dids {
-        if did.is_empty() || did.len() > MAX_DID_LEN || !did.starts_with("did:") {
+        if did.is_empty() || did.len() > MAX_DID_LEN || !did.starts_with("did:mycelix:") {
             return Ok(ValidateCallbackResult::Invalid(
                 "Reserve valuation policy contains an invalid publisher DID".into(),
             ));
@@ -924,6 +924,19 @@ fn validate_create_reserve_valuation_snapshot(
                     "Reserve source dependency is not a PriceReport".into()
                 ))
             })?;
+        let source_author_did = did_for_author(record.action().author());
+        if report.reporter_did != source_author_did {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Reserve source reporter DID does not match the signed source action author"
+                    .into(),
+            ));
+        }
+        if report.reported_at != record.action().timestamp() {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Reserve source reported_at does not match the signed source action timestamp"
+                    .into(),
+            ));
+        }
         if report.item != snapshot.source_item {
             return Ok(ValidateCallbackResult::Invalid(
                 "Reserve source report item does not match snapshot source_item".into(),
@@ -3008,6 +3021,17 @@ mod tests {
         )
         .unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+
+    #[test]
+    fn test_reserve_source_commitment_stays_bounded_at_max_source_count() {
+        let hashes = (0..200)
+            .map(|i| ActionHash::from_raw_36(vec![i as u8; 36]))
+            .collect::<Vec<_>>();
+        let commitment = canonical_source_commitment(&hashes);
+        assert!(commitment.len() < MAX_REFERENCE_LEN);
+        assert!(commitment.starts_with("blake2b256:"));
     }
 
 
