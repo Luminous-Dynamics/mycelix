@@ -171,6 +171,9 @@ jobs:
       - name: Run EK certificate chain policy semantic corpus
         run: python3 scripts/security/verify_mycelix_ek_cert_chain_policy_v0_1.py --self-test
 
+      - name: Run EK certificate SAN property binding semantic corpus
+        run: python3 scripts/security/verify_mycelix_ek_cert_san_property_binding_v0_1.py --self-test
+
       - name: Run EK template appraisal semantic corpus
         run: python3 scripts/security/verify_mycelix_ek_template_appraisal_v0_1.py --self-test
 
