@@ -542,8 +542,9 @@ fn verify_strict_consensus_publisher() -> ExternResult<()> {
     }
 }
 
-/// Deterministically compute a consensus result without creating or updating
-/// any DHT state. This is the only path used by the public query.
+/// Compute a consensus result without creating or updating any DHT state.
+/// The computation is side-effect-free but still reads the current operational
+/// reporter-accuracy state and current time; AC-112 owns historical reproducibility.
 fn compute_consensus_price(input: &GetConsensusInput) -> ExternResult<ConsensusComputation> {
     let item = input.item.to_lowercase().trim().to_string();
     let item_anchor = anchor_hash(&format!("{ITEM_REPORTS_ANCHOR_PREFIX}{item}"))?;
