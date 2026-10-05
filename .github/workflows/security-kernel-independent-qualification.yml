@@ -77,6 +77,19 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           import json, os, re, urllib.request
+          base = "https://api.github.com"
+          token = os.environ["TOKEN"]
+
+          def get(path):
+              req = urllib.request.Request(
+                  base + path,
+                  headers={
+                      "Accept":"application/vnd.github+json",
+                      "Authorization":f"Bearer {token}",
+                      "X-GitHub-Api-Version":"2022-11-28"})
+              with urllib.request.urlopen(req, timeout=20) as r:
+                  return json.load(r)
+
           for name, pattern in {
               "CANDIDATE_PR": r"[0-9]+",
               "CANDIDATE_SHA": r"[0-9a-f]{40}",
@@ -85,28 +98,39 @@ jobs:
               "SOURCE_RUN_ATTEMPT": r"[0-9]+",
           }.items():
               assert re.fullmatch(pattern, os.environ[name]), name
-          req=urllib.request.Request(
-              f"https://api.github.com/repos/{os.environ['BASE_REPOSITORY']}/actions/runs/{os.environ['SOURCE_RUN_ID']}",
-              headers={"Accept":"application/vnd.github+json","Authorization":f"Bearer {os.environ['TOKEN']}","X-GitHub-Api-Version":"2022-11-28"})
-          with urllib.request.urlopen(req, timeout=20) as r:
-              run=json.load(r)
+
+          run = get(f'/repos/{os.environ["BASE_REPOSITORY"]}/actions/runs/{os.environ["SOURCE_RUN_ID"]}')
           assert run["id"] == int(os.environ["SOURCE_RUN_ID"])
           assert run["run_attempt"] == int(os.environ["SOURCE_RUN_ATTEMPT"])
+          assert run["status"] == "completed"
           assert run["workflow_id"] == int(os.environ["SOURCE_WORKFLOW_ID"])
           assert run["path"] == os.environ["SOURCE_WORKFLOW_PATH"]
           assert run["event"] == "pull_request"
           assert run["repository"]["full_name"] == os.environ["BASE_REPOSITORY"]
           assert run["head_sha"] == os.environ["CANDIDATE_SHA"]
           assert (run.get("head_repository") or {}).get("full_name") == os.environ["CANDIDATE_REPOSITORY"]
-          print("PASS: source workflow run is bound to exact candidate SHA/repository/attempt")
+
+          pulls = get(
+              f'/repos/{os.environ["BASE_REPOSITORY"]}/commits/{os.environ["CANDIDATE_SHA"]}/pulls?per_page=100')
+          matches = [
+              pr for pr in pulls
+              if pr["number"] == int(os.environ["CANDIDATE_PR"])
+              and pr["state"] == "open"
+              and pr["base"]["repo"]["full_name"] == os.environ["BASE_REPOSITORY"]
+              and pr["base"]["ref"] == "main"
+              and pr["head"]["repo"]["full_name"] == os.environ["CANDIDATE_REPOSITORY"]
+              and pr["head"]["sha"] == os.environ["CANDIDATE_SHA"]
+          ]
+          assert len(matches) == 1, f"candidate PR is no longer an exact open-head match: {len(matches)}"
+          print("PASS: source workflow, source attempt, candidate repository/SHA, and current PR head are exact")
           PY
 
       - name: Resolve exact candidate source
+        id: resolve_source
         shell: bash
         env:
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
           CANDIDATE_REPOSITORY: ${{ inputs.candidate_repository }}
-          CANDIDATE_PR: ${{ inputs.candidate_pr }}
         run: |
           set -euo pipefail
           candidate_git="$RUNNER_TEMP/security-kernel-candidate-git"
@@ -124,9 +148,9 @@ jobs:
           candidate_tree="$(git -C "$candidate_git" rev-parse FETCH_HEAD^{tree})"
           mkdir -p "$candidate_root"
           git -C "$candidate_git" archive --format=tar "$resolved" | tar -xf - -C "$candidate_root"
-          printf "CANDIDATE_SHA=%s\nCANDIDATE_TREE=%s\nCANDIDATE_PR=%s\nCANDIDATE_REPOSITORY=%s\n" "$CANDIDATE_SHA" "$candidate_tree" "$CANDIDATE_PR" "$CANDIDATE_REPOSITORY" > "$RUNNER_TEMP/security-kernel-subject.env"
+          printf 'candidate_tree=%s\n' "$candidate_tree" >> "$GITHUB_OUTPUT"
 
-          python3 - "$candidate_root" "$RUNNER_TEMP/security-kernel-source-digest-before" <<'PY'
+          python3 - "$candidate_root" <<'PY'
           import hashlib, pathlib, stat, sys
           root=pathlib.Path(sys.argv[1])
           digest=hashlib.sha256()
@@ -145,8 +169,38 @@ jobs:
               digest.update(b"\\0")
               digest.update(path.read_bytes())
               digest.update(b"\\0")
-          pathlib.Path(sys.argv[2]).write_text(digest.hexdigest()+"\\n",encoding="utf-8")
+          print(f"candidate_source_digest={digest.hexdigest()}")
           print("PASS: exact candidate commit materialized with regular-file-only source tree")
+          PY
+
+      - name: Snapshot trusted candidate source
+        id: snapshot_source
+        shell: bash
+        env:
+          CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-src
+        run: |
+          set -euo pipefail
+          python3 - "$CANDIDATE_ROOT" <<'PY'
+          import hashlib, pathlib, stat, sys
+          root=pathlib.Path(sys.argv[1])
+          digest=hashlib.sha256()
+          for path in sorted(root.rglob("*")):
+              rel=path.relative_to(root)
+              if rel.parts and rel.parts[0] == "target":
+                  continue
+              mode=path.lstat().st_mode
+              if stat.S_ISLNK(mode):
+                  raise SystemExit(f"candidate source contains forbidden symlink: {rel}")
+              if path.is_dir():
+                  continue
+              if not stat.S_ISREG(mode):
+                  raise SystemExit(f"candidate source contains forbidden non-regular file: {rel}")
+              digest.update(rel.as_posix().encode())
+              digest.update(b"\\0")
+              digest.update(path.read_bytes())
+              digest.update(b"\\0")
+          printf 'source_digest=%s\n' "$digest" >> "$GITHUB_OUTPUT"
+          echo "PASS: trusted pre-execution candidate source digest recorded"
           PY
 
       - name: Static trust-surface audit
@@ -175,8 +229,8 @@ jobs:
                   break
           assert permission_lines == ["contents: read"], permission_lines
           assert "secrets." not in workflow
-          uses=re.findall(r"(?m)^\\s*-\\s*uses:\\s*([^\\n]+)$",workflow)
-          assert uses and all(re.search(r"@[0-9a-fA-F]{40}(?:\\s+#.*)?$",line.strip()) for line in uses)
+          uses=re.findall(r"(?m)^\s*-\s*uses:\s*([^\n]+)$",workflow)
+          assert uses and all(re.search(r"@[0-9a-fA-F]{40}(?:\s+#.*)?$",line.strip()) for line in uses)
           for value in (
               "runs-on: ubuntu-24.04",
               "ref: " + "$" + "{{ github.event.pull_request.head.sha || github.sha }}",
@@ -213,35 +267,82 @@ jobs:
           print("PASS: independent static trust-surface profile")
           PY
 
+      - name: Assert Rust toolchain before candidate compilation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(rustc +1.99.0 --version | awk '{print $2}')" = "1.99.0"
+          test "$(rustc +1.99.0 --version --verbose | sed -n 's/^commit-hash: //p')" = "b940084d7eb6a299eb4bfeb8e34901bc051e7ac4"
+
       - name: Format candidate bridge crate
         working-directory: ${{ runner.temp }}/security-kernel-candidate-src
-        run: cargo fmt --manifest-path crates/mycelix-bridge-common/Cargo.toml -- --check
+        env:
+          RUSTUP_TOOLCHAIN: "1.99.0"
+        run: rustup run 1.99.0 cargo fmt --manifest-path crates/mycelix-bridge-common/Cargo.toml -- --check
+
+      - name: Assert Rust toolchain before default tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(rustc +1.99.0 --version | awk '{print $2}')" = "1.99.0"
+          test "$(rustc +1.99.0 --version --verbose | sed -n 's/^commit-hash: //p')" = "b940084d7eb6a299eb4bfeb8e34901bc051e7ac4"
 
       - name: Test candidate default feature set
         working-directory: ${{ runner.temp }}/security-kernel-candidate-src
-        run: cargo test --locked --manifest-path crates/mycelix-bridge-common/Cargo.toml
+        env:
+          RUSTUP_TOOLCHAIN: "1.99.0"
+        run: rustup run 1.99.0 cargo test --locked --manifest-path crates/mycelix-bridge-common/Cargo.toml
+
+      - name: Assert Rust toolchain before identity tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(rustc +1.99.0 --version | awk '{print $2}')" = "1.99.0"
+          test "$(rustc +1.99.0 --version --verbose | sed -n 's/^commit-hash: //p')" = "b940084d7eb6a299eb4bfeb8e34901bc051e7ac4"
 
       - name: Test candidate identity feature set
         working-directory: ${{ runner.temp }}/security-kernel-candidate-src
-        run: cargo test --locked --manifest-path crates/mycelix-bridge-common/Cargo.toml --features identity
+        env:
+          RUSTUP_TOOLCHAIN: "1.99.0"
+        run: rustup run 1.99.0 cargo test --locked --manifest-path crates/mycelix-bridge-common/Cargo.toml --features identity
+
+      - name: Assert Rust toolchain before default Clippy
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(rustc +1.99.0 --version | awk '{print $2}')" = "1.99.0"
+          test "$(rustc +1.99.0 --version --verbose | sed -n 's/^commit-hash: //p')" = "b940084d7eb6a299eb4bfeb8e34901bc051e7ac4"
 
       - name: Clippy candidate default feature set
         working-directory: ${{ runner.temp }}/security-kernel-candidate-src
-        run: cargo clippy --locked --manifest-path crates/mycelix-bridge-common/Cargo.toml --all-targets -- -D warnings
+        env:
+          RUSTUP_TOOLCHAIN: "1.99.0"
+        run: rustup run 1.99.0 cargo clippy --locked --manifest-path crates/mycelix-bridge-common/Cargo.toml --all-targets -- -D warnings
+
+      - name: Assert Rust toolchain before identity Clippy
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(rustc +1.99.0 --version | awk '{print $2}')" = "1.99.0"
+          test "$(rustc +1.99.0 --version --verbose | sed -n 's/^commit-hash: //p')" = "b940084d7eb6a299eb4bfeb8e34901bc051e7ac4"
 
       - name: Clippy candidate identity feature set
         working-directory: ${{ runner.temp }}/security-kernel-candidate-src
-        run: cargo clippy --locked --manifest-path crates/mycelix-bridge-common/Cargo.toml --all-targets --features identity -- -D warnings
+        env:
+          RUSTUP_TOOLCHAIN: "1.99.0"
+        run: rustup run 1.99.0 cargo clippy --locked --manifest-path crates/mycelix-bridge-common/Cargo.toml --all-targets --features identity -- -D warnings
 
       - name: Verify candidate source immutability
         shell: bash
         env:
           CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-src
+          EXPECTED_SOURCE_DIGEST: ${{ steps.snapshot_source.outputs.source_digest }}
         run: |
           set -euo pipefail
-          python3 - "$CANDIDATE_ROOT" "$RUNNER_TEMP/security-kernel-source-digest-before" <<'PY'
+          python3 - "$CANDIDATE_ROOT" "$EXPECTED_SOURCE_DIGEST" <<'PY'
           import hashlib, pathlib, stat, sys
           root=pathlib.Path(sys.argv[1])
+          expected=sys.argv[2].strip()
           digest=hashlib.sha256()
           for path in sorted(root.rglob("*")):
               rel=path.relative_to(root)
@@ -255,12 +356,11 @@ jobs:
               if not stat.S_ISREG(mode):
                   raise SystemExit(f"candidate source contains forbidden non-regular file: {rel}")
               digest.update(rel.as_posix().encode())
-              digest.update(b"\0")
+              digest.update(b"\\0")
               digest.update(path.read_bytes())
-              digest.update(b"\0")
-          before=pathlib.Path(sys.argv[2]).read_text(encoding="utf-8").strip()
+              digest.update(b"\\0")
           after=digest.hexdigest()
-          assert before == after, f"candidate source mutated during qualification: {before} != {after}"
+          assert expected == after, f"candidate source mutated during qualification: {expected} != {after}"
           print("PASS: candidate source remained immutable and regular-file-only")
           PY
 
@@ -272,15 +372,17 @@ jobs:
           CANDIDATE_REPOSITORY: ${{ inputs.candidate_repository }}
           SOURCE_RUN_ID: ${{ inputs.source_run_id }}
           SOURCE_RUN_ATTEMPT: ${{ inputs.source_run_attempt }}
+          CANDIDATE_TREE: ${{ steps.resolve_source.outputs.candidate_tree }}
+          SOURCE_DIGEST: ${{ steps.snapshot_source.outputs.source_digest }}
         run: |
           set -euo pipefail
-          source "$RUNNER_TEMP/security-kernel-subject.env"
           {
             echo "schema=security-kernel-independent-qualification-v1"
             echo "candidate_repository=$CANDIDATE_REPOSITORY"
             echo "candidate_pr=$CANDIDATE_PR"
             echo "candidate_sha=$CANDIDATE_SHA"
             echo "candidate_tree=$CANDIDATE_TREE"
+            echo "candidate_source_digest=$SOURCE_DIGEST"
             echo "source_run_id=$SOURCE_RUN_ID"
             echo "source_run_attempt=$SOURCE_RUN_ATTEMPT"
             echo "trusted_workflow_ref=$GITHUB_WORKFLOW_REF"
