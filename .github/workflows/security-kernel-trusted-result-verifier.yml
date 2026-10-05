@@ -187,6 +187,7 @@ jobs:
           print(json.dumps({
               "candidate_sha": candidate_sha,
               "candidate_pr": candidate_pr,
+              "candidate_repository_id": candidate_repo_id,
               "candidate_repository": candidate_repository,
               "trusted_dispatcher_workflow_sha": workflow_sha,
               "trusted_dispatcher_workflow_blob_sha": dispatcher_at_run["sha"],
