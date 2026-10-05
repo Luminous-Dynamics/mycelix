@@ -70,7 +70,6 @@ pub fn create_schema(schema: CredentialSchema) -> ExternResult<Record> {
     verify_did_active(&caller_did, "credential schema creation")?;
 
     // Capability guard: only the claimed author can create schemas
-    let caller_did = format!("did:mycelix:{}", caller);
     if schema.author != caller_did {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Only the claimed author can create schemas".into()
