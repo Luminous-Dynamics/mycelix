@@ -105,6 +105,125 @@ pub fn verify_payment_status_remote(
     verify_payment_status(input)
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ReconcilePaymentSettlementInput {
+    pub source_happ: String,
+    pub reference: String,
+}
+
+#[hdk_extern]
+pub fn reconcile_payment_settlement(
+    input: ReconcilePaymentSettlementInput,
+) -> ExternResult<Record> {
+    validate_payment_lookup_key(&input.source_happ, &input.reference)?;
+
+    let payment_record = find_payment_by_reference(&input.source_happ, &input.reference)?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Cross-hApp payment not found",
+        )))?;
+
+    let payment = decode_cross_happ_payment(&payment_record)?;
+    let caller_did = format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey);
+    if caller_did != payment.from_did && caller_did != payment.to_did {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Only the payment sender or recipient may reconcile settlement".into()
+        )));
+    }
+
+    if payment.status == PaymentStatus::Completed {
+        return Ok(payment_record);
+    }
+
+    if payment.status != PaymentStatus::Processing {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Payment must be Processing before settlement reconciliation; current state is {:?}",
+            payment.status
+        ))));
+    }
+
+    let transfer_id = cross_happ_transfer_id(&payment.source_happ, &payment.reference);
+    let claim_result = call(
+        CallTargetCell::Local,
+        ZomeName::from("payments"),
+        FunctionName::from("get_sap_transfer_claim"),
+        None,
+        serde_json::json!({ "transfer_id": transfer_id }).to_string(),
+    );
+
+    let claim_record = match claim_result {
+        Ok(ZomeCallResponse::Ok(result)) => result.decode::<Option<Record>>().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Failed to decode SAP transfer claim lookup result: {:?}",
+                e
+            )))
+        })?,
+        Ok(other) => {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "SAP transfer claim lookup returned unexpected response: {:?}",
+                other
+            ))));
+        }
+        Err(e) => {
+            return Err(wasm_error!(WasmErrorInner::Guest(format!(
+                "SAP transfer claim lookup unavailable: {:?}",
+                e
+            ))));
+        }
+    };
+
+    let Some(claim_record) = claim_record else {
+        // Still Processing: absence of recipient claim is not evidence of failure.
+        return Ok(payment_record);
+    };
+
+    #[derive(Deserialize)]
+    struct TransferClaimView {
+        recipient_did: String,
+        amount: u64,
+    }
+    let claim = claim_record
+        .entry()
+        .to_app_option::<TransferClaimView>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Failed to decode SAP transfer claim: {:?}",
+                e
+            )))
+        })?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "SAP transfer claim record is missing or malformed",
+        )))?;
+
+    if claim.recipient_did != payment.to_did || claim.amount != payment.amount {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "SAP transfer claim does not match cross-hApp payment recipient/amount".into()
+        )));
+    }
+
+    let completed_at = sys_time()?;
+    let completed_record = update_payment_status(
+        &payment_record,
+        payment,
+        PaymentStatus::Completed,
+        Some(completed_at),
+    )?;
+
+    broadcast_finance_event(BroadcastFinanceEventInput {
+        event_type: FinanceEventType::PaymentCompleted,
+        subject_did: caller_did,
+        amount: Some(claim.amount),
+        payload: serde_json::json!({
+            "source_happ": input.source_happ,
+            "reference": input.reference,
+            "transfer_id": transfer_id,
+            "settlement_state": "Completed",
+        })
+        .to_string(),
+    })?;
+
+    Ok(completed_record)
+}
+
 #[hdk_extern]
 pub fn verify_payment_status(input: VerifyPaymentStatusInput) -> ExternResult<Option<Record>> {
     validate_payment_lookup_key(&input.source_happ, &input.reference)?;
