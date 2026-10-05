@@ -1155,6 +1155,14 @@ PY
         echo "FAIL: $id integrity source does not contain concrete entry target $target_variant"
         fail=1
       fi
+      entry_enum="$(sed -n '/^[[:space:]]*pub[[:space:]]\+enum EntryTypes[[:space:]]*{/,/^}/p' "$integrity_file")"
+      if printf '%s\n' "$entry_enum" | grep -Eq "^[[:space:]]*${target_name}\("; then
+        echo "OK:   $id target $target_variant is declared by integrity EntryTypes"
+      else
+        echo "FAIL: $id target $target_variant is not declared by integrity EntryTypes"
+        fail=1
+      fi
+      unset entry_enum
     else
       if rg -nU --pcre2 "\bLinkTypes::${target_name}\b" "$integrity_file" >/dev/null 2>&1; then
         echo "OK:   $id integrity source contains concrete link target $target_variant"
@@ -1162,6 +1170,14 @@ PY
         echo "FAIL: $id integrity source does not contain concrete link target $target_variant"
         fail=1
       fi
+      link_enum="$(sed -n '/^[[:space:]]*pub[[:space:]]*enum LinkTypes[[:space:]]*{/,/^}/p' "$integrity_file")"
+      if printf '%s\n' "$link_enum" | grep -Eq "^[[:space:]]*${target_name},$"; then
+        echo "OK:   $id target $target_variant is declared by integrity LinkTypes"
+      else
+        echo "FAIL: $id target $target_variant is not declared by integrity LinkTypes"
+        fail=1
+      fi
+      unset link_enum
     fi
     unset target_name
 
