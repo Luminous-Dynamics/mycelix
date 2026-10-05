@@ -44,24 +44,26 @@ const RATE_LIMIT_WINDOW_MICROS: u64 = 15 * 60 * 1_000_000;
 // CROSS-ZOME HELPERS
 // =============================================================================
 
-/// Verify that a DID exists in the did_registry zome
-fn verify_did_exists(did: &str) -> ExternResult<bool> {
-    // Call the did_registry zome to resolve the DID
+/// Verify that a DID is active in the did_registry zome.
+///
+/// MFA state is security-sensitive and must not be initialized or replenished
+/// for a deactivated DID. Use the registry's canonical active-state predicate
+/// rather than treating historical resolution as current authorization.
+fn verify_did_active(did: &str) -> ExternResult<bool> {
     let response = call(
         CallTargetCell::Local,
         ZomeName::new("did_registry"),
-        FunctionName::new("resolve_did"),
+        FunctionName::new("is_did_active"),
         None,
         did.to_string(),
     )?;
 
-    // Decode the response
     match response {
         ZomeCallResponse::Ok(extern_io) => {
-            let result: Option<Record> = extern_io
+            let result: bool = extern_io
                 .decode()
                 .map_err(|e| wasm_error!(WasmErrorInner::Serialize(e)))?;
-            Ok(result.is_some())
+            Ok(result)
         }
         ZomeCallResponse::Unauthorized(..) => Err(wasm_error!(WasmErrorInner::Guest(
             "Unauthorized cross-zome call".into()
@@ -296,19 +298,19 @@ pub fn create_mfa_state(input: CreateMfaStateInput) -> ExternResult<MfaStateOutp
         )));
     }
 
-    // Verify DID exists in did_registry (cross-zome call). This is a
-    // security prerequisite: inability to verify the canonical DID must not
-    // silently turn into an orphaned MFA namespace.
-    match verify_did_exists(&input.did) {
+    // Verify the DID is active in did_registry (cross-zome call). This is a
+    // security prerequisite: historical/deactivated identity state must not
+    // become authorization for new MFA state.
+    match verify_did_active(&input.did) {
         Ok(true) => {}
         Ok(false) => {
             return Err(wasm_error!(WasmErrorInner::Guest(
-                "DID does not exist in registry. Create DID first.".into()
+                "DID is not active in the registry. Create or reactivate the DID before creating MFA state.".into()
             )));
         }
         Err(error) => {
             return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                "DID existence verification failed; refusing MFA initialization: {}",
+                "DID active-state verification failed; refusing MFA initialization: {}",
                 error
             ))));
         }
