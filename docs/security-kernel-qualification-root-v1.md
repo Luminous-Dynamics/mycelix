@@ -55,7 +55,7 @@ S1:
 - executes the trusted qualification workflow from the exact caller commit rather than mutable `main`;
 - performs an independent static trust-surface audit;
 - runs rustfmt, default-feature tests, identity-feature tests, and Clippy using Rust 1.99.0;
-- captures the exact candidate source digest as a trusted step output before dependency acquisition or candidate execution, and records the candidate tree, lockfile, vendor closure, sandbox image, and trusted workflow identities; and
+- captures the exact candidate source digest as a trusted step output before dependency acquisition or candidate execution, using unambiguous length-framed path/content records, and records the candidate tree, lockfile, vendor closure, sandbox image, and trusted workflow identities; and
 - fails if any committed candidate source changes during qualification; build output is placed outside the source mount in a dedicated `/target` tmpfs.
 
 The candidate executes without repository write permission, secrets, or OIDC access. The S0 caller explicitly sets `cache-mode: none`, so the reusable S1 execution does not receive persistent Actions cache access. S1 also requires the source PR to remain an exact open-head match at execution time, records the pre-execution source digest in a trusted workflow step output, and requires a committed Security Kernel `Cargo.lock` while rejecting candidate-controlled Cargo configuration at the relevant workspace/config hierarchy. The lockfile policy also rejects non-crates.io package sources, preventing a candidate from turning dependency acquisition into arbitrary Git/custom-registry network access. The lockfile digest is captured before candidate execution. Candidate dependency acquisition uses only the committed manifest/lockfile in a constrained non-root container; candidate source and code are not present during that networked fetch phase. The resulting vendor tree is then mounted read-only for candidate execution. Candidate Cargo gates use the Rust 1.99.0 compiler contained in the immutable sandbox image, `--frozen`, `network=none` / offline networking, a read-only source tree, and fresh disposable containers with dropped capabilities, `no-new-privileges`, resource bounds, private PID/IPC namespaces, and no Docker socket. These controls substantially reduce candidate access to the host runner, but the Docker daemon and host kernel remain trusted infrastructure. Stronger runtime isolation is tracked in #4152.
@@ -109,7 +109,8 @@ The dependency phase is allowed outbound network access only from a disposable n
 container and receives the exact committed bridge manifest and lockfile, without candidate
 source, repository credentials, GitHub/OIDC tokens, Docker socket, or privileged capabilities.
 It emits a vendor tree and generated Cargo source configuration that the later candidate
-containers consume read-only.
+containers consume read-only. The vendor digest uses the same unambiguous length-framed
+record encoding for its relative paths and file contents.
 
 The candidate phase uses the immutable Rust image
 `docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d`.
