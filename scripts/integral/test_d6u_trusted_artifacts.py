@@ -2,6 +2,7 @@
 """Deterministic, read-only tests for the D6U trusted verifier."""
 
 import json
+import subprocess
 import tempfile
 from pathlib import Path
 
@@ -173,6 +174,23 @@ def test_record_metadata_is_canonicalized() -> None:
         lambda: verify_record_metadata(tampered, policy),
         "tampered verifier blob identity was accepted",
     )
+
+
+def test_policy_pins_current_trusted_workflow() -> None:
+    root = Path(__file__).parents[2]
+    policy = json.loads(
+        (root / "docs/integral/d6u-trusted-builder-policy.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    workflow = root / policy["trusted_workflow"]["path"]
+    observed = subprocess.run(
+        ["git", "hash-object", str(workflow)],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    assert policy["trusted_workflow"]["blob_sha"] == observed
 
 
 def test_forbidden_cargo_config_is_rejected() -> None:
@@ -609,6 +627,7 @@ def test_artifact_layout_rejects_symlink() -> None:
 if __name__ == "__main__":
     tests = [
         test_policy_pins_d6s_prerequisite_boundary,
+        test_policy_pins_current_trusted_workflow,
         test_forbidden_cargo_config_is_rejected,
         test_record_metadata_is_canonicalized,
         test_harness_file_set_rejects_extra_build_script,
