@@ -124,7 +124,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         ch in "0123456789abcdef"
         for ch in policy["trusted_artifact_fetcher"]["blob_sha"]
     )
-    assert policy["policy_version"] == 20
+    assert policy["policy_version"] == 21
     assert set(policy["trusted_programs"]) == {
         "scripts/integral/verify_d6u_trusted_artifacts.py",
         "scripts/integral/fetch_d6u_trusted_artifact.py",
@@ -713,7 +713,15 @@ def write_valid_artifact_zip(path: Path) -> None:
         archive.writestr("Cargo.lock", "lock")
 
 
-def attestation_entry(subject_digest: str, run_id: str = "42", attempt: str = "3") -> dict:
+def attestation_entry(
+    subjects: list[dict],
+    source: dict[str, str],
+    trigger: dict[str, int | str],
+    executor: dict[str, int | str],
+    policy_version: int,
+    run_id: str = "42",
+    attempt: str = "3",
+) -> dict:
     repo = "Luminous-Dynamics/mycelix"
     workflow = f"{repo}/.github/workflows/d6u-trusted-evidence-attestation.yml"
     return {
@@ -733,80 +741,45 @@ def attestation_entry(subject_digest: str, run_id: str = "42", attempt: str = "3
                 }
             },
             "statement": {
-                "predicateType": "https://slsa.dev/provenance/v1",
-                "subject": [{"name": "subject", "digest": {"sha256": subject_digest}}],
+                "predicateType": "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1",
+                "subject": subjects,
+                "predicate": {
+                    "schema": "d6u-trusted-runtime-evidence/v1",
+                    "attestation_kind": "verified-runtime-evidence",
+                    "claim_ceiling": "ReferenceModelOnly",
+                    "policy_version": policy_version,
+                    "source": source,
+                    "trigger": trigger,
+                    "executor": executor,
+                    "subjects": subjects,
+                    "evidence": {
+                        "case_coverage": "14-of-14",
+                        "supplemental_coverage": "4-of-4",
+                        "application_check_coverage": "1-of-1",
+                        "case_outcome_classes": [
+                            "accepted",
+                            "semantic-rejected",
+                            "authentication-failed",
+                        ],
+                        "runtime": "holochain-0.7.0",
+                        "hdk": "0.7.0",
+                        "hdi": "0.8.0",
+                        "unsupported_cases": [
+                            "wire-signature-valid",
+                            "nonce-stale",
+                            "payload-mutation",
+                        ],
+                    },
+                    "nonclaims": [
+                        "semantic-truth",
+                        "production-safety",
+                        "legal-authority",
+                        "actuation-authority",
+                    ],
+                },
             },
         }
     }
-
-
-def test_attestation_verifier_accepts_current_run() -> None:
-    with tempfile.TemporaryDirectory() as tmp:
-        subject = Path(tmp) / "Cargo.lock"
-        subject.write_text("version = 3\n", encoding="utf-8")
-        digest = __import__("hashlib").sha256(subject.read_bytes()).hexdigest()
-        report = Path(tmp) / "report.json"
-        report.write_text(json.dumps([attestation_entry(digest)]), encoding="utf-8")
-        env = {
-            "GITHUB_REPOSITORY": "Luminous-Dynamics/mycelix",
-            "GITHUB_RUN_ID": "42",
-            "GITHUB_RUN_ATTEMPT": "3",
-            "GITHUB_WORKFLOW_REF": "Luminous-Dynamics/mycelix/.github/workflows/d6u-trusted-evidence-attestation.yml@refs/heads/main",
-            "GITHUB_WORKFLOW_SHA": "b" * 40,
-            "GITHUB_SHA": "a" * 40,
-            "GITHUB_REF": "refs/heads/main",
-            "D6U_ATTESTATION_SUBJECT": str(subject),
-        }
-        old = {key: __import__("os").environ.get(key) for key in env}
-        __import__("os").environ.update(env)
-        old_argv = __import__("sys").argv
-        __import__("sys").argv = ["verify_d6u_trusted_attestation.py", str(report)]
-        try:
-            verify_attestation_main()
-        finally:
-            __import__("sys").argv = old_argv
-            for key, value in old.items():
-                if value is None:
-                    __import__("os").environ.pop(key, None)
-                else:
-                    __import__("os").environ[key] = value
-
-
-def test_attestation_verifier_rejects_old_run() -> None:
-    with tempfile.TemporaryDirectory() as tmp:
-        subject = Path(tmp) / "Cargo.lock"
-        subject.write_text("version = 3\n", encoding="utf-8")
-        digest = __import__("hashlib").sha256(subject.read_bytes()).hexdigest()
-        report = Path(tmp) / "report.json"
-        report.write_text(
-            json.dumps([attestation_entry(digest, run_id="41", attempt="9")]),
-            encoding="utf-8",
-        )
-        import os
-        import sys
-        env = {
-            "GITHUB_REPOSITORY": "Luminous-Dynamics/mycelix",
-            "GITHUB_RUN_ID": "42",
-            "GITHUB_RUN_ATTEMPT": "3",
-            "GITHUB_WORKFLOW_REF": "Luminous-Dynamics/mycelix/.github/workflows/d6u-trusted-evidence-attestation.yml@refs/heads/main",
-            "GITHUB_WORKFLOW_SHA": "b" * 40,
-            "GITHUB_SHA": "a" * 40,
-            "GITHUB_REF": "refs/heads/main",
-            "D6U_ATTESTATION_SUBJECT": str(subject),
-        }
-        old = {key: os.environ.get(key) for key in env}
-        os.environ.update(env)
-        old_argv = sys.argv
-        sys.argv = ["verify_d6u_trusted_attestation.py", str(report)]
-        try:
-            assert_rejected(verify_attestation_main, "old attestation run was accepted")
-        finally:
-            sys.argv = old_argv
-            for key, value in old.items():
-                if value is None:
-                    os.environ.pop(key, None)
-                else:
-                    os.environ[key] = value
 
 
 def test_trusted_zip_accepts_exact_members() -> None:

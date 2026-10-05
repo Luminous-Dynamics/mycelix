@@ -1,5 +1,5 @@
 {
-  "policy_version": 20,
+  "policy_version": 21,
   "workflow_name": "D6U Exact-Head Runtime Executor",
   "workflow_path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
   "artifact_name_prefix": "d6u-runtime-evidence-",
@@ -238,13 +238,15 @@
     "deny_self_hosted_runners": true,
     "source_digest_source": "GITHUB_SHA",
     "source_ref_source": "GITHUB_REF",
-    "predicate_type": "https://slsa.dev/provenance/v1",
+    "predicate_type": "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1",
     "current_run_identity": {
       "certificate_field": "runInvocationURI",
       "template": "https://github.com/{repository}/actions/runs/{run_id}/attempts/{run_attempt}"
     },
     "require_current_run_identity": true,
-    "require_subject_digest_match": true
+    "require_subject_digest_match": true,
+    "predicate_schema": "d6u-trusted-runtime-evidence/v1",
+    "subject_set_exact": true
   },
   "trusted_attestation_verifier": {
     "path": "scripts/integral/verify_d6u_trusted_attestation.py",
@@ -262,6 +264,10 @@
     "scripts/integral/verify_d6u_trusted_attestation.py": {
       "path": "scripts/integral/verify_d6u_trusted_attestation.py",
       "blob_sha": "a418f10a397baa611a86aef5b65df199c2371987"
+    },
+    "scripts/integral/emit_d6u_trusted_attestation_predicate.py": {
+      "path": "scripts/integral/emit_d6u_trusted_attestation_predicate.py",
+      "blob_sha": "b3b984d50df9f34fac0d641b3b8c95f49b57b9ea"
     }
   }
 }

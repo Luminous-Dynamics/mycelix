@@ -67,7 +67,7 @@ jobs:
           done
 
       - name: Preflight trusted verifier
-        run: python3 -m py_compile scripts/integral/verify_d6u_trusted_artifacts.py scripts/integral/verify_d6u_trusted_attestation.py
+        run: python3 -m py_compile scripts/integral/verify_d6u_trusted_artifacts.py scripts/integral/fetch_d6u_trusted_artifact.py scripts/integral/verify_d6u_trusted_attestation.py scripts/integral/emit_d6u_trusted_attestation_predicate.py
 
       - name: Fetch and safely extract exact D6U artifact
         env:
@@ -104,10 +104,12 @@ jobs:
               --cert-oidc-issuer "https://token.actions.githubusercontent.com" \
               --source-digest "$GITHUB_SHA" \
               --source-ref "$GITHUB_REF" \
-              --predicate-type "https://slsa.dev/provenance/v1" \
+              --predicate-type "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1" \
               --deny-self-hosted-runners \
               --format=json > "$report"
             D6U_ATTESTATION_SUBJECT="$subject" \
+            D6U_TRUSTED_EVIDENCE_DIR="$RUNNER_TEMP/d6u-trusted-input" \
+            D6U_TRUSTED_POLICY_VERSION="21" \
               python3 scripts/integral/verify_d6u_trusted_attestation.py "$report"
             rm -f "$report"
           done
