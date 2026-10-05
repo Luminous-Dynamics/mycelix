@@ -20,6 +20,7 @@ env:
   SOURCE_WORKFLOW_ID: "372951439"
   SOURCE_WORKFLOW_PATH: ".github/workflows/security-kernel-qualification.yml"
   INDEPENDENT_WORKFLOW_PATH: ".github/workflows/security-kernel-independent-qualification.yml"
+  TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "95aa0133dc08eecd4abc0e82112ab88b0668d18c"
   EXPECTED_JOB_NAME: "Independent Security Kernel"
 
 jobs:
@@ -75,6 +76,8 @@ jobs:
           candidate_sha, candidate_pr, source_run_id, source_run_attempt = match.groups()
           source_run_attempt = int(source_run_attempt)
 
+          workflow_content = get("/repos/" + repo + "/contents/" + os.environ["INDEPENDENT_WORKFLOW_PATH"] + "?ref=main")
+          assert workflow_content["sha"] == os.environ["TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA"], "trusted S1 workflow blob changed without profile update"
           workflow_sha = run["workflow_sha"]
           main_sha = subprocess.check_output(["git", "rev-parse", "origin/main"], text=True).strip()
           subprocess.run(["git", "merge-base", "--is-ancestor", workflow_sha, main_sha], check=True)
