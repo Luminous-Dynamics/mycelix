@@ -3676,7 +3676,7 @@ mod tests {
         publications: &[FederationStateMachineTraceCheckpointPublication],
     ) -> Result<(), FederationStateMachineTraceCheckpointPublicationViolation> {
         let mut successors =
-            BTreeMap::<(&str, &str, u16, &str, u16, &str, &str, &str), &str>::new();
+            BTreeMap::<(&str, &str, u16, &str, u16, &str, usize, &str), &str>::new();
 
         for publication in publications {
             let key = (
