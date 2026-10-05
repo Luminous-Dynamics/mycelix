@@ -460,7 +460,10 @@ jobs:
           run_sandbox() {
             local wall="$1"
             local script="$2"
-            timeout --signal=TERM --kill-after=30s "$wall" docker run --rm --platform=linux/amd64 --pull=never \
+            local name="security-kernel-sandbox-$BASHPID"
+            docker rm -f "$name" >/dev/null 2>&1 || true
+            set +e
+            timeout --signal=TERM --kill-after=30s "$wall" docker run --name "$name" --rm --platform=linux/amd64 --pull=never \
               --network=none \
               --read-only \
               --cap-drop=ALL \
@@ -512,6 +515,10 @@ jobs:
                 }
                 $script
               "
+            local status=$?
+            docker rm -f "$name" >/dev/null 2>&1 || true
+            set -e
+            return "$status"
           }
 
           run_sandbox 2m '
