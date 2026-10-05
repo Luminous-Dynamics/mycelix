@@ -144,6 +144,26 @@ def verify_artifact_layout(artifact_dir: Path, expected_files: set[str]) -> None
     )
 
 
+def verify_artifact_size_limits(
+    artifact_dir: Path,
+    maximums: dict[str, int],
+    total_maximum: int,
+) -> None:
+    total = 0
+    for relative_path, maximum in maximums.items():
+        path = artifact_dir / relative_path
+        size = path.stat().st_size
+        assert size <= maximum, (
+            f"trusted artifact file is too large: {relative_path!r}: "
+            f"size={size}, maximum={maximum}"
+        )
+        total += size
+    assert total <= total_maximum, (
+        f"trusted artifact total size is too large: "
+        f"size={total}, maximum={total_maximum}"
+    )
+
+
 def load_record(path: Path) -> dict[str, str]:
     lines = path.read_text(encoding="utf-8").splitlines()
     assert lines and lines[0] == "D6U HOLOCHAIN 0.7 RUNTIME EVIDENCE"
@@ -383,6 +403,11 @@ def main() -> None:
         "Cargo.lock",
     }
     verify_artifact_layout(artifact_dir, expected_files)
+    verify_artifact_size_limits(
+        artifact_dir,
+        policy["artifact_max_bytes"],
+        policy["artifact_max_total_bytes"],
+    )
 
     evidence = artifact_dir / "d6u-runtime-evidence.txt"
     test_log = artifact_dir / "d6u-runtime-test.log"
