@@ -97,6 +97,34 @@ def verify_forbidden_cargo_config_paths(tree_payload: dict, forbidden_paths: lis
     assert not forbidden, f"source tree contains forbidden Cargo config: {forbidden!r}"
 
 
+def verify_exact_harness_file_set(tree_payload: dict, expected_files: list[str]) -> None:
+    assert tree_payload.get("truncated") is False, (
+        "GitHub Git tree response was truncated; refusing incomplete D6U harness identity"
+    )
+    prefix = "d6u-runtime-harness/"
+    entries = [entry for entry in tree_payload.get("tree", []) if entry.get("path", "").startswith(prefix)]
+    nonstandard = [
+        entry for entry in entries
+        if entry.get("type") not in {"blob", "tree"}
+    ]
+    assert not nonstandard, f"D6U harness contains unsupported Git entries: {nonstandard!r}"
+
+    observed_files = sorted(
+        entry["path"] for entry in entries if entry.get("type") == "blob"
+    )
+    assert observed_files == sorted(expected_files), (
+        f"D6U harness file-set mismatch: "
+        f"expected={sorted(expected_files)!r}, observed={observed_files!r}"
+    )
+    for entry in entries:
+        if entry.get("type") != "blob":
+            continue
+        assert entry.get("mode") in {"100644", "100755"}, (
+            f"D6U harness file has unexpected Git mode: "
+            f"{entry.get('path')!r}: {entry.get('mode')!r}"
+        )
+
+
 def verify_artifact_layout(artifact_dir: Path, expected_files: set[str]) -> None:
     assert artifact_dir.is_dir(), f"missing trusted artifact directory: {artifact_dir}"
     entries = list(artifact_dir.rglob("*"))
@@ -214,6 +242,10 @@ def verify_trigger_run(
     verify_forbidden_cargo_config_paths(
         source_tree,
         policy["forbidden_cargo_config_paths"],
+    )
+    verify_exact_harness_file_set(
+        source_tree,
+        policy["d6u_harness_tracked_files"],
     )
     verify_required_tracked_blobs(
         source_tree,

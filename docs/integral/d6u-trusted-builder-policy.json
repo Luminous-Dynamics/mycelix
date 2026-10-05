@@ -1,5 +1,5 @@
 {
-  "policy_version": 8,
+  "policy_version": 9,
   "workflow_name": "D6U Exact-Head Runtime Executor",
   "workflow_path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
   "artifact_name_prefix": "d6u-runtime-evidence-",
@@ -190,5 +190,12 @@
     ".cargo/config.toml",
     "d6u-runtime-harness/.cargo/config",
     "d6u-runtime-harness/.cargo/config.toml"
+  ],
+  "d6u_harness_tracked_files": [
+    "d6u-runtime-harness/Cargo.toml",
+    "d6u-runtime-harness/README.md",
+    "d6u-runtime-harness/rust-toolchain.toml",
+    "d6u-runtime-harness/src/lib.rs",
+    "d6u-runtime-harness/tests/d6u_authority_boundary.rs"
   ]
 }

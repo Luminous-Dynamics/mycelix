@@ -15,6 +15,7 @@ from verify_d6u_trusted_artifacts import (
     verify_required_tracked_blobs,
     verify_trigger_run_record,
     verify_forbidden_cargo_config_paths,
+    verify_exact_harness_file_set,
 )
 
 
@@ -80,6 +81,14 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         "d6u-runtime-harness/.cargo/config.toml",
     ]
 
+    assert policy["d6u_harness_tracked_files"] == [
+        "d6u-runtime-harness/Cargo.toml",
+        "d6u-runtime-harness/README.md",
+        "d6u-runtime-harness/rust-toolchain.toml",
+        "d6u-runtime-harness/src/lib.rs",
+        "d6u-runtime-harness/tests/d6u_authority_boundary.rs",
+    ]
+
 
 def test_forbidden_cargo_config_is_rejected() -> None:
     forbidden = [
@@ -102,6 +111,40 @@ def test_forbidden_cargo_config_is_rejected() -> None:
     assert_rejected(
         lambda: verify_forbidden_cargo_config_paths(tree, forbidden),
         "Cargo config inherited by D6U was accepted",
+    )
+
+
+def test_harness_file_set_rejects_extra_build_script() -> None:
+    expected = [
+        "d6u-runtime-harness/Cargo.toml",
+        "d6u-runtime-harness/README.md",
+        "d6u-runtime-harness/rust-toolchain.toml",
+        "d6u-runtime-harness/src/lib.rs",
+        "d6u-runtime-harness/tests/d6u_authority_boundary.rs",
+    ]
+    tree = {
+        "truncated": False,
+        "tree": [
+            *[
+                {
+                    "path": path,
+                    "mode": "100644",
+                    "type": "blob",
+                    "sha": "a" * 40,
+                }
+                for path in expected
+            ],
+            {
+                "path": "d6u-runtime-harness/build.rs",
+                "mode": "100644",
+                "type": "blob",
+                "sha": "b" * 40,
+            },
+        ],
+    }
+    assert_rejected(
+        lambda: verify_exact_harness_file_set(tree, expected),
+        "extra executable harness file was accepted",
     )
 
 
@@ -410,6 +453,7 @@ if __name__ == "__main__":
     tests = [
         test_policy_pins_d6s_prerequisite_boundary,
         test_forbidden_cargo_config_is_rejected,
+        test_harness_file_set_rejects_extra_build_script,
         test_valid_log_is_accepted,
         test_case_tampering_is_rejected,
         test_duplicate_case_is_rejected,
