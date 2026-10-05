@@ -86,7 +86,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         assert len(required[path]) == 40
         assert all(ch in "0123456789abcdef" for ch in required[path])
 
-    assert policy["policy_version"] == 24
+    assert policy["policy_version"] == 25
 
     assert policy["forbidden_cargo_config_paths"] == [
         ".cargo/config",
@@ -158,6 +158,27 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
     assert policy["attestation_verification"]["require_current_run_identity"] is True
     assert policy["attestation_verification"]["subject_set_exact"] is True
     assert policy["attestation_verification"]["require_verified_timestamp"] is True
+
+    assert policy["trusted_actions"] == {
+        "actions/checkout": {
+            "ref": "fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09",
+            "version": "v5.1.0",
+        },
+        "actions/attest": {
+            "ref": "1e69f48acb82d1966a394da916b4c169aa569d6",
+            "version": "v4.2.2",
+        },
+    }
+    workflow_path = Path(__file__).parents[2] / policy["trusted_workflow"]["path"]
+    uses = []
+    for line in workflow_path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if stripped.startswith("uses:"):
+            uses.append(stripped.split("uses:", 1)[1].strip())
+    assert set(uses) == {
+        "actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0",
+        "actions/attest@1e69f48acb82d1966a394da916b4c169aa569d6 # v4.2.2",
+    }
 
     assert policy["trusted_permissions"] == {
         "actions": "read",
@@ -296,6 +317,24 @@ def test_policy_pins_current_trusted_fetcher() -> None:
         text=True,
     ).stdout.strip()
     assert policy["trusted_artifact_fetcher"]["blob_sha"] == observed
+
+
+def test_privileged_actions_are_exactly_pinned() -> None:
+    policy = json.loads(
+        (Path(__file__).parents[2] / "docs/integral/d6u-trusted-builder-policy.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    workflow_path = Path(__file__).parents[2] / policy["trusted_workflow"]["path"]
+    uses = [
+        line.strip().split("uses:", 1)[1].strip()
+        for line in workflow_path.read_text(encoding="utf-8").splitlines()
+        if line.strip().startswith("uses:")
+    ]
+    assert set(uses) == {
+        "actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0",
+        "actions/attest@1e69f48acb82d1966a394da916b4c169aa569d6 # v4.2.2",
+    }
 
 
 def test_forbidden_cargo_config_is_rejected() -> None:
@@ -1097,6 +1136,7 @@ if __name__ == "__main__":
     tests = [
         test_policy_pins_d6s_prerequisite_boundary,
         test_policy_pins_current_trusted_workflow,
+        test_privileged_actions_are_exactly_pinned,
         test_policy_pins_current_trusted_fetcher,
         test_forbidden_cargo_config_is_rejected,
         test_record_metadata_is_canonicalized,
