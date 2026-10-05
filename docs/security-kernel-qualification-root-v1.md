@@ -67,7 +67,8 @@ S1 first proves:
 - `github.event_name == pull_request_target`;
 - `github.workflow_ref` is exactly the trusted S0 workflow on `refs/heads/main`;
 - `github.workflow_sha` is a valid commit SHA for the S0 caller;
-- the called S1 workflow blob at that caller commit matches the registered S1 profile;
+- the S1 job has only `actions: read`, `contents: read`, and `pull-requests: read` permissions;
+- the executing S1 workflow blob at that caller commit independently matches the registered S1 profile supplied by S0;
 - the candidate PR number/repository/head SHA passed by S0 exactly match the current PR.
 
 S1 resolves the exact candidate commit and tree through the GitHub API and enforces the
