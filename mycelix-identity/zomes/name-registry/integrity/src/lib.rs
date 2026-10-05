@@ -184,7 +184,7 @@ fn validate_name_transfer_chain_uniqueness(
 fn latest_name_action(
     author: AgentPubKey,
     chain_top: ActionHash,
-    name_hash: &ActionHash,
+    canonical: &str,
 ) -> ExternResult<Option<ActionHash>> {
     let activity = must_get_agent_activity(author, ChainFilter::new(chain_top))?;
     let entry_type = EntryType::App(AppEntryDef::try_from(UnitEntryTypes::MeshNameEntry)?);
@@ -197,20 +197,27 @@ fn latest_name_action(
         {
             continue;
         }
+
+        let Some(entry_hash) = prior_action.entry_hash().cloned() else {
+            continue;
+        };
+        let entry = must_get_entry(entry_hash)?;
+        let name: MeshNameEntry = entry.try_into().map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Mesh name history entry could not be decoded: {e}"
+            )))
+        })?;
+
+        if name.canonical != canonical {
+            continue;
+        }
+
         let action_hash = hdi::hash::hash_action(prior_action.clone())?;
-        let entry_hash = prior_action.entry_hash().cloned();
-        if let Some(entry_hash) = entry_hash {
-            let entry = must_get_entry(entry_hash)?;
-            let name: MeshNameEntry = entry.try_into().map_err(|e| {
-                wasm_error!(WasmErrorInner::Guest(format!(
-                    "Mesh name history entry could not be decoded: {e}"
-                )))
-            })?;
-            if &action_hash == name_hash {
-                if latest.as_ref().is_none_or(|(seq, _)| prior_action.action_seq() > *seq) {
-                    latest = Some((prior_action.action_seq(), action_hash));
-                }
-            }
+        if latest
+            .as_ref()
+            .is_none_or(|(seq, _)| prior_action.action_seq() > *seq)
+        {
+            latest = Some((prior_action.action_seq(), action_hash));
         }
     }
 
@@ -455,6 +462,25 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                             .ok_or(wasm_error!(WasmErrorInner::Guest(
                                 "Original update target must be a MeshNameEntry".into(),
                             )))?;
+
+                        match latest_name_action(
+                            action.author.clone(),
+                            action.prev_action.clone(),
+                            &original_entry.canonical,
+                        )? {
+                            Some(latest_hash) if latest_hash == action.original_action_address => {}
+                            Some(_) => {
+                                return Ok(ValidateCallbackResult::Invalid(
+                                    "Mesh name update must target the latest name action on the author's source chain"
+                                        .into(),
+                                ));
+                            }
+                            None => {
+                                return Ok(ValidateCallbackResult::Invalid(
+                                    "Mesh name update has no prior canonical name action".into(),
+                                ));
+                            }
+                        }
 
                         if entry.segments != original_entry.segments
                             || entry.canonical != original_entry.canonical
