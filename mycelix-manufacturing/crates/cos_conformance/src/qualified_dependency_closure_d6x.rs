@@ -117,6 +117,20 @@ pub enum SemanticDependencyResolutionV1 {
     Stale,
 }
 
+/// Completeness of optional runtime/audit resolution evidence.
+///
+/// This is deliberately separate from semantic closure validity: a certificate
+/// can be semantically valid without carrying runtime retrieval evidence, while
+/// an authoritative runtime consumer may require Complete before treating
+/// Present/Stale as externally corroborated resolution states.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum ResolutionEvidenceStatusV1 {
+    Absent,
+    Partial,
+    Complete,
+    Invalid,
+}
+
 /// Runtime/audit evidence about resolving a semantic dependency.
 /// This is deliberately excluded from closure identity: retrieval addresses and
 /// observed evidence may vary without changing what the semantic dependency is.
@@ -298,6 +312,58 @@ impl DependencyClosureCertificateV1 {
                 }
             }
             && self.commitment == self.recompute()
+    }
+
+    /// Classify whether optional resolution evidence is sufficient to
+    /// independently corroborate every selected dependency.
+    ///
+    /// Absent and Partial are not invalid semantic certificates; they simply
+    /// mean the certificate remains in semantic-only/audit-incomplete mode.
+    /// Complete means every Present/Stale selected dependency has a supplied,
+    /// structurally valid evidence record whose observed commitment exactly
+    /// matches the dependency commitment.
+    pub fn resolution_evidence_status(&self) -> ResolutionEvidenceStatusV1 {
+        if self.resolution_evidence.is_empty() {
+            return ResolutionEvidenceStatusV1::Absent;
+        }
+
+        let selected = self
+            .dependencies
+            .iter()
+            .filter(|dependency| {
+                matches!(
+                    self.dependency_resolutions.get(*dependency),
+                    Some(
+                        SemanticDependencyResolutionV1::Present
+                            | SemanticDependencyResolutionV1::Stale
+                    )
+                )
+            })
+            .collect::<Vec<_>>();
+
+        for (dependency, evidence) in &self.resolution_evidence {
+            if !self.dependencies.contains(dependency)
+                && !self.missing_dependencies.contains(dependency)
+            {
+                return ResolutionEvidenceStatusV1::Invalid;
+            }
+            if !self.resolution_evidence_is_consistent(dependency, evidence) {
+                return ResolutionEvidenceStatusV1::Invalid;
+            }
+        }
+
+        if selected
+            .iter()
+            .all(|dependency| self.resolution_evidence.contains_key(*dependency))
+        {
+            ResolutionEvidenceStatusV1::Complete
+        } else {
+            ResolutionEvidenceStatusV1::Partial
+        }
+    }
+
+    pub fn has_complete_resolution_evidence(&self) -> bool {
+        self.resolution_evidence_status() == ResolutionEvidenceStatusV1::Complete
     }
 
     fn resolution_evidence_is_consistent(
@@ -1531,6 +1597,78 @@ mod tests {
 
         assert!(evidenced.valid());
         assert!(evidenced.verifies_against_sources(&a, &e, &d, &p));
+    }
+
+    #[test]
+    fn resolution_evidence_status_distinguishes_absent_partial_complete_and_invalid() {
+        let (projection, environment, derivation_profile) = projection(false);
+        let profile = profile(BTreeSet::new());
+        let baseline =
+            compute_dependency_closure(&projection, &environment, &derivation_profile, &profile)
+                .expect("baseline closure");
+
+        assert_eq!(
+            baseline.resolution_evidence_status(),
+            ResolutionEvidenceStatusV1::Absent
+        );
+        assert!(!baseline.has_complete_resolution_evidence());
+
+        let selected = baseline
+            .dependencies
+            .iter()
+            .cloned()
+            .collect::<Vec<_>>();
+        let mut partial = baseline.clone();
+        let first = selected.first().expect("at least one selected dependency").clone();
+        partial.resolution_evidence.insert(
+            first,
+            SemanticDependencyResolutionEvidenceV1 {
+                retrieval_reference: Some("runtime://resolver/partial".into()),
+                observed_commitment: Some(
+                    projection
+                        .nodes
+                        .get("root")
+                        .expect("root")
+                        .node_commitment
+                        .clone(),
+                ),
+                qualification_context_commitment: Some("qualification-context".into()),
+            },
+        );
+        assert_eq!(
+            partial.resolution_evidence_status(),
+            ResolutionEvidenceStatusV1::Partial
+        );
+
+        let mut complete = baseline.clone();
+        for dependency in &selected {
+            complete.resolution_evidence.insert(
+                (*dependency).clone(),
+                SemanticDependencyResolutionEvidenceV1 {
+                    retrieval_reference: Some(format!("runtime://resolver/{}", dependency.identifier)),
+                    observed_commitment: dependency.commitment.clone(),
+                    qualification_context_commitment: Some("qualification-context".into()),
+                },
+            );
+        }
+        assert_eq!(
+            complete.resolution_evidence_status(),
+            ResolutionEvidenceStatusV1::Complete
+        );
+        assert!(complete.has_complete_resolution_evidence());
+
+        let mut invalid = complete.clone();
+        let first = selected.first().expect("at least one selected dependency").clone();
+        invalid
+            .resolution_evidence
+            .get_mut(first)
+            .expect("first evidence")
+            .observed_commitment = Some("wrong-object".into());
+        assert_eq!(
+            invalid.resolution_evidence_status(),
+            ResolutionEvidenceStatusV1::Invalid
+        );
+        assert!(!invalid.has_complete_resolution_evidence());
     }
 
     #[test]
