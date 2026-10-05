@@ -608,10 +608,6 @@ PYCOUNT
             printf '%s\n' "unavailable_pack_not_successful" > "${hearth}/qualification-dna-sha256.txt"
           fi
 
-          if [[ ! -s "${hearth}/qualification-source-contract-sha256.txt" ]]; then
-            printf '%s\n' "unavailable_source_contract_capture"
-          fi
-
           source_contract_verified=0
           if [[ -s "${hearth}/qualification-source-contract-sha256.txt" ]]              && ! head -n1 "${hearth}/qualification-source-contract-sha256.txt" | grep -q '^unavailable_'; then
             if (cd "${root}" && sha256sum -c mycelix-workspace/mycelix-hearth/qualification-source-contract-sha256.txt); then
