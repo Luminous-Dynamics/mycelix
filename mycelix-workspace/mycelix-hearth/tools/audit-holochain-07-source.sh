@@ -890,636 +890,105 @@ check_semantic_case_entrypoints() {
     zome="${zomes[$i]}"
     operation="${operations[$i]}"
     coord_file="mycelix-workspace/mycelix-hearth/zomes/${zome//_/-}/coordinator/src/lib.rs"
-    coord_block="$(awk -v operation="$operation" '
-      /^[[:space:]]*#\[hdk_extern\][[:space:]]*$/ { pending_extern=1; next }
-      pending_extern && $0 ~ "^[[:space:]]*(pub[[:space:]]+)?(async[[:space:]]+)?fn[[:space:]]+" operation "[[:space:]]*\\(" {
-        in_block=1
-        print
-        pending_extern=0
-        next
-      }
-      pending_extern=0
-      in_block && /^[[:space:]]*(pub[[:space:]]+)?(async[[:space:]]+)?fn[[:space:]]+[A-Za-z0-9_]+[[:space:]]*\(/ { exit }
-      in_block { print }
-    ' "$coord_file")"
-    if [[ -z "$coord_block" ]]; then
-      echo "FAIL: $id could not isolate coordinator operation $operation for typed target binding"
-      fail=1
+
+    if [[ -f "$coord_file" ]]; then
+      echo "OK:   semantic case ${zome}/${operation} resolves to coordinator source"
     else
-      if COORD_WITNESS="$coord_block" python3 - "$coordinator_primitive" "$target_variant" <<'PY'
-import os
-import re
-import sys
-
-primitive, target = sys.argv[1:]
-source = os.environ["COORD_WITNESS"]
-
-token_re = re.compile(
-    r'//[^\n]*'
-    r'|/\*.*?\*/'
-    r'|(?:br|rb|r)(#{0,255})"(?:.|\n)*?"\1'
-    r'|"(?:\\.|[^"\\])*"'
-    r"|b?'(?:\\\\.|[^'\\\n])'(?![A-Za-z0-9_])",
-    re.S,
-)
-masked = token_re.sub(
-    lambda m: "".join("\n" if c == "\n" else " " for c in m.group(0)),
-    source,
-)
-
-escaped_target = re.escape(target)
-if primitive == "create_entry":
-    pattern = rf'\bcreate_entry\s*\(\s*&\s*EntryTypes::{escaped_target}\s*\('
-elif primitive == "update_entry":
-    pattern = rf'\bupdate_entry\s*\([^;]*?&\s*EntryTypes::{escaped_target}\s*\('
-elif primitive == "create_link":
-    pattern = rf'\bcreate_link\s*\([^;]*?LinkTypes::{escaped_target}\b'
-else:
-    raise SystemExit(f"unsupported coordinator primitive {primitive!r}")
-
-if not re.search(pattern, masked, re.S):
-    print(f"missing concrete {primitive} -> {target} binding", file=sys.stderr)
-    raise SystemExit(2)
-
-oracle_false = (
-    f'fn example() {{\n'
-    f'    // {primitive}({target});\n'
-    f'    let text = "{primitive} EntryTypes::{target}";\n'
-    f'}}'
-)
-oracle_masked = token_re.sub(
-    lambda m: " " * len(m.group(0)),
-    oracle_false,
-)
-assert not re.search(pattern, oracle_masked, re.S), (
-    "coordinator target matcher accepted a comment/string false positive"
-)
-
-print(f"OK:   coordinator {primitive} is token-aware and binds concrete target {target}")
-PY
-      then
-        echo "OK:   $id coordinator $operation binds $coordinator_primitive to $target_variant with token-aware matching"
-      else
-        echo "FAIL: $id coordinator $operation does not bind $coordinator_primitive to $target_variant with token-aware matching"
-        fail=1
-      fi
-    fi
-
-    if [[ ! -f "$integrity_file" ]]; then
-      echo "FAIL: $id references missing integrity source: $integrity_file"
+      echo "FAIL: semantic case ${zome}/${operation} has no coordinator source: $coord_file"
       fail=1
       continue
     fi
-    if [[ ! -f "$validator_source" ]]; then
-      echo "FAIL: $id references missing validator source: $validator_source"
-      fail=1
-    else
-      echo "OK:   $id declares validator source $validator_source"
-      local validator_block dispatch_block
-      validator_block="$(awk -v symbol="$validator_symbol" '
-        {
-          pattern = "^[[:space:]]*(pub[[:space:]]+)?fn[[:space:]]+" symbol "[[:space:]]*\\("
-          if (!in_block && $0 ~ pattern) {
-            in_block = 1
-            print
-            next
-          }
-          if (in_block && /^[[:space:]]*(pub[[:space:]]+)?fn[[:space:]]+[A-Za-z0-9_]+[[:space:]]*\\(/) {
-            exit
-          }
-          if (in_block) print
-        }
-      ' "$validator_source")"
-      if [[ -n "$validator_block" ]]; then
-        echo "OK:   $id validator symbol $validator_symbol is defined in declared source"
-      else
-        echo "FAIL: $id validator symbol $validator_symbol is not defined in declared source"
-        fail=1
-      fi
-      if [[ -n "$validator_block" ]] && python3 - "$invariant_code" "$rejection_reason" "$validator_block" <<'PY'
-import re
-import sys
 
-code_pattern, expected_reason, source = sys.argv[1:]
-
-# Remove comments and string literals before matching the executable predicate.
-# This prevents a copied predicate in documentation, diagnostics, or examples
-# from satisfying the semantic case. Preserve newlines so branch boundaries remain
-# stable while braces inside masked tokens cannot forge a block boundary.
-token_re = re.compile(
-    r'//[^\n]*'
-    r'|/\*.*?\*/'
-    r'|(?:br|rb|r)(#{0,255})"(?:.|\n)*?"\1'
-    r'|"(?:\\.|[^"\\])*"'
-    # Mask character literals too: branch brace accounting must not treat
-    # Rust char literals such as '{' or '}' as syntax delimiters. The negative
-    # lookarounds keep Rust lifetimes like 'a from being classified as chars.
-    r"|b?'(?:\\\\.|[^'\\\\\n])'(?![A-Za-z0-9_])",
-    re.S,
-)
-# Preserve source length while masking comments, strings, and chars so indices
-# in the masked source can safely slice the corresponding raw source branch.
-masked = token_re.sub(
-    lambda m: "".join("\n" if c == "\n" else " " for c in m.group(0)),
-    source,
-)
-
-predicate = re.escape(code_pattern)
-predicate_match = re.search(rf'\bif\s+{predicate}\s*\{{', masked)
-if not predicate_match:
-    print(
-        f"FAIL: {code_pattern!r} is not an executable invariant predicate "
-        f"inside the declared validator; manifest rejection_reason={expected_reason!r}"
-    )
-    raise SystemExit(2)
-
-# The rejection proof must be branch-local. A file-wide Invalid/Err match is too
-# weak: an unrelated invariant elsewhere in the validator could otherwise make
-# this semantic case look executable while the declared predicate merely logs,
-# computes, or returns Valid. Scan the masked branch with balanced-brace depth so
-# nested blocks remain inside the same predicate branch.
-open_brace = predicate_match.end() - 1
-depth = 0
-close_brace = None
-for index in range(open_brace, len(masked)):
-    char = masked[index]
-    if char == "{":
-        depth += 1
-    elif char == "}":
-        depth -= 1
-        if depth == 0:
-            close_brace = index
-            break
-
-if close_brace is None:
-    print(
-        f"FAIL: executable invariant predicate {code_pattern!r} has no "
-        "balanced closing brace in the declared validator"
-    )
-    raise SystemExit(2)
-
-predicate_branch = masked[open_brace + 1 : close_brace]
-raw_predicate_branch = source[open_brace + 1 : close_brace]
-
-# For these qualification cases, the manifest claims a definitive validation
-# rejection, not a host failure. Require the predicate branch itself to return
-# the Holochain Invalid result, and bind the exact rejection text to the manifest.
-if not re.search(
-    r'\breturn\s+Ok\s*\(\s*ValidateCallbackResult::Invalid\s*\(',
-    predicate_branch,
-):
-    print(
-        f"FAIL: executable invariant predicate {code_pattern!r} does not "
-        "return ValidateCallbackResult::Invalid from its own branch"
-    )
-    raise SystemExit(2)
-
-string_literals = [
-    match.group(0)
-    for match in token_re.finditer(raw_predicate_branch)
-    if match.group(0).startswith('"')
-]
-if f'"{expected_reason}"' not in string_literals:
-    print(
-        f"FAIL: executable invariant predicate {code_pattern!r} does not "
-        f"emit the exact manifest rejection reason {expected_reason!r} "
-        "as a Rust string literal"
-    )
-    raise SystemExit(2)
-
-# Adversarial oracle: reject the known false-positive shape where the predicate
-# branch is non-rejecting but a later, unrelated branch returns Invalid.
-oracle_valid = '''
-fn validate_example(x: &Example) -> ExternResult<ValidateCallbackResult> {
-    if x.field.is_empty() {
-        println!("diagnostic only");
-    }
-    if x.other_bad {
-        return Ok(ValidateCallbackResult::Invalid("unrelated".into()));
-    }
-    Ok(ValidateCallbackResult::Valid)
-}
-'''
-oracle_invalid = '''
-fn validate_example(x: &Example) -> ExternResult<ValidateCallbackResult> {
-    if x.field.is_empty() {
-        let brace = '{';
-        let close = '}';
-        let _lifetime_marker = PhantomData::<&'a ()>;
-        return Ok(ValidateCallbackResult::Invalid("field cannot be empty".into()));
-    }
-    if x.other_bad {
-        return Ok(ValidateCallbackResult::Invalid("unrelated".into()));
-    }
-}
-'''
-
-def branch_has_rejection(test_source, code, expected_reason=None):
-    test_masked = token_re.sub(
-        lambda m: "".join("\n" if c == "\n" else " " for c in m.group(0)),
-        test_source,
-    )
-    match = re.search(rf'\bif\s+{re.escape(code)}\s*\{{', test_masked)
-    if not match:
-        return False
-    depth = 0
-    opening = match.end() - 1
-    for index in range(opening, len(test_masked)):
-        if test_masked[index] == "{":
-            depth += 1
-        elif test_masked[index] == "}":
-            depth -= 1
-            if depth == 0:
-                branch = test_masked[opening + 1 : index]
-                strict_invalid = re.search(
-                    r'\breturn\s+Ok\s*\(\s*ValidateCallbackResult::Invalid\s*\(',
-                    branch,
-                )
-                if not strict_invalid:
-                    return False
-                if expected_reason is None:
-                    return True
-                raw_branch = test_source[opening + 1 : index]
-                literals = [
-                    match.group(0)
-                    for match in token_re.finditer(raw_branch)
-                    if match.group(0).startswith('"')
-                ]
-                return f'"{expected_reason}"' in literals
-    return False
-
-assert not branch_has_rejection(oracle_valid, "x.field.is_empty()", "field cannot be empty"), (
-    "branch-local oracle accepted unrelated Invalid rejection"
-)
-assert branch_has_rejection(
-    oracle_invalid, "x.field.is_empty()", "field cannot be empty"
-), "branch-local oracle rejected the genuine exact Invalid branch"
-oracle_err = oracle_invalid.replace(
-    'return Ok(ValidateCallbackResult::Invalid("field cannot be empty".into()));',
-    'return Err("field cannot be empty".into());',
-)
-assert not branch_has_rejection(
-    oracle_err, "x.field.is_empty()", "field cannot be empty"
-), "branch-local oracle accepted Err as an Invalid qualification result"
-oracle_wrong_reason = oracle_invalid.replace(
-    '"field cannot be empty"',
-    '"different reason"',
-    1,
-)
-assert not branch_has_rejection(
-    oracle_wrong_reason, "x.field.is_empty()", "field cannot be empty"
-), "branch-local oracle accepted a mismatched rejection reason"
-
-print(f"OK:   {code_pattern} is bound to a branch-local executable validator rejection path")
-PY
-      then
-        echo "OK:   $id invariant predicate is executable inside declared validator $validator_symbol"
-      else
-        fail=1
-      fi
-      dispatch_block="$(awk '
-        /^[[:space:]]*pub[[:space:]]+fn[[:space:]]+validate[[:space:]]*\\(/ {
-          in_block=1
-          print
+    if awk -v op="$operation" '
+      /^[[:space:]]*#\[hdk_extern\][[:space:]]*$/ { saw_extern=1; next }
+      {
+        if (saw_extern && ($0 ~ /^[[:space:]]*$/ || $0 ~ /^[[:space:]]*\/\//)) {
           next
         }
-        in_block && /^[[:space:]]*(pub[[:space:]]+)?fn[[:space:]]+[A-Za-z0-9_]+[[:space:]]*\\(/ {
+        if ($0 ~ "^[[:space:]]*(pub[[:space:]]+)?(async[[:space:]]+)?fn[[:space:]]+" op "[[:space:]]*\\(") {
+          found=saw_extern
           exit
         }
-        in_block { print }
-      ' "$integrity_file")"
-      if [[ -n "$dispatch_block" ]] && printf '%s\n' "$dispatch_block" | rg -nU --pcre2 "\\b${dispatch_symbol}[[:space:]]*\\(" >/dev/null 2>&1; then
-        echo "OK:   $id integrity validate dispatcher invokes declared dispatch symbol $dispatch_symbol"
-      else
-        echo "FAIL: $id integrity validate dispatcher does not invoke declared dispatch symbol $dispatch_symbol"
-        fail=1
-      fi
-
-      if [[ "$target_variant" == EntryTypes::* ]]; then
-        target_name="${target_variant#*::}"
-        if printf '%s\n' "$dispatch_block" | rg -nU --pcre2 "\\bEntryTypes::${target_name}[[:space:]]*\\([^)]*\\)[[:space:]]*=>[[:space:]]*(?:\\{[[:space:]]*)?\\b${dispatch_symbol}[[:space:]]*\\(" >/dev/null 2>&1; then
-          echo "OK:   $id dispatcher binds $target_variant to $dispatch_symbol"
-        else
-          echo "FAIL: $id dispatcher does not bind $target_variant to $dispatch_symbol"
-          fail=1
-        fi
-        unset target_name
-      else
-        if [[ -n "$validator_block" ]] && printf '%s\n' "$validator_block" | rg -nU --pcre2 "\\b${target_variant//:/\\:}\\b" >/dev/null 2>&1; then
-          echo "OK:   $id validator $validator_symbol contains concrete link target $target_variant"
-        else
-          echo "FAIL: $id validator $validator_symbol does not contain concrete link target $target_variant"
-          fail=1
-        fi
-      fi
-
-
-      if [[ "$validator_source" != "$integrity_file" ]]; then
-        wrapper_block="$(awk -v symbol="$dispatch_symbol" '
-          {
-            pattern = "^[[:space:]]*(pub[[:space:]]+)?fn[[:space:]]+" symbol "[[:space:]]*\\("
-            if (!in_block && $0 ~ pattern) {
-              in_block = 1
-              print
-              next
-            }
-            if (in_block && /^[[:space:]]*(pub[[:space:]]+)?fn[[:space:]]+[A-Za-z0-9_]+[[:space:]]*\\(/) {
-              exit
-            }
-            if (in_block) print
-          }
-        ' "$integrity_file")"
-        if [[ -n "$wrapper_block" ]] && printf '%s\n' "$wrapper_block" | rg -nU --pcre2 "\\b${validator_symbol}[[:space:]]*\\(" >/dev/null 2>&1; then
-          echo "OK:   $id dispatch wrapper $dispatch_symbol delegates to external validator $validator_symbol"
-        else
-          echo "FAIL: $id dispatch wrapper $dispatch_symbol does not directly delegate to external validator $validator_symbol"
-          fail=1
-        fi
-        if python3 - "$validator_source" "$integrity_file" "$validator_symbol" <<'PY'
-import json
-import re
-import subprocess
-import sys
-from pathlib import Path
-
-validator_source = Path(sys.argv[1]).resolve()
-integrity_source = Path(sys.argv[2]).resolve()
-validator_symbol = sys.argv[3]
-integrity_manifest = integrity_source.parent.parent / "Cargo.toml"
-
-def fail(message):
-    print(f"FAIL: {message}")
-    raise SystemExit(2)
-
-if not integrity_manifest.is_file():
-    fail(f"integrity source has no owning Cargo.toml: {integrity_manifest}")
-
-def nearest_manifest(path):
-    for parent in [path.parent, *path.parents]:
-        candidate = parent / "Cargo.toml"
-        if candidate.is_file():
-            return candidate.resolve()
-    return None
-
-validator_manifest = nearest_manifest(validator_source)
-if validator_manifest is None:
-    fail(f"external validator source has no owning Cargo.toml: {validator_source}")
-
-metadata_cmd = [
-    "cargo",
-    "metadata",
-    "--format-version",
-    "1",
-    "--locked",
-    "--manifest-path",
-    str(integrity_manifest),
-]
-try:
-    metadata_run = subprocess.run(
-        metadata_cmd,
-        cwd=Path.cwd(),
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-except OSError as exc:
-    fail(f"could not execute cargo metadata for validator provenance: {exc}")
-
-if metadata_run.returncode != 0:
-    diagnostic = (metadata_run.stderr or metadata_run.stdout or "").strip()
-    fail(
-        f"cargo metadata could not resolve {integrity_manifest} "
-        f"(exit={metadata_run.returncode}): {diagnostic[-1200:]}"
-    )
-
-try:
-    metadata = json.loads(metadata_run.stdout)
-except json.JSONDecodeError as exc:
-    fail(f"cargo metadata emitted invalid JSON: {exc}")
-
-packages = metadata.get("packages")
-resolve = metadata.get("resolve") or {}
-nodes = resolve.get("nodes")
-if not isinstance(packages, list) or not isinstance(nodes, list):
-    fail("cargo metadata output is missing packages/resolve.nodes")
-
-def canonical_manifest(pkg):
-    raw = pkg.get("manifest_path")
-    if not isinstance(raw, str):
-        return None
-    return Path(raw).resolve()
-
-integrity_packages = [
-    pkg for pkg in packages
-    if canonical_manifest(pkg) == integrity_manifest.resolve()
-]
-validator_packages = [
-    pkg for pkg in packages
-    if canonical_manifest(pkg) == validator_manifest.resolve()
-]
-
-if len(integrity_packages) != 1:
-    fail(
-        f"cargo metadata resolved {len(integrity_packages)} packages for "
-        f"{integrity_manifest}; expected exactly one"
-    )
-if len(validator_packages) != 1:
-    fail(
-        f"cargo metadata resolved {len(validator_packages)} packages for "
-        f"{validator_manifest}; expected exactly one"
-    )
-
-integrity_package = integrity_packages[0]
-validator_package = validator_packages[0]
-validator_package_id = validator_package.get("id")
-integrity_package_id = integrity_package.get("id")
-if not isinstance(validator_package_id, str) or not isinstance(integrity_package_id, str):
-    fail("cargo metadata package IDs are missing")
-
-lib_targets = [
-    target for target in validator_package.get("targets", [])
-    if isinstance(target, dict) and "lib" in (target.get("kind") or [])
-]
-if len(lib_targets) != 1:
-    fail(
-        f"validator package {validator_package.get('name')} has "
-        f"{len(lib_targets)} library targets; expected exactly one"
-    )
-
-lib_target = lib_targets[0]
-lib_source = Path(lib_target.get("src_path", "")).resolve()
-if lib_source != validator_source:
-    fail(
-        f"declared validator source {validator_source} is not Cargo's library "
-        f"target source {lib_source}"
-    )
-
-root_node = next(
-    (node for node in nodes if node.get("id") == integrity_package_id),
-    None,
-)
-if root_node is None:
-    fail(
-        f"cargo metadata resolve graph has no node for integrity package "
-        f"{integrity_package.get('name')}"
-    )
-
-normal_deps = []
-for dep in root_node.get("deps", []):
-    if not isinstance(dep, dict):
-        continue
-    dep_kinds = dep.get("dep_kinds") or []
-    if any(
-        isinstance(kind, dict) and kind.get("kind") in (None, "normal")
-        for kind in dep_kinds
-    ):
-        normal_deps.append(dep)
-
-matching = [
-    dep for dep in normal_deps
-    if dep.get("pkg") == validator_package_id
-]
-
-if len(matching) != 1:
-    fail(
-        f"validator package {validator_package.get('name')} is not a unique "
-        f"normal direct dependency of {integrity_package.get('name')}; "
-        f"matching dependency edges={len(matching)}"
-    )
-
-dependency = matching[0]
-imported_crate = dependency.get("name")
-cargo_crate_name = lib_target.get("name")
-if not isinstance(imported_crate, str) or not imported_crate:
-    fail("cargo metadata did not report the dependency library target name")
-if imported_crate != cargo_crate_name:
-    fail(
-        f"Cargo resolved dependency crate {imported_crate!r}, but validator "
-        f"library target is {cargo_crate_name!r}"
-    )
-
-integrity_text = integrity_source.read_text()
-integrity_prod = integrity_text.split("#[cfg(test)]", 1)[0]
-
-use_statements = re.findall(
-    r"(?ms)^[[:space:]]*(?:pub[[:space:]]+)?use[[:space:]]+[^;]+;",
-    integrity_prod,
-)
-crate_pattern = re.escape(imported_crate)
-symbol_pattern = re.escape(validator_symbol)
-
-direct_use = re.compile(
-    rf"(?ms)^[[:space:]]*(?:pub[[:space:]]+)?use[[:space:]]+"
-    rf"{crate_pattern}::{re.escape(validator_symbol)}[[:space:]]*;"
-)
-group_use = re.compile(
-    rf"(?ms)^[[:space:]]*(?:pub[[:space:]]+)?use[[:space:]]+"
-    rf"{crate_pattern}::\{{[^;]*\}}[[:space:]]*;"
-)
-
-matching_uses = []
-for statement in use_statements:
-    normalized = " ".join(statement.split())
-    if not re.search(rf"\b{crate_pattern}::", normalized):
-        continue
-
-    if direct_use.fullmatch(normalized):
-        matching_uses.append(normalized)
-        continue
-
-    group_match = group_use.fullmatch(normalized)
-    if not group_match:
-        continue
-
-    body = group_match.group(0)
-    brace_start = body.find("{")
-    brace_end = body.rfind("}")
-    items = [item.strip() for item in body[brace_start + 1:brace_end].split(",")]
-    aliases = [
-        item for item in items
-        if re.fullmatch(
-            rf"{re.escape(validator_symbol)}[[:space:]]+as[[:space:]]+[A-Za-z_][A-Za-z0-9_]*",
-            item,
-        )
-    ]
-    if aliases:
-        fail(
-            f"{integrity_source} aliases {validator_symbol} instead of directly "
-            "binding the validator symbol"
-        )
-    if validator_symbol in items:
-        matching_uses.append(normalized)
-
-if not matching_uses:
-    fail(
-        f"{integrity_source} does not directly import "
-        f"{imported_crate}::{validator_symbol} from Cargo's resolved dependency"
-    )
-
-conflicting_uses = []
-for statement in use_statements:
-    normalized = " ".join(statement.split())
-    if not re.search(rf"\b{re.escape(validator_symbol)}\b", normalized):
-        continue
-    if not re.search(rf"\b{crate_pattern}::", normalized):
-        conflicting_uses.append(normalized)
-
-if conflicting_uses:
-    fail(
-        f"{integrity_source} contains additional imports of validator symbol "
-        f"{validator_symbol} outside resolved provenance: {' | '.join(conflicting_uses)}"
-    )
-
-local_def_re = re.compile(
-    rf"(?m)^[[:space:]]*(?:pub[[:space:]]+)?"
-    rf"(?:async[[:space:]]+)?(?:fn|const|static|struct|enum|type|mod)[[:space:]]+"
-    rf"{re.escape(validator_symbol)}\b"
-)
-if local_def_re.search(integrity_prod):
-    fail(
-        f"{integrity_source} locally defines {validator_symbol}; "
-        "external validator provenance would be ambiguous"
-    )
-
-print(
-    f"OK:   external validator {validator_package.get('name')}::{validator_symbol} "
-    f"is bound by Cargo to {validator_source} via crate {imported_crate}"
-)
-PY
-        then
-          echo "OK:   $id external validator ownership/import provenance"
-        else
-          fail=1
-        fi
-      fi
-    if [[ "$expected_result" != "Invalid" ]]; then
-      echo "FAIL: $id expected_result must be Invalid, got $expected_result"
-      fail=1
+        saw_extern=0
+      }
+      END { exit(found ? 0 : 1) }
+    ' "$coord_file"; then
+      echo "OK:   semantic case ${operation} resolves to the #[hdk_extern]-annotated function"
     else
-      echo "OK:   $id declares expected validation result Invalid"
+      echo "FAIL: semantic case ${operation} is not the function immediately annotated by #[hdk_extern]"
+      fail=1
     fi
 
-    for declared_surface in ${surface//,/ }; do
-      declared_surface="${declared_surface//\"/}"
-      declared_surface="${declared_surface//[[:space:]]/}"
-      case "$declared_surface" in
-        CreateEntry) pattern='FlatOp::CreateEntry' ;;
-        CreateRecord) pattern='FlatOp::CreateRecord' ;;
-        Update) pattern='FlatOp::Update' ;;
-        Delete) pattern='FlatOp::Delete' ;;
-        Link.CreateLink) pattern='FlatOp::Link(OpLink::CreateLink' ;;
-        Link.DeleteLink) pattern='FlatOp::Link(link @ OpLink::DeleteLink' ;;
-        *) echo "FAIL: $id contains unknown operation surface: $declared_surface"; fail=1; continue ;;
-      esac
-      if rg -n --fixed-strings "$pattern" "$integrity_file" >/dev/null 2>&1; then
-        echo "OK:   $id declares operation surface $declared_surface present in integrity source"
-      else
-        echo "FAIL: $id declares operation surface $declared_surface absent from integrity source"
-        fail=1
+    mapfile -t test_fn_lines < <(
+      rg -n --fixed-strings "async fn ${test_name}" "$rust_test" |
+        cut -d: -f1
+    )
+    local test_start test_next test_end test_block
+    if [[ "${#test_fn_lines[@]}" -ne 1 ]]; then
+      echo "FAIL: semantic case ${zome}/${operation} must map to exactly one test function: ${test_name}"
+      fail=1
+      continue
+    fi
+    test_start="${test_fn_lines[0]}"
+    test_next=""
+    while IFS= read -r test_line; do
+      if [[ "$test_line" -gt "$test_start" ]]; then
+        test_next="$test_line"
+        break
       fi
-    done
+    done < <(rg -n "^async fn [A-Za-z_][A-Za-z0-9_]*" "$rust_test" | cut -d: -f1 | sort -n)
+    if [[ -n "$test_next" ]]; then
+      test_end=$((test_next - 1))
+    else
+      test_end="$(wc -l < "$rust_test")"
+    fi
+    test_block="$(sed -n "${test_start},${test_end}p" "$rust_test")"
+
+    # Bind the manifest case to the result-producing call itself. Requiring the
+    # exact zome/operation inside call_fallible prevents unrelated calls from
+    # satisfying the witness.
+    if printf "%s\\n" "$test_block" | rg -nU --pcre2 "let[[:space:]]+result(?:[[:space:]]*:[^=;]+)?[[:space:]]*=[[:space:]]*conductor[[:space:]]*\\.[[:space:]]*call_fallible\\([[:space:]]*&alice\\.zome\\(\\\"\\${zome}\\\"\\)[[:space:]]*,[[:space:]]*\\\"\\${operation}\\\"[[:space:]]*," >/dev/null 2>&1; then
+      echo "OK:   semantic runtime witness ${test_name} binds ${zome}/${operation} to the asserted result call"
+    else
+      echo "FAIL: semantic runtime witness ${zome}/${operation} is not bound to a result-producing call_fallible expression in ${test_name}"
+      fail=1
+    fi
+    if printf "%s\\n" "$test_block" | rg -nU --pcre2 "assert_integrity_rejection\\([[:space:]]*result[[:space:]]*," >/dev/null 2>&1; then
+      echo "OK:   semantic runtime witness ${test_name} asserts rejection of that result value"
+    else
+      echo "FAIL: semantic runtime witness ${test_name} does not assert rejection of the result value"
+      fail=1
+    fi
+    # A negative-only witness can pass even if the validator rejects everything.
+    # Require a repaired-input control that invokes the same coordinator operation
+    # through call_fallible and explicitly observes success.
+    if printf "%s\\n" "$test_block" | rg -nU --pcre2 "let[[:space:]]+valid_result(?:[[:space:]]*:[^=;]+)?[[:space:]]*=[[:space:]]*conductor[[:space:]]*\\.[[:space:]]*call_fallible\\([[:space:]]*&alice\\.zome\\(\\\"\\${zome}\\\"\\\)[[:space:]]*,[[:space:]]*\\\"\\${operation}\\\"[[:space:]]*," >/dev/null 2>&1; then
+      echo "OK:   semantic runtime witness ${test_name} contains a repaired-input success control for ${zome}/${operation}"
+    else
+      echo "FAIL: semantic runtime witness ${test_name} lacks a repaired-input call_fallible success control for ${zome}/${operation}"
+      fail=1
+    fi
+    if printf "%s\\n" "$test_block" | rg -nU --pcre2 "assert\\!\\([[:space:]]*valid_result\\.is_ok\\(\\)" >/dev/null 2>&1; then
+      echo "OK:   semantic runtime witness ${test_name} asserts repaired-input acceptance"
+    else
+      echo "FAIL: semantic runtime witness ${test_name} does not assert repaired-input acceptance"
+      fail=1
+    fi
+    # Bind the rejection reason to the same manifest case, including multiline formatting.
+
+    if printf "%s\\n" "$test_block" | rg -nU --pcre2 "expected_reason\\([[:space:]]*\"${test_name}\"[[:space:]]*\\)" >/dev/null 2>&1; then
+      echo "OK:   semantic runtime witness ${test_name} binds its rejection reason to the manifest case"
+    else
+      echo "FAIL: semantic runtime witness ${test_name} does not bind expected_reason to the manifest case"
+      fail=1
+    fi
   done
 }
+
+# Each semantic case must point at an invariant and operation surface that
+# actually exist in the integrity implementation. This prevents a green manifest
+# from drifting away from the validator it claims to witness.
+
 check_semantic_case_integrity_bindings() {
   local manifest="mycelix-workspace/mycelix-hearth/tests/hearth-07-semantic-validation-cases.json"
   local ids tests zomes operations invariants rejection_reasons invariant_codes surfaces results validator_sources validator_symbols dispatch_symbols target_variants coordinator_primitives
@@ -1588,10 +1057,58 @@ check_semantic_case_integrity_bindings() {
     if [[ -z "$coord_block" ]]; then
       echo "FAIL: $id could not isolate coordinator operation $operation for typed target binding"
       fail=1
-    elif printf "%s\n" "$coord_block" | rg -nU --fixed-strings "$target_variant" >/dev/null 2>&1; then
-      echo "OK:   $id coordinator $operation binds concrete target $target_variant"
+    elif COORD_WITNESS="$coord_block" python3 - "$coordinator_primitive" "$target_variant" <<'PY'
+import os
+import re
+import sys
+
+primitive, target = sys.argv[1:]
+source = os.environ["COORD_WITNESS"]
+
+token_re = re.compile(
+    r'//[^\n]*'
+    r'|/\*.*?\*/'
+    r'|(?:br|rb|r)(#{0,255})"(?:.|\n)*?"\1'
+    r'|"(?:\\.|[^"\\])*"'
+    r"|b?'(?:\\\\.|[^'\\\\\n])'(?![A-Za-z0-9_])",
+    re.S,
+)
+masked = token_re.sub(
+    lambda m: "".join("\n" if c == "\n" else " " for c in m.group(0)),
+    source,
+)
+
+escaped_target = re.escape(target)
+if primitive == "create_entry":
+    pattern = rf'\bcreate_entry\s*\(\s*&\s*EntryTypes::{escaped_target}\s*\('
+elif primitive == "update_entry":
+    pattern = rf'\bupdate_entry\s*\([^;]*?&\s*EntryTypes::{escaped_target}\s*\('
+elif primitive == "create_link":
+    pattern = rf'\bcreate_link\s*\([^;]*?LinkTypes::{escaped_target}\b'
+else:
+    raise SystemExit(f"unsupported coordinator primitive {primitive!r}")
+
+if not re.search(pattern, masked, re.S):
+    print(f"missing concrete {primitive} -> {target} binding", file=sys.stderr)
+    raise SystemExit(2)
+
+oracle_false = (
+    f'fn example() {{\n'
+    f'    // {primitive}({target});\n'
+    f'    let text = "{primitive} EntryTypes::{target}";\n'
+    f'}}'
+)
+oracle_masked = token_re.sub(lambda m: " " * len(m.group(0)), oracle_false)
+assert not re.search(pattern, oracle_masked, re.S), (
+    "coordinator target matcher accepted a comment/string false positive"
+)
+
+print(f"OK:   coordinator {primitive} is token-aware and binds concrete target {target}")
+PY
+    then
+      echo "OK:   $id coordinator $operation binds concrete target $target_variant with token-aware matching"
     else
-      echo "FAIL: $id coordinator $operation does not bind declared target $target_variant"
+      echo "FAIL: $id coordinator $operation does not bind declared target $target_variant with token-aware matching"
       fail=1
     fi
     target_name="${target_variant#*::}"
