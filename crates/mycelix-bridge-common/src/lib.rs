@@ -26,6 +26,9 @@ pub type CapSecret = hdk::prelude::CapSecret;
 pub mod constitutional_envelope;
 /// Runtime semantic validation for passive-design provenance v2.
 pub mod passive_provenance;
+pub use passive_provenance::{
+    validate_passive_design_provenance_v2, PassiveProvenanceValidationError,
+};
 // ── Model governance extensions (feature-gated) ──────────────────────────
 pub mod consciousness_thresholds;
 pub mod consciousness_zkp;
