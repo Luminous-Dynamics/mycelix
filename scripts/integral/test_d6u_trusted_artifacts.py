@@ -86,7 +86,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         assert len(required[path]) == 40
         assert all(ch in "0123456789abcdef" for ch in required[path])
 
-    assert policy["policy_version"] == 27
+    assert policy["policy_version"] == 28
 
     assert policy["forbidden_cargo_config_paths"] == [
         ".cargo/config",
@@ -403,11 +403,15 @@ def test_trusted_cli_policy_is_explicit() -> None:
         "configuration_directory": "${{ runner.temp }}/d6u-gh-config",
         "required_fresh_configuration": True,
         "forbidden_environment_overrides": ["GH_HOST", "GH_ENTERPRISE_TOKEN", "GH_REPO"],
+        "executable_path_must_not_resolve_under": ["${{ github.workspace }}", "${{ runner.temp }}"],
     }
     workflow = (Path(__file__).parents[2] / policy["trusted_workflow"]["path"]).read_text(encoding="utf-8")
     assert "gh version" in workflow
     assert "2.101.0" in workflow
     assert "GH_CONFIG_DIR: ${{ runner.temp }}/d6u-gh-config" in workflow
+    assert 'gh_path="$(command -v gh)"' in workflow
+    assert 'gh_path="$(readlink -f "$gh_path")"' in workflow
+    assert '"$GITHUB_WORKSPACE"/*|"$RUNNER_TEMP"/*' in workflow
     assert "GH_HOST GH_ENTERPRISE_TOKEN GH_REPO" in workflow
 
 def test_privileged_actions_are_exactly_pinned() -> None:
