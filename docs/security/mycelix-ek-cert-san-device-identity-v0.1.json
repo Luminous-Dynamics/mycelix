@@ -1,0 +1,173 @@
+{
+  "schema_version": 1,
+  "artifact_type": "mycelix-ek-cert-san-device-identity-v0.1",
+  "profile_id": "mycelix.security.tpm.ek-cert-san-device-identity",
+  "profile_version": "0.1.0",
+  "status": "executable-reference-profile",
+  "claim_ceiling": "ReferenceModelOnly",
+  "decision_algebra": "ANY DENY > ANY INDETERMINATE > ALL PASS",
+  "states": [
+    "PASS",
+    "DENY",
+    "INDETERMINATE"
+  ],
+  "theorem": {
+    "statement": "The EK certificate SAN directoryName TPMManufacturer and TPMModel must exactly agree with independently captured TPM_PT_MANUFACTURER and TPM_PT_VENDOR_STRING_1..4 values; TPMVersion is compared against current TPM_PT_FIRMWARE_VERSION_1 but a mismatch is classified as a possible field upgrade unless policy explicitly requires current equality.",
+    "oids": {
+      "TPMManufacturer": "2.23.133.2.1",
+      "TPMModel": "2.23.133.2.2",
+      "TPMVersion": "2.23.133.2.3"
+    },
+    "firmware_semantics": "TPMVersion identifies firmware at certificate creation; current-version mismatch is not by itself proof of certificate invalidity."
+  },
+  "required_input": {
+    "session_id": "capture session identifier",
+    "tpm_identity_digest": "TPM identity digest",
+    "ek_public_wire_sha256": "exact EK public-area digest",
+    "certificate_der_base64": "exact EK certificate DER",
+    "certificate_der_sha256": "certificate digest",
+    "tpm_properties_text": "exact tpm2_getcap properties-fixed output",
+    "tpm_properties_sha256": "properties bytes digest",
+    "tpm_properties_source_sha256": "authorized source receipt digest",
+    "require_current_firmware_match": "explicit policy switch",
+    "verifier_source_sha256": "exact verifier source digest"
+  },
+  "outputs": [
+    "tpm_manufacturer_raw",
+    "tpm_model",
+    "tpm_vendor_string_raw",
+    "certificate_tpm_manufacturer",
+    "certificate_tpm_model",
+    "certificate_tpm_version",
+    "firmware_status",
+    "firmware_issuance_time_status"
+  ],
+  "non_equivalences": [
+    [
+      "SAN_device_identity",
+      "manufacturer_authenticity"
+    ],
+    [
+      "SAN_device_identity",
+      "EK_CA_trust"
+    ],
+    [
+      "SAN_device_identity",
+      "certificate_validity"
+    ],
+    [
+      "SAN_device_identity",
+      "certificate_issuance_time_proof"
+    ],
+    [
+      "SAN_device_identity",
+      "AK_EK_lineage"
+    ],
+    [
+      "SAN_device_identity",
+      "measured_boot_valid"
+    ]
+  ],
+  "vectors": [
+    [
+      "EKSI-V01",
+      "canonical-valid",
+      "PASS"
+    ],
+    [
+      "EKSI-V02",
+      "missing-san-manufacturer",
+      "DENY"
+    ],
+    [
+      "EKSI-V03",
+      "manufacturer-mismatch",
+      "DENY"
+    ],
+    [
+      "EKSI-V04",
+      "model-mismatch",
+      "DENY"
+    ],
+    [
+      "EKSI-V05",
+      "duplicate-manufacturer",
+      "DENY"
+    ],
+    [
+      "EKSI-V06",
+      "missing-model",
+      "DENY"
+    ],
+    [
+      "EKSI-V07",
+      "missing-version",
+      "DENY"
+    ],
+    [
+      "EKSI-V08",
+      "firmware-mismatch-possible-upgrade",
+      "PASS"
+    ],
+    [
+      "EKSI-V09",
+      "firmware-mismatch-strict-policy",
+      "DENY"
+    ],
+    [
+      "EKSI-V10",
+      "firmware-malformed",
+      "DENY"
+    ],
+    [
+      "EKSI-V11",
+      "properties-manufacturer-substitution",
+      "DENY"
+    ],
+    [
+      "EKSI-V12",
+      "properties-model-substitution",
+      "DENY"
+    ],
+    [
+      "EKSI-V13",
+      "properties-source-substitution",
+      "DENY"
+    ],
+    [
+      "EKSI-V14",
+      "certificate-digest-substitution",
+      "DENY"
+    ],
+    [
+      "EKSI-V15",
+      "ek-public-digest-substitution",
+      "DENY"
+    ],
+    [
+      "EKSI-V16",
+      "tpm-identity-substitution",
+      "DENY"
+    ],
+    [
+      "EKSI-V17",
+      "verifier-source-substitution",
+      "DENY"
+    ],
+    [
+      "EKSI-V18",
+      "offline-bundle",
+      "INDETERMINATE"
+    ],
+    [
+      "EKSI-V19",
+      "live-verifier",
+      "INDETERMINATE"
+    ],
+    [
+      "EKSI-V20",
+      "key-order-permutation",
+      "PASS"
+    ]
+  ]
+}
