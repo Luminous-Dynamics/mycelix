@@ -481,7 +481,7 @@ PY
 
           for case in cases:
               name = case["test"]
-              ok_pattern = rf"^test {re.escape(name)} \.{3} ok$"
+              ok_pattern = rf"^test {re.escape(name)} \.\.\. ok$"
               if not re.search(ok_pattern, log, re.MULTILINE):
                   if re.search(rf"^test {re.escape(name)} \.{3} ignored$", log, re.MULTILINE):
                       raise SystemExit(f"semantic qualification case was still ignored: {name}")
