@@ -640,6 +640,8 @@ def validate_semantics(manifest: dict[str, Any]) -> tuple[str, str]:
             denies.append(f"ek-certificate-{field}-invalid")
     if ek_certificate_capture.get("script_sha256") != sha256_file(EK_CERTIFICATE_CAPTURE_SCRIPT):
         denies.append("ek-certificate-capture-script-source-mismatch")
+    if ek_certificate_capture.get("status") == "INDETERMINATE":
+        indeterminate.append("ek-certificate-capture-indeterminate")
     cert_artifact_map = {
         "result_sha256": "ek_certificate_capture_result_sha256",
         "inventory_sha256": "ek_certificate_capture_inventory_sha256",
@@ -686,6 +688,8 @@ def validate_semantics(manifest: dict[str, Any]) -> tuple[str, str]:
         denies.append("ek-cert-spki-ek-public-source-mismatch")
     if ek_cert_spki.get("status") == "PASS" and not ek_certificate_capture.get("rsa_certificate_present"):
         denies.append("ek-cert-spki-pass-without-rsa-certificate")
+    if ek_cert_spki.get("status") == "INDETERMINATE":
+        indeterminate.append("ek-cert-spki-indeterminate")
     if ek_cert_spki.get("input_sha256") is not None and manifest["artifacts"].get("ek_cert_spki_input_sha256") != ek_cert_spki["input_sha256"]:
         denies.append("ek-cert-spki-input-artifact-binding-mismatch")
     if ek_cert_spki.get("output_sha256") is not None and manifest["artifacts"].get("ek_cert_spki_output_sha256") != ek_cert_spki["output_sha256"]:
