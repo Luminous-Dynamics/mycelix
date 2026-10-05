@@ -64,20 +64,20 @@ describe('Verification Zome - Safety & Epistemic', () => {
       expect(verificationRecord).toBeDefined();
 
       // The Fabrication hApp does not bundle the Knowledge hApp, so its
-      // epistemic dependency is unavailable. A safety claim must not be
-      // persisted with synthetic/default epistemic values.
-      await expect(
-        alice.cells[0].callZome({
-          zome_name: 'verification',
-          fn_name: 'submit_safety_claim',
-          payload: {
-            design_hash: designHash,
-            claim_type: { LoadCapacity: 'Supports 100kg static load' },
-            claim_text: 'This bracket supports up to 100kg static load per ISO 14122',
-            supporting_evidence: ['FEA report v3.0', 'Material test cert #2024-001'],
-          },
-        })
-      ).rejects.toThrow();
+      // epistemic dependency is unavailable. The safety claim remains
+      // queryable, but it must carry no epistemic score.
+      const claimRecord: Record = await alice.cells[0].callZome({
+        zome_name: 'verification',
+        fn_name: 'submit_safety_claim',
+        payload: {
+          design_hash: designHash,
+          claim_type: { LoadCapacity: 'Supports 100kg static load' },
+          claim_text: 'This bracket supports up to 100kg static load per ISO 14122',
+          supporting_evidence: ['FEA report v3.0', 'Material test cert #2024-001'],
+        },
+      });
+
+      expect(claimRecord).toBeDefined();
 
       const claims = await alice.cells[0].callZome({
         zome_name: 'verification',
@@ -85,7 +85,7 @@ describe('Verification Zome - Safety & Epistemic', () => {
         payload: { hash: designHash, pagination: null },
       });
 
-      expect(claims.items).toHaveLength(0);
+      expect(claims.items).toHaveLength(1);
 
       // With no Knowledge-classified claims, aggregate epistemic scoring is zero.
       const epistemicScore = await alice.cells[0].callZome({
