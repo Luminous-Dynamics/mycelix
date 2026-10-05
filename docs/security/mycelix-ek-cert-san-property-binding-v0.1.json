@@ -12,7 +12,7 @@
     "INDETERMINATE"
   ],
   "theorem": {
-    "statement": "The TCG EK certificate TPMManufacturer, TPMModel and TPMVersion directoryName attributes must equal values independently derived from exact TPM fixed-property evidence through an explicitly authorized manufacturer mapping registry.",
+    "statement": "The TCG EK certificate TPMManufacturer, TPMModel and TPMVersion directoryName attributes must equal values derived only from an independently re-executed exact TPM properties-fixed receipt through an explicitly authorized manufacturer mapping registry.",
     "oids": {
       "TPMManufacturer": "2.23.133.2.1",
       "TPMModel": "2.23.133.2.2",
@@ -23,8 +23,7 @@
   "required_input": [
     "leaf_certificate_der_base64",
     "leaf_certificate_sha256",
-    "properties_fixed",
-    "properties_source_sha256",
+    "properties_binding",
     "registry_id",
     "registry_sha256",
     "spki_binding_state",
@@ -125,13 +124,56 @@
     ],
     [
       "EKSAN-V12",
-      "session-binding-substitution",
+      "properties-command-substitution",
       "DENY"
     ],
     [
       "EKSAN-V13",
+      "properties-source-substitution",
+      "DENY"
+    ],
+    [
+      "EKSAN-V14",
+      "properties-result-substitution",
+      "DENY"
+    ],
+    [
+      "EKSAN-V15",
+      "properties-verifier-source-substitution",
+      "DENY"
+    ],
+    [
+      "EKSAN-V16",
+      "properties-input-digest-substitution",
+      "DENY"
+    ],
+    [
+      "EKSAN-V17",
+      "properties-output-digest-substitution",
+      "DENY"
+    ],
+    [
+      "EKSAN-V18",
+      "session-binding-substitution",
+      "DENY"
+    ],
+    [
+      "EKSAN-V19",
       "key-order-permutation",
       "PASS"
     ]
-  ]
+  ],
+  "properties_binding": {
+    "verifier_id": "mycelix.tpm.properties-fixed-capture.v0.1",
+    "required_fields": [
+      "state",
+      "source_output",
+      "source_output_sha256",
+      "parsed_properties",
+      "verifier_source_sha256",
+      "verifier_input",
+      "verifier_input_sha256",
+      "verifier_output_sha256"
+    ]
+  }
 }
