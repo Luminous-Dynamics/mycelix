@@ -389,17 +389,17 @@ jobs:
             --env ACTIONS_ID_TOKEN_REQUEST_URL= \
             --env ACTIONS_RUNTIME_TOKEN= \
             --volume "$DEPENDENCY_ROOT:/subject:ro" \
-            --volume "$vendor_root:/out:rw" \
+            --volume "$vendor_root:/vendor:rw" \
             "$SANDBOX_IMAGE" /bin/bash -euc '
-              /usr/local/cargo/bin/cargo vendor --locked --manifest-path /subject/Cargo.toml /out/vendor
+              /usr/local/cargo/bin/cargo vendor --locked --manifest-path /subject/Cargo.toml /vendor
             ' > "$vendor_config"
           test -s "$vendor_config"
-          python3 - "$vendor_root" "$vendor_config" <<'PY'
+          vendor_digest="$(python3 - "$vendor_root" "$vendor_config" <<'PY'
           import hashlib, pathlib, stat, sys
           vendor=pathlib.Path(sys.argv[1])
           config=pathlib.Path(sys.argv[2])
           text=config.read_text(encoding="utf-8")
-          assert "/vendor" in text
+          assert 'directory = "/vendor"' in text, text
           assert "credentials" not in text.lower()
           digest=hashlib.sha256()
           for path in sorted(vendor.rglob("*")):
@@ -415,14 +415,13 @@ jobs:
               digest.update(b"\\0")
               digest.update(path.read_bytes())
               digest.update(b"\\0")
-          print(f"vendor_digest={digest.hexdigest()}")
-          print("PASS: locked dependency closure vendored without candidate source/code access")
-          pathlib.Path("$RUNNER_TEMP/security-kernel-vendor-digest").write_text(digest.hexdigest()+"\n", encoding="utf-8")
+          print(digest.hexdigest())
           PY
-          test -s "$RUNNER_TEMP/security-kernel-vendor-digest"
-          printf 'vendor_root=%s\nvendor_config=%s\n' "$vendor_root" "$vendor_config" >> "$GITHUB_OUTPUT"
-          printf 'vendor_digest=%s\n' "$(cat "$RUNNER_TEMP/security-kernel-vendor-digest")" >> "$GITHUB_OUTPUT"
-
+          )"
+          test "${#vendor_digest}" -eq 64
+          printf 'vendor_root=%s\\nvendor_config=%s\\nvendor_digest=%s\\n' "$vendor_root" "$vendor_config" "$vendor_digest" >> "$GITHUB_OUTPUT"
+          echo "PASS: locked dependency closure vendored in constrained fetch sandbox"
+          echo "vendor_digest=$vendor_digest"
       - name: Execute candidate qualification in disposable networkless sandbox
         shell: bash
         env:
