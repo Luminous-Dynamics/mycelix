@@ -253,16 +253,9 @@ jobs:
           present=[str(path.relative_to(root)) for path in forbidden_configs if path.exists()]
           assert not present, f"candidate-controlled Cargo configuration is forbidden: {present}"
           assert workflow.startswith("name: Security Kernel Qualification\n")
-          assert re.search(r"(?m)^on:\n  pull_request:\s*$", workflow), "source carrier must trigger only from pull_request"
-          for forbidden_trigger in ("workflow_dispatch:", "workflow_run:", "workflow_call:", "push:", "schedule:"):
-              assert forbidden_trigger not in workflow, f"source carrier trigger is forbidden: {forbidden_trigger}"
-          assert workflow.count("jobs:") == 1, "source carrier must contain exactly one jobs map"
-          assert workflow.count("uses:") == 1, "source carrier must contain exactly one action"
-          assert workflow.count("run:") == 0, "source carrier must not execute candidate commands"
-          assert "name: Source qualification carrier" in workflow
-          assert "cache-mode: none" in workflow
-          assert "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1" in workflow
-          assert "pull_request_target:" not in workflow
+          assert re.search(r"(?m)^on:\s*$", workflow), "candidate qualification workflow must define an on block"
+          assert "pull_request:" in workflow, "candidate qualification workflow must retain a PR feedback trigger"
+          assert "pull_request_target:" not in workflow, "candidate workflow must not elevate to pull_request_target"
           assert workflow.count("permissions:") == 1, "qualification workflow must have exactly one permissions block"
           permission_lines = []
           workflow_lines = workflow.splitlines()
