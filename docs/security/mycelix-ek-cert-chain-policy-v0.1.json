@@ -9,7 +9,8 @@
   "states": ["PASS", "DENY", "INDETERMINATE"],
   "theorem": {
     "statement": "An EK certificate is admissible only when the exact DER leaf path validates to an explicitly authorized root at the supplied time, the leaf satisfies the RSA storage-EK profile, AuthorityKeyIdentifier binds to the issuing CA SubjectKeyIdentifier, a CRL check is PASS, and the prior EK SPKI theorem binds the leaf to the observed EK public key.",
-    "scope": "The reference trust anchor is synthetic. This theorem is a deterministic policy model and does not assert real manufacturer authenticity."
+    "scope": "The reference trust anchor is synthetic. This theorem is a deterministic policy model and does not assert real manufacturer authenticity.",
+    "revocation_freshness": "The supplied CRL must be issued by the observed issuing CA and verification_time_unix must fall within its derived thisUpdate..nextUpdate interval."
   },
   "required_input": {
     "session_id": "capture session identifier",
@@ -25,7 +26,7 @@
     "trust_anchor_state": "PASS, DENY or INDETERMINATE",
     "trust_anchor_source_sha256": "source authorization digest",
     "verification_time_unix": "deterministic validation time",
-    "revocation": ["state", "method", "crl_der_base64", "crl_der_sha256"],
+    "revocation": ["state", "method", "crl_der_base64", "crl_der_sha256", "this_update_unix", "next_update_unix", "issuer"],
     "spki_binding": ["state", "verifier_id", "certificate_sha256", "ek_public_wire_sha256"],
     "session_binding_sha256": "binding over verification mode, session, TPM, certificate chain, trust-anchor state/source, verification time, revocation state/method/CRL, and SPKI certificate/public-key identity"
   },
@@ -63,7 +64,10 @@
     {"id":"EKC-V16","mutation":"revocation-state-binding-substitution","expected":"DENY"},
     {"id":"EKC-V17","mutation":"verification-mode-substitution","expected":"DENY"},
     {"id":"EKC-V18","mutation":"session-binding-substitution","expected":"DENY"},
-    {"id":"EKC-V19","mutation":"key-order-permutation","expected":"PASS"}
+    {"id":"EKC-V19","mutation":"crl-expired-at-verification-time","expected":"DENY"},
+    {"id":"EKC-V20","mutation":"crl-not-yet-valid-at-verification-time","expected":"DENY"},
+    {"id":"EKC-V21","mutation":"revocation-method-substitution","expected":"DENY"},
+    {"id":"EKC-V22","mutation":"key-order-permutation","expected":"PASS"}
   ],
   "reference_fixture": {
     "root_sha256": "bf027c125d7641b37bb1e8e71eab5f480cc3b925eb33660b818b251faf5fa6bc",
