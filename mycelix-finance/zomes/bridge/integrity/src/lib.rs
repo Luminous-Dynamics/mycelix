@@ -2786,4 +2786,26 @@ mod tests {
         ));
     }
 
+    #[test]
+    fn test_reserve_snapshot_rejects_unsorted_source_hashes() {
+        let mut s = valid_reserve_snapshot();
+        s.source_action_hashes.reverse();
+        s.source_commitment = canonical_source_commitment(&s.source_action_hashes);
+        assert!(matches!(
+            validate_snapshot_shape_test(&s),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
+    fn test_reserve_source_commitment_is_order_independent_but_vector_is_canonical() {
+        let first = ActionHash::from_raw_36(vec![1; 36]);
+        let second = ActionHash::from_raw_36(vec![2; 36]);
+        assert_eq!(
+            canonical_source_commitment(&[first.clone(), second.clone()]),
+            canonical_source_commitment(&[second, first])
+        );
+    }
+
+
 }
