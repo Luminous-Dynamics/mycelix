@@ -26,7 +26,13 @@ candidate SHA, and exact open PR before dispatching S1.
 
 The dispatcher binds source workflow ID `372951439` and path
 `.github/workflows/security-kernel-qualification.yml`. Changing either is a trusted
-configuration change and must therefore pass ordinary protected-branch review.
+configuration change and must therefore pass ordinary protected-branch review. After
+dispatch, S0 resolves the returned workflow-run ID, requires the run to use the exact
+`refs/heads/main` S1 path, dereferences that run's `workflow_sha` to the workflow-file
+blob, and compares that blob identity to the registered S1 profile. Because GitHub's
+workflow-dispatch ref is branch/tag based rather than an atomic commit-addressed
+invocation, this is post-dispatch detection rather than race-free immutable invocation;
+the remaining gap is tracked in #4159.
 
 ## S1 — trusted exact-head executor
 
@@ -41,7 +47,7 @@ S1:
 - materializes the exact commit as source data;
 - performs an independent static trust-surface audit;
 - runs rustfmt, default-feature tests, identity-feature tests, and Clippy using Rust 1.99.0;
-- records the candidate tree, lockfile, vendor closure, sandbox image, and trusted workflow identities; and
+- captures the exact candidate source digest as a trusted step output before dependency acquisition or candidate execution, and records the candidate tree, lockfile, vendor closure, sandbox image, and trusted workflow identities; and
 - fails if any committed candidate source changes during qualification; build output is placed outside the source mount in a dedicated `/target` tmpfs.
 
 The candidate executes without repository write permission, secrets, or OIDC access. S1 also requires the source PR to remain an exact open-head match at execution time, records the pre-execution source digest in a trusted workflow step output, and requires a committed Security Kernel `Cargo.lock` while rejecting candidate-controlled Cargo configuration at the relevant workspace/config hierarchy. The lockfile policy also rejects non-crates.io package sources, preventing a candidate from turning dependency acquisition into arbitrary Git/custom-registry network access. The lockfile digest is captured before candidate execution. Candidate dependency acquisition uses only the committed manifest/lockfile in a constrained non-root container; candidate source and code are not present during that networked fetch phase. The resulting vendor tree is then mounted read-only for candidate execution. Candidate Cargo gates use the Rust 1.99.0 compiler contained in the immutable sandbox image, `--frozen`, `network=none` / offline networking, a read-only source tree, and fresh disposable containers with dropped capabilities, `no-new-privileges`, resource bounds, private PID/IPC namespaces, and no Docker socket. These controls substantially reduce candidate access to the host runner, but the Docker daemon and host kernel remain trusted infrastructure. Stronger runtime isolation is tracked in #4152.
