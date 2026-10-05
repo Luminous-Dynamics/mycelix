@@ -373,6 +373,7 @@ jobs:
           github-token: ${{ github.token }}
           repository: ${{ github.repository }}
           run-id: ${{ steps.verify_result.outputs.trusted_dispatch_run_id }}
+          digest-mismatch: error
 
       - name: Verify official receipt transport and publish verified result
         if: success()
