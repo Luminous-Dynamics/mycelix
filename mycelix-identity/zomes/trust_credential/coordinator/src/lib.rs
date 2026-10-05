@@ -32,8 +32,8 @@ fn anchor_hash(anchor_str: &str) -> ExternResult<EntryHash> {
     Ok(EntryHash::from_raw_32(hash.to_vec()))
 }
 
-/// Require the issuer DID to be active before creating new trust authority.
-fn verify_issuer_did_active(did: &str) -> ExternResult<()> {
+/// Require a DID to be active before authorizing a new trust/attestation action.
+fn verify_did_active(did: &str, operation: &str) -> ExternResult<()> {
     let response = call(
         CallTargetCell::Local,
         ZomeName::new("did_registry"),
@@ -50,25 +50,31 @@ fn verify_issuer_did_active(did: &str) -> ExternResult<()> {
             if active {
                 Ok(())
             } else {
-                Err(wasm_error!(WasmErrorInner::Guest(
-                    "Issuer DID is not active; refusing trust-credential issuance".into(),
-                )))
+                Err(wasm_error!(WasmErrorInner::Guest(format!(
+                    "DID is not active; refusing {operation}"
+                ))))
             }
         }
         ZomeCallResponse::Unauthorized(_, _, _, _) => Err(wasm_error!(WasmErrorInner::Guest(
-            "Issuer DID active-state authorization failed".into(),
+            format!("DID active-state authorization failed for {operation}")
         ))),
         ZomeCallResponse::NetworkError(err) => Err(wasm_error!(WasmErrorInner::Guest(format!(
-            "Issuer DID active-state verification failed (network error: {err})"
+            "DID active-state verification failed for {operation} (network error: {err})"
         )))),
         ZomeCallResponse::CountersigningSession(err) => Err(wasm_error!(WasmErrorInner::Guest(
-            format!("Issuer DID active-state verification failed (countersigning: {err})")
+            format!("DID active-state verification failed for {operation} (countersigning: {err})")
         ))),
         ZomeCallResponse::AuthenticationFailed(_, _) => Err(wasm_error!(WasmErrorInner::Guest(
-            "Issuer DID active-state verification failed (authentication)".into(),
+            format!("DID active-state verification failed for {operation} (authentication)")
         ))),
     }
 }
+
+/// Require the issuer DID to be active before creating new trust authority.
+fn verify_issuer_did_active(did: &str) -> ExternResult<()> {
+    verify_did_active(did, "trust-credential issuance")
+}
+
 
 /// Issue a new trust credential
 ///
@@ -383,6 +389,8 @@ pub fn create_presentation(input: CreatePresentationInput) -> ExternResult<Recor
     // agent could present a credential claiming to be its subject.
     let subject_did = format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey);
 
+    verify_did_active(&subject_did, "trust-presentation creation")?;
+
     // Resolve the source credential to one concrete action. A string credential
     // ID alone is ambiguous across legacy data; multiple matches fail closed.
     let mut matching: Vec<Record> = Vec::new();
@@ -409,7 +417,7 @@ pub fn create_presentation(input: CreatePresentationInput) -> ExternResult<Recor
     let pres_id = format!("pres:{}:{}", subject_did, now.as_micros());
 
     // Generate a nonce for replay protection
-    let nonce = now.as_micros().to_le_bytes().to_vec();
+    let nonce = random_bytes(16)?.into_vec();
 
     let presentation = TrustPresentation {
         id: pres_id.clone(),
@@ -491,6 +499,8 @@ pub fn request_attestation(input: RequestAttestationInput) -> ExternResult<Recor
     // requester (P0 author-binding gap; integrity validation now enforces
     // this too, see trust_credential integrity's validate_create_request).
     let requester_did = format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey);
+
+    verify_did_active(&requester_did, "attestation request creation")?;
 
     let now = sys_time()?;
     let req_id = format!(
@@ -630,6 +640,8 @@ pub fn fulfill_attestation(
             "Only the attestation subject can fulfill the request".into()
         )));
     }
+
+    verify_did_active(&caller_did, "attestation fulfillment")?;
 
     // Check request hasn't expired
     if now > req.expires_at {
