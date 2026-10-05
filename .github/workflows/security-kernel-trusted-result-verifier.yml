@@ -130,8 +130,15 @@ jobs:
           candidate_pr = matches[0]["number"]
 
           jobs = get(f"/repos/{repo}/actions/runs/{run_id}/jobs?per_page=100")["jobs"]
-          matching = [job for job in jobs if job["name"] == os.environ["EXPECTED_JOB_NAME"]]
-          assert len(matching) == 1, f"expected one reusable S1 job, found {len(matching)}"
+          resolver_jobs = [job for job in jobs if job["name"] == "Resolve exact PR subject and source provenance"]
+          assert len(resolver_jobs) == 1, f"expected one S0 resolver job, found {len(resolver_jobs)}"
+          assert resolver_jobs[0]["conclusion"] == "success"
+          matching = [
+              job for job in jobs
+              if job["name"] == os.environ["EXPECTED_JOB_NAME"]
+              or job["name"].endswith(" / " + os.environ["EXPECTED_JOB_NAME"])
+          ]
+          assert len(matching) == 1, f"expected one reusable S1 execution job, found {len(matching)}"
           job = matching[0]
           assert job["conclusion"] == "success"
           assert job["run_id"] == int(run_id)
