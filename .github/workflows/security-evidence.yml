@@ -64,6 +64,7 @@ jobs:
           public_name = json.loads(Path("docs/security/mycelix-tpm-public-name-coherence-v0.1.json").read_text())
           ak_attributes = json.loads(Path("docs/security/mycelix-ak-public-attributes-coherence-v0.1.json").read_text())
           ek_template = json.loads(Path("docs/security/mycelix-ek-template-appraisal-v0.1.json").read_text())
+          cert_chain = json.loads(Path("docs/security/mycelix-ek-cert-chain-policy-v0.1.json").read_text())
           assert platform["profile_id"] == "mycelix.security.platform.evidence.capture"
           assert recon["profile_id"] == "mycelix.security.platform.eventlog.reconstruction"
           assert platform["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"
@@ -102,6 +103,10 @@ jobs:
           assert ek_template["claim_ceiling"] == "ReferenceModelOnly"
           assert ek_template["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"
           assert len(ek_template["vectors"]) == 24
+          assert cert_chain["profile_id"] == "mycelix.security.tpm.ek-cert-chain-policy"
+          assert cert_chain["claim_ceiling"] == "ReferenceModelOnly"
+          assert cert_chain["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"
+          assert len(cert_chain["vectors"]) == 27
           PY
 
       - name: Compile security verifiers and bundle regression
