@@ -191,6 +191,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         "trusted_root_filename": "trusted_root.jsonl",
         "offline_verified": True,
         "require_public_good_instance": True,
+        "public_good_instance": "sigstore-public-good",
         "require_tlog": True,
         "require_no_public_good_rejection": True,
         "retention_artifact": {
@@ -384,6 +385,7 @@ def test_retention_workflow_contains_offline_controls() -> None:
         "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2",
         "retention-days: 90",
         "d6u-attestation-retention/v1",
+        "public_good_instance": "sigstore-public-good",
     ]
     for fragment in required_fragments:
         assert fragment in workflow, f"retention workflow control missing: {fragment}"
