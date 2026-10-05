@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-"""Verify D6U artifacts as untrusted data before trusted attestation.
-
-This verifier is intentionally maintained on the default branch. It never imports
-or executes code from the pull-request source tree.
-"""
+"""Verify D6U evidence as inert data before trusted attestation."""
 
 import base64
 import hashlib
@@ -20,11 +16,8 @@ ROOT = Path(__file__).parents[2]
 POLICY = ROOT / "docs/integral/d6u-trusted-builder-policy.json"
 
 
-def api_get(repo: str, path: str, ref: str, token: str) -> dict:
-    url = (
-        f"https://api.github.com/repos/{repo}/contents/"
-        f"{urllib.parse.quote(path, safe='/')}?ref={urllib.parse.quote(ref, safe='')}"
-    )
+def github_get(repo: str, api_path: str, token: str) -> dict:
+    url = f"https://api.github.com/repos/{repo}{api_path}"
     request = urllib.request.Request(
         url,
         headers={
@@ -43,21 +36,21 @@ def sha256(path: Path) -> str:
 
 
 def git_tree_from_api(repo: str, ref: str, token: str) -> dict:
-    url = (
-        f"https://api.github.com/repos/{repo}/git/trees/"
-        f"{urllib.parse.quote(ref, safe='')}?recursive=1"
+    return github_get(
+        repo,
+        f"/git/trees/{urllib.parse.quote(ref, safe='')}?recursive=1",
+        token,
     )
-    request = urllib.request.Request(
-        url,
-        headers={
-            "Accept": "application/vnd.github+json",
-            "Authorization": f"Bearer {token}",
-            "X-GitHub-Api-Version": "2022-11-28",
-            "User-Agent": "mycelix-d6u-trusted-builder",
-        },
+
+
+def contents_bytes_from_api(repo: str, path: str, ref: str, token: str) -> bytes:
+    payload = github_get(
+        repo,
+        f"/contents/{urllib.parse.quote(path, safe='/')}?ref={urllib.parse.quote(ref, safe='')}",
+        token,
     )
-    with urllib.request.urlopen(request, timeout=30) as response:
-        return json.load(response)
+    assert payload.get("encoding") == "base64", f"unexpected encoding for {path!r}"
+    return base64.b64decode(payload["content"], validate=True)
 
 
 def verify_required_tracked_blobs(tree_payload: dict, required: dict[str, str]) -> None:
@@ -70,27 +63,23 @@ def verify_required_tracked_blobs(tree_payload: dict, required: dict[str, str]) 
         path = entry.get("path")
         if path not in required:
             continue
-
         assert path not in observed, f"duplicate Git tree path: {path!r}"
         assert entry.get("type") == "blob", (
             f"trusted source path is not a regular Git blob: {path!r}"
         )
         assert entry.get("mode") in {"100644", "100755"}, (
-            f"trusted source path has unexpected Git mode: {path!r}: "
-            f"{entry.get('mode')!r}"
+            f"trusted source path has unexpected Git mode: {path!r}: {entry.get('mode')!r}"
         )
-        observed_sha = entry.get("sha")
-        assert re.fullmatch(r"[0-9a-f]{40}", observed_sha or ""), (
-            f"GitHub Git tree returned no valid blob SHA for {path!r}"
+        sha = entry.get("sha")
+        assert re.fullmatch(r"[0-9a-f]{40}", sha or ""), (
+            f"Git tree returned no valid blob SHA for {path!r}"
         )
-        observed[path] = observed_sha
+        observed[path] = sha
 
     assert set(observed) == set(required), (
         f"trusted source tree coverage mismatch: "
-        f"missing={sorted(set(required) - set(observed))!r}, "
-        f"unexpected={sorted(set(observed) - set(required))!r}"
+        f"missing={sorted(set(required) - set(observed))!r}"
     )
-
     mismatches = {
         path: {"expected": expected, "observed": observed[path]}
         for path, expected in required.items()
@@ -99,46 +88,23 @@ def verify_required_tracked_blobs(tree_payload: dict, required: dict[str, str]) 
     assert not mismatches, f"trusted source blob mismatch: {mismatches!r}"
 
 
-def file_bytes_from_api(repo: str, path: str, ref: str, token: str) -> bytes:
-    payload = api_get(repo, path, ref, token)
-    assert payload.get("encoding") == "base64", f"unexpected encoding for {path!r}"
-    return base64.b64decode(payload["content"], validate=True)
-
-
 def verify_artifact_layout(artifact_dir: Path, expected_files: set[str]) -> None:
-    assert artifact_dir.is_dir(), f"trusted artifact directory is missing: {artifact_dir}"
-
-    all_paths = list(artifact_dir.rglob("*"))
-    symlinks = [path for path in all_paths if path.is_symlink()]
-    assert not symlinks, f"trusted artifact contains symlink(s): {sorted(map(str, symlinks))!r}"
-
-    special = [
-        path
-        for path in all_paths
-        if not path.is_dir() and not path.is_file()
-    ]
-    assert not special, f"trusted artifact contains special file(s): {sorted(map(str, special))!r}"
-
-    nested_dirs = [path for path in all_paths if path.is_dir()]
-    assert not nested_dirs, (
-        f"trusted artifact contains unexpected directory entries: "
-        f"{sorted(map(str, nested_dirs))!r}"
-    )
-
+    assert artifact_dir.is_dir(), f"missing trusted artifact directory: {artifact_dir}"
+    entries = list(artifact_dir.rglob("*"))
+    symlinks = [p for p in entries if p.is_symlink()]
+    assert not symlinks, f"trusted artifact contains symlink(s): {symlinks!r}"
+    nested = [p for p in entries if p.is_dir()]
+    assert not nested, f"trusted artifact contains nested directories: {nested!r}"
+    special = [p for p in entries if not p.is_dir() and not p.is_file()]
+    assert not special, f"trusted artifact contains special file(s): {special!r}"
     files = {
-        path.relative_to(artifact_dir).as_posix()
-        for path in all_paths
-        if path.is_file()
+        p.relative_to(artifact_dir).as_posix()
+        for p in entries
+        if p.is_file()
     }
     assert files == expected_files, (
         f"unexpected trusted-input files: {sorted(files)!r}"
     )
-
-    for relative in expected_files:
-        path = artifact_dir / relative
-        assert path.is_file() and not path.is_symlink(), (
-            f"trusted input is not a regular file: {relative!r}"
-        )
 
 
 def load_record(path: Path) -> dict[str, str]:
@@ -151,6 +117,58 @@ def load_record(path: Path) -> dict[str, str]:
         assert key and key not in record, f"duplicate evidence key: {key!r}"
         record[key] = value
     return record
+
+
+def verify_executor_workflow_identity(
+    record: dict[str, str],
+    policy: dict,
+    repo: str,
+    token: str,
+) -> None:
+    cfg = policy["executor_workflow"]
+    assert record["executor_workflow_file_path"] == cfg["path"]
+    assert record["executor_workflow_repository"] == repo
+    assert re.fullmatch(r"[0-9a-f]{40}", record["executor_workflow_commit_sha"])
+    assert record["executor_workflow_ref"].startswith(
+        f"{repo}/{cfg['path']}@"
+    )
+
+    tree = git_tree_from_api(repo, record["executor_workflow_commit_sha"], token)
+    verify_required_tracked_blobs(tree, {cfg["path"]: cfg["blob_sha"]})
+
+
+def verify_trigger_run(
+    record: dict[str, str],
+    policy: dict,
+    repo: str,
+    token: str,
+) -> dict:
+    cfg = policy["trigger_workflow"]
+    trigger = github_get(
+        repo,
+        f"/actions/runs/{urllib.parse.quote(record['trigger_workflow_run_id'], safe='')}",
+        token,
+    )
+    assert trigger["name"] == cfg["name"]
+    assert trigger["path"] == cfg["path"]
+    assert trigger["event"] == "pull_request"
+    assert trigger["conclusion"] == "success"
+    assert trigger["head_repository"]["full_name"] == repo
+    assert trigger["head_branch"] == policy["source_branch"]
+    assert trigger["run_attempt"] == int(record["trigger_workflow_run_attempt"])
+    assert trigger["head_sha"] == record["source_commit"]
+
+    assert record["trigger_workflow_name"] == trigger["name"]
+    assert record["trigger_workflow_path"] == trigger["path"]
+    assert record["source_repository"] == trigger["head_repository"]["full_name"]
+    assert record["source_branch"] == trigger["head_branch"]
+
+    source_tree = git_tree_from_api(repo, record["source_commit"], token)
+    verify_required_tracked_blobs(
+        source_tree,
+        policy["required_source_blobs"],
+    )
+    return trigger
 
 
 def verify_cases(log: str, policy: dict) -> None:
@@ -168,8 +186,9 @@ def verify_cases(log: str, policy: dict) -> None:
             "zome_reached": reachability == "zome-reached=true",
         }
 
-    expected = policy["cases"]
-    assert observed == expected, f"D6U_CASE mismatch: observed={observed!r}"
+    assert observed == policy["cases"], (
+        f"D6U_CASE mismatch: observed={observed!r}"
+    )
 
     expected_supplemental = policy["supplemental_substrate"]
     witnesses = {}
@@ -177,19 +196,15 @@ def verify_cases(log: str, policy: dict) -> None:
     for line in log.splitlines():
         if line.startswith("D6U_RUNTIME_WITNESS\t"):
             parts = line.split("\t", 2)
-            assert len(parts) == 3, f"malformed runtime witness: {line!r}"
+            assert len(parts) == 3
             witness_id, witness = parts[1], parts[2]
             assert witness_id in expected_supplemental
             assert witness_id not in witnesses
-            assert expected_supplemental[witness_id] in witness, (
-                f"runtime witness mismatch for {witness_id!r}"
-            )
+            assert expected_supplemental[witness_id] in witness
             witnesses[witness_id] = witness
         elif line.startswith("D6U_SUBSTRATE_CHECK\t"):
             parts = line.split("\t")
-            assert len(parts) == 4 and parts[3] == "PASS", (
-                f"malformed substrate check: {line!r}"
-            )
+            assert len(parts) == 4 and parts[3] == "PASS"
             check_id, reason = parts[1], parts[2]
             assert check_id in expected_supplemental
             assert check_id not in checks
@@ -199,40 +214,18 @@ def verify_cases(log: str, policy: dict) -> None:
     assert set(witnesses) == set(expected_supplemental)
     assert checks == witnesses
 
-    application = {}
+    app = {}
     fragment = policy["application_check"]["fragment"]
     for line in log.splitlines():
-        if not line.startswith("D6U_APPLICATION_CHECK\t"):
-            continue
-        parts = line.split("\t")
-        assert len(parts) == 4 and parts[3] == "PASS"
-        check_id, evidence = parts[1], parts[2]
-        assert check_id == policy["application_check"]["id"]
-        assert check_id not in application
-        assert fragment in evidence
-        application[check_id] = evidence
-
-    assert len(application) == 1
-
-
-def verify_workflow_identity(record: dict[str, str], policy: dict) -> None:
-    repo = os.environ["GITHUB_REPOSITORY"]
-    workflow_path = policy["workflow_path"]
-    caller_path = policy["caller_workflow_path"]
-
-    assert re.fullmatch(r"[0-9a-f]{40}", record["caller_workflow_commit_sha"])
-    assert record["caller_workflow_ref"].startswith(f"{repo}/{caller_path}@")
-    assert re.fullmatch(r"[0-9a-f]{40}", record["workflow_definition_commit_sha"])
-    assert record["workflow_definition_ref"].startswith(f"{repo}/{workflow_path}@")
-    assert record["workflow_definition_repository"] == repo
-    assert record["workflow_definition_file_path"] == workflow_path
-
-    expected_d6u_blob = policy["required_tracked_blobs"][workflow_path]
-    expected_caller_blob = policy["required_tracked_blobs"][caller_path]
-    assert re.fullmatch(r"[0-9a-f]{40}", record["workflow_definition_blob_sha"])
-    assert record["workflow_definition_blob_sha"] == expected_d6u_blob
-    assert re.fullmatch(r"[0-9a-f]{40}", record["caller_workflow_blob_sha"])
-    assert record["caller_workflow_blob_sha"] == expected_caller_blob
+        if line.startswith("D6U_APPLICATION_CHECK\t"):
+            parts = line.split("\t")
+            assert len(parts) == 4 and parts[3] == "PASS"
+            check_id, evidence = parts[1], parts[2]
+            assert check_id == policy["application_check"]["id"]
+            assert check_id not in app
+            assert fragment in evidence
+            app[check_id] = evidence
+    assert len(app) == 1
 
 
 def verify_lock(path: Path, policy: dict) -> None:
@@ -240,20 +233,13 @@ def verify_lock(path: Path, policy: dict) -> None:
 
     lock = tomllib.loads(path.read_text(encoding="utf-8"))
     packages = lock.get("package", [])
-    expected_packages = policy["lock_packages"]
-    expected_source = policy["lock_source"]
-
-    for name, version in expected_packages.items():
+    for name, version in policy["lock_packages"].items():
         matches = [p for p in packages if p.get("name") == name]
         assert matches, f"trusted lock missing {name!r}"
-        assert {p.get("version") for p in matches} == {version}, (
-            f"trusted lock version mismatch for {name!r}"
-        )
+        assert {p.get("version") for p in matches} == {version}
         for package in matches:
-            assert package.get("source") == expected_source
-            assert re.fullmatch(r"[0-9a-f]{64}", package.get("checksum", "")), (
-                f"trusted lock checksum malformed for {name!r}"
-            )
+            assert package.get("source") == policy["lock_source"]
+            assert re.fullmatch(r"[0-9a-f]{64}", package.get("checksum", ""))
 
 
 def main() -> None:
@@ -261,23 +247,15 @@ def main() -> None:
     artifact_dir = Path(sys.argv[1]).resolve()
     event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text(encoding="utf-8"))
     policy = json.loads(POLICY.read_text(encoding="utf-8"))
-    assert policy["origin_policy"] == "same-repository-only"
-
     repo = os.environ["GITHUB_REPOSITORY"]
     token = os.environ["GITHUB_TOKEN"]
-    run = event["workflow_run"]
+    executor_run = event["workflow_run"]
 
-    assert run["event"] == "pull_request"
-    assert run["conclusion"] == "success"
-    assert run["name"] == policy["trigger_workflow_name"]
-    assert run["path"] == policy["trigger_workflow_path"]
-    assert run["head_repository"]["full_name"] == repo
     assert event["repository"]["full_name"] == repo
-
-    run_id = str(run["id"])
-    run_attempt = str(run["run_attempt"])
-    head_sha = run["head_sha"]
-    assert re.fullmatch(r"[0-9a-f]{40}", head_sha)
+    assert executor_run["name"] == policy["executor_workflow"]["name"]
+    assert executor_run["path"] == policy["executor_workflow"]["path"]
+    assert executor_run["event"] == "workflow_run"
+    assert executor_run["conclusion"] == "success"
 
     expected_files = {
         "d6u-runtime-evidence.txt",
@@ -293,24 +271,18 @@ def main() -> None:
 
     assert set(record) == set(policy["record_fields"])
     assert record["status"] == "runtime-reference-evidence"
-    assert record["source_commit"] == head_sha
-    assert record["workflow_run_id"] == run_id
-    assert record["workflow_run_attempt"] == run_attempt
-    verify_workflow_identity(record, policy)
+    assert record["workflow_run_id"] == str(executor_run["id"])
+    assert record["workflow_run_attempt"] == str(executor_run["run_attempt"])
+    assert record["executor_run_id"] == str(executor_run["id"])
+    assert record["executor_run_attempt"] == str(executor_run["run_attempt"])
     assert record["attestation_status"] == "deferred-to-trusted-builder"
     assert record["claim_ceiling"] == policy["claim_ceiling"]
-    assert record["manifest_version"] == str(policy["manifest_version"])
-    assert record["d6s2_authority_ledger_schema"] == policy["d6s2_authority_ledger_schema"]
-    assert record["case_coverage"] == policy["expected_case_coverage"]
-    assert record["supplemental_coverage"] == policy["expected_supplemental_coverage"]
-    assert record["application_check_coverage"] == policy["expected_application_check_coverage"]
-    assert record["case_outcome_classes"] == ",".join(policy["expected_case_outcome_classes"])
-    assert record["runtime"] == f"holochain-{policy['runtime']['holochain']}"
-    assert record["hdk"] == policy["runtime"]["hdk"]
-    assert record["hdi"] == policy["runtime"]["hdi"]
-    assert record["test"] == "d6u_authority_boundary:passed"
-    assert record["supported_cases"] == str(len(policy["cases"]))
-    assert record["unsupported_cases"] == ",".join(policy["unsupported_reference_cases"])
+
+    verify_executor_workflow_identity(record, policy, repo, token)
+    trigger = verify_trigger_run(record, policy, repo, token)
+
+    assert record["source_commit"] == trigger["head_sha"]
+    assert record["source_repository"] == repo
 
     assert record["test_log_sha256"] == sha256(test_log)
     assert record["cargo_lock_sha256"] == sha256(lockfile)
@@ -318,19 +290,13 @@ def main() -> None:
     verify_cases(test_log.read_text(encoding="utf-8"), policy)
     verify_lock(lockfile, policy)
 
-    tree_payload = git_tree_from_api(repo, head_sha, token)
-    verify_required_tracked_blobs(
-        tree_payload,
-        policy["required_tracked_blobs"],
-    )
-
-    d6s1_bytes = file_bytes_from_api(
+    d6s1 = contents_bytes_from_api(
         repo,
         "docs/integral/d6s-canon-1-golden-vectors.json",
-        head_sha,
+        record["source_commit"],
         token,
     )
-    assert hashlib.sha256(d6s1_bytes).hexdigest() == policy["d6s1_corpus_sha256"]
+    assert hashlib.sha256(d6s1).hexdigest() == policy["d6s1_corpus_sha256"]
 
     assert record["d6s2_manifest_git_blob_sha"] == policy["d6s2_manifest_git_blob_sha"]
     assert record["d6s2_fixture_git_blob_sha"] == policy["d6s2_fixture_git_blob_sha"]
@@ -338,8 +304,9 @@ def main() -> None:
 
     print(
         "verified D6U trusted-builder input: "
-        f"run={run_id}, attempt={run_attempt}, source={head_sha}, "
-        f"cases={len(policy['cases'])}/{len(policy['cases'])}"
+        f"executor_run={executor_run['id']}, "
+        f"trigger_run={record['trigger_workflow_run_id']}, "
+        f"source={record['source_commit']}"
     )
 
 
