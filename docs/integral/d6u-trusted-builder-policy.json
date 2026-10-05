@@ -178,7 +178,7 @@
     "scripts/integral/verify_d6u_runtime_record.py": "3527dc4757163e8fed7edf734ecb99190e2c24ce",
     "docs/integral/d6s-canon-2-manifest.json": "4353b9aed545c7762d6f8f73bc551e4c008271a9",
     "docs/integral/d6s-canon-2-authority-boundary-fixture.json": "0b4c5b924bc3b807c556ef92cc869d66f7cc97a1",
-    ".github/workflows/d6s-canonical-qualification.yml": "1178398a47e1694908a791f6546f38dc75f93d42",
+    ".github/workflows/d6s-canonical-qualification.yml": "7bbf1c928711e056eb3de1228f399eb75c9ea2ef",
     "docs/integral/d6s-canon-1-manifest.json": "53d88a67c48c8adbf783d1df290b3c591cd15566",
     "docs/integral/d6s-canon-1-golden-vectors.json": "5e359549623101fe5997d0cfe8c7acb9c50cd57b",
     "scripts/integral/verify_d6s_canon_1.py": "fad033cb88ca88b0b6a116dfadd799ac73e1233e",
