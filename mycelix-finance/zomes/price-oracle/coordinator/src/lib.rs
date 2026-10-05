@@ -507,34 +507,22 @@ fn build_fallback_consensus(
 ///
 /// Requires at least 2 unique reporters for a valid consensus.
 fn verify_strict_consensus_publisher() -> ExternResult<()> {
-    let gov_links = get_links(
-        LinkQuery::try_new(
-            anchor_hash(GOVERNANCE_AGENTS_ANCHOR)?,
-            LinkTypes::AnchorLinks,
-        )?,
-        GetStrategy::default(),
-    )?;
-
-    if gov_links.is_empty() {
-        return Err(wasm_error!(WasmErrorInner::Guest(
-            "Consensus publication suspended: no governance publisher registry is established"
-                .into(),
-        )));
-    }
-
-    let caller = agent_info()?.agent_initial_pubkey;
-    if gov_links.iter().any(|link| {
-        link.target
-            .clone()
-            .into_agent_pub_key()
-            .map(|agent| agent == caller)
-            .unwrap_or(false)
-    }) {
-        Ok(())
-    } else {
-        Err(wasm_error!(WasmErrorInner::Guest(
-            "Caller is not an authorized consensus publisher".into(),
-        )))
+    match call(
+        CallTargetCell::Local,
+        ZomeName::from("tend"),
+        FunctionName::from("verify_strict_governance_agent"),
+        None,
+        (),
+    ) {
+        Ok(ZomeCallResponse::Ok(_)) => Ok(()),
+        Ok(other) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Consensus publication governance verification failed: {:?}",
+            other
+        )))),
+        Err(err) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Consensus publication governance verification unavailable: {:?}",
+            err
+        )))),
     }
 }
 
@@ -571,7 +559,7 @@ fn compute_consensus_price(input: &GetConsensusInput) -> ExternResult<ConsensusC
                         latest_by_reporter
                             .entry(report.reporter_did.clone())
                             .and_modify(|e| {
-                                if ts > e.0 || (ts == e.0 && hash < e.2) {
+                                if ts > e.0 || (ts == e.0 && hash.clone() < e.2.clone()) {
                                     *e = (ts, report.price_tend, hash.clone());
                                 }
                             })
