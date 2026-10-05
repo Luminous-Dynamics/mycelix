@@ -2585,7 +2585,7 @@ mod tests {
             qualification_state: ReserveValuationState::Qualified,
             publisher_did: "did:mycelix:alice".into(),
             supersedes: None,
-            created_at: ts(2_000_000),
+            created_at: ts(1_000_000),
         }
     }
 
