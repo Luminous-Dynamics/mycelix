@@ -709,7 +709,7 @@
         ],
         "current_frontier_required": true,
         "historical_evidence_allowed": true,
-        "profile_commitment": "lifecycle-profile-commitment",
+        "profile_commitment": "3c8e33dba85573982d071476e86ec48e8a3468265d0056523f1a43212916ac2c",
         "claim_ceiling": "Observer/evidence lifecycle reference semantics only; no real-world trust, revocation infrastructure, or authority claim."
       },
       "d6o_ledger": {
