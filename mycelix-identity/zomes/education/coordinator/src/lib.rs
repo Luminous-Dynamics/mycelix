@@ -756,9 +756,15 @@ pub struct EpistemicPosition {
 pub fn publish_credential_as_epistemic_claim(
     input: PublishCredentialAsClaimInput,
 ) -> ExternResult<PublishCredentialAsClaimOutput> {
-    // Retrieve the credential
     let credential = get_academic_credential(input.credential_action_hash.clone())?
         .ok_or_else(|| wasm_error!(WasmErrorInner::Guest("Credential not found".to_string())))?;
+
+    verify_did_active(
+        &credential.issuer.id,
+        "academic credential epistemic projection",
+    )?;
+
+    // Reuse the fetched canonical credential below.
 
     // Build the knowledge graph triple
     let subject = credential.credential_subject.id.clone();
