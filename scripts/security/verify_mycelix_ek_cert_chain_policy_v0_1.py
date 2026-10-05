@@ -848,7 +848,7 @@ def self_test() -> int:
             ("spki-indeterminate", "INDETERMINATE", lambda x: x["spki_binding"].update({"state": "INDETERMINATE"})),
             ("spki-ek-public-digest-substitution", "DENY", lambda x: x["spki_binding"].update({"ek_public_wire_sha256": "77" * 32})),
             ("verification-time-binding-substitution", "DENY", lambda x: x.update({"verification_time_unix": x["verification_time_unix"] + 3600})),
-            ("revocation-state-binding-substitution", "DENY", lambda x: x["revocation"].update({"state": "PASS"})),
+            ("revocation-state-binding-substitution", "DENY", lambda x: (x["revocation"].update({"state": "INDETERMINATE"}), x.update({"session_binding_sha256": session_binding(x, x["leaf_certificate_sha256"], x["intermediate_certificate_sha256"], x["trust_anchor_root_sha256"], x["revocation"]["crl_bundle_pem_sha256"])}), x["revocation"].update({"state": "PASS"}))),
             ("verification-mode-substitution", "DENY", lambda x: x.update({"verification_mode": "OfflineBundle"})),
             ("session-binding-substitution", "DENY", lambda x: x.update({"session_id": "attacker"})),
         ]
