@@ -18,7 +18,7 @@ env:
   BASE_REPOSITORY: "Luminous-Dynamics/mycelix"
   BASE_BRANCH: "main"
   TRUSTED_DISPATCHER_WORKFLOW_PATH: ".github/workflows/security-kernel-trusted-dispatch.yml"
-  TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA: "9e2a8b7f6feffdb022d047123e3b84ce3a0973ff"
+  TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA: "7df4cc30184f521bb9c64dc96926903744656538"
   INDEPENDENT_WORKFLOW_PATH: ".github/workflows/security-kernel-independent-qualification.yml"
   TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "9f7780b4273baa68727cdb1f8c796962b2190624"
   EXPECTED_JOB_NAME: "Independent Security Kernel"
