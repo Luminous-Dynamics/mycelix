@@ -2323,10 +2323,6 @@ def capture(args: argparse.Namespace) -> int:
                 sha256_file(out / "ek-cert-spki-binding.json")
                 if (out / "ek-cert-spki-binding.json").is_file()
                 else None
-            "ek_cert_spki_output_sha256": (
-                sha256_file(out / "ek-cert-spki-binding.json")
-                if (out / "ek-cert-spki-binding.json").is_file()
-                else None
             ),
             "ek_certificate_chain_capture_result_sha256": sha256_file(out / "ek-cert-chain-nv-capture.json"),
             "ek_certificate_chain_capture_inventory_sha256": sha256_file(out / "ek-cert-chain-nv-index-handles.txt"),
