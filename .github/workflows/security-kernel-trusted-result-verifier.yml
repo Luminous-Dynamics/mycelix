@@ -18,7 +18,7 @@ env:
   BASE_REPOSITORY: "Luminous-Dynamics/mycelix"
   BASE_BRANCH: "main"
   TRUSTED_DISPATCHER_WORKFLOW_PATH: ".github/workflows/security-kernel-trusted-dispatch.yml"
-  TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA: "e6744251d5365bfac1eec940673c70fad29ace79"
+  TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA: "c7b43aa48ae9f28764c28544a5a87ea2ed6ffd02"
   INDEPENDENT_WORKFLOW_PATH: ".github/workflows/security-kernel-independent-qualification.yml"
   TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "b7f2fdcbfbda26e8fba913d64bb79cc2bfc6a236"
   EXPECTED_JOB_NAME: "Independent Security Kernel"
@@ -97,11 +97,12 @@ jobs:
 
           title = run.get("display_title", "")
           match = re.fullmatch(
-              r"SEC-KERNEL-DISPATCH pr=([0-9]+) candidate=([0-9a-f]{40})",
+              r"SEC-KERNEL-DISPATCH repo_id=([0-9]+) pr=([0-9]+) candidate=([0-9a-f]{40})",
               title,
           )
           assert match, f"unexpected trusted-dispatch run name: {title!r}"
-          candidate_pr, candidate_sha = match.groups()
+          candidate_repo_id, candidate_pr, candidate_sha = match.groups()
+          candidate_repo_id = int(candidate_repo_id)
           candidate_pr = int(candidate_pr)
 
           run_prs = run.get("pull_requests") or []
@@ -115,8 +116,13 @@ jobs:
           assert pr["base"]["ref"] == os.environ["BASE_BRANCH"]
           assert pr["head"]["sha"] == candidate_sha
 
-          candidate_repository = (pr.get("head", {}).get("repo") or {}).get("full_name")
+          candidate_repository_obj = pr.get("head", {}).get("repo") or {}
+          candidate_repository = candidate_repository_obj.get("full_name")
+          candidate_repository_id = candidate_repository_obj.get("id")
           assert candidate_repository, "candidate PR is missing head repository identity"
+          assert candidate_repository_id == candidate_repo_id, (
+              "current PR head repository identity differs from the trusted S0-bound repository"
+          )
 
           jobs = get(
               f"/repos/{repo}/actions/runs/{run_id}/attempts/{run_attempt}/jobs?per_page=100"
