@@ -2114,6 +2114,166 @@ async fn dsid_072_deactivated_did_rejects_sovereign_credential_issuance() {
     );
 }
 
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_073_deactivated_did_rejects_remote_did_document_endpoint() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let app = conductor
+        .setup_app("dsid-deactivated-remote-did", std::slice::from_ref(&dna))
+        .await
+        .unwrap();
+    let cell = app.cells()[0].clone();
+    let agent = app.agent().clone();
+
+    let did_record: Record = conductor
+        .call(&cell.zome("did_registry"), "create_did", ())
+        .await;
+    let deactivated: Record = conductor
+        .call(
+            &cell.zome("did_registry"),
+            "deactivate_did",
+            "DSID deactivated remote DID endpoint regression",
+        )
+        .await;
+
+    let blocked: Result<serde_json::Value, _> = conductor
+        .call_fallible(
+            &cell.zome("identity_bridge"),
+            "get_did_document_remote",
+            agent.clone(),
+        )
+        .await;
+
+    let rejection = format!("{blocked:?}");
+    assert!(blocked.is_err(), "deactivated identity substrate must not serve remote DID assertions");
+    assert!(
+        rejection.contains("DID is not active"),
+        "remote DID document endpoint rejection must come from active-DID guard, got: {rejection}"
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("issuer", agent.to_string());
+    emit_evidence(
+        "DSID-073",
+        "deactivated-did-rejects-remote-did-document-endpoint",
+        &dna,
+        agents,
+        &[&did_record, &deactivated],
+        "A deactivated identity bridge does not continue serving its privileged remote DID-document endpoint.",
+        format!("remote_did_document_rejected={}", blocked.is_err()),
+        blocked.is_err(),
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_074_deactivated_did_rejects_remote_tier_assertion() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let app = conductor
+        .setup_app("dsid-deactivated-remote-tier", std::slice::from_ref(&dna))
+        .await
+        .unwrap();
+    let cell = app.cells()[0].clone();
+    let agent = app.agent().clone();
+
+    let did_record: Record = conductor
+        .call(&cell.zome("did_registry"), "create_did", ())
+        .await;
+    let deactivated: Record = conductor
+        .call(
+            &cell.zome("did_registry"),
+            "deactivate_did",
+            "DSID deactivated remote tier regression",
+        )
+        .await;
+
+    let blocked: Result<serde_json::Value, _> = conductor
+        .call_fallible(
+            &cell.zome("identity_bridge"),
+            "verify_tier_remote",
+            serde_json::json!({
+                "agent": agent,
+                "required_resonance": 0.3
+            }),
+        )
+        .await;
+
+    let rejection = format!("{blocked:?}");
+    assert!(blocked.is_err(), "deactivated identity substrate must not assert remote tier");
+    assert!(
+        rejection.contains("DID is not active"),
+        "remote tier rejection must come from active-DID guard, got: {rejection}"
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("issuer", agent.to_string());
+    emit_evidence(
+        "DSID-074",
+        "deactivated-did-rejects-remote-tier-assertion",
+        &dna,
+        agents,
+        &[&did_record, &deactivated],
+        "A deactivated identity bridge cannot continue issuing remote tier assertions.",
+        format!("remote_tier_rejected={}", blocked.is_err()),
+        blocked.is_err(),
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_075_deactivated_did_rejects_remote_profile_assertion() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let app = conductor
+        .setup_app("dsid-deactivated-remote-profile", std::slice::from_ref(&dna))
+        .await
+        .unwrap();
+    let cell = app.cells()[0].clone();
+    let agent = app.agent().clone();
+
+    let did_record: Record = conductor
+        .call(&cell.zome("did_registry"), "create_did", ())
+        .await;
+    let deactivated: Record = conductor
+        .call(
+            &cell.zome("did_registry"),
+            "deactivate_did",
+            "DSID deactivated remote profile regression",
+        )
+        .await;
+
+    let blocked: Result<serde_json::Value, _> = conductor
+        .call_fallible(
+            &cell.zome("identity_bridge"),
+            "get_agent_profile_remote",
+            agent.clone(),
+        )
+        .await;
+
+    let rejection = format!("{blocked:?}");
+    assert!(blocked.is_err(), "deactivated identity substrate must not assert remote profile state");
+    assert!(
+        rejection.contains("DID is not active"),
+        "remote profile rejection must come from active-DID guard, got: {rejection}"
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("issuer", agent.to_string());
+    emit_evidence(
+        "DSID-075",
+        "deactivated-did-rejects-remote-profile-assertion",
+        &dna,
+        agents,
+        &[&did_record, &deactivated],
+        "A deactivated identity bridge cannot continue asserting an authoritative remote profile.",
+        format!("remote_profile_rejected={}", blocked.is_err()),
+        blocked.is_err(),
+    );
+}
+
 #[tokio::test(flavor = "multi_thread")]
 #[ignore]
 async fn dsid_006_self_recovery_projection_matches_canonical_state() {
