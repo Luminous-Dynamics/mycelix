@@ -401,6 +401,14 @@ pub fn create_mfa_state(input: CreateMfaStateInput) -> ExternResult<MfaStateOutp
 /// Enroll a new identity factor
 #[hdk_extern]
 pub fn enroll_factor(input: EnrollFactorInput) -> ExternResult<MfaStateOutput> {
+    // Deactivation is a terminal authority boundary. Keep historical MFA
+    // state readable, but refuse new security mutations for inactive DIDs.
+    if !verify_did_active(&input.did)? {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "DID is not active in the registry; refusing MFA mutation".into()
+        )));
+    }
+
     let now = sys_time()?;
     let agent_info = agent_info()?;
 
@@ -517,6 +525,14 @@ pub fn enroll_factor(input: EnrollFactorInput) -> ExternResult<MfaStateOutput> {
 /// Revoke an existing factor
 #[hdk_extern]
 pub fn revoke_factor(input: RevokeFactorInput) -> ExternResult<MfaStateOutput> {
+    // Deactivation is a terminal authority boundary. Keep historical MFA
+    // state readable, but refuse new security mutations for inactive DIDs.
+    if !verify_did_active(&input.did)? {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "DID is not active in the registry; refusing MFA mutation".into()
+        )));
+    }
+
     let now = sys_time()?;
     let agent_info = agent_info()?;
 
@@ -623,6 +639,14 @@ pub fn revoke_factor(input: RevokeFactorInput) -> ExternResult<MfaStateOutput> {
 /// For production use, additional cryptographic verification would be needed.
 #[hdk_extern]
 pub fn verify_factor(input: VerifyFactorInput) -> ExternResult<MfaStateOutput> {
+    // Deactivation is a terminal authority boundary. Keep historical MFA
+    // state readable, but refuse new security mutations for inactive DIDs.
+    if !verify_did_active(&input.did)? {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "DID is not active in the registry; refusing MFA mutation".into()
+        )));
+    }
+
     let now = sys_time()?;
     let agent_info = agent_info()?;
 
