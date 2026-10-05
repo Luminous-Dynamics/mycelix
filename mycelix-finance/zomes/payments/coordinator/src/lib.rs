@@ -682,30 +682,256 @@ pub struct TransferSapInput {
 /// fails after a successful debit, the sender's SAP is already gone — a pre-existing DHT
 /// limitation (no multi-entry atomicity) that the Phase-1 conservation rebuild will close.
 #[hdk_extern]
+/// Sender-side SAP settlement.
+///
+/// This replaces the old synchronous cross-account transfer. The sender's
+/// debit and immutable transfer intent are committed on the sender's source
+/// chain in one transaction. The recipient must later call claim_sap_transfer
+/// to finalize the recipient leg.
+#[hdk_extern]
 pub fn transfer_sap(input: TransferSapInput) -> ExternResult<Record> {
+    initiate_sap_transfer(TransferSapIntentInput {
+        transfer_id: format!(
+            "transfer:{}:{}:{}",
+            input.from_did,
+            input.to_did,
+            sys_time()?.as_micros()
+        ),
+        from_did: input.from_did,
+        to_did: input.to_did,
+        amount: input.amount,
+        expires_at: None,
+    })
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct TransferSapIntentInput {
+    pub transfer_id: String,
+    pub from_did: String,
+    pub to_did: String,
+    pub amount: u64,
+    pub expires_at: Option<Timestamp>,
+}
+
+fn transfer_intent_anchor(transfer_id: &str) -> ExternResult<EntryHash> {
+    anchor_hash(&format!("sap:transfer:intent:{transfer_id}"))
+}
+
+fn transfer_claim_anchor(transfer_id: &str) -> ExternResult<EntryHash> {
+    anchor_hash(&format!("sap:transfer:claim:{transfer_id}"))
+}
+
+/// Create a sender-authored transfer intent and debit the sender atomically.
+#[hdk_extern]
+pub fn initiate_sap_transfer(input: TransferSapIntentInput) -> ExternResult<Record> {
     verify_caller_is_did(&input.from_did)?;
+
+    if input.transfer_id.is_empty() || input.transfer_id.len() > 256 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Transfer id must be 1-256 characters".into(),
+        )));
+    }
+    if input.to_did.is_empty() || !input.to_did.starts_with("did:") {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Transfer recipient DID is invalid".into(),
+        )));
+    }
     if input.from_did == input.to_did {
         return Err(wasm_error!(WasmErrorInner::Guest(
-            "Cannot transfer SAP to yourself".into()
+            "Cannot transfer SAP to yourself".into(),
         )));
     }
     if input.amount == 0 {
         return Err(wasm_error!(WasmErrorInner::Guest(
-            "Transfer amount must be positive".into()
+            "Transfer amount must be positive".into(),
         )));
     }
-    // Debit the sender (enforces caller==from, demurrage, sufficient balance).
-    debit_sap(DebitSapInput {
-        member_did: input.from_did.clone(),
+
+    let anchor = transfer_intent_anchor(&input.transfer_id)?;
+    let existing = get_links(
+        LinkQuery::try_new(anchor.clone(), LinkTypes::TransferIdToIntent)?,
+        GetStrategy::default(),
+    )?;
+    if let Some(link) = existing.into_iter().next() {
+        let hash = ActionHash::try_from(link.target)
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid transfer intent target".into())))?;
+        return get(hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Existing transfer intent could not be loaded".into(),
+        )));
+    }
+
+    let now = sys_time()?;
+    let intent = SapTransferIntent {
+        id: input.transfer_id.clone(),
+        from_did: input.from_did.clone(),
+        to_did: input.to_did.clone(),
         amount: input.amount,
-        reason: format!("Transfer to {}", input.to_did),
-    })?;
-    // Credit the receiver — backed by the debit above.
-    credit_sap(CreditSapInput {
-        member_did: input.to_did.clone(),
-        amount: input.amount,
-        reason: format!("Transfer from {}", input.from_did),
-    })
+        created_at: now,
+        expires_at: input.expires_at,
+    };
+
+    let intent_hash = create_entry(&EntryTypes::SapTransferIntent(intent))?;
+    create_link(
+        anchor.clone(),
+        intent_hash.clone(),
+        LinkTypes::TransferIdToIntent,
+        (),
+    )?;
+
+    let (balance_record, balance) = get_sap_balance_inner(&input.from_did)?;
+    let elapsed = elapsed_seconds(balance.last_demurrage_at, now);
+    let now_secs = (now.as_micros() / 1_000_000).max(0) as u64;
+    let deduction = if elapsed >= DEMURRAGE_MIN_ELAPSED_SECONDS {
+        compute_demurrage_with_exemption(
+            balance.balance,
+            balance.exemption.as_ref(),
+            now_secs,
+            DEMURRAGE_EXEMPT_FLOOR,
+            DEMURRAGE_RATE,
+            elapsed,
+        )
+    } else {
+        0
+    };
+    let effective = balance.balance.saturating_sub(deduction);
+    if input.amount > effective {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Insufficient SAP balance: effective {} (raw {} - demurrage {}), need {}",
+            effective, balance.balance, deduction, input.amount
+        ))));
+    }
+
+    let updated = SapBalance {
+        balance: effective - input.amount,
+        last_demurrage_at: now,
+        justified_by: Some(intent_hash.clone()),
+        ..balance
+    };
+    update_entry(
+        balance_record.action_address().clone(),
+        &EntryTypes::SapBalance(updated),
+    )?;
+
+    get(intent_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Transfer intent not found after creation".into(),
+    )))
+}
+
+/// Recipient-side SAP settlement.
+///
+/// The recipient creates exactly one immutable claim from the exact sender
+/// intent and receives the amount into their own owner-authenticated balance.
+/// Concurrent claims race on the recipient source chain and cannot both commit.
+#[hdk_extern]
+pub fn claim_sap_transfer(transfer_id: String) -> ExternResult<Record> {
+    validate_id(&transfer_id, "transfer_id")?;
+
+    let intent_anchor = transfer_intent_anchor(&transfer_id)?;
+    let intent_links = get_links(
+        LinkQuery::try_new(intent_anchor, LinkTypes::TransferIdToIntent)?,
+        GetStrategy::default(),
+    )?;
+    let Some(intent_link) = intent_links.into_iter().next() else {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Transfer intent not found".into(),
+        )));
+    };
+    let intent_hash = ActionHash::try_from(intent_link.target)
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid transfer intent target".into())))?;
+    let intent_record = must_get_valid_record(intent_hash.clone())?;
+    let intent = intent_record
+        .entry()
+        .to_app_option::<SapTransferIntent>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Transfer intent deserialization error: {:?}",
+                e
+            )))
+        })?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Transfer intent entry is missing",
+        )))?;
+
+    verify_caller_is_did(&intent.to_did)?;
+
+    if let Some(expiry) = intent.expires_at {
+        let now = sys_time()?;
+        if now > expiry {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Transfer intent has expired".into(),
+            )));
+        }
+    }
+
+    let claim_anchor = transfer_claim_anchor(&transfer_id)?;
+    let existing = get_links(
+        LinkQuery::try_new(claim_anchor.clone(), LinkTypes::TransferIdToClaim)?,
+        GetStrategy::default(),
+    )?;
+    if let Some(link) = existing.into_iter().next() {
+        let hash = ActionHash::try_from(link.target)
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid transfer claim target".into())))?;
+        return get(hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Existing transfer claim could not be loaded".into(),
+        )));
+    }
+
+    let now = sys_time()?;
+    let claim = SapTransferClaim {
+        transfer_id: intent.id.clone(),
+        intent_action_hash: intent_hash,
+        recipient_did: intent.to_did.clone(),
+        amount: intent.amount,
+        claimed_at: now,
+    };
+    let claim_hash = create_entry(&EntryTypes::SapTransferClaim(claim))?;
+    create_link(
+        claim_anchor,
+        claim_hash.clone(),
+        LinkTypes::TransferIdToClaim,
+        (),
+    )?;
+
+    let (balance_record, balance) = match get_sap_balance_inner(&intent.to_did) {
+        Ok(found) => found,
+        Err(_) => {
+            let balance = SapBalance {
+                member_did: intent.to_did.clone(),
+                balance: 0,
+                last_demurrage_at: now,
+                exemption: None,
+                justified_by: None,
+            };
+            let hash = create_entry(&EntryTypes::SapBalance(balance.clone()))?;
+            create_link(
+                anchor_hash(&format!("sap:{}", intent.to_did))?,
+                hash.clone(),
+                LinkTypes::DidToSapBalance,
+                (),
+            )?;
+            let record = get(hash, GetOptions::default())?.ok_or(wasm_error!(
+                WasmErrorInner::Guest("Recipient SAP balance could not be initialized".into())
+            ))?;
+            (record, balance)
+        }
+    };
+
+    let updated = SapBalance {
+        balance: balance.balance.checked_add(intent.amount).ok_or(wasm_error!(
+            WasmErrorInner::Guest("SAP balance overflow during transfer claim".into())
+        ))?,
+        justified_by: Some(claim_hash.clone()),
+        last_demurrage_at: now,
+        ..balance
+    };
+    update_entry(
+        balance_record.action_address().clone(),
+        &EntryTypes::SapBalance(updated),
+    )?;
+
+    get(claim_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Transfer claim not found after creation".into(),
+    )))
 }
 
 // ---------------------------------------------------------------------------
