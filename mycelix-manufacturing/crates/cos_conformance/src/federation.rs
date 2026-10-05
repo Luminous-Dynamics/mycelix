@@ -3769,26 +3769,55 @@ mod tests {
                 FederationStateMachineTraceCheckpointPublicationViolation::PublicationLineageNoRoot
             );
         }
-        let mut successor_by_predecessor = BTreeMap::<&str, &str>::new();
-        for publication in publications.values() {
+        let mut successor_by_predecessor = BTreeMap::<
+            &str,
+            (
+                &FederationStateMachineTraceCapsule,
+                &FederationStateMachineTraceCheckpointPublication,
+            ),
+        >::new();
+        for (publication_sha256, publication) in &publications {
+            let snapshot = snapshots
+                .iter()
+                .find(|(_, candidate)| candidate.publication_sha256 == *publication_sha256)
+                .expect("qualified publication must have a concrete snapshot");
             successor_by_predecessor.insert(
                 publication.previous_publication_sha256.as_str(),
-                publication.publication_sha256.as_str(),
+                (snapshot.0, *publication),
             );
         }
 
         let mut reachable = BTreeSet::new();
-        let mut current = roots[0].publication_sha256.as_str();
+        let root_publication = roots[0];
+        let mut current = root_publication.publication_sha256.as_str();
+        let mut current_snapshot = snapshots
+            .iter()
+            .find(|(_, publication)| publication.publication_sha256 == current)
+            .map(|(capsule, _)| *capsule)
+            .expect("root publication must have a concrete snapshot");
+
         loop {
             if !reachable.insert(current) {
                 return Err(
                     FederationStateMachineTraceCheckpointPublicationViolation::PublicationLineageCycle
                 );
             }
-            let Some(successor) = successor_by_predecessor.get(current) else {
+            let Some((successor_snapshot, successor)) =
+                successor_by_predecessor.get(current).copied()
+            else {
                 break;
             };
-            current = successor;
+            validate_state_machine_trace_checkpoint_publication_consistency(
+                current_snapshot,
+                publications
+                    .get(current)
+                    .copied()
+                    .expect("reachable publication must exist"),
+                successor_snapshot,
+                successor,
+            )?;
+            current = successor.publication_sha256.as_str();
+            current_snapshot = successor_snapshot;
         }
 
         if reachable.len() != publications.len() {
@@ -6145,6 +6174,31 @@ mod tests {
             validate_state_machine_trace_checkpoint_publication_lineage(&suffix_only),
             Err(
                 FederationStateMachineTraceCheckpointPublicationViolation::PublicationLineageNoRoot
+            )
+        );
+
+        let mut semantically_divergent_later = state_machine_trace_capsule(31, 12);
+        let mut divergent_publication = state_machine_trace_checkpoint_publication(
+            &semantically_divergent_later,
+            12,
+            &base_publication.publication_sha256,
+        );
+        semantically_divergent_later
+            .evidence[2]
+            .token ^= 1;
+        reseal_state_machine_trace_for_test(&mut semantically_divergent_later);
+        divergent_publication.body_sha256 = semantically_divergent_later.integrity.body_sha256.clone();
+        divergent_publication.chain_head_sha256 =
+            semantically_divergent_later.evidence[11].chain_sha256.clone();
+        reseal_trace_checkpoint_publication_for_test(&mut divergent_publication);
+        let semantically_divergent_collection =
+            vec![(&base, &base_publication), (&semantically_divergent_later, &divergent_publication)];
+        assert_eq!(
+            validate_state_machine_trace_checkpoint_publication_lineage(
+                &semantically_divergent_collection
+            ),
+            Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::SnapshotPrefixMismatch
             )
         );
 
