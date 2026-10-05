@@ -290,12 +290,41 @@ jobs:
           set -o pipefail
           nix develop .#ci --command             hc dna pack dna/ 2>&1 | tee qualification-dna-pack.log
 
+      - name: Verify Rust dependency closure immutability before runtime
+        id: dependency_closure_immutable
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: |
+          set -euo pipefail
+          test -s qualification-cargo-lock-sha256.txt
+          expected_hearth="$(awk '$2 == "Cargo.lock" {print $1}' qualification-cargo-lock-sha256.txt)"
+          expected_tests="$(awk '$2 == "tests/Cargo.lock" {print $1}' qualification-cargo-lock-sha256.txt)"
+          actual_hearth="$(sha256sum Cargo.lock | awk '{print $1}')"
+          actual_tests="$(sha256sum tests/Cargo.lock | awk '{print $1}')"
+          [[ "$actual_hearth" == "$expected_hearth" ]] || { echo "Hearth Cargo.lock changed after initial capture"; exit 1; }
+          [[ "$actual_tests" == "$expected_tests" ]] || { echo "tests/Cargo.lock changed after initial capture"; exit 1; }
+          printf '%s\n' "dependency_closure_initial_capture_verified=true" > qualification-dependency-closure-immutability.txt
+          cat qualification-dependency-closure-immutability.txt
       - name: Run Hearth 0.7 SweetConductor qualification
         id: sweettest
         working-directory: mycelix-workspace/mycelix-hearth
         run: |
           set -o pipefail
           nix develop .#ci --command bash -c             'set -o pipefail; cd tests && cargo test --locked --release --test sweettest_semantic_validation -- --include-ignored --test-threads=1 2>&1 | tee ../qualification-sweettest.log'
+
+      - name: Verify Rust dependency closure after runtime qualification
+        id: dependency_closure_immutable_after_runtime
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: |
+          set -euo pipefail
+          test -s qualification-cargo-lock-sha256.txt
+          expected_hearth="$(awk '$2 == "Cargo.lock" {print $1}' qualification-cargo-lock-sha256.txt)"
+          expected_tests="$(awk '$2 == "tests/Cargo.lock" {print $1}' qualification-cargo-lock-sha256.txt)"
+          actual_hearth="$(sha256sum Cargo.lock | awk '{print $1}')"
+          actual_tests="$(sha256sum tests/Cargo.lock | awk '{print $1}')"
+          [[ "$actual_hearth" == "$expected_hearth" ]] || { echo "Hearth Cargo.lock changed during qualification"; exit 1; }
+          [[ "$actual_tests" == "$expected_tests" ]] || { echo "tests/Cargo.lock changed during qualification"; exit 1; }
+          printf '%s\n' "dependency_closure_runtime_immutable=true" >> qualification-dependency-closure-immutability.txt
+          cat qualification-dependency-closure-immutability.txt
 
       - name: Verify every semantic qualification case executed
         working-directory: mycelix-workspace/mycelix-hearth
@@ -387,6 +416,7 @@ PYCOUNT
           ensure_marker "${hearth}/qualification-cargo-lock-sha256.txt" "unavailable_cargo_lock_capture"
           ensure_marker "${hearth}/qualification-cargo-lock-summary.txt" "unavailable_cargo_lock_summary"
           ensure_marker "${hearth}/qualification-dependency-closure.txt" "unavailable_dependency_closure_classification"
+          ensure_marker "${hearth}/qualification-dependency-closure-immutability.txt" "unavailable_dependency_closure_immutability"
           ensure_marker "${hearth}/qualification-source-contract-sha256.txt" "unavailable_source_contract_capture"
           ensure_marker "${hearth}/qualification-cargo-metadata.json" "unavailable_cargo_metadata_capture"
           ensure_marker "${hearth}/tests/qualification-cargo-metadata.json" "unavailable_tests_cargo_metadata_capture"
@@ -540,6 +570,8 @@ PY
             && real "${hearth}/qualification-dna-sha256.txt" \
             && real "${hearth}/qualification-cargo-lock-sha256.txt" \
             && grep -Fxq "dependency_closure_status=source_controlled_and_stable" "${hearth}/qualification-dependency-closure.txt" \
+            && grep -Fxq "dependency_closure_initial_capture_verified=true" "${hearth}/qualification-dependency-closure-immutability.txt" \
+            && grep -Fxq "dependency_closure_runtime_immutable=true" "${hearth}/qualification-dependency-closure-immutability.txt" \
             && real "${hearth}/qualification-source-contract-sha256.txt" \
             && real "${hearth}/qualification-cargo-metadata.json" \
             && real "${hearth}/tests/qualification-cargo-metadata.json" \
@@ -615,6 +647,7 @@ PY
             mycelix-workspace/mycelix-hearth/qualification-cargo-lock-sha256.txt
             mycelix-workspace/mycelix-hearth/qualification-cargo-lock-summary.txt
             mycelix-workspace/mycelix-hearth/qualification-dependency-closure.txt
+            mycelix-workspace/mycelix-hearth/qualification-dependency-closure-immutability.txt
             mycelix-workspace/mycelix-hearth/qualification-source-contract-sha256.txt
             mycelix-workspace/mycelix-hearth/qualification-evidence-status.txt
             mycelix-workspace/mycelix-hearth/qualification-cargo-metadata.json
