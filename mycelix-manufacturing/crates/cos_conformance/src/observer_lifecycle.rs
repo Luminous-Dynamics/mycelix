@@ -1784,6 +1784,28 @@ mod tests {
     }
 
     #[test]
+    fn authoritative_state_rejects_self_consistent_snapshot_mutation() {
+        let (mut ledger, _generation, snapshot) = active_ledger();
+        let mut forged = snapshot;
+        forged.independence = match forged.independence {
+            ObservationIndependenceV1::DeclaredIndependent => ObservationIndependenceV1::DeclaredDependent,
+            ObservationIndependenceV1::DeclaredDependent | ObservationIndependenceV1::Unknown => {
+                ObservationIndependenceV1::DeclaredIndependent
+            }
+        };
+        forged.snapshot_commitment = forged.recomputed_commitment();
+        assert!(forged.strict_commitment_matches());
+
+        ledger
+            .dependency_snapshots
+            .insert(forged.snapshot_id.clone(), forged);
+        assert!(
+            !ledger.authoritative_state_valid(),
+            "authoritative D6O validation must reject a self-consistent snapshot substitution"
+        );
+    }
+
+    #[test]
     fn authoritative_state_rejects_mismatched_snapshot_map_key() {
         let (ledger, _generation, snapshot) = active_ledger();
         let mut tampered = ledger;
