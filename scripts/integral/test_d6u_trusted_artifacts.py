@@ -149,7 +149,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         assert descriptor["path"] == path
         assert len(descriptor["blob_sha"]) == 40
         tree_record = subprocess.run(
-            ["git", "ls-tree", "-r", "HEAD", "--", path],
+            ["git", "ls-tree", "--full-tree", "-r", "HEAD", "--", path],
             check=True,
             capture_output=True,
             text=True,
