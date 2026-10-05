@@ -492,7 +492,13 @@ jobs:
           lock_path="$CANDIDATE_ROOT/crates/mycelix-bridge-common/Cargo.lock"
           lock_digest="$(sha256sum "$lock_path" | awk '{print $1}')"
           test "${#lock_digest}" -eq 64
-          lock_package_count="$(grep -c '^\[\[package\]\]
+          lock_package_count="$(grep -c '^\[\[package\]\]$' "$lock_path")"
+          lock_dependency_edges="$(python3 -c 'import sys,tomllib; d=tomllib.load(open(sys.argv[1],"rb")); print(sum(len(p.get("dependencies", [])) for p in d.get("package", [])))' "$lock_path")"
+          printf "%s" "$lock_package_count" | grep -Eq "^[0-9]+$"
+          printf "%s" "$lock_dependency_edges" | grep -Eq "^[0-9]+$"
+          test "$lock_package_count" -le 4096
+          test "$lock_dependency_edges" -le 32768
+          printf 'lock_digest=%s\nlock_package_count=%s\nlock_dependency_edges=%s\n' "$lock_digest" "$lock_package_count" "$lock_dependency_edges" >> "$GITHUB_OUTPUT"
           echo "PASS: committed Cargo.lock identity captured before candidate execution"
 
       - name: Pull and preflight pinned sandbox image
@@ -892,3 +898,4 @@ jobs:
         with:
           name: security-kernel-independent-qualification-${{ inputs.candidate_sha }}
           path: ${{ runner.temp }}/security-kernel-independent-qualification.txt
+
