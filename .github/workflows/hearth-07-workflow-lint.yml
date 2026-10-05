@@ -22,6 +22,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: hearth-07-workflow-lint-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
 jobs:
   actionlint:
     name: Validate Hearth 0.7 qualification workflow
