@@ -185,6 +185,8 @@ jobs:
               "trusted_dispatcher_workflow_sha": workflow_sha,
               "trusted_dispatcher_workflow_blob_sha": dispatcher_at_run["sha"],
               "trusted_s1_workflow_blob_sha": s1_at_run["sha"],
+              "qualification_receipt_artifact_id": artifact["id"],
+              "qualification_receipt_artifact_digest": artifact.get("digest"),
               "independent_qualification": "verified-pass",
               "status_publication": "deliberately-deferred-to-protected-status-plane",
           }, sort_keys=True))
