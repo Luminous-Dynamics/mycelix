@@ -206,7 +206,7 @@
   "artifact_max_total_bytes": 12582912,
   "trusted_workflow": {
     "path": ".github/workflows/d6u-trusted-evidence-attestation.yml",
-    "blob_sha": "b0ae1db41d13af423db78c3187d92bceb5bf9954"
+    "blob_sha": "0a5728e97bb5c33acb53772e7ee11c993ff750bf"
   },
   "artifact_max_entries": 32,
   "artifact_integrity": {
@@ -274,7 +274,7 @@
     },
     "scripts/integral/verify_d6u_trusted_attestation_retention.py": {
       "path": "scripts/integral/verify_d6u_trusted_attestation_retention.py",
-      "blob_sha": "46453c42da8ea7c1fb5bc4ce73e2a756c9100de5"
+      "blob_sha": "28239b126fe535abe578cfc302fd51e80e104e24"
     }
   },
   "trusted_actions": {
@@ -322,6 +322,7 @@
     "retention_artifact": {
       "name_template": "d6u-trusted-attestation-retention-run-{run_id}-attempt-{run_attempt}",
       "retention_days": 90
-    }
+    },
+    "public_good_instance": "sigstore-public-good"
   }
 }
