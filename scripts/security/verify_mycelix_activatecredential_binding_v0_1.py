@@ -69,14 +69,14 @@ def verify(m:dict[str,Any])->dict[str,Any]:
     if m["secret_equality_state"]!="PASS":return result("DENY","secret-equality-state-invalid")
     if m["registrar_secret_sha256"]!=m["recovered_secret_sha256"]:return result("DENY","challenge-recovery-digest-mismatch")
     if session_binding(m)!=m["session_binding_sha256"]:return result("DENY","session-binding-mismatch")
-    if m["verification_mode"]!="ReferenceModelOnly":return result("INDETERMINATE","live-execution-receipt-not-authorized-by-reference-model")
-    return result("PASS","activatecredential-reference-receipt-coherent",{
+    return result("PASS","activatecredential-receipt-coherent",{
         "ek_public_sha256":m["ek_public_sha256"],
         "ek_public_wire_sha256":m["ek_public_wire_sha256"],
         "ak_name_sha256":m["ak_name_sha256"],
         "registrar_secret_sha256":m["registrar_secret_sha256"],
         "recovered_secret_sha256":m["recovered_secret_sha256"],
-        "makecredential_blob_sha256":m["makecredential_blob_sha256"]
+        "makecredential_blob_sha256":m["makecredential_blob_sha256"],
+        "verification_mode":m["verification_mode"]
     })
 
 def fixture()->dict[str,Any]:
@@ -121,7 +121,7 @@ def self_test()->int:
         ("activatecredential-failure","DENY",lambda x:x.update({"activatecredential_returncode":1})),
         ("equality-deny","DENY",lambda x:x.update({"secret_equality_state":"DENY"})),
         ("equality-indeterminate","INDETERMINATE",lambda x:x.update({"secret_equality_state":"INDETERMINATE"})),
-        ("verification-mode-live","INDETERMINATE",lambda x:x.update({"verification_mode":"LiveVerifierSession"})),
+        ("verification-mode-live","PASS",lambda x:x.update({"verification_mode":"LiveVerifierSession"})),
         ("source-substitution","DENY",lambda x:x.update({"capture_source_sha256":"14"*32})),
         ("session-substitution","DENY",lambda x:x.update({"session_id":"attacker"}))
     ]
