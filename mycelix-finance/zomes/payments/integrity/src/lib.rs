@@ -833,9 +833,9 @@ fn validate_create_sap_transfer_intent(
             "Transfer intent sender DID must match the signed action author".into(),
         ));
     }
-    if intent.created_at != action.timestamp() {
+    if intent.created_at > action.timestamp() {
         return Ok(ValidateCallbackResult::Invalid(
-            "Transfer intent created_at must match the signed action timestamp".into(),
+            "Transfer intent created_at cannot be after the signed action timestamp".into(),
         ));
     }
 
@@ -861,9 +861,9 @@ fn validate_create_sap_transfer_claim(
             "Transfer claim amount must be positive".into(),
         ));
     }
-    if claim.claimed_at != action.timestamp() {
+    if claim.claimed_at > action.timestamp() {
         return Ok(ValidateCallbackResult::Invalid(
-            "Transfer claim claimed_at must match the signed action timestamp".into(),
+            "Transfer claim claimed_at cannot be after the signed action timestamp".into(),
         ));
     }
 
