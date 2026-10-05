@@ -430,10 +430,14 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 ..
             } => {
                 if matches!(app_entry, EntryTypes::CredentialRequest(_)) {
-                    return validate_update_credential_request(action, match app_entry {
-                        EntryTypes::CredentialRequest(req) => req,
-                        _ => unreachable!(),
-                    });
+                    return match app_entry {
+                        EntryTypes::CredentialRequest(req) => {
+                            validate_update_credential_request(action, req)
+                        }
+                        _ => Ok(ValidateCallbackResult::Invalid(
+                            "Credential request update dispatch became inconsistent".into(),
+                        )),
+                    };
                 }
 
                 let original = must_get_action(action.original_action_address.clone())?;
