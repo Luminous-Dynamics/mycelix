@@ -140,6 +140,12 @@ jobs:
           assert job["status"] == "completed"
           assert job["conclusion"] == "success"
           assert job["run_id"] == int(run_id)
+          assert job.get("workflow_ref") == (
+              f"{repo}/{os.environ['INDEPENDENT_WORKFLOW_PATH']}@refs/heads/main"
+          )
+          assert job.get("workflow_sha") == workflow_sha, (
+              "S1 job workflow SHA does not match the exact S0 caller workflow commit"
+          )
 
           required = (
               "Checkout trusted qualification root",
