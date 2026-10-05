@@ -7,3 +7,10 @@ The TPM 2.0 fixed-property interface exposes TPM2_PT_MANUFACTURER, TPM2_PT_VENDO
 The theorem is separate from EK SPKI identity, certificate-chain trust, revocation, and manufacturer authenticity. A certificate can have a valid key and valid issuer while still describing a different TPM implementation.
 
 The reference mapping and certificate are synthetic fixtures. ReferenceModelOnly is the ceiling.
+
+
+## Composition boundary
+
+The certificate SAN is not compared directly with caller-supplied TPM values. The verifier requires a properties_binding containing the exact properties-fixed receipt, then re-executes the TPM properties verifier as a separate process and consumes only its parsed result. The input and output receipts, verifier source digest, and property-source digest are all bound into the SAN session identity.
+
+Unknown vendor/model/version mappings remain INDETERMINATE. A valid certificate and valid SPKI key do not by themselves establish that the certificate describes the current TPM implementation.
