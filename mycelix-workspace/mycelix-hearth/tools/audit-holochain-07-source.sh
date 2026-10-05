@@ -805,6 +805,10 @@ for index, case in enumerate(cases, start=1):
         reject(f"{case_id} target_variant must be EntryTypes::<Name> or LinkTypes::<Name>")
     if coordinator_primitive not in {"create_entry", "update_entry", "create_link"}:
         reject(f"{case_id} coordinator_primitive must be create_entry, update_entry, or create_link")
+    if coordinator_primitive in {"create_entry", "update_entry"} and not target_variant.startswith("EntryTypes::"):
+        reject(f"{case_id} {coordinator_primitive} requires an EntryTypes::<Name> target_variant")
+    if coordinator_primitive == "create_link" and not target_variant.startswith("LinkTypes::"):
+        reject(f"{case_id} create_link requires a LinkTypes::<Name> target_variant")
     if (
         not (
             validator_source.startswith("mycelix-workspace/mycelix-hearth/")
