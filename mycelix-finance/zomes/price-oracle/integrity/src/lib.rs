@@ -242,6 +242,8 @@ pub enum LinkTypes {
     ItemToReports,
     /// Item name anchor → latest PriceConsensus
     ItemToConsensus,
+    /// Immutable publication index keyed by the canonical source commitment.
+    ConsensusPublicationIndex,
     /// Basket anchor → BasketDefinition
     AnchorToBasket,
     /// Reporter DID → their PriceReport entries
