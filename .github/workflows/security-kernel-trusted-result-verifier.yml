@@ -16,9 +16,10 @@ concurrency:
 
 env:
   BASE_REPOSITORY: "Luminous-Dynamics/mycelix"
+  BASE_REPOSITORY_ID: "1176351975"
   BASE_BRANCH: "main"
   TRUSTED_DISPATCHER_WORKFLOW_PATH: ".github/workflows/security-kernel-trusted-dispatch.yml"
-  TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA: "7df4cc30184f521bb9c64dc96926903744656538"
+  TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA: "32507a30589bdc40b2c69c858a2f27cb04eed989"
   INDEPENDENT_WORKFLOW_PATH: ".github/workflows/security-kernel-independent-qualification.yml"
   TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "608231c53487a8b62c9afc4aca1de613f8915e82"
   EXPECTED_JOB_NAME: "Independent Security Kernel"
@@ -27,6 +28,7 @@ jobs:
   verify:
     name: Independently verify qualification result
     runs-on: ubuntu-24.04
+    cache-mode: none
     timeout-minutes: 15
     steps:
       - name: Checkout trusted result verifier root
@@ -44,6 +46,7 @@ jobs:
           RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
         run: |
           set -euo pipefail
+          test "${ACTIONS_CACHE_MODE:-}" = "none"
 
           python3 - <<'PY'
           import json, os, re, subprocess, urllib.request
@@ -66,6 +69,10 @@ jobs:
               with urllib.request.urlopen(req, timeout=20) as response:
                   return json.load(response)
 
+          repository_obj = get(f"/repos/{repo}")
+          assert repository_obj["full_name"] == repo
+          assert repository_obj["id"] == int(os.environ["BASE_REPOSITORY_ID"])
+
           run = get(f"/repos/{repo}/actions/runs/{run_id}")
           assert run["id"] == int(run_id)
           assert run["run_attempt"] == run_attempt
@@ -74,6 +81,7 @@ jobs:
           assert run["event"] == "pull_request_target"
           assert run["path"] == os.environ["TRUSTED_DISPATCHER_WORKFLOW_PATH"]
           assert run["repository"]["full_name"] == repo
+          assert run["repository"]["id"] == int(os.environ["BASE_REPOSITORY_ID"])
           assert run["workflow_ref"] == f"{repo}/{os.environ['TRUSTED_DISPATCHER_WORKFLOW_PATH']}@refs/heads/main"
 
           workflow_sha = run.get("workflow_sha")

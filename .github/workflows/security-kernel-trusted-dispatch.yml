@@ -16,6 +16,7 @@ concurrency:
 
 env:
   BASE_REPOSITORY: "Luminous-Dynamics/mycelix"
+  BASE_REPOSITORY_ID: "1176351975"
   BASE_BRANCH: "main"
   TRUSTED_INDEPENDENT_WORKFLOW_PATH: ".github/workflows/security-kernel-independent-qualification.yml"
   TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "608231c53487a8b62c9afc4aca1de613f8915e82"
@@ -25,6 +26,7 @@ jobs:
   resolve:
     name: Resolve exact pull request subject
     runs-on: ubuntu-24.04
+    cache-mode: none
     timeout-minutes: 10
     outputs:
       candidate_pr: ${{ steps.resolve.outputs.candidate_pr }}
@@ -41,17 +43,23 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
           HEAD_REPOSITORY_ID: ${{ github.event.pull_request.head.repo.id }}
+          BASE_REPOSITORY_ID_EVENT: ${{ github.event.pull_request.base.repo.id }}
           BASE_REPOSITORY_EVENT: ${{ github.event.pull_request.base.repo.full_name }}
           BASE_BRANCH_EVENT: ${{ github.event.pull_request.base.ref }}
         run: |
           set -euo pipefail
           test "$GITHUB_WORKFLOW_REF" = "Luminous-Dynamics/mycelix/.github/workflows/security-kernel-trusted-dispatch.yml@refs/heads/main"
           test "$GITHUB_REF" = "refs/heads/main"
+          test "$GITHUB_REPOSITORY" = "$BASE_REPOSITORY"
+          test "$GITHUB_REPOSITORY_ID" = "$BASE_REPOSITORY_ID"
+          test "${ACTIONS_CACHE_MODE:-}" = "none"
           test "$GITHUB_EVENT_NAME" = "pull_request_target"
           printf '%s' "$PR_NUMBER" | grep -Eq '^[0-9]+$'
           printf '%s' "$HEAD_SHA" | grep -Eq '^[0-9a-f]{40}$'
           printf '%s' "$HEAD_REPOSITORY_ID" | grep -Eq '^[0-9]+$'
+          printf '%s' "$BASE_REPOSITORY_ID_EVENT" | grep -Eq '^[0-9]+$'
           test "$BASE_REPOSITORY_EVENT" = "$BASE_REPOSITORY"
+          test "$BASE_REPOSITORY_ID_EVENT" = "$BASE_REPOSITORY_ID"
           test "$BASE_BRANCH_EVENT" = "$BASE_BRANCH"
           test -n "$HEAD_REPOSITORY"
           python3 - <<'PY'
@@ -70,6 +78,7 @@ jobs:
           assert pr["number"] == pr_number
           assert pr["state"] == "open"
           assert pr["base"]["repo"]["full_name"] == repo
+          assert pr["base"]["repo"]["id"] == int(os.environ["BASE_REPOSITORY_ID"])
           assert pr["base"]["ref"] == os.environ["BASE_BRANCH"]
           assert pr["head"]["repo"]["full_name"] == os.environ["HEAD_REPOSITORY"]
           assert pr["head"]["repo"]["id"] == int(os.environ["HEAD_REPOSITORY_ID"])
