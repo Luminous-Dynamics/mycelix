@@ -3224,6 +3224,8 @@ mod tests {
     const FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_CONSISTENCY_RECEIPT_SCHEMA_VERSION: u16 = 1;
     const FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_CONSISTENCY_RECEIPT_PROFILE: &str =
         "integral-federation-trace-checkpoint-consistency-receipt-v1";
+    const FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_CONSISTENCY_RECEIPT_PROOF_TYPE: &str =
+        "append-only-prefix-consistency-v1";
     const FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_CONSISTENCY_RECEIPT_HASH_DOMAIN: &str =
         "integral-federation-trace-checkpoint-consistency-receipt-sha256-v1";
     const FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_CONSISTENCY_RECEIPT_HASH_ALGORITHM: &str =
@@ -3236,6 +3238,7 @@ mod tests {
     struct FederationStateMachineTraceCheckpointConsistencyReceipt {
         schema_version: u16,
         receipt_profile: String,
+        proof_type: String,
         hash_algorithm: String,
         hash_encoding: String,
         trace_schema_version: u16,
@@ -3253,6 +3256,7 @@ mod tests {
         hash_domain: String,
         schema_version: u16,
         receipt_profile: String,
+        proof_type: String,
         hash_algorithm: String,
         hash_encoding: String,
         trace_schema_version: u16,
@@ -3460,6 +3464,7 @@ mod tests {
         PublicationForkDetected,
         ConsistencyReceiptSchemaMismatch,
         ConsistencyReceiptProfileMismatch,
+        ConsistencyReceiptProofTypeMismatch,
         ConsistencyReceiptHashAlgorithmMismatch,
         ConsistencyReceiptHashEncodingMismatch,
         ConsistencyReceiptTraceBindingMismatch,
@@ -3476,6 +3481,7 @@ mod tests {
                 FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_CONSISTENCY_RECEIPT_HASH_DOMAIN.into(),
             schema_version: receipt.schema_version,
             receipt_profile: receipt.receipt_profile.clone(),
+            proof_type: receipt.proof_type.clone(),
             hash_algorithm: receipt.hash_algorithm.clone(),
             hash_encoding: receipt.hash_encoding.clone(),
             trace_schema_version: receipt.trace_schema_version,
@@ -3523,6 +3529,8 @@ mod tests {
                 FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_CONSISTENCY_RECEIPT_SCHEMA_VERSION,
             receipt_profile:
                 FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_CONSISTENCY_RECEIPT_PROFILE.into(),
+            proof_type:
+                FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_CONSISTENCY_RECEIPT_PROOF_TYPE.into(),
             hash_algorithm:
                 FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_CONSISTENCY_RECEIPT_HASH_ALGORITHM.into(),
             hash_encoding:
@@ -3567,6 +3575,13 @@ mod tests {
         {
             return Err(
                 FederationStateMachineTraceCheckpointPublicationViolation::ConsistencyReceiptProfileMismatch
+            );
+        }
+        if receipt.proof_type
+            != FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_CONSISTENCY_RECEIPT_PROOF_TYPE
+        {
+            return Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::ConsistencyReceiptProofTypeMismatch
             );
         }
         if receipt.hash_algorithm
@@ -6167,6 +6182,21 @@ mod tests {
             ),
             Err(
                 FederationStateMachineTraceCheckpointPublicationViolation::ConsistencyReceiptProfileMismatch
+            )
+        );
+
+        let mut bad_proof_type = receipt.clone();
+        bad_proof_type.proof_type = "inclusion-v1".into();
+        assert_eq!(
+            validate_state_machine_trace_checkpoint_consistency_receipt(
+                &earlier,
+                &earlier_publication,
+                &later,
+                &later_publication,
+                &bad_proof_type,
+            ),
+            Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::ConsistencyReceiptProofTypeMismatch
             )
         );
 
