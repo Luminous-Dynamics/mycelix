@@ -1537,6 +1537,119 @@ async fn dsid_064_deactivated_did_rejects_substrate_registration() {
     );
 }
 
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_065_deactivated_issuer_rejects_academic_credential() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let app = conductor
+        .setup_app(
+            "dsid-deactivated-academic-credential",
+            std::slice::from_ref(&dna),
+        )
+        .await
+        .unwrap();
+    let cell = app.cells()[0].clone();
+    let agent = app.agent().clone();
+    let issuer_did = format!("did:mycelix:{}", agent);
+
+    let did_record: Record = conductor
+        .call(&cell.zome("did_registry"), "create_did", ())
+        .await;
+
+    let deactivated: Record = conductor
+        .call(
+            &cell.zome("did_registry"),
+            "deactivate_did",
+            "DSID deactivated academic issuer regression",
+        )
+        .await;
+
+    // The active-DID guard is deliberately first in the academic issuer
+    // path, so this fixture only needs to deserialize; later credential
+    // semantics are irrelevant to the liveness regression.
+    let blocked: Result<serde_json::Value, _> = conductor
+        .call_fallible(
+            &cell.zome("education"),
+            "create_academic_credential",
+            serde_json::json!({
+                "issuer": {
+                    "id": issuer_did,
+                    "name": "DSID Academic Issuer",
+                    "type": ["University"],
+                    "image": null,
+                    "location": null,
+                    "accreditation": null
+                },
+                "subject": {
+                    "id": "did:mycelix:legacy:dsid-student",
+                    "name": null,
+                    "name_hash": null,
+                    "birth_date": null,
+                    "student_id": "DSID-STUDENT"
+                },
+                "achievement": {
+                    "degree_type": "Bachelor",
+                    "degree_name": "DSID Test Degree",
+                    "field_of_study": "Security Engineering",
+                    "minors": null,
+                    "conferral_date": "1970-01-01T00:00:00Z",
+                    "gpa": null,
+                    "honors": null,
+                    "cip_code": null,
+                    "credits_earned": null
+                },
+                "dns_did": {
+                    "domain": "dsid.invalid",
+                    "did": issuer_did,
+                    "txt_record": "",
+                    "dnssec": "Unknown",
+                    "last_verified": "1970-01-01T00:00:00Z",
+                    "verification_chain": []
+                },
+                "revocation_registry_id": "registry:dsid",
+                "valid_from": "1970-01-01T00:00:00Z",
+                "valid_until": null,
+                "proof": {
+                    "type": "DataIntegrityProof",
+                    "created": "1970-01-01T00:00:00Z",
+                    "verificationMethod": format!("{}#keys-1", issuer_did),
+                    "proofPurpose": "assertionMethod",
+                    "proofValue": "zDSID",
+                    "cryptosuite": null,
+                    "domain": null,
+                    "challenge": null,
+                    "algorithm": null
+                }
+            }),
+        )
+        .await;
+
+    let rejection = format!("{blocked:?}");
+    assert!(
+        blocked.is_err(),
+        "deactivated issuer must not mint an academic credential"
+    );
+    assert!(
+        rejection.contains("DID is not active"),
+        "academic issuance rejection must come from the active-DID guard, got: {rejection}"
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("issuer", agent.to_string());
+    emit_evidence(
+        "DSID-065",
+        "deactivated-issuer-rejects-academic-credential",
+        &dna,
+        agents,
+        &[&did_record, &deactivated],
+        "A deactivated issuer cannot create a new academic credential through the legacy education issuance path.",
+        format!("academic_credential_rejected={}", blocked.is_err()),
+        blocked.is_err(),
+    );
+}
+
 #[tokio::test(flavor = "multi_thread")]
 #[ignore]
 async fn dsid_006_self_recovery_projection_matches_canonical_state() {
