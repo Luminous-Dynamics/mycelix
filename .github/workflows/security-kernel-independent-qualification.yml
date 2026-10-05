@@ -341,12 +341,14 @@ jobs:
               grep -Eq "^NoNewPrivs:[[:space:]]+1$" /proc/self/status
               test "$(awk "/^CapEff:/{print \$2}" /proc/self/status)" = "0000000000000000"
               test ! -e /var/run/docker.sock
+              test ! -e /home/runner
+              test ! -w /
               if touch /sandbox-readonly-test 2>/dev/null; then
                 echo "root filesystem unexpectedly writable" >&2
                 exit 1
               fi
-              test ! -s /proc/net/route
-              test ! -s /proc/net/ipv6_route
+              test "$(tail -n +2 /proc/net/route | wc -l)" -eq 0
+              test "$(tail -n +2 /proc/net/ipv6_route | wc -l)" -eq 0
               test "$(cat /sys/fs/cgroup/pids.max)" = "512"
               echo "PASS: pinned sandbox image + non-root + read-only root + no network routes + dropped caps + no-new-privileges + bounded PIDs"
             '
@@ -468,6 +470,8 @@ jobs:
               --ulimit=nofile=4096:4096 \
               --ulimit=core=0:0 \
               --user "$runner_uid:$runner_gid" \
+              --init \
+              --stop-timeout=5 \
               --ipc=private \
               --pid=private \
               --cgroupns=private \
