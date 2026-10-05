@@ -118,6 +118,7 @@ workflow. The profile currently requires, among other invariants:
 - no public trust-construction helpers or trust-sensitive SecurityEvent fields;
 - exact Security Kernel package identity `mycelix-bridge-common`, edition 2024;
 - Cargo.lock format v4;
+- at most 4,096 lockfile package records and 32,768 dependency edges;
 - exact crates.io registry provenance and canonical 64-hex SHA-256 checksums;
 - no candidate-controlled Cargo source overrides, `[patch]`, `[replace]`, or relevant
   Cargo configuration files;
@@ -200,7 +201,8 @@ S1 emits a non-authoritative receipt containing at least:
 - `qualification_pass=true`.
 
 The receipt is evidence only. S2 never treats candidate-produced receipt text as the source
-of truth.
+of truth. Receipt upload is fail-closed: a successful qualification must retain the receipt artifact,
+and S2 requires the upload step to complete successfully.
 
 ## S2 — trusted result verifier
 
