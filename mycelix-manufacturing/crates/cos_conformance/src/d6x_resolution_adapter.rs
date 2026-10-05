@@ -42,7 +42,11 @@ impl ResolutionAttemptV1 {
             && match self.outcome {
                 ResolutionAttemptOutcomeV1::Retrieved =>
                     self.observed_commitment.is_some(),
-                ResolutionAttemptOutcomeV1::Unavailable => true,
+                ResolutionAttemptOutcomeV1::Unavailable =>
+                    // Unavailable means no concrete semantic object was observed;
+                    // carrying an observed commitment would contradict the derived
+                    // Missing resolution state and create ambiguous audit evidence.
+                    self.observed_commitment.is_none(),
                 // A historical resolution is still a concrete resolution. It
                 // must carry the exact observed commitment so a stale result
                 // cannot be represented as an identified object using only a
@@ -147,6 +151,18 @@ mod tests {
     }
 
     #[test]
+    #[test]
+    fn unavailable_attempt_rejects_an_observed_commitment() {
+        let attempt = ResolutionAttemptV1 {
+            address_kind: ResolutionAddressKindV1::Entry,
+            address: "entry-address".into(),
+            outcome: ResolutionAttemptOutcomeV1::Unavailable,
+            observed_commitment: Some("unexpected-observation".into()),
+            qualification_context_commitment: None,
+        };
+        assert!(!attempt.structurally_valid());
+    }
+
     fn unavailable_attempt_can_record_retrieval_address_without_observation() {
         let attempt = ResolutionAttemptV1 {
             address_kind: ResolutionAddressKindV1::Action,
