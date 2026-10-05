@@ -16,6 +16,53 @@ use mycelix_bridge_common::consciousness_profile::{
 };
 use mycelix_bridge_common::{RATE_LIMIT_WINDOW_SECS, check_rate_limit_count};
 use mycelix_zome_helpers as _;
+fn verify_did_active(did: &str, operation: &str) -> ExternResult<()> {
+    let response = call(
+        CallTargetCell::Local,
+        ZomeName::new("did_registry"),
+        FunctionName::new("is_did_active"),
+        None,
+        did.to_string(),
+    )?;
+
+    match response {
+        ZomeCallResponse::Ok(result) => {
+            let active = result.decode::<bool>().map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Failed to decode DID active state for {operation}: {e:?}"
+                )))
+            })?;
+            if active {
+                Ok(())
+            } else {
+                Err(wasm_error!(WasmErrorInner::Guest(format!(
+                    "DID is not active; refusing {operation}"
+                ))))
+            }
+        }
+        ZomeCallResponse::Unauthorized(_, _, _, _)
+        | ZomeCallResponse::AuthenticationFailed(_, _) => Err(wasm_error!(
+            WasmErrorInner::Guest(format!(
+                "DID active-state authorization failed for {operation}"
+            ))
+        )),
+        ZomeCallResponse::NetworkError(err) => Err(wasm_error!(WasmErrorInner::Guest(
+            format!("DID active-state verification failed for {operation}: {err}")
+        ))),
+        ZomeCallResponse::CountersigningSession(err) => Err(wasm_error!(
+            WasmErrorInner::Guest(format!(
+                "DID active-state verification failed for {operation} (countersigning: {err})"
+            ))
+        )),
+    }
+}
+
+fn verify_issuer_active(operation: &str) -> ExternResult<()> {
+    let caller = agent_info()?.agent_initial_pubkey;
+    verify_did_active(&format!("did:mycelix:{}", caller), operation)
+}
+
+
 
 /// Substrate registration metadata.
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -152,6 +199,7 @@ pub struct GrantSubstrateAccessInput {
 pub fn grant_external_substrate_access(
     input: GrantSubstrateAccessInput,
 ) -> ExternResult<ActionHash> {
+    verify_issuer_active("external substrate capability grant")?;
     let mut functions: HashSet<(ZomeName, FunctionName)> = HashSet::new();
     functions.insert((zome_info()?.name, "verify_tier_remote".into()));
     functions.insert((zome_info()?.name, "get_agent_profile_remote".into()));
@@ -1732,7 +1780,8 @@ pub struct MfaAssuranceLevelResult {
 /// the calling cluster bridge fills it in locally from its own DHT data.
 #[hdk_extern]
 pub fn issue_consciousness_credential(did: String) -> ExternResult<ConsciousnessCredential> {
-    enforce_rate_limit("issue_consciousness_credential")?;
+    verify_issuer_active("consciousness credential issuance")?;
+    enforce_issuer_active_NEVER("issue_consciousness_credential")?;
     if !did.starts_with("did:mycelix:") {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Invalid DID format — must start with did:mycelix:".into()
@@ -1815,7 +1864,8 @@ pub fn get_consciousness_credential(did: String) -> ExternResult<ConsciousnessCr
 pub fn issue_sovereign_credential(
     did: String,
 ) -> ExternResult<sovereign_profile::SovereignCredential> {
-    enforce_rate_limit("issue_sovereign_credential")?;
+    verify_issuer_active("sovereign credential issuance")?;
+    enforce_issuer_active_NEVER("issue_sovereign_credential")?;
     if !did.starts_with("did:mycelix:") {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Invalid DID format — must start with did:mycelix:".into()
