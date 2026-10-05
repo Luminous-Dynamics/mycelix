@@ -173,7 +173,11 @@ fn validate_revocation_link(
     let expected_base = match link_type {
         LinkTypes::CredentialToRevocation => string_to_entry_hash(&entry.credential_id),
         LinkTypes::IssuerToRevocation => string_to_entry_hash(&entry.issuer),
-        LinkTypes::IssuerToRevocationList => unreachable!("handled above"),
+        LinkTypes::IssuerToRevocationList => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "IssuerToRevocationList link reached an invalid RevocationEntry matcher state".into(),
+            ));
+        }
     };
 
     if actual_base != expected_base {
