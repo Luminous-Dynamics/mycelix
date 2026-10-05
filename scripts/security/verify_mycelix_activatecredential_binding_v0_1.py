@@ -99,6 +99,7 @@ def fixture()->dict[str,Any]:
         "makecredential_transcript_sha256":"66"*32,
         "activatecredential_transcript_sha256":"77"*32,
         "capture_source_sha256":sha256_file(CAPTURE_SOURCE_SCRIPT),
+        "ak_authorization_file_sha256":hashlib.sha256(b"reference-ak-auth").hexdigest(),
         "makecredential_returncode":0,
         "activatecredential_returncode":0,
         "secret_equality_state":"PASS"
