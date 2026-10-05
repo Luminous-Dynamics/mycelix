@@ -25,7 +25,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: security-kernel-independent-${{ inputs.candidate_sha }}
+  group: security-kernel-independent-${{ inputs.candidate_repository }}-${{ inputs.candidate_pr }}-${{ inputs.candidate_sha }}
   cancel-in-progress: true
 
 env:
