@@ -3216,6 +3216,9 @@ mod tests {
         "integral-federation-trace-checkpoint-publication-v1";
     const FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_HASH_DOMAIN: &str =
         "integral-federation-trace-checkpoint-publication-sha256-v1";
+    const FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_HASH_ALGORITHM: &str = "sha-256";
+    const FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_HASH_ENCODING: &str =
+        "serde-json-struct-order-v1";
     const FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_GENESIS: &str =
         "sha256:checkpoint-publication-genesis-v1:0000000000000000000000000000000000000000000000000000000000000000";
     const FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_CONSISTENCY_RECEIPT_SCHEMA_VERSION: u16 = 1;
@@ -3223,12 +3226,18 @@ mod tests {
         "integral-federation-trace-checkpoint-consistency-receipt-v1";
     const FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_CONSISTENCY_RECEIPT_HASH_DOMAIN: &str =
         "integral-federation-trace-checkpoint-consistency-receipt-sha256-v1";
+    const FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_CONSISTENCY_RECEIPT_HASH_ALGORITHM: &str =
+        "sha-256";
+    const FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_CONSISTENCY_RECEIPT_HASH_ENCODING: &str =
+        "serde-json-struct-order-v1";
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
     #[serde(deny_unknown_fields)]
     struct FederationStateMachineTraceCheckpointConsistencyReceipt {
         schema_version: u16,
         receipt_profile: String,
+        hash_algorithm: String,
+        hash_encoding: String,
         trace_schema_version: u16,
         trace_verification_profile: String,
         trace_index: usize,
@@ -3244,6 +3253,8 @@ mod tests {
         hash_domain: String,
         schema_version: u16,
         receipt_profile: String,
+        hash_algorithm: String,
+        hash_encoding: String,
         trace_schema_version: u16,
         trace_verification_profile: String,
         trace_index: usize,
@@ -3258,6 +3269,8 @@ mod tests {
     struct FederationStateMachineTraceCheckpointPublication {
         schema_version: u16,
         publication_profile: String,
+        hash_algorithm: String,
+        hash_encoding: String,
         trace_schema_version: u16,
         trace_verification_profile: String,
         trace_index: usize,
@@ -3273,6 +3286,8 @@ mod tests {
         hash_domain: String,
         schema_version: u16,
         publication_profile: String,
+        hash_algorithm: String,
+        hash_encoding: String,
         trace_schema_version: u16,
         trace_verification_profile: String,
         trace_index: usize,
@@ -3368,6 +3383,8 @@ mod tests {
             hash_domain: FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_HASH_DOMAIN.into(),
             schema_version: publication.schema_version,
             publication_profile: publication.publication_profile.clone(),
+            hash_algorithm: publication.hash_algorithm.clone(),
+            hash_encoding: publication.hash_encoding.clone(),
             trace_schema_version: publication.trace_schema_version,
             trace_verification_profile: publication.trace_verification_profile.clone(),
             trace_index: publication.trace_index,
@@ -3401,6 +3418,8 @@ mod tests {
         let mut publication = FederationStateMachineTraceCheckpointPublication {
             schema_version: FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_SCHEMA_VERSION,
             publication_profile: FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_PROFILE.into(),
+            hash_algorithm: FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_HASH_ALGORITHM.into(),
+            hash_encoding: FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_HASH_ENCODING.into(),
             trace_schema_version: capsule.schema_version,
             trace_verification_profile: capsule.verification_profile.clone(),
             trace_index: capsule.trace_index,
@@ -3419,6 +3438,8 @@ mod tests {
     enum FederationStateMachineTraceCheckpointPublicationViolation {
         UnsupportedSchemaVersion,
         UnsupportedPublicationProfile,
+        UnsupportedPublicationHashAlgorithm,
+        UnsupportedPublicationHashEncoding,
         TraceVerificationProfileMismatch,
         TraceSchemaVersionMismatch,
         TraceIndexMismatch,
@@ -3439,6 +3460,8 @@ mod tests {
         PublicationForkDetected,
         ConsistencyReceiptSchemaMismatch,
         ConsistencyReceiptProfileMismatch,
+        ConsistencyReceiptHashAlgorithmMismatch,
+        ConsistencyReceiptHashEncodingMismatch,
         ConsistencyReceiptTraceBindingMismatch,
         ConsistencyReceiptPublicationBindingMismatch,
         ConsistencyReceiptEndpointMismatch,
@@ -3453,6 +3476,8 @@ mod tests {
                 FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_CONSISTENCY_RECEIPT_HASH_DOMAIN.into(),
             schema_version: receipt.schema_version,
             receipt_profile: receipt.receipt_profile.clone(),
+            hash_algorithm: receipt.hash_algorithm.clone(),
+            hash_encoding: receipt.hash_encoding.clone(),
             trace_schema_version: receipt.trace_schema_version,
             trace_verification_profile: receipt.trace_verification_profile.clone(),
             trace_index: receipt.trace_index,
@@ -3498,6 +3523,10 @@ mod tests {
                 FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_CONSISTENCY_RECEIPT_SCHEMA_VERSION,
             receipt_profile:
                 FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_CONSISTENCY_RECEIPT_PROFILE.into(),
+            hash_algorithm:
+                FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_CONSISTENCY_RECEIPT_HASH_ALGORITHM.into(),
+            hash_encoding:
+                FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_CONSISTENCY_RECEIPT_HASH_ENCODING.into(),
             trace_schema_version: earlier_publication.trace_schema_version,
             trace_verification_profile: earlier_publication.trace_verification_profile.clone(),
             trace_index: earlier_publication.trace_index,
@@ -3538,6 +3567,20 @@ mod tests {
         {
             return Err(
                 FederationStateMachineTraceCheckpointPublicationViolation::ConsistencyReceiptProfileMismatch
+            );
+        }
+        if receipt.hash_algorithm
+            != FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_CONSISTENCY_RECEIPT_HASH_ALGORITHM
+        {
+            return Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::ConsistencyReceiptHashAlgorithmMismatch
+            );
+        }
+        if receipt.hash_encoding
+            != FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_CONSISTENCY_RECEIPT_HASH_ENCODING
+        {
+            return Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::ConsistencyReceiptHashEncodingMismatch
             );
         }
         if receipt.trace_schema_version != earlier_publication.trace_schema_version
@@ -3620,6 +3663,20 @@ mod tests {
         {
             return Err(
                 FederationStateMachineTraceCheckpointPublicationViolation::UnsupportedPublicationProfile
+            );
+        }
+        if publication.hash_algorithm
+            != FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_HASH_ALGORITHM
+        {
+            return Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::UnsupportedPublicationHashAlgorithm
+            );
+        }
+        if publication.hash_encoding
+            != FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_HASH_ENCODING
+        {
+            return Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::UnsupportedPublicationHashEncoding
             );
         }
         if publication.trace_schema_version != capsule.schema_version {
@@ -5822,6 +5879,32 @@ mod tests {
             .is_ok()
         );
 
+        let mut bad_publication_algorithm = later_publication.clone();
+        bad_publication_algorithm.hash_algorithm = "sha-512".into();
+        reseal_trace_checkpoint_publication_for_test(&mut bad_publication_algorithm);
+        assert_eq!(
+            validate_state_machine_trace_checkpoint_publication(
+                &later,
+                &bad_publication_algorithm,
+            ),
+            Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::UnsupportedPublicationHashAlgorithm
+            )
+        );
+
+        let mut bad_publication_encoding = later_publication.clone();
+        bad_publication_encoding.hash_encoding = "rfc-8785-jcs".into();
+        reseal_trace_checkpoint_publication_for_test(&mut bad_publication_encoding);
+        assert_eq!(
+            validate_state_machine_trace_checkpoint_publication(
+                &later,
+                &bad_publication_encoding,
+            ),
+            Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::UnsupportedPublicationHashEncoding
+            )
+        );
+
         let mut forged_publication_schema = later_publication.clone();
         forged_publication_schema.trace_schema_version = 4;
         reseal_trace_checkpoint_publication_for_test(&mut forged_publication_schema);
@@ -6084,6 +6167,36 @@ mod tests {
             ),
             Err(
                 FederationStateMachineTraceCheckpointPublicationViolation::ConsistencyReceiptProfileMismatch
+            )
+        );
+
+        let mut bad_algorithm = receipt.clone();
+        bad_algorithm.hash_algorithm = "sha-512".into();
+        assert_eq!(
+            validate_state_machine_trace_checkpoint_consistency_receipt(
+                &earlier,
+                &earlier_publication,
+                &later,
+                &later_publication,
+                &bad_algorithm,
+            ),
+            Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::ConsistencyReceiptHashAlgorithmMismatch
+            )
+        );
+
+        let mut bad_encoding = receipt.clone();
+        bad_encoding.hash_encoding = "rfc-8785-jcs".into();
+        assert_eq!(
+            validate_state_machine_trace_checkpoint_consistency_receipt(
+                &earlier,
+                &earlier_publication,
+                &later,
+                &later_publication,
+                &bad_encoding,
+            ),
+            Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::ConsistencyReceiptHashEncodingMismatch
             )
         );
 
