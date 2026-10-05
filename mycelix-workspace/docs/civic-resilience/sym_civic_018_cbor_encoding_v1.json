@@ -21,12 +21,12 @@
     {"id":"C-15","family":"nonminimal_map_length","hex":"8447b8020126044101a0f64100"},
     {"id":"C-16","family":"indefinite_sign1_array","hex":"9f46a20126044101a0f64100ff"},
     {"id":"C-17","family":"indefinite_protected_map","hex":"8447bf0126044101ffa0f64100"},
-    {"id":"C-18","family":"indefinite_signature_bytes","hex":"8446a20126044101a05f4100fff6"},
-    {"id":"C-19","family":"indefinite_text_key","hex":"8446a201260441017f6178ffa0f64100"},
+    {"id":"C-18","family":"indefinite_signature_bytes","hex":"8446a20126044101a0f65f4100ff"},
+    {"id":"C-19","family":"indefinite_text_key","hex":"8446a20126044101a17f6178fff4f64100"},
     {"id":"C-20","family":"nonminimal_negative_integer","hex":"8447a2013806044101a0f64100"},
     {"id":"C-21","family":"truncated_item","hex":"8446a2012604"},
     {"id":"C-22","family":"trailing_bytes","hex":"8446a20126044101a0f6410000"},
-    {"id":"C-23","family":"invalid_utf8_text_key","hex":"8446a20126044101a163c32878f44100"},
+    {"id":"C-23","family":"invalid_utf8_text_key","hex":"8446a20126044101a163c32878f4f64100"},
     {"id":"C-24","family":"reserved_simple_value","hex":"8446a20126044101a0f8014100"}
   ]
 }
