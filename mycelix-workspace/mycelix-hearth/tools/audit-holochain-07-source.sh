@@ -891,33 +891,34 @@ check_semantic_case_entrypoints() {
       echo "FAIL: $id could not isolate coordinator operation $operation for typed target binding"
       fail=1
     else
-      if [[ -n "$coord_block" ]] && python3 - "$coordinator_primitive" "$target_variant" <<'PY' <<<"$coord_block"
+      if COORD_WITNESS="$coord_block" python3 - "$coordinator_primitive" "$target_variant" <<'PY'
+import os
 import re
 import sys
 
 primitive, target = sys.argv[1:]
-source = sys.stdin.read()
+source = os.environ["COORD_WITNESS"]
 
 token_re = re.compile(
-    r'//[^\\n]*'
-    r'|/\\*.*?\\*/'
-    r'|(?:br|rb|r)(#{0,255})"(?:.|\\n)*?"\\1'
-    r'|"(?:\\\\.|[^"\\\\])*"'
-    r"|b?'(?:\\\\.|[^'\\\\\\n])'(?![A-Za-z0-9_])",
+    r'//[^\n]*'
+    r'|/\*.*?\*/'
+    r'|(?:br|rb|r)(#{0,255})"(?:.|\n)*?"\1'
+    r'|"(?:\\.|[^"\\])*"'
+    r"|b?'(?:\\\\.|[^'\\\n])'(?![A-Za-z0-9_])",
     re.S,
 )
 masked = token_re.sub(
-    lambda m: "".join("\\n" if c == "\\n" else " " for c in m.group(0)),
+    lambda m: "".join("\n" if c == "\n" else " " for c in m.group(0)),
     source,
 )
 
 escaped_target = re.escape(target)
 if primitive == "create_entry":
-    pattern = rf'\\bcreate_entry\\s*\\(\\s*&\\s*EntryTypes::{escaped_target}\\s*\\('
+    pattern = rf'\bcreate_entry\s*\(\s*&\s*EntryTypes::{escaped_target}\s*\('
 elif primitive == "update_entry":
-    pattern = rf'\\bupdate_entry\\s*\\([^;]*?&\\s*EntryTypes::{escaped_target}\\s*\\('
+    pattern = rf'\bupdate_entry\s*\([^;]*?&\s*EntryTypes::{escaped_target}\s*\('
 elif primitive == "create_link":
-    pattern = rf'\\bcreate_link\\s*\\([^;]*?LinkTypes::{escaped_target}\\b'
+    pattern = rf'\bcreate_link\s*\([^;]*?LinkTypes::{escaped_target}\b'
 else:
     raise SystemExit(f"unsupported coordinator primitive {primitive!r}")
 
@@ -926,18 +927,21 @@ if not re.search(pattern, masked, re.S):
     raise SystemExit(2)
 
 oracle_false = (
-    f'fn example() {{\\n'
-    f'    // {primitive}({target});\\n'
-    f'    let text = "{primitive} EntryTypes::{target}";\\n'
+    f'fn example() {{\n'
+    f'    // {primitive}({target});\n'
+    f'    let text = "{primitive} EntryTypes::{target}";\n'
     f'}}'
 )
-assert not re.search(pattern, token_re.sub(lambda m: " " * len(m.group(0)), oracle_false), (
+oracle_masked = token_re.sub(
+    lambda m: " " * len(m.group(0)),
+    oracle_false,
+)
+assert not re.search(pattern, oracle_masked, re.S), (
     "coordinator target matcher accepted a comment/string false positive"
 )
 
 print(f"OK:   coordinator {primitive} is token-aware and binds concrete target {target}")
-PY
-      then
+PYhen
         echo "OK:   $id coordinator $operation binds $coordinator_primitive to $target_variant with token-aware matching"
       else
         echo "FAIL: $id coordinator $operation does not bind $coordinator_primitive to $target_variant with token-aware matching"
