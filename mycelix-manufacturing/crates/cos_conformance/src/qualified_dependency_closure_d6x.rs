@@ -373,23 +373,9 @@ impl DependencyClosureCertificateV1 {
             return false;
         }
 
-        self.dependencies
-            .iter()
-            .filter(|dependency| {
-                matches!(
-                    self.dependency_resolutions.get(*dependency),
-                    Some(
-                        SemanticDependencyResolutionV1::Present
-                            | SemanticDependencyResolutionV1::Stale
-                    )
-                )
-            })
-            .all(|dependency| {
-                self.resolution_evidence
-                    .get(dependency)
-                    .and_then(|evidence| evidence.qualification_context_commitment.as_deref())
-                    == Some(expected_context_commitment)
-            })
+        self.resolution_evidence.values().all(|evidence| {
+            evidence.qualification_context_commitment.as_deref() == Some(expected_context_commitment)
+        })
     }
 
     /// Construct a deterministic commitment to the exact audit evidence
@@ -2860,6 +2846,65 @@ mod tests {
                 &complete,
             )
         );
+    }
+
+    #[test]
+    fn strict_context_binding_rejects_mixed_context_audit_evidence() {
+        let (projection, environment, derivation_profile) = projection(false);
+        let closure_profile = profile(BTreeSet::new());
+        let closure = compute_dependency_closure(
+            &projection,
+            &environment,
+            &derivation_profile,
+            &closure_profile,
+        )
+        .expect("verified closure");
+
+        let selected_dependency = closure
+            .dependencies
+            .iter()
+            .next()
+            .expect("selected dependency")
+            .clone();
+        let missing_dependency = SemanticDependencyReferenceV1::node("missing", None);
+
+        let context_a = canonical_sha256(
+            "test-d6x-resolution-context",
+            &serde_json::json!({"scope":"a"}),
+        );
+        let context_b = canonical_sha256(
+            "test-d6x-resolution-context",
+            &serde_json::json!({"scope":"b"}),
+        );
+
+        let mut evidenced = closure.clone();
+        evidenced.missing_dependencies.insert(missing_dependency.clone());
+        evidenced.dependency_resolutions.insert(
+            missing_dependency.clone(),
+            SemanticDependencyResolutionV1::Missing,
+        );
+        evidenced.resolution_evidence.insert(
+            selected_dependency.clone(),
+            SemanticDependencyResolutionEvidenceV1 {
+                retrieval_reference: Some("runtime://resolver/selected".into()),
+                observed_commitment: selected_dependency.commitment.clone(),
+                qualification_context_commitment: Some(context_a.clone()),
+            },
+        );
+        evidenced.resolution_evidence.insert(
+            missing_dependency,
+            SemanticDependencyResolutionEvidenceV1 {
+                retrieval_reference: Some("runtime://resolver/missing".into()),
+                observed_commitment: None,
+                qualification_context_commitment: Some(context_b),
+            },
+        );
+
+        assert_eq!(
+            evidenced.resolution_evidence_status(),
+            ResolutionEvidenceStatusV1::Complete
+        );
+        assert!(!evidenced.resolution_evidence_matches_context(&context_a));
     }
 
     #[test]
