@@ -71,6 +71,23 @@ A successful SAP transfer now means:
 
 The bridge therefore keeps CrossHappPayment in Processing and emits PaymentAwaitingRecipientClaim.
 
+## 5a. Durable compost settlement
+
+Fee and demurrage redistribution are durable-first. Balance mutations persist a pending compost-delivery obligation instead of performing treasury side effects inside the monetary transaction.
+
+Each pending queue link has a stable Holochain link-creation ActionHash. That hash is passed as the treasury delivery identity. Treasury records the corresponding CompostReceival under an append-only delivery-identity index and returns the existing receival on replay.
+
+Therefore:
+
+    fee/demurrage debit
+    -> durable pending-delivery link
+    -> treasury delivery
+    -> queue-link deletion
+
+does not rely on queue-link deletion as the replay guard. A successful treasury delivery followed by a failed queue-link deletion is replay-safe.
+
+Queue presence is not completion evidence: the demurrage API reports redistributed=false until treasury delivery is actually observed as successful.
+
 Settlement reconciliation:
 
     exact payment reference
