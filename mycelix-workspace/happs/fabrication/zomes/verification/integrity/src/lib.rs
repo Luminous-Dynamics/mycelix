@@ -351,6 +351,22 @@ mod tests {
     }
 
     #[test]
+    fn test_unavailable_claim_serde_roundtrip_preserves_empty_score() {
+        let mut claim = valid_safety_claim();
+        claim.epistemic = None;
+        claim.epistemic_provenance = EpistemicProvenance::KnowledgeUnavailable;
+
+        let json = serde_json::to_string(&claim).unwrap();
+        let restored: SafetyClaim = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(restored.epistemic, None);
+        assert_eq!(
+            restored.epistemic_provenance,
+            EpistemicProvenance::KnowledgeUnavailable
+        );
+    }
+
+    #[test]
     fn test_unavailable_claim_cannot_carry_epistemic_score() {
         let mut claim = valid_safety_claim();
         claim.epistemic_provenance = EpistemicProvenance::KnowledgeUnavailable;
