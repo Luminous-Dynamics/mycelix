@@ -7032,14 +7032,19 @@ mod tests {
     #[test]
     fn state_machine_failure_capsule_round_trips_and_is_deterministic() {
         let (_, plan) = state_machine_trace_plan(11, 6);
-        let audit = vec![
-            FederationInvariantAuditEntry {
-                id: FederationInvariantId::SourceObservationBijection,
-                status: FederationInvariantAuditStatus::Violated(
-                    FederationInvariantViolation::SourceObservationSetMismatch,
-                ),
-            },
-        ];
+        let audit = FEDERATION_INVARIANT_REGISTRY
+            .iter()
+            .map(|spec| FederationInvariantAuditEntry {
+                id: spec.id,
+                status: if spec.id == FederationInvariantId::SourceObservationBijection {
+                    FederationInvariantAuditStatus::Violated(
+                        FederationInvariantViolation::SourceObservationSetMismatch,
+                    )
+                } else {
+                    FederationInvariantAuditStatus::Passed
+                },
+            })
+            .collect::<Vec<_>>();
         let capsule = FederationStateMachineFailureCapsule {
             schema_version: 2,
             failure_kind: "invariant-violation".into(),
