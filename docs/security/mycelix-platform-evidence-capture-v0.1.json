@@ -544,7 +544,7 @@
     "event_log_semantics": "The PC-client event log is an input to reconstruction; parsing alone is not a trust decision.",
     "reference_values": "Reference values are identified by version and digest and remain an independent appraisal input.",
     "ek_certificate": "EK certificate capture is TPM_NVRAM-only and preserves raw bytes; absence is explicit and does not trigger a network fallback.",
-    "ek_certificate_chain": "Certificate authorization is an explicit offline evidence object; missing issuer/root/CRL material is INDETERMINATE and no network discovery is permitted."
+    "ek_certificate_chain": "Certificate authorization is an explicit offline evidence object; missing issuer/root/CRL material is INDETERMINATE and no network discovery is permitted.",
     "public_name_coherence": "AK and EK public-area/name results are independently re-executed from ReadPublic inputs; live ReadPublic provenance is explicit and does not raise the claim ceiling.",
     "trusted_time": "Trusted time is an externally qualified evidence object; local wall-clock time is not authoritative.",
     "authorization": "Coherent platform Evidence remains evidence only and is consumed by the downstream RATS/Relying-Party/PEP chain."
