@@ -126,6 +126,7 @@ jobs:
               "Resolve exact candidate source",
               "Static trust-surface audit",
               "Pull and preflight pinned sandbox image",
+              "Snapshot locked dependency identity",
               "Prepare locked dependency subject",
               "Vendor locked dependency closure in fetch sandbox",
               "Execute candidate qualification in disposable networkless sandbox",
