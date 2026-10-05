@@ -180,6 +180,8 @@ jobs:
           cargo test --locked -p mfa_integrity --lib
           cargo test --locked -p recovery_integrity --lib
           cargo test --locked -p trust_credential_integrity --lib
+          cargo test --locked -p education_integrity --lib
+          cargo test --locked -p web_of_trust_integrity --lib
           cargo test --locked -p verifiable_credential_integrity --lib
           cargo test --locked -p verifiable_credential_coordinator --lib
 
