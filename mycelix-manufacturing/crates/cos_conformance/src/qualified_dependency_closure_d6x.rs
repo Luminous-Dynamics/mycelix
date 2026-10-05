@@ -3065,6 +3065,30 @@ mod tests {
             Some(context.clone())
         );
 
+        let mut context_substituted_summary = summary.clone();
+        let context_b = canonical_sha256(
+            "test-d6x-resolution-context",
+            &serde_json::json!({"scope":"other"}),
+        );
+        context_substituted_summary.resolution_qualification_context_commitment =
+            Some(context_b.clone());
+        context_substituted_summary.commitment =
+            context_substituted_summary.recompute();
+        assert!(context_substituted_summary.valid());
+        assert!(
+            !context_substituted_summary.verifies_against_expectations_with_complete_resolution_evidence(
+                "verifier:d6x-test",
+                &policy,
+                &context,
+                &projection,
+                &environment,
+                &derivation_profile,
+                &closure_profile,
+                &evidenced,
+            ),
+            "strict verification must reject a self-recommitted context substitution"
+        );
+
         let mut substituted = evidenced.clone();
         substituted
             .resolution_evidence
