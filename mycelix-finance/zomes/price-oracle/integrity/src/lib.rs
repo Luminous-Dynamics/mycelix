@@ -274,8 +274,11 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::PriceReport(_) => Ok(ValidateCallbackResult::Invalid(
                     "Price reports cannot be updated — submit a new report instead".into(),
                 )),
-                // Consensus entries are replaced, not updated
-                EntryTypes::PriceConsensus(consensus) => validate_consensus(&consensus),
+                // Published consensus artifacts are immutable. A new window/source
+                // set requires a new artifact rather than mutating historical state.
+                EntryTypes::PriceConsensus(_) => Ok(ValidateCallbackResult::Invalid(
+                    "Published consensus artifacts cannot be updated".into(),
+                )),
                 // Baskets can be updated by creator
                 EntryTypes::BasketDefinition(basket) => validate_basket(&basket),
                 EntryTypes::VolatilityAlert(_) => Ok(ValidateCallbackResult::Valid),
