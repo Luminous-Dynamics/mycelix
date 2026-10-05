@@ -25,6 +25,10 @@ PUBLIC_NAME_VERIFIER_SCRIPT = ROOT / "scripts/security/verify_mycelix_tpm_public
 PUBLIC_NAME_VERIFIER_ID = "mycelix.tpm.public-name-coherence.v0.1"
 EK_TEMPLATE_VERIFIER_SCRIPT = ROOT / "scripts/security/verify_mycelix_ek_template_appraisal_v0_1.py"
 EK_TEMPLATE_VERIFIER_ID = "mycelix.tpm.ek-template-appraisal.v0.1"
+EK_CERTIFICATE_CAPTURE_SCRIPT = ROOT / "scripts/security/capture_mycelix_ek_certificate_nv_v0_1.py"
+EK_CERTIFICATE_CAPTURE_ID = "mycelix.tpm.ek-certificate-nv-capture.v0.1"
+EK_CERT_SPki_VERIFIER_SCRIPT = ROOT / "scripts/security/verify_mycelix_ek_cert_spki_binding_v0_1.py"
+EK_CERT_SPki_VERIFIER_ID = "mycelix.tpm.ek-cert-spki-binding.v0.1"
 RECONSTRUCTION_VERIFIER_ID = "mycelix.pc-client.eventlog-reconstruction.v0.1"
 
 
@@ -163,6 +167,23 @@ def session_binding(manifest: dict[str, Any]) -> str:
             "ek_template_wire_sha256": manifest["ek_template_appraisal"]["wire_sha256"],
             "ek_template_source_sha256": manifest["ek_template_appraisal"]["source_sha256"],
             "ek_template_transcript_sha256": manifest["ek_template_appraisal"]["transcript_sha256"],
+            "ek_certificate_capture_status": manifest["ek_certificate_capture"]["status"],
+            "ek_certificate_capture_verifier_id": manifest["ek_certificate_capture"]["verifier_id"],
+            "ek_certificate_capture_result_sha256": manifest["ek_certificate_capture"]["result_sha256"],
+            "ek_certificate_capture_inventory_sha256": manifest["ek_certificate_capture"]["inventory_sha256"],
+            "ek_certificate_capture_transcript_sha256": manifest["ek_certificate_capture"]["transcript_sha256"],
+            "ek_certificate_capture_script_sha256": manifest["ek_certificate_capture"]["script_sha256"],
+            "ek_certificate_capture_source_mode": manifest["ek_certificate_capture"]["source_mode"],
+            "ek_certificate_capture_candidate_handles": manifest["ek_certificate_capture"]["candidate_handles"],
+            "ek_certificate_rsa_sha256": manifest["ek_certificate_capture"]["rsa_certificate_sha256"] or "",
+            "ek_certificate_rsa_present": manifest["ek_certificate_capture"]["rsa_certificate_present"],
+            "ek_cert_spki_status": manifest["ek_cert_spki_binding"]["status"],
+            "ek_cert_spki_verifier_id": manifest["ek_cert_spki_binding"]["verifier_id"],
+            "ek_cert_spki_input_sha256": manifest["ek_cert_spki_binding"]["input_sha256"] or "",
+            "ek_cert_spki_output_sha256": manifest["ek_cert_spki_binding"]["output_sha256"] or "",
+            "ek_cert_spki_certificate_sha256": manifest["ek_cert_spki_binding"]["certificate_sha256"] or "",
+            "ek_cert_spki_certificate_source_sha256": manifest["ek_cert_spki_binding"]["certificate_source_sha256"] or "",
+            "ek_cert_spki_ek_public_source_sha256": manifest["ek_cert_spki_binding"]["ek_public_source_sha256"] or "",
         }
     )
 
@@ -189,39 +210,6 @@ def run(
         stderr=subprocess.PIPE,
         check=check,
     )
-
-
-PUBLIC_NAME_FIXTURE = {
-    "ak": {
-        "status": "INDETERMINATE",
-        "verifier_id": PUBLIC_NAME_VERIFIER_ID,
-        "output_sha256": "aa" * 32,
-        "input_sha256": "ab" * 32,
-        "wire_sha256": "ac" * 32,
-        "name_sha256": "ad" * 32,
-        "qname_sha256": "ae" * 32,
-        "source_sha256": "af" * 32,
-    },
-    "ek": {
-        "status": "INDETERMINATE",
-        "verifier_id": PUBLIC_NAME_VERIFIER_ID,
-        "output_sha256": "ba" * 32,
-        "input_sha256": "bb" * 32,
-        "wire_sha256": "bc" * 32,
-        "name_sha256": "bd" * 32,
-        "qname_sha256": "be" * 32,
-        "source_sha256": "bf" * 32,
-    },
-}
-EK_TEMPLATE_FIXTURE = {
-    "status": "INDETERMINATE",
-    "verifier_id": EK_TEMPLATE_VERIFIER_ID,
-    "output_sha256": "ca" * 32,
-    "input_sha256": "cb" * 32,
-    "wire_sha256": "cc" * 32,
-    "source_sha256": "cd" * 32,
-    "transcript_sha256": "ce" * 32,
-}
 
 
 def fixture_manifest() -> dict[str, Any]:
@@ -252,8 +240,61 @@ def fixture_manifest() -> dict[str, Any]:
             "source_sha256": sha256_file(RAW_EVENTLOG_PARSER_SCRIPT),
             "binary_sha256": "c" * 64,
         },
-        "public_name_coherence": copy.deepcopy(PUBLIC_NAME_FIXTURE),
-        "ek_template_appraisal": copy.deepcopy(EK_TEMPLATE_FIXTURE),
+        "public_name_coherence": {
+            "ak": {
+                "status": "INDETERMINATE",
+                "verifier_id": PUBLIC_NAME_VERIFIER_ID,
+                "output_sha256": "aa" * 32,
+                "input_sha256": "ab" * 32,
+                "wire_sha256": "ac" * 32,
+                "name_sha256": "ad" * 32,
+                "qname_sha256": "ae" * 32,
+                "source_sha256": "af" * 32,
+            },
+            "ek": {
+                "status": "INDETERMINATE",
+                "verifier_id": PUBLIC_NAME_VERIFIER_ID,
+                "output_sha256": "ba" * 32,
+                "input_sha256": "bb" * 32,
+                "wire_sha256": "bc" * 32,
+                "name_sha256": "bd" * 32,
+                "qname_sha256": "be" * 32,
+                "source_sha256": "bf" * 32,
+            },
+        },
+        "ek_template_appraisal": {
+            "status": "INDETERMINATE",
+            "verifier_id": EK_TEMPLATE_VERIFIER_ID,
+            "output_sha256": "ca" * 32,
+            "input_sha256": "cb" * 32,
+            "wire_sha256": "cc" * 32,
+            "source_sha256": "cd" * 32,
+            "transcript_sha256": "ce" * 32,
+        },
+        "ek_certificate_capture": {
+            "status": "INDETERMINATE",
+            "verifier_id": EK_CERTIFICATE_CAPTURE_ID,
+            "reason": "no-tcg-ek-certificate-nv-index-observed",
+            "result_sha256": "d1" * 32,
+            "inventory_sha256": "d2" * 32,
+            "transcript_sha256": "d3" * 32,
+            "script_sha256": sha256_file(EK_CERTIFICATE_CAPTURE_SCRIPT),
+            "source_mode": "TPM_NV_ONLY",
+            "candidate_handles": [],
+            "rsa_certificate_present": False,
+            "rsa_certificate_sha256": None,
+        },
+        "ek_cert_spki_binding": {
+            "status": "INDETERMINATE",
+            "verifier_id": EK_CERT_SPki_VERIFIER_ID,
+            "reason": "rsa-ek-certificate-not-present",
+            "input_sha256": None,
+            "output_sha256": None,
+            "certificate_sha256": None,
+            "ek_public_wire_sha256": "bc" * 32,
+            "certificate_source_sha256": "d3" * 32,
+            "ek_public_source_sha256": "bf" * 32,
+        },
         "quote": {
             "pcr_selection": "sha256:0,2,4,7",
             "nonce_sha256": "d" * 64,
@@ -293,37 +334,6 @@ def fixture_manifest() -> dict[str, Any]:
             "source_sha256": sha256_file(PAYLOAD_COHERENCE_SCRIPT),
             "input_sha256": "3" * 64,
         },
-        "ek_template_appraisal": {
-            "status": "INDETERMINATE",
-            "verifier_id": EK_TEMPLATE_VERIFIER_ID,
-            "output_sha256": "ca" * 32,
-            "input_sha256": "cb" * 32,
-            "wire_sha256": "cc" * 32,
-            "source_sha256": "cd" * 32,
-            "transcript_sha256": "ce" * 32,
-        },
-        "public_name_coherence": {
-            "ak": {
-                "status": "INDETERMINATE",
-                "verifier_id": PUBLIC_NAME_VERIFIER_ID,
-                "output_sha256": "aa" * 32,
-                "input_sha256": "ab" * 32,
-                "wire_sha256": "ac" * 32,
-                "name_sha256": "ad" * 32,
-                "qname_sha256": "ae" * 32,
-                "source_sha256": "af" * 32,
-            },
-            "ek": {
-                "status": "INDETERMINATE",
-                "verifier_id": PUBLIC_NAME_VERIFIER_ID,
-                "output_sha256": "ba" * 32,
-                "input_sha256": "bb" * 32,
-                "wire_sha256": "bc" * 32,
-                "name_sha256": "bd" * 32,
-                "qname_sha256": "be" * 32,
-                "source_sha256": "bf" * 32,
-            },
-        },
         "artifacts": {
             "quote_message_sha256": "5" * 64,
             "quote_signature_sha256": "6" * 64,
@@ -350,6 +360,13 @@ def fixture_manifest() -> dict[str, Any]:
             "ek_template_wire_sha256": "cc" * 32,
             "ek_template_source_sha256": "cd" * 32,
             "ek_template_transcript_sha256": "ce" * 32,
+            "ek_certificate_capture_result_sha256": "d1" * 32,
+            "ek_certificate_capture_inventory_sha256": "d2" * 32,
+            "ek_certificate_capture_transcript_sha256": "d3" * 32,
+            "ek_certificate_capture_script_sha256": sha256_file(EK_CERTIFICATE_CAPTURE_SCRIPT),
+            "ek_certificate_rsa_sha256": None,
+            "ek_cert_spki_input_sha256": None,
+            "ek_cert_spki_output_sha256": None,
             "tss_version_evidence_sha256": "f" * 64,
             "ek_public_sha256": "b" * 64,
         },
@@ -429,6 +446,8 @@ def mutate(value: dict[str, Any], name: str) -> dict[str, Any]:
             "live_observation",
             "artifacts",
             "public_name_coherence",
+            "ek_certificate_capture",
+            "ek_cert_spki_binding",
         ):
             out[key] = dict(reversed(list(out[key].items())))
     elif name == "post-quote-pcr-value-mismatch":
@@ -443,6 +462,25 @@ def mutate(value: dict[str, Any], name: str) -> dict[str, Any]:
         out["public_name_coherence"]["ak"]["wire_sha256"] = out["public_name_coherence"]["ek"]["wire_sha256"]
     elif name == "public-name-ak-source-substitution":
         out["public_name_coherence"]["ak"]["source_sha256"] = "13" * 32
+    elif name == "ek-cert-source-mode-substitution":
+        out["ek_certificate_capture"]["source_mode"] = "NETWORK"
+    elif name == "ek-cert-result-substitution":
+        out["ek_certificate_capture"]["result_sha256"] = "14" * 32
+    elif name == "ek-cert-spki-source-substitution":
+        out["ek_cert_spki_binding"]["certificate_source_sha256"] = "15" * 32
+    elif name == "ek-cert-spki-wire-substitution":
+        out["ek_cert_spki_binding"]["ek_public_wire_sha256"] = "16" * 32
+    elif name == "ek-cert-absent":
+        out["ek_certificate_capture"]["status"] = "INDETERMINATE"
+        out["ek_certificate_capture"]["candidate_handles"] = []
+        out["ek_certificate_capture"]["rsa_certificate_present"] = False
+        out["ek_certificate_capture"]["rsa_certificate_sha256"] = None
+        out["ek_cert_spki_binding"]["status"] = "INDETERMINATE"
+        out["ek_cert_spki_binding"]["reason"] = "rsa-ek-certificate-not-present"
+        out["ek_cert_spki_binding"]["input_sha256"] = None
+        out["ek_cert_spki_binding"]["output_sha256"] = None
+        out["ek_cert_spki_binding"]["certificate_sha256"] = None
+        out["session_binding_sha256"] = session_binding(out)
     elif name == "deny-over-indeterminate":
         out["event_log"]["parser_status"] = "FAIL"
         out["reconstruction"]["status"] = "INDETERMINATE"
@@ -474,6 +512,8 @@ def validate_semantics(manifest: dict[str, Any]) -> tuple[str, str]:
         "reconstruction",
         "live_observation",
         "artifacts",
+        "ek_certificate_capture",
+        "ek_cert_spki_binding",
         "claim_ceiling",
         "session_binding_sha256",
         "os_image_digest",
@@ -543,6 +583,13 @@ def validate_semantics(manifest: dict[str, Any]) -> tuple[str, str]:
             "payload_coherence_output_sha256",
             "tss_version_evidence_sha256",
             "ek_public_sha256",
+            "ek_certificate_capture_result_sha256",
+            "ek_certificate_capture_inventory_sha256",
+            "ek_certificate_capture_transcript_sha256",
+            "ek_certificate_capture_script_sha256",
+            "ek_certificate_rsa_sha256",
+            "ek_cert_spki_input_sha256",
+            "ek_cert_spki_output_sha256",
         ),
     }
 
@@ -572,6 +619,82 @@ def validate_semantics(manifest: dict[str, Any]) -> tuple[str, str]:
                 denies.append(f"ek-template-{field}-artifact-binding-mismatch")
         if ek_template.get("wire_sha256") != manifest.get("public_name_coherence",{}).get("ek",{}).get("wire_sha256"):
             denies.append("ek-template-public-name-wire-mismatch")
+    ek_certificate_capture = manifest["ek_certificate_capture"]
+    for field in (
+        "status","verifier_id","reason","result_sha256","inventory_sha256",
+        "transcript_sha256","script_sha256","source_mode","candidate_handles",
+        "rsa_certificate_present","rsa_certificate_sha256",
+    ):
+        if field not in ek_certificate_capture:
+            denies.append(f"missing-ek-certificate-capture.{field}")
+    if ek_certificate_capture.get("verifier_id") != EK_CERTIFICATE_CAPTURE_ID:
+        denies.append("ek-certificate-capture-verifier-id-mismatch")
+    if ek_certificate_capture.get("status") not in {"PASS","INDETERMINATE"}:
+        denies.append("ek-certificate-capture-state-invalid")
+    if ek_certificate_capture.get("source_mode") != "TPM_NV_ONLY":
+        denies.append("ek-certificate-capture-source-mode-invalid")
+    if not isinstance(ek_certificate_capture.get("candidate_handles"), list):
+        denies.append("ek-certificate-candidate-handles-invalid")
+    for field in ("result_sha256","inventory_sha256","transcript_sha256","script_sha256"):
+        if not valid_hash(ek_certificate_capture.get(field)):
+            denies.append(f"ek-certificate-{field}-invalid")
+    if ek_certificate_capture.get("script_sha256") != sha256_file(EK_CERTIFICATE_CAPTURE_SCRIPT):
+        denies.append("ek-certificate-capture-script-source-mismatch")
+    if ek_certificate_capture.get("status") == "INDETERMINATE":
+        indeterminate.append("ek-certificate-capture-indeterminate")
+    cert_artifact_map = {
+        "result_sha256": "ek_certificate_capture_result_sha256",
+        "inventory_sha256": "ek_certificate_capture_inventory_sha256",
+        "transcript_sha256": "ek_certificate_capture_transcript_sha256",
+        "script_sha256": "ek_certificate_capture_script_sha256",
+    }
+    for field, artifact_key in cert_artifact_map.items():
+        if valid_hash(ek_certificate_capture.get(field)) and manifest["artifacts"].get(artifact_key) != ek_certificate_capture[field]:
+            denies.append(f"ek-certificate-{field}-artifact-binding-mismatch")
+    if ek_certificate_capture.get("rsa_certificate_present"):
+        if not valid_hash(ek_certificate_capture.get("rsa_certificate_sha256")):
+            denies.append("ek-certificate-rsa-digest-invalid")
+        elif manifest["artifacts"].get("ek_certificate_rsa_sha256") != ek_certificate_capture["rsa_certificate_sha256"]:
+            denies.append("ek-certificate-rsa-artifact-binding-mismatch")
+    elif ek_certificate_capture.get("rsa_certificate_sha256") is not None:
+        denies.append("ek-certificate-rsa-absent-with-digest")
+
+    ek_cert_spki = manifest["ek_cert_spki_binding"]
+    for field in (
+        "status","verifier_id","reason","input_sha256","output_sha256",
+        "certificate_sha256","ek_public_wire_sha256","certificate_source_sha256",
+        "ek_public_source_sha256",
+    ):
+        if field not in ek_cert_spki:
+            denies.append(f"missing-ek-cert-spki.{field}")
+    if ek_cert_spki.get("verifier_id") != EK_CERT_SPki_VERIFIER_ID:
+        denies.append("ek-cert-spki-verifier-id-mismatch")
+    if ek_cert_spki.get("status") not in {"PASS","INDETERMINATE"}:
+        denies.append("ek-cert-spki-state-invalid")
+    for field in (
+        "input_sha256","output_sha256","certificate_sha256",
+        "ek_public_wire_sha256","certificate_source_sha256","ek_public_source_sha256",
+    ):
+        value = ek_cert_spki.get(field)
+        if value is not None and not valid_hash(value):
+            denies.append(f"ek-cert-spki-{field}-invalid")
+    if ek_cert_spki.get("certificate_sha256") is not None and ek_certificate_capture.get("rsa_certificate_sha256") != ek_cert_spki.get("certificate_sha256"):
+        denies.append("ek-cert-spki-certificate-capture-mismatch")
+    if ek_cert_spki.get("ek_public_wire_sha256") != manifest["public_name_coherence"]["ek"]["wire_sha256"]:
+        denies.append("ek-cert-spki-public-name-wire-mismatch")
+    if ek_cert_spki.get("certificate_source_sha256") not in {None, ek_certificate_capture.get("transcript_sha256")}:
+        denies.append("ek-cert-spki-certificate-source-mismatch")
+    if ek_cert_spki.get("ek_public_source_sha256") not in {None, manifest["public_name_coherence"]["ek"]["source_sha256"]}:
+        denies.append("ek-cert-spki-ek-public-source-mismatch")
+    if ek_cert_spki.get("status") == "PASS" and not ek_certificate_capture.get("rsa_certificate_present"):
+        denies.append("ek-cert-spki-pass-without-rsa-certificate")
+    if ek_cert_spki.get("status") == "INDETERMINATE":
+        indeterminate.append("ek-cert-spki-indeterminate")
+    if ek_cert_spki.get("input_sha256") is not None and manifest["artifacts"].get("ek_cert_spki_input_sha256") != ek_cert_spki["input_sha256"]:
+        denies.append("ek-cert-spki-input-artifact-binding-mismatch")
+    if ek_cert_spki.get("output_sha256") is not None and manifest["artifacts"].get("ek_cert_spki_output_sha256") != ek_cert_spki["output_sha256"]:
+        denies.append("ek-cert-spki-output-artifact-binding-mismatch")
+
     public_name = manifest.get("public_name_coherence")
     if not isinstance(public_name, dict):
         denies.append("public-name-coherence-not-object")
@@ -985,6 +1108,64 @@ def run_public_name_verifier(input_path: Path, output_path: Path, cwd: Path) -> 
     return "DENY", "public-name-verifier-failed"
 
 
+def run_ek_certificate_capture(out: Path, env: dict[str, str]) -> dict[str, Any]:
+    if not EK_CERTIFICATE_CAPTURE_SCRIPT.is_file():
+        raise RuntimeError("EK certificate capture helper missing")
+    proc = run(
+        [
+            sys.executable,
+            str(EK_CERTIFICATE_CAPTURE_SCRIPT),
+            "--capture",
+            "--output",
+            str(out),
+        ],
+        env,
+        out,
+        check=False,
+    )
+    result_path = out / "ek-certificate-capture.json"
+    if not result_path.is_file():
+        raise RuntimeError(
+            f"EK certificate capture helper produced no result: {proc.stdout}{proc.stderr}"
+        )
+    result_value = load_json(result_path)
+    if result_value.get("verifier_id") != EK_CERTIFICATE_CAPTURE_ID:
+        raise RuntimeError("EK certificate capture helper verifier identity mismatch")
+    if result_value.get("state") == "DENY":
+        raise RuntimeError(
+            f"EK certificate capture source policy denied: {result_value.get('reason')}"
+        )
+    return result_value
+
+
+def run_ek_cert_spki_verifier(
+    input_path: Path,
+    output_path: Path,
+    cwd: Path,
+    env: dict[str, str],
+) -> tuple[str, str]:
+    if not EK_CERT_SPki_VERIFIER_SCRIPT.is_file():
+        return "DENY", "ek-cert-spki-verifier-missing"
+    proc = run(
+        [
+            sys.executable,
+            str(EK_CERT_SPki_VERIFIER_SCRIPT),
+            "--verify",
+            str(input_path),
+            "--output",
+            str(output_path),
+        ],
+        env,
+        cwd,
+        check=False,
+    )
+    if proc.returncode == 0:
+        return "PASS", "ek-cert-spki-verifier-executed"
+    if proc.returncode == 2:
+        return "INDETERMINATE", "ek-cert-spki-verifier-indeterminate"
+    return "DENY", "ek-cert-spki-verifier-failed"
+
+
 def normalized_tpm2b_public_body(path: Path) -> bytes:
     raw = path.read_bytes()
     if len(raw) < 2:
@@ -1047,6 +1228,9 @@ def verify_bundle(args: argparse.Namespace) -> int:
         "tss-version-evidence.txt": manifest["toolchain"]["tss_version_evidence_sha256"],
         "eventlog-reconstruction-input.json": manifest["reconstruction"]["input_sha256"],
         "observed-pcr-values.json": manifest["live_observation"]["pcr_values_file_sha256"],
+        "ek-nv-index-handles.txt": manifest["ek_certificate_capture"]["inventory_sha256"],
+        "ek-certificate-capture-transcript.json": manifest["ek_certificate_capture"]["transcript_sha256"],
+        "ek-certificate-capture.json": manifest["ek_certificate_capture"]["result_sha256"],
         "raw-eventlog.json": manifest["raw_eventlog"]["output_sha256"],
         "payload-coherence.json": manifest["payload_coherence"]["output_sha256"],
         "ak-public-name-input.json": manifest["public_name_coherence"]["ak"]["input_sha256"],
@@ -1068,6 +1252,81 @@ def verify_bundle(args: argparse.Namespace) -> int:
             return 1
         if sha256_file(path) != expected:
             print(f"PLATFORM EVIDENCE: DENY: artifact-digest-mismatch-{relative}")
+            return 1
+
+    cert_capture = manifest["ek_certificate_capture"]
+    cert_capture_result = load_json(bundle / "ek-certificate-capture.json")
+    if cert_capture_result.get("verifier_id") != EK_CERTIFICATE_CAPTURE_ID:
+        print("PLATFORM EVIDENCE: DENY: ek-certificate-capture-result-verifier-id-mismatch")
+        return 1
+    if cert_capture_result.get("state") != cert_capture["status"]:
+        print("PLATFORM EVIDENCE: DENY: ek-certificate-capture-result-state-mismatch")
+        return 1
+    if cert_capture_result.get("content_sha256") != self_hash(cert_capture_result, "content_sha256"):
+        print("PLATFORM EVIDENCE: DENY: ek-certificate-capture-result-content-hash-mismatch")
+        return 1
+    if cert_capture_result.get("details", {}).get("source_policy", {}).get("mode") != "TPM_NV_ONLY":
+        print("PLATFORM EVIDENCE: DENY: ek-certificate-capture-not-nv-only")
+        return 1
+    if cert_capture_result.get("details", {}).get("source_policy", {}).get("network_url_present"):
+        print("PLATFORM EVIDENCE: DENY: ek-certificate-capture-network-url-present")
+        return 1
+    if cert_capture_result.get("details", {}).get("source_policy", {}).get("explicit_network_option_present"):
+        print("PLATFORM EVIDENCE: DENY: ek-certificate-capture-network-option-present")
+        return 1
+    if cert_capture.get("result_sha256") != sha256_file(bundle / "ek-certificate-capture.json"):
+        print("PLATFORM EVIDENCE: DENY: ek-certificate-capture-result-digest-mismatch")
+        return 1
+    if cert_capture.get("inventory_sha256") != sha256_file(bundle / "ek-nv-index-handles.txt"):
+        print("PLATFORM EVIDENCE: DENY: ek-certificate-capture-inventory-digest-mismatch")
+        return 1
+    if cert_capture.get("transcript_sha256") != sha256_file(bundle / "ek-certificate-capture-transcript.json"):
+        print("PLATFORM EVIDENCE: DENY: ek-certificate-capture-transcript-digest-mismatch")
+        return 1
+    if cert_capture.get("script_sha256") != sha256_file(EK_CERTIFICATE_CAPTURE_SCRIPT):
+        print("PLATFORM EVIDENCE: DENY: ek-certificate-capture-script-digest-mismatch")
+        return 1
+
+    if cert_capture.get("rsa_certificate_present"):
+        if cert_capture.get("rsa_certificate_sha256") != sha256_file(bundle / "ek-cert-rsa.der"):
+            print("PLATFORM EVIDENCE: DENY: ek-certificate-rsa-digest-mismatch")
+            return 1
+        spki_input = bundle / "ek-cert-spki-input.json"
+        spki_output = bundle / "ek-cert-spki-binding.json"
+        if not spki_input.is_file() or not spki_output.is_file():
+            print("PLATFORM EVIDENCE: DENY: missing-ek-cert-spki-receipt")
+            return 1
+        spki_state, spki_reason = run_ek_cert_spki_verifier(
+            spki_input, spki_output, bundle, os.environ.copy()
+        )
+        print(f"Independent EK certificate SPKI verifier: {spki_state} ({spki_reason})")
+        if spki_state == "DENY":
+            return 1
+        spki_result = load_json(spki_output)
+        if spki_result.get("verifier_id") != EK_CERT_SPki_VERIFIER_ID:
+            print("PLATFORM EVIDENCE: DENY: ek-cert-spki-verifier-id-mismatch")
+            return 1
+        if spki_result.get("state") != manifest["ek_cert_spki_binding"]["status"]:
+            print("PLATFORM EVIDENCE: DENY: ek-cert-spki-state-binding-mismatch")
+            return 1
+        if spki_result.get("certificate_der_sha256") != cert_capture["rsa_certificate_sha256"]:
+            print("PLATFORM EVIDENCE: DENY: ek-cert-spki-certificate-capture-mismatch")
+            return 1
+        if spki_result.get("ek_public_wire_sha256") != manifest["public_name_coherence"]["ek"]["wire_sha256"]:
+            print("PLATFORM EVIDENCE: DENY: ek-cert-spki-ek-wire-mismatch")
+            return 1
+        if spki_result.get("content_sha256") != self_hash(spki_result, "content_sha256"):
+            print("PLATFORM EVIDENCE: DENY: ek-cert-spki-content-hash-mismatch")
+            return 1
+        if manifest["ek_cert_spki_binding"]["input_sha256"] != sha256_file(spki_input):
+            print("PLATFORM EVIDENCE: DENY: ek-cert-spki-input-digest-mismatch")
+            return 1
+        if manifest["ek_cert_spki_binding"]["output_sha256"] != sha256_file(spki_output):
+            print("PLATFORM EVIDENCE: DENY: ek-cert-spki-output-digest-mismatch")
+            return 1
+    else:
+        if manifest["ek_cert_spki_binding"]["status"] != "INDETERMINATE":
+            print("PLATFORM EVIDENCE: DENY: missing-rsa-certificate-must-be-indeterminate")
             return 1
 
     try:
@@ -1264,6 +1523,7 @@ def require_capture_tools() -> list[str]:
         "tpm2_checkquote",
         "tpm2_eventlog",
         "tpm2_readpublic",
+        "tpm2_nvread",
     )
     return [name for name in names if shutil.which(name) is None]
 
@@ -1278,6 +1538,7 @@ def observed_tool_versions(out: Path, env: dict[str, str]) -> dict[str, str]:
         "tpm2_checkquote",
         "tpm2_eventlog",
         "tpm2_readpublic",
+        "tpm2_nvread",
     )
     result: dict[str, str] = {}
     for name in names:
@@ -1582,6 +1843,81 @@ def capture(args: argparse.Namespace) -> int:
         raise RuntimeError("OS boot_id changed during capture")
 
     session_id = f"linuxboot-{boot_before}-{sha256_file(out / 'eventlog.bin')[:16]}"
+
+    ek_certificate_capture = run_ek_certificate_capture(out, env)
+    cert_capture_details = ek_certificate_capture.get("details", {})
+    cert_source_sha256 = cert_capture_details.get("transcript_sha256")
+    if not isinstance(cert_source_sha256, str) or not valid_hash(cert_source_sha256):
+        raise RuntimeError("EK certificate capture did not produce a valid transcript digest")
+
+    ek_cert_spki_binding: dict[str, Any] = {
+        "status": "INDETERMINATE",
+        "verifier_id": EK_CERT_SPki_VERIFIER_ID,
+        "reason": "rsa-ek-certificate-not-present",
+        "input_sha256": None,
+        "output_sha256": None,
+        "certificate_sha256": None,
+        "ek_public_wire_sha256": public_name_ek["wire_sha256"],
+        "certificate_source_sha256": cert_source_sha256,
+        "ek_public_source_sha256": public_name_ek["source_sha256"],
+    }
+
+    rsa_certificate = out / "ek-cert-rsa.der"
+    if rsa_certificate.is_file():
+        spki_input = {
+            "profile_id": "mycelix.security.tpm.ek-cert-spki-binding",
+            "profile_version": "0.1.0",
+            "session_id": session_id,
+            "tpm_identity_digest": canonical_hash({
+                "device_path": str(device),
+                "properties_sha256": prop_hash,
+                "ek_public_sha256": sha256_file(out / "ek.pub"),
+            }),
+            "verification_mode": "LiveVerifierSession",
+            "claim_ceiling": "ReferenceModelOnly",
+            "certificate_der_hex": rsa_certificate.read_bytes().hex(),
+            "certificate_der_sha256": sha256_file(rsa_certificate),
+            "ek_public_format": "TPMT_PUBLIC",
+            "ek_public_wire_hex": (out / "ek.tpmt").read_bytes().hex(),
+            "ek_public_wire_sha256": sha256_file(out / "ek.tpmt"),
+            "certificate_source_sha256": cert_source_sha256,
+            "ek_public_source_sha256": public_name_ek["source_sha256"],
+        }
+        spki_input["session_binding_sha256"] = canonical_hash({
+            "session_id": spki_input["session_id"],
+            "tpm_identity_digest": spki_input["tpm_identity_digest"],
+            "certificate_der_sha256": spki_input["certificate_der_sha256"],
+            "ek_public_wire_sha256": spki_input["ek_public_wire_sha256"],
+        })
+        spki_input_path = out / "ek-cert-spki-input.json"
+        spki_output_path = out / "ek-cert-spki-binding.json"
+        spki_input_path.write_text(
+            json.dumps(spki_input, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        spki_state, spki_reason = run_ek_cert_spki_verifier(
+            spki_input_path,
+            spki_output_path,
+            out,
+            env,
+        )
+        if spki_state == "DENY":
+            raise RuntimeError(f"EK certificate SPKI verification denied: {spki_reason}")
+        spki_result = load_json(spki_output_path)
+        if spki_result.get("verifier_id") != EK_CERT_SPki_VERIFIER_ID:
+            raise RuntimeError("EK certificate SPKI result verifier identity mismatch")
+        ek_cert_spki_binding = {
+            "status": spki_state,
+            "verifier_id": EK_CERT_SPki_VERIFIER_ID,
+            "reason": spki_reason,
+            "input_sha256": sha256_file(spki_input_path),
+            "output_sha256": sha256_file(spki_output_path),
+            "certificate_sha256": sha256_file(rsa_certificate),
+            "ek_public_wire_sha256": sha256_file(out / "ek.tpmt"),
+            "certificate_source_sha256": cert_source_sha256,
+            "ek_public_source_sha256": public_name_ek["source_sha256"],
+        }
+
     parsed = run(
         ["tpm2_eventlog", "--eventlog-version=1", str(out / "eventlog.bin")],
         env,
@@ -1731,6 +2067,19 @@ def capture(args: argparse.Namespace) -> int:
             "ek_public_sha256": ek_hash,
             "identity_digest": "",
         },
+        "ek_certificate_capture": {
+            "status": ek_certificate_capture.get("state", "INDETERMINATE"),
+            "verifier_id": EK_CERTIFICATE_CAPTURE_ID,
+            "reason": ek_certificate_capture.get("reason", "unknown"),
+            "result_sha256": sha256_file(out / "ek-certificate-capture.json"),
+            "inventory_sha256": sha256_file(out / "ek-nv-index-handles.txt"),
+            "transcript_sha256": sha256_file(out / "ek-certificate-capture-transcript.json"),
+            "script_sha256": sha256_file(EK_CERTIFICATE_CAPTURE_SCRIPT),
+            "source_mode": cert_capture_details.get("source_policy", {}).get("mode", "UNKNOWN"),
+            "candidate_handles": cert_capture_details.get("candidate_handles", []),
+            "rsa_certificate_present": rsa_certificate.is_file(),
+            "rsa_certificate_sha256": sha256_file(rsa_certificate) if rsa_certificate.is_file() else None,
+        },
         "event_log": {
             "sha256": sha256_file(out / "eventlog.bin"),
             "parser_profile_id": "tcg.pc-client.event-log",
@@ -1792,6 +2141,21 @@ def capture(args: argparse.Namespace) -> int:
             "raw_eventlog_output_sha256": sha256_file(raw_eventlog_path),
             "tss_version_evidence_sha256": sha256_file(out / "tss-version-evidence.txt"),
             "ek_public_sha256": ek_hash,
+            "ek_certificate_capture_result_sha256": sha256_file(out / "ek-certificate-capture.json"),
+            "ek_certificate_capture_inventory_sha256": sha256_file(out / "ek-nv-index-handles.txt"),
+            "ek_certificate_capture_transcript_sha256": sha256_file(out / "ek-certificate-capture-transcript.json"),
+            "ek_certificate_capture_script_sha256": sha256_file(EK_CERTIFICATE_CAPTURE_SCRIPT),
+            "ek_certificate_rsa_sha256": sha256_file(rsa_certificate) if rsa_certificate.is_file() else None,
+            "ek_cert_spki_input_sha256": (
+                sha256_file(out / "ek-cert-spki-input.json")
+                if (out / "ek-cert-spki-input.json").is_file()
+                else None
+            ),
+            "ek_cert_spki_output_sha256": (
+                sha256_file(out / "ek-cert-spki-binding.json")
+                if (out / "ek-cert-spki-binding.json").is_file()
+                else None
+            ),
         },
         "os_image_digest": args.os_image_digest,
         "workload_digest": args.workload_digest,
