@@ -1007,6 +1007,79 @@ def synthetic_record() -> dict[str, str]:
     }
 
 
+def write_synthetic_attestation_fixture(evidence_dir: Path) -> list[dict]:
+    record = synthetic_record()
+    lines = ["D6U HOLOCHAIN 0.7 RUNTIME EVIDENCE"]
+    lines.extend(f"{key}={value}" for key, value in record.items())
+    (evidence_dir / "d6u-runtime-evidence.txt").write_text(
+        "\n".join(lines) + "\n", encoding="utf-8"
+    )
+    (evidence_dir / "d6u-runtime-test.log").write_text("synthetic log\n", encoding="utf-8")
+    (evidence_dir / "Cargo.lock").write_text("version = 3\n", encoding="utf-8")
+    return [
+        {"name": name, "digest": {"sha256": hashlib.sha256((evidence_dir / name).read_bytes()).hexdigest()}}
+        for name in ("d6u-runtime-evidence.txt", "d6u-runtime-test.log", "Cargo.lock")
+    ]
+
+
+def test_attestation_verifier_accepts_current_run() -> None:
+    subjects = None
+    with tempfile.TemporaryDirectory() as tmp:
+        evidence_dir = Path(tmp)
+        subjects = write_synthetic_attestation_fixture(evidence_dir)
+        report = Path(tmp) / "attestation.json"
+        report.write_text(
+            json.dumps([synthetic_attestation_entry(subjects, "42")]),
+            encoding="utf-8",
+        )
+        with patch.dict(
+            os.environ,
+            {
+                "GITHUB_REPOSITORY": "Luminous-Dynamics/mycelix",
+                "GITHUB_RUN_ID": "42",
+                "GITHUB_RUN_ATTEMPT": "3",
+                "GITHUB_SHA": "a" * 40,
+                "GITHUB_WORKFLOW_SHA": "c" * 40,
+                "GITHUB_REF": "refs/heads/main",
+                "D6U_ATTESTATION_SUBJECT": str(evidence_dir / "d6u-runtime-evidence.txt"),
+                "D6U_TRUSTED_EVIDENCE_DIR": str(evidence_dir),
+                "D6U_TRUSTED_POLICY_VERSION": "22",
+            },
+            clear=False,
+        ), patch("sys.argv", ["verify_d6u_trusted_attestation.py", str(report)]):
+            verify_attestation_main()
+
+
+def test_attestation_verifier_rejects_old_run() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        evidence_dir = Path(tmp)
+        subjects = write_synthetic_attestation_fixture(evidence_dir)
+        report = Path(tmp) / "attestation.json"
+        report.write_text(
+            json.dumps([synthetic_attestation_entry(subjects, "41")]),
+            encoding="utf-8",
+        )
+        with patch.dict(
+            os.environ,
+            {
+                "GITHUB_REPOSITORY": "Luminous-Dynamics/mycelix",
+                "GITHUB_RUN_ID": "42",
+                "GITHUB_RUN_ATTEMPT": "3",
+                "GITHUB_SHA": "a" * 40,
+                "GITHUB_WORKFLOW_SHA": "c" * 40,
+                "GITHUB_REF": "refs/heads/main",
+                "D6U_ATTESTATION_SUBJECT": str(evidence_dir / "d6u-runtime-evidence.txt"),
+                "D6U_TRUSTED_EVIDENCE_DIR": str(evidence_dir),
+                "D6U_TRUSTED_POLICY_VERSION": "22",
+            },
+            clear=False,
+        ), patch("sys.argv", ["verify_d6u_trusted_attestation.py", str(report)]):
+            assert_rejected(
+                lambda: verify_attestation_main(),
+                "historical attestation was accepted as the current trusted run",
+            )
+
+
 def test_custom_attestation_requires_verified_timestamp() -> None:
     import verify_d6u_trusted_attestation as verifier
 
