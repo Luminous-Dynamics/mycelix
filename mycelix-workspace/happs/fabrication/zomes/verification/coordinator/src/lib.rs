@@ -88,6 +88,28 @@ fn rate_limit_caller() -> ExternResult<()> {
     hasher.finalize().into()
 }
 
+/// Validate an epistemic classification returned by Knowledge.
+///
+/// Only finite scores in the closed interval [0, 1] are accepted. This is a
+/// semantic boundary in addition to wire decoding: valid serialization alone
+/// does not make an out-of-range classification trustworthy.
+fn validate_epistemic_response(ep: &ClaimEpistemic) -> ExternResult<()> {
+    for (field, value) in [
+        ("empirical", ep.empirical),
+        ("normative", ep.normative),
+        ("mythic", ep.mythic),
+    ] {
+        if !value.is_finite() || !(0.0..=1.0).contains(&value) {
+            return Err(FabricationError::ValidationFailed {
+                field: format!("knowledge.{}", field),
+                reason: "classification score must be finite and in [0, 1]".to_string(),
+            }
+            .to_wasm_error());
+        }
+    }
+    Ok(())
+}
+
 /// Fetch epistemic classification from Knowledge with an exact-claim cache.
 ///
 /// This path is fail-closed: an unavailable, unauthorized, or malformed Knowledge
@@ -108,32 +130,23 @@ fn fetch_epistemic(claim_text: &str, claim_type_key: &str) -> ExternResult<Claim
         return Ok(ep);
     }
 
-    let ep = match call(
+    let response = call(
         CallTargetCell::OtherRole("mycelix-knowledge".into()),
         ZomeName::from("epistemic"),
         FunctionName::from("classify_claim"),
         None,
         claim_text,
-    )? {
+    )
+    .map_err(|_| FabricationError::cross_happ("knowledge"))?;
+
+    let ep = match response {
         ZomeCallResponse::Ok(bytes) => bytes
             .decode::<ClaimEpistemic>()
             .map_err(|_| FabricationError::cross_happ("knowledge"))?,
         _ => return Err(FabricationError::cross_happ("knowledge")),
     };
 
-    for (field, value) in [
-        ("empirical", ep.empirical),
-        ("normative", ep.normative),
-        ("mythic", ep.mythic),
-    ] {
-        if !value.is_finite() || !(0.0..=1.0).contains(&value) {
-            return Err(FabricationError::ValidationFailed {
-                field: format!("knowledge.{}", field),
-                reason: "classification score must be finite and in [0, 1]".to_string(),
-            }
-            .to_wasm_error());
-        }
-    }
+    validate_epistemic_response(&ep)?;
 
     EPISTEMIC_CACHE.with(|c| {
         let mut cache = c.borrow_mut();
@@ -300,6 +313,7 @@ pub fn submit_safety_claim(input: SubmitClaimInput) -> ExternResult<Record> {
         claim_type: input.claim_type,
         claim_text: input.claim_text,
         epistemic,
+        epistemic_provenance: EpistemicProvenance::KnowledgeClassified,
         supporting_evidence: input.supporting_evidence,
         knowledge_claim_hash: None,
         author,
@@ -350,6 +364,9 @@ pub fn get_epistemic_score(design_hash: ActionHash) -> ExternResult<EpistemicSco
 
     for record in claims {
         if let Some(claim) = record.entry().to_app_option::<SafetyClaim>().ok().flatten() {
+            if claim.epistemic_provenance != EpistemicProvenance::KnowledgeClassified {
+                continue;
+            }
             e_sum += claim.epistemic.empirical;
             n_sum += claim.epistemic.normative;
             m_sum += claim.epistemic.mythic;
@@ -374,10 +391,6 @@ mod tests {
 
     fn test_action_hash() -> ActionHash {
         ActionHash::from_raw_36(vec![0u8; 36])
-    }
-
-    fn test_agent_key() -> AgentPubKey {
-        AgentPubKey::from_raw_36(vec![0u8; 36])
     }
 
     // ── 1. SubmitVerificationInput serde roundtrip ────────────────────────────
@@ -497,23 +510,24 @@ mod tests {
     // ── 5. Knowledge response validation ─────────────────────────────────────
 
     #[test]
-    fn test_knowledge_epistemic_scores_must_be_finite_and_bounded() {
-        let cases = [
+    fn test_knowledge_epistemic_response_validation_accepts_bounds() {
+        for ep in [
             ClaimEpistemic { empirical: 0.0, normative: 0.5, mythic: 1.0 },
+            ClaimEpistemic { empirical: 0.5, normative: 0.5, mythic: 0.5 },
+        ] {
+            assert!(validate_epistemic_response(&ep).is_ok());
+        }
+    }
+
+    #[test]
+    fn test_knowledge_epistemic_response_validation_rejects_nonfinite_or_out_of_range() {
+        for ep in [
             ClaimEpistemic { empirical: f32::NAN, normative: 0.5, mythic: 0.5 },
-            ClaimEpistemic { empirical: 0.5, normative: f32::INFINITY, mythic: 0.5 },
+            ClaimEpistemic { empirical: f32::INFINITY, normative: 0.5, mythic: 0.5 },
             ClaimEpistemic { empirical: 0.5, normative: -0.01, mythic: 0.5 },
             ClaimEpistemic { empirical: 0.5, normative: 0.5, mythic: 1.01 },
-        ];
-
-        assert!(cases[0].empirical.is_finite());
-        for invalid in &cases[1..] {
-            assert!(
-                [invalid.empirical, invalid.normative, invalid.mythic]
-                    .iter()
-                    .any(|value| !value.is_finite() || !(0.0..=1.0).contains(value)),
-                "invalid Knowledge score should be detectable"
-            );
+        ] {
+            assert!(validate_epistemic_response(&ep).is_err());
         }
     }
 
