@@ -5790,17 +5790,25 @@ mod tests {
             fork_b_publication.publication_sha256,
             "the divergent successor publications must have distinct digests"
         );
+        let fork_set = vec![
+            base_publication.clone(),
+            fork_a_publication.clone(),
+            fork_b_publication.clone(),
+        ];
         assert_eq!(
-            validate_state_machine_trace_checkpoint_publication_set(
-                &[
-                    base_publication.clone(),
-                    fork_a_publication.clone(),
-                    fork_b_publication.clone(),
-                ]
-            ),
+            validate_state_machine_trace_checkpoint_publication_set(&fork_set),
             Err(
                 FederationStateMachineTraceCheckpointPublicationViolation::PublicationForkDetected
             )
+        );
+        let mut reversed_fork_set = fork_set.clone();
+        reversed_fork_set.reverse();
+        assert_eq!(
+            validate_state_machine_trace_checkpoint_publication_set(&reversed_fork_set),
+            Err(
+                FederationStateMachineTraceCheckpointPublicationViolation::PublicationForkDetected
+            ),
+            "fork classification must not depend on publication collection order"
         );
 
         let same_endpoint_a = state_machine_trace_checkpoint_publication(
@@ -5907,12 +5915,18 @@ mod tests {
             12,
             FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_GENESIS,
         );
+        let independent_set = vec![fork_a_publication, other_publication];
         assert!(
-            validate_state_machine_trace_checkpoint_publication_set(
-                &[fork_a_publication, other_publication]
-            )
-            .is_ok(),
+            validate_state_machine_trace_checkpoint_publication_set(&independent_set)
+                .is_ok(),
             "independent trace identities must not be classified as a fork"
+        );
+        let mut reversed_independent_set = independent_set.clone();
+        reversed_independent_set.reverse();
+        assert!(
+            validate_state_machine_trace_checkpoint_publication_set(&reversed_independent_set)
+                .is_ok(),
+            "non-fork classification must not depend on publication collection order"
         );
     }
 
