@@ -22,7 +22,10 @@ PR qualification
 `security-kernel-trusted-dispatch.yml` runs from the default branch on completion of the
 existing Security Kernel Qualification workflow. It never checks out candidate code.
 It validates the source workflow ID/path, exact source run/attempt, candidate repository,
-candidate SHA, and exact open PR before invoking S1.
+candidate SHA, and exact open PR before invoking S1. The PR identity is taken from the
+verified source run's `pull_requests` relation and then re-fetched by PR number, so the
+binding does not depend on the base repository's commit lookup and remains valid for
+fork-origin PR heads.
 
 The dispatcher binds source workflow ID `372951439` and path
 `.github/workflows/security-kernel-qualification.yml`. Changing either is a trusted
@@ -45,6 +48,8 @@ S1:
 - validates that its inputs came from an exact completed source qualification run;
 - proves its caller is the trusted S0 workflow and that the called S1 blob at that caller
   commit matches the registered S1 profile;
+- binds the candidate PR number to the verified source run's `pull_requests` relation
+  before re-reading the current PR object;
 - fetches the exact candidate repository and commit SHA rather than a mutable PR branch;
 - materializes the exact commit as source data;
 - executes the trusted qualification workflow from the exact caller commit rather than mutable `main`;
@@ -66,6 +71,8 @@ It independently validates:
 - the exact S1 reusable-workflow blob at that same S0 commit matches the registered S1 profile;
 - the S0 workflow commit is an ancestor of current protected `main`;
 - exact candidate SHA and current PR head binding;
+- candidate PR identity derived from the source run relation rather than a base-repository
+  commit search;
 - exact source qualification run and attempt;
 - the complete required S1 gate set and their individual successful conclusions, with the S0 reusable-workflow call restricted to `cache-mode: none`.
 
