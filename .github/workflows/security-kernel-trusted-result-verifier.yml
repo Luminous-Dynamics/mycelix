@@ -18,9 +18,9 @@ env:
   BASE_REPOSITORY: "Luminous-Dynamics/mycelix"
   BASE_BRANCH: "main"
   TRUSTED_DISPATCHER_WORKFLOW_PATH: ".github/workflows/security-kernel-trusted-dispatch.yml"
-  TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA: "8d460576a3c7d3685fef5053d876e3c02b7e88b6"
+  TRUSTED_DISPATCHER_WORKFLOW_BLOB_SHA: "30822b4377c73682947be4edca1eaa36261b889e"
   INDEPENDENT_WORKFLOW_PATH: ".github/workflows/security-kernel-independent-qualification.yml"
-  TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "13c260920ab0b816d0465a73521f2304d42ef141"
+  TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "e20c5cef3aa332eb2e4f89a933652512546689cc"
   EXPECTED_JOB_NAME: "Independent Security Kernel"
 
 jobs:
@@ -166,7 +166,7 @@ jobs:
           assert not failed, f"independent qualification gate failed: {failed}"
 
           artifacts = get(f"/repos/{repo}/actions/runs/{run_id}/artifacts?per_page=100").get("artifacts", [])
-          expected_artifact_name = f"security-kernel-independent-qualification-{candidate_sha}"
+          expected_artifact_name = f"security-kernel-independent-qualification-{candidate_sha}-attempt-{run_attempt}"
           matching_artifacts = [a for a in artifacts if a.get("name") == expected_artifact_name]
           assert len(matching_artifacts) == 1, (
               f"expected exactly one retained qualification receipt artifact: {len(matching_artifacts)}"
