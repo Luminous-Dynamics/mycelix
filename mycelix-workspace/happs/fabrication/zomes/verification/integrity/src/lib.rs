@@ -6,9 +6,9 @@
 //! Defines entry types for design verification and safety claims,
 //! integrating with the Knowledge hApp for epistemic classification.
 
-use hdi::prelude::*;
-use fabrication_common::*;
 use fabrication_common::validation;
+use fabrication_common::*;
+use hdi::prelude::*;
 
 #[hdk_entry_types]
 #[unit_enum(UnitEntryTypes)]
@@ -80,8 +80,7 @@ pub fn genesis_self_check(_: GenesisSelfCheckData) -> ExternResult<ValidateCallb
 pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(
-            OpEntry::CreateEntry { app_entry, .. }
-            | OpEntry::UpdateEntry { app_entry, .. }
+            OpEntry::CreateEntry { app_entry, .. } | OpEntry::UpdateEntry { app_entry, .. },
         ) => match app_entry {
             EntryTypes::DesignVerification(v) => validate_verification(v),
             EntryTypes::SafetyClaim(c) => validate_safety_claim(c),
@@ -90,7 +89,11 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
         FlatOp::StoreEntry(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterCreateLink { link_type, tag, .. } => {
             let max_len: usize = 256;
-            check!(validation::require_max_tag_len(&tag, max_len, &format!("{:?}", link_type)));
+            check!(validation::require_max_tag_len(
+                &tag,
+                max_len,
+                &format!("{:?}", link_type)
+            ));
             Ok(ValidateCallbackResult::Valid)
         }
         FlatOp::RegisterDeleteLink { action, .. } => {
@@ -135,10 +138,16 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
 fn validate_verification(v: DesignVerification) -> ExternResult<ValidateCallbackResult> {
     // --- verifier_credentials: max 32 items, each max 256 chars ---
     check!(validation::require_max_vec_len(
-        &v.verifier_credentials, 32, "verifier_credentials"
+        &v.verifier_credentials,
+        32,
+        "verifier_credentials"
     ));
     for cred in &v.verifier_credentials {
-        check!(validation::require_max_len(cred, 256, "verifier credential"));
+        check!(validation::require_max_len(
+            cred,
+            256,
+            "verifier credential"
+        ));
     }
 
     // --- evidence: max 64 items ---
@@ -147,20 +156,45 @@ fn validate_verification(v: DesignVerification) -> ExternResult<ValidateCallback
     // --- VerificationResult variant fields ---
     match &v.result {
         VerificationResult::Passed { confidence, notes } => {
-            check!(validation::require_in_range(*confidence, 0.0, 1.0, "Passed.confidence"));
+            check!(validation::require_in_range(
+                *confidence,
+                0.0,
+                1.0,
+                "Passed.confidence"
+            ));
             check!(validation::require_max_len(notes, 4096, "Passed.notes"));
         }
         VerificationResult::Failed { reasons } => {
-            check!(validation::require_max_vec_len(reasons, 32, "Failed.reasons"));
+            check!(validation::require_max_vec_len(
+                reasons,
+                32,
+                "Failed.reasons"
+            ));
             for reason in reasons {
                 check!(validation::require_max_len(reason, 1024, "Failed reason"));
             }
         }
-        VerificationResult::ConditionalPass { conditions, confidence } => {
-            check!(validation::require_in_range(*confidence, 0.0, 1.0, "ConditionalPass.confidence"));
-            check!(validation::require_max_vec_len(conditions, 32, "ConditionalPass.conditions"));
+        VerificationResult::ConditionalPass {
+            conditions,
+            confidence,
+        } => {
+            check!(validation::require_in_range(
+                *confidence,
+                0.0,
+                1.0,
+                "ConditionalPass.confidence"
+            ));
+            check!(validation::require_max_vec_len(
+                conditions,
+                32,
+                "ConditionalPass.conditions"
+            ));
             for cond in conditions {
-                check!(validation::require_max_len(cond, 1024, "ConditionalPass condition"));
+                check!(validation::require_max_len(
+                    cond,
+                    1024,
+                    "ConditionalPass condition"
+                ));
             }
         }
         VerificationResult::NeedsMoreEvidence => {}
@@ -173,7 +207,11 @@ fn validate_verification(v: DesignVerification) -> ExternResult<ValidateCallback
 fn validate_safety_claim(c: SafetyClaim) -> ExternResult<ValidateCallbackResult> {
     // --- claim_text: non-empty (trim), max 4096 chars ---
     check!(validation::require_non_empty(&c.claim_text, "claim_text"));
-    check!(validation::require_max_len(&c.claim_text, 4096, "claim_text"));
+    check!(validation::require_max_len(
+        &c.claim_text,
+        4096,
+        "claim_text"
+    ));
 
     // --- epistemic enrichment/provenance consistency ---
     if let Some(epistemic) = &c.epistemic {
@@ -219,10 +257,16 @@ fn validate_safety_claim(c: SafetyClaim) -> ExternResult<ValidateCallbackResult>
 
     // --- supporting_evidence: max 64 items, each max 256 chars ---
     check!(validation::require_max_vec_len(
-        &c.supporting_evidence, 64, "supporting_evidence"
+        &c.supporting_evidence,
+        64,
+        "supporting_evidence"
     ));
     for ev in &c.supporting_evidence {
-        check!(validation::require_max_len(ev, 256, "supporting evidence item"));
+        check!(validation::require_max_len(
+            ev,
+            256,
+            "supporting evidence item"
+        ));
     }
 
     Ok(ValidateCallbackResult::Valid)
@@ -306,7 +350,9 @@ mod tests {
         let mut v = valid_verification();
         v.verifier_credentials = (0..33).map(|i| format!("cred-{}", i)).collect();
         let result = validate_verification(v).unwrap();
-        assert!(matches!(result, ValidateCallbackResult::Invalid(msg) if msg.contains("verifier_credentials")));
+        assert!(
+            matches!(result, ValidateCallbackResult::Invalid(msg) if msg.contains("verifier_credentials"))
+        );
     }
 
     #[test]
@@ -317,7 +363,9 @@ mod tests {
             notes: "ok".to_string(),
         };
         let result = validate_verification(v).unwrap();
-        assert!(matches!(result, ValidateCallbackResult::Invalid(msg) if msg.contains("Passed.confidence")));
+        assert!(
+            matches!(result, ValidateCallbackResult::Invalid(msg) if msg.contains("Passed.confidence"))
+        );
     }
 
     #[test]
@@ -328,7 +376,9 @@ mod tests {
             confidence: f32::NAN,
         };
         let result = validate_verification(v).unwrap();
-        assert!(matches!(result, ValidateCallbackResult::Invalid(msg) if msg.contains("ConditionalPass.confidence")));
+        assert!(
+            matches!(result, ValidateCallbackResult::Invalid(msg) if msg.contains("ConditionalPass.confidence"))
+        );
     }
 
     // ---- SafetyClaim tests ----
@@ -390,7 +440,10 @@ mod tests {
     fn test_legacy_claim_missing_provenance_defaults_unattributed() {
         let claim = valid_safety_claim();
         let mut value = serde_json::to_value(&claim).unwrap();
-        value.as_object_mut().unwrap().remove("epistemic_provenance");
+        value
+            .as_object_mut()
+            .unwrap()
+            .remove("epistemic_provenance");
 
         let restored: SafetyClaim = serde_json::from_value(value).unwrap();
         assert_eq!(
@@ -408,7 +461,9 @@ mod tests {
         let mut c = valid_safety_claim();
         c.claim_text = "   ".to_string();
         let result = validate_safety_claim(c).unwrap();
-        assert!(matches!(result, ValidateCallbackResult::Invalid(msg) if msg.contains("claim_text")));
+        assert!(
+            matches!(result, ValidateCallbackResult::Invalid(msg) if msg.contains("claim_text"))
+        );
     }
 
     #[test]
@@ -416,7 +471,9 @@ mod tests {
         let mut c = valid_safety_claim();
         c.epistemic.empirical = f32::NAN;
         let result = validate_safety_claim(c).unwrap();
-        assert!(matches!(result, ValidateCallbackResult::Invalid(msg) if msg.contains("epistemic.empirical")));
+        assert!(
+            matches!(result, ValidateCallbackResult::Invalid(msg) if msg.contains("epistemic.empirical"))
+        );
     }
 
     #[test]
@@ -424,7 +481,9 @@ mod tests {
         let mut c = valid_safety_claim();
         c.epistemic.normative = f32::NAN;
         let result = validate_safety_claim(c).unwrap();
-        assert!(matches!(result, ValidateCallbackResult::Invalid(msg) if msg.contains("epistemic.normative")));
+        assert!(
+            matches!(result, ValidateCallbackResult::Invalid(msg) if msg.contains("epistemic.normative"))
+        );
     }
 
     #[test]
@@ -432,7 +491,9 @@ mod tests {
         let mut c = valid_safety_claim();
         c.epistemic.mythic = f32::NAN;
         let result = validate_safety_claim(c).unwrap();
-        assert!(matches!(result, ValidateCallbackResult::Invalid(msg) if msg.contains("epistemic.mythic")));
+        assert!(
+            matches!(result, ValidateCallbackResult::Invalid(msg) if msg.contains("epistemic.mythic"))
+        );
     }
 
     #[test]
@@ -440,7 +501,9 @@ mod tests {
         let mut c = valid_safety_claim();
         c.supporting_evidence = (0..65).map(|i| format!("evidence-{}", i)).collect();
         let result = validate_safety_claim(c).unwrap();
-        assert!(matches!(result, ValidateCallbackResult::Invalid(msg) if msg.contains("supporting_evidence")));
+        assert!(
+            matches!(result, ValidateCallbackResult::Invalid(msg) if msg.contains("supporting_evidence"))
+        );
     }
 
     // ---- VerificationRequest tests ----
@@ -474,6 +537,8 @@ mod tests {
     fn test_link_tag_over_max_rejected() {
         let tag = LinkTag::new(vec![0u8; 257]);
         let result = validation::require_max_tag_len(&tag, 256, "test");
-        assert!(matches!(result, Ok(ValidateCallbackResult::Invalid(msg)) if msg.contains("link tag")));
+        assert!(
+            matches!(result, Ok(ValidateCallbackResult::Invalid(msg)) if msg.contains("link tag"))
+        );
     }
 }
