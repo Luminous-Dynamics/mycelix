@@ -2086,6 +2086,15 @@ check_qualification_workflow_provenance() {
     fail=1
     return
   fi
+  if [[ ! -f ".github/workflows/hearth-07-workflow-lint.yml" ]]; then
+    echo "FAIL: missing independent Hearth 0.7 workflow-lint workflow"
+    fail=1
+  elif rg -n --fixed-strings "raven-actions/actionlint@3d39aea434753780c3b3d4a1a31c854b4dbf49d7" ".github/workflows/hearth-07-workflow-lint.yml" >/dev/null 2>&1     && rg -n --fixed-strings 'version: "1.7.12"' ".github/workflows/hearth-07-workflow-lint.yml" >/dev/null 2>&1     && rg -n --fixed-strings 'files: ".github/workflows/hearth-07-qualification.yml"' ".github/workflows/hearth-07-workflow-lint.yml" >/dev/null 2>&1     && rg -n --fixed-strings "actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803" ".github/workflows/hearth-07-workflow-lint.yml" >/dev/null 2>&1; then
+    echo "OK:   independent qualification workflow lint is present, pinned, and targets the qualification workflow"
+  else
+    echo "FAIL: independent qualification workflow lint must be pinned and target hearth-07-qualification.yml"
+    fail=1
+  fi
   if rg -n --fixed-strings "runs-on: ubuntu-24.04" "$workflow" >/dev/null 2>&1; then
     echo "OK:   qualification workflow pins the GitHub-hosted runner image to Ubuntu 24.04"
   else
