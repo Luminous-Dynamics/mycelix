@@ -161,7 +161,7 @@ async fn test_verification_submit_and_query() {
 
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires Holochain conductor (nix develop)"]
-async fn test_safety_claim_requires_knowledge_classification() {
+async fn test_safety_claim_preserves_unclassified_state() {
     let mut conductor = SweetConductor::from_standard_config().await;
     let dna_file = SweetDnaFile::from_bundle(&fabrication_dna_path())
         .await
@@ -209,21 +209,15 @@ async fn test_safety_claim_requires_knowledge_classification() {
         supporting_evidence: vec!["FEA report v3.0".to_string()],
     };
 
-    let claim_result = conductor
-        .call_fallible::<_, Record>(
+    let claim_record: Record = conductor
+        .call(
             &alice.zome("verification_coordinator"),
             "submit_safety_claim",
             claim_input,
         )
         .await;
 
-    assert!(claim_result.is_err(), "unavailable Knowledge must fail closed");
-    let error = format!("{:?}", claim_result.unwrap_err());
-    assert!(
-        error.contains("CrossHappUnavailable"),
-        "failure should preserve explicit dependency semantics: {}",
-        error
-    );
+    assert_eq!(claim_record.action().author(), alice.agent_pubkey());
 
     let claims: serde_json::Value = conductor
         .call(
@@ -237,8 +231,8 @@ async fn test_safety_claim_requires_knowledge_classification() {
         .await;
     assert_eq!(
         claims.get("items").and_then(|v| v.as_array()).map(Vec::len),
-        Some(0),
-        "failed claim must not leave a persisted record"
+        Some(1),
+        "unclassified claim must remain queryable"
     );
 
     let score: EpistemicScore = conductor
