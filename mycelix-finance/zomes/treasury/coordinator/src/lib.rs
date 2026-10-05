@@ -1183,16 +1183,52 @@ pub struct ContributeToCommonsInput {
 }
 
 /// Receive demurrage redistribution (compost) into the commons pool available balance.
+///
+/// delivery_id is the immutable queue item's identity. It makes this side effect
+/// idempotent: if the caller retries after the pool update succeeded but the caller
+/// failed to delete its queue link, the same delivery resolves to the original
+/// CompostReceival instead of minting a second pool credit.
 #[hdk_extern]
 pub fn receive_compost(input: ReceiveCompostInput) -> ExternResult<Record> {
-    // Record the compost receival once (idempotent side-effect outside retry loop)
+    validate_id(&input.commons_pool_id, "commons_pool_id")?;
+    validate_id(&input.delivery_id, "delivery_id")?;
+    validate_id(&input.source_member_did, "source_member_did")?;
+
+    let delivery_anchor =
+        anchor_hash(&format!("compost:delivery:{}", input.delivery_id))?;
+    let existing = get_links(
+        LinkQuery::try_new(
+            delivery_anchor.clone(),
+            LinkTypes::CompostDeliveryIdToReceival,
+        )?,
+        GetStrategy::default(),
+    )?;
+
+    if existing.len() > 1 {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Multiple compost receivals exist for delivery {}; refusing ambiguous replay",
+            input.delivery_id
+        ))));
+    }
+    if let Some(link) = existing.into_iter().next() {
+        let hash = ActionHash::try_from(link.target).map_err(|_| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Invalid compost delivery receival target".into(),
+            ))
+        })?;
+        return get(hash, GetOptions::default())?.ok_or(wasm_error!(
+            WasmErrorInner::Guest(
+                "Compost delivery index points to a missing receival record".into(),
+            )
+        ));
+    }
+
+    // Record the immutable receival before mutating pool state. The delivery
+    // identity is stable across retries; no wall-clock value participates in
+    // deduplication.
     let now_receipt = sys_time()?;
     let receival = CompostReceival {
-        id: format!(
-            "compost:{}:{}",
-            input.commons_pool_id,
-            now_receipt.as_micros()
-        ),
+        id: format!("compost:{}", input.delivery_id),
         commons_pool_id: input.commons_pool_id.clone(),
         amount: input.amount,
         source_member_did: input.source_member_did.clone(),
@@ -1201,8 +1237,14 @@ pub fn receive_compost(input: ReceiveCompostInput) -> ExternResult<Record> {
     let receival_hash = create_entry(&EntryTypes::CompostReceival(receival))?;
     create_link(
         anchor_hash(&input.commons_pool_id)?,
-        receival_hash,
+        receival_hash.clone(),
         LinkTypes::CommonsPoolToCompost,
+        (),
+    )?;
+    create_link(
+        delivery_anchor,
+        receival_hash,
+        LinkTypes::CompostDeliveryIdToReceival,
         (),
     )?;
 
@@ -1252,6 +1294,8 @@ pub struct ReceiveCompostInput {
     pub commons_pool_id: String,
     pub amount: u64,
     pub source_member_did: String,
+    /// Stable queue-item identity used to make delivery idempotent.
+    pub delivery_id: String,
 }
 
 /// Request allocation from commons pool available balance only.
