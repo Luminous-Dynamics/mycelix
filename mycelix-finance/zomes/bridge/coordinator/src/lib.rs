@@ -31,16 +31,18 @@ fn exact_one_index_link(
     index_type: &str,
     identifier: &str,
 ) -> ExternResult<Link> {
-    match links.len() {
-        1 => Ok(links.into_iter().next().expect("length checked")),
-        0 => Err(wasm_error!(WasmErrorInner::Guest(format!(
+    let mut links = links.into_iter();
+    let Some(link) = links.next() else {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
             "{index_type} index has no entry for {identifier}"
-        )))),
-        _ => Err(wasm_error!(WasmErrorInner::Guest(format!(
-            "{index_type} index is ambiguous for {identifier}: {} roots",
-            links.len()
-        )))),
+        )));
+    };
+    if links.next().is_some() {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "{index_type} index is ambiguous for {identifier}"
+        )));
     }
+    Ok(link)
 }
 
 /// When true, cross-cluster bridge calls that fail to reach the governance
