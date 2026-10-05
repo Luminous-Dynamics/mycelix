@@ -165,6 +165,19 @@ jobs:
           failed = {name: steps[name] for name in required if steps[name] != "success"}
           assert not failed, f"independent qualification gate failed: {failed}"
 
+          artifacts = get(f"/repos/{repo}/actions/runs/{run_id}/artifacts?per_page=100").get("artifacts", [])
+          expected_artifact_name = f"security-kernel-independent-qualification-{candidate_sha}"
+          matching_artifacts = [a for a in artifacts if a.get("name") == expected_artifact_name]
+          assert len(matching_artifacts) == 1, (
+              f"expected exactly one retained qualification receipt artifact: {len(matching_artifacts)}"
+          )
+          artifact = matching_artifacts[0]
+          assert artifact.get("expired") is False, "qualification receipt artifact is expired"
+          assert artifact.get("workflow_run", {}).get("id") == int(run_id), (
+              "qualification receipt artifact is not bound to the exact trusted dispatcher run"
+          )
+          assert int(artifact.get("size_in_bytes", 0)) > 0, "qualification receipt artifact is empty"
+
           print(json.dumps({
               "candidate_sha": candidate_sha,
               "candidate_pr": candidate_pr,
