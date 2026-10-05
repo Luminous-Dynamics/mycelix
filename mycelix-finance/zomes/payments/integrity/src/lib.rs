@@ -1018,9 +1018,10 @@ fn validate_create_sap_balance(
         return Ok(ValidateCallbackResult::Invalid(msg));
     }
 
-    if bal.balance > 0 && bal.justified_by.is_none() {
+    if bal.balance != 0 || bal.justified_by.is_some() {
         return Ok(ValidateCallbackResult::Invalid(
-            "Positive SAP balance state requires an immutable justification".into(),
+            "SAP balance creation is reserved for the zero-balance owner initialization state"
+                .into(),
         ));
     }
 
@@ -1152,12 +1153,6 @@ fn validate_sap_balance_owner(
                 "Amber exemption must have a nonzero expiry".into(),
             );
         }
-    }
-
-    if bal.balance > 0 && bal.justified_by.is_none() {
-        return Err(
-            "Positive SAP balance state requires an immutable justification".into(),
-        );
     }
 
     Ok(())
