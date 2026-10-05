@@ -2463,6 +2463,66 @@ async fn dsid_078_active_bridge_rejects_deactivated_remote_profile_target() {
     );
 }
 
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_079_deactivated_did_rejects_name_registration() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let app = conductor
+        .setup_app("dsid-deactivated-name-registration", std::slice::from_ref(&dna))
+        .await
+        .unwrap();
+    let cell = app.cells()[0].clone();
+    let agent = app.agent().clone();
+
+    let did_record: Record = conductor
+        .call(&cell.zome("did_registry"), "create_did", ())
+        .await;
+    let deactivated: Record = conductor
+        .call(
+            &cell.zome("did_registry"),
+            "deactivate_did",
+            "DSID deactivated mesh-name registration regression",
+        )
+        .await;
+
+    let blocked: Result<Record, _> = conductor
+        .call_fallible(
+            &cell.zome("name_registry"),
+            "register_name",
+            serde_json::json!({
+                "segments": ["dsid", "deactivated", "name"],
+                "canonical": "mycelix://dsid/deactivated/name",
+                "endpoint_type": "holochain",
+                "endpoint_data": agent.to_string(),
+                "registered_at": 1,
+                "expires_at": 9_999_999_999_999_999u64
+            }),
+        )
+        .await;
+
+    let rejection = format!("{blocked:?}");
+    assert!(blocked.is_err(), "deactivated DID must not register a mesh name");
+    assert!(
+        rejection.contains("DID is not active"),
+        "mesh-name registration rejection must come from active-DID guard, got: {rejection}"
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("owner", agent.to_string());
+    emit_evidence(
+        "DSID-079",
+        "deactivated-did-rejects-name-registration",
+        &dna,
+        agents,
+        &[&did_record, &deactivated],
+        "A deactivated DID cannot establish new mesh-name ownership authority.",
+        format!("name_registration_rejected={}", blocked.is_err()),
+        blocked.is_err(),
+    );
+}
+
 #[tokio::test(flavor = "multi_thread")]
 #[ignore]
 async fn dsid_006_self_recovery_projection_matches_canonical_state() {
