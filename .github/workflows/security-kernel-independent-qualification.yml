@@ -357,6 +357,12 @@ jobs:
           assert "pull_request:" in workflow, "candidate qualification workflow must retain a PR feedback trigger"
           assert "pull_request_target:" not in workflow, "candidate workflow must not elevate to pull_request_target"
           assert workflow.count("permissions:") == 1, "qualification workflow must have exactly one permissions block"
+          assert "docker.io/bitnami/git@sha256:3b25b57de5a24330fe87931ef20285b1cf965fabaf3156ce5c5f0eecf37d5329" in (
+              Path(__file__).read_text(encoding="utf-8") if "__file__" in globals() else ""
+          ) or "docker.io/bitnami/git@sha256:3b25b57de5a24330fe87931ef20285b1cf965fabaf3156ce5c5f0eecf37d5329" in open(
+              os.environ.get("GITHUB_WORKSPACE", ".github/workflows/security-kernel-independent-qualification.yml"),
+              encoding="utf-8",
+          ).read()
           permission_lines = []
           workflow_lines = workflow.splitlines()
           for index, line in enumerate(workflow_lines):
