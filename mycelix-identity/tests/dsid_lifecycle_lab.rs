@@ -789,6 +789,86 @@ async fn dsid_055_deactivated_did_rejects_trust_credential_issuance() {
 
 #[tokio::test(flavor = "multi_thread")]
 #[ignore]
+async fn dsid_056_deactivated_did_rejects_did_update() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let app = conductor
+        .setup_app(
+            "dsid-deactivated-did-update",
+            std::slice::from_ref(&dna),
+        )
+        .await
+        .unwrap();
+    let cell = app.cells()[0].clone();
+    let agent = app.agent().clone();
+
+    let did_record: Record = conductor
+        .call(&cell.zome("did_registry"), "create_did", ())
+        .await;
+    let did: DidDocument =
+        decode_entry(&did_record).expect("DID record must decode");
+
+    let deactivated: Record = conductor
+        .call(
+            &cell.zome("did_registry"),
+            "deactivate_did",
+            "DSID post-deactivation DID-update regression",
+        )
+        .await;
+
+    let blocked: Result<Record, _> = conductor
+        .call_fallible(
+            &cell.zome("did_registry"),
+            "update_did_document",
+            serde_json::json!({
+                "service": [{
+                    "id": format!("{}#post-deactivation", did.id),
+                    "type": "TestService",
+                    "serviceEndpoint": "https://example.invalid/post-deactivation"
+                }]
+            }),
+        )
+        .await;
+
+    let current: DidDocumentView = conductor
+        .call(&cell.zome("did_registry"), "resolve_did_view", did.id.clone())
+        .await
+        .expect("canonical DID view remains readable after deactivation");
+
+    let rejection = format!("{blocked:?}");
+    assert!(
+        blocked.is_err(),
+        "deactivated DID must reject DID-document mutation"
+    );
+    assert!(
+        rejection.contains("after deactivation"),
+        "DID update rejection must come from the integrity terminal-state guard, got: {rejection}"
+    );
+    assert_eq!(
+        current.version, did.version,
+        "failed post-deactivation update must not advance DID version"
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("alice", agent.to_string());
+    emit_evidence(
+        "DSID-056",
+        "deactivated-did-rejects-did-update",
+        &dna,
+        agents,
+        &[&did_record, &deactivated],
+        "DID deactivation is terminal: a deactivated identity must not regain key/service authority through generic document mutation.",
+        format!(
+            "did_update_rejected={} version_unchanged={}",
+            blocked.is_err(),
+            current.version == did.version
+        ),
+        blocked.is_err() && current.version == did.version,
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
 async fn dsid_006_self_recovery_projection_matches_canonical_state() {
     let mut conductor = SweetConductor::from_standard_config().await;
     let dna = load_dna().await;
