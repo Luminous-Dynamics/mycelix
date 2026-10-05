@@ -3183,6 +3183,8 @@ mod tests {
         )
         .expect("verified closure summary");
 
+        assert!(summary.is_passed());
+
         summary.verification_result = D6XVerificationResultV1::Failed;
         summary.commitment = summary.recompute();
 
