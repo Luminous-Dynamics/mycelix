@@ -64,7 +64,10 @@ record must apply the runtime semantic validator as well.
 The validator has adversarial unit tests for duplicates, missing claims, wrong types,
 negative numbers, unobserved values, missing stronger-status values, source mismatches,
 validated-source requirements, eligibility drift, optional repeated mechanism claims,
-and unexpected claim properties.
+and unexpected claim properties, plus explicit negative-evidence preservation.
+The validator accepts a well-formed record whose decision is non-eligible and whose
+mandatory evidence includes `Unobserved` fields; it must not turn incompleteness into
+an admission failure merely because the candidate is not positively scorable.
 
 ## Integration invariant
 
