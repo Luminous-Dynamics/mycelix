@@ -140,6 +140,9 @@ pub enum LinkTypes {
     AllocationIdToAllocation,
     PoolIdToPool,
     CommonsPoolIdToPool,
+    /// Stable compost-delivery identity -> immutable receival record.
+    /// Appended to preserve existing link-type indices.
+    CompostDeliveryIdToReceival,
     /// Registered governance agents authorized for commons-pool allocations
     /// (appended last so existing link-type indices are unchanged).
     GovernanceAgents,
@@ -255,6 +258,48 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     }
                     Ok(ValidateCallbackResult::Valid)
                 }
+                LinkTypes::CompostDeliveryIdToReceival => {
+                    if !base_valid || !target_valid {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Compost delivery index must connect valid hashes".into(),
+                        ));
+                    }
+
+                    let target_hash = ActionHash::try_from(target_address.clone()).map_err(|_| {
+                        wasm_error!(WasmErrorInner::Guest(
+                            "Compost delivery target must be an action hash".into(),
+                        ))
+                    })?;
+                    let record = must_get_valid_record(target_hash)?;
+                    let receival = record
+                        .entry()
+                        .to_app_option::<CompostReceival>()
+                        .map_err(|_| {
+                            wasm_error!(WasmErrorInner::Guest(
+                                "Compost delivery target could not be decoded as CompostReceival"
+                                    .into(),
+                            ))
+                        })?
+                        .ok_or(wasm_error!(WasmErrorInner::Guest(
+                            "Compost delivery target is missing CompostReceival".into(),
+                        )))?;
+
+                    let Some(delivery_id) = receival.id.strip_prefix("compost:") else {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Compost receival id must carry its stable delivery identity".into(),
+                        ));
+                    };
+                    let expected_base =
+                        holo_hash::blake2b_256(format!("compost:delivery:{delivery_id}").as_bytes());
+                    if base_address.as_ref() != expected_base.as_slice() {
+                        return Ok(ValidateCallbackResult::Invalid(
+                            "Compost delivery index base does not match its receival identity"
+                                .into(),
+                        ));
+                    }
+
+                    Ok(ValidateCallbackResult::Valid)
+                }
                 // Anchor → governance-agent pubkey registration (authorizes commons
                 // allocations). Enforcement of who may register lives in the coordinator.
                 LinkTypes::GovernanceAgents => Ok(ValidateCallbackResult::Valid),
@@ -273,11 +318,13 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 LinkTypes::ManagerToTreasury => Ok(ValidateCallbackResult::Invalid(
                     "Manager links cannot be directly deleted - use governance process".into(),
                 )),
-                // Compost receival links are immutable (audit trail)
-                LinkTypes::CommonsPoolToCompost => Ok(ValidateCallbackResult::Invalid(
-                    "Compost receival links cannot be deleted - audit trail must be preserved"
-                        .into(),
-                )),
+                // Compost receival links and their idempotency indexes are immutable.
+                LinkTypes::CommonsPoolToCompost | LinkTypes::CompostDeliveryIdToReceival => {
+                    Ok(ValidateCallbackResult::Invalid(
+                        "Compost receival links cannot be deleted - audit/idempotency trail must be preserved"
+                            .into(),
+                    ))
+                }
                 _ => Ok(ValidateCallbackResult::Valid),
             }
         }
@@ -594,6 +641,18 @@ fn validate_create_compost_receival(
             "Source member must be a valid DID".into(),
         ));
     }
+
+    let Some(delivery_id) = receival.id.strip_prefix("compost:") else {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Compost receival id must carry a stable delivery identity".into(),
+        ));
+    };
+    if delivery_id.is_empty() {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Compost delivery identity must be non-empty".into(),
+        ));
+    }
+
     Ok(ValidateCallbackResult::Valid)
 }
 
