@@ -310,6 +310,55 @@ jobs:
           [[ "$actual_tests" == "$expected_tests" ]] || { echo "tests/Cargo.lock changed after initial capture"; exit 1; }
           printf '%s\n' "dependency_closure_initial_capture_verified=true" > qualification-dependency-closure-immutability.txt
           cat qualification-dependency-closure-immutability.txt
+      - name: Capture semantic source contract before runtime
+        id: source_contract_before_runtime
+        working-directory: mycelix-workspace/mycelix-hearth
+        run: |
+          set -euo pipefail
+          root="${GITHUB_WORKSPACE}"
+          manifest="mycelix-workspace/mycelix-hearth/tests/hearth-07-semantic-validation-cases.json"
+          mapfile -t semantic_validator_sources < <(
+            python3 - <<'PY'
+import json
+from pathlib import Path
+
+manifest = json.loads(Path("mycelix-workspace/mycelix-hearth/tests/hearth-07-semantic-validation-cases.json").read_text())
+seen = set()
+for case in manifest["cases"]:
+    source = case["validator_source"]
+    if source not in seen:
+        seen.add(source)
+        print(source)
+PY
+          )
+          inputs=(
+            "mycelix-workspace/mycelix-hearth/tools/audit-holochain-07-source.sh"
+            "$manifest"
+            "mycelix-workspace/mycelix-hearth/tests/sweettest_semantic_validation.rs"
+            "mycelix-workspace/mycelix-hearth/dna/dna.yaml"
+            "mycelix-workspace/mycelix-hearth/flake.nix"
+            "mycelix-workspace/mycelix-hearth/flake.lock"
+            ".gitmodules"
+            "mycelix-workspace/mycelix-hearth/Cargo.toml"
+            "mycelix-workspace/mycelix-hearth/tests/Cargo.toml"
+            ".github/workflows/hearth-07-qualification.yml"
+            ".github/workflows/hearth-07-workflow-lint.yml"
+            "${semantic_validator_sources[@]}"
+          )
+          for path in "${inputs[@]}"; do
+            test -f "${root}/${path}" || {
+              echo "missing source-contract input: ${path}" >&2
+              exit 1
+            }
+          done
+          (
+            cd "${root}"
+            sha256sum "${inputs[@]}" > mycelix-workspace/mycelix-hearth/qualification-source-contract-sha256.txt
+            sha256sum -c mycelix-workspace/mycelix-hearth/qualification-source-contract-sha256.txt
+          )
+          printf '%s\n' "source_contract_before_runtime_captured=true" > qualification-source-contract-state.txt
+          cat qualification-source-contract-state.txt
+
       - name: Capture source tree fingerprint before runtime
         id: source_tree_before_runtime
         working-directory: mycelix-workspace/mycelix-hearth
@@ -320,6 +369,8 @@ jobs:
           git -C "${root}" diff --cached --quiet HEAD --
           [[ -z "$(git -C "${root}" status --porcelain=v1 --untracked-files=no)" ]]
           git -C "${root}" ls-files -s | sha256sum > qualification-source-index-sha256.txt
+          test -s qualification-source-contract-sha256.txt
+          (cd "${root}" && sha256sum -c mycelix-workspace/mycelix-hearth/qualification-source-contract-sha256.txt)
           git -C "${root}" submodule status --recursive > qualification-submodules-before-runtime.txt
           git -C "${root}" submodule foreach --recursive 'test -z "$(git status --porcelain=v1 --untracked-files=all)"'
           printf '%s\n' "source_tree_before_runtime_captured=true" > qualification-source-tree-immutability.txt
@@ -466,6 +517,7 @@ PYCOUNT
           ensure_marker "${hearth}/qualification-submodules-before-runtime.txt" "unavailable_source_tree_snapshot_not_reached"
           ensure_marker "${hearth}/qualification-submodules-after-runtime.txt" "unavailable_source_tree_runtime_verification_not_reached"
           ensure_marker "${hearth}/qualification-source-tree-immutability.txt" "unavailable_source_tree_immutability_not_reached"
+          ensure_marker "${hearth}/qualification-source-contract-state.txt" "unavailable_source_contract_state_not_reached"
           ensure_marker "${hearth}/qualification-dependency-closure.txt" "unavailable_dependency_closure_classification"
           ensure_marker "${hearth}/qualification-dependency-closure-immutability.txt" "unavailable_dependency_closure_immutability"
           ensure_marker "${hearth}/qualification-source-contract-sha256.txt" "unavailable_source_contract_capture"
@@ -556,35 +608,8 @@ PYCOUNT
             printf '%s\n' "unavailable_pack_not_successful" > "${hearth}/qualification-dna-sha256.txt"
           fi
 
-          if [[ -f "${hearth}/tests/hearth-07-semantic-validation-cases.json"              && -f "${hearth}/tools/audit-holochain-07-source.sh"              && -f "${hearth}/tests/sweettest_semantic_validation.rs"              && -f "${hearth}/dna/dna.yaml"              && -f "${hearth}/flake.nix"              && -f "${hearth}/flake.lock"              && -f "${root}/.gitmodules"              && -f "${hearth}/Cargo.toml"              && -f "${hearth}/tests/Cargo.toml"              && -f "${root}/.github/workflows/hearth-07-qualification.yml" ]]; then
-            mapfile -t semantic_validator_sources < <(
-              python3 - <<'PY'
-import json
-from pathlib import Path
-
-manifest = json.loads(Path("mycelix-workspace/mycelix-hearth/tests/hearth-07-semantic-validation-cases.json").read_text())
-seen = set()
-for case in manifest["cases"]:
-    source = case["validator_source"]
-    if source not in seen:
-        seen.add(source)
-        print(source)
-PY
-            )
-            source_contract_inputs_ok=1
-            for source in "${semantic_validator_sources[@]}"; do
-              [[ -f "${root}/${source}" ]] || { source_contract_inputs_ok=0; break; }
-            done
-            if [[ "${source_contract_inputs_ok}" -eq 1 ]]; then
-              (
-                cd "${root}"
-                sha256sum                   mycelix-workspace/mycelix-hearth/tools/audit-holochain-07-source.sh                   mycelix-workspace/mycelix-hearth/tests/hearth-07-semantic-validation-cases.json                   mycelix-workspace/mycelix-hearth/tests/sweettest_semantic_validation.rs                   mycelix-workspace/mycelix-hearth/dna/dna.yaml                   mycelix-workspace/mycelix-hearth/flake.nix                   mycelix-workspace/mycelix-hearth/flake.lock                   .gitmodules                   mycelix-workspace/mycelix-hearth/Cargo.toml                   mycelix-workspace/mycelix-hearth/tests/Cargo.toml                   .github/workflows/hearth-07-qualification.yml                   "${semantic_validator_sources[@]}"                   > mycelix-workspace/mycelix-hearth/qualification-source-contract-sha256.txt
-              )
-            else
-              printf '%s\n' "unavailable_declared_validator_source_missing" > "${hearth}/qualification-source-contract-sha256.txt"
-            fi
-          else
-            printf '%s\n' "unavailable_source_contract_inputs_missing" > "${hearth}/qualification-source-contract-sha256.txt"
+          if [[ ! -s "${hearth}/qualification-source-contract-sha256.txt" ]]; then
+            printf '%s\n' "unavailable_source_contract_capture"
           fi
 
           source_contract_verified=0
@@ -611,6 +636,7 @@ PY
             && real "${hearth}/qualification-dna-sha256.txt" \
             && real "${hearth}/qualification-cargo-lock-sha256.txt" \
             && grep -Fxq "source_tree_runtime_immutable=true" "${hearth}/qualification-source-tree-immutability.txt" \
+            && grep -Fxq "source_contract_before_runtime_captured=true" "${hearth}/qualification-source-contract-state.txt" \
             && grep -Fxq "dependency_closure_status=source_controlled_and_stable" "${hearth}/qualification-dependency-closure.txt" \
             && grep -Fxq "dependency_closure_initial_capture_verified=true" "${hearth}/qualification-dependency-closure-immutability.txt" \
             && grep -Fxq "dependency_closure_runtime_immutable=true" "${hearth}/qualification-dependency-closure-immutability.txt" \
@@ -694,6 +720,8 @@ PY
             mycelix-workspace/mycelix-hearth/qualification-submodules-before-runtime.txt
             mycelix-workspace/mycelix-hearth/qualification-submodules-after-runtime.txt
             mycelix-workspace/mycelix-hearth/qualification-source-tree-immutability.txt
+            mycelix-workspace/mycelix-hearth/qualification-source-contract-state.txt
+            mycelix-workspace/mycelix-hearth/qualification-source-contract-sha256.txt
             mycelix-workspace/mycelix-hearth/qualification-dependency-closure-immutability.txt
             mycelix-workspace/mycelix-hearth/qualification-source-contract-sha256.txt
             mycelix-workspace/mycelix-hearth/qualification-evidence-status.txt
