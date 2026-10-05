@@ -2,11 +2,11 @@
 
 ## Purpose
 
-The ordinary Security Kernel Qualification workflow remains the fast PR feedback lane.
-It is intentionally unprivileged, but GitHub documents that a pull_request workflow uses
-the workflow definition associated with the pull request's merge commit. Therefore the
-PR workflow cannot be treated as an independent trust root for deciding whether its own
-security workflow is correct.
+The ordinary Security Kernel Qualification workflow is a minimal fast PR trigger carrier.
+GitHub resolves `pull_request` workflows from the event-associated commit, while
+`workflow_run` listeners must exist on the default branch. Therefore the carrier is
+deliberately untrusted and contains only a pinned checkout with read-only repository
+permission; it is a trigger mechanism, not a security decision root.
 
 This profile separates the planes:
 
@@ -27,11 +27,12 @@ verified source run's `pull_requests` relation and then re-fetched by PR number,
 binding does not depend on the base repository's commit lookup and remains valid for
 fork-origin PR heads.
 
-The dispatcher binds source workflow ID `372951439` and path
-`.github/workflows/security-kernel-qualification.yml`. Changing either is a trusted
-configuration change and must therefore pass ordinary protected-branch review. S0 then
-checks that the S1 reusable-workflow blob at S0's own executing commit matches the
-registered S1 profile. S1 is invoked with `./.github/workflows/security-kernel-independent-qualification.yml`,
+The dispatcher binds the source workflow name `Security Kernel Qualification` and path
+`.github/workflows/security-kernel-qualification.yml`. The source workflow is only a
+non-authoritative trigger carrier: its code and outcome are not trusted, and S0 requires
+the run to be a completed `pull_request` run from that exact path/name. S0 then checks
+that the S1 reusable-workflow blob at S0's own executing commit matches the registered
+S1 profile. S1 is invoked with `./.github/workflows/security-kernel-independent-qualification.yml`,
 so GitHub resolves the called workflow from the same commit as the caller rather than
 from a separate mutable branch/tag. The S0 caller exposes only read permissions to the
 called workflow and does not provide a manual or API dispatch entrypoint.
@@ -45,7 +46,7 @@ workflow definition or harness commands.
 
 S1:
 
-- validates that its inputs came from an exact completed source qualification run;
+- validates that the source run is the exact completed `pull_request` carrier run and binds its candidate PR/repository/SHA;
 - proves its caller is the trusted S0 workflow and that the called S1 blob at that caller
   commit matches the registered S1 profile;
 - binds the candidate PR number to the verified source run's `pull_requests` relation
@@ -67,6 +68,7 @@ It does not execute candidate code and does not consume candidate-produced PASS 
 It independently validates:
 
 - S0 workflow path and `workflow_run` event;
+- the source carrier path/name and `pull_request` event are exact;
 - the exact S0 workflow blob executed by the completed run matches the registered dispatcher profile;
 - the exact S1 reusable-workflow blob at that same S0 commit matches the registered S1 profile;
 - the S0 workflow commit is an ancestor of current protected `main`;
