@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import * as vc from '@digitalbazaar/vc';
+import jsigs from 'jsonld-signatures';
 import {DataIntegrityProof} from '@digitalbazaar/data-integrity';
 import {createVerifyCryptosuite} from '@digitalbazaar/eddsa-jcs-2022-cryptosuite';
 import {securityLoader} from '@digitalbazaar/security-document-loader';
@@ -44,7 +45,7 @@ if(credentialProofPurpose !== 'assertionMethod') {
 const credentialResult = await vc.verifyCredential({
   credential: fixture.credential,
   suite,
-  expectedProofPurpose: 'assertionMethod',
+  purpose: new jsigs.purposes.AssertionProofPurpose(),
   documentLoader
 });
 if(!credentialResult.valid) {
@@ -61,7 +62,10 @@ const presentationResult = await vc.verify({
   challenge: fixture.presentationChallenge,
   domain: fixture.presentationDomain,
   suite,
-  expectedProofPurpose: 'authentication',
+  presentationPurpose: new jsigs.purposes.AuthenticationProofPurpose({
+    challenge: fixture.presentationChallenge,
+    domain: fixture.presentationDomain
+  }),
   documentLoader
 });
 if(!presentationResult.valid) {
@@ -92,7 +96,7 @@ tamperedCredential.credentialSubject.degree = 'Tampered claim';
 await mustReject('tampered credential', () => vc.verifyCredential({
   credential: tamperedCredential,
   suite,
-  expectedProofPurpose: 'assertionMethod',
+  purpose: new jsigs.purposes.AssertionProofPurpose(),
   documentLoader
 }));
 
@@ -104,7 +108,7 @@ wrongProofPurpose.proof.proofPurpose = 'authentication';
 await mustReject('wrong credential proof purpose', () => vc.verifyCredential({
   credential: wrongProofPurpose,
   suite,
-  expectedProofPurpose: 'assertionMethod',
+  purpose: new jsigs.purposes.AssertionProofPurpose(),
   documentLoader
 }));
 
@@ -113,6 +117,10 @@ await mustReject('wrong presentation challenge', () => vc.verify({
   challenge: fixture.presentationChallenge + '-wrong',
   domain: fixture.presentationDomain,
   suite,
+  presentationPurpose: new jsigs.purposes.AuthenticationProofPurpose({
+    challenge: fixture.presentationChallenge + '-wrong',
+    domain: fixture.presentationDomain
+  }),
   documentLoader
 }));
 
@@ -121,6 +129,10 @@ await mustReject('wrong presentation domain', () => vc.verify({
   challenge: fixture.presentationChallenge,
   domain: fixture.presentationDomain + '-wrong',
   suite,
+  presentationPurpose: new jsigs.purposes.AuthenticationProofPurpose({
+    challenge: fixture.presentationChallenge,
+    domain: fixture.presentationDomain + '-wrong'
+  }),
   documentLoader
 }));
 
@@ -138,6 +150,10 @@ await mustReject('tampered presentation proof', () => vc.verify({
   challenge: fixture.presentationChallenge,
   domain: fixture.presentationDomain,
   suite,
+  presentationPurpose: new jsigs.purposes.AuthenticationProofPurpose({
+    challenge: fixture.presentationChallenge,
+    domain: fixture.presentationDomain
+  }),
   documentLoader
 }));
 
@@ -192,7 +208,7 @@ tamperedLoader.addStatic(fixture.holderDidDocument.id, fixture.holderDidDocument
 await mustReject('tampered issuer verification key', () => vc.verifyCredential({
   credential: fixture.credential,
   suite,
-  expectedProofPurpose: 'assertionMethod',
+  purpose: new jsigs.purposes.AssertionProofPurpose(),
   documentLoader: tamperedLoader.build()
 }));
 
@@ -221,7 +237,7 @@ for(const method of unauthorizedIssuerDocument.verificationMethod ?? []) {
 await mustReject('issuer assertionMethod authorization removal', () => vc.verifyCredential({
   credential: fixture.credential,
   suite,
-  expectedProofPurpose: 'assertionMethod',
+  purpose: new jsigs.purposes.AssertionProofPurpose(),
   documentLoader: authorizationLoader.build()
 }));
 
