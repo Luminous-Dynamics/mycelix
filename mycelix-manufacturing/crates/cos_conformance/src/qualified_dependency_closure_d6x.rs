@@ -1661,7 +1661,7 @@ mod tests {
         let first = selected.first().expect("at least one selected dependency").clone();
         invalid
             .resolution_evidence
-            .get_mut(first)
+            .get_mut(&first)
             .expect("first evidence")
             .observed_commitment = Some("wrong-object".into());
         assert_eq!(
