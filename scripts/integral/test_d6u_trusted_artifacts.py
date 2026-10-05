@@ -385,7 +385,7 @@ def test_retention_workflow_contains_offline_controls() -> None:
         "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2",
         "retention-days: 90",
         "d6u-attestation-retention/v1",
-        "public_good_instance": "sigstore-public-good",
+        '"public_good_instance": "sigstore-public-good",',
     ]
     for fragment in required_fragments:
         assert fragment in workflow, f"retention workflow control missing: {fragment}"
