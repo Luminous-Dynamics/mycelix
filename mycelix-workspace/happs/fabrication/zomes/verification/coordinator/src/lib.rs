@@ -146,14 +146,6 @@ fn fetch_epistemic(claim_text: &str, claim_type_key: &str) -> ClaimEpistemic {
     ep
 }
 
- => default_epistemic(),
-    };
-    EPISTEMIC_CACHE.with(|c| {
-        c.borrow_mut().insert(claim_type_key.to_string(), (now, ep.clone()));
-    });
-    ep
-}
-
 fn default_epistemic() -> ClaimEpistemic {
     ClaimEpistemic { empirical: 0.5, normative: 0.3, mythic: 0.2 }
 }
