@@ -2400,6 +2400,13 @@ import sys
 
 source = Path(sys.argv[1]).read_text()
 
+runtime_snapshot = source.find("      - name: Capture source tree fingerprint before runtime")
+sweettest = source.find("      - name: Run Hearth 0.7 SweetConductor qualification")
+runtime_verify = source.find("      - name: Verify source tree immutability after runtime qualification")
+if not (0 <= runtime_snapshot < sweettest < runtime_verify):
+    print("FAIL: source-tree snapshot must immediately bracket the SweetConductor qualification step")
+    raise SystemExit(2)
+
 required = [
     '      - name: Check Hearth 0.7 test formatting',
     '        id: format',
@@ -2407,6 +2414,12 @@ required = [
     '&& [[ "${format_conclusion}" == "success" ]]',
     'echo "format_conclusion=${format_conclusion}"',
     'echo "format_conclusion=${{ steps.format.conclusion || \'unknown\' }}"',
+    'git -C "${root}" ls-files -s | sha256sum > qualification-source-index-sha256.txt',
+    'git -C "${root}" submodule status --recursive > qualification-submodules-before-runtime.txt',
+    'git -C "${root}" submodule foreach --recursive \'test -z "$(git status --porcelain=v1 --untracked-files=all)"\'',
+    'git -C "${root}" submodule status --recursive > qualification-submodules-after-runtime.txt',
+    'cmp -s qualification-submodules-before-runtime.txt qualification-submodules-after-runtime.txt',
+    'source_tree_runtime_immutable=true',
 ]
 missing = [item for item in required if item not in source]
 if missing:
@@ -2486,6 +2499,8 @@ checks = [
     ('marker helper', r'ensure_marker\(\)'),
     ('non-destructive marker creation', r'if \[\[ ! -s "\$path" \]\]'),
     ('root-level source-contract verification', r'\(cd "\$\{root\}" && sha256sum -c mycelix-workspace/mycelix-hearth/qualification-source-contract-sha256\.txt\)'),
+    ('source-tree fingerprint marker', r'unavailable_source_tree_fingerprint_not_reached'),
+    ('source-tree immutability receipt', r'qualification-source-tree-immutability\.txt'),
     ('evidence status artifact', r'qualification-evidence-status\.txt'),
 ]
 for label, pattern in checks:
@@ -2514,6 +2529,7 @@ PY
     && rg -n --fixed-strings "Verify Rust dependency closure remains immutable" "$workflow" >/dev/null 2>&1 \
     && rg -n --fixed-strings "dependency_closure_initial_capture_verified=true" "$workflow" >/dev/null 2>&1 \
     && rg -n --fixed-strings "dependency_closure_runtime_immutable=true" "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings "source_tree_runtime_immutable=true" "$workflow" >/dev/null 2>&1 \
     && rg -n --fixed-strings "grep -Fxq \"dependency_closure_status=source_controlled_and_stable\"" "$workflow" >/dev/null 2>&1; then
     echo "OK:   qualification workflow verifies committed locked closures, distinguishes runtime-generated closures, and proves lock immutability before/after runtime"
   else
