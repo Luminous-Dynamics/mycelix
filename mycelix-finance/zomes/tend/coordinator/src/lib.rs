@@ -471,10 +471,78 @@ pub struct RecordHearthExchangeInput {
     pub cultural_alias: Option<String>,
 }
 
-/// Get a member's hearth TEND balance
+/// Get a member's hearth TEND balance.
+///
+/// This is observational only: an absent balance returns an explicit zero state
+/// and does not create entries or links.
 #[hdk_extern]
 pub fn get_hearth_balance(input: GetHearthBalanceInput) -> ExternResult<HearthTendBalance> {
-    get_or_create_hearth_balance(input.member_did, input.hearth_did)
+    if input.member_did.is_empty()
+        || input.member_did.len() > 256
+        || !input.member_did.starts_with("did:")
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Member DID must be a valid 1-256 character DID".into()
+        )));
+    }
+    if input.hearth_did.is_empty()
+        || input.hearth_did.len() > 256
+        || !input.hearth_did.starts_with("did:")
+    {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Hearth DID must be a valid 1-256 character DID".into()
+        )));
+    }
+
+    let anchor_key = format!("hearth-balance:{}:{}", input.hearth_did, input.member_did);
+    let links = get_links(
+        LinkQuery::try_new(anchor_hash(&anchor_key)?, LinkTypes::HearthToBalances)?,
+        GetStrategy::default(),
+    )?;
+
+    match links.len() {
+        0 => Ok(HearthTendBalance {
+            member_did: input.member_did,
+            hearth_did: input.hearth_did,
+            balance: 0,
+            total_provided: 0.0,
+            total_received: 0.0,
+            exchange_count: 0,
+            last_activity: Timestamp::from_micros(0),
+        }),
+        1 => {
+            let hash = links
+                .into_iter()
+                .next()
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Hearth balance index unexpectedly empty".into()
+                )))?
+                .target
+                .into_action_hash()
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Invalid hearth balance index target".into()
+                )))?;
+            let record = follow_update_chain(hash)?;
+            record
+                .entry()
+                .to_app_option::<HearthTendBalance>()
+                .map_err(|e| {
+                    wasm_error!(WasmErrorInner::Guest(format!(
+                        "HearthTendBalance deserialization error: {:?}",
+                        e
+                    )))
+                })?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Hearth balance index points to a non-balance record".into()
+                )))
+        }
+        _ => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "HearthToBalances index is ambiguous for {}:{}: {} roots",
+            input.hearth_did,
+            input.member_did,
+            links.len()
+        )))),
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -1898,7 +1966,21 @@ pub fn get_balance(input: GetBalanceInput) -> ExternResult<BalanceInfo> {
             "DAO DID must be 1-256 characters".into()
         )));
     }
-    get_or_create_balance(input.member_did, input.dao_did)
+    let limit = get_effective_limit_for_member(&input.member_did)?;
+    if let Some(balance) = find_balance_observational(&input.member_did, &input.dao_did)? {
+        return Ok(balance_to_info(&balance, limit));
+    }
+
+    Ok(BalanceInfo {
+        member_did: input.member_did,
+        dao_did: input.dao_did,
+        balance: 0,
+        can_provide: true,
+        can_receive: true,
+        total_provided: 0.0,
+        total_received: 0.0,
+        exchange_count: 0,
+    })
 }
 
 /// Discover DAO contexts that already contain local TEND state for a member.
@@ -2443,6 +2525,55 @@ pub fn get_validation_score(input: GetValidationScoreInput) -> ExternResult<f64>
 // =============================================================================
 // HELPER FUNCTIONS
 // =============================================================================
+
+/// Pure observational balance lookup used by read APIs.
+/// Missing state is distinct from a write-time get-or-create operation, and
+/// multiple roots fail closed rather than selecting an arbitrary historical winner.
+fn find_balance_observational(
+    member_did: &str,
+    dao_did: &str,
+) -> ExternResult<Option<TendBalance>> {
+    let links = get_links(
+        LinkQuery::try_new(
+            anchor_hash(&format!("balance:{}:{}", dao_did, member_did))?,
+            LinkTypes::MemberToBalance,
+        )?,
+        GetStrategy::default(),
+    )?;
+
+    match links.len() {
+        0 => Ok(None),
+        1 => {
+            let action_hash = links
+                .into_iter()
+                .next()
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "MemberToBalance index unexpectedly empty".into()
+                )))?
+                .target
+                .into_action_hash()
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Invalid member balance index target".into()
+                )))?;
+            let record = follow_update_chain(action_hash)?;
+            record
+                .entry()
+                .to_app_option::<TendBalance>()
+                .map_err(|e| {
+                    wasm_error!(WasmErrorInner::Guest(format!(
+                        "TendBalance deserialization error: {:?}",
+                        e
+                    )))
+                })
+        }
+        _ => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "MemberToBalance index is ambiguous for {}:{}: {} roots",
+            dao_did,
+            member_did,
+            links.len()
+        )))),
+    }
+}
 
 fn find_balance(member_did: &str, dao_did: &str) -> ExternResult<Option<TendBalance>> {
     let links = get_links(
@@ -3043,11 +3174,13 @@ pub fn get_tend_reputation_input(input: GetBalanceInput) -> ExternResult<f32> {
             "DAO DID must be 1-256 characters".into()
         )));
     }
-    let balance = get_or_create_balance(input.member_did, input.dao_did)?;
+    let exchange_count = find_balance_observational(&input.member_did, &input.dao_did)?
+        .map(|balance| balance.exchange_count)
+        .unwrap_or(0);
 
     // Normalize based on exchange count (more exchanges = more active)
     // Cap at 50 exchanges for max score
-    let activity_score = (balance.exchange_count as f32 / 50.0).min(1.0);
+    let activity_score = (exchange_count as f32 / 50.0).min(1.0);
 
     // Apply max weight of 5%
     Ok(activity_score * 0.05)
