@@ -1,64 +1,140 @@
 name: Security Kernel Qualification — Trusted Dispatcher
+run-name: SEC-KERNEL-DISPATCH source=${{ github.event.workflow_run.id }}.${{ github.event.workflow_run.run_attempt }} candidate=${{ github.event.workflow_run.head_sha }}
+
 on:
   workflow_run:
     workflows: ["Security Kernel Qualification"]
     types: [completed]
+
 permissions:
-  actions: write
+  actions: read
   contents: read
   pull-requests: read
+
 concurrency:
   group: security-kernel-trusted-dispatch-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
   cancel-in-progress: true
+
 env:
+  BASE_REPOSITORY: "Luminous-Dynamics/mycelix"
+  BASE_BRANCH: "main"
   SOURCE_WORKFLOW_ID: "372951439"
   SOURCE_WORKFLOW_PATH: ".github/workflows/security-kernel-qualification.yml"
   TRUSTED_INDEPENDENT_WORKFLOW_PATH: ".github/workflows/security-kernel-independent-qualification.yml"
-  TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "662b6b332521e89ce056d2e899558309ef12bf4a"
-  BASE_REPOSITORY: "Luminous-Dynamics/mycelix"
-  BASE_BRANCH: "main"
+  TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "5b883a0be3c3412791874fd2323f18bb00e562b4"
+  TRUSTED_DISPATCHER_WORKFLOW_PATH: ".github/workflows/security-kernel-trusted-dispatch.yml"
+
 jobs:
-  dispatch:
-    name: Resolve exact PR subject and dispatch trusted qualification
+  resolve:
+    name: Resolve exact PR subject and source provenance
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    outputs:
+      candidate_pr: ${{ steps.resolve.outputs.candidate_pr }}
+      candidate_sha: ${{ steps.resolve.outputs.candidate_sha }}
+      candidate_repository: ${{ steps.resolve.outputs.candidate_repository }}
     steps:
-      - name: Resolve source workflow provenance
+      - name: Verify trusted dispatcher invocation context
         shell: bash
         env:
+          TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_WORKFLOW_REF" = "Luminous-Dynamics/mycelix/.github/workflows/security-kernel-trusted-dispatch.yml@refs/heads/main"
+          printf '%s' "$GITHUB_WORKFLOW_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          python3 - <<'PY'
+          import json, os, urllib.request
+          repo = os.environ["BASE_REPOSITORY"]
+          req = urllib.request.Request(
+              f"https://api.github.com/repos/{repo}/actions/runs/{os.environ['RUN_ID']}",
+              headers={
+                  "Accept": "application/vnd.github+json",
+                  "Authorization": f"Bearer {os.environ['TOKEN']}",
+                  "X-GitHub-Api-Version": "2022-11-28",
+              },
+          )
+          with urllib.request.urlopen(req, timeout=20) as response:
+              run = json.load(response)
+          assert run["id"] == int(os.environ["RUN_ID"])
+          assert run["path"] == os.environ["TRUSTED_DISPATCHER_WORKFLOW_PATH"]
+          assert run["event"] == "workflow_run"
+          assert run["repository"]["full_name"] == repo
+          assert run["workflow_ref"] == f"{repo}/{os.environ['TRUSTED_DISPATCHER_WORKFLOW_PATH']}@refs/heads/main"
+          assert run["workflow_sha"] == os.environ["GITHUB_WORKFLOW_SHA"]
+          print("PASS: trusted dispatcher is executing from the protected default-branch workflow")
+          PY
+
+      - name: Verify trusted S1 profile is present at caller commit
+        shell: bash
+        env:
+          TOKEN: ${{ github.token }}
+          CALLER_SHA: ${{ github.workflow_sha }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, urllib.request
+          repo = os.environ["BASE_REPOSITORY"]
+          path = os.environ["TRUSTED_INDEPENDENT_WORKFLOW_PATH"]
+          ref = os.environ["CALLER_SHA"]
+          req = urllib.request.Request(
+              f"https://api.github.com/repos/{repo}/contents/{path}?ref={ref}",
+              headers={
+                  "Accept": "application/vnd.github+json",
+                  "Authorization": f"Bearer {os.environ['TOKEN']}",
+                  "X-GitHub-Api-Version": "2022-11-28",
+              },
+          )
+          with urllib.request.urlopen(req, timeout=20) as response:
+              content = json.load(response)
+          assert content["sha"] == os.environ["TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA"], (
+              "S1 called-workflow blob differs from the registered qualification profile"
+          )
+          print("PASS: same-commit reusable S1 profile matches the registered blob")
+          PY
+
+      - name: Resolve exact source workflow provenance
+        id: resolve
+        shell: bash
+        env:
+          TOKEN: ${{ github.token }}
           RUN_ID: ${{ github.event.workflow_run.id }}
           RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
-          EVENT: ${{ github.event.workflow_run.event }}
           HEAD_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
-          TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           python3 - <<'PY'
           import json, os, urllib.request
           base = "https://api.github.com"
-          token = os.environ["TOKEN"]
+          repo = os.environ["BASE_REPOSITORY"]
           def get(path):
-              req = urllib.request.Request(base + path, headers={
-                  "Accept":"application/vnd.github+json",
-                  "Authorization":f"Bearer {token}",
-                  "X-GitHub-Api-Version":"2022-11-28"})
-              with urllib.request.urlopen(req, timeout=20) as r:
-                  return json.load(r)
-          run = get(f'/repos/{os.environ["BASE_REPOSITORY"]}/actions/runs/{os.environ["RUN_ID"]}')
+              req = urllib.request.Request(
+                  base + path,
+                  headers={
+                      "Accept": "application/vnd.github+json",
+                      "Authorization": f"Bearer {os.environ['TOKEN']}",
+                      "X-GitHub-Api-Version": "2022-11-28",
+                  },
+              )
+              with urllib.request.urlopen(req, timeout=20) as response:
+                  return json.load(response)
+
+          run = get(f"/repos/{repo}/actions/runs/{os.environ['RUN_ID']}")
           assert run["id"] == int(os.environ["RUN_ID"])
           assert run["run_attempt"] == int(os.environ["RUN_ATTEMPT"])
           assert run["status"] == "completed"
           assert run["workflow_id"] == int(os.environ["SOURCE_WORKFLOW_ID"])
           assert run["path"] == os.environ["SOURCE_WORKFLOW_PATH"]
           assert run["event"] == "pull_request"
-          assert run["repository"]["full_name"] == os.environ["BASE_REPOSITORY"]
+          assert run["repository"]["full_name"] == repo
           assert run["head_sha"] == os.environ["HEAD_SHA"]
           assert (run.get("head_repository") or {}).get("full_name") == os.environ["HEAD_REPOSITORY"]
-          pulls = get(f'/repos/{os.environ["BASE_REPOSITORY"]}/commits/{os.environ["HEAD_SHA"]}/pulls?per_page=100')
+
+          pulls = get(f"/repos/{repo}/commits/{os.environ['HEAD_SHA']}/pulls?per_page=100")
           matches = [
               pr for pr in pulls
-              if pr["base"]["repo"]["full_name"] == os.environ["BASE_REPOSITORY"]
+              if pr["base"]["repo"]["full_name"] == repo
               and pr["base"]["ref"] == os.environ["BASE_BRANCH"]
               and pr["head"]["repo"]["full_name"] == os.environ["HEAD_REPOSITORY"]
               and pr["head"]["sha"] == os.environ["HEAD_SHA"]
@@ -66,85 +142,25 @@ jobs:
           ]
           assert len(matches) == 1, f"expected one exact open PR, found {len(matches)}"
           pr = matches[0]
-          with open("subject.env","w",encoding="utf-8") as f:
-              f.write(f"CANDIDATE_PR={pr['number']}\n")
-              f.write(f"CANDIDATE_SHA={os.environ['HEAD_SHA']}\n")
-              f.write(f"CANDIDATE_REPOSITORY={os.environ['HEAD_REPOSITORY']}\n")
-          print("PASS: source workflow, candidate repository, SHA, and PR are exact")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"candidate_pr={pr['number']}\n")
+              output.write(f"candidate_sha={os.environ['HEAD_SHA']}\n")
+              output.write(f"candidate_repository={os.environ['HEAD_REPOSITORY']}\n")
+          print("PASS: source workflow, source attempt, candidate repository, SHA, and exact open PR are bound")
           PY
 
-      - name: Verify trusted qualification workflow is installed
-        shell: bash
-        env:
-          TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          import json, os, urllib.request
-          req=urllib.request.Request(
-              "https://api.github.com/repos/Luminous-Dynamics/mycelix/actions/workflows/security-kernel-independent-qualification.yml",
-              headers={"Accept":"application/vnd.github+json","Authorization":f"Bearer {os.environ['TOKEN']}","X-GitHub-Api-Version":"2022-11-28"})
-          with urllib.request.urlopen(req, timeout=20) as r:
-              workflow=json.load(r)
-          assert workflow["path"] == ".github/workflows/security-kernel-independent-qualification.yml"
-          assert workflow["state"] == "active"
-          req=urllib.request.Request("https://api.github.com/repos/Luminous-Dynamics/mycelix/contents/.github/workflows/security-kernel-independent-qualification.yml?ref=main", headers={"Accept":"application/vnd.github+json","Authorization":f"Bearer {os.environ['TOKEN']}","X-GitHub-Api-Version":"2022-11-28"})
-          with urllib.request.urlopen(req, timeout=20) as r:
-              content=json.load(r)
-          assert content["sha"] == os.environ["TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA"], "trusted workflow blob changed without profile update"
-          print("PASS: trusted independent workflow is active")
-          PY
-
-      - name: Dispatch exact immutable candidate subject
-        shell: bash
-        env:
-          TOKEN: ${{ github.token }}
-          SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
-          SOURCE_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
-        run: |
-          set -euo pipefail
-          source subject.env
-          python3 - <<'PY'
-          import json, os, urllib.request
-          payload={"ref":"main","inputs":{
-              "candidate_pr":os.environ["CANDIDATE_PR"],
-              "candidate_sha":os.environ["CANDIDATE_SHA"],
-              "candidate_repository":os.environ["CANDIDATE_REPOSITORY"],
-              "source_run_id":os.environ["SOURCE_RUN_ID"],
-              "source_run_attempt":os.environ["SOURCE_RUN_ATTEMPT"]},
-              "return_run_details": True}
-          req=urllib.request.Request(
-              "https://api.github.com/repos/Luminous-Dynamics/mycelix/actions/workflows/security-kernel-independent-qualification.yml/dispatches",
-              data=json.dumps(payload).encode(),
-              method="POST",
-              headers={"Accept":"application/vnd.github+json","Authorization":f"Bearer {os.environ['TOKEN']}","X-GitHub-Api-Version":"2026-03-10","Content-Type":"application/json"})
-          with urllib.request.urlopen(req, timeout=20) as r:
-              assert r.status == 200
-              dispatch=json.load(r)
-          run_id=dispatch["workflow_run_id"]
-          req=urllib.request.Request(
-              f"https://api.github.com/repos/{os.environ['BASE_REPOSITORY']}/actions/runs/{run_id}",
-              headers={"Accept":"application/vnd.github+json","Authorization":f"Bearer {os.environ['TOKEN']}","X-GitHub-Api-Version":"2026-03-10"})
-          with urllib.request.urlopen(req, timeout=20) as r:
-              run=json.load(r)
-          assert run["id"] == run_id
-          assert run["workflow_id"] != 0
-          assert run["path"] == os.environ["TRUSTED_INDEPENDENT_WORKFLOW_PATH"]
-          assert run["workflow_ref"] == f"{os.environ['BASE_REPOSITORY']}/{os.environ['TRUSTED_INDEPENDENT_WORKFLOW_PATH']}@refs/heads/main"
-          workflow_sha = run["workflow_sha"]
-          assert isinstance(workflow_sha, str) and len(workflow_sha) == 40
-          req=urllib.request.Request(
-              f"https://api.github.com/repos/{os.environ['BASE_REPOSITORY']}/contents/{os.environ['TRUSTED_INDEPENDENT_WORKFLOW_PATH']}?ref={workflow_sha}",
-              headers={"Accept":"application/vnd.github+json","Authorization":f"Bearer {os.environ['TOKEN']}","X-GitHub-Api-Version":"2022-11-28"})
-          with urllib.request.urlopen(req, timeout=20) as r:
-              executed_workflow = json.load(r)
-          assert executed_workflow["sha"] == os.environ["TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA"], (
-              "dispatched run executed a workflow blob outside the registered immutable profile"
-          )
-          print(json.dumps({
-              "dispatch":payload,
-              "workflow_run_id":run_id,
-              "workflow_sha":workflow_sha,
-              "workflow_blob_sha":executed_workflow["sha"],
-          },sort_keys=True))
-          PY
+  qualify:
+    name: Execute exact candidate qualification
+    needs: resolve
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
+    uses: ./.github/workflows/security-kernel-independent-qualification.yml
+    with:
+      candidate_pr: ${{ needs.resolve.outputs.candidate_pr }}
+      candidate_sha: ${{ needs.resolve.outputs.candidate_sha }}
+      candidate_repository: ${{ needs.resolve.outputs.candidate_repository }}
+      source_run_id: ${{ github.event.workflow_run.id }}
+      source_run_attempt: ${{ github.event.workflow_run.run_attempt }}
+      trusted_workflow_blob_sha: "5b883a0be3c3412791874fd2323f18bb00e562b4"
