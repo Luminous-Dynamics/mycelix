@@ -1,5 +1,5 @@
 {
-  "policy_version": 15,
+  "policy_version": 16,
   "workflow_name": "D6U Exact-Head Runtime Executor",
   "workflow_path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
   "artifact_name_prefix": "d6u-runtime-evidence-",
@@ -229,5 +229,14 @@
     "contents": "read",
     "id-token": "write",
     "attestations": "write"
+  },
+  "attestation_verification": {
+    "signer_workflow": "Luminous-Dynamics/mycelix/.github/workflows/d6u-trusted-evidence-attestation.yml",
+    "signer_digest_source": "GITHUB_WORKFLOW_SHA",
+    "certificate_identity": "https://github.com/Luminous-Dynamics/mycelix/.github/workflows/d6u-trusted-evidence-attestation.yml@refs/heads/main",
+    "certificate_oidc_issuer": "https://token.actions.githubusercontent.com",
+    "deny_self_hosted_runners": true,
+    "source_digest_source": "GITHUB_SHA",
+    "source_ref_source": "GITHUB_REF"
   }
 }

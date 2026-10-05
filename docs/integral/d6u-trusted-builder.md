@@ -53,7 +53,7 @@ The D6U main-owned runtime executor has `contents: read` only and explicitly def
 - `attestations: write`;
 - `artifact-metadata: write`.
 
-The trusted workflow signs the exact downloaded evidence, runtime log, and Cargo.lock only after independent verification.
+The trusted workflow signs the exact downloaded evidence, runtime log, and Cargo.lock only after independent verification. Attestation verification additionally pins the exact GitHub Actions OIDC issuer and certificate SAN for this workflow, alongside the signer workflow path and signer workflow commit digest.
 
 A successful D6U pull-request run therefore means runtime evidence was produced and uploaded. A trusted signed attestation means the default-branch verifier accepted that evidence against its independently reviewed policy and signed the exact resulting bytes.
 
@@ -70,4 +70,4 @@ The self-test has no signing permissions and is not itself an authority root.
 The intended chain is exactly three levels: `D6S Canonical Qualification` → `D6U Exact-Head Runtime Executor` → `D6U Trusted Evidence Attestation`. GitHub documents that `workflow_run` chaining is limited to three levels, so this design deliberately stops at the privileged attestation root.
 
 
-Current trusted policy revision: v15.
+Current trusted policy revision: v16.

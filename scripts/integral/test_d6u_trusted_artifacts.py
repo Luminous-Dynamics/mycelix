@@ -103,6 +103,15 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         "Cargo.lock": 4194304,
     }
     assert policy["artifact_max_total_bytes"] == 12582912
+    assert policy["attestation_verification"] == {
+        "signer_workflow": "Luminous-Dynamics/mycelix/.github/workflows/d6u-trusted-evidence-attestation.yml",
+        "signer_digest_source": "GITHUB_WORKFLOW_SHA",
+        "certificate_identity": "https://github.com/Luminous-Dynamics/mycelix/.github/workflows/d6u-trusted-evidence-attestation.yml@refs/heads/main",
+        "certificate_oidc_issuer": "https://token.actions.githubusercontent.com",
+        "deny_self_hosted_runners": True,
+        "source_digest_source": "GITHUB_SHA",
+        "source_ref_source": "GITHUB_REF",
+    }
     assert policy["artifact_max_entries"] == 32
     assert policy["trusted_artifact_fetcher"]["path"] == (
         "scripts/integral/fetch_d6u_trusted_artifact.py"
