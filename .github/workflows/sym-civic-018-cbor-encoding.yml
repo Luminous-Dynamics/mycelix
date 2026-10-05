@@ -60,7 +60,7 @@ jobs:
           python3 - <<'PY'
           import ast
           from pathlib import Path
-          allowed = {"__future__", "hashlib", "json", "pathlib"}
+          allowed = {"__future__", "hashlib", "json", "pathlib", "struct"}
           path = Path("scripts/qualification/sym_civic_018_cbor_encoding_v1.py")
           text = path.read_text(encoding="utf-8")
           text.encode("utf-8").decode("utf-8")
