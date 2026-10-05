@@ -102,6 +102,11 @@ jobs:
           assert cert_chain["claim_ceiling"] == "ReferenceModelOnly"
           assert cert_chain["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"
           assert len(cert_chain["vectors"]) == 25
+          cert_san = json.loads(Path("docs/security/mycelix-ek-cert-san-device-identity-v0.1.json").read_text())
+          assert cert_san["profile_id"] == "mycelix.security.tpm.ek-cert-san-device-identity"
+          assert cert_san["claim_ceiling"] == "ReferenceModelOnly"
+          assert cert_san["decision_algebra"] == "ANY DENY > ANY INDETERMINATE > ALL PASS"
+          assert len(cert_san["vectors"]) == 20
           PY
 
       - name: Compile security verifiers and bundle regression
@@ -123,6 +128,7 @@ jobs:
             scripts/security/verify_mycelix_ak_public_attributes_v0_1.py \
             scripts/security/verify_mycelix_ek_cert_spki_binding_v0_1.py \
             scripts/security/verify_mycelix_ek_cert_chain_policy_v0_1.py \
+            scripts/security/verify_mycelix_ek_cert_san_device_identity_v0_1.py \
             scripts/security/capture_mycelix_ek_certificate_nv_v0_1.py
 
       - name: Run platform Evidence semantic corpus
@@ -179,3 +185,6 @@ jobs:
 
       - name: Run EK certificate chain policy semantic corpus
         run: python3 scripts/security/verify_mycelix_ek_cert_chain_policy_v0_1.py --self-test
+
+      - name: Run EK SAN device identity semantic corpus
+        run: python3 scripts/security/verify_mycelix_ek_cert_san_device_identity_v0_1.py --self-test
