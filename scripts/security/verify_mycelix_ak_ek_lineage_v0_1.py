@@ -417,7 +417,8 @@ def verify(manifest: dict[str, Any]) -> dict[str, Any]:
 def fixture() -> dict[str, Any]:
     ek_name = bytes.fromhex("000b" + "11" * 32)
     ek_qname = bytes.fromhex("000b" + "22" * 32)
-    ak_name = bytes.fromhex("000b" + "33" * 32)
+    synthetic_ak_public_area = bytes.fromhex("0001000b00000032") + bytes(64)
+    ak_name = SHA256_ALG_ID + hashlib.sha256(synthetic_ak_public_area).digest()
     ak_qname = expected_qname(ek_qname, ak_name)
     tpm_id = "44" * 32
     ak_public = "55" * 32
@@ -438,9 +439,7 @@ def fixture() -> dict[str, Any]:
         },
         "ak": {
             "public_sha256": ak_public,
-            "public_area_sha256": hashlib.sha256(
-                bytes.fromhex("0001000b00000032") + bytes(64)
-            ).hexdigest(),
+            "public_area_sha256": hashlib.sha256(synthetic_ak_public_area).hexdigest(),
             "name_hex": ak_name.hex(),
             "qualified_name_hex": ak_qname.hex(),
             "name_alg": "sha256",
