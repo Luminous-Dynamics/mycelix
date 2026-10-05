@@ -33,6 +33,9 @@
     {"id":"C-27","family":"nonminimal_float64","hex":"8446a20126044101a11864fb4016000000000000f64100"},
     {"id":"C-28","family":"canonical_float32","hex":"8446a20126044101a11864fa49742408f64100"},
     {"id":"C-29","family":"nonminimal_float64_large_value","hex":"8446a20126044101a11864fb412e848100000000f64100"},
-    {"id":"C-30","family":"nonminimal_float32_small_value","hex":"8446a20126044101a11864fa3fc00000f64100"}
+    {"id":"C-30","family":"nonminimal_float32_small_value","hex":"8446a20126044101a11864fa3fc00000f64100"},
+    {"id":"C-31","family":"nan_float16_outside_profile","hex":"8446a20126044101a11864f97e00f64100"},
+    {"id":"C-32","family":"nan_float32_outside_profile","hex":"8446a20126044101a11864fa7fc00000f64100"},
+    {"id":"C-33","family":"nan_float64_outside_profile","hex":"8446a20126044101a11864fb7ff8000000000000f64100"}
   ]
 }
