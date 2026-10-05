@@ -116,6 +116,17 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         "deny_self_hosted_runners": True,
         "source_digest_source": "GITHUB_SHA",
         "source_ref_source": "GITHUB_REF",
+        "predicate_type": "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1",
+        "predicate_schema": "d6u-trusted-runtime-evidence/v1",
+        "current_run_identity": {
+            "certificate_field": "runInvocationURI",
+            "template": "https://github.com/{repository}/actions/runs/{run_id}/attempts/{run_attempt}",
+        },
+        "require_current_run_identity": True,
+        "require_subject_digest_match": True,
+        "subject_set_exact": True,
+        "require_signed_predicate_subject_binding": True,
+        "require_verified_timestamp": True,
     }
     assert policy["artifact_max_entries"] == 32
     assert policy["trusted_artifact_fetcher"]["path"] == (
@@ -130,6 +141,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         "scripts/integral/verify_d6u_trusted_artifacts.py",
         "scripts/integral/fetch_d6u_trusted_artifact.py",
         "scripts/integral/verify_d6u_trusted_attestation.py",
+        "scripts/integral/emit_d6u_trusted_attestation_predicate.py",
     }
     for path, descriptor in policy["trusted_programs"].items():
         assert descriptor["path"] == path
@@ -210,7 +222,7 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         "reject_encrypted_members": True,
         "reject_symlink_members": True,
         "expected_member_count": 3,
-        "policy_revision": 23,
+        "policy_revision": 26,
     }
 
 
@@ -1233,25 +1245,15 @@ def test_artifact_layout_rejects_symlink() -> None:
 if __name__ == "__main__":
     tests = [
         test_policy_pins_d6s_prerequisite_boundary,
+        test_record_metadata_is_canonicalized,
         test_policy_pins_current_trusted_workflow,
+        test_policy_pins_current_trusted_fetcher,
         test_trusted_cli_policy_is_explicit,
         test_privileged_actions_are_exactly_pinned,
-        test_policy_pins_current_trusted_fetcher,
         test_forbidden_cargo_config_is_rejected,
-        test_record_metadata_is_canonicalized,
         test_harness_file_set_rejects_extra_build_script,
         test_artifact_size_limits_are_enforced,
         test_artifact_entry_limit_is_enforced,
-        test_custom_attestation_requires_verified_timestamp,
-        test_custom_attestation_subject_set_is_order_independent_but_exact,
-        test_custom_attestation_accepts_current_run_and_rejects_old_run,
-        test_attestation_verifier_accepts_current_run,
-        test_attestation_verifier_rejects_old_run,
-        test_trusted_zip_accepts_exact_members,
-        test_trusted_zip_rejects_duplicate_member,
-        test_trusted_zip_rejects_symlink_member,
-        test_trusted_zip_rejects_unexpected_member_path,
-        test_trusted_workflow_policy_shape_is_pinned,
         test_valid_log_is_accepted,
         test_case_tampering_is_rejected,
         test_duplicate_case_is_rejected,
@@ -1263,7 +1265,18 @@ if __name__ == "__main__":
         test_trigger_run_identity_tampering_is_rejected,
         test_tracked_source_tree_accepts_exact_blobs,
         test_tracked_source_tree_rejects_symlink_mode,
+        test_tracked_source_tree_rejects_nonblob_entry,
         test_truncated_source_tree_is_rejected,
+        test_trusted_zip_accepts_exact_members,
+        test_trusted_zip_rejects_duplicate_member,
+        test_trusted_zip_rejects_symlink_member,
+        test_trusted_zip_rejects_unexpected_member_path,
+        test_attestation_verifier_accepts_current_run,
+        test_attestation_verifier_rejects_old_run,
+        test_custom_attestation_requires_verified_timestamp,
+        test_custom_attestation_subject_set_is_order_independent_but_exact,
+        test_custom_attestation_accepts_current_run_and_rejects_old_run,
+        test_trusted_workflow_policy_shape_is_pinned,
         test_artifact_layout_rejects_symlink,
     ]
     for test in tests:
