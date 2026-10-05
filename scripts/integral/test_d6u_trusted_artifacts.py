@@ -811,6 +811,7 @@ def attestation_entry(
                     ),
                 }
             },
+            "verifiedTimestamps": [{"type": "Tlog"}],
             "statement": {
                 "predicateType": "https://luminousdynamics.io/attestations/d6u-runtime-evidence/v1",
                 "subject": subjects,
