@@ -147,22 +147,29 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
-        FlatOp::RegisterCreateLink { link_type, tag, .. } => {
+        FlatOp::RegisterCreateLink {
+            base_address,
+            target_address,
+            link_type,
+            tag,
+            action,
+        } => {
             if tag.0.len() > 1024 {
                 return Ok(ValidateCallbackResult::Invalid(
                     "Link tag exceeds maximum length of 1024 bytes".into(),
                 ));
             }
-            match link_type {
-                LinkTypes::AuthorToSchema => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::CategoryToSchema => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::SchemaToEndorsement => Ok(ValidateCallbackResult::Valid),
-                LinkTypes::SchemaHistory => Ok(ValidateCallbackResult::Valid),
-            }
+            validate_create_schema_link(
+                link_type,
+                &base_address,
+                &target_address,
+                &action,
+            )
         }
         FlatOp::RegisterDeleteLink {
             original_action,
             action,
+            link_type,
             ..
         } => {
             if action.author != original_action.author {
@@ -170,7 +177,14 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     "Only the link creator can delete their links".into(),
                 ));
             }
-            Ok(ValidateCallbackResult::Valid)
+            match link_type {
+                LinkTypes::AuthorToSchema
+                | LinkTypes::CategoryToSchema
+                | LinkTypes::SchemaToEndorsement
+                | LinkTypes::SchemaHistory => Ok(ValidateCallbackResult::Invalid(
+                    "Credential schema security indexes cannot be deleted".into(),
+                )),
+            }
         }
         FlatOp::StoreRecord(_) => Ok(ValidateCallbackResult::Valid),
         FlatOp::RegisterAgentActivity(_) => Ok(ValidateCallbackResult::Valid),
@@ -200,6 +214,101 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             Ok(ValidateCallbackResult::Valid)
         }
     }
+}
+
+fn validate_create_schema_link(
+    link_type: LinkTypes,
+    base_address: &AnyLinkableHash,
+    target_address: &AnyLinkableHash,
+    action: &CreateLink,
+) -> ExternResult<ValidateCallbackResult> {
+    match link_type {
+        LinkTypes::AuthorToSchema => {
+            let base = base_address.clone().into_entry_hash().ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "AuthorToSchema base must be an EntryHash".into(),
+                ))
+            })?;
+            let target = target_address.clone().into_action_hash().ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "AuthorToSchema target must be an ActionHash".into(),
+                ))
+            })?;
+            let record = must_get_valid_record(target)?;
+            let schema: CredentialSchema = record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "AuthorToSchema target must contain a CredentialSchema".into(),
+                )))?;
+
+            let expected_author = format!("did:mycelix:{}", action.author);
+            if schema.author != expected_author || *record.action().author() != action.author {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "AuthorToSchema target must be authored by and identify the committing agent"
+                        .into(),
+                ));
+            }
+
+            if base != string_to_entry_hash(&schema.author) {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "AuthorToSchema base must match the schema author DID".into(),
+                ));
+            }
+        }
+        LinkTypes::SchemaToEndorsement => {
+            let base = base_address.clone().into_action_hash().ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "SchemaToEndorsement base must be an ActionHash".into(),
+                ))
+            })?;
+            let target = target_address.clone().into_action_hash().ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "SchemaToEndorsement target must be an ActionHash".into(),
+                ))
+            })?;
+
+            let schema_record = must_get_valid_record(base.clone())?;
+            let schema: CredentialSchema = schema_record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "SchemaToEndorsement base must contain a CredentialSchema".into(),
+                )))?;
+
+            let endorsement_record = must_get_valid_record(target)?;
+            let endorsement: SchemaEndorsement = endorsement_record
+                .entry()
+                .to_app_option()
+                .map_err(|e| wasm_error!(WasmErrorInner::Guest(e.to_string())))?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "SchemaToEndorsement target must contain a SchemaEndorsement".into(),
+                )))?;
+
+            if endorsement.schema_id != schema.id {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "SchemaToEndorsement target must reference the base schema ID".into(),
+                ));
+            }
+            if *endorsement_record.action().author() != action.author {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "SchemaToEndorsement link must be authored by the endorsement author".into(),
+                ));
+            }
+        }
+        LinkTypes::CategoryToSchema | LinkTypes::SchemaHistory => {
+            // These link types have no canonical construction path in the
+            // current coordinator. Do not invent authority semantics until
+            // their wire/base contract is specified.
+            return Ok(ValidateCallbackResult::Invalid(
+                "Unsupported credential schema link type".into(),
+            ));
+        }
+    }
+
+    Ok(ValidateCallbackResult::Valid)
 }
 
 /// Validate schema creation
