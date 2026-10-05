@@ -380,7 +380,7 @@ fn validate_trust_link(
                 || *credential_record.action().author()
                     != *did_to_agent(&credential.issuer_did).ok_or(wasm_error!(
                         WasmErrorInner::Guest(
-                            "Presentation source credential issuer must be a did:mycelix AgentPubKey"
+                            "Presentation source credential issuer must be a did:mycelix AgentPubKey".to_string()
                         )
                     ))?
             {
