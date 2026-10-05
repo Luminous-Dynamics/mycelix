@@ -244,6 +244,24 @@ def verify_executor_run_record(
     assert executor_run["run_attempt"] == int(record["executor_run_attempt"])
 
 
+def verify_executor_workflow_against_run_head(
+    executor_run: dict,
+    policy: dict,
+    repo: str,
+    token: str,
+) -> None:
+    assert executor_run["repository"]["full_name"] == repo
+    assert executor_run["head_repository"]["full_name"] == repo
+    assert executor_run["head_branch"] == "main"
+    head_sha = executor_run["head_sha"]
+    assert re.fullmatch(r"[0-9a-f]{40}", head_sha)
+    tree = git_tree_from_api(repo, head_sha, token)
+    verify_required_tracked_blobs(
+        tree,
+        {policy["executor_workflow"]["path"]: policy["executor_workflow"]["blob_sha"]},
+    )
+
+
 def verify_executor_workflow_identity(
     record: dict[str, str],
     policy: dict,
@@ -442,6 +460,12 @@ def main() -> None:
         "executor_run_id": str(executor_run["id"]),
         "executor_run_attempt": str(executor_run["run_attempt"]),
     }, policy, repo)
+    verify_executor_workflow_against_run_head(
+        executor_run,
+        policy,
+        repo,
+        token,
+    )
 
     expected_files = {
         "d6u-runtime-evidence.txt",
