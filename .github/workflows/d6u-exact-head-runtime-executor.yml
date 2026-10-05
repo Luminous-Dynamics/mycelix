@@ -211,9 +211,18 @@ PY
             echo "workflow_run_id=${{ github.run_id }}"
             echo "workflow_run_attempt=${{ github.run_attempt }}"
             echo "source_branch=${SOURCE_BRANCH}"
+            echo "source_repository=${{ github.event.workflow_run.head_repository.full_name }}"
+            echo "trigger_workflow_run_id=${{ github.event.workflow_run.id }}"
+            echo "trigger_workflow_run_attempt=${{ github.event.workflow_run.run_attempt }}"
+            echo "trigger_workflow_name=${{ github.event.workflow_run.name }}"
+            echo "trigger_workflow_path=${{ github.event.workflow_run.path }}"
+            echo "trigger_workflow_blob_sha=$(git hash-object ../.github/workflows/d6s-canonical-qualification.yml)"
+            echo "executor_run_id=${{ github.run_id }}"
+            echo "executor_run_attempt=${{ github.run_attempt }}"
             echo "executor_workflow_commit_sha=${{ github.workflow_sha }}"
             echo "executor_workflow_ref=${{ github.workflow_ref }}"
             echo "executor_workflow_file_path=.github/workflows/d6u-exact-head-runtime-executor.yml"
+            echo "executor_workflow_repository=${{ github.repository }}"
             echo "attestation_status=deferred-to-trusted-builder"
             echo "d6s2_manifest_git_blob_sha=$(git hash-object ../docs/integral/d6s-canon-2-manifest.json)"
             echo "d6s2_fixture_git_blob_sha=$(git hash-object ../docs/integral/d6s-canon-2-authority-boundary-fixture.json)"
@@ -281,7 +290,7 @@ PY
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           if-no-files-found: warn
-          name: d6u-runtime-evidence-${{ env.QUALIFIED_SHA }}
+          name: d6u-runtime-evidence-run-${{ github.run_id }}
           path: |
             d6u-runtime-harness/d6u-runtime-evidence.txt
             d6u-runtime-harness/d6u-runtime-test.log
