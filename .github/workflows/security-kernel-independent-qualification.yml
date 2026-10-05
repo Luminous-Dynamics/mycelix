@@ -181,6 +181,36 @@ jobs:
             exit 1
           fi
           candidate_tree="$(git -C "$candidate_git" rev-parse FETCH_HEAD^{tree})"
+          python3 - "$candidate_git" "$resolved" <<'PY'
+          import subprocess, sys
+          git_dir, commit = sys.argv[1], sys.argv[2]
+          max_files = 200_000
+          max_file_bytes = 64 * 1024 * 1024
+          max_total_bytes = 512 * 1024 * 1024
+          raw = subprocess.check_output(
+              ["git", "-C", git_dir, "ls-tree", "-r", "-l", "-z", commit],
+              timeout=30,
+          )
+          total = 0
+          count = 0
+          for record in raw.split(b"\\0"):
+              if not record:
+                  continue
+              meta, path = record.split(b"\\t", 1)
+              fields = meta.decode("ascii").split()
+              assert len(fields) == 4, f"unexpected tree record: {record!r}"
+              mode, obj_type, oid, size_text = fields
+              assert obj_type == "blob", f"non-blob tree entry: {path!r}"
+              assert len(oid) == 40, f"unexpected blob id for {path!r}"
+              size = int(size_text)
+              count += 1
+              total += size
+              assert count <= max_files, f"candidate tree exceeds {max_files} regular files"
+              assert size <= max_file_bytes, f"candidate file exceeds {max_file_bytes} bytes: {path!r}"
+              assert total <= max_total_bytes, f"candidate tree exceeds {max_total_bytes} total bytes"
+          print(f"source_file_count={count}")
+          print(f"source_total_bytes={total}")
+          PY
           mkdir -p "$candidate_root"
           git -C "$candidate_git" archive --format=tar "$resolved" | tar -xf - -C "$candidate_root"
           printf 'candidate_tree=%s\n' "$candidate_tree" >> "$GITHUB_OUTPUT"
