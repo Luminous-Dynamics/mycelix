@@ -590,7 +590,7 @@ pub fn verify_observation_set_provenance(
     if !set.structurally_valid()
         || !effect.structurally_valid()
         || !route.structurally_valid()
-        || !profile.structurally_valid()
+        || !profile.commitment_matches()
         || !effect_matches(effect, set)
         || !route_matches(route, set)
         || set.qualification_profile_id != profile.profile_id
@@ -1031,7 +1031,7 @@ mod tests {
     }
 
     fn profile() -> FinalityQualificationProfileV1 {
-        FinalityQualificationProfileV1 {
+        let mut profile = FinalityQualificationProfileV1 {
             profile_id: "qual-1".into(),
             semantic_environment_root: "env-1".into(),
             allowed_observation_sources: [
