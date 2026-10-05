@@ -983,36 +983,32 @@ pub fn claim_sap_transfer(transfer_id: String) -> ExternResult<Record> {
 /// Requires governance authorization (verified via cross-zome call).
 #[hdk_extern]
 pub fn mint_sap_from_governance(input: MintSapFromGovernanceInput) -> ExternResult<Record> {
-    // Verify caller is governance-authorized
+    // Governance issuance creates an immutable authorization. It does not directly
+    // mutate the recipient's balance; the recipient must later claim it.
     match call(
         CallTargetCell::Local,
         ZomeName::from("tend"),
-        FunctionName::from("verify_governance_agent"),
+        FunctionName::from("verify_strict_governance_agent"),
         None,
         (),
     ) {
-        Ok(ZomeCallResponse::Ok(_)) => {} // Authorized
+        Ok(ZomeCallResponse::Ok(_)) => {}
         Ok(other) => {
             return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                "SAP minting requires governance authorization: unexpected response {:?}",
+                "SAP mint authorization requires strict governance authorization: {:?}",
                 other
             ))));
         }
         Err(e) => {
             return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                "SAP minting requires governance authorization: {:?}",
+                "SAP mint authorization governance verification unavailable: {:?}",
                 e
             ))));
         }
     }
 
-    // Consciousness gate: SAP minting requires Citizen+ tier (identity >= 0.25,
-    // reputation >= 0.10). Uses shared consciousness gating via identity cluster.
-    // If identity cluster is unreachable, falls back to permissive (bootstrap mode) —
-    // governance authorization (checked above) is still required.
     verify_citizen_tier()?;
 
-    // Constitutional cap: per-proposal maximum
     if input.amount > SAP_MINT_PER_PROPOSAL_MAX {
         return Err(wasm_error!(WasmErrorInner::Guest(format!(
             "Mint amount {} exceeds constitutional per-proposal maximum of {} micro-SAP (100,000 SAP)",
@@ -1026,21 +1022,19 @@ pub fn mint_sap_from_governance(input: MintSapFromGovernanceInput) -> ExternResu
     }
 
     let now = sys_time()?;
-
-    // Constitutional cap: annual maximum — sum all governance mints in the last 365 days
     enforce_annual_mint_cap(input.amount, now)?;
+
     let mint_id = format!("mint:gov:{}:{}", input.proposal_id, now.as_micros());
-
-    let source = SapMintSource::GovernanceProposal {
-        proposal_id: input.proposal_id.clone(),
-    };
-
-    // Create immutable mint record
+    let authority_did = format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey);
     let mint_record = SapMintRecord {
         id: mint_id.clone(),
         recipient_did: input.recipient_did.clone(),
         amount: input.amount,
-        source,
+        source: SapMintSource::GovernanceProposal {
+            proposal_id: input.proposal_id.clone(),
+        },
+        authorized_by_did: Some(authority_did),
+        basis_id: Some(format!("governance:{}", input.proposal_id)),
         minted_at: now,
     };
 
@@ -1058,17 +1052,145 @@ pub fn mint_sap_from_governance(input: MintSapFromGovernanceInput) -> ExternResu
         (),
     )?;
 
-    // Credit the SAP to recipient's balance
-    credit_sap(CreditSapInput {
-        member_did: input.recipient_did.clone(),
-        amount: input.amount,
-        reason: format!("Governance mint: proposal {}", input.proposal_id),
-    })?;
-
-    // Update the running mint cap counter (O(1) for future cap checks)
     update_mint_cap_counter(input.amount, now)?;
 
-    // Broadcast mint event via bridge
+    if let Err(e) = call(
+        CallTargetCell::Local,
+        ZomeName::from("finance_bridge"),
+        FunctionName::from("broadcast_finance_event"),
+        None,
+        BroadcastMintEventPayload {
+            event_type: "SapMintAuthorized".to_string(),
+            subject_did: input.recipient_did,
+            amount: Some(input.amount),
+            payload: serde_json::json!({
+                "proposal_id": input.proposal_id,
+                "mint_id": mint_id,
+                "pending_claim": true,
+            })
+            .to_string(),
+        },
+    ) {
+        debug!("Failed to broadcast SapMintAuthorized event: {:?}", e);
+    }
+
+    get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Mint authorization record not found".into()
+    )))
+}
+
+/// Recipient-side governance mint settlement.
+///
+/// The recipient owns the positive balance mutation. The exact mint authorization
+/// and exact pre-claim balance are both bound into the immutable claim.
+#[hdk_extern]
+pub fn claim_sap_mint(mint_id: String) -> ExternResult<Record> {
+    validate_id(&mint_id, "mint_id")?;
+
+    let mint_links = get_links(
+        LinkQuery::try_new(anchor_hash(&mint_id)?, LinkTypes::MintIdToMintRecord)?,
+        GetStrategy::default(),
+    )?;
+    if mint_links.len() != 1 {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Mint authorization {} must resolve to exactly one record; found {}",
+            mint_id,
+            mint_links.len()
+        ))));
+    }
+
+    let mint_hash = ActionHash::try_from(mint_links[0].target.clone())
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid mint authorization target".into())))?;
+    let mint_record = get(mint_hash.clone(), GetOptions::default())?.ok_or(
+        wasm_error!(WasmErrorInner::Guest(
+            "Mint authorization record not found".into()
+        ))
+    )?;
+    let mint = mint_record
+        .entry()
+        .to_app_option::<SapMintRecord>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Mint authorization deserialization error: {:?}",
+                e
+            )))
+        })?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Mint authorization entry is missing",
+        )))?;
+
+    verify_caller_is_did(&mint.recipient_did)?;
+
+    let claim_anchor = anchor_hash(&format!("sap:mint:claim:{}", mint_id))?;
+    let existing = get_links(
+        LinkQuery::try_new(claim_anchor.clone(), LinkTypes::MintIdToClaim)?,
+        GetStrategy::default(),
+    )?;
+    if existing.len() > 1 {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Multiple mint claims exist for {}; refusing ambiguous settlement",
+            mint_id
+        ))));
+    }
+    if let Some(link) = existing.into_iter().next() {
+        let hash = ActionHash::try_from(link.target).map_err(|_| {
+            wasm_error!(WasmErrorInner::Guest("Invalid mint claim target".into()))
+        })?;
+        return get(hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Existing mint claim could not be loaded".into(),
+        )));
+    }
+
+    let (balance_record, balance) = match find_sap_balance_record(&mint.recipient_did)? {
+        Some(found) => found,
+        None => {
+            let record = initialize_sap_balance(mint.recipient_did.clone())?;
+            let balance = record
+                .entry()
+                .to_app_option::<SapBalance>()
+                .map_err(|e| {
+                    wasm_error!(WasmErrorInner::Guest(format!(
+                        "Recipient SAP balance deserialization error: {:?}",
+                        e
+                    )))
+                })?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Recipient SAP balance entry is missing",
+                )))?;
+            (record, balance)
+        }
+    };
+
+    let now = sys_time()?;
+    let claim = SapMintClaim {
+        mint_id: mint.id.clone(),
+        mint_record_action_hash: mint_hash,
+        recipient_did: mint.recipient_did.clone(),
+        amount: mint.amount,
+        balance_before_action_hash: balance_record.action_address().clone(),
+        claimed_at: now,
+    };
+    let claim_hash = create_entry(&EntryTypes::SapMintClaim(claim))?;
+    create_link(
+        claim_anchor,
+        claim_hash.clone(),
+        LinkTypes::MintIdToClaim,
+        (),
+    )?;
+
+    let updated = SapBalance {
+        balance: balance.balance.checked_add(mint.amount).ok_or(wasm_error!(
+            WasmErrorInner::Guest("SAP balance overflow during mint claim".into())
+        ))?,
+        justified_by: Some(claim_hash.clone()),
+        last_demurrage_at: now,
+        ..balance
+    };
+    update_entry(
+        balance_record.action_address().clone(),
+        &EntryTypes::SapBalance(updated),
+    )?;
+
     if let Err(e) = call(
         CallTargetCell::Local,
         ZomeName::from("finance_bridge"),
@@ -1076,11 +1198,11 @@ pub fn mint_sap_from_governance(input: MintSapFromGovernanceInput) -> ExternResu
         None,
         BroadcastMintEventPayload {
             event_type: "SapMinted".to_string(),
-            subject_did: input.recipient_did,
-            amount: Some(input.amount),
+            subject_did: mint.recipient_did.clone(),
+            amount: Some(mint.amount),
             payload: serde_json::json!({
-                "proposal_id": input.proposal_id,
                 "mint_id": mint_id,
+                "claim_finalized": true,
             })
             .to_string(),
         },
@@ -1088,10 +1210,11 @@ pub fn mint_sap_from_governance(input: MintSapFromGovernanceInput) -> ExternResu
         debug!("Failed to broadcast SapMinted event: {:?}", e);
     }
 
-    get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Mint record not found".into()
+    get(claim_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Mint claim record not found after creation".into(),
     )))
 }
+
 
 #[derive(Serialize, Debug)]
 struct BroadcastMintEventPayload {
