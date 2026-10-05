@@ -595,7 +595,7 @@
         "current_frontier_required": true,
         "provider_reports_may_satisfy_independence": false,
         "allow_explicit_conflict_resolution": false,
-        "profile_commitment": "finality-profile-commitment",
+        "profile_commitment": "aa758c98d0d103ed097088318f1888bed7db3869061307ba65e6c1cd531b8cd5",
         "claim_ceiling": "Contestable external-finality reference evidence only; no physical truth, settlement, or actuation authorization claim."
       },
       "set": {
