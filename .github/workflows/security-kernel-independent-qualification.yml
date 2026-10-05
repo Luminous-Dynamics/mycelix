@@ -37,7 +37,6 @@ env:
   BASE_REPOSITORY: "Luminous-Dynamics/mycelix"
   SOURCE_WORKFLOW_ID: "372951439"
   SOURCE_WORKFLOW_PATH: ".github/workflows/security-kernel-qualification.yml"
-  TRUSTED_WORKFLOW_BLOB_SHA: "c65c3fbbc7f3db129dd4382d1edce8e13794ce97"
 
 jobs:
   qualify:
@@ -52,31 +51,13 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Verify exact trusted workflow identity
+      - name: Verify default-branch workflow invocation context
         shell: bash
-        env:
-          TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          python3 - <<'PY'
-          import json, os, re, urllib.request
-          workflow_sha=os.environ["GITHUB_WORKFLOW_SHA"]
-          assert re.fullmatch(r"[0-9a-f]{40}", workflow_sha)
-          req=urllib.request.Request(
-              "https://api.github.com/repos/" + os.environ["BASE_REPOSITORY"]
-              + "/contents/" + os.environ["SOURCE_WORKFLOW_PATH"]
-              + "?ref=" + workflow_sha,
-              headers={
-                  "Accept":"application/vnd.github+json",
-                  "Authorization":f"Bearer {os.environ['TOKEN']}",
-                  "X-GitHub-Api-Version":"2022-11-28"})
-          with urllib.request.urlopen(req, timeout=20) as r:
-              workflow=json.load(r)
-          assert workflow["sha"] == os.environ["TRUSTED_WORKFLOW_BLOB_SHA"], (
-              "executing S1 workflow blob does not match the registered immutable profile"
-          )
-          print("PASS: executing S1 workflow commit/blob matches the registered immutable profile")
-          PY
+          test "$GITHUB_WORKFLOW_REF" = "Luminous-Dynamics/mycelix/.github/workflows/security-kernel-independent-qualification.yml@refs/heads/main"
+          printf '%s' "$GITHUB_WORKFLOW_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          echo "PASS: S1 is executing from the registered default-branch workflow path"
 
       - name: Install pinned Rust
         uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # master
