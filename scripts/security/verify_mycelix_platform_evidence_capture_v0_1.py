@@ -324,21 +324,7 @@ def fixture_manifest() -> dict[str, Any]:
             "certificate_source_sha256": "d3" * 32,
             "ek_public_source_sha256": "bf" * 32,
         },
-        "ek_certificate_chain_capture": {
-            "status": "INDETERMINATE",
-            "verifier_id": EK_CERTIFICATE_CHAIN_CAPTURE_ID,
-            "reason": "no-populated-ek-certificate-chain-nv-index-observed",
-            "result_sha256": "e1" * 32,
-            "inventory_sha256": "e2" * 32,
-            "transcript_sha256": "e3" * 32,
-            "script_sha256": sha256_file(EK_CERTIFICATE_CHAIN_CAPTURE_SCRIPT),
-            "source_mode": "TPM_NV_ONLY",
-            "candidate_handles": [],
-            "first_handle": None,
-            "last_handle": None,
-            "first_gap": None,
-            "concatenated_sha256": "e4" * 32,
-        },
+
         "quote": {
             "pcr_selection": "sha256:0,2,4,7",
             "nonce_sha256": "d" * 64,
