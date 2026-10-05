@@ -599,14 +599,114 @@ fn maximum_dispatch_offset_child() -> ! {
     let unconditional_exit = SeccompSyscallRuleV2::new(cleanup_syscall, Vec::new())
         .unwrap_or_else(|_| unsafe { libc::_exit(156) });
 
-    let policy = SeccompSyscallPolicyV2::new(
-        architecture,
-        vec![large_rule, unconditional_allowed, unconditional_exit],
-    )
-    .unwrap_or_else(|_| unsafe { libc::_exit(157) });
+    // The first installed filter must also permit the syscalls needed to
+    // layer additional filters and to service the Rust allocator while the
+    // cumulative-path-limit fixture is running.
+    let runtime_syscalls = [
+        libc::SYS_read,
+        libc::SYS_write,
+        libc::SYS_close,
+        libc::SYS_mmap,
+        libc::SYS_mprotect,
+        libc::SYS_munmap,
+        libc::SYS_brk,
+        libc::SYS_getrandom,
+        libc::SYS_prctl,
+        libc::SYS_seccomp,
+        libc::SYS_getppid,
+        libc::SYS_exit_group,
+    ];
+    let runtime_rules = runtime_syscalls
+        .into_iter()
+        .map(|syscall| {
+            SeccompSyscallRuleV2::new(syscall, Vec::new())
+                .unwrap_or_else(|_| unsafe { libc::_exit(157) })
+        })
+        .collect::<Vec<_>>();
+
+    let mut base_rules = vec![large_rule, unconditional_allowed, unconditional_exit];
+    base_rules.extend(runtime_rules);
+    let policy = SeccompSyscallPolicyV2::new(architecture, base_rules)
+        .unwrap_or_else(|_| unsafe { libc::_exit(158) });
     let profile = SandboxProfileV1::renderer_default()
         .with_syscall_policy_digest(policy.digest())
-        .unwrap_or_else(|_| unsafe { libc::_exit(158) });
+        .unwrap_or_else(|_| unsafe { libc::_exit(159) });
+
+    // Build the cumulative-limit policies before installing the first filter.
+    // Each has forty maximum-width disjunctive dummy rules plus twelve
+    // unconditional runtime rules. Each candidate remains below the single
+    // BPF_MAXINSNS bound while repeated attachment approaches the much larger
+    // MAX_INSNS_PER_PATH bound.
+    //
+    // The final candidate swaps getppid for getuid. If the kernel incorrectly
+    // attached that candidate despite returning ENOMEM, the post-failure
+    // getppid() probe below would be denied by the new filter.
+    fn cumulative_policy(
+        architecture: SeccompArchitecture,
+        include_getppid: bool,
+    ) -> Result<SeccompSyscallPolicyV2, prism_bridge::seccomp::SeccompError> {
+        let mut rules = Vec::with_capacity(52);
+        for syscall in 10_000i64..10_040 {
+            let mut clauses = Vec::with_capacity(4);
+            for clause_index in 0..4u64 {
+                let mut predicates = Vec::with_capacity(4);
+                for predicate_index in 0..4u8 {
+                    let value = 0x0100_0000_0000_0000u64
+                        | ((syscall as u64) << 8)
+                        | (clause_index << 4)
+                        | u64::from(predicate_index);
+                    predicates.push(
+                        SeccompArgPredicateV1::new_with_op(
+                            predicate_index,
+                            u64::MAX,
+                            value,
+                            SeccompArgPredicateOpV1::MaskedNotEqual,
+                        )?,
+                    );
+                }
+                clauses.push(SeccompSyscallClauseV2::new(predicates)?);
+            }
+            rules.push(SeccompSyscallRuleV2::new_with_clauses(syscall, clauses)?);
+        }
+
+        let runtime_syscalls = [
+            libc::SYS_read,
+            libc::SYS_write,
+            libc::SYS_close,
+            libc::SYS_mmap,
+            libc::SYS_mprotect,
+            libc::SYS_munmap,
+            libc::SYS_brk,
+            libc::SYS_getrandom,
+            libc::SYS_prctl,
+            libc::SYS_seccomp,
+            if include_getppid {
+                libc::SYS_getppid
+            } else {
+                libc::SYS_getuid
+            },
+            libc::SYS_exit_group,
+        ];
+        rules.extend(
+            runtime_syscalls
+                .into_iter()
+                .map(|syscall| SeccompSyscallRuleV2::new(syscall, Vec::new()))
+                .collect::<Result<Vec<_>, _>>()?,
+        );
+
+        SeccompSyscallPolicyV2::new(architecture, rules)
+    }
+
+    let cumulative_policy = cumulative_policy(architecture, true)
+        .unwrap_or_else(|_| unsafe { libc::_exit(160) });
+    let cumulative_failure_policy = cumulative_policy(architecture, false)
+        .unwrap_or_else(|_| unsafe { libc::_exit(161) });
+    let cumulative_profile = SandboxProfileV1::renderer_default()
+        .with_syscall_policy_digest(cumulative_policy.digest())
+        .unwrap_or_else(|_| unsafe { libc::_exit(162) });
+    let cumulative_failure_profile = SandboxProfileV1::renderer_default()
+        .with_syscall_policy_digest(cumulative_failure_policy.digest())
+        .unwrap_or_else(|_| unsafe { libc::_exit(163) });
 
     // Pre-resolve the exact raw path used after installation. No libc helper
     // is needed on the irreversible side of the boundary.
@@ -627,7 +727,42 @@ fn maximum_dispatch_offset_child() -> ! {
         &policy,
     ) {
         eprintln!("maximum-dispatch install_v2 error: {error:?}");
-        unsafe { libc::_exit(159) };
+        unsafe { libc::_exit(164) };
+    }
+
+    // Seven near-maximum filters remain below MAX_INSNS_PER_PATH. The eighth
+    // candidate is intentionally different: it denies getppid(), so an
+    // incorrect partial attachment is distinguishable from an ENOMEM refusal.
+    for index in 0..7u32 {
+        let receipt = install_v2(
+            RendererProcessAssignmentId::new(20 + index).unwrap(),
+            cumulative_profile.clone(),
+            &cumulative_policy,
+        );
+        if receipt.is_err() {
+            unsafe { libc::_exit(165) };
+        }
+    }
+
+    let cumulative_result = install_v2(
+        RendererProcessAssignmentId::new(30).unwrap(),
+        cumulative_failure_profile,
+        &cumulative_failure_policy,
+    );
+    if !matches!(
+        cumulative_result,
+        Err(prism_bridge::seccomp::SeccompError::InstallationFailed(errno))
+            if errno == libc::ENOMEM
+    ) {
+        unsafe { libc::_exit(166) };
+    }
+
+    // The failed cumulative installation must not attach the distinct
+    // candidate filter. All seven prior filters and the base filter allow
+    // getppid(); the rejected candidate would deny it.
+    let cumulative_probe = unsafe { libc::syscall(libc::SYS_getppid) };
+    if cumulative_probe <= 0 {
+        unsafe { libc::_exit(167) };
     }
 
     // write() does not match the first rule's syscall number. Reaching
