@@ -151,7 +151,6 @@ mod tests {
     }
 
     #[test]
-    #[test]
     fn unavailable_attempt_rejects_an_observed_commitment() {
         let attempt = ResolutionAttemptV1 {
             address_kind: ResolutionAddressKindV1::Entry,
@@ -163,6 +162,7 @@ mod tests {
         assert!(!attempt.structurally_valid());
     }
 
+    #[test]
     fn unavailable_attempt_can_record_retrieval_address_without_observation() {
         let attempt = ResolutionAttemptV1 {
             address_kind: ResolutionAddressKindV1::Action,
