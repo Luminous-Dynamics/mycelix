@@ -559,23 +559,6 @@ pub struct TransferSapInput {
     pub transfer_id: Option<String>,
 }
 
-fn generated_transfer_id(from_did: &str, to_did: &str, amount: u64, now: Timestamp) -> String {
-    let mut bytes = b"mycelix.sap.transfer.v1".to_vec();
-    bytes.extend_from_slice(&(from_did.len() as u32).to_be_bytes());
-    bytes.extend_from_slice(from_did.as_bytes());
-    bytes.extend_from_slice(&(to_did.len() as u32).to_be_bytes());
-    bytes.extend_from_slice(to_did.as_bytes());
-    bytes.extend_from_slice(&amount.to_be_bytes());
-    bytes.extend_from_slice(&now.as_micros().to_be_bytes());
-
-    let digest = holo_hash::blake2b_256(&bytes);
-    let mut hex = String::with_capacity(digest.len() * 2);
-    for byte in digest {
-        use std::fmt::Write;
-        let _ = write!(&mut hex, "{byte:02x}");
-    }
-    format!("transfer:{hex}")
-}
 
 /// Sender-side SAP settlement.
 ///
@@ -601,15 +584,14 @@ pub fn transfer_sap(input: TransferSapInput) -> ExternResult<Record> {
         )));
     }
 
-    let transfer_id = match input.transfer_id {
-        Some(id) => id,
-        None => generated_transfer_id(
-            &input.from_did,
-            &input.to_did,
-            input.amount,
-            sys_time()?,
-        ),
-    };
+    // The transfer ID is the idempotency boundary. Auto-generating a new ID
+    // from wall-clock time would turn an ambiguous retry into a second transfer.
+    // Callers therefore must supply a stable request identifier and reuse it on retry.
+    let transfer_id = input.transfer_id.ok_or(wasm_error!(
+        WasmErrorInner::Guest(
+            "transfer_id is required: use a stable idempotency key and reuse it on retry".into()
+        )
+    ))?;
 
     initiate_sap_transfer(TransferSapIntentInput {
         transfer_id,
@@ -2979,32 +2961,29 @@ mod ac099_tests {
     use super::*;
 
     #[test]
-    fn generated_transfer_id_is_bounded_and_deterministic() {
-        let now = Timestamp::from_micros(123_456);
-        let id = generated_transfer_id("did:mycelix:sender", "did:mycelix:recipient", 42, now);
-        let again =
-            generated_transfer_id("did:mycelix:sender", "did:mycelix:recipient", 42, now);
+    fn transfer_input_requires_explicit_idempotency_key() {
+        let input = TransferSapInput {
+            from_did: "did:mycelix:sender".into(),
+            to_did: "did:mycelix:recipient".into(),
+            amount: 42,
+            transfer_id: None,
+        };
 
-        assert_eq!(id, again);
-        assert!(id.len() <= 256);
-        assert!(id.starts_with("transfer:"));
+        assert!(input.transfer_id.is_none());
     }
 
     #[test]
-    fn generated_transfer_id_changes_with_bound_inputs() {
-        let now = Timestamp::from_micros(123_456);
-        let base = generated_transfer_id("did:mycelix:sender", "did:mycelix:recipient", 42, now);
-        let different_amount =
-            generated_transfer_id("did:mycelix:sender", "did:mycelix:recipient", 43, now);
-        let different_time =
-            generated_transfer_id(
-                "did:mycelix:sender",
-                "did:mycelix:recipient",
-                42,
-                Timestamp::from_micros(123_457),
-            );
+    fn transfer_input_preserves_stable_idempotency_key() {
+        let input = TransferSapInput {
+            from_did: "did:mycelix:sender".into(),
+            to_did: "did:mycelix:recipient".into(),
+            amount: 42,
+            transfer_id: Some("transfer:stable-request-001".into()),
+        };
 
-        assert_ne!(base, different_amount);
-        assert_ne!(base, different_time);
+        assert_eq!(
+            input.transfer_id.as_deref(),
+            Some("transfer:stable-request-001")
+        );
     }
 }
