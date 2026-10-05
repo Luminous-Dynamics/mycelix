@@ -91,61 +91,66 @@
     ],
     [
       "SAN-V04",
+      "part-number-mismatch",
+      "DENY"
+    ],
+    [
+      "SAN-V05",
       "model-indeterminate",
       "INDETERMINATE"
     ],
     [
-      "SAN-V05",
+      "SAN-V06",
       "part-number-indeterminate",
       "INDETERMINATE"
     ],
     [
-      "SAN-V06",
+      "SAN-V07",
       "firmware-indeterminate",
       "INDETERMINATE"
     ],
     [
-      "SAN-V07",
+      "SAN-V08",
       "firmware-mismatch",
       "DENY"
     ],
     [
-      "SAN-V08",
+      "SAN-V09",
       "san-certificate-splice",
       "DENY"
     ],
     [
-      "SAN-V09",
+      "SAN-V10",
       "san-receipt-splice",
       "DENY"
     ],
     [
-      "SAN-V10",
+      "SAN-V11",
       "extractor-substitution",
       "DENY"
     ],
     [
-      "SAN-V11",
+      "SAN-V12",
       "source-splice",
       "DENY"
     ],
     [
-      "SAN-V12",
+      "SAN-V13",
       "session-splice",
       "DENY"
     ],
     [
-      "SAN-V13",
+      "SAN-V14",
       "offline-origin",
       "INDETERMINATE"
     ],
     [
-      "SAN-V14",
+      "SAN-V15",
       "live-origin",
       "INDETERMINATE"
     ],
     [
-      "SAN-V15",
+      "SAN-V16",
       "key-order-permutation",
       "PASS"
     ]
