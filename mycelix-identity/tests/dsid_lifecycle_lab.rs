@@ -1717,6 +1717,241 @@ async fn dsid_066_deactivated_attestor_rejects_trust_attestation() {
     );
 }
 
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_067_deactivated_did_rejects_schema_creation() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let app = conductor
+        .setup_app("dsid-deactivated-schema-create", std::slice::from_ref(&dna))
+        .await
+        .unwrap();
+    let cell = app.cells()[0].clone();
+    let agent = app.agent().clone();
+    let did = format!("did:mycelix:{}", agent);
+
+    let did_record: Record = conductor
+        .call(&cell.zome("did_registry"), "create_did", ())
+        .await;
+    let deactivated: Record = conductor
+        .call(
+            &cell.zome("did_registry"),
+            "deactivate_did",
+            "DSID deactivated schema author regression",
+        )
+        .await;
+
+    let blocked: Result<Record, _> = conductor
+        .call_fallible(
+            &cell.zome("credential_schema"),
+            "create_schema",
+            serde_json::json!({
+                "id": "mycelix:schema:dsid:deactivated:v1",
+                "name": "DSID Schema",
+                "description": "DSID deactivated schema fixture",
+                "version": "1.0.0",
+                "author": did,
+                "schema": "{\"type\":\"object\"}",
+                "required_fields": [],
+                "optional_fields": [],
+                "credential_type": ["VerifiableCredential"],
+                "default_expiration": 0,
+                "revocable": true,
+                "active": true,
+                "created": "1970-01-01T00:00:00Z",
+                "updated": "1970-01-01T00:00:00Z"
+            }),
+        )
+        .await;
+
+    let rejection = format!("{blocked:?}");
+    assert!(blocked.is_err(), "deactivated DID must not establish schema authority");
+    assert!(
+        rejection.contains("DID is not active"),
+        "schema creation rejection must come from active-DID guard, got: {rejection}"
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("author", agent.to_string());
+    emit_evidence(
+        "DSID-067",
+        "deactivated-did-rejects-schema-creation",
+        &dna,
+        agents,
+        &[&did_record, &deactivated],
+        "A deactivated DID cannot establish new credential-schema authority.",
+        format!("schema_creation_rejected={}", blocked.is_err()),
+        blocked.is_err(),
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_068_deactivated_did_rejects_schema_endorsement() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let app = conductor
+        .setup_app("dsid-deactivated-schema-endorsement", std::slice::from_ref(&dna))
+        .await
+        .unwrap();
+    let cell = app.cells()[0].clone();
+    let agent = app.agent().clone();
+    let did = format!("did:mycelix:{}", agent);
+
+    let did_record: Record = conductor
+        .call(&cell.zome("did_registry"), "create_did", ())
+        .await;
+
+    let schema: Record = conductor
+        .call(
+            &cell.zome("credential_schema"),
+            "create_schema",
+            serde_json::json!({
+                "id": "mycelix:schema:dsid:endorsement:v1",
+                "name": "DSID Schema",
+                "description": "DSID endorsement fixture",
+                "version": "1.0.0",
+                "author": did,
+                "schema": "{\"type\":\"object\"}",
+                "required_fields": [],
+                "optional_fields": [],
+                "credential_type": ["VerifiableCredential"],
+                "default_expiration": 0,
+                "revocable": true,
+                "active": true,
+                "created": "1970-01-01T00:00:00Z",
+                "updated": "1970-01-01T00:00:00Z"
+            }),
+        )
+        .await;
+
+    let schema_hash = schema.action_address().clone();
+
+    let deactivated: Record = conductor
+        .call(
+            &cell.zome("did_registry"),
+            "deactivate_did",
+            "DSID deactivated schema endorser regression",
+        )
+        .await;
+
+    let blocked: Result<Record, _> = conductor
+        .call_fallible(
+            &cell.zome("credential_schema"),
+            "endorse_schema",
+            serde_json::json!({
+                "schema_id": "mycelix:schema:dsid:endorsement:v1",
+                "endorser_did": did,
+                "trust_level": 0.9,
+                "comment": "DSID regression"
+            }),
+        )
+        .await;
+
+    let rejection = format!("{blocked:?}");
+    assert!(blocked.is_err(), "deactivated DID must not create schema endorsement authority");
+    assert!(
+        rejection.contains("DID is not active"),
+        "schema endorsement rejection must come from active-DID guard, got: {rejection}"
+    );
+
+    assert!(schema_hash.as_ref().len() > 0);
+
+    let mut agents = BTreeMap::new();
+    agents.insert("endorser", agent.to_string());
+    emit_evidence(
+        "DSID-068",
+        "deactivated-did-rejects-schema-endorsement",
+        &dna,
+        agents,
+        &[&did_record, &schema, &deactivated],
+        "A deactivated DID cannot establish a new schema endorsement.",
+        format!("schema_endorsement_rejected={}", blocked.is_err()),
+        blocked.is_err(),
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn dsid_069_deactivated_did_rejects_schema_update() {
+    let mut conductor = SweetConductor::from_standard_config().await;
+    let dna = load_dna().await;
+    let app = conductor
+        .setup_app("dsid-deactivated-schema-update", std::slice::from_ref(&dna))
+        .await
+        .unwrap();
+    let cell = app.cells()[0].clone();
+    let agent = app.agent().clone();
+    let did = format!("did:mycelix:{}", agent);
+
+    let did_record: Record = conductor
+        .call(&cell.zome("did_registry"), "create_did", ())
+        .await;
+
+    let schema: Record = conductor
+        .call(
+            &cell.zome("credential_schema"),
+            "create_schema",
+            serde_json::json!({
+                "id": "mycelix:schema:dsid:update:v1",
+                "name": "DSID Schema",
+                "description": "DSID update fixture",
+                "version": "1.0.0",
+                "author": did,
+                "schema": "{\"type\":\"object\"}",
+                "required_fields": [],
+                "optional_fields": [],
+                "credential_type": ["VerifiableCredential"],
+                "default_expiration": 0,
+                "revocable": true,
+                "active": true,
+                "created": "1970-01-01T00:00:00Z",
+                "updated": "1970-01-01T00:00:00Z"
+            }),
+        )
+        .await;
+
+    let deactivated: Record = conductor
+        .call(
+            &cell.zome("did_registry"),
+            "deactivate_did",
+            "DSID deactivated schema updater regression",
+        )
+        .await;
+
+    let blocked: Result<Record, _> = conductor
+        .call_fallible(
+            &cell.zome("credential_schema"),
+            "update_schema",
+            serde_json::json!({
+                "schema_id": "mycelix:schema:dsid:update:v1",
+                "name": "DSID Schema Changed"
+            }),
+        )
+        .await;
+
+    let rejection = format!("{blocked:?}");
+    assert!(blocked.is_err(), "deactivated schema author must not mutate schema authority");
+    assert!(
+        rejection.contains("DID is not active"),
+        "schema update rejection must come from active-DID guard, got: {rejection}"
+    );
+
+    let mut agents = BTreeMap::new();
+    agents.insert("author", agent.to_string());
+    emit_evidence(
+        "DSID-069",
+        "deactivated-did-rejects-schema-update",
+        &dna,
+        agents,
+        &[&did_record, &schema, &deactivated],
+        "A deactivated schema author cannot advance or mutate credential-schema authority.",
+        format!("schema_update_rejected={}", blocked.is_err()),
+        blocked.is_err(),
+    );
+}
+
 #[tokio::test(flavor = "multi_thread")]
 #[ignore]
 async fn dsid_006_self_recovery_projection_matches_canonical_state() {
