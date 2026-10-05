@@ -177,14 +177,24 @@ jobs:
           print("OK: holonix is pinned to the verified Holochain 0.7 lock object")
           PY
 
-      - name: Generate exact Rust dependency locks
-        working-directory: mycelix-workspace/mycelix-hearth
-        run: |
-          set -euo pipefail
-          nix develop .#ci --command cargo generate-lockfile
+      - name: Classify Rust dependency closure provenance,        working-directory: mycelix-workspace/mycelix-hearth,        run: |,          set -euo pipefail,          closure_status="unfrozen",          if git ls-files --error-unmatch Cargo.lock tests/Cargo.lock >/dev/null 2>&1 \,            && [[ -s Cargo.lock ]] \,            && [[ -s tests/Cargo.lock ]]; then,            closure_status="source_controlled",          fi,          {,            echo "dependency_closure_status=${closure_status}",            echo "hearth_lock_tracked=$(git ls-files --error-unmatch Cargo.lock >/dev/null 2>&1 && echo true || echo false)",            echo "tests_lock_tracked=$(git ls-files --error-unmatch tests/Cargo.lock >/dev/null 2>&1 && echo true || echo false)",          } > qualification-dependency-closure.txt,          cat qualification-dependency-closure.txt,,      - name: Generate exact Rust dependency locks,        working-directory: mycelix-workspace/mycelix-hearth,        run: |,          set -euo pipefail,          nix develop .#ci --command cargo generate-lockfile
           nix develop .#ci --command bash -c 'cd tests && cargo generate-lockfile'
           test -s Cargo.lock
           test -s tests/Cargo.lock
+          if git ls-files --error-unmatch Cargo.lock tests/Cargo.lock >/dev/null 2>&1; then
+            if git diff --quiet -- Cargo.lock tests/Cargo.lock; then
+              printf "%s\n" "dependency_closure_status=source_controlled_and_stable" > qualification-dependency-closure.txt
+            else
+              printf "%s\n" "dependency_closure_status=source_controlled_but_re_resolved" > qualification-dependency-closure.txt
+            fi
+          else
+            printf "%s\n" "dependency_closure_status=generated_at_runtime" > qualification-dependency-closure.txt
+          fi
+          {
+            echo "hearth_lock_tracked=$(git ls-files --error-unmatch Cargo.lock >/dev/null 2>&1 && echo true || echo false)"
+            echo "tests_lock_tracked=$(git ls-files --error-unmatch tests/Cargo.lock >/dev/null 2>&1 && echo true || echo false)"
+          } >> qualification-dependency-closure.txt
+          cat qualification-dependency-closure.txt
           sha256sum Cargo.lock tests/Cargo.lock > qualification-cargo-lock-sha256.txt
           {
             echo "hearth_cargo_lock=$(sha256sum Cargo.lock | awk '{print $1}')"
@@ -373,6 +383,7 @@ PYCOUNT
           ensure_marker "${hearth}/qualification-dna-sha256.txt" "unavailable_dna_capture"
           ensure_marker "${hearth}/qualification-cargo-lock-sha256.txt" "unavailable_cargo_lock_capture"
           ensure_marker "${hearth}/qualification-cargo-lock-summary.txt" "unavailable_cargo_lock_summary"
+          ensure_marker "${hearth}/qualification-dependency-closure.txt" "unavailable_dependency_closure_classification"
           ensure_marker "${hearth}/qualification-source-contract-sha256.txt" "unavailable_source_contract_capture"
           ensure_marker "${hearth}/qualification-cargo-metadata.json" "unavailable_cargo_metadata_capture"
           ensure_marker "${hearth}/tests/qualification-cargo-metadata.json" "unavailable_tests_cargo_metadata_capture"
@@ -525,6 +536,7 @@ PY
             && real "${hearth}/qualification-wasm-sha256.txt" \
             && real "${hearth}/qualification-dna-sha256.txt" \
             && real "${hearth}/qualification-cargo-lock-sha256.txt" \
+            && grep -Fxq "dependency_closure_status=source_controlled_and_stable" "${hearth}/qualification-dependency-closure.txt" \
             && real "${hearth}/qualification-source-contract-sha256.txt" \
             && real "${hearth}/qualification-cargo-metadata.json" \
             && real "${hearth}/tests/qualification-cargo-metadata.json" \
@@ -535,6 +547,7 @@ PY
           printf '%s\n' "${evidence_status}" > "${hearth}/qualification-evidence-status.txt"
           echo "source_audit_conclusion=${source_audit_conclusion}"
           echo "format_conclusion=${format_conclusion}"
+          echo "dependency_closure_status=$(sed -n "s/^dependency_closure_status=//p" "${hearth}/qualification-dependency-closure.txt" | head -n1)"
           echo "build_zomes_conclusion=${build_conclusion}"
           echo "dna_pack_conclusion=${dna_pack_conclusion}"
           echo "sweettest_conclusion=${sweettest_conclusion}"
@@ -563,6 +576,7 @@ PY
             fi
             echo "evidence_capture_status=${evidence_status}"
             echo "format_conclusion=${{ steps.format.conclusion || 'unknown' }}"
+            echo "dependency_closure_status=$(sed -n "s/^dependency_closure_status=//p" "${hearth}/qualification-dependency-closure.txt" | head -n1)"
             echo "pr_head_sha=${{ github.event.pull_request.head.sha || '' }}"
             echo "pr_base_sha=${{ github.event.pull_request.base.sha || '' }}"
             echo "ref=${GITHUB_REF_NAME}"
@@ -597,6 +611,7 @@ PY
             mycelix-workspace/mycelix-hearth/qualification-dna-sha256.txt
             mycelix-workspace/mycelix-hearth/qualification-cargo-lock-sha256.txt
             mycelix-workspace/mycelix-hearth/qualification-cargo-lock-summary.txt
+            mycelix-workspace/mycelix-hearth/qualification-dependency-closure.txt
             mycelix-workspace/mycelix-hearth/qualification-source-contract-sha256.txt
             mycelix-workspace/mycelix-hearth/qualification-evidence-status.txt
             mycelix-workspace/mycelix-hearth/qualification-cargo-metadata.json
