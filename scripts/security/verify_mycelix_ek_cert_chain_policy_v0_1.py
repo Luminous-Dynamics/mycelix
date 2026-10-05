@@ -191,18 +191,42 @@ def parse_key_id(value: str | None) -> str:
     return value.lower()
 
 
+def split_pem_crls(bundle: bytes) -> list[bytes]:
+    start_marker = b"-----BEGIN X509 CRL-----"
+    end_marker = b"-----END X509 CRL-----"
+    blocks: list[bytes] = []
+    cursor = 0
+    while True:
+        start = bundle.find(start_marker, cursor)
+        if start < 0:
+            break
+        end = bundle.find(end_marker, start)
+        if end < 0:
+            raise ValueError("truncated PEM CRL block")
+        end += len(end_marker)
+        blocks.append(bundle[start:end] + b"\n")
+        cursor = end
+    if len(blocks) < 2:
+        raise ValueError("CRL bundle does not contain at least two PEM CRLs")
+    return blocks
+
+
 def crl_issuers_from_pem_bundle(bundle: bytes, work: Path) -> list[str]:
-    path = work / "crl-bundle.pem"
-    path.write_bytes(bundle)
-    proc = run(["openssl", "crl", "-in", str(path), "-noout", "-issuer", "-nameopt", "RFC2253"], work)
-    if proc.returncode != 0:
-        raise ValueError(f"openssl crl bundle parse failed: {proc.stderr.strip()}")
-    issuers = []
-    for line in proc.stdout.splitlines():
-        if line.startswith("issuer="):
-            issuers.append(line.split("=", 1)[1].strip())
-    if len(issuers) < 2:
-        raise ValueError("CRL bundle does not contain at least two issuer records")
+    issuers: list[str] = []
+    for index, block in enumerate(split_pem_crls(bundle)):
+        path = work / f"crl-{index}.pem"
+        path.write_bytes(block)
+        proc = run(
+            ["openssl", "crl", "-in", str(path), "-noout", "-issuer", "-nameopt", "RFC2253"],
+            work,
+        )
+        if proc.returncode != 0:
+            raise ValueError(
+                f"openssl crl block {index} parse failed: {proc.stderr.strip()}"
+            )
+        for line in proc.stdout.splitlines():
+            if line.startswith("issuer="):
+                issuers.append(line.split("=", 1)[1].strip())
     return issuers
 
 
@@ -755,8 +779,9 @@ def make_manifest(fx: dict[str, Any]) -> dict[str, Any]:
         "revocation": {
             "state": "PASS",
             "method": "issuer-crl",
-            "crl_der_base64": b64(fx["crl"]),
-            "crl_der_sha256": crl_sha,
+            "coverage": "leaf-and-chain",
+            "crl_bundle_pem_base64": b64(fx["crl_bundle_pem"]),
+            "crl_bundle_pem_sha256": crl_sha,
         },
         "ek_template_binding": {
             "state": "PASS",
@@ -849,7 +874,7 @@ def mutate_trust_anchor_source(m: dict[str, Any]) -> None:
         m["leaf_certificate_sha256"],
         m["intermediate_certificate_sha256"],
         m["trust_anchor_root_sha256"],
-        m["revocation"]["crl_der_sha256"],
+        m["revocation"]["crl_bundle_pem_sha256"],
     )
 
 
@@ -860,7 +885,7 @@ def mutate_trust_anchor_state_upgrade(m: dict[str, Any]) -> None:
         m["leaf_certificate_sha256"],
         m["intermediate_certificate_sha256"],
         m["trust_anchor_root_sha256"],
-        m["revocation"]["crl_der_sha256"],
+        m["revocation"]["crl_bundle_pem_sha256"],
     )
     m["trust_anchor_state"] = "PASS"
     m["session_binding_sha256"] = bound
@@ -873,10 +898,28 @@ def mutate_verification_mode_upgrade(m: dict[str, Any]) -> None:
         m["leaf_certificate_sha256"],
         m["intermediate_certificate_sha256"],
         m["trust_anchor_root_sha256"],
-        m["revocation"]["crl_der_sha256"],
+        m["revocation"]["crl_bundle_pem_sha256"],
     )
     m["verification_mode"] = "ReferenceModelOnly"
     m["session_binding_sha256"] = bound
+
+
+def mutate_root_crl_missing(m: dict[str, Any]) -> None:
+    bundle = unb64(
+        m["revocation"]["crl_bundle_pem_base64"],
+        "revocation.crl_bundle_pem_base64",
+    )
+    blocks = split_pem_crls(bundle)
+    reduced = blocks[1]
+    m["revocation"]["crl_bundle_pem_base64"] = b64(reduced)
+    m["revocation"]["crl_bundle_pem_sha256"] = hashlib.sha256(reduced).hexdigest()
+    m["session_binding_sha256"] = session_binding(
+        m,
+        m["leaf_certificate_sha256"],
+        m["intermediate_certificate_sha256"],
+        m["trust_anchor_root_sha256"],
+        m["revocation"]["crl_bundle_pem_sha256"],
+    )
 
 
 def mutate_leaf(m: dict[str, Any], leaf: bytes) -> None:
@@ -886,7 +929,7 @@ def mutate_leaf(m: dict[str, Any], leaf: bytes) -> None:
     m["spki_binding"]["certificate_sha256"] = leaf_sha
     m["session_binding_sha256"] = session_binding(
         m, leaf_sha, m["intermediate_certificate_sha256"],
-        m["trust_anchor_root_sha256"], m["revocation"]["crl_der_sha256"]
+        m["trust_anchor_root_sha256"], m["revocation"]["crl_bundle_pem_sha256"]
     )
 
 
@@ -900,8 +943,13 @@ def self_test() -> int:
             base["leaf_certificate_sha256"],
             base["intermediate_certificate_sha256"],
             base["trust_anchor_root_sha256"],
-            base["revocation"]["crl_der_sha256"],
+            base["revocation"]["crl_bundle_pem_sha256"],
         )
+        source = Path(__file__).read_text(encoding="utf-8")
+        if '"-crl_check_all"' not in source or '"-crl_check",' in source:
+            print("full-chain CRL verification command: FAIL")
+            return 1
+
         cases = [
             ("canonical-valid", "PASS", lambda x: None),
             ("root-substitution", "DENY", lambda x: x.update({
@@ -926,6 +974,7 @@ def self_test() -> int:
             ("trust-anchor-state-substitution", "DENY", lambda x: x.update({"trust_anchor_state": "DENY"})),
             ("revocation-deny", "DENY", lambda x: x["revocation"].update({"state": "DENY"})),
             ("revocation-indeterminate", "INDETERMINATE", lambda x: x["revocation"].update({"state": "INDETERMINATE"})),
+            ("root-crl-missing", "DENY", mutate_root_crl_missing),
             ("spki-certificate-substitution", "DENY", lambda x: x["spki_binding"].update({"certificate_sha256": "77" * 32})),
             ("spki-indeterminate", "INDETERMINATE", lambda x: x["spki_binding"].update({"state": "INDETERMINATE"})),
             ("spki-ek-public-digest-substitution", "DENY", lambda x: x["spki_binding"].update({"ek_public_wire_sha256": "77" * 32})),
