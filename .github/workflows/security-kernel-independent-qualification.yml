@@ -405,8 +405,14 @@ jobs:
             "$SANDBOX_IMAGE" /bin/bash -euc '
               test "$(id -u)" -ne 0
               grep -Eq "^NoNewPrivs:[[:space:]]+1$" /proc/self/status
+              grep -Eq "^Seccomp:[[:space:]]+2$" /proc/self/status
+              grep -Eq "^Seccomp_filters:[[:space:]]+[1-9][0-9]*$" /proc/self/status
               test "$(awk "/^CapEff:/{print \\$2}" /proc/self/status)" = "0000000000000000"
               test ! -e /var/run/docker.sock
+              test ! -e /dev/kvm
+              test ! -e /dev/mem
+              test ! -e /dev/kmem
+              test ! -e /dev/kmsg
               test ! -e /home/runner
               test ! -w /
               test "$(tail -n +2 /proc/net/route | wc -l)" -eq 0
@@ -609,10 +615,16 @@ jobs:
             test "$(rustc --version | awk "{print \\$2}")" = "1.99.0"
             test "$(rustc --version --verbose | sed -n "s/^commit-hash: //p")" = "b940084d7eb6a299eb4bfeb8e34901bc051e7ac4"
             test "$(grep -E "^NoNewPrivs:" /proc/self/status | awk "{print \\$2}")" = "1"
+            test "$(grep -E "^Seccomp:" /proc/self/status | awk "{print \\$2}")" = "2"
+            test "$(grep -E "^Seccomp_filters:" /proc/self/status | awk "{print \\$2}")" -gt 0
             test "$(awk "/^CapEff:/{print \\$2}" /proc/self/status)" = "0000000000000000"
             test -z "${GITHUB_TOKEN:-}"
             test -z "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}"
             test ! -e /var/run/docker.sock
+            test ! -e /dev/kvm
+            test ! -e /dev/mem
+            test ! -e /dev/kmem
+            test ! -e /dev/kmsg
             test ! -e /home/runner
             test -w /target
             test -w /tmp
