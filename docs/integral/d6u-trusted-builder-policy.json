@@ -1,5 +1,5 @@
 {
-  "policy_version": 7,
+  "policy_version": 8,
   "workflow_name": "D6U Exact-Head Runtime Executor",
   "workflow_path": ".github/workflows/d6u-exact-head-runtime-executor.yml",
   "artifact_name_prefix": "d6u-runtime-evidence-",
@@ -184,5 +184,11 @@
     "scripts/integral/verify_d6s_canon_1.py": "fad033cb88ca88b0b6a116dfadd799ac73e1233e",
     "scripts/integral/verify_d6s_canon_2_authority_boundary.py": "12d5fdb955769aa5294d3de0be6fb8a2c6ca6016"
   },
-  "artifact_name_template": "d6u-runtime-evidence-run-{executor_run_id}-attempt-{executor_run_attempt}"
+  "artifact_name_template": "d6u-runtime-evidence-run-{executor_run_id}-attempt-{executor_run_attempt}",
+  "forbidden_cargo_config_paths": [
+    ".cargo/config",
+    ".cargo/config.toml",
+    "d6u-runtime-harness/.cargo/config",
+    "d6u-runtime-harness/.cargo/config.toml"
+  ]
 }

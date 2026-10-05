@@ -14,6 +14,7 @@ from verify_d6u_trusted_artifacts import (
     verify_lock,
     verify_required_tracked_blobs,
     verify_trigger_run_record,
+    verify_forbidden_cargo_config_paths,
 )
 
 
@@ -72,6 +73,31 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         assert len(required[path]) == 40
         assert all(ch in "0123456789abcdef" for ch in required[path])
 
+
+
+
+def test_forbidden_cargo_config_is_rejected() -> None:
+    forbidden = [
+        ".cargo/config",
+        ".cargo/config.toml",
+        "d6u-runtime-harness/.cargo/config",
+        "d6u-runtime-harness/.cargo/config.toml",
+    ]
+    tree = {
+        "truncated": False,
+        "tree": [
+            {
+                "path": "d6u-runtime-harness/.cargo/config.toml",
+                "mode": "100644",
+                "type": "blob",
+                "sha": "a" * 40,
+            }
+        ],
+    }
+    assert_rejected(
+        lambda: verify_forbidden_cargo_config_paths(tree, forbidden),
+        "Cargo config inherited by D6U was accepted",
+    )
 
 def test_valid_log_is_accepted() -> None:
     verify_cases(valid_log(), base_policy())
@@ -377,6 +403,7 @@ def test_artifact_layout_rejects_symlink() -> None:
 if __name__ == "__main__":
     tests = [
         test_policy_pins_d6s_prerequisite_boundary,
+        test_forbidden_cargo_config_is_rejected,
         test_valid_log_is_accepted,
         test_case_tampering_is_rejected,
         test_duplicate_case_is_rejected,

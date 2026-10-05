@@ -88,6 +88,15 @@ def verify_required_tracked_blobs(tree_payload: dict, required: dict[str, str]) 
     assert not mismatches, f"trusted source blob mismatch: {mismatches!r}"
 
 
+def verify_forbidden_cargo_config_paths(tree_payload: dict, forbidden_paths: list[str]) -> None:
+    assert tree_payload.get("truncated") is False, (
+        "GitHub Git tree response was truncated; refusing incomplete Cargo-config identity"
+    )
+    observed = {entry.get("path") for entry in tree_payload.get("tree", [])}
+    forbidden = sorted(path for path in forbidden_paths if path in observed)
+    assert not forbidden, f"source tree contains forbidden Cargo config: {forbidden!r}"
+
+
 def verify_artifact_layout(artifact_dir: Path, expected_files: set[str]) -> None:
     assert artifact_dir.is_dir(), f"missing trusted artifact directory: {artifact_dir}"
     entries = list(artifact_dir.rglob("*"))
@@ -202,6 +211,10 @@ def verify_trigger_run(
     )
     verify_trigger_run_record(record, trigger, policy, repo)
     source_tree = git_tree_from_api(repo, record["source_commit"], token)
+    verify_forbidden_cargo_config_paths(
+        source_tree,
+        policy["forbidden_cargo_config_paths"],
+    )
     verify_required_tracked_blobs(
         source_tree,
         policy["required_source_blobs"],

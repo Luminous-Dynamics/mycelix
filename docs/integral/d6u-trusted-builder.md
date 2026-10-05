@@ -21,12 +21,13 @@ It pins:
 - the D6S-CANON-1 manifest, golden corpus, and independent verifier;
 - the D6S-CANON-2 manifest, authority-boundary fixture, and independent verifier;
 - the expected runtime versions;
+- the absence of Cargo configuration files that could be inherited by the D6U harness;
 - all native case outcomes and zome reachability;
 - supplemental substrate witnesses;
 - lockfile substrate versions and crates.io provenance;
 - the `ReferenceModelOnly` claim ceiling.
 
-Before signing, the trusted verifier obtains the complete Git tree for the triggering run's exact `head_sha`. The D6S success status is not treated as sufficient proof by itself: the canonical verifier programs and canonical reference inputs are independently pinned in the trusted policy. It requires every policy-listed tracked path to resolve to an ordinary Git blob with an allowed file mode and the exact expected SHA. A truncated tree, missing path, blob mismatch, symlink mode, or submodule/non-blob entry fails closed. The artifact's self-reported hashes therefore cannot substitute for repository state.
+Before signing, the trusted verifier obtains the complete Git tree for the triggering run's exact `head_sha`. The D6S success status is not treated as sufficient proof by itself: the canonical verifier programs and canonical reference inputs are independently pinned in the trusted policy. It requires every policy-listed tracked path to resolve to an ordinary Git blob with an allowed file mode and the exact expected SHA. A truncated tree, missing path, blob mismatch, symlink mode, submodule/non-blob entry, or inherited Cargo configuration fails closed. The artifact's self-reported hashes therefore cannot substitute for repository state.
 
 ## Artifact boundary
 
@@ -54,7 +55,7 @@ Neither event upgrades the D6S claim ceiling beyond `ReferenceModelOnly`.
 
 ## Fail-closed self-test boundary
 
-The read-only trusted-verifier suite contains thirteen deterministic checks: valid evidence acceptance; case-outcome tampering rejection; duplicate-case rejection; live executor-run identity rejection; D6S prerequisite-policy pin coverage; Cargo.lock checksum tampering rejection; duplicate-record-key rejection; trigger-run identity and workflow-blob tampering rejection; exact Git-blob acceptance; executor workflow-identity tampering rejection; Git symlink-mode rejection; Git submodule/non-blob rejection; truncated-tree rejection; and regular-file artifact-layout symlink rejection.
+The read-only trusted-verifier suite contains fourteen deterministic checks: valid evidence acceptance; case-outcome tampering rejection; duplicate-case rejection; live executor-run identity rejection; D6S prerequisite-policy pin coverage; Cargo.lock checksum tampering rejection; duplicate-record-key rejection; trigger-run identity and workflow-blob tampering rejection; exact Git-blob acceptance; executor workflow-identity tampering rejection; Git symlink-mode rejection; Git submodule/non-blob rejection; truncated-tree rejection; and regular-file artifact-layout symlink rejection.
 
 The self-test has no signing permissions and is not itself an authority root.
 
@@ -63,4 +64,4 @@ The self-test has no signing permissions and is not itself an authority root.
 The intended chain is exactly three levels: `D6S Canonical Qualification` → `D6U Exact-Head Runtime Executor` → `D6U Trusted Evidence Attestation`. GitHub documents that `workflow_run` chaining is limited to three levels, so this design deliberately stops at the privileged attestation root.
 
 
-Current trusted policy revision: v7.
+Current trusted policy revision: v8.
