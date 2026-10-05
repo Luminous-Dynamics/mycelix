@@ -727,61 +727,80 @@ fn maximum_dispatch_offset_child() -> ! {
         unsafe { libc::_exit(164) };
     }
 
-    // Linux charges the converted eBPF program length at chain-attachment
-    // time, not merely the user-space cBPF length. In this fixture the
-    // classic-BPF converter contributes three prologue instructions, two
-    // eBPF instructions for each RET_K, and expands each maximum-width
-    // disjunctive dummy rule by four instructions over its cBPF form.
-    // The resulting converted lengths are:
-    //   x86_64: base 151, candidate 4249
-    //   AArch64: base 147, candidate 4245
+    // Linux enforces a per-filter classic-BPF input limit of 4096
+    // instructions, while the cumulative path limit is charged against the
+    // kernel's prepared program length. Depending on JIT/configuration, a
+    // classic filter may retain its classic length or be migrated to an
+    // expanded eBPF representation. Therefore the exact boundary layer is an
+    // observed property of the hosted kernel, not a portable constant.
     //
-    // seccomp_attach_filter() checks:
-    //   new_len + sum(existing_len + 4)
-    // before attachment. Thus the 7th candidate admission check is:
-    //   x86_64: 4249 + 151 + 6*4249 + 7*4 = 29,922
-    //   AArch64: 4245 + 147 + 6*4245 + 7*4 = 29,890
-    // while the 8th candidate admission check is:
-    //   x86_64: 34,175
-    //   AArch64: 34,139
-    // Both leave the 7th candidate below the 32,768 path limit and force
-    // the 8th to return ENOMEM before attachment.
-    //
-    // The rejected candidate intentionally denies getppid(), so an incorrect
-    // partial attachment is distinguishable from the expected ENOMEM refusal.
-    for index in 0..7u32 {
-        eprintln!("cumulative-layer={} expected=success", index);
-        let receipt = install_v2(
+    // This candidate is deliberately close enough to the single-filter ceiling
+    // that current Linux kernels reach MAX_INSNS_PER_PATH after either seven
+    // or eight successful cumulative attachments. We accept exactly that range,
+    // require the first boundary error to be ENOMEM, and then submit a distinct
+    // candidate which denies getppid() so an incorrect partial attachment is
+    // still observable.
+    let mut successful_layers = 0u32;
+    let mut boundary_reached = false;
+    for index in 0..9u32 {
+        eprintln!("cumulative-layer={} expected=success-or-boundary", index);
+        match install_v2(
             RendererProcessAssignmentId::new(20u128 + u128::from(index)).unwrap(),
             cumulative_profile.clone(),
             &cumulative_policy,
-        );
-        if let Err(error) = receipt {
-            eprintln!("cumulative-layer={} unexpected-error={error:?}", index);
-            unsafe { libc::_exit(i32::from(165u8.saturating_add(index as u8))) };
+        ) {
+            Ok(_) => {
+                successful_layers += 1;
+            }
+            Err(prism_bridge::seccomp::SeccompError::InstallationFailed(errno))
+                if errno == libc::ENOMEM =>
+            {
+                eprintln!(
+                    "cumulative-boundary-successes={} errno=ENOMEM",
+                    successful_layers
+                );
+                boundary_reached = true;
+                break;
+            }
+            Err(error) => {
+                eprintln!(
+                    "cumulative-layer={} unexpected-error={error:?}",
+                    index
+                );
+                unsafe { libc::_exit(165) };
+            }
         }
     }
 
-    eprintln!("cumulative-layer=7 expected=ENOMEM");
-    let cumulative_result = install_v2(
-        RendererProcessAssignmentId::new(30).unwrap(),
+    if !boundary_reached || !(7..=8).contains(&successful_layers) {
+        eprintln!(
+            "cumulative-boundary-invalid-success-count={}",
+            successful_layers
+        );
+        unsafe { libc::_exit(166) };
+    }
+
+    // Submit a distinct over-limit candidate after the observed boundary.
+    // Unlike the successful candidate, this policy omits getppid().
+    let boundary_result = install_v2(
+        RendererProcessAssignmentId::new(40).unwrap(),
         cumulative_failure_profile,
         &cumulative_failure_policy,
     );
     if !matches!(
-        cumulative_result,
+        boundary_result,
         Err(prism_bridge::seccomp::SeccompError::InstallationFailed(errno))
             if errno == libc::ENOMEM
     ) {
-        unsafe { libc::_exit(166) };
+        unsafe { libc::_exit(167) };
     }
 
     // The failed cumulative installation must not attach the distinct
-    // candidate filter. All seven prior filters and the base filter allow
-    // getppid(); the rejected candidate would deny it.
+    // candidate filter. All successful prior filters allow getppid(); the
+    // rejected candidate would deny it.
     let cumulative_probe = unsafe { libc::syscall(libc::SYS_getppid) };
     if cumulative_probe <= 0 {
-        unsafe { libc::_exit(167) };
+        unsafe { libc::_exit(168) };
     }
 
     // write() does not match the first rule's syscall number. Reaching
