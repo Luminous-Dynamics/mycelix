@@ -174,7 +174,7 @@
     "scripts/integral/verify_d6u_runtime_manifest.py": "f94848988e7f7d6a80826401d78db9e98f01a17d",
     "scripts/integral/verify_d6u_runtime_evidence.py": "f35aad81943cdf35a17c83827b01bbd7e0597e93",
     "scripts/integral/verify_d6u_runtime_lock.py": "16607cb0830be451b37116b2612b46693423a377",
-    "scripts/integral/verify_d6u_runtime_record.py": "0a05f7d6ac947d71dc44b4275874684f32241e0b",
+    "scripts/integral/verify_d6u_runtime_record.py": "38e192cf429e7e123f53b0ff64ef198f1a14b2de",
     "docs/integral/d6s-canon-2-manifest.json": "4353b9aed545c7762d6f8f73bc551e4c008271a9",
     "docs/integral/d6s-canon-2-authority-boundary-fixture.json": "0b4c5b924bc3b807c556ef92cc869d66f7cc97a1",
     ".github/workflows/d6s-canonical-qualification.yml": "4b97ffb7251f7a8db0406efaaa8afaf85dad6adc"
