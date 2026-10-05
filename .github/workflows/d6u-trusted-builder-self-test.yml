@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/d6u-trusted-evidence-attestation.yml"
+      - ".github/workflows/d6u-exact-head-runtime-executor.yml"
       - "docs/integral/d6u-trusted-builder-policy.json"
       - "scripts/integral/verify_d6u_trusted_artifacts.py"
       - "scripts/integral/test_d6u_trusted_artifacts.py"
