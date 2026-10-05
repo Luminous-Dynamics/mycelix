@@ -2736,22 +2736,28 @@ fn get_or_create_hearth_pool(hearth_did: &str) -> ExternResult<HearthSapPool> {
         GetStrategy::default(),
     )?;
 
-    if let Some(link) = links.first() {
-        if let Some(action_hash) = link.target.clone().into_action_hash() {
-            let record = follow_update_chain(action_hash)?;
-            if let Some(pool) = record
-                .entry()
-                .to_app_option::<HearthSapPool>()
-                .map_err(|e| {
-                    wasm_error!(WasmErrorInner::Guest(format!(
-                        "HearthSapPool deserialization error: {:?}",
-                        e
-                    )))
-                })?
-            {
-                return Ok(pool);
-            }
-        }
+    if !links.is_empty() {
+        let link = exact_one_index_link(
+            links,
+            "HearthDidToSapPool",
+            hearth_did,
+        )?;
+        let action_hash = link.target.clone().into_action_hash().ok_or(wasm_error!(
+            WasmErrorInner::Guest("Invalid HearthSapPool index target".into())
+        ))?;
+        let record = follow_update_chain(action_hash)?;
+        return record
+            .entry()
+            .to_app_option::<HearthSapPool>()
+            .map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "HearthSapPool deserialization error: {:?}",
+                    e
+                )))
+            })?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "HearthSapPool index points to a non-pool record".into()
+            )));
     }
 
     let now = sys_time()?;
@@ -2782,25 +2788,31 @@ fn get_hearth_pool_record(hearth_did: &str) -> ExternResult<(Record, HearthSapPo
         GetStrategy::default(),
     )?;
 
-    if let Some(link) = links.first() {
-        if let Some(action_hash) = link.target.clone().into_action_hash() {
-            let record = follow_update_chain(action_hash)?;
-            if let Some(pool) = record
-                .entry()
-                .to_app_option::<HearthSapPool>()
-                .map_err(|e| {
-                    wasm_error!(WasmErrorInner::Guest(format!(
-                        "HearthSapPool deserialization error: {:?}",
-                        e
-                    )))
-                })?
-            {
-                return Ok((record, pool));
-            }
-        }
+    if !links.is_empty() {
+        let link = exact_one_index_link(
+            links,
+            "HearthDidToSapPool",
+            hearth_did,
+        )?;
+        let action_hash = link.target.clone().into_action_hash().ok_or(wasm_error!(
+            WasmErrorInner::Guest("Invalid HearthSapPool index target".into())
+        ))?;
+        let record = follow_update_chain(action_hash)?;
+        let pool = record
+            .entry()
+            .to_app_option::<HearthSapPool>()
+            .map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "HearthSapPool deserialization error: {:?}",
+                    e
+                )))
+            })?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "HearthSapPool index points to a non-pool record".into()
+            )))?;
+        return Ok((record, pool));
     }
 
-    // Create if not found
     let now = sys_time()?;
     let pool = HearthSapPool {
         hearth_did: hearth_did.to_string(),
@@ -2832,12 +2844,16 @@ fn update_hearth_pool(hearth_did: &str, pool: &HearthSapPool) -> ExternResult<()
         GetStrategy::default(),
     )?;
 
-    if let Some(link) = links.first() {
-        if let Some(action_hash) = link.target.clone().into_action_hash() {
-            let record = follow_update_chain(action_hash)?;
-            update_entry(record.action_address().clone(), pool)?;
-        }
-    }
+    let link = exact_one_index_link(
+        links,
+        "HearthDidToSapPool",
+        hearth_did,
+    )?;
+    let action_hash = link.target.clone().into_action_hash().ok_or(wasm_error!(
+        WasmErrorInner::Guest("Invalid HearthSapPool index target".into())
+    ))?;
+    let record = follow_update_chain(action_hash)?;
+    update_entry(record.action_address().clone(), pool)?;
     Ok(())
 }
 
