@@ -73,7 +73,12 @@ def test_policy_pins_d6s_prerequisite_boundary() -> None:
         assert len(required[path]) == 40
         assert all(ch in "0123456789abcdef" for ch in required[path])
 
-
+    assert policy["forbidden_cargo_config_paths"] == [
+        ".cargo/config",
+        ".cargo/config.toml",
+        "d6u-runtime-harness/.cargo/config",
+        "d6u-runtime-harness/.cargo/config.toml",
+    ]
 
 
 def test_forbidden_cargo_config_is_rejected() -> None:
@@ -98,6 +103,7 @@ def test_forbidden_cargo_config_is_rejected() -> None:
         lambda: verify_forbidden_cargo_config_paths(tree, forbidden),
         "Cargo config inherited by D6U was accepted",
     )
+
 
 def test_valid_log_is_accepted() -> None:
     verify_cases(valid_log(), base_policy())
