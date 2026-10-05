@@ -44,9 +44,12 @@ The stored SafetyClaim carries an explicit provenance state:
 - LegacyUnattributed — a historical record lacked a persisted provenance discriminator.
 
 Only KnowledgeClassified claims with an attached classification contribute to current
-epistemic aggregates. The other states remain queryable but contribute zero. This separates
-claim existence from epistemic evidence availability and prevents default scores from
-becoming apparently sourced evidence.
+epistemic aggregates. The other states remain queryable but contribute zero. The aggregate
+also exposes an explicit evidence_status plus classified_claims/total_claims counts.
+Consumers MUST NOT interpret a numeric zero as negative epistemic evidence when
+evidence_status is NoClassifiedEvidence; it means there was no Knowledge classification
+available to contribute. PartialClassifiedEvidence similarly means the aggregate is
+incomplete and must not be read as a complete Knowledge assessment.
 
 This provenance is an application-level source state, not a cryptographic attestation of
 Knowledge correctness. The actual inter-hApp transport remains a separate architecture
