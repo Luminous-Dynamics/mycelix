@@ -927,10 +927,11 @@ def test_retention_packet_rejects_extra_member() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
         (root / "unexpected.json").write_text("{}", encoding="utf-8")
-        assert_rejected(
-            lambda: retention.main(),
-            "retention packet accepted an unexpected member",
-        )
+        with patch("sys.argv", ["verify_d6u_trusted_attestation_retention.py", str(root)]):
+            assert_rejected(
+                lambda: retention.main(),
+                "retention packet accepted an unexpected member",
+            )
 
 
 def test_trusted_zip_accepts_exact_members() -> None:
