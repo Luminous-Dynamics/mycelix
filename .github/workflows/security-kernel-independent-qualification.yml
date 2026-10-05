@@ -246,6 +246,7 @@ jobs:
           present=[str(path.relative_to(root)) for path in forbidden_configs if path.exists()]
           assert not present, f"candidate-controlled Cargo configuration is forbidden: {present}"
           assert "pull_request_target:" not in workflow
+          assert workflow.count("permissions:") == 1, "qualification workflow must have exactly one permissions block"
           permission_lines = []
           workflow_lines = workflow.splitlines()
           for index, line in enumerate(workflow_lines):
