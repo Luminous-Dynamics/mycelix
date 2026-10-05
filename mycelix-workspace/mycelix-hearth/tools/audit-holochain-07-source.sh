@@ -2526,7 +2526,8 @@ PY
     && rg -n --fixed-strings "cargo metadata --locked" "$workflow" >/dev/null 2>&1 \
     && rg -n --fixed-strings "dependency_closure_status=generated_at_runtime" "$workflow" >/dev/null 2>&1 \
     && rg -n --fixed-strings "dependency_closure_status=source_controlled_and_stable" "$workflow" >/dev/null 2>&1 \
-    && rg -n --fixed-strings "Verify Rust dependency closure remains immutable" "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings "Verify Rust dependency closure immutability before runtime" "$workflow" >/dev/null 2>&1 \
+    && rg -n --fixed-strings "Verify source tree immutability after runtime qualification" "$workflow" >/dev/null 2>&1 \
     && rg -n --fixed-strings "dependency_closure_initial_capture_verified=true" "$workflow" >/dev/null 2>&1 \
     && rg -n --fixed-strings "dependency_closure_runtime_immutable=true" "$workflow" >/dev/null 2>&1 \
     && rg -n --fixed-strings "source_tree_runtime_immutable=true" "$workflow" >/dev/null 2>&1 \
