@@ -20,7 +20,7 @@ JSON Schema Draft 2020-12 expresses this with per-field `contains` constraints p
 The runtime implementation should apply the same rule so schema validation and
 application validation cannot disagree.
 
-Status/source/value compatibility is also fail-closed: `Unobserved` claims cannot carry a value; every other status requires a value; and each evidence status is restricted to the source kinds capable of establishing that status. A declaration may originate from a design or manufacturing declaration, simulation status from a simulation declaration, verification status from a verification record, and measured/validated status from a measurement record.
+Status/source/value compatibility is also fail-closed: `Unobserved` claims cannot carry a value; every other status requires a value; and each evidence status is restricted to the source kinds capable of establishing that status. A declaration may originate from a design or manufacturing declaration, simulation status from a simulation declaration, verification status from a verification record, measured status from a measurement record, and validated status from a `ValidationRecord`.
 A `Validated` claim now has its own `ValidationRecord` source kind rather than being represented as merely measured evidence. Separately, when `eligible_for_passive_scoring` is true, the schema requires every mandatory passive field to have a non-`Unobserved` status; the decision cannot outrun the evidence.
 
 Field values are also type-checked by field in the v2 schema: component/joint/actuator
