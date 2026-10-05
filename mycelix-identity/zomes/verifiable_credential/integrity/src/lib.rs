@@ -971,7 +971,11 @@ fn validate_credential_link(
             let expected_base = match link_type {
                 LinkTypes::IssuerToRequest => string_to_entry_hash(&req.issuer_did),
                 LinkTypes::RequesterToRequest => string_to_entry_hash(&req.requester_did),
-                _ => unreachable!(),
+                _ => {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "Unexpected credential request link type for request index".into(),
+                    ));
+                }
             };
             if actual_base != expected_base {
                 return Ok(ValidateCallbackResult::Invalid(
