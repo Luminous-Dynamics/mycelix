@@ -76,7 +76,7 @@ It independently validates:
 - candidate PR identity derived from the source run relation rather than a base-repository
   commit search;
 - exact source qualification run and attempt;
-- the complete required S1 gate set and their individual successful conclusions, with the S0 reusable-workflow call restricted to `cache-mode: none`.
+- the complete required S1 gate set for the exact workflow run attempt and their individual successful conclusions, with the S0 reusable-workflow call restricted to `cache-mode: none`.
 
 The current S2 implementation is deliberately read-only. It produces a machine-readable
 verification result in the trusted job log but does not hold status-write permission. The
