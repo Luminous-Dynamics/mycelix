@@ -1842,6 +1842,25 @@ pub struct OpenChannelInput {
     pub initial_deposit_b: u64,
 }
 
+/// Require an exact index cardinality where the index semantically identifies one record.
+/// Multiple links are never resolved by ordering because link retrieval order is not a
+/// protocol-level identity rule.
+fn exact_one_index_link(
+    links: Vec<Link>,
+    index_type: &str,
+    identifier: &str,
+) -> ExternResult<Link> {
+    match links.len() {
+        1 => Ok(links.into_iter().next().expect("length checked")),
+        0 => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "{index_type} index has no entry for {identifier}"
+        )))),
+        n => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "{index_type} index is ambiguous for {identifier}: {n} entries"
+        )))),
+    }
+}
+
 /// Internal helper: fetch a PaymentChannel Record + deserialized entry by ID via link index.
 /// Follows the update chain to return the latest version.
 fn get_channel_record(channel_id: &str) -> ExternResult<(Record, PaymentChannel)> {
@@ -1849,9 +1868,7 @@ fn get_channel_record(channel_id: &str) -> ExternResult<(Record, PaymentChannel)
         LinkQuery::try_new(anchor_hash(channel_id)?, LinkTypes::ChannelIdToChannel)?,
         GetStrategy::default(),
     )?;
-    let link = links.first().ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Channel not found".into()
-    )))?;
+    let link = exact_one_index_link(links, "ChannelIdToChannel", channel_id)?;
     let hash = ActionHash::try_from(link.target.clone())
         .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
     let record = follow_update_chain(hash)?;
@@ -1877,9 +1894,7 @@ fn get_payment_record(payment_id: &str) -> ExternResult<(Record, Payment)> {
         LinkQuery::try_new(anchor_hash(payment_id)?, LinkTypes::PaymentIdToPayment)?,
         GetStrategy::default(),
     )?;
-    let link = links.first().ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Payment not found".into()
-    )))?;
+    let link = exact_one_index_link(links, "PaymentIdToPayment", payment_id)?;
     let hash = ActionHash::try_from(link.target.clone())
         .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
     let record = follow_update_chain(hash)?;
@@ -1995,13 +2010,12 @@ pub fn get_payment(payment_id: String) -> ExternResult<Option<Record>> {
         LinkQuery::try_new(anchor_hash(&payment_id)?, LinkTypes::PaymentIdToPayment)?,
         GetStrategy::default(),
     )?;
-    if let Some(link) = links.first() {
-        let hash = ActionHash::try_from(link.target.clone())
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        Ok(Some(follow_update_chain(hash)?))
-    } else {
-        Ok(None)
-    }
+    let Some(link) = links.into_iter().next() else {
+        return Ok(None);
+    };
+    let hash = ActionHash::try_from(link.target.clone())
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
+    Ok(Some(follow_update_chain(hash)?))
 }
 
 /// Get receipt for a payment
@@ -2016,16 +2030,17 @@ pub fn get_receipt(payment_id: String) -> ExternResult<Option<Record>> {
         payment_record.action_address().clone(),
         LinkTypes::PaymentToReceipt,
     )?;
-    for link in get_links(query, GetStrategy::default())? {
-        if let Some(record) = get(
-            ActionHash::try_from(link.target)
-                .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid".into())))?,
-            GetOptions::default(),
-        )? {
-            return Ok(Some(record));
-        }
+    let links = get_links(query, GetStrategy::default())?;
+    if links.is_empty() {
+        return Ok(None);
     }
-    Ok(None)
+    let link = exact_one_index_link(links, "PaymentToReceipt", &payment_id)?;
+    let record = get(
+        ActionHash::try_from(link.target)
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid".into())))?,
+        GetOptions::default(),
+    )?;
+    Ok(record)
 }
 
 /// Close a payment channel (settle balances)
