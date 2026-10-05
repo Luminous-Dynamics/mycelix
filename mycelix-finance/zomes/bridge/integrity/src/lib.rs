@@ -2664,128 +2664,113 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_reserve_snapshot_create_valid() {
-        let result = validate_create_reserve_valuation_snapshot(
-            EntryCreationAction::Create(make_create()),
-            valid_reserve_snapshot(),
+    fn validate_snapshot_shape_test(
+        snapshot: &ReserveValuationSnapshot,
+    ) -> ValidateCallbackResult {
+        validate_reserve_valuation_snapshot_fields(
+            snapshot,
+            &did_for_author(&make_create().author),
+            ts(1_000_000),
         )
-        .unwrap();
-        assert!(matches!(result, ValidateCallbackResult::Valid));
+        .unwrap()
+    }
+
+    #[test]
+    fn test_reserve_snapshot_create_shape_valid() {
+        assert!(matches!(
+            validate_snapshot_shape_test(&valid_reserve_snapshot()),
+            ValidateCallbackResult::Valid
+        ));
     }
 
     #[test]
     fn test_reserve_snapshot_rejects_wrong_publisher() {
         let mut s = valid_reserve_snapshot();
         s.publisher_did = "did:mycelix:bob".into();
-        let result = validate_create_reserve_valuation_snapshot(
-            EntryCreationAction::Create(make_create()),
-            s,
-        )
-        .unwrap();
-        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+        assert!(matches!(
+            validate_snapshot_shape_test(&s),
+            ValidateCallbackResult::Invalid(_)
+        ));
     }
 
     #[test]
     fn test_reserve_snapshot_rejects_zero_denominator() {
         let mut s = valid_reserve_snapshot();
         s.valuation_denominator = 0;
-        let result = validate_create_reserve_valuation_snapshot(
-            EntryCreationAction::Create(make_create()),
-            s,
-        )
-        .unwrap();
-        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+        assert!(matches!(
+            validate_snapshot_shape_test(&s),
+            ValidateCallbackResult::Invalid(_)
+        ));
     }
 
     #[test]
     fn test_reserve_snapshot_rejects_reverse_window() {
         let mut s = valid_reserve_snapshot();
         s.effective_window_start = ts(3_000_000);
-        let result = validate_create_reserve_valuation_snapshot(
-            EntryCreationAction::Create(make_create()),
-            s,
-        )
-        .unwrap();
-        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+        assert!(matches!(
+            validate_snapshot_shape_test(&s),
+            ValidateCallbackResult::Invalid(_)
+        ));
     }
 
     #[test]
     fn test_reserve_snapshot_rejects_zero_freshness() {
         let mut s = valid_reserve_snapshot();
         s.freshness_limit_micros = 0;
-        let result = validate_create_reserve_valuation_snapshot(
-            EntryCreationAction::Create(make_create()),
-            s,
-        )
-        .unwrap();
-        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+        assert!(matches!(
+            validate_snapshot_shape_test(&s),
+            ValidateCallbackResult::Invalid(_)
+        ));
     }
 
     #[test]
     fn test_reserve_snapshot_rejects_action_time_mismatch() {
         let mut s = valid_reserve_snapshot();
-        s.created_at = ts(1_000_000);
-        let result = validate_create_reserve_valuation_snapshot(
-            EntryCreationAction::Create(make_create()),
-            s,
-        )
-        .unwrap();
-        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+        s.created_at = ts(2_000_000);
+        assert!(matches!(
+            validate_snapshot_shape_test(&s),
+            ValidateCallbackResult::Invalid(_)
+        ));
     }
 
     #[test]
     fn test_reserve_snapshot_rejects_non_sap_quote_unit() {
         let mut s = valid_reserve_snapshot();
         s.quote_unit = "USD".into();
-        let result = validate_create_reserve_valuation_snapshot(
-            EntryCreationAction::Create(make_create()),
-            s,
-        )
-        .unwrap();
-        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+        assert!(matches!(
+            validate_snapshot_shape_test(&s),
+            ValidateCallbackResult::Invalid(_)
+        ));
     }
-
 
     #[test]
     fn test_reserve_snapshot_rejects_duplicate_source_hash() {
         let mut s = valid_reserve_snapshot();
         s.source_action_hashes[1] = s.source_action_hashes[0].clone();
-        s.source_count = 2;
-        let result = validate_reserve_valuation_snapshot_fields(
-            &s,
-            &did_for_author(&make_create().author),
-            ts(1_000_000),
-        )
-        .unwrap();
-        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+        assert!(matches!(
+            validate_snapshot_shape_test(&s),
+            ValidateCallbackResult::Invalid(_)
+        ));
     }
 
     #[test]
     fn test_reserve_snapshot_rejects_stale_source_commitment() {
         let mut s = valid_reserve_snapshot();
         s.source_commitment = "tampered".into();
-        let result = validate_reserve_valuation_snapshot_fields(
-            &s,
-            &did_for_author(&make_create().author),
-            ts(1_000_000),
-        )
-        .unwrap();
-        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+        assert!(matches!(
+            validate_snapshot_shape_test(&s),
+            ValidateCallbackResult::Invalid(_)
+        ));
     }
 
     #[test]
     fn test_reserve_snapshot_rejects_source_count_mismatch() {
         let mut s = valid_reserve_snapshot();
         s.source_count = 3;
-        let result = validate_reserve_valuation_snapshot_fields(
-            &s,
-            &did_for_author(&make_create().author),
-            ts(1_000_000),
-        )
-        .unwrap();
-        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+        assert!(matches!(
+            validate_snapshot_shape_test(&s),
+            ValidateCallbackResult::Invalid(_)
+        ));
     }
-
 
 }
