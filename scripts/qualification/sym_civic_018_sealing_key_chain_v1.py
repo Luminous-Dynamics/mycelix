@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = ROOT / "mycelix-workspace/docs/civic-resilience/sym_civic_018_sealing_key_chain_v1.json"
 PROGRAM = "SYM-CIVIC-018"
 SCHEMA = "mycelix.sym-civic.sealing-key-chain-preflight.v1"
-PARENT_SUBJECT = "1e34a2ed7ac42d373e6fdbc2fc54956e4c3bfc33"
+PARENT_SUBJECT = "c51a51c431bb8775e4d69e05d97ffb24de6f2617"
 
 REJECT = "REJECT_SEALING_KEY_CHAIN"
 SUFFICIENT = "SEALING_KEY_CHAIN_SUFFICIENT"
@@ -253,22 +253,63 @@ def structural_valid(candidate):
         return False
     if any(not isinstance(r, dict) for r in registers):
         return False
-    addressed = output.get("addressed_registers")
+
+    required_output = (
+        "reconciliation_timestamp",
+        "addressed_registers",
+        "authority_origin",
+        "sealing_key_kid",
+        "sealing_key_id",
+        "payload_kid_text",
+        "cose_kid_bytes",
+        "keyset_url",
+        "single_key_url",
+        "synthetic_sealing_signature",
+    )
+    if any(field not in output for field in required_output):
+        return False
+    addressed = output["addressed_registers"]
     if not isinstance(addressed, list) or any(not isinstance(v, str) for v in addressed):
         return False
-    signature = output.get("synthetic_sealing_signature", {})
+    signature = output["synthetic_sealing_signature"]
     if not isinstance(signature, dict):
         return False
-    for register in registers:
-        if not isinstance(register.get("register_origin"), str):
+    if any(field not in signature for field in ("sealing_key_id", "signed_payload_digest")):
+        return False
+
+    required_agreement = ("register_origin", "authority_origin")
+    required_register = ("register_origin", "register_keys", "auth", "sealing_keys")
+    required_auth = ("signed_by", "entries", "payload_digest", "signature_digest")
+    required_keyset = (
+        "origin",
+        "signing_kid",
+        "publication_timestamp",
+        "keys",
+        "payload_digest",
+        "signature_digest",
+    )
+    required_key = (
+        "kid",
+        "jwk",
+        "arp-key-status",
+        "arp-key-validity",
+        "binding_digest",
+    )
+    required_jwk = ("kty", "crv", "x", "y")
+
+    for agreement in agreements:
+        if any(field not in agreement for field in required_agreement):
             return False
-        register_keys = register.get("register_keys")
+    for register in registers:
+        if any(field not in register for field in required_register):
+            return False
+        register_keys = register["register_keys"]
         if not isinstance(register_keys, list) or any(not isinstance(k, dict) for k in register_keys):
             return False
-        auth = register.get("auth")
-        if not isinstance(auth, dict):
+        auth = register["auth"]
+        if not isinstance(auth, dict) or any(field not in auth for field in required_auth):
             return False
-        entries = auth.get("entries")
+        entries = auth["entries"]
         if not isinstance(entries, list):
             return False
         if any(
@@ -278,12 +319,18 @@ def structural_valid(candidate):
             for entry in entries
         ):
             return False
-        keyset = register.get("sealing_keys")
-        if not isinstance(keyset, dict):
+        keyset = register["sealing_keys"]
+        if not isinstance(keyset, dict) or any(field not in keyset for field in required_keyset):
             return False
-        keyset_keys = keyset.get("keys")
+        keyset_keys = keyset["keys"]
         if not isinstance(keyset_keys, list) or any(not isinstance(k, dict) for k in keyset_keys):
             return False
+        for key in register_keys + keyset_keys:
+            if any(field not in key for field in required_key):
+                return False
+            jwk = key["jwk"]
+            if not isinstance(jwk, dict) or any(field not in jwk for field in required_jwk):
+                return False
     return True
 
 def _validate_primary(candidate):
@@ -600,7 +647,7 @@ def main():
     assert document["parent_subject"] == PARENT_SUBJECT
 
     cases = document["cases"]
-    assert [case["id"] for case in cases] == [f"C-{i:02d}" for i in range(1, 49)]
+    assert [case["id"] for case in cases] == [f"C-{i:02d}" for i in range(1, 79)]
     for case in cases:
         assert set(case) == {"id", "family", "mutations"}
         lowered = canon(case).lower()
@@ -633,7 +680,7 @@ def main():
     }
     assert not disagreements, disagreements
     assert census == {
-        REJECT: 43,
+        REJECT: 73,
         SUFFICIENT: 5,
         UNRESOLVED: 0,
     }, census
@@ -688,6 +735,9 @@ def main():
             mutation = {"op": "replace", "path": path, "value": value}
             mutate(malformed, mutation)
         assert verdict(malformed)[0] == REJECT
+
+    for case in cases[48:]:
+        assert verdict(candidate_for(case))[0] == REJECT
 
     print("SYM-CIVIC-018 DERIVED=" + canon(census))
     print("SYM-CIVIC-018 METAMORPHIC=PASS")
