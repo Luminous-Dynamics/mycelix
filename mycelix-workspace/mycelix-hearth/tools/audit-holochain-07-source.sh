@@ -2238,6 +2238,26 @@ check_qualification_workflow_provenance() {
     echo "FAIL: qualification workflow must pin runs-on to ubuntu-24.04"
     fail=1
   fi
+  if python3 - "$workflow" <<'PY'
+from pathlib import Path
+import sys
+
+source = Path(sys.argv[1]).read_text()
+qualify = source.find("  qualify:")
+if qualify < 0:
+    print("FAIL: qualify job is missing")
+    raise SystemExit(2)
+block = source[qualify:]
+if "    defaults:\\n      run:\\n        shell: bash\\n" not in block:
+    print("FAIL: qualify job must explicitly default all run steps to Bash")
+    raise SystemExit(2)
+print("OK:   qualification workflow explicitly defaults run-step execution to Bash")
+PY
+  then
+    true
+  else
+    fail=1
+  fi
   if rg -n --fixed-strings 'echo "runner_image_os=\${ImageOS:-unknown}"' "$workflow" >/dev/null 2>&1 \
     && rg -n --fixed-strings 'echo "runner_image_version=\${ImageVersion:-unknown}"' "$workflow" >/dev/null 2>&1 \
     && rg -n --fixed-strings 'echo "runner_arch=\${RUNNER_ARCH:-unknown}"' "$workflow" >/dev/null 2>&1; then
