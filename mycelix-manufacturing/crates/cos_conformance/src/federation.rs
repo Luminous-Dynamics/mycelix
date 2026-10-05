@@ -6154,6 +6154,29 @@ mod tests {
             "complete publication lineage validation must be permutation-invariant"
         );
 
+        let replayed_complete_lineage = vec![
+            (&base, &base_publication),
+            (&base, &base_publication),
+            (&fork_a, &fork_a_publication),
+            (&fork_a, &fork_a_publication),
+        ];
+        assert!(
+            validate_state_machine_trace_checkpoint_publication_lineage(
+                &replayed_complete_lineage
+            )
+            .is_ok(),
+            "exact publication replays must not create duplicate lineage nodes or roots"
+        );
+        let mut reversed_replayed_complete_lineage = replayed_complete_lineage.clone();
+        reversed_replayed_complete_lineage.reverse();
+        assert!(
+            validate_state_machine_trace_checkpoint_publication_lineage(
+                &reversed_replayed_complete_lineage
+            )
+            .is_ok(),
+            "exact publication replay handling must remain permutation-invariant"
+        );
+
         let mut disconnected_suffix = fork_a_publication.clone();
         disconnected_suffix.previous_publication_sha256 =
             "sha256:uncollected-predecessor".into();
