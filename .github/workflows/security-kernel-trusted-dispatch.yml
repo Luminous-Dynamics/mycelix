@@ -14,7 +14,7 @@ env:
   SOURCE_WORKFLOW_ID: "372951439"
   SOURCE_WORKFLOW_PATH: ".github/workflows/security-kernel-qualification.yml"
   TRUSTED_INDEPENDENT_WORKFLOW_PATH: ".github/workflows/security-kernel-independent-qualification.yml"
-  TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "c65c3fbbc7f3db129dd4382d1edce8e13794ce97"
+  TRUSTED_INDEPENDENT_WORKFLOW_BLOB_SHA: "e54f1aaefb3c9f2812e7d00d3eaf240f106ff648"
   BASE_REPOSITORY: "Luminous-Dynamics/mycelix"
   BASE_BRANCH: "main"
 jobs:
