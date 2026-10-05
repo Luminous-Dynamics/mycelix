@@ -6234,16 +6234,25 @@ mod tests {
                 .expect("capsule must deserialize");
         let evidence = capsule.evidence.first().expect("trace must contain evidence");
 
-        assert_ne!(
+        let hash_domains = [
             FEDERATION_STATE_MACHINE_TRACE_BODY_HASH_DOMAIN,
-            FEDERATION_STATE_MACHINE_TRACE_EVIDENCE_CHAIN_HASH_DOMAIN
+            FEDERATION_STATE_MACHINE_TRACE_EVIDENCE_CHAIN_HASH_DOMAIN,
+            FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_HASH_DOMAIN,
+            FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_PUBLICATION_HASH_DOMAIN,
+            FEDERATION_STATE_MACHINE_TRACE_CHECKPOINT_CONSISTENCY_RECEIPT_HASH_DOMAIN,
+        ];
+        let unique_hash_domains = hash_domains.iter().copied().collect::<BTreeSet<_>>();
+        assert_eq!(
+            unique_hash_domains.len(),
+            hash_domains.len(),
+            "every trace/checkpoint artifact must use a distinct hash domain"
         );
-        assert!(FEDERATION_STATE_MACHINE_TRACE_BODY_HASH_DOMAIN
-            .bytes()
-            .all(|byte| byte != 0));
-        assert!(FEDERATION_STATE_MACHINE_TRACE_EVIDENCE_CHAIN_HASH_DOMAIN
-            .bytes()
-            .all(|byte| byte != 0));
+        assert!(
+            hash_domains
+                .iter()
+                .all(|domain| domain.bytes().all(|byte| byte != 0)),
+            "hash domains must not contain the delimiter byte"
+        );
 
         let sample = serde_json::to_vec(evidence)
             .expect("evidence sample must serialize");
