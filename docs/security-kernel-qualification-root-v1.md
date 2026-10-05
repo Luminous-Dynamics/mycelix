@@ -44,7 +44,7 @@ S1:
 - records the candidate tree identity and trusted workflow identity; and
 - fails if the candidate source changes during qualification, excluding only Cargo's `target/` output.
 
-The candidate executes without repository write permission, secrets, or OIDC access. The current S1 profile still executes Cargo/tests on the GitHub-hosted VM rather than inside a dedicated container sandbox; this is an explicit evidence ceiling, not an implicit claim of hostile-code isolation.
+The candidate executes without repository write permission, secrets, or OIDC access. S1 now also requires the source PR to remain an exact open-head match at execution time, and records the pre-execution source digest in a workflow step output so the candidate cannot rewrite the expected digest or subject metadata through the shared temporary filesystem. Candidate Cargo gates explicitly select Rust 1.99.0 and re-check compiler identity between gates. The current S1 profile still executes candidate code on the GitHub-hosted VM rather than inside a dedicated container sandbox; this remains an explicit evidence ceiling because the candidate shares the runner user/filesystem and can potentially tamper with other mutable runner state.
 
 ## S2 — trusted result verifier
 
@@ -54,13 +54,18 @@ It independently validates:
 
 - S1 workflow path and `workflow_dispatch` event;
 - S1 workflow reference is the default branch;
+- the exact workflow blob executed by the S1 run matches the registered immutable profile;
 - S1 workflow commit is an ancestor of current protected `main`;
-- exact candidate SHA and PR binding;
+- exact candidate SHA and current PR head binding;
 - exact source qualification run and attempt;
 - the complete required S1 gate set and their individual successful conclusions.
 
 The current S2 implementation is deliberately read-only. It produces a machine-readable
-verification result in the trusted job log but does not hold status-write permission.
+verification result in the trusted job log but does not hold status-write permission. The
+verifier reads the S1 workflow blob at the exact workflow commit recorded by the run,
+not merely at current `main`, preventing a malicious workflow version from being accepted
+because it was later reverted. It also rejects PR-head drift between S1 dispatch and result
+verification.
 This keeps result publication as a separate least-privilege decision rather than silently
 granting another trusted workflow mutation authority.
 
