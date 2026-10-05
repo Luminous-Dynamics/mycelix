@@ -930,12 +930,7 @@ pub fn claim_sap_transfer(transfer_id: String) -> ExternResult<Record> {
     let (balance_record, balance) = match get_sap_balance_inner(&intent.to_did) {
         Ok(found) => found,
         Err(_) => {
-            let balance_hash = initialize_sap_balance(intent.to_did.clone())?;
-            let record = get(balance_hash, GetOptions::default())?.ok_or(
-                wasm_error!(WasmErrorInner::Guest(
-                    "Recipient SAP balance could not be initialized"
-                ))
-            )?;
+            let record = initialize_sap_balance(intent.to_did.clone())?;
             let balance = record
                 .entry()
                 .to_app_option::<SapBalance>()
