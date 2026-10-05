@@ -27,7 +27,7 @@
     "verification_time_unix": "deterministic validation time",
     "revocation": ["state", "method", "crl_der_base64", "crl_der_sha256"],
     "spki_binding": ["state", "verifier_id", "certificate_sha256", "ek_public_wire_sha256"],
-    "session_binding_sha256": "binding over session, TPM, certificate chain, trust-anchor source, verification time, revocation state/method/CRL, and SPKI certificate/public-key identity"
+    "session_binding_sha256": "binding over verification mode, session, TPM, certificate chain, trust-anchor state/source, verification time, revocation state/method/CRL, and SPKI certificate/public-key identity"
   },
   "profile_rules": {
     "version": 3,
@@ -53,15 +53,17 @@
     {"id":"EKC-V07","mutation":"key-usage-profile-mismatch","expected":"DENY"},
     {"id":"EKC-V08","mutation":"eku-profile-mismatch","expected":"DENY"},
     {"id":"EKC-V09","mutation":"trust-anchor-substitution","expected":"DENY"},
-    {"id":"EKC-V10","mutation":"revocation-deny","expected":"DENY"},
+    {"id":"EKC-V10","mutation":"trust-anchor-state-substitution","expected":"DENY"},
+    {"id":"EKC-V11","mutation":"revocation-deny","expected":"DENY"},
     {"id":"EKC-V11","mutation":"revocation-indeterminate","expected":"INDETERMINATE"},
     {"id":"EKC-V12","mutation":"spki-certificate-substitution","expected":"DENY"},
     {"id":"EKC-V13","mutation":"spki-indeterminate","expected":"INDETERMINATE"},
     {"id":"EKC-V14","mutation":"spki-ek-public-digest-substitution","expected":"DENY"},
     {"id":"EKC-V15","mutation":"verification-time-binding-substitution","expected":"DENY"},
     {"id":"EKC-V16","mutation":"revocation-state-binding-substitution","expected":"DENY"},
-    {"id":"EKC-V17","mutation":"session-binding-substitution","expected":"DENY"},
-    {"id":"EKC-V18","mutation":"key-order-permutation","expected":"PASS"}
+    {"id":"EKC-V17","mutation":"verification-mode-substitution","expected":"DENY"},
+    {"id":"EKC-V18","mutation":"session-binding-substitution","expected":"DENY"},
+    {"id":"EKC-V19","mutation":"key-order-permutation","expected":"PASS"}
   ],
   "reference_fixture": {
     "root_sha256": "bf027c125d7641b37bb1e8e71eab5f480cc3b925eb33660b818b251faf5fa6bc",
