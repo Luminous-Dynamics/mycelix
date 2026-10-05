@@ -220,6 +220,14 @@ pub struct EpistemicScore {
     pub normative: f32,
     pub mythic: f32,
     pub overall_confidence: f32,
+    /// Explicitly distinguishes complete, partial, absent, and incomplete evidence.
+    pub evidence_status: EpistemicAggregateStatus,
+    /// Number of safety claims with validated Knowledge classifications.
+    pub classified_claims: u32,
+    /// Number of records linked from the design and considered by the aggregate.
+    pub total_claims: u32,
+    /// Number of linked records that could not be interpreted as SafetyClaim records.
+    pub uninterpretable_records: u32,
 }
 
 #[hdk_extern]
@@ -376,6 +384,22 @@ pub fn get_design_claims(input: HashPaginationInput) -> ExternResult<PaginatedRe
     Ok(paginate(items, input.pagination.as_ref()))
 }
 
+fn epistemic_aggregate_status(
+    classified_claims: u32,
+    total_claims: u32,
+    uninterpretable_records: u32,
+) -> EpistemicAggregateStatus {
+    if uninterpretable_records > 0 {
+        return EpistemicAggregateStatus::IncompleteEvidence;
+    }
+
+    match (classified_claims, total_claims) {
+        (0, _) => EpistemicAggregateStatus::NoClassifiedEvidence,
+        (classified, total) if classified == total => EpistemicAggregateStatus::Classified,
+        _ => EpistemicAggregateStatus::PartialClassifiedEvidence,
+    }
+}
+
 #[hdk_extern]
 pub fn get_epistemic_score(design_hash: ActionHash) -> ExternResult<EpistemicScore> {
     let claims = get_design_claims_all(design_hash)?;
@@ -383,29 +407,44 @@ pub fn get_epistemic_score(design_hash: ActionHash) -> ExternResult<EpistemicSco
     let mut e_sum = 0.0f32;
     let mut n_sum = 0.0f32;
     let mut m_sum = 0.0f32;
-    let mut count = 0;
+    let mut classified_count = 0u32;
+    let total_claims = claims.len() as u32;
+    let mut uninterpretable_records = 0u32;
 
     for record in claims {
-        if let Some(claim) = record.entry().to_app_option::<SafetyClaim>().ok().flatten() {
-            if claim.epistemic_provenance != EpistemicProvenance::KnowledgeClassified {
+        let claim = match record.entry().to_app_option::<SafetyClaim>() {
+            Ok(Some(claim)) => claim,
+            Ok(None) | Err(_) => {
+                uninterpretable_records += 1;
                 continue;
             }
-            let Some(epistemic) = claim.epistemic else {
-                continue;
-            };
-            e_sum += epistemic.empirical;
-            n_sum += epistemic.normative;
-            m_sum += epistemic.mythic;
-            count += 1;
+        };
+
+        if claim.epistemic_provenance != EpistemicProvenance::KnowledgeClassified {
+            continue;
         }
+        let Some(epistemic) = claim.epistemic else {
+            continue;
+        };
+        e_sum += epistemic.empirical;
+        n_sum += epistemic.normative;
+        m_sum += epistemic.mythic;
+        classified_count += 1;
     }
 
-    let count_f = count.max(1) as f32;
+    let count_f = classified_count.max(1) as f32;
+    let evidence_status =
+        epistemic_aggregate_status(classified_count, total_claims, uninterpretable_records);
+
     Ok(EpistemicScore {
         empirical: e_sum / count_f,
         normative: n_sum / count_f,
         mythic: m_sum / count_f,
         overall_confidence: (e_sum + n_sum) / (2.0 * count_f),
+        evidence_status,
+        classified_claims: classified_count,
+        total_claims,
+        uninterpretable_records,
     })
 }
 
@@ -577,6 +616,52 @@ mod tests {
         assert_eq!(EPISTEMIC_CACHE_TTL_MICROS, 300_000_000);
         assert_eq!(EPISTEMIC_CACHE_TTL_MICROS / 1_000_000, 300);
         assert_eq!(EPISTEMIC_CACHE_MAX_ENTRIES, 128);
+    }
+
+    #[test]
+    fn test_epistemic_aggregate_status_serde_roundtrip() {
+        for status in [
+            EpistemicAggregateStatus::Classified,
+            EpistemicAggregateStatus::PartialClassifiedEvidence,
+            EpistemicAggregateStatus::NoClassifiedEvidence,
+            EpistemicAggregateStatus::IncompleteEvidence,
+        ] {
+            let encoded = serde_json::to_string(&status).unwrap();
+            let decoded: EpistemicAggregateStatus = serde_json::from_str(&encoded).unwrap();
+            assert_eq!(decoded, status);
+        }
+    }
+
+    #[test]
+    fn test_epistemic_aggregate_status_classification_matrix() {
+        assert_eq!(
+            epistemic_aggregate_status(0, 0, 0),
+            EpistemicAggregateStatus::NoClassifiedEvidence
+        );
+        assert_eq!(
+            epistemic_aggregate_status(0, 3, 0),
+            EpistemicAggregateStatus::NoClassifiedEvidence
+        );
+        assert_eq!(
+            epistemic_aggregate_status(1, 1, 0),
+            EpistemicAggregateStatus::Classified
+        );
+        assert_eq!(
+            epistemic_aggregate_status(2, 3, 0),
+            EpistemicAggregateStatus::PartialClassifiedEvidence
+        );
+        assert_eq!(
+            epistemic_aggregate_status(3, 3, 0),
+            EpistemicAggregateStatus::Classified
+        );
+        assert_eq!(
+            epistemic_aggregate_status(1, 1, 1),
+            EpistemicAggregateStatus::IncompleteEvidence
+        );
+        assert_eq!(
+            epistemic_aggregate_status(0, 1, 1),
+            EpistemicAggregateStatus::IncompleteEvidence
+        );
     }
 
 }

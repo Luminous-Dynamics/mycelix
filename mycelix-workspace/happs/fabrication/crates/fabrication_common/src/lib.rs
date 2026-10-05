@@ -1535,6 +1535,23 @@ impl Default for EpistemicProvenance {
     }
 }
 
+/// Aggregate availability of Knowledge-sourced epistemic evidence.
+///
+/// This status is deliberately separate from the numeric E/N/M values:
+/// zero-valued dimensions can be a legitimate classification, while
+/// NoClassifiedEvidence means that no Knowledge classification contributed.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EpistemicAggregateStatus {
+    /// Every decoded safety claim contributed a validated Knowledge classification.
+    Classified,
+    /// At least one claim contributed a classification, but at least one claim did not.
+    PartialClassifiedEvidence,
+    /// No decoded safety claim contributed a Knowledge classification.
+    NoClassifiedEvidence,
+    /// One or more linked records could not be interpreted as SafetyClaim records.
+    IncompleteEvidence,
+}
+
 /// Status of a verification request
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum RequestStatus {

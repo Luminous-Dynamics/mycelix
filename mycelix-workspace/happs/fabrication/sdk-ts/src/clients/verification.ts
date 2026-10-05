@@ -120,8 +120,8 @@ export class VerificationClient {
    * Get epistemic score for a design
    *
    * Returns aggregated E/N/M scores from Knowledge-classified claims only.
-   * A safety claim remains queryable when Knowledge is unavailable or malformed,
-   * but it carries no epistemic score until classification succeeds.
+   * Inspect evidenceStatus and classifiedClaims before interpreting numeric values;
+   * NoClassifiedEvidence is an absence-of-evidence state, not a negative score.
    */
   async getEpistemicScore(designHash: ActionHash): Promise<EpistemicScore> {
     return this.client.callZome({

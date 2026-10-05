@@ -45,6 +45,10 @@ pub struct EpistemicScore {
     pub normative: f32,
     pub mythic: f32,
     pub overall_confidence: f32,
+    pub evidence_status: String,
+    pub classified_claims: u32,
+    pub total_claims: u32,
+    pub uninterpretable_records: u32,
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -247,6 +251,10 @@ async fn test_safety_claim_preserves_unclassified_state() {
     assert_eq!(score.normative, 0.0);
     assert_eq!(score.mythic, 0.0);
     assert_eq!(score.overall_confidence, 0.0);
+    assert_eq!(score.evidence_status, "NoClassifiedEvidence");
+    assert_eq!(score.classified_claims, 0);
+    assert_eq!(score.total_claims, 1);
+    assert_eq!(score.uninterpretable_records, 0);
 
     drop(conductor);
     tokio::time::sleep(std::time::Duration::from_millis(500)).await;
