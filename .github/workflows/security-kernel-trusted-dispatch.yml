@@ -131,17 +131,16 @@ jobs:
           assert run["head_sha"] == os.environ["HEAD_SHA"]
           assert (run.get("head_repository") or {}).get("full_name") == os.environ["HEAD_REPOSITORY"]
 
-          pulls = get(f"/repos/{repo}/commits/{os.environ['HEAD_SHA']}/pulls?per_page=100")
-          matches = [
-              pr for pr in pulls
-              if pr["base"]["repo"]["full_name"] == repo
-              and pr["base"]["ref"] == os.environ["BASE_BRANCH"]
-              and pr["head"]["repo"]["full_name"] == os.environ["HEAD_REPOSITORY"]
-              and pr["head"]["sha"] == os.environ["HEAD_SHA"]
-              and pr["state"] == "open"
-          ]
-          assert len(matches) == 1, f"expected one exact open PR, found {len(matches)}"
-          pr = matches[0]
+          run_prs = run.get("pull_requests") or []
+          assert len(run_prs) == 1, f"source workflow run must identify exactly one PR: {len(run_prs)}"
+          candidate_pr = run_prs[0]["number"]
+          pr = get(f"/repos/{repo}/pulls/{candidate_pr}")
+          assert pr["number"] == candidate_pr
+          assert pr["state"] == "open"
+          assert pr["base"]["repo"]["full_name"] == repo
+          assert pr["base"]["ref"] == os.environ["BASE_BRANCH"]
+          assert pr["head"]["repo"]["full_name"] == os.environ["HEAD_REPOSITORY"]
+          assert pr["head"]["sha"] == os.environ["HEAD_SHA"]
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
               output.write(f"candidate_pr={pr['number']}\n")
               output.write(f"candidate_sha={os.environ['HEAD_SHA']}\n")
