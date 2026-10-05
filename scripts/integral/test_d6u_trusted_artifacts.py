@@ -98,6 +98,17 @@ def test_executor_workflow_identity_tampering_is_rejected() -> None:
         lambda: verify_executor_workflow_record(tampered, policy, "Luminous-Dynamics/mycelix"),
         "tampered executor repository was accepted",
     )
+    wrong_ref = {
+        **valid,
+        "executor_workflow_ref":
+            "Luminous-Dynamics/mycelix/.github/workflows/d6u-exact-head-runtime-executor.yml@refs/heads/not-main",
+    }
+    assert_rejected(
+        lambda: verify_executor_workflow_record(
+            wrong_ref, policy, "Luminous-Dynamics/mycelix"
+        ),
+        "non-default executor ref was accepted",
+    )
 
 def test_trigger_run_identity_tampering_is_rejected() -> None:
     policy = {
