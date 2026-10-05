@@ -999,7 +999,18 @@ check_semantic_case_integrity_bindings() {
   mapfile -t invariants < <(sed -n 's/^[[:space:]]*"invariant"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
   mapfile -t rejection_reasons < <(sed -n 's/^[[:space:]]*"rejection_reason"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
   mapfile -t invariant_codes < <(sed -n 's/^[[:space:]]*"invariant_code"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
-  mapfile -t surfaces < <(sed -n 's/^[[:space:]]*"operation_surface"[[:space:]]*:[[:space:]]*\[\([^]]*\)\].*/\1/p' "$manifest")
+  # operation_surface is intentionally parsed as JSON because the manifest
+  # uses a multi-line array; single-line extraction would silently drop this field.
+  mapfile -t surfaces < <(python3 - "$manifest" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+data = json.loads(Path(sys.argv[1]).read_text())
+for case in data["cases"]:
+    print(",".join(case["operation_surface"]))
+PY
+  )
   mapfile -t results < <(sed -n 's/^[[:space:]]*"expected_result"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
   mapfile -t validator_sources < <(sed -n 's/^[[:space:]]*"validator_source"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
   mapfile -t validator_symbols < <(sed -n 's/^[[:space:]]*"validator_symbol"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p' "$manifest")
