@@ -1241,6 +1241,7 @@ pub fn compose_finality_eligibility_from_authoritative_d6n_d6o(
     evidence: &[ExternalObservedEvidenceV1],
     eligibility_receipts: &[EvidenceEligibilityReceiptV1],
     lifecycle_profile: &ObserverLifecycleProfileV1,
+    expected_lifecycle_profile_commitment: &str,
     d6o_ledger: &ObserverLifecycleLedgerV1,
     current_frontier_root: &str,
     live_generation_id: &str,
@@ -1248,6 +1249,8 @@ pub fn compose_finality_eligibility_from_authoritative_d6n_d6o(
 ) -> Option<FinalityEligibilityCompositionV1> {
     if profile.required_independent_observations != required_independent_observations
         || profile.profile_commitment != expected_finality_profile_commitment
+        || !lifecycle_profile.strict_commitment_matches()
+        || lifecycle_profile.profile_commitment != expected_lifecycle_profile_commitment
     {
         return None;
     }
