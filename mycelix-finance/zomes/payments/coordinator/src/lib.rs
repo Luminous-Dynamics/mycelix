@@ -210,6 +210,7 @@ pub fn apply_demurrage(input: ApplyDemurrageInput) -> ExternResult<DemurrageResu
     let updated = SapBalance {
         balance: bal.balance.saturating_sub(deduction),
         last_demurrage_at: now,
+        justified_by: None,
         ..bal
     };
     update_entry(
@@ -2422,8 +2423,10 @@ pub fn contribute_to_hearth_pool(input: ContributeToHearthInput) -> ExternResult
         ))));
     }
 
-    // Deduct from personal (use record's action address to avoid update forks)
+    // Deduct from personal. This is a negative balance delta, so clear
+    // any prior positive-issuance justification.
     personal_bal.balance -= input.amount;
+    personal_bal.justified_by = None;
     update_entry(record.action_address().clone(), &personal_bal)?;
 
     // Credit hearth pool with optimistic-locking retry
