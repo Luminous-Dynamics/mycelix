@@ -308,6 +308,10 @@ jobs:
         working-directory: ${{ runner.temp }}/security-kernel-candidate-src
         env:
           RUSTUP_TOOLCHAIN: "1.99.0"
+          GITHUB_TOKEN: ""
+          GH_TOKEN: ""
+          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ""
+          ACTIONS_ID_TOKEN_REQUEST_URL: ""
         run: rustup run 1.99.0 cargo fmt --manifest-path crates/mycelix-bridge-common/Cargo.toml -- --check
 
       - name: Assert Rust toolchain before default tests
@@ -321,6 +325,10 @@ jobs:
         working-directory: ${{ runner.temp }}/security-kernel-candidate-src
         env:
           RUSTUP_TOOLCHAIN: "1.99.0"
+          GITHUB_TOKEN: ""
+          GH_TOKEN: ""
+          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ""
+          ACTIONS_ID_TOKEN_REQUEST_URL: ""
         run: rustup run 1.99.0 cargo test --locked --manifest-path crates/mycelix-bridge-common/Cargo.toml
 
       - name: Assert Rust toolchain before identity tests
@@ -334,6 +342,10 @@ jobs:
         working-directory: ${{ runner.temp }}/security-kernel-candidate-src
         env:
           RUSTUP_TOOLCHAIN: "1.99.0"
+          GITHUB_TOKEN: ""
+          GH_TOKEN: ""
+          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ""
+          ACTIONS_ID_TOKEN_REQUEST_URL: ""
         run: rustup run 1.99.0 cargo test --locked --manifest-path crates/mycelix-bridge-common/Cargo.toml --features identity
 
       - name: Assert Rust toolchain before default Clippy
@@ -347,6 +359,10 @@ jobs:
         working-directory: ${{ runner.temp }}/security-kernel-candidate-src
         env:
           RUSTUP_TOOLCHAIN: "1.99.0"
+          GITHUB_TOKEN: ""
+          GH_TOKEN: ""
+          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ""
+          ACTIONS_ID_TOKEN_REQUEST_URL: ""
         run: rustup run 1.99.0 cargo clippy --locked --manifest-path crates/mycelix-bridge-common/Cargo.toml --all-targets -- -D warnings
 
       - name: Assert Rust toolchain before identity Clippy
@@ -360,6 +376,10 @@ jobs:
         working-directory: ${{ runner.temp }}/security-kernel-candidate-src
         env:
           RUSTUP_TOOLCHAIN: "1.99.0"
+          GITHUB_TOKEN: ""
+          GH_TOKEN: ""
+          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ""
+          ACTIONS_ID_TOKEN_REQUEST_URL: ""
         run: rustup run 1.99.0 cargo clippy --locked --manifest-path crates/mycelix-bridge-common/Cargo.toml --all-targets --features identity -- -D warnings
 
       - name: Verify candidate source immutability
