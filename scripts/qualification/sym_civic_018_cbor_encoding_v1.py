@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import struct
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -176,6 +177,38 @@ def parse(data, pos=0):
     raise Fault("unsupported major type")
 
 
+def preferred_float(raw):
+    width = len(raw) - 1
+    if width == 2:
+        return raw
+    if width not in (4, 8):
+        raise Fault("unsupported float width")
+    if width == 4:
+        value = struct.unpack(">f", raw[1:])[0]
+        if value != value:
+            raise Fault("nan outside synthetic profile")
+        try:
+            half = struct.pack(">e", value)
+        except OverflowError:
+            return raw
+        if struct.unpack(">e", half)[0] == value:
+            return b"\xf9" + half
+        return raw
+    value = struct.unpack(">d", raw[1:])[0]
+    if value != value:
+        raise Fault("nan outside synthetic profile")
+    try:
+        half = struct.pack(">e", value)
+    except OverflowError:
+        half = None
+    if half is not None and struct.unpack(">e", half)[0] == value:
+        return b"\xf9" + half
+    single = struct.pack(">f", value)
+    if struct.unpack(">f", single)[0] == value:
+        return b"\xfa" + single
+    return raw
+
+
 def canonical(node):
     kind, value, preferred, raw, indefinite = node
     if indefinite or not preferred:
@@ -202,7 +235,7 @@ def canonical(node):
             return bytes([0xE0 | value])
         return b"\xF8" + bytes([value])
     if kind == "f":
-        return raw
+        return preferred_float(raw)
     raise Fault("unknown kind")
 
 
@@ -391,10 +424,47 @@ def ref_key(node):
     return ("raw", node["r"])
 
 
+def ref_preferred_float(raw):
+    width = len(raw) - 1
+    if width == 2:
+        return raw
+    if width == 4:
+        value = struct.unpack(">f", raw[1:])[0]
+        if value != value:
+            raise Fault("ref nan outside synthetic profile")
+        try:
+            half = struct.pack(">e", value)
+        except OverflowError:
+            return raw
+        if struct.unpack(">e", half)[0] == value:
+            return b"\xf9" + half
+        return raw
+    if width == 8:
+        value = struct.unpack(">d", raw[1:])[0]
+        if value != value:
+            raise Fault("ref nan outside synthetic profile")
+        try:
+            half = struct.pack(">e", value)
+        except OverflowError:
+            half = None
+        if half is not None and struct.unpack(">e", half)[0] == value:
+            return b"\xf9" + half
+        single = struct.pack(">f", value)
+        if struct.unpack(">f", single)[0] == value:
+            return b"\xfa" + single
+        return raw
+    raise Fault("ref unsupported float width")
+
+
 def ref_deterministic(node):
     if node.get("i") or not node["p"]:
         return False
-    if node["m"] in (0,1,2,3,7):
+    if node["m"] in (0,1,2,3):
+        return True
+    if node["m"] == 7:
+        ai = node["r"][0] & 31
+        if ai in (25,26,27):
+            return ref_preferred_float(node["r"]) == node["r"]
         return True
     if node["m"] == 4:
         return all(ref_deterministic(child) for child in node["items"])
@@ -473,7 +543,7 @@ def main():
     assert doc["analysis_role"] == "research_only"
     assert doc["parent_subject"] == PARENT_SUBJECT
     cases = doc["cases"]
-    assert [c["id"] for c in cases] == [f"C-{i:02d}" for i in range(1,25)]
+    assert [c["id"] for c in cases] == [f"C-{i:02d}" for i in range(1,31)]
     for case in cases:
         assert set(case) == {"id","family","hex"}
         raw = bytes.fromhex(case["hex"])
@@ -496,9 +566,9 @@ def main():
 
     assert not disagreements, disagreements
     assert census == {
-        SUFFICIENT: 2,
+        SUFFICIENT: 4,
         MESSAGE_REJECT: 8,
-        ENCODING_REJECT: 10,
+        ENCODING_REJECT: 14,
         PARSE_ERROR: 4,
         UNRESOLVED: 0,
     }, census
