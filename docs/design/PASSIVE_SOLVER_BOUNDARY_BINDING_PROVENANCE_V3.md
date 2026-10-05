@@ -55,6 +55,15 @@ The mesh-side boundary selection represents the typed interface rim on the
 candidate surface. It is distinct from the solver's own face/patch topology;
 the opaque external solver handle records that separate adapter mapping.
 
+For OpenFOAM input provenance, the progressively stronger observation path may
+bind the declared `boundary` patch to its exact `faces` range and, when the
+serialized `points` artifact and explicit unit scale are supplied, require the
+patch perimeter to equal the independently certified candidate rim. An optional
+`neighbour` artifact establishes the internal-face count and therefore the
+complete contiguous boundary-patch partition. These are input-artifact checks;
+they do not assert that a live solver loaded the files or that numerical physics
+is correct.
+
 A live-capable adapter may additionally introspect that concrete solver entity and
 emit the sealed `SolverEntityAttested` receipt. The receipt is deliberately
 portable: the core records only the fingerprint and binding digest, while the
