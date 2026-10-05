@@ -60,10 +60,14 @@ bind the declared `boundary` patch to its exact `faces` range and, when the
 serialized `points` artifact and explicit unit scale are supplied, require the
 patch perimeter to equal the independently certified candidate rim. Distinct
 serialized topology edges that collapse to the same quantized portable edge
-identity fail closed. An optional `neighbour` artifact establishes the
-internal-face count and therefore the complete non-overlapping, contiguous
-boundary-patch partition. These are input-artifact checks; they do not assert
-that a live solver loaded the files or that numerical physics is correct.
+identity fail closed; repeated or degenerate face geometry is likewise rejected.
+An optional `neighbour` artifact establishes the internal-face count and therefore
+the complete non-overlapping, contiguous boundary-patch partition. A stronger
+complete-topology input path can additionally require the `owner` artifact's
+cardinality to equal the global face count. Inconsistent optional-artifact
+combinations fail closed rather than silently degrading the evidence level.
+These are input-artifact checks; they do not assert that a live solver loaded the
+files or that numerical physics is correct.
 
 A live-capable adapter may additionally introspect that concrete solver entity and
 emit the sealed `SolverEntityAttested` receipt. The receipt is deliberately
