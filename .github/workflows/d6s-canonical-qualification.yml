@@ -53,11 +53,14 @@ jobs:
       # subject; semantic/reference qualification is provided by the locked
       # corpus and independent CANON verifiers below.
 
-      - name: Assert locked dependency graph
+      - name: Generate reference-test dependency lock
+        run: cargo generate-lockfile --manifest-path mycelix-manufacturing/Cargo.toml
+
+      - name: Assert resolved reference-test dependency graph
         run: cargo metadata --manifest-path mycelix-manufacturing/Cargo.toml --locked --no-deps --format-version 1 > /dev/null
 
       - name: Run complete COS conformance corpus
-        run: cargo test --manifest-path mycelix-manufacturing/Cargo.toml -p cos_conformance --locked
+        run: cargo test --manifest-path mycelix-manufacturing/Cargo.toml -p cos_conformance
 
       - name: Run independent D6S-CANON-1 verifier
         run: python3 scripts/integral/verify_d6s_canon_1.py
