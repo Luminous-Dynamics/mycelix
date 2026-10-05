@@ -85,14 +85,16 @@ Required semantic fields:
 | --- | --- |
 | `basis_id` | Immutable identifier for the valuation basis / issuance context |
 | `asset_id` | Exact collateral or reserve instrument identifier |
+| `source_item` | Exact canonical price-oracle item consumed by the snapshot |
 | `unit` | Unit of measured quantity |
 | `quote_unit` | Exact settlement/quote unit, e.g. SAP |
 | `valuation` | Canonical fixed-point value; no direct float-to-μSAP conversion |
 | `valuation_scale` | Explicit decimal/rational scale |
 | `effective_window_start` | Start of source-observation window |
 | `effective_window_end` | End of source-observation window |
-| `source_commitment` | Canonical ordered commitment to the exact source records or certificate |
-| `source_count` | Number of accepted independent sources |
+| `source_commitment` | Domain-separated BLAKE2b-256 commitment to the exact sorted source action hashes |
+| `source_action_hashes` | Exact unique source `ActionHash` values, stored in canonical sorted order |
+| `source_count` | Number of accepted independent sources; must equal `source_action_hashes.len()` |
 | `aggregation_profile_id` | Frozen algorithm/profile identifier |
 | `freshness_limit` | Maximum permitted age at consumption |
 | `qualification_state` | Explicit qualified / degraded / unavailable state |
@@ -122,7 +124,7 @@ A copied rate without a source snapshot permits later ambiguity over which obser
 
 The source commitment MUST be independent of link-iteration order.
 
-The current implementation shape uses a domain-separated BLAKE2b-256 digest over the sorted fixed-length Holochain action-hash bytes, prefixed by the canonical source-set count. This keeps the commitment bounded even at the maximum 200-source set.
+The current implementation uses the domain string `sap.reserve.source-set.v0`, followed by the source count as a big-endian `u32`, followed by each sorted 39-byte Holochain `ActionHash`, then computes BLAKE2b-256 and encodes it as `blake2b256:<64 lowercase hex characters>`. This keeps the commitment bounded even at the maximum 200-source set.
 
 The snapshot also carries the exact sorted action hashes. The digest is therefore a compact integrity commitment, not a substitute for the addressable source records.
 
