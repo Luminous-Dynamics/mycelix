@@ -10,6 +10,7 @@ from verify_d6u_trusted_artifacts import (
     verify_artifact_layout,
     verify_cases,
     verify_executor_run_record,
+    verify_trusted_workflow_identity,
     verify_executor_workflow_record,
     verify_lock,
     verify_required_tracked_blobs,
@@ -543,6 +544,42 @@ def test_truncated_source_tree_is_rejected() -> None:
     )
 
 
+def test_artifact_entry_limit_is_enforced() -> None:
+    maximums = {"evidence.txt": 16, "runtime.log": 16, "Cargo.lock": 16}
+    with tempfile.TemporaryDirectory() as tmp:
+        artifact_dir = Path(tmp)
+        for name in maximums:
+            (artifact_dir / name).write_text("ok", encoding="utf-8")
+        verify_artifact_layout(artifact_dir, set(maximums), 3)
+        (artifact_dir / "extra.txt").write_text("x", encoding="utf-8")
+        assert_rejected(
+            lambda: verify_artifact_layout(artifact_dir, set(maximums), 3),
+            "artifact entry-count limit was not enforced",
+        )
+
+
+def test_trusted_workflow_policy_shape_is_pinned() -> None:
+    policy = {
+        "trusted_workflow": {
+            "path": ".github/workflows/d6u-trusted-evidence-attestation.yml",
+            "blob_sha": "a" * 40,
+        }
+    }
+    tree = {
+        "truncated": False,
+        "tree": [{
+            "path": policy["trusted_workflow"]["path"],
+            "mode": "100644",
+            "type": "blob",
+            "sha": "a" * 40,
+        }],
+    }
+    verify_required_tracked_blobs(
+        tree,
+        {policy["trusted_workflow"]["path"]: policy["trusted_workflow"]["blob_sha"]},
+    )
+
+
 def test_artifact_layout_rejects_symlink() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         artifact_dir = Path(tmp)
@@ -563,6 +600,7 @@ def test_artifact_layout_rejects_symlink() -> None:
                     "d6u-runtime-test.log",
                     "Cargo.lock",
                 },
+                8,
             ),
             "symlinked trusted input was accepted",
         )
@@ -575,6 +613,8 @@ if __name__ == "__main__":
         test_record_metadata_is_canonicalized,
         test_harness_file_set_rejects_extra_build_script,
         test_artifact_size_limits_are_enforced,
+        test_artifact_entry_limit_is_enforced,
+        test_trusted_workflow_policy_shape_is_pinned,
         test_valid_log_is_accepted,
         test_case_tampering_is_rejected,
         test_duplicate_case_is_rejected,
