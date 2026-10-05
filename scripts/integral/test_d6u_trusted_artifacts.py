@@ -282,7 +282,7 @@ def test_trigger_run_identity_tampering_is_rejected() -> None:
 
     bad_repository = {**trigger, "repository": {"full_name": "attacker/repo"}}
     assert_rejected(
-        lambda: verify_trigger_run_record(bad_repository, bad_repository, policy, "Luminous-Dynamics/mycelix"),
+        lambda: verify_trigger_run_record(record, bad_repository, policy, "Luminous-Dynamics/mycelix"),
         "tampered trigger repository was accepted",
     )
 
