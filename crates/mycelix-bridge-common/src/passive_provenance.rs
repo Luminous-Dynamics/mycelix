@@ -407,6 +407,74 @@ mod tests {
     }
 
     #[test]
+    fn committed_schema_contains_runtime_invariants() {
+        let schema: Value = serde_json::from_str(include_str!(
+            "../../../docs/design/passive-design-provenance-v2.schema.json"
+        ))
+        .expect("passive provenance schema must remain valid JSON");
+
+        assert_eq!(
+            schema["$schema"],
+            "https://json-schema.org/draft/2020-12/schema"
+        );
+        assert_eq!(
+            schema["properties"]["schema_version"]["const"],
+            "passive-design-provenance-v2"
+        );
+        assert_eq!(schema["properties"]["evidence_claims"]["minItems"], 5);
+
+        let claim_rules = schema["properties"]["evidence_claims"]["allOf"]
+            .as_array()
+            .expect("evidence_claims must expose occurrence rules");
+
+        for field in MANDATORY_FIELDS {
+            let matching = claim_rules.iter().any(|rule| {
+                rule["contains"]["properties"]["field"]["const"] == field
+                    && rule["minContains"] == 1
+                    && rule["maxContains"] == 1
+            });
+            assert!(matching, "schema lost exact-one rule for {field}");
+        }
+
+        let evidence_claim = &schema["$defs"]["evidence_claim"];
+        let source_kinds = evidence_claim["properties"]["source_kind"]["enum"]
+            .as_array()
+            .expect("source_kind must remain an enum");
+        assert!(source_kinds.iter().any(|value| value == "ValidationRecord"));
+
+        let status_rules = evidence_claim["allOf"]
+            .as_array()
+            .expect("evidence_claim must expose status/source rules");
+
+        let expected_sources = [
+            ("Declared", "DesignDeclaration"),
+            ("Simulated", "SimulationDeclaration"),
+            ("Verified", "VerificationRecord"),
+            ("Measured", "MeasurementRecord"),
+            ("Validated", "ValidationRecord"),
+        ];
+
+        for (status, source_kind) in expected_sources {
+            let matching = status_rules.iter().any(|rule| {
+                rule["if"]["properties"]["status"]["const"] == status
+                    && rule["then"]["properties"]["source_kind"]["const"] == source_kind
+            });
+            assert!(matching, "schema lost {status} -> {source_kind} mapping");
+        }
+
+        let eligibility_gate = schema["allOf"]
+            .as_array()
+            .expect("schema must expose positive-eligibility gate")
+            .iter()
+            .any(|rule| {
+                rule["if"]["properties"]["decision"]["properties"]
+                    ["eligible_for_passive_scoring"]["const"]
+                    == true
+            });
+        assert!(eligibility_gate, "schema lost positive eligibility guard");
+    }
+
+    #[test]
     fn duplicate_mandatory_claim_fails_closed() {
         let mut record = valid_record();
         let first = record["evidence_claims"][0].clone();
