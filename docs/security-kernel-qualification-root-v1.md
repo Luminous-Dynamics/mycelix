@@ -41,10 +41,10 @@ S1:
 - materializes the exact commit as source data;
 - performs an independent static trust-surface audit;
 - runs rustfmt, default-feature tests, identity-feature tests, and Clippy using Rust 1.99.0;
-- records the candidate tree identity and trusted workflow identity; and
+- records the candidate tree, lockfile, vendor closure, sandbox image, and trusted workflow identities; and
 - fails if the candidate source changes during qualification, excluding only Cargo's `target/` output.
 
-The candidate executes without repository write permission, secrets, or OIDC access. S1 now also requires the source PR to remain an exact open-head match at execution time, and records the pre-execution source digest in a workflow step output so the candidate cannot rewrite the expected digest or subject metadata through the shared temporary filesystem. Candidate Cargo gates explicitly select Rust 1.99.0 and re-check compiler identity between gates. The current S1 profile still executes candidate code on the GitHub-hosted VM rather than inside a dedicated container sandbox; this remains an explicit evidence ceiling because the candidate shares the runner user/filesystem and can potentially tamper with other mutable runner state.
+The candidate executes without repository write permission, secrets, or OIDC access. S1 also requires the source PR to remain an exact open-head match at execution time, records the pre-execution source digest in a trusted workflow step output, and requires a committed Security Kernel `Cargo.lock` while rejecting candidate-controlled Cargo configuration at the relevant workspace/config hierarchy. Candidate dependency acquisition uses only the committed manifest/lockfile in a constrained non-root container; candidate source and code are not present during that networked fetch phase. The resulting vendor tree is then mounted read-only for candidate execution. Candidate Cargo gates use Rust 1.99.0 from a read-only mounted sysroot, `--frozen`, offline networking, a read-only source tree, and fresh disposable containers with dropped capabilities, `no-new-privileges`, resource bounds, private PID/IPC namespaces, and no Docker socket. These controls substantially reduce candidate access to the host runner, but this remains a defense-in-depth container boundary rather than a proof of Linux kernel/Docker-daemon escape resistance.
 
 ## S2 — trusted result verifier
 
@@ -84,3 +84,30 @@ PASS does not mean:
 - runtime authorization.
 
 A qualification receipt is evidence, never runtime authority.
+
+## S1 dependency and sandbox boundary
+
+The dependency phase and candidate-code phase are intentionally different trust zones.
+
+The dependency phase is allowed outbound network access only from a disposable non-root
+container and receives the exact committed bridge manifest and lockfile, without candidate
+source, repository credentials, GitHub/OIDC tokens, Docker socket, or privileged capabilities.
+It emits a vendor tree and generated Cargo source configuration that the later candidate
+containers consume read-only.
+
+The candidate phase uses the immutable Rust image
+`docker.io/library/rust:1.99.0-slim-bookworm@sha256:452176c0cefca88c0b3184ce85a4eb03e3d4fa05d2afb5366abcba853221019e`.
+The Docker image is selected by digest rather than a mutable tag; the official image metadata
+identifies the amd64 manifest separately as
+`sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d`.
+The current S1 run requests `linux/amd64` explicitly.
+
+Each candidate gate gets a fresh disposable container. Candidate source, vendor contents,
+and the Rust sysroot are read-only mounts. Writable state is confined to bounded tmpfs
+locations and an isolated build target. Network access is disabled for candidate execution.
+The candidate receives no GitHub token, OIDC request token, runtime token, or Docker socket.
+
+The qualification profile intentionally does not claim that these controls provide a kernel
+or container-runtime security theorem. The host remains trusted infrastructure, and the
+profile's security claim is limited to the registered controls being observed by the trusted
+harness and independently checked by S2.
