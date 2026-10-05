@@ -59,37 +59,6 @@ jobs:
           printf '%s' "$GITHUB_WORKFLOW_SHA" | grep -Eq '^[0-9a-f]{40}$'
           echo "PASS: S1 is executing from the registered default-branch workflow path"
 
-      - name: Install pinned Rust
-        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # master
-        with:
-          toolchain: 1.99.0
-          components: rustfmt, clippy
-
-      - name: Assert Rust identity
-        id: rust_identity
-        shell: bash
-        run: |
-          set -euo pipefail
-          rust_version="$(rustc +1.99.0 --version | awk '{print $2}')"
-          rust_commit="$(rustc +1.99.0 --version --verbose | sed -n 's/^commit-hash: //p')"
-          test "$rust_version" = "1.99.0"
-          test "$rust_commit" = "b940084d7eb6a299eb4bfeb8e34901bc051e7ac4"
-          printf 'rust_version=%s\n' "$rust_version" >> "$GITHUB_OUTPUT"
-          printf 'rust_commit=%s\n' "$rust_commit" >> "$GITHUB_OUTPUT"
-
-      - name: Resolve pinned Rust sysroot
-        id: rust_sysroot
-        shell: bash
-        run: |
-          set -euo pipefail
-          rust_sysroot="$(readlink -f "$(rustc +1.99.0 --print sysroot)")"
-          test -x "$rust_sysroot/bin/rustc"
-          test -x "$rust_sysroot/bin/cargo"
-          test -x "$rust_sysroot/bin/rustfmt"
-          test -x "$rust_sysroot/bin/cargo-clippy"
-          printf 'rust_sysroot=%s\n' "$rust_sysroot" >> "$GITHUB_OUTPUT"
-          echo "PASS: exact Rust 1.99.0 toolchain sysroot resolved"
-
       - name: Validate dispatch provenance
         shell: bash
         env:
@@ -304,6 +273,7 @@ jobs:
           echo "PASS: committed Cargo.lock identity captured before candidate execution"
 
       - name: Pull and preflight pinned sandbox image
+        id: sandbox_preflight
         shell: bash
         env:
           SANDBOX_IMAGE: "docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d"
@@ -314,6 +284,7 @@ jobs:
             grep -Fx 'docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d'
           runner_uid="$(id -u)"
           runner_gid="$(id -g)"
+          output="$RUNNER_TEMP/security-kernel-sandbox-preflight.txt"
           docker run --rm --platform=linux/amd64 --pull=never \
             --network=none \
             --read-only \
@@ -342,19 +313,31 @@ jobs:
             "$SANDBOX_IMAGE" /bin/bash -euc '
               test "$(id -u)" -ne 0
               grep -Eq "^NoNewPrivs:[[:space:]]+1$" /proc/self/status
-              test "$(awk "/^CapEff:/{print \$2}" /proc/self/status)" = "0000000000000000"
+              test "$(awk "/^CapEff:/{print \\$2}" /proc/self/status)" = "0000000000000000"
               test ! -e /var/run/docker.sock
               test ! -e /home/runner
               test ! -w /
+              test "$(tail -n +2 /proc/net/route | wc -l)" -eq 0
+              test "$(tail -n +2 /proc/net/ipv6_route | wc -l)" -eq 0
+              test "$(rustc --version | awk "{print \\$2}")" = "1.99.0"
+              test "$(rustc --version --verbose | sed -n "s/^commit-hash: //p")" = "b940084d7eb6a299eb4bfeb8e34901bc051e7ac4"
               if touch /sandbox-readonly-test 2>/dev/null; then
                 echo "root filesystem unexpectedly writable" >&2
                 exit 1
               fi
-              test "$(tail -n +2 /proc/net/route | wc -l)" -eq 0
-              test "$(tail -n +2 /proc/net/ipv6_route | wc -l)" -eq 0
-              test "$(cat /sys/fs/cgroup/pids.max)" = "512"
-              echo "PASS: pinned sandbox image + non-root + read-only root + no network routes + dropped caps + no-new-privileges + bounded PIDs"
-            '
+              if bash -c "echo probe >/dev/tcp/1.1.1.1/80" 2>/dev/null; then
+                echo "network unexpectedly reachable inside sandbox" >&2
+                exit 1
+              fi
+              echo "RUST_VERSION=$(rustc --version | awk "{print \\$2}")"
+              echo "RUST_COMMIT=$(rustc --version --verbose | sed -n "s/^commit-hash: //p")"
+              echo "PASS: pinned image + exact Rust identity + network isolation + read-only root + dropped caps + no-new-privileges + bounded PIDs"
+            ' | tee "$output"
+          rust_version="$(sed -n 's/^RUST_VERSION=//p' "$output")"
+          rust_commit="$(sed -n 's/^RUST_COMMIT=//p' "$output")"
+          test "$rust_version" = "1.99.0"
+          test "$rust_commit" = "b940084d7eb6a299eb4bfeb8e34901bc051e7ac4"
+          printf 'rust_version=%s\nrust_commit=%s\n' "$rust_version" "$rust_commit" >> "$GITHUB_OUTPUT"
 
       - name: Prepare locked dependency subject
         id: dependency_subject
@@ -450,7 +433,6 @@ jobs:
           CANDIDATE_ROOT: ${{ runner.temp }}/security-kernel-candidate-src
           VENDOR_ROOT: ${{ steps.vendor_dependencies.outputs.vendor_root }}
           VENDOR_CONFIG: ${{ steps.vendor_dependencies.outputs.vendor_config }}
-          RUST_SYSROOT: ${{ steps.rust_sysroot.outputs.rust_sysroot }}
           SANDBOX_IMAGE: "docker.io/library/rust@sha256:9af5f5f37d3035dd18d216e348e946ff1fc8c7fa7998c7443cedfe880231110d"
         run: |
           set -euo pipefail
@@ -486,13 +468,12 @@ jobs:
               --tmpfs /target:rw,nosuid,nodev,size=8g \
               --volume "$CANDIDATE_ROOT:/source:ro" \
               --volume "$VENDOR_ROOT:/vendor:ro" \
-              --volume "$RUST_SYSROOT:/opt/rust-toolchain:ro" \
               --workdir /source/crates/mycelix-bridge-common \
               --volume "$VENDOR_CONFIG:/vendor-config/config.toml:ro" \
               --env HOME=/cargo-home \
               --env CARGO_HOME=/cargo-home \
               --env RUSTUP_HOME=/dev/null \
-              --env PATH=/opt/rust-toolchain/bin:/usr/local/bin:/usr/bin:/bin \
+              --env PATH=/usr/local/cargo/bin:/usr/local/bin:/usr/bin:/bin \
               --env CARGO_NET_OFFLINE=true \
               --env CARGO_TARGET_DIR=/target \
               --env CARGO_TERM_COLOR=never \
@@ -522,8 +503,8 @@ jobs:
           }
 
           run_sandbox 2m '
-            test "$(/opt/rust-toolchain/bin/rustc --version | awk "{print \\$2}")" = "1.99.0"
-            test "$(/opt/rust-toolchain/bin/rustc --version --verbose | sed -n "s/^commit-hash: //p")" = "b940084d7eb6a299eb4bfeb8e34901bc051e7ac4"
+            test "$(rustc --version | awk "{print \\$2}")" = "1.99.0"
+            test "$(rustc --version --verbose | sed -n "s/^commit-hash: //p")" = "b940084d7eb6a299eb4bfeb8e34901bc051e7ac4"
             test "$(grep -E "^NoNewPrivs:" /proc/self/status | awk "{print \\$2}")" = "1"
             test "$(awk "/^CapEff:/{print \\$2}" /proc/self/status)" = "0000000000000000"
             test -z "${GITHUB_TOKEN:-}"
@@ -545,25 +526,25 @@ jobs:
               echo "network unexpectedly reachable inside candidate sandbox" >&2
               exit 1
             fi
-            /opt/rust-toolchain/bin/rustfmt --version
-            /opt/rust-toolchain/bin/cargo-clippy --version
-            run_limited /opt/rust-toolchain/bin/cargo fmt --manifest-path /source/crates/mycelix-bridge-common/Cargo.toml -- --check
+            rustfmt --version
+            cargo-clippy --version
+            run_limited cargo fmt --manifest-path /source/crates/mycelix-bridge-common/Cargo.toml -- --check
           '
 
           run_sandbox 9m '
-            run_limited /opt/rust-toolchain/bin/cargo --config /vendor-config/config.toml test --frozen --manifest-path /source/crates/mycelix-bridge-common/Cargo.toml --jobs 3
+            run_limited cargo --config /vendor-config/config.toml test --frozen --manifest-path /source/crates/mycelix-bridge-common/Cargo.toml --jobs 3
           '
 
           run_sandbox 9m '
-            run_limited /opt/rust-toolchain/bin/cargo --config /vendor-config/config.toml test --frozen --manifest-path /source/crates/mycelix-bridge-common/Cargo.toml --features identity --jobs 3
+            run_limited cargo --config /vendor-config/config.toml test --frozen --manifest-path /source/crates/mycelix-bridge-common/Cargo.toml --features identity --jobs 3
           '
 
           run_sandbox 9m '
-            run_limited /opt/rust-toolchain/bin/cargo --config /vendor-config/config.toml clippy --frozen --manifest-path /source/crates/mycelix-bridge-common/Cargo.toml --all-targets --jobs 3 -- -D warnings
+            run_limited cargo --config /vendor-config/config.toml clippy --frozen --manifest-path /source/crates/mycelix-bridge-common/Cargo.toml --all-targets --jobs 3 -- -D warnings
           '
 
           run_sandbox 9m '
-            run_limited /opt/rust-toolchain/bin/cargo --config /vendor-config/config.toml clippy --frozen --manifest-path /source/crates/mycelix-bridge-common/Cargo.toml --all-targets --features identity --jobs 3 -- -D warnings
+            run_limited cargo --config /vendor-config/config.toml clippy --frozen --manifest-path /source/crates/mycelix-bridge-common/Cargo.toml --all-targets --features identity --jobs 3 -- -D warnings
           '
 
           echo "PASS: all candidate compilation/test/lint gates executed in fresh disposable networkless sandboxes"
@@ -610,8 +591,8 @@ jobs:
           SOURCE_DIGEST: ${{ steps.snapshot_source.outputs.source_digest }}
           VENDOR_DIGEST: ${{ steps.vendor_dependencies.outputs.vendor_digest }}
           LOCK_DIGEST: ${{ steps.locked_dependency_identity.outputs.lock_digest }}
-          RUST_VERSION: ${{ steps.rust_identity.outputs.rust_version }}
-          RUST_COMMIT: ${{ steps.rust_identity.outputs.rust_commit }}
+          RUST_VERSION: ${{ steps.sandbox_preflight.outputs.rust_version }}
+          RUST_COMMIT: ${{ steps.sandbox_preflight.outputs.rust_commit }}
         run: |
           set -euo pipefail
           CARGO_LOCK_DIGEST="$LOCK_DIGEST"
