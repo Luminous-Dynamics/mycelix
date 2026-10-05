@@ -64,6 +64,8 @@ with privileged access.
 
 S1 first proves:
 
+- `job.workflow_ref` and `job.workflow_sha` identify the reusable S1 job itself; S1 requires the expected main-branch workflow reference and requires `job.workflow_sha` to equal the S0 caller workflow commit for the same-commit local reusable-workflow path.
+
 - `github.event_name == pull_request_target`;
 - `github.workflow_ref` is exactly the trusted S0 workflow on `refs/heads/main`;
 - `github.workflow_sha` is a valid commit SHA for the S0 caller;
