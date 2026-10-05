@@ -219,11 +219,6 @@ def fixture_manifest() -> dict[str, Any]:
             "source_sha256": sha256_file(RAW_EVENTLOG_PARSER_SCRIPT),
             "binary_sha256": "c" * 64,
         },
-        "public_name_coherence": {
-            "ak": public_name_ak,
-            "ek": public_name_ek,
-        },
-        "ek_template_appraisal": ek_template_appraisal,
         "quote": {
             "pcr_selection": "sha256:0,2,4,7",
             "nonce_sha256": "d" * 64,
