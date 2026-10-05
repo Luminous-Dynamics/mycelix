@@ -277,7 +277,10 @@ def self_test()->int:
       ("live-verifier","INDETERMINATE",lambda x:x.update({"verification_mode":"LiveVerifierSession"})),
     ]
     for name,expected,mut in cases:
-        candidate=copy.deepcopy(base);mut(candidate);observed=verify(candidate)
+        candidate=copy.deepcopy(base)
+        mut(candidate)
+        candidate["session_binding_sha256"] = session_binding(candidate)
+        observed=verify(candidate)
         if observed["state"]!=expected:
             print(f"{name}: FAIL expected={expected} got={observed['state']} reason={observed['reason']}")
             return 1
